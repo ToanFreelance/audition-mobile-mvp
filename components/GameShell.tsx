@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import type Phaser from "phaser";
+import type * as Phaser from "phaser";
 import { createDemoChart } from "@/game/chart";
 import { createPhaserGame } from "@/game/GameScene";
 import type { Direction, GameStats, Judgement } from "@/game/types";

@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import * as Phaser from "phaser";
 import type { Chart, Direction, Judgement } from "./types";
 import { RhythmEngine } from "./rhythm";
 import { BeatClock } from "./clock";
