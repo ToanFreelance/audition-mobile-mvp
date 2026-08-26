@@ -15,7 +15,7 @@ export type GameCallbacks = {
   onStats: (stats: GameStats) => void;
   onJudgement: (judgement: Judgement) => void;
   onFinished: (stats: GameStats) => void;
-  onSequence: (directions: Direction[]) => void;
+  onSequence: (directions: Direction[], filledFirst: boolean) => void;
 };
 
 /**
@@ -36,6 +36,7 @@ export class GameScene
   private started = false;
   private finished = false;
   private lastBeat = -1;
+  private lastFilledDirection: Direction | null = null;
 
   constructor() {
     super("GameScene");
@@ -115,6 +116,7 @@ export class GameScene
     this.finished = false;
 
     this.clock.start();
+    this.lastFilledDirection = null;
   }
 
   handleInput(
@@ -134,6 +136,11 @@ export class GameScene
       );
 
     if (judgement) {
+      this.lastFilledDirection =
+        judgement === "miss"
+          ? null
+          : direction;
+
       this.callbacks.onJudgement(
         judgement
       );
@@ -155,15 +162,25 @@ export class GameScene
     const beat =
       this.clock.currentBeat;
 
+    const missesBefore =
+      this.engine.stats.miss;
+
     this.engine.update(
       beat
     );
+
+    if (
+      this.engine.stats.miss >
+      missesBefore
+    ) {
+      this.lastFilledDirection = null;
+    }
 
     this.callbacks.onStats({
       ...this.engine.stats
     });
 
-    this.callbacks.onSequence(
+    const upcoming =
       this.engine.allNotes
         .filter(
           (note) =>
@@ -177,7 +194,19 @@ export class GameScene
         .map(
           (note) =>
             note.direction
-        )
+        );
+
+    const directions =
+      this.lastFilledDirection
+        ? [
+            this.lastFilledDirection,
+            ...upcoming.slice(0, 7)
+          ]
+        : upcoming;
+
+    this.callbacks.onSequence(
+      directions,
+      Boolean(this.lastFilledDirection)
     );
 
     if (

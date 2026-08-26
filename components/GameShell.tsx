@@ -97,6 +97,11 @@ export default function GameShell() {
   ] = useState(0);
 
   const [
+    filledFirst,
+    setFilledFirst,
+  ] = useState(false);
+
+  const [
     stats,
     setStats,
   ] = useState<GameStats>(
@@ -201,7 +206,8 @@ export default function GameShell() {
             },
 
             onSequence: (
-              next
+              next,
+              nextFilledFirst
             ) => {
               const nextSequence =
                 next.length
@@ -220,8 +226,12 @@ export default function GameShell() {
                 nextSequence
               );
 
+              setFilledFirst(
+                nextFilledFirst
+              );
+
               setCompletedCommands(
-                0
+                nextFilledFirst ? 1 : 0
               );
             },
 
@@ -408,57 +418,9 @@ export default function GameShell() {
       direction
     );
 
-    const currentTarget =
-      sequence[
-        completedCommands
-      ];
-
-    if (
-      currentTarget ===
-      direction
-    ) {
-      /*
-       * Correct command.
-       *
-       * Fill this command.
-       */
-      setCompletedCommands(
-        current =>
-          Math.min(
-            current + 1,
-            sequence.length
-          )
-      );
-
-      setWrongDirection(
-        null
-      );
-    } else {
-      /*
-       * Wrong command.
-       *
-       * Do NOT fill the arrow.
-       */
-      setWrongDirection(
-        direction
-      );
-
-      window.setTimeout(
-        () => {
-          setWrongDirection(
-            current =>
-              current === direction
-                ? null
-                : current
-          );
-        },
-        180
-      );
-    }
-
     /*
-     * Actual gameplay remains handled
-     * by the existing rhythm engine.
+     * Do not fill an arrow from the UI alone.
+     * GameScene/RhythmEngine is the source of truth.
      */
     sceneRef.current?.handleInput(
       direction
@@ -841,21 +803,15 @@ export default function GameShell() {
                           .join(" ")}
                       >
 
-                        <span
-                          className={[
-                            "command-arrow-v2",
-                            direction,
-                            isCompleted
-                              ? "arrow-filled"
-                              : "arrow-outline",
-                          ].join(" ")}
-                        >
-                          {
-                            directionToArrow(
-                              direction
-                            )
+                        <ArrowIcon
+                          direction={direction}
+                          filled={
+                            isCompleted ||
+                            (filledFirst &&
+                              index === 0)
                           }
-                        </span>
+                          target={isTarget}
+                        />
 
                         {isTarget && (
                           <i
@@ -975,11 +931,12 @@ export default function GameShell() {
                           direction
                         }
                       >
-                        {
-                          directionToArrow(
-                            direction
-                          )
-                        }
+                        <ArrowIcon
+                          direction={direction}
+                          filled={false}
+                          target={isTarget}
+                          compact
+                        />
                       </button>
                     );
                   }
@@ -1160,22 +1117,77 @@ export default function GameShell() {
   );
 }
 
-function directionToArrow(
-  direction: Direction
-) {
-  switch (direction) {
-    case "left":
-      return "←";
+function ArrowIcon({
+  direction,
+  filled,
+  target,
+  compact = false,
+}: {
+  direction: Direction;
+  filled: boolean;
+  target: boolean;
+  compact?: boolean;
+}) {
+  const color =
+    direction === "left" ||
+    direction === "right"
+      ? "#ff63d9"
+      : "#61dcff";
 
-    case "up":
-      return "↑";
+  const rotation =
+    direction === "right"
+      ? 0
+      : direction === "down"
+        ? 90
+        : direction === "left"
+          ? 180
+          : 270;
 
-    case "down":
-      return "↓";
-
-    case "right":
-      return "→";
-  }
+  return (
+    <svg
+      className={[
+        compact
+          ? "dpad-arrow-icon"
+          : "command-arrow-icon",
+        filled
+          ? "is-filled"
+          : "is-outline",
+        target
+          ? "is-target"
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      viewBox="0 0 48 40"
+      aria-hidden="true"
+      style={{
+        width: compact ? 31 : 44,
+        height: compact ? 31 : 44,
+        display: "block",
+        overflow: "visible",
+        transform: `rotate(${rotation}deg)`,
+        transformOrigin: "center",
+        filter: filled
+          ? `drop-shadow(0 0 4px ${color}) drop-shadow(0 0 9px ${color})`
+          : `drop-shadow(0 0 2px ${color})`,
+        opacity: target || filled ? 1 : 0.88,
+      }}
+    >
+      <path
+        d="M5 14H27V7L43 20L27 33V26H5V14Z"
+        fill={
+          filled
+            ? color
+            : "transparent"
+        }
+        stroke={color}
+        strokeWidth={
+          filled ? 0 : 1.8
+        }
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 function playMetronome(
