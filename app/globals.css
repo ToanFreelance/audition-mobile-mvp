@@ -664,6 +664,74 @@ button {
  * The rest are upcoming inputs.
  */
 
+/* ============================================================
+   COMMAND SEQUENCE — AUDITION STYLE
+============================================================ */
+
+.command-area {
+  position: absolute;
+
+  left: 50%;
+  bottom: 144px;
+
+  width:
+    min(
+      720px,
+      calc(100% - 430px)
+    );
+
+  transform:
+    translateX(-50%);
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+}
+
+.command-heading {
+  width: 100%;
+
+  display: flex;
+
+  align-items: baseline;
+
+  justify-content: center;
+
+  gap: 10px;
+
+  margin-bottom: 5px;
+
+  color:
+    rgba(255, 255, 255, 0.84);
+
+  font-size: 9px;
+
+  font-weight: 900;
+
+  letter-spacing: 0.2em;
+}
+
+.command-heading small {
+  color:
+    rgba(255, 255, 255, 0.38);
+
+  font-size: 7px;
+
+  letter-spacing: 0.1em;
+}
+
+/*
+ * Main command strip.
+ *
+ * Very close to the approved sketch:
+ *
+ * - thin dark glass container
+ * - no heavy individual cards
+ * - arrows themselves carry the visual state
+ */
+
 .command-bar-v2 {
   display: flex;
 
@@ -671,123 +739,787 @@ button {
 
   justify-content: center;
 
-  gap: 5px;
+  gap: 0;
 
-  min-height: 56px;
+  min-height: 58px;
 
   padding:
-    7px 10px;
+    6px 12px;
 
-  border-radius: 18px;
+  border-radius: 28px;
 
   border:
     1px solid
-    rgba(255, 255, 255, 0.12);
+    rgba(255, 79, 216, 0.35);
 
   background:
-    rgba(4, 5, 13, 0.62);
+    rgba(3, 4, 12, 0.72);
 
   box-shadow:
-    0 12px 30px
-    rgba(0, 0, 0, 0.25),
+    0 10px 28px
+      rgba(0, 0, 0, 0.32),
 
     inset 0 1px
-    rgba(255, 255, 255, 0.035);
+      rgba(255, 255, 255, 0.035);
 
   backdrop-filter:
-    blur(11px);
+    blur(12px);
 }
 
+/*
+ * Each command occupies the same width.
+ *
+ * No visible card background.
+ */
 .command-step {
   position: relative;
 
-  width: 46px;
-  height: 42px;
+  width: 56px;
+  height: 46px;
 
   display: grid;
 
   place-items: center;
 
-  opacity: 0.66;
+  opacity: 0.86;
 
   transition:
-    opacity 0.12s ease,
+    transform 0.12s ease,
+    opacity 0.12s ease;
+}
+
+/*
+ * Small divider between commands.
+ *
+ * This is intentionally extremely subtle.
+ */
+.command-step + .command-step::before {
+  content: "";
+
+  position: absolute;
+
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+
+  width: 1px;
+
+  background:
+    rgba(255, 255, 255, 0.07);
+}
+
+/* ============================================================
+   OUTLINE ARROW — DEFAULT
+============================================================ */
+
+.command-arrow-v2 {
+  display: grid;
+
+  place-items: center;
+
+  width: 44px;
+  height: 44px;
+
+  font-family:
+    Arial,
+    sans-serif;
+
+  font-size: 36px;
+
+  line-height: 1;
+
+  font-weight: 900;
+
+  /*
+   * The text itself is transparent.
+   *
+   * The outline is produced using
+   * text-shadow around the glyph.
+   */
+  color: transparent;
+
+  -webkit-text-stroke:
+    1.7px
+    currentColor;
+
+  filter:
+    drop-shadow(
+      0 0 4px currentColor
+    );
+
+  transition:
+    color 0.12s ease,
+    -webkit-text-stroke 0.12s ease,
+    filter 0.12s ease,
     transform 0.12s ease;
 }
 
-.command-step.command-target {
-  opacity: 1;
+/*
+ * LEFT / RIGHT = pink.
+ */
+.command-arrow-v2.left,
+.command-arrow-v2.right {
+  color:
+    #ff62d9;
+}
+
+/*
+ * UP / DOWN = cyan.
+ */
+.command-arrow-v2.up,
+.command-arrow-v2.down {
+  color:
+    #5edcff;
+}
+
+/*
+ * Important:
+ *
+ * Default state is OUTLINE.
+ *
+ * Because color is transparent, only
+ * the stroke remains visible.
+ */
+.command-arrow-v2.arrow-outline {
+  color:
+    transparent;
+
+  -webkit-text-stroke:
+    1.7px
+    currentColor;
+
+  opacity: 0.94;
+}
+
+/*
+ * CSS currentColor does not propagate the
+ * intended hue when color is transparent
+ * in every browser, therefore use explicit
+ * strokes for the four directions.
+ */
+
+.command-arrow-v2.left.arrow-outline,
+.command-arrow-v2.right.arrow-outline {
+  color:
+    transparent;
+
+  -webkit-text-stroke:
+    1.7px
+    #ff62d9;
+}
+
+.command-arrow-v2.up.arrow-outline,
+.command-arrow-v2.down.arrow-outline {
+  color:
+    transparent;
+
+  -webkit-text-stroke:
+    1.7px
+    #5edcff;
+}
+
+/* ============================================================
+   FILLED ARROW — CORRECT INPUT
+============================================================ */
+
+.command-arrow-v2.arrow-filled {
+  color:
+    #ff73df;
+
+  -webkit-text-stroke:
+    0;
+
+  filter:
+    drop-shadow(
+      0 0 5px
+      rgba(255, 94, 220, 0.95)
+    )
+    drop-shadow(
+      0 0 14px
+      rgba(255, 94, 220, 0.7)
+    );
 
   transform:
-    translateY(-1px)
     scale(1.04);
 }
 
-.command-step.command-target i {
+.command-arrow-v2.up.arrow-filled,
+.command-arrow-v2.down.arrow-filled {
+  color:
+    #69e3ff;
+
+  filter:
+    drop-shadow(
+      0 0 5px
+      rgba(105, 227, 255, 0.95)
+    )
+    drop-shadow(
+      0 0 14px
+      rgba(105, 227, 255, 0.7)
+    );
+}
+
+/* ============================================================
+   CURRENT TARGET
+============================================================ */
+
+.command-target {
+  opacity: 1;
+
+  transform:
+    translateY(-1px);
+}
+
+/*
+ * Small target indicator below the
+ * current arrow.
+ */
+.command-target-line {
   position: absolute;
 
-  left: 4px;
-  right: 4px;
+  left: 12px;
+  right: 12px;
 
-  bottom: -4px;
+  bottom: -3px;
 
   height: 2px;
 
-  border-radius: 2px;
+  border-radius: 999px;
 
   background:
-    rgba(255, 255, 255, 0.82);
+    rgba(255, 255, 255, 0.88);
 
   box-shadow:
-    0 0 9px
-    rgba(255, 255, 255, 0.65);
+    0 0 8px
+    rgba(255, 255, 255, 0.7);
 }
 
+/*
+ * Current target is slightly brighter
+ * but remains OUTLINE until correctly
+ * pressed.
+ */
+.command-target
+.command-arrow-v2.arrow-outline {
+  filter:
+    drop-shadow(
+      0 0 5px
+      currentColor
+    );
+}
+
+/* ============================================================
+   PHYSICAL PRESS FEEDBACK
+============================================================ */
+
+.command-pressed
 .command-arrow-v2 {
-  width: 100%;
-  height: 100%;
+  transform:
+    scale(0.91);
+}
+
+/*
+ * Correct command has already become
+ * filled. This animation is only the
+ * short "button press" motion.
+ */
+.command-completed
+.command-arrow-v2 {
+  animation:
+    command-fill-pop
+    0.18s
+    ease-out;
+}
+
+@keyframes command-fill-pop {
+
+  0% {
+    transform:
+      scale(0.82);
+  }
+
+  55% {
+    transform:
+      scale(1.12);
+  }
+
+  100% {
+    transform:
+      scale(1.04);
+  }
+}
+
+/* ============================================================
+   WRONG INPUT
+============================================================ */
+
+.command-wrong
+.command-arrow-v2 {
+  animation:
+    command-wrong-shake
+    0.18s
+    ease-out;
+}
+
+.command-wrong
+.command-arrow-v2.arrow-outline {
+  -webkit-text-stroke:
+    1.7px
+    #ff657b;
+
+  filter:
+    drop-shadow(
+      0 0 7px
+      rgba(255, 101, 123, 0.85)
+    );
+}
+
+@keyframes command-wrong-shake {
+
+  0%,
+  100% {
+    transform:
+      translateX(0);
+  }
+
+  25% {
+    transform:
+      translateX(-4px);
+  }
+
+  75% {
+    transform:
+      translateX(4px);
+  }
+}
+
+/* ============================================================
+   MORE COMMANDS
+============================================================ */
+
+.command-more {
+  display: grid;
+
+  place-items: center;
+
+  width: 38px;
+  height: 46px;
+
+  margin-left: 3px;
+
+  color:
+    rgba(255, 255, 255, 0.82);
+
+  font-size: 20px;
+
+  letter-spacing: 2px;
+}
+
+/* ============================================================
+   TIMING SLOT
+============================================================ */
+
+.timing-preview-slot {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  margin-top: 5px;
+
+  color:
+    rgba(255, 255, 255, 0.23);
+
+  font-size: 7px;
+
+  font-weight: 800;
+
+  letter-spacing: 0.15em;
+}
+
+.timing-preview-slot b {
+  color:
+    rgba(255, 79, 216, 0.45);
+
+  font-size: 6px;
+}
+
+/* ============================================================
+   D-PAD
+============================================================ */
+
+.dpad-v2 {
+  position: relative;
+
+  width: 128px;
+  height: 128px;
+
+  flex: 0 0 auto;
+
+  border-radius: 50%;
+
+  background:
+    rgba(6, 6, 16, 0.3);
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.1);
+
+  box-shadow:
+    0 0 28px
+    rgba(255, 79, 216, 0.1);
+}
+
+.dpad-v2 button {
+  position: absolute;
+
+  width: 48px;
+  height: 48px;
 
   display: grid;
 
   place-items: center;
 
-  font-size: 29px;
+  border-radius: 14px;
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.18);
+
+  background:
+    rgba(16, 17, 31, 0.88);
+
+  color: #fff;
+
+  font-size: 28px;
 
   font-weight: 950;
 
-  color:
-    rgba(255, 255, 255, 0.8);
+  box-shadow:
+    inset 0 1px
+      rgba(255, 255, 255, 0.08),
 
-  text-shadow:
-    0 0 10px currentColor;
+    0 7px 17px
+      rgba(0, 0, 0, 0.25);
+
+  cursor: pointer;
+
+  touch-action:
+    manipulation;
+
+  transition:
+    transform 0.08s ease,
+    background 0.08s ease,
+    box-shadow 0.08s ease;
 }
 
-.command-arrow-v2.left,
-.command-arrow-v2.right {
-  color: #ff6bdd;
+.dpad-v2 button:active,
+.dpad-v2 .dpad-active {
+  transform:
+    scale(0.92);
+
+  background:
+    rgba(255, 79, 216, 0.22);
+
+  box-shadow:
+    0 0 18px
+      rgba(255, 79, 216, 0.32),
+
+    inset 0 0 14px
+      rgba(255, 255, 255, 0.07);
 }
 
-.command-arrow-v2.up,
-.command-arrow-v2.down {
-  color: #65dcff;
+.dpad-v2 .dpad-target {
+  border-color:
+    rgba(255, 255, 255, 0.38);
+
+  box-shadow:
+    0 0 10px
+      rgba(255, 79, 216, 0.16),
+
+    inset 0 1px
+      rgba(255, 255, 255, 0.1);
 }
 
-.command-step.command-hit
-.command-arrow-v2 {
+.dpad-left {
+  left: 3px;
+  top: 40px;
+}
+
+.dpad-up {
+  left: 40px;
+  top: 3px;
+}
+
+.dpad-down {
+  left: 40px;
+  bottom: 3px;
+}
+
+.dpad-right {
+  right: 3px;
+  top: 40px;
+}
+
+.dpad-center-v2 {
+  position: absolute;
+
+  left: 45px;
+  top: 45px;
+
+  width: 38px;
+  height: 38px;
+
+  border-radius: 50%;
+
+  border:
+    1px solid
+    rgba(255, 79, 216, 0.32);
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(255, 79, 216, 0.75) 0 13%,
+      rgba(255, 79, 216, 0.08) 14% 100%
+    );
+
+  box-shadow:
+    0 0 16px
+    rgba(255, 79, 216, 0.2);
+}
+
+/* ============================================================
+   SPACE
+============================================================ */
+
+.space-button-v2 {
+  width: 132px;
+  height: 82px;
+
+  border-radius: 42px;
+
+  border:
+    1px solid
+    rgba(255, 79, 216, 0.68);
+
+  background:
+    rgba(9, 6, 18, 0.68);
+
   color: #fff;
 
-  text-shadow:
-    0 0 10px #fff,
-    0 0 24px currentColor;
+  box-shadow:
+    0 0 0 1px
+      rgba(255, 79, 216, 0.12),
+
+    0 0 25px
+      rgba(255, 79, 216, 0.14),
+
+    inset 0 0 20px
+      rgba(255, 79, 216, 0.05);
+
+  font-weight: 950;
+
+  letter-spacing: 0.08em;
+
+  cursor: pointer;
+
+  touch-action:
+    manipulation;
+
+  transition:
+    transform 0.08s ease,
+    background 0.08s ease;
 }
 
-.command-step.command-hit {
+.space-button-v2 span {
+  display: block;
+
+  font-size: 15px;
+}
+
+.space-button-v2 small {
+  display: block;
+
+  margin-top: 5px;
+
+  color:
+    rgba(255, 255, 255, 0.4);
+
+  font-size: 7px;
+
+  letter-spacing: 0.12em;
+}
+
+.space-button-v2:active,
+.space-button-v2.space-pressed {
   transform:
-    scale(1.12);
+    scale(0.95);
+
+  background:
+    rgba(255, 79, 216, 0.17);
+
+  box-shadow:
+    0 0 28px
+      rgba(255, 79, 216, 0.32),
+
+    inset 0 0 20px
+      rgba(255, 79, 216, 0.1);
 }
 
-.command-step.command-hit i {
-  background: #fff;
+/* ============================================================
+   PORTRAIT
+============================================================ */
+
+@media (orientation: portrait),
+  (max-width: 720px) {
+
+  .command-area {
+    left: 50%;
+
+    bottom: 126px;
+
+    width:
+      calc(100% - 18px);
+  }
+
+  .command-heading {
+    font-size: 7px;
+
+    margin-bottom: 3px;
+  }
+
+  .command-heading small {
+    font-size: 6px;
+  }
+
+  .command-bar-v2 {
+    width: 100%;
+
+    min-height: 43px;
+
+    padding:
+      4px 5px;
+
+    border-radius: 22px;
+  }
+
+  .command-step {
+    width: 32px;
+    height: 32px;
+  }
+
+  .command-arrow-v2 {
+    width: 31px;
+    height: 31px;
+
+    font-size: 25px;
+  }
+
+  .command-arrow-v2.left.arrow-outline,
+  .command-arrow-v2.right.arrow-outline {
+    -webkit-text-stroke:
+      1.35px
+      #ff62d9;
+  }
+
+  .command-arrow-v2.up.arrow-outline,
+  .command-arrow-v2.down.arrow-outline {
+    -webkit-text-stroke:
+      1.35px
+      #5edcff;
+  }
+
+  .command-step + .command-step::before {
+    top: 8px;
+    bottom: 8px;
+  }
+
+  .command-target-line {
+    left: 6px;
+    right: 6px;
+
+    bottom: -2px;
+
+    height: 1px;
+  }
+
+  .command-more {
+    width: 25px;
+
+    font-size: 14px;
+
+    letter-spacing: 1px;
+  }
+
+  .timing-preview-slot {
+    margin-top: 3px;
+
+    font-size: 5px;
+  }
+
+  .timing-preview-slot b {
+    font-size: 5px;
+  }
+
+  .dpad-v2 {
+    width: 100px;
+    height: 100px;
+  }
+
+  .dpad-v2 button {
+    width: 37px;
+    height: 37px;
+
+    border-radius: 11px;
+
+    font-size: 22px;
+  }
+
+  .dpad-left {
+    left: 2px;
+    top: 31px;
+  }
+
+  .dpad-up {
+    left: 31px;
+    top: 2px;
+  }
+
+  .dpad-down {
+    left: 31px;
+    bottom: 2px;
+  }
+
+  .dpad-right {
+    right: 2px;
+    top: 31px;
+  }
+
+  .dpad-center-v2 {
+    left: 34px;
+    top: 34px;
+
+    width: 32px;
+    height: 32px;
+  }
+
+  .space-button-v2 {
+    width: 100px;
+    height: 66px;
+
+    border-radius: 34px;
+  }
+
+  .space-button-v2 span {
+    font-size: 14px;
+  }
+
+  .space-button-v2 small {
+    font-size: 6px;
+
+    margin-top: 3px;
+  }
 }
 
 /* ============================================================

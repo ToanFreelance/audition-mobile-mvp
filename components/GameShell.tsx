@@ -5,11 +5,15 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent
+  type KeyboardEvent,
 } from "react";
 import type * as Phaser from "phaser";
 import { createDemoChart } from "@/game/chart";
-import type { Direction, GameStats, Judgement } from "@/game/types";
+import type {
+  Direction,
+  GameStats,
+  Judgement,
+} from "@/game/types";
 
 const initialStats: GameStats = {
   score: 0,
@@ -19,7 +23,7 @@ const initialStats: GameStats = {
   great: 0,
   cool: 0,
   bad: 0,
-  miss: 0
+  miss: 0,
 };
 
 const fallbackSequence: Direction[] = [
@@ -30,17 +34,20 @@ const fallbackSequence: Direction[] = [
   "left",
   "right",
   "up",
-  "down"
+  "down",
 ];
 
 const directionOrder: Direction[] = [
   "left",
   "up",
   "down",
-  "right"
+  "right",
 ];
 
-const keyToDirection: Record<string, Direction> = {
+const keyToDirection: Record<
+  string,
+  Direction
+> = {
   ArrowLeft: "left",
   ArrowUp: "up",
   ArrowDown: "down",
@@ -48,7 +55,7 @@ const keyToDirection: Record<string, Direction> = {
   a: "left",
   w: "up",
   s: "down",
-  d: "right"
+  d: "right",
 };
 
 export default function GameShell() {
@@ -66,68 +73,107 @@ export default function GameShell() {
   const activeDirectionTimer =
     useRef<number | null>(null);
 
+  /*
+   * Number of commands already correctly
+   * entered in the current command sequence.
+   *
+   * Example:
+   *
+   *   ← ↑ ↓ → ← ↑ ↓ →
+   *   ✓
+   *
+   * becomes:
+   *
+   *   ← ↑ ↓ → ← ↑ ↓ →
+   *     ↑
+   *     TARGET
+   *
+   * The filled state is therefore based on
+   * command INDEX, not direction.
+   */
+  const [
+    completedCommands,
+    setCompletedCommands,
+  ] = useState(0);
+
   const [
     stats,
-    setStats
-  ] =
-    useState<GameStats>(
-      initialStats
-    );
+    setStats,
+  ] = useState<GameStats>(
+    initialStats
+  );
 
   const [
     judgement,
-    setJudgement
-  ] =
-    useState<Judgement | null>(
-      null
-    );
+    setJudgement,
+  ] = useState<Judgement | null>(
+    null
+  );
 
   const [
     sequence,
-    setSequence
-  ] =
-    useState<Direction[]>(
-      fallbackSequence
-    );
+    setSequence,
+  ] = useState<Direction[]>(
+    fallbackSequence
+  );
 
   const [
     started,
-    setStarted
-  ] =
-    useState(false);
+    setStarted,
+  ] = useState(false);
 
   const [
     finished,
-    setFinished
-  ] =
-    useState(false);
+    setFinished,
+  ] = useState(false);
 
   const [
     audioEnabled,
-    setAudioEnabled
-  ] =
-    useState(true);
+    setAudioEnabled,
+  ] = useState(true);
 
+  /*
+   * Temporary press feedback.
+   *
+   * This is NOT the completed state.
+   * It is only used for the very short
+   * physical button press animation.
+   */
   const [
     activeDirection,
-    setActiveDirection
-  ] =
-    useState<Direction | null>(
-      null
-    );
+    setActiveDirection,
+  ] = useState<Direction | null>(
+    null
+  );
+
+  /*
+   * Wrong input feedback.
+   */
+  const [
+    wrongDirection,
+    setWrongDirection,
+  ] = useState<Direction | null>(
+    null
+  );
+
+  const [
+    spacePressed,
+    setSpacePressed,
+  ] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       const {
-        createPhaserGame
-      } =
-        await import(
-          "@/game/GameScene"
-        );
+        createPhaserGame,
+      } = await import(
+        "@/game/GameScene"
+      );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       const game =
         createPhaserGame(
@@ -145,10 +191,11 @@ export default function GameShell() {
               );
 
               window.setTimeout(
-                () =>
+                () => {
                   setJudgement(
                     null
-                  ),
+                  );
+                },
                 320
               );
             },
@@ -156,10 +203,25 @@ export default function GameShell() {
             onSequence: (
               next
             ) => {
-              setSequence(
+              const nextSequence =
                 next.length
                   ? next.slice(0, 8)
-                  : fallbackSequence
+                  : fallbackSequence;
+
+              /*
+               * When the engine advances the
+               * command sequence, reset the
+               * local visual completion state.
+               *
+               * The engine remains the source
+               * of truth for the actual gameplay.
+               */
+              setSequence(
+                nextSequence
+              );
+
+              setCompletedCommands(
+                0
               );
             },
 
@@ -173,7 +235,7 @@ export default function GameShell() {
               setFinished(
                 true
               );
-            }
+            },
           }
         );
 
@@ -202,10 +264,13 @@ export default function GameShell() {
   }, [chart]);
 
   /*
-   * Keyboard visual feedback.
+   * Keyboard input.
    *
-   * Phaser vẫn xử lý gameplay input.
-   * Listener này chỉ làm UI button/arrow sáng lên.
+   * Phaser remains responsible for
+   * actual gameplay processing.
+   *
+   * This listener only controls the
+   * visual UI feedback.
    */
   useEffect(() => {
     const onKeyDown = (
@@ -223,7 +288,7 @@ export default function GameShell() {
         return;
       }
 
-      flashDirection(
+      pressDirection(
         direction
       );
     };
@@ -238,7 +303,7 @@ export default function GameShell() {
         "keydown",
         onKeyDown
       );
-  }, []);
+  }, [sequence, completedCommands]);
 
   useEffect(() => {
     return () => {
@@ -270,6 +335,10 @@ export default function GameShell() {
       fallbackSequence
     );
 
+    setCompletedCommands(
+      0
+    );
+
     sceneRef.current?.startRound();
 
     if (audioEnabled) {
@@ -284,6 +353,9 @@ export default function GameShell() {
     window.location.reload();
   }
 
+  /*
+   * Short physical press animation.
+   */
   function flashDirection(
     direction: Direction
   ) {
@@ -311,25 +383,107 @@ export default function GameShell() {
       );
   }
 
-  function press(
+  /*
+   * Direction input.
+   *
+   * IMPORTANT:
+   *
+   * We only mark the current arrow as
+   * FILLED when it matches the current
+   * target.
+   *
+   * Wrong direction:
+   * - stays outline
+   * - gets a short red feedback
+   *
+   * Correct direction:
+   * - becomes filled
+   * - glows
+   * - advances to the next command
+   */
+  function pressDirection(
     direction: Direction
   ) {
     flashDirection(
       direction
     );
 
+    const currentTarget =
+      sequence[
+        completedCommands
+      ];
+
+    if (
+      currentTarget ===
+      direction
+    ) {
+      /*
+       * Correct command.
+       *
+       * Fill this command.
+       */
+      setCompletedCommands(
+        current =>
+          Math.min(
+            current + 1,
+            sequence.length
+          )
+      );
+
+      setWrongDirection(
+        null
+      );
+    } else {
+      /*
+       * Wrong command.
+       *
+       * Do NOT fill the arrow.
+       */
+      setWrongDirection(
+        direction
+      );
+
+      window.setTimeout(
+        () => {
+          setWrongDirection(
+            current =>
+              current === direction
+                ? null
+                : current
+          );
+        },
+        180
+      );
+    }
+
+    /*
+     * Actual gameplay remains handled
+     * by the existing rhythm engine.
+     */
     sceneRef.current?.handleInput(
       direction
     );
   }
 
   function pressSpace() {
+    setSpacePressed(
+      true
+    );
+
+    window.setTimeout(
+      () => {
+        setSpacePressed(
+          false
+        );
+      },
+      100
+    );
+
     /*
-     * Chưa kết nối gameplay.
-     *
-     * Part 3 sẽ kết nối SPACE
-     * với Timing Gauge 75–95%.
+     * Timing Gauge / judgement logic
+     * will be connected in Part 3.
      */
+    sceneRef.current?.handleSpace?.();
   }
 
   function onKeyDown(
@@ -342,19 +496,13 @@ export default function GameShell() {
 
     event.preventDefault();
 
-    press(
+    pressDirection(
       direction
     );
   }
 
   const visibleSequence =
     sequence.slice(0, 8);
-
-  const sequenceLength =
-    Math.max(
-      visibleSequence.length,
-      1
-    );
 
   return (
     <main className="shell">
@@ -418,7 +566,6 @@ export default function GameShell() {
 
         <div className="game-wrap">
 
-          {/* Three.js / Phaser visual runtime */}
           <div
             id="game-container"
             aria-hidden="true"
@@ -432,11 +579,7 @@ export default function GameShell() {
 
             <div className="hud-top">
 
-              {/* LEFT SIDE */}
-
               <div className="hud-left-column">
-
-                {/* SONG INFO */}
 
                 <div className="song-box sketch-card">
 
@@ -458,8 +601,6 @@ export default function GameShell() {
                   </div>
 
                 </div>
-
-                {/* RANKING */}
 
                 <div className="rank-panel sketch-card">
 
@@ -534,8 +675,6 @@ export default function GameShell() {
                 </div>
 
               </div>
-
-              {/* RIGHT SIDE */}
 
               <div className="my-score sketch-card">
 
@@ -630,13 +769,26 @@ export default function GameShell() {
                 </span>
 
                 <small>
-                  NEXT {sequenceLength}
+                  {Math.min(
+                    completedCommands + 1,
+                    Math.max(
+                      visibleSequence.length,
+                      1
+                    )
+                  )}
+                  {" / "}
+                  {visibleSequence.length}
                 </small>
 
               </div>
 
               <div
-                className="command-bar command-bar-v2"
+                className={[
+                  "command-bar",
+                  "command-bar-v2",
+                  "command-bar-outline",
+                ]
+                  .join(" ")}
                 aria-label="Upcoming commands"
               >
 
@@ -644,57 +796,92 @@ export default function GameShell() {
                   (
                     direction,
                     index
-                  ) => (
+                  ) => {
 
-                    <div
-                      key={`${direction}-${index}`}
-                      className={[
-                        "command-step",
+                    const isCompleted =
+                      index <
+                      completedCommands;
 
-                        index === 0
-                          ? "command-target"
-                          : "",
+                    const isTarget =
+                      index ===
+                      completedCommands;
 
-                        activeDirection ===
-                        direction
-                          ? "command-hit"
-                          : ""
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                    >
+                    const isWrong =
+                      wrongDirection !==
+                        null &&
+                      isTarget &&
+                      wrongDirection !==
+                        direction;
 
-                      <span
-                        className={`command-arrow-v2 ${direction}`}
+                    return (
+                      <div
+                        key={`${direction}-${index}`}
+                        className={[
+                          "command-step",
+
+                          isTarget
+                            ? "command-target"
+                            : "",
+
+                          isCompleted
+                            ? "command-completed"
+                            : "",
+
+                          isWrong
+                            ? "command-wrong"
+                            : "",
+
+                          activeDirection ===
+                          direction &&
+                          isTarget
+                            ? "command-pressed"
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
                       >
-                        {
-                          directionToArrow(
-                            direction
-                          )
-                        }
-                      </span>
 
-                      {index === 0 && (
-                        <i
-                          aria-hidden="true"
-                        />
-                      )}
+                        <span
+                          className={[
+                            "command-arrow-v2",
+                            direction,
+                            isCompleted
+                              ? "arrow-filled"
+                              : "arrow-outline",
+                          ].join(" ")}
+                        >
+                          {
+                            directionToArrow(
+                              direction
+                            )
+                          }
+                        </span>
 
-                    </div>
+                        {isTarget && (
+                          <i
+                            className="command-target-line"
+                            aria-hidden="true"
+                          />
+                        )}
 
-                  )
+                      </div>
+                    );
+                  }
                 )}
 
-              </div>
+                <span
+                  className="command-more"
+                  aria-hidden="true"
+                >
+                  •••
+                </span>
 
-              {/* Placeholder only.
-                  Real gauge comes in Part 3. */}
+              </div>
 
               <div
                 className="timing-preview-slot"
                 aria-hidden="true"
               >
-
                 <span>
                   TIMING GAUGE
                 </span>
@@ -702,7 +889,6 @@ export default function GameShell() {
                 <b>
                   PART 3
                 </b>
-
               </div>
 
             </div>
@@ -713,10 +899,15 @@ export default function GameShell() {
 
             <div className="controls-row-v2">
 
-              {/* SPACE */}
-
               <button
-                className="space-button-v2"
+                className={[
+                  "space-button-v2",
+                  spacePressed
+                    ? "space-pressed"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 onPointerDown={
                   event => {
                     event.preventDefault();
@@ -736,52 +927,62 @@ export default function GameShell() {
 
               </button>
 
-              {/* D-PAD */}
-
               <div
                 className="dpad-v2"
                 aria-label="Direction controls"
               >
 
                 {directionOrder.map(
-                  direction => (
+                  direction => {
 
-                    <button
-                      key={direction}
-                      className={[
-                        `dpad-${direction}`,
-                        activeDirection ===
-                        direction
-                          ? "dpad-active"
-                          : ""
-                      ]
-                        .filter(Boolean)
-                        .join(" ")}
-                      onPointerDown={
-                        event => {
-                          event.preventDefault();
-                          press(direction);
+                    const isTarget =
+                      sequence[
+                        completedCommands
+                      ] ===
+                      direction;
+
+                    return (
+                      <button
+                        key={direction}
+                        className={[
+                          `dpad-${direction}`,
+                          activeDirection ===
+                          direction
+                            ? "dpad-active"
+                            : "",
+                          isTarget
+                            ? "dpad-target"
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        onPointerDown={
+                          event => {
+                            event.preventDefault();
+                            pressDirection(
+                              direction
+                            );
+                          }
                         }
-                      }
-                      onKeyDown={
-                        event =>
-                          onKeyDown(
-                            event,
+                        onKeyDown={
+                          event =>
+                            onKeyDown(
+                              event,
+                              direction
+                            )
+                        }
+                        aria-label={
+                          direction
+                        }
+                      >
+                        {
+                          directionToArrow(
                             direction
                           )
-                      }
-                      aria-label={
-                        direction
-                      }
-                    >
-                      {
-                        directionToArrow(
-                          direction
-                        )
-                      }
-                    </button>
-
-                  )
+                        }
+                      </button>
+                    );
+                  }
                 )}
 
                 <span
@@ -815,12 +1016,10 @@ export default function GameShell() {
                 </h2>
 
                 <p>
-                  Command UI đã được đưa
-                  về layout gameplay:
-                  stage là trung tâm,
-                  sequence ở dưới và
-                  hai ngón cái điều khiển
-                  SPACE + D-pad.
+                  Command sequence đã được
+                  chuyển sang dạng outline.
+                  Nhấn đúng command sẽ chuyển
+                  sang filled + glow.
                 </p>
 
                 <div className="row">
@@ -876,39 +1075,30 @@ export default function GameShell() {
                 <div className="stats">
 
                   <div className="stat">
-
                     <b>
                       {stats.perfect}
                     </b>
-
                     <span>
                       Perfect
                     </span>
-
                   </div>
 
                   <div className="stat">
-
                     <b>
                       {stats.great}
                     </b>
-
                     <span>
                       Great
                     </span>
-
                   </div>
 
                   <div className="stat">
-
                     <b>
                       {stats.maxCombo}
                     </b>
-
                     <span>
                       Max Combo
                     </span>
-
                   </div>
 
                 </div>
@@ -932,26 +1122,20 @@ export default function GameShell() {
 
       </section>
 
-      {/* =====================================================
-          DEV INFO
-      ====================================================== */}
-
       <section className="info-grid">
 
         <div className="panel">
 
           <h3>
-            ✅ Part 2 implemented
+            ✅ Part 2.1 — Command Arrow
           </h3>
 
           <p>
-            HUD đã được tổ chức lại theo
-            gameplay sketch: track info +
-            ranking bên trái, My Score bên
-            phải, command sequence ở vùng
-            dưới stage, SPACE bên trái và
-            D-pad bên phải. Input hiện tại
-            vẫn dùng RhythmEngine cũ.
+            Arrow chưa nhấn luôn ở trạng thái
+            outline. Khi input đúng command,
+            arrow tương ứng chuyển sang filled
+            và phát glow. Input sai không làm
+            arrow chuyển filled.
           </p>
 
         </div>
@@ -959,15 +1143,13 @@ export default function GameShell() {
         <div className="panel">
 
           <h3>
-            ➡️ Part 3
+            🎯 Part 3 — Timing
           </h3>
 
           <p>
-            Timing Gauge thật sẽ thay slot
-            hiện tại bằng score zone 75–95%,
-            BAD → COOL → GREAT → PERFECT →
-            GREAT → COOL → BAD và MISS ở
-            ngoài zone.
+            Timing Gauge thật sẽ được đưa vào
+            slot bên dưới command: 0–75% MISS,
+            75–95% SCORE ZONE, 95–100% MISS.
           </p>
 
         </div>
@@ -981,13 +1163,19 @@ export default function GameShell() {
 function directionToArrow(
   direction: Direction
 ) {
-  return direction === "left"
-    ? "←"
-    : direction === "up"
-      ? "↑"
-      : direction === "down"
-        ? "↓"
-        : "→";
+  switch (direction) {
+    case "left":
+      return "←";
+
+    case "up":
+      return "↑";
+
+    case "down":
+      return "↓";
+
+    case "right":
+      return "→";
+  }
 }
 
 function playMetronome(
@@ -997,8 +1185,9 @@ function playMetronome(
   try {
     const AudioContextClass =
       window.AudioContext ||
-      (window as any)
-        .webkitAudioContext;
+      (
+        window as any
+      ).webkitAudioContext;
 
     const ctx =
       new AudioContextClass();
@@ -1062,8 +1251,9 @@ function playMetronome(
     }
 
     window.setTimeout(
-      () =>
-        ctx.close(),
+      () => {
+        ctx.close();
+      },
       (total * interval +
         300) *
         1.1
