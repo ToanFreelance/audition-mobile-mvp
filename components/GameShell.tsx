@@ -1,13 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent
+} from "react";
+
 import type * as Phaser from "phaser";
-import { createDemoChart } from "@/game/chart";
-import type { Direction, GameStats, Judgement } from "@/game/types";
+
+import {
+  createDemoChart
+} from "@/game/chart";
+
+import type {
+  Direction,
+  GameStats,
+  Judgement
+} from "@/game/types";
+
+import Stage3D from "@/components/Stage3D";
 
 const initialStats: GameStats = {
-  score: 0, combo: 0, maxCombo: 0,
-  perfect: 0, great: 0, cool: 0, bad: 0, miss: 0
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  perfect: 0,
+  great: 0,
+  cool: 0,
+  bad: 0,
+  miss: 0
 };
 
 const fallbackSequence: Direction[] = [
@@ -22,70 +45,180 @@ const fallbackSequence: Direction[] = [
 ];
 
 export default function GameShell() {
-  const chart = useMemo(() => createDemoChart(), []);
-  const gameRef = useRef<Phaser.Game | null>(null);
-  const sceneRef = useRef<any>(null);
+  const chart =
+    useMemo(
+      () => createDemoChart(),
+      []
+    );
 
-  const [stats, setStats] = useState<GameStats>(initialStats);
-  const [judgement, setJudgement] = useState<Judgement | null>(null);
-  const [sequence, setSequence] = useState<Direction[]>(fallbackSequence);
-  const [started, setStarted] = useState(false);
-  const [finished, setFinished] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(true);
+  const gameRef =
+    useRef<Phaser.Game | null>(
+      null
+    );
+
+  const sceneRef =
+    useRef<any>(null);
+
+  const [
+    stats,
+    setStats
+  ] =
+    useState<GameStats>(
+      initialStats
+    );
+
+  const [
+    judgement,
+    setJudgement
+  ] =
+    useState<Judgement | null>(
+      null
+    );
+
+  const [
+    sequence,
+    setSequence
+  ] =
+    useState<Direction[]>(
+      fallbackSequence
+    );
+
+  const [
+    started,
+    setStarted
+  ] =
+    useState(false);
+
+  const [
+    finished,
+    setFinished
+  ] =
+    useState(false);
+
+  const [
+    audioEnabled,
+    setAudioEnabled
+  ] =
+    useState(true);
+
+  const [
+    stagePulse,
+    setStagePulse
+  ] =
+    useState(0);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
-      const { createPhaserGame } = await import("@/game/GameScene");
+      const {
+        createPhaserGame
+      } =
+        await import(
+          "@/game/GameScene"
+        );
 
       if (!mounted) return;
 
-      const game = createPhaserGame("game-container", chart, {
-        onStats: (next) => setStats(next),
+      const game =
+        createPhaserGame(
+          "game-container",
+          chart,
+          {
+            onStats: (next) =>
+              setStats(next),
 
-        onJudgement: (next) => {
-          setJudgement(next);
+            onJudgement: (
+              next
+            ) => {
+              setJudgement(
+                next
+              );
 
-          window.setTimeout(() => {
-            setJudgement(null);
-          }, 320);
-        },
+              setStagePulse(
+                value =>
+                  value + 1
+              );
 
-        onSequence: (next) => {
-          if (next.length) {
-            setSequence(next);
+              window.setTimeout(
+                () =>
+                  setJudgement(
+                    null
+                  ),
+                320
+              );
+            },
+
+            onSequence: (
+              next
+            ) => {
+              if (
+                next.length
+              ) {
+                setSequence(
+                  next
+                );
+              }
+            },
+
+            onFinished: (
+              next
+            ) => {
+              setStats(
+                next
+              );
+
+              setFinished(
+                true
+              );
+            }
           }
-        },
+        );
 
-        onFinished: (next) => {
-          setStats(next);
-          setFinished(true);
-        }
-      });
+      gameRef.current =
+        game;
 
-      gameRef.current = game;
-      sceneRef.current = game.scene.getScene("GameScene");
+      sceneRef.current =
+        game.scene.getScene(
+          "GameScene"
+        );
     })();
 
     return () => {
       mounted = false;
 
-      gameRef.current?.destroy(true);
-      gameRef.current = null;
-      sceneRef.current = null;
+      gameRef.current?.destroy(
+        true
+      );
+
+      gameRef.current =
+        null;
+
+      sceneRef.current =
+        null;
     };
   }, [chart]);
 
   function startGame() {
-    setStats(initialStats);
-    setFinished(false);
-    setStarted(true);
+    setStats(
+      initialStats
+    );
+
+    setFinished(
+      false
+    );
+
+    setStarted(
+      true
+    );
 
     sceneRef.current?.startRound();
 
     if (audioEnabled) {
-      playMetronome(chart.bpm, 4);
+      playMetronome(
+        chart.bpm,
+        4
+      );
     }
   }
 
@@ -93,13 +226,22 @@ export default function GameShell() {
     window.location.reload();
   }
 
-  function press(direction: Direction) {
-    sceneRef.current?.handleInput(direction);
+  function press(
+    direction: Direction
+  ) {
+    sceneRef.current?.handleInput(
+      direction
+    );
   }
 
   function pressSpace() {
-    // SPACE is intentionally visual-only in Part 1.
-    // Part 2 will move the timing/judgement mechanic here.
+    /*
+     * Intentionally unchanged.
+     *
+     * Part 2 will connect SPACE
+     * to the Audition-style
+     * 75–95% timing gauge.
+     */
   }
 
   function onKeyDown(
@@ -109,113 +251,208 @@ export default function GameShell() {
     if (e.repeat) return;
 
     e.preventDefault();
-    press(direction);
+
+    press(
+      direction
+    );
   }
 
   return (
     <main className="shell">
+
       <header className="header">
+
         <div className="brand">
-          <div className="brand-mark">A</div>
+
+          <div className="brand-mark">
+            A
+          </div>
 
           <div>
-            <h1>Audition Mobile — Stage Prototype</h1>
+            <h1>
+              Audition Mobile —
+              3D Stage Prototype
+            </h1>
 
             <p>
-              Part 1 · Stage + responsive gameplay HUD · frontend only
+              Part 1.5 · 3D stage
+              + existing rhythm runtime
             </p>
           </div>
+
         </div>
 
         <div className="header-actions">
+
           <button
             className="pill"
-            onClick={() => setAudioEnabled(v => !v)}
+            onClick={() =>
+              setAudioEnabled(
+                value => !value
+              )
+            }
           >
-            {audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}
+            {audioEnabled
+              ? "🔊 Beat ON"
+              : "🔇 Beat OFF"}
           </button>
 
           <span className="pill">
             BPM {chart.bpm}
           </span>
+
         </div>
+
       </header>
 
       <section className="game-card">
+
         <div className="game-wrap">
-          <div id="game-container" />
+
+          {/* 3D visual world */}
+          <Stage3D
+            pulseToken={
+              stagePulse
+            }
+          />
+
+          {/* Transparent Phaser runtime */}
+          <div
+            id="game-container"
+            aria-hidden="true"
+          />
 
           <div className="hud">
+
             <div className="hud-top">
+
               <div className="rank-panel">
+
                 <div className="rank-title">
                   RANKING
                 </div>
 
                 <div className="rank-row">
-                  <span>1ST</span>
-                  <b>ToanDev</b>
-                  <strong>235,432</strong>
+                  <span>
+                    1ST
+                  </span>
+
+                  <b>
+                    ToanDev
+                  </b>
+
+                  <strong>
+                    235,432
+                  </strong>
                 </div>
 
                 <div className="rank-row">
-                  <span>2ND</span>
-                  <b>Luna</b>
-                  <strong>198,765</strong>
+                  <span>
+                    2ND
+                  </span>
+
+                  <b>
+                    Luna
+                  </b>
+
+                  <strong>
+                    198,765
+                  </strong>
                 </div>
 
                 <div className="rank-row">
-                  <span>3RD</span>
-                  <b>Kenzo</b>
-                  <strong>176,543</strong>
+                  <span>
+                    3RD
+                  </span>
+
+                  <b>
+                    Kenzo
+                  </b>
+
+                  <strong>
+                    176,543
+                  </strong>
                 </div>
 
                 <div className="rank-row">
-                  <span>4TH</span>
-                  <b>Miyuki</b>
-                  <strong>165,231</strong>
+                  <span>
+                    4TH
+                  </span>
+
+                  <b>
+                    Miyuki
+                  </b>
+
+                  <strong>
+                    165,231
+                  </strong>
                 </div>
+
               </div>
 
               <div className="player-score">
+
                 <div>
-                  <span>SCORE</span>
-                  <b>{stats.score.toLocaleString()}</b>
+                  <span>
+                    SCORE
+                  </span>
+
+                  <b>
+                    {stats.score.toLocaleString()}
+                  </b>
                 </div>
 
                 <div className="score-divider" />
 
                 <div className="combo-display">
-                  <span>COMBO</span>
-                  <b>{stats.combo}x</b>
+
+                  <span>
+                    COMBO
+                  </span>
+
+                  <b>
+                    {stats.combo}x
+                  </b>
+
                 </div>
+
               </div>
+
             </div>
 
             {judgement && (
-              <div className={`judgement ${judgement}`}>
+              <div
+                className={`judgement ${judgement}`}
+              >
                 {judgement.toUpperCase()}!
               </div>
             )}
 
             <div className="song-box">
+
               <div className="song-icon">
                 ♫
               </div>
 
               <div>
+
                 <div className="song-title">
                   {chart.title}
                 </div>
 
                 <div className="song-meta">
-                  {chart.bpm} BPM · Demo Stage
+                  {chart.bpm} BPM ·
+                  3D Stage
                 </div>
+
               </div>
+
             </div>
 
             <div className="gameplay-hud">
+
               <div className="command-section">
+
                 <div className="hud-caption">
                   CHUỖI COMMAND
                 </div>
@@ -224,27 +461,41 @@ export default function GameShell() {
                   className="command-bar"
                   aria-label="Upcoming commands"
                 >
-                  {sequence.map((direction, index) => (
-                    <span
-                      key={`${direction}-${index}`}
-                      className={`command-arrow ${direction}`}
-                    >
-                      {directionToArrow(direction)}
-                    </span>
-                  ))}
 
-                  {sequence.length < 8 && (
+                  {sequence.map(
+                    (
+                      direction,
+                      index
+                    ) => (
+                      <span
+                        key={`${direction}-${index}`}
+                        className={`command-arrow ${direction}`}
+                      >
+                        {
+                          directionToArrow(
+                            direction
+                          )
+                        }
+                      </span>
+                    )
+                  )}
+
+                  {sequence.length <
+                    8 && (
                     <span className="command-more">
                       •••
                     </span>
                   )}
+
                 </div>
+
               </div>
 
               <div className="controls-row">
+
                 <button
                   className="space-button"
-                  onPointerDown={(e) => {
+                  onPointerDown={e => {
                     e.preventDefault();
                     pressSpace();
                   }}
@@ -261,14 +512,18 @@ export default function GameShell() {
                   className="dpad"
                   aria-label="Direction controls"
                 >
+
                   <button
                     className="dpad-up"
-                    onPointerDown={(e) => {
+                    onPointerDown={e => {
                       e.preventDefault();
                       press("up");
                     }}
-                    onKeyDown={(e) =>
-                      onKeyDown(e, "up")
+                    onKeyDown={e =>
+                      onKeyDown(
+                        e,
+                        "up"
+                      )
                     }
                   >
                     ↑
@@ -276,12 +531,15 @@ export default function GameShell() {
 
                   <button
                     className="dpad-left"
-                    onPointerDown={(e) => {
+                    onPointerDown={e => {
                       e.preventDefault();
                       press("left");
                     }}
-                    onKeyDown={(e) =>
-                      onKeyDown(e, "left")
+                    onKeyDown={e =>
+                      onKeyDown(
+                        e,
+                        "left"
+                      )
                     }
                   >
                     ←
@@ -296,12 +554,15 @@ export default function GameShell() {
 
                   <button
                     className="dpad-right"
-                    onPointerDown={(e) => {
+                    onPointerDown={e => {
                       e.preventDefault();
                       press("right");
                     }}
-                    onKeyDown={(e) =>
-                      onKeyDown(e, "right")
+                    onKeyDown={e =>
+                      onKeyDown(
+                        e,
+                        "right"
+                      )
                     }
                   >
                     →
@@ -309,66 +570,88 @@ export default function GameShell() {
 
                   <button
                     className="dpad-down"
-                    onPointerDown={(e) => {
+                    onPointerDown={e => {
                       e.preventDefault();
                       press("down");
                     }}
-                    onKeyDown={(e) =>
-                      onKeyDown(e, "down")
+                    onKeyDown={e =>
+                      onKeyDown(
+                        e,
+                        "down"
+                      )
                     }
                   >
                     ↓
                   </button>
+
                 </div>
+
               </div>
+
             </div>
+
           </div>
 
-          {!started && !finished && (
-            <div className="start-overlay">
-              <div className="start-panel">
-                <div className="ready-kicker">
-                  STAGE PROTOTYPE · PART 1
+          {!started &&
+            !finished && (
+              <div className="start-overlay">
+
+                <div className="start-panel">
+
+                  <div className="ready-kicker">
+                    3D STAGE · PART 1.5
+                  </div>
+
+                  <h2>
+                    Ready to dance?
+                  </h2>
+
+                  <p>
+                    A new Three.js 3D stage
+                    is now rendering the
+                    dancers, lighting,
+                    club, floor and crowd.
+                    The existing rhythm
+                    engine remains unchanged.
+                  </p>
+
+                  <div className="row">
+
+                    <button
+                      className="button primary"
+                      onClick={
+                        startGame
+                      }
+                    >
+                      Start Demo
+                    </button>
+
+                    <button
+                      className="button"
+                      onClick={() =>
+                        setAudioEnabled(
+                          value =>
+                            !value
+                        )
+                      }
+                    >
+                      {audioEnabled
+                        ? "Sound on"
+                        : "Sound off"}
+                    </button>
+
+                  </div>
+
                 </div>
 
-                <h2>
-                  Ready to dance?
-                </h2>
-
-                <p>
-                  This pass focuses on the stage,
-                  responsive HUD, command bar and
-                  two-thumb controls. Arrow input is
-                  already connected to the existing
-                  rhythm engine.
-                </p>
-
-                <div className="row">
-                  <button
-                    className="button primary"
-                    onClick={startGame}
-                  >
-                    Start Demo
-                  </button>
-
-                  <button
-                    className="button"
-                    onClick={() =>
-                      setAudioEnabled(v => !v)
-                    }
-                  >
-                    {audioEnabled
-                      ? "Sound on"
-                      : "Sound off"}
-                  </button>
-                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {finished && (
             <div className="results">
+
               <div className="results-card">
+
                 <h2>
                   Dance Complete ✨
                 </h2>
@@ -378,20 +661,37 @@ export default function GameShell() {
                 </div>
 
                 <div className="stats">
+
                   <div className="stat">
-                    <b>{stats.perfect}</b>
-                    <span>Perfect</span>
+                    <b>
+                      {stats.perfect}
+                    </b>
+
+                    <span>
+                      Perfect
+                    </span>
                   </div>
 
                   <div className="stat">
-                    <b>{stats.great}</b>
-                    <span>Great</span>
+                    <b>
+                      {stats.great}
+                    </b>
+
+                    <span>
+                      Great
+                    </span>
                   </div>
 
                   <div className="stat">
-                    <b>{stats.maxCombo}</b>
-                    <span>Max Combo</span>
+                    <b>
+                      {stats.maxCombo}
+                    </b>
+
+                    <span>
+                      Max Combo
+                    </span>
                   </div>
+
                 </div>
 
                 <button
@@ -400,47 +700,61 @@ export default function GameShell() {
                 >
                   Play Again
                 </button>
+
               </div>
+
             </div>
           )}
+
         </div>
+
       </section>
 
       <section className="info-grid">
+
         <div className="panel">
+
           <h3>
-            ✅ Part 1 implemented
+            ✅ Part 1.5
           </h3>
 
           <p>
-            New club stage composition, five dancer
-            placeholders, ranking HUD, command bar,
-            landscape/portrait responsive layout,
-            left-hand SPACE control and right-hand
-            D-pad. Existing beat clock, scoring and
-            directional input remain intact.
+            Stage 2D đã được thay bằng
+            Three.js 3D: sân khấu,
+            lighting, crowd, speakers,
+            neon sign và 5 dancer
+            stylized. RhythmEngine,
+            BeatClock, score và input
+            vẫn được giữ nguyên.
           </p>
+
         </div>
 
         <div className="panel">
+
           <h3>
-            ➡️ Next part
+            ➡️ Tiếp theo
           </h3>
 
           <p>
-            The next isolated pass will replace the
-            old note timing with the Audition-style
-            command sequence + 75–95% score zone,
-            including the white-gradient PERFECT
-            center and MISS outside the zone.
+            Part 2 sẽ implement command
+            sequence + timing gauge
+            Audition-style: SCORE ZONE
+            75–95%, PERFECT ở tâm,
+            MISS ngoài zone.
           </p>
+
         </div>
+
       </section>
+
     </main>
   );
 }
 
-function directionToArrow(direction: Direction) {
+function directionToArrow(
+  direction: Direction
+) {
   return direction === "left"
     ? "←"
     : direction === "up"
@@ -457,22 +771,41 @@ function playMetronome(
   try {
     const AudioContextClass =
       window.AudioContext ||
-      (window as any).webkitAudioContext;
+      (window as any)
+        .webkitAudioContext;
 
-    const ctx = new AudioContextClass();
+    const ctx =
+      new AudioContextClass();
 
-    const interval = 60 / bpm;
-    const start = ctx.currentTime + 0.08;
-    const total = bars * 4;
+    const interval =
+      60 / bpm;
 
-    for (let i = 0; i < total; i++) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+    const start =
+      ctx.currentTime +
+      0.08;
 
-      const t = start + i * interval;
+    const total =
+      bars * 4;
+
+    for (
+      let i = 0;
+      i < total;
+      i++
+    ) {
+      const osc =
+        ctx.createOscillator();
+
+      const gain =
+        ctx.createGain();
+
+      const t =
+        start +
+        i * interval;
 
       osc.frequency.value =
-        i % 4 === 0 ? 880 : 660;
+        i % 4 === 0
+          ? 880
+          : 660;
 
       gain.gain.setValueAtTime(
         0.0001,
@@ -489,15 +822,24 @@ function playMetronome(
         t + 0.055
       );
 
-      osc.connect(gain).connect(ctx.destination);
+      osc
+        .connect(gain)
+        .connect(
+          ctx.destination
+        );
 
       osc.start(t);
-      osc.stop(t + 0.06);
+
+      osc.stop(
+        t + 0.06
+      );
     }
 
     window.setTimeout(
       () => ctx.close(),
-      (total * interval + 300) * 1.1
+      (total * interval +
+        300) *
+        1.1
     );
   } catch {
     // Audio is optional.
