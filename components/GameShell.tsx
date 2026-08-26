@@ -951,7 +951,7 @@ export default function GameShell() {
 
             </div>
 
-          </div>
+          </div> 
 
           {/* ===================================================
               START
