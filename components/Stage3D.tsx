@@ -813,7 +813,7 @@ export default function Stage3D({
       }
 
       scene.traverse(
-        (object) => {
+        (object: THREE.Object3D) => {
           const mesh =
             object as THREE.Mesh;
 
