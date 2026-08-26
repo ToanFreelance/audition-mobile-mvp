@@ -7,20 +7,9 @@ import {
   useState,
   type KeyboardEvent
 } from "react";
-
 import type * as Phaser from "phaser";
-
-import {
-  createDemoChart
-} from "@/game/chart";
-
-import type {
-  Direction,
-  GameStats,
-  Judgement
-} from "@/game/types";
-
-import Stage3D from "@/components/Stage3D";
+import { createDemoChart } from "@/game/chart";
+import type { Direction, GameStats, Judgement } from "@/game/types";
 
 const initialStats: GameStats = {
   score: 0,
@@ -44,20 +33,38 @@ const fallbackSequence: Direction[] = [
   "down"
 ];
 
+const directionOrder: Direction[] = [
+  "left",
+  "up",
+  "down",
+  "right"
+];
+
+const keyToDirection: Record<string, Direction> = {
+  ArrowLeft: "left",
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowRight: "right",
+  a: "left",
+  w: "up",
+  s: "down",
+  d: "right"
+};
+
 export default function GameShell() {
-  const chart =
-    useMemo(
-      () => createDemoChart(),
-      []
-    );
+  const chart = useMemo(
+    () => createDemoChart(),
+    []
+  );
 
   const gameRef =
-    useRef<Phaser.Game | null>(
-      null
-    );
+    useRef<Phaser.Game | null>(null);
 
   const sceneRef =
     useRef<any>(null);
+
+  const activeDirectionTimer =
+    useRef<number | null>(null);
 
   const [
     stats,
@@ -102,10 +109,12 @@ export default function GameShell() {
     useState(true);
 
   const [
-    stagePulse,
-    setStagePulse
+    activeDirection,
+    setActiveDirection
   ] =
-    useState(0);
+    useState<Direction | null>(
+      null
+    );
 
   useEffect(() => {
     let mounted = true;
@@ -135,11 +144,6 @@ export default function GameShell() {
                 next
               );
 
-              setStagePulse(
-                value =>
-                  value + 1
-              );
-
               window.setTimeout(
                 () =>
                   setJudgement(
@@ -152,13 +156,11 @@ export default function GameShell() {
             onSequence: (
               next
             ) => {
-              if (
+              setSequence(
                 next.length
-              ) {
-                setSequence(
-                  next
-                );
-              }
+                  ? next.slice(0, 8)
+                  : fallbackSequence
+              );
             },
 
             onFinished: (
@@ -199,6 +201,58 @@ export default function GameShell() {
     };
   }, [chart]);
 
+  /*
+   * Keyboard visual feedback.
+   *
+   * Phaser vẫn xử lý gameplay input.
+   * Listener này chỉ làm UI button/arrow sáng lên.
+   */
+  useEffect(() => {
+    const onKeyDown = (
+      event: globalThis.KeyboardEvent
+    ) => {
+      const direction =
+        keyToDirection[
+          event.key
+        ];
+
+      if (
+        !direction ||
+        event.repeat
+      ) {
+        return;
+      }
+
+      flashDirection(
+        direction
+      );
+    };
+
+    window.addEventListener(
+      "keydown",
+      onKeyDown
+    );
+
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        onKeyDown
+      );
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (
+        activeDirectionTimer.current !==
+        null
+      ) {
+        window.clearTimeout(
+          activeDirectionTimer.current
+        );
+      }
+    };
+  }, []);
+
   function startGame() {
     setStats(
       initialStats
@@ -210,6 +264,10 @@ export default function GameShell() {
 
     setStarted(
       true
+    );
+
+    setSequence(
+      fallbackSequence
     );
 
     sceneRef.current?.startRound();
@@ -226,9 +284,40 @@ export default function GameShell() {
     window.location.reload();
   }
 
+  function flashDirection(
+    direction: Direction
+  ) {
+    setActiveDirection(
+      direction
+    );
+
+    if (
+      activeDirectionTimer.current !==
+      null
+    ) {
+      window.clearTimeout(
+        activeDirectionTimer.current
+      );
+    }
+
+    activeDirectionTimer.current =
+      window.setTimeout(
+        () => {
+          setActiveDirection(
+            null
+          );
+        },
+        105
+      );
+  }
+
   function press(
     direction: Direction
   ) {
+    flashDirection(
+      direction
+    );
+
     sceneRef.current?.handleInput(
       direction
     );
@@ -236,29 +325,43 @@ export default function GameShell() {
 
   function pressSpace() {
     /*
-     * Intentionally unchanged.
+     * Chưa kết nối gameplay.
      *
-     * Part 2 will connect SPACE
-     * to the Audition-style
-     * 75–95% timing gauge.
+     * Part 3 sẽ kết nối SPACE
+     * với Timing Gauge 75–95%.
      */
   }
 
   function onKeyDown(
-    e: KeyboardEvent<HTMLButtonElement>,
+    event: KeyboardEvent<HTMLButtonElement>,
     direction: Direction
   ) {
-    if (e.repeat) return;
+    if (event.repeat) {
+      return;
+    }
 
-    e.preventDefault();
+    event.preventDefault();
 
     press(
       direction
     );
   }
 
+  const visibleSequence =
+    sequence.slice(0, 8);
+
+  const sequenceLength =
+    Math.max(
+      visibleSequence.length,
+      1
+    );
+
   return (
     <main className="shell">
+
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
 
       <header className="header">
 
@@ -269,15 +372,17 @@ export default function GameShell() {
           </div>
 
           <div>
+
             <h1>
               Audition Mobile —
-              3D Stage Prototype
+              Rhythm Prototype
             </h1>
 
             <p>
-              Part 1.5 · 3D stage
-              + existing rhythm runtime
+              Part 2 · Command UI +
+              mobile controls · frontend only
             </p>
+
           </div>
 
         </div>
@@ -305,114 +410,192 @@ export default function GameShell() {
 
       </header>
 
+      {/* =====================================================
+          GAME
+      ====================================================== */}
+
       <section className="game-card">
 
         <div className="game-wrap">
 
-          {/* 3D visual world */}
-          <Stage3D
-            pulseToken={
-              stagePulse
-            }
-          />
-
-          {/* Transparent Phaser runtime */}
+          {/* Three.js / Phaser visual runtime */}
           <div
             id="game-container"
             aria-hidden="true"
           />
 
-          <div className="hud">
+          <div className="hud audition-ui">
+
+            {/* =================================================
+                TOP HUD
+            ================================================== */}
 
             <div className="hud-top">
 
-              <div className="rank-panel">
+              {/* LEFT SIDE */}
 
-                <div className="rank-title">
-                  RANKING
+              <div className="hud-left-column">
+
+                {/* SONG INFO */}
+
+                <div className="song-box sketch-card">
+
+                  <div className="song-icon">
+                    ♫
+                  </div>
+
+                  <div>
+
+                    <div className="song-title">
+                      {chart.title}
+                    </div>
+
+                    <div className="song-meta">
+                      {chart.bpm} BPM ·
+                      Neon Groove
+                    </div>
+
+                  </div>
+
                 </div>
 
-                <div className="rank-row">
-                  <span>
-                    1ST
-                  </span>
+                {/* RANKING */}
 
-                  <b>
-                    ToanDev
-                  </b>
+                <div className="rank-panel sketch-card">
 
-                  <strong>
-                    235,432
-                  </strong>
-                </div>
+                  <div className="rank-title">
+                    RANKING
+                  </div>
 
-                <div className="rank-row">
-                  <span>
-                    2ND
-                  </span>
+                  <div className="rank-row rank-you">
 
-                  <b>
-                    Luna
-                  </b>
+                    <span>
+                      1ST
+                    </span>
 
-                  <strong>
-                    198,765
-                  </strong>
-                </div>
+                    <b>
+                      ToanDev
+                    </b>
 
-                <div className="rank-row">
-                  <span>
-                    3RD
-                  </span>
+                    <strong>
+                      {stats.score.toLocaleString()}
+                    </strong>
 
-                  <b>
-                    Kenzo
-                  </b>
+                  </div>
 
-                  <strong>
-                    176,543
-                  </strong>
-                </div>
+                  <div className="rank-row">
 
-                <div className="rank-row">
-                  <span>
-                    4TH
-                  </span>
+                    <span>
+                      2ND
+                    </span>
 
-                  <b>
-                    Miyuki
-                  </b>
+                    <b>
+                      Luna
+                    </b>
 
-                  <strong>
-                    165,231
-                  </strong>
+                    <strong>
+                      198,765
+                    </strong>
+
+                  </div>
+
+                  <div className="rank-row">
+
+                    <span>
+                      3RD
+                    </span>
+
+                    <b>
+                      Kenzo
+                    </b>
+
+                    <strong>
+                      176,543
+                    </strong>
+
+                  </div>
+
+                  <div className="rank-row">
+
+                    <span>
+                      4TH
+                    </span>
+
+                    <b>
+                      Miyuki
+                    </b>
+
+                    <strong>
+                      165,231
+                    </strong>
+
+                  </div>
+
                 </div>
 
               </div>
 
-              <div className="player-score">
+              {/* RIGHT SIDE */}
 
-                <div>
-                  <span>
-                    SCORE
-                  </span>
+              <div className="my-score sketch-card">
 
-                  <b>
-                    {stats.score.toLocaleString()}
-                  </b>
+                <div className="my-score-title">
+                  MY SCORE
                 </div>
 
-                <div className="score-divider" />
+                <div className="my-score-value">
+                  {stats.score.toLocaleString()}
+                </div>
 
-                <div className="combo-display">
+                <div className="my-score-bottom">
 
-                  <span>
-                    COMBO
+                  <div>
+
+                    <span>
+                      COMBO
+                    </span>
+
+                    <b>
+                      {stats.combo}x
+                    </b>
+
+                  </div>
+
+                  <div>
+
+                    <span>
+                      MAX
+                    </span>
+
+                    <b>
+                      {stats.maxCombo}
+                    </b>
+
+                  </div>
+
+                </div>
+
+                <div className="mini-judgements">
+
+                  <span className="perfect-text">
+                    P {stats.perfect}
                   </span>
 
-                  <b>
-                    {stats.combo}x
-                  </b>
+                  <span className="great-text">
+                    G {stats.great}
+                  </span>
+
+                  <span className="cool-text">
+                    C {stats.cool}
+                  </span>
+
+                  <span className="bad-text">
+                    B {stats.bad}
+                  </span>
+
+                  <span className="miss-text">
+                    M {stats.miss}
+                  </span>
 
                 </div>
 
@@ -420,56 +603,69 @@ export default function GameShell() {
 
             </div>
 
+            {/* =================================================
+                JUDGEMENT
+            ================================================== */}
+
             {judgement && (
+
               <div
                 className={`judgement ${judgement}`}
               >
                 {judgement.toUpperCase()}!
               </div>
+
             )}
 
-            <div className="song-box">
+            {/* =================================================
+                COMMAND AREA
+            ================================================== */}
 
-              <div className="song-icon">
-                ♫
-              </div>
+            <div className="command-area">
 
-              <div>
+              <div className="command-heading">
 
-                <div className="song-title">
-                  {chart.title}
-                </div>
-
-                <div className="song-meta">
-                  {chart.bpm} BPM ·
-                  3D Stage
-                </div>
-
-              </div>
-
-            </div>
-
-            <div className="gameplay-hud">
-
-              <div className="command-section">
-
-                <div className="hud-caption">
+                <span>
                   CHUỖI COMMAND
-                </div>
+                </span>
 
-                <div
-                  className="command-bar"
-                  aria-label="Upcoming commands"
-                >
+                <small>
+                  NEXT {sequenceLength}
+                </small>
 
-                  {sequence.map(
-                    (
-                      direction,
-                      index
-                    ) => (
+              </div>
+
+              <div
+                className="command-bar command-bar-v2"
+                aria-label="Upcoming commands"
+              >
+
+                {visibleSequence.map(
+                  (
+                    direction,
+                    index
+                  ) => (
+
+                    <div
+                      key={`${direction}-${index}`}
+                      className={[
+                        "command-step",
+
+                        index === 0
+                          ? "command-target"
+                          : "",
+
+                        activeDirection ===
+                        direction
+                          ? "command-hit"
+                          : ""
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+
                       <span
-                        key={`${direction}-${index}`}
-                        className={`command-arrow ${direction}`}
+                        className={`command-arrow-v2 ${direction}`}
                       >
                         {
                           directionToArrow(
@@ -477,111 +673,178 @@ export default function GameShell() {
                           )
                         }
                       </span>
-                    )
-                  )}
 
-                  {sequence.length <
-                    8 && (
-                    <span className="command-more">
-                      •••
-                    </span>
-                  )}
+                      {index === 0 && (
+                        <i
+                          aria-hidden="true"
+                        />
+                      )}
 
-                </div>
+                    </div>
+
+                  )
+                )}
 
               </div>
 
-              <div className="controls-row">
+              {/* Placeholder only.
+                  Real gauge comes in Part 3. */}
 
-                <button
-                  className="space-button"
-                  onPointerDown={e => {
-                    e.preventDefault();
+              <div
+                className="timing-preview-slot"
+                aria-hidden="true"
+              >
+
+                <span>
+                  TIMING GAUGE
+                </span>
+
+                <b>
+                  PART 3
+                </b>
+
+              </div>
+
+            </div>
+
+            {/* =================================================
+                MOBILE CONTROLS
+            ================================================== */}
+
+            <div className="controls-row-v2">
+
+              {/* SPACE */}
+
+              <button
+                className="space-button-v2"
+                onPointerDown={
+                  event => {
+                    event.preventDefault();
                     pressSpace();
-                  }}
-                  aria-label="Space timing button"
-                >
+                  }
+                }
+                aria-label="Space timing button"
+              >
+
+                <span>
                   SPACE
+                </span>
 
-                  <small>
-                    TIMING · PART 2
-                  </small>
-                </button>
+                <small>
+                  TAP ON BEAT
+                </small>
 
-                <div
-                  className="dpad"
-                  aria-label="Direction controls"
-                >
+              </button>
+
+              {/* D-PAD */}
+
+              <div
+                className="dpad-v2"
+                aria-label="Direction controls"
+              >
+
+                {directionOrder.map(
+                  direction => (
+
+                    <button
+                      key={direction}
+                      className={[
+                        `dpad-${direction}`,
+                        activeDirection ===
+                        direction
+                          ? "dpad-active"
+                          : ""
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onPointerDown={
+                        event => {
+                          event.preventDefault();
+                          press(direction);
+                        }
+                      }
+                      onKeyDown={
+                        event =>
+                          onKeyDown(
+                            event,
+                            direction
+                          )
+                      }
+                      aria-label={
+                        direction
+                      }
+                    >
+                      {
+                        directionToArrow(
+                          direction
+                        )
+                      }
+                    </button>
+
+                  )
+                )}
+
+                <span
+                  className="dpad-center-v2"
+                  aria-hidden="true"
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* ===================================================
+              START
+          ==================================================== */}
+
+          {!started &&
+            !finished && (
+
+            <div className="start-overlay">
+
+              <div className="start-panel">
+
+                <div className="ready-kicker">
+                  AUDITION MOBILE · PART 2
+                </div>
+
+                <h2>
+                  Ready to dance?
+                </h2>
+
+                <p>
+                  Command UI đã được đưa
+                  về layout gameplay:
+                  stage là trung tâm,
+                  sequence ở dưới và
+                  hai ngón cái điều khiển
+                  SPACE + D-pad.
+                </p>
+
+                <div className="row">
 
                   <button
-                    className="dpad-up"
-                    onPointerDown={e => {
-                      e.preventDefault();
-                      press("up");
-                    }}
-                    onKeyDown={e =>
-                      onKeyDown(
-                        e,
-                        "up"
-                      )
+                    className="button primary"
+                    onClick={
+                      startGame
                     }
                   >
-                    ↑
+                    Start Demo
                   </button>
 
                   <button
-                    className="dpad-left"
-                    onPointerDown={e => {
-                      e.preventDefault();
-                      press("left");
-                    }}
-                    onKeyDown={e =>
-                      onKeyDown(
-                        e,
-                        "left"
+                    className="button"
+                    onClick={() =>
+                      setAudioEnabled(
+                        value => !value
                       )
                     }
                   >
-                    ←
-                  </button>
-
-                  <button
-                    className="dpad-center"
-                    aria-hidden="true"
-                  >
-                    •
-                  </button>
-
-                  <button
-                    className="dpad-right"
-                    onPointerDown={e => {
-                      e.preventDefault();
-                      press("right");
-                    }}
-                    onKeyDown={e =>
-                      onKeyDown(
-                        e,
-                        "right"
-                      )
-                    }
-                  >
-                    →
-                  </button>
-
-                  <button
-                    className="dpad-down"
-                    onPointerDown={e => {
-                      e.preventDefault();
-                      press("down");
-                    }}
-                    onKeyDown={e =>
-                      onKeyDown(
-                        e,
-                        "down"
-                      )
-                    }
-                  >
-                    ↓
+                    {audioEnabled
+                      ? "Sound on"
+                      : "Sound off"}
                   </button>
 
                 </div>
@@ -590,64 +853,14 @@ export default function GameShell() {
 
             </div>
 
-          </div>
+          )}
 
-          {!started &&
-            !finished && (
-              <div className="start-overlay">
-
-                <div className="start-panel">
-
-                  <div className="ready-kicker">
-                    3D STAGE · PART 1.5
-                  </div>
-
-                  <h2>
-                    Ready to dance?
-                  </h2>
-
-                  <p>
-                    A new Three.js 3D stage
-                    is now rendering the
-                    dancers, lighting,
-                    club, floor and crowd.
-                    The existing rhythm
-                    engine remains unchanged.
-                  </p>
-
-                  <div className="row">
-
-                    <button
-                      className="button primary"
-                      onClick={
-                        startGame
-                      }
-                    >
-                      Start Demo
-                    </button>
-
-                    <button
-                      className="button"
-                      onClick={() =>
-                        setAudioEnabled(
-                          value =>
-                            !value
-                        )
-                      }
-                    >
-                      {audioEnabled
-                        ? "Sound on"
-                        : "Sound off"}
-                    </button>
-
-                  </div>
-
-                </div>
-
-              </div>
-            )}
+          {/* ===================================================
+              RESULTS
+          ==================================================== */}
 
           {finished && (
+
             <div className="results">
 
               <div className="results-card">
@@ -663,6 +876,7 @@ export default function GameShell() {
                 <div className="stats">
 
                   <div className="stat">
+
                     <b>
                       {stats.perfect}
                     </b>
@@ -670,9 +884,11 @@ export default function GameShell() {
                     <span>
                       Perfect
                     </span>
+
                   </div>
 
                   <div className="stat">
+
                     <b>
                       {stats.great}
                     </b>
@@ -680,9 +896,11 @@ export default function GameShell() {
                     <span>
                       Great
                     </span>
+
                   </div>
 
                   <div className="stat">
+
                     <b>
                       {stats.maxCombo}
                     </b>
@@ -690,13 +908,16 @@ export default function GameShell() {
                     <span>
                       Max Combo
                     </span>
+
                   </div>
 
                 </div>
 
                 <button
                   className="button primary"
-                  onClick={restart}
+                  onClick={
+                    restart
+                  }
                 >
                   Play Again
                 </button>
@@ -704,28 +925,33 @@ export default function GameShell() {
               </div>
 
             </div>
+
           )}
 
         </div>
 
       </section>
 
+      {/* =====================================================
+          DEV INFO
+      ====================================================== */}
+
       <section className="info-grid">
 
         <div className="panel">
 
           <h3>
-            ✅ Part 1.5
+            ✅ Part 2 implemented
           </h3>
 
           <p>
-            Stage 2D đã được thay bằng
-            Three.js 3D: sân khấu,
-            lighting, crowd, speakers,
-            neon sign và 5 dancer
-            stylized. RhythmEngine,
-            BeatClock, score và input
-            vẫn được giữ nguyên.
+            HUD đã được tổ chức lại theo
+            gameplay sketch: track info +
+            ranking bên trái, My Score bên
+            phải, command sequence ở vùng
+            dưới stage, SPACE bên trái và
+            D-pad bên phải. Input hiện tại
+            vẫn dùng RhythmEngine cũ.
           </p>
 
         </div>
@@ -733,15 +959,15 @@ export default function GameShell() {
         <div className="panel">
 
           <h3>
-            ➡️ Tiếp theo
+            ➡️ Part 3
           </h3>
 
           <p>
-            Part 2 sẽ implement command
-            sequence + timing gauge
-            Audition-style: SCORE ZONE
-            75–95%, PERFECT ở tâm,
-            MISS ngoài zone.
+            Timing Gauge thật sẽ thay slot
+            hiện tại bằng score zone 75–95%,
+            BAD → COOL → GREAT → PERFECT →
+            GREAT → COOL → BAD và MISS ở
+            ngoài zone.
           </p>
 
         </div>
@@ -836,7 +1062,8 @@ function playMetronome(
     }
 
     window.setTimeout(
-      () => ctx.close(),
+      () =>
+        ctx.close(),
       (total * interval +
         300) *
         1.1
