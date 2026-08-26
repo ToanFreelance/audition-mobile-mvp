@@ -97,11 +97,6 @@ export default function GameShell() {
   ] = useState(0);
 
   const [
-    filledFirst,
-    setFilledFirst,
-  ] = useState(false);
-
-  const [
     stats,
     setStats,
   ] = useState<GameStats>(
@@ -207,7 +202,7 @@ export default function GameShell() {
 
             onSequence: (
               next,
-              nextFilledFirst
+              nextFilledCount
             ) => {
               const nextSequence =
                 next.length
@@ -226,12 +221,14 @@ export default function GameShell() {
                 nextSequence
               );
 
-              setFilledFirst(
-                nextFilledFirst
-              );
-
               setCompletedCommands(
-                nextFilledFirst ? 1 : 0
+                Math.max(
+                  0,
+                  Math.min(
+                    8,
+                    nextFilledCount
+                  )
+                )
               );
             },
 
@@ -414,13 +411,43 @@ export default function GameShell() {
   function pressDirection(
     direction: Direction
   ) {
-    flashDirection(
+    flashDirection(direction);
+
+    const currentTarget =
+      sequence[completedCommands];
+
+    if (
+      currentTarget !==
       direction
-    );
+    ) {
+      setWrongDirection(
+        direction
+      );
+
+      window.setTimeout(
+        () => {
+          setWrongDirection(
+            (
+              current: Direction | null
+            ) =>
+              current === direction
+                ? null
+                : current
+          );
+        },
+        180
+      );
+    } else {
+      setWrongDirection(
+        null
+      );
+    }
 
     /*
-     * Do not fill an arrow from the UI alone.
-     * GameScene/RhythmEngine is the source of truth.
+     * Direction input is a COMMAND input.
+     * It is intentionally not judged against the
+     * beat here. Timing/SPACE will be connected
+     * in the next part.
      */
     sceneRef.current?.handleInput(
       direction
@@ -794,7 +821,7 @@ export default function GameShell() {
                             : "",
 
                           activeDirection ===
-                          direction &&
+                            direction &&
                           isTarget
                             ? "command-pressed"
                             : "",
@@ -805,11 +832,7 @@ export default function GameShell() {
 
                         <ArrowIcon
                           direction={direction}
-                          filled={
-                            isCompleted ||
-                            (filledFirst &&
-                              index === 0)
-                          }
+                          filled={isCompleted}
                           target={isTarget}
                         />
 
@@ -951,7 +974,7 @@ export default function GameShell() {
 
             </div>
 
-          </div> 
+          </div>
 
           {/* ===================================================
               START
@@ -1143,48 +1166,57 @@ function ArrowIcon({
           ? 180
           : 270;
 
+  /*
+   * Deliberately short tail.
+   * The previous path used a long 22px shaft,
+   * which made the arrow look like a stretched
+   * keyboard glyph instead of the compact
+   * Audition-style command arrow.
+   */
+  const path =
+    "M7 15H20V9L34 20L20 31V25H7V15Z";
+
   return (
     <svg
-      className={[
+      className={
         compact
           ? "dpad-arrow-icon"
-          : "command-arrow-icon",
-        filled
-          ? "is-filled"
-          : "is-outline",
-        target
-          ? "is-target"
-          : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      viewBox="0 0 48 40"
+          : "command-arrow-icon"
+      }
+      viewBox="0 0 40 40"
       aria-hidden="true"
       style={{
-        width: compact ? 31 : 44,
-        height: compact ? 31 : 44,
+        width: compact ? 30 : 42,
+        height: compact ? 30 : 42,
         display: "block",
         overflow: "visible",
         transform: `rotate(${rotation}deg)`,
         transformOrigin: "center",
         filter: filled
-          ? `drop-shadow(0 0 4px ${color}) drop-shadow(0 0 9px ${color})`
+          ? `drop-shadow(0 0 4px ${color}) drop-shadow(0 0 10px ${color})`
           : `drop-shadow(0 0 2px ${color})`,
-        opacity: target || filled ? 1 : 0.88,
+        opacity:
+          target || filled
+            ? 1
+            : 0.82,
+        transition:
+          "transform 120ms ease, filter 120ms ease, opacity 120ms ease",
       }}
     >
       <path
-        d="M5 14H27V7L43 20L27 33V26H5V14Z"
+        d={path}
         fill={
           filled
             ? color
-            : "transparent"
+            : "rgba(0,0,0,0.02)"
         }
         stroke={color}
         strokeWidth={
-          filled ? 0 : 1.8
+          filled
+            ? 0
+            : 1.8
         }
-        strokeLinejoin="round"
+        strokeLinejoin="miter"
       />
     </svg>
   );
