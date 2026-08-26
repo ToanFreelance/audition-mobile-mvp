@@ -210,12 +210,11 @@ export default function GameShell() {
                   : fallbackSequence;
 
               /*
-               * When the engine advances the
-               * command sequence, reset the
-               * local visual completion state.
-               *
-               * The engine remains the source
-               * of truth for the actual gameplay.
+               * GameScene is the source of truth for
+               * command entry. The second value is the
+               * number of commands that have actually
+               * been entered correctly in this 8-step
+               * strip.
                */
               setSequence(
                 nextSequence
@@ -225,7 +224,7 @@ export default function GameShell() {
                 Math.max(
                   0,
                   Math.min(
-                    8,
+                    nextSequence.length,
                     nextFilledCount
                   )
                 )
@@ -395,48 +394,41 @@ export default function GameShell() {
    *
    * IMPORTANT:
    *
-   * We only mark the current arrow as
-   * FILLED when it matches the current
-   * target.
-   *
-   * Wrong direction:
-   * - stays outline
-   * - gets a short red feedback
+   * Direction input is a command step.
+   * Timing is intentionally NOT checked here.
    *
    * Correct direction:
    * - becomes filled
    * - glows
    * - advances to the next command
+   *
+   * Wrong direction:
+   * - stays outline
+   * - gets short red feedback
    */
   function pressDirection(
     direction: Direction
   ) {
-    flashDirection(direction);
+    flashDirection(
+      direction
+    );
 
-    const currentTarget =
+    const target =
       sequence[completedCommands];
 
-    if (
-      currentTarget !==
-      direction
-    ) {
+    if (target !== direction) {
       setWrongDirection(
         direction
       );
 
-      window.setTimeout(
-        () => {
-          setWrongDirection(
-            (
-              current: Direction | null
-            ) =>
-              current === direction
-                ? null
-                : current
-          );
-        },
-        180
-      );
+      window.setTimeout(() => {
+        setWrongDirection(
+          current =>
+            current === direction
+              ? null
+              : current
+        );
+      }, 180);
     } else {
       setWrongDirection(
         null
@@ -444,10 +436,8 @@ export default function GameShell() {
     }
 
     /*
-     * Direction input is a COMMAND input.
-     * It is intentionally not judged against the
-     * beat here. Timing/SPACE will be connected
-     * in the next part.
+     * GameScene handles command sequence
+     * validation. It does NOT check beat timing.
      */
     sceneRef.current?.handleInput(
       direction
@@ -821,7 +811,7 @@ export default function GameShell() {
                             : "",
 
                           activeDirection ===
-                            direction &&
+                          direction &&
                           isTarget
                             ? "command-pressed"
                             : "",
@@ -832,7 +822,9 @@ export default function GameShell() {
 
                         <ArrowIcon
                           direction={direction}
-                          filled={isCompleted}
+                          filled={
+                            isCompleted
+                          }
                           target={isTarget}
                         />
 
@@ -1167,57 +1159,95 @@ function ArrowIcon({
           : 270;
 
   /*
-   * Deliberately short tail.
-   * The previous path used a long 22px shaft,
-   * which made the arrow look like a stretched
-   * keyboard glyph instead of the compact
-   * Audition-style command arrow.
+   * Compact Audition-style arrow.
+   *
+   * The previous SVG used a 38px-wide body inside a
+   * 44px cell, which made the tail visually overlap
+   * the neighbouring command on portrait screens.
+   *
+   * This path has a short shaft and a larger head.
    */
   const path =
-    "M7 15H20V9L34 20L20 31V25H7V15Z";
+    "M5 14H22V8L36 20L22 32V26H5V14Z";
+
+  const width =
+    compact ? 26 : 30;
+
+  const height =
+    compact ? 26 : 30;
 
   return (
     <svg
-      className={
+      className={[
         compact
           ? "dpad-arrow-icon"
-          : "command-arrow-icon"
-      }
-      viewBox="0 0 40 40"
+          : "command-arrow-icon command-arrow-v2",
+
+        filled
+          ? "is-filled arrow-filled"
+          : "is-outline arrow-outline",
+
+        target
+          ? "is-target"
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+
+      viewBox="0 0 42 40"
+
       aria-hidden="true"
+
       style={{
-        width: compact ? 30 : 42,
-        height: compact ? 30 : 42,
+        width,
+        height,
+
         display: "block",
+
         overflow: "visible",
-        transform: `rotate(${rotation}deg)`,
-        transformOrigin: "center",
+
+        flex: "0 0 auto",
+
+        transform:
+          `rotate(${rotation}deg)`,
+
+        transformOrigin:
+          "center",
+
         filter: filled
           ? `drop-shadow(0 0 4px ${color}) drop-shadow(0 0 10px ${color})`
           : `drop-shadow(0 0 2px ${color})`,
+
         opacity:
           target || filled
             ? 1
-            : 0.82,
+            : 0.86,
+
         transition:
-          "transform 120ms ease, filter 120ms ease, opacity 120ms ease",
+          "filter 120ms ease, opacity 120ms ease, transform 120ms ease",
       }}
     >
+
       <path
         d={path}
+
         fill={
           filled
             ? color
-            : "rgba(0,0,0,0.02)"
+            : "rgba(0,0,0,0.015)"
         }
+
         stroke={color}
+
         strokeWidth={
           filled
             ? 0
             : 1.8
         }
+
         strokeLinejoin="miter"
       />
+
     </svg>
   );
 }

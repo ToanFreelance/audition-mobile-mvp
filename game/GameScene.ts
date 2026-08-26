@@ -10,27 +10,38 @@ import { BeatClock } from "./clock";
 
 const W = 960;
 const H = 540;
-const COMMAND_SIZE = 8;
+
+const DEMO_COMMANDS: Direction[] = [
+  "left",
+  "up",
+  "down",
+  "right",
+  "left",
+  "right",
+  "up",
+  "down",
+];
 
 export type GameCallbacks = {
-  onStats: (stats: GameStats) => void;
+  onStats: (
+    stats: GameStats
+  ) => void;
+
   onJudgement: (
     judgement: Judgement
   ) => void;
+
   onFinished: (
     stats: GameStats
   ) => void;
 
-  /**
-   * Current 8-step command block + number of
-   * commands already entered correctly.
+  /*
+   * directions:
+   *   Current 8-command block.
    *
-   * Example:
-   * directions = [L,U,D,R,L,R,U,D]
-   * filledCount = 3
-   *
-   * UI renders:
-   * [FILLED] [FILLED] [FILLED] [TARGET] [ ] [ ] [ ] [ ]
+   * filledCount:
+   *   Number of commands already entered
+   *   correctly inside that block.
    */
   onSequence: (
     directions: Direction[],
@@ -41,28 +52,42 @@ export type GameCallbacks = {
 /**
  * Phaser is the rhythm/input runtime.
  *
- * IMPORTANT FOR PART 2:
- * Direction buttons are command-entry controls.
- * They are NOT judged against the beat yet.
+ * Part 2:
  *
- * Timing judgement will be connected to SPACE
- * in Part 3, where the marker position is compared
- * with the 75%–95% score zone.
+ * D-PAD = command sequence entry.
+ *
+ * Timing is deliberately NOT checked here.
+ *
+ * Part 3:
+ *
+ * SPACE = timing judgement.
+ *
+ * That part will reconnect RhythmEngine.judge()
+ * and BeatClock to the SPACE button.
  */
-export class GameScene extends Phaser.Scene {
+export class GameScene
+  extends Phaser.Scene {
+
   private chart!: Chart;
+
   private engine!: RhythmEngine;
+
   private clock!: BeatClock;
+
   private callbacks!: GameCallbacks;
 
   private started = false;
+
   private finished = false;
 
-  /** Absolute note cursor for command entry. */
+  /*
+   * Absolute command cursor.
+   *
+   * 0 = first command
+   * 1 = second command
+   * ...
+   */
   private commandCursor = 0;
-
-  /** Prevent duplicate input from the same touch/pointer event. */
-  private lastInputAt = 0;
 
   constructor() {
     super("GameScene");
@@ -72,9 +97,18 @@ export class GameScene extends Phaser.Scene {
     chart: Chart;
     callbacks: GameCallbacks;
   }) {
-    this.chart = data.chart;
-    this.callbacks = data.callbacks;
+    this.chart =
+      data.chart;
 
+    this.callbacks =
+      data.callbacks;
+
+    /*
+     * Keep both existing systems alive.
+     *
+     * RhythmEngine and BeatClock will be used
+     * by Part 3.
+     */
     this.engine =
       new RhythmEngine(
         this.chart
@@ -88,6 +122,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    /*
+     * Three.js owns the visible stage.
+     *
+     * Phaser remains responsible for
+     * keyboard input and the gameplay runtime.
+     */
+
     this.input.keyboard?.on(
       "keydown-LEFT",
       () =>
@@ -151,33 +192,53 @@ export class GameScene extends Phaser.Scene {
           "right"
         )
     );
-
-    this.emitCommandState();
   }
 
   startRound() {
-    if (this.started) {
+    if (
+      this.started
+    ) {
       return;
     }
 
-    this.started = true;
-    this.finished = false;
-    this.commandCursor = 0;
-    this.lastInputAt = 0;
+    this.started =
+      true;
 
+    this.finished =
+      false;
+
+    this.commandCursor =
+      0;
+
+    /*
+     * Keep BeatClock alive because Part 3
+     * will use it for SPACE timing.
+     *
+     * It does NOT affect D-PAD input.
+     */
     this.clock.start();
 
     this.emitCommandState();
   }
 
   /**
-   * Handle a D-pad / keyboard command.
+   * Handle D-PAD / keyboard command input.
    *
-   * This deliberately does NOT call RhythmEngine.judge().
-   * Direction entry happens before timing in the intended
-   * Audition-style flow:
+   * IMPORTANT:
    *
-   *   D-PAD → build command → SPACE → timing judgement
+   * This method intentionally does NOT call:
+   *
+   *   engine.judge(...)
+   *
+   * because D-PAD is sequence entry.
+   *
+   * Correct direction:
+   *   advance command cursor.
+   *
+   * Wrong direction:
+   *   do nothing.
+   *
+   * SPACE will perform timing judgement later.
    */
   handleInput(
     direction: Direction
@@ -189,53 +250,70 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const now =
-      typeof performance !==
-      "undefined"
-        ? performance.now()
-        : Date.now();
+    const targetDirection =
+      this.getCommandDirection(
+        this.commandCursor
+      );
 
-    // Ignore accidental duplicate pointer/keyboard events
-    // that arrive within a few milliseconds.
     if (
-      now -
-        this.lastInputAt <
-      35
+      !targetDirection
     ) {
       return;
     }
 
-    this.lastInputAt = now;
-
-    const expected =
-      this.chart.notes[
-        this.commandCursor
-      ];
-
-    if (!expected) {
-      return;
-    }
-
+    /*
+     * Wrong command.
+     *
+     * Do not advance.
+     * Do not fill.
+     * Do not consume a note.
+     */
     if (
       direction !==
-      expected.direction
+      targetDirection
     ) {
-      // Wrong direction: do not advance and do not fill.
-      // Timing/MISS penalties will be handled in Part 3.
       return;
     }
 
-    // Correct command: advance immediately.
+    /*
+     * Correct command.
+     */
     this.commandCursor++;
 
     this.emitCommandState();
+
+    /*
+     * End of command list.
+     *
+     * This is only a frontend demo completion.
+     * Real scoring/combo/timing will be connected
+     * in Part 3.
+     */
+    if (
+      this.commandCursor >=
+      this.chart.notes.length
+    ) {
+      this.finished =
+        true;
+
+      this.callbacks.onFinished({
+        ...this.engine.stats,
+      });
+    }
   }
 
   /**
-   * Placeholder for the upcoming SPACE timing action.
+   * Placeholder for SPACE.
    *
-   * It intentionally does nothing in Part 2 so the
-   * command-input behavior can be tested independently.
+   * Part 3 will implement:
+   *
+   *   SPACE
+   *      ↓
+   *   marker position
+   *      ↓
+   *   75–95% score zone
+   *      ↓
+   *   PERFECT / GREAT / COOL / BAD / MISS
    */
   handleSpace() {
     if (
@@ -245,54 +323,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Part 3 will call RhythmEngine.judge() here.
-  }
-
-  private emitCommandState() {
-    const total =
-      this.chart.notes.length;
-
-    if (total === 0) {
-      this.callbacks.onSequence(
-        [],
-        0
-      );
-
-      return;
-    }
-
-    const blockStart =
-      Math.floor(
-        this.commandCursor /
-          COMMAND_SIZE
-      ) * COMMAND_SIZE;
-
-    const directions =
-      this.chart.notes
-        .slice(
-          blockStart,
-          blockStart +
-            COMMAND_SIZE
-        )
-        .map(
-          note =>
-            note.direction
-        );
-
-    const filledCount =
-      Math.max(
-        0,
-        Math.min(
-          directions.length,
-          this.commandCursor -
-            blockStart
-        )
-      );
-
-    this.callbacks.onSequence(
-      directions,
-      filledCount
-    );
+    // Intentionally empty for Part 2.
   }
 
   update() {
@@ -304,37 +335,107 @@ export class GameScene extends Phaser.Scene {
     }
 
     /*
-     * Keep the existing rhythm runtime alive so the
-     * rest of the prototype continues to function.
+     * DO NOT call:
      *
-     * We intentionally do not let it consume command
-     * input. Part 3 will reconnect judgement to SPACE.
+     *   this.engine.update(beat)
+     *
+     * here yet.
+     *
+     * That would automatically mark notes as MISS
+     * while the player is only testing D-PAD input.
+     *
+     * Automatic MISS belongs to the timing system
+     * that we will connect to SPACE in Part 3.
      */
-    const beat =
-      this.clock.currentBeat;
 
     this.callbacks.onStats({
       ...this.engine.stats,
     });
+  }
 
-    const lastBeat =
-      this.chart.notes[
-        this.chart.notes.length -
-          1
-      ]?.beat ?? 0;
-
+  /**
+   * Demo command sequence.
+   *
+   * The first 8 commands intentionally match
+   * the approved mobile sketch:
+   *
+   *   ← ↑ ↓ → ← → ↑ ↓
+   *
+   * After those 8 commands, the existing chart
+   * continues to provide the next commands.
+   */
+  private getCommandDirection(
+    index: number
+  ): Direction | undefined {
     if (
-      this.commandCursor >=
-        this.chart.notes.length &&
-      beat >
-        lastBeat + 2
+      index <
+      DEMO_COMMANDS.length
     ) {
-      this.finished = true;
-
-      this.callbacks.onFinished({
-        ...this.engine.stats,
-      });
+      return DEMO_COMMANDS[
+        index
+      ];
     }
+
+    return this.chart.notes[
+      index
+    ]?.direction;
+  }
+
+  /**
+   * Emit the current 8-command block.
+   *
+   * Example:
+   *
+   * cursor = 3
+   *
+   *   ← ↑ ↓ → ← → ↑ ↓
+   *   ✓ ✓ ✓ ↑
+   *
+   * filledCount = 3
+   */
+  private emitCommandState() {
+    const blockStart =
+      Math.floor(
+        this.commandCursor /
+          8
+      ) * 8;
+
+    const directions =
+      Array.from(
+        {
+          length: 8,
+        },
+        (
+          _,
+          index
+        ) =>
+          this.getCommandDirection(
+            blockStart +
+              index
+          )
+      ).filter(
+        (
+          direction
+        ): direction is Direction =>
+          Boolean(
+            direction
+          )
+      );
+
+    const filledCount =
+      this.commandCursor -
+      blockStart;
+
+    this.callbacks.onSequence(
+      directions,
+      Math.max(
+        0,
+        Math.min(
+          directions.length,
+          filledCount
+        )
+      )
+    );
   }
 }
 
@@ -343,13 +444,15 @@ export function createPhaserGame(
   chart: Chart,
   callbacks: GameCallbacks
 ) {
-  const config: Phaser.Types.Core.GameConfig =
+  const config:
+    Phaser.Types.Core.GameConfig =
     {
       type: Phaser.AUTO,
 
       parent,
 
       width: W,
+
       height: H,
 
       transparent: true,
@@ -358,14 +461,18 @@ export function createPhaserGame(
         "rgba(0,0,0,0)",
 
       scale: {
-        mode: Phaser.Scale.FIT,
+        mode:
+          Phaser.Scale.FIT,
+
         autoCenter:
           Phaser.Scale.CENTER_BOTH,
       },
 
       render: {
         antialias: true,
+
         pixelArt: false,
+
         transparent: true,
       },
 
@@ -387,6 +494,7 @@ export function createPhaserGame(
     true,
     {
       chart,
+
       callbacks,
     }
   );
