@@ -1,5 +1,52 @@
 import { test, expect } from "@playwright/test";
 
+async function startGame(page: any, isMobile: boolean) {
+  const startButton = page.getByRole("button", {
+    name: "Start Demo",
+  });
+
+  await expect(startButton).toBeVisible();
+
+  if (isMobile) {
+    await startButton.tap();
+  } else {
+    await startButton.click();
+  }
+}
+
+async function pressDirection(
+  page: any,
+  isMobile: boolean,
+  direction: "left" | "up" | "down" | "right"
+) {
+  if (isMobile) {
+    await page.getByRole("button", {
+      name: direction,
+    }).tap();
+    return;
+  }
+
+  const keys = {
+    left: "ArrowLeft",
+    up: "ArrowUp",
+    down: "ArrowDown",
+    right: "ArrowRight",
+  } as const;
+
+  await page.keyboard.press(keys[direction]);
+}
+
+async function pressSpace(page: any, isMobile: boolean) {
+  if (isMobile) {
+    await page.getByRole("button", {
+      name: "Space timing button",
+    }).tap();
+    return;
+  }
+
+  await page.keyboard.press("Space");
+}
+
 test.describe("Audition Mobile MVP — QA", () => {
   test("A1 — application loads", async ({ page }) => {
     const consoleErrors: string[] = [];
@@ -55,59 +102,45 @@ test.describe("Audition Mobile MVP — QA", () => {
   test("A2 — mobile controls are visible and tappable", async ({
     page,
   }) => {
+    test.skip(
+      test.info().project.name !== "mobile",
+      "A2 is mobile-specific"
+    );
+
     await page.goto("/", {
       waitUntil: "domcontentloaded",
     });
 
-    const startButton = page.getByRole("button", {
-      name: "Start Demo",
-    });
+    await startGame(page, true);
 
-    await expect(startButton).toBeVisible();
+    const buttonNames = [
+      "left",
+      "up",
+      "down",
+      "right",
+      "Space timing button",
+    ];
 
-    await startButton.tap();
+    for (const name of buttonNames) {
+      const button = page.getByRole("button", {
+        name,
+      });
 
-    const dpad = page.getByRole("button", {
-      name: "left",
-    });
-
-    await expect(dpad).toBeVisible();
-
-    await expect(
-      page.getByRole("button", {
-        name: "up",
-      })
-    ).toBeVisible();
-
-    await expect(
-      page.getByRole("button", {
-        name: "down",
-      })
-    ).toBeVisible();
-
-    await expect(
-      page.getByRole("button", {
-        name: "right",
-      })
-    ).toBeVisible();
-
-    await expect(
-      page.getByRole("button", {
-        name: "Space timing button",
-      })
-    ).toBeVisible();
+      await expect(button).toBeVisible();
+    }
   });
 
-  test("A3 — correct D-pad input advances exactly one command", async ({
+  test("A3 — correct direction advances exactly one command", async ({
     page,
   }) => {
+    const isMobile =
+      test.info().project.name === "mobile";
+
     await page.goto("/", {
       waitUntil: "domcontentloaded",
     });
 
-    await page.getByRole("button", {
-      name: "Start Demo",
-    }).tap();
+    await startGame(page, isMobile);
 
     const commandBar = page.locator(
       '[aria-label="Upcoming commands"]'
@@ -128,9 +161,11 @@ test.describe("Audition Mobile MVP — QA", () => {
      * → LEFT → RIGHT → UP → DOWN
      */
 
-    await page.getByRole("button", {
-      name: "left",
-    }).tap();
+    await pressDirection(
+      page,
+      isMobile,
+      "left"
+    );
 
     await expect(
       steps.nth(0)
@@ -140,25 +175,22 @@ test.describe("Audition Mobile MVP — QA", () => {
       steps.nth(1)
     ).toHaveClass(/command-target/);
 
-    /*
-     * The second command must NOT already
-     * be completed after one tap.
-     */
     await expect(
       steps.nth(1)
     ).not.toHaveClass(/command-completed/);
   });
 
-  test("A4 — wrong D-pad input does not advance sequence", async ({
+  test("A4 — wrong direction does not advance sequence", async ({
     page,
   }) => {
+    const isMobile =
+      test.info().project.name === "mobile";
+
     await page.goto("/", {
       waitUntil: "domcontentloaded",
     });
 
-    await page.getByRole("button", {
-      name: "Start Demo",
-    }).tap();
+    await startGame(page, isMobile);
 
     const steps = page.locator(
       '[aria-label="Upcoming commands"] .command-step'
@@ -166,12 +198,14 @@ test.describe("Audition Mobile MVP — QA", () => {
 
     /*
      * First target is LEFT.
-     * Press RIGHT intentionally.
+     * Intentionally press RIGHT.
      */
 
-    await page.getByRole("button", {
-      name: "right",
-    }).tap();
+    await pressDirection(
+      page,
+      isMobile,
+      "right"
+    );
 
     await expect(
       steps.nth(0)
@@ -186,46 +220,52 @@ test.describe("Audition Mobile MVP — QA", () => {
     ).not.toHaveClass(/command-completed/);
   });
 
-  test("A5 — SPACE button is interactive", async ({
+  test("A5 — SPACE input is interactive", async ({
     page,
   }) => {
+    const isMobile =
+      test.info().project.name === "mobile";
+
     await page.goto("/", {
       waitUntil: "domcontentloaded",
     });
 
-    await page.getByRole("button", {
-      name: "Start Demo",
-    }).tap();
+    await startGame(page, isMobile);
 
     const spaceButton = page.getByRole("button", {
       name: "Space timing button",
     });
 
-    await expect(spaceButton).toBeVisible();
+    if (isMobile) {
+      await expect(spaceButton).toBeVisible();
+    }
 
-    await spaceButton.tap();
+    await pressSpace(page, isMobile);
 
     /*
-     * Part 2 intentionally has no timing
-     * judgement implementation yet.
-     *
-     * This test only verifies that the
-     * mobile interaction path exists and
-     * does not crash the application.
+     * Timing judgement is not part of this QA yet.
+     * This test verifies that the input path exists
+     * and does not crash the application.
      */
-    await expect(spaceButton).toBeVisible();
+
+    if (isMobile) {
+      await expect(spaceButton).toBeVisible();
+    }
   });
 
-  test("A6 — all primary mobile controls have adequate hit area", async ({
+  test("A6 — mobile controls have adequate hit area", async ({
     page,
   }) => {
+    test.skip(
+      test.info().project.name !== "mobile",
+      "A6 is mobile-specific"
+    );
+
     await page.goto("/", {
       waitUntil: "domcontentloaded",
     });
 
-    await page.getByRole("button", {
-      name: "Start Demo",
-    }).tap();
+    await startGame(page, true);
 
     const buttonNames = [
       "left",
