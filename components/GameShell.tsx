@@ -278,38 +278,6 @@ export default function GameShell() {
    * This listener only controls the
    * visual UI feedback.
    */
-  useEffect(() => {
-    const onKeyDown = (
-      event: globalThis.KeyboardEvent
-    ) => {
-      const direction =
-        keyToDirection[
-          event.key
-        ];
-
-      if (
-        !direction ||
-        event.repeat
-      ) {
-        return;
-      }
-
-      pressDirection(
-        direction
-      );
-    };
-
-    window.addEventListener(
-      "keydown",
-      onKeyDown
-    );
-
-    return () =>
-      window.removeEventListener(
-        "keydown",
-        onKeyDown
-      );
-  }, [sequence, completedCommands]);
 
   useEffect(() => {
     return () => {
