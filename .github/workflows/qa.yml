@@ -30,7 +30,7 @@ jobs:
         run: npm install
 
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Build application
         run: npm run build
