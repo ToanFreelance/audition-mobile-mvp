@@ -34,6 +34,8 @@ export class GameScene extends Phaser.Scene {
   private engine!: RhythmEngine;
   private clock!: BeatClock;
   private callbacks!: GameCallbacks;
+  private initialized = false;
+  private pendingRoundStart = false;
   private started = false;
   private finished = false;
   private commandCursor = 0;
@@ -70,14 +72,25 @@ export class GameScene extends Phaser.Scene {
 
     this.engine = new RhythmEngine(this.chart);
     this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
+    this.initialized = true;
 
     // Phaser's Scene Systems are guaranteed to exist by init(); they are
     // not safe to access from the Scene constructor.
     this.events.on("shutdown", this.detachKeyboard, this);
     this.events.on("destroy", this.detachKeyboard, this);
+
+    if (this.pendingRoundStart) {
+      this.pendingRoundStart = false;
+      this.startRound();
+    }
   }
 
   startRound() {
+    if (!this.initialized) {
+      this.pendingRoundStart = true;
+      return;
+    }
+
     if (this.started) {
       return;
     }
