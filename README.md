@@ -57,3 +57,4 @@ game/
 This first prototype intentionally uses `performance.now()` as the gameplay clock and a synthetic Web Audio metronome. It is good for validating the interaction model, but it is **not yet production-grade music synchronization**.
 
 The next step should be an audio-backed clock using Web Audio timing, followed by a chart editor and real song/chart assets.
+Codex Cloud write access test.
