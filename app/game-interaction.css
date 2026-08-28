@@ -1,0 +1,7 @@
+.start-overlay {
+  pointer-events: none;
+}
+
+.start-overlay .start-panel {
+  pointer-events: auto;
+}

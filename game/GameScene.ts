@@ -89,8 +89,53 @@ export class GameScene
    */
   private commandCursor = 0;
 
+  private keyboardAttached = false;
+
+  private readonly keyboardHandler = (
+    event: KeyboardEvent
+  ) => {
+    if (
+      event.repeat ||
+      !this.started ||
+      this.finished
+    ) {
+      return;
+    }
+
+    const directionByKey: Partial<
+      Record<string, Direction>
+    > = {
+      ArrowLeft: "left",
+      ArrowUp: "up",
+      ArrowDown: "down",
+      ArrowRight: "right",
+    };
+
+    const direction =
+      directionByKey[event.key];
+
+    if (!direction) {
+      return;
+    }
+
+    event.preventDefault();
+    this.handleInput(direction);
+  };
+
   constructor() {
     super("GameScene");
+
+    this.events.on(
+      "shutdown",
+      this.detachKeyboard,
+      this
+    );
+
+    this.events.on(
+      "destroy",
+      this.detachKeyboard,
+      this
+    );
   }
 
   init(data: {
@@ -136,6 +181,8 @@ export class GameScene
 
     this.commandCursor =
       0;
+
+    this.attachKeyboard();
 
     /*
      * Keep BeatClock alive because Part 3
@@ -363,6 +410,40 @@ export class GameScene
         )
       )
     );
+  }
+
+  private attachKeyboard() {
+    if (
+      this.keyboardAttached ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    window.addEventListener(
+      "keydown",
+      this.keyboardHandler
+    );
+
+    this.keyboardAttached =
+      true;
+  }
+
+  private detachKeyboard() {
+    if (
+      !this.keyboardAttached ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    window.removeEventListener(
+      "keydown",
+      this.keyboardHandler
+    );
+
+    this.keyboardAttached =
+      false;
   }
 }
 
