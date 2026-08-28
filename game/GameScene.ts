@@ -79,8 +79,6 @@ export class GameScene extends Phaser.Scene {
     this.clock.start();
     this.emitCommandState();
 
-    // A user can tap a direction immediately after Start Demo while Phaser
-    // is still booting. Replay those real inputs once the scene is ready.
     const queuedInputs = this.queuedInputs;
     this.queuedInputs = [];
 
@@ -94,14 +92,23 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Preserve a real user input that arrives between Start Demo and Phaser
-    // finishing scene initialization. It will be consumed exactly once when
-    // startRound() completes.
-    if (!this.initialized || !this.started) {
+    if (!this.initialized) {
       if (this.roundRequested) {
         this.queuedInputs.push(direction);
       }
       return;
+    }
+
+    if (!this.started) {
+      // The React start request can race Phaser's scene registration: the
+      // scene object may not be discoverable by GameShell yet. Once the
+      // start overlay is gone, the user has explicitly started the round;
+      // recover that request here before consuming the real input.
+      if (!document.querySelector(".start-overlay")) {
+        this.startRound();
+      } else {
+        return;
+      }
     }
 
     const targetDirection = this.getCommandDirection(this.commandCursor);
@@ -109,12 +116,10 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Wrong direction: keep the cursor on the same command.
     if (direction !== targetDirection) {
       return;
     }
 
-    // Correct direction: consume exactly one command and update the HUD.
     this.commandCursor++;
     this.emitCommandState();
 
@@ -137,7 +142,6 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Do not auto-MISS during the Part 2 command-entry prototype.
     this.callbacks.onStats({ ...this.engine.stats });
   }
 
