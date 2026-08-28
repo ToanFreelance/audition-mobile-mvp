@@ -36,31 +36,11 @@ export class GameScene extends Phaser.Scene {
   private callbacks!: GameCallbacks;
   private initialized = false;
   private pendingRoundStart = false;
+  private roundRequested = false;
   private started = false;
   private finished = false;
   private commandCursor = 0;
-  private keyboardAttached = false;
-
-  private readonly keyboardHandler = (event: KeyboardEvent) => {
-    if (event.repeat || !this.started || this.finished) {
-      return;
-    }
-
-    const directionByKey: Partial<Record<string, Direction>> = {
-      ArrowLeft: "left",
-      ArrowUp: "up",
-      ArrowDown: "down",
-      ArrowRight: "right",
-    };
-
-    const direction = directionByKey[event.key];
-    if (!direction) {
-      return;
-    }
-
-    event.preventDefault();
-    this.handleInput(direction);
-  };
+  private queuedInputs: Direction[] = [];
 
   constructor() {
     super("GameScene");
@@ -74,11 +54,6 @@ export class GameScene extends Phaser.Scene {
     this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
     this.initialized = true;
 
-    // Phaser's Scene Systems are guaranteed to exist by init(); they are
-    // not safe to access from the Scene constructor.
-    this.events.on("shutdown", this.detachKeyboard, this);
-    this.events.on("destroy", this.detachKeyboard, this);
-
     if (this.pendingRoundStart) {
       this.pendingRoundStart = false;
       this.startRound();
@@ -86,6 +61,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   startRound() {
+    this.roundRequested = true;
+
     if (!this.initialized) {
       this.pendingRoundStart = true;
       return;
@@ -99,13 +76,31 @@ export class GameScene extends Phaser.Scene {
     this.finished = false;
     this.commandCursor = 0;
 
-    this.attachKeyboard();
     this.clock.start();
     this.emitCommandState();
+
+    // A user can tap a direction immediately after Start Demo while Phaser
+    // is still booting. Replay those real inputs once the scene is ready.
+    const queuedInputs = this.queuedInputs;
+    this.queuedInputs = [];
+
+    for (const direction of queuedInputs) {
+      this.handleInput(direction);
+    }
   }
 
   handleInput(direction: Direction) {
-    if (!this.started || this.finished) {
+    if (this.finished) {
+      return;
+    }
+
+    // Preserve a real user input that arrives between Start Demo and Phaser
+    // finishing scene initialization. It will be consumed exactly once when
+    // startRound() completes.
+    if (!this.initialized || !this.started) {
+      if (this.roundRequested) {
+        this.queuedInputs.push(direction);
+      }
       return;
     }
 
@@ -166,24 +161,6 @@ export class GameScene extends Phaser.Scene {
       directions,
       Math.max(0, Math.min(directions.length, filledCount))
     );
-  }
-
-  private attachKeyboard() {
-    if (this.keyboardAttached || typeof window === "undefined") {
-      return;
-    }
-
-    window.addEventListener("keydown", this.keyboardHandler);
-    this.keyboardAttached = true;
-  }
-
-  private detachKeyboard() {
-    if (!this.keyboardAttached || typeof window === "undefined") {
-      return;
-    }
-
-    window.removeEventListener("keydown", this.keyboardHandler);
-    this.keyboardAttached = false;
   }
 }
 
