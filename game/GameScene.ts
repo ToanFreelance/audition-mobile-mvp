@@ -99,16 +99,19 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    // Start Demo can update React before Phaser commits the scene state.
+    // Once the explicit round request has arrived, recover synchronously
+    // before consuming the first real keyboard/touch input.
     if (!this.started) {
-      // The React start request can race Phaser's scene registration: the
-      // scene object may not be discoverable by GameShell yet. Once the
-      // start overlay is gone, the user has explicitly started the round;
-      // recover that request here before consuming the real input.
-      if (!document.querySelector(".start-overlay")) {
-        this.startRound();
-      } else {
+      if (!this.roundRequested) {
         return;
       }
+
+      this.startRound();
+    }
+
+    if (!this.started || this.finished) {
+      return;
     }
 
     const targetDirection = this.getCommandDirection(this.commandCursor);
