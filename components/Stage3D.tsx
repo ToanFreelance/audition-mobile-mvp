@@ -35,7 +35,9 @@ export default function Stage3D({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const pulseRef = useRef(pulseToken);
 
-  pulseRef.current = pulseToken;
+  useEffect(() => {
+    pulseRef.current = pulseToken;
+  }, [pulseToken]);
 
   useEffect(() => {
     const host = hostRef.current;
