@@ -53,6 +53,7 @@ export class GameScene extends Phaser.Scene {
     this.engine = new RhythmEngine(this.chart);
     this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
     this.initialized = true;
+    console.log("QA_GAME_INIT", { notes: this.chart.notes.length });
 
     if (this.pendingRoundStart) {
       this.pendingRoundStart = false;
@@ -61,6 +62,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   startRound() {
+    console.log("QA_START_ROUND", {
+      initialized: this.initialized,
+      started: this.started,
+      roundRequested: this.roundRequested,
+    });
     this.roundRequested = true;
 
     if (!this.initialized) {
@@ -88,6 +94,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   handleInput(direction: Direction) {
+    console.log("QA_HANDLE_INPUT", {
+      direction,
+      initialized: this.initialized,
+      started: this.started,
+      finished: this.finished,
+      roundRequested: this.roundRequested,
+      cursor: this.commandCursor,
+    });
+
     if (this.finished) {
       return;
     }
@@ -95,6 +110,7 @@ export class GameScene extends Phaser.Scene {
     if (!this.initialized) {
       if (this.roundRequested) {
         this.queuedInputs.push(direction);
+        console.log("QA_QUEUE_INPUT", direction);
       }
       return;
     }
@@ -115,6 +131,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     const targetDirection = this.getCommandDirection(this.commandCursor);
+    console.log("QA_TARGET", {
+      cursor: this.commandCursor,
+      targetDirection,
+      received: direction,
+    });
+
     if (!targetDirection) {
       return;
     }
@@ -124,6 +146,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.commandCursor++;
+    console.log("QA_ADVANCE", this.commandCursor);
     this.emitCommandState();
 
     if (this.commandCursor >= this.chart.notes.length) {
@@ -163,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     ).filter((direction): direction is Direction => Boolean(direction));
 
     const filledCount = this.commandCursor - blockStart;
+    console.log("QA_EMIT_SEQUENCE", { cursor: this.commandCursor, filledCount });
 
     this.callbacks.onSequence(
       directions,
