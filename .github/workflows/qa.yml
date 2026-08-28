@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -29,34 +28,26 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium webkit
+      # This repository has no lockfile, so npm's dependency cache cannot be
+      # safely keyed to an immutable dependency graph.
+      - name: Lint
+        run: npm run lint
 
       - name: Build application
         run: npm run build
 
-      - name: Start application
-        run: |
-          npm run start -- --hostname 0.0.0.0 > /tmp/audition-next.log 2>&1 &
-          npx wait-on http://127.0.0.1:3000
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run Playwright QA
         run: npm run test:qa
 
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: ignore
-
-      - name: Upload Next.js server log
+      - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: next-server-log
-          path: /tmp/audition-next.log
+          name: playwright-artifacts
+          path: |
+            playwright-report/
+            test-results/
           if-no-files-found: ignore
