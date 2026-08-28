@@ -200,7 +200,12 @@ export function createPhaserGame(
 
   const game = new Phaser.Game(config);
 
-  game.scene.add("GameScene", GameScene, true, {
+  game.scene.add("GameScene", GameScene, false, {
+    chart,
+    callbacks,
+  });
+
+  game.scene.start("GameScene", {
     chart,
     callbacks,
   });
