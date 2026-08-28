@@ -1174,8 +1174,8 @@ button {
 .dpad-v2 button {
   position: absolute;
 
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
 
   display: grid;
 
@@ -1674,8 +1674,8 @@ button {
 .dpad-v2 button {
   position: absolute;
 
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
 
   display: grid;
 

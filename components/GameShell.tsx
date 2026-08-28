@@ -44,20 +44,6 @@ const directionOrder: Direction[] = [
   "right",
 ];
 
-const keyToDirection: Record<
-  string,
-  Direction
-> = {
-  ArrowLeft: "left",
-  ArrowUp: "up",
-  ArrowDown: "down",
-  ArrowRight: "right",
-  a: "left",
-  w: "up",
-  s: "down",
-  d: "right",
-};
-
 export default function GameShell() {
   const chart = useMemo(
     () => createDemoChart(),
@@ -70,27 +56,12 @@ export default function GameShell() {
   const sceneRef =
     useRef<any>(null);
 
+  const pendingStartRef =
+    useRef(false);
+
   const activeDirectionTimer =
     useRef<number | null>(null);
 
-  /*
-   * Number of commands already correctly
-   * entered in the current command sequence.
-   *
-   * Example:
-   *
-   *   ← ↑ ↓ → ← ↑ ↓ →
-   *   ✓
-   *
-   * becomes:
-   *
-   *   ← ↑ ↓ → ← ↑ ↓ →
-   *     ↑
-   *     TARGET
-   *
-   * The filled state is therefore based on
-   * command INDEX, not direction.
-   */
   const [
     completedCommands,
     setCompletedCommands,
@@ -132,13 +103,6 @@ export default function GameShell() {
     setAudioEnabled,
   ] = useState(true);
 
-  /*
-   * Temporary press feedback.
-   *
-   * This is NOT the completed state.
-   * It is only used for the very short
-   * physical button press animation.
-   */
   const [
     activeDirection,
     setActiveDirection,
@@ -146,9 +110,6 @@ export default function GameShell() {
     null
   );
 
-  /*
-   * Wrong input feedback.
-   */
   const [
     wrongDirection,
     setWrongDirection,
@@ -209,13 +170,6 @@ export default function GameShell() {
                   ? next.slice(0, 8)
                   : fallbackSequence;
 
-              /*
-               * GameScene is the source of truth for
-               * command entry. The second value is the
-               * number of commands that have actually
-               * been entered correctly in this 8-step
-               * strip.
-               */
               setSequence(
                 nextSequence
               );
@@ -248,14 +202,37 @@ export default function GameShell() {
       gameRef.current =
         game;
 
-      sceneRef.current =
+      const scene =
         game.scene.getScene(
           "GameScene"
         );
+
+      sceneRef.current =
+        scene;
+
+      /*
+       * The user may have pressed
+       * Start Demo before Phaser
+       * finished booting.
+       *
+       * Do not lose that request.
+       */
+      if (
+        pendingStartRef.current &&
+        sceneRef.current
+      ) {
+        pendingStartRef.current =
+          false;
+
+        sceneRef.current.startRound();
+      }
     })();
 
     return () => {
       mounted = false;
+
+      pendingStartRef.current =
+        false;
 
       gameRef.current?.destroy(
         true
@@ -268,16 +245,6 @@ export default function GameShell() {
         null;
     };
   }, [chart]);
-
-  /*
-   * Keyboard input.
-   *
-   * Phaser remains responsible for
-   * actual gameplay processing.
-   *
-   * This listener only controls the
-   * visual UI feedback.
-   */
 
   useEffect(() => {
     return () => {
@@ -313,7 +280,18 @@ export default function GameShell() {
       0
     );
 
-    sceneRef.current?.startRound();
+    if (sceneRef.current) {
+      sceneRef.current.startRound();
+    } else {
+      /*
+       * Phaser has not finished booting yet.
+       * Remember the user's request and
+       * start the round immediately after
+       * the scene becomes available.
+       */
+      pendingStartRef.current =
+        true;
+    }
 
     if (audioEnabled) {
       playMetronome(
@@ -327,9 +305,6 @@ export default function GameShell() {
     window.location.reload();
   }
 
-  /*
-   * Short physical press animation.
-   */
   function flashDirection(
     direction: Direction
   ) {
@@ -357,23 +332,6 @@ export default function GameShell() {
       );
   }
 
-  /*
-   * Direction input.
-   *
-   * IMPORTANT:
-   *
-   * Direction input is a command step.
-   * Timing is intentionally NOT checked here.
-   *
-   * Correct direction:
-   * - becomes filled
-   * - glows
-   * - advances to the next command
-   *
-   * Wrong direction:
-   * - stays outline
-   * - gets short red feedback
-   */
   function pressDirection(
     direction: Direction
   ) {
@@ -403,10 +361,6 @@ export default function GameShell() {
       );
     }
 
-    /*
-     * GameScene handles command sequence
-     * validation. It does NOT check beat timing.
-     */
     sceneRef.current?.handleInput(
       direction
     );
@@ -426,10 +380,6 @@ export default function GameShell() {
       100
     );
 
-    /*
-     * Timing Gauge / judgement logic
-     * will be connected in Part 3.
-     */
     sceneRef.current?.handleSpace?.();
   }
 
@@ -453,10 +403,6 @@ export default function GameShell() {
 
   return (
     <main className="shell">
-
-      {/* =====================================================
-          HEADER
-      ====================================================== */}
 
       <header className="header">
 
@@ -505,10 +451,6 @@ export default function GameShell() {
 
       </header>
 
-      {/* =====================================================
-          GAME
-      ====================================================== */}
-
       <section className="game-card">
 
         <div className="game-wrap">
@@ -519,10 +461,6 @@ export default function GameShell() {
           />
 
           <div className="hud audition-ui">
-
-            {/* =================================================
-                TOP HUD
-            ================================================== */}
 
             <div className="hud-top">
 
@@ -689,10 +627,6 @@ export default function GameShell() {
 
             </div>
 
-            {/* =================================================
-                JUDGEMENT
-            ================================================== */}
-
             {judgement && (
 
               <div
@@ -702,10 +636,6 @@ export default function GameShell() {
               </div>
 
             )}
-
-            {/* =================================================
-                COMMAND AREA
-            ================================================== */}
 
             <div className="command-area">
 
@@ -734,8 +664,7 @@ export default function GameShell() {
                   "command-bar",
                   "command-bar-v2",
                   "command-bar-outline",
-                ]
-                  .join(" ")}
+                ].join(" ")}
                 aria-label="Upcoming commands"
               >
 
@@ -821,6 +750,7 @@ export default function GameShell() {
                 className="timing-preview-slot"
                 aria-hidden="true"
               >
+
                 <span>
                   TIMING GAUGE
                 </span>
@@ -828,13 +758,10 @@ export default function GameShell() {
                 <b>
                   PART 3
                 </b>
+
               </div>
 
             </div>
-
-            {/* =================================================
-                MOBILE CONTROLS
-            ================================================== */}
 
             <div className="controls-row-v2">
 
@@ -885,10 +812,12 @@ export default function GameShell() {
                         key={direction}
                         className={[
                           `dpad-${direction}`,
+
                           activeDirection ===
                           direction
                             ? "dpad-active"
                             : "",
+
                           isTarget
                             ? "dpad-target"
                             : "",
@@ -898,6 +827,7 @@ export default function GameShell() {
                         onPointerDown={
                           event => {
                             event.preventDefault();
+
                             pressDirection(
                               direction
                             );
@@ -914,12 +844,14 @@ export default function GameShell() {
                           direction
                         }
                       >
+
                         <ArrowIcon
                           direction={direction}
                           filled={false}
                           target={isTarget}
                           compact
                         />
+
                       </button>
                     );
                   }
@@ -935,10 +867,6 @@ export default function GameShell() {
             </div>
 
           </div>
-
-          {/* ===================================================
-              START
-          ==================================================== */}
 
           {!started &&
             !finished && (
@@ -994,10 +922,6 @@ export default function GameShell() {
 
           )}
 
-          {/* ===================================================
-              RESULTS
-          ==================================================== */}
-
           {finished && (
 
             <div className="results">
@@ -1015,30 +939,39 @@ export default function GameShell() {
                 <div className="stats">
 
                   <div className="stat">
+
                     <b>
                       {stats.perfect}
                     </b>
+
                     <span>
                       Perfect
                     </span>
+
                   </div>
 
                   <div className="stat">
+
                     <b>
                       {stats.great}
                     </b>
+
                     <span>
                       Great
                     </span>
+
                   </div>
 
                   <div className="stat">
+
                     <b>
                       {stats.maxCombo}
                     </b>
+
                     <span>
                       Max Combo
                     </span>
+
                   </div>
 
                 </div>
@@ -1126,15 +1059,6 @@ function ArrowIcon({
           ? 180
           : 270;
 
-  /*
-   * Compact Audition-style arrow.
-   *
-   * The previous SVG used a 38px-wide body inside a
-   * 44px cell, which made the tail visually overlap
-   * the neighbouring command on portrait screens.
-   *
-   * This path has a short shaft and a larger head.
-   */
   const path =
     "M5 14H22V8L36 20L22 32V26H5V14Z";
 
