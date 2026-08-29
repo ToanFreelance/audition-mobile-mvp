@@ -10,6 +10,7 @@ export type RhythmRuntimeCallbacks = {
   onPulse?: () => void;
   onLevel?: (level: number) => void;
   onPhase?: (phase: RhythmPhase) => void;
+  onCountdown?: (value: number | null) => void;
 };
 
 export type RhythmPhase = "intro" | "countdown" | "playing" | "finished";
@@ -18,6 +19,7 @@ const DEMO_COMMANDS: Direction[] = ["left", "up", "down", "right", "left", "righ
 const BEATS_PER_MOVE = 4;
 const COMMANDS_PER_MOVE = 8;
 const COUNTDOWN_BEATS = 4;
+const INTRO_BEATS = 4;
 const cloneStats = (stats: GameStats): GameStats => ({ ...stats });
 
 export class RhythmRuntime {
@@ -33,6 +35,7 @@ export class RhythmRuntime {
   private lastStatsSignature = "";
   private phase: RhythmPhase = "intro";
   private countdownStartedAtMs = 0;
+  private lastCountdown = -1;
 
   constructor(chart: Chart, callbacks: RhythmRuntimeCallbacks = {}) {
     this.chart = chart;
@@ -52,7 +55,9 @@ export class RhythmRuntime {
     this.lastStatsSignature = "";
     this.phase = "intro";
     this.countdownStartedAtMs = 0;
+    this.lastCountdown = -1;
     this.callbacks.onPhase?.("intro");
+    this.callbacks.onCountdown?.(null);
     this.callbacks.onLevel?.(1);
     this.clock.start();
     this.emitSequence();
@@ -66,9 +71,7 @@ export class RhythmRuntime {
     this.started = false;
   }
 
-  destroy() {
-    this.stop();
-  }
+  destroy() { this.stop(); }
 
   get isStarted() { return this.started; }
   get isFinished() { return this.finished; }
@@ -87,15 +90,14 @@ export class RhythmRuntime {
 
   get timingGaugePercent() {
     if (!this.started || this.phase !== "playing") return 0;
-    const targetMs = this.beatToMs(this.getTargetBeat(this.timingMoveIndex));
+    const targetMs = this.getTargetTimeMs(this.timingMoveIndex);
     const moveStartMs = targetMs - this.moveDurationMs;
-    const progress = (this.clock.elapsedMs - moveStartMs) / this.moveDurationMs;
-    return Math.max(0, Math.min(100, progress * 100));
+    return Math.max(0, Math.min(100, ((this.clock.elapsedMs - moveStartMs) / this.moveDurationMs) * 100));
   }
 
   get timingDeltaMs() {
     if (!this.started || this.phase !== "playing") return 0;
-    return this.clock.elapsedMs - this.beatToMs(this.getTargetBeat(this.timingMoveIndex));
+    return this.clock.elapsedMs - this.getTargetTimeMs(this.timingMoveIndex);
   }
 
   handleDirection(direction: Direction) {
@@ -116,8 +118,7 @@ export class RhythmRuntime {
 
   handleSpace() {
     if (!this.started || this.finished || this.phase !== "playing" || this.commandCursor === 0 || this.commandCursor % COMMANDS_PER_MOVE !== 0) return null;
-    const deltaMs = this.timingDeltaMs;
-    const judgement = this.engine.judgeMove(this.timingMoveIndex, deltaMs);
+    const judgement = this.engine.judgeMove(this.timingMoveIndex, this.timingDeltaMs);
     if (judgement) {
       this.advanceAfterJudgement(judgement);
       return judgement;
@@ -133,16 +134,24 @@ export class RhythmRuntime {
     if (!this.started || this.finished) return;
 
     if (this.phase === "intro") {
-      if (this.clock.elapsedMs >= this.beatDurationMs) {
+      if (this.clock.elapsedMs >= INTRO_BEATS * this.beatDurationMs) {
         this.phase = "countdown";
         this.countdownStartedAtMs = this.clock.elapsedMs;
+        this.lastCountdown = -1;
         this.callbacks.onPhase?.("countdown");
       }
     } else if (this.phase === "countdown") {
       const elapsed = this.clock.elapsedMs - this.countdownStartedAtMs;
+      const countdown = 3 - Math.floor(elapsed / this.beatDurationMs);
+      const display = countdown >= 1 ? countdown : null;
+      if (display !== this.lastCountdown) {
+        this.lastCountdown = display ?? 0;
+        this.callbacks.onCountdown?.(display);
+      }
       if (elapsed >= COUNTDOWN_BEATS * this.beatDurationMs) {
         this.phase = "playing";
         this.callbacks.onPhase?.("playing");
+        this.callbacks.onCountdown?.(null);
         this.callbacks.onLevel?.(this.currentLevel);
         this.emitSequence();
       }
@@ -174,20 +183,12 @@ export class RhythmRuntime {
     }
   }
 
-  private get totalMoves() {
-    return Math.ceil(this.chart.notes.length / COMMANDS_PER_MOVE);
-  }
+  private get totalMoves() { return Math.ceil(this.chart.notes.length / COMMANDS_PER_MOVE); }
+  private get beatDurationMs() { return 60000 / this.chart.bpm; }
+  private get moveDurationMs() { return BEATS_PER_MOVE * this.beatDurationMs; }
 
-  private get beatDurationMs() {
-    return 60000 / this.chart.bpm;
-  }
-
-  private get moveDurationMs() {
-    return BEATS_PER_MOVE * this.beatDurationMs;
-  }
-
-  private getTargetBeat(moveIndex: number) {
-    return COUNTDOWN_BEATS + moveIndex * BEATS_PER_MOVE + BEATS_PER_MOVE;
+  private getTargetTimeMs(moveIndex: number) {
+    return (INTRO_BEATS + COUNTDOWN_BEATS + (moveIndex + 1) * BEATS_PER_MOVE) * this.beatDurationMs + this.chart.offsetMs;
   }
 
   private getMoveLevel(moveIndex: number) {
@@ -223,9 +224,5 @@ export class RhythmRuntime {
   private getCommandDirection(index: number): Direction | undefined {
     if (index < DEMO_COMMANDS.length) return DEMO_COMMANDS[index];
     return this.chart.notes[index]?.direction;
-  }
-
-  private beatToMs(beat: number) {
-    return beat * this.beatDurationMs + this.chart.offsetMs;
   }
 }
