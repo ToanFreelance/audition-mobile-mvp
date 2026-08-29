@@ -15,6 +15,7 @@ export default function GameShell() {
   const [chartKey, setChartKey] = useState<ChartKey>("neon");
   const chart = useMemo(() => chartKey === "pleaseTellMeWhy" ? createPleaseTellMeWhyChart() : createDemoChart(), [chartKey]);
   const runtimeRef = useRef<RhythmRuntime | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const activeTimer = useRef<number | null>(null);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -35,11 +36,11 @@ export default function GameShell() {
       onStats: setStats,
       onSequence: (next, filled) => { setSequence(next.length ? next : fallbackSequence); setCompletedCommands(filled); },
       onJudgement: (next) => { setJudgement(next); window.setTimeout(() => setJudgement(null), 420); },
-      onFinished: (next) => { setStats(next); setFinished(true); },
+      onFinished: (next) => { setStats(next); setFinished(true); audioRef.current?.pause(); },
       onPulse: () => setPulseToken((value) => value + 1),
     });
     runtimeRef.current = runtime;
-    return () => { runtime.destroy(); runtimeRef.current = null; };
+    return () => { runtime.destroy(); runtimeRef.current = null; audioRef.current?.pause(); };
   }, [chart]);
 
   useEffect(() => {
@@ -75,8 +76,27 @@ export default function GameShell() {
 
   function startGame() {
     setStarted(true); setFinished(false); setStats(initialStats); setSequence(fallbackSequence); setCompletedCommands(0); setJudgement(null); setWrongDirection(null);
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      if (chartKey === "pleaseTellMeWhy" && audioEnabled) void audio.play().catch(() => {});
+    }
     runtimeRef.current?.start();
-    if (audioEnabled) playMetronome(chart.bpm, 4);
+    if (chartKey === "neon" && audioEnabled) playMetronome(chart.bpm, 4);
+  }
+
+  function toggleAudio() {
+    const nextEnabled = !audioEnabled;
+    setAudioEnabled(nextEnabled);
+    const audio = audioRef.current;
+    if (!nextEnabled) {
+      audio?.pause();
+      return;
+    }
+    if (started && !finished && chartKey === "pleaseTellMeWhy" && audio) {
+      void audio.play().catch(() => {});
+    }
   }
 
   function pressDirection(direction: Direction) {
@@ -107,11 +127,11 @@ export default function GameShell() {
       <header className="header">
         <div className="brand"><div className="brand-mark">A</div><div><h1>Audition Mobile — Rhythm Prototype</h1><p>3D rhythm gameplay · mobile + multiplayer presentation</p></div></div>
         <div className="header-actions">
-          <select className="pill chart-select" value={chartKey} onChange={(event) => { setChartKey(event.target.value as ChartKey); setStarted(false); setFinished(false); setStats(initialStats); }} disabled={started && !finished} aria-label="Timing test song">
+          <select className="pill chart-select" value={chartKey} onChange={(event) => { setChartKey(event.target.value as ChartKey); setStarted(false); setFinished(false); setStats(initialStats); audioRef.current?.pause(); }} disabled={started && !finished} aria-label="Timing test song">
             <option value="neon">128 BPM</option>
             <option value="pleaseTellMeWhy">80 BPM</option>
           </select>
-          <button className="pill" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}</button>
+          <button className="pill" onClick={toggleAudio}>{audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}</button>
           <span className="pill">BPM {chart.bpm}</span>
         </div>
       </header>
@@ -161,9 +181,11 @@ export default function GameShell() {
             </div>
           </div>
 
-          {!started && !finished && <div className="start-overlay"><div className="start-panel"><div className="ready-kicker">AUDITION MOBILE · 3D RHYTHM</div><h2>Ready to dance?</h2><p>Nhấn đúng command theo chuỗi. SPACE chỉ được chấm một lần cho mỗi move và timing chạy theo BPM.</p><div className="row"><button className="button primary" onPointerDown={(event) => { event.preventDefault(); startGame(); }}>Start Demo</button><button className="button" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "Sound on" : "Sound off"}</button></div></div></div>}
+          <audio ref={audioRef} preload="auto" playsInline src="/audio/Please%20tell%20me%20why.mp3" aria-label="Please Tell Me Why reference audio" />
 
-          {finished && <div className="results"><div className="results-card"><h2>Dance Complete ✨</h2><div className="results-score">{stats.score.toLocaleString()}</div><div className="stats"><div className="stat"><b>{stats.perfect}</b><span>Perfect</span></div><div className="stat"><b>{stats.great}</b><span>Great</span></div><div className="stat"><b>{stats.maxCombo}</b><span>Max Combo</span></div></div><button className="button primary" onClick={() => { setFinished(false); setStarted(false); setStats(initialStats); setCompletedCommands(0); setSequence(fallbackSequence); }}>Play Again</button></div></div>}
+          {!started && !finished && <div className="start-overlay"><div className="start-panel"><div className="ready-kicker">AUDITION MOBILE · 3D RHYTHM</div><h2>Ready to dance?</h2><p>Nhấn đúng command theo chuỗi. SPACE chỉ được chấm một lần cho mỗi move và timing chạy theo BPM.</p><div className="row"><button className="button primary" onPointerDown={(event) => { event.preventDefault(); startGame(); }}>Start Demo</button><button className="button" onClick={toggleAudio}>{audioEnabled ? "Sound on" : "Sound off"}</button></div></div></div>}
+
+          {finished && <div className="results"><div className="results-card"><h2>Dance Complete ✨</h2><div className="results-score">{stats.score.toLocaleString()}</div><div className="stats"><div className="stat"><b>{stats.perfect}</b><span>Perfect</span></div><div className="stat"><b>{stats.great}</b><span>Great</span></div><div className="stat"><b>{stats.maxCombo}</b><span>Max Combo</span></div></div><button className="button primary" onClick={() => { setFinished(false); setStarted(false); setStats(initialStats); setCompletedCommands(0); setSequence(fallbackSequence); audioRef.current?.pause(); }}>Play Again</button></div></div>}
         </div>
       </section>
 
