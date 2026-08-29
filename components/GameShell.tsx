@@ -2,16 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Stage3D from "./Stage3D";
-import { createDemoChart } from "@/game/chart";
+import { createDemoChart, createPleaseTellMeWhyChart } from "@/game/chart";
 import { RhythmRuntime } from "@/game/runtime";
 import type { Direction, GameStats, Judgement } from "@/game/types";
 
 const initialStats: GameStats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
 const directions: Direction[] = ["left", "up", "down", "right"];
 const fallbackSequence: Direction[] = ["left", "up", "down", "right", "left", "right", "up", "down"];
+type ChartKey = "neon" | "pleaseTellMeWhy";
 
 export default function GameShell() {
-  const chart = useMemo(() => createDemoChart(), []);
+  const [chartKey, setChartKey] = useState<ChartKey>("neon");
+  const chart = useMemo(() => chartKey === "pleaseTellMeWhy" ? createPleaseTellMeWhyChart() : createDemoChart(), [chartKey]);
   const runtimeRef = useRef<RhythmRuntime | null>(null);
   const activeTimer = useRef<number | null>(null);
   const [started, setStarted] = useState(false);
@@ -49,6 +51,7 @@ export default function GameShell() {
         setTimingDelta(runtime.timingDeltaMs);
       } else {
         setTimingPercent(0);
+        setTimingDelta(0);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -71,7 +74,7 @@ export default function GameShell() {
   });
 
   function startGame() {
-    setStarted(true); setFinished(false); setStats(initialStats); setSequence(fallbackSequence); setCompletedCommands(0); setJudgement(null);
+    setStarted(true); setFinished(false); setStats(initialStats); setSequence(fallbackSequence); setCompletedCommands(0); setJudgement(null); setWrongDirection(null);
     runtimeRef.current?.start();
     if (audioEnabled) playMetronome(chart.bpm, 4);
   }
@@ -103,7 +106,14 @@ export default function GameShell() {
     <main className="shell">
       <header className="header">
         <div className="brand"><div className="brand-mark">A</div><div><h1>Audition Mobile — Rhythm Prototype</h1><p>3D rhythm gameplay · mobile + multiplayer presentation</p></div></div>
-        <div className="header-actions"><button className="pill" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}</button><span className="pill">BPM {chart.bpm}</span></div>
+        <div className="header-actions">
+          <select className="pill chart-select" value={chartKey} onChange={(event) => { setChartKey(event.target.value as ChartKey); setStarted(false); setFinished(false); setStats(initialStats); }} disabled={started && !finished} aria-label="Timing test song">
+            <option value="neon">Neon Groove · 128 BPM</option>
+            <option value="pleaseTellMeWhy">Please Tell Me Why · 80 BPM</option>
+          </select>
+          <button className="pill" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}</button>
+          <span className="pill">BPM {chart.bpm}</span>
+        </div>
       </header>
 
       <section className="game-card">
@@ -112,7 +122,7 @@ export default function GameShell() {
           <div className="hud audition-ui">
             <div className="hud-top">
               <div className="hud-left-column">
-                <div className="song-box sketch-card"><div className="song-icon">♫</div><div><div className="song-title">{chart.title}</div><div className="song-meta">{chart.bpm} BPM · Neon Groove</div></div></div>
+                <div className="song-box sketch-card"><div className="song-icon">♫</div><div><div className="song-title">{chart.title}</div><div className="song-meta">{chart.bpm} BPM · Timing Test</div></div></div>
                 <div className="rank-panel sketch-card"><div className="rank-title">RANKING</div>{[["1ST", "ToanDev", stats.score], ["2ND", "Luna", 198765], ["3RD", "Kenzo", 176543], ["4TH", "Miyuki", 165231]].map(([rank, name, score]) => <div className="rank-row" key={String(rank)}><span>{rank}</span><b>{name}</b><strong>{Number(score).toLocaleString()}</strong></div>)}</div>
               </div>
               <div className="my-score sketch-card"><div className="my-score-title">MY SCORE</div><div className="my-score-value">{stats.score.toLocaleString()}</div><div className="my-score-bottom"><div><span>COMBO</span><b>{stats.combo}x</b></div><div><span>MAX</span><b>{stats.maxCombo}</b></div></div><div className="mini-judgements"><span className="perfect-text">P {stats.perfect}</span><span className="great-text">G {stats.great}</span><span className="cool-text">C {stats.cool}</span><span className="bad-text">B {stats.bad}</span><span className="miss-text">M {stats.miss}</span></div></div>
@@ -133,8 +143,8 @@ export default function GameShell() {
               </div>
 
               <div className="timing-gauge-wrap">
-                <div className="timing-gauge-label"><span>TIMING GAUGE · 100%</span><b>{Math.round(timingDelta)} ms</b></div>
-                <div className="timing-gauge" aria-label="Timing gauge 0 to 100 percent">
+                <div className="timing-gauge-label"><span>TIMING GAUGE · LOOP</span><b>{Math.round(timingDelta)} ms</b></div>
+                <div className="timing-gauge" aria-label="Timing gauge 0 to 100 percent looping">
                   <span className="timing-score-zone" aria-hidden="true" />
                   <i className="timing-marker" style={{ left: `${timingPercent}%` }} aria-hidden="true" />
                 </div>
@@ -151,13 +161,13 @@ export default function GameShell() {
             </div>
           </div>
 
-          {!started && !finished && <div className="start-overlay"><div className="start-panel"><div className="ready-kicker">AUDITION MOBILE · 3D RHYTHM</div><h2>Ready to dance?</h2><p>Nhấn đúng command theo chuỗi. SPACE được chấm theo timing gauge.</p><div className="row"><button className="button primary" onPointerDown={(event) => { event.preventDefault(); startGame(); }}>Start Demo</button><button className="button" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "Sound on" : "Sound off"}</button></div></div></div>}
+          {!started && !finished && <div className="start-overlay"><div className="start-panel"><div className="ready-kicker">AUDITION MOBILE · 3D RHYTHM</div><h2>Ready to dance?</h2><p>Nhấn đúng command theo chuỗi. SPACE chỉ được chấm một lần cho mỗi move và timing chạy theo BPM.</p><div className="row"><button className="button primary" onPointerDown={(event) => { event.preventDefault(); startGame(); }}>Start Demo</button><button className="button" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "Sound on" : "Sound off"}</button></div></div></div>}
 
-          {finished && <div className="results"><div className="results-card"><h2>Dance Complete ✨</h2><div className="results-score">{stats.score.toLocaleString()}</div><div className="stats"><div className="stat"><b>{stats.perfect}</b><span>Perfect</span></div><div className="stat"><b>{stats.great}</b><span>Great</span></div><div className="stat"><b>{stats.maxCombo}</b><span>Max Combo</span></div></div><button className="button primary" onClick={() => window.location.reload()}>Play Again</button></div></div>}
+          {finished && <div className="results"><div className="results-card"><h2>Dance Complete ✨</h2><div className="results-score">{stats.score.toLocaleString()}</div><div className="stats"><div className="stat"><b>{stats.perfect}</b><span>Perfect</span></div><div className="stat"><b>{stats.great}</b><span>Great</span></div><div className="stat"><b>{stats.maxCombo}</b><span>Max Combo</span></div></div><button className="button primary" onClick={() => { setFinished(false); setStarted(false); setStats(initialStats); setCompletedCommands(0); setSequence(fallbackSequence); }}>Play Again</button></div></div>}
         </div>
       </section>
 
-      <section className="info-grid"><div className="panel"><h3>🎮 3D Runtime</h3><p>Three.js owns the stage and animation. React owns the HUD. RhythmRuntime owns input, timing, judgement, score and combo.</p></div><div className="panel"><h3>🎯 Audition Timing</h3><p>The timing gauge is a full 0–100% track. The scoring window is only 75–95%, with a hidden gradient highlight and a continuous sweep marker.</p></div></section>
+      <section className="info-grid"><div className="panel"><h3>🎮 3D Runtime</h3><p>Three.js owns the stage and animation. React owns the HUD. RhythmRuntime owns input, timing, judgement, score and combo.</p></div><div className="panel"><h3>🎯 Audition Timing</h3><p>The bead traverses the complete 0–100% gauge and loops. The PERFECT target remains four beats after the move starts, with the current 85% white-zone reference.</p></div></section>
     </main>
   );
 }
