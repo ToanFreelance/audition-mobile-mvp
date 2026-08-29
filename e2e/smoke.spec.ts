@@ -128,7 +128,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     const marker = page.locator(".timing-marker");
     await expect.poll(async () => {
       const left = Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left));
-      return left > 70 && left < 100;
+      return left > 88 && left < 98;
     }, { timeout: 5000 }).toBe(true);
 
     await pressSpace(page, isMobile);
