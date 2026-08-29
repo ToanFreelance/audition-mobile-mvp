@@ -1,47 +1,31 @@
 import type { Chart, Direction, Note } from "./types";
 
-const directions: Direction[] = ["left", "up", "down", "right"];
-
 export function createDemoChart(): Chart {
-  const notes: Note[] = [];
-  let id = 1;
+  const pattern: Direction[] = [
+    "right",
+    "right",
+    "left",
+    "right",
+    "up",
+    "down",
+    "up",
+    "down",
+    "left",
+    "down",
+    "right",
+    "left",
+  ];
 
-  // Intro: simple quarter-note pattern.
-  for (let beat = 4; beat < 20; beat += 1) {
-    notes.push({ id: id++, beat, direction: directions[(beat - 4) % 4] });
-  }
-
-  // Verse: eighth-note pairs.
-  for (let beat = 20; beat < 52; beat += 0.5) {
-    const step = Math.round((beat - 20) * 2);
-    const pattern = ["left", "up", "right", "down", "left", "right", "up", "down"] as Direction[];
-    notes.push({ id: id++, beat, direction: pattern[step % pattern.length] });
-  }
-
-  // Chorus: denser, symmetric sequences.
-  const chorus = [
-    "left", "up", "right", "down",
-    "left", "up", "right", "down",
-    "right", "up", "left", "down",
-    "right", "down", "left", "up"
-  ] as Direction[];
-
-  for (let beat = 52; beat < 84; beat += 0.5) {
-    const step = Math.round((beat - 52) * 2);
-    notes.push({ id: id++, beat, direction: chorus[step % chorus.length] });
-  }
-
-  // Finale: recognizable alternating runs.
-  const finale = ["left", "right", "up", "down"] as Direction[];
-  for (let beat = 84; beat < 112; beat += 0.5) {
-    const step = Math.round((beat - 84) * 2);
-    notes.push({ id: id++, beat, direction: finale[step % finale.length] });
-  }
+  const notes: Note[] = Array.from({ length: 128 }, (_, index) => ({
+    id: index + 1,
+    beat: 4 + index * 0.5,
+    direction: pattern[index % pattern.length],
+  }));
 
   return {
-    title: "Neon Groove — Prototype",
-    bpm: 128,
+    title: "Please Tell Me Why — Level 1",
+    bpm: 80,
     offsetMs: 0,
-    notes
+    notes,
   };
 }
