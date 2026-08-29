@@ -66,11 +66,11 @@ export class RhythmRuntime {
   get currentStep() { return this.commandCursor; }
   get totalCommands() { return this.chart.notes.length; }
 
+  /** Smooth 0–100% sweep. The marker is the beat phase, not a note-error clamp. */
   get timingGaugePercent() {
-    const note = this.engine.nextNote;
-    if (!note) return 100;
-    const deltaMs = this.clock.elapsedMs - this.beatToMs(note.beat);
-    return Math.max(0, Math.min(100, 85 + deltaMs / 10));
+    if (!this.started) return 0;
+    const beat = this.clock.currentBeat;
+    return (beat - Math.floor(beat)) * 100;
   }
 
   get timingDeltaMs() {
@@ -86,7 +86,6 @@ export class RhythmRuntime {
     if (!target) return false;
 
     if (direction !== target) {
-      // A wrong arrow restarts the command sequence from the beginning.
       this.commandCursor = 0;
       this.emitSequence();
       this.callbacks.onPulse?.();
