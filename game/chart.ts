@@ -2,46 +2,50 @@ import type { Chart, Direction, Note } from "./types";
 
 const directions: Direction[] = ["left", "up", "down", "right"];
 
+function buildNotes(startBeat: number, totalNotes: number, pattern: Direction[]): Note[] {
+  return Array.from({ length: totalNotes }, (_, index) => ({
+    id: index + 1,
+    beat: startBeat + index * 0.5,
+    direction: pattern[index % pattern.length]
+  }));
+}
+
 export function createDemoChart(): Chart {
-  const notes: Note[] = [];
-  let id = 1;
-
-  // Intro: simple quarter-note pattern.
-  for (let beat = 4; beat < 20; beat += 1) {
-    notes.push({ id: id++, beat, direction: directions[(beat - 4) % 4] });
-  }
-
-  // Verse: eighth-note pairs.
-  for (let beat = 20; beat < 52; beat += 0.5) {
-    const step = Math.round((beat - 20) * 2);
-    const pattern = ["left", "up", "right", "down", "left", "right", "up", "down"] as Direction[];
-    notes.push({ id: id++, beat, direction: pattern[step % pattern.length] });
-  }
-
-  // Chorus: denser, symmetric sequences.
-  const chorus = [
-    "left", "up", "right", "down",
-    "left", "up", "right", "down",
-    "right", "up", "left", "down",
-    "right", "down", "left", "up"
-  ] as Direction[];
-
-  for (let beat = 52; beat < 84; beat += 0.5) {
-    const step = Math.round((beat - 52) * 2);
-    notes.push({ id: id++, beat, direction: chorus[step % chorus.length] });
-  }
-
-  // Finale: recognizable alternating runs.
-  const finale = ["left", "right", "up", "down"] as Direction[];
-  for (let beat = 84; beat < 112; beat += 0.5) {
-    const step = Math.round((beat - 84) * 2);
-    notes.push({ id: id++, beat, direction: finale[step % finale.length] });
-  }
+  const pattern: Direction[] = [
+    "left", "up", "down", "right",
+    "left", "right", "up", "down"
+  ];
 
   return {
     title: "Neon Groove — Prototype",
     bpm: 128,
     offsetMs: 0,
-    notes
+    notes: buildNotes(4, 128, pattern)
   };
 }
+
+/**
+ * Slow timing reference for manual QA.
+ * Please Tell Me Why by Freestyle is widely documented at 80 BPM.
+ * The repository does not bundle the copyrighted recording; this chart
+ * uses the title/BPM and an equivalent test command pattern so the timing
+ * engine can be checked against a slow 80 BPM reference.
+ */
+export function createPleaseTellMeWhyChart(): Chart {
+  const pattern: Direction[] = [
+    "left", "up", "right", "down",
+    "left", "right", "up", "down"
+  ];
+
+  return {
+    title: "Please Tell Me Why — Timing Test",
+    bpm: 80,
+    offsetMs: 0,
+    notes: buildNotes(4, 128, pattern)
+  };
+}
+
+export const CHARTS = {
+  neon: createDemoChart,
+  pleaseTellMeWhy: createPleaseTellMeWhyChart
+} as const;
