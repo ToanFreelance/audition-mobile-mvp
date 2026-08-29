@@ -27,6 +27,7 @@ export default function GameShell() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const runtimeRef = useRef<RhythmRuntime | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const markerRef = useRef<HTMLDivElement | null>(null);
   const flashTimer = useRef<number | null>(null);
   const judgementTimer = useRef<number | null>(null);
 
@@ -51,7 +52,14 @@ export default function GameShell() {
 
   useEffect(() => {
     let raf = 0;
-    const tick = () => { setGauge(runtime.timingGaugePercent); setDelta(runtime.timingDeltaMs); raf = requestAnimationFrame(tick); };
+    const tick = () => {
+      const nextGauge = runtime.timingGaugePercent;
+      const nextDelta = runtime.timingDeltaMs;
+      setGauge(nextGauge);
+      setDelta(nextDelta);
+      if (markerRef.current) markerRef.current.style.left = `${nextGauge}%`;
+      raf = requestAnimationFrame(tick);
+    };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [runtime]);
@@ -72,10 +80,12 @@ export default function GameShell() {
     setPhase("intro");
     setCountdown(null);
     const audio = audioRef.current;
-    if (audio && audioEnabled) {
+    if (audio) {
       audio.pause();
       audio.currentTime = 0;
-      try { await audio.play(); } catch { /* browser autoplay policy */ }
+      if (audioEnabled) {
+        try { await audio.play(); } catch { /* browser autoplay policy */ }
+      }
     }
     runtime.start();
   }, [runtime, audioEnabled]);
@@ -114,7 +124,7 @@ export default function GameShell() {
 
   return (
     <main className="shell">
-      <audio ref={audioRef} preload="auto" playsInline src="/audio/Please%20tell%20me%20why.mp3" onEnded={() => { runtime.stop(); setStarted(false); }} />
+      <audio ref={audioRef} data-rhythm-clock preload="auto" playsInline src="/audio/Please%20tell%20me%20why.mp3" onEnded={() => { runtime.stop(); setStarted(false); }} />
       <header className="header">
         <div className="brand"><div className="brand-mark">A</div><div><h1>Audition Mobile — Rhythm Prototype</h1><p>Part 2 · Command UI + mobile controls · frontend only</p></div></div>
         <div className="header-actions"><button className="pill" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}</button><span className="pill">BPM {DEMO_CHART.bpm}</span></div>
@@ -140,7 +150,7 @@ export default function GameShell() {
               </div>
               <div className="timing-gauge-wrap">
                 <div className="timing-gauge-label"><span>TIMING GAUGE · {Math.round(gauge)}%</span><b>{delta.toFixed(0)} ms</b></div>
-                <div className="timing-gauge"><div className="timing-score-zone" aria-hidden="true" /><div className="timing-marker" style={{ left: `${gauge}%` }} /></div>
+                <div className="timing-gauge"><div className="timing-score-zone" aria-hidden="true" /><div ref={markerRef} className="timing-marker" /></div>
                 <div className="timing-scale"><span>0%</span><b>75%</b><b>85%</b><b>95%</b><span>100%</span></div>
               </div>
             </div>
