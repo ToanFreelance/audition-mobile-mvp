@@ -47,6 +47,8 @@ export default function GameShell() {
       if (runtime?.isStarted) {
         setTimingPercent(runtime.timingGaugePercent);
         setTimingDelta(runtime.timingDeltaMs);
+      } else {
+        setTimingPercent(0);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -129,9 +131,13 @@ export default function GameShell() {
                 })}
                 <span className="command-more">•••</span>
               </div>
+
               <div className="timing-gauge-wrap">
-                <div className="timing-gauge-label"><span>TIMING GAUGE</span><b>{Math.round(timingDelta)} ms</b></div>
-                <div className="timing-gauge"><span className="timing-zone-label miss-left">MISS</span><span className="timing-zone bad-left">BAD</span><span className="timing-zone cool-left">COOL</span><span className="timing-zone great-left">GREAT</span><span className="timing-zone perfect-zone">PERFECT</span><span className="timing-zone great-right">GREAT</span><span className="timing-zone cool-right">COOL</span><span className="timing-zone bad-right">BAD</span><span className="timing-zone-label miss-right">MISS</span><i className="timing-marker" style={{ left: `${timingPercent}%` }} /></div>
+                <div className="timing-gauge-label"><span>TIMING GAUGE · 100%</span><b>{Math.round(timingDelta)} ms</b></div>
+                <div className="timing-gauge" aria-label="Timing gauge 0 to 100 percent">
+                  <span className="timing-score-zone" aria-hidden="true" />
+                  <i className="timing-marker" style={{ left: `${timingPercent}%` }} aria-hidden="true" />
+                </div>
                 <div className="timing-scale"><span>0%</span><b>75%</b><b>85%</b><b>95%</b><span>100%</span></div>
               </div>
             </div>
@@ -151,7 +157,7 @@ export default function GameShell() {
         </div>
       </section>
 
-      <section className="info-grid"><div className="panel"><h3>🎮 3D Runtime</h3><p>Three.js owns the stage and animation. React owns the HUD. RhythmRuntime owns input, timing, judgement, score and combo.</p></div><div className="panel"><h3>🎯 Audition Timing</h3><p>SPACE is judged against BeatClock. The gauge mirrors the approved 75–95% score-zone concept and exposes timing state for QA.</p></div></section>
+      <section className="info-grid"><div className="panel"><h3>🎮 3D Runtime</h3><p>Three.js owns the stage and animation. React owns the HUD. RhythmRuntime owns input, timing, judgement, score and combo.</p></div><div className="panel"><h3>🎯 Audition Timing</h3><p>The timing gauge is a full 0–100% track. The scoring window is only 75–95%, with a hidden gradient highlight and a continuous sweep marker.</p></div></section>
     </main>
   );
 }
