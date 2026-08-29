@@ -49,11 +49,9 @@ export class GameScene extends Phaser.Scene {
   init(data: { chart: Chart; callbacks: GameCallbacks }) {
     this.chart = data.chart;
     this.callbacks = data.callbacks;
-
     this.engine = new RhythmEngine(this.chart);
     this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
     this.initialized = true;
-    console.log("QA_GAME_INIT", { notes: this.chart.notes.length });
 
     if (this.pendingRoundStart) {
       this.pendingRoundStart = false;
@@ -62,11 +60,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   startRound() {
-    console.log("QA_START_ROUND", {
-      initialized: this.initialized,
-      started: this.started,
-      roundRequested: this.roundRequested,
-    });
     this.roundRequested = true;
 
     if (!this.initialized) {
@@ -74,35 +67,20 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.started) {
+    if (this.started && !this.finished) {
       return;
     }
 
     this.started = true;
     this.finished = false;
     this.commandCursor = 0;
+    this.queuedInputs = [];
 
     this.clock.start();
     this.emitCommandState();
-
-    const queuedInputs = this.queuedInputs;
-    this.queuedInputs = [];
-
-    for (const direction of queuedInputs) {
-      this.handleInput(direction);
-    }
   }
 
   handleInput(direction: Direction) {
-    console.log("QA_HANDLE_INPUT", {
-      direction,
-      initialized: this.initialized,
-      started: this.started,
-      finished: this.finished,
-      roundRequested: this.roundRequested,
-      cursor: this.commandCursor,
-    });
-
     if (this.finished) {
       return;
     }
@@ -110,7 +88,6 @@ export class GameScene extends Phaser.Scene {
     if (!this.initialized) {
       if (this.roundRequested) {
         this.queuedInputs.push(direction);
-        console.log("QA_QUEUE_INPUT", direction);
       }
       return;
     }
@@ -119,7 +96,6 @@ export class GameScene extends Phaser.Scene {
       if (!this.roundRequested) {
         return;
       }
-
       this.startRound();
     }
 
@@ -128,25 +104,15 @@ export class GameScene extends Phaser.Scene {
     }
 
     const targetDirection = this.getCommandDirection(this.commandCursor);
-    console.log("QA_TARGET", {
-      cursor: this.commandCursor,
-      targetDirection,
-      received: direction,
-    });
 
-    if (!targetDirection) {
+    if (!targetDirection || direction !== targetDirection) {
       return;
     }
 
-    if (direction !== targetDirection) {
-      return;
-    }
-
-    this.commandCursor++;
-    console.log("QA_ADVANCE", this.commandCursor);
+    this.commandCursor += 1;
     this.emitCommandState();
 
-    if (this.commandCursor >= this.chart.notes.length) {
+    if (this.commandCursor >= DEMO_COMMANDS.length) {
       this.finished = true;
       this.callbacks.onFinished({ ...this.engine.stats });
     }
@@ -181,7 +147,6 @@ export class GameScene extends Phaser.Scene {
     ).filter((direction): direction is Direction => Boolean(direction));
 
     const filledCount = this.commandCursor - blockStart;
-    console.log("QA_EMIT_SEQUENCE", { cursor: this.commandCursor, filledCount });
 
     this.callbacks.onSequence(
       directions,
@@ -190,11 +155,15 @@ export class GameScene extends Phaser.Scene {
   }
 }
 
+export type PhaserGameWithScene = Phaser.Game & {
+  __auditionGameScene?: GameScene;
+};
+
 export function createPhaserGame(
   parent: string,
   chart: Chart,
   callbacks: GameCallbacks
-) {
+): PhaserGameWithScene {
   const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
     parent,
@@ -217,23 +186,17 @@ export function createPhaserGame(
     scene: [],
   };
 
-  const game = new Phaser.Game(config);
-  const sceneManager = game.scene;
+  const game = new Phaser.Game(config) as PhaserGameWithScene;
   const gameScene = new GameScene();
 
-  // Keep a stable Scene instance available to React immediately. Phaser may
-  // queue the add/start operations until its SceneManager has booted.
-  sceneManager.add("GameScene", gameScene, false, {
+  // Keep the exact Scene instance used by Phaser. React must not discover the
+  // input target through SceneManager.getScene while Phaser is still booting.
+  game.__auditionGameScene = gameScene;
+  game.scene.add("GameScene", gameScene, false, {
     chart,
     callbacks,
   });
-
-  const originalGetScene = sceneManager.getScene.bind(sceneManager);
-  sceneManager.getScene = ((key: string) =>
-    originalGetScene(key) ??
-    (key === "GameScene" ? gameScene : sceneManager.keys[key])) as typeof sceneManager.getScene;
-
-  sceneManager.start("GameScene", {
+  game.scene.start("GameScene", {
     chart,
     callbacks,
   });
