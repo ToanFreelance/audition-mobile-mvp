@@ -115,8 +115,9 @@ export class RhythmRuntime {
   handleSpace() {
     if (!this.started || this.finished) return null;
 
-    // The current command sequence must be completed before SPACE can
-    // resolve the move, matching the classic Audition flow.
+    // SPACE only resolves a completed command sequence. Once the sequence is
+    // complete, pressing outside the timing window is itself a MISS — it is
+    // never a free/no-op input.
     if (this.commandCursor === 0 || this.commandCursor % COMMANDS_PER_MOVE !== 0) {
       return null;
     }
@@ -126,18 +127,19 @@ export class RhythmRuntime {
     const judgement = this.engine.judgeMove(this.timingMoveIndex, deltaMs);
 
     if (judgement) {
-      this.timingMoveIndex += 1;
-      this.callbacks.onJudgement?.(judgement);
-      this.callbacks.onPulse?.();
-      this.emitStats(true);
-
-      if (this.timingMoveIndex >= this.totalMoves) {
-        this.finished = true;
-        this.callbacks.onFinished?.(cloneStats(this.engine.stats));
-      }
+      this.advanceAfterJudgement(judgement);
+      return judgement;
     }
 
-    return judgement;
+    // judgeMove deliberately returns null for out-of-window input. Convert
+    // that input into an immediate MISS so the player cannot mash SPACE for
+    // free attempts, and advance to the next timing cycle.
+    if (this.engine.missMove(this.timingMoveIndex)) {
+      this.advanceAfterJudgement("miss");
+      return "miss";
+    }
+
+    return null;
   }
 
   private loop = () => {
@@ -146,28 +148,29 @@ export class RhythmRuntime {
     const targetBeat = this.getTargetBeat(this.timingMoveIndex);
     const deltaMs = this.clock.elapsedMs - this.beatToMs(targetBeat);
 
-    // Once the 185 ms BAD window is passed, the move becomes MISS and the
-    // next gauge cycle starts. Repeated SPACE presses can no longer score it.
+    // If the player never presses SPACE, the move becomes MISS after the BAD
+    // window and the next gauge cycle begins automatically.
     if (deltaMs > WINDOWS_MS.bad) {
       if (this.engine.missMove(this.timingMoveIndex)) {
-        this.timingMoveIndex += 1;
-        this.commandCursor = Math.min(
-          this.timingMoveIndex * COMMANDS_PER_MOVE,
-          this.chart.notes.length
-        );
-        this.emitSequence();
-        this.emitStats(true);
-
-        if (this.timingMoveIndex >= this.totalMoves) {
-          this.finished = true;
-          this.callbacks.onFinished?.(cloneStats(this.engine.stats));
-          return;
-        }
+        this.advanceAfterJudgement("miss");
+        if (this.finished) return;
       }
     }
 
     this.raf = requestAnimationFrame(this.loop);
   };
+
+  private advanceAfterJudgement(judgement: Judgement) {
+    this.timingMoveIndex += 1;
+    this.callbacks.onJudgement?.(judgement);
+    this.callbacks.onPulse?.();
+    this.emitStats(true);
+
+    if (this.timingMoveIndex >= this.totalMoves) {
+      this.finished = true;
+      this.callbacks.onFinished?.(cloneStats(this.engine.stats));
+    }
+  }
 
   private get totalMoves() {
     return Math.ceil(this.chart.notes.length / COMMANDS_PER_MOVE);
