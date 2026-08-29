@@ -47,9 +47,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     test.skip(test.info().project.name !== "mobile", "A2 is mobile-specific");
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, true);
-    for (const name of ["left", "up", "down", "right", "Space timing button"]) {
-      await expect(page.getByRole("button", { name })).toBeVisible();
-    }
+    for (const name of ["left", "up", "down", "right", "Space timing button"]) await expect(page.getByRole("button", { name })).toBeVisible();
   });
 
   test("A3 — correct direction advances exactly one command", async ({ page }) => {
@@ -93,9 +91,9 @@ test.describe("Audition Mobile MVP — QA", () => {
       const button = page.getByRole("button", { name });
       await expect(button).toBeVisible();
       const box = await button.boundingBox();
-      expect(box, `${name} button must have a bounding box`).not.toBeNull();
-      expect(box!.width, `${name} button is too narrow`).toBeGreaterThanOrEqual(40);
-      expect(box!.height, `${name} button is too short`).toBeGreaterThanOrEqual(40);
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(40);
+      expect(box!.height).toBeGreaterThanOrEqual(40);
     }
   });
 
@@ -104,11 +102,9 @@ test.describe("Audition Mobile MVP — QA", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
     const steps = page.locator('[aria-label="Upcoming commands"] .command-step');
-
     await pressDirection(page, isMobile, "left");
     await expect(steps.nth(0)).toHaveClass(/command-completed/);
     await expect(steps.nth(1)).toHaveClass(/command-target/);
-
     await pressDirection(page, isMobile, "right");
     await expect(steps.nth(0)).toHaveClass(/command-target/);
     await expect(steps.nth(0)).not.toHaveClass(/command-completed/);
@@ -121,8 +117,9 @@ test.describe("Audition Mobile MVP — QA", () => {
 
     const selector = page.getByRole("combobox", { name: "Timing test song" });
     await selector.selectOption("pleaseTellMeWhy");
+    await expect(selector).toHaveValue("pleaseTellMeWhy");
     await expect(page.getByText("BPM 80")).toBeVisible();
-    await expect(page.getByText(/Please Tell Me Why/).first()).toBeVisible();
+    await expect(page.locator(".song-title")).toHaveText("Please Tell Me Why — Timing Test");
 
     await startGame(page, isMobile);
     await completeCurrentMove(page, isMobile);
@@ -137,7 +134,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     await pressSpace(page, isMobile);
     await expect(score).toHaveText("0");
 
-    // At 80 BPM, four beats = exactly 3000 ms to PERFECT.
+    // At 80 BPM, four beats = 3000 ms to PERFECT. 2825 ms is inside BAD.
     await page.waitForTimeout(2825);
     await pressSpace(page, isMobile);
     await expect(score).not.toHaveText("0");
