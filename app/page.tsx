@@ -1,5 +1,5 @@
 import GameShell from "@/components/GameShell";
-import MusicController from "@/components/MusicController";
+import ReferenceAudio from "@/components/ReferenceAudio";
 import StageMount from "@/components/StageMount";
 
 export default function Home() {
@@ -7,7 +7,7 @@ export default function Home() {
     <>
       <GameShell />
       <StageMount />
-      <MusicController />
+      <ReferenceAudio />
     </>
   );
 }
