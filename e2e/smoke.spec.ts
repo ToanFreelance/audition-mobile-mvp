@@ -8,7 +8,7 @@ async function startGame(page: any, isMobile: boolean) {
 }
 
 async function waitForPlaying(page: any) {
-  await expect(page.locator(".game-wrap")).toHaveAttribute("data-phase", "playing", { timeout: 10000 });
+  await expect(page.locator(".game-wrap")).toHaveAttribute("data-phase", "playing", { timeout: 35000 });
 }
 
 async function pressDirection(page: any, isMobile: boolean, direction: "left" | "up" | "down" | "right") {
@@ -126,19 +126,19 @@ test.describe("Audition Mobile MVP — QA", () => {
     await expect(steps.nth(0)).not.toHaveClass(/command-completed/);
   });
 
-  test("A8 — 80 BPM timing gauge and SPACE anti-mash gating", async ({ page }) => {
+  test("A8 — 105 BPM timing gauge and SPACE anti-mash gating", async ({ page }) => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page.getByText(/80 BPM · Timing Test/).first()).toBeVisible();
+    await expect(page.getByText(/105 BPM · Timing Test/).first()).toBeVisible();
     await startGame(page, isMobile);
     await completeCurrentMove(page, isMobile);
 
     const score = page.locator(".my-score-value");
     const marker = page.locator(".timing-marker");
     const gauge = page.locator(".timing-gauge");
-    await expect.poll(async () => Number(await gauge.getAttribute("data-timing-delta-ms")), { timeout: 5000 }).toBeGreaterThan(-90);
     await expect.poll(async () => Math.abs(Number(await gauge.getAttribute("data-timing-delta-ms"))), { timeout: 5000 }).toBeLessThan(90);
-    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left)), { timeout: 5000 }).toBeGreaterThan(75);
+    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left)), { timeout: 5000 }).toBeGreaterThan(45);
+    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left)), { timeout: 5000 }).toBeLessThan(55);
 
     await pressSpace(page, isMobile);
     await expect(score).not.toHaveText("0");
@@ -150,7 +150,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     await expect(score).toHaveText(scoreAfterHit ?? "0");
 
     const firstLeft = await marker.evaluate((el: HTMLElement) => Number.parseFloat(el.style.left));
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(350);
     const secondLeft = await marker.evaluate((el: HTMLElement) => Number.parseFloat(el.style.left));
     expect(firstLeft).not.toBe(secondLeft);
   });
@@ -172,11 +172,20 @@ test.describe("Audition Mobile MVP — QA", () => {
     await expect(page.locator(".judgement.miss")).toHaveText("MISS!");
   });
 
-  test("A10 — audio is playing when rhythm phase starts", async ({ page }) => {
+  test("A10 — audio is playing before and at rhythm phase", async ({ page }) => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
+    await expect.poll(async () => page.locator("audio").evaluate((audio: HTMLAudioElement) => !audio.paused && audio.currentTime > 0.2), { timeout: 5000 }).toBe(true);
     await waitForPlaying(page);
-    await expect.poll(async () => page.locator("audio").evaluate((audio: HTMLAudioElement) => !audio.paused && !audio.muted), { timeout: 5000 }).toBe(true);
+    await expect.poll(async () => page.locator("audio").evaluate((audio: HTMLAudioElement) => !audio.paused && !audio.muted && audio.volume > 0.9), { timeout: 5000 }).toBe(true);
+  });
+
+  test("A11 — beat zero starts on the Perfect center", async ({ page }) => {
+    const isMobile = test.info().project.name === "mobile";
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await startGame(page, isMobile);
+    await expect.poll(async () => Number.parseFloat(await page.locator(".timing-marker").evaluate((el: HTMLElement) => el.style.left)), { timeout: 35000 }).toBeGreaterThan(45);
+    await expect.poll(async () => Number.parseFloat(await page.locator(".timing-marker").evaluate((el: HTMLElement) => el.style.left)), { timeout: 35000 }).toBeLessThan(55);
   });
 });
