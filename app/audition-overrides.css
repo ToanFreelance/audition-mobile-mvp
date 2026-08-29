@@ -1,0 +1,34 @@
+/* Audition 3D rhythm presentation — task runtime overrides. */
+
+#game-container > div { width: 100%; height: 100%; }
+
+.timing-gauge-wrap { width: min(100%, 690px); margin-top: 7px; }
+.timing-gauge-label, .timing-scale { display: flex; align-items: center; justify-content: space-between; color: rgba(255,255,255,.42); font-size: 7px; letter-spacing: .13em; font-weight: 800; }
+.timing-gauge-label b { color: rgba(255,255,255,.55); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.timing-gauge { position: relative; display: grid; grid-template-columns: 25fr 6fr 6fr 8fr 2fr 8fr 6fr 6fr 25fr; height: 26px; margin-top: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,.13); border-radius: 7px; background: rgba(2,3,10,.62); box-shadow: inset 0 0 18px rgba(255,255,255,.025); }
+.timing-zone, .timing-zone-label { display: grid; place-items: center; border-right: 1px solid rgba(255,255,255,.06); font-size: 6px; font-weight: 900; letter-spacing: .08em; }
+.miss-left, .miss-right { color: rgba(255,255,255,.35); }
+.bad-left, .bad-right { background: rgba(255,91,91,.14); color: #ff8b76; }
+.cool-left, .cool-right { background: rgba(70,205,255,.13); color: #62d8ff; }
+.great-left, .great-right { background: rgba(107,255,157,.13); color: #78ffac; }
+.perfect-zone { background: linear-gradient(90deg, rgba(255,79,216,.18), rgba(255,255,255,.28), rgba(255,79,216,.18)); color: #fff; }
+.timing-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; transform: translateX(-1px); background: #fff; box-shadow: 0 0 8px rgba(255,255,255,.95), 0 0 18px rgba(255,79,216,.65); transition: left 50ms linear; }
+.timing-scale { margin-top: 2px; }
+.timing-scale b { color: rgba(255,79,216,.62); }
+.audition-ui { isolation: isolate; }
+
+@media (orientation: portrait), (max-width: 720px) {
+  .timing-gauge-wrap { width: calc(100% - 4px); margin-top: 4px; }
+  .timing-gauge { height: 20px; }
+  .timing-zone, .timing-zone-label, .timing-gauge-label, .timing-scale { font-size: 5px; }
+  .dpad-v2 { width: 116px; height: 116px; }
+  .dpad-v2 button { width: 48px; height: 48px; border-radius: 13px; }
+  .dpad-left { left: 1px; top: 34px; }
+  .dpad-up { left: 34px; top: 1px; }
+  .dpad-down { left: 34px; bottom: 1px; }
+  .dpad-right { right: 1px; top: 34px; }
+  .dpad-center-v2 { left: 39px; top: 39px; width: 38px; height: 38px; }
+  .command-area { bottom: 140px; }
+  .controls-row-v2 { bottom: 10px; padding: 0 12px; }
+  .space-button-v2 { width: 108px; height: 70px; }
+}
