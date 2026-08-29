@@ -1,20 +1,20 @@
 export type Direction = "left" | "up" | "down" | "right";
 export type Judgement = "perfect" | "great" | "cool" | "bad" | "miss";
 
-export type Note = {
-  id: number;
-  beat: number;
+export interface ChartNote {
   direction: Direction;
-};
+  beat: number;
+}
 
-export type Chart = {
+export interface Chart {
+  id: string;
   title: string;
   bpm: number;
   offsetMs: number;
-  notes: Note[];
-};
+  notes: ChartNote[];
+}
 
-export type GameStats = {
+export interface GameStats {
   score: number;
   combo: number;
   maxCombo: number;
@@ -23,4 +23,4 @@ export type GameStats = {
   cool: number;
   bad: number;
   miss: number;
-};
+}
