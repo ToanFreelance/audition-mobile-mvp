@@ -1,6 +1,6 @@
 /* Rhythm runtime polish: match the reference gauge and keep controls centered. */
 .timing-score-zone {
-  left: 47% !important;
+  left: 72% !important;
   width: 6% !important;
   animation: timing-breathe 1.2s ease-in-out infinite;
   transform-origin: center;
