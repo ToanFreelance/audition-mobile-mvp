@@ -108,8 +108,8 @@ export default function GameShell() {
         <div className="brand"><div className="brand-mark">A</div><div><h1>Audition Mobile — Rhythm Prototype</h1><p>3D rhythm gameplay · mobile + multiplayer presentation</p></div></div>
         <div className="header-actions">
           <select className="pill chart-select" value={chartKey} onChange={(event) => { setChartKey(event.target.value as ChartKey); setStarted(false); setFinished(false); setStats(initialStats); }} disabled={started && !finished} aria-label="Timing test song">
-            <option value="neon">Neon Groove · 128 BPM</option>
-            <option value="pleaseTellMeWhy">Please Tell Me Why · 80 BPM</option>
+            <option value="neon">128 BPM</option>
+            <option value="pleaseTellMeWhy">80 BPM</option>
           </select>
           <button className="pill" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}</button>
           <span className="pill">BPM {chart.bpm}</span>
