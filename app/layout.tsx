@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./game-interaction.css";
+import "./game-ui-overrides.css";
 
 export const metadata: Metadata = {
   title: "Audition Mobile — Rhythm Prototype",
