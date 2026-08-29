@@ -23,12 +23,13 @@ export default function GameShell() {
   const [phase, setPhase] = useState("idle");
   const [countdown, setCountdown] = useState<number | null>(null);
   const runtimeRef = useRef<RhythmRuntime | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const runtime = useMemo(() => new RhythmRuntime(DEMO_CHART, {
     onStats: setStats,
     onJudgement: setJudgement,
     onSequence: (next, filled) => { setSequence(next); setFilledCount(filled); },
-    onFinished: setStarted.bind(null, false),
+    onFinished: () => setStarted(false),
     onLevel: setLevel,
     onPhase: setPhase,
     onCountdown: setCountdown,
@@ -46,7 +47,21 @@ export default function GameShell() {
     return () => cancelAnimationFrame(raf);
   }, [runtime]);
 
-  const start = useCallback(() => { setJudgement(null); setStarted(true); runtime.start(); }, [runtime]);
+  const start = useCallback(async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    setJudgement(null);
+    audio.pause();
+    audio.currentTime = 0;
+    try {
+      await audio.play();
+      setStarted(true);
+      runtime.start();
+    } catch {
+      setStarted(false);
+    }
+  }, [runtime]);
+
   const pressDirection = useCallback((direction: Direction) => runtime.handleDirection(direction), [runtime]);
   const pressSpace = useCallback(() => { const result = runtime.handleSpace(); if (result) setJudgement(result); }, [runtime]);
 
@@ -63,9 +78,10 @@ export default function GameShell() {
 
   return (
     <main className="game-shell">
+      <audio ref={audioRef} data-rhythm-clock preload="auto" playsInline src="/audio/Please%20tell%20me%20why.mp3" onEnded={() => { runtime.stop(); setStarted(false); }} />
       <header className="game-header">
         <div className="brand-mark">A</div>
-        <div><h1>Audition Mobile — Rhythm Prototype</h1><p>{DEMO_CHART.bpm} BPM · {phase === "countdown" && countdown ? `Starting ${countdown}` : phase === "playing" ? `Level ${level}` : "Timing Test"}</p></div>
+        <div><h1>Audition Mobile — Rhythm Prototype</h1><p>{DEMO_CHART.bpm} BPM · {phase === "countdown" && countdown ? `Starting ${countdown}` : phase === "playing" ? `Level ${level}` : phase === "finish" ? "FINISH" : "Timing Test"}</p></div>
         <button className="start-button" onClick={start}>{started ? "RESTART" : "PLAY"}</button>
       </header>
       <section className="game-stage-wrap">
@@ -74,7 +90,7 @@ export default function GameShell() {
           <div className="song-card"><div className="music-icon">♫</div><div><strong>{DEMO_CHART.title}</strong><span>{DEMO_CHART.bpm} BPM · Timing Test</span></div></div>
           <div className="score-card"><span>MY SCORE</span><strong>{stats.score}</strong><div className="score-divider"/><div className="score-meta"><div><small>COMBO</small><b>{stats.combo}x</b></div><div><small>MAX</small><b>{stats.maxCombo}</b></div></div><div className="judgement-counts"><span>P {stats.perfect}</span><span>G {stats.great}</span><span>C {stats.cool}</span><span>B {stats.bad}</span><span>M {stats.miss}</span></div></div>
           {countdown && <div className="judgement">{countdown}</div>}
-          <div className="sequence-label"><span>LEVEL {level} · CHUỖI COMMAND</span><span>{Math.min(8, filledCount + 1)} / 8</span></div>
+          <div className="sequence-label"><span>{phase === "finish" ? "FINISH · CHUỖI COMMAND" : `LEVEL ${level} · CHUỖI COMMAND`}</span><span>{sequence.length ? `${Math.min(8, filledCount + 1)} / 8` : "—"}</span></div>
           <div className="command-row">{sequence.map((direction, index) => <span key={`${direction}-${index}`} className={`command ${index < filledCount ? "filled" : ""}`}>{DIRECTION_SYMBOL[direction]}</span>)}</div>
           <div className="timing-label"><span>TIMING GAUGE · 4 BEATS</span><span>{runtime.timingDeltaMs.toFixed(0)} ms</span></div>
           <div className="timing-gauge"><div className="timing-marker" style={{ left: `${gauge}%` }}/></div>
