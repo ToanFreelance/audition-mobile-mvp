@@ -195,13 +195,18 @@ export function createPhaserGame(
   const game = new Phaser.Game(config) as PhaserGameWithScene;
   const gameScene = new GameScene();
 
-  // Keep the exact Scene instance used by Phaser. React must not discover the
-  // input target through SceneManager.getScene while Phaser is still booting.
   game.__auditionGameScene = gameScene;
   game.scene.add("GameScene", gameScene, false, {
     chart,
     callbacks,
   });
+
+  // Phaser can defer scene boot. Always return the exact instance registered
+  // above so React never sends input to a different SceneManager instance.
+  const originalGetScene = game.scene.getScene.bind(game.scene);
+  game.scene.getScene = ((key: string) =>
+    key === "GameScene" ? gameScene : originalGetScene(key)) as typeof game.scene.getScene;
+
   game.scene.start("GameScene", {
     chart,
     callbacks,
