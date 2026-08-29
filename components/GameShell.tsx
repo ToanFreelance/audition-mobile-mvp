@@ -55,11 +55,11 @@ export default function GameShell() {
     audio.currentTime = 0;
     try {
       await audio.play();
-      setStarted(true);
-      runtime.start();
     } catch {
-      setStarted(false);
+      // The round can still be exercised if the reference track is unavailable.
     }
+    setStarted(true);
+    runtime.start();
   }, [runtime]);
 
   const pressDirection = useCallback((direction: Direction) => runtime.handleDirection(direction), [runtime]);
@@ -78,23 +78,81 @@ export default function GameShell() {
 
   return (
     <main className="game-shell">
-      <audio ref={audioRef} data-rhythm-clock preload="auto" playsInline src="/audio/Please%20tell%20me%20why.mp3" onEnded={() => { runtime.stop(); setStarted(false); }} />
+      <audio
+        ref={audioRef}
+        data-rhythm-clock
+        preload="auto"
+        playsInline
+        src="/audio/Please%20tell%20me%20why.mp3"
+        onEnded={() => { runtime.stop(); setStarted(false); }}
+      />
       <header className="game-header">
         <div className="brand-mark">A</div>
-        <div><h1>Audition Mobile — Rhythm Prototype</h1><p>{DEMO_CHART.bpm} BPM · {phase === "countdown" && countdown ? `Starting ${countdown}` : phase === "playing" ? `Level ${level}` : phase === "finish" ? "FINISH" : "Timing Test"}</p></div>
+        <div>
+          <h1>Audition Mobile — Rhythm Prototype</h1>
+          <p>{DEMO_CHART.bpm} BPM · {phase === "countdown" && countdown ? `Starting ${countdown}` : phase === "playing" ? `Level ${level}` : phase === "finish" ? "FINISH" : "Timing Test"}</p>
+        </div>
         <button className="start-button" onClick={start}>{started ? "RESTART" : "PLAY"}</button>
       </header>
+
       <section className="game-stage-wrap">
         <Stage3D />
         <div className="game-hud">
-          <div className="song-card"><div className="music-icon">♫</div><div><strong>{DEMO_CHART.title}</strong><span>{DEMO_CHART.bpm} BPM · Timing Test</span></div></div>
-          <div className="score-card"><span>MY SCORE</span><strong>{stats.score}</strong><div className="score-divider"/><div className="score-meta"><div><small>COMBO</small><b>{stats.combo}x</b></div><div><small>MAX</small><b>{stats.maxCombo}</b></div></div><div className="judgement-counts"><span>P {stats.perfect}</span><span>G {stats.great}</span><span>C {stats.cool}</span><span>B {stats.bad}</span><span>M {stats.miss}</span></div></div>
+          <div className="song-card">
+            <div className="music-icon">♫</div>
+            <div><strong>{DEMO_CHART.title}</strong><span>{DEMO_CHART.bpm} BPM · Timing Test</span></div>
+          </div>
+
+          <div className="score-card">
+            <span>MY SCORE</span>
+            <strong>{stats.score}</strong>
+            <div className="score-divider" />
+            <div className="score-meta">
+              <div><small>COMBO</small><b>{stats.combo}x</b></div>
+              <div><small>MAX</small><b>{stats.maxCombo}</b></div>
+            </div>
+            <div className="judgement-counts">
+              <span>P {stats.perfect}</span><span>G {stats.great}</span><span>C {stats.cool}</span><span>B {stats.bad}</span><span>M {stats.miss}</span>
+            </div>
+          </div>
+
           {countdown && <div className="judgement">{countdown}</div>}
-          <div className="sequence-label"><span>{phase === "finish" ? "FINISH · CHUỖI COMMAND" : `LEVEL ${level} · CHUỖI COMMAND`}</span><span>{sequence.length ? `${Math.min(8, filledCount + 1)} / 8` : "—"}</span></div>
-          <div className="command-row">{sequence.map((direction, index) => <span key={`${direction}-${index}`} className={`command ${index < filledCount ? "filled" : ""}`}>{DIRECTION_SYMBOL[direction]}</span>)}</div>
-          <div className="timing-label"><span>TIMING GAUGE · 4 BEATS</span><span>{runtime.timingDeltaMs.toFixed(0)} ms</span></div>
-          <div className="timing-gauge"><div className="timing-marker" style={{ left: `${gauge}%` }}/></div>
-          <div className="mobile-controls"><button className="space-button" onClick={pressSpace}><b>SPACE</b><span>TAP ON BEAT</span></button><div className="dpad">{DIRECTIONS.map(direction => <button key={direction} onClick={() => pressDirection(direction)}>{DIRECTION_SYMBOL[direction]}</button>)}</div></div>
+
+          <div className="sequence-label">
+            <span>{phase === "finish" ? "FINISH · CHUỖI COMMAND" : `LEVEL ${level} · CHUỖI COMMAND`}</span>
+            <span>{sequence.length ? `${Math.min(8, filledCount + 1)} / 8` : "—"}</span>
+          </div>
+
+          <div className="command-row">
+            {sequence.map((direction, index) => (
+              <span key={`${direction}-${index}`} className={`command ${index < filledCount ? "filled" : ""}`}>
+                {DIRECTION_SYMBOL[direction]}
+              </span>
+            ))}
+          </div>
+
+          <div className="timing-label">
+            <span>TIMING GAUGE · 4 BEATS</span>
+            <span>{runtime.timingDeltaMs.toFixed(0)} ms</span>
+          </div>
+          <div className="timing-gauge">
+            <div className="timing-score-zone" aria-hidden="true" />
+            <div className="timing-marker" style={{ left: `${gauge}%` }} />
+          </div>
+
+          <div className="mobile-controls">
+            <button className="space-button" onPointerDown={(event) => { event.preventDefault(); pressSpace(); }}>
+              <b>SPACE</b><span>TAP ON BEAT</span>
+            </button>
+            <div className="dpad" aria-label="Direction controls">
+              {DIRECTIONS.map((direction) => (
+                <button key={direction} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }}>
+                  {DIRECTION_SYMBOL[direction]}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {judgement && !countdown && <div className={`judgement judgement-${judgement}`}>{judgement.toUpperCase()}</div>}
         </div>
       </section>
