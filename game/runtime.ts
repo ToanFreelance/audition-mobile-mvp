@@ -18,8 +18,8 @@ export type RhythmPhase = "intro" | "countdown" | "playing" | "finish" | "finish
 const DEMO_COMMANDS: Direction[] = ["left", "up", "down", "right", "left", "right", "up", "down"];
 const BEATS_PER_MOVE = 4;
 const COMMANDS_PER_MOVE = 8;
-const COUNTDOWN_BEATS = 4;
-const INTRO_BEATS = 4;
+const COUNTDOWN_VALUES = 4;
+const BEAT_ZERO_AUDIO_MS = 24000;
 const LEVEL_MOVE_COUNTS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 const FIRST_FINISH_MOVE_INDEX = LEVEL_MOVE_COUNTS.reduce((sum, count) => sum + count, 0);
 const POST_FINISH_MOVE_COUNTS = [6, 6, 6, 6] as const;
@@ -67,7 +67,7 @@ export class RhythmRuntime {
     this.finished = false;
     this.lastStatsSignature = "";
     this.phase = "intro";
-    this.countdownStartedAtMs = 0;
+    this.countdownStartedAtMs = BEAT_ZERO_AUDIO_MS - this.countdownDurationMs;
     this.lastCountdown = -1;
     this.skipCurrentMove = false;
     this.callbacks.onPhase?.("intro");
@@ -101,17 +101,20 @@ export class RhythmRuntime {
   get countdownNumber() {
     if (this.phase !== "countdown") return null;
     const elapsed = Math.max(0, this.clock.elapsedMs - this.countdownStartedAtMs);
-    return Math.max(1, 3 - Math.floor(elapsed / this.beatDurationMs));
+    return Math.min(3, Math.max(0, 3 - Math.floor(elapsed / this.beatDurationMs)));
   }
 
   get timingGaugePercent() {
-    if (!this.started || (this.phase !== "playing" && this.phase !== "finish")) return 0;
-    const moveStartMs = this.getTargetTimeMs(this.timingMoveIndex) - this.moveDurationMs;
-    const elapsedInMove = this.clock.elapsedMs - moveStartMs;
-    const loopMs = ((elapsedInMove % this.moveDurationMs) + this.moveDurationMs) % this.moveDurationMs;
-    const phase = loopMs / this.moveDurationMs;
-    const shifted = (phase + 0.425) % 1;
-    return (1 - Math.abs(shifted * 2 - 1)) * 100;
+    if (!this.started) return 50;
+    if (this.phase === "intro" || this.phase === "countdown") return 50;
+    if (this.phase !== "playing" && this.phase !== "finish") return 50;
+
+    // Reference behavior: a one-way sweep. At the exact first beat (0) the
+    // marker is already on the center/Perfect target, then it continues right
+    // and wraps to the left instead of reversing direction.
+    const beatMs = this.beatDurationMs;
+    const beatElapsed = ((this.clock.elapsedMs - BEAT_ZERO_AUDIO_MS) % beatMs + beatMs) % beatMs;
+    return ((beatElapsed / beatMs) + 0.5) % 1 * 100;
   }
 
   get timingDeltaMs() {
@@ -152,26 +155,23 @@ export class RhythmRuntime {
   private loop = () => {
     if (!this.started || this.finished) return;
 
+    const elapsed = this.clock.elapsedMs;
     if (this.phase === "intro") {
-      if (this.clock.elapsedMs >= INTRO_BEATS * this.beatDurationMs) {
+      if (elapsed >= this.countdownStartedAtMs) {
         this.phase = "countdown";
-        this.countdownStartedAtMs = this.clock.elapsedMs;
         this.lastCountdown = -1;
         this.callbacks.onPhase?.("countdown");
       }
     } else if (this.phase === "countdown") {
-      const elapsed = this.clock.elapsedMs - this.countdownStartedAtMs;
-      const countdown = 3 - Math.floor(elapsed / this.beatDurationMs);
-      const display = countdown >= 1 ? countdown : null;
-      if ((display === null ? 0 : display) !== this.lastCountdown) {
-        this.lastCountdown = display ?? 0;
-        this.callbacks.onCountdown?.(display);
+      const countdownElapsed = Math.max(0, elapsed - this.countdownStartedAtMs);
+      const countdown = Math.min(3, Math.max(0, 3 - Math.floor(countdownElapsed / this.beatDurationMs)));
+      if (countdown !== this.lastCountdown) {
+        this.lastCountdown = countdown;
+        this.callbacks.onCountdown?.(countdown);
       }
-      if (elapsed >= COUNTDOWN_BEATS * this.beatDurationMs) {
+      if (elapsed >= BEAT_ZERO_AUDIO_MS) {
         this.phase = "playing";
-        this.clock.start();
         this.callbacks.onPhase?.("playing");
-        this.callbacks.onCountdown?.(null);
         this.callbacks.onLevel?.(this.currentLevel);
         this.emitSequence();
       }
@@ -190,8 +190,7 @@ export class RhythmRuntime {
   private advanceAfterJudgement(judgement: Judgement) {
     this.timingMoveIndex += 1;
     this.commandCursor = 0;
-    if (judgement === "miss") this.skipCurrentMove = true;
-    else this.skipCurrentMove = false;
+    this.skipCurrentMove = judgement === "miss";
     this.updatePhaseForCurrentMove();
     this.callbacks.onJudgement?.(judgement);
     this.callbacks.onPulse?.();
@@ -269,6 +268,9 @@ export class RhythmRuntime {
   }
 
   private get beatDurationMs() { return 60000 / this.chart.bpm; }
+  private get countdownDurationMs() { return (COUNTDOWN_VALUES - 1) * this.beatDurationMs; }
   private get moveDurationMs() { return BEATS_PER_MOVE * this.beatDurationMs; }
-  private getTargetTimeMs(moveIndex: number) { return (moveIndex + 1) * this.moveDurationMs + this.chart.offsetMs; }
+  private getTargetTimeMs(moveIndex: number) {
+    return BEAT_ZERO_AUDIO_MS + (moveIndex + 1) * this.moveDurationMs + this.chart.offsetMs;
+  }
 }
