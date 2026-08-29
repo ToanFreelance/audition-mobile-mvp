@@ -11,6 +11,9 @@
 .timing-scale b { color: rgba(255,79,216,.62); }
 .audition-ui { isolation: isolate; }
 
+/* Command feedback must not animate/overwrite the SVG rotation. */
+.command-arrow-v2 { animation: none !important; transition: filter 120ms ease, opacity 120ms ease !important; }
+
 @keyframes timing-zone-breathe { 0%, 100% { opacity: .48; } 50% { opacity: .95; } }
 @keyframes timing-zone-shimmer { 0% { transform: translateX(-4%); opacity: .35; } 50% { opacity: .75; } 100% { transform: translateX(4%); opacity: .35; } }
 
