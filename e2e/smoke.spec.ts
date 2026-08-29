@@ -127,11 +127,11 @@ test.describe("Audition Mobile MVP — QA", () => {
     const score = page.locator(".my-score-value");
     const marker = page.locator(".timing-marker");
 
-    // Wait for the marker to enter the 75–95% scoring zone. This is much more
-    // deterministic than sleeping a fixed amount because input/render latency
-    // differs between WebKit mobile and Chromium desktop.
-    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el) => getComputedStyle(el).left))).toBeGreaterThan(75);
-    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el) => getComputedStyle(el).left))).toBeLessThan(95);
+    // Wait until one frame lands inside the 75–95% scoring zone.
+    await expect.poll(async () => {
+      const left = Number.parseFloat(await marker.evaluate((el) => getComputedStyle(el).left));
+      return left > 75 && left < 95;
+    }).toBe(true);
 
     await pressSpace(page, isMobile);
     await expect(score).not.toHaveText("0");
