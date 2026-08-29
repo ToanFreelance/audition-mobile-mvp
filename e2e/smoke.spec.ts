@@ -127,27 +127,42 @@ test.describe("Audition Mobile MVP — QA", () => {
     const score = page.locator(".my-score-value");
     const marker = page.locator(".timing-marker");
 
-    // Wait until one frame lands inside the 75–95% scoring zone.
+    // At 80 BPM, the current ±185 ms BAD window maps to roughly 80–90% of
+    // this gauge. Avoid the exact boundary because the browser renders frames
+    // asynchronously.
     await expect.poll(async () => {
       const left = Number.parseFloat(await marker.evaluate((el) => getComputedStyle(el).left));
-      return left > 75 && left < 95;
+      return left > 80 && left < 90;
     }).toBe(true);
 
     await pressSpace(page, isMobile);
     await expect(score).not.toHaveText("0");
     const scoreAfterHit = await score.textContent();
 
-    // Repeated SPACE presses must not score again: the move is already judged
-    // and the next target is a full gauge cycle later.
     await pressSpace(page, isMobile);
     await pressSpace(page, isMobile);
     await pressSpace(page, isMobile);
     await expect(score).toHaveText(scoreAfterHit ?? "0");
 
-    // The marker keeps moving after the hit; it does not freeze at PERFECT.
     const firstLeft = await marker.evaluate((el) => Number.parseFloat(getComputedStyle(el).left));
     await page.waitForTimeout(900);
     const secondLeft = await marker.evaluate((el) => Number.parseFloat(getComputedStyle(el).left));
     expect(firstLeft).not.toBe(secondLeft);
+  });
+
+  test("A9 — SPACE outside the scoring window is an immediate MISS", async ({ page }) => {
+    const isMobile = test.info().project.name === "mobile";
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.getByRole("combobox", { name: "Timing test song" }).selectOption("pleaseTellMeWhy");
+    await startGame(page, isMobile);
+    await completeCurrentMove(page, isMobile);
+
+    const score = page.locator(".my-score-value");
+    const missCount = page.locator(".miss-text");
+    await pressSpace(page, isMobile);
+
+    await expect(score).toHaveText("0");
+    await expect(missCount).toHaveText("M 1");
+    await expect(page.locator(".judgement.miss")).toHaveText("MISS!");
   });
 });
