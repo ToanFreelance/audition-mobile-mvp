@@ -8,7 +8,7 @@ export const LEVEL_MOVE_COUNTS_EXPORT = LEVEL_MOVE_COUNTS;
 export const DEMO_CHART: Chart = {
   id: "please-tell-me-why-level-1",
   title: "Please Tell Me Why — Level 1",
-  bpm: 80,
+  bpm: 105,
   offsetMs: 0,
   notes: Array.from({ length: 39 * 8 }, (_, index) => ({
     direction: DEMO_COMMANDS[index % DEMO_COMMANDS.length],
