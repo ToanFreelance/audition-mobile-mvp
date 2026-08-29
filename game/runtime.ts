@@ -17,24 +17,11 @@ export class RhythmRuntime {
   constructor(chart: Chart, callbacks: RhythmRuntimeCallbacks = {}) { this.chart = chart; this.callbacks = callbacks; this.engine = new RhythmEngine(chart); this.clock = new BeatClock(chart.bpm, chart.offsetMs); }
   setTimeSource(source: ClockTimeSource | null) { this.timeSource = source; this.clock.setTimeSource(source); }
   start() {
-    this.stop();
-    this.referenceAudio?.pause();
-    this.referenceAudio = null;
-    this.engine = new RhythmEngine(this.chart);
-    this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
-    const useReferenceAudio = this.chart.bpm === 80;
-    if (useReferenceAudio && typeof Audio !== "undefined") {
-      const audio = new Audio(REFERENCE_AUDIO_SRC);
-      audio.preload = "auto";
-      audio.currentTime = 0;
-      this.referenceAudio = audio;
-      this.timeSource = () => audio.currentTime * 1000;
-    }
-    this.clock.setTimeSource(this.timeSource);
-    this.commandCursor = 0; this.timingMoveIndex = 0; this.started = true; this.finished = false; this.lastStatsSignature = "";
-    this.clock.start();
-    if (this.referenceAudio) void this.referenceAudio.play().catch(() => {});
-    this.emitSequence(); this.emitStats(true); this.loop();
+    this.stop(); this.referenceAudio?.pause(); this.referenceAudio = null; this.timeSource = null;
+    this.engine = new RhythmEngine(this.chart); this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
+    if (this.chart.bpm === 80 && typeof Audio !== "undefined") { const audio = new Audio(REFERENCE_AUDIO_SRC); audio.preload = "auto"; audio.currentTime = 0; this.referenceAudio = audio; this.timeSource = () => audio.currentTime * 1000; }
+    this.clock.setTimeSource(this.timeSource); this.commandCursor = 0; this.timingMoveIndex = 0; this.started = true; this.finished = false; this.lastStatsSignature = ""; this.clock.start();
+    if (this.referenceAudio) void this.referenceAudio.play().catch(() => {}); this.emitSequence(); this.emitStats(true); this.loop();
   }
   stop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; this.started = false; this.referenceAudio?.pause(); this.referenceAudio = null; }
   destroy() { this.stop(); }
