@@ -24,6 +24,11 @@ async function pressSpace(page: any, isMobile: boolean) {
   await page.keyboard.press("Space");
 }
 
+async function completeCurrentMove(page: any, isMobile: boolean) {
+  const sequence = ["left", "up", "down", "right", "left", "right", "up", "down"] as const;
+  for (const direction of sequence) await pressDirection(page, isMobile, direction);
+}
+
 test.describe("Audition Mobile MVP — QA", () => {
   test("A1 — application loads", async ({ page }) => {
     const consoleErrors: string[] = [];
@@ -94,7 +99,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     }
   });
 
-  test("A7 — wrong direction resets the sequence from the beginning", async ({ page }) => {
+  test("A7 — wrong direction resets the current move sequence", async ({ page }) => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
@@ -108,5 +113,39 @@ test.describe("Audition Mobile MVP — QA", () => {
     await expect(steps.nth(0)).toHaveClass(/command-target/);
     await expect(steps.nth(0)).not.toHaveClass(/command-completed/);
     await expect(steps.nth(1)).not.toHaveClass(/command-completed/);
+  });
+
+  test("A8 — 80 BPM test chart and SPACE anti-mash gating", async ({ page }) => {
+    const isMobile = test.info().project.name === "mobile";
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    const selector = page.getByRole("combobox", { name: "Timing test song" });
+    await selector.selectOption("pleaseTellMeWhy");
+    await expect(page.getByText("BPM 80")).toBeVisible();
+    await expect(page.getByText(/Please Tell Me Why/).first()).toBeVisible();
+
+    await startGame(page, isMobile);
+    await completeCurrentMove(page, isMobile);
+
+    const score = page.locator(".my-score-value");
+    await expect(score).toHaveText("0");
+
+    // Immediate repeated SPACE taps are outside the 80 BPM target window and
+    // must not award points or advance the move.
+    await pressSpace(page, isMobile);
+    await pressSpace(page, isMobile);
+    await pressSpace(page, isMobile);
+    await expect(score).toHaveText("0");
+
+    // At 80 BPM, four beats = exactly 3000 ms to PERFECT.
+    await page.waitForTimeout(2825);
+    await pressSpace(page, isMobile);
+    await expect(score).not.toHaveText("0");
+
+    const gauge = page.locator(".timing-marker");
+    const firstLeft = await gauge.evaluate((el) => getComputedStyle(el).left);
+    await page.waitForTimeout(900);
+    const secondLeft = await gauge.evaluate((el) => getComputedStyle(el).left);
+    expect(firstLeft).not.toBe(secondLeft);
   });
 });
