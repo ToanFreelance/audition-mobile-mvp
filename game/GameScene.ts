@@ -111,7 +111,16 @@ export class GameScene extends Phaser.Scene {
 
     const targetDirection = this.getCommandDirection(this.commandCursor);
 
-    if (!targetDirection || direction !== targetDirection) {
+    if (!targetDirection) {
+      return false;
+    }
+
+    if (direction !== targetDirection) {
+      // A wrong direction invalidates the entire current command chain.
+      // Restart from the first command instead of letting the player retry
+      // only the command that was missed.
+      this.commandCursor = 0;
+      this.emitCommandState();
       return false;
     }
 
