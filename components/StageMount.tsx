@@ -17,23 +17,29 @@ export default function StageMount() {
 
     const promoteGameCanvas = () => {
       target.querySelectorAll("canvas").forEach((canvas) => {
-        if (!canvas.classList.contains("stage-3d-canvas")) {
-          canvas.style.position = "absolute";
-          canvas.style.inset = "0";
-          canvas.style.zIndex = "1";
-          canvas.style.pointerEvents = "none";
-        }
+        const stageCanvas = canvas.closest("[data-stage3d]");
+        if (stageCanvas) return;
+
+        canvas.style.position = "absolute";
+        canvas.style.inset = "0";
+        canvas.style.zIndex = "1";
+        canvas.style.pointerEvents = "none";
       });
     };
 
     promoteGameCanvas();
     const observer = new MutationObserver(promoteGameCanvas);
-    observer.observe(target, { childList: true });
+    observer.observe(target, { childList: true, subtree: true });
 
     return () => observer.disconnect();
   }, []);
 
   if (!container) return null;
 
-  return createPortal(<Stage3D bpm={128} />, container);
+  return createPortal(
+    <div data-stage3d aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+      <Stage3D bpm={80} />
+    </div>,
+    container
+  );
 }
