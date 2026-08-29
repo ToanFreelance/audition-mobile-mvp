@@ -27,9 +27,13 @@ export default function GameShell() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const runtimeRef = useRef<RhythmRuntime | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioReadyRef = useRef(false);
+  const audioEnabledRef = useRef(true);
   const markerRef = useRef<HTMLDivElement | null>(null);
   const flashTimer = useRef<number | null>(null);
   const judgementTimer = useRef<number | null>(null);
+
+  useEffect(() => { audioEnabledRef.current = audioEnabled; }, [audioEnabled]);
 
   const runtime = useMemo(() => new RhythmRuntime(DEMO_CHART, {
     onStats: setStats,
@@ -41,7 +45,15 @@ export default function GameShell() {
     onSequence: (next, filled) => { setSequence(next.slice(0, 8)); setCompletedCommands(Math.max(0, Math.min(8, filled))); },
     onFinished: (next) => { setStats(next); setFinished(true); setStarted(false); },
     onLevel: setLevel,
-    onPhase: setPhase,
+    onPhase: (nextPhase) => {
+      setPhase(nextPhase);
+      if (nextPhase !== "playing") return;
+      const audio = audioRef.current;
+      if (!audio || !audioReadyRef.current || !audioEnabledRef.current) return;
+      audio.currentTime = 0;
+      audio.muted = false;
+      runtimeRef.current?.syncToTimeSource();
+    },
     onCountdown: setCountdown,
   }), []);
 
@@ -79,24 +91,64 @@ export default function GameShell() {
     setLevel(1);
     setPhase("intro");
     setCountdown(null);
+    audioReadyRef.current = false;
+    runtime.setTimeSource(null);
 
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
       audio.volume = 1;
+      audio.muted = audioEnabledRef.current;
     }
 
-    // Never block the gameplay clock on media playback. On iOS/Safari the
-    // play() promise may be delayed/rejected; the rhythm runtime must still run.
     runtime.start();
 
-    if (audio && audioEnabled) {
-      void audio.play().catch(() => {
-        // The user can retry with the Beat ON control after browser media policy allows it.
+    if (audio && audioEnabledRef.current) {
+      void audio.play().then(() => {
+        audioReadyRef.current = true;
+        runtime.setTimeSource(() => audio.currentTime * 1000);
+        runtime.syncToTimeSource();
+        if (runtime.currentPhase === "playing") {
+          audio.currentTime = 0;
+          audio.muted = false;
+          runtime.syncToTimeSource();
+        }
+      }).catch(() => {
+        audioReadyRef.current = false;
+        runtime.setTimeSource(null);
       });
     }
-  }, [runtime, audioEnabled]);
+  }, [runtime]);
+
+  const toggleAudio = useCallback(() => {
+    setAudioEnabled((value) => {
+      const next = !value;
+      audioEnabledRef.current = next;
+      const audio = audioRef.current;
+      if (!audio) return next;
+
+      if (!next) {
+        audio.muted = true;
+        audio.pause();
+        audioReadyRef.current = false;
+        runtime.setTimeSource(null);
+        return next;
+      }
+
+      if (!runtime.isStarted) return next;
+
+      audio.currentTime = 0;
+      audio.volume = 1;
+      audio.muted = false;
+      void audio.play().then(() => {
+        audioReadyRef.current = true;
+        runtime.setTimeSource(() => audio.currentTime * 1000);
+        runtime.syncToTimeSource();
+      }).catch(() => { audioReadyRef.current = false; });
+      return next;
+    });
+  }, [runtime]);
 
   const pressDirection = useCallback((direction: Direction) => {
     setActiveDirection(direction);
@@ -135,11 +187,11 @@ export default function GameShell() {
       <audio ref={audioRef} data-rhythm-clock preload="auto" playsInline src="/audio/Please%20tell%20me%20why.mp3" onEnded={() => { runtime.stop(); setStarted(false); }} />
       <header className="header">
         <div className="brand"><div className="brand-mark">A</div><div><h1>Audition Mobile — Rhythm Prototype</h1><p>Part 2 · Command UI + mobile controls · frontend only</p></div></div>
-        <div className="header-actions"><button className="pill" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}</button><span className="pill">BPM {DEMO_CHART.bpm}</span></div>
+        <div className="header-actions"><button className="pill" onClick={toggleAudio}>{audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}</button><span className="pill">BPM {DEMO_CHART.bpm}</span></div>
       </header>
 
       <section className="game-card">
-        <div className="game-wrap">
+        <div className="game-wrap" data-phase={phase}>
           <Stage3D />
           <div className="hud audition-ui">
             <div className="hud-top">
@@ -158,7 +210,7 @@ export default function GameShell() {
               </div>
               <div className="timing-gauge-wrap">
                 <div className="timing-gauge-label"><span>TIMING GAUGE · {Math.round(gauge)}%</span><b>{delta.toFixed(0)} ms</b></div>
-                <div className="timing-gauge"><div className="timing-score-zone" aria-hidden="true" /><div ref={markerRef} className="timing-marker" /></div>
+                <div className="timing-gauge" data-timing-delta-ms={Math.round(delta)}><div className="timing-score-zone" aria-hidden="true" /><div ref={markerRef} className="timing-marker" /></div>
                 <div className="timing-scale"><span>0%</span><b>75%</b><b>85%</b><b>95%</b><span>100%</span></div>
               </div>
             </div>
@@ -172,7 +224,7 @@ export default function GameShell() {
             </div>
           </div>
 
-          {!started && !finished && <div className="start-overlay"><div className="start-panel"><div className="ready-kicker">AUDITION MOBILE · RHYTHM PROTOTYPE</div><h2>Ready to dance?</h2><p>Follow the command sequence, then tap SPACE on the beat. Wrong direction resets the current command sequence.</p><div className="row"><button className="button primary" onClick={startGame}>Start Demo</button><button className="button" onClick={() => setAudioEnabled((value) => !value)}>{audioEnabled ? "Sound on" : "Sound off"}</button></div></div></div>}
+          {!started && !finished && <div className="start-overlay"><div className="start-panel"><div className="ready-kicker">AUDITION MOBILE · RHYTHM PROTOTYPE</div><h2>Ready to dance?</h2><p>Follow the command sequence, then tap SPACE on the beat. Wrong direction resets the current command sequence.</p><div className="row"><button className="button primary" onClick={startGame}>Start Demo</button><button className="button" onClick={toggleAudio}>{audioEnabled ? "Sound on" : "Sound off"}</button></div></div></div>}
           {finished && <div className="results"><div className="results-card"><h2>Dance Complete ✨</h2><div className="results-score">{stats.score.toLocaleString()}</div><div className="stats"><div className="stat"><b>{stats.perfect}</b><span>Perfect</span></div><div className="stat"><b>{stats.great}</b><span>Great</span></div><div className="stat"><b>{stats.maxCombo}</b><span>Max Combo</span></div></div><button className="button primary" onClick={startGame}>Play Again</button></div></div>}
         </div>
       </section>
