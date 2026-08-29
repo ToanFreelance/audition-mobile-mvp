@@ -69,7 +69,7 @@ export default function GameShell() {
     if (judgementTimer.current !== null) window.clearTimeout(judgementTimer.current);
   }, []);
 
-  const startGame = useCallback(async () => {
+  const startGame = useCallback(() => {
     setStats(INITIAL_STATS);
     setSequence([]);
     setCompletedCommands(0);
@@ -79,15 +79,23 @@ export default function GameShell() {
     setLevel(1);
     setPhase("intro");
     setCountdown(null);
+
     const audio = audioRef.current;
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
-      if (audioEnabled) {
-        try { await audio.play(); } catch { /* browser autoplay policy */ }
-      }
+      audio.volume = 1;
     }
+
+    // Never block the gameplay clock on media playback. On iOS/Safari the
+    // play() promise may be delayed/rejected; the rhythm runtime must still run.
     runtime.start();
+
+    if (audio && audioEnabled) {
+      void audio.play().catch(() => {
+        // The user can retry with the Beat ON control after browser media policy allows it.
+      });
+    }
   }, [runtime, audioEnabled]);
 
   const pressDirection = useCallback((direction: Direction) => {
