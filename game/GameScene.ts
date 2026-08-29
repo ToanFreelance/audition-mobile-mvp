@@ -74,10 +74,16 @@ export class GameScene extends Phaser.Scene {
     this.started = true;
     this.finished = false;
     this.commandCursor = 0;
-    this.queuedInputs = [];
 
     this.clock.start();
     this.emitCommandState();
+
+    const queuedInputs = this.queuedInputs;
+    this.queuedInputs = [];
+
+    for (const direction of queuedInputs) {
+      this.handleInput(direction);
+    }
   }
 
   handleInput(direction: Direction) {
@@ -112,7 +118,7 @@ export class GameScene extends Phaser.Scene {
     this.commandCursor += 1;
     this.emitCommandState();
 
-    if (this.commandCursor >= DEMO_COMMANDS.length) {
+    if (this.commandCursor >= this.chart.notes.length) {
       this.finished = true;
       this.callbacks.onFinished({ ...this.engine.stats });
     }
