@@ -4,40 +4,37 @@
 .timing-gauge-label, .timing-scale { display: flex; align-items: center; justify-content: space-between; color: rgba(255,255,255,.42); font-size: 7px; letter-spacing: .13em; font-weight: 800; }
 .timing-gauge-label b { color: rgba(255,255,255,.55); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
 .timing-gauge { position: relative; width: 100%; height: 24px; margin-top: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,.13); border-radius: 7px; background: rgba(2,3,10,.62); box-shadow: inset 0 0 18px rgba(255,255,255,.025); }
-.timing-score-zone { position: absolute; left: 75%; top: 0; bottom: 0; width: 20%; overflow: hidden; background: linear-gradient(90deg, rgba(255,79,216,.05), rgba(255,79,216,.14) 24%, rgba(255,255,255,.42) 50%, rgba(255,79,216,.14) 76%, rgba(255,79,216,.05)); box-shadow: inset 0 0 12px rgba(255,79,216,.08); animation: timing-zone-breathe 2.8s ease-in-out infinite; }
-.timing-score-zone::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.3), transparent 20%, rgba(255,255,255,.16) 50%, transparent 80%, rgba(0,0,0,.3)); opacity: .65; animation: timing-zone-shimmer 2.8s ease-in-out infinite alternate; }
+.timing-score-zone { position: absolute; left: 75%; top: 0; bottom: 0; width: 20%; overflow: hidden; background: linear-gradient(90deg, rgba(255,79,216,.04), rgba(255,79,216,.13) 24%, rgba(255,255,255,.42) 50%, rgba(255,79,216,.13) 76%, rgba(255,79,216,.04)); box-shadow: inset 0 0 12px rgba(255,79,216,.08); animation: timing-zone-breathe 2.8s ease-in-out infinite; }
+.timing-score-zone::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.32), transparent 20%, rgba(255,255,255,.18) 50%, transparent 80%, rgba(0,0,0,.32)); opacity: .65; animation: timing-zone-shimmer 2.8s ease-in-out infinite alternate; }
 .timing-marker { position: absolute; left: 0; top: -2px; bottom: -2px; width: 2px; transform: translateX(-1px); background: #fff; box-shadow: 0 0 8px rgba(255,255,255,.95), 0 0 18px rgba(255,79,216,.65); will-change: left; }
-.timing-scale { margin-top: 2px; }
-.timing-scale b { color: rgba(255,79,216,.62); }
+.timing-scale { margin-top: 2px; }.timing-scale b { color: rgba(255,79,216,.62); }
 .audition-ui { isolation: isolate; }
-
-/* Command feedback must not animate/overwrite the SVG rotation. */
 .command-arrow-v2 { animation: none !important; transition: filter 120ms ease, opacity 120ms ease !important; }
-
 @keyframes timing-zone-breathe { 0%, 100% { opacity: .48; } 50% { opacity: .95; } }
 @keyframes timing-zone-shimmer { 0% { transform: translateX(-4%); opacity: .35; } 50% { opacity: .75; } 100% { transform: translateX(4%); opacity: .35; } }
 
-/* Deliberately separated cross-shaped D-pad. */
-.dpad-v2 { width: 148px; height: 148px; }
-.dpad-v2 button { width: 48px; height: 48px; }
-.dpad-left { left: 2px; top: 50px; }
-.dpad-up { left: 50px; top: 2px; }
-.dpad-down { left: 50px; bottom: 2px; }
-.dpad-right { right: 2px; top: 50px; }
-.dpad-center-v2 { left: 55px; top: 55px; width: 38px; height: 38px; }
+/* Four independent hit targets with a visible gap between them. */
+.dpad-v2 { width: 168px; height: 168px; }
+.dpad-v2 button { width: 54px; height: 54px; border-radius: 15px; }
+.dpad-left { left: 0; top: 57px; }.dpad-up { left: 57px; top: 0; }.dpad-down { left: 57px; bottom: 0; }.dpad-right { right: 0; top: 57px; }
+.dpad-center-v2 { left: 63px; top: 63px; width: 42px; height: 42px; }
 
 @media (orientation: portrait), (max-width: 720px) {
   .timing-gauge-wrap { width: calc(100% - 4px); margin-top: 4px; }
   .timing-gauge { height: 20px; }
   .timing-gauge-label, .timing-scale { font-size: 5px; }
-  .dpad-v2 { width: 148px; height: 148px; }
-  .dpad-v2 button { width: 48px; height: 48px; border-radius: 13px; }
-  .dpad-left { left: 2px; top: 50px; }
-  .dpad-up { left: 50px; top: 2px; }
-  .dpad-down { left: 50px; bottom: 2px; }
-  .dpad-right { right: 2px; top: 50px; }
-  .dpad-center-v2 { left: 55px; top: 55px; width: 38px; height: 38px; }
-  .command-area { bottom: 140px; }
-  .controls-row-v2 { bottom: 10px; padding: 0 12px; }
-  .space-button-v2 { width: 108px; height: 70px; }
+  .command-area { bottom: 190px; width: calc(100% - 24px); }
+  .controls-row-v2 { bottom: 8px; padding: 0 10px; align-items: flex-end; }
+  .dpad-v2 { width: 168px; height: 168px; flex: 0 0 168px; }
+  .dpad-v2 button { width: 54px; height: 54px; }
+  .dpad-left { left: 0; top: 57px; }.dpad-up { left: 57px; top: 0; }.dpad-down { left: 57px; bottom: 0; }.dpad-right { right: 0; top: 57px; }
+  .dpad-center-v2 { left: 63px; top: 63px; width: 42px; height: 42px; }
+  .space-button-v2 { width: 112px; height: 72px; flex: 0 0 112px; }
+}
+
+@media (max-width: 380px) {
+  .command-area { bottom: 184px; }
+  .controls-row-v2 { padding: 0 6px; }
+  .dpad-v2 { transform: scale(.92); transform-origin: bottom right; margin-left: -13px; margin-bottom: -13px; }
+  .space-button-v2 { width: 104px; height: 68px; }
 }
