@@ -14,9 +14,9 @@ const DEMO_COMMANDS: Direction[] = [
   "left", "up", "down", "right", "left", "right", "up", "down",
 ];
 
-const BEATS_PER_MOVE = 4;
+const BEATS_TO_PERFECT = 4;
 const PERFECT_GAUGE_PERCENT = 85;
-const GAUGE_DURATION_BEATS = BEATS_PER_MOVE / (PERFECT_GAUGE_PERCENT / 100);
+const GAUGE_DURATION_BEATS = BEATS_TO_PERFECT / (PERFECT_GAUGE_PERCENT / 100);
 const COMMANDS_PER_MOVE = 8;
 
 const cloneStats = (stats: GameStats): GameStats => ({ ...stats });
@@ -74,15 +74,15 @@ export class RhythmRuntime {
   get totalCommands() { return this.chart.notes.length; }
 
   /**
-   * Audition-style bead motion: one full left-to-right sweep repeats every
-   * 4 beats. The perfect point is 85% of the visual sweep, so the marker
-   * reaches the perfect point at the 4-beat target and then starts again.
+   * Audition-style rhythm bead: it traverses the entire gauge and loops.
+   * PERFECT is at 85% of the visual sweep, exactly 4 beats after the move
+   * starts. The remaining 15% completes the bar before it loops again.
    */
   get timingGaugePercent() {
     if (!this.started) return 0;
 
     const currentBeat = this.clock.currentBeat;
-    const cycleBeat = currentBeat % BEATS_PER_MOVE;
+    const cycleBeat = currentBeat % GAUGE_DURATION_BEATS;
     return Math.max(0, Math.min(100, (cycleBeat / GAUGE_DURATION_BEATS) * 100));
   }
 
@@ -99,7 +99,6 @@ export class RhythmRuntime {
     if (!target) return false;
 
     if (direction !== target) {
-      // Wrong arrow resets only the current command sequence.
       const moveStart = Math.floor(this.commandCursor / COMMANDS_PER_MOVE) * COMMANDS_PER_MOVE;
       this.commandCursor = moveStart;
       this.emitSequence();
@@ -116,8 +115,8 @@ export class RhythmRuntime {
   handleSpace() {
     if (!this.started || this.finished) return null;
 
-    // Audition requires the displayed arrow sequence to be completed before
-    // the beat is committed with SPACE.
+    // The current command sequence must be completed before SPACE can
+    // resolve the move, matching the classic Audition flow.
     if (this.commandCursor === 0 || this.commandCursor % COMMANDS_PER_MOVE !== 0) {
       return null;
     }
@@ -147,8 +146,8 @@ export class RhythmRuntime {
     const targetBeat = this.getTargetBeat(this.timingMoveIndex);
     const deltaMs = this.clock.elapsedMs - this.beatToMs(targetBeat);
 
-    // Once the player passes the BAD window, the current move is a MISS and
-    // the next 4-beat cycle begins. This prevents SPACE mashing from scoring.
+    // Once the 185 ms BAD window is passed, the move becomes MISS and the
+    // next gauge cycle starts. Repeated SPACE presses can no longer score it.
     if (deltaMs > WINDOWS_MS.bad) {
       if (this.engine.missMove(this.timingMoveIndex)) {
         this.timingMoveIndex += 1;
@@ -175,7 +174,7 @@ export class RhythmRuntime {
   }
 
   private getTargetBeat(moveIndex: number) {
-    return (moveIndex + 1) * BEATS_PER_MOVE;
+    return moveIndex * GAUGE_DURATION_BEATS + BEATS_TO_PERFECT;
   }
 
   private emitStats(force: boolean) {
