@@ -20,6 +20,7 @@ const BEATS_PER_MOVE = 4;
 const COMMANDS_PER_MOVE = 8;
 const COUNTDOWN_BEATS = 4;
 const INTRO_BEATS = 4;
+const LEVEL_MOVE_COUNTS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 const cloneStats = (stats: GameStats): GameStats => ({ ...stats });
 
 export class RhythmRuntime {
@@ -65,12 +66,7 @@ export class RhythmRuntime {
     this.loop();
   }
 
-  stop() {
-    if (this.raf) cancelAnimationFrame(this.raf);
-    this.raf = 0;
-    this.started = false;
-  }
-
+  stop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; this.started = false; }
   destroy() { this.stop(); }
 
   get isStarted() { return this.started; }
@@ -132,7 +128,6 @@ export class RhythmRuntime {
 
   private loop = () => {
     if (!this.started || this.finished) return;
-
     if (this.phase === "intro") {
       if (this.clock.elapsedMs >= INTRO_BEATS * this.beatDurationMs) {
         this.phase = "countdown";
@@ -144,7 +139,7 @@ export class RhythmRuntime {
       const elapsed = this.clock.elapsedMs - this.countdownStartedAtMs;
       const countdown = 3 - Math.floor(elapsed / this.beatDurationMs);
       const display = countdown >= 1 ? countdown : null;
-      if (display !== this.lastCountdown) {
+      if ((display === null ? 0 : display) !== this.lastCountdown) {
         this.lastCountdown = display ?? 0;
         this.callbacks.onCountdown?.(display);
       }
@@ -162,7 +157,6 @@ export class RhythmRuntime {
         if (this.finished) return;
       }
     }
-
     this.raf = requestAnimationFrame(this.loop);
   };
 
@@ -174,7 +168,6 @@ export class RhythmRuntime {
     this.emitStats(true);
     this.emitSequence();
     this.callbacks.onLevel?.(this.currentLevel);
-
     if (this.timingMoveIndex >= this.totalMoves) {
       this.finished = true;
       this.phase = "finished";
@@ -186,20 +179,14 @@ export class RhythmRuntime {
   private get totalMoves() { return Math.ceil(this.chart.notes.length / COMMANDS_PER_MOVE); }
   private get beatDurationMs() { return 60000 / this.chart.bpm; }
   private get moveDurationMs() { return BEATS_PER_MOVE * this.beatDurationMs; }
-
-  private getTargetTimeMs(moveIndex: number) {
-    return (INTRO_BEATS + COUNTDOWN_BEATS + (moveIndex + 1) * BEATS_PER_MOVE) * this.beatDurationMs + this.chart.offsetMs;
-  }
+  private getTargetTimeMs(moveIndex: number) { return (INTRO_BEATS + COUNTDOWN_BEATS + (moveIndex + 1) * BEATS_PER_MOVE) * this.beatDurationMs + this.chart.offsetMs; }
 
   private getMoveLevel(moveIndex: number) {
-    if (moveIndex < 1) return 1;
-    if (moveIndex < 3) return 2;
-    if (moveIndex < 6) return 3;
-    if (moveIndex < 10) return 4;
-    if (moveIndex < 15) return 5;
-    if (moveIndex < 21) return 6;
-    if (moveIndex < 27) return 7;
-    if (moveIndex < 33) return 8;
+    let cursor = 0;
+    for (let level = 1; level <= LEVEL_MOVE_COUNTS.length; level += 1) {
+      cursor += LEVEL_MOVE_COUNTS[level - 1];
+      if (moveIndex < cursor) return level;
+    }
     return 9;
   }
 
@@ -212,17 +199,10 @@ export class RhythmRuntime {
     }
   }
 
-  private emitSequence() {
-    this.callbacks.onSequence?.(this.getVisibleSequence(), this.completedCommands);
-  }
-
+  private emitSequence() { this.callbacks.onSequence?.(this.getVisibleSequence(), this.completedCommands); }
   private getVisibleSequence() {
     const blockStart = Math.floor(this.commandCursor / COMMANDS_PER_MOVE) * COMMANDS_PER_MOVE;
     return Array.from({ length: COMMANDS_PER_MOVE }, (_, index) => this.getCommandDirection(blockStart + index)).filter((direction): direction is Direction => Boolean(direction));
   }
-
-  private getCommandDirection(index: number): Direction | undefined {
-    if (index < DEMO_COMMANDS.length) return DEMO_COMMANDS[index];
-    return this.chart.notes[index]?.direction;
-  }
+  private getCommandDirection(index: number): Direction | undefined { if (index < DEMO_COMMANDS.length) return DEMO_COMMANDS[index]; return this.chart.notes[index]?.direction; }
 }
