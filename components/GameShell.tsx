@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEMO_CHART } from "../game/chart";
 import { RhythmRuntime } from "../game/runtime";
 import type { Direction, GameStats, Judgement } from "../game/types";
-import { Stage3D } from "./Stage3D";
+import Stage3D from "./Stage3D";
 
 const DIRECTION_SYMBOL: Record<Direction, string> = { left: "←", up: "↑", down: "↓", right: "→" };
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
