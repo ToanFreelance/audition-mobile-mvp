@@ -1,51 +1,21 @@
-import type { Chart, Direction, Note } from "./types";
+import type { Chart, Direction } from "./types";
 
-const directions: Direction[] = ["left", "up", "down", "right"];
+const DEMO_COMMANDS: Direction[] = ["left", "up", "down", "right", "left", "right", "up", "down"];
+const LEVEL_MOVE_COUNTS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 
-function buildNotes(startBeat: number, totalNotes: number, pattern: Direction[]): Note[] {
-  return Array.from({ length: totalNotes }, (_, index) => ({
-    id: index + 1,
-    beat: startBeat + index * 0.5,
-    direction: pattern[index % pattern.length]
-  }));
+export const LEVEL_MOVE_COUNTS_EXPORT = LEVEL_MOVE_COUNTS;
+
+export const DEMO_CHART: Chart = {
+  id: "please-tell-me-why-level-1",
+  title: "Please Tell Me Why — Level 1",
+  bpm: 80,
+  offsetMs: 0,
+  notes: Array.from({ length: 39 * 8 }, (_, index) => ({
+    direction: DEMO_COMMANDS[index % DEMO_COMMANDS.length],
+    beat: index,
+  })),
+};
+
+export function moveCountForLevel(level: number) {
+  return LEVEL_MOVE_COUNTS[Math.max(1, Math.min(9, level)) - 1];
 }
-
-export function createDemoChart(): Chart {
-  const pattern: Direction[] = [
-    "left", "up", "down", "right",
-    "left", "right", "up", "down"
-  ];
-
-  return {
-    title: "Neon Groove — Prototype",
-    bpm: 128,
-    offsetMs: 0,
-    notes: buildNotes(4, 128, pattern)
-  };
-}
-
-/**
- * Slow timing reference for manual QA.
- * Please Tell Me Why by Freestyle is widely documented at 80 BPM.
- * The repository does not bundle the copyrighted recording; this chart
- * uses the title/BPM and an equivalent test command pattern so the timing
- * engine can be checked against a slow 80 BPM reference.
- */
-export function createPleaseTellMeWhyChart(): Chart {
-  const pattern: Direction[] = [
-    "left", "up", "right", "down",
-    "left", "right", "up", "down"
-  ];
-
-  return {
-    title: "Please Tell Me Why — Timing Test",
-    bpm: 80,
-    offsetMs: 0,
-    notes: buildNotes(4, 128, pattern)
-  };
-}
-
-export const CHARTS = {
-  neon: createDemoChart,
-  pleaseTellMeWhy: createPleaseTellMeWhyChart
-} as const;
