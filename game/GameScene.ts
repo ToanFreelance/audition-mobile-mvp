@@ -86,33 +86,33 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  handleInput(direction: Direction) {
+  handleInput(direction: Direction): boolean {
     if (this.finished) {
-      return;
+      return false;
     }
 
     if (!this.initialized) {
       if (this.roundRequested) {
         this.queuedInputs.push(direction);
       }
-      return;
+      return false;
     }
 
     if (!this.started) {
       if (!this.roundRequested) {
-        return;
+        return false;
       }
       this.startRound();
     }
 
     if (!this.started || this.finished) {
-      return;
+      return false;
     }
 
     const targetDirection = this.getCommandDirection(this.commandCursor);
 
     if (!targetDirection || direction !== targetDirection) {
-      return;
+      return false;
     }
 
     this.commandCursor += 1;
@@ -122,6 +122,8 @@ export class GameScene extends Phaser.Scene {
       this.finished = true;
       this.callbacks.onFinished({ ...this.engine.stats });
     }
+
+    return true;
   }
 
   handleSpace() {
@@ -200,12 +202,6 @@ export function createPhaserGame(
     chart,
     callbacks,
   });
-
-  // Phaser can defer scene boot. Always return the exact instance registered
-  // above so React never sends input to a different SceneManager instance.
-  const originalGetScene = game.scene.getScene.bind(game.scene);
-  game.scene.getScene = ((key: string) =>
-    key === "GameScene" ? gameScene : originalGetScene(key)) as typeof game.scene.getScene;
 
   game.scene.start("GameScene", {
     chart,
