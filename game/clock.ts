@@ -11,6 +11,11 @@ export class BeatClock {
 
   setTimeSource(source: ClockTimeSource | null) { this.timeSource = source; }
 
+  syncToTimeSource() {
+    if (!this.startPerf || !this.timeSource) return;
+    this.sourceStartMs = this.timeSource() - (performance.now() - this.startPerf);
+  }
+
   start() {
     this.startPerf = performance.now();
     this.paused = false;
