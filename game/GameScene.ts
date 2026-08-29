@@ -203,6 +203,10 @@ export function createPhaserGame(
     callbacks,
   });
 
+  const originalGetScene = game.scene.getScene.bind(game.scene);
+  game.scene.getScene = ((key: string) =>
+    key === "GameScene" ? gameScene : originalGetScene(key)) as typeof game.scene.getScene;
+
   game.scene.start("GameScene", {
     chart,
     callbacks,
