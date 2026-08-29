@@ -1,3 +1,5 @@
+"use client";
+
 import "../app/audition-overrides.css";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -10,7 +12,7 @@ const DIRECTION_SYMBOL: Record<Direction, string> = { left: "←", up: "↑", do
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
 const INITIAL_STATS: GameStats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
 
-export function GameShell() {
+export default function GameShell() {
   const [stats, setStats] = useState<GameStats>(INITIAL_STATS);
   const [sequence, setSequence] = useState<Direction[]>([]);
   const [filledCount, setFilledCount] = useState(0);
