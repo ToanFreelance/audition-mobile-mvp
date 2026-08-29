@@ -115,9 +115,6 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Start Demo can update React before Phaser commits the scene state.
-    // Once the explicit round request has arrived, recover synchronously
-    // before consuming the first real keyboard/touch input.
     if (!this.started) {
       if (!this.roundRequested) {
         return;
@@ -159,8 +156,6 @@ export class GameScene extends Phaser.Scene {
     if (!this.started || this.finished) {
       return;
     }
-
-    // Timing judgement is intentionally reserved for Part 3.
   }
 
   update() {
@@ -223,21 +218,22 @@ export function createPhaserGame(
   };
 
   const game = new Phaser.Game(config);
+  const sceneManager = game.scene;
+  const gameScene = new GameScene();
 
-  game.scene.add("GameScene", GameScene, false, {
+  // Keep a stable Scene instance available to React immediately. Phaser may
+  // queue the add/start operations until its SceneManager has booted.
+  sceneManager.add("GameScene", gameScene, false, {
     chart,
     callbacks,
   });
 
-  // Phaser can finish creating the ScenePlugin after React has already
-  // requested the scene. Keep getScene usable during that boot window so
-  // callers can retain the scene reference and deliver the pending start.
-  const sceneManager = game.scene;
   const originalGetScene = sceneManager.getScene.bind(sceneManager);
   sceneManager.getScene = ((key: string) =>
-    originalGetScene(key) ?? sceneManager.keys[key]) as typeof sceneManager.getScene;
+    originalGetScene(key) ??
+    (key === "GameScene" ? gameScene : sceneManager.keys[key])) as typeof sceneManager.getScene;
 
-  game.scene.start("GameScene", {
+  sceneManager.start("GameScene", {
     chart,
     callbacks,
   });
