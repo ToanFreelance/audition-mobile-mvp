@@ -123,12 +123,20 @@ export default function GameShell() {
             <span>{sequence.length ? `${Math.min(8, filledCount + 1)} / 8` : "—"}</span>
           </div>
 
-          <div className="command-row">
-            {sequence.map((direction, index) => (
-              <span key={`${direction}-${index}`} className={`command ${index < filledCount ? "filled" : ""}`}>
-                {DIRECTION_SYMBOL[direction]}
-              </span>
-            ))}
+          <div className="command-row" aria-label="Upcoming commands">
+            {sequence.map((direction, index) => {
+              const isFilled = index < filledCount;
+              const isTarget = index === filledCount;
+              return (
+                <span
+                  key={`${direction}-${index}`}
+                  className={`command ${isFilled ? "filled command-completed" : ""} ${isTarget ? "command-target" : ""}`}
+                  data-direction={direction}
+                >
+                  {DIRECTION_SYMBOL[direction]}
+                </span>
+              );
+            })}
           </div>
 
           <div className="timing-label">
@@ -141,12 +149,16 @@ export default function GameShell() {
           </div>
 
           <div className="mobile-controls">
-            <button className="space-button" onPointerDown={(event) => { event.preventDefault(); pressSpace(); }}>
+            <button className="space-button" aria-label="Space timing button" onPointerDown={(event) => { event.preventDefault(); pressSpace(); }}>
               <b>SPACE</b><span>TAP ON BEAT</span>
             </button>
             <div className="dpad" aria-label="Direction controls">
               {DIRECTIONS.map((direction) => (
-                <button key={direction} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }}>
+                <button
+                  key={direction}
+                  aria-label={direction}
+                  onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }}
+                >
                   {DIRECTION_SYMBOL[direction]}
                 </button>
               ))}
