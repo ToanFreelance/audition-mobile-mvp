@@ -99,7 +99,9 @@ export class RhythmRuntime {
     if (!this.started || (this.phase !== "playing" && this.phase !== "finish")) return 0;
     const targetMs = this.getTargetTimeMs(this.timingMoveIndex);
     const moveStartMs = targetMs - this.moveDurationMs;
-    return Math.max(0, Math.min(100, ((this.clock.elapsedMs - moveStartMs) / this.moveDurationMs) * 100));
+    const elapsedInMove = this.clock.elapsedMs - moveStartMs;
+    const loopMs = ((elapsedInMove % this.moveDurationMs) + this.moveDurationMs) % this.moveDurationMs;
+    return (loopMs / this.moveDurationMs) * 100;
   }
 
   get timingDeltaMs() {
@@ -215,11 +217,9 @@ export class RhythmRuntime {
         if (moveIndex < cursor) return { kind: "level", level };
       }
     }
-
     const cycleLength = POST_FINISH_MOVE_COUNTS.reduce((sum, count) => sum + count, 0) + 1;
     const cycleOffset = (moveIndex - FIRST_FINISH_MOVE_INDEX) % cycleLength;
     if (cycleOffset === 0) return { kind: "finish", level: 9 };
-
     let cursor = 0;
     for (let index = 0; index < POST_FINISH_MOVE_COUNTS.length; index += 1) {
       cursor += POST_FINISH_MOVE_COUNTS[index];
