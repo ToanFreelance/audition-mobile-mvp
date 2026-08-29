@@ -30,6 +30,7 @@ export class RhythmRuntime {
   private readonly callbacks: RhythmRuntimeCallbacks;
   private engine: RhythmEngine;
   private clock: BeatClock;
+  private timeSource: (() => number) | null = null;
   private commandCursor = 0;
   private timingMoveIndex = 0;
   private started = false;
@@ -48,10 +49,18 @@ export class RhythmRuntime {
     this.clock = new BeatClock(chart.bpm, chart.offsetMs);
   }
 
+  setTimeSource(source: (() => number) | null) {
+    this.timeSource = source;
+    this.clock.setTimeSource(source);
+  }
+
+  syncToTimeSource() { this.clock.syncToTimeSource(); }
+
   start() {
     this.stop();
     this.engine = new RhythmEngine(this.chart);
     this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
+    this.clock.setTimeSource(this.timeSource);
     this.commandCursor = 0;
     this.timingMoveIndex = 0;
     this.started = true;
@@ -97,11 +106,12 @@ export class RhythmRuntime {
 
   get timingGaugePercent() {
     if (!this.started || (this.phase !== "playing" && this.phase !== "finish")) return 0;
-    const targetMs = this.getTargetTimeMs(this.timingMoveIndex);
-    const moveStartMs = targetMs - this.moveDurationMs;
+    const moveStartMs = this.getTargetTimeMs(this.timingMoveIndex) - this.moveDurationMs;
     const elapsedInMove = this.clock.elapsedMs - moveStartMs;
     const loopMs = ((elapsedInMove % this.moveDurationMs) + this.moveDurationMs) % this.moveDurationMs;
-    return (loopMs / this.moveDurationMs) * 100;
+    const phase = loopMs / this.moveDurationMs;
+    const shifted = (phase + 0.425) % 1;
+    return (1 - Math.abs(shifted * 2 - 1)) * 100;
   }
 
   get timingDeltaMs() {
@@ -159,6 +169,7 @@ export class RhythmRuntime {
       }
       if (elapsed >= COUNTDOWN_BEATS * this.beatDurationMs) {
         this.phase = "playing";
+        this.clock.start();
         this.callbacks.onPhase?.("playing");
         this.callbacks.onCountdown?.(null);
         this.callbacks.onLevel?.(this.currentLevel);
@@ -167,7 +178,7 @@ export class RhythmRuntime {
     } else if (this.phase === "playing" || this.phase === "finish") {
       if (this.skipCurrentMove) {
         if (this.timingDeltaMs > WINDOWS_MS.bad) this.advanceSkippedMove();
-      } else if (this.timingDeltaMs > WINDOWS_MS.bad && this.engine.missMove(this.timingMoveIndex)) {
+      } else if (this.commandCursor === COMMANDS_PER_MOVE && this.timingDeltaMs > WINDOWS_MS.bad && this.engine.missMove(this.timingMoveIndex)) {
         this.advanceAfterJudgement("miss");
         if (this.finished) return;
       }
@@ -180,6 +191,7 @@ export class RhythmRuntime {
     this.timingMoveIndex += 1;
     this.commandCursor = 0;
     if (judgement === "miss") this.skipCurrentMove = true;
+    else this.skipCurrentMove = false;
     this.updatePhaseForCurrentMove();
     this.callbacks.onJudgement?.(judgement);
     this.callbacks.onPulse?.();
@@ -258,5 +270,5 @@ export class RhythmRuntime {
 
   private get beatDurationMs() { return 60000 / this.chart.bpm; }
   private get moveDurationMs() { return BEATS_PER_MOVE * this.beatDurationMs; }
-  private getTargetTimeMs(moveIndex: number) { return (INTRO_BEATS + COUNTDOWN_BEATS + (moveIndex + 1) * BEATS_PER_MOVE) * this.beatDurationMs + this.chart.offsetMs; }
+  private getTargetTimeMs(moveIndex: number) { return (moveIndex + 1) * this.moveDurationMs + this.chart.offsetMs; }
 }
