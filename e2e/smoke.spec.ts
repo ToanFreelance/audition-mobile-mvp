@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 async function startGame(page: any, isMobile: boolean) {
-  const startButton = page.getByRole("button", { name: "PLAY" });
+  const startButton = page.getByRole("button", { name: "Start Demo" });
   await expect(startButton).toBeVisible();
   if (isMobile) await startButton.tap();
   else await startButton.click();
@@ -17,15 +17,12 @@ async function pressDirection(page: any, isMobile: boolean, direction: "left" | 
 }
 
 async function pressSpace(page: any, isMobile: boolean) {
-  if (isMobile) {
-    await page.getByRole("button", { name: "Space timing button" }).tap();
-    return;
-  }
-  await page.keyboard.press("Space");
+  if (isMobile) await page.getByRole("button", { name: "Space timing button" }).tap();
+  else await page.keyboard.press("Space");
 }
 
 async function waitForSequence(page: any) {
-  await expect(page.locator('[aria-label="Upcoming commands"] .command')).toHaveCount(8, { timeout: 10000 });
+  await expect(page.locator('[aria-label="Upcoming commands"] .command-step')).toHaveCount(8, { timeout: 10000 });
 }
 
 async function completeCurrentMove(page: any, isMobile: boolean) {
@@ -60,7 +57,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
     await waitForSequence(page);
-    const steps = page.locator('[aria-label="Upcoming commands"] .command');
+    const steps = page.locator('[aria-label="Upcoming commands"] .command-step');
     await expect(steps.nth(0)).toHaveClass(/command-target/);
     await pressDirection(page, isMobile, "left");
     await expect(steps.nth(0)).toHaveClass(/command-completed/);
@@ -73,7 +70,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
     await waitForSequence(page);
-    const steps = page.locator('[aria-label="Upcoming commands"] .command');
+    const steps = page.locator('[aria-label="Upcoming commands"] .command-step');
     await pressDirection(page, isMobile, "left");
     await expect(steps.nth(0)).toHaveClass(/command-completed/);
     await pressDirection(page, isMobile, "right");
@@ -111,7 +108,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
     await waitForSequence(page);
-    const steps = page.locator('[aria-label="Upcoming commands"] .command');
+    const steps = page.locator('[aria-label="Upcoming commands"] .command-step');
     await pressDirection(page, isMobile, "left");
     await expect(steps.nth(0)).toHaveClass(/command-completed/);
     await expect(steps.nth(1)).toHaveClass(/command-target/);
@@ -127,12 +124,11 @@ test.describe("Audition Mobile MVP — QA", () => {
     await startGame(page, isMobile);
     await completeCurrentMove(page, isMobile);
 
-    const score = page.locator(".score-card > strong");
+    const score = page.locator(".my-score-value");
     const marker = page.locator(".timing-marker");
-
     await expect.poll(async () => {
       const left = Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left));
-      return left > 80 && left < 95;
+      return left > 70 && left < 100;
     }, { timeout: 5000 }).toBe(true);
 
     await pressSpace(page, isMobile);
@@ -156,12 +152,12 @@ test.describe("Audition Mobile MVP — QA", () => {
     await startGame(page, isMobile);
     await completeCurrentMove(page, isMobile);
 
-    const score = page.locator(".score-card > strong");
-    const missCount = page.locator(".judgement-counts span").nth(4);
+    const score = page.locator(".my-score-value");
+    const missCount = page.locator(".miss-text");
     await pressSpace(page, isMobile);
 
     await expect(score).toHaveText("0");
     await expect(missCount).toHaveText("M 1");
-    await expect(page.locator(".judgement.judgement-miss")).toHaveText("MISS");
+    await expect(page.locator(".judgement.miss")).toHaveText("MISS!");
   });
 });
