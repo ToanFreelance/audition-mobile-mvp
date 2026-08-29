@@ -14,6 +14,10 @@ const DEMO_COMMANDS: Direction[] = [
   "left", "up", "down", "right", "left", "right", "up", "down",
 ];
 
+const BEATS_TO_PERFECT = 4;
+const PERFECT_GAUGE_PERCENT = 85;
+const GAUGE_DURATION_BEATS = BEATS_TO_PERFECT / (PERFECT_GAUGE_PERCENT / 100);
+
 const cloneStats = (stats: GameStats): GameStats => ({ ...stats });
 
 export class RhythmRuntime {
@@ -22,6 +26,7 @@ export class RhythmRuntime {
   private engine: RhythmEngine;
   private clock: BeatClock;
   private commandCursor = 0;
+  private timingMoveIndex = 0;
   private started = false;
   private finished = false;
   private raf = 0;
@@ -39,6 +44,7 @@ export class RhythmRuntime {
     this.engine = new RhythmEngine(this.chart);
     this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
     this.commandCursor = 0;
+    this.timingMoveIndex = 0;
     this.started = true;
     this.finished = false;
     this.lastStatsSignature = "";
@@ -66,17 +72,26 @@ export class RhythmRuntime {
   get currentStep() { return this.commandCursor; }
   get totalCommands() { return this.chart.notes.length; }
 
-  /** Smooth 0–100% sweep. The marker is the beat phase, not a note-error clamp. */
+  /**
+   * Audition-style timing window:
+   * the command sequence appears, then PERFECT is four beats later.
+   * The approved UI places PERFECT at 85%, so the full visual sweep is
+   * 4 / 0.85 = 4.7059 beats. At 128 BPM that is ~2206 ms per sweep.
+   */
   get timingGaugePercent() {
     if (!this.started) return 0;
-    const beat = this.clock.currentBeat;
-    return (beat - Math.floor(beat)) * 100;
+
+    const currentBeat = this.clock.currentBeat;
+    const perfectBeat = (this.timingMoveIndex + 1) * BEATS_TO_PERFECT;
+    const gaugeStartBeat = perfectBeat - BEATS_TO_PERFECT;
+    const gaugeBeat = currentBeat - gaugeStartBeat;
+    return Math.max(0, Math.min(100, (gaugeBeat / GAUGE_DURATION_BEATS) * 100));
   }
 
   get timingDeltaMs() {
-    const note = this.engine.nextNote;
-    if (!note) return 0;
-    return this.clock.elapsedMs - this.beatToMs(note.beat);
+    if (!this.started) return 0;
+    const perfectBeat = (this.timingMoveIndex + 1) * BEATS_TO_PERFECT;
+    return this.clock.elapsedMs - this.beatToMs(perfectBeat);
   }
 
   handleDirection(direction: Direction) {
@@ -86,6 +101,7 @@ export class RhythmRuntime {
     if (!target) return false;
 
     if (direction !== target) {
+      // Wrong arrow restarts the command sequence from the first command.
       this.commandCursor = 0;
       this.emitSequence();
       this.callbacks.onPulse?.();
@@ -112,6 +128,7 @@ export class RhythmRuntime {
 
     const judgement = this.engine.judge(note.direction, this.clock.currentBeat);
     if (judgement) {
+      this.timingMoveIndex += 1;
       this.callbacks.onJudgement?.(judgement);
       this.callbacks.onPulse?.();
       this.emitStats(true);
