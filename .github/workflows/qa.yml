@@ -1,10 +1,6 @@
 name: Audition Mobile QA
 
 on:
-  push:
-    branches:
-      - main
-      - 'task/**'
   pull_request:
     branches:
       - main
