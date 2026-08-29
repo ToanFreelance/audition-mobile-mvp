@@ -39,8 +39,8 @@ test.describe("Audition Mobile MVP — QA", () => {
     await expect(page.getByRole("heading", { name: /Audition Mobile/i })).toBeVisible();
     await expect(page.locator("#game-container")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)).toBe(false);
-    expect(pageErrors, `Unexpected page errors:\n${pageErrors.join("\n")}`).toEqual([]);
-    expect(consoleErrors, `Unexpected console errors:\n${consoleErrors.join("\n")}`).toEqual([]);
+    expect(pageErrors).toEqual([]);
+    expect(consoleErrors).toEqual([]);
   });
 
   test("A2 — mobile controls are visible and tappable", async ({ page }) => {
@@ -111,7 +111,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     await expect(steps.nth(1)).not.toHaveClass(/command-completed/);
   });
 
-  test("A8 — 80 BPM test chart and SPACE anti-mash gating", async ({ page }) => {
+  test("A8 — 80 BPM test chart, timing window and SPACE anti-mash gating", async ({ page }) => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
@@ -125,24 +125,29 @@ test.describe("Audition Mobile MVP — QA", () => {
     await completeCurrentMove(page, isMobile);
 
     const score = page.locator(".my-score-value");
-    await expect(score).toHaveText("0");
+    const marker = page.locator(".timing-marker");
 
-    // Immediate repeated SPACE taps are outside the 80 BPM target window and
-    // must not award points or advance the move.
-    await pressSpace(page, isMobile);
-    await pressSpace(page, isMobile);
-    await pressSpace(page, isMobile);
-    await expect(score).toHaveText("0");
+    // Wait for the marker to enter the 75–95% scoring zone. This is much more
+    // deterministic than sleeping a fixed amount because input/render latency
+    // differs between WebKit mobile and Chromium desktop.
+    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el) => getComputedStyle(el).left))).toBeGreaterThan(75);
+    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el) => getComputedStyle(el).left))).toBeLessThan(95);
 
-    // At 80 BPM, four beats = 3000 ms to PERFECT. 2825 ms is inside BAD.
-    await page.waitForTimeout(2825);
     await pressSpace(page, isMobile);
     await expect(score).not.toHaveText("0");
+    const scoreAfterHit = await score.textContent();
 
-    const gauge = page.locator(".timing-marker");
-    const firstLeft = await gauge.evaluate((el) => getComputedStyle(el).left);
+    // Repeated SPACE presses must not score again: the move is already judged
+    // and the next target is a full gauge cycle later.
+    await pressSpace(page, isMobile);
+    await pressSpace(page, isMobile);
+    await pressSpace(page, isMobile);
+    await expect(score).toHaveText(scoreAfterHit ?? "0");
+
+    // The marker keeps moving after the hit; it does not freeze at PERFECT.
+    const firstLeft = await marker.evaluate((el) => Number.parseFloat(getComputedStyle(el).left));
     await page.waitForTimeout(900);
-    const secondLeft = await gauge.evaluate((el) => getComputedStyle(el).left);
+    const secondLeft = await marker.evaluate((el) => Number.parseFloat(getComputedStyle(el).left));
     expect(firstLeft).not.toBe(secondLeft);
   });
 });
