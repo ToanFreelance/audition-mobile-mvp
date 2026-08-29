@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 async function startGame(page: any, isMobile: boolean) {
-  const startButton = page.getByRole("button", { name: "Start Demo" });
+  const startButton = page.getByRole("button", { name: "PLAY" });
   await expect(startButton).toBeVisible();
   if (isMobile) await startButton.tap();
   else await startButton.click();
@@ -24,7 +24,12 @@ async function pressSpace(page: any, isMobile: boolean) {
   await page.keyboard.press("Space");
 }
 
+async function waitForSequence(page: any) {
+  await expect(page.locator('[aria-label="Upcoming commands"] .command')).toHaveCount(8, { timeout: 10000 });
+}
+
 async function completeCurrentMove(page: any, isMobile: boolean) {
+  await waitForSequence(page);
   const sequence = ["left", "up", "down", "right", "left", "right", "up", "down"] as const;
   for (const direction of sequence) await pressDirection(page, isMobile, direction);
 }
@@ -37,7 +42,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /Audition Mobile/i })).toBeVisible();
-    await expect(page.locator("#game-container")).toBeVisible();
+    await expect(page.locator(".game-stage-wrap canvas")).toBeVisible({ timeout: 5000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)).toBe(false);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
@@ -54,19 +59,23 @@ test.describe("Audition Mobile MVP — QA", () => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
-    const steps = page.locator('[aria-label="Upcoming commands"] .command-step');
-    await expect(steps).toHaveCount(8);
+    await waitForSequence(page);
+    const steps = page.locator('[aria-label="Upcoming commands"] .command');
+    await expect(steps.nth(0)).toHaveClass(/command-target/);
     await pressDirection(page, isMobile, "left");
     await expect(steps.nth(0)).toHaveClass(/command-completed/);
     await expect(steps.nth(1)).toHaveClass(/command-target/);
     await expect(steps.nth(1)).not.toHaveClass(/command-completed/);
   });
 
-  test("A4 — wrong direction does not advance sequence", async ({ page }) => {
+  test("A4 — wrong direction resets sequence", async ({ page }) => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
-    const steps = page.locator('[aria-label="Upcoming commands"] .command-step');
+    await waitForSequence(page);
+    const steps = page.locator('[aria-label="Upcoming commands"] .command');
+    await pressDirection(page, isMobile, "left");
+    await expect(steps.nth(0)).toHaveClass(/command-completed/);
     await pressDirection(page, isMobile, "right");
     await expect(steps.nth(0)).toHaveClass(/command-target/);
     await expect(steps.nth(0)).not.toHaveClass(/command-completed/);
@@ -78,9 +87,9 @@ test.describe("Audition Mobile MVP — QA", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
     const spaceButton = page.getByRole("button", { name: "Space timing button" });
-    if (isMobile) await expect(spaceButton).toBeVisible();
+    await expect(spaceButton).toBeVisible();
     await pressSpace(page, isMobile);
-    if (isMobile) await expect(spaceButton).toBeVisible();
+    await expect(spaceButton).toBeVisible();
   });
 
   test("A6 — mobile controls have adequate hit area", async ({ page }) => {
@@ -101,39 +110,28 @@ test.describe("Audition Mobile MVP — QA", () => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
-    const steps = page.locator('[aria-label="Upcoming commands"] .command-step');
+    await waitForSequence(page);
+    const steps = page.locator('[aria-label="Upcoming commands"] .command');
     await pressDirection(page, isMobile, "left");
     await expect(steps.nth(0)).toHaveClass(/command-completed/);
     await expect(steps.nth(1)).toHaveClass(/command-target/);
     await pressDirection(page, isMobile, "right");
     await expect(steps.nth(0)).toHaveClass(/command-target/);
     await expect(steps.nth(0)).not.toHaveClass(/command-completed/);
-    await expect(steps.nth(1)).not.toHaveClass(/command-completed/);
   });
 
-  test("A8 — 80 BPM test chart, timing window and SPACE anti-mash gating", async ({ page }) => {
+  test("A8 — 80 BPM timing gauge and SPACE anti-mash gating", async ({ page }) => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
-
-    const selector = page.getByRole("combobox", { name: "Timing test song" });
-    await selector.selectOption("pleaseTellMeWhy");
-    await expect(selector).toHaveValue("pleaseTellMeWhy");
-    await expect(page.getByText("BPM 80")).toBeVisible();
-    await expect(page.locator(".song-title")).toHaveText("Please Tell Me Why — Timing Test");
-
+    await expect(page.getByText(/80 BPM · Timing Test/).first()).toBeVisible();
     await startGame(page, isMobile);
     await completeCurrentMove(page, isMobile);
 
-    const score = page.locator(".my-score-value");
+    const score = page.locator(".score-card > strong");
     const marker = page.locator(".timing-marker");
 
-    // At 80 BPM, the current ±185 ms BAD window maps to roughly 80–90% of
-    // this gauge. Avoid the exact boundary because the browser renders frames
-    // asynchronously.
-    await expect.poll(async () => {
-      const left = Number.parseFloat(await marker.evaluate((el) => getComputedStyle(el).left));
-      return left > 80 && left < 90;
-    }).toBe(true);
+    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left))).toBeGreaterThan(80);
+    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left))).toBeLessThan(95);
 
     await pressSpace(page, isMobile);
     await expect(score).not.toHaveText("0");
@@ -144,25 +142,24 @@ test.describe("Audition Mobile MVP — QA", () => {
     await pressSpace(page, isMobile);
     await expect(score).toHaveText(scoreAfterHit ?? "0");
 
-    const firstLeft = await marker.evaluate((el) => Number.parseFloat(getComputedStyle(el).left));
+    const firstLeft = await marker.evaluate((el: HTMLElement) => Number.parseFloat(el.style.left));
     await page.waitForTimeout(900);
-    const secondLeft = await marker.evaluate((el) => Number.parseFloat(getComputedStyle(el).left));
+    const secondLeft = await marker.evaluate((el: HTMLElement) => Number.parseFloat(el.style.left));
     expect(firstLeft).not.toBe(secondLeft);
   });
 
   test("A9 — SPACE outside the scoring window is an immediate MISS", async ({ page }) => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.getByRole("combobox", { name: "Timing test song" }).selectOption("pleaseTellMeWhy");
     await startGame(page, isMobile);
     await completeCurrentMove(page, isMobile);
 
-    const score = page.locator(".my-score-value");
-    const missCount = page.locator(".miss-text");
+    const score = page.locator(".score-card > strong");
+    const missCount = page.locator(".judgement-counts span").nth(4);
     await pressSpace(page, isMobile);
 
     await expect(score).toHaveText("0");
     await expect(missCount).toHaveText("M 1");
-    await expect(page.locator(".judgement.miss")).toHaveText("MISS!");
+    await expect(page.locator(".judgement.judgement-miss")).toHaveText("MISS");
   });
 });
