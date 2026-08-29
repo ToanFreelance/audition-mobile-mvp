@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./game-interaction.css";
 
 export const metadata: Metadata = {
   title: "Audition Mobile — Rhythm Prototype",
-  description: "Mobile-first rhythm dance game prototype"
+  description: "Mobile-first rhythm dance game prototype",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <body>{children}</body>

@@ -5,7 +5,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent,
 } from "react";
 import type * as Phaser from "phaser";
 import { createDemoChart } from "@/game/chart";
@@ -57,6 +56,9 @@ export default function GameShell() {
     useRef<any>(null);
 
   const pendingStartRef =
+    useRef(false);
+
+  const startRequestedRef =
     useRef(false);
 
   const activeDirectionTimer =
@@ -259,7 +261,62 @@ export default function GameShell() {
     };
   }, []);
 
+  useEffect(() => {
+    function handleKeyboardInput(
+      event: globalThis.KeyboardEvent
+    ) {
+      if (
+        event.repeat ||
+        !started ||
+        finished
+      ) {
+        return;
+      }
+
+      const directionByKey: Partial<
+        Record<string, Direction>
+      > = {
+        ArrowLeft: "left",
+        ArrowUp: "up",
+        ArrowDown: "down",
+        ArrowRight: "right",
+      };
+
+      const direction =
+        directionByKey[event.key];
+
+      if (!direction) {
+        return;
+      }
+
+      event.preventDefault();
+
+      sceneRef.current?.handleInput(
+        direction
+      );
+    }
+
+    window.addEventListener(
+      "keydown",
+      handleKeyboardInput
+    );
+
+    return () => {
+      window.removeEventListener(
+        "keydown",
+        handleKeyboardInput
+      );
+    };
+  }, [finished, started]);
+
   function startGame() {
+    if (startRequestedRef.current) {
+      return;
+    }
+
+    startRequestedRef.current =
+      true;
+
     setStats(
       initialStats
     );
@@ -381,21 +438,6 @@ export default function GameShell() {
     );
 
     sceneRef.current?.handleSpace?.();
-  }
-
-  function onKeyDown(
-    event: KeyboardEvent<HTMLButtonElement>,
-    direction: Direction
-  ) {
-    if (event.repeat) {
-      return;
-    }
-
-    event.preventDefault();
-
-    pressDirection(
-      direction
-    );
   }
 
   const visibleSequence =
@@ -833,13 +875,6 @@ export default function GameShell() {
                             );
                           }
                         }
-                        onKeyDown={
-                          event =>
-                            onKeyDown(
-                              event,
-                              direction
-                            )
-                        }
                         aria-label={
                           direction
                         }
@@ -894,9 +929,14 @@ export default function GameShell() {
 
                   <button
                     className="button primary"
-                    onClick={
+                    onPointerDown={
                       startGame
                     }
+                    onClick={event => {
+                      if (event.detail === 0) {
+                        startGame();
+                      }
+                    }}
                   >
                     Start Demo
                   </button>
