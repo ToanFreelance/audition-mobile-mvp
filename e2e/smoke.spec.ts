@@ -130,8 +130,10 @@ test.describe("Audition Mobile MVP — QA", () => {
     const score = page.locator(".score-card > strong");
     const marker = page.locator(".timing-marker");
 
-    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left))).toBeGreaterThan(80);
-    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left))).toBeLessThan(95);
+    await expect.poll(async () => {
+      const left = Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left));
+      return left > 80 && left < 95;
+    }, { timeout: 5000 }).toBe(true);
 
     await pressSpace(page, isMobile);
     await expect(score).not.toHaveText("0");
