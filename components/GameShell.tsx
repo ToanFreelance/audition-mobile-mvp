@@ -14,7 +14,7 @@ export default function GameShell() {
   const [sequence, setSequence] = useState<Direction[]>([]);
   const [completedCommands, setCompletedCommands] = useState(0);
   const [judgement, setJudgement] = useState<Judgement | null>(null);
-  const [gauge, setGauge] = useState(50);
+  const [gauge, setGauge] = useState(75);
   const [delta, setDelta] = useState(0);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -51,8 +51,6 @@ export default function GameShell() {
       if (nextPhase !== "playing") return;
       const audio = audioRef.current;
       if (!audio || !audioReadyRef.current || !audioEnabledRef.current) return;
-      // The song has already been running silently during the intro/countdown.
-      // Do not seek here: the exact audio position is the rhythm clock.
       audio.muted = false;
       audio.volume = 1;
       runtimeRef.current?.syncToTimeSource();
@@ -60,7 +58,7 @@ export default function GameShell() {
     onCountdown: (value) => {
       if (countdownClearTimer.current !== null) window.clearTimeout(countdownClearTimer.current);
       if (value === null) {
-        // Keep the visual 0 visible for a short frame after the beat-zero edge.
+        // Keep the visual 0 visible briefly at the beat-zero edge.
         countdownClearTimer.current = window.setTimeout(() => setCountdown(null), 120);
         return;
       }
@@ -101,8 +99,8 @@ export default function GameShell() {
     setFinished(false);
     setStarted(true);
     setLevel(1);
-    setPhase("intro");
-    setCountdown(null);
+    setPhase("countdown");
+    setCountdown(3);
     audioReadyRef.current = false;
     runtime.setTimeSource(null);
 
@@ -110,7 +108,7 @@ export default function GameShell() {
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
-      audio.volume = 0;
+      audio.volume = 1;
       audio.muted = false;
       audio.load();
     }
@@ -147,7 +145,7 @@ export default function GameShell() {
       if (!runtime.isStarted) return next;
 
       audio.muted = false;
-      audio.volume = runtime.currentPhase === "playing" || runtime.currentPhase === "finish" ? 1 : 0;
+      audio.volume = 1;
       void audio.play().then(() => {
         audioReadyRef.current = true;
         runtime.setTimeSource(() => audio.currentTime * 1000);
@@ -218,7 +216,7 @@ export default function GameShell() {
               <div className="timing-gauge-wrap">
                 <div className="timing-gauge-label"><span>TIMING GAUGE · {Math.round(gauge)}%</span><b>{delta.toFixed(0)} ms</b></div>
                 <div className="timing-gauge" data-timing-delta-ms={Math.round(delta)}><div className="timing-score-zone" aria-hidden="true" /><div ref={markerRef} className="timing-marker" /></div>
-                <div className="timing-scale"><span>0%</span><b>25%</b><b>50% PERFECT</b><b>75%</b><span>100%</span></div>
+                <div className="timing-scale"><span>0%</span><b>25%</b><b>50%</b><b>75% PERFECT</b><span>100%</span></div>
               </div>
             </div>
 
