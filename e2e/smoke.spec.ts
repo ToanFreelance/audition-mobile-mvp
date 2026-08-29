@@ -7,6 +7,10 @@ async function startGame(page: any, isMobile: boolean) {
   else await startButton.click();
 }
 
+async function waitForPlaying(page: any) {
+  await expect(page.locator(".game-wrap")).toHaveAttribute("data-phase", "playing", { timeout: 10000 });
+}
+
 async function pressDirection(page: any, isMobile: boolean, direction: "left" | "up" | "down" | "right") {
   if (isMobile) {
     await page.getByRole("button", { name: direction }).tap();
@@ -22,13 +26,15 @@ async function pressSpace(page: any, isMobile: boolean) {
 }
 
 async function waitForSequence(page: any) {
-  await expect(page.locator('[aria-label="Upcoming commands"] .command-step')).toHaveCount(8, { timeout: 10000 });
+  await waitForPlaying(page);
+  await expect(page.locator('[aria-label="Upcoming commands"] .command-step')).toHaveCount(8, { timeout: 3000 });
 }
 
 async function completeCurrentMove(page: any, isMobile: boolean) {
   await waitForSequence(page);
   const sequence = ["left", "up", "down", "right", "left", "right", "up", "down"] as const;
   for (const direction of sequence) await pressDirection(page, isMobile, direction);
+  await expect(page.locator('[aria-label="Upcoming commands"] .command-step').nth(0)).toHaveClass(/command-completed/);
 }
 
 test.describe("Audition Mobile MVP — QA", () => {
@@ -49,6 +55,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     test.skip(test.info().project.name !== "mobile", "A2 is mobile-specific");
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, true);
+    await waitForPlaying(page);
     for (const name of ["left", "up", "down", "right", "Space timing button"]) await expect(page.getByRole("button", { name })).toBeVisible();
   });
 
@@ -83,6 +90,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     const isMobile = test.info().project.name === "mobile";
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, isMobile);
+    await waitForPlaying(page);
     const spaceButton = page.getByRole("button", { name: "Space timing button" });
     await expect(spaceButton).toBeVisible();
     await pressSpace(page, isMobile);
@@ -93,6 +101,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     test.skip(test.info().project.name !== "mobile", "A6 is mobile-specific");
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page, true);
+    await waitForPlaying(page);
     for (const name of ["left", "up", "down", "right", "Space timing button"]) {
       const button = page.getByRole("button", { name });
       await expect(button).toBeVisible();
@@ -126,10 +135,10 @@ test.describe("Audition Mobile MVP — QA", () => {
 
     const score = page.locator(".my-score-value");
     const marker = page.locator(".timing-marker");
-    await expect.poll(async () => {
-      const left = Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left));
-      return left > 88 && left < 98;
-    }, { timeout: 5000 }).toBe(true);
+    const gauge = page.locator(".timing-gauge");
+    await expect.poll(async () => Number(await gauge.getAttribute("data-timing-delta-ms")), { timeout: 5000 }).toBeGreaterThan(-90);
+    await expect.poll(async () => Math.abs(Number(await gauge.getAttribute("data-timing-delta-ms"))), { timeout: 5000 }).toBeLessThan(90);
+    await expect.poll(async () => Number.parseFloat(await marker.evaluate((el: HTMLElement) => el.style.left)), { timeout: 5000 }).toBeGreaterThan(75);
 
     await pressSpace(page, isMobile);
     await expect(score).not.toHaveText("0");
@@ -154,10 +163,20 @@ test.describe("Audition Mobile MVP — QA", () => {
 
     const score = page.locator(".my-score-value");
     const missCount = page.locator(".miss-text");
+    const gauge = page.locator(".timing-gauge");
+    await expect.poll(async () => Number(await gauge.getAttribute("data-timing-delta-ms")), { timeout: 3000 }).toBeLessThan(-500);
     await pressSpace(page, isMobile);
 
     await expect(score).toHaveText("0");
     await expect(missCount).toHaveText("M 1");
     await expect(page.locator(".judgement.miss")).toHaveText("MISS!");
+  });
+
+  test("A10 — audio is playing when rhythm phase starts", async ({ page }) => {
+    const isMobile = test.info().project.name === "mobile";
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await startGame(page, isMobile);
+    await waitForPlaying(page);
+    await expect.poll(async () => page.locator("audio").evaluate((audio: HTMLAudioElement) => !audio.paused && !audio.muted), { timeout: 5000 }).toBe(true);
   });
 });
