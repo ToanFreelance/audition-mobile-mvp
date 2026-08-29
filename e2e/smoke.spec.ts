@@ -39,7 +39,7 @@ test.describe("Audition Mobile MVP — QA", () => {
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: /Audition Mobile/i })).toBeVisible();
-    await expect(page.locator(".game-stage-wrap canvas")).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(".stage-3d canvas")).toBeVisible({ timeout: 5000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)).toBe(false);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
