@@ -229,6 +229,14 @@ export function createPhaserGame(
     callbacks,
   });
 
+  // Phaser can finish creating the ScenePlugin after React has already
+  // requested the scene. Keep getScene usable during that boot window so
+  // callers can retain the scene reference and deliver the pending start.
+  const sceneManager = game.scene;
+  const originalGetScene = sceneManager.getScene.bind(sceneManager);
+  sceneManager.getScene = (key: string) =>
+    originalGetScene(key) ?? sceneManager.keys[key];
+
   game.scene.start("GameScene", {
     chart,
     callbacks,
