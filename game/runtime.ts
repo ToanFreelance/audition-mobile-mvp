@@ -15,12 +15,11 @@ export type RhythmRuntimeCallbacks = {
   onPulse?: () => void;
 };
 
-const COUNTDOWN_BEATS = 4;
 const GAUGE_CYCLE_BEATS = 4;
+const COUNTDOWN_BEATS = 4;
 const LATE_EDGE = 0.10;
 export const SCORE_ZONE_START = 70;
 export const SCORE_ZONE_END = 90;
-// The 70–90 score zone has its exact center at 80%, so PERFECT sits at 80%.
 export const PERFECT_CENTER = 80;
 
 export class RhythmRuntime {
@@ -38,13 +37,11 @@ export class RhythmRuntime {
   private commandIndex = 0;
   private awaitingSpace = false;
   private targetMs = 0;
-  private targetOrdinal = 0;
-  private penaltyActive = false;
+  private penaltyEndsMs = 0;
   private finishMove = false;
   private finishDirections: Direction[] = [];
-  private lastCountdown = -1;
+  private lastCountdown: number | null = null;
   private lastStatsSignature = "";
-  private zeroVisible = false;
 
   constructor(chart: Chart, callbacks: RhythmRuntimeCallbacks = {}) {
     this.baseChart = chart;
@@ -72,14 +69,12 @@ export class RhythmRuntime {
     this.turnIndex = 0;
     this.commandIndex = 0;
     this.awaitingSpace = false;
-    this.targetOrdinal = 0;
-    this.penaltyActive = false;
+    this.targetMs = this.firstPerfectMs;
+    this.penaltyEndsMs = 0;
     this.finishMove = false;
     this.finishDirections = [];
-    this.targetMs = this.firstPerfectMs;
-    this.lastCountdown = -1;
+    this.lastCountdown = null;
     this.lastStatsSignature = "";
-    this.zeroVisible = false;
     this.clock.start();
     this.callbacks.onPhase?.("intro");
     this.callbacks.onCountdown?.(null);
@@ -100,46 +95,35 @@ export class RhythmRuntime {
   get isStarted() { return this.started; }
   get isFinished() { return this.finished; }
   get stats() { return { ...this.engine.stats }; }
-  get currentLevel() { return this.chart.turns?.[this.turnIndex]?.level ?? 1; }
+  get currentLevel() { return this.finishMove ? 9 : (this.chart.turns?.[this.turnIndex]?.level ?? 1); }
   get currentTurn() { return this.turnIndex + 1; }
   get currentPhase() { return this.phase; }
-  get isPenaltyTurn() { return this.penaltyActive; }
+  get isPenaltyTurn() { return this.penaltyEndsMs > this.clock.elapsedMs; }
   get currentDirections() {
-    if (this.penaltyActive) return [];
+    if (this.isPenaltyTurn || this.finishMove === false && this.turnIndex >= (this.chart.turns?.length ?? 0)) return this.finishMove ? this.finishDirections.slice() : [];
     return this.finishMove ? this.finishDirections.slice() : (this.chart.turns?.[this.turnIndex]?.directions?.slice() ?? []);
   }
   get sequence() { return this.started && !this.finished ? this.currentDirections : []; }
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
-  /** The gauge runs at one fixed BPM speed. Every Perfect target is exactly 4 beats apart. */
+  /** Fixed-speed gauge: one full sweep is exactly four beats. */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.perfectIntervalMs;
     const phaseStart = this.firstPerfectMs - cycleMs * (PERFECT_CENTER / 100);
-    const raw = (this.clock.elapsedMs - phaseStart) / cycleMs;
-    return ((((raw % 1) + 1) % 1) * 100);
+    return ((((this.clock.elapsedMs - phaseStart) / cycleMs) % 1 + 1) % 1) * 100;
   }
 
   get timingGaugePercent() { return this.gaugePercent; }
-
-  /** Signed milliseconds from the current 4-beat Perfect target. */
-  get timingDeltaMs() {
-    if (!this.started || !this.targetMs) return 0;
-    return this.clock.elapsedMs - this.targetMs;
-  }
+  get timingDeltaMs() { return !this.started || !this.targetMs ? 0 : this.clock.elapsedMs - this.targetMs; }
 
   handleDirection(direction: Direction) {
-    if (!this.canInputDirections() || this.awaitingSpace || this.penaltyActive) return false;
+    if (!this.canInputDirections() || this.awaitingSpace) return false;
     const sequence = this.currentDirections;
     if (!sequence.length || this.commandIndex >= sequence.length) return false;
 
     const elapsed = this.clock.elapsedMs;
-    const lateLimit = this.perfectIntervalMs * LATE_EDGE;
-    if (elapsed > this.targetMs + lateLimit) {
-      this.resolveMiss();
-      return false;
-    }
     if (elapsed >= this.targetMs) {
       this.resolveMiss();
       return false;
@@ -160,20 +144,14 @@ export class RhythmRuntime {
   }
 
   handleSpace() {
-    if (!this.started || this.finished || this.penaltyActive || !this.awaitingSpace) return null;
+    if (!this.started || this.finished || this.isPenaltyTurn || !this.awaitingSpace) return null;
 
     const elapsed = this.clock.elapsedMs;
-    // Before the first Perfect target, SPACE is deliberately ignored.
-    if (elapsed < this.targetMs) return null;
-
-    // The user can tap at the exact 0/Perfect frame before RAF transitions phase.
-    if (this.phase === "countdown") {
+    if (this.phase === "countdown" && elapsed >= this.targetMs) {
       this.phase = "playing";
-      this.zeroVisible = false;
-      this.callbacks.onCountdown?.(null);
+      this.callbacks.onCountdown?.(0);
       this.callbacks.onPhase?.("playing");
     }
-
     if (!this.canInputSpace()) return null;
 
     const judgement = this.engine.judgeMove(this.moveId, this.gaugePercent);
@@ -186,13 +164,13 @@ export class RhythmRuntime {
   }
 
   private canInputDirections() {
-    return this.started && !this.finished && !this.penaltyActive && (
+    return this.started && !this.finished && !this.isPenaltyTurn && (
       this.phase === "countdown" || this.phase === "playing" || this.phase === "finish"
     );
   }
 
   private canInputSpace() {
-    return this.started && !this.finished && !this.penaltyActive && (
+    return this.started && !this.finished && !this.isPenaltyTurn && (
       this.phase === "playing" || this.phase === "finish"
     );
   }
@@ -201,18 +179,23 @@ export class RhythmRuntime {
     if (!this.started || this.finished) return;
 
     const elapsed = this.clock.elapsedMs;
-    const countdownStart = this.targetMs - this.perfectOffsetMs;
+    const countdownStart = this.targetMs - this.perfectIntervalMs;
 
     if (this.phase === "intro" && elapsed >= countdownStart) {
       this.phase = "countdown";
-      this.lastCountdown = -1;
+      this.lastCountdown = null;
       this.callbacks.onPhase?.("countdown");
     }
 
     if (this.phase === "countdown") {
-      const progress = Math.max(0, Math.min(1, (elapsed - countdownStart) / this.perfectOffsetMs));
-      const step = Math.min(COUNTDOWN_BEATS - 1, Math.floor(progress * COUNTDOWN_BEATS));
-      const value = COUNTDOWN_BEATS - 1 - step;
+      const remaining = this.targetMs - elapsed;
+      let value: number | null = null;
+      if (remaining > this.beatDurationMs * 3) value = 3;
+      else if (remaining > this.beatDurationMs * 2) value = 2;
+      else if (remaining > this.beatDurationMs) value = 1;
+      else if (remaining > 0) value = null;
+      else value = 0;
+
       if (value !== this.lastCountdown) {
         this.lastCountdown = value;
         this.callbacks.onCountdown?.(value);
@@ -220,24 +203,35 @@ export class RhythmRuntime {
 
       if (elapsed >= this.targetMs) {
         this.phase = "playing";
-        this.zeroVisible = true;
         this.callbacks.onCountdown?.(0);
         this.callbacks.onPhase?.("playing");
-        requestAnimationFrame(() => {
-          if (!this.started || this.finished || !this.zeroVisible) return;
-          this.zeroVisible = false;
-          this.callbacks.onCountdown?.(null);
-        });
+        requestAnimationFrame(() => this.callbacks.onCountdown?.(null));
       }
     }
 
-    if (this.penaltyActive && elapsed >= this.targetMs) {
-      this.finishPenaltyCycle();
+    if (this.penaltyEndsMs > 0 && elapsed >= this.penaltyEndsMs) {
+      this.penaltyEndsMs = 0;
+      this.commandIndex = 0;
+      this.awaitingSpace = false;
+
+      if (this.turnIndex >= (this.chart.turns?.length ?? 0)) {
+        this.beginFinishMove();
+        return;
+      }
+
+      this.phase = "playing";
+      this.targetMs = this.penaltyEndsMs + this.perfectIntervalMs;
+      // penaltyEndsMs is cleared above; use the current audio position as the
+      // start of the next four-beat turn so it can never get stuck in penalty.
+      this.targetMs = elapsed + this.perfectIntervalMs;
+      this.callbacks.onPhase?.("playing");
+      this.callbacks.onLevel?.(this.currentLevel);
+      this.emitSequence();
+      this.raf = requestAnimationFrame(this.loop);
       return;
     }
 
-    const lateLimit = this.perfectIntervalMs * LATE_EDGE;
-    if ((this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + lateLimit) {
+    if (!this.isPenaltyTurn && (this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + this.perfectIntervalMs * LATE_EDGE) {
       this.resolveMiss();
       return;
     }
@@ -262,27 +256,26 @@ export class RhythmRuntime {
     }
 
     const lastTurn = this.chart.turns ? this.turnIndex >= this.chart.turns.length - 1 : true;
+    if (lastTurn && judgement !== "miss") {
+      this.beginFinishMove();
+      return;
+    }
 
     if (judgement === "miss") {
-      // One blank penalty cycle. The current chart turn is retained and will
-      // advance only after that blank cycle completes.
-      this.penaltyActive = true;
+      // Immediately select the next normal chart turn, but hide it for exactly
+      // one full four-beat penalty cycle. This prevents the old "never returns"
+      // dead state while still applying the requested one-turn penalty.
+      this.turnIndex += 1;
+      this.penaltyEndsMs = this.targetMs + this.perfectIntervalMs;
+      this.targetMs = this.penaltyEndsMs + this.perfectIntervalMs;
       this.phase = "penalty";
-      this.targetOrdinal += 1;
-      this.targetMs = this.firstPerfectMs + this.targetOrdinal * this.perfectIntervalMs;
       this.callbacks.onPhase?.("penalty");
       this.callbacks.onSequence?.([], 0);
       return;
     }
 
-    if (lastTurn) {
-      this.beginFinishMove();
-      return;
-    }
-
     this.turnIndex += 1;
-    this.targetOrdinal += 1;
-    this.targetMs = this.firstPerfectMs + this.targetOrdinal * this.perfectIntervalMs;
+    this.targetMs += this.perfectIntervalMs;
     this.phase = "playing";
     this.callbacks.onPhase?.("playing");
     this.callbacks.onLevel?.(this.currentLevel);
@@ -295,33 +288,13 @@ export class RhythmRuntime {
     this.completeMove("miss");
   }
 
-  private finishPenaltyCycle() {
-    this.penaltyActive = false;
-    this.turnIndex += 1;
-    this.commandIndex = 0;
-    this.awaitingSpace = false;
-    this.targetOrdinal += 1;
-    this.targetMs = this.firstPerfectMs + this.targetOrdinal * this.perfectIntervalMs;
-
-    if (this.turnIndex >= (this.chart.turns?.length ?? 0)) {
-      this.beginFinishMove();
-      return;
-    }
-
-    this.phase = "playing";
-    this.callbacks.onPhase?.("playing");
-    this.callbacks.onLevel?.(this.currentLevel);
-    this.emitSequence();
-  }
-
   private beginFinishMove() {
     this.finishMove = true;
-    this.penaltyActive = false;
+    this.penaltyEndsMs = 0;
     this.awaitingSpace = false;
     this.commandIndex = 0;
     this.finishDirections = randomDirections(6);
-    this.targetOrdinal += 1;
-    this.targetMs = this.firstPerfectMs + this.targetOrdinal * this.perfectIntervalMs;
+    this.targetMs = Math.max(this.targetMs, this.clock.elapsedMs) + this.perfectIntervalMs;
     this.phase = "finish";
     this.callbacks.onPhase?.("finish");
     this.emitSequence();
@@ -343,23 +316,9 @@ export class RhythmRuntime {
     }
   }
 
-  private get moveId() {
-    return this.finishMove ? (this.chart.turns?.length ?? 0) : this.turnIndex;
-  }
-
-  private get firstPerfectMs() {
-    return this.chart.firstPerfectMs ?? this.beatDurationMs * GAUGE_CYCLE_BEATS;
-  }
-
-  private get perfectIntervalMs() {
-    return this.beatDurationMs * GAUGE_CYCLE_BEATS;
-  }
-
-  private get perfectOffsetMs() {
-    return this.perfectIntervalMs;
-  }
-
-  private get beatDurationMs() {
-    return 60000 / this.chart.bpm;
-  }
+  private get moveId() { return this.finishMove ? (this.chart.turns?.length ?? 0) : this.turnIndex; }
+  private get firstPerfectMs() { return this.chart.firstPerfectMs ?? this.beatDurationMs * COUNTDOWN_BEATS; }
+  private get perfectIntervalMs() { return this.beatDurationMs * GAUGE_CYCLE_BEATS; }
+  private get perfectOffsetMs() { return this.perfectIntervalMs; }
+  private get beatDurationMs() { return 60000 / this.chart.bpm; }
 }
