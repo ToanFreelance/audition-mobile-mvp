@@ -1,13 +1,5 @@
-import GameShell from "@/components/GameShell";
-import ReferenceAudio from "@/components/ReferenceAudio";
-import StageMount from "@/components/StageMount";
+import AuditionGame from "@/components/AuditionGame";
 
 export default function Home() {
-  return (
-    <>
-      <GameShell />
-      <StageMount />
-      <ReferenceAudio />
-    </>
-  );
+  return <AuditionGame />;
 }
