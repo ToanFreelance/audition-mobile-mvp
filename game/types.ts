@@ -11,6 +11,10 @@ export interface DanceTurn {
   level: number;
   startBeat: number;
   directions: Direction[];
+  /** A miss penalty consumes this turn with no command sequence. */
+  penalty?: boolean;
+  /** Finish move is the final choreography action. */
+  finish?: boolean;
 }
 
 export interface Chart {
