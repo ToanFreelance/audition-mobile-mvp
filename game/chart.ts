@@ -1,25 +1,24 @@
 import type { Chart, Direction } from "./types";
 
-const DEMO_COMMANDS: Direction[] = ["left", "up", "down", "right", "left", "right", "up", "down"];
-const LEVEL_MOVE_COUNTS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
-const BPM = 80;
-const BEAT_MS = 60000 / BPM;
-const COUNTDOWN_BEATS = 4;
-
-export const LEVEL_MOVE_COUNTS_EXPORT = LEVEL_MOVE_COUNTS;
+const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
+const LEVELS = 9;
+const NOTES_PER_LEVEL = 9;
 
 export const DEMO_CHART: Chart = {
-  id: "please-tell-me-why-level-1",
-  title: "Please Tell Me Why — Level 1",
-  bpm: BPM,
+  id: "please-tell-me-why-audition-demo",
+  title: "Please Tell Me Why",
+  bpm: 80,
   offsetMs: 0,
-  beatTimesMs: Array.from({ length: 39 * 8 + COUNTDOWN_BEATS + 1 }, (_, index) => index * BEAT_MS),
-  notes: Array.from({ length: 39 * 8 }, (_, index) => ({
-    direction: DEMO_COMMANDS[index % DEMO_COMMANDS.length],
+  notes: Array.from({ length: LEVELS * NOTES_PER_LEVEL }, (_, index) => ({
+    direction: DIRECTIONS[(index * 7 + 1) % DIRECTIONS.length],
     beat: index,
   })),
 };
 
-export function moveCountForLevel(level: number) {
-  return LEVEL_MOVE_COUNTS[Math.max(1, Math.min(9, level)) - 1];
+export function sequenceForLevel(level: number): Direction[] {
+  const safeLevel = Math.max(1, Math.min(LEVELS, level));
+  return Array.from({ length: safeLevel }, (_, index) => {
+    const noteIndex = (safeLevel - 1) * NOTES_PER_LEVEL + index;
+    return DEMO_CHART.notes[noteIndex]?.direction ?? DIRECTIONS[noteIndex % DIRECTIONS.length];
+  });
 }
