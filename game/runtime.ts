@@ -17,9 +17,9 @@ export type RhythmRuntimeCallbacks = {
 
 const LEVELS = 9;
 const COUNTDOWN_BEATS = 4;
-const GAUGE_CYCLE_BEATS = 2;
-const SCORE_ZONE_START = 75;
-const SCORE_ZONE_END = 95;
+const GAUGE_CYCLE_BEATS = 4;
+const SCORE_ZONE_START = 80;
+const SCORE_ZONE_END = 90;
 const PERFECT_CENTER = 85;
 
 export class RhythmRuntime {
@@ -35,7 +35,8 @@ export class RhythmRuntime {
   private levelIndex = 0;
   private commandIndex = 0;
   private awaitingSpace = false;
-  private armedDeadlineMs = 0;
+  private targetMs = 0;
+  private gaugeCycleStartMs = 0;
   private lastCountdown = -1;
   private lastStatsSignature = "";
 
@@ -63,7 +64,8 @@ export class RhythmRuntime {
     this.levelIndex = 0;
     this.commandIndex = 0;
     this.awaitingSpace = false;
-    this.armedDeadlineMs = 0;
+    this.targetMs = 0;
+    this.gaugeCycleStartMs = 0;
     this.lastCountdown = -1;
     this.lastStatsSignature = "";
     this.clock.start();
@@ -88,30 +90,43 @@ export class RhythmRuntime {
   get stats() { return { ...this.engine.stats }; }
   get currentLevel() { return this.levelIndex + 1; }
   get currentPhase() { return this.phase; }
-  get sequence() { return this.canInput() ? sequenceForLevel(this.currentLevel) : []; }
+  get sequence() { return this.canInput() || this.phase === "countdown" ? sequenceForLevel(this.currentLevel) : []; }
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
+  /**
+   * Continuous 0→100 sweep. During 3/2/1/0 it travels from 0 to the
+   * 85% Perfect point; after 0 it keeps moving with the song clock.
+   */
   get gaugePercent() {
-    if (!this.canInput()) return 0;
+    if (!this.started || this.finished) return 0;
     const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
-    return ((this.clock.elapsedMs % cycleMs) / cycleMs) * 100;
+
+    if (this.phase === "countdown") {
+      return Math.min(PERFECT_CENTER, (this.clock.elapsedMs / (COUNTDOWN_BEATS * this.beatDurationMs)) * PERFECT_CENTER);
+    }
+
+    const raw = ((this.clock.elapsedMs - this.gaugeCycleStartMs) % cycleMs) / cycleMs;
+    return raw < 0 ? raw + 1 : raw * 100;
   }
 
-  // Compatibility alias used by the earlier GameShell implementation.
   get timingGaugePercent() { return this.gaugePercent; }
 
+  /** Milliseconds from the current song time to the current 85% target. */
   get timingDeltaMs() {
-    if (!this.canInput()) return 0;
-    const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
-    let distance = this.gaugePercent - PERFECT_CENTER;
-    if (distance > 50) distance -= 100;
-    if (distance < -50) distance += 100;
-    return (distance / 100) * cycleMs;
+    if (!this.canInput() || !this.targetMs) return 0;
+    return this.clock.elapsedMs - this.targetMs;
   }
 
   handleDirection(direction: Direction) {
     if (!this.canInput() || this.awaitingSpace) return false;
+
+    // A turn cannot be rescued after its Perfect target has passed.
+    if (this.clock.elapsedMs > this.targetMs) {
+      this.resolveMiss();
+      return false;
+    }
+
     const sequence = sequenceForLevel(this.currentLevel);
     if (direction !== sequence[this.commandIndex]) {
       this.commandIndex = 0;
@@ -119,27 +134,24 @@ export class RhythmRuntime {
       this.emitSequence();
       return false;
     }
+
     this.commandIndex += 1;
     this.callbacks.onPulse?.();
-    if (this.commandIndex === sequence.length) {
-      this.awaitingSpace = true;
-      const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
-      const cycleEnd = (Math.floor(this.clock.elapsedMs / cycleMs) + 1) * cycleMs;
-      this.armedDeadlineMs = cycleEnd + (this.gaugePercent > SCORE_ZONE_END ? cycleMs : 0);
-    }
+    if (this.commandIndex === sequence.length) this.awaitingSpace = true;
     this.emitSequence();
     return true;
   }
 
   handleSpace() {
     if (!this.canInput() || !this.awaitingSpace) return null;
-    const percent = this.gaugePercent;
-    if (percent < SCORE_ZONE_START || percent > SCORE_ZONE_END) {
-      this.engine.missMove(this.levelIndex);
-      this.completeMove("miss");
+
+    const delta = this.timingDeltaMs;
+    if (Math.abs(delta) > this.maxTimingWindowMs) {
+      this.resolveMiss();
       return "miss" as Judgement;
     }
-    const judgement = this.engine.judgeMove(this.levelIndex, this.timingDeltaMs);
+
+    const judgement = this.engine.judgeMove(this.levelIndex, delta);
     if (!judgement) return null;
     this.completeMove(judgement);
     return judgement;
@@ -160,16 +172,22 @@ export class RhythmRuntime {
         this.lastCountdown = value;
         this.callbacks.onCountdown?.(value);
       }
+
       if (elapsed >= COUNTDOWN_BEATS * this.beatDurationMs) {
+        const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
         this.phase = "playing";
+        // Countdown 0 visually lands at Perfect. The next gameplay target
+        // is the following Perfect crossing, leaving a complete input cycle.
+        this.gaugeCycleStartMs = elapsed - PERFECT_CENTER / 100 * cycleMs;
+        this.targetMs = elapsed + cycleMs * (1 - PERFECT_CENTER / 100);
         this.callbacks.onCountdown?.(null);
         this.callbacks.onPhase?.("playing");
         this.callbacks.onLevel?.(1);
         this.emitSequence();
       }
-    } else if (this.canInput() && this.awaitingSpace && elapsed >= this.armedDeadlineMs) {
-      this.engine.missMove(this.levelIndex);
-      this.completeMove("miss");
+    } else if (this.canInput() && elapsed >= this.targetMs) {
+      // Whether arrows were completed or not, passing the timing point is a MISS.
+      this.resolveMiss();
     }
 
     this.raf = requestAnimationFrame(this.loop);
@@ -190,16 +208,20 @@ export class RhythmRuntime {
       return;
     }
 
+    const previousTarget = this.targetMs;
     this.levelIndex += 1;
     this.commandIndex = 0;
     this.phase = this.levelIndex === LEVELS - 1 ? "finish" : "playing";
+    this.targetMs = previousTarget + this.beatDurationMs * GAUGE_CYCLE_BEATS;
     this.callbacks.onPhase?.(this.phase);
     this.callbacks.onLevel?.(this.currentLevel);
     this.emitSequence();
   }
 
+  private resolveMiss() { this.completeMove("miss"); }
+
   private emitSequence() {
-    if (!this.canInput()) {
+    if (!this.started || this.finished) {
       this.callbacks.onSequence?.([], 0);
       return;
     }
@@ -215,4 +237,5 @@ export class RhythmRuntime {
   }
 
   private get beatDurationMs() { return 60000 / this.chart.bpm; }
+  private get maxTimingWindowMs() { return this.beatDurationMs * 0.55; }
 }
