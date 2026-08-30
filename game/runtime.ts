@@ -41,7 +41,6 @@ export class RhythmRuntime {
   private finishDirections: Direction[] = [];
   private countdownValue: number | null = null;
   private lastStatsSignature = "";
-  private judgementId = 0;
 
   constructor(chart: Chart, callbacks: RhythmRuntimeCallbacks = {}) {
     this.baseChart = chart;
@@ -50,11 +49,7 @@ export class RhythmRuntime {
     this.clock = new BeatClock(chart.bpm, chart.offsetMs);
   }
 
-  setTimeSource(source: (() => number) | null) {
-    this.timeSource = source;
-    this.clock.setTimeSource(source);
-  }
-
+  setTimeSource(source: (() => number) | null) { this.timeSource = source; this.clock.setTimeSource(source); }
   syncToTimeSource() { this.clock.syncToTimeSource(); }
 
   start() {
@@ -75,7 +70,6 @@ export class RhythmRuntime {
     this.finishDirections = [];
     this.countdownValue = null;
     this.lastStatsSignature = "";
-    this.judgementId = 0;
     this.clock.start();
     this.callbacks.onPhase?.("intro");
     this.callbacks.onCountdown?.(null);
@@ -85,12 +79,7 @@ export class RhythmRuntime {
     this.loop();
   }
 
-  stop() {
-    if (this.raf) cancelAnimationFrame(this.raf);
-    this.raf = 0;
-    this.started = false;
-  }
-
+  stop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; this.started = false; }
   destroy() { this.stop(); }
 
   get isStarted() { return this.started; }
@@ -102,15 +91,13 @@ export class RhythmRuntime {
   get isPenaltyTurn() { return this.phase === "penalty"; }
   get currentDirections() {
     if (this.phase === "penalty") return [];
-    return this.finishMove
-      ? this.finishDirections.slice()
-      : (this.chart.turns?.[this.turnIndex]?.directions?.slice() ?? []);
+    return this.finishMove ? this.finishDirections.slice() : (this.chart.turns?.[this.turnIndex]?.directions?.slice() ?? []);
   }
   get sequence() { return this.started && !this.finished ? this.currentDirections : []; }
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
-  /** Gauge speed is fixed by BPM: one sweep = exactly four beats. */
+  /** One continuous sweep; the phase is anchored so every target is Perfect at 80%. */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.perfectIntervalMs;
@@ -126,6 +113,7 @@ export class RhythmRuntime {
     if (!this.canInputDirections() || this.awaitingSpace) return false;
     const sequence = this.currentDirections;
     if (!sequence.length || this.commandIndex >= sequence.length) return false;
+
     if (this.clock.elapsedMs >= this.targetMs) {
       this.resolveMiss();
       return false;
@@ -147,10 +135,6 @@ export class RhythmRuntime {
 
   handleSpace() {
     if (!this.started || this.finished || this.phase === "intro" || this.phase === "penalty" || !this.awaitingSpace) return null;
-
-    // Countdown remains tappable. A rushed early tap is judged using the same
-    // gauge coordinate as the visible marker, so early/late taps get lower
-    // grades rather than being silently ignored when they land in the zone.
     const judgement = this.engine.judgeMove(this.moveId, this.gaugePercent);
     if (!judgement) {
       this.resolveMiss();
@@ -162,10 +146,13 @@ export class RhythmRuntime {
 
   private canInputDirections() {
     return this.started && !this.finished && this.phase !== "penalty" && (
-      this.phase === "intro" ||
-      this.phase === "countdown" ||
-      this.phase === "playing" ||
-      this.phase === "finish"
+      this.phase === "intro" || this.phase === "countdown" || this.phase === "playing" || this.phase === "finish"
+    );
+  }
+
+  private canInputSpace() {
+    return this.started && !this.finished && this.phase !== "intro" && this.phase !== "penalty" && (
+      this.phase === "countdown" || this.phase === "playing" || this.phase === "finish"
     );
   }
 
@@ -191,31 +178,26 @@ export class RhythmRuntime {
         this.countdownValue = value;
         this.callbacks.onCountdown?.(value);
       }
-
       if (elapsed >= this.targetMs) {
         this.phase = "playing";
-        this.countdownValue = 0;
         this.callbacks.onCountdown?.(0);
         this.callbacks.onPhase?.("playing");
-        window.setTimeout(() => this.callbacks.onCountdown?.(null), 120);
+        window.setTimeout(() => {
+          if (this.started && !this.finished) this.callbacks.onCountdown?.(null);
+        }, 120);
       }
     }
 
     if (this.phase === "penalty") {
       if (elapsed >= this.penaltyUntilMs) {
-        // Consume exactly one blank four-beat penalty interval, then reveal
-        // the next normal turn. The next turn keeps the same deterministic
-        // 4-beat schedule and is never skipped.
         this.phase = "playing";
         this.penaltyUntilMs = 0;
         this.commandIndex = 0;
         this.awaitingSpace = false;
-
         if (this.turnIndex >= (this.chart.turns?.length ?? 0)) {
           this.beginFinishMove();
           return;
         }
-
         this.targetMs += this.perfectIntervalMs;
         this.callbacks.onPhase?.("playing");
         this.callbacks.onLevel?.(this.currentLevel);
@@ -225,6 +207,8 @@ export class RhythmRuntime {
       return;
     }
 
+    // If the target beat has passed the entire score zone without a valid
+    // SPACE, resolve a real MISS and create exactly one blank penalty cycle.
     if ((this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + this.lateWindowMs) {
       this.resolveMiss();
       return;
@@ -250,15 +234,15 @@ export class RhythmRuntime {
     }
 
     if (judgement === "miss") {
-      const hasNextTurn = this.turnIndex + 1 < (this.chart.turns?.length ?? 0);
-      this.phase = "penalty";
+      // Select the next normal turn now, but hide it for exactly one cycle.
+      // On penalty completion the next turn is revealed and its target is
+      // advanced by one more cycle. Nothing gets permanently stuck/hidden.
+      const nextTurn = this.turnIndex + 1;
+      this.turnIndex = nextTurn;
       this.penaltyUntilMs = this.targetMs + this.perfectIntervalMs;
+      this.phase = "penalty";
       this.callbacks.onPhase?.("penalty");
       this.callbacks.onSequence?.([], 0);
-      // Keep current turn index during penalty; advance exactly once when the
-      // blank cycle completes so arrows are guaranteed to return.
-      if (!hasNextTurn) this.turnIndex = this.chart.turns?.length ?? this.turnIndex + 1;
-      else this.turnIndex += 1;
       return;
     }
 
@@ -279,13 +263,12 @@ export class RhythmRuntime {
   private resolveMiss() {
     const moveId = this.moveId;
     if (!this.engine.missMove(moveId)) return;
-    this.callbacks.onJudgement?.("miss");
     this.completeMove("miss");
   }
 
   private beginFinishMove() {
     this.finishMove = true;
-    this.penaltyEndsMs = 0;
+    this.penaltyUntilMs = 0;
     this.awaitingSpace = false;
     this.commandIndex = 0;
     this.finishDirections = randomDirections(6);
@@ -300,7 +283,7 @@ export class RhythmRuntime {
       this.callbacks.onSequence?.([], 0);
       return;
     }
-    this.callbacks.onSequence?.(this.sequence, this.commandIndex);
+    this.callbacks.onSequence?.(this.currentDirections, this.commandIndex);
   }
 
   private emitStats(force = false) {
