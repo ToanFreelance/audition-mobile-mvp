@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "predev": "node scripts/analyze-rhythm.mjs",
     "build": "next build",
+    "prebuild": "node scripts/analyze-rhythm.mjs",
     "start": "next start",
     "lint": "next lint",
     "test:qa": "playwright test",
@@ -18,6 +20,8 @@
     "three": "0.180.0"
   },
   "devDependencies": {
+    "@audio/beat": "^2.1.0",
+    "@audio/decode": "^3.11.3",
     "@playwright/test": "1.62.1",
     "@types/node": "22.15.21",
     "@types/react": "19.1.2",
