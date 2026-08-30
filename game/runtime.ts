@@ -15,7 +15,8 @@ export type RhythmRuntimeCallbacks = {
   onPulse?: () => void;
 };
 
-const LEVELS = 9;
+const TOTAL_TURNS = 50;
+const MAX_LEVEL = 9;
 const COUNTDOWN_BEATS = 4;
 const GAUGE_CYCLE_BEATS = 4;
 export const SCORE_ZONE_START = 70;
@@ -32,7 +33,7 @@ export class RhythmRuntime {
   private started = false;
   private finished = false;
   private phase: RhythmPhase = "idle";
-  private levelIndex = 0;
+  private turnIndex = 0;
   private commandIndex = 0;
   private awaitingSpace = false;
   private targetMs = 0;
@@ -61,7 +62,7 @@ export class RhythmRuntime {
     this.started = true;
     this.finished = false;
     this.phase = "countdown";
-    this.levelIndex = 0;
+    this.turnIndex = 0;
     this.commandIndex = 0;
     this.awaitingSpace = false;
     this.targetMs = 0;
@@ -88,7 +89,8 @@ export class RhythmRuntime {
   get isStarted() { return this.started; }
   get isFinished() { return this.finished; }
   get stats() { return { ...this.engine.stats }; }
-  get currentLevel() { return this.levelIndex + 1; }
+  get currentLevel() { return Math.min(MAX_LEVEL, this.turnIndex + 1); }
+  get currentTurn() { return this.turnIndex + 1; }
   get currentPhase() { return this.phase; }
   get sequence() { return this.canInput() || this.phase === "countdown" ? sequenceForLevel(this.currentLevel) : []; }
   get completedCommands() { return this.commandIndex; }
@@ -141,7 +143,7 @@ export class RhythmRuntime {
   handleSpace() {
     if (!this.canInput() || !this.awaitingSpace) return null;
     const delta = this.timingDeltaMs;
-    const judgement = this.engine.judgeMove(this.levelIndex, delta);
+    const judgement = this.engine.judgeMove(this.turnIndex, delta);
     if (!judgement) {
       this.resolveMiss();
       return "miss" as Judgement;
@@ -170,9 +172,8 @@ export class RhythmRuntime {
         const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
         this.phase = "playing";
         // Countdown 0 is visually positioned at Perfect (85%). The first
-        // playable SPACE target is the NEXT Perfect on the same continuous
-        // gauge cycle, one full 4-beat sweep later. This gives the player the
-        // whole sweep to enter the arrow sequence instead of targeting 100%.
+        // playable SPACE target is the NEXT Perfect, one full 4-beat sweep
+        // later, so the player gets the whole sweep to enter the arrows.
         this.gaugeCycleStartMs = elapsed - (PERFECT_CENTER / 100) * cycleMs;
         this.targetMs = elapsed + cycleMs;
         this.callbacks.onCountdown?.(null);
@@ -193,7 +194,7 @@ export class RhythmRuntime {
     this.callbacks.onPulse?.();
     this.emitStats(true);
 
-    if (this.levelIndex >= LEVELS - 1) {
+    if (this.turnIndex >= TOTAL_TURNS - 1) {
       this.finished = true;
       this.started = false;
       this.phase = "finished";
@@ -203,9 +204,9 @@ export class RhythmRuntime {
     }
 
     const previousTarget = this.targetMs;
-    this.levelIndex += 1;
+    this.turnIndex += 1;
     this.commandIndex = 0;
-    this.phase = this.levelIndex === LEVELS - 1 ? "finish" : "playing";
+    this.phase = this.turnIndex === TOTAL_TURNS - 1 ? "finish" : "playing";
     this.targetMs = previousTarget + this.beatDurationMs * GAUGE_CYCLE_BEATS;
     this.callbacks.onPhase?.(this.phase);
     this.callbacks.onLevel?.(this.currentLevel);
