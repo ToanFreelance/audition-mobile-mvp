@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEMO_CHART } from "../game/chart";
-import { RhythmRuntime } from "../game/runtime";
+import { RhythmRuntime, SCORE_ZONE_END, SCORE_ZONE_START, PERFECT_CENTER } from "../game/runtime";
 import type { Direction, GameStats, Judgement } from "../game/types";
 import Stage3D from "./Stage3D";
 
@@ -21,16 +21,16 @@ export default function GameShell() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(true);
-  const [audioError, setAudioError] = useState<string | null>(null);
   const [audioState, setAudioState] = useState("idle");
+  const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioDetails, setAudioDetails] = useState("");
   const [activeDirection, setActiveDirection] = useState<Direction | null>(null);
   const [wrongDirection, setWrongDirection] = useState<Direction | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
+  const [songTime, setSongTime] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const directionTimer = useRef<number | null>(null);
-  const audioEnabledRef = useRef(true);
   const audioAlertedRef = useRef(false);
 
   const runtime = useMemo(() => new RhythmRuntime(DEMO_CHART, {
@@ -40,12 +40,11 @@ export default function GameShell() {
     onCountdown: setCountdown,
     onJudgement: (value) => {
       setJudgement(value);
-      window.setTimeout(() => setJudgement(null), 430);
+      window.setTimeout(() => setJudgement(null), 500);
     },
     onFinished: (next) => { setStats(next); setFinished(true); setStarted(false); },
   }), []);
 
-  useEffect(() => { audioEnabledRef.current = audioEnabled; }, [audioEnabled]);
   useEffect(() => () => {
     runtime.destroy();
     if (directionTimer.current) window.clearTimeout(directionTimer.current);
@@ -56,6 +55,7 @@ export default function GameShell() {
     const tick = () => {
       setGauge(runtime.gaugePercent);
       setDelta(runtime.timingDeltaMs);
+      setSongTime(audioRef.current?.currentTime ?? 0);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -65,39 +65,43 @@ export default function GameShell() {
   const reportAudioError = useCallback((reason: string) => {
     setAudioState("error");
     setAudioError(reason);
+    const audio = audioRef.current;
+    const media = audio?.error;
+    const details = [
+      `code=${media?.code ?? "n/a"}`,
+      `readyState=${audio?.readyState ?? "n/a"}`,
+      `networkState=${audio?.networkState ?? "n/a"}`,
+      `src=${AUDIO_SRC}`,
+    ].join(" · ");
+    setAudioDetails(details);
     if (!audioAlertedRef.current) {
       audioAlertedRef.current = true;
-      window.setTimeout(() => window.alert(`AUDITION MOBILE – AUDIO ERROR\n\n${reason}\n\nNếu đang dùng iPhone, hãy thử bấm TEST SOUND/REPLAY trực tiếp. Nếu vẫn lỗi, upload file MP3 80 BPM của bạn để mình thay asset.`), 0);
+      window.setTimeout(() => window.alert(`AUDITION MOBILE – AUDIO ERROR\n\n${reason}\n\n${details}\n\nFile 80 BPM bạn upload đã được kiểm tra hợp lệ. Hãy thay asset trong public/audio bằng đúng file đó rồi deploy lại.`), 0);
     }
   }, []);
 
-  const playAudio = useCallback(async () => {
+  const playAudio = useCallback(async (restart = true) => {
     const audio = audioRef.current;
-    if (!audio) {
-      reportAudioError("Không tìm thấy HTMLAudioElement.");
-      return false;
-    }
-
+    if (!audio) { reportAudioError("Không tìm thấy HTMLAudioElement."); return false; }
     try {
       setAudioError(null);
+      setAudioDetails("");
       setAudioState("loading");
-      audio.pause();
-      audio.currentTime = 0;
+      if (restart) audio.currentTime = 0;
       audio.muted = false;
       audio.volume = 1;
       audio.load();
       await audio.play();
       setAudioState("playing");
       runtime.setTimeSource(() => audio.currentTime * 1000);
-      runtime.syncToTimeSource();
       return true;
     } catch (error) {
       const err = error as DOMException | undefined;
       const reason = err?.name === "NotAllowedError"
-        ? "iOS/browser đã chặn playback vì gesture không được chấp nhận."
+        ? "iOS/browser đã chặn playback vì thao tác chưa được coi là user gesture."
         : err?.name === "NotSupportedError"
-          ? "Browser không hỗ trợ hoặc không decode được MP3 này."
-          : err?.message || "Browser không xác định được lỗi playback.";
+          ? "Browser không decode được source audio đang deploy."
+          : err?.message || "Browser báo lỗi playback không xác định.";
       reportAudioError(reason);
       runtime.setTimeSource(null);
       return false;
@@ -112,35 +116,59 @@ export default function GameShell() {
     setLevel(1);
     setJudgement(null);
     setFinished(false);
-    setStarted(true);
+    setStarted(false);
     setCountdown(3);
     setAudioError(null);
+    setSongTime(0);
 
-    runtime.setTimeSource(null);
-    runtime.start();
+    const audio = audioRef.current;
+    if (!audio) return;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      audio.load();
+      await audio.play();
+      setAudioState("playing");
+      runtime.setTimeSource(() => audio.currentTime * 1000);
+      runtime.start();
+      setStarted(true);
+    } catch (error) {
+      const err = error as DOMException | undefined;
+      const reason = err?.name === "NotAllowedError"
+        ? "iOS/browser chặn autoplay. Hãy dùng TEST SOUND/REPLAY bằng một lần chạm trực tiếp."
+        : err?.name === "NotSupportedError"
+          ? "Browser không decode được source MP3 đang deploy."
+          : err?.message || "Không thể phát audio.";
+      reportAudioError(reason);
+      runtime.setTimeSource(null);
+      setStarted(false);
+    }
+  }, [reportAudioError, runtime]);
 
-    if (audioEnabledRef.current) await playAudio();
-  }, [playAudio, runtime]);
+  const retryAudio = useCallback(async () => {
+    audioAlertedRef.current = false;
+    await playAudio(true);
+  }, [playAudio]);
 
   const pressDirection = useCallback((direction: Direction) => {
+    if (!started) return;
     setActiveDirection(direction);
     if (directionTimer.current) window.clearTimeout(directionTimer.current);
     directionTimer.current = window.setTimeout(() => setActiveDirection(null), 110);
-
     const target = sequence[completed];
     if (target && target !== direction) {
       setWrongDirection(direction);
       window.setTimeout(() => setWrongDirection(current => current === direction ? null : current), 180);
     } else setWrongDirection(null);
-
     runtime.handleDirection(direction);
-  }, [runtime, sequence, completed]);
+  }, [runtime, sequence, completed, started]);
 
   const pressSpace = useCallback(() => {
+    if (!started) return;
     setSpacePressed(true);
     window.setTimeout(() => setSpacePressed(false), 110);
     runtime.handleSpace();
-  }, [runtime]);
+  }, [runtime, started]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -153,10 +181,7 @@ export default function GameShell() {
     return () => window.removeEventListener("keydown", onKey);
   }, [pressDirection, pressSpace]);
 
-  const retryAudio = useCallback(async () => {
-    audioAlertedRef.current = false;
-    await playAudio();
-  }, [playAudio]);
+  const progress = Math.min(100, (songTime / 266.4) * 100);
 
   return (
     <main className="audition-page">
@@ -167,14 +192,14 @@ export default function GameShell() {
         src={AUDIO_SRC}
         onCanPlay={() => setAudioState("ready")}
         onPlaying={() => setAudioState("playing")}
-        onPause={() => { if (audioState === "playing") setAudioState("paused"); }}
-        onError={(event) => {
-          const code = event.currentTarget.error?.code;
-          const reason = code === 2 ? "Không thể tải file MP3 từ server."
+        onPause={() => setAudioState(current => current === "playing" ? "paused" : current)}
+        onEnded={() => setAudioState("ended")}
+        onError={() => {
+          const code = audioRef.current?.error?.code;
+          reportAudioError(code === 2 ? "Không thể tải file MP3 từ server."
             : code === 3 ? "File MP3 đã tải nhưng browser không decode được."
               : code === 4 ? "Browser không hỗ trợ source audio này."
-                : "Media element báo lỗi audio không xác định.";
-          reportAudioError(reason);
+                : "Media element báo lỗi audio không xác định.");
         }}
       />
 
@@ -186,47 +211,37 @@ export default function GameShell() {
             <div className="song-copy">
               <strong>Please Tell Me Why</strong>
               <span>BPM <b>80</b></span>
-              <div className="song-progress"><i /></div>
-              <small>{audioState.toUpperCase()} · 03:28</small>
+              <div className="song-progress"><i style={{ width: `${progress}%` }} /></div>
+              <small>{formatTime(songTime)} / 04:26</small>
             </div>
           </div>
 
           <div className="battle-score">
-            <strong className="red-score">{stats.score.toLocaleString()}</strong>
-            <b>VS</b>
-            <strong className="blue-score">179,342</strong>
-            <div className="battle-bar"><i /></div>
+            <div className="score-number red">{stats.score.toLocaleString()}</div><b>VS</b><div className="score-number blue">179,342</div>
+            <div className="battle-bar"><i style={{ width: `${Math.min(100, 50 + stats.score / 10000)}%` }} /></div>
             <span>RED</span><span>BLUE</span>
           </div>
 
-          <div className="top-actions">
-            <button onClick={retryAudio}>◉ REPLAY</button>
-            <button onClick={retryAudio}>ESC<br /><small>ON/OFF</small></button>
-          </div>
+          <div className="top-actions"><button onClick={retryAudio}>↻ REPLAY</button><button onClick={retryAudio}>ESC<small>ON/OFF</small></button></div>
 
           <div className="level-panel">
             <div className="level-title">LEVEL <b>{level}</b></div>
-            <div className="mission"><strong>MISSION</strong><span>Perfect more than 20</span><small>({stats.perfect} / 20) ✓</small></div>
+            <div className="mission"><strong>MISSION</strong><span>Perfect more than 20</span><small>({stats.perfect} / 20) {stats.perfect >= 20 ? "✓" : ""}</small></div>
             <div className="function-key">F10&nbsp;&nbsp; ON/OFF</div>
           </div>
 
           <div className="leaderboard">
-            {[
-              ["1st", "ToanDev", stats.score, "gold"],
-              ["2nd", "Audition King", 179342, "silver"],
-              ["3rd", "Dancer Pro", 165230, "bronze"],
-              ["4th", "Cool Girl", 142587, "blue"],
-            ].map(([rank, name, score, tone]) => (
+            {[["1st", "ToanDev", stats.score, "gold"], ["2nd", "Audition King", 179342, "silver"], ["3rd", "Dancer Pro", 165230, "bronze"], ["4th", "Cool Girl", 142587, "blue"]].map(([rank, name, score, tone]) => (
               <div className={`rank-line ${tone}`} key={String(rank)}><b>{rank}</b><span className="avatar">●</span><span>{name}</span><strong>{Number(score).toLocaleString()}</strong></div>
             ))}
           </div>
 
-          <div className="combo-panel"><span>COMBO</span><strong>{stats.combo}</strong><b>{judgement ? `${judgement[0].toUpperCase()}${judgement.slice(1)} x${stats.combo}` : "Perfect x17"}</b></div>
+          <div className="combo-panel"><span>COMBO</span><strong>{stats.combo}</strong><b>{judgement ? `${judgement.toUpperCase()} x${stats.combo}` : stats.perfect ? `Perfect x${stats.perfect}` : "Ready"}</b></div>
 
           {countdown !== null && <div className="countdown">{countdown}</div>}
           {countdown === null && judgement && <div className={`judgement judgement-${judgement}`}>{judgement.toUpperCase()}</div>}
 
-          {audioError && started && <div className="audio-error"><strong>🔇 SOUND ERROR</strong><span>{audioError}</span><button onClick={retryAudio}>RETRY SOUND</button></div>}
+          {audioError && <div className="audio-error"><strong>🔇 SOUND ERROR</strong><span>{audioError}</span><small>{audioDetails}</small><button onClick={retryAudio}>RETRY SOUND</button></div>}
 
           <div className="command-zone">
             <div className="command-label"><span>LEVEL <b>{level}</b></span><small>{completed} / {sequence.length}</small></div>
@@ -240,19 +255,15 @@ export default function GameShell() {
               <div className="space-key">SPACE</div>
             </div>
 
-            <div className="timing-gauge">
-              <div className="gauge-track">
-                <div className="gauge-gradient" />
-                <div className="gauge-score-zone"><i className="zone-glow" /></div>
-                <div className="gauge-marker" style={{ left: `${gauge}%` }} />
-              </div>
+            <div className="timing-gauge" style={{ ["--zone-start" as string]: `${SCORE_ZONE_START}%`, ["--zone-width" as string]: `${SCORE_ZONE_END - SCORE_ZONE_START}%`, ["--perfect" as string]: `${PERFECT_CENTER}%` }}>
+              <div className="gauge-track"><div className="gauge-zone"><i /></div><div className="gauge-marker" style={{ left: `${gauge}%` }} /></div>
               <div className="gauge-labels"><span>MISS</span><span>BAD</span><span>COOL</span><span>GREAT</span><b>PERFECT</b><span>GREAT</span><span>COOL</span><span>BAD</span><span>MISS</span></div>
               <div className="gauge-readout">{delta >= 0 ? "+" : ""}{delta.toFixed(0)} ms</div>
             </div>
           </div>
 
-          <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▶</b></div>
-          <div className="bottom-mode"><strong>Audition - Club Dance</strong><span>80 BPM&nbsp;&nbsp; <b>Hard</b></span><div>★★★☆☆</div></div>
+          <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All <i>▶</i></b></div>
+          <div className="bottom-mode"><strong>Audition - Club Dance</strong><span>80 BPM <b>Hard</b></span><div>★★★☆☆</div></div>
           <button className="exit-button">⇥<small>EXIT</small></button>
 
           <div className="mobile-controls">
@@ -263,7 +274,7 @@ export default function GameShell() {
             </div>
           </div>
 
-          {!started && !finished && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>Chuỗi mũi tên → hoàn tất command → SPACE đúng vùng PERFECT.</p><button onClick={startGame}>START</button><button className="sound-button" onClick={retryAudio}>TEST SOUND</button></div></div>}
+          {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>3 · 2 · 1 · 0 → gauge chạm PERFECT → bắt đầu turn.</p><button onClick={startGame}>START</button><button className="sound-button" onClick={retryAudio}>TEST SOUND</button></div></div>}
           {finished && <div className="start-overlay"><div className="ready-card results-card"><span>DANCE COMPLETE</span><h1>{stats.score.toLocaleString()}</h1><p>P {stats.perfect} · G {stats.great} · C {stats.cool} · B {stats.bad} · M {stats.miss}</p><button onClick={startGame}>PLAY AGAIN</button></div></div>}
         </div>
       </section>
@@ -271,9 +282,14 @@ export default function GameShell() {
   );
 }
 
+function formatTime(value: number) {
+  const total = Math.max(0, Math.floor(value));
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
 function ArrowIcon({ direction, filled, target, compact = false }: { direction: Direction; filled: boolean; target: boolean; compact?: boolean }) {
-  const color = direction === "left" || direction === "right" ? "#ff5fcf" : "#5fdcff";
+  const color = direction === "left" || direction === "right" ? "#ff5fcf" : "#63ddff";
   const rotation = direction === "right" ? 0 : direction === "down" ? 90 : direction === "left" ? 180 : 270;
-  const size = compact ? 30 : 42;
-  return <svg viewBox="0 0 42 40" aria-hidden="true" style={{ width: size, height: size, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) rotate(${rotation}deg)`, filter: `drop-shadow(0 0 ${target || filled ? 7 : 2}px ${color})`, opacity: target || filled ? 1 : .5 }}><path d="M5 14H22V8L36 20L22 32V26H5V14Z" fill={filled ? color : "rgba(0,0,0,.02)"} stroke={color} strokeWidth={filled ? 0 : 1.8} strokeLinejoin="miter" /></svg>;
+  const size = compact ? 32 : 42;
+  return <svg viewBox="0 0 42 40" aria-hidden="true" style={{ width: size, height: size, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) rotate(${rotation}deg)`, filter: `drop-shadow(0 0 ${target || filled ? 8 : 2}px ${color})`, opacity: target || filled ? 1 : .5 }}><path d="M5 14H22V8L36 20L22 32V26H5V14Z" fill={filled ? color : "transparent"} stroke={color} strokeWidth={filled ? 0 : 2} strokeLinejoin="miter" /></svg>;
 }
