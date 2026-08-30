@@ -4,16 +4,31 @@ const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
 const LEVELS = 9;
 const NOTES_PER_LEVEL = 9;
 
-export const DEMO_CHART: Chart = {
-  id: "please-tell-me-why-audition-demo",
-  title: "Please Tell Me Why",
-  bpm: 80,
-  offsetMs: 0,
-  notes: Array.from({ length: LEVELS * NOTES_PER_LEVEL }, (_, index) => ({
-    direction: DIRECTIONS[(index * 7 + 1) % DIRECTIONS.length],
-    beat: index,
-  })),
-};
+function buildChart(id: string, title: string, bpm: number): Chart {
+  return {
+    id,
+    title,
+    bpm,
+    offsetMs: 0,
+    notes: Array.from({ length: LEVELS * NOTES_PER_LEVEL }, (_, index) => ({
+      direction: DIRECTIONS[(index * 7 + 1) % DIRECTIONS.length],
+      beat: index,
+    })),
+  };
+}
+
+/** Default 128 BPM timing-test chart. */
+export function createDemoChart(): Chart {
+  return buildChart("neon-audition-demo", "Neon Club", 128);
+}
+
+/** 80 BPM chart used by the supplied Please Tell Me Why audio. */
+export function createPleaseTellMeWhyChart(): Chart {
+  return buildChart("please-tell-me-why-audition-demo", "Please Tell Me Why", 80);
+}
+
+/** Backwards-compatible chart constant for the current 80 BPM demo. */
+export const DEMO_CHART: Chart = createPleaseTellMeWhyChart();
 
 export function sequenceForLevel(level: number): Direction[] {
   const safeLevel = Math.max(1, Math.min(LEVELS, level));
