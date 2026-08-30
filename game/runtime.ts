@@ -37,6 +37,7 @@ export class RhythmRuntime {
   private awaitingSpace = false;
   private targetMs = 0;
   private penaltyUntilMs = 0;
+  private penaltyResumeTurnIndex = -1;
   private finishMove = false;
   private finishDirections: Direction[] = [];
   private countdownValue: number | null = null;
@@ -66,6 +67,7 @@ export class RhythmRuntime {
     this.awaitingSpace = false;
     this.targetMs = this.firstPerfectMs;
     this.penaltyUntilMs = 0;
+    this.penaltyResumeTurnIndex = -1;
     this.finishMove = false;
     this.finishDirections = [];
     this.countdownValue = null;
@@ -97,7 +99,7 @@ export class RhythmRuntime {
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
-  /** One continuous sweep; the phase is anchored so every target is Perfect at 80%. */
+  /** One continuous sweep; Perfect is fixed at the center of the 70–90% score zone. */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.perfectIntervalMs;
@@ -135,7 +137,6 @@ export class RhythmRuntime {
 
   handleSpace() {
     // Space is intentionally accepted during countdown after the arrows are completed.
-    // This lets an early player input receive BAD/COOL/GREAT instead of being ignored.
     if (!this.started || this.finished || this.phase === "intro" || this.phase === "penalty" || !this.awaitingSpace) return null;
     const judgement = this.engine.judgeMove(this.moveId, this.gaugePercent);
     if (!judgement) {
@@ -186,21 +187,21 @@ export class RhythmRuntime {
 
     if (this.phase === "penalty") {
       if (elapsed >= this.penaltyUntilMs) {
-        // The penalty turn has now been consumed. The already-selected next
-        // turn is revealed immediately and gets a fresh four-beat target.
-        this.phase = "playing";
+        const resumeTurn = this.penaltyResumeTurnIndex;
+        this.penaltyUntilMs = 0;
+        this.penaltyResumeTurnIndex = -1;
         this.commandIndex = 0;
         this.awaitingSpace = false;
 
-        if (this.turnIndex >= (this.chart.turns?.length ?? 0)) {
-          this.penaltyUntilMs = 0;
+        if (resumeTurn < 0 || resumeTurn >= (this.chart.turns?.length ?? 0)) {
           this.beginFinishMove();
           return;
         }
 
-        // targetMs was precomputed when MISS happened. Do not increment it here;
-        // incrementing again was the source of the previous hidden-arrow state.
-        this.penaltyUntilMs = 0;
+        // Reveal exactly the playable turn after one skipped penalty turn.
+        this.turnIndex = resumeTurn;
+        this.targetMs = this.targetMs;
+        this.phase = "playing";
         this.callbacks.onPhase?.("playing");
         this.callbacks.onLevel?.(this.currentLevel);
         this.emitSequence();
@@ -209,7 +210,6 @@ export class RhythmRuntime {
       return;
     }
 
-    // Once the whole score zone has passed without a valid SPACE, this turn is MISS.
     if ((this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + this.lateWindowMs) {
       this.resolveMiss();
       return;
@@ -235,16 +235,21 @@ export class RhythmRuntime {
     }
 
     if (judgement === "miss") {
-      // MISS consumes the current move and skips exactly ONE following move.
-      // The skipped move is turnIndex + 1; its arrows stay hidden for one
-      // complete four-beat interval. The next move is then shown normally.
-      const nextTurn = this.turnIndex + 1;
-      this.turnIndex = nextTurn;
+      const lastNormalTurn = (this.chart.turns?.length ?? 0) - 1;
+      const resumeTurn = this.turnIndex + 2;
+
+      // Current turn is already missed. The next normal turn is the penalty
+      // turn (blank), and the following turn is the next playable turn.
+      this.penaltyResumeTurnIndex = resumeTurn;
       this.penaltyUntilMs = this.targetMs + this.perfectIntervalMs;
-      this.targetMs = this.penaltyUntilMs + this.perfectIntervalMs;
+      this.targetMs = this.targetMs + this.perfectIntervalMs * 2;
       this.phase = "penalty";
       this.callbacks.onPhase?.("penalty");
       this.callbacks.onSequence?.([], 0);
+
+      // If the miss happened at the end of the normal chart, finish after the
+      // single penalty interval rather than getting stuck past the array.
+      if (resumeTurn > lastNormalTurn) this.penaltyResumeTurnIndex = -1;
       return;
     }
 
@@ -271,6 +276,7 @@ export class RhythmRuntime {
   private beginFinishMove() {
     this.finishMove = true;
     this.penaltyUntilMs = 0;
+    this.penaltyResumeTurnIndex = -1;
     this.awaitingSpace = false;
     this.commandIndex = 0;
     this.finishDirections = randomDirections(6);
