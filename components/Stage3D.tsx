@@ -18,16 +18,16 @@ export default function Stage3D() {
     scene.background = new THREE.Color(0x03040a);
     scene.fog = new THREE.FogExp2(0x05050e, 0.032);
 
-    const camera = new THREE.PerspectiveCamera(40, 16 / 9, 0.1, 100);
-    camera.position.set(0, 3.8, 15.5);
-    camera.lookAt(0, 2.5, 0);
+    const camera = new THREE.PerspectiveCamera(38, 16 / 9, 0.1, 100);
+    camera.position.set(0, 3.65, 20.5);
+    camera.lookAt(0, 2.7, .2);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
+    renderer.toneMappingExposure = 1.08;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
@@ -98,16 +98,16 @@ export default function Stage3D() {
 
     const player = createPlayerCharacter();
     player.root.position.set(0, .02, .25);
-    player.root.scale.setScalar(.92);
+    player.root.scale.setScalar(.78);
     stage.add(player.root);
 
     const resize = () => {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
       const portrait = height > width;
-      camera.fov = portrait ? 38 : 40;
-      camera.position.set(0, portrait ? 3.65 : 3.8, portrait ? 18.5 : 15.5);
-      camera.lookAt(0, portrait ? 2.55 : 2.5, .2);
+      camera.fov = portrait ? 34 : 38;
+      camera.position.set(0, portrait ? 3.55 : 3.65, portrait ? 23.5 : 20.5);
+      camera.lookAt(0, portrait ? 2.75 : 2.7, .2);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
@@ -124,15 +124,15 @@ export default function Stage3D() {
       if (disposed) return;
       raf = requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
-      const beat = t * 2.35;
-      player.root.position.y = .02 + Math.abs(Math.sin(beat)) * .045 + Math.sin(beat * .5) * .035;
-      player.root.rotation.y = Math.sin(beat * .32) * .11;
-      player.body.rotation.z = Math.sin(beat * .72) * .035;
-      player.leftArm.rotation.z = -.2 - Math.sin(beat) * .28;
-      player.rightArm.rotation.z = .2 + Math.sin(beat + .8) * .28;
-      player.leftLeg.rotation.x = Math.sin(beat + .6) * .11;
-      player.rightLeg.rotation.x = Math.sin(beat + Math.PI + .6) * .11;
-      spots.forEach((light, index) => { light.intensity = 34 + (Math.sin(t * 2.1 + index) + 1) * 9; });
+      const beat = t * 2.094;
+      player.root.position.y = .02 + Math.abs(Math.sin(beat)) * .035 + Math.sin(beat * .5) * .022;
+      player.root.rotation.y = Math.sin(beat * .32) * .08;
+      player.body.rotation.z = Math.sin(beat * .72) * .028;
+      player.leftArm.rotation.z = -.2 - Math.sin(beat) * .23;
+      player.rightArm.rotation.z = .2 + Math.sin(beat + .8) * .23;
+      player.leftLeg.rotation.x = Math.sin(beat + .6) * .09;
+      player.rightLeg.rotation.x = Math.sin(beat + Math.PI + .6) * .09;
+      spots.forEach((light, index) => { light.intensity = 32 + (Math.sin(t * 2.0 + index) + 1) * 8; });
       const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
       sign.scale.set(signPulse, signPulse, signPulse);
       renderer.render(scene, camera);
