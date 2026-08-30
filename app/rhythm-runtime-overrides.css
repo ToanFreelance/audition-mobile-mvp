@@ -1,4 +1,9 @@
 /* Rhythm runtime polish: match the reference gauge and keep controls centered. */
+.timing-gauge {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
 .timing-score-zone {
   left: 72% !important;
   width: 6% !important;
@@ -24,6 +29,10 @@
   background: #fff;
   box-shadow: 0 0 7px rgba(255,255,255,.95), 0 0 14px rgba(98,216,255,.9), 0 0 22px rgba(255,79,216,.45);
   transition: left 28ms linear !important;
+}
+
+.timing-marker-loop {
+  pointer-events: none;
 }
 
 .command-step,
