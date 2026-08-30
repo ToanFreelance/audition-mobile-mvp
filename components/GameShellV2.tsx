@@ -113,6 +113,71 @@ export default function GameShellV2() {
 
   return (
     <main className="shell audition-shell">
+      <style>{`
+        .audition-shell { max-width: 1380px; }
+        .audition-header { margin-bottom: 10px; }
+        .audition-game-card { overflow: hidden; }
+        .audition-game-wrap { min-height: 620px; }
+        .battle-hud { position: absolute; top: 14px; left: 16px; right: 16px; z-index: 5; display: grid; grid-template-columns: 1fr minmax(220px, .8fr) 1fr; align-items: center; gap: 12px; pointer-events: none; }
+        .player-badge, .level-badge, .score-hud, .mini-stats { border: 1px solid rgba(255,255,255,.14); background: rgba(8,10,25,.72); backdrop-filter: blur(8px); }
+        .player-badge { justify-self: start; padding: 7px 12px; border-radius: 9px; min-width: 120px; }
+        .player-badge b { display:block; font-size: 13px; }
+        .badge-label, .level-badge small, .score-hud small { display:block; color: rgba(255,255,255,.58); font-size: 9px; letter-spacing: .12em; }
+        .battle-score { display:flex; align-items:center; justify-content:center; gap:12px; font-weight:900; font-size:18px; text-shadow:0 2px 14px rgba(255,79,216,.28); }
+        .battle-score i { width:110px; height:7px; border-radius:99px; background:linear-gradient(90deg,#ff4fd8 0 50%,#62d8ff 50% 100%); border:1px solid rgba(255,255,255,.28); }
+        .level-badge { justify-self:end; padding:7px 14px; border-radius:9px; text-align:center; }
+        .level-badge strong { font-size:24px; line-height:1; }
+        .score-hud { position:absolute; top:78px; right:18px; z-index:5; display:flex; gap:14px; padding:8px 11px; border-radius:9px; pointer-events:none; }
+        .score-hud div { min-width:54px; text-align:center; }
+        .score-hud strong { display:block; font-size:13px; }
+        .audition-command-area { position:absolute; left:50%; bottom:158px; transform:translateX(-50%); width:min(760px,calc(100% - 36px)); z-index:6; }
+        .audition-command-area .command-heading { display:flex; justify-content:space-between; align-items:center; color:#fff; font-weight:900; letter-spacing:.08em; margin-bottom:6px; }
+        .audition-command-area .command-heading small { opacity:.62; font-weight:700; }
+        .timing-gauge-real { margin-top:8px; opacity:.58; transition:opacity 120ms ease,transform 120ms ease; }
+        .timing-gauge-real.is-live { opacity:1; transform:scaleY(1.05); }
+        .timing-track { height:18px; display:grid; grid-template-columns:1fr 1fr 1fr 1fr .58fr 1fr 1fr 1fr 1fr; position:relative; overflow:hidden; border-radius:4px; border:1px solid rgba(255,255,255,.28); background:rgba(0,0,0,.48); }
+        .timing-zone { border-right:1px solid rgba(255,255,255,.14); }
+        .miss-left,.miss-right { background:rgba(255,70,100,.22); }
+        .bad-zone { background:rgba(255,151,72,.30); }
+        .cool-zone { background:rgba(255,220,80,.34); }
+        .great-zone { background:rgba(116,238,255,.34); }
+        .perfect-zone { background:rgba(255,255,255,.86); box-shadow:inset 0 0 0 1px rgba(255,255,255,.7); }
+        .timing-marker { position:absolute; top:-5px; bottom:-5px; width:3px; margin-left:-1px; background:#fff; box-shadow:0 0 10px rgba(255,255,255,.9); z-index:3; transition:left 30ms linear; }
+        .timing-center { position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(20,20,30,.65); z-index:2; }
+        .timing-labels { display:grid; grid-template-columns:1fr 1fr 1fr 1fr .58fr 1fr 1fr 1fr 1fr; margin-top:3px; font-size:7px; color:rgba(255,255,255,.54); text-align:center; }
+        .timing-labels strong { color:#fff; font-size:8px; }
+        .space-ready { box-shadow:0 0 0 2px rgba(255,255,255,.24),0 8px 32px rgba(255,79,216,.25); }
+        .mini-stats { position:absolute; left:18px; bottom:24px; z-index:6; display:flex; gap:10px; padding:7px 10px; border-radius:8px; font-size:10px; pointer-events:none; }
+        .start-overlay { z-index:20; }
+        .result-overlay .start-panel h2 { font-size:42px; }
+        #game-container[data-judgement="perfect"] canvas { animation:audition-perfect .42s ease-out; }
+        #game-container[data-judgement="great"] canvas { animation:audition-great .32s ease-out; }
+        #game-container[data-judgement="cool"] canvas { animation:audition-cool .25s ease-out; }
+        @keyframes audition-perfect { 0%{transform:scale(1)} 35%{transform:scale(1.018)} 100%{transform:scale(1)} }
+        @keyframes audition-great { 0%{transform:translateY(0)} 40%{transform:translateY(-4px)} 100%{transform:translateY(0)} }
+        @keyframes audition-cool { 0%{transform:translateX(0)} 50%{transform:translateX(2px)} 100%{transform:translateX(0)} }
+        @media (max-width:700px) {
+          .audition-game-wrap { min-height:570px; }
+          .battle-hud { top:9px; left:9px; right:9px; grid-template-columns:1fr auto 1fr; gap:6px; }
+          .player-badge { min-width:0; padding:5px 8px; }
+          .battle-score { gap:5px; font-size:12px; }
+          .battle-score i { width:54px; height:5px; }
+          .level-badge { padding:5px 8px; }
+          .level-badge strong { font-size:18px; }
+          .score-hud { top:53px; right:9px; gap:6px; padding:5px 6px; }
+          .score-hud div { min-width:42px; }
+          .score-hud strong { font-size:11px; }
+          .audition-command-area { bottom:150px; width:calc(100% - 18px); }
+          .command-step { min-width:28px; }
+          .mini-stats { left:9px; bottom:15px; gap:6px; font-size:8px; padding:5px 7px; }
+          .timing-track { height:14px; }
+          .timing-labels { font-size:6px; }
+        }
+        @media (prefers-reduced-motion:reduce) {
+          #game-container[data-judgement="perfect"] canvas,#game-container[data-judgement="great"] canvas,#game-container[data-judgement="cool"] canvas { animation:none; }
+        }
+      `}</style>
+
       <header className="header audition-header">
         <div className="brand">
           <div className="brand-mark">A</div>
@@ -123,7 +188,7 @@ export default function GameShellV2() {
         </div>
         <div className="header-actions">
           <button className="pill" onClick={() => setAudioEnabled((value) => !value)}>
-            {audioEnabled ? "🔊 Sound ON" : "🔇 Sound OFF"}
+            {audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}
           </button>
           <span className="pill">TURN {turn?.id ?? 0}/50</span>
         </div>
@@ -203,7 +268,7 @@ export default function GameShellV2() {
                 <div className="ready-kicker">AUDITION MOBILE</div>
                 <h2>Ready to dance?</h2>
                 <p>Nhập chuỗi command → hoàn tất → nhấn SPACE đúng beat để thực hiện dance action.</p>
-                <button className="button primary" onClick={startGame}>Start Game</button>
+                <button className="button primary" onClick={startGame}>Start Demo</button>
               </div>
             </div>
           )}
