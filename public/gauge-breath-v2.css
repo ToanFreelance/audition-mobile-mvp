@@ -1,0 +1,6 @@
+/* Timing-gauge edge breath, tuned for the current 80 BPM test. */
+.gauge-zone{overflow:visible!important}
+.gauge-zone::before,.gauge-zone::after{content:"";position:absolute;top:-6px;bottom:-6px;width:18px;z-index:-1;opacity:.34;filter:blur(4px);border-radius:10px;background:linear-gradient(90deg,rgba(140,140,150,.05),rgba(245,245,250,.8),rgba(140,140,150,.05));animation:gauge-edge-breath-80 3s ease-in-out infinite}
+.gauge-zone::before{left:-9px;transform-origin:right center}
+.gauge-zone::after{right:-9px;transform-origin:left center;animation-delay:-1.5s}
+@keyframes gauge-edge-breath-80{0%,100%{transform:scaleX(.72);opacity:.20}50%{transform:scaleX(1.45);opacity:.72}}
