@@ -21,12 +21,12 @@
   },
   "devDependencies": {
     "@audio/beat": "^2.1.0",
-    "@audio/decode": "^3.11.3",
     "@playwright/test": "1.62.1",
     "@types/node": "22.15.21",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
     "@types/three": "0.180.0",
+    "audio-decode": "^2.2.1",
     "typescript": "5.8.3"
   }
 }
