@@ -53,6 +53,7 @@ export default function GameShell() {
       const audio = audioRef.current;
       if (!audio || !audioReadyRef.current || !audioEnabledRef.current) return;
       audio.muted = false;
+      audio.volume = 1;
       runtimeRef.current?.syncToTimeSource();
     },
     onCountdown: (value) => {
@@ -110,6 +111,7 @@ export default function GameShell() {
       audio.currentTime = 0;
       audio.defaultMuted = false;
       audio.muted = false;
+      audio.volume = 1;
       audio.removeAttribute("muted");
       audio.load();
     }
@@ -117,9 +119,12 @@ export default function GameShell() {
     runtime.start();
 
     if (audio && audioEnabledRef.current) {
+      audio.volume = 1;
+      audio.muted = false;
       void audio.play().then(() => {
         audioReadyRef.current = true;
         audio.muted = false;
+        audio.volume = 1;
         runtime.setTimeSource(() => audio.currentTime * 1000);
         runtime.syncToTimeSource();
       }).catch(() => {
@@ -148,6 +153,7 @@ export default function GameShell() {
 
       audio.defaultMuted = false;
       audio.muted = false;
+      audio.volume = 1;
       void audio.play().then(() => {
         audioReadyRef.current = true;
         runtime.setTimeSource(() => audio.currentTime * 1000);
