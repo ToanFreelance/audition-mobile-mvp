@@ -109,9 +109,9 @@ export class RhythmRuntime {
     if (this.phase === "intro" || this.phase === "countdown") return PERFECT_GAUGE_PERCENT;
     if (this.phase !== "playing" && this.phase !== "finish") return PERFECT_GAUGE_PERCENT;
 
-    // Reference behavior: one-way left-to-right sweep. The exact beat target
-    // is the Perfect position (~75%), then the marker continues right and wraps.
-    const cycleMs = this.moveDurationMs;
+    // The gauge is a continuous one-way sweep. Beat analysis supplies the
+    // actual measure boundaries; the marker never reverses at 100%.
+    const cycleMs = this.getMeasuredCycleDurationMs();
     const elapsedFromBeatZero = this.clock.elapsedMs - this.beatZeroAudioMs;
     const cycleElapsed = ((elapsedFromBeatZero % cycleMs) + cycleMs) % cycleMs;
     return (PERFECT_GAUGE_PERCENT + (cycleElapsed / cycleMs) * 100) % 100;
@@ -269,9 +269,24 @@ export class RhythmRuntime {
 
   private get beatDurationMs() { return 60000 / this.chart.bpm; }
   private get countdownDurationMs() { return COUNTDOWN_BEATS * this.beatDurationMs; }
-  private get beatZeroAudioMs() { return this.countdownDurationMs; }
+  private get beatZeroAudioMs() { return this.chart.beatTimesMs?.[COUNTDOWN_BEATS] ?? this.countdownDurationMs; }
   private get moveDurationMs() { return BEATS_PER_MOVE * this.beatDurationMs; }
+
+  private getMeasuredCycleDurationMs() {
+    const beats = this.chart.beatTimesMs;
+    const startIndex = COUNTDOWN_BEATS;
+    const endIndex = startIndex + BEATS_PER_MOVE;
+    if (beats && beats[endIndex] !== undefined && beats[startIndex] !== undefined) {
+      const measured = beats[endIndex] - beats[startIndex];
+      if (measured > 0) return measured;
+    }
+    return this.moveDurationMs;
+  }
+
   private getTargetTimeMs(moveIndex: number) {
-    return this.beatZeroAudioMs + moveIndex * this.moveDurationMs + this.chart.offsetMs;
+    const beats = this.chart.beatTimesMs;
+    const targetBeatIndex = COUNTDOWN_BEATS + (moveIndex + 1) * BEATS_PER_MOVE;
+    if (beats?.[targetBeatIndex] !== undefined) return beats[targetBeatIndex] + this.chart.offsetMs;
+    return this.beatZeroAudioMs + (moveIndex + 1) * this.moveDurationMs + this.chart.offsetMs;
   }
 }
