@@ -135,10 +135,19 @@ export class RhythmRuntime {
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
 
+    const elapsed = this.clock.elapsedMs;
     const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
-    const target = this.targetMs;
-    const cycleStart = target - cycleMs * (PERFECT_CENTER / 100);
-    const raw = (this.clock.elapsedMs - cycleStart) / cycleMs;
+
+    // Before the first target, stretch the initial visual cycle so the
+    // gauge starts at 0% when audio starts and reaches 85% exactly at
+    // firstPerfectMs. After that, every target is four beats apart.
+    if (this.turnIndex === 0 && elapsed < this.targetMs) {
+      const initialCycleMs = this.targetMs / (PERFECT_CENTER / 100);
+      return Math.min(85, (elapsed / initialCycleMs) * 100);
+    }
+
+    const cycleStart = this.targetMs - cycleMs * (PERFECT_CENTER / 100);
+    const raw = (elapsed - cycleStart) / cycleMs;
     const wrapped = ((raw % 1) + 1) % 1;
     return wrapped * 100;
   }
@@ -158,7 +167,8 @@ export class RhythmRuntime {
     const sequence = this.currentDirections;
     if (!sequence.length || this.commandIndex >= sequence.length) return false;
 
-    // Arrow input is allowed before the target, but never after it.
+    // Arrow input is allowed during the countdown and before the target,
+    // but never after the target has passed.
     if (this.clock.elapsedMs > this.targetMs) return false;
 
     if (direction !== sequence[this.commandIndex]) {
