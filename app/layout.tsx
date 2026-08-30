@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Audition Mobile",
-  description: "Mobile rhythm dance game"
+  description: "Mobile rhythm dance game",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -11,6 +11,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <head>
         <link rel="stylesheet" href="/audition-figma.css" />
+        <link rel="stylesheet" href="/audition-final-overrides.css" />
       </head>
       <body>{children}</body>
     </html>
