@@ -3,19 +3,14 @@ import type { Chart, DanceTurn, Direction } from "./types";
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
 const MAX_LEVEL = 9;
 
-// Reference progression observed in the supplied Audition replay.
-// A level is held for multiple turns; it does not increase every success.
 export const OBSERVED_80BPM_LEVEL_TURNS = [1, 2, 3, 4, 4, 6, 6] as const;
 export const STANDARD_4KEY_LEVEL_TURNS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 
-// Manual per-song anchor: first PERFECT is at beat 12 (a multiple of 4).
-// At 80 BPM this is exactly 9000ms. The chart editor can replace this value
-// for songs with a different intro while snapping the selected beat to 4n.
-export const FIRST_PERFECT_BEAT = 12;
-
-function firstPerfectMsForBpm(bpm: number) {
-  return FIRST_PERFECT_BEAT * (60000 / bpm);
-}
+// Manual song anchor requested for the current sync test.
+// At 80 BPM, 28.5s = beat 38. Subsequent Perfect targets remain exactly
+// four beats apart. If the anchor must itself be on an absolute 4n beat,
+// use 30.0s (beat 40) instead.
+export const FIRST_PERFECT_MS = 28500;
 
 function randomIndex(max: number) {
   if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
@@ -26,11 +21,9 @@ function randomIndex(max: number) {
   return Math.floor(Math.random() * max);
 }
 
-/** Fresh random arrows for each normal turn. Level 1..5 use N arrows; 6+ uses six. */
 export function randomDirections(level: number): Direction[] {
   const length = Math.max(1, Math.min(6, level));
   const result: Direction[] = [];
-
   for (let index = 0; index < length; index += 1) {
     let direction = DIRECTIONS[randomIndex(DIRECTIONS.length)];
     if (result.length > 0 && direction === result[result.length - 1]) {
@@ -44,10 +37,9 @@ export function randomDirections(level: number): Direction[] {
 
 function buildTurns(bpm: number, levelTurnCounts: readonly number[]) {
   const beatDurationMs = 60000 / bpm;
-  const firstPerfectBeat = firstPerfectMsForBpm(bpm) / beatDurationMs;
+  const firstPerfectBeat = FIRST_PERFECT_MS / beatDurationMs;
   const turns: DanceTurn[] = [];
   let id = 0;
-
   for (let levelIndex = 0; levelIndex < levelTurnCounts.length; levelIndex += 1) {
     const level = levelIndex + 1;
     const turnCount = levelTurnCounts[levelIndex];
@@ -67,7 +59,7 @@ function buildTurns(bpm: number, levelTurnCounts: readonly number[]) {
 
 function buildChart(id: string, title: string, bpm: number, levelTurnCounts: readonly number[]): Chart {
   const turns = buildTurns(bpm, levelTurnCounts);
-  const firstPerfectMs = firstPerfectMsForBpm(bpm);
+  const firstPerfectMs = FIRST_PERFECT_MS;
   const notes = turns.flatMap((turn) =>
     turn.directions.map((direction, index) => ({
       direction,
@@ -97,7 +89,6 @@ export function createPleaseTellMeWhyChart(): Chart {
 
 export const DEMO_CHART: Chart = createPleaseTellMeWhyChart();
 
-/** Re-randomize arrow content only; level/timing progression remains deterministic. */
 export function randomizeChart(source: Chart): Chart {
   const turns = (source.turns ?? []).map((turn) => ({
     ...turn,
