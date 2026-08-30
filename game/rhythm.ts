@@ -1,13 +1,14 @@
 import type { Judgement } from "./types";
 
-// Timing model: the marker sweeps 0% -> 100% over two beats.
-// At 80 BPM that is 1500 ms. The Audition score zone is 75% -> 95%,
-// with the exact Perfect point at 85%, so delta=0 ms means 85% exactly.
+// 80 BPM / 4-beat gauge => 3000 ms per sweep.
+// The visual score zone is 70%..90%, with Perfect centered at 85%.
+// Judgement windows are deliberately inside that zone so anything outside
+// the score zone is always a MISS.
 export const WINDOWS_MS = {
-  perfect: 7.5,
-  great: 37.5,
-  cool: 75,
-  bad: 150,
+  perfect: 18,
+  great: 42,
+  cool: 72,
+  bad: 120,
 } as const;
 
 export class RhythmEngine {
