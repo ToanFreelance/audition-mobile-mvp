@@ -100,7 +100,6 @@ export class RhythmRuntime {
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
-  /** Gauge follows audio from 0% at song start and is not reset between turns. */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
@@ -110,7 +109,6 @@ export class RhythmRuntime {
 
   get timingGaugePercent() { return this.gaugePercent; }
 
-  /** Signed milliseconds relative to the current Perfect target. */
   get timingDeltaMs() {
     if (!this.started || !this.targetMs) return 0;
     return this.clock.elapsedMs - this.targetMs;
@@ -122,7 +120,6 @@ export class RhythmRuntime {
     if (this.clock.elapsedMs > this.targetMs) return false;
 
     if (direction !== sequence[this.commandIndex]) {
-      // Wrong command does not consume the timing target; reset the sequence.
       this.commandIndex = 0;
       this.callbacks.onPulse?.();
       this.emitSequence();
@@ -139,8 +136,10 @@ export class RhythmRuntime {
   handleSpace() {
     if (!this.canInputSpace() || !this.awaitingSpace) return null;
     const delta = this.timingDeltaMs;
-    const judgement = this.engine.judgeMove(this.turnIndex, delta, this.beatDurationMs * GAUGE_CYCLE_BEATS);
+    const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
+    const judgement = this.engine.judgeMove(this.turnIndex, delta, cycleMs);
     if (!judgement) {
+      this.resolveMiss();
       return "miss" as Judgement;
     }
     this.completeMove(judgement);
@@ -175,11 +174,8 @@ export class RhythmRuntime {
       }
       if (elapsed >= this.targetMs) {
         this.phase = "playing";
-        this.gaugeCycleStartMs = 0;
         this.callbacks.onCountdown?.(null);
         this.callbacks.onPhase?.("playing");
-        // Do not auto-miss on the exact target instant: SPACE at 0 is valid.
-        // The late-miss deadline is one Bad-window past the target.
       }
     }
 
