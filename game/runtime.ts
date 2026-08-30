@@ -90,8 +90,8 @@ export class RhythmRuntime {
   get isStarted() { return this.started; }
   get isFinished() { return this.finished; }
   get stats() { return cloneStats(this.engine.stats); }
-  get sequence() { return this.phase === "playing" || this.phase === "finish" ? this.getVisibleSequence() : []; }
-  get completedCommands() { return this.commandCursor % COMMANDS_PER_MOVE; }
+  get sequence() { return this.started && (this.phase === "countdown" || this.phase === "playing" || this.phase === "finish") ? this.getVisibleSequence() : []; }
+  get completedCommands() { return Math.min(COMMANDS_PER_MOVE, this.commandCursor); }
   get currentStep() { return this.commandCursor; }
   get totalCommands() { return this.chart.notes.length; }
   get currentLevel() { return this.getMoveInfo(this.timingMoveIndex).level; }
@@ -109,21 +109,19 @@ export class RhythmRuntime {
     if (this.phase === "intro" || this.phase === "countdown") return PERFECT_GAUGE_PERCENT;
     if (this.phase !== "playing" && this.phase !== "finish") return PERFECT_GAUGE_PERCENT;
 
-    // The gauge is a continuous one-way sweep. Beat analysis supplies the
-    // actual measure boundaries; the marker never reverses at 100%.
-    const cycleMs = this.getMeasuredCycleDurationMs();
+    const cycleMs = this.moveDurationMs;
     const elapsedFromBeatZero = this.clock.elapsedMs - this.beatZeroAudioMs;
     const cycleElapsed = ((elapsedFromBeatZero % cycleMs) + cycleMs) % cycleMs;
     return (PERFECT_GAUGE_PERCENT + (cycleElapsed / cycleMs) * 100) % 100;
   }
 
   get timingDeltaMs() {
-    if (!this.started || (this.phase !== "playing" && this.phase !== "finish")) return 0;
+    if (!this.started || (this.phase !== "countdown" && this.phase !== "playing" && this.phase !== "finish")) return 0;
     return this.clock.elapsedMs - this.getTargetTimeMs(this.timingMoveIndex);
   }
 
   handleDirection(direction: Direction) {
-    if (!this.started || this.finished || (this.phase !== "playing" && this.phase !== "finish") || this.skipCurrentMove) return false;
+    if (!this.started || this.finished || (this.phase !== "countdown" && this.phase !== "playing" && this.phase !== "finish") || this.skipCurrentMove || this.commandCursor >= COMMANDS_PER_MOVE) return false;
     const target = this.getCommandDirection(this.commandCursor);
     if (!target) return false;
     if (direction !== target) {
@@ -139,7 +137,7 @@ export class RhythmRuntime {
   }
 
   handleSpace() {
-    if (!this.started || this.finished || (this.phase !== "playing" && this.phase !== "finish") || this.skipCurrentMove || this.commandCursor === 0 || this.commandCursor % COMMANDS_PER_MOVE !== 0) return null;
+    if (!this.started || this.finished || (this.phase !== "countdown" && this.phase !== "playing" && this.phase !== "finish") || this.skipCurrentMove || this.commandCursor !== COMMANDS_PER_MOVE) return null;
     const judgement = this.engine.judgeMove(this.timingMoveIndex, this.timingDeltaMs);
     if (judgement) {
       this.advanceAfterJudgement(judgement);
@@ -156,11 +154,7 @@ export class RhythmRuntime {
     if (!this.started || this.finished) return;
 
     const elapsed = this.clock.elapsedMs;
-    if (this.phase === "intro") {
-      this.phase = "countdown";
-      this.lastCountdown = -1;
-      this.callbacks.onPhase?.("countdown");
-    } else if (this.phase === "countdown") {
+    if (this.phase === "countdown") {
       const countdownElapsed = Math.max(0, elapsed - this.countdownStartedAtMs);
       const countdown = Math.min(3, Math.max(0, 3 - Math.floor(countdownElapsed / this.beatDurationMs)));
       if (countdown !== this.lastCountdown) {
@@ -257,7 +251,7 @@ export class RhythmRuntime {
   }
 
   private getVisibleSequence() {
-    const blockStart = Math.floor(this.commandCursor / COMMANDS_PER_MOVE) * COMMANDS_PER_MOVE;
+    const blockStart = this.timingMoveIndex * COMMANDS_PER_MOVE;
     return Array.from({ length: COMMANDS_PER_MOVE }, (_, index) => this.getCommandDirection(blockStart + index)).filter((direction): direction is Direction => Boolean(direction));
   }
 
@@ -272,21 +266,10 @@ export class RhythmRuntime {
   private get beatZeroAudioMs() { return this.chart.beatTimesMs?.[COUNTDOWN_BEATS] ?? this.countdownDurationMs; }
   private get moveDurationMs() { return BEATS_PER_MOVE * this.beatDurationMs; }
 
-  private getMeasuredCycleDurationMs() {
-    const beats = this.chart.beatTimesMs;
-    const startIndex = COUNTDOWN_BEATS;
-    const endIndex = startIndex + BEATS_PER_MOVE;
-    if (beats && beats[endIndex] !== undefined && beats[startIndex] !== undefined) {
-      const measured = beats[endIndex] - beats[startIndex];
-      if (measured > 0) return measured;
-    }
-    return this.moveDurationMs;
-  }
-
   private getTargetTimeMs(moveIndex: number) {
     const beats = this.chart.beatTimesMs;
-    const targetBeatIndex = COUNTDOWN_BEATS + (moveIndex + 1) * BEATS_PER_MOVE;
+    const targetBeatIndex = COUNTDOWN_BEATS + moveIndex * BEATS_PER_MOVE;
     if (beats?.[targetBeatIndex] !== undefined) return beats[targetBeatIndex] + this.chart.offsetMs;
-    return this.beatZeroAudioMs + (moveIndex + 1) * this.moveDurationMs + this.chart.offsetMs;
+    return this.beatZeroAudioMs + moveIndex * this.moveDurationMs + this.chart.offsetMs;
   }
 }
