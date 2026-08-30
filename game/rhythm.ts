@@ -1,13 +1,36 @@
 import type { Judgement } from "./types";
 
-export const SCORE_ZONE_WIDTH = 0.20;
+export const SCORE_ZONE_WIDTH = 0.2;
+export const SCORE_ZONE_START = 70;
+export const SCORE_ZONE_END = 90;
+export const PERFECT_CENTER = 85;
 export const JUDGEMENT_SEGMENTS = 7;
 
 /**
- * Seven equal judgement bands occupy the 70%..90% score zone.
- * Perfect is the center band at 85%. The outer edge of Bad is 70/90%;
- * outside the score zone is always Miss.
+ * The visible gauge and the judge use the exact same coordinate system.
+ * Seven equal bands live inside 70..90, with Perfect centered at 85.
  */
+export function judgementFromGaugePercent(gaugePercent: number): Judgement | null {
+  if (gaugePercent < SCORE_ZONE_START || gaugePercent > SCORE_ZONE_END) return null;
+
+  const zoneWidth = SCORE_ZONE_END - SCORE_ZONE_START;
+  const segmentWidth = zoneWidth / JUDGEMENT_SEGMENTS;
+  const index = Math.min(
+    JUDGEMENT_SEGMENTS - 1,
+    Math.floor((gaugePercent - SCORE_ZONE_START) / segmentWidth),
+  );
+
+  return ([
+    "bad",
+    "cool",
+    "great",
+    "perfect",
+    "great",
+    "cool",
+    "bad",
+  ] as Judgement[])[index];
+}
+
 export function getJudgementWindows(cycleMs: number) {
   const segmentMs = (cycleMs * SCORE_ZONE_WIDTH) / JUDGEMENT_SEGMENTS;
   return {
@@ -22,18 +45,12 @@ export class RhythmEngine {
   readonly stats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
   private judged = new Set<number>();
 
-  judgeMove(moveIndex: number, deltaMs: number, cycleMs: number): Judgement | null {
+  judgeMove(moveIndex: number, gaugePercent: number, deltaMs = 0): Judgement | null {
     if (this.judged.has(moveIndex)) return null;
-    const abs = Math.abs(deltaMs);
-    const windows = getJudgementWindows(cycleMs);
-    const judgement: Judgement | null =
-      abs <= windows.perfect ? "perfect" :
-      abs <= windows.great ? "great" :
-      abs <= windows.cool ? "cool" :
-      abs <= windows.bad ? "bad" : null;
-
+    const judgement = judgementFromGaugePercent(gaugePercent);
     if (!judgement) return null;
     this.apply(judgement, moveIndex);
+    void deltaMs;
     return judgement;
   }
 
