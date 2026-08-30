@@ -1,5 +1,5 @@
 import { BeatClock } from "./clock";
-import { randomizeChart } from "./chart";
+import { randomizeChart, randomDirections } from "./chart";
 import { RhythmEngine } from "./rhythm";
 import type { Chart, Direction, GameStats, Judgement } from "./types";
 
@@ -15,10 +15,9 @@ export type RhythmRuntimeCallbacks = {
   onPulse?: () => void;
 };
 
-const TOTAL_TURNS = 50;
-const MAX_LEVEL = 9;
 const COUNTDOWN_BEATS = 4;
 const GAUGE_CYCLE_BEATS = 4;
+const LATE_EDGE = 0.10;
 export const SCORE_ZONE_START = 70;
 export const SCORE_ZONE_END = 90;
 export const PERFECT_CENTER = 85;
@@ -40,6 +39,9 @@ export class RhythmRuntime {
   private targetMs = 0;
   private lastCountdown = -1;
   private lastStatsSignature = "";
+  private finishDirections: Direction[] = [];
+  private finishMove = false;
+  private zeroVisible = false;
 
   constructor(chart: Chart, callbacks: RhythmRuntimeCallbacks = {}) {
     this.baseChart = chart;
@@ -69,9 +71,12 @@ export class RhythmRuntime {
     this.turnIndex = 0;
     this.commandIndex = 0;
     this.awaitingSpace = false;
+    this.finishMove = false;
+    this.finishDirections = [];
     this.targetMs = this.getTurnTargetMs(0);
     this.lastCountdown = -1;
     this.lastStatsSignature = "";
+    this.zeroVisible = false;
     this.clock.start();
     this.callbacks.onPhase?.("intro");
     this.callbacks.onCountdown?.(null);
@@ -104,7 +109,9 @@ export class RhythmRuntime {
   }
 
   get currentLevel() {
-    return Math.min(MAX_LEVEL, this.chart.turns?.[this.turnIndex]?.level ?? 1);
+    return this.finishMove
+      ? (this.chart.turns?.[this.turnIndex]?.level ?? 1)
+      : (this.chart.turns?.[this.turnIndex]?.level ?? 1);
   }
 
   get currentTurn() {
@@ -116,8 +123,8 @@ export class RhythmRuntime {
   }
 
   get currentDirections() {
-    const turn = this.chart.turns?.[this.turnIndex];
-    return turn?.directions?.slice(0, turn.level) ?? [];
+    if (this.finishMove) return this.finishDirections.slice();
+    return this.chart.turns?.[this.turnIndex]?.directions?.slice() ?? [];
   }
 
   get sequence() {
@@ -132,22 +139,19 @@ export class RhythmRuntime {
     return this.awaitingSpace;
   }
 
+  /**
+   * One continuous gauge clock for the entire song.
+   * The firstPerfectMs anchor determines the phase only; it never changes
+   * the gauge speed. Therefore a long intro simply produces more full
+   * 0→100→0 sweeps before the first 3/2/1/0 countdown.
+   */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
 
-    const elapsed = this.clock.elapsedMs;
     const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
-
-    // Before the first target, stretch the initial visual cycle so the
-    // gauge starts at 0% when audio starts and reaches 85% exactly at
-    // firstPerfectMs. After that, every target is four beats apart.
-    if (this.turnIndex === 0 && elapsed < this.targetMs) {
-      const initialCycleMs = this.targetMs / (PERFECT_CENTER / 100);
-      return Math.min(85, (elapsed / initialCycleMs) * 100);
-    }
-
-    const cycleStart = this.targetMs - cycleMs * (PERFECT_CENTER / 100);
-    const raw = (elapsed - cycleStart) / cycleMs;
+    const firstPerfect = this.chart.firstPerfectMs ?? this.beatDurationMs * COUNTDOWN_BEATS;
+    const gaugePhaseStart = firstPerfect - cycleMs * (PERFECT_CENTER / 100);
+    const raw = (this.clock.elapsedMs - gaugePhaseStart) / cycleMs;
     const wrapped = ((raw % 1) + 1) % 1;
     return wrapped * 100;
   }
@@ -167,9 +171,19 @@ export class RhythmRuntime {
     const sequence = this.currentDirections;
     if (!sequence.length || this.commandIndex >= sequence.length) return false;
 
-    // Arrow input is allowed during the countdown and before the target,
-    // but never after the target has passed.
-    if (this.clock.elapsedMs > this.targetMs) return false;
+    const elapsed = this.clock.elapsedMs;
+    const lateLimit = this.beatDurationMs * GAUGE_CYCLE_BEATS * LATE_EDGE;
+
+    // Never leave the player in a dead state after the target passed.
+    // Resolve the turn immediately and let the next turn render.
+    if (elapsed > this.targetMs + lateLimit) {
+      this.resolveMiss();
+      return false;
+    }
+
+    // The final arrow may be entered exactly at the target. Once the target
+    // has passed, the turn is no longer accepting arrows.
+    if (elapsed > this.targetMs) return false;
 
     if (direction !== sequence[this.commandIndex]) {
       this.commandIndex = 0;
@@ -188,7 +202,8 @@ export class RhythmRuntime {
   }
 
   handleSpace() {
-    // SPACE is never accepted before the arrow sequence is complete.
+    // SPACE is deliberately blocked during intro and countdown. At the
+    // exact target the phase changes to playing, so 0 itself is playable.
     if (!this.canInputSpace() || !this.awaitingSpace) return null;
 
     const delta = this.timingDeltaMs;
@@ -214,7 +229,6 @@ export class RhythmRuntime {
 
   private canInputSpace() {
     return this.started && !this.finished && (
-      this.phase === "countdown" ||
       this.phase === "playing" ||
       this.phase === "finish"
     );
@@ -226,6 +240,8 @@ export class RhythmRuntime {
     const elapsed = this.clock.elapsedMs;
     const countdownStart = this.targetMs - COUNTDOWN_BEATS * this.beatDurationMs;
 
+    // Only the first target gets 3/2/1/0. A long song intro does not slow the
+    // gauge; it only delays this countdown until firstPerfectMs.
     if (this.phase === "intro" && elapsed >= countdownStart) {
       this.phase = "countdown";
       this.lastCountdown = -1;
@@ -242,19 +258,23 @@ export class RhythmRuntime {
 
       if (elapsed >= this.targetMs) {
         this.phase = "playing";
-        this.callbacks.onCountdown?.(null);
+        this.zeroVisible = true;
+        // Keep 0 visible for exactly one render tick, then remove it. This
+        // avoids the persistent-zero state seen in the mobile build.
+        this.callbacks.onCountdown?.(0);
         this.callbacks.onPhase?.("playing");
+        requestAnimationFrame(() => {
+          if (!this.started || this.finished || !this.zeroVisible) return;
+          this.zeroVisible = false;
+          this.callbacks.onCountdown?.(null);
+        });
       }
     }
 
-    // The late edge of the score zone is 90%. Once it is passed, the
-    // current turn is resolved as MISS whether or not SPACE was reached.
-    if (elapsed > this.targetMs) {
-      const lateLimit = this.beatDurationMs * GAUGE_CYCLE_BEATS * 0.10;
-      if (elapsed > this.targetMs + lateLimit) {
-        this.resolveMiss();
-        return;
-      }
+    const lateLimit = this.beatDurationMs * GAUGE_CYCLE_BEATS * LATE_EDGE;
+    if ((this.phase === "playing" || this.phase === "finish") && elapsed > this.targetMs + lateLimit) {
+      this.resolveMiss();
+      return;
     }
 
     this.raf = requestAnimationFrame(this.loop);
@@ -266,7 +286,7 @@ export class RhythmRuntime {
     this.callbacks.onPulse?.();
     this.emitStats(true);
 
-    if (this.turnIndex >= TOTAL_TURNS - 1) {
+    if (this.finishMove) {
       this.finished = true;
       this.started = false;
       this.phase = "finished";
@@ -275,16 +295,36 @@ export class RhythmRuntime {
       return;
     }
 
+    const lastTurn = this.chart.turns ? this.turnIndex >= this.chart.turns.length - 1 : true;
+    if (lastTurn) {
+      // Mirror Audition's Finish Move rather than abruptly ending after the
+      // last normal level turn. Bomb/Chance modifiers are intentionally off.
+      this.finishMove = true;
+      this.finishDirections = randomDirections(6);
+      this.commandIndex = 0;
+      this.awaitingSpace = false;
+      this.phase = "finish";
+      this.targetMs += this.beatDurationMs * GAUGE_CYCLE_BEATS;
+      this.callbacks.onPhase?.("finish");
+      this.emitSequence();
+      return;
+    }
+
     this.turnIndex += 1;
     this.commandIndex = 0;
+    this.awaitingSpace = false;
     this.targetMs = this.getTurnTargetMs(this.turnIndex);
-    this.phase = this.turnIndex === TOTAL_TURNS - 1 ? "finish" : "playing";
-    this.callbacks.onPhase?.(this.phase);
+    this.phase = "playing";
+    this.callbacks.onPhase?.("playing");
     this.callbacks.onLevel?.(this.currentLevel);
     this.emitSequence();
   }
 
   private resolveMiss() {
+    if (this.finishMove) {
+      this.completeMove("miss");
+      return;
+    }
     this.completeMove("miss");
   }
 
@@ -307,7 +347,8 @@ export class RhythmRuntime {
   private getTurnTargetMs(turnIndex: number) {
     const turn = this.chart.turns?.[turnIndex];
     if (turn) return (turn.startBeat + GAUGE_CYCLE_BEATS) * this.beatDurationMs;
-    return (this.chart.firstPerfectMs ?? COUNTDOWN_BEATS * this.beatDurationMs) + turnIndex * this.beatDurationMs * GAUGE_CYCLE_BEATS;
+    const firstPerfect = this.chart.firstPerfectMs ?? COUNTDOWN_BEATS * this.beatDurationMs;
+    return firstPerfect + turnIndex * this.beatDurationMs * GAUGE_CYCLE_BEATS;
   }
 
   private get beatDurationMs() {
