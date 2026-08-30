@@ -18,23 +18,24 @@ test.describe("Audition Mobile rebuild", () => {
     await expect(page.getByRole("button", { name: "left" })).toBeVisible();
     await expect(page.getByRole("button", { name: "right" })).toBeVisible();
     await expect(page.getByRole("button", { name: "down" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "SPACE" })).toBeVisible();
-    await expect(page.getByText(/LEVEL/).first()).toBeVisible();
+    await expect(page.locator(".space-button")).toBeVisible();
+    await expect(page.locator(".timing-gauge")).toBeVisible();
   });
 
-  test("correct direction advances the live command sequence", async ({ page }) => {
+  test("first live command can be completed after the turn begins", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "START GAME" }).click();
-    const commands = page.locator(".command-chip");
-    await expect(commands).toHaveCountGreaterThan(0);
+    await page.waitForTimeout(3100);
+    const firstArrow = await page.locator(".command-chip").first().locator("svg").getAttribute("style");
+    expect(firstArrow).toBeTruthy();
     await page.getByRole("button", { name: "down" }).click();
     await expect(page.locator(".command-chip.done")).toHaveCount(1);
   });
 
-  test("space is callable without crashing before timing", async ({ page }) => {
+  test("space input is safe before the timing window", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.getByRole("button", { name: "START GAME" }).click();
-    await page.getByRole("button", { name: "SPACE" }).click();
-    await expect(page.getByRole("button", { name: "SPACE" })).toBeVisible();
+    await page.locator(".space-button").click();
+    await expect(page.locator(".space-button")).toBeVisible();
   });
 });
