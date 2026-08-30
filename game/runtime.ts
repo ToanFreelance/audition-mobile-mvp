@@ -98,6 +98,9 @@ export class RhythmRuntime {
     return ((this.clock.elapsedMs % cycleMs) / cycleMs) * 100;
   }
 
+  // Compatibility alias used by the earlier GameShell implementation.
+  get timingGaugePercent() { return this.gaugePercent; }
+
   get timingDeltaMs() {
     if (!this.canInput()) return 0;
     const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
