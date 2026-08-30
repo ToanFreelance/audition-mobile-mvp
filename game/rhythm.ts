@@ -3,18 +3,17 @@ import type { Judgement } from "./types";
 export const SCORE_ZONE_WIDTH = 0.2;
 export const SCORE_ZONE_START = 70;
 export const SCORE_ZONE_END = 90;
-export const PERFECT_CENTER = 85;
+export const PERFECT_CENTER = 80;
 export const JUDGEMENT_SEGMENTS = 7;
 
 /**
- * The visible gauge and the judge use the exact same coordinate system.
- * Seven equal bands live inside 70..90, with Perfect centered at 85.
+ * Seven equal judgement bands occupy the 70..90 score zone.
+ * Perfect is the exact center of the zone at 80%; outside is Miss.
  */
 export function judgementFromGaugePercent(gaugePercent: number): Judgement | null {
   if (gaugePercent < SCORE_ZONE_START || gaugePercent > SCORE_ZONE_END) return null;
 
-  const zoneWidth = SCORE_ZONE_END - SCORE_ZONE_START;
-  const segmentWidth = zoneWidth / JUDGEMENT_SEGMENTS;
+  const segmentWidth = (SCORE_ZONE_END - SCORE_ZONE_START) / JUDGEMENT_SEGMENTS;
   const index = Math.min(
     JUDGEMENT_SEGMENTS - 1,
     Math.floor((gaugePercent - SCORE_ZONE_START) / segmentWidth),
@@ -31,26 +30,15 @@ export function judgementFromGaugePercent(gaugePercent: number): Judgement | nul
   ] as Judgement[])[index];
 }
 
-export function getJudgementWindows(cycleMs: number) {
-  const segmentMs = (cycleMs * SCORE_ZONE_WIDTH) / JUDGEMENT_SEGMENTS;
-  return {
-    perfect: segmentMs * 0.5,
-    great: segmentMs * 1.5,
-    cool: segmentMs * 2.5,
-    bad: segmentMs * 3.5,
-  } as const;
-}
-
 export class RhythmEngine {
   readonly stats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
   private judged = new Set<number>();
 
-  judgeMove(moveIndex: number, gaugePercent: number, deltaMs = 0): Judgement | null {
+  judgeMove(moveIndex: number, gaugePercent: number): Judgement | null {
     if (this.judged.has(moveIndex)) return null;
     const judgement = judgementFromGaugePercent(gaugePercent);
     if (!judgement) return null;
     this.apply(judgement, moveIndex);
-    void deltaMs;
     return judgement;
   }
 
