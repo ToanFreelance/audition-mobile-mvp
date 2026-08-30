@@ -3,17 +3,16 @@ import type { Chart, DanceTurn, Direction } from "./types";
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
 const MAX_LEVEL = 9;
 
-// Observed from the supplied Audition 80 BPM replay:
-// Level 1 = 1 turn, Level 2 = 2, Level 3 = 3, Level 4 = 4,
-// Level 5 = 4, Level 6 = 6, Level 7 = 6.
-// The supplied replay then enters Finish Move.  The generic 4-key
-// choreography plan is also kept here for future songs/modes.
+// Reference progression observed in the supplied Audition replay.
+// Levels are held for a number of turns instead of increasing every turn.
 export const OBSERVED_80BPM_LEVEL_TURNS = [1, 2, 3, 4, 4, 6, 6] as const;
 export const STANDARD_4KEY_LEVEL_TURNS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 
-// Absolute audio time where the first SPACE target is PERFECT (85%).
-// This is intentionally manual per song because intros vary.
-export const FIRST_PERFECT_MS = 8000;
+// The gauge starts at 0% at audio time 0. At 80 BPM one 4-beat sweep is
+// 3000ms, so 85% PERFECT is 2550ms into each sweep. 8550ms is the first
+// PERFECT point after a long intro while preserving a constant-speed gauge.
+// This value remains a manual per-song authoring parameter in the chart editor.
+export const FIRST_PERFECT_MS = 8550;
 
 function randomIndex(max: number) {
   if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
@@ -26,8 +25,7 @@ function randomIndex(max: number) {
 
 /**
  * Generate a fresh sequence every time a song starts.
- * Level 6-9 use six arrow commands in standard 4-key choreography;
- * the level number is NOT the arrow count above level 5.
+ * Level 1..5 use 1..5 arrows; Level 6+ uses six arrows in 4-key mode.
  */
 export function randomDirections(level: number): Direction[] {
   const length = Math.max(1, Math.min(6, level));
@@ -68,12 +66,7 @@ function buildTurns(bpm: number, levelTurnCounts: readonly number[]) {
   return turns;
 }
 
-function buildChart(
-  id: string,
-  title: string,
-  bpm: number,
-  levelTurnCounts: readonly number[],
-): Chart {
+function buildChart(id: string, title: string, bpm: number, levelTurnCounts: readonly number[]): Chart {
   const turns = buildTurns(bpm, levelTurnCounts);
   const notes = turns.flatMap((turn) =>
     turn.directions.map((direction, index) => ({
@@ -93,36 +86,27 @@ function buildChart(
   };
 }
 
-/** Create a completely fresh chart while preserving song/timing data. */
+export function createDemoChart(): Chart {
+  return buildChart("neon-audition-demo", "Neon Club", 128, STANDARD_4KEY_LEVEL_TURNS);
+}
+
+export function createPleaseTellMeWhyChart(): Chart {
+  return buildChart("please-tell-me-why-audition-demo", "Please Tell Me Why", 80, OBSERVED_80BPM_LEVEL_TURNS);
+}
+
+export const DEMO_CHART: Chart = createPleaseTellMeWhyChart();
+
+/** Re-randomize only arrow content; timing and level progression remain fixed. */
 export function randomizeChart(source: Chart): Chart {
   const turns = (source.turns ?? []).map((turn) => ({
     ...turn,
-    directions: randomDirections(turn.level),
+    directions: turn.penalty || turn.finish ? [] : randomDirections(turn.level),
   }));
-
   const notes = turns.flatMap((turn) =>
     turn.directions.map((direction, index) => ({
       direction,
       beat: turn.startBeat + index * (4 / Math.max(1, turn.directions.length)),
     })),
   );
-
   return { ...source, notes, turns };
 }
-
-/** Generic 4-key choreography chart for future testing. */
-export function createDemoChart(): Chart {
-  return buildChart("neon-audition-demo", "Neon Club", 128, STANDARD_4KEY_LEVEL_TURNS);
-}
-
-/** Chart matching the supplied 80 BPM replay's observed level progression. */
-export function createPleaseTellMeWhyChart(): Chart {
-  return buildChart(
-    "please-tell-me-why-audition-demo",
-    "Please Tell Me Why",
-    80,
-    OBSERVED_80BPM_LEVEL_TURNS,
-  );
-}
-
-export const DEMO_CHART: Chart = createPleaseTellMeWhyChart();
