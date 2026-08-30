@@ -6,13 +6,23 @@ export interface ChartNote {
   beat: number;
 }
 
+export interface DanceTurn {
+  id: number;
+  level: number;
+  startBeat: number;
+  directions: Direction[];
+}
+
 export interface Chart {
   id: string;
   title: string;
   bpm: number;
   offsetMs: number;
+  /** Absolute song time (ms) at which the first SPACE target is Perfect. */
+  firstPerfectMs?: number;
   beatTimesMs?: number[];
   notes: ChartNote[];
+  turns?: DanceTurn[];
 }
 
 export interface GameStats {
