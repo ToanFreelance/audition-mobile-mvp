@@ -94,7 +94,7 @@ export class RhythmRuntime {
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
-  /** Gauge is one continuous song-clock sweep. Countdown 3/2/1/0 lands at 85%. */
+  /** Gauge is one continuous song-clock sweep. Countdown 3/2/1/0 lands at Perfect. */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
@@ -169,10 +169,12 @@ export class RhythmRuntime {
       if (elapsed >= COUNTDOWN_BEATS * this.beatDurationMs) {
         const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
         this.phase = "playing";
-        // The last countdown frame (0) is visually at Perfect. Continue the
-        // same sweep from 85%; the first playable target is the next 85%.
-        this.gaugeCycleStartMs = elapsed - PERFECT_CENTER / 100 * cycleMs;
-        this.targetMs = elapsed + cycleMs * (1 - PERFECT_CENTER / 100);
+        // Countdown 0 is visually positioned at Perfect (85%). The first
+        // playable SPACE target is the NEXT Perfect on the same continuous
+        // gauge cycle, one full 4-beat sweep later. This gives the player the
+        // whole sweep to enter the arrow sequence instead of targeting 100%.
+        this.gaugeCycleStartMs = elapsed - (PERFECT_CENTER / 100) * cycleMs;
+        this.targetMs = elapsed + cycleMs;
         this.callbacks.onCountdown?.(null);
         this.callbacks.onPhase?.("playing");
         this.emitSequence();
