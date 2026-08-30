@@ -46,8 +46,10 @@ export default function AuditionGame() {
       engine.update(beat);
       const snapshot = engine.snapshot(beat);
       setPhase(snapshot.phase);
-      setTurn(snapshot.turn ?? turn);
-      setSequence(snapshot.turn?.directions ?? []);
+      if (snapshot.turn) {
+        setTurn(snapshot.turn);
+        setSequence(snapshot.turn.directions);
+      }
       setCompleted(snapshot.completedCommands);
       setGauge(snapshot.timingPercent);
       setStats(snapshot.stats);
@@ -67,7 +69,7 @@ export default function AuditionGame() {
     };
     rafRef.current = window.requestAnimationFrame(tick);
     return () => { if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current); };
-  }, [chart, started, turn]);
+  }, [chart, started]);
 
   const currentBeat = () => {
     const audio = audioRef.current;
@@ -86,7 +88,7 @@ export default function AuditionGame() {
 
   const stopGame = () => { audioRef.current?.pause(); setStarted(false); setPhase("idle"); };
   const toggleSound = async () => { const next = !sound; setSound(next); const audio = audioRef.current; if (!audio) return; if (!next) { audio.pause(); return; } if (started) { try { await audio.play(); } catch { setAudioError(true); } } };
-  const pressDirection = (direction: Direction) => { if (started) { engineRef.current?.handleDirection(direction, currentBeat()); setWrong(null); } };
+  const pressDirection = (direction: Direction) => { if (started) { engineRef.current?.handleDirection(direction, currentBeat()); } };
   const pressSpace = () => { if (started) engineRef.current?.handleSpace(currentBeat()); };
   const onDirectionKey = (event: KeyboardEvent<HTMLButtonElement>, direction: Direction) => { if (event.repeat) return; event.preventDefault(); pressDirection(direction); };
 
@@ -95,26 +97,17 @@ export default function AuditionGame() {
       <audio ref={audioRef} preload="auto" playsInline src={chart.audioSrc} aria-label={chart.title} />
       <div className="game-stage">
         <Stage3D bpm={chart.bpm} audioRef={audioRef} actionRef={actionRef} />
-
         <div className="topbar">
           <div className="song-card hud-panel"><div className="song-art">♫</div><div className="song-copy"><span>NOW PLAYING</span><strong>{chart.title}</strong><small>BPM <b>{chart.bpm}</b></small></div><div className="song-progress"><i style={{ width: started ? `${Math.min(100, Math.max(2, gauge))}%` : "18%" }} /></div></div>
           <div className="battle-score"><strong className="red-score">{stats.score.toLocaleString()}</strong><b>VS</b><strong className="blue-score">{OPPONENT_SCORE.toLocaleString()}</strong><div className="versus-bar"><i /></div></div>
           <div className="top-actions"><button type="button" onClick={toggleSound}>{sound ? "🔊 SOUND" : "🔇 MUTED"}</button><button type="button" onClick={stopGame}>EXIT</button></div>
         </div>
-
         <aside className="left-hud"><div className="level-label">LEVEL <b>{started ? turn.level : "6"}</b></div><div className="mission hud-panel"><span>MISSION</span><strong>Perfect more than 20</strong><small>{stats.perfect} / 20 <b>✓</b></small></div><div className="hint-key">F10&nbsp;&nbsp;ON/OFF</div></aside>
         <aside className="right-hud"><div className="leaderboard hud-panel"><div className="rank-title"><span>RANK</span><small>PLAYER</small><small>SCORE</small></div>{[["1st","ToanDev",stats.score,"pink"],["2nd","Audition King",179342,"blue"],["3rd","Dancer Pro",165230,"gold"],["4th","Cool Girl",142587,"cyan"]].map(([rank,name,score,tone]) => <div className={`rank-row ${tone}`} key={String(rank)}><b>{rank}</b><span className="avatar">●</span><span className="rank-name">{name}</span><strong>{Number(score).toLocaleString()}</strong></div>)}</div></aside>
-
         <div className="combo-hud"><span>COMBO</span><strong>{stats.combo}</strong><b>{judgement === "perfect" ? `Perfect ×${stats.combo}` : judgement ? judgement.toUpperCase() : "Ready"}</b></div>
-
-        <section className="play-hud"><div className="command-wrap"><div className="command-topline"><span>LEVEL {started ? turn.level : "6"}</span><small>{started ? `${Math.min(completed + 1, sequence.length)} / ${sequence.length}` : "0 / 0"}</small></div><div className={`command-track phase-${phase}`}>{sequence.map((direction,index) => <div key={`${turn.id}-${index}`} className={`command-chip ${index < completed ? "done" : ""} ${index === completed ? "target" : ""} ${wrong && index === completed ? "wrong" : ""}`}><Arrow direction={direction}/></div>)}{started && phase === "timing" && <div className="space-chip">SPACE</div>}</div>
-          <div className={`timing-gauge ${phase === "timing" ? "live" : ""}`} style={{ ["--bpm" as string]: chart.bpm } as CSSProperties}><div className="timing-track"><div className="zone miss"/><div className="zone bad"/><div className="zone cool"/><div className="zone great"/><div className="zone perfect"/><div className="zone great"/><div className="zone cool"/><div className="zone bad"/><div className="zone miss"/><div className="gauge-marker" style={{left:`${gauge}%`}}/><div className="breath" style={{left:`${gauge}%`}}/></div><div className="timing-labels"><span>MISS</span><span>BAD</span><span>COOL</span><span>GREAT</span><strong>PERFECT</strong><span>GREAT</span><span>COOL</span><span>BAD</span><span>MISS</span></div></div>
-        </div></section>
-
+        <section className="play-hud"><div className="command-wrap"><div className="command-topline"><span>LEVEL {started ? turn.level : "6"}</span><small>{started ? `${Math.min(completed + 1, sequence.length)} / ${sequence.length}` : "0 / 0"}</small></div><div className={`command-track phase-${phase}`}>{sequence.map((direction,index) => <div key={`${turn.id}-${index}`} className={`command-chip ${index < completed ? "done" : ""} ${index === completed ? "target" : ""} ${wrong && index === completed ? "wrong" : ""}`}><Arrow direction={direction}/></div>)}{started && phase === "timing" && <div className="space-chip">SPACE</div>}</div><div className={`timing-gauge ${phase === "timing" ? "live" : ""}`} style={{ ["--bpm" as string]: chart.bpm } as CSSProperties}><div className="timing-track"><div className="zone miss"/><div className="zone bad"/><div className="zone cool"/><div className="zone great"/><div className="zone perfect"/><div className="zone great"/><div className="zone cool"/><div className="zone bad"/><div className="zone miss"/><div className="gauge-marker" style={{left:`${gauge}%`}}/><div className="breath" style={{left:`${gauge}%`}}/></div><div className="timing-labels"><span>MISS</span><span>BAD</span><span>COOL</span><span>GREAT</span><strong>PERFECT</strong><span>GREAT</span><span>COOL</span><span>BAD</span><span>MISS</span></div></div></div></section>
         {judgement && <div className={`judgement-pop ${judgement}`}>{judgement.toUpperCase()}!</div>}
-
         <div className="bottom-hud"><div className="chat hud-panel"><b>&lt;Public&gt;</b><span>Welcome to Audition Mobile!</span><small>Show your moves!</small><div>All <i>▶</i></div></div><div className="song-meta hud-panel"><b>Audition · Club Dance</b><span>{chart.bpm} BPM &nbsp; <em>Hard</em></span><small>★★★☆☆</small></div><button className={`space-button ${phase === "timing" ? "ready" : ""}`} type="button" onPointerDown={(e)=>{e.preventDefault();pressSpace();}}><strong>SPACE</strong><span>{phase === "timing" ? "TAP ON BEAT" : "WAIT"}</span></button><div className="mobile-score">P {stats.perfect} &nbsp; G {stats.great} &nbsp; C {stats.cool} &nbsp; B {stats.bad} &nbsp; M {stats.miss}</div><div className="dpad" aria-label="Direction controls"><button type="button" className="dpad-up" aria-label="up" onPointerDown={(e)=>{e.preventDefault();pressDirection("up");}} onKeyDown={(e)=>onDirectionKey(e,"up")}><Arrow direction="up"/></button><button type="button" className="dpad-left" aria-label="left" onPointerDown={(e)=>{e.preventDefault();pressDirection("left");}} onKeyDown={(e)=>onDirectionKey(e,"left")}><Arrow direction="left"/></button><div className="dpad-core"/><button type="button" className="dpad-right" aria-label="right" onPointerDown={(e)=>{e.preventDefault();pressDirection("right");}} onKeyDown={(e)=>onDirectionKey(e,"right")}><Arrow direction="right"/></button><button type="button" className="dpad-down" aria-label="down" onPointerDown={(e)=>{e.preventDefault();pressDirection("down");}} onKeyDown={(e)=>onDirectionKey(e,"down")}><Arrow direction="down"/></button></div></div>
-
         {!started && phase !== "finished" && <div className="start-screen"><div className="start-card"><span>CLUB AUDITION · MOBILE</span><h1>READY TO DANCE?</h1><p>Enter the arrows, complete the sequence, then hit SPACE inside the highlighted timing zone.</p><button type="button" onClick={startGame}>START GAME</button>{audioError && <small>Audio playback was blocked. Tap Start again to retry sound.</small>}</div></div>}
         {phase === "finished" && <div className="start-screen result-screen"><div className="start-card"><span>RESULT</span><h1>{stats.score.toLocaleString()}</h1><p>PERFECT {stats.perfect} · GREAT {stats.great} · COOL {stats.cool} · BAD {stats.bad} · MISS {stats.miss}</p><button type="button" onClick={startGame}>PLAY AGAIN</button></div></div>}
       </div>
