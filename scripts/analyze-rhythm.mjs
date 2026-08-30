@@ -1,22 +1,46 @@
 import fs from "node:fs/promises";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import decode from "audio-decode";
+import ffmpegPath from "ffmpeg-static";
 import { beatTrack } from "@audio/beat";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const audioPath = path.join(root, "public", "audio", "Please tell me why.mp3");
 const outputPath = path.join(root, "game", "generated-rhythm.ts");
+const SAMPLE_RATE = 22050;
 const FALLBACK_BPM = 80;
 
-function mixToMono(channelData) {
-  if (channelData.length === 1) return channelData[0];
-  const length = channelData[0]?.length ?? 0;
-  const mono = new Float32Array(length);
-  for (const channel of channelData) {
-    for (let index = 0; index < length; index += 1) mono[index] += channel[index] / channelData.length;
-  }
-  return mono;
+function decodeWithFfmpeg(inputPath) {
+  return new Promise((resolve, reject) => {
+    const executable = ffmpegPath || "ffmpeg";
+    const child = spawn(executable, [
+      "-hide_banner",
+      "-loglevel", "error",
+      "-i", inputPath,
+      "-f", "f32le",
+      "-ac", "1",
+      "-ar", String(SAMPLE_RATE),
+      "pipe:1",
+    ]);
+    const chunks = [];
+    const errors = [];
+    child.stdout.on("data", (chunk) => chunks.push(chunk));
+    child.stderr.on("data", (chunk) => errors.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(Buffer.concat(errors).toString("utf8") || `ffmpeg exited with ${code}`));
+        return;
+      }
+      const pcm = Buffer.concat(chunks);
+      if (pcm.byteLength < 16) {
+        reject(new Error("ffmpeg returned no PCM audio"));
+        return;
+      }
+      resolve(new Float32Array(pcm.buffer, pcm.byteOffset, Math.floor(pcm.byteLength / 4)));
+    });
+  });
 }
 
 function fallbackBeatGrid(durationSeconds) {
@@ -25,11 +49,10 @@ function fallbackBeatGrid(durationSeconds) {
 }
 
 try {
-  const bytes = await fs.readFile(audioPath);
-  const decoded = await decode(bytes);
-  const mono = mixToMono(decoded.channelData);
+  await fs.access(audioPath);
+  const mono = await decodeWithFfmpeg(audioPath);
   const tracked = beatTrack(mono, {
-    fs: decoded.sampleRate,
+    fs: SAMPLE_RATE,
     bpm: FALLBACK_BPM,
     minBpm: 70,
     maxBpm: 100,
