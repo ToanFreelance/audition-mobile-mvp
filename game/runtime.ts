@@ -1,6 +1,6 @@
 import { BeatClock } from "./clock";
 import { sequenceForLevel } from "./chart";
-import { RhythmEngine, WINDOWS_MS } from "./rhythm";
+import { RhythmEngine } from "./rhythm";
 import type { Chart, Direction, GameStats, Judgement } from "./types";
 
 export type RhythmPhase = "idle" | "countdown" | "playing" | "finish" | "finished";
@@ -121,7 +121,8 @@ export class RhythmRuntime {
     if (this.commandIndex === sequence.length) {
       this.awaitingSpace = true;
       const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
-      this.armedDeadlineMs = (Math.floor(this.clock.elapsedMs / cycleMs) + 1) * cycleMs;
+      const cycleEnd = (Math.floor(this.clock.elapsedMs / cycleMs) + 1) * cycleMs;
+      this.armedDeadlineMs = cycleEnd + (this.gaugePercent > SCORE_ZONE_END ? cycleMs : 0);
     }
     this.emitSequence();
     return true;
