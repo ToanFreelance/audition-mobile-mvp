@@ -55,9 +55,7 @@ export class RhythmRuntime {
     this.clock.setTimeSource(source);
   }
 
-  syncToTimeSource() {
-    this.clock.syncToTimeSource();
-  }
+  syncToTimeSource() { this.clock.syncToTimeSource(); }
 
   start() {
     this.stop();
@@ -92,62 +90,21 @@ export class RhythmRuntime {
     this.started = false;
   }
 
-  destroy() {
-    this.stop();
-  }
+  destroy() { this.stop(); }
 
-  get isStarted() {
-    return this.started;
-  }
+  get isStarted() { return this.started; }
+  get isFinished() { return this.finished; }
+  get stats() { return { ...this.engine.stats }; }
+  get currentLevel() { return this.chart.turns?.[this.turnIndex]?.level ?? 1; }
+  get currentTurn() { return this.turnIndex + 1; }
+  get currentPhase() { return this.phase; }
+  get currentDirections() { return this.finishMove ? this.finishDirections.slice() : (this.chart.turns?.[this.turnIndex]?.directions?.slice() ?? []); }
+  get sequence() { return this.started && !this.finished ? this.currentDirections : []; }
+  get completedCommands() { return this.commandIndex; }
+  get awaitingTiming() { return this.awaitingSpace; }
 
-  get isFinished() {
-    return this.finished;
-  }
-
-  get stats() {
-    return { ...this.engine.stats };
-  }
-
-  get currentLevel() {
-    return this.finishMove
-      ? (this.chart.turns?.[this.turnIndex]?.level ?? 1)
-      : (this.chart.turns?.[this.turnIndex]?.level ?? 1);
-  }
-
-  get currentTurn() {
-    return this.turnIndex + 1;
-  }
-
-  get currentPhase() {
-    return this.phase;
-  }
-
-  get currentDirections() {
-    if (this.finishMove) return this.finishDirections.slice();
-    return this.chart.turns?.[this.turnIndex]?.directions?.slice() ?? [];
-  }
-
-  get sequence() {
-    return this.started && !this.finished ? this.currentDirections : [];
-  }
-
-  get completedCommands() {
-    return this.commandIndex;
-  }
-
-  get awaitingTiming() {
-    return this.awaitingSpace;
-  }
-
-  /**
-   * One continuous gauge clock for the entire song.
-   * The firstPerfectMs anchor determines the phase only; it never changes
-   * the gauge speed. Therefore a long intro simply produces more full
-   * 0→100→0 sweeps before the first 3/2/1/0 countdown.
-   */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
-
     const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
     const firstPerfect = this.chart.firstPerfectMs ?? this.beatDurationMs * COUNTDOWN_BEATS;
     const gaugePhaseStart = firstPerfect - cycleMs * (PERFECT_CENTER / 100);
@@ -156,33 +113,16 @@ export class RhythmRuntime {
     return wrapped * 100;
   }
 
-  get timingGaugePercent() {
-    return this.gaugePercent;
-  }
-
-  get timingDeltaMs() {
-    if (!this.started || !this.targetMs) return 0;
-    return this.clock.elapsedMs - this.targetMs;
-  }
+  get timingGaugePercent() { return this.gaugePercent; }
+  get timingDeltaMs() { return !this.started || !this.targetMs ? 0 : this.clock.elapsedMs - this.targetMs; }
 
   handleDirection(direction: Direction) {
     if (!this.canInputDirections() || this.awaitingSpace) return false;
-
     const sequence = this.currentDirections;
     if (!sequence.length || this.commandIndex >= sequence.length) return false;
-
     const elapsed = this.clock.elapsedMs;
     const lateLimit = this.beatDurationMs * GAUGE_CYCLE_BEATS * LATE_EDGE;
-
-    // Never leave the player in a dead state after the target passed.
-    // Resolve the turn immediately and let the next turn render.
-    if (elapsed > this.targetMs + lateLimit) {
-      this.resolveMiss();
-      return false;
-    }
-
-    // The final arrow may be entered exactly at the target. Once the target
-    // has passed, the turn is no longer accepting arrows.
+    if (elapsed > this.targetMs + lateLimit) { this.resolveMiss(); return false; }
     if (elapsed > this.targetMs) return false;
 
     if (direction !== sequence[this.commandIndex]) {
@@ -194,54 +134,30 @@ export class RhythmRuntime {
 
     this.commandIndex += 1;
     this.callbacks.onPulse?.();
-    if (this.commandIndex === sequence.length) {
-      this.awaitingSpace = true;
-    }
+    if (this.commandIndex === sequence.length) this.awaitingSpace = true;
     this.emitSequence();
     return true;
   }
 
   handleSpace() {
-    // SPACE is deliberately blocked during intro and countdown. At the
-    // exact target the phase changes to playing, so 0 itself is playable.
     if (!this.canInputSpace() || !this.awaitingSpace) return null;
-
     const delta = this.timingDeltaMs;
     const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
-    const judgement = this.engine.judgeMove(this.turnIndex, delta, cycleMs);
-
-    if (!judgement) {
-      this.resolveMiss();
-      return "miss" as Judgement;
-    }
-
+    const moveId = this.finishMove ? (this.chart.turns?.length ?? 0) : this.turnIndex;
+    const judgement = this.engine.judgeMove(moveId, delta, cycleMs);
+    if (!judgement) { this.resolveMiss(); return "miss" as Judgement; }
     this.completeMove(judgement);
     return judgement;
   }
 
-  private canInputDirections() {
-    return this.started && !this.finished && (
-      this.phase === "countdown" ||
-      this.phase === "playing" ||
-      this.phase === "finish"
-    );
-  }
-
-  private canInputSpace() {
-    return this.started && !this.finished && (
-      this.phase === "playing" ||
-      this.phase === "finish"
-    );
-  }
+  private canInputDirections() { return this.started && !this.finished && (this.phase === "countdown" || this.phase === "playing" || this.phase === "finish"); }
+  private canInputSpace() { return this.started && !this.finished && (this.phase === "playing" || this.phase === "finish"); }
 
   private loop = () => {
     if (!this.started || this.finished) return;
-
     const elapsed = this.clock.elapsedMs;
     const countdownStart = this.targetMs - COUNTDOWN_BEATS * this.beatDurationMs;
 
-    // Only the first target gets 3/2/1/0. A long song intro does not slow the
-    // gauge; it only delays this countdown until firstPerfectMs.
     if (this.phase === "intro" && elapsed >= countdownStart) {
       this.phase = "countdown";
       this.lastCountdown = -1;
@@ -255,12 +171,9 @@ export class RhythmRuntime {
         this.lastCountdown = value;
         this.callbacks.onCountdown?.(value);
       }
-
       if (elapsed >= this.targetMs) {
         this.phase = "playing";
         this.zeroVisible = true;
-        // Keep 0 visible for exactly one render tick, then remove it. This
-        // avoids the persistent-zero state seen in the mobile build.
         this.callbacks.onCountdown?.(0);
         this.callbacks.onPhase?.("playing");
         requestAnimationFrame(() => {
@@ -276,7 +189,6 @@ export class RhythmRuntime {
       this.resolveMiss();
       return;
     }
-
     this.raf = requestAnimationFrame(this.loop);
   };
 
@@ -297,8 +209,6 @@ export class RhythmRuntime {
 
     const lastTurn = this.chart.turns ? this.turnIndex >= this.chart.turns.length - 1 : true;
     if (lastTurn) {
-      // Mirror Audition's Finish Move rather than abruptly ending after the
-      // last normal level turn. Bomb/Chance modifiers are intentionally off.
       this.finishMove = true;
       this.finishDirections = randomDirections(6);
       this.commandIndex = 0;
@@ -320,19 +230,10 @@ export class RhythmRuntime {
     this.emitSequence();
   }
 
-  private resolveMiss() {
-    if (this.finishMove) {
-      this.completeMove("miss");
-      return;
-    }
-    this.completeMove("miss");
-  }
+  private resolveMiss() { this.completeMove("miss"); }
 
   private emitSequence() {
-    if (!this.started || this.finished) {
-      this.callbacks.onSequence?.([], 0);
-      return;
-    }
+    if (!this.started || this.finished) { this.callbacks.onSequence?.([], 0); return; }
     this.callbacks.onSequence?.(this.currentDirections, this.commandIndex);
   }
 
@@ -351,7 +252,5 @@ export class RhythmRuntime {
     return firstPerfect + turnIndex * this.beatDurationMs * GAUGE_CYCLE_BEATS;
   }
 
-  private get beatDurationMs() {
-    return 60000 / this.chart.bpm;
-  }
+  private get beatDurationMs() { return 60000 / this.chart.bpm; }
 }
