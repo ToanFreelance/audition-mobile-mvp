@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "predev": "node scripts/analyze-rhythm.mjs",
     "build": "next build",
+    "prebuild": "node scripts/analyze-rhythm.mjs",
     "start": "next start",
     "lint": "next lint",
     "test:qa": "playwright test",
@@ -13,17 +15,18 @@
   },
   "dependencies": {
     "next": "16.3.2",
-    "phaser": "3.90.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "three": "0.180.0"
   },
   "devDependencies": {
+    "@audio/beat": "^2.1.0",
     "@playwright/test": "1.62.1",
     "@types/node": "22.15.21",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
     "@types/three": "0.180.0",
+    "ffmpeg-static": "^5.2.0",
     "typescript": "5.8.3"
   }
 }

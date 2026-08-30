@@ -1,13 +1,14 @@
 name: Audition Mobile QA
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
   workflow_dispatch:
+
+concurrency:
+  group: audition-mobile-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -29,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright Chromium + WebKit
         run: npx playwright install --with-deps chromium webkit
 
       - name: Build application
