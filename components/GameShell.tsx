@@ -117,7 +117,7 @@ export default function GameShell() {
     setJudgement(null);
     setFinished(false);
     setStarted(false);
-    setCountdown(3);
+    setCountdown(null);
     setAudioError(null);
     setSongTime(0);
 
@@ -169,6 +169,16 @@ export default function GameShell() {
     window.setTimeout(() => setSpacePressed(false), 110);
     runtime.handleSpace();
   }, [runtime, started]);
+
+  const pressGauge = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (!started) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const percent = ((event.clientX - rect.left) / rect.width) * 100;
+    if (percent < SCORE_ZONE_START || percent > SCORE_ZONE_END) return;
+    event.preventDefault();
+    pressSpace();
+  }, [pressSpace, started]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -255,7 +265,11 @@ export default function GameShell() {
               <div className="space-key">SPACE</div>
             </div>
 
-            <div className="timing-gauge" style={{ ["--zone-start" as string]: `${SCORE_ZONE_START}%`, ["--zone-width" as string]: `${SCORE_ZONE_END - SCORE_ZONE_START}%`, ["--perfect" as string]: `${PERFECT_CENTER}%` }}>
+            <div
+              className="timing-gauge"
+              onPointerDown={pressGauge}
+              style={{ ["--zone-start" as string]: `${SCORE_ZONE_START}%`, ["--zone-width" as string]: `${SCORE_ZONE_END - SCORE_ZONE_START}%`, ["--perfect" as string]: `${PERFECT_CENTER}%` }}
+            >
               <div className="gauge-track"><div className="gauge-zone"><i /></div><div className="gauge-marker" style={{ left: `${gauge}%` }} /></div>
               <div className="gauge-labels"><span>MISS</span><span>BAD</span><span>COOL</span><span>GREAT</span><b>PERFECT</b><span>GREAT</span><span>COOL</span><span>BAD</span><span>MISS</span></div>
               <div className="gauge-readout">{delta >= 0 ? "+" : ""}{delta.toFixed(0)} ms</div>
