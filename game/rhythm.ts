@@ -1,28 +1,37 @@
 import type { Judgement } from "./types";
 
-// 80 BPM / 4-beat gauge => 3000 ms per sweep.
-// The visual score zone is 70%..90%, with Perfect centered at 85%.
-// Judgement windows are deliberately inside that zone so anything outside
-// the score zone is always a MISS.
-export const WINDOWS_MS = {
-  perfect: 18,
-  great: 42,
-  cool: 72,
-  bad: 120,
-} as const;
+export const SCORE_ZONE_WIDTH = 0.20;
+export const JUDGEMENT_SEGMENTS = 7;
+
+/**
+ * Seven equal judgement bands occupy the 70%..90% score zone.
+ * Perfect is the center band at 85%. The outer edge of Bad is 70/90%;
+ * outside the score zone is always Miss.
+ */
+export function getJudgementWindows(cycleMs: number) {
+  const segmentMs = (cycleMs * SCORE_ZONE_WIDTH) / JUDGEMENT_SEGMENTS;
+  return {
+    perfect: segmentMs * 0.5,
+    great: segmentMs * 1.5,
+    cool: segmentMs * 2.5,
+    bad: segmentMs * 3.5,
+  } as const;
+}
 
 export class RhythmEngine {
   readonly stats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
   private judged = new Set<number>();
 
-  judgeMove(moveIndex: number, deltaMs: number): Judgement | null {
+  judgeMove(moveIndex: number, deltaMs: number, cycleMs: number): Judgement | null {
     if (this.judged.has(moveIndex)) return null;
     const abs = Math.abs(deltaMs);
+    const windows = getJudgementWindows(cycleMs);
     const judgement: Judgement | null =
-      abs <= WINDOWS_MS.perfect ? "perfect" :
-      abs <= WINDOWS_MS.great ? "great" :
-      abs <= WINDOWS_MS.cool ? "cool" :
-      abs <= WINDOWS_MS.bad ? "bad" : null;
+      abs <= windows.perfect ? "perfect" :
+      abs <= windows.great ? "great" :
+      abs <= windows.cool ? "cool" :
+      abs <= windows.bad ? "bad" : null;
+
     if (!judgement) return null;
     this.apply(judgement, moveIndex);
     return judgement;
