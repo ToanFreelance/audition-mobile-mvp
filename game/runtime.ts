@@ -18,9 +18,9 @@ export type RhythmRuntimeCallbacks = {
 const LEVELS = 9;
 const COUNTDOWN_BEATS = 4;
 const GAUGE_CYCLE_BEATS = 4;
-const SCORE_ZONE_START = 80;
-const SCORE_ZONE_END = 90;
-const PERFECT_CENTER = 85;
+export const SCORE_ZONE_START = 70;
+export const SCORE_ZONE_END = 90;
+export const PERFECT_CENTER = 85;
 
 export class RhythmRuntime {
   private readonly chart: Chart;
@@ -94,25 +94,23 @@ export class RhythmRuntime {
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
-  /**
-   * Continuous 0→100 sweep. During 3/2/1/0 it travels from 0 to the
-   * 85% Perfect point; after 0 it keeps moving with the song clock.
-   */
+  /** Gauge is one continuous song-clock sweep. Countdown 3/2/1/0 lands at 85%. */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
 
     if (this.phase === "countdown") {
-      return Math.min(PERFECT_CENTER, (this.clock.elapsedMs / (COUNTDOWN_BEATS * this.beatDurationMs)) * PERFECT_CENTER);
+      const progress = Math.min(1, this.clock.elapsedMs / (COUNTDOWN_BEATS * this.beatDurationMs));
+      return progress * PERFECT_CENTER;
     }
 
     const raw = ((this.clock.elapsedMs - this.gaugeCycleStartMs) % cycleMs) / cycleMs;
-    return raw < 0 ? raw + 1 : raw * 100;
+    return (raw < 0 ? raw + 1 : raw) * 100;
   }
 
   get timingGaugePercent() { return this.gaugePercent; }
 
-  /** Milliseconds from the current song time to the current 85% target. */
+  /** Signed milliseconds relative to the current Perfect target. */
   get timingDeltaMs() {
     if (!this.canInput() || !this.targetMs) return 0;
     return this.clock.elapsedMs - this.targetMs;
@@ -120,9 +118,7 @@ export class RhythmRuntime {
 
   handleDirection(direction: Direction) {
     if (!this.canInput() || this.awaitingSpace) return false;
-
-    // A turn cannot be rescued after its Perfect target has passed.
-    if (this.clock.elapsedMs > this.targetMs) {
+    if (this.clock.elapsedMs >= this.targetMs) {
       this.resolveMiss();
       return false;
     }
@@ -144,15 +140,12 @@ export class RhythmRuntime {
 
   handleSpace() {
     if (!this.canInput() || !this.awaitingSpace) return null;
-
     const delta = this.timingDeltaMs;
-    if (Math.abs(delta) > this.maxTimingWindowMs) {
+    const judgement = this.engine.judgeMove(this.levelIndex, delta);
+    if (!judgement) {
       this.resolveMiss();
       return "miss" as Judgement;
     }
-
-    const judgement = this.engine.judgeMove(this.levelIndex, delta);
-    if (!judgement) return null;
     this.completeMove(judgement);
     return judgement;
   }
@@ -176,17 +169,16 @@ export class RhythmRuntime {
       if (elapsed >= COUNTDOWN_BEATS * this.beatDurationMs) {
         const cycleMs = this.beatDurationMs * GAUGE_CYCLE_BEATS;
         this.phase = "playing";
-        // Countdown 0 visually lands at Perfect. The next gameplay target
-        // is the following Perfect crossing, leaving a complete input cycle.
+        // The last countdown frame (0) is visually at Perfect. Continue the
+        // same sweep from 85%; the first playable target is the next 85%.
         this.gaugeCycleStartMs = elapsed - PERFECT_CENTER / 100 * cycleMs;
         this.targetMs = elapsed + cycleMs * (1 - PERFECT_CENTER / 100);
         this.callbacks.onCountdown?.(null);
         this.callbacks.onPhase?.("playing");
-        this.callbacks.onLevel?.(1);
         this.emitSequence();
       }
     } else if (this.canInput() && elapsed >= this.targetMs) {
-      // Whether arrows were completed or not, passing the timing point is a MISS.
+      // Passing the target without a valid SPACE is an automatic MISS.
       this.resolveMiss();
     }
 
@@ -237,5 +229,4 @@ export class RhythmRuntime {
   }
 
   private get beatDurationMs() { return 60000 / this.chart.bpm; }
-  private get maxTimingWindowMs() { return this.beatDurationMs * 0.55; }
 }
