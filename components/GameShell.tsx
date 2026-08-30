@@ -8,6 +8,7 @@ import Stage3D from "./Stage3D";
 
 const INITIAL_STATS: GameStats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
+const AUDIO_SRC = "/audio/Please%20tell%20me%20why.mp3";
 
 export default function GameShell() {
   const [stats, setStats] = useState(INITIAL_STATS);
@@ -22,6 +23,7 @@ export default function GameShell() {
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [audioError, setAudioError] = useState(false);
   const [activeDirection, setActiveDirection] = useState<Direction | null>(null);
   const [wrongDirection, setWrongDirection] = useState<Direction | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
@@ -67,21 +69,28 @@ export default function GameShell() {
     setStarted(true);
     setPhase("countdown");
     setCountdown(3);
+    setAudioError(false);
 
     const audio = audioRef.current;
     runtime.setTimeSource(null);
     runtime.start();
 
-    if (audio && audioEnabledRef.current) {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.volume = 1;
-      audio.muted = false;
-      void audio.play().then(() => {
-        runtime.setTimeSource(() => audio.currentTime * 1000);
-        runtime.syncToTimeSource();
-      }).catch(() => runtime.setTimeSource(null));
-    }
+    if (!audio || !audioEnabledRef.current) return;
+
+    audio.pause();
+    audio.currentTime = 0;
+    audio.volume = 1;
+    audio.muted = false;
+    audio.load();
+
+    void audio.play().then(() => {
+      setAudioError(false);
+      runtime.setTimeSource(() => audio.currentTime * 1000);
+      runtime.syncToTimeSource();
+    }).catch(() => {
+      setAudioError(true);
+      runtime.setTimeSource(null);
+    });
   }, [runtime]);
 
   const pressDirection = useCallback((direction: Direction) => {
@@ -117,17 +126,20 @@ export default function GameShell() {
     const next = !audioEnabledRef.current;
     audioEnabledRef.current = next;
     setAudioEnabled(next);
+    setAudioError(false);
     const audio = audioRef.current;
     if (!audio) return;
     if (!next) { audio.pause(); audio.muted = true; runtime.setTimeSource(null); return; }
     audio.muted = false;
     audio.volume = 1;
-    if (started) void audio.play().then(() => { runtime.setTimeSource(() => audio.currentTime * 1000); runtime.syncToTimeSource(); });
+    if (started) {
+      void audio.play().then(() => { runtime.setTimeSource(() => audio.currentTime * 1000); runtime.syncToTimeSource(); }).catch(() => setAudioError(true));
+    }
   }, [runtime, started]);
 
   return (
     <main className="shell">
-      <audio ref={audioRef} preload="auto" playsInline src="/audio/Please%20tell%20me%20why.mp3" />
+      <audio ref={audioRef} preload="auto" playsInline src={AUDIO_SRC} onError={() => setAudioError(true)} />
       <header className="header">
         <div className="brand"><div className="brand-mark">A</div><div><h1>Audition Mobile — Rhythm Prototype</h1><p>Audition-style command + timing gameplay</p></div></div>
         <div className="header-actions"><button className="pill" onClick={toggleAudio}>{audioEnabled ? "🔊 Beat ON" : "🔇 Beat OFF"}</button><span className="pill">BPM {DEMO_CHART.bpm}</span></div>
@@ -142,6 +154,7 @@ export default function GameShell() {
               <div className="my-score sketch-card"><div className="my-score-title">MY SCORE</div><div className="my-score-value">{stats.score.toLocaleString()}</div><div className="my-score-bottom"><div><span>COMBO</span><b>{stats.combo}x</b></div><div><span>MAX</span><b>{stats.maxCombo}</b></div></div><div className="mini-judgements"><span className="perfect-text">P {stats.perfect}</span><span className="great-text">G {stats.great}</span><span className="cool-text">C {stats.cool}</span><span className="bad-text">B {stats.bad}</span><span className="miss-text">M {stats.miss}</span></div></div>
             </div>
 
+            {audioError && started && <div className="audio-warning">SOUND FILE COULD NOT PLAY · TAP 🔊 BEAT ON TO RETRY</div>}
             {countdown !== null && <div className="judgement perfect">{countdown}</div>}
             {countdown === null && judgement && <div className={`judgement ${judgement}`}>{judgement.toUpperCase()}!</div>}
 
@@ -157,12 +170,13 @@ export default function GameShell() {
               </div>
 
               <div className="timing-gauge-wrap">
-                <div className="timing-gauge-label"><span>TIMING GAUGE · {Math.round(gauge)}%</span><b>{delta >= 0 ? "+" : ""}{delta.toFixed(0)} ms</b></div>
+                <div className="timing-gauge-label"><span>TIMING GAUGE</span><b>{delta >= 0 ? "+" : ""}{delta.toFixed(0)} ms</b></div>
                 <div className="timing-gauge audition-timing-gauge" data-timing-delta-ms={Math.round(delta)}>
+                  <div className="timing-track-glow" />
                   <div className="timing-zone zone-bad-left" /><div className="timing-zone zone-cool-left" /><div className="timing-zone zone-great-left" /><div className="timing-zone zone-perfect" /><div className="timing-zone zone-great-right" /><div className="timing-zone zone-cool-right" /><div className="timing-zone zone-bad-right" />
                   <div className="timing-marker" style={{ left: `${gauge}%` }} />
                 </div>
-                <div className="timing-scale"><span>0%</span><b>75%</b><b>85% PERFECT</b><b>95%</b><span>100%</span></div>
+                <div className="timing-scale"><span>0</span><span>75</span><b>85 PERFECT</b><span>95</span><span>100</span></div>
               </div>
             </div>
 
@@ -186,6 +200,6 @@ export default function GameShell() {
 function ArrowIcon({ direction, filled, target, compact = false }: { direction: Direction; filled: boolean; target: boolean; compact?: boolean }) {
   const color = direction === "left" || direction === "right" ? "#ff63d9" : "#61dcff";
   const rotation = direction === "right" ? 0 : direction === "down" ? 90 : direction === "left" ? 180 : 270;
-  const size = compact ? 26 : 30;
-  return <svg className={compact ? "dpad-arrow-icon" : "command-arrow-icon command-arrow-v2"} viewBox="0 0 42 40" aria-hidden="true" style={{ width: size, height: size, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) rotate(${rotation}deg)`, transformOrigin: "center", filter: `drop-shadow(0 0 ${target || filled ? 5 : 2}px ${color})`, opacity: target || filled ? 1 : .72 }}><path d="M5 14H22V8L36 20L22 32V26H5V14Z" fill={filled ? color : "rgba(0,0,0,.02)"} stroke={color} strokeWidth={filled ? 0 : 1.8} strokeLinejoin="miter" /></svg>;
+  const size = compact ? 28 : 34;
+  return <svg className={compact ? "dpad-arrow-icon" : "command-arrow-icon command-arrow-v2"} viewBox="0 0 42 40" aria-hidden="true" style={{ width: size, height: size, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) rotate(${rotation}deg)`, transformOrigin: "center", filter: `drop-shadow(0 0 ${target || filled ? 6 : 2}px ${color})`, opacity: target || filled ? 1 : .68 }}><path d="M5 14H22V8L36 20L22 32V26H5V14Z" fill={filled ? color : "rgba(0,0,0,.02)"} stroke={color} strokeWidth={filled ? 0 : 1.8} strokeLinejoin="miter" /></svg>;
 }
