@@ -11,6 +11,7 @@ export interface Chart {
   title: string;
   bpm: number;
   offsetMs: number;
+  beatTimesMs?: number[];
   notes: ChartNote[];
 }
 
