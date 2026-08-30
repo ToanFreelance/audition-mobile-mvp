@@ -30,6 +30,7 @@ export default function GameShell() {
   const audioReadyRef = useRef(false);
   const audioEnabledRef = useRef(true);
   const markerRef = useRef<HTMLDivElement | null>(null);
+  const markerLoopRef = useRef<HTMLDivElement | null>(null);
   const flashTimer = useRef<number | null>(null);
   const judgementTimer = useRef<number | null>(null);
   const countdownClearTimer = useRef<number | null>(null);
@@ -52,13 +53,11 @@ export default function GameShell() {
       const audio = audioRef.current;
       if (!audio || !audioReadyRef.current || !audioEnabledRef.current) return;
       audio.muted = false;
-      audio.volume = 1;
       runtimeRef.current?.syncToTimeSource();
     },
     onCountdown: (value) => {
       if (countdownClearTimer.current !== null) window.clearTimeout(countdownClearTimer.current);
       if (value === null) {
-        // Keep the visual 0 visible briefly at the beat-zero edge.
         countdownClearTimer.current = window.setTimeout(() => setCountdown(null), 120);
         return;
       }
@@ -79,6 +78,7 @@ export default function GameShell() {
       setGauge(nextGauge);
       setDelta(nextDelta);
       if (markerRef.current) markerRef.current.style.left = `${nextGauge}%`;
+      if (markerLoopRef.current) markerLoopRef.current.style.left = `${nextGauge - 100}%`;
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -108,8 +108,9 @@ export default function GameShell() {
     if (audio) {
       audio.pause();
       audio.currentTime = 0;
-      audio.volume = 1;
+      audio.defaultMuted = false;
       audio.muted = false;
+      audio.removeAttribute("muted");
       audio.load();
     }
 
@@ -118,6 +119,7 @@ export default function GameShell() {
     if (audio && audioEnabledRef.current) {
       void audio.play().then(() => {
         audioReadyRef.current = true;
+        audio.muted = false;
         runtime.setTimeSource(() => audio.currentTime * 1000);
         runtime.syncToTimeSource();
       }).catch(() => {
@@ -144,8 +146,8 @@ export default function GameShell() {
 
       if (!runtime.isStarted) return next;
 
+      audio.defaultMuted = false;
       audio.muted = false;
-      audio.volume = 1;
       void audio.play().then(() => {
         audioReadyRef.current = true;
         runtime.setTimeSource(() => audio.currentTime * 1000);
@@ -215,7 +217,7 @@ export default function GameShell() {
               </div>
               <div className="timing-gauge-wrap">
                 <div className="timing-gauge-label"><span>TIMING GAUGE · {Math.round(gauge)}%</span><b>{delta.toFixed(0)} ms</b></div>
-                <div className="timing-gauge" data-timing-delta-ms={Math.round(delta)}><div className="timing-score-zone" aria-hidden="true" /><div ref={markerRef} className="timing-marker" /></div>
+                <div className="timing-gauge" data-timing-delta-ms={Math.round(delta)}><div className="timing-score-zone" aria-hidden="true" /><div ref={markerRef} className="timing-marker" /><div ref={markerLoopRef} className="timing-marker timing-marker-loop" aria-hidden="true" /></div>
                 <div className="timing-scale"><span>0%</span><b>25%</b><b>50%</b><b>75% PERFECT</b><span>100%</span></div>
               </div>
             </div>
