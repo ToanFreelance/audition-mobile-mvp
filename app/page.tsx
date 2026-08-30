@@ -1,11 +1,11 @@
-import GameShell from "@/components/GameShell";
+import GameShellV2 from "@/components/GameShellV2";
 import ReferenceAudio from "@/components/ReferenceAudio";
 import StageMount from "@/components/StageMount";
 
 export default function Home() {
   return (
     <>
-      <GameShell />
+      <GameShellV2 />
       <StageMount />
       <ReferenceAudio />
     </>

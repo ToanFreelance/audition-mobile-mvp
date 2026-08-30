@@ -1,503 +1,267 @@
 import * as Phaser from "phaser";
 import type {
   Chart,
+  DanceTurn,
   Direction,
-  Judgement,
+  GamePhase,
   GameStats,
+  Judgement,
 } from "./types";
-import { RhythmEngine } from "./rhythm";
 import { BeatClock } from "./clock";
+import { RhythmEngine, WINDOWS_MS } from "./rhythm";
 
 const W = 960;
 const H = 540;
-
-const DEMO_COMMANDS: Direction[] = [
-  "left",
-  "up",
-  "down",
-  "right",
-  "left",
-  "right",
-  "up",
-  "down",
-];
+const TURN_LEAD_BEATS = 0.02;
 
 export type GameCallbacks = {
-  onStats: (
-    stats: GameStats
-  ) => void;
-
-  onJudgement: (
-    judgement: Judgement
-  ) => void;
-
-  onFinished: (
-    stats: GameStats
-  ) => void;
-
-  /*
-   * directions:
-   *   Current 8-command block.
-   *
-   * filledCount:
-   *   Number of commands already entered
-   *   correctly inside that block.
-   */
-  onSequence: (
-    directions: Direction[],
-    filledCount: number
-  ) => void;
+  onStats: (stats: GameStats) => void;
+  onJudgement: (judgement: Judgement) => void;
+  onFinished: (stats: GameStats) => void;
+  onSequence: (directions: Direction[], filledCount: number) => void;
+  onPhase?: (phase: GamePhase, turn: DanceTurn | undefined, timingRatio: number) => void;
+  onAction?: (actionId: string, judgement: Judgement) => void;
 };
 
-/**
- * Phaser is the rhythm/input runtime.
- *
- * Part 2:
- *
- * D-PAD = command sequence entry.
- *
- * Timing is deliberately NOT checked here.
- *
- * Part 3:
- *
- * SPACE = timing judgement.
- *
- * That part will reconnect RhythmEngine.judge()
- * and BeatClock to the SPACE button.
- */
-export class GameScene
-  extends Phaser.Scene {
-
+export class GameScene extends Phaser.Scene {
   private chart!: Chart;
-
   private engine!: RhythmEngine;
-
   private clock!: BeatClock;
-
   private callbacks!: GameCallbacks;
 
   private started = false;
-
   private finished = false;
-
-  /*
-   * Absolute command cursor.
-   *
-   * 0 = first command
-   * 1 = second command
-   * ...
-   */
+  private phase: GamePhase = "idle";
+  private turnIndex = 0;
   private commandCursor = 0;
+  private lastPublishedTiming = 2;
 
   constructor() {
     super("GameScene");
   }
 
-  init(data: {
-    chart: Chart;
-    callbacks: GameCallbacks;
-  }) {
-    this.chart =
-      data.chart;
-
-    this.callbacks =
-      data.callbacks;
-
-    /*
-     * Keep both existing systems alive.
-     *
-     * RhythmEngine and BeatClock will be used
-     * by Part 3.
-     */
-    this.engine =
-      new RhythmEngine(
-        this.chart
-      );
-
-    this.clock =
-      new BeatClock(
-        this.chart.bpm,
-        this.chart.offsetMs
-      );
+  init(data: { chart: Chart; callbacks: GameCallbacks }) {
+    this.chart = data.chart;
+    this.callbacks = data.callbacks;
+    this.engine = new RhythmEngine(this.chart);
+    this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
   }
 
   create() {
-    /*
-     * Three.js owns the visible stage.
-     *
-     * Phaser remains responsible for
-     * keyboard input and the gameplay runtime.
-     */
+    const keyboard = this.input.keyboard;
+    if (!keyboard) return;
 
-    this.input.keyboard?.on(
-      "keydown-LEFT",
-      () =>
-        this.handleInput(
-          "left"
-        )
-    );
-
-    this.input.keyboard?.on(
-      "keydown-UP",
-      () =>
-        this.handleInput(
-          "up"
-        )
-    );
-
-    this.input.keyboard?.on(
-      "keydown-DOWN",
-      () =>
-        this.handleInput(
-          "down"
-        )
-    );
-
-    this.input.keyboard?.on(
-      "keydown-RIGHT",
-      () =>
-        this.handleInput(
-          "right"
-        )
-    );
-
-    this.input.keyboard?.on(
-      "keydown-A",
-      () =>
-        this.handleInput(
-          "left"
-        )
-    );
-
-    this.input.keyboard?.on(
-      "keydown-W",
-      () =>
-        this.handleInput(
-          "up"
-        )
-    );
-
-    this.input.keyboard?.on(
-      "keydown-S",
-      () =>
-        this.handleInput(
-          "down"
-        )
-    );
-
-    this.input.keyboard?.on(
-      "keydown-D",
-      () =>
-        this.handleInput(
-          "right"
-        )
-    );
+    keyboard.on("keydown-LEFT", () => this.handleInput("left"));
+    keyboard.on("keydown-UP", () => this.handleInput("up"));
+    keyboard.on("keydown-DOWN", () => this.handleInput("down"));
+    keyboard.on("keydown-RIGHT", () => this.handleInput("right"));
+    keyboard.on("keydown-A", () => this.handleInput("left"));
+    keyboard.on("keydown-W", () => this.handleInput("up"));
+    keyboard.on("keydown-S", () => this.handleInput("down"));
+    keyboard.on("keydown-D", () => this.handleInput("right"));
+    keyboard.on("keydown-SPACE", () => this.handleSpace());
   }
 
   startRound() {
-    if (
-      this.started
-    ) {
-      return;
-    }
+    if (this.started) return;
 
-    this.started =
-      true;
-
-    this.finished =
-      false;
-
-    this.commandCursor =
-      0;
-
-    /*
-     * Keep BeatClock alive because Part 3
-     * will use it for SPACE timing.
-     *
-     * It does NOT affect D-PAD input.
-     */
+    this.started = true;
+    this.finished = false;
+    this.phase = "input";
+    this.turnIndex = 0;
+    this.commandCursor = 0;
+    this.lastPublishedTiming = 2;
     this.clock.start();
-
     this.emitCommandState();
+    this.publishPhase();
   }
 
-  /**
-   * Handle D-PAD / keyboard command input.
-   *
-   * IMPORTANT:
-   *
-   * This method intentionally does NOT call:
-   *
-   *   engine.judge(...)
-   *
-   * because D-PAD is sequence entry.
-   *
-   * Correct direction:
-   *   advance command cursor.
-   *
-   * Wrong direction:
-   *   do nothing.
-   *
-   * SPACE will perform timing judgement later.
-   */
-  handleInput(
-    direction: Direction
-  ) {
-    if (
-      !this.started ||
-      this.finished
-    ) {
+  handleInput(direction: Direction) {
+    if (!this.started || this.finished || this.phase !== "input") return;
+
+    const turn = this.currentTurn;
+    if (!turn) return;
+    if (this.clock.currentBeat >= turn.spaceBeat + TURN_LEAD_BEATS) return;
+
+    const target = turn.directions[this.commandCursor];
+    if (!target) return;
+
+    if (direction !== target) {
+      this.flashWrong(direction);
       return;
     }
 
-    const targetDirection =
-      this.getCommandDirection(
-        this.commandCursor
-      );
-
-    if (
-      !targetDirection
-    ) {
-      return;
-    }
-
-    /*
-     * Wrong command.
-     *
-     * Do not advance.
-     * Do not fill.
-     * Do not consume a note.
-     */
-    if (
-      direction !==
-      targetDirection
-    ) {
-      return;
-    }
-
-    /*
-     * Correct command.
-     */
-    this.commandCursor++;
-
+    this.commandCursor += 1;
     this.emitCommandState();
 
-    /*
-     * End of command list.
-     *
-     * This is only a frontend demo completion.
-     * Real scoring/combo/timing will be connected
-     * in Part 3.
-     */
-    if (
-      this.commandCursor >=
-      this.chart.notes.length
-    ) {
-      this.finished =
-        true;
-
-      this.callbacks.onFinished({
-        ...this.engine.stats,
-      });
+    if (this.commandCursor >= turn.directions.length) {
+      this.phase = "timing";
+      this.publishPhase();
     }
   }
 
-  /**
-   * Placeholder for SPACE.
-   *
-   * Part 3 will implement:
-   *
-   *   SPACE
-   *      ↓
-   *   marker position
-   *      ↓
-   *   75–95% score zone
-   *      ↓
-   *   PERFECT / GREAT / COOL / BAD / MISS
-   */
   handleSpace() {
-    if (
-      !this.started ||
-      this.finished
-    ) {
-      return;
-    }
+    if (!this.started || this.finished || this.phase !== "timing") return;
 
-    // Intentionally empty for Part 2.
+    const turn = this.currentTurn;
+    if (!turn) return;
+
+    const judgement = this.engine.judgeTurn(turn, this.clock.currentBeat);
+    this.phase = "judged";
+    this.callbacks.onJudgement(judgement);
+    this.callbacks.onStats({ ...this.engine.stats });
+    this.callbacks.onAction?.(turn.actionId, judgement);
+    this.publishPhase();
+
+    if (this.engine.completed) this.finish();
   }
 
   update() {
-    if (
-      !this.started ||
-      this.finished
-    ) {
+    if (!this.started || this.finished) return;
+
+    const beat = this.clock.currentBeat;
+    const turn = this.currentTurn;
+    if (!turn) {
+      this.finish();
       return;
     }
 
-    /*
-     * DO NOT call:
-     *
-     *   this.engine.update(beat)
-     *
-     * here yet.
-     *
-     * That would automatically mark notes as MISS
-     * while the player is only testing D-PAD input.
-     *
-     * Automatic MISS belongs to the timing system
-     * that we will connect to SPACE in Part 3.
-     */
-
-    this.callbacks.onStats({
-      ...this.engine.stats,
-    });
-  }
-
-  /**
-   * Demo command sequence.
-   *
-   * The first 8 commands intentionally match
-   * the approved mobile sketch:
-   *
-   *   ← ↑ ↓ → ← → ↑ ↓
-   *
-   * After those 8 commands, the existing chart
-   * continues to provide the next commands.
-   */
-  private getCommandDirection(
-    index: number
-  ): Direction | undefined {
-    if (
-      index <
-      DEMO_COMMANDS.length
-    ) {
-      return DEMO_COMMANDS[
-        index
-      ];
+    if (this.phase === "input" && beat >= turn.spaceBeat + TURN_LEAD_BEATS) {
+      this.engine.autoMiss(turn);
+      this.phase = "judged";
+      this.callbacks.onJudgement("miss");
+      this.callbacks.onStats({ ...this.engine.stats });
+      this.callbacks.onAction?.(turn.actionId, "miss");
+      this.publishPhase();
     }
 
-    return this.chart.notes[
-      index
-    ]?.direction;
+    if (this.phase === "timing") {
+      const ratio = this.engine.getTimingRatio(turn, beat);
+      this.publishTiming(ratio);
+
+      const lateMs = this.engine.getTimingDeltaMs(turn, beat);
+      if (lateMs > WINDOWS_MS.bad) {
+        this.engine.autoMiss(turn);
+        this.phase = "judged";
+        this.callbacks.onJudgement("miss");
+        this.callbacks.onStats({ ...this.engine.stats });
+        this.callbacks.onAction?.(turn.actionId, "miss");
+        this.publishPhase();
+      }
+    }
+
+    if (this.phase === "judged") {
+      const next = this.chart.turns[this.turnIndex + 1];
+      if (!next) {
+        if (this.engine.completed) this.finish();
+        return;
+      }
+
+      if (beat >= next.startBeat - TURN_LEAD_BEATS) {
+        this.turnIndex += 1;
+        this.commandCursor = 0;
+        this.phase = "input";
+        this.lastPublishedTiming = 2;
+        this.emitCommandState();
+        this.publishPhase();
+      }
+    }
+
+    this.callbacks.onStats({ ...this.engine.stats });
   }
 
-  /**
-   * Emit the current 8-command block.
-   *
-   * Example:
-   *
-   * cursor = 3
-   *
-   *   ← ↑ ↓ → ← → ↑ ↓
-   *   ✓ ✓ ✓ ↑
-   *
-   * filledCount = 3
-   */
+  private get currentTurn(): DanceTurn | undefined {
+    return this.chart.turns[this.turnIndex];
+  }
+
+  private finish() {
+    if (this.finished) return;
+    this.finished = true;
+    this.phase = "finished";
+    this.callbacks.onStats({ ...this.engine.stats });
+    this.callbacks.onFinished({ ...this.engine.stats });
+    this.publishPhase();
+  }
+
   private emitCommandState() {
-    const blockStart =
-      Math.floor(
-        this.commandCursor /
-          8
-      ) * 8;
+    const turn = this.currentTurn;
+    if (!turn) {
+      this.callbacks.onSequence([], 0);
+      return;
+    }
 
-    const directions =
-      Array.from(
-        {
-          length: 8,
-        },
-        (
-          _,
-          index
-        ) =>
-          this.getCommandDirection(
-            blockStart +
-              index
-          )
-      ).filter(
-        (
-          direction
-        ): direction is Direction =>
-          Boolean(
-            direction
-          )
-      );
+    this.callbacks.onSequence(turn.directions, this.commandCursor);
+    this.publishTiming(2);
+  }
 
-    const filledCount =
-      this.commandCursor -
-      blockStart;
+  private publishPhase() {
+    this.callbacks.onPhase?.(this.phase, this.currentTurn, this.lastPublishedTiming);
+    const host = document.getElementById("game-container");
+    if (!host) return;
+    host.dataset.gamePhase = this.phase;
+    host.dataset.level = String(this.currentTurn?.level ?? 0);
+    host.dataset.turn = String(this.turnIndex + 1);
+    host.dataset.action = this.currentTurn?.actionId ?? "";
+  }
 
-    this.callbacks.onSequence(
-      directions,
-      Math.max(
-        0,
-        Math.min(
-          directions.length,
-          filledCount
-        )
-      )
-    );
+  private publishTiming(ratio: number) {
+    const clamped = Math.max(-1, Math.min(1, ratio));
+    if (Math.abs(clamped - this.lastPublishedTiming) < 0.015) return;
+    this.lastPublishedTiming = clamped;
+    this.callbacks.onPhase?.(this.phase, this.currentTurn, clamped);
+
+    const host = document.getElementById("game-container");
+    if (!host) return;
+    host.style.setProperty("--timing-ratio", String(clamped));
+    host.dataset.timing = clamped.toFixed(3);
+
+    const slot = document.querySelector<HTMLElement>(".timing-preview-slot");
+    if (!slot) return;
+    const label = slot.querySelector("span");
+    const value = slot.querySelector("b");
+    if (label) label.textContent = this.phase === "timing" ? "TIMING GAUGE" : "NEXT ACTION";
+    if (value) value.textContent = this.phase === "timing" ? `${Math.round((clamped + 1) * 50)}%` : `LEVEL ${this.currentTurn?.level ?? "-"}`;
+  }
+
+  private flashWrong(direction: Direction) {
+    const host = document.getElementById("game-container");
+    host?.setAttribute("data-wrong-direction", direction);
+    window.setTimeout(() => {
+      if (host?.getAttribute("data-wrong-direction") === direction) {
+        host.removeAttribute("data-wrong-direction");
+      }
+    }, 160);
   }
 }
 
 export function createPhaserGame(
   parent: string,
   chart: Chart,
-  callbacks: GameCallbacks
+  callbacks: GameCallbacks,
 ) {
-  const config:
-    Phaser.Types.Core.GameConfig =
-    {
-      type: Phaser.AUTO,
-
-      parent,
-
-      width: W,
-
-      height: H,
-
+  const config: Phaser.Types.Core.GameConfig = {
+    type: Phaser.AUTO,
+    parent,
+    width: W,
+    height: H,
+    transparent: true,
+    backgroundColor: "rgba(0,0,0,0)",
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
+    render: {
+      antialias: true,
+      pixelArt: false,
       transparent: true,
+    },
+    input: {
+      activePointers: 4,
+    },
+    scene: [],
+  };
 
-      backgroundColor:
-        "rgba(0,0,0,0)",
-
-      scale: {
-        mode:
-          Phaser.Scale.FIT,
-
-        autoCenter:
-          Phaser.Scale.CENTER_BOTH,
-      },
-
-      render: {
-        antialias: true,
-
-        pixelArt: false,
-
-        transparent: true,
-      },
-
-      input: {
-        activePointers: 4,
-      },
-
-      scene: [],
-    };
-
-  const game =
-    new Phaser.Game(
-      config
-    );
-
-  game.scene.add(
-    "GameScene",
-    GameScene,
-    true,
-    {
-      chart,
-
-      callbacks,
-    }
-  );
-
+  const game = new Phaser.Game(config);
+  game.scene.add("GameScene", GameScene, true, { chart, callbacks });
   return game;
 }
