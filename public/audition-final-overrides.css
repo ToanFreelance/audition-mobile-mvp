@@ -1,2 +1,39 @@
-.timing-gauge .gauge-labels{position:relative;display:block;height:15px;margin-top:7px;font-size:10px;font-weight:900;line-height:15px;letter-spacing:.02em}.timing-gauge .gauge-labels>span,.timing-gauge .gauge-labels>b{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}.timing-gauge .gauge-labels>:nth-child(1){left:0}.timing-gauge .gauge-labels>:nth-child(2){left:71.4286%}.timing-gauge .gauge-labels>:nth-child(3){left:74.2857%}.timing-gauge .gauge-labels>:nth-child(4){left:77.1429%}.timing-gauge .gauge-labels>:nth-child(5){left:80%}.timing-gauge .gauge-labels>:nth-child(6){left:82.8571%}.timing-gauge .gauge-labels>:nth-child(7){left:85.7143%}.timing-gauge .gauge-labels>:nth-child(8){left:88.5714%}.timing-gauge .gauge-labels>:nth-child(9){left:100%}.timing-gauge .gauge-labels b{color:#fff;text-shadow:0 0 10px #fff}.command-key.done{opacity:1!important;border-color:rgba(93,255,142,.9)!important;background:radial-gradient(circle at 35% 25%,rgba(74,220,120,.98),rgba(8,76,41,.98) 68%)!important;box-shadow:0 0 16px rgba(71,255,126,.55),inset 0 0 12px rgba(152,255,186,.2)!important}.command-key.done svg{filter:hue-rotate(95deg) saturate(1.35) brightness(1.15)}
-@media(max-width:700px){.timing-gauge .gauge-labels{font-size:7px;height:12px;line-height:12px;margin-top:5px}}
+/* Reference-style intro / ready / countdown / start cues. */
+.intro-cue,.ready-cue,.start-cue{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);z-index:7;text-align:center;pointer-events:none;white-space:nowrap;text-shadow:0 3px 0 rgba(0,0,0,.65),0 0 18px rgba(255,255,255,.45)}
+.intro-cue{animation:reference-intro-in 1.1s ease-out both}
+.intro-cue span{display:block;font-size:13px;font-weight:800;letter-spacing:.35em;color:#ddd}
+.intro-cue strong{display:block;margin-top:4px;font-size:38px;font-weight:1000;letter-spacing:.08em;color:#f7a7ff}
+.ready-cue{top:43%;animation:reference-ready-in .55s ease-out both}
+.ready-cue span{display:block;font-size:32px;font-weight:1000;letter-spacing:.04em;color:#fff;text-shadow:0 0 5px #ff62ea,0 0 18px #a94fff,2px 2px 0 #24102d}
+.ready-cue small{display:block;margin-top:2px;font-size:8px;font-weight:900;letter-spacing:.3em;color:#ddd;opacity:.82}
+.start-cue{top:43%;animation:reference-go-pop .85s cubic-bezier(.15,.8,.2,1) both}
+.start-cue span{display:block;font-size:34px;font-weight:1000;letter-spacing:.05em;color:#fff;text-shadow:0 0 5px #ff62ea,0 0 18px #a94fff,2px 2px 0 #24102d}
+.start-cue strong{display:block;margin-top:-2px;font-size:19px;font-weight:1000;letter-spacing:.22em;color:#ff74df}
+@keyframes reference-intro-in{0%{opacity:0;transform:translate(-50%,-46%) scale(.92)}100%{opacity:.9;transform:translate(-50%,-50%) scale(1)}}
+@keyframes reference-ready-in{0%{opacity:0;transform:translate(-50%,-46%) scale(.88)}55%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+@keyframes reference-go-pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.72)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}55%{transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.02)}}
+
+/* Do not show the gameplay strip during the initial music lead-in. */
+.command-zone.pre-intro{opacity:0;pointer-events:none}
+.command-zone.visible{opacity:1}
+
+/* Timing bar: copy the source game's thin dark capsule and a flat bright
+   scoring window. No two rounded flashing ends. The pulse is a central
+   vertical light/glow inside the score window. */
+.timing-gauge .gauge-track{height:17px;border:2px solid rgba(18,22,28,.98);border-radius:10px;padding:2px;overflow:hidden;background:linear-gradient(180deg,#090d13,#171b21);box-shadow:0 0 0 1px rgba(255,255,255,.12),0 2px 8px rgba(0,0,0,.65),inset 0 1px 2px rgba(255,255,255,.12)}
+.timing-gauge .gauge-zone{top:2px;bottom:2px;border-radius:2px;background:linear-gradient(90deg,rgba(25,89,98,.55),rgba(62,226,236,.88) 38%,rgba(237,255,255,1) 50%,rgba(62,226,236,.88) 62%,rgba(25,89,98,.55));box-shadow:0 0 7px rgba(82,232,241,.58),inset 0 0 3px rgba(255,255,255,.65);overflow:hidden}
+.timing-gauge .gauge-zone::before{content:"";position:absolute;left:40%;top:-5px;bottom:-5px;width:20%;border-radius:0;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.95),rgba(116,247,255,.9),rgba(255,255,255,0));filter:blur(3px);opacity:.7;animation:reference-zone-pulse .62s ease-in-out infinite alternate}
+.timing-gauge .gauge-zone::after{content:"";position:absolute;left:50%;top:-5px;bottom:-5px;width:2px;border-radius:0;background:#fff;box-shadow:0 0 5px #fff,0 0 9px #57eaff;opacity:.9;animation:reference-zone-core .62s ease-in-out infinite alternate}
+.timing-gauge .gauge-zone i{display:none}
+@keyframes reference-zone-pulse{0%{transform:scaleX(.65);opacity:.28}100%{transform:scaleX(1.35);opacity:.9}}
+@keyframes reference-zone-core{0%{opacity:.55;box-shadow:0 0 3px #fff,0 0 5px #57eaff}100%{opacity:1;box-shadow:0 0 6px #fff,0 0 13px #57eaff}}
+.timing-gauge .gauge-marker{top:-3px;bottom:-3px;width:5px;border-radius:0;background:#fff;box-shadow:0 0 4px #fff,0 0 9px #ff5ecf;z-index:5}
+.timing-gauge .gauge-marker:after{top:-5px;border-left-width:5px;border-right-width:5px;border-bottom-width:6px}
+/* The original reference does not have our nine floating text labels under
+   the gauge; remove them so the gameplay bar stays visually faithful. */
+.timing-gauge .gauge-labels{display:none}
+.timing-gauge .gauge-readout{top:-18px;font-size:8px}
+
+.command-key.done{opacity:1!important;border-color:rgba(93,255,142,.9)!important;background:radial-gradient(circle at 35% 25%,rgba(74,220,120,.98),rgba(8,76,41,.98) 68%)!important;box-shadow:0 0 16px rgba(71,255,126,.55),inset 0 0 12px rgba(152,255,186,.2)!important}.command-key.done svg{filter:hue-rotate(95deg) saturate(1.35) brightness(1.15)}
+
+@media(max-width:700px){.timing-gauge .gauge-track{height:16px}.timing-gauge .gauge-readout{font-size:7px}.ready-cue span,.start-cue span{font-size:26px}.intro-cue strong{font-size:31px}}
