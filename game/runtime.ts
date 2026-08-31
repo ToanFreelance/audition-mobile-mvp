@@ -99,7 +99,6 @@ export class RhythmRuntime {
   get sequence() { return this.started && !this.finished ? this.currentDirections : []; }
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
-
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.perfectIntervalMs;
@@ -114,10 +113,7 @@ export class RhythmRuntime {
     if (!this.canInputDirections() || this.awaitingSpace) return false;
     const sequence = this.currentDirections;
     if (!sequence.length || this.commandIndex >= sequence.length) return false;
-    if (this.clock.elapsedMs >= this.targetMs + this.fullGaugeLateWindowMs) {
-      this.resolveMiss();
-      return false;
-    }
+    if (this.clock.elapsedMs >= this.targetMs + this.fullGaugeLateWindowMs) { this.resolveMiss(); return false; }
     if (direction !== sequence[this.commandIndex]) {
       this.commandIndex = 0;
       this.callbacks.onPulse?.();
@@ -152,12 +148,10 @@ export class RhythmRuntime {
   private loop = () => {
     if (!this.started || this.finished) return;
     const elapsed = this.clock.elapsedMs;
-
     if (this.phase === "intro") {
       const countdownStart = this.targetMs - this.countdownDurationMs;
       if (elapsed >= countdownStart) { this.phase = "countdown"; this.callbacks.onPhase?.("countdown"); }
     }
-
     if (this.phase === "countdown") {
       const countdownStart = this.targetMs - this.countdownDurationMs;
       const relative = Math.max(0, elapsed - countdownStart);
@@ -171,17 +165,12 @@ export class RhythmRuntime {
         window.setTimeout(() => { if (this.started && !this.finished) this.callbacks.onCountdown?.(null); }, 120);
       }
     }
-
     if (this.phase === "penalty") {
-      // Penalty is exactly one complete gauge cycle. No timing calculation or
-      // chart lookup can hide the next sequence beyond this point.
       if (elapsed >= this.penaltyUntilMs) {
         const resumeTurn = this.penaltyResumeTurnIndex;
-        const resumeTurnData = resumeTurn >= 0 ? this.chart.turns?.[resumeTurn] : undefined;
-
         this.penaltyUntilMs = 0;
         this.penaltyResumeTurnIndex = -1;
-
+        const resumeTurnData = resumeTurn >= 0 ? this.chart.turns?.[resumeTurn] : undefined;
         if (resumeTurnData) {
           this.turnIndex = resumeTurn;
           this.commandIndex = 0;
@@ -191,7 +180,6 @@ export class RhythmRuntime {
           this.phase = "playing";
           this.callbacks.onPhase?.("playing");
           this.callbacks.onLevel?.(this.currentLevel);
-          // Explicitly reveal the playable turn after the blank penalty.
           this.emitSequence();
         } else {
           this.beginFinishMove();
@@ -200,13 +188,10 @@ export class RhythmRuntime {
       this.raf = requestAnimationFrame(this.loop);
       return;
     }
-
-    // Automatic MISS happens only at the end of the full 0..100 gauge cycle.
     if ((this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + this.fullGaugeLateWindowMs) {
       this.resolveMiss();
       return;
     }
-
     this.raf = requestAnimationFrame(this.loop);
   };
 
@@ -231,13 +216,16 @@ export class RhythmRuntime {
       const resumeTurn = this.turnIndex + 2;
       const cycleMs = this.perfectIntervalMs;
       const phaseStart = this.firstPerfectMs - cycleMs * (PERFECT_CENTER / 100);
-      const currentCycle = Math.floor((this.clock.elapsedMs - phaseStart) / cycleMs);
-      const currentCycleEnd = phaseStart + (currentCycle + 1) * cycleMs;
+      const raw = (this.clock.elapsedMs - phaseStart) / cycleMs;
+      // MISS always waits until the current gauge reaches its 100% boundary,
+      // then consumes exactly one complete blank gauge. Using ceil here is
+      // important for the automatic MISS at exactly 100%; floor would add an
+      // extra hidden gauge and was the source of the long no-arrow state.
+      const currentGaugeBoundaryCycle = Math.max(0, Math.ceil(raw - 1e-9));
+      const currentGaugeEnd = phaseStart + currentGaugeBoundaryCycle * cycleMs;
 
       this.penaltyResumeTurnIndex = resumeTurn < normalTurns ? resumeTurn : -1;
-      // From the moment the current gauge reaches 100%, consume exactly one
-      // blank gauge. This is identical for manual and automatic MISS.
-      this.penaltyUntilMs = Math.max(this.clock.elapsedMs, currentCycleEnd) + cycleMs;
+      this.penaltyUntilMs = Math.max(this.clock.elapsedMs, currentGaugeEnd) + cycleMs;
       this.phase = "penalty";
       this.callbacks.onPhase?.("penalty");
       this.callbacks.onSequence?.([], 0);
