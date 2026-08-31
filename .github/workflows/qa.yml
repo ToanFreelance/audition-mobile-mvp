@@ -1,10 +1,15 @@
 name: Audition Mobile QA
 
 on:
+  push:
+    branches:
+      - feat/audition-ui-gauge-rebuild
+      - main
   pull_request:
     branches:
       - main
   workflow_dispatch:
+  deployment_status:
 
 concurrency:
   group: audition-mobile-qa-${{ github.event.pull_request.number || github.ref }}
@@ -14,10 +19,10 @@ permissions:
   contents: read
 
 jobs:
-  qa:
-    name: Playwright QA
+  build:
+    name: Build Gate
+    if: github.event_name != 'deployment_status'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,23 +31,40 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
-
-      - name: Install Playwright Chromium + WebKit
-        run: npx playwright install --with-deps chromium webkit
+        run: npm ci
 
       - name: Build application
         run: npm run build
 
-      - name: Start application
-        run: |
-          npm run start -- --hostname 0.0.0.0 > /tmp/audition-next.log 2>&1 &
-          npx wait-on http://127.0.0.1:3000
+  e2e-preview:
+    name: Playwright QA — Vercel Preview
+    if: github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout deployed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment_status.target_url && github.event.deployment_status.sha || github.sha }}
 
-      - name: Run Playwright QA
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run Playwright QA against deployment
         run: npm run test:qa
+        env:
+          PLAYWRIGHT_TEST_BASE_URL: ${{ github.event.deployment_status.target_url }}
 
       - name: Upload Playwright report
         if: always()
@@ -52,12 +74,4 @@ jobs:
           path: |
             playwright-report/
             test-results/
-          if-no-files-found: ignore
-
-      - name: Upload Next.js server log
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: next-server-log
-          path: /tmp/audition-next.log
           if-no-files-found: ignore
