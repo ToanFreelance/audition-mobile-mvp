@@ -1,38 +1,17 @@
 /* Reference-style intro / ready / countdown / start cues. */
 .intro-cue,.ready-cue,.start-cue{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);z-index:7;text-align:center;pointer-events:none;white-space:nowrap;text-shadow:0 3px 0 rgba(0,0,0,.65),0 0 18px rgba(255,255,255,.45)}
-.intro-cue{animation:reference-intro-in 1.1s ease-out both}
-.intro-cue span{display:block;font-size:13px;font-weight:800;letter-spacing:.35em;color:#ddd}
-.intro-cue strong{display:block;margin-top:4px;font-size:38px;font-weight:1000;letter-spacing:.08em;color:#f7a7ff}
-.ready-cue{top:43%;animation:reference-ready-in .55s ease-out both}
-.ready-cue span{display:block;font-size:32px;font-weight:1000;letter-spacing:.04em;color:#fff;text-shadow:0 0 5px #ff62ea,0 0 18px #a94fff,2px 2px 0 #24102d}
-.ready-cue small{display:block;margin-top:2px;font-size:8px;font-weight:900;letter-spacing:.3em;color:#ddd;opacity:.82}
-.start-cue{top:43%;animation:reference-go-pop .85s cubic-bezier(.15,.8,.2,1) both}
-.start-cue span{display:block;font-size:34px;font-weight:1000;letter-spacing:.05em;color:#fff;text-shadow:0 0 5px #ff62ea,0 0 18px #a94fff,2px 2px 0 #24102d}
-.start-cue strong{display:block;margin-top:-2px;font-size:19px;font-weight:1000;letter-spacing:.22em;color:#ff74df}
-@keyframes reference-intro-in{0%{opacity:0;transform:translate(-50%,-46%) scale(.92)}100%{opacity:.9;transform:translate(-50%,-50%) scale(1)}}
-@keyframes reference-ready-in{0%{opacity:0;transform:translate(-50%,-46%) scale(.88)}55%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-@keyframes reference-go-pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.72)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}55%{transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.02)}}
+.intro-cue{animation:reference-intro-in 1.1s ease-out both}.intro-cue span{display:block;font-size:13px;font-weight:800;letter-spacing:.35em;color:#ddd}.intro-cue strong{display:block;margin-top:4px;font-size:38px;font-weight:1000;letter-spacing:.08em;color:#f7a7ff}.ready-cue{top:43%;animation:reference-ready-in .55s ease-out both}.ready-cue span{display:block;font-size:32px;font-weight:1000;letter-spacing:.04em;color:#fff;text-shadow:0 0 5px #ff62ea,0 0 18px #a94fff,2px 2px 0 #24102d}.ready-cue small{display:block;margin-top:2px;font-size:8px;font-weight:900;letter-spacing:.3em;color:#ddd;opacity:.82}.start-cue{top:43%;animation:reference-go-pop .85s cubic-bezier(.15,.8,.2,1) both}.start-cue span{display:block;font-size:34px;font-weight:1000;letter-spacing:.05em;color:#fff;text-shadow:0 0 5px #ff62ea,0 0 18px #a94fff,2px 2px 0 #24102d}.start-cue strong{display:block;margin-top:-2px;font-size:19px;font-weight:1000;letter-spacing:.22em;color:#ff74df}@keyframes reference-intro-in{0%{opacity:0;transform:translate(-50%,-46%) scale(.92)}100%{opacity:.9;transform:translate(-50%,-50%) scale(1)}}@keyframes reference-ready-in{0%{opacity:0;transform:translate(-50%,-46%) scale(.88)}55%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}@keyframes reference-go-pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.72)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}55%{transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.02)}}
+.command-zone.pre-intro{opacity:0;pointer-events:none}.command-zone.visible{opacity:1}
 
-.command-zone.pre-intro{opacity:0;pointer-events:none}
-.command-zone.visible{opacity:1}
-
-/* Use the supplied Gauge.svg as the visual skin. The gameplay slider remains
-   a DOM element above it, so timing/input logic stays independent from art. */
-.timing-gauge .gauge-track{
-  position:relative;height:28px;border:0;border-radius:0;padding:0;overflow:visible;background:transparent url('/Gauge.svg') center/100% 100% no-repeat;box-shadow:none;
-}
-.timing-gauge .gauge-track > .gauge-zone{display:none}
-.timing-gauge .gauge-marker{top:-2px;bottom:-2px;width:3px;margin-left:-1.5px;border-radius:0;background:#fff;box-shadow:0 0 4px #fff,0 0 9px #ff5ecf;z-index:10}
-.timing-gauge .gauge-marker:after{top:-5px;border-left-width:5px;border-right-width:5px;border-bottom-width:6px}
-.timing-gauge .gauge-labels{display:none}
-.timing-gauge .gauge-readout{top:-18px;font-size:8px}
+/* The current game keeps the original DOM slider/control, but the gauge skin
+   itself is the exact SVG supplied by the designer. At 80 BPM the SVG's 3s
+   breath cycle is exactly 4 beats; the reusable React gauge component added in
+   this branch remains available for later BPM-parametric integration. */
+.timing-gauge .gauge-track{position:relative;height:28px;border:0;border-radius:0;padding:0;overflow:visible;background:transparent url('/Gauge.svg') center/100% 100% no-repeat;box-shadow:none}.timing-gauge .gauge-track>.gauge-zone{display:none}.timing-gauge .gauge-marker{top:-2px;bottom:-2px;width:3px;margin-left:-1.5px;border-radius:0;background:#fff;box-shadow:0 0 4px #fff,0 0 9px #ff5ecf;z-index:10}.timing-gauge .gauge-marker:after{top:-5px;border-left-width:5px;border-right-width:5px;border-bottom-width:6px}.timing-gauge .gauge-labels{display:none}.timing-gauge .gauge-readout{top:-18px;font-size:8px}
 
 .command-key.done{opacity:1!important;border-color:rgba(93,255,142,.9)!important;background:radial-gradient(circle at 35% 25%,rgba(74,220,120,.98),rgba(8,76,41,.98) 68%)!important;box-shadow:0 0 16px rgba(71,255,126,.55),inset 0 0 12px rgba(152,255,186,.2)!important}.command-key.done svg{filter:hue-rotate(95deg) saturate(1.35) brightness(1.15)}
 
-@media(max-width:700px){.timing-gauge .gauge-track{height:24px}.timing-gauge .gauge-readout{font-size:7px}.ready-cue span,.start-cue span{font-size:26px}.intro-cue strong{font-size:31px}}
-
-/* READY screen configuration launcher. */
-.configure-launcher{display:none;position:absolute;z-index:22;left:50%;bottom:72px;transform:translateX(-50%);min-width:210px;padding:11px 18px!important;border:1px solid rgba(240,94,255,.65)!important;border-radius:10px!important;background:linear-gradient(135deg,rgba(40,18,58,.98),rgba(18,12,30,.98))!important;color:#fff!important;box-shadow:0 0 18px rgba(196,58,255,.22),inset 0 0 12px rgba(255,255,255,.04);font-size:12px;letter-spacing:.08em}
-.configure-launcher:hover{box-shadow:0 0 24px rgba(196,58,255,.4)!important}
-html[data-rhythm-phase="idle"] .configure-launcher{display:block}
-@media(max-width:700px){.configure-launcher{bottom:62px;min-width:180px;font-size:11px}}
+/* READY screen configuration launcher. It is visible only while the initial
+   READY card is present and disappears once gameplay starts. */
+.configure-launcher{display:none;position:fixed;z-index:9999;left:50%;bottom:84px;transform:translateX(-50%);min-width:210px;padding:11px 18px!important;border:1px solid rgba(240,94,255,.65)!important;border-radius:10px!important;background:linear-gradient(135deg,rgba(40,18,58,.98),rgba(18,12,30,.98))!important;color:#fff!important;box-shadow:0 0 18px rgba(196,58,255,.22),inset 0 0 12px rgba(255,255,255,.04);font-size:12px;letter-spacing:.08em;text-decoration:none;text-align:center}.configure-launcher:hover{box-shadow:0 0 24px rgba(196,58,255,.4)!important}body:has(.ready-card:not(.results-card)) .configure-launcher{display:block}
+@media(max-width:700px){.timing-gauge .gauge-track{height:24px}.timing-gauge .gauge-readout{font-size:7px}.ready-cue span,.start-cue span{font-size:26px}.intro-cue strong{font-size:31px}.configure-launcher{bottom:76px;min-width:185px;font-size:11px}}
