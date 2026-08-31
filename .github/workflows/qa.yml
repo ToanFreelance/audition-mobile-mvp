@@ -39,6 +39,56 @@ jobs:
       - name: Build application
         run: npm run build
 
+  e2e-local:
+    name: Playwright QA — local production build
+    if: github.event_name != 'deployment_status'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Build production app for E2E
+        run: npm run build
+
+      - name: Start application
+        run: |
+          npm run start -- --hostname 0.0.0.0 > /tmp/audition-next.log 2>&1 &
+          npx wait-on http://127.0.0.1:3000
+
+      - name: Run Playwright QA
+        run: npm run test:qa
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-local
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+
+      - name: Upload Next.js server log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-server-log
+          path: /tmp/audition-next.log
+          if-no-files-found: ignore
+
   e2e-preview:
     name: Playwright QA — Vercel Preview
     if: github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success'
@@ -70,7 +120,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-preview
           path: |
             playwright-report/
             test-results/
