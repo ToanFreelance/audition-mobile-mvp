@@ -1,0 +1,55 @@
+/* Tool route must behave like a normal document, not the fixed gameplay viewport. */
+html:has(.music-config-page),
+body:has(.music-config-page){
+  width:100%;
+  min-height:100%;
+  height:auto!important;
+  overflow:auto!important;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:auto;
+}
+
+.music-config-page{
+  min-height:100dvh!important;
+  height:auto!important;
+  overflow:visible!important;
+  padding-bottom:48px;
+}
+
+/* The layout keeps this anchor outside the game component so it can navigate
+   without coupling the game state to the config tool. It is only visible when
+   the READY overlay exists. */
+.global-config-button{
+  display:none;
+  position:fixed;
+  left:50%;
+  top:calc(50% + 190px);
+  transform:translateX(-50%);
+  z-index:100;
+  min-width:220px;
+  height:48px;
+  padding:0 18px;
+  border:1px solid rgba(255,103,224,.85);
+  border-radius:10px;
+  background:linear-gradient(135deg,#8c29aa,#ed47ce);
+  color:#fff;
+  text-decoration:none;
+  text-align:center;
+  line-height:48px;
+  font-size:14px;
+  font-weight:1000;
+  letter-spacing:.04em;
+  box-shadow:0 0 24px rgba(224,54,212,.25);
+}
+body:has(.start-overlay .ready-card) .global-config-button{display:block}
+body:has(.start-overlay .results-card) .global-config-button{display:none}
+
+@media(max-width:520px){
+  .global-config-button{
+    top:calc(50% + 178px);
+    min-width:205px;
+    height:44px;
+    line-height:44px;
+    font-size:12px;
+  }
+}
