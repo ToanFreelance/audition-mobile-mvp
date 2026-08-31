@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEMO_CHART } from "../game/chart";
-import { RhythmRuntime, SCORE_ZONE_END, SCORE_ZONE_START, PERFECT_CENTER } from "../game/runtime";
+import { RhythmRuntime, SCORE_ZONE_END, SCORE_ZONE_START } from "../game/runtime";
 import type { Direction, GameStats, Judgement } from "../game/types";
 import Stage3D from "./Stage3D";
+import AuditionGauge from "./AuditionGauge";
 
 const INITIAL_STATS: GameStats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
@@ -186,12 +187,15 @@ export default function GameShell() {
           {startCue && <div className="start-cue"><span>BẮT ĐẦU</span><strong>GO!</strong></div>}
           {judgement && <div key={`judgement-${judgement}`} className={`judgement judgement-${judgement}`}>{judgement.toUpperCase()}</div>}
           {audioError && <div className="audio-error"><strong>🔇 SOUND ERROR</strong><span>{audioError}</span><small>{audioDetails}</small><button onClick={retryAudio}>RETRY SOUND</button></div>}
-          <div className={`command-zone ${showCommandStrip ? "visible" : "pre-intro"}`}><div className="command-label"><span>LEVEL <b>{level}</b></span><small>{completed} / {sequence.length}</small></div><div className="command-strip">{sequence.map((direction, index) => { const isCompleted = index < completed; const isTarget = index === completed; const isWrong = isTarget && wrongDirection !== null && wrongDirection !== direction; return <div key={`${level}-${index}-${direction}`} className={`command-key ${isCompleted ? "done" : ""} ${isTarget ? "target" : ""} ${isWrong ? "wrong" : ""}`} style={{ background: isCompleted ? "linear-gradient(145deg,#3fca72,#168a4d)" : "linear-gradient(145deg,#3b8eea,#1458a6)", opacity: 1 }}><ArrowIcon direction={direction} filled={isCompleted} target={isTarget} /></div>; })}</div>
-            <div className="timing-gauge" onPointerDown={pressGauge} style={{ ["--zone-start" as string]: `${SCORE_ZONE_START}%`, ["--zone-width" as string]: `${SCORE_ZONE_END - SCORE_ZONE_START}%`, ["--perfect" as string]: `${PERFECT_CENTER}%` }}><div className="gauge-track"><div className="gauge-zone"><i /></div><div className="gauge-marker" style={{ left: `${gauge}%` }} /></div><div className="gauge-labels"><span>MISS</span><span>BAD</span><span>COOL</span><span>GREAT</span><b>PERFECT</b><span>GREAT</span><span>COOL</span><span>BAD</span><span>MISS</span></div><div className="gauge-readout">{delta >= 0 ? "+" : ""}{delta.toFixed(0)} ms</div></div>
+          <div className={`command-zone ${showCommandStrip ? "visible" : "pre-intro"}`}>
+            <div className="command-label"><span>LEVEL <b>{level}</b></span><small>{completed} / {sequence.length}</small></div>
+            <div className="command-strip">{sequence.map((direction, index) => { const isCompleted = index < completed; const isTarget = index === completed; const isWrong = isTarget && wrongDirection !== null && wrongDirection !== direction; return <div key={`${level}-${index}-${direction}`} className={`command-key ${isCompleted ? "done" : ""} ${isTarget ? "target" : ""} ${isWrong ? "wrong" : ""}`} style={{ background: isCompleted ? "linear-gradient(145deg,#3fca72,#168a4d)" : "linear-gradient(145deg,#3b8eea,#1458a6)", opacity: 1 }}><ArrowIcon direction={direction} filled={isCompleted} target={isTarget} /></div>; })}</div>
+            <AuditionGauge bpm={DEMO_CHART.bpm} value={gauge} zoneStart={SCORE_ZONE_START} zoneEnd={SCORE_ZONE_END} perfectStart={79} perfectEnd={81} onPointerDown={pressGauge} />
+            <div className="gauge-readout">{delta >= 0 ? "+" : ""}{delta.toFixed(0)} ms</div>
           </div>
           <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All <i>▶</i></b></div><div className="bottom-mode"><strong>Audition - Club Dance</strong><span>80 BPM <b>Hard</b></span><div>★★★☆☆</div></div><button className="exit-button">⇥<small>EXIT</small></button>
           <div className="mobile-controls"><button className={`space-control ${spacePressed ? "pressed" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressSpace(); }}><strong>SPACE</strong><small>PRESS IN SCORE ZONE</small></button><div className="dpad-control">{DIRECTIONS.map(direction => <button key={direction} className={`dpad-${direction} ${activeDirection === direction ? "pressed" : ""} ${sequence[completed] === direction ? "target" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }} aria-label={direction}><ArrowIcon direction={direction} filled={false} target={sequence[completed] === direction} compact /></button>)}<span /></div></div>
-          {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first beat "My".</p><button onClick={startGame}>START</button><button className="sound-button" onClick={retryAudio}>TEST SOUND</button></div></div>}
+          {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first beat "My".</p><button onClick={startGame}>START</button><button className="configure-button" onClick={() => { window.location.href = "/tools/music-config"; }}>⚙ CONFIGURE MUSIC</button><button className="sound-button" onClick={retryAudio}>TEST SOUND</button></div></div>}
           {finished && <div className="start-overlay"><div className="ready-card results-card"><span>DANCE COMPLETE</span><h1>{stats.score.toLocaleString()}</h1><p>P {stats.perfect} · G {stats.great} · C {stats.cool} · B {stats.bad} · M {stats.miss}</p><button onClick={startGame}>PLAY AGAIN</button></div></div>}
         </div>
       </section>
