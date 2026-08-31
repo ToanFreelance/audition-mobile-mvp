@@ -9,8 +9,10 @@ type AuditionGaugeProps = {
   className?: string;
 };
 
-/** Exact runtime port of public/Gauge.svg. Geometry stays unchanged; only
- * slider X-position and animation speed are runtime-controlled. */
+/** Exact runtime port of public/Gauge.svg.
+ * Geometry, gradients, glow, slider artwork and beat-4 stretch are retained;
+ * runtime only controls slider X-position and BPM-driven animation speed.
+ */
 export default function AuditionGauge({ value, bpm, onPointerDown, className = "" }: AuditionGaugeProps) {
   const safeValue = Math.max(0, Math.min(100, value));
   const beatMs = 60000 / Math.max(1, bpm);
@@ -21,7 +23,7 @@ export default function AuditionGauge({ value, bpm, onPointerDown, className = "
 
   return (
     <div className={`audition-gauge-svg ${className}`} onPointerDown={onPointerDown} style={{ width: "100%", lineHeight: 0, touchAction: "manipulation" }}>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 70" width="100%" height="auto" preserveAspectRatio="none" style={svgStyle} aria-label="Audition timing gauge">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 70" width="100%" height="auto" preserveAspectRatio="xMidYMid meet" style={svgStyle} aria-label="Audition timing gauge">
         <defs>
           <style>{`
             @keyframes auditionBeatPulse{0%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}12.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}25%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}37.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}50%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}62.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}75%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}87.5%{opacity:1;transform:scaleX(1.6);filter:drop-shadow(0 0 20px #00f0ff) drop-shadow(0 0 28px #fff)}100%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}}
@@ -41,13 +43,17 @@ export default function AuditionGauge({ value, bpm, onPointerDown, className = "
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#0a0c14" fillOpacity=".85" stroke="#a1a1aa" strokeWidth="2"/>
         <rect x="22" y="14" width="456" height="42" rx="21" fill="none" stroke="#000" strokeWidth="1.5" opacity=".9"/>
 
-        <g className="pulse-red-glow" transform={`translate(${sliderTranslate} 0)`}>
-          <circle cx="150" cy="35" r="15" fill="#ff0044" filter="url(#blurGlow)" opacity=".5"/>
-          <circle cx="150" cy="35" r="14" fill="none" stroke="#e4e4e7" strokeWidth="2" opacity=".9"/>
-          <circle cx="150" cy="35" r="9" fill="url(#redCoreGrad)"/>
-          <circle cx="150" cy="35" r="4" fill="#fff" opacity=".9"/>
+        {/* Outer group owns translation; inner group owns the original breathing pulse. */}
+        <g transform={`translate(${sliderTranslate} 0)`}>
+          <g className="pulse-red-glow">
+            <circle cx="150" cy="35" r="15" fill="#ff0044" filter="url(#blurGlow)" opacity=".5"/>
+            <circle cx="150" cy="35" r="14" fill="none" stroke="#e4e4e7" strokeWidth="2" opacity=".9"/>
+            <circle cx="150" cy="35" r="9" fill="url(#redCoreGrad)"/>
+            <circle cx="150" cy="35" r="4" fill="#fff" opacity=".9"/>
+          </g>
         </g>
 
+        {/* Exact cyan/white score window from the supplied Gauge.svg. */}
         <g className="breath-cyan-beat">
           <rect x="285" y="20" width="125" height="30" rx="0" ry="0" fill="#00f0ff" filter="url(#blurGlow)" opacity=".5"/>
           <rect x="285" y="22" width="125" height="26" rx="0" ry="0" fill="url(#cyanToWhiteGrad)" filter="url(#blurSoft)"/>
