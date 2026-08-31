@@ -28,7 +28,7 @@ export default function MusicConfigPage() {
   useEffect(() => {
     const raw = localStorage.getItem("audition-music-config");
     if (raw) {
-      try { setConfig(JSON.parse(raw) as MusicConfig); } catch { /* ignore corrupt local test data */ }
+      try { setConfig(JSON.parse(raw) as MusicConfig); } catch { /* keep defaults */ }
     }
   }, []);
 
@@ -68,13 +68,18 @@ export default function MusicConfigPage() {
     const link = document.createElement("a");
     link.href = url; link.download = `${normalized.id || "music-chart"}.json`; link.click(); URL.revokeObjectURL(url);
     setConfig(normalized);
-    setMessage("Đã lưu JSON + Local DB (test).");
+    setMessage("Đã lưu JSON vào local test storage.");
   };
 
   return (
     <main className="music-config-page">
       <header className="config-header">
-        <div><span className="eyebrow">CLUB AUDITION / TOOL</span><h1>Music Chart Config</h1><p>Canh audio và khai báo rule để runtime chơi đúng từng bài nhạc.</p></div>
+        <div>
+          <a className="config-back-button" href="/">← BACK TO READY</a>
+          <span className="eyebrow">CLUB AUDITION / TOOL</span>
+          <h1>Music Chart Config</h1>
+          <p>Canh audio và khai báo rule để runtime chơi đúng từng bài nhạc.</p>
+        </div>
         <div className="header-actions"><button onClick={() => setConfig(cloneDefault())}>RESET</button><button className="primary" onClick={save}>SAVE JSON + DB</button></div>
       </header>
 
@@ -82,7 +87,7 @@ export default function MusicConfigPage() {
         <aside className="config-panel library-panel">
           <div className="panel-heading"><div><span>LIBRARY</span><h2>Music</h2></div><button onClick={() => setConfig({ ...cloneDefault(), id: `track-${Date.now()}`, title: "New Song", audioUrl: "" })}>＋ ADD</button></div>
           {AUDIO_LIBRARY.map(track => <button key={track.id} className={`library-track ${config.audioUrl === track.url ? "active" : ""}`} onClick={() => chooseTrack(track.url, track.title)}><span className="track-cover">♫</span><span><b>{track.title}</b><small>local / public/audio</small></span></button>)}
-          <div className="storage-note"><b>Test storage</b><br />Audio: <code>public/audio</code><br />Chart: browser Local DB + JSON export.<br /><br />Khi chốt format, chuyển chart sang Supabase Postgres và audio sang Supabase Storage là hợp lý nhất cho bản free test.</div>
+          <div className="storage-note"><b>Test storage</b><br />Audio: <code>public/audio</code><br />Chart: browser Local Storage + JSON export.<br /><br />Khi bật Supabase, chart sẽ chuyển sang PostgreSQL và audio sang Supabase Storage.</div>
         </aside>
 
         <section className="config-panel editor-panel">
