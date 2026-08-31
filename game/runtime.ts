@@ -336,7 +336,7 @@ export class RhythmRuntime {
   }
 
   private clearStartPulse() {
-    if (typeof document !== "undefined') {
+    if (typeof document !== "undefined") {
       delete document.documentElement.dataset.rhythmStartPulse;
     }
   }
