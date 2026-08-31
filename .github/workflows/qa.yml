@@ -5,14 +5,11 @@ on:
     branches:
       - feat/audition-ui-gauge-rebuild
       - main
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
   deployment_status:
 
 concurrency:
-  group: audition-mobile-qa-${{ github.event.pull_request.number || github.ref }}
+  group: audition-mobile-qa-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
