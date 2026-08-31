@@ -99,7 +99,6 @@ export class RhythmRuntime {
   get sequence() { return this.started && !this.finished ? this.currentDirections : []; }
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
-
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.perfectIntervalMs;
@@ -175,18 +174,14 @@ export class RhythmRuntime {
     if (this.phase === "penalty") {
       if (elapsed >= this.penaltyUntilMs) {
         const resumeTurn = this.penaltyResumeTurnIndex;
-        const resumeTurnData = resumeTurn >= 0 ? this.chart.turns?.[resumeTurn] : undefined;
-
         this.penaltyUntilMs = 0;
         this.penaltyResumeTurnIndex = -1;
-
+        const resumeTurnData = resumeTurn >= 0 ? this.chart.turns?.[resumeTurn] : undefined;
         if (resumeTurnData) {
           this.turnIndex = resumeTurn;
           this.commandIndex = 0;
           this.awaitingSpace = false;
           this.finishMove = false;
-          // The penalty ends exactly at the start of the new gauge. The new
-          // turn's Perfect therefore lands at 80% of that gauge.
           this.targetMs = elapsed + this.perfectIntervalMs * (PERFECT_CENTER / 100);
           this.phase = "playing";
           this.callbacks.onPhase?.("playing");
@@ -200,9 +195,14 @@ export class RhythmRuntime {
       return;
     }
 
-    // Automatic MISS happens only when the slider reaches 100% of the current gauge.
+    // Automatic MISS happens only when the slider reaches the complete 100% boundary.
+    // IMPORTANT: auto-MISS used to stop the RAF loop because this branch returned
+    // immediately after changing phase to penalty. Manual SPACE-MISS did not have
+    // that problem because the render loop was already scheduled separately.
+    // Always schedule the next frame after resolving an automatic MISS.
     if ((this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + this.fullGaugeLateWindowMs) {
       this.resolveMiss();
+      this.raf = requestAnimationFrame(this.loop);
       return;
     }
 
@@ -215,7 +215,6 @@ export class RhythmRuntime {
     this.callbacks.onJudgement?.(judgement);
     this.callbacks.onPulse?.();
     this.emitStats(true);
-
     if (this.finishMove) {
       this.finished = true;
       this.started = false;
@@ -224,17 +223,15 @@ export class RhythmRuntime {
       this.callbacks.onFinished?.({ ...this.engine.stats });
       return;
     }
-
     if (judgement === "miss") {
       const normalTurns = this.chart.turns?.length ?? 0;
       const resumeTurn = this.turnIndex + 2;
       const currentGaugeEnd = this.targetMs + this.fullGaugeLateWindowMs;
 
       this.penaltyResumeTurnIndex = resumeTurn < normalTurns ? resumeTurn : -1;
-      // Every MISS consumes the remainder of the current gauge plus exactly
-      // one complete blank gauge. For an automatic MISS at 100%, the remainder
-      // is zero, so the penalty is exactly one gauge. Manual SPACE-MISS follows
-      // the same rule from the point where SPACE was pressed.
+      // For an auto-MISS at 100%, this is exactly one full gauge.
+      // For an early SPACE-MISS, finish the current gauge first, then consume
+      // exactly one complete blank gauge.
       this.penaltyUntilMs = Math.max(this.clock.elapsedMs, currentGaugeEnd) + this.perfectIntervalMs;
       this.phase = "penalty";
       this.callbacks.onPhase?.("penalty");
