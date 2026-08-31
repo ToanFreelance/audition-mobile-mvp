@@ -13,27 +13,26 @@
 @keyframes reference-ready-in{0%{opacity:0;transform:translate(-50%,-46%) scale(.88)}55%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}
 @keyframes reference-go-pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.72)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}55%{transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.02)}}
 
-/* Do not show the gameplay strip during the initial music lead-in. */
 .command-zone.pre-intro{opacity:0;pointer-events:none}
 .command-zone.visible{opacity:1}
 
-/* Timing bar: copy the source game's thin dark capsule and a flat bright
-   scoring window. No two rounded flashing ends. The pulse is a central
-   vertical light/glow inside the score window. */
-.timing-gauge .gauge-track{height:17px;border:2px solid rgba(18,22,28,.98);border-radius:10px;padding:2px;overflow:hidden;background:linear-gradient(180deg,#090d13,#171b21);box-shadow:0 0 0 1px rgba(255,255,255,.12),0 2px 8px rgba(0,0,0,.65),inset 0 1px 2px rgba(255,255,255,.12)}
-.timing-gauge .gauge-zone{top:2px;bottom:2px;border-radius:2px;background:linear-gradient(90deg,rgba(25,89,98,.55),rgba(62,226,236,.88) 38%,rgba(237,255,255,1) 50%,rgba(62,226,236,.88) 62%,rgba(25,89,98,.55));box-shadow:0 0 7px rgba(82,232,241,.58),inset 0 0 3px rgba(255,255,255,.65);overflow:hidden}
-.timing-gauge .gauge-zone::before{content:"";position:absolute;left:40%;top:-5px;bottom:-5px;width:20%;border-radius:0;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.95),rgba(116,247,255,.9),rgba(255,255,255,0));filter:blur(3px);opacity:.7;animation:reference-zone-pulse .62s ease-in-out infinite alternate}
-.timing-gauge .gauge-zone::after{content:"";position:absolute;left:50%;top:-5px;bottom:-5px;width:2px;border-radius:0;background:#fff;box-shadow:0 0 5px #fff,0 0 9px #57eaff;opacity:.9;animation:reference-zone-core .62s ease-in-out infinite alternate}
-.timing-gauge .gauge-zone i{display:none}
-@keyframes reference-zone-pulse{0%{transform:scaleX(.65);opacity:.28}100%{transform:scaleX(1.35);opacity:.9}}
-@keyframes reference-zone-core{0%{opacity:.55;box-shadow:0 0 3px #fff,0 0 5px #57eaff}100%{opacity:1;box-shadow:0 0 6px #fff,0 0 13px #57eaff}}
-.timing-gauge .gauge-marker{top:-3px;bottom:-3px;width:5px;border-radius:0;background:#fff;box-shadow:0 0 4px #fff,0 0 9px #ff5ecf;z-index:5}
+/* Use the supplied Gauge.svg as the visual skin. The gameplay slider remains
+   a DOM element above it, so timing/input logic stays independent from art. */
+.timing-gauge .gauge-track{
+  position:relative;height:28px;border:0;border-radius:0;padding:0;overflow:visible;background:transparent url('/Gauge.svg') center/100% 100% no-repeat;box-shadow:none;
+}
+.timing-gauge .gauge-track > .gauge-zone{display:none}
+.timing-gauge .gauge-marker{top:-2px;bottom:-2px;width:3px;margin-left:-1.5px;border-radius:0;background:#fff;box-shadow:0 0 4px #fff,0 0 9px #ff5ecf;z-index:10}
 .timing-gauge .gauge-marker:after{top:-5px;border-left-width:5px;border-right-width:5px;border-bottom-width:6px}
-/* The original reference does not have our nine floating text labels under
-   the gauge; remove them so the gameplay bar stays visually faithful. */
 .timing-gauge .gauge-labels{display:none}
 .timing-gauge .gauge-readout{top:-18px;font-size:8px}
 
 .command-key.done{opacity:1!important;border-color:rgba(93,255,142,.9)!important;background:radial-gradient(circle at 35% 25%,rgba(74,220,120,.98),rgba(8,76,41,.98) 68%)!important;box-shadow:0 0 16px rgba(71,255,126,.55),inset 0 0 12px rgba(152,255,186,.2)!important}.command-key.done svg{filter:hue-rotate(95deg) saturate(1.35) brightness(1.15)}
 
-@media(max-width:700px){.timing-gauge .gauge-track{height:16px}.timing-gauge .gauge-readout{font-size:7px}.ready-cue span,.start-cue span{font-size:26px}.intro-cue strong{font-size:31px}}
+@media(max-width:700px){.timing-gauge .gauge-track{height:24px}.timing-gauge .gauge-readout{font-size:7px}.ready-cue span,.start-cue span{font-size:26px}.intro-cue strong{font-size:31px}}
+
+/* READY screen configuration launcher. */
+.configure-launcher{display:none;position:absolute;z-index:22;left:50%;bottom:72px;transform:translateX(-50%);min-width:210px;padding:11px 18px!important;border:1px solid rgba(240,94,255,.65)!important;border-radius:10px!important;background:linear-gradient(135deg,rgba(40,18,58,.98),rgba(18,12,30,.98))!important;color:#fff!important;box-shadow:0 0 18px rgba(196,58,255,.22),inset 0 0 12px rgba(255,255,255,.04);font-size:12px;letter-spacing:.08em}
+.configure-launcher:hover{box-shadow:0 0 24px rgba(196,58,255,.4)!important}
+html[data-rhythm-phase="idle"] .configure-launcher{display:block}
+@media(max-width:700px){.configure-launcher{bottom:62px;min-width:180px;font-size:11px}}
