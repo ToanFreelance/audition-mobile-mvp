@@ -8,12 +8,10 @@ const MAX_LEVEL = 9;
 export const OBSERVED_80BPM_LEVEL_TURNS = [1, 2, 3, 4, 4, 6, 6] as const;
 export const STANDARD_4KEY_LEVEL_TURNS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 
-// Measured against the supplied "Please Tell Me Why" 80 BPM reference:
-// the first gameplay Perfect aligns with the first vocal "My" in
-// "My baby love you...". The supplied MP3 begins about 9.75s into the
-// reference video, and that first vocal anchor is about 6.75s into the MP3.
-// 6.75s / 0.75s-per-beat = beat 9.
-export const FIRST_PERFECT_BEAT = 9;
+// Align the first playable Perfect to the 80 BPM grid at beat 20 = 15.0s.
+// In the supplied reference this is the first vocal/gameplay anchor around
+// "My..." after the ready/countdown lead-in.
+export const FIRST_PERFECT_BEAT = 20;
 
 function firstPerfectMsForBpm(bpm: number) {
   return FIRST_PERFECT_BEAT * (60000 / bpm);
