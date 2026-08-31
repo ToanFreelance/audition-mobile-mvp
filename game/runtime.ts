@@ -32,13 +32,17 @@ export class RhythmRuntime {
   private started = false;
   private finished = false;
   private phase: RhythmPhase = "idle";
+
   private turnIndex = 0;
   private commandIndex = 0;
   private awaitingSpace = false;
   private targetMs = 0;
+
+  // MISS consumes exactly one following turn as a blank penalty turn.
   private penaltyUntilMs = 0;
   private penaltyResumeTurnIndex = -1;
   private penaltyResumeTargetMs = 0;
+
   private finishMove = false;
   private finishDirections: Direction[] = [];
   private countdownValue: number | null = null;
@@ -51,7 +55,11 @@ export class RhythmRuntime {
     this.clock = new BeatClock(chart.bpm, chart.offsetMs);
   }
 
-  setTimeSource(source: (() => number) | null) { this.timeSource = source; this.clock.setTimeSource(source); }
+  setTimeSource(source: (() => number) | null) {
+    this.timeSource = source;
+    this.clock.setTimeSource(source);
+  }
+
   syncToTimeSource() { this.clock.syncToTimeSource(); }
 
   start() {
@@ -74,6 +82,7 @@ export class RhythmRuntime {
     this.finishDirections = [];
     this.countdownValue = null;
     this.lastStatsSignature = "";
+
     this.clock.start();
     this.callbacks.onPhase?.("intro");
     this.callbacks.onCountdown?.(null);
@@ -83,7 +92,12 @@ export class RhythmRuntime {
     this.loop();
   }
 
-  stop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; this.started = false; }
+  stop() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    this.started = false;
+  }
+
   destroy() { this.stop(); }
 
   get isStarted() { return this.started; }
@@ -95,13 +109,14 @@ export class RhythmRuntime {
   get isPenaltyTurn() { return this.phase === "penalty"; }
   get currentDirections() {
     if (this.phase === "penalty") return [];
-    return this.finishMove ? this.finishDirections.slice() : (this.chart.turns?.[this.turnIndex]?.directions?.slice() ?? []);
+    return this.finishMove
+      ? this.finishDirections.slice()
+      : (this.chart.turns?.[this.turnIndex]?.directions?.slice() ?? []);
   }
   get sequence() { return this.started && !this.finished ? this.currentDirections : []; }
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
-  /** One continuous sweep; Perfect is fixed at the center of the 70–90% score zone. */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.perfectIntervalMs;
@@ -118,6 +133,7 @@ export class RhythmRuntime {
     const sequence = this.currentDirections;
     if (!sequence.length || this.commandIndex >= sequence.length) return false;
 
+    // Direction input becomes too late only when the full gauge completes.
     if (this.clock.elapsedMs >= this.targetMs + this.fullGaugeLateWindowMs) {
       this.resolveMiss();
       return false;
@@ -138,8 +154,17 @@ export class RhythmRuntime {
   }
 
   handleSpace() {
+    // Intro is the only phase where SPACE is ignored. Once countdown starts,
+    // pressing SPACE outside 70..90 is an immediate MISS.
     if (!this.started || this.finished || this.phase === "intro" || this.phase === "penalty" || !this.awaitingSpace) return null;
-    const judgement = this.engine.judgeMove(this.moveId, this.gaugePercent);
+
+    const gauge = this.gaugePercent;
+    if (gauge < SCORE_ZONE_START || gauge > SCORE_ZONE_END) {
+      this.resolveMiss();
+      return "miss" as Judgement;
+    }
+
+    const judgement = this.engine.judgeMove(this.moveId, gauge);
     if (!judgement) return null;
     this.completeMove(judgement);
     return judgement;
@@ -147,7 +172,10 @@ export class RhythmRuntime {
 
   private canInputDirections() {
     return this.started && !this.finished && this.phase !== "penalty" && (
-      this.phase === "intro" || this.phase === "countdown" || this.phase === "playing" || this.phase === "finish"
+      this.phase === "intro" ||
+      this.phase === "countdown" ||
+      this.phase === "playing" ||
+      this.phase === "finish"
     );
   }
 
@@ -183,31 +211,39 @@ export class RhythmRuntime {
     }
 
     if (this.phase === "penalty") {
+      // Nothing in this state controls gameplay except visibility. After the
+      // deadline, reveal the one stored playable turn and start it from zero.
       if (elapsed >= this.penaltyUntilMs) {
         const resumeTurn = this.penaltyResumeTurnIndex;
         const resumeTarget = this.penaltyResumeTargetMs;
+
         this.penaltyUntilMs = 0;
         this.penaltyResumeTurnIndex = -1;
         this.penaltyResumeTargetMs = 0;
-        this.commandIndex = 0;
-        this.awaitingSpace = false;
 
-        if (resumeTurn < 0 || resumeTurn >= (this.chart.turns?.length ?? 0)) {
+        if (resumeTurn >= 0 && resumeTurn < (this.chart.turns?.length ?? 0)) {
+          this.turnIndex = resumeTurn;
+          this.targetMs = resumeTarget;
+          this.commandIndex = 0;
+          this.awaitingSpace = false;
+          this.phase = "playing";
+          this.callbacks.onPhase?.("playing");
+          this.callbacks.onLevel?.(this.currentLevel);
+
+          // Explicitly restore the sequence after the penalty. Do not rely on
+          // a later frame or a derived phase-only render decision.
+          const directions = this.chart.turns[this.turnIndex].directions.slice();
+          this.callbacks.onSequence?.(directions, 0);
+        } else {
           this.beginFinishMove();
-          return;
         }
-
-        this.turnIndex = resumeTurn;
-        this.targetMs = resumeTarget;
-        this.phase = "playing";
-        this.callbacks.onPhase?.("playing");
-        this.callbacks.onLevel?.(this.currentLevel);
-        this.callbacks.onSequence?.(this.currentDirections, 0);
       }
+
       this.raf = requestAnimationFrame(this.loop);
       return;
     }
 
+    // Automatic MISS is only generated after the complete 0..100 gauge.
     if ((this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + this.fullGaugeLateWindowMs) {
       this.resolveMiss();
       return;
@@ -234,18 +270,28 @@ export class RhythmRuntime {
 
     if (judgement === "miss") {
       const normalTurns = this.chart.turns?.length ?? 0;
-      const resumeTurn = this.turnIndex + 2;
-      const resumeTarget = this.targetMs + this.perfectIntervalMs * 2;
+      const current = this.turnIndex;
+      const penaltyTurn = current + 1;
+      const nextPlayableTurn = current + 2;
 
-      // Keep the missed turn index intact while the penalty is running.
-      // Explicitly store BOTH the next playable turn and its target so repeated
-      // misses cannot reuse a stale turn index or stale timing target.
-      this.penaltyResumeTurnIndex = resumeTurn < normalTurns ? resumeTurn : -1;
-      this.penaltyResumeTargetMs = resumeTarget;
+      // Current turn was missed. The next turn is blank for exactly one full
+      // gauge interval. The following turn becomes the next playable turn.
+      this.penaltyResumeTurnIndex = nextPlayableTurn < normalTurns ? nextPlayableTurn : -1;
+      this.penaltyResumeTargetMs = this.targetMs + this.perfectIntervalMs * 2;
       this.penaltyUntilMs = this.targetMs + this.perfectIntervalMs;
+
+      // Keep the current turn index untouched while the penalty is active.
+      // currentDirections returns [] because phase === "penalty".
       this.phase = "penalty";
       this.callbacks.onPhase?.("penalty");
       this.callbacks.onSequence?.([], 0);
+
+      // If the miss occurs on the final normal turn, there is no recoverable
+      // normal turn after the blank penalty; finish gracefully instead of
+      // entering a permanent no-sequence state.
+      if (penaltyTurn >= normalTurns || nextPlayableTurn >= normalTurns) {
+        this.penaltyResumeTurnIndex = -1;
+      }
       return;
     }
 
