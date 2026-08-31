@@ -47,7 +47,7 @@ jobs:
       - name: Checkout deployed commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.deployment_status.target_url && github.event.deployment_status.sha || github.sha }}
+          ref: ${{ github.event.deployment.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
