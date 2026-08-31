@@ -9,6 +9,8 @@ import Stage3D from "./Stage3D";
 const INITIAL_STATS: GameStats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
 const AUDIO_SRC = "/audio/Please%20tell%20me%20why.mp3";
+const READY_START_SECONDS = 4;
+const START_CUE_MS = 850;
 
 export default function GameShell() {
   const [stats, setStats] = useState(INITIAL_STATS);
@@ -19,6 +21,7 @@ export default function GameShell() {
   const [gauge, setGauge] = useState(0);
   const [delta, setDelta] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [startCue, setStartCue] = useState(false);
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [audioState, setAudioState] = useState("idle");
@@ -32,13 +35,21 @@ export default function GameShell() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const directionTimer = useRef<number | null>(null);
   const judgementTimer = useRef<number | null>(null);
+  const startCueTimer = useRef<number | null>(null);
   const audioAlertedRef = useRef(false);
 
   const runtime = useMemo(() => new RhythmRuntime(DEMO_CHART, {
     onStats: setStats,
     onSequence: (next, filled) => { setSequence(next); setCompleted(filled); },
     onLevel: setLevel,
-    onCountdown: setCountdown,
+    onCountdown: (value) => {
+      setCountdown(value);
+      if (value === 0) {
+        if (startCueTimer.current) window.clearTimeout(startCueTimer.current);
+        setStartCue(true);
+        startCueTimer.current = window.setTimeout(() => setStartCue(false), START_CUE_MS);
+      }
+    },
     onJudgement: (value) => {
       if (judgementTimer.current) window.clearTimeout(judgementTimer.current);
       setJudgement(value);
@@ -51,6 +62,7 @@ export default function GameShell() {
     runtime.destroy();
     if (directionTimer.current) window.clearTimeout(directionTimer.current);
     if (judgementTimer.current) window.clearTimeout(judgementTimer.current);
+    if (startCueTimer.current) window.clearTimeout(startCueTimer.current);
   }, [runtime]);
 
   useEffect(() => {
@@ -98,7 +110,7 @@ export default function GameShell() {
 
   const startGame = useCallback(async () => {
     audioAlertedRef.current = false;
-    setStats(INITIAL_STATS); setSequence([]); setCompleted(0); setLevel(1); setJudgement(null); setFinished(false); setStarted(false); setCountdown(null); setAudioError(null); setSongTime(0);
+    setStats(INITIAL_STATS); setSequence([]); setCompleted(0); setLevel(1); setJudgement(null); setFinished(false); setStarted(false); setCountdown(null); setStartCue(false); setAudioError(null); setSongTime(0);
     const audio = audioRef.current;
     if (!audio) return;
     try {
@@ -150,6 +162,11 @@ export default function GameShell() {
   }, [pressDirection, pressSpace]);
 
   const progress = Math.min(100, (songTime / 266.4) * 100);
+  const firstPerfectSeconds = (DEMO_CHART.firstPerfectMs ?? 15000) / 1000;
+  const countdownStartSeconds = firstPerfectSeconds - (3 * 60000 / DEMO_CHART.bpm) / 1000;
+  const showIntro = started && songTime < READY_START_SECONDS && countdown === null;
+  const showReady = started && songTime >= READY_START_SECONDS && songTime < countdownStartSeconds && countdown === null;
+  const showCommandStrip = started && songTime >= READY_START_SECONDS;
 
   return (
     <main className="audition-page">
@@ -163,15 +180,18 @@ export default function GameShell() {
           <div className="level-panel"><div className="level-title">LEVEL <b>{level}</b></div><div className="mission"><strong>MISSION</strong><span>Perfect more than 20</span><small>({stats.perfect} / 20) {stats.perfect >= 20 ? "✓" : ""}</small></div><div className="function-key">F10&nbsp;&nbsp; ON/OFF</div></div>
           <div className="leaderboard">{[["1st", "ToanDev", stats.score, "gold"], ["2nd", "Audition King", 179342, "silver"], ["3rd", "Dancer Pro", 165230, "bronze"], ["4th", "Cool Girl", 142587, "blue"]].map(([rank, name, score, tone]) => <div className={`rank-line ${tone}`} key={String(rank)}><b>{rank}</b><span className="avatar">●</span><span>{name}</span><strong>{Number(score).toLocaleString()}</strong></div>)}</div>
           <div className="combo-panel"><span>COMBO</span><strong>{stats.combo}</strong><b>{judgement ? `${judgement.toUpperCase()} x${stats.combo}` : stats.perfect ? `Perfect x${stats.perfect}` : "Ready"}</b></div>
-          {countdown !== null && <div key={`countdown-${countdown}`} className="countdown">{countdown}</div>}
+          {showIntro && <div className="intro-cue"><span>CLUB</span><strong>AUDITION</strong></div>}
+          {showReady && <div className="ready-cue"><span>SẴN SÀNG</span><small>GET READY</small></div>}
+          {countdown !== null && countdown > 0 && <div key={`countdown-${countdown}`} className="countdown">{countdown}</div>}
+          {startCue && <div className="start-cue"><span>BẮT ĐẦU</span><strong>GO!</strong></div>}
           {judgement && <div key={`judgement-${judgement}`} className={`judgement judgement-${judgement}`}>{judgement.toUpperCase()}</div>}
           {audioError && <div className="audio-error"><strong>🔇 SOUND ERROR</strong><span>{audioError}</span><small>{audioDetails}</small><button onClick={retryAudio}>RETRY SOUND</button></div>}
-          <div className="command-zone"><div className="command-label"><span>LEVEL <b>{level}</b></span><small>{completed} / {sequence.length}</small></div><div className="command-strip">{sequence.map((direction, index) => { const isCompleted = index < completed; const isTarget = index === completed; const isWrong = isTarget && wrongDirection !== null && wrongDirection !== direction; return <div key={`${level}-${index}-${direction}`} className={`command-key ${isCompleted ? "done" : ""} ${isTarget ? "target" : ""} ${isWrong ? "wrong" : ""}`} style={{ background: isCompleted ? "linear-gradient(145deg,#3fca72,#168a4d)" : "linear-gradient(145deg,#3b8eea,#1458a6)", opacity: 1 }}><ArrowIcon direction={direction} filled={isCompleted} target={isTarget} /></div>; })}</div>
+          <div className={`command-zone ${showCommandStrip ? "visible" : "pre-intro"}`}><div className="command-label"><span>LEVEL <b>{level}</b></span><small>{completed} / {sequence.length}</small></div><div className="command-strip">{sequence.map((direction, index) => { const isCompleted = index < completed; const isTarget = index === completed; const isWrong = isTarget && wrongDirection !== null && wrongDirection !== direction; return <div key={`${level}-${index}-${direction}`} className={`command-key ${isCompleted ? "done" : ""} ${isTarget ? "target" : ""} ${isWrong ? "wrong" : ""}`} style={{ background: isCompleted ? "linear-gradient(145deg,#3fca72,#168a4d)" : "linear-gradient(145deg,#3b8eea,#1458a6)", opacity: 1 }}><ArrowIcon direction={direction} filled={isCompleted} target={isTarget} /></div>; })}</div>
             <div className="timing-gauge" onPointerDown={pressGauge} style={{ ["--zone-start" as string]: `${SCORE_ZONE_START}%`, ["--zone-width" as string]: `${SCORE_ZONE_END - SCORE_ZONE_START}%`, ["--perfect" as string]: `${PERFECT_CENTER}%` }}><div className="gauge-track"><div className="gauge-zone"><i /></div><div className="gauge-marker" style={{ left: `${gauge}%` }} /></div><div className="gauge-labels"><span>MISS</span><span>BAD</span><span>COOL</span><span>GREAT</span><b>PERFECT</b><span>GREAT</span><span>COOL</span><span>BAD</span><span>MISS</span></div><div className="gauge-readout">{delta >= 0 ? "+" : ""}{delta.toFixed(0)} ms</div></div>
           </div>
           <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All <i>▶</i></b></div><div className="bottom-mode"><strong>Audition - Club Dance</strong><span>80 BPM <b>Hard</b></span><div>★★★☆☆</div></div><button className="exit-button">⇥<small>EXIT</small></button>
           <div className="mobile-controls"><button className={`space-control ${spacePressed ? "pressed" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressSpace(); }}><strong>SPACE</strong><small>PRESS IN SCORE ZONE</small></button><div className="dpad-control">{DIRECTIONS.map(direction => <button key={direction} className={`dpad-${direction} ${activeDirection === direction ? "pressed" : ""} ${sequence[completed] === direction ? "target" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }} aria-label={direction}><ArrowIcon direction={direction} filled={false} target={sequence[completed] === direction} compact /></button>)}<span /></div></div>
-          {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>3 · 2 · 1 · 0 → gauge chạm PERFECT → bắt đầu turn.</p><button onClick={startGame}>START</button><button className="sound-button" onClick={retryAudio}>TEST SOUND</button></div></div>}
+          {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first beat "My".</p><button onClick={startGame}>START</button><button className="sound-button" onClick={retryAudio}>TEST SOUND</button></div></div>}
           {finished && <div className="start-overlay"><div className="ready-card results-card"><span>DANCE COMPLETE</span><h1>{stats.score.toLocaleString()}</h1><p>P {stats.perfect} · G {stats.great} · C {stats.cool} · B {stats.bad} · M {stats.miss}</p><button onClick={startGame}>PLAY AGAIN</button></div></div>}
         </div>
       </section>
