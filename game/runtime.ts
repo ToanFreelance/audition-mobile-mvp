@@ -38,10 +38,11 @@ export class RhythmRuntime {
   private awaitingSpace = false;
   private targetMs = 0;
 
-  // MISS consumes exactly one following turn as a blank penalty turn.
+  // A MISS consumes the current move and exactly one following blank move.
+  // The next playable move is revealed only at the start of the move after
+  // that blank gauge interval.
   private penaltyUntilMs = 0;
   private penaltyResumeTurnIndex = -1;
-  private penaltyResumeTargetMs = 0;
 
   private finishMove = false;
   private finishDirections: Direction[] = [];
@@ -77,7 +78,6 @@ export class RhythmRuntime {
     this.targetMs = this.firstPerfectMs;
     this.penaltyUntilMs = 0;
     this.penaltyResumeTurnIndex = -1;
-    this.penaltyResumeTargetMs = 0;
     this.finishMove = false;
     this.finishDirections = [];
     this.countdownValue = null;
@@ -133,7 +133,6 @@ export class RhythmRuntime {
     const sequence = this.currentDirections;
     if (!sequence.length || this.commandIndex >= sequence.length) return false;
 
-    // Direction input becomes too late only when the full gauge completes.
     if (this.clock.elapsedMs >= this.targetMs + this.fullGaugeLateWindowMs) {
       this.resolveMiss();
       return false;
@@ -154,20 +153,16 @@ export class RhythmRuntime {
   }
 
   handleSpace() {
-    // Intro is the only phase where SPACE is ignored. Countdown input is
-    // intentionally allowed, including early BAD/COOL timings.
+    // SPACE is ignored during the musical intro only. From countdown onward,
+    // an off-zone press is an immediate MISS, even with incomplete arrows.
     if (!this.started || this.finished || this.phase === "intro" || this.phase === "penalty") return null;
 
     const gauge = this.gaugePercent;
-    // SPACE outside the score zone is an immediate MISS regardless of whether
-    // all arrows have been entered. This is the Audition-style rule requested.
     if (gauge < SCORE_ZONE_START || gauge > SCORE_ZONE_END) {
       this.resolveMiss();
       return "miss" as Judgement;
     }
 
-    // Inside the score zone, SPACE is only valid after the complete arrow
-    // sequence has been entered.
     if (!this.awaitingSpace) return null;
 
     const judgement = this.engine.judgeMove(this.moveId, gauge);
@@ -217,32 +212,25 @@ export class RhythmRuntime {
     }
 
     if (this.phase === "penalty") {
-      // Nothing in this state controls gameplay except visibility. After the
-      // deadline, reveal the one stored playable turn and start it from zero.
+      // The arrow sequence is deliberately empty during the penalty. Reveal
+      // the next playable turn only when the entire blank gauge has elapsed.
       if (elapsed >= this.penaltyUntilMs) {
         const resumeTurn = this.penaltyResumeTurnIndex;
-        const resumeTarget = this.penaltyResumeTargetMs;
-
         this.penaltyUntilMs = 0;
         this.penaltyResumeTurnIndex = -1;
-        this.penaltyResumeTargetMs = 0;
 
         if (resumeTurn >= 0 && resumeTurn < (this.chart.turns?.length ?? 0)) {
-          const resumeChartTurn = this.chart.turns?.[resumeTurn];
-          if (!resumeChartTurn) {
-            this.beginFinishMove();
-          } else {
-            this.turnIndex = resumeTurn;
-            this.targetMs = resumeTarget;
-            this.commandIndex = 0;
-            this.awaitingSpace = false;
-            this.phase = "playing";
-            this.callbacks.onPhase?.("playing");
-            this.callbacks.onLevel?.(this.currentLevel);
-
-            // Explicitly restore the sequence after the penalty.
-            this.callbacks.onSequence?.(resumeChartTurn.directions.slice(), 0);
-          }
+          this.turnIndex = resumeTurn;
+          this.commandIndex = 0;
+          this.awaitingSpace = false;
+          this.targetMs = elapsed + this.perfectIntervalMs * (PERFECT_CENTER / 100);
+          this.phase = "playing";
+          this.callbacks.onPhase?.("playing");
+          this.callbacks.onLevel?.(this.currentLevel);
+          // This is the only place a post-MISS sequence becomes visible.
+          // Explicitly copy it into the callback so React cannot retain []
+          // from the penalty state.
+          this.callbacks.onSequence?.(this.chart.turns[resumeTurn]!.directions.slice(), 0);
         } else {
           this.beginFinishMove();
         }
@@ -252,7 +240,7 @@ export class RhythmRuntime {
       return;
     }
 
-    // Automatic MISS is only generated after the complete 0..100 gauge.
+    // Automatic MISS happens only when the current full gauge has completed.
     if ((this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + this.fullGaugeLateWindowMs) {
       this.resolveMiss();
       return;
@@ -280,26 +268,21 @@ export class RhythmRuntime {
     if (judgement === "miss") {
       const normalTurns = this.chart.turns?.length ?? 0;
       const current = this.turnIndex;
-      const penaltyTurn = current + 1;
-      const nextPlayableTurn = current + 2;
+      const resumeTurn = current + 2;
 
-      // Current turn was missed. The next turn is blank for exactly one full
-      // gauge interval. The following turn becomes the next playable turn.
-      this.penaltyResumeTurnIndex = nextPlayableTurn < normalTurns ? nextPlayableTurn : -1;
-      this.penaltyResumeTargetMs = this.targetMs + this.perfectIntervalMs * 2;
-      this.penaltyUntilMs = this.targetMs + this.perfectIntervalMs;
+      // Align the blank penalty to gauge boundaries. A turn occupies one full
+      // four-beat gauge cycle, so even an early manual MISS cannot reveal the
+      // next arrows halfway through the current cycle.
+      const cycleMs = this.perfectIntervalMs;
+      const phaseStart = this.firstPerfectMs - cycleMs * (PERFECT_CENTER / 100);
+      const nextBoundary = phaseStart + Math.ceil((this.clock.elapsedMs - phaseStart) / cycleMs) * cycleMs;
 
-      // Keep the current turn index untouched while the penalty is active.
+      this.penaltyResumeTurnIndex = resumeTurn < normalTurns ? resumeTurn : -1;
+      this.penaltyUntilMs = nextBoundary + cycleMs;
+
       this.phase = "penalty";
       this.callbacks.onPhase?.("penalty");
       this.callbacks.onSequence?.([], 0);
-
-      // If the miss occurs on the final normal turn, there is no recoverable
-      // normal turn after the blank penalty; finish gracefully instead of
-      // entering a permanent no-sequence state.
-      if (penaltyTurn >= normalTurns || nextPlayableTurn >= normalTurns) {
-        this.penaltyResumeTurnIndex = -1;
-      }
       return;
     }
 
@@ -327,7 +310,6 @@ export class RhythmRuntime {
     this.finishMove = true;
     this.penaltyUntilMs = 0;
     this.penaltyResumeTurnIndex = -1;
-    this.penaltyResumeTargetMs = 0;
     this.awaitingSpace = false;
     this.commandIndex = 0;
     this.finishDirections = randomDirections(6);
