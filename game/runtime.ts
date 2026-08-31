@@ -3,7 +3,7 @@ import { randomizeChart, randomDirections } from "./chart";
 import { RhythmEngine } from "./rhythm";
 import type { Chart, Direction, GameStats, Judgement } from "./types";
 
-export type RhythmPhase = "idle" | "intro" | "countdown" | "playing" | "penalty" | "finish" | "finished";
+export type RhythmPhase = "idle" | "intro" | "ready" | "countdown" | "playing" | "penalty" | "finish" | "finished";
 export type RhythmRuntimeCallbacks = {
   onStats?: (stats: GameStats) => void;
   onJudgement?: (judgement: Judgement) => void;
@@ -17,6 +17,7 @@ export type RhythmRuntimeCallbacks = {
 
 const COUNTDOWN_BEATS = 3;
 const TURN_INTERVAL_BEATS = 4;
+const READY_DURATION_MS = 500;
 export const SCORE_ZONE_START = 70;
 export const SCORE_ZONE_END = 90;
 export const PERFECT_CENTER = 80;
@@ -42,6 +43,7 @@ export class RhythmRuntime {
   private finishDirections: Direction[] = [];
   private countdownValue: number | null = null;
   private lastStatsSignature = "";
+  private startPulseTimer: number | null = null;
 
   constructor(chart: Chart, callbacks: RhythmRuntimeCallbacks = {}) {
     this.baseChart = chart;
@@ -73,6 +75,7 @@ export class RhythmRuntime {
     this.countdownValue = null;
     this.lastStatsSignature = "";
     this.clock.start();
+    this.setDomPhase("intro");
     this.callbacks.onPhase?.("intro");
     this.callbacks.onCountdown?.(null);
     this.callbacks.onLevel?.(this.currentLevel);
@@ -81,7 +84,18 @@ export class RhythmRuntime {
     this.loop();
   }
 
-  stop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; this.started = false; }
+  stop() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    if (this.startPulseTimer !== null && typeof window !== "undefined") {
+      window.clearTimeout(this.startPulseTimer);
+      this.startPulseTimer = null;
+    }
+    this.started = false;
+    this.setDomPhase("idle");
+    this.clearStartPulse();
+  }
+
   destroy() { this.stop(); }
   get isStarted() { return this.started; }
   get isFinished() { return this.finished; }
@@ -91,7 +105,9 @@ export class RhythmRuntime {
   get currentPhase() { return this.phase; }
   get isPenaltyTurn() { return this.phase === "penalty"; }
   get currentDirections() {
-    if (this.phase === "penalty") return [];
+    // The original replay introduces the command strip only once the
+    // "ready" moment arrives; keep the intro clean and non-interactive.
+    if (this.phase === "intro" || this.phase === "penalty") return [];
     if (this.finishMove) return this.finishDirections.slice();
     const turn = this.chart.turns?.[this.turnIndex];
     return turn ? turn.directions.slice() : [];
@@ -99,6 +115,12 @@ export class RhythmRuntime {
   get sequence() { return this.started && !this.finished ? this.currentDirections : []; }
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
+
+  /**
+   * The marker is a continuous musical clock: it runs from the instant the
+   * track starts and never changes speed. Because every turn is four beats,
+   * the gauge phase is aligned so every target lands at the 80% Perfect point.
+   */
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.perfectIntervalMs;
@@ -106,6 +128,7 @@ export class RhythmRuntime {
     const raw = (this.clock.elapsedMs - phaseStart) / cycleMs;
     return ((((raw % 1) + 1) % 1) * 100);
   }
+
   get timingGaugePercent() { return this.gaugePercent; }
   get timingDeltaMs() { return !this.started || !this.targetMs ? 0 : this.clock.elapsedMs - this.targetMs; }
 
@@ -133,6 +156,8 @@ export class RhythmRuntime {
   handleSpace() {
     if (!this.started || this.finished || this.phase === "intro" || this.phase === "penalty") return null;
     const gauge = this.gaugePercent;
+    // Space outside the score zone is an immediate MISS, even if the arrow
+    // sequence is incomplete. This matches the requested gameplay rule.
     if (gauge < SCORE_ZONE_START || gauge > SCORE_ZONE_END) {
       this.resolveMiss();
       return "miss" as Judgement;
@@ -145,29 +170,45 @@ export class RhythmRuntime {
   }
 
   private canInputDirections() {
-    return this.started && !this.finished && this.phase !== "penalty" && (this.phase === "intro" || this.phase === "countdown" || this.phase === "playing" || this.phase === "finish");
+    return this.started && !this.finished && this.phase !== "penalty" && (this.phase === "ready" || this.phase === "countdown" || this.phase === "playing" || this.phase === "finish");
   }
 
   private loop = () => {
     if (!this.started || this.finished) return;
     const elapsed = this.clock.elapsedMs;
+    const countdownStart = this.targetMs - this.countdownDurationMs;
+    const readyStart = Math.max(0, countdownStart - READY_DURATION_MS);
 
-    if (this.phase === "intro") {
-      const countdownStart = this.targetMs - this.countdownDurationMs;
-      if (elapsed >= countdownStart) { this.phase = "countdown"; this.callbacks.onPhase?.("countdown"); }
+    if (this.phase === "intro" && elapsed >= readyStart) {
+      this.phase = "ready";
+      this.setDomPhase("ready");
+      this.callbacks.onPhase?.("ready");
+      this.emitSequence();
+    }
+
+    if (this.phase === "ready" && elapsed >= countdownStart) {
+      this.phase = "countdown";
+      this.setDomPhase("countdown");
+      this.callbacks.onPhase?.("countdown");
     }
 
     if (this.phase === "countdown") {
-      const countdownStart = this.targetMs - this.countdownDurationMs;
       const relative = Math.max(0, elapsed - countdownStart);
       const step = Math.min(COUNTDOWN_BEATS - 1, Math.floor(relative / this.beatDurationMs));
-      const value = Math.max(0, COUNTDOWN_BEATS - step);
-      if (value !== this.countdownValue) { this.countdownValue = value; this.callbacks.onCountdown?.(value); }
+      const value = Math.max(1, COUNTDOWN_BEATS - step);
+      if (value !== this.countdownValue) {
+        this.countdownValue = value;
+        this.callbacks.onCountdown?.(value);
+      }
       if (elapsed >= this.targetMs) {
+        // The first Perfect is the exact musical anchor. The numeric
+        // countdown ends here; START is rendered as a short visual pulse
+        // while SPACE is already accepted on the target beat.
         this.phase = "playing";
-        this.callbacks.onCountdown?.(0);
+        this.setDomPhase("playing");
+        this.pulseStart();
+        this.callbacks.onCountdown?.(null);
         this.callbacks.onPhase?.("playing");
-        window.setTimeout(() => { if (this.started && !this.finished) this.callbacks.onCountdown?.(null); }, 120);
       }
     }
 
@@ -184,6 +225,7 @@ export class RhythmRuntime {
           this.finishMove = false;
           this.targetMs = elapsed + this.perfectIntervalMs * (PERFECT_CENTER / 100);
           this.phase = "playing";
+          this.setDomPhase("playing");
           this.callbacks.onPhase?.("playing");
           this.callbacks.onLevel?.(this.currentLevel);
           this.emitSequence();
@@ -214,14 +256,12 @@ export class RhythmRuntime {
       this.finished = true;
       this.started = false;
       this.phase = "finished";
+      this.setDomPhase("finished");
       this.callbacks.onSequence?.([], 0);
       this.callbacks.onFinished?.({ ...this.engine.stats });
       return;
     }
     if (judgement === "miss") {
-      // A manual MISS during the 3-2-1 countdown must clear the visible
-      // countdown immediately. Otherwise the UI is left showing "1" while
-      // the runtime has already moved into the penalty phase.
       this.countdownValue = null;
       this.callbacks.onCountdown?.(null);
 
@@ -232,6 +272,7 @@ export class RhythmRuntime {
       this.penaltyResumeTurnIndex = resumeTurn < normalTurns ? resumeTurn : -1;
       this.penaltyUntilMs = Math.max(this.clock.elapsedMs, currentGaugeEnd) + this.perfectIntervalMs;
       this.phase = "penalty";
+      this.setDomPhase("penalty");
       this.callbacks.onPhase?.("penalty");
       this.callbacks.onSequence?.([], 0);
       return;
@@ -242,6 +283,7 @@ export class RhythmRuntime {
     this.turnIndex += 1;
     this.targetMs += this.perfectIntervalMs;
     this.phase = "playing";
+    this.setDomPhase("playing");
     this.callbacks.onPhase?.("playing");
     this.callbacks.onLevel?.(this.currentLevel);
     this.emitSequence();
@@ -262,6 +304,7 @@ export class RhythmRuntime {
     this.finishDirections = randomDirections(6);
     this.targetMs = Math.max(this.targetMs, this.clock.elapsedMs) + this.perfectIntervalMs;
     this.phase = "finish";
+    this.setDomPhase("finish");
     this.callbacks.onPhase?.("finish");
     this.emitSequence();
   }
@@ -276,8 +319,30 @@ export class RhythmRuntime {
     if (force || signature !== this.lastStatsSignature) { this.lastStatsSignature = signature; this.callbacks.onStats?.({ ...this.engine.stats }); }
   }
 
+  private setDomPhase(phase: RhythmPhase) {
+    if (typeof document === "undefined") return;
+    document.documentElement.dataset.rhythmPhase = phase;
+  }
+
+  private pulseStart() {
+    if (typeof document === "undefined") return;
+    document.documentElement.dataset.rhythmStartPulse = "1";
+    if (this.startPulseTimer !== null && typeof window !== "undefined") window.clearTimeout(this.startPulseTimer);
+    if (typeof window !== "undefined") {
+      this.startPulseTimer = window.setTimeout(() => {
+        this.clearStartPulse();
+      }, 420);
+    }
+  }
+
+  private clearStartPulse() {
+    if (typeof document !== "undefined') {
+      delete document.documentElement.dataset.rhythmStartPulse;
+    }
+  }
+
   private get moveId() { return this.finishMove ? (this.chart.turns?.length ?? 0) + 1 : this.turnIndex; }
-  private get firstPerfectMs() { return this.chart.firstPerfectMs ?? this.beatDurationMs * 4; }
+  private get firstPerfectMs() { return this.chart.firstPerfectMs ?? this.beatDurationMs * 9; }
   private get perfectIntervalMs() { return this.beatDurationMs * TURN_INTERVAL_BEATS; }
   private get countdownDurationMs() { return this.beatDurationMs * COUNTDOWN_BEATS; }
   private get fullGaugeLateWindowMs() { return this.perfectIntervalMs * (100 - PERFECT_CENTER) / 100; }
