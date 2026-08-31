@@ -14,7 +14,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="stylesheet" href="/audition-final-overrides.css" />
         <link rel="stylesheet" href="/audition-gauge.css" />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <a className="global-config-button" href="/tools/music-config" aria-label="Configure music and chart">
+          ⚙ CONFIGURE
+        </a>
+      </body>
     </html>
   );
 }
