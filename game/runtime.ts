@@ -99,6 +99,7 @@ export class RhythmRuntime {
   get sequence() { return this.started && !this.finished ? this.currentDirections : []; }
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
+
   get gaugePercent() {
     if (!this.started || this.finished) return 0;
     const cycleMs = this.perfectIntervalMs;
@@ -113,7 +114,10 @@ export class RhythmRuntime {
     if (!this.canInputDirections() || this.awaitingSpace) return false;
     const sequence = this.currentDirections;
     if (!sequence.length || this.commandIndex >= sequence.length) return false;
-    if (this.clock.elapsedMs >= this.targetMs + this.fullGaugeLateWindowMs) { this.resolveMiss(); return false; }
+    if (this.clock.elapsedMs >= this.targetMs + this.fullGaugeLateWindowMs) {
+      this.resolveMiss();
+      return false;
+    }
     if (direction !== sequence[this.commandIndex]) {
       this.commandIndex = 0;
       this.callbacks.onPulse?.();
@@ -148,10 +152,12 @@ export class RhythmRuntime {
   private loop = () => {
     if (!this.started || this.finished) return;
     const elapsed = this.clock.elapsedMs;
+
     if (this.phase === "intro") {
       const countdownStart = this.targetMs - this.countdownDurationMs;
       if (elapsed >= countdownStart) { this.phase = "countdown"; this.callbacks.onPhase?.("countdown"); }
     }
+
     if (this.phase === "countdown") {
       const countdownStart = this.targetMs - this.countdownDurationMs;
       const relative = Math.max(0, elapsed - countdownStart);
@@ -165,17 +171,22 @@ export class RhythmRuntime {
         window.setTimeout(() => { if (this.started && !this.finished) this.callbacks.onCountdown?.(null); }, 120);
       }
     }
+
     if (this.phase === "penalty") {
       if (elapsed >= this.penaltyUntilMs) {
         const resumeTurn = this.penaltyResumeTurnIndex;
+        const resumeTurnData = resumeTurn >= 0 ? this.chart.turns?.[resumeTurn] : undefined;
+
         this.penaltyUntilMs = 0;
         this.penaltyResumeTurnIndex = -1;
-        const resumeTurnData = resumeTurn >= 0 ? this.chart.turns?.[resumeTurn] : undefined;
+
         if (resumeTurnData) {
           this.turnIndex = resumeTurn;
           this.commandIndex = 0;
           this.awaitingSpace = false;
           this.finishMove = false;
+          // The penalty ends exactly at the start of the new gauge. The new
+          // turn's Perfect therefore lands at 80% of that gauge.
           this.targetMs = elapsed + this.perfectIntervalMs * (PERFECT_CENTER / 100);
           this.phase = "playing";
           this.callbacks.onPhase?.("playing");
@@ -188,10 +199,13 @@ export class RhythmRuntime {
       this.raf = requestAnimationFrame(this.loop);
       return;
     }
+
+    // Automatic MISS happens only when the slider reaches 100% of the current gauge.
     if ((this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + this.fullGaugeLateWindowMs) {
       this.resolveMiss();
       return;
     }
+
     this.raf = requestAnimationFrame(this.loop);
   };
 
@@ -214,18 +228,14 @@ export class RhythmRuntime {
     if (judgement === "miss") {
       const normalTurns = this.chart.turns?.length ?? 0;
       const resumeTurn = this.turnIndex + 2;
-      const cycleMs = this.perfectIntervalMs;
-      const phaseStart = this.firstPerfectMs - cycleMs * (PERFECT_CENTER / 100);
-      const raw = (this.clock.elapsedMs - phaseStart) / cycleMs;
-      // MISS always waits until the current gauge reaches its 100% boundary,
-      // then consumes exactly one complete blank gauge. Using ceil here is
-      // important for the automatic MISS at exactly 100%; floor would add an
-      // extra hidden gauge and was the source of the long no-arrow state.
-      const currentGaugeBoundaryCycle = Math.max(0, Math.ceil(raw - 1e-9));
-      const currentGaugeEnd = phaseStart + currentGaugeBoundaryCycle * cycleMs;
+      const currentGaugeEnd = this.targetMs + this.fullGaugeLateWindowMs;
 
       this.penaltyResumeTurnIndex = resumeTurn < normalTurns ? resumeTurn : -1;
-      this.penaltyUntilMs = Math.max(this.clock.elapsedMs, currentGaugeEnd) + cycleMs;
+      // Every MISS consumes the remainder of the current gauge plus exactly
+      // one complete blank gauge. For an automatic MISS at 100%, the remainder
+      // is zero, so the penalty is exactly one gauge. Manual SPACE-MISS follows
+      // the same rule from the point where SPACE was pressed.
+      this.penaltyUntilMs = Math.max(this.clock.elapsedMs, currentGaugeEnd) + this.perfectIntervalMs;
       this.phase = "penalty";
       this.callbacks.onPhase?.("penalty");
       this.callbacks.onSequence?.([], 0);
