@@ -8,10 +8,15 @@ const MAX_LEVEL = 9;
 export const OBSERVED_80BPM_LEVEL_TURNS = [1, 2, 3, 4, 4, 6, 6] as const;
 export const STANDARD_4KEY_LEVEL_TURNS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 
-// Align the first playable Perfect to the 80 BPM grid at beat 20 = 15.0s.
-// In the supplied reference this is the first vocal/gameplay anchor around
-// "My..." after the ready/countdown lead-in.
-export const FIRST_PERFECT_BEAT = 20;
+// Default/demo chart anchor. Song-specific charts can use an exact millisecond
+// anchor when the vocal onset does not fall exactly on the nominal beat grid.
+export const FIRST_PERFECT_BEAT = 12;
+
+// Measured against the supplied "Please Tell Me Why" reference/audio: the
+// first SPACE/Perfect is the opening vocal "My" at about 28.87s in the
+// deployed 4:26 gameplay audio. At 80 BPM this is beat 38.4933..., so we
+// keep the exact vocal anchor and retain the 3-second (4-beat) spacing after it.
+export const PLEASE_TELL_ME_WHY_FIRST_PERFECT_MS = 28_870;
 
 function firstPerfectMsForBpm(bpm: number) {
   return FIRST_PERFECT_BEAT * (60000 / bpm);
@@ -42,9 +47,9 @@ export function randomDirections(level: number): Direction[] {
   return result;
 }
 
-function buildTurns(bpm: number, levelTurnCounts: readonly number[]) {
+function buildTurns(bpm: number, levelTurnCounts: readonly number[], firstPerfectMs: number) {
   const beatDurationMs = 60000 / bpm;
-  const firstPerfectBeat = firstPerfectMsForBpm(bpm) / beatDurationMs;
+  const firstPerfectBeat = firstPerfectMs / beatDurationMs;
   const turns: DanceTurn[] = [];
   let id = 0;
 
@@ -65,9 +70,14 @@ function buildTurns(bpm: number, levelTurnCounts: readonly number[]) {
   return turns;
 }
 
-function buildChart(id: string, title: string, bpm: number, levelTurnCounts: readonly number[]): Chart {
-  const turns = buildTurns(bpm, levelTurnCounts);
-  const firstPerfectMs = firstPerfectMsForBpm(bpm);
+function buildChart(
+  id: string,
+  title: string,
+  bpm: number,
+  levelTurnCounts: readonly number[],
+  firstPerfectMs = firstPerfectMsForBpm(bpm),
+): Chart {
+  const turns = buildTurns(bpm, levelTurnCounts, firstPerfectMs);
   const notes = turns.flatMap((turn) =>
     turn.directions.map((direction, index) => ({
       direction,
@@ -92,7 +102,13 @@ export function createDemoChart(): Chart {
 }
 
 export function createPleaseTellMeWhyChart(): Chart {
-  return buildChart("please-tell-me-why-audition-demo", "Please Tell Me Why", 80, OBSERVED_80BPM_LEVEL_TURNS);
+  return buildChart(
+    "please-tell-me-why-audition-demo",
+    "Please Tell Me Why",
+    80,
+    OBSERVED_80BPM_LEVEL_TURNS,
+    PLEASE_TELL_ME_WHY_FIRST_PERFECT_MS,
+  );
 }
 
 export const DEMO_CHART: Chart = createPleaseTellMeWhyChart();
