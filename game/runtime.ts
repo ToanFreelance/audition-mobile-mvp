@@ -154,15 +154,21 @@ export class RhythmRuntime {
   }
 
   handleSpace() {
-    // Intro is the only phase where SPACE is ignored. Once countdown starts,
-    // pressing SPACE outside 70..90 is an immediate MISS.
-    if (!this.started || this.finished || this.phase === "intro" || this.phase === "penalty" || !this.awaitingSpace) return null;
+    // Intro is the only phase where SPACE is ignored. Countdown input is
+    // intentionally allowed, including early BAD/COOL timings.
+    if (!this.started || this.finished || this.phase === "intro" || this.phase === "penalty") return null;
 
     const gauge = this.gaugePercent;
+    // SPACE outside the score zone is an immediate MISS regardless of whether
+    // all arrows have been entered. This is the Audition-style rule requested.
     if (gauge < SCORE_ZONE_START || gauge > SCORE_ZONE_END) {
       this.resolveMiss();
       return "miss" as Judgement;
     }
+
+    // Inside the score zone, SPACE is only valid after the complete arrow
+    // sequence has been entered.
+    if (!this.awaitingSpace) return null;
 
     const judgement = this.engine.judgeMove(this.moveId, gauge);
     if (!judgement) return null;
@@ -222,18 +228,21 @@ export class RhythmRuntime {
         this.penaltyResumeTargetMs = 0;
 
         if (resumeTurn >= 0 && resumeTurn < (this.chart.turns?.length ?? 0)) {
-          this.turnIndex = resumeTurn;
-          this.targetMs = resumeTarget;
-          this.commandIndex = 0;
-          this.awaitingSpace = false;
-          this.phase = "playing";
-          this.callbacks.onPhase?.("playing");
-          this.callbacks.onLevel?.(this.currentLevel);
+          const resumeChartTurn = this.chart.turns?.[resumeTurn];
+          if (!resumeChartTurn) {
+            this.beginFinishMove();
+          } else {
+            this.turnIndex = resumeTurn;
+            this.targetMs = resumeTarget;
+            this.commandIndex = 0;
+            this.awaitingSpace = false;
+            this.phase = "playing";
+            this.callbacks.onPhase?.("playing");
+            this.callbacks.onLevel?.(this.currentLevel);
 
-          // Explicitly restore the sequence after the penalty. Do not rely on
-          // a later frame or a derived phase-only render decision.
-          const directions = this.chart.turns[this.turnIndex].directions.slice();
-          this.callbacks.onSequence?.(directions, 0);
+            // Explicitly restore the sequence after the penalty.
+            this.callbacks.onSequence?.(resumeChartTurn.directions.slice(), 0);
+          }
         } else {
           this.beginFinishMove();
         }
@@ -281,7 +290,6 @@ export class RhythmRuntime {
       this.penaltyUntilMs = this.targetMs + this.perfectIntervalMs;
 
       // Keep the current turn index untouched while the penalty is active.
-      // currentDirections returns [] because phase === "penalty".
       this.phase = "penalty";
       this.callbacks.onPhase?.("penalty");
       this.callbacks.onSequence?.([], 0);
