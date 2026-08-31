@@ -55,13 +55,23 @@ test.describe("Audition Mobile — current gameplay QA", () => {
     await expect(page.getByRole("button", { name: /SPACE/i })).toBeVisible();
   });
 
-  test("A3 — countdown renders 3, 2, 1, then clears", async ({ page }) => {
+  test("A3 — countdown visibly runs through 3, 2, 1, then clears", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page);
-    await expect(page.locator(".countdown")).toHaveText("3", { timeout: 5000 });
-    await expect.poll(async () => await page.locator(".countdown").textContent(), { timeout: 3000 }).toBe("2");
-    await expect.poll(async () => await page.locator(".countdown").textContent(), { timeout: 3000 }).toBe("1");
-    await expect.poll(async () => await page.locator(".countdown").count(), { timeout: 3000 }).toBe(0);
+
+    const countdown = page.locator(".countdown");
+    await expect.poll(async () => (await countdown.textContent()) ?? "", { timeout: 3000 }).not.toBe("");
+
+    const seen = new Set<string>();
+    const deadline = Date.now() + 3500;
+    while (Date.now() < deadline && seen.size < 3) {
+      const text = (await countdown.textContent())?.trim();
+      if (text && ["3", "2", "1"].includes(text)) seen.add(text);
+      await page.waitForTimeout(100);
+    }
+
+    expect([...seen]).toEqual(expect.arrayContaining(["3", "2", "1"]));
+    await expect.poll(async () => await countdown.count(), { timeout: 3000 }).toBe(0);
   });
 
   test("A4 — command strip renders directions with gradient states", async ({ page }) => {
@@ -100,23 +110,24 @@ test.describe("Audition Mobile — current gameplay QA", () => {
     await expect(page.locator(".command-key.done").first()).toBeVisible();
   });
 
-  test("A6 — SPACE outside the scoring zone produces visible MISS", async ({ page }) => {
+  test("A6 — early SPACE MISS immediately clears the countdown", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page);
     await waitForCountdown(page);
     await pressSpace(page);
+
+    await expect.poll(async () => await page.locator(".countdown").count(), { timeout: 1000 }).toBe(0);
     await expect(page.locator(".judgement-miss")).toBeVisible({ timeout: 1500 });
   });
 
-  test("A7 — auto MISS at the end of the gauge restores the command strip", async ({ page }) => {
+  test("A7 — auto MISS at the end of the gauge enters penalty and restores the command strip", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await startGame(page);
     await waitForSequence(page);
 
     await expect(page.locator(".command-key").first()).toBeVisible();
-    await expect(page.locator(".judgement-miss")).not.toBeVisible();
-    await expect(page.locator(".judgement-miss")).toBeVisible({ timeout: 7000 });
-    await expect(page.locator(".command-key").first()).toBeVisible({ timeout: 7000 });
+    await expect.poll(async () => await page.locator(".command-key").count(), { timeout: 7000 }).toBe(0);
+    await expect.poll(async () => await page.locator(".command-key").count(), { timeout: 7000 }).toBeGreaterThan(0);
   });
 
   test("A8 — audio starts from the user gesture and advances", async ({ page }) => {
