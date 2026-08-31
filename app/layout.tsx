@@ -12,8 +12,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <link rel="stylesheet" href="/audition-figma.css" />
         <link rel="stylesheet" href="/audition-final-overrides.css" />
-        <link rel="stylesheet" href="/gauge-breath.css" />
-        <link rel="stylesheet" href="/gauge-breath-v2.css" />
       </head>
       <body>{children}</body>
     </html>
