@@ -11,13 +11,13 @@ async function waitForCountdown(page: Page) {
 }
 
 async function pressDirection(page: Page, direction: string) {
-  await page.getByRole("button", { name: direction, exact: true }).press("Enter");
+  await page.getByRole("button", { name: direction, exact: true }).click();
 }
 
 async function pressSpace(page: Page) {
   const space = page.getByRole("button", { name: /SPACE/i });
   await expect(space).toBeVisible();
-  await space.press("Enter");
+  await space.click();
 }
 
 async function waitForSequence(page: Page) {
@@ -115,7 +115,6 @@ test.describe("Audition Mobile — current gameplay QA", () => {
 
     await expect(page.locator(".command-key").first()).toBeVisible();
     await expect(page.locator(".judgement-miss")).not.toBeVisible();
-
     await expect(page.locator(".judgement-miss")).toBeVisible({ timeout: 7000 });
     await expect(page.locator(".command-key").first()).toBeVisible({ timeout: 7000 });
   });
