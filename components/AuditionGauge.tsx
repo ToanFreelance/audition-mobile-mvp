@@ -61,13 +61,9 @@ export default function AuditionGauge({
   const blurSoftId = `${id}-blurSoft`;
 
   return (
-    <div
-      className={`audition-gauge-svg ${className}`}
-      onPointerDown={onPointerDown}
-      style={{ width: "100%", lineHeight: 0, touchAction: "manipulation" }}
-    >
-      {/* The SVG viewport is cropped to the actual 460px track so its visible width matches command-strip exactly. */}
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="20 0 460 70" width="100%" height="auto" preserveAspectRatio="none" style={svgStyle} aria-label="Audition timing gauge">
+    <div className={`audition-gauge-svg ${className}`} onPointerDown={onPointerDown} style={{ width: "100%", lineHeight: 0, touchAction: "manipulation", overflow: "visible" }}>
+      {/* Extra 2px viewBox breathing room keeps the outer stroke/glow fully visible. */}
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="18 0 464 70" width="100%" height="auto" preserveAspectRatio="none" style={{ ...svgStyle, overflow: "visible" }} aria-label="Audition timing gauge">
         <defs>
           <style>{`
             @keyframes auditionBeatPulse-${id}{
@@ -98,22 +94,9 @@ export default function AuditionGauge({
           <filter id={blurGlowId} x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter>
           <filter id={blurSoftId} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.5"/></filter>
           <linearGradient id={cyanGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0"/>
-            <stop offset="12%" stopColor="#00d8ff" stopOpacity=".85"/>
-            <stop offset="25%" stopColor="#70f3ff" stopOpacity=".95"/>
-            <stop offset="35%" stopColor="#fff" stopOpacity="1"/>
-            <stop offset="50%" stopColor="#fff" stopOpacity="1"/>
-            <stop offset="65%" stopColor="#fff" stopOpacity="1"/>
-            <stop offset="75%" stopColor="#70f3ff" stopOpacity=".95"/>
-            <stop offset="88%" stopColor="#00d8ff" stopOpacity=".85"/>
-            <stop offset="100%" stopColor="#00f0ff" stopOpacity="0"/>
+            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0"/><stop offset="12%" stopColor="#00d8ff" stopOpacity=".85"/><stop offset="25%" stopColor="#70f3ff" stopOpacity=".95"/><stop offset="35%" stopColor="#fff" stopOpacity="1"/><stop offset="50%" stopColor="#fff" stopOpacity="1"/><stop offset="65%" stopColor="#fff" stopOpacity="1"/><stop offset="75%" stopColor="#70f3ff" stopOpacity=".95"/><stop offset="88%" stopColor="#00d8ff" stopOpacity=".85"/><stop offset="100%" stopColor="#00f0ff" stopOpacity="0"/>
           </linearGradient>
-          <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#fff"/>
-            <stop offset="35%" stopColor="#ff4d4d"/>
-            <stop offset="70%" stopColor="#e11d48"/>
-            <stop offset="100%" stopColor="#880015"/>
-          </radialGradient>
+          <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#fff"/><stop offset="35%" stopColor="#ff4d4d"/><stop offset="70%" stopColor="#e11d48"/><stop offset="100%" stopColor="#880015"/></radialGradient>
         </defs>
 
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#000" opacity=".6"/>
