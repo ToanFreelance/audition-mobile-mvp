@@ -132,3 +132,31 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase write failed" }, { status: 502 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const id = request.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Missing music id" }, { status: 400 });
+
+  const supabase = supabaseConfig();
+  if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
+
+  try {
+    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: {
+        ...headers(supabase.key),
+        Prefer: "return=minimal",
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const detail = await response.text();
+      return NextResponse.json({ error: "Supabase delete failed", detail }, { status: 502 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase delete failed" }, { status: 502 });
+  }
+}
