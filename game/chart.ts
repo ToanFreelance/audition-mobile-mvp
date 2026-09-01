@@ -1,3 +1,4 @@
+import type { MusicConfig } from "./music-config";
 import type { Chart, DanceTurn, Direction } from "./types";
 
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
@@ -8,14 +9,7 @@ const MAX_LEVEL = 9;
 export const OBSERVED_80BPM_LEVEL_TURNS = [1, 2, 3, 4, 4, 6, 6] as const;
 export const STANDARD_4KEY_LEVEL_TURNS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 
-// Default/demo chart anchor. Song-specific charts can use an exact millisecond
-// anchor when the vocal onset does not fall exactly on the nominal beat grid.
 export const FIRST_PERFECT_BEAT = 12;
-
-// Measured against the supplied "Please Tell Me Why" reference/audio: the
-// first SPACE/Perfect is the opening vocal "My" at about 28.87s in the
-// deployed 4:26 gameplay audio. At 80 BPM this is beat 38.4933..., so we
-// keep the exact vocal anchor and retain the 3-second (4-beat) spacing after it.
 export const PLEASE_TELL_ME_WHY_FIRST_PERFECT_MS = 28_870;
 
 function firstPerfectMsForBpm(bpm: number) {
@@ -31,7 +25,6 @@ function randomIndex(max: number) {
   return Math.floor(Math.random() * max);
 }
 
-/** Fresh random arrows for each normal turn. Level 1..5 use N arrows; 6+ uses six. */
 export function randomDirections(level: number): Direction[] {
   const length = Math.max(1, Math.min(6, level));
   const result: Direction[] = [];
@@ -55,7 +48,7 @@ function buildTurns(bpm: number, levelTurnCounts: readonly number[], firstPerfec
 
   for (let levelIndex = 0; levelIndex < levelTurnCounts.length; levelIndex += 1) {
     const level = levelIndex + 1;
-    const turnCount = levelTurnCounts[levelIndex];
+    const turnCount = Math.max(0, Math.floor(levelTurnCounts[levelIndex] ?? 0));
     for (let turnInLevel = 0; turnInLevel < turnCount; turnInLevel += 1) {
       const perfectBeat = firstPerfectBeat + id * 4;
       turns.push({
@@ -77,7 +70,9 @@ function buildChart(
   levelTurnCounts: readonly number[],
   firstPerfectMs = firstPerfectMsForBpm(bpm),
 ): Chart {
-  const turns = buildTurns(bpm, levelTurnCounts, firstPerfectMs);
+  const safeBpm = Math.max(1, bpm);
+  const turns = buildTurns(safeBpm, levelTurnCounts, firstPerfectMs);
+  const beatDurationMs = 60000 / safeBpm;
   const notes = turns.flatMap((turn) =>
     turn.directions.map((direction, index) => ({
       direction,
@@ -88,10 +83,10 @@ function buildChart(
   return {
     id,
     title,
-    bpm,
+    bpm: safeBpm,
     offsetMs: 0,
     firstPerfectMs,
-    beatTimesMs: turns.map((_, index) => firstPerfectMs + index * 4 * (60000 / bpm)),
+    beatTimesMs: turns.map((_, index) => firstPerfectMs + index * 4 * beatDurationMs),
     notes,
     turns,
   };
@@ -112,6 +107,21 @@ export function createPleaseTellMeWhyChart(): Chart {
 }
 
 export const DEMO_CHART: Chart = createPleaseTellMeWhyChart();
+
+/** Generate the playable runtime chart from the persisted Music Config. */
+export function createChartFromMusicConfig(config: MusicConfig): Chart {
+  const levelTurns = config.gameplay.levelSequenceCounts?.length
+    ? config.gameplay.levelSequenceCounts
+    : OBSERVED_80BPM_LEVEL_TURNS;
+
+  return buildChart(
+    config.id,
+    config.title,
+    config.bpm,
+    levelTurns,
+    Math.max(0, config.spaceStartMs),
+  );
+}
 
 /** Re-randomize arrow content only; level/timing progression remains deterministic. */
 export function randomizeChart(source: Chart): Chart {
