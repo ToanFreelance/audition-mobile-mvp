@@ -61,9 +61,27 @@ export default function AuditionGauge({
   const blurSoftId = `${id}-blurSoft`;
 
   return (
-    <div className={`audition-gauge-svg ${className}`} onPointerDown={onPointerDown} style={{ width: "100%", lineHeight: 0, touchAction: "manipulation", overflow: "visible" }}>
-      {/* Extra 2px viewBox breathing room keeps the outer stroke/glow fully visible. */}
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="18 0 464 70" width="100%" height="auto" preserveAspectRatio="none" style={{ ...svgStyle, overflow: "visible" }} aria-label="Audition timing gauge">
+    <div
+      className={`audition-gauge-svg ${className}`}
+      onPointerDown={onPointerDown}
+      style={{
+        width: "100%",
+        aspectRatio: "464 / 56",
+        lineHeight: 0,
+        touchAction: "manipulation",
+        overflow: "visible",
+      }}
+    >
+      {/* 56px visual height = 80% of the original 70px SVG height. */}
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="18 0 464 70"
+        width="100%"
+        height="100%"
+        preserveAspectRatio="none"
+        style={{ ...svgStyle, overflow: "visible" }}
+        aria-label="Audition timing gauge"
+      >
         <defs>
           <style>{`
             @keyframes auditionBeatPulse-${id}{
