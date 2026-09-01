@@ -7,33 +7,43 @@ type AuditionGaugeProps = {
   bpm: number;
   onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
   className?: string;
-  // Kept for compatibility with the existing GameShell call site.
-  // The supplied SVG remains authoritative for the actual visual zone geometry.
   zoneStart?: number;
   zoneEnd?: number;
   perfectStart?: number;
   perfectEnd?: number;
 };
 
-/** Exact runtime port of public/Gauge.svg.
- * Geometry, gradients, glow, slider artwork and beat-4 stretch are retained;
- * runtime only controls slider X-position and BPM-driven animation speed.
+/** Shared gauge skin for gameplay and chart configuration.
+ * All visual positions use the same 0..100 coordinate system as the rhythm
+ * engine, preventing the visual Perfect zone from drifting away from scoring.
  */
 export default function AuditionGauge({
   value,
   bpm,
   onPointerDown,
   className = "",
+  zoneStart = 70,
+  zoneEnd = 90,
+  perfectStart = 79,
+  perfectEnd = 81,
 }: AuditionGaugeProps) {
-  const safeValue = Math.max(0, Math.min(100, value));
+  const clamp = (n: number) => Math.max(0, Math.min(100, n));
+  const safeValue = clamp(value);
+  const safeZoneStart = clamp(Math.min(zoneStart, zoneEnd));
+  const safeZoneEnd = clamp(Math.max(zoneStart, zoneEnd));
+  const safePerfectStart = Math.max(safeZoneStart, Math.min(safeZoneEnd, perfectStart));
+  const safePerfectEnd = Math.max(safePerfectStart, Math.min(safeZoneEnd, perfectEnd));
+
   const beatMs = 60000 / Math.max(1, bpm);
   const cycleMs = beatMs * 4;
-  const sliderX = 20 + (460 * safeValue) / 100;
+  const x = (percent: number) => 20 + (460 * percent) / 100;
+  const zoneX = x(safeZoneStart);
+  const zoneWidth = x(safeZoneEnd) - zoneX;
+  const perfectX = x(safePerfectStart);
+  const perfectWidth = x(safePerfectEnd) - perfectX;
+  const sliderX = x(safeValue);
   const sliderTranslate = sliderX - 150;
-  const svgStyle = {
-    "--gauge-cycle": `${cycleMs}ms`,
-    "--gauge-beat": `${beatMs}ms`,
-  } as CSSProperties;
+  const svgStyle = { "--gauge-cycle": `${cycleMs}ms`, "--gauge-beat": `${beatMs}ms` } as CSSProperties;
 
   return (
     <div
@@ -52,7 +62,7 @@ export default function AuditionGauge({
       >
         <defs>
           <style>{`
-            @keyframes auditionBeatPulse{0%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}12.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}25%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}37.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}50%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}62.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}75%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}87.5%{opacity:1;transform:scaleX(1.6);filter:drop-shadow(0 0 20px #00f0ff) drop-shadow(0 0 28px #fff)}100%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}}
+            @keyframes auditionBeatPulse{0%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}12.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}25%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}37.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}50%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}62.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}75%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}87.5%{opacity:1;transform:scaleX(1.6);filter:drop-shadow(0 0 20px #00f0ff) drop-shadow(0 0 28px #fff)}100%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}}
             @keyframes redGlowPulse{0%,100%{opacity:.8;transform:scale(.96)}50%{opacity:1;transform:scale(1.06)}}
             .breath-cyan-beat{transform-origin:347.5px 35px;animation:auditionBeatPulse var(--gauge-cycle) cubic-bezier(.4,0,.2,1) infinite}
             .pulse-red-glow{transform-origin:150px 35px;animation:redGlowPulse var(--gauge-beat) ease-in-out infinite}
@@ -60,14 +70,36 @@ export default function AuditionGauge({
           <filter id="blurGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter>
           <filter id="blurSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.5"/></filter>
           <linearGradient id="cyanToWhiteGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0"/><stop offset="12%" stopColor="#00d8ff" stopOpacity=".85"/><stop offset="25%" stopColor="#70f3ff" stopOpacity=".95"/><stop offset="35%" stopColor="#fff" stopOpacity="1"/><stop offset="50%" stopColor="#fff" stopOpacity="1"/><stop offset="65%" stopColor="#fff" stopOpacity="1"/><stop offset="75%" stopColor="#70f3ff" stopOpacity=".95"/><stop offset="88%" stopColor="#00d8ff" stopOpacity=".85"/><stop offset="100%" stopColor="#00f0ff" stopOpacity="0"/>
+            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0"/>
+            <stop offset="12%" stopColor="#00d8ff" stopOpacity=".85"/>
+            <stop offset="25%" stopColor="#70f3ff" stopOpacity=".95"/>
+            <stop offset="35%" stopColor="#fff" stopOpacity="1"/>
+            <stop offset="50%" stopColor="#fff" stopOpacity="1"/>
+            <stop offset="65%" stopColor="#fff" stopOpacity="1"/>
+            <stop offset="75%" stopColor="#70f3ff" stopOpacity=".95"/>
+            <stop offset="88%" stopColor="#00d8ff" stopOpacity=".85"/>
+            <stop offset="100%" stopColor="#00f0ff" stopOpacity="0"/>
           </linearGradient>
-          <radialGradient id="redCoreGrad" cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#fff"/><stop offset="35%" stopColor="#ff4d4d"/><stop offset="70%" stopColor="#e11d48"/><stop offset="100%" stopColor="#880015"/></radialGradient>
+          <linearGradient id="perfectWhiteGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#fff" stopOpacity=".35"/>
+            <stop offset="50%" stopColor="#fff" stopOpacity="1"/>
+            <stop offset="100%" stopColor="#fff" stopOpacity=".35"/>
+          </linearGradient>
+          <radialGradient id="redCoreGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#fff"/>
+            <stop offset="35%" stopColor="#ff4d4d"/>
+            <stop offset="70%" stopColor="#e11d48"/>
+            <stop offset="100%" stopColor="#880015"/>
+          </radialGradient>
         </defs>
 
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#000" opacity=".6"/>
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#0a0c14" fillOpacity=".85" stroke="#a1a1aa" strokeWidth="2"/>
         <rect x="22" y="14" width="456" height="42" rx="21" fill="none" stroke="#000" strokeWidth="1.5" opacity=".9"/>
+
+        <rect x={zoneX} y="20" width={zoneWidth} height="30" fill="#00f0ff" filter="url(#blurGlow)" opacity=".3"/>
+        <rect x={zoneX} y="22" width={zoneWidth} height="26" fill="url(#cyanToWhiteGrad)" filter="url(#blurSoft)"/>
+        <rect x={perfectX} y="22" width={perfectWidth} height="26" fill="url(#perfectWhiteGrad)" opacity=".95"/>
 
         <g transform={`translate(${sliderTranslate} 0)`}>
           <g className="pulse-red-glow">
@@ -76,11 +108,6 @@ export default function AuditionGauge({
             <circle cx="150" cy="35" r="9" fill="url(#redCoreGrad)"/>
             <circle cx="150" cy="35" r="4" fill="#fff" opacity=".9"/>
           </g>
-        </g>
-
-        <g className="breath-cyan-beat">
-          <rect x="285" y="20" width="125" height="30" rx="0" ry="0" fill="#00f0ff" filter="url(#blurGlow)" opacity=".5"/>
-          <rect x="285" y="22" width="125" height="26" rx="0" ry="0" fill="url(#cyanToWhiteGrad)" filter="url(#blurSoft)"/>
         </g>
       </svg>
     </div>
