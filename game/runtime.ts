@@ -76,7 +76,7 @@ export class RhythmRuntime {
     this.countdownValue = null;
     this.lastStatsSignature = "";
     this.clock.start();
-    this.syncGaugeVisualPhase();
+    this.syncGaugeAnimationPhase();
     this.syncGaugeVisibility();
     this.setDomPhase("intro");
     this.callbacks.onPhase?.("intro");
@@ -175,6 +175,7 @@ export class RhythmRuntime {
   private loop = () => {
     if (!this.started || this.finished) return;
     const elapsed = this.clock.elapsedMs;
+    this.syncGaugeAnimationPhase();
     this.syncGaugeVisibility();
     const countdownStart = this.targetMs - this.countdownDurationMs;
     const readyStart = Math.max(0, countdownStart - READY_DURATION_MS);
