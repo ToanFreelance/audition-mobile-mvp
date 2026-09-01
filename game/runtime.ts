@@ -1,4 +1,5 @@
 import { BeatClock } from "./clock";
+import { getGaugeTiming } from "./gauge-timing";
 import { randomizeChart, randomDirections } from "./chart";
 import { RhythmEngine } from "./rhythm";
 import type { Chart, Direction, GameStats, Judgement } from "./types";
@@ -105,8 +106,6 @@ export class RhythmRuntime {
   get currentPhase() { return this.phase; }
   get isPenaltyTurn() { return this.phase === "penalty"; }
   get currentDirections() {
-    // The original replay introduces the command strip only once the
-    // "ready" moment arrives; keep the intro clean and non-interactive.
     if (this.phase === "intro" || this.phase === "penalty") return [];
     if (this.finishMove) return this.finishDirections.slice();
     const turn = this.chart.turns?.[this.turnIndex];
@@ -116,19 +115,23 @@ export class RhythmRuntime {
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
-  /**
-   * The marker is a continuous musical clock: it runs from the instant the
-   * track starts and never changes speed. Because every turn is four beats,
-   * the gauge phase is aligned so every target lands at the 80% Perfect point.
+  /** Gauge timing is derived from the music's space-start anchor.
+   * The first visible cycle is the earliest non-negative cycle boundary that
+   * has the same phase as space-start. Each 4-beat cycle returns the slider to
+   * the Perfect anchor, while the SVG breath is phase-locked to that boundary.
    */
-  get gaugePercent() {
-    if (!this.started || this.finished) return 0;
-    const cycleMs = this.perfectIntervalMs;
-    const phaseStart = this.firstPerfectMs - cycleMs * (PERFECT_CENTER / 100);
-    const raw = (this.clock.elapsedMs - phaseStart) / cycleMs;
-    return ((((raw % 1) + 1) % 1) * 100);
+  get gaugeTiming() {
+    return getGaugeTiming({
+      bpm: this.chart.bpm,
+      spaceStartMs: this.firstPerfectMs,
+      beatsPerCycle: TURN_INTERVAL_BEATS,
+      perfectCenterPercent: PERFECT_CENTER,
+    }, this.clock.elapsedMs);
   }
-
+  get gaugePercent() { return this.gaugeTiming.sliderPercent; }
+  get gaugeVisible() { return this.gaugeTiming.visible; }
+  get gaugeCycleElapsedMs() { return this.gaugeTiming.cycleElapsedMs; }
+  get gaugeAnimationDelayMs() { return this.gaugeTiming.breathAnimationDelayMs; }
   get timingGaugePercent() { return this.gaugePercent; }
   get timingDeltaMs() { return !this.started || !this.targetMs ? 0 : this.clock.elapsedMs - this.targetMs; }
 
@@ -156,8 +159,6 @@ export class RhythmRuntime {
   handleSpace() {
     if (!this.started || this.finished || this.phase === "intro" || this.phase === "penalty") return null;
     const gauge = this.gaugePercent;
-    // Space outside the score zone is an immediate MISS, even if the arrow
-    // sequence is incomplete. This matches the requested gameplay rule.
     if (gauge < SCORE_ZONE_START || gauge > SCORE_ZONE_END) {
       this.resolveMiss();
       return "miss" as Judgement;
@@ -201,9 +202,6 @@ export class RhythmRuntime {
         this.callbacks.onCountdown?.(value);
       }
       if (elapsed >= this.targetMs) {
-        // The first Perfect is the exact musical anchor. The numeric
-        // countdown ends here; START is rendered as a short visual pulse
-        // while SPACE is already accepted on the target beat.
         this.phase = "playing";
         this.setDomPhase("playing");
         this.pulseStart();
@@ -264,11 +262,9 @@ export class RhythmRuntime {
     if (judgement === "miss") {
       this.countdownValue = null;
       this.callbacks.onCountdown?.(null);
-
       const normalTurns = this.chart.turns?.length ?? 0;
       const resumeTurn = this.turnIndex + 2;
       const currentGaugeEnd = this.targetMs + this.fullGaugeLateWindowMs;
-
       this.penaltyResumeTurnIndex = resumeTurn < normalTurns ? resumeTurn : -1;
       this.penaltyUntilMs = Math.max(this.clock.elapsedMs, currentGaugeEnd) + this.perfectIntervalMs;
       this.phase = "penalty";
