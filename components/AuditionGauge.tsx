@@ -126,12 +126,16 @@ export default function AuditionGauge({
           <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} ry={zoneRadius} fill={`url(#${cyanGradientId})`} filter={`url(#${blurSoftId})`}/>
         </g>
 
+        {/* The SVG is intentionally non-uniformly scaled vertically to make the gauge 80% height.
+            Counter-scale only the slider around its center so the circular slider remains circular. */}
         <g transform={`translate(${sliderTranslate} 0)`}>
-          <g className={`pulse-red-glow-${id}`}>
-            <circle cx="150" cy="35" r="15" fill="#ff0044" filter={`url(#${blurGlowId})`} opacity=".5"/>
-            <circle cx="150" cy="35" r="14" fill="none" stroke="#e4e4e7" strokeWidth="2" opacity=".9"/>
-            <circle cx="150" cy="35" r="9" fill={`url(#${redGradientId})`}/>
-            <circle cx="150" cy="35" r="4" fill="#fff" opacity=".9"/>
+          <g transform="translate(150 35) scale(1 1.25) translate(-150 -35)">
+            <g className={`pulse-red-glow-${id}`}>
+              <circle cx="150" cy="35" r="15" fill="#ff0044" filter={`url(#${blurGlowId})`} opacity=".5"/>
+              <circle cx="150" cy="35" r="14" fill="none" stroke="#e4e4e7" strokeWidth="2" opacity=".9"/>
+              <circle cx="150" cy="35" r="9" fill={`url(#${redGradientId})`}/>
+              <circle cx="150" cy="35" r="4" fill="#fff" opacity=".9"/>
+            </g>
           </g>
         </g>
       </svg>
