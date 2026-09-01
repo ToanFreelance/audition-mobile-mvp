@@ -42,6 +42,8 @@ export default function AuditionGauge({
   const trackLeftX = 20;
   const trackWidth = 460;
   const trackCenterY = 35;
+  const zoneHeight = 30;
+  const zoneRadius = zoneHeight * 0.15;
   const x = (percent: number) => trackLeftX + (trackWidth * percent) / 100;
   const zoneX = x(safeZoneStart);
   const zoneRightX = x(safeZoneEnd);
@@ -56,7 +58,6 @@ export default function AuditionGauge({
   } as CSSProperties;
 
   const cyanGradientId = `${id}-cyanToWhiteGrad`;
-  const perfectGradientId = `${id}-perfectWhiteGrad`;
   const redGradientId = `${id}-redCoreGrad`;
   const blurGlowId = `${id}-blurGlow`;
   const blurSoftId = `${id}-blurSoft`;
@@ -67,7 +68,8 @@ export default function AuditionGauge({
       onPointerDown={onPointerDown}
       style={{ width: "100%", lineHeight: 0, touchAction: "manipulation" }}
     >
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 70" width="100%" height="auto" preserveAspectRatio="none" style={svgStyle} aria-label="Audition timing gauge">
+      {/* Crop the SVG viewport to the actual 460px track so the visible gauge is exactly the same width as command-strip. */}
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="20 0 460 70" width="100%" height="auto" preserveAspectRatio="none" style={svgStyle} aria-label="Audition timing gauge">
         <defs>
           <style>{`
             @keyframes auditionBeatPulse-${id}{
@@ -98,10 +100,22 @@ export default function AuditionGauge({
           <filter id={blurGlowId} x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter>
           <filter id={blurSoftId} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.5"/></filter>
           <linearGradient id={cyanGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0"/><stop offset="12%" stopColor="#00d8ff" stopOpacity=".85"/><stop offset="25%" stopColor="#70f3ff" stopOpacity=".95"/><stop offset="35%" stopColor="#fff" stopOpacity="1"/><stop offset="50%" stopColor="#fff" stopOpacity="1"/><stop offset="65%" stopColor="#fff" stopOpacity="1"/><stop offset="75%" stopColor="#70f3ff" stopOpacity=".95"/><stop offset="88%" stopColor="#00d8ff" stopOpacity=".85"/><stop offset="100%" stopColor="#00f0ff" stopOpacity="0"/>
+            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0"/>
+            <stop offset="12%" stopColor="#00d8ff" stopOpacity=".85"/>
+            <stop offset="25%" stopColor="#70f3ff" stopOpacity=".95"/>
+            <stop offset="35%" stopColor="#fff" stopOpacity="1"/>
+            <stop offset="50%" stopColor="#fff" stopOpacity="1"/>
+            <stop offset="65%" stopColor="#fff" stopOpacity="1"/>
+            <stop offset="75%" stopColor="#70f3ff" stopOpacity=".95"/>
+            <stop offset="88%" stopColor="#00d8ff" stopOpacity=".85"/>
+            <stop offset="100%" stopColor="#00f0ff" stopOpacity="0"/>
           </linearGradient>
-          <linearGradient id={perfectGradientId} x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#fff" stopOpacity=".35"/><stop offset="50%" stopColor="#fff" stopOpacity="1"/><stop offset="100%" stopColor="#fff" stopOpacity=".35"/></linearGradient>
-          <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#fff"/><stop offset="35%" stopColor="#ff4d4d"/><stop offset="70%" stopColor="#e11d48"/><stop offset="100%" stopColor="#880015"/></radialGradient>
+          <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#fff"/>
+            <stop offset="35%" stopColor="#ff4d4d"/>
+            <stop offset="70%" stopColor="#e11d48"/>
+            <stop offset="100%" stopColor="#880015"/>
+          </radialGradient>
         </defs>
 
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#000" opacity=".6"/>
@@ -109,10 +123,12 @@ export default function AuditionGauge({
         <rect x="22" y="14" width="456" height="42" rx="21" fill="none" stroke="#000" strokeWidth="1.5" opacity=".9"/>
 
         <g className={`breath-cyan-beat-${id}`}>
-          <rect x={zoneX} y="20" width={zoneWidth} height="30" fill="#00f0ff" filter={`url(#${blurGlowId})`} opacity=".5"/>
-          <rect x={zoneX} y="22" width={zoneWidth} height="26" fill={`url(#${cyanGradientId})`} filter={`url(#${blurSoftId})`}/>
+          <rect x={zoneX} y="20" width={zoneWidth} height={zoneHeight} rx={zoneRadius} ry={zoneRadius} fill="#00f0ff" filter={`url(#${blurGlowId})`} opacity=".5"/>
+          <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} ry={zoneRadius} fill={`url(#${cyanGradientId})`} filter={`url(#${blurSoftId})`}/>
         </g>
-        <rect x={x(safePerfectStart)} y="22" width={x(safePerfectEnd) - x(safePerfectStart)} height="26" fill={`url(#${perfectGradientId})`} opacity=".95"/>
+
+        {/* No separate Perfect overlay: the canonical zone gradient itself is the only white/cyan visual. */}
+        {safePerfectStart <= safePerfectEnd && null}
 
         <g transform={`translate(${sliderTranslate} 0)`}>
           <g className={`pulse-red-glow-${id}`}>
