@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import type { MusicConfig } from "../../../game/music-config";
 
 const TABLE = "music_charts";
-const AUDIO_BUCKET = "audio";
 
 type MusicChartRow = {
   id: string;
@@ -17,12 +16,6 @@ type MusicChartRow = {
   gameplay: MusicConfig["gameplay"];
   notes: string | null;
   updated_at?: string;
-};
-
-type StorageObject = {
-  name: string;
-  path?: string;
-  metadata?: { mimetype?: string | null } | null;
 };
 
 function supabaseConfig() {
@@ -72,39 +65,6 @@ function configToRow(config: MusicConfig): MusicChartRow {
     notes: config.notes ?? null,
     updated_at: config.updatedAt || new Date().toISOString(),
   };
-}
-
-function publicStorageUrl(url: string, path: string) {
-  return `${url}/storage/v1/object/public/${AUDIO_BUCKET}/${path
-    .split("/")
-    .map(segment => encodeURIComponent(segment))
-    .join("/")}`;
-}
-
-async function listAudioFiles(supabase: { url: string; key: string }) {
-  const response = await fetch(`${supabase.url}/storage/v1/object/list/${AUDIO_BUCKET}`, {
-    method: "POST",
-    headers: headers(supabase.key),
-    body: JSON.stringify({ prefix: "", limit: 100, offset: 0, sortBy: { column: "name", order: "asc" } }),
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`Storage list failed: ${detail}`);
-  }
-
-  const objects = await response.json() as StorageObject[];
-  return objects
-    .filter(object => /\.(mp3|m4a|aac|wav|ogg|webm)$/i.test(object.name))
-    .map(object => {
-      const path = object.path || object.name;
-      return {
-        name: object.name,
-        path,
-        audioUrl: publicStorageUrl(supabase.url, path),
-      };
-    });
 }
 
 export async function GET(request: NextRequest) {
@@ -170,17 +130,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase write failed" }, { status: 502 });
-  }
-}
-
-export async function OPTIONS() {
-  const supabase = supabaseConfig();
-  if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
-
-  try {
-    const files = await listAudioFiles(supabase);
-    return NextResponse.json({ bucket: AUDIO_BUCKET, files });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Storage read failed" }, { status: 502 });
   }
 }
