@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_MUSIC_CONFIG, type MusicConfig } from "../../../game/music-config";
+import { getGaugeTiming } from "../../../game/gauge-timing";
 import AuditionGauge from "../../../components/AuditionGauge";
 import "./music-config.css";
 
@@ -77,8 +78,9 @@ async function uploadLocalAudio(file: File) {
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!AUDIO_EXTENSIONS.has(extension)) throw new Error("Định dạng audio chưa được hỗ trợ.");
   const safeBase = file.name.replace(/\.[^.]+$/, "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "audio";
-  // Keep uploaded songs at the bucket root; do not create an `uploads` folder.
-  const objectPath = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeBase}.${extension}`;
+  // Keep uploaded songs at the bucket root and preserve a clean, human-readable filename.
+  // If the same name already exists, Supabase rejects the upload instead of silently overwriting it.
+  const objectPath = `${safeBase}.${extension}`;
   const uploadUrl = `${baseUrl}/storage/v1/object/${SUPABASE_BUCKET}/${objectPath.split("/").map(segment => encodeURIComponent(segment)).join("/")}`;
   const response = await fetch(uploadUrl, {
     method: "POST",
@@ -93,6 +95,7 @@ async function uploadLocalAudio(file: File) {
   });
   if (!response.ok) {
     const detail = await response.text();
+    if (response.status === 409) throw new Error(`File "${objectPath}" đã tồn tại trong Storage.`);
     throw new Error(detail || `Upload failed (${response.status})`);
   }
   return publicStorageUrl(baseUrl, objectPath);
@@ -157,13 +160,21 @@ export default function MusicConfigPage() {
     if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
   }, []);
 
+  const previewTiming = useMemo(() => getGaugeTiming({
+    bpm: config.bpm,
+    beatsPerCycle: config.gauge.beatsPerCycle,
+    spaceStartMs: config.spaceStartMs,
+    perfectCenterPercent: (config.gauge.perfectStartPercent + config.gauge.perfectEndPercent) / 2,
+  }, currentMs), [config.bpm, config.gauge, config.spaceStartMs, currentMs]);
+  const previewGauge = previewTiming.sliderPercent;
+  const previewAnimationDelayMs = useMemo(() => getGaugeTiming({
+    bpm: config.bpm,
+    beatsPerCycle: config.gauge.beatsPerCycle,
+    spaceStartMs: config.spaceStartMs,
+    perfectCenterPercent: (config.gauge.perfectStartPercent + config.gauge.perfectEndPercent) / 2,
+  }, 0).breathAnimationDelayMs, [config.bpm, config.gauge, config.spaceStartMs]);
+
   const parts = useMemo(() => msToParts(config.spaceStartMs), [config.spaceStartMs]);
-  const previewCycleMs = (60000 / Math.max(1, config.bpm)) * config.gauge.beatsPerCycle;
-  const previewGauge = useMemo(() => {
-    if (!previewCycleMs) return config.gauge.perfectStartPercent;
-    const raw = config.gauge.perfectStartPercent + ((currentMs - config.spaceStartMs) / previewCycleMs) * 100;
-    return ((raw % 100) + 100) % 100;
-  }, [config.gauge.perfectStartPercent, config.spaceStartMs, currentMs, previewCycleMs]);
 
   const patch = <K extends keyof MusicConfig>(key: K, value: MusicConfig[K]) => setConfig(prev => ({ ...prev, [key]: value, updatedAt: new Date().toISOString() }));
   const patchGauge = (key: keyof MusicConfig["gauge"], value: number) => setConfig(prev => ({ ...prev, gauge: { ...prev.gauge, [key]: value }, updatedAt: new Date().toISOString() }));
@@ -213,7 +224,13 @@ export default function MusicConfigPage() {
   const addTrack = () => fileInputRef.current?.click();
   const togglePlay = async () => { const audio = audioRef.current; if (!audio) return; if (audio.paused) await audio.play(); else audio.pause(); };
   const usePlayerTime = () => patch("spaceStartMs", Math.round((audioRef.current?.currentTime ?? 0) * 1000));
-  const seek = (ms: number) => { setCurrentMs(ms); if (audioRef.current) audioRef.current.currentTime = ms / 1000; };
+  const seek = (ms: number) => {
+    const safeMs = Math.max(0, Math.min(ms, Math.max(config.durationMs, 1)));
+    setCurrentMs(safeMs);
+    if (audioRef.current) audioRef.current.currentTime = safeMs / 1000;
+  };
+  const adjustPlayerTime = (deltaMs: number) => seek(Math.round(currentMs + deltaMs));
+  const adjustSpaceStart = (deltaMs: number) => patch("spaceStartMs", Math.max(0, Math.round(config.spaceStartMs + deltaMs)));
   const reset = () => { setLocalFile(null); const next = cloneDefault(); setConfig(next); setCurrentMs(0); setPlaying(false); setMessage("Đã reset về cấu hình mặc định."); window.setTimeout(() => audioRef.current?.load(), 0); };
   const refreshLibraries = async () => { const result = await fetchLibraries(); setLibrary(result.configs); setStorageFiles(result.storage); };
 
@@ -269,7 +286,6 @@ export default function MusicConfigPage() {
 
       <header className="config-header">
         <div><span className="eyebrow">CLUB AUDITION / TOOL</span><h1>Music Chart Config</h1><p>Canh audio và khai báo rule để runtime chơi đúng từng bài nhạc.</p></div>
-        <div className="header-actions"><button onClick={reset}>RESET</button><button className="primary" disabled={saving} onClick={() => void save()}>{saving ? "SAVING…" : "SAVE TO DB"}</button></div>
       </header>
 
       <div className="config-layout">
@@ -294,18 +310,31 @@ export default function MusicConfigPage() {
         <section className="config-panel editor-panel">
           <div className="panel-heading"><div><span>EDITOR</span><h2>{config.title}</h2></div><span className="clock-badge">● {formatTime(currentMs)}</span></div>
           <audio ref={audioRef} src={config.audioUrl} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onLoadedMetadata={event => { const duration = event.currentTarget.duration; if (Number.isFinite(duration)) patch("durationMs", Math.round(duration * 1000)); }} />
-          <div className="audio-player"><button className="play-button" onClick={() => void togglePlay()}>{playing ? "❚❚" : "▶"}</button><div className="audio-timeline"><input min="0" max={Math.max(config.durationMs, 1)} value={Math.min(currentMs, Math.max(config.durationMs, 1))} type="range" onChange={event => seek(Number(event.target.value))} /><div><span>{formatTime(currentMs)}</span><span>{formatTime(config.durationMs)}</span></div></div><button onClick={() => seek(Math.max(0, currentMs - 5000))}>−5s</button><button onClick={() => seek(Math.min(config.durationMs, currentMs + 5000))}>+5s</button></div>
+          <div className="audio-player">
+            <button className="play-button" onClick={() => void togglePlay()}>{playing ? "❚❚" : "▶"}</button>
+            <div className="audio-timeline"><input min="0" max={Math.max(config.durationMs, 1)} value={Math.min(currentMs, Math.max(config.durationMs, 1))} type="range" onChange={event => seek(Number(event.target.value))} /><div><span>{formatTime(currentMs)}</span><span>{formatTime(config.durationMs)}</span></div></div>
+            <button onClick={() => adjustPlayerTime(-5000)}>−5s</button><button onClick={() => adjustPlayerTime(5000)}>+5s</button>
+          </div>
+          <div className="fine-time-controls" aria-label="Fine audio timing controls">
+            <span>FINE</span>
+            <button onClick={() => adjustPlayerTime(-10)}>−10 ms</button>
+            <button onClick={() => adjustPlayerTime(-1)}>−1 ms</button>
+            <button onClick={() => adjustPlayerTime(1)}>+1 ms</button>
+            <button onClick={() => adjustPlayerTime(10)}>+10 ms</button>
+          </div>
 
-          <div className="space-card"><div className="card-heading"><div><span>TIMING ANCHOR</span><h3>Space start</h3></div><button className="accent-button" onClick={usePlayerTime}>USE PLAYER TIME</button></div><div className="time-editor"><label>MIN<input type="number" min="0" value={parts.m} onChange={e => patch("spaceStartMs", partsToMs(Number(e.target.value), parts.s, parts.ms))} /></label><label>SEC<input type="number" min="0" max="59" value={parts.s} onChange={e => patch("spaceStartMs", partsToMs(parts.m, Number(e.target.value), parts.ms))} /></label><label>MS<input type="number" min="0" max="999" value={parts.ms} onChange={e => patch("spaceStartMs", partsToMs(parts.m, parts.s, Number(e.target.value)))} /></label><output>{formatTime(config.spaceStartMs)}</output></div><p>Đây là <b>space start</b>: SPACE đầu tiên sau countdown, ngay tại zone perfect. Từ space start đến space start kế tiếp = <b>4 beat</b>.</p></div>
+          <div className="space-card"><div className="card-heading"><div><span>TIMING ANCHOR</span><h3>Space start</h3></div><button className="accent-button" onClick={usePlayerTime}>USE PLAYER TIME</button></div><div className="time-editor"><label>MIN<input type="number" min="0" value={parts.m} onChange={e => patch("spaceStartMs", partsToMs(Number(e.target.value), parts.s, parts.ms))} /></label><label>SEC<input type="number" min="0" max="59" value={parts.s} onChange={e => patch("spaceStartMs", partsToMs(parts.m, Number(e.target.value), parts.ms))} /></label><label>MS<input type="number" min="0" max="999" value={parts.ms} onChange={e => patch("spaceStartMs", partsToMs(parts.m, parts.s, Number(e.target.value)))} /></label><output>{formatTime(config.spaceStartMs)}</output></div><div className="space-fine-controls"><button onClick={() => adjustSpaceStart(-10)}>−10 ms</button><button onClick={() => adjustSpaceStart(-1)}>−1 ms</button><button onClick={() => adjustSpaceStart(1)}>+1 ms</button><button onClick={() => adjustSpaceStart(10)}>+10 ms</button></div><p>Đây là <b>space start</b>: SPACE đầu tiên sau countdown, ngay tại zone perfect. Từ space start đến space start kế tiếp = <b>4 beat</b>.</p></div>
 
-          <div className="section-grid"><div className="sub-card"><div className="card-heading"><div><span>SONG</span><h3>Track info</h3></div></div><label>Title<input value={config.title} onChange={e => patch("title", e.target.value)} /></label><label>Artist<input value={config.artist ?? ""} onChange={e => patch("artist", e.target.value)} /></label><label>BPM<input type="number" min="1" value={config.bpm} onChange={e => patch("bpm", Number(e.target.value))} /></label><label>Audio URL<input value={config.audioUrl} onChange={e => { setLocalFile(null); patch("audioUrl", e.target.value); }} /></label></div>
-            <div className="sub-card"><div className="card-heading"><div><span>GAUGE</span><h3>Timing zones</h3></div></div><div className="number-grid"><label>Zone start<input type="number" value={config.gauge.zoneStartPercent} onChange={e => patchGauge("zoneStartPercent", Number(e.target.value))} /></label><label>Zone end<input type="number" value={config.gauge.zoneEndPercent} onChange={e => patchGauge("zoneEndPercent", Number(e.target.value))} /></label><label>Perfect start<input type="number" value={config.gauge.perfectStartPercent} onChange={e => patchGauge("perfectStartPercent", Number(e.target.value))} /></label><label>Perfect end<input type="number" value={config.gauge.perfectEndPercent} onChange={e => patchGauge("perfectEndPercent", Number(e.target.value))} /></label></div><div className="gauge-config-preview"><AuditionGauge bpm={config.bpm} value={previewGauge} zoneStart={config.gauge.zoneStartPercent} zoneEnd={config.gauge.zoneEndPercent} perfectStart={config.gauge.perfectStartPercent} perfectEnd={config.gauge.perfectEndPercent} /></div><small>Breath = {config.gauge.breathCycleBeats} beats · stretch = beat {config.gauge.edgeStretchBeat}</small></div></div>
+          <div className="section-grid"><div className="sub-card"><div className="card-heading"><div><span>SONG</span><h3>Track info</h3></div></div><label>Title<input value={config.title} onChange={e => patch("title", e.target.value)} /></label><label>Artist<input value={config.artist ?? ""} onChange={e => patch("artist", e.target.value)} /></label><label>BPM<select className="bpm-mobile-picker" value={Math.round(config.bpm)} onChange={e => patch("bpm", Number(e.target.value))}>{Array.from({ length: 151 }, (_, index) => index + 50).map(value => <option key={value} value={value}>{value}</option>)}</select><input className="bpm-desktop-input" type="number" min="50" max="200" step="1" value={config.bpm} onChange={e => patch("bpm", Math.max(50, Math.min(200, Number(e.target.value))))} /></label><label>Audio URL<input value={config.audioUrl} onChange={e => { setLocalFile(null); patch("audioUrl", e.target.value); }} /></label></div>
+            <div className="sub-card"><div className="card-heading"><div><span>GAUGE</span><h3>Timing zones</h3></div></div><div className="number-grid"><label>Zone start<input type="number" min="0" max="100" value={config.gauge.zoneStartPercent} onChange={e => patchGauge("zoneStartPercent", Number(e.target.value))} /></label><label>Zone end<input type="number" min="0" max="100" value={config.gauge.zoneEndPercent} onChange={e => patchGauge("zoneEndPercent", Number(e.target.value))} /></label><label>Perfect start<input type="number" min="0" max="100" value={config.gauge.perfectStartPercent} onChange={e => patchGauge("perfectStartPercent", Number(e.target.value))} /></label><label>Perfect end<input type="number" min="0" max="100" value={config.gauge.perfectEndPercent} onChange={e => patchGauge("perfectEndPercent", Number(e.target.value))} /></label></div><div className="gauge-config-preview"><AuditionGauge bpm={config.bpm} value={previewGauge} animationDelayMs={previewAnimationDelayMs} zoneStart={config.gauge.zoneStartPercent} zoneEnd={config.gauge.zoneEndPercent} perfectStart={config.gauge.perfectStartPercent} perfectEnd={config.gauge.perfectEndPercent} /></div><div className="gauge-explanation"><b>Gauge này dùng để làm gì?</b><span>• Cyan = timing zone có thể hit.</span><span>• Vùng trắng ở giữa = Perfect window.</span><span>• Chấm đỏ = vị trí nhịp hiện tại trong chu kỳ 4 beat.</span><span>• <b>Space start</b> là mốc nhạc chuẩn; tại mốc này chấm đỏ sẽ nằm đúng tâm Perfect và beat 4/stretch của cyan cũng được đồng bộ vào mốc đó.</span><span>Thanh gauge chỉ là <b>visualization của phase</b>, không phải một slider độc lập để chọn Space start.</span></div><small>Breath = {config.gauge.breathCycleBeats} beats · stretch = beat {config.gauge.edgeStretchBeat} · phase {previewTiming.cycleElapsedMs.toFixed(0)} ms / {previewTiming.cycleMs.toFixed(0)} ms</small></div></div>
 
           <div className="sub-card gameplay-card"><div className="card-heading"><div><span>GAMEPLAY</span><h3>Turn / sequence rules</h3></div></div><div className="number-grid six"><label>L1–5 reveal pass<input type="number" value={config.gameplay.commandRevealPasses["1-5"]} onChange={e => patchGameplay("commandRevealPasses", { ...config.gameplay.commandRevealPasses, "1-5": Number(e.target.value) })} /></label><label>L6–9 reveal pass<input type="number" value={config.gameplay.commandRevealPasses["6-9"]} onChange={e => patchGameplay("commandRevealPasses", { ...config.gameplay.commandRevealPasses, "6-9": Number(e.target.value) })} /></label><label>L1–5 miss penalty<input type="number" value={config.gameplay.missPenaltyTurns["1-5"]} onChange={e => patchGameplay("missPenaltyTurns", { ...config.gameplay.missPenaltyTurns, "1-5": Number(e.target.value) })} /></label><label>L6–9 miss penalty<input type="number" value={config.gameplay.missPenaltyTurns["6-9"]} onChange={e => patchGameplay("missPenaltyTurns", { ...config.gameplay.missPenaltyTurns, "6-9": Number(e.target.value) })} /></label><label>Finish hide turns<input type="number" min="0" value={config.gameplay.finishHideTurns} onChange={e => patchGameplay("finishHideTurns", Number(e.target.value))} /></label><label>Resume level<input type="number" min="1" max="9" value={config.gameplay.finishResumeLevel} onChange={e => patchGameplay("finishResumeLevel", Number(e.target.value))} /></label></div><label className="checkbox-row"><input type="checkbox" checked={config.gameplay.finishReverseRequired} onChange={e => patchGameplay("finishReverseRequired", e.target.checked)} /> finish arrow-command bắt buộc có ít nhất 1 reverse arrow</label></div>
 
           <div className="json-card"><div className="card-heading"><div><span>OUTPUT</span><h3>Chart JSON</h3></div><span>{message}</span></div><pre>{JSON.stringify(config, null, 2)}</pre></div>
         </section>
       </div>
+
+      <div className="sticky-actions" role="region" aria-label="Chart actions"><div className="sticky-status">{message || "Sẵn sàng"}</div><button disabled={saving} onClick={reset}>RESET</button><button className="primary" disabled={saving} onClick={() => void save()}>{saving ? "SAVING…" : "SAVE TO DB"}</button></div>
 
       {saveDialog && <div className="save-dialog-backdrop" role="presentation" onMouseDown={() => setSaveDialog(null)}><div className="save-dialog" role="dialog" aria-modal="true" aria-labelledby="save-dialog-title" onMouseDown={event => event.stopPropagation()}><div className="save-dialog-icon">✓</div><span className="eyebrow">SAVE COMPLETE</span><h2 id="save-dialog-title">{saveDialog.title}</h2><p>{saveDialog.message}</p><div className="save-dialog-url"><span>Audio</span><b>{saveDialog.audioUrl}</b></div><button className="primary save-dialog-close" onClick={() => setSaveDialog(null)}>OK</button></div></div>}
     </main>
