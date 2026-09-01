@@ -7,23 +7,49 @@ type AuditionGaugeProps = {
   bpm: number;
   onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
   className?: string;
+  // Kept for compatibility with the existing GameShell call site.
+  // The supplied SVG remains authoritative for the actual visual zone geometry.
+  zoneStart?: number;
+  zoneEnd?: number;
+  perfectStart?: number;
+  perfectEnd?: number;
 };
 
 /** Exact runtime port of public/Gauge.svg.
  * Geometry, gradients, glow, slider artwork and beat-4 stretch are retained;
  * runtime only controls slider X-position and BPM-driven animation speed.
  */
-export default function AuditionGauge({ value, bpm, onPointerDown, className = "" }: AuditionGaugeProps) {
+export default function AuditionGauge({
+  value,
+  bpm,
+  onPointerDown,
+  className = "",
+}: AuditionGaugeProps) {
   const safeValue = Math.max(0, Math.min(100, value));
   const beatMs = 60000 / Math.max(1, bpm);
   const cycleMs = beatMs * 4;
   const sliderX = 20 + (460 * safeValue) / 100;
   const sliderTranslate = sliderX - 150;
-  const svgStyle = { "--gauge-cycle": `${cycleMs}ms`, "--gauge-beat": `${beatMs}ms` } as CSSProperties;
+  const svgStyle = {
+    "--gauge-cycle": `${cycleMs}ms`,
+    "--gauge-beat": `${beatMs}ms`,
+  } as CSSProperties;
 
   return (
-    <div className={`audition-gauge-svg ${className}`} onPointerDown={onPointerDown} style={{ width: "100%", lineHeight: 0, touchAction: "manipulation" }}>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 70" width="100%" height="auto" preserveAspectRatio="xMidYMid meet" style={svgStyle} aria-label="Audition timing gauge">
+    <div
+      className={`audition-gauge-svg ${className}`}
+      onPointerDown={onPointerDown}
+      style={{ width: "100%", lineHeight: 0, touchAction: "manipulation" }}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 500 70"
+        width="100%"
+        height="auto"
+        preserveAspectRatio="none"
+        style={svgStyle}
+        aria-label="Audition timing gauge"
+      >
         <defs>
           <style>{`
             @keyframes auditionBeatPulse{0%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}12.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}25%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}37.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}50%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}62.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}75%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}87.5%{opacity:1;transform:scaleX(1.6);filter:drop-shadow(0 0 20px #00f0ff) drop-shadow(0 0 28px #fff)}100%{opacity:.6;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}}
@@ -43,7 +69,6 @@ export default function AuditionGauge({ value, bpm, onPointerDown, className = "
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#0a0c14" fillOpacity=".85" stroke="#a1a1aa" strokeWidth="2"/>
         <rect x="22" y="14" width="456" height="42" rx="21" fill="none" stroke="#000" strokeWidth="1.5" opacity=".9"/>
 
-        {/* Outer group owns translation; inner group owns the original breathing pulse. */}
         <g transform={`translate(${sliderTranslate} 0)`}>
           <g className="pulse-red-glow">
             <circle cx="150" cy="35" r="15" fill="#ff0044" filter="url(#blurGlow)" opacity=".5"/>
@@ -53,7 +78,6 @@ export default function AuditionGauge({ value, bpm, onPointerDown, className = "
           </g>
         </g>
 
-        {/* Exact cyan/white score window from the supplied Gauge.svg. */}
         <g className="breath-cyan-beat">
           <rect x="285" y="20" width="125" height="30" rx="0" ry="0" fill="#00f0ff" filter="url(#blurGlow)" opacity=".5"/>
           <rect x="285" y="22" width="125" height="26" rx="0" ry="0" fill="url(#cyanToWhiteGrad)" filter="url(#blurSoft)"/>
