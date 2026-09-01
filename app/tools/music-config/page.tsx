@@ -5,6 +5,14 @@ import { DEFAULT_MUSIC_CONFIG, type MusicConfig } from "../../../game/music-conf
 import AuditionGauge from "../../../components/AuditionGauge";
 import "./music-config.css";
 
+type StorageAudioFile = {
+  name: string;
+  publicUrl: string;
+  updatedAt: string | null;
+  size: number | null;
+  mimeType: string | null;
+};
+
 function cloneDefault(): MusicConfig {
   return JSON.parse(JSON.stringify(DEFAULT_MUSIC_CONFIG)) as MusicConfig;
 }
@@ -14,42 +22,84 @@ function msToParts(ms: number) {
 }
 function partsToMs(m: number, s: number, ms: number) { return Math.max(0, m * 60000 + s * 1000 + ms); }
 function formatTime(ms: number) { const p = msToParts(ms); return `${String(p.m).padStart(2, "0")}:${String(p.s).padStart(2, "0")}.${String(p.ms).padStart(3, "0")}`; }
+function slugFromAudio(name: string) { return name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+function titleFromAudio(name: string) {
+  const base = name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").replace(/\b\d+(?:\.\d+)?\s*bpm\b/gi, "").replace(/\s+/g, " ").trim();
+  return base.replace(/\b\w/g, letter => letter.toUpperCase()) || "New Song";
+}
+function bpmFromAudio(name: string) {
+  const match = name.match(/(?:^|[-_\s])(\d+(?:\.\d+)?)\s*bpm(?:[-_\s]|$)/i);
+  return match ? Number(match[1]) : DEFAULT_MUSIC_CONFIG.bpm;
+}
+function formatBytes(bytes: number | null) {
+  if (bytes == null) return "";
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export default function MusicConfigPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [config, setConfig] = useState<MusicConfig>(() => cloneDefault());
   const [library, setLibrary] = useState<MusicConfig[]>([]);
+  const [storageFiles, setStorageFiles] = useState<StorageAudioFile[]>([]);
   const [currentMs, setCurrentMs] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    const loadConfig = async () => {
-      try {
-        const response = await fetch("/api/music-config", { cache: "no-store" });
-        if (response.ok) {
-          const data = await response.json() as { configs?: MusicConfig[] };
-          const configs = data.configs ?? [];
-          if (!cancelled) {
-            setLibrary(configs);
-            const selected = configs.find(item => item.id === DEFAULT_MUSIC_CONFIG.id) ?? configs[0];
-            if (selected) {
-              setConfig(selected);
-              localStorage.setItem("audition-music-config", JSON.stringify(selected));
-            }
-            setMessage(configs.length ? `Supabase: ${configs.length} bài nhạc.` : "Supabase đã kết nối, chưa có chart nào.");
-            return;
-          }
-        }
-      } catch { /* fall back to local test storage */ }
+    const loadLibrary = async () => {
+      const [configResult, storageResult] = await Promise.allSettled([
+        fetch("/api/music-config", { cache: "no-store" }),
+        fetch("/api/music-library", { cache: "no-store" }),
+      ]);
 
-      try {
-        const raw = localStorage.getItem("audition-music-config");
-        if (raw && !cancelled) setConfig(JSON.parse(raw) as MusicConfig);
-      } catch { /* keep defaults */ }
+      let configs: MusicConfig[] = [];
+      let storage: StorageAudioFile[] = [];
+      let configError = "";
+      let storageError = "";
+
+      if (configResult.status === "fulfilled" && configResult.value.ok) {
+        const data = await configResult.value.json() as { configs?: MusicConfig[] };
+        configs = data.configs ?? [];
+      } else {
+        configError = "Không đọc được music_charts";
+      }
+
+      if (storageResult.status === "fulfilled" && storageResult.value.ok) {
+        const data = await storageResult.value.json() as { files?: StorageAudioFile[] };
+        storage = data.files ?? [];
+      } else {
+        storageError = "Không đọc được Storage audio";
+      }
+
+      if (cancelled) return;
+
+      setLibrary(configs);
+      setStorageFiles(storage);
+
+      const selected = configs.find(item => item.id === DEFAULT_MUSIC_CONFIG.id) ?? configs[0];
+      if (selected) {
+        setConfig(selected);
+        localStorage.setItem("audition-music-config", JSON.stringify(selected));
+      }
+
+      const parts = [
+        `Chart: ${configs.length}`,
+        `Audio: ${storage.length}`,
+        configError,
+        storageError,
+      ].filter(Boolean);
+      setMessage(parts.join(" · "));
+
+      if (!configs.length && !storage.length) {
+        try {
+          const raw = localStorage.getItem("audition-music-config");
+          if (raw) setConfig(JSON.parse(raw) as MusicConfig);
+        } catch { /* keep defaults */ }
+      }
     };
-    void loadConfig();
+    void loadLibrary();
     return () => { cancelled = true; };
   }, []);
 
@@ -81,6 +131,26 @@ export default function MusicConfigPage() {
       if (audio) { audio.currentTime = 0; audio.load(); }
     }, 0);
     setMessage(`Đã chọn ${track.title}.`);
+  };
+
+  const importAudio = (file: StorageAudioFile) => {
+    const next = cloneDefault();
+    next.id = slugFromAudio(file.name) || `track-${Date.now()}`;
+    next.title = titleFromAudio(file.name);
+    next.audioUrl = file.publicUrl;
+    next.bpm = bpmFromAudio(file.name);
+    next.durationMs = 0;
+    next.updatedAt = new Date().toISOString();
+    setConfig(next);
+    setCurrentMs(0);
+    window.setTimeout(() => audioRef.current?.load(), 0);
+    setMessage(`Đã import audio ${file.name}. Kiểm tra chart rồi SAVE JSON + DB.`);
+  };
+
+  const chooseStorageFile = (file: StorageAudioFile) => {
+    const existing = library.find(track => track.audioUrl === file.publicUrl);
+    if (existing) chooseTrack(existing);
+    else importAudio(file);
   };
 
   const addTrack = () => {
@@ -156,9 +226,21 @@ export default function MusicConfigPage() {
       <div className="config-layout">
         <aside className="config-panel library-panel">
           <div className="panel-heading"><div><span>LIBRARY</span><h2>Music</h2></div><button onClick={addTrack}>＋ ADD</button></div>
-          {library.length === 0 && <div className="storage-note"><b>Supabase connected</b><br />Chưa có chart trong <code>music_charts</code>.<br />Chọn cấu hình mặc định, kiểm tra Audio URL rồi nhấn <b>SAVE JSON + DB</b> để tạo record đầu tiên.</div>}
+          {library.length === 0 && <div className="storage-note"><b>Supabase connected</b><br />Chưa có chart trong <code>music_charts</code>. Bạn có thể import audio bên dưới, cấu hình rồi SAVE JSON + DB.</div>}
           {library.map(track => <button key={track.id} className={`library-track ${config.id === track.id ? "active" : ""}`} onClick={() => chooseTrack(track)}><span className="track-cover">♫</span><span><b>{track.title}</b><small>{track.artist || "Unknown artist"} · {track.bpm} BPM</small></span></button>)}
-          <div className="storage-note"><b>Storage</b><br />Audio: Supabase Storage / URL<br />Chart: Supabase <code>music_charts</code>.<br /><br />JSON vẫn được export local để backup.</div>
+
+          <div className="storage-note">
+            <b>Storage Audio · {storageFiles.length}</b><br />
+            Audio: Supabase Storage / <code>audio</code>
+            <div className="storage-files">
+              {storageFiles.length === 0 && <small>Chưa tìm thấy file audio.</small>}
+              {storageFiles.map(file => {
+                const configured = library.some(track => track.audioUrl === file.publicUrl);
+                return <button key={file.publicUrl} className="storage-file" onClick={() => chooseStorageFile(file)}><span>♫</span><span><b>{file.name}</b><small>{configured ? "Configured chart" : "Audio chưa có chart"}{file.size ? ` · ${formatBytes(file.size)}` : ""}</small></span></button>;
+              })}
+            </div>
+            <br />Chart: Supabase <code>music_charts</code>.<br /><br />JSON vẫn được export local để backup.
+          </div>
         </aside>
 
         <section className="config-panel editor-panel">
