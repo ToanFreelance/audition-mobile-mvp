@@ -1,0 +1,1 @@
+The shared gauge maps the configured 0..100 score coordinate directly to the gameplay runtime. The original supplied artwork's white center was around 71%, while the scoring engine defines Perfect at 80%; the reusable gauge now overlays the configured Perfect interval at the engine coordinate.
