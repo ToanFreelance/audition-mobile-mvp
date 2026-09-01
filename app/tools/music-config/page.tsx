@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_MUSIC_CONFIG, type MusicConfig } from "../../../game/music-config";
+import AuditionGauge from "../../../components/AuditionGauge";
 import "./music-config.css";
 
 const AUDIO_LIBRARY = [
@@ -26,10 +27,27 @@ export default function MusicConfigPage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const raw = localStorage.getItem("audition-music-config");
-    if (raw) {
-      try { setConfig(JSON.parse(raw) as MusicConfig); } catch { /* keep defaults */ }
-    }
+    let cancelled = false;
+    const loadConfig = async () => {
+      try {
+        const response = await fetch(`/api/music-config?id=${encodeURIComponent(DEFAULT_MUSIC_CONFIG.id)}`, { cache: "no-store" });
+        if (response.ok) {
+          const data = await response.json() as { config?: MusicConfig };
+          if (!cancelled && data.config) {
+            setConfig(data.config);
+            localStorage.setItem("audition-music-config", JSON.stringify(data.config));
+            return;
+          }
+        }
+      } catch { /* fall back to local test storage */ }
+
+      try {
+        const raw = localStorage.getItem("audition-music-config");
+        if (raw && !cancelled) setConfig(JSON.parse(raw) as MusicConfig);
+      } catch { /* keep defaults */ }
+    };
+    void loadConfig();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -41,6 +59,13 @@ export default function MusicConfigPage() {
   }, []);
 
   const parts = useMemo(() => msToParts(config.spaceStartMs), [config.spaceStartMs]);
+  const previewCycleMs = (60000 / Math.max(1, config.bpm)) * config.gauge.beatsPerCycle;
+  const previewGauge = useMemo(() => {
+    if (!previewCycleMs) return config.gauge.perfectStartPercent;
+    const raw = config.gauge.perfectStartPercent + ((currentMs - config.spaceStartMs) / previewCycleMs) * 100;
+    return ((raw % 100) + 100) % 100;
+  }, [config.gauge.perfectStartPercent, config.spaceStartMs, currentMs, previewCycleMs]);
+
   const patch = <K extends keyof MusicConfig>(key: K, value: MusicConfig[K]) => setConfig(prev => ({ ...prev, [key]: value, updatedAt: new Date().toISOString() }));
   const patchGauge = (key: keyof MusicConfig["gauge"], value: number) => setConfig(prev => ({ ...prev, gauge: { ...prev.gauge, [key]: value }, updatedAt: new Date().toISOString() }));
   const patchGameplay = <K extends keyof MusicConfig["gameplay"]>(key: K, value: MusicConfig["gameplay"][K]) => setConfig(prev => ({ ...prev, gameplay: { ...prev.gameplay, [key]: value }, updatedAt: new Date().toISOString() }));
@@ -59,35 +84,51 @@ export default function MusicConfigPage() {
     setCurrentMs(ms);
     if (audioRef.current) audioRef.current.currentTime = ms / 1000;
   };
-  const save = () => {
+  const reset = () => {
+    const next = cloneDefault();
+    setConfig(next);
+    localStorage.setItem("audition-music-config", JSON.stringify(next));
+    setMessage("Đã reset về cấu hình mặc định.");
+  };
+  const save = async () => {
     const normalized = { ...config, updatedAt: new Date().toISOString() };
     const json = JSON.stringify(normalized, null, 2);
     localStorage.setItem("audition-music-config", json);
+
+    let dbSaved = false;
+    try {
+      const response = await fetch("/api/music-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(normalized),
+      });
+      dbSaved = response.ok;
+    } catch { /* local save remains available */ }
+
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url; link.download = `${normalized.id || "music-chart"}.json`; link.click(); URL.revokeObjectURL(url);
     setConfig(normalized);
-    setMessage("Đã lưu JSON vào local test storage.");
+    setMessage(dbSaved ? "Đã lưu JSON + Supabase." : "Đã lưu local/JSON; Supabase chưa sẵn sàng.");
   };
 
   return (
     <main className="music-config-page">
       <header className="config-header">
         <div>
-          <a className="config-back-button" href="/">← BACK TO READY</a>
           <span className="eyebrow">CLUB AUDITION / TOOL</span>
           <h1>Music Chart Config</h1>
           <p>Canh audio và khai báo rule để runtime chơi đúng từng bài nhạc.</p>
         </div>
-        <div className="header-actions"><button onClick={() => setConfig(cloneDefault())}>RESET</button><button className="primary" onClick={save}>SAVE JSON + DB</button></div>
+        <div className="header-actions"><button onClick={reset}>RESET</button><button className="primary" onClick={() => void save()}>SAVE JSON + DB</button></div>
       </header>
 
       <div className="config-layout">
         <aside className="config-panel library-panel">
           <div className="panel-heading"><div><span>LIBRARY</span><h2>Music</h2></div><button onClick={() => setConfig({ ...cloneDefault(), id: `track-${Date.now()}`, title: "New Song", audioUrl: "" })}>＋ ADD</button></div>
           {AUDIO_LIBRARY.map(track => <button key={track.id} className={`library-track ${config.audioUrl === track.url ? "active" : ""}`} onClick={() => chooseTrack(track.url, track.title)}><span className="track-cover">♫</span><span><b>{track.title}</b><small>local / public/audio</small></span></button>)}
-          <div className="storage-note"><b>Test storage</b><br />Audio: <code>public/audio</code><br />Chart: browser Local Storage + JSON export.<br /><br />Khi bật Supabase, chart sẽ chuyển sang PostgreSQL và audio sang Supabase Storage.</div>
+          <div className="storage-note"><b>Storage</b><br />Audio: <code>public/audio</code><br />Chart: Supabase PostgreSQL + local fallback.<br /><br />SAVE sẽ upsert chart vào <code>music_configs</code> khi Supabase env/table đã sẵn sàng.</div>
         </aside>
 
         <section className="config-panel editor-panel">
@@ -108,7 +149,7 @@ export default function MusicConfigPage() {
 
           <div className="section-grid">
             <div className="sub-card"><div className="card-heading"><div><span>SONG</span><h3>Track info</h3></div></div><label>Title<input value={config.title} onChange={e => patch("title", e.target.value)} /></label><label>Artist<input value={config.artist ?? ""} onChange={e => patch("artist", e.target.value)} /></label><label>BPM<input type="number" min="1" value={config.bpm} onChange={e => patch("bpm", Number(e.target.value))} /></label><label>Audio URL<input value={config.audioUrl} onChange={e => patch("audioUrl", e.target.value)} /></label></div>
-            <div className="sub-card"><div className="card-heading"><div><span>GAUGE</span><h3>Timing zones</h3></div></div><div className="number-grid"><label>Zone start<input type="number" value={config.gauge.zoneStartPercent} onChange={e => patchGauge("zoneStartPercent", Number(e.target.value))} /></label><label>Zone end<input type="number" value={config.gauge.zoneEndPercent} onChange={e => patchGauge("zoneEndPercent", Number(e.target.value))} /></label><label>Perfect start<input type="number" value={config.gauge.perfectStartPercent} onChange={e => patchGauge("perfectStartPercent", Number(e.target.value))} /></label><label>Perfect end<input type="number" value={config.gauge.perfectEndPercent} onChange={e => patchGauge("perfectEndPercent", Number(e.target.value))} /></label></div><div className="zone-preview"><i style={{ left: `${config.gauge.zoneStartPercent}%`, width: `${config.gauge.zoneEndPercent - config.gauge.zoneStartPercent}%` }} /><b style={{ left: `${config.gauge.perfectStartPercent}%`, width: `${config.gauge.perfectEndPercent - config.gauge.perfectStartPercent}%` }} /></div><small>Breath = {config.gauge.breathCycleBeats} beats · stretch = beat {config.gauge.edgeStretchBeat}</small></div>
+            <div className="sub-card"><div className="card-heading"><div><span>GAUGE</span><h3>Timing zones</h3></div></div><div className="number-grid"><label>Zone start<input type="number" value={config.gauge.zoneStartPercent} onChange={e => patchGauge("zoneStartPercent", Number(e.target.value))} /></label><label>Zone end<input type="number" value={config.gauge.zoneEndPercent} onChange={e => patchGauge("zoneEndPercent", Number(e.target.value))} /></label><label>Perfect start<input type="number" value={config.gauge.perfectStartPercent} onChange={e => patchGauge("perfectStartPercent", Number(e.target.value))} /></label><label>Perfect end<input type="number" value={config.gauge.perfectEndPercent} onChange={e => patchGauge("perfectEndPercent", Number(e.target.value))} /></label></div><div className="gauge-config-preview"><AuditionGauge bpm={config.bpm} value={previewGauge} zoneStart={config.gauge.zoneStartPercent} zoneEnd={config.gauge.zoneEndPercent} perfectStart={config.gauge.perfectStartPercent} perfectEnd={config.gauge.perfectEndPercent} /></div><small>Breath = {config.gauge.breathCycleBeats} beats · stretch = beat {config.gauge.edgeStretchBeat}</small></div>
           </div>
 
           <div className="sub-card gameplay-card"><div className="card-heading"><div><span>GAMEPLAY</span><h3>Turn / sequence rules</h3></div></div><div className="number-grid six"><label>L1–5 reveal pass<input type="number" value={config.gameplay.commandRevealPasses["1-5"]} onChange={e => patchGameplay("commandRevealPasses", { ...config.gameplay.commandRevealPasses, "1-5": Number(e.target.value) })} /></label><label>L6–9 reveal pass<input type="number" value={config.gameplay.commandRevealPasses["6-9"]} onChange={e => patchGameplay("commandRevealPasses", { ...config.gameplay.commandRevealPasses, "6-9": Number(e.target.value) })} /></label><label>L1–5 miss penalty<input type="number" value={config.gameplay.missPenaltyTurns["1-5"]} onChange={e => patchGameplay("missPenaltyTurns", { ...config.gameplay.missPenaltyTurns, "1-5": Number(e.target.value) })} /></label><label>L6–9 miss penalty<input type="number" value={config.gameplay.missPenaltyTurns["6-9"]} onChange={e => patchGameplay("missPenaltyTurns", { ...config.gameplay.missPenaltyTurns, "6-9": Number(e.target.value) })} /></label><label>Finish hide turns<input type="number" min="0" value={config.gameplay.finishHideTurns} onChange={e => patchGameplay("finishHideTurns", Number(e.target.value))} /></label><label>Resume level<input type="number" min="1" max="9" value={config.gameplay.finishResumeLevel} onChange={e => patchGameplay("finishResumeLevel", Number(e.target.value))} /></label></div><label className="checkbox-row"><input type="checkbox" checked={config.gameplay.finishReverseRequired} onChange={e => patchGameplay("finishReverseRequired", e.target.checked)} /> finish arrow-command bắt buộc có ít nhất 1 reverse arrow</label></div>
