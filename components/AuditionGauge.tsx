@@ -16,16 +16,11 @@ type AuditionGaugeProps = {
   stretchRatio?: number;
 };
 
-/**
- * The canonical Audition gauge skin.
- *
- * IMPORTANT: keep this SVG visual structure intact. Runtime owns timing and
- * supplies `value` + `animationDelayMs`; this component owns only rendering.
- */
+/** Canonical Audition gauge SVG. Runtime owns timing; this component owns the visual skin. */
 export default function AuditionGauge({
   value,
   bpm,
-  animationDelayMs = 0,
+  animationDelayMs,
   onPointerDown,
   className = "",
   zoneStart = 70,
@@ -57,7 +52,7 @@ export default function AuditionGauge({
   const svgStyle = {
     "--gauge-cycle": `${cycleMs}ms`,
     "--gauge-beat": `${beatMs}ms`,
-    "--gauge-animation-delay": `${animationDelayMs}ms`,
+    ...(animationDelayMs !== undefined ? { "--gauge-animation-delay": `${animationDelayMs}ms` } : {}),
   } as CSSProperties;
 
   const cyanGradientId = `${id}-cyanToWhiteGrad`;
@@ -72,15 +67,7 @@ export default function AuditionGauge({
       onPointerDown={onPointerDown}
       style={{ width: "100%", lineHeight: 0, touchAction: "manipulation" }}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 500 70"
-        width="100%"
-        height="auto"
-        preserveAspectRatio="none"
-        style={svgStyle}
-        aria-label="Audition timing gauge"
-      >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 70" width="100%" height="auto" preserveAspectRatio="none" style={svgStyle} aria-label="Audition timing gauge">
         <defs>
           <style>{`
             @keyframes auditionBeatPulse-${id}{
@@ -101,7 +88,7 @@ export default function AuditionGauge({
             .breath-cyan-beat-${id}{
               transform-origin:${zoneCenterX}px ${trackCenterY}px;
               animation:auditionBeatPulse-${id} var(--gauge-cycle) cubic-bezier(.4,0,.2,1) infinite;
-              animation-delay:var(--gauge-animation-delay);
+              animation-delay:var(--gauge-animation-delay, var(--gauge-breath-delay, 0ms));
             }
             .pulse-red-glow-${id}{
               transform-origin:150px ${trackCenterY}px;
@@ -111,27 +98,10 @@ export default function AuditionGauge({
           <filter id={blurGlowId} x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.5"/></filter>
           <filter id={blurSoftId} x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.5"/></filter>
           <linearGradient id={cyanGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0"/>
-            <stop offset="12%" stopColor="#00d8ff" stopOpacity=".85"/>
-            <stop offset="25%" stopColor="#70f3ff" stopOpacity=".95"/>
-            <stop offset="35%" stopColor="#fff" stopOpacity="1"/>
-            <stop offset="50%" stopColor="#fff" stopOpacity="1"/>
-            <stop offset="65%" stopColor="#fff" stopOpacity="1"/>
-            <stop offset="75%" stopColor="#70f3ff" stopOpacity=".95"/>
-            <stop offset="88%" stopColor="#00d8ff" stopOpacity=".85"/>
-            <stop offset="100%" stopColor="#00f0ff" stopOpacity="0"/>
+            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0"/><stop offset="12%" stopColor="#00d8ff" stopOpacity=".85"/><stop offset="25%" stopColor="#70f3ff" stopOpacity=".95"/><stop offset="35%" stopColor="#fff" stopOpacity="1"/><stop offset="50%" stopColor="#fff" stopOpacity="1"/><stop offset="65%" stopColor="#fff" stopOpacity="1"/><stop offset="75%" stopColor="#70f3ff" stopOpacity=".95"/><stop offset="88%" stopColor="#00d8ff" stopOpacity=".85"/><stop offset="100%" stopColor="#00f0ff" stopOpacity="0"/>
           </linearGradient>
-          <linearGradient id={perfectGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#fff" stopOpacity=".35"/>
-            <stop offset="50%" stopColor="#fff" stopOpacity="1"/>
-            <stop offset="100%" stopColor="#fff" stopOpacity=".35"/>
-          </linearGradient>
-          <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#fff"/>
-            <stop offset="35%" stopColor="#ff4d4d"/>
-            <stop offset="70%" stopColor="#e11d48"/>
-            <stop offset="100%" stopColor="#880015"/>
-          </radialGradient>
+          <linearGradient id={perfectGradientId} x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#fff" stopOpacity=".35"/><stop offset="50%" stopColor="#fff" stopOpacity="1"/><stop offset="100%" stopColor="#fff" stopOpacity=".35"/></linearGradient>
+          <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#fff"/><stop offset="35%" stopColor="#ff4d4d"/><stop offset="70%" stopColor="#e11d48"/><stop offset="100%" stopColor="#880015"/></radialGradient>
         </defs>
 
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#000" opacity=".6"/>
