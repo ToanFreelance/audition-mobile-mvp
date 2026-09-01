@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { MusicConfig } from "../../../game/music-config";
 
-const TABLE = "music_configs";
+const TABLE = "music_charts";
 
-type MusicConfigRow = {
+type MusicChartRow = {
   id: string;
-  config: MusicConfig;
+  title: string;
+  artist: string | null;
+  audio_url: string;
+  duration_ms: number;
+  bpm: number;
+  space_start_ms: number;
+  space_start_beat: number | null;
+  gauge: MusicConfig["gauge"];
+  gameplay: MusicConfig["gameplay"];
+  notes: string | null;
   updated_at?: string;
 };
 
 function supabaseConfig() {
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) return null;
   return { url: url.replace(/\/$/, ""), key };
 }
@@ -24,25 +33,64 @@ function headers(key: string) {
   };
 }
 
+function rowToConfig(row: MusicChartRow): MusicConfig {
+  return {
+    id: row.id,
+    title: row.title,
+    artist: row.artist ?? "",
+    audioUrl: row.audio_url,
+    durationMs: row.duration_ms ?? 0,
+    bpm: Number(row.bpm),
+    spaceStartMs: row.space_start_ms,
+    spaceStartBeat: row.space_start_beat == null ? undefined : Number(row.space_start_beat),
+    gauge: row.gauge,
+    gameplay: row.gameplay,
+    notes: row.notes ?? undefined,
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  };
+}
+
+function configToRow(config: MusicConfig): MusicChartRow {
+  return {
+    id: config.id,
+    title: config.title,
+    artist: config.artist ?? null,
+    audio_url: config.audioUrl,
+    duration_ms: Math.max(0, Math.round(config.durationMs)),
+    bpm: Number(config.bpm),
+    space_start_ms: Math.max(0, Math.round(config.spaceStartMs)),
+    space_start_beat: config.spaceStartBeat ?? null,
+    gauge: config.gauge,
+    gameplay: config.gameplay,
+    notes: config.notes ?? null,
+    updated_at: config.updatedAt || new Date().toISOString(),
+  };
+}
+
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
-
   const supabase = supabaseConfig();
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
 
   try {
-    const response = await fetch(
-      `${supabase.url}/rest/v1/${TABLE}?select=id,config,updated_at&id=eq.${encodeURIComponent(id)}&limit=1`,
-      { headers: headers(supabase.key), cache: "no-store" },
-    );
+    const select = "id,title,artist,audio_url,duration_ms,bpm,space_start_ms,space_start_beat,gauge,gameplay,notes,updated_at";
+    const query = id
+      ? `?select=${select}&id=eq.${encodeURIComponent(id)}&limit=1`
+      : `?select=${select}&order=updated_at.desc`;
+
+    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}${query}`, {
+      headers: headers(supabase.key),
+      cache: "no-store",
+    });
+
     if (!response.ok) {
       const detail = await response.text();
       return NextResponse.json({ error: "Supabase read failed", detail }, { status: 502 });
     }
 
-    const rows = await response.json() as MusicConfigRow[];
-    return NextResponse.json({ config: rows[0]?.config ?? null });
+    const rows = await response.json() as MusicChartRow[];
+    const configs = rows.map(rowToConfig);
+    return NextResponse.json(id ? { config: configs[0] ?? null } : { configs });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase read failed" }, { status: 502 });
   }
@@ -56,27 +104,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (!config?.id || !config.title || !config.audioUrl) {
+  if (!config?.id || !config.title || !config.audioUrl || !Number.isFinite(config.bpm)) {
     return NextResponse.json({ error: "Invalid music config" }, { status: 400 });
   }
 
   const supabase = supabaseConfig();
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
 
-  const row: MusicConfigRow = {
-    id: config.id,
-    config,
-    updated_at: new Date().toISOString(),
-  };
-
   try {
-    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}`, {
+    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}?on_conflict=id`, {
       method: "POST",
       headers: {
         ...headers(supabase.key),
         Prefer: "resolution=merge-duplicates,return=minimal",
       },
-      body: JSON.stringify(row),
+      body: JSON.stringify(configToRow({ ...config, updatedAt: new Date().toISOString() })),
       cache: "no-store",
     });
 
