@@ -25,8 +25,8 @@ export default function AuditionGauge({
   className = "",
   zoneStart = 70,
   zoneEnd = 90,
-  perfectStart = 79,
-  perfectEnd = 81,
+  perfectStart: _perfectStart = 79,
+  perfectEnd: _perfectEnd = 81,
   stretchRatio = 1.6,
 }: AuditionGaugeProps) {
   const id = useId().replace(/:/g, "");
@@ -34,8 +34,6 @@ export default function AuditionGauge({
   const safeValue = clamp(value);
   const safeZoneStart = clamp(Math.min(zoneStart, zoneEnd));
   const safeZoneEnd = clamp(Math.max(zoneStart, zoneEnd));
-  const safePerfectStart = Math.max(safeZoneStart, Math.min(safeZoneEnd, perfectStart));
-  const safePerfectEnd = Math.max(safePerfectStart, Math.min(safeZoneEnd, perfectEnd));
 
   const beatMs = 60000 / Math.max(1, bpm);
   const cycleMs = beatMs * 4;
@@ -68,7 +66,7 @@ export default function AuditionGauge({
       onPointerDown={onPointerDown}
       style={{ width: "100%", lineHeight: 0, touchAction: "manipulation" }}
     >
-      {/* Crop the SVG viewport to the actual 460px track so the visible gauge is exactly the same width as command-strip. */}
+      {/* The SVG viewport is cropped to the actual 460px track so its visible width matches command-strip exactly. */}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="20 0 460 70" width="100%" height="auto" preserveAspectRatio="none" style={svgStyle} aria-label="Audition timing gauge">
         <defs>
           <style>{`
@@ -126,9 +124,6 @@ export default function AuditionGauge({
           <rect x={zoneX} y="20" width={zoneWidth} height={zoneHeight} rx={zoneRadius} ry={zoneRadius} fill="#00f0ff" filter={`url(#${blurGlowId})`} opacity=".5"/>
           <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} ry={zoneRadius} fill={`url(#${cyanGradientId})`} filter={`url(#${blurSoftId})`}/>
         </g>
-
-        {/* No separate Perfect overlay: the canonical zone gradient itself is the only white/cyan visual. */}
-        {safePerfectStart <= safePerfectEnd && null}
 
         <g transform={`translate(${sliderTranslate} 0)`}>
           <g className={`pulse-red-glow-${id}`}>
