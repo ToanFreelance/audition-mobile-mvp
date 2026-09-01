@@ -5,10 +5,6 @@ import { DEFAULT_MUSIC_CONFIG, type MusicConfig } from "../../../game/music-conf
 import AuditionGauge from "../../../components/AuditionGauge";
 import "./music-config.css";
 
-const AUDIO_LIBRARY = [
-  { id: "please-tell-me-why", title: "Please Tell Me Why", url: "/audio/Please%20tell%20me%20why.mp3" },
-];
-
 function cloneDefault(): MusicConfig {
   return JSON.parse(JSON.stringify(DEFAULT_MUSIC_CONFIG)) as MusicConfig;
 }
@@ -22,6 +18,7 @@ function formatTime(ms: number) { const p = msToParts(ms); return `${String(p.m)
 export default function MusicConfigPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [config, setConfig] = useState<MusicConfig>(() => cloneDefault());
+  const [library, setLibrary] = useState<MusicConfig[]>([]);
   const [currentMs, setCurrentMs] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [message, setMessage] = useState("");
@@ -30,12 +27,18 @@ export default function MusicConfigPage() {
     let cancelled = false;
     const loadConfig = async () => {
       try {
-        const response = await fetch(`/api/music-config?id=${encodeURIComponent(DEFAULT_MUSIC_CONFIG.id)}`, { cache: "no-store" });
+        const response = await fetch("/api/music-config", { cache: "no-store" });
         if (response.ok) {
-          const data = await response.json() as { config?: MusicConfig };
-          if (!cancelled && data.config) {
-            setConfig(data.config);
-            localStorage.setItem("audition-music-config", JSON.stringify(data.config));
+          const data = await response.json() as { configs?: MusicConfig[] };
+          const configs = data.configs ?? [];
+          if (!cancelled) {
+            setLibrary(configs);
+            const selected = configs.find(item => item.id === DEFAULT_MUSIC_CONFIG.id) ?? configs[0];
+            if (selected) {
+              setConfig(selected);
+              localStorage.setItem("audition-music-config", JSON.stringify(selected));
+            }
+            setMessage(configs.length ? `Supabase: ${configs.length} bài nhạc.` : "Supabase đã kết nối, chưa có chart nào.");
             return;
           }
         }
@@ -70,10 +73,26 @@ export default function MusicConfigPage() {
   const patchGauge = (key: keyof MusicConfig["gauge"], value: number) => setConfig(prev => ({ ...prev, gauge: { ...prev.gauge, [key]: value }, updatedAt: new Date().toISOString() }));
   const patchGameplay = <K extends keyof MusicConfig["gameplay"]>(key: K, value: MusicConfig["gameplay"][K]) => setConfig(prev => ({ ...prev, gameplay: { ...prev.gameplay, [key]: value }, updatedAt: new Date().toISOString() }));
 
-  const chooseTrack = (url: string, title: string) => {
-    setConfig(prev => ({ ...prev, audioUrl: url, title, updatedAt: new Date().toISOString() }));
-    window.setTimeout(() => audioRef.current?.load(), 0);
+  const chooseTrack = (track: MusicConfig) => {
+    setConfig(track);
+    setCurrentMs(0);
+    window.setTimeout(() => {
+      const audio = audioRef.current;
+      if (audio) { audio.currentTime = 0; audio.load(); }
+    }, 0);
+    setMessage(`Đã chọn ${track.title}.`);
   };
+
+  const addTrack = () => {
+    const next = cloneDefault();
+    next.id = `track-${Date.now()}`;
+    next.title = "New Song";
+    next.audioUrl = "";
+    next.updatedAt = new Date().toISOString();
+    setConfig(next);
+    setMessage("Đã tạo chart mới. Điền Audio URL rồi SAVE JSON + DB.");
+  };
+
   const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -95,22 +114,32 @@ export default function MusicConfigPage() {
     const json = JSON.stringify(normalized, null, 2);
     localStorage.setItem("audition-music-config", json);
 
-    let dbSaved = false;
     try {
       const response = await fetch("/api/music-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(normalized),
       });
-      dbSaved = response.ok;
-    } catch { /* local save remains available */ }
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({})) as { detail?: string; error?: string };
+        throw new Error(detail.detail || detail.error || `HTTP ${response.status}`);
+      }
+
+      const listResponse = await fetch("/api/music-config", { cache: "no-store" });
+      if (listResponse.ok) {
+        const data = await listResponse.json() as { configs?: MusicConfig[] };
+        setLibrary(data.configs ?? []);
+      }
+      setMessage("Đã lưu JSON + Supabase music_charts.");
+    } catch (error) {
+      setMessage(`Đã lưu local/JSON; Supabase lỗi: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
 
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url; link.download = `${normalized.id || "music-chart"}.json`; link.click(); URL.revokeObjectURL(url);
     setConfig(normalized);
-    setMessage(dbSaved ? "Đã lưu JSON + Supabase." : "Đã lưu local/JSON; Supabase chưa sẵn sàng.");
   };
 
   return (
@@ -126,9 +155,10 @@ export default function MusicConfigPage() {
 
       <div className="config-layout">
         <aside className="config-panel library-panel">
-          <div className="panel-heading"><div><span>LIBRARY</span><h2>Music</h2></div><button onClick={() => setConfig({ ...cloneDefault(), id: `track-${Date.now()}`, title: "New Song", audioUrl: "" })}>＋ ADD</button></div>
-          {AUDIO_LIBRARY.map(track => <button key={track.id} className={`library-track ${config.audioUrl === track.url ? "active" : ""}`} onClick={() => chooseTrack(track.url, track.title)}><span className="track-cover">♫</span><span><b>{track.title}</b><small>local / public/audio</small></span></button>)}
-          <div className="storage-note"><b>Storage</b><br />Audio: <code>public/audio</code><br />Chart: Supabase PostgreSQL + local fallback.<br /><br />SAVE sẽ upsert chart vào <code>music_configs</code> khi Supabase env/table đã sẵn sàng.</div>
+          <div className="panel-heading"><div><span>LIBRARY</span><h2>Music</h2></div><button onClick={addTrack}>＋ ADD</button></div>
+          {library.length === 0 && <div className="storage-note"><b>Supabase connected</b><br />Chưa có chart trong <code>music_charts</code>.<br />Chọn cấu hình mặc định, kiểm tra Audio URL rồi nhấn <b>SAVE JSON + DB</b> để tạo record đầu tiên.</div>}
+          {library.map(track => <button key={track.id} className={`library-track ${config.id === track.id ? "active" : ""}`} onClick={() => chooseTrack(track)}><span className="track-cover">♫</span><span><b>{track.title}</b><small>{track.artist || "Unknown artist"} · {track.bpm} BPM</small></span></button>)}
+          <div className="storage-note"><b>Storage</b><br />Audio: Supabase Storage / URL<br />Chart: Supabase <code>music_charts</code>.<br /><br />JSON vẫn được export local để backup.</div>
         </aside>
 
         <section className="config-panel editor-panel">
