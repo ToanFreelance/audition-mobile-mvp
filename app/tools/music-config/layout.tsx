@@ -1,4 +1,5 @@
 import Link from "next/link";
+import StorageAudioAdminControls from "./StorageAudioAdminControls";
 import "./config-layout.css";
 
 export default function MusicConfigLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -9,6 +10,7 @@ export default function MusicConfigLayout({ children }: Readonly<{ children: Rea
         <span>Music Chart Config</span>
       </nav>
       {children}
+      <StorageAudioAdminControls />
     </div>
   );
 }
