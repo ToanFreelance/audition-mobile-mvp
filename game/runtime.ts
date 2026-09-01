@@ -76,6 +76,8 @@ export class RhythmRuntime {
     this.countdownValue = null;
     this.lastStatsSignature = "";
     this.clock.start();
+    this.syncGaugeVisualPhase();
+    this.syncGaugeVisibility();
     this.setDomPhase("intro");
     this.callbacks.onPhase?.("intro");
     this.callbacks.onCountdown?.(null);
@@ -93,6 +95,7 @@ export class RhythmRuntime {
       this.startPulseTimer = null;
     }
     this.started = false;
+    this.setGaugeVisible(false);
     this.setDomPhase("idle");
     this.clearStartPulse();
   }
@@ -115,11 +118,6 @@ export class RhythmRuntime {
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
 
-  /** Gauge timing is derived from the music's space-start anchor.
-   * The first visible cycle is the earliest non-negative cycle boundary that
-   * has the same phase as space-start. Each 4-beat cycle returns the slider to
-   * the Perfect anchor, while the SVG breath is phase-locked to that boundary.
-   */
   get gaugeTiming() {
     return getGaugeTiming({
       bpm: this.chart.bpm,
@@ -177,6 +175,7 @@ export class RhythmRuntime {
   private loop = () => {
     if (!this.started || this.finished) return;
     const elapsed = this.clock.elapsedMs;
+    this.syncGaugeVisibility();
     const countdownStart = this.targetMs - this.countdownDurationMs;
     const readyStart = Math.max(0, countdownStart - READY_DURATION_MS);
 
@@ -255,6 +254,7 @@ export class RhythmRuntime {
       this.started = false;
       this.phase = "finished";
       this.setDomPhase("finished");
+      this.setGaugeVisible(false);
       this.callbacks.onSequence?.([], 0);
       this.callbacks.onFinished?.({ ...this.engine.stats });
       return;
@@ -315,9 +315,31 @@ export class RhythmRuntime {
     if (force || signature !== this.lastStatsSignature) { this.lastStatsSignature = signature; this.callbacks.onStats?.({ ...this.engine.stats }); }
   }
 
+  private syncGaugeVisibility() {
+    this.setGaugeVisible(this.started && !this.finished && this.gaugeTiming.visible);
+  }
+
+  private syncGaugeAnimationPhase() {
+    if (typeof document === "undefined") return;
+    const timing = getGaugeTiming({
+      bpm: this.chart.bpm,
+      spaceStartMs: this.firstPerfectMs,
+      beatsPerCycle: TURN_INTERVAL_BEATS,
+      perfectCenterPercent: PERFECT_CENTER,
+    }, this.clock.elapsedMs);
+    const root = document.documentElement;
+    root.style.setProperty("--gauge-breath-delay", `${timing.breathAnimationDelayMs}ms`);
+  }
+
+  private setGaugeVisible(visible: boolean) {
+    if (typeof document === "undefined") return;
+    document.documentElement.dataset.gaugeVisible = visible ? "1" : "0";
+  }
+
   private setDomPhase(phase: RhythmPhase) {
     if (typeof document === "undefined") return;
     document.documentElement.dataset.rhythmPhase = phase;
+    this.syncGaugeAnimationPhase();
   }
 
   private pulseStart() {
