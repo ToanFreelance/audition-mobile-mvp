@@ -10,6 +10,7 @@ type MusicChartRow = {
   audio_url: string;
   duration_ms: number;
   bpm: number;
+  bpm_exact: number | null;
   space_start_ms: number;
   space_start_beat: number | null;
   gauge: MusicConfig["gauge"];
@@ -41,6 +42,7 @@ function rowToConfig(row: MusicChartRow): MusicConfig {
     audioUrl: row.audio_url,
     durationMs: row.duration_ms ?? 0,
     bpm: Number(row.bpm),
+    BPM_exact: row.bpm_exact == null ? undefined : Number(row.bpm_exact),
     spaceStartMs: row.space_start_ms,
     spaceStartBeat: row.space_start_beat == null ? undefined : Number(row.space_start_beat),
     gauge: row.gauge,
@@ -58,6 +60,7 @@ function configToRow(config: MusicConfig): MusicChartRow {
     audio_url: config.audioUrl,
     duration_ms: Math.max(0, Math.round(config.durationMs)),
     bpm: Number(config.bpm),
+    bpm_exact: Number.isFinite(config.BPM_exact) ? Number(config.BPM_exact) : null,
     space_start_ms: Math.max(0, Math.round(config.spaceStartMs)),
     space_start_beat: config.spaceStartBeat ?? null,
     gauge: config.gauge,
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
 
   try {
-    const select = "id,title,artist,audio_url,duration_ms,bpm,space_start_ms,space_start_beat,gauge,gameplay,notes,updated_at";
+    const select = "id,title,artist,audio_url,duration_ms,bpm,bpm_exact,space_start_ms,space_start_beat,gauge,gameplay,notes,updated_at";
     const query = id
       ? `?select=${select}&id=eq.${encodeURIComponent(id)}&limit=1`
       : `?select=${select}&order=updated_at.desc`;
