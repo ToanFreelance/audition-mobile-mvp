@@ -28,6 +28,7 @@ export default function MusicConfigPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   const [config, setConfig] = useState<EditableConfig>(cloneDefault);
   const [library, setLibrary] = useState<MusicConfig[]>([]);
@@ -103,7 +104,23 @@ export default function MusicConfigPage() {
 
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
   }, []);
+
+  const syncPlayerTime = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    setCurrentTimeMs(Math.round(audio.currentTime * 1000));
+    if (!audio.paused && !audio.ended) {
+      rafRef.current = requestAnimationFrame(syncPlayerTime);
+    } else {
+      rafRef.current = null;
+    }
+  }, []);
+
+  const startPlayerClock = useCallback(() => {
+    if (rafRef.current === null) rafRef.current = requestAnimationFrame(syncPlayerTime);
+  }, [syncPlayerTime]);
 
   const setAudioSource = useCallback((url: string) => {
     const audio = audioRef.current;
@@ -123,6 +140,7 @@ export default function MusicConfigPage() {
     if (!audio) return;
     const duration = Number.isFinite(audio.duration) ? audio.duration * 1000 : Infinity;
     audio.currentTime = Math.max(0, Math.min(duration, ms)) / 1000;
+    setCurrentTimeMs(Math.round(audio.currentTime * 1000));
   }, []);
 
   const seekBy = useCallback((deltaMs: number) => {
@@ -130,6 +148,7 @@ export default function MusicConfigPage() {
     if (!audio) return;
     const next = Math.max(0, Math.min(Number.isFinite(audio.duration) ? audio.duration * 1000 : Infinity, audio.currentTime * 1000 + deltaMs));
     audio.currentTime = next / 1000;
+    setCurrentTimeMs(Math.round(next));
   }, []);
 
   const usePlayerTime = () => {
@@ -137,7 +156,7 @@ export default function MusicConfigPage() {
     patch("spaceStartMs", value);
     patch("spaceStartBeat", 1);
     setSelectedAnchorMs(value);
-    setMessage(`Space Start = ${formatTime(value)}.`);
+    setMessage(`Space Start = ${formatTime(value, 3)}.`);
   };
 
   const chooseLocalFile = (file?: File) => {
@@ -283,6 +302,19 @@ export default function MusicConfigPage() {
   const timingBpm = typeof exactBpm === "number" && Number.isFinite(exactBpm) && exactBpm > 0 ? exactBpm : config.bpm;
   const currentLibraryTrack = config.id ? library.find(item => item.id === config.id) : undefined;
   const selectedStorage = storageFiles.find(item => item.url === config.audioUrl);
+  const displayedDurationMs = audioDurationMs || config.durationMs;
+
+  const renderFineSeekControls = () => (
+    <div className="fine-seek-row">
+      <button className="button" onClick={() => seekBy(-1000)} type="button">−1s</button>
+      <button className="button" onClick={() => seekBy(-100)} type="button">−100ms</button>
+      <button className="button" onClick={() => seekBy(-10)} type="button">−10ms</button>
+      <button className="button button-time-readout" onClick={usePlayerTime} type="button">{formatTime(currentTimeMs, 3)}</button>
+      <button className="button" onClick={() => seekBy(10)} type="button">+10ms</button>
+      <button className="button" onClick={() => seekBy(100)} type="button">+100ms</button>
+      <button className="button" onClick={() => seekBy(1000)} type="button">+1s</button>
+    </div>
+  );
 
   return (
     <main className="music-config-page">
@@ -333,24 +365,10 @@ export default function MusicConfigPage() {
         <div className="editor-column">
           <section className="section-card player-card">
             <div className="section-heading">
-              <div><span className="eyebrow">AUDIO</span><h2>{config.title || "Untitled track"}</h2></div>
+              <div><span className="eyebrow">AUDIO WORKSTATION</span><h2>{config.title || "Untitled track"}</h2></div>
               <span className="status-chip">{loading ? "WORKING" : analysis ? "ANALYZED" : "READY"}</span>
             </div>
-            <audio ref={audioRef} controls preload="metadata" onLoadedMetadata={event => { const durationMs = Number.isFinite(event.currentTarget.duration) ? Math.round(event.currentTarget.duration * 1000) : 0; setAudioDurationMs(durationMs); if (durationMs) patch("durationMs", durationMs); }} onTimeUpdate={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))} onSeeked={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))} />
-            <div className="player-meta"><span>{formatTime(currentTimeMs, 3)} / {formatTime(audioDurationMs || config.durationMs, 3)}</span><span>{config.audioUrl ? "Audio loaded" : "No audio"}</span></div>
-            <div className="fine-seek-row">
-              <button className="button" onClick={() => seekBy(-1000)} type="button">−1s</button>
-              <button className="button" onClick={() => seekBy(-100)} type="button">−100ms</button>
-              <button className="button" onClick={() => seekBy(-10)} type="button">−10ms</button>
-              <button className="button button-time-readout" onClick={() => usePlayerTime()} type="button">{formatTime(currentTimeMs, 3)}</button>
-              <button className="button" onClick={() => seekBy(10)} type="button">+10ms</button>
-              <button className="button" onClick={() => seekBy(100)} type="button">+100ms</button>
-              <button className="button" onClick={() => seekBy(1000)} type="button">+1s</button>
-            </div>
-            <div className="toolbar-grid secondary-toolbar">
-              <button className="button" onClick={usePlayerTime} type="button">USE PLAYER TIME</button>
-              <button className="button button-primary" disabled={loading || !config.audioUrl} onClick={() => void analyze()} type="button">ANALYZE AUDIO</button>
-            </div>
+            <div className="player-meta player-card-summary"><span>{formatTime(currentTimeMs, 3)} / {formatTime(displayedDurationMs, 3)}</span><span>{config.audioUrl ? "Player docked below" : "No audio"}</span></div>
           </section>
 
           <section className="section-card tempo-card">
@@ -395,6 +413,44 @@ export default function MusicConfigPage() {
           </section>
         </div>
       </section>
+
+      <div className="audio-dock" aria-label="Sticky audio workstation">
+        <div className="audio-dock-inner">
+          <audio
+            ref={audioRef}
+            controls
+            preload="metadata"
+            onLoadedMetadata={event => {
+              const durationMs = Number.isFinite(event.currentTarget.duration) ? Math.round(event.currentTarget.duration * 1000) : 0;
+              setAudioDurationMs(durationMs);
+              if (durationMs) patch("durationMs", durationMs);
+            }}
+            onTimeUpdate={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
+            onSeeked={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
+            onPlay={startPlayerClock}
+            onPause={() => {
+              setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
+              if (rafRef.current !== null) {
+                cancelAnimationFrame(rafRef.current);
+                rafRef.current = null;
+              }
+            }}
+            onEnded={() => {
+              setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
+              if (rafRef.current !== null) {
+                cancelAnimationFrame(rafRef.current);
+                rafRef.current = null;
+              }
+            }}
+          />
+          <div className="audio-dock-meta"><span>{formatTime(currentTimeMs, 3)} / {formatTime(displayedDurationMs, 3)}</span><span>{config.title || "Untitled track"}</span></div>
+          {renderFineSeekControls()}
+          <div className="toolbar-grid secondary-toolbar">
+            <button className="button" onClick={usePlayerTime} type="button">USE PLAYER TIME</button>
+            <button className="button button-primary" disabled={loading || !config.audioUrl} onClick={() => void analyze()} type="button">ANALYZE AUDIO</button>
+          </div>
+        </div>
+      </div>
 
       <footer className="sticky-actions">
         <div className="sticky-status"><strong>{config.title || "Untitled track"}</strong><span>{message || "Ready"}</span></div>
