@@ -5,28 +5,27 @@ export class BeatClock {
   private paused = false;
   private elapsedBeforePause = 0;
   private timeSource: ClockTimeSource | null = null;
-  private sourceStartMs = 0;
 
   constructor(private readonly bpm: number, private readonly offsetMs = 0) {}
 
   setTimeSource(source: ClockTimeSource | null) { this.timeSource = source; }
 
   syncToTimeSource() {
-    if (!this.startPerf || !this.timeSource) return;
-    this.sourceStartMs = this.timeSource() - (performance.now() - this.startPerf);
+    // The media element is the authoritative clock. HTMLAudioElement.currentTime
+    // already represents position from the beginning of the track, so do not
+    // create a second clock by translating it through performance.now().
   }
 
   start() {
     this.startPerf = performance.now();
     this.paused = false;
     this.elapsedBeforePause = 0;
-    this.sourceStartMs = this.timeSource?.() ?? 0;
   }
 
   get elapsedMs() {
     if (!this.startPerf) return 0;
     if (this.paused) return this.elapsedBeforePause;
-    if (this.timeSource) return Math.max(0, this.timeSource() - this.sourceStartMs);
+    if (this.timeSource) return Math.max(0, this.timeSource());
     return performance.now() - this.startPerf;
   }
 
