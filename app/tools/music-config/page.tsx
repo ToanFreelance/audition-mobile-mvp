@@ -7,6 +7,7 @@ import { analyzeTempo, type TempoAnalysis } from "../../../game/tempo-analysis";
 import "./music-config.css";
 
 type EditableConfig = MusicConfig;
+type Theme = "dark" | "light";
 
 type LibraryResponse = {
   configs: MusicConfig[];
@@ -40,6 +41,8 @@ export default function MusicConfigPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [dockExpanded, setDockExpanded] = useState(true);
+  const [theme, setTheme] = useState<Theme>("dark");
 
   const patch = useCallback(<K extends keyof EditableConfig>(key: K, value: EditableConfig[K]) => {
     setConfig(current => ({ ...current, [key]: value }));
@@ -101,6 +104,15 @@ export default function MusicConfigPage() {
       });
     return () => { cancelled = true; };
   }, [fetchLibraries, loadConfig]);
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem("audition-music-config-theme");
+    if (storedTheme === "light" || storedTheme === "dark") setTheme(storedTheme);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("audition-music-config-theme", theme);
+  }, [theme]);
 
   useEffect(() => () => {
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
@@ -317,7 +329,7 @@ export default function MusicConfigPage() {
   );
 
   return (
-    <main className="music-config-page">
+    <main className={`music-config-page theme-${theme} ${dockExpanded ? "audio-dock-expanded" : "audio-dock-collapsed"}`}>
       <input ref={fileInputRef} className="visually-hidden-file-input" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.aac,.flac" onChange={event => chooseLocalFile(event.target.files?.[0])} />
 
       <header className="config-header">
@@ -326,7 +338,12 @@ export default function MusicConfigPage() {
           <h1>Music Chart Config</h1>
           <p>Analyze the track, verify the anchor, save the chart.</p>
         </div>
-        <button className="button button-primary" onClick={() => fileInputRef.current?.click()} type="button">ADD MUSIC</button>
+        <div className="header-actions">
+          <button className="button theme-toggle" onClick={() => setTheme(current => current === "dark" ? "light" : "dark")} type="button" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
+            {theme === "dark" ? "☀ LIGHT" : "☾ DARK"}
+          </button>
+          <button className="button button-primary" onClick={() => fileInputRef.current?.click()} type="button">ADD MUSIC</button>
+        </div>
       </header>
 
       <section className="studio-layout">
@@ -414,41 +431,45 @@ export default function MusicConfigPage() {
         </div>
       </section>
 
-      <div className="audio-dock" aria-label="Sticky audio workstation">
+      <div className={`audio-dock ${dockExpanded ? "is-expanded" : "is-collapsed"}`} aria-label="Sticky audio workstation">
         <div className="audio-dock-inner">
-          <audio
-            ref={audioRef}
-            controls
-            preload="metadata"
-            onLoadedMetadata={event => {
-              const durationMs = Number.isFinite(event.currentTarget.duration) ? Math.round(event.currentTarget.duration * 1000) : 0;
-              setAudioDurationMs(durationMs);
-              if (durationMs) patch("durationMs", durationMs);
-            }}
-            onTimeUpdate={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
-            onSeeked={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
-            onPlay={startPlayerClock}
-            onPause={() => {
-              setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
-              if (rafRef.current !== null) {
-                cancelAnimationFrame(rafRef.current);
-                rafRef.current = null;
-              }
-            }}
-            onEnded={() => {
-              setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
-              if (rafRef.current !== null) {
-                cancelAnimationFrame(rafRef.current);
-                rafRef.current = null;
-              }
-            }}
-          />
-          <div className="audio-dock-meta"><span>{formatTime(currentTimeMs, 3)} / {formatTime(displayedDurationMs, 3)}</span><span>{config.title || "Untitled track"}</span></div>
-          {renderFineSeekControls()}
-          <div className="toolbar-grid secondary-toolbar">
-            <button className="button" onClick={usePlayerTime} type="button">USE PLAYER TIME</button>
-            <button className="button button-primary" disabled={loading || !config.audioUrl} onClick={() => void analyze()} type="button">ANALYZE AUDIO</button>
+          <div className="audio-dock-topline">
+            <span className="audio-dock-title">{config.title || "Untitled track"}</span>
+            <button className="audio-dock-toggle" onClick={() => setDockExpanded(current => !current)} type="button" aria-label={dockExpanded ? "Collapse audio workstation" : "Expand audio workstation"} title={dockExpanded ? "Collapse" : "Expand"}>
+              {dockExpanded ? "⌄" : "⌃"}
+            </button>
           </div>
+          {dockExpanded && (
+            <>
+              <audio
+                ref={audioRef}
+                controls
+                preload="metadata"
+                onLoadedMetadata={event => {
+                  const durationMs = Number.isFinite(event.currentTarget.duration) ? Math.round(event.currentTarget.duration * 1000) : 0;
+                  setAudioDurationMs(durationMs);
+                  if (durationMs) patch("durationMs", durationMs);
+                }}
+                onTimeUpdate={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
+                onSeeked={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
+                onPlay={startPlayerClock}
+                onPause={() => {
+                  setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
+                  if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+                }}
+                onEnded={() => {
+                  setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
+                  if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+                }}
+              />
+              <div className="audio-dock-meta"><span>{formatTime(currentTimeMs, 3)} / {formatTime(displayedDurationMs, 3)}</span><span>{config.title || "Untitled track"}</span></div>
+              {renderFineSeekControls()}
+              <div className="toolbar-grid secondary-toolbar">
+                <button className="button" onClick={usePlayerTime} type="button">USE PLAYER TIME</button>
+                <button className="button button-primary" disabled={loading || !config.audioUrl} onClick={() => void analyze()} type="button">ANALYZE AUDIO</button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
