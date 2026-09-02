@@ -105,6 +105,7 @@ export default function MusicConfigPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const localPreviewRef = useRef<string | null>(null);
   const anchorPreviewEndRef = useRef<number | null>(null);
+  const beatAnalysisRequestRef = useRef(0);
   const [config, setConfig] = useState<MusicConfig>(() => cloneDefault());
   const [library, setLibrary] = useState<MusicConfig[]>([]);
   const [storageFiles, setStorageFiles] = useState<StorageAudioFile[]>([]);
@@ -189,10 +190,9 @@ export default function MusicConfigPage() {
   const patch = <K extends keyof MusicConfig>(key: K, value: MusicConfig[K]) => setConfig(prev => ({ ...prev, [key]: value, updatedAt: new Date().toISOString() }));
   const patchGauge = (key: keyof MusicConfig["gauge"], value: number) => setConfig(prev => ({ ...prev, gauge: { ...prev.gauge, [key]: value }, updatedAt: new Date().toISOString() }));
   const patchGameplay = <K extends keyof MusicConfig["gameplay"]>(key: K, value: MusicConfig["gameplay"][K]) => setConfig(prev => ({ ...prev, gameplay: { ...prev.gameplay, [key]: value }, updatedAt: new Date().toISOString() }));
-  const clearBeatAnalysis = () => { setBeatAnchors([]); setSelectedBeatAnchor(""); setAnalyzingBeats(false); anchorPreviewEndRef.current = null; };
+  const clearBeatAnalysis = () => { beatAnalysisRequestRef.current += 1; setBeatAnchors([]); setSelectedBeatAnchor(""); setAnalyzingBeats(false); anchorPreviewEndRef.current = null; };
 
   const loadAudio = () => {
-    anchorPreviewEndRef.current = null;
     clearBeatAnalysis();
     window.setTimeout(() => {
       const audio = audioRef.current;
@@ -263,18 +263,23 @@ export default function MusicConfigPage() {
 
   const analyzeBeatAnchors = async () => {
     if (analyzingBeats || saving || !config.audioUrl) return;
+    const requestId = ++beatAnalysisRequestRef.current;
     setAnalyzingBeats(true);
     setMessage("Đang phân tích nhịp 4 bằng beat tracker…");
     try {
-      const result = await analyzeFourBeatAnchors(config.audioUrl, config.BPM_exact ?? config.bpm);
+      const result = await analyzeFourBeatAnchors(config.audioUrl);
+      if (requestId !== beatAnalysisRequestRef.current) return;
       const exactBpm = Number(result.bpm.toFixed(4));
       setConfig(prev => ({ ...prev, BPM_exact: exactBpm, updatedAt: new Date().toISOString() }));
       setBeatAnchors(result.anchors);
       setSelectedBeatAnchor("");
       setMessage(`Đã phân tích ${result.anchors.length} mốc 4-beat · BPM exact ${exactBpm} · confidence ${(result.confidence * 100).toFixed(0)}%.`);
     } catch (error) {
+      if (requestId !== beatAnalysisRequestRef.current) return;
       setMessage(`Phân tích thất bại: ${error instanceof Error ? error.message : "unknown error"}`);
-    } finally { setAnalyzingBeats(false); }
+    } finally {
+      if (requestId === beatAnalysisRequestRef.current) setAnalyzingBeats(false);
+    }
   };
 
   const selectBeatAnchor = (value: string) => {
