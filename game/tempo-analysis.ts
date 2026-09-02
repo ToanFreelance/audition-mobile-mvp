@@ -20,9 +20,7 @@ function monoSamples(buffer: AudioBuffer) {
   const output = new Float32Array(length);
   for (let i = 0; i < length; i += 1) {
     let sum = 0;
-    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-      sum += buffer.getChannelData(channel)[i] ?? 0;
-    }
+    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) sum += buffer.getChannelData(channel)[i] ?? 0;
     output[i] = sum / buffer.numberOfChannels;
   }
   return output;
@@ -69,9 +67,7 @@ function cluster(values: TempoCandidate[]) {
     if (existing) {
       existing.members.push(candidate);
       existing.center = median(existing.members.map(item => item.bpm));
-    } else {
-      clusters.push({ members: [candidate], center: candidate.bpm });
-    }
+    } else clusters.push({ members: [candidate], center: candidate.bpm });
   }
   return clusters.sort((a, b) => {
     const scoreA = a.members.length * 10 + a.members.reduce((sum, item) => sum + item.confidence, 0);
@@ -82,11 +78,9 @@ function cluster(values: TempoCandidate[]) {
 
 export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
   if (typeof window === "undefined") throw new Error("Tempo analysis is browser-only.");
-
   const response = await fetch(audioUrl, { cache: "no-store" });
   if (!response.ok) throw new Error(`Không đọc được audio (HTTP ${response.status}).`);
   const bytes = await response.arrayBuffer();
-
   const AudioContextCtor = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextCtor) throw new Error("Thiết bị không hỗ trợ Web Audio API.");
 
@@ -95,14 +89,12 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
     const buffer = await context.decodeAudioData(bytes.slice(0));
     const samples = monoSamples(buffer);
     const baseOptions = { fs: buffer.sampleRate, minBpm: 40, maxBpm: 220 } as const;
-
     const tempoResult = tempo(samples, { ...baseOptions, candidates: 8 });
     const combResult = combTempo(samples, baseOptions);
     const detected = beatTrack(samples, baseOptions);
 
     const rawTempoCandidates = finite((tempoResult as { candidates?: ArrayLike<number> }).candidates)
       .map(bpm => ({ bpm, source: "tempo" as const, confidence: Number(tempoResult.confidence) || 0 }));
-
     const candidates: TempoCandidate[] = [
       ...rawTempoCandidates,
       { bpm: Number(tempoResult.bpm), source: "tempo", confidence: Number(tempoResult.confidence) || 0 },
@@ -112,12 +104,7 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
 
     const bestCluster = cluster(candidates)[0];
     const clusterCenter = bestCluster?.center || Number(tempoResult.bpm) || Number(detected.bpm) || 120;
-
-    const tracked = beatTrack(samples, {
-      ...baseOptions,
-      bpm: clusterCenter,
-      tightness: 900,
-    });
+    const tracked = beatTrack(samples, { ...baseOptions, bpm: clusterCenter, tightness: 900 });
     const beats = finite(tracked.beats);
     const fittedBpm = regressionBpm(beats, clusterCenter);
     const bpmExact = Number(Math.max(40, Math.min(220, fittedBpm)).toFixed(4));
@@ -130,7 +117,7 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
       confidence,
       candidates: cluster(candidates).slice(0, 6).map(item => ({
         bpm: Number(item.center.toFixed(4)),
-        source: item.members[0]?.source ?? "tempo",
+        source: (item.members[0]?.source ?? "tempo") as TempoCandidate["source"],
         confidence: Number((item.members.reduce((sum, member) => sum + member.confidence, 0) / item.members.length).toFixed(4)),
       })),
       beats,
