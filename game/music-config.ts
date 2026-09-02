@@ -5,6 +5,7 @@ export type MusicConfig = {
   audioUrl: string;
   durationMs: number;
   bpm: number;
+  BPM_exact?: number;
   spaceStartMs: number;
   spaceStartBeat?: number;
   gauge: {
@@ -36,6 +37,7 @@ export const DEFAULT_MUSIC_CONFIG: MusicConfig = {
   audioUrl: "/audio/Please%20tell%20me%20why.mp3",
   durationMs: 266400,
   bpm: 80,
+  BPM_exact: 80,
   spaceStartMs: 28870,
   spaceStartBeat: 38.493333,
   gauge: {
