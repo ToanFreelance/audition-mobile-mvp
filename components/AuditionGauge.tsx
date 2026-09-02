@@ -2,9 +2,10 @@
 
 import { useId } from "react";
 import type { CSSProperties, PointerEvent } from "react";
+import { getGaugeTiming } from "../game/gauge-timing";
 
 type AuditionGaugeProps = {
-  value: number;
+  value?: number;
   bpm: number;
   animationDelayMs?: number;
   onPointerDown?: (event: PointerEvent<HTMLDivElement>) => void;
@@ -14,6 +15,8 @@ type AuditionGaugeProps = {
   perfectStart?: number;
   perfectEnd?: number;
   stretchRatio?: number;
+  spaceStartMs?: number;
+  currentTimeMs?: number;
 };
 
 /** Canonical Audition gauge SVG. Runtime owns timing; this component owns the visual skin. */
@@ -28,10 +31,17 @@ export default function AuditionGauge({
   perfectStart: _perfectStart = 79,
   perfectEnd: _perfectEnd = 81,
   stretchRatio = 1.6,
+  spaceStartMs,
+  currentTimeMs,
 }: AuditionGaugeProps) {
   const id = useId().replace(/:/g, "");
+  const timing = spaceStartMs !== undefined && currentTimeMs !== undefined
+    ? getGaugeTiming({ bpm, spaceStartMs }, currentTimeMs)
+    : null;
+  const effectiveValue = timing?.sliderPercent ?? value ?? 80;
+  const effectiveAnimationDelayMs = animationDelayMs ?? timing?.breathAnimationDelayMs;
   const clamp = (n: number) => Math.max(0, Math.min(100, n));
-  const safeValue = clamp(value);
+  const safeValue = clamp(effectiveValue);
   const safeZoneStart = clamp(Math.min(zoneStart, zoneEnd));
   const safeZoneEnd = clamp(Math.max(zoneStart, zoneEnd));
 
@@ -52,7 +62,7 @@ export default function AuditionGauge({
   const svgStyle = {
     "--gauge-cycle": `${cycleMs}ms`,
     "--gauge-beat": `${beatMs}ms`,
-    ...(animationDelayMs !== undefined ? { "--gauge-animation-delay": `${animationDelayMs}ms` } : {}),
+    ...(effectiveAnimationDelayMs !== undefined ? { "--gauge-animation-delay": `${effectiveAnimationDelayMs}ms` } : {}),
   } as CSSProperties;
 
   const cyanGradientId = `${id}-cyanToWhiteGrad`;
@@ -72,7 +82,6 @@ export default function AuditionGauge({
         overflow: "visible",
       }}
     >
-      {/* 56px visual height = 80% of the original 70px SVG height. */}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="18 0 464 70"
@@ -126,8 +135,6 @@ export default function AuditionGauge({
           <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} ry={zoneRadius} fill={`url(#${cyanGradientId})`} filter={`url(#${blurSoftId})`}/>
         </g>
 
-        {/* The SVG is intentionally non-uniformly scaled vertically to make the gauge 80% height.
-            Counter-scale only the slider around its center so the circular slider remains circular. */}
         <g transform={`translate(${sliderTranslate} 0)`}>
           <g transform="translate(150 35) scale(1 1.25) translate(-150 -35)">
             <g className={`pulse-red-glow-${id}`}>
