@@ -439,37 +439,35 @@ export default function MusicConfigPage() {
               {dockExpanded ? "⌄" : "⌃"}
             </button>
           </div>
-          {dockExpanded && (
-            <>
-              <audio
-                ref={audioRef}
-                controls
-                preload="metadata"
-                onLoadedMetadata={event => {
-                  const durationMs = Number.isFinite(event.currentTarget.duration) ? Math.round(event.currentTarget.duration * 1000) : 0;
-                  setAudioDurationMs(durationMs);
-                  if (durationMs) patch("durationMs", durationMs);
-                }}
-                onTimeUpdate={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
-                onSeeked={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
-                onPlay={startPlayerClock}
-                onPause={() => {
-                  setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
-                  if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-                }}
-                onEnded={() => {
-                  setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
-                  if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-                }}
-              />
-              <div className="audio-dock-meta"><span>{formatTime(currentTimeMs, 3)} / {formatTime(displayedDurationMs, 3)}</span><span>{config.title || "Untitled track"}</span></div>
-              {renderFineSeekControls()}
-              <div className="toolbar-grid secondary-toolbar">
-                <button className="button" onClick={usePlayerTime} type="button">USE PLAYER TIME</button>
-                <button className="button button-primary" disabled={loading || !config.audioUrl} onClick={() => void analyze()} type="button">ANALYZE AUDIO</button>
-              </div>
-            </>
-          )}
+          <audio
+            ref={audioRef}
+            controls
+            preload="metadata"
+            onLoadedMetadata={event => {
+              const durationMs = Number.isFinite(event.currentTarget.duration) ? Math.round(event.currentTarget.duration * 1000) : 0;
+              setAudioDurationMs(durationMs);
+              if (durationMs) patch("durationMs", durationMs);
+            }}
+            onTimeUpdate={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
+            onSeeked={event => setCurrentTimeMs(Math.round(event.currentTarget.currentTime * 1000))}
+            onPlay={startPlayerClock}
+            onPause={() => {
+              setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
+              if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+            }}
+            onEnded={() => {
+              setCurrentTimeMs(Math.round((audioRef.current?.currentTime ?? 0) * 1000));
+              if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+            }}
+          />
+          <div className="audio-dock-meta"><span>{formatTime(currentTimeMs, 3)} / {formatTime(displayedDurationMs, 3)}</span><span>{config.title || "Untitled track"}</span></div>
+          <div className="audio-dock-controls">
+            {renderFineSeekControls()}
+            <div className="toolbar-grid secondary-toolbar">
+              <button className="button" onClick={usePlayerTime} type="button">USE PLAYER TIME</button>
+              <button className="button button-primary" disabled={loading || !config.audioUrl} onClick={() => void analyze()} type="button">ANALYZE AUDIO</button>
+            </div>
+          </div>
         </div>
       </div>
 
