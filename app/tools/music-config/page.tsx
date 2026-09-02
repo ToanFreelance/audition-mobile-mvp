@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_MUSIC_CONFIG, type MusicConfig } from "../../../game/music-config";
 import { getGaugeTiming } from "../../../game/gauge-timing";
-import { analyzeFourBeatAnchors, type BeatAnchor } from "../../../game/beat-anchor";
+import { analyzeTempo, type TempoAnalysis } from "../../../game/tempo-analysis";
 import AuditionGauge from "../../../components/AuditionGauge";
 import "./music-config.css";
 
@@ -15,11 +15,7 @@ type StorageAudioFile = {
   mimeType: string | null;
 };
 
-type SaveDialog = {
-  title: string;
-  message: string;
-  audioUrl: string;
-};
+type SaveDialog = { title: string; message: string; audioUrl: string };
 
 const SUPABASE_BUCKET = "audio";
 const AUDIO_EXTENSIONS = new Set(["mp3", "wav", "m4a", "ogg", "aac", "flac"]);
@@ -28,20 +24,19 @@ const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 function cloneDefault(): MusicConfig {
   return JSON.parse(JSON.stringify(DEFAULT_MUSIC_CONFIG)) as MusicConfig;
 }
-function msToParts(ms: number) {
-  const value = Math.max(0, Math.floor(ms));
-  return { m: Math.floor(value / 60000), s: Math.floor((value % 60000) / 1000), ms: value % 1000 };
+function formatTime(ms: number) {
+  const value = Math.max(0, Math.round(ms));
+  const m = Math.floor(value / 60000);
+  const s = Math.floor((value % 60000) / 1000);
+  const milli = value % 1000;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}.${String(milli).padStart(3, "0")}`;
 }
-function partsToMs(m: number, s: number, ms: number) { return Math.max(0, m * 60000 + s * 1000 + ms); }
-function formatTime(ms: number) { const p = msToParts(ms); return `${String(p.m).padStart(2, "0")}:${String(p.s).padStart(2, "0")}.${String(p.ms).padStart(3, "0")}`; }
-function slugFromAudio(name: string) { return name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+function slugFromAudio(name: string) {
+  return name.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 function titleFromAudio(name: string) {
   const base = name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").replace(/\b\d+(?:\.\d+)?\s*bpm\b/gi, "").replace(/\s+/g, " ").trim();
   return base.replace(/\b\w/g, letter => letter.toUpperCase()) || "New Song";
-}
-function bpmFromAudio(name: string) {
-  const match = name.match(/(?:^|[-_\s])(\d+(?:\.\d+)?)\s*bpm(?:[-_\s]|$)/i);
-  return match ? Number(match[1]) : DEFAULT_MUSIC_CONFIG.bpm;
 }
 function formatBytes(bytes: number | null) {
   if (bytes == null) return "";
@@ -52,6 +47,7 @@ function publicStorageUrl(baseUrl: string, path: string) {
   const encodedPath = path.split("/").map(segment => encodeURIComponent(segment)).join("/");
   return `${baseUrl}/storage/v1/object/public/${SUPABASE_BUCKET}/${encodedPath}`;
 }
+
 async function fetchLibraries() {
   const [configResult, storageResult] = await Promise.allSettled([
     fetch("/api/music-config", { cache: "no-store" }),
@@ -59,25 +55,25 @@ async function fetchLibraries() {
   ]);
   let configs: MusicConfig[] = [];
   let storage: StorageAudioFile[] = [];
-  let configError = "";
-  let storageError = "";
   if (configResult.status === "fulfilled" && configResult.value.ok) {
     const data = await configResult.value.json() as { configs?: MusicConfig[] };
     configs = data.configs ?? [];
-  } else configError = "Không đọc được music_charts";
+  }
   if (storageResult.status === "fulfilled" && storageResult.value.ok) {
     const data = await storageResult.value.json() as { files?: StorageAudioFile[] };
     storage = data.files ?? [];
-  } else storageError = "Không đọc được Storage audio";
-  return { configs, storage, configError, storageError };
+  }
+  return { configs, storage };
 }
+
 async function uploadLocalAudio(file: File) {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!baseUrl || !key) throw new Error("Thiếu NEXT_PUBLIC_SUPABASE_URL hoặc NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error("File audio vượt quá giới hạn 100 MB.");
+  if (!baseUrl || !key) throw new Error("Thiếu cấu hình Supabase.");
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!AUDIO_EXTENSIONS.has(extension)) throw new Error("Định dạng audio chưa được hỗ trợ.");
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error("Audio vượt quá 100 MB.");
+
   const safeBase = file.name.replace(/\.[^.]+$/, "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "audio";
   const objectPath = `${safeBase}.${extension}`;
   const uploadUrl = `${baseUrl}/storage/v1/object/${SUPABASE_BUCKET}/${objectPath.split("/").map(segment => encodeURIComponent(segment)).join("/")}`;
@@ -94,7 +90,7 @@ async function uploadLocalAudio(file: File) {
   });
   if (!response.ok) {
     const detail = await response.text();
-    if (response.status === 409) throw new Error(`File "${objectPath}" đã tồn tại trong Storage.`);
+    if (response.status === 409) throw new Error(`File "${objectPath}" đã tồn tại.`);
     throw new Error(detail || `Upload failed (${response.status})`);
   }
   return publicStorageUrl(baseUrl, objectPath);
@@ -104,33 +100,38 @@ export default function MusicConfigPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const localPreviewRef = useRef<string | null>(null);
-  const anchorPreviewEndRef = useRef<number | null>(null);
-  const beatAnalysisRequestRef = useRef(0);
+  const analysisIdRef = useRef(0);
+  const previewEndRef = useRef<number | null>(null);
+
   const [config, setConfig] = useState<MusicConfig>(() => cloneDefault());
   const [library, setLibrary] = useState<MusicConfig[]>([]);
   const [storageFiles, setStorageFiles] = useState<StorageAudioFile[]>([]);
   const [localFile, setLocalFile] = useState<File | null>(null);
   const [currentMs, setCurrentMs] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [beatAnchors, setBeatAnchors] = useState<BeatAnchor[]>([]);
-  const [selectedBeatAnchor, setSelectedBeatAnchor] = useState("");
-  const [analyzingBeats, setAnalyzingBeats] = useState(false);
-  const [message, setMessage] = useState("");
+  const [analysis, setAnalysis] = useState<TempoAnalysis | null>(null);
+  const [selectedCandidate, setSelectedCandidate] = useState<number | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
   const [saveDialog, setSaveDialog] = useState<SaveDialog | null>(null);
+
+  const refresh = async () => {
+    const result = await fetchLibraries();
+    setLibrary(result.configs);
+    setStorageFiles(result.storage);
+    return result;
+  };
 
   useEffect(() => {
     let cancelled = false;
-    const loadLibrary = async () => {
-      const result = await fetchLibraries();
+    void fetchLibraries().then(result => {
       if (cancelled) return;
       setLibrary(result.configs);
       setStorageFiles(result.storage);
       const selected = result.configs.find(item => item.id === DEFAULT_MUSIC_CONFIG.id) ?? result.configs[0];
       if (selected) setConfig(selected);
-      setMessage([`Chart: ${result.configs.length}`, `Audio: ${result.storage.length}`, result.configError, result.storageError].filter(Boolean).join(" · "));
-    };
-    void loadLibrary();
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -164,43 +165,43 @@ export default function MusicConfigPage() {
     if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
   }, []);
 
-  const timingBpm = Number(config.BPM_exact ?? config.bpm);
-  const previewCycleMs = (60000 / Math.max(1, timingBpm)) * config.gauge.beatsPerCycle;
+  const timingBpm = Number(config.BPM_exact ?? config.bpm ?? 80);
   const perfectCenter = (config.gauge.perfectStartPercent + config.gauge.perfectEndPercent) / 2;
+  const previewCycleMs = (60000 / Math.max(1, timingBpm)) * config.gauge.beatsPerCycle;
   const previewGauge = useMemo(() => {
     if (!previewCycleMs) return perfectCenter;
     const raw = perfectCenter + ((currentMs - config.spaceStartMs) / previewCycleMs) * 100;
     return ((raw % 100) + 100) % 100;
-  }, [config.spaceStartMs, currentMs, perfectCenter, previewCycleMs]);
+  }, [currentMs, config.spaceStartMs, perfectCenter, previewCycleMs]);
   const previewAnimationDelayMs = useMemo(() => getGaugeTiming({
     bpm: timingBpm,
     beatsPerCycle: config.gauge.beatsPerCycle,
     spaceStartMs: config.spaceStartMs,
     perfectCenterPercent: perfectCenter,
   }, 0).breathAnimationDelayMs, [config.gauge.beatsPerCycle, config.spaceStartMs, perfectCenter, timingBpm]);
-  const previewTiming = useMemo(() => getGaugeTiming({
-    bpm: timingBpm,
-    beatsPerCycle: config.gauge.beatsPerCycle,
-    spaceStartMs: config.spaceStartMs,
-    perfectCenterPercent: perfectCenter,
-  }, currentMs), [config.gauge.beatsPerCycle, config.spaceStartMs, currentMs, perfectCenter, timingBpm]);
 
-  const parts = useMemo(() => msToParts(config.spaceStartMs), [config.spaceStartMs]);
+  const patch = <K extends keyof MusicConfig>(key: K, value: MusicConfig[K]) =>
+    setConfig(prev => ({ ...prev, [key]: value, updatedAt: new Date().toISOString() }));
 
-  const patch = <K extends keyof MusicConfig>(key: K, value: MusicConfig[K]) => setConfig(prev => ({ ...prev, [key]: value, updatedAt: new Date().toISOString() }));
-  const patchGauge = (key: keyof MusicConfig["gauge"], value: number) => setConfig(prev => ({ ...prev, gauge: { ...prev.gauge, [key]: value }, updatedAt: new Date().toISOString() }));
-  const patchGameplay = <K extends keyof MusicConfig["gameplay"]>(key: K, value: MusicConfig["gameplay"][K]) => setConfig(prev => ({ ...prev, gameplay: { ...prev.gameplay, [key]: value }, updatedAt: new Date().toISOString() }));
-  const clearBeatAnalysis = () => { beatAnalysisRequestRef.current += 1; setBeatAnchors([]); setSelectedBeatAnchor(""); setAnalyzingBeats(false); anchorPreviewEndRef.current = null; };
-
-  const loadAudio = () => {
-    clearBeatAnalysis();
+  const resetAudioState = () => {
+    previewEndRef.current = null;
     window.setTimeout(() => {
       const audio = audioRef.current;
       if (audio) { audio.pause(); audio.currentTime = 0; audio.load(); }
-      setCurrentMs(0); setPlaying(false);
+      setCurrentMs(0);
+      setPlaying(false);
     }, 0);
   };
-  const chooseTrack = (track: MusicConfig) => { setLocalFile(null); setConfig(track); loadAudio(); setMessage(`Đã chọn ${track.title}.`); };
+
+  const chooseTrack = (track: MusicConfig) => {
+    setLocalFile(null);
+    setAnalysis(null);
+    setSelectedCandidate(null);
+    setConfig(track);
+    resetAudioState();
+    setMessage(`Đã chọn ${track.title}.`);
+  };
+
   const chooseStorageFile = (file: StorageAudioFile) => {
     const existing = library.find(track => track.audioUrl === file.publicUrl);
     if (existing) { chooseTrack(existing); return; }
@@ -208,18 +209,22 @@ export default function MusicConfigPage() {
     next.id = slugFromAudio(file.name) || `track-${Date.now()}`;
     next.title = titleFromAudio(file.name);
     next.audioUrl = file.publicUrl;
-    next.bpm = bpmFromAudio(file.name);
+    next.bpm = 0;
     next.BPM_exact = undefined;
     next.durationMs = 0;
-    next.updatedAt = new Date().toISOString();
-    setLocalFile(null); setConfig(next); loadAudio();
-    setMessage(`Đã chọn ${file.name}. Đây là audio chưa có chart; SAVE TO DB để thêm vào Music.`);
+    setLocalFile(null);
+    setAnalysis(null);
+    setSelectedCandidate(null);
+    setConfig(next);
+    resetAudioState();
+    setMessage(`${file.name} chưa có chart. Phân tích audio để tạo tempo và beat grid.`);
   };
+
   const chooseLocalFile = (file: File | undefined) => {
     if (!file) return;
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!file.type.startsWith("audio/") && !AUDIO_EXTENSIONS.has(ext)) { setMessage("File không phải audio được hỗ trợ."); return; }
-    if (file.size > MAX_UPLOAD_BYTES) { setMessage("File vượt quá giới hạn 100 MB."); return; }
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    if (!file.type.startsWith("audio/") && !AUDIO_EXTENSIONS.has(extension)) { setMessage("File không phải audio được hỗ trợ."); return; }
+    if (file.size > MAX_UPLOAD_BYTES) { setMessage("Audio vượt quá 100 MB."); return; }
     if (localPreviewRef.current) URL.revokeObjectURL(localPreviewRef.current);
     const previewUrl = URL.createObjectURL(file);
     localPreviewRef.current = previewUrl;
@@ -227,215 +232,234 @@ export default function MusicConfigPage() {
     next.id = `${slugFromAudio(file.name) || "track"}-${Date.now()}`;
     next.title = titleFromAudio(file.name);
     next.audioUrl = previewUrl;
-    next.bpm = bpmFromAudio(file.name);
+    next.bpm = 0;
     next.BPM_exact = undefined;
     next.durationMs = 0;
-    next.updatedAt = new Date().toISOString();
-    setLocalFile(file); setConfig(next); setCurrentMs(0); setPlaying(false); clearBeatAnalysis();
-    window.setTimeout(() => audioRef.current?.load(), 0);
-    setMessage(`Đã chọn ${file.name}. File sẽ tự upload lên Supabase khi SAVE TO DB.`);
+    setLocalFile(file);
+    setAnalysis(null);
+    setSelectedCandidate(null);
+    setConfig(next);
+    resetAudioState();
+    setMessage(`Đã chọn ${file.name}. Nhấn ANALYZE AUDIO.`);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
-  const addTrack = () => fileInputRef.current?.click();
-  const togglePlay = async () => { const audio = audioRef.current; if (!audio) return; if (audio.paused) await audio.play(); else audio.pause(); };
-  const handleAudioTimeUpdate = () => {
+
+  const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
-    const nextMs = audio.currentTime * 1000;
-    setCurrentMs(nextMs);
-    const endMs = anchorPreviewEndRef.current;
-    if (endMs != null && nextMs >= endMs) {
-      anchorPreviewEndRef.current = null;
-      audio.pause();
-      audio.currentTime = endMs / 1000;
-      setCurrentMs(endMs);
-    }
+    if (audio.paused) await audio.play(); else audio.pause();
   };
-  const usePlayerTime = () => patch("spaceStartMs", Math.round((audioRef.current?.currentTime ?? 0) * 1000));
+
   const seek = (ms: number) => {
-    anchorPreviewEndRef.current = null;
-    const safeMs = Math.max(0, Math.min(ms, Math.max(config.durationMs, 1)));
-    setCurrentMs(safeMs);
-    if (audioRef.current) audioRef.current.currentTime = safeMs / 1000;
-  };
-  const adjustPlayerTime = (deltaMs: number) => seek(Math.round(currentMs + deltaMs));
-  const adjustSpaceStart = (deltaMs: number) => patch("spaceStartMs", Math.max(0, Math.round(config.spaceStartMs + deltaMs)));
-
-  const analyzeBeatAnchors = async () => {
-    if (analyzingBeats || saving || !config.audioUrl) return;
-    const requestId = ++beatAnalysisRequestRef.current;
-    setAnalyzingBeats(true);
-    setMessage("Đang phân tích nhịp 4 bằng beat tracker…");
-    try {
-      const result = await analyzeFourBeatAnchors(config.audioUrl);
-      if (requestId !== beatAnalysisRequestRef.current) return;
-      const exactBpm = Number(result.bpm.toFixed(4));
-      setConfig(prev => ({ ...prev, BPM_exact: exactBpm, updatedAt: new Date().toISOString() }));
-      setBeatAnchors(result.anchors);
-      setSelectedBeatAnchor("");
-      setMessage(`Đã phân tích ${result.anchors.length} mốc 4-beat · BPM exact ${exactBpm} · confidence ${(result.confidence * 100).toFixed(0)}%.`);
-    } catch (error) {
-      if (requestId !== beatAnalysisRequestRef.current) return;
-      setMessage(`Phân tích thất bại: ${error instanceof Error ? error.message : "unknown error"}`);
-    } finally {
-      if (requestId === beatAnalysisRequestRef.current) setAnalyzingBeats(false);
-    }
+    previewEndRef.current = null;
+    const max = Math.max(config.durationMs, 1);
+    const safe = Math.max(0, Math.min(Math.round(ms), max));
+    if (audioRef.current) audioRef.current.currentTime = safe / 1000;
+    setCurrentMs(safe);
   };
 
-  const selectBeatAnchor = (value: string) => {
-    setSelectedBeatAnchor(value);
-    const anchorIndex = Number(value);
-    const anchor = beatAnchors[anchorIndex];
-    if (!anchor) return;
-    patch("spaceStartMs", anchor.ms);
-    seek(anchor.ms);
-    setMessage(`Đã chọn mốc 4-beat #${anchorIndex + 1} tại ${formatTime(anchor.ms)}. Slider đang ở Perfect.`);
-  };
-
-  const previewSelectedAnchor = async () => {
-    const anchor = beatAnchors[Number(selectedBeatAnchor)];
+  const previewAnchor = async (anchorMs: number) => {
     const audio = audioRef.current;
-    if (!anchor || !audio) return;
-    const startMs = Math.max(0, anchor.ms - 5000);
-    anchorPreviewEndRef.current = anchor.ms;
-    audio.currentTime = startMs / 1000;
-    setCurrentMs(startMs);
+    if (!audio) return;
+    previewEndRef.current = anchorMs;
+    audio.currentTime = Math.max(0, anchorMs - 5000) / 1000;
+    setCurrentMs(Math.max(0, anchorMs - 5000));
+    await audio.play();
+  };
+
+  const selectAnchor = (anchorMs: number) => {
+    patch("spaceStartMs", anchorMs);
+    setSelectedCandidate(anchorMs);
+    seek(anchorMs);
+    setMessage(`Space Start = ${formatTime(anchorMs)}. Slider đã về Perfect.`);
+  };
+
+  const analyzeAudio = async (): Promise<TempoAnalysis> => {
+    if (!config.audioUrl) throw new Error("Chưa có audio.");
+    const requestId = ++analysisIdRef.current;
+    setAnalyzing(true);
+    setMessage("Đang phân tích tempo + beat grid trên thiết bị…");
     try {
-      await audio.play();
-      setMessage(`Nghe kiểm tra ${formatTime(startMs)} → ${formatTime(anchor.ms)}.`);
-    } catch (error) {
-      anchorPreviewEndRef.current = null;
-      setMessage(`Không phát được audio preview: ${error instanceof Error ? error.message : "unknown error"}`);
+      const result = await analyzeTempo(config.audioUrl);
+      if (requestId !== analysisIdRef.current) throw new Error("Track đã thay đổi trong lúc phân tích.");
+      setAnalysis(result);
+      setConfig(prev => ({ ...prev, bpm: result.displayBpm, BPM_exact: result.bpmExact, updatedAt: new Date().toISOString() }));
+      setMessage(`Detected ${result.bpmExact.toFixed(4)} BPM.`);
+      return result;
+    } finally {
+      if (requestId === analysisIdRef.current) setAnalyzing(false);
     }
   };
 
-  const reset = () => { setLocalFile(null); const next = cloneDefault(); setConfig(next); setCurrentMs(0); setPlaying(false); clearBeatAnalysis(); setMessage("Đã reset về cấu hình mặc định."); window.setTimeout(() => audioRef.current?.load(), 0); };
-  const refreshLibraries = async () => { const result = await fetchLibraries(); setLibrary(result.configs); setStorageFiles(result.storage); };
-
-  const deleteTrack = async (track: MusicConfig) => {
-    if (saving) return;
-    if (!window.confirm(`Xóa \"${track.title}\" khỏi Music library?\n\nFile audio trong Supabase Storage sẽ được giữ lại.`)) return;
-    setSaving(true);
-    try {
-      const response = await fetch(`/api/music-config?id=${encodeURIComponent(track.id)}`, { method: "DELETE" });
-      if (!response.ok) {
-        const detail = await response.json().catch(() => ({})) as { detail?: string; error?: string };
-        throw new Error(detail.detail || detail.error || `HTTP ${response.status}`);
-      }
-      const result = await fetchLibraries();
-      setLibrary(result.configs); setStorageFiles(result.storage);
-      if (config.id === track.id) {
-        const fallback = result.configs.find(item => item.id === DEFAULT_MUSIC_CONFIG.id) ?? result.configs[0];
-        setLocalFile(null);
-        setConfig(fallback ?? cloneDefault());
-        clearBeatAnalysis();
-        loadAudio();
-      }
-      setMessage(`Đã xóa ${track.title} khỏi Music library.`);
-    } catch (error) {
-      setMessage(`Xóa thất bại: ${error instanceof Error ? error.message : "unknown error"}`);
-    } finally { setSaving(false); }
-  };
+  const anchors = useMemo(() => {
+    if (!analysis?.beats?.length) return [];
+    const result: number[] = [];
+    for (let index = 0; index < analysis.beats.length; index += 4) {
+      const ms = Math.round(analysis.beats[index] * 1000);
+      if (ms > 0 && (!config.durationMs || ms < config.durationMs)) result.push(ms);
+    }
+    return result.slice(0, 48);
+  }, [analysis?.beats, config.durationMs]);
 
   const save = async () => {
     if (saving) return;
     setSaving(true);
     try {
-      let audioUrl = config.audioUrl;
-      let uploaded = false;
-      if (localFile) { setMessage(`Đang upload ${localFile.name} lên Supabase…`); audioUrl = await uploadLocalAudio(localFile); uploaded = true; }
-      const normalized: MusicConfig = { ...config, audioUrl, updatedAt: new Date().toISOString() };
-      const response = await fetch("/api/music-config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(normalized) });
-      if (!response.ok) {
-        const detail = await response.json().catch(() => ({})) as { detail?: string; error?: string };
-        throw new Error(detail.detail || detail.error || `HTTP ${response.status}`);
+      let latest = { ...config };
+      if (!Number.isFinite(latest.BPM_exact) || (latest.BPM_exact ?? 0) <= 0) {
+        const result = await analyzeAudio();
+        latest = { ...latest, bpm: result.displayBpm, BPM_exact: result.bpmExact };
       }
-      const result = await response.json() as { config?: MusicConfig };
-      const savedConfig = result.config ?? normalized;
-      setConfig(savedConfig); setLocalFile(null); await refreshLibraries(); setMessage("Đã lưu vào Supabase music_charts.");
-      setSaveDialog({ title: "Đã lưu bài nhạc", message: uploaded ? "Chart đã lưu vào database và audio đã được upload vào Supabase Storage. Bài này đã xuất hiện trong Music library." : "Chart đã lưu vào database và xuất hiện trong Music library.", audioUrl: savedConfig.audioUrl });
+
+      let audioUrl = latest.audioUrl;
+      let uploaded = false;
+      if (localFile) {
+        setMessage(`Đang upload ${localFile.name}…`);
+        audioUrl = await uploadLocalAudio(localFile);
+        uploaded = true;
+      }
+
+      latest = { ...latest, audioUrl, updatedAt: new Date().toISOString() };
+      const response = await fetch("/api/music-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(latest),
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string; detail?: string; config?: MusicConfig };
+      if (!response.ok) throw new Error(data.detail || data.error || `HTTP ${response.status}`);
+
+      const saved = data.config ?? latest;
+      setConfig(saved);
+      setLocalFile(null);
+      await refresh();
+      setMessage("Đã lưu chart.");
+      setSaveDialog({
+        title: "Chart saved",
+        message: uploaded ? "Audio đã upload và chart đã lưu." : "Chart đã lưu vào Music library.",
+        audioUrl: saved.audioUrl,
+      });
     } catch (error) {
       setMessage(`Lưu thất bại: ${error instanceof Error ? error.message : "unknown error"}`);
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   };
 
+  const deleteTrack = async (track: MusicConfig) => {
+    if (saving) return;
+    if (!window.confirm(`Xóa "${track.title}" khỏi Music library?\n\nAudio trong Storage sẽ được giữ lại.`)) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/music-config?id=${encodeURIComponent(track.id)}`, { method: "DELETE" });
+      const data = await response.json().catch(() => ({})) as { error?: string; detail?: string };
+      if (!response.ok) throw new Error(data.detail || data.error || `HTTP ${response.status}`);
+      const result = await refresh();
+      if (config.id === track.id) {
+        const fallback = result.configs.find(item => item.id === DEFAULT_MUSIC_CONFIG.id) ?? result.configs[0];
+        setConfig(fallback ?? cloneDefault());
+        setAnalysis(null);
+        setSelectedCandidate(null);
+        resetAudioState();
+      }
+      setMessage(`Đã xóa ${track.title}.`);
+    } catch (error) {
+      setMessage(`Xóa thất bại: ${error instanceof Error ? error.message : "unknown error"}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const exactLabel = Number.isFinite(config.BPM_exact) ? (config.BPM_exact as number).toFixed(4) : "—";
   const currentStorageUrl = config.audioUrl.startsWith("blob:") ? null : config.audioUrl;
+  const canSave = Boolean(config.audioUrl) && Number.isFinite(config.BPM_exact) && (config.BPM_exact ?? 0) > 0;
 
   return (
     <main className="music-config-page">
       <input ref={fileInputRef} className="visually-hidden-file-input" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.aac,.flac" onChange={event => chooseLocalFile(event.target.files?.[0])} />
 
       <header className="config-header">
-        <div><span className="eyebrow">CLUB AUDITION / TOOL</span><h1>Music Chart Config</h1><p>Canh audio và khai báo rule để runtime chơi đúng từng bài nhạc.</p></div>
+        <div><span className="eyebrow">CLUB AUDITION / CHART STUDIO</span><h1>Music Chart Config</h1><p>Analyze the track, verify the beat anchor, then save.</p></div>
+        <button className="primary header-add" disabled={saving} onClick={() => fileInputRef.current?.click()}>＋ ADD MUSIC</button>
       </header>
 
-      <div className="config-layout">
+      <div className="studio-layout">
         <aside className="config-panel library-panel">
-          <div className="panel-heading"><div><span>LIBRARY</span><h2>Music</h2></div><button disabled={saving} onClick={addTrack}>＋ ADD MUSIC</button></div>
-          {library.length === 0 && <div className="storage-note"><b>Supabase connected</b><br />Chưa có chart trong <code>music_charts</code>. Hãy ADD MUSIC để chọn file local.</div>}
-          {library.map(track => (
-            <div key={track.id} className={`library-track ${config.id === track.id ? "active" : ""}`}>
-              <button className="library-select" disabled={saving} onClick={() => chooseTrack(track)}><span className="track-cover">♫</span><span><b>{track.title}</b><small>{track.artist || "Unknown artist"} · {track.bpm} BPM</small></span></button>
-              <button className="library-delete" disabled={saving} onClick={() => void deleteTrack(track)} aria-label={`Xóa ${track.title} khỏi Music library`} title="Xóa khỏi Music library">×</button>
-            </div>
-          ))}
-          <div className="storage-note"><b>Storage Audio · {storageFiles.length}</b><br />Audio: Supabase Storage / <code>audio</code>
+          <div className="panel-heading"><div><span>LIBRARY</span><h2>Music</h2></div><span className="count-badge">{library.length}</span></div>
+          <div className="library-list">
+            {library.length === 0 && <div className="empty-state">Chưa có chart. Chọn audio bên dưới hoặc ADD MUSIC.</div>}
+            {library.map(track => (
+              <div key={track.id} className={`library-track ${config.id === track.id ? "active" : ""}`}>
+                <button className="library-select" disabled={saving} onClick={() => chooseTrack(track)}><span className="track-cover">♫</span><span className="track-copy"><b>{track.title}</b><small>{track.bpm || "—"} BPM · {Number.isFinite(track.BPM_exact) ? `${track.BPM_exact.toFixed(2)} exact` : "needs analysis"}</small></span></button>
+                <button className="library-delete" disabled={saving} onClick={() => void deleteTrack(track)} aria-label={`Xóa ${track.title}`}>×</button>
+              </div>
+            ))}
+          </div>
+          <div className="storage-block">
+            <div className="storage-title"><span>STORAGE AUDIO</span><b>{storageFiles.length}</b></div>
             <div className="storage-files">
               {storageFiles.length === 0 && <small>Chưa tìm thấy file audio.</small>}
-              {storageFiles.map(file => { const configured = library.some(track => track.audioUrl === file.publicUrl); const active = currentStorageUrl === file.publicUrl; return <button key={file.publicUrl} className={`storage-file ${active ? "active" : ""}`} disabled={saving} onClick={() => chooseStorageFile(file)}><span>♫</span><span><b>{file.name}</b><small>{configured ? "Configured chart" : "Audio chưa có chart"}{file.size ? ` · ${formatBytes(file.size)}` : ""}</small></span></button>; })}
+              {storageFiles.map(file => {
+                const configured = library.some(track => track.audioUrl === file.publicUrl);
+                const active = currentStorageUrl === file.publicUrl;
+                return <button key={file.publicUrl} className={`storage-file ${active ? "active" : ""}`} disabled={saving} onClick={() => chooseStorageFile(file)}><span>♫</span><span><b>{file.name}</b><small>{configured ? "Configured" : "Ready to chart"}{file.size ? ` · ${formatBytes(file.size)}` : ""}</small></span></button>;
+              })}
             </div>
-            <br />Chart: Supabase <code>music_charts</code>.<br /><br />ADD MUSIC từ local → chọn file → SAVE TO DB → tự upload + lưu chart.<br /><br />Xóa khỏi Music chỉ xóa chart; file audio trong Storage được giữ lại.
           </div>
         </aside>
 
         <section className="config-panel editor-panel">
-          <div className="panel-heading"><div><span>EDITOR</span><h2>{config.title}</h2></div><span className="clock-badge">● {formatTime(currentMs)}</span></div>
-          <audio ref={audioRef} src={config.audioUrl} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onTimeUpdate={handleAudioTimeUpdate} onEnded={() => { anchorPreviewEndRef.current = null; setPlaying(false); }} onLoadedMetadata={event => { const duration = event.currentTarget.duration; if (Number.isFinite(duration)) patch("durationMs", Math.round(duration * 1000)); }} />
-          <div className="audio-player">
+          <div className="editor-heading"><div><span className="eyebrow">EDITOR</span><h2>{config.title}</h2></div><div className="time-badge">{formatTime(currentMs)}</div></div>
+
+          <audio ref={audioRef} src={config.audioUrl} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => { setPlaying(false); previewEndRef.current = null; }} onTimeUpdate={() => {
+            const audio = audioRef.current;
+            if (!audio) return;
+            const ms = audio.currentTime * 1000;
+            setCurrentMs(ms);
+            const endMs = previewEndRef.current;
+            if (endMs != null && ms >= endMs) {
+              previewEndRef.current = null;
+              audio.pause();
+              audio.currentTime = endMs / 1000;
+              setCurrentMs(endMs);
+            }
+          }} onLoadedMetadata={event => {
+            const duration = event.currentTarget.duration;
+            if (Number.isFinite(duration)) patch("durationMs", Math.round(duration * 1000));
+          }} />
+
+          <div className="player-card">
             <button className="play-button" onClick={() => void togglePlay()}>{playing ? "❚❚" : "▶"}</button>
-            <div className="audio-timeline"><input min="0" max={Math.max(config.durationMs, 1)} value={Math.min(currentMs, Math.max(config.durationMs, 1))} type="range" onChange={event => seek(Number(event.target.value))} /><div><span>{formatTime(currentMs)}</span><span>{formatTime(config.durationMs)}</span></div></div>
-            <button onClick={() => adjustPlayerTime(-5000)}>−5s</button><button onClick={() => adjustPlayerTime(5000)}>+5s</button>
-          </div>
-          <div className="fine-time-controls" aria-label="Fine audio timing controls">
-            <span>FINE</span>
-            <button onClick={() => adjustPlayerTime(-10)}>−10 ms</button>
-            <button onClick={() => adjustPlayerTime(-1)}>−1 ms</button>
-            <button onClick={() => adjustPlayerTime(1)}>+1 ms</button>
-            <button onClick={() => adjustPlayerTime(10)}>+10 ms</button>
+            <div className="timeline-wrap"><input className="timeline" min="0" max={Math.max(config.durationMs, 1)} value={Math.min(currentMs, Math.max(config.durationMs, 1))} type="range" onChange={event => seek(Number(event.target.value))} /><div className="timeline-labels"><span>{formatTime(currentMs)}</span><span>{formatTime(config.durationMs)}</span></div></div>
+            <button onClick={() => seek(currentMs - 5000)}>−5s</button><button onClick={() => seek(currentMs + 5000)}>+5s</button>
           </div>
 
-          <div className="player-gauge-card">
-            <div className="card-heading"><div><span>LIVE PHASE</span><h3>Timing gauge</h3></div><span className="exact-bpm-badge">System {timingBpm.toFixed(4)} BPM</span></div>
-            <div className="player-gauge-preview"><AuditionGauge bpm={timingBpm} value={previewGauge} animationDelayMs={previewAnimationDelayMs} zoneStart={config.gauge.zoneStartPercent} zoneEnd={config.gauge.zoneEndPercent} perfectStart={config.gauge.perfectStartPercent} perfectEnd={config.gauge.perfectEndPercent} /></div>
-            <div className="player-gauge-meta"><span>Anchor {formatTime(config.spaceStartMs)}</span><span>Phase {previewTiming.cycleElapsedMs.toFixed(0)} / {previewTiming.cycleMs.toFixed(0)} ms</span></div>
-            <small>Chọn mốc nhịp 4 bên dưới → slider nhảy thẳng vào Perfect; khi phát nhạc, phase chạy từ anchor đó bằng BPM_exact.</small>
+          <div className="section-card analysis-card">
+            <div className="section-head"><div><span>1 · TEMPO</span><h3>Auto analysis</h3></div><button className="primary" disabled={analyzing || saving || !config.audioUrl} onClick={() => void analyzeAudio()}>{analyzing ? "ANALYZING…" : "ANALYZE AUDIO"}</button></div>
+            <div className="tempo-summary"><div><span>Display</span><strong>{config.bpm > 0 ? config.bpm : "—"} <em>BPM</em></strong></div><div><span>System BPM exact</span><strong>{exactLabel}</strong></div><div><span>Confidence</span><strong>{analysis ? `${Math.round(analysis.confidence * 100)}%` : "—"}</strong></div></div>
+            {analysis && <div className="candidate-list"><div className="candidate-head"><span>Detected candidates</span><small>ranked by independent tempo signals</small></div>{analysis.candidates.map((candidate, index) => <button key={`${candidate.bpm}-${index}`} className={`candidate-row ${index === 0 ? "recommended" : ""}`} onClick={() => { patch("BPM_exact", candidate.bpm); patch("bpm", Math.round(candidate.bpm)); setMessage(`Đã chọn ${candidate.bpm.toFixed(4)} BPM.`); }}><span className="candidate-rank">{index === 0 ? "★" : String(index + 1)}</span><span><b>{candidate.bpm.toFixed(4)} BPM</b><small>{candidate.source} · {Math.round(candidate.confidence * 100)}% signal</small></span>{index === 0 && <strong>RECOMMENDED</strong>}</button>)}</div>}
+            <p className="helper">Không cần biết BPM trước. Hệ thống đọc toàn bộ audio, lấy beat timestamps và fit lại tempo liên tục; BPM hiển thị chỉ là giá trị rounded cho người chơi.</p>
           </div>
 
-          <div className="space-card"><div className="card-heading"><div><span>AI 4-BEAT ANCHOR</span><h3>Find reliable Space start candidates</h3></div><button className="accent-button" disabled={analyzingBeats || saving} onClick={() => void analyzeBeatAnchors()}>{analyzingBeats ? "ANALYZING…" : "ANALYZE 4-BEAT"}</button></div>
-            <div className="beat-anchor-tools">
-              <label>Detected 4-beat markers<select value={selectedBeatAnchor} onChange={event => selectBeatAnchor(event.target.value)} disabled={analyzingBeats || beatAnchors.length === 0}>
-                <option value="">Chọn mốc để làm Space start…</option>
-                {beatAnchors.map(anchor => <option key={anchor.index} value={anchor.index}>{formatTime(anchor.ms)} · 4-beat #{anchor.index + 1} · beat {anchor.beatIndex + 1}</option>)}
-              </select></label>
-              <button disabled={!selectedBeatAnchor || analyzingBeats || saving} onClick={() => void previewSelectedAnchor()}>▶ −5s → MỐC</button>
-            </div>
-            <div className="beat-anchor-status">{beatAnchors.length ? `Package đã trả về ${beatAnchors.length} mốc chu kỳ 4 beat. Hãy nghe preview 5 giây trước mốc rồi xác nhận tai người.` : "Chưa có mốc AI. Bấm ANALYZE 4-BEAT để tạo danh sách candidate; cách chỉnh Space start thủ công phía dưới vẫn giữ nguyên."}</div>
+          <div className="section-card timing-card">
+            <div className="section-head"><div><span>2 · SPACE START</span><h3>Choose the 4-beat anchor</h3></div><button onClick={usePlayerTime}>USE PLAYER TIME</button></div>
+            <div className="anchor-current"><div><span>Current Space Start</span><strong>{formatTime(config.spaceStartMs)}</strong></div><div className="anchor-shifts"><button onClick={() => manualShiftSpace(-10)}>−10ms</button><button onClick={() => manualShiftSpace(-1)}>−1ms</button><button onClick={() => manualShiftSpace(1)}>+1ms</button><button onClick={() => manualShiftSpace(10)}>+10ms</button></div></div>
+            {analysis ? <div className="anchor-grid"><div className="candidate-head"><span>Detected 4-beat anchors</span><small>Chọn mốc → slider về Perfect</small></div>{anchors.map((anchorMs, index) => <div key={anchorMs} className={`anchor-row ${selectedCandidate === anchorMs || config.spaceStartMs === anchorMs ? "active" : ""}`}><button onClick={() => selectAnchor(anchorMs)}><span>{index === 0 ? "★" : "○"}</span><b>{formatTime(anchorMs)}</b><small>4-beat #{index + 1}</small></button><button className="preview-button" onClick={() => void previewAnchor(anchorMs)}>▶ −5s</button></div>)}</div> : <div className="analysis-placeholder"><span>○</span><div><b>Chưa có beat grid</b><small>ANALYZE AUDIO để tìm tempo và mốc 4-beat.</small></div></div>}
+            <p className="helper">Mốc được chọn sẽ tự seek về đúng anchor. Preview phát 5 giây trước đó rồi dừng tại anchor để admin xác nhận bằng tai.</p>
           </div>
 
-          <div className="space-card"><div className="card-heading"><div><span>TIMING ANCHOR</span><h3>Space start</h3></div><button className="accent-button" onClick={usePlayerTime}>USE PLAYER TIME</button></div><div className="time-editor"><label>MIN<input type="number" min="0" value={parts.m} onChange={e => patch("spaceStartMs", partsToMs(Number(e.target.value), parts.s, parts.ms))} /></label><label>SEC<input type="number" min="0" max="59" value={parts.s} onChange={e => patch("spaceStartMs", partsToMs(parts.m, Number(e.target.value), parts.ms))} /></label><label>MS<input type="number" min="0" max="999" value={parts.ms} onChange={e => patch("spaceStartMs", partsToMs(parts.m, parts.s, Number(e.target.value)))} /></label><output>{formatTime(config.spaceStartMs)}</output></div><div className="space-fine-controls"><button onClick={() => adjustSpaceStart(-10)}>−10 ms</button><button onClick={() => adjustSpaceStart(-1)}>−1 ms</button><button onClick={() => adjustSpaceStart(1)}>+1 ms</button><button onClick={() => adjustSpaceStart(10)}>+10 ms</button></div><p>Đây là <b>space start</b>: SPACE đầu tiên sau countdown, ngay tại zone perfect. Từ space start đến space start kế tiếp = <b>4 beat</b>. Bạn vẫn có thể chỉnh tay từng 1 ms như trước.</p></div>
+          <div className="section-card gauge-card">
+            <div className="section-head"><div><span>3 · GAUGE</span><h3>Timing preview</h3></div><span className="status-chip">4 BEAT CYCLE</span></div>
+            <div className="gauge-shell"><AuditionGauge bpm={timingBpm} value={previewGauge} animationDelayMs={previewAnimationDelayMs} zoneStart={config.gauge.zoneStartPercent} zoneEnd={config.gauge.zoneEndPercent} perfectStart={config.gauge.perfectStartPercent} perfectEnd={config.gauge.perfectEndPercent} /></div>
+            <div className="gauge-meta"><span>Anchor <b>{formatTime(config.spaceStartMs)}</b></span><span>Exact <b>{timingBpm.toFixed(4)} BPM</b></span><span>Phase <b>{formatTime(((currentMs - config.spaceStartMs) % previewCycleMs + previewCycleMs) % previewCycleMs)}</b></span></div>
+          </div>
 
-          <div className="section-grid"><div className="sub-card"><div className="card-heading"><div><span>SONG</span><h3>Track info</h3></div></div><label>Title<input value={config.title} onChange={e => patch("title", e.target.value)} /></label><label>Artist<input value={config.artist ?? ""} onChange={e => patch("artist", e.target.value)} /></label><label>BPM<select className="bpm-mobile-picker" value={Math.round(config.bpm)} onChange={e => patch("bpm", Number(e.target.value))}>{Array.from({ length: 151 }, (_, index) => index + 50).map(value => <option key={value} value={value}>{value}</option>)}</select><input className="bpm-desktop-input" type="number" min="50" max="200" step="1" value={config.bpm} onChange={e => patch("bpm", Math.max(50, Math.min(200, Number(e.target.value))))} /></label><div className="exact-bpm-row"><span>Display BPM</span><b>{config.bpm} BPM</b><span>System BPM_exact</span><b>{Number.isFinite(config.BPM_exact) ? config.BPM_exact!.toFixed(4) : "—"}</b></div><label>Audio URL<input value={config.audioUrl} onChange={e => { setLocalFile(null); patch("audioUrl", e.target.value); }} /></label></div>
-            <div className="sub-card"><div className="card-heading"><div><span>GAUGE</span><h3>Timing zones</h3></div></div><div className="number-grid"><label>Zone start<input type="number" min="0" max="100" value={config.gauge.zoneStartPercent} onChange={e => patchGauge("zoneStartPercent", Number(e.target.value))} /></label><label>Zone end<input type="number" min="0" max="100" value={config.gauge.zoneEndPercent} onChange={e => patchGauge("zoneEndPercent", Number(e.target.value))} /></label><label>Perfect start<input type="number" min="0" max="100" value={config.gauge.perfectStartPercent} onChange={e => patchGauge("perfectStartPercent", Number(e.target.value))} /></label><label>Perfect end<input type="number" min="0" max="100" value={config.gauge.perfectEndPercent} onChange={e => patchGauge("perfectEndPercent", Number(e.target.value))} /></label></div><div className="gauge-config-preview"><AuditionGauge bpm={timingBpm} value={previewGauge} animationDelayMs={previewAnimationDelayMs} zoneStart={config.gauge.zoneStartPercent} zoneEnd={config.gauge.zoneEndPercent} perfectStart={config.gauge.perfectStartPercent} perfectEnd={config.gauge.perfectEndPercent} /></div><div className="gauge-explanation"><b>Gauge này dùng để làm gì?</b><span>• Cyan = timing zone có thể hit.</span><span>• Vùng trắng ở giữa = Perfect window.</span><span>• Chấm đỏ = phase của audio hiện tại trong chu kỳ 4 beat.</span><span>• Khi <b>player time = Space start</b>, chấm đỏ sẽ nằm trong tâm Perfect. Sau đó nó chạy theo nhịp và quay lại điểm đó mỗi 4 beat.</span><span>• Nếu player đang ở 00:00 mà Space start là 00:28.870 thì chấm đỏ <b>không cần</b> nằm trong cyan; đó là phase hiện tại của bài. Hãy dùng player + Fine để đưa đúng thời điểm SPACE vào Perfect.</span><span>• Gauge dưới player là visualization trực tiếp; BPM_exact được dùng cho phase/timing.</span></div><small>Breath = {config.gauge.breathCycleBeats} beats · stretch = beat {config.gauge.edgeStretchBeat} · phase {previewTiming.cycleElapsedMs.toFixed(0)} ms / {previewTiming.cycleMs.toFixed(0)} ms</small></div></div>
-
-          <div className="sub-card gameplay-card"><div className="card-heading"><div><span>GAMEPLAY</span><h3>Turn / sequence rules</h3></div></div><div className="number-grid six"><label>L1–5 reveal pass<input type="number" value={config.gameplay.commandRevealPasses["1-5"]} onChange={e => patchGameplay("commandRevealPasses", { ...config.gameplay.commandRevealPasses, "1-5": Number(e.target.value) })} /></label><label>L6–9 reveal pass<input type="number" value={config.gameplay.commandRevealPasses["6-9"]} onChange={e => patchGameplay("commandRevealPasses", { ...config.gameplay.commandRevealPasses, "6-9": Number(e.target.value) })} /></label><label>L1–5 miss penalty<input type="number" value={config.gameplay.missPenaltyTurns["1-5"]} onChange={e => patchGameplay("missPenaltyTurns", { ...config.gameplay.missPenaltyTurns, "1-5": Number(e.target.value) })} /></label><label>L6–9 miss penalty<input type="number" value={config.gameplay.missPenaltyTurns["6-9"]} onChange={e => patchGameplay("missPenaltyTurns", { ...config.gameplay.missPenaltyTurns, "6-9": Number(e.target.value) })} /></label><label>Finish hide turns<input type="number" min="0" value={config.gameplay.finishHideTurns} onChange={e => patchGameplay("finishHideTurns", Number(e.target.value))} /></label><label>Resume level<input type="number" min="1" max="9" value={config.gameplay.finishResumeLevel} onChange={e => patchGameplay("finishResumeLevel", Number(e.target.value))} /></label></div><label className="checkbox-row"><input type="checkbox" checked={config.gameplay.finishReverseRequired} onChange={e => patchGameplay("finishReverseRequired", e.target.checked)} /> finish arrow-command bắt buộc có ít nhất 1 reverse arrow</label></div>
-
-          <div className="json-card"><div className="card-heading"><div><span>OUTPUT</span><h3>Chart JSON</h3></div><span>{message}</span></div><pre>{JSON.stringify(config, null, 2)}</pre></div>
+          <details className="advanced-card"><summary>Advanced chart settings</summary><div className="advanced-grid"><label>Title<input value={config.title} onChange={event => patch("title", event.target.value)} /></label><label>Artist<input value={config.artist ?? ""} onChange={event => patch("artist", event.target.value)} /></label><label>Display BPM<input type="number" min="1" step="1" value={config.bpm || 0} onChange={event => patch("bpm", Math.max(1, Number(event.target.value) || 1))} /></label><label>Audio URL<input value={config.audioUrl} onChange={event => { setLocalFile(null); patch("audioUrl", event.target.value); }} /></label><label>Zone start<input type="number" min="0" max="100" value={config.gauge.zoneStartPercent} onChange={event => patch("gauge", { ...config.gauge, zoneStartPercent: Number(event.target.value) })} /></label><label>Zone end<input type="number" min="0" max="100" value={config.gauge.zoneEndPercent} onChange={event => patch("gauge", { ...config.gauge, zoneEndPercent: Number(event.target.value) })} /></label><label>Perfect start<input type="number" min="0" max="100" value={config.gauge.perfectStartPercent} onChange={event => patch("gauge", { ...config.gauge, perfectStartPercent: Number(event.target.value) })} /></label><label>Perfect end<input type="number" min="0" max="100" value={config.gauge.perfectEndPercent} onChange={event => patch("gauge", { ...config.gauge, perfectEndPercent: Number(event.target.value) })} /></label></div><pre>{JSON.stringify(config, null, 2)}</pre></details>
         </section>
       </div>
 
-      <div className="sticky-actions" role="region" aria-label="Chart actions"><div className="sticky-status">{message || "Sẵn sàng"}</div><button disabled={saving} onClick={reset}>RESET</button><button className="primary" disabled={saving} onClick={() => void save()}>{saving ? "SAVING…" : "SAVE TO DB"}</button></div>
+      <div className="sticky-actions"><div className="sticky-status"><span className={saving ? "live-dot saving" : "live-dot"} />{message || "Ready"}</div><button disabled={saving} onClick={() => { const next = cloneDefault(); setConfig(next); setAnalysis(null); setSelectedCandidate(null); setCurrentMs(0); setPlaying(false); setMessage("Đã reset."); resetAudioState(); }}>RESET</button><button className="primary save-button" disabled={saving || !canSave} onClick={() => void save()}>{saving ? "SAVING…" : "SAVE TO DB"}</button></div>
 
-      {saveDialog && <div className="save-dialog-backdrop" role="presentation" onMouseDown={() => setSaveDialog(null)}><div className="save-dialog" role="dialog" aria-modal="true" aria-labelledby="save-dialog-title" onMouseDown={event => event.stopPropagation()}><div className="save-dialog-icon">✓</div><span className="eyebrow">SAVE COMPLETE</span><h2 id="save-dialog-title">{saveDialog.title}</h2><p>{saveDialog.message}</p><div className="save-dialog-url"><span>Audio</span><b>{saveDialog.audioUrl}</b></div><button className="primary save-dialog-close" onClick={() => setSaveDialog(null)}>OK</button></div></div>}
+      {saveDialog && <div className="save-dialog-backdrop" onMouseDown={() => setSaveDialog(null)}><div className="save-dialog" role="dialog" aria-modal="true" onMouseDown={event => event.stopPropagation()}><div className="save-dialog-icon">✓</div><span className="eyebrow">SAVE COMPLETE</span><h2>{saveDialog.title}</h2><p>{saveDialog.message}</p><div className="save-dialog-url"><span>Audio</span><b>{saveDialog.audioUrl}</b></div><button className="primary save-dialog-close" onClick={() => setSaveDialog(null)}>OK</button></div></div>}
     </main>
   );
 }
