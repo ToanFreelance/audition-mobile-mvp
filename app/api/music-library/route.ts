@@ -32,6 +32,12 @@ function audioNameIsValid(path: string) {
   return Boolean(name) && AUDIO_EXTENSIONS.has(extension);
 }
 
+function safeStorageName(name: string) {
+  const base = name.split(/[\\/]/).pop()?.trim() ?? "audio";
+  const normalized = base.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-");
+  return normalized || `audio-${Date.now()}.mp3`;
+}
+
 export async function GET() {
   const supabase = supabaseConfig();
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
@@ -60,11 +66,7 @@ export async function GET() {
 
     const objects = await response.json() as StorageObject[];
     const files = objects
-      .filter(object => {
-        const name = object.name ?? "";
-        const extension = name.split(".").pop()?.toLowerCase() ?? "";
-        return Boolean(name) && AUDIO_EXTENSIONS.has(extension);
-      })
+      .filter(object => audioNameIsValid(object.name ?? ""))
       .map(object => ({
         name: object.name!,
         publicUrl: publicUrl(supabase.url, object.name!),
@@ -76,6 +78,50 @@ export async function GET() {
     return NextResponse.json({ bucket: BUCKET, files });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase Storage read failed" }, { status: 502 });
+  }
+}
+
+export async function POST(request: Request) {
+  const supabase = supabaseConfig();
+  if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
+
+  try {
+    const form = await request.formData();
+    const file = form.get("file");
+    if (!(file instanceof File) || file.size <= 0) {
+      return NextResponse.json({ error: "Audio file is required" }, { status: 400 });
+    }
+
+    const path = safeStorageName(file.name);
+    if (!audioNameIsValid(path)) {
+      return NextResponse.json({ error: "Unsupported audio format" }, { status: 400 });
+    }
+
+    const uploadResponse = await fetch(`${supabase.url}/storage/v1/object/${encodeURIComponent(BUCKET)}/${path}`, {
+      method: "POST",
+      headers: {
+        apikey: supabase.key,
+        Authorization: `Bearer ${supabase.key}`,
+        "Content-Type": file.type || "application/octet-stream",
+        "x-upsert": "true",
+      },
+      body: await file.arrayBuffer(),
+      cache: "no-store",
+    });
+
+    if (!uploadResponse.ok) {
+      const detail = await uploadResponse.text();
+      return NextResponse.json({ error: "Supabase Storage upload failed", detail }, { status: 502 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      path,
+      name: path,
+      publicUrl: publicUrl(supabase.url, path),
+    });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase Storage upload failed" }, { status: 502 });
   }
 }
 
@@ -92,9 +138,6 @@ export async function DELETE(request: Request) {
     }
 
     const objectUrl = publicUrl(supabase.url, path);
-
-    // Keep DB and Storage conceptually aligned: remove the catalog entry first.
-    // The actual Storage object is always deleted through the Storage API, never SQL.
     const chartResponse = await fetch(
       `${supabase.url}/rest/v1/music_charts?audio_url=eq.${encodeURIComponent(objectUrl)}`,
       {
@@ -126,12 +169,7 @@ export async function DELETE(request: Request) {
 
     if (!storageResponse.ok) {
       const detail = await storageResponse.text();
-      return NextResponse.json({
-        error: "Storage delete failed after chart removal",
-        detail,
-        partial: true,
-        path,
-      }, { status: 502 });
+      return NextResponse.json({ error: "Storage delete failed after chart removal", detail, partial: true, path }, { status: 502 });
     }
 
     return NextResponse.json({ ok: true, path, publicUrl: objectUrl });
