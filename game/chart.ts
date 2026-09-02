@@ -4,8 +4,6 @@ import type { Chart, DanceTurn, Direction } from "./types";
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
 const MAX_LEVEL = 9;
 
-// Reference progression observed in the supplied Audition replay.
-// A level is held for multiple turns; it does not increase every success.
 export const OBSERVED_80BPM_LEVEL_TURNS = [1, 2, 3, 4, 4, 6, 6] as const;
 export const STANDARD_4KEY_LEVEL_TURNS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 
@@ -113,11 +111,14 @@ export function createChartFromMusicConfig(config: MusicConfig): Chart {
   const levelTurns = config.gameplay.levelSequenceCounts?.length
     ? config.gameplay.levelSequenceCounts
     : OBSERVED_80BPM_LEVEL_TURNS;
+  const timingBpm = Number.isFinite(config.BPM_exact) && (config.BPM_exact ?? 0) > 0
+    ? config.BPM_exact!
+    : config.bpm;
 
   return buildChart(
     config.id,
     config.title,
-    config.bpm,
+    timingBpm,
     levelTurns,
     Math.max(0, config.spaceStartMs),
   );
