@@ -5,6 +5,7 @@ import AuditionGauge from "../../../components/AuditionGauge";
 import { DEFAULT_MUSIC_CONFIG, type MusicConfig } from "../../../game/music-config";
 import { analyzeTempo, type TempoAnalysis } from "../../../game/tempo-analysis";
 import "./music-config.css";
+import "./music-config-overrides.css";
 
 type EditableConfig = MusicConfig;
 type Theme = "dark" | "light";
