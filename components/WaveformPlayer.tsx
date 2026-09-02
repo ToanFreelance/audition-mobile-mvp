@@ -56,7 +56,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   selectedMarkerRef.current = selectedMarkerMs;
 
   const markerList = useMemo(() => {
-    const sorted = markers.filter(marker => marker.ms >= 0).sort((a, b) => a.ms - b.ms);
+    const sorted = markers.filter(marker => marker.ms >= 0).slice().sort((a, b) => a.ms - b.ms);
     if (zoom <= 1) return sorted.filter((_, index) => index % 32 === 0);
     if (zoom === 2) return sorted.filter((_, index) => index % 16 === 0);
     if (zoom === 3) return sorted.filter((_, index) => index % 8 === 0);
@@ -90,7 +90,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     void wavesurfer.play();
   };
 
-  useImperativeHandle(ref, () => ({ seekTo, previewFrom }), [url, ready]);
+  useImperativeHandle(ref, () => ({ seekTo, previewFrom }), []);
 
   useEffect(() => {
     if (!containerRef.current || !url) return;
@@ -141,19 +141,16 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       callbacksRef.current.onPause?.();
     });
 
-    // iOS can still treat the page as the scroll target when a touch starts
-    // over a nested waveform. Explicitly cancel the page's touch-pan here;
-    // WaveSurfer continues to receive pointer events for drag-to-seek.
+    // Cancel only the moving touch gesture. Do not cancel touchstart,
+    // otherwise iOS may suppress the synthetic click used by anchor buttons.
     const viewport = viewportRef.current;
     const preventPagePan = (event: TouchEvent) => {
       if (event.cancelable) event.preventDefault();
     };
     viewport?.addEventListener("touchmove", preventPagePan, { passive: false });
-    viewport?.addEventListener("touchstart", preventPagePan, { passive: false });
 
     return () => {
       viewport?.removeEventListener("touchmove", preventPagePan);
-      viewport?.removeEventListener("touchstart", preventPagePan);
       wavesurfer.destroy();
       wavesurferRef.current = null;
     };
