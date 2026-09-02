@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { MusicConfig } from "../../../game/music-config";
+import { analyzeAudioBpm } from "../../../lib/analyze-bpm";
+
+export const runtime = "nodejs";
 
 const TABLE = "music_charts";
 
@@ -115,13 +118,22 @@ export async function POST(request: NextRequest) {
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
 
   try {
+    let normalized: MusicConfig = { ...config, updatedAt: new Date().toISOString() };
+
+    // The displayed BPM stays human-friendly (for example 80 BPM), while the
+    // audio analyzer supplies the fractional tempo used by the runtime.
+    if (/^https?:\/\//i.test(normalized.audioUrl)) {
+      const analysis = await analyzeAudioBpm(normalized.audioUrl, normalized.bpm);
+      normalized = { ...normalized, BPM_exact: analysis.BPM_exact };
+    }
+
     const response = await fetch(`${supabase.url}/rest/v1/${TABLE}?on_conflict=id`, {
       method: "POST",
       headers: {
         ...headers(supabase.key),
         Prefer: "resolution=merge-duplicates,return=minimal",
       },
-      body: JSON.stringify(configToRow({ ...config, updatedAt: new Date().toISOString() })),
+      body: JSON.stringify(configToRow(normalized)),
       cache: "no-store",
     });
 
@@ -130,7 +142,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Supabase write failed", detail }, { status: 502 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, config: normalized });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase write failed" }, { status: 502 });
   }
