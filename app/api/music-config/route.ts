@@ -33,7 +33,7 @@ function headers(key: string) {
   return {
     apikey: key,
     Authorization: `Bearer ${key}`,
-    "Content-Type": "application/json`,
+    "Content-Type": "application/json",
   };
 }
 
