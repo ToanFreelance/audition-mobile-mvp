@@ -13,13 +13,16 @@
 @media(max-width:560px){.header-actions{width:100%;display:grid;grid-template-columns:auto 1fr;gap:7px}.header-actions .button-primary{width:100%}.theme-toggle{width:auto;min-width:92px}.audio-dock{padding-left:10px;padding-right:10px}.audio-dock .audio-dock-toggle{width:32px;height:25px;flex-basis:32px}.audio-dock.is-expanded .audio-dock-topline{margin-bottom:5px}.music-config-page.audio-dock-expanded{padding-bottom:350px}.music-config-page.audio-dock-collapsed{padding-bottom:145px}.sticky-actions{padding-top:8px;padding-bottom:max(8px,env(safe-area-inset-bottom))}}
 
 /* Do not dim controls after a tap. On touch browsers :hover can remain sticky. */
-.button:disabled,.waveform-controls button:disabled,.waveform-zoom button:disabled{opacity:1!important;filter:none!important;color:inherit}.button:focus{outline:none}.button:focus-visible{outline:2px solid rgba(255,79,163,.65);outline-offset:2px}.button:active{transform:none!important}
+.button:disabled,.waveform-controls button:disabled,.waveform-zoom button:disabled{opacity:1!important;filter:none!important;color:inherit}.button-primary:disabled{opacity:1!important;filter:none!important;background:linear-gradient(135deg,#d52dff,#7928ff)!important;border-color:#ef73ff!important;color:#fff!important}.button:focus{outline:none}.button:focus-visible{outline:2px solid rgba(255,79,163,.65);outline-offset:2px}.button:active{transform:none!important}
 @media(hover:none){.button:hover{border-color:#382c45;background:#130f19;transform:none}.button-primary:hover{border-color:#ef73ff;background:linear-gradient(135deg,#d52dff,#7928ff)}.theme-light .button:hover{border-color:#d3d7df;background:#fff}.theme-light .button-primary:hover{border-color:#d25ce8;background:linear-gradient(135deg,#c62af0,#6f35df)}}
 
 /* The waveform owns the touch gesture; never let a vertical page-pan win. */
-.waveform-viewport,.waveform-canvas,.waveform-marker-layer{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:contain;-webkit-overflow-scrolling:auto}.waveform-viewport{overscroll-behavior-x:contain;overscroll-behavior-y:none}
+.waveform-viewport,.waveform-canvas{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:contain;-webkit-overflow-scrolling:auto}.waveform-viewport{overscroll-behavior-x:contain;overscroll-behavior-y:none}
 
-/* Markers are timing ticks, not a second UI layer. Labels stay off the waveform. */
-.waveform-marker{top:0!important;height:18px!important;width:2px!important;background:rgba(213,143,238,.55)!important;border-radius:0 0 2px 2px!important;z-index:4!important}.waveform-marker span{display:none!important}.waveform-marker.is-selected{height:28px!important;background:#ff4fa3!important;box-shadow:0 0 8px rgba(255,79,163,.35)}
-.waveform-anchor-line{z-index:6!important;pointer-events:none}.waveform-position-line{z-index:7!important;pointer-events:none}
+/* Anchor/beat markers are intentionally removed from the waveform. */
+.waveform-marker-layer,.waveform-marker,.waveform-anchor-line{display:none!important}
+.waveform-position-line{z-index:7!important;pointer-events:none}
 @media(max-width:560px){.audio-dock.is-collapsed .waveform-compact-bar{display:flex}.audio-dock.is-collapsed .waveform-expanded-ui{display:none}.audio-dock.is-collapsed .audio-dock-topline{margin-bottom:2px;justify-content:flex-end}.audio-dock.is-collapsed .audio-dock-title{display:none}.audio-dock.is-collapsed .audio-dock-toggle{font-size:15px}}
+
+/* Reserve the complete fixed stack: waveform workstation + sticky actions + safe area. */
+@media(max-width:760px){.music-config-page.audio-dock-expanded{padding-bottom:780px!important}.music-config-page.audio-dock-collapsed{padding-bottom:170px!important}.audio-dock{z-index:880}.sticky-actions{z-index:900}}
