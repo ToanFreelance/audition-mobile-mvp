@@ -1,73 +1,17 @@
-/* Music Chart Studio UX overrides. The base page remains CSS-driven; this file contains only the new interaction/theme layer. */
-
+/* Music Chart Studio UX overrides. */
 .header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.theme-toggle{min-width:92px}
 .audio-dock{bottom:calc(68px + env(safe-area-inset-bottom));padding:8px 12px;background:rgba(9,6,13,.98)}
-.audio-dock-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
-.audio-dock-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#bfb3c5;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
-.audio-dock-toggle{appearance:none;width:34px;height:26px;flex:0 0 34px;border:1px solid #4a3458;border-radius:8px;background:#130f19;color:#f2eafa;font:800 16px/1 system-ui,sans-serif;cursor:pointer;padding:0}
-.audio-dock-toggle:hover{border-color:#c24cff;background:#1a1221}
-.audio-dock.is-collapsed{padding-top:5px;padding-bottom:5px}
-.audio-dock.is-collapsed .audio-dock-topline{margin-bottom:0}
-.audio-dock.is-collapsed audio,.audio-dock.is-collapsed .audio-dock-meta,.audio-dock.is-collapsed .audio-dock-controls{display:none}
-.music-config-page.audio-dock-expanded{padding-bottom:350px}
-.music-config-page.audio-dock-collapsed{padding-bottom:155px}
-.sticky-actions{height:calc(68px + env(safe-area-inset-bottom));min-height:calc(68px + env(safe-area-inset-bottom))}
+.audio-dock-topline{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}.audio-dock-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#bfb3c5;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.audio-dock-toggle{appearance:none;width:34px;height:26px;flex:0 0 34px;border:1px solid #4a3458;border-radius:8px;background:#130f19;color:#f2eafa;font:800 16px/1 system-ui,sans-serif;cursor:pointer;padding:0}.audio-dock-toggle:hover{border-color:#c24cff;background:#1a1221}
+.audio-dock.is-collapsed{padding-top:5px;padding-bottom:5px}.audio-dock.is-collapsed .audio-dock-topline{margin-bottom:2px}.audio-dock.is-collapsed audio,.audio-dock.is-collapsed .audio-dock-meta,.audio-dock.is-collapsed .audio-dock-controls{display:none}
+.music-config-page.audio-dock-expanded{padding-bottom:350px}.music-config-page.audio-dock-collapsed{padding-bottom:155px}.sticky-actions{height:calc(68px + env(safe-area-inset-bottom));min-height:calc(68px + env(safe-area-inset-bottom))}
 .storage-block>.storage-delete-button{display:none!important}
-.music-config-page.theme-light{background:#f4f5f8;color:#1b1720}
-.music-config-page.theme-light .section-card{border-color:#d9dce4;background:linear-gradient(180deg,#fff,#f7f8fb);box-shadow:0 12px 35px rgba(35,31,45,.08)}
-.music-config-page.theme-light .config-header p,.music-config-page.theme-light .hint,.music-config-page.theme-light .empty-state,.music-config-page.theme-light .player-meta,.music-config-page.theme-light .audio-dock-meta{color:#69707c}
-.music-config-page.theme-light .eyebrow{color:#8b28b5}
-.music-config-page.theme-light .count-badge,.music-config-page.theme-light .status-chip{border-color:#c9bfd0;color:#70477e}
-.music-config-page.theme-light .library-row,.music-config-page.theme-light .storage-file,.music-config-page.theme-light .candidate-row{border-color:#dfe2e8!important;background:#fff!important;color:#24202a!important}
-.music-config-page.theme-light .library-row:hover,.music-config-page.theme-light .storage-file:hover,.music-config-page.theme-light .candidate-row:hover{border-color:#b36bc8!important;background:#faf7fc!important}
-.music-config-page.theme-light .library-item.is-active .library-row{border-color:#a83bc8!important;box-shadow:inset 3px 0 #a83bc8,0 0 18px rgba(168,59,200,.08)}
-.music-config-page.theme-light .library-delete-button,.music-config-page.theme-light .storage-delete-button{border-color:#d8dbe2!important;background:#f7f8fa!important;color:#6d6571!important}
-.music-config-page.theme-light .library-delete-button:hover,.music-config-page.theme-light .storage-delete-button:hover{border-color:#c65a88!important;color:#c23b72!important}
-.music-config-page.theme-light .storage-block{border-top-color:#d9dce4}
-.music-config-page.theme-light .storage-file>span:first-child{background:#eadcff;color:#6e21a3}
-.music-config-page.theme-light .section-heading h2{color:#1f1b24}
-.music-config-page.theme-light .candidate-row.is-selected{border-color:#a83bc8!important;box-shadow:inset 3px 0 #a83bc8}
-.music-config-page.theme-light .candidate-row small,.music-config-page.theme-light .storage-file small,.music-config-page.theme-light .library-row small{color:#747b87}
-.music-config-page.theme-light .anchor-select-row select,.music-config-page.theme-light .form-grid input{border-color:#d4d8e0;background:#fff;color:#211d26}
-.music-config-page.theme-light .gauge-shell{border-color:#d9dce4;background:#fff}
-.music-config-page.theme-light .button{border-color:#d3d7df;background:#fff;color:#29242d}
-.music-config-page.theme-light .button:hover{border-color:#a83bc8;background:#faf7fc}
-.music-config-page.theme-light .button-primary{border-color:#d25ce8;background:linear-gradient(135deg,#c62af0,#6f35df);color:#fff}
-.music-config-page.theme-light .button-danger{border-color:#e3bfd0;color:#b52e66;background:#fff}
-.music-config-page.theme-light .audio-dock{background:rgba(255,255,255,.98);border-top-color:#d5d8e0;box-shadow:0 -14px 40px rgba(35,31,45,.12)}
-.music-config-page.theme-light .audio-dock-title{color:#5d6470}
-.music-config-page.theme-light .audio-dock-toggle{border-color:#c9cdd6;background:#fff;color:#43384a}
-.music-config-page.theme-light .sticky-actions{background:rgba(255,255,255,.98);border-top-color:#d5d8e0;box-shadow:0 -18px 45px rgba(35,31,45,.12)}
-.music-config-page.theme-light .sticky-status strong{color:#27222c}
-.music-config-page.theme-light .sticky-status span{color:#69707c}
-
-@media(max-width:560px){
-  .header-actions{width:100%;display:grid;grid-template-columns:auto 1fr;gap:7px}.header-actions .button-primary{width:100%}.theme-toggle{width:auto;min-width:92px}
-  .audio-dock{padding-left:10px;padding-right:10px}.audio-dock .audio-dock-toggle{width:32px;height:25px;flex-basis:32px}.audio-dock.is-expanded .audio-dock-topline{margin-bottom:5px}
-  .music-config-page.audio-dock-expanded{padding-bottom:350px}.music-config-page.audio-dock-collapsed{padding-bottom:145px}
-  .sticky-actions{padding-top:8px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
-}
-
-/* Do not fade actionable controls after a tap. Loading/disabled is conveyed by cursor + text state instead. */
-.button:disabled,.waveform-controls button:disabled{opacity:.92;filter:none}
-.button-primary:disabled{opacity:1;filter:saturate(.9)}
-
-/* The waveform owns the touch gesture. Never let a vertical swipe bubble into page scrolling. */
-.waveform-viewport,.waveform-canvas,.waveform-marker-layer{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:contain}
-.waveform-viewport{overscroll-behavior-x:contain;overscroll-behavior-y:contain}
-
-/* Beat anchors are subtle ticks, not full-height bars. Only Space Start gets a full line. */
-.waveform-marker{top:0!important;height:18px!important;width:2px!important;background:rgba(213,143,238,.55)!important;border-radius:0 0 2px 2px!important;z-index:4!important}
-.waveform-marker span{top:20px!important;left:4px!important;color:#8f8097!important;font-size:7px!important;pointer-events:none}
-.waveform-marker.is-selected{height:28px!important;background:#ff4fa3!important;box-shadow:0 0 8px rgba(255,79,163,.35)}
-.waveform-marker.is-selected span{color:#ff8fc5!important}
-.waveform-anchor-line{z-index:6!important;pointer-events:none}
-.waveform-position-line{z-index:7!important;pointer-events:none}
-
-/* Make the mini player genuinely compact on mobile. */
-@media(max-width:560px){
-  .audio-dock.is-collapsed .waveform-compact-bar{display:flex}
-  .audio-dock.is-collapsed .waveform-expanded-ui{display:none}
-  .audio-dock.is-collapsed .audio-dock-topline{margin-bottom:4px}
-  .audio-dock.is-collapsed .audio-dock-toggle{font-size:15px}
-}
+.music-config-page.theme-light{background:#f4f5f8;color:#1b1720}.music-config-page.theme-light .section-card{border-color:#d9dce4;background:linear-gradient(180deg,#fff,#f7f8fb);box-shadow:0 12px 35px rgba(35,31,45,.08)}
+.music-config-page.theme-light .config-header p,.music-config-page.theme-light .hint,.music-config-page.theme-light .empty-state,.music-config-page.theme-light .player-meta,.music-config-page.theme-light .audio-dock-meta{color:#69707c}.music-config-page.theme-light .eyebrow{color:#8b28b5}.music-config-page.theme-light .count-badge,.music-config-page.theme-light .status-chip{border-color:#c9bfd0;color:#70477e}
+.music-config-page.theme-light .library-row,.music-config-page.theme-light .storage-file,.music-config-page.theme-light .candidate-row{border-color:#dfe2e8!important;background:#fff!important;color:#24202a!important}.music-config-page.theme-light .library-row:hover,.music-config-page.theme-light .storage-file:hover,.music-config-page.theme-light .candidate-row:hover{border-color:#b36bc8!important;background:#faf7fc!important}.music-config-page.theme-light .library-item.is-active .library-row{border-color:#a83bc8!important;box-shadow:inset 3px 0 #a83bc8,0 0 18px rgba(168,59,200,.08)}
+.music-config-page.theme-light .library-delete-button,.music-config-page.theme-light .storage-delete-button{border-color:#d8dbe2!important;background:#f7f8fa!important;color:#6d6571!important}.music-config-page.theme-light .library-delete-button:hover,.music-config-page.theme-light .storage-delete-button:hover{border-color:#c65a88!important;color:#c23b72!important}.music-config-page.theme-light .storage-block{border-top-color:#d9dce4}.music-config-page.theme-light .storage-file>span:first-child{background:#eadcff;color:#6e21a3}.music-config-page.theme-light .section-heading h2{color:#1f1b24}.music-config-page.theme-light .candidate-row.is-selected{border-color:#a83bc8!important;box-shadow:inset 3px 0 #a83bc8}.music-config-page.theme-light .candidate-row small,.music-config-page.theme-light .storage-file small,.music-config-page.theme-light .library-row small{color:#747b87}.music-config-page.theme-light .anchor-select-row select,.music-config-page.theme-light .form-grid input{border-color:#d4d8e0;background:#fff;color:#211d26}.music-config-page.theme-light .gauge-shell{border-color:#d9dce4;background:#fff}.music-config-page.theme-light .button{border-color:#d3d7df;background:#fff;color:#29242d}.music-config-page.theme-light .button:hover{border-color:#a83bc8;background:#faf7fc}.music-config-page.theme-light .button-primary{border-color:#d25ce8;background:linear-gradient(135deg,#c62af0,#6f35df);color:#fff}.music-config-page.theme-light .button-danger{border-color:#e3bfd0;color:#b52e66;background:#fff}.music-config-page.theme-light .audio-dock{background:rgba(255,255,255,.98);border-top-color:#d5d8e0;box-shadow:0 -14px 40px rgba(35,31,45,.12)}.music-config-page.theme-light .audio-dock-title{color:#5d6470}.music-config-page.theme-light .audio-dock-toggle{border-color:#c9cdd6;background:#fff;color:#43384a}.music-config-page.theme-light .sticky-actions{background:rgba(255,255,255,.98);border-top-color:#d5d8e0;box-shadow:0 -18px 45px rgba(35,31,45,.12)}.music-config-page.theme-light .sticky-status strong{color:#27222c}.music-config-page.theme-light .sticky-status span{color:#69707c}
+@media(max-width:560px){.header-actions{width:100%;display:grid;grid-template-columns:auto 1fr;gap:7px}.header-actions .button-primary{width:100%}.theme-toggle{width:auto;min-width:92px}.audio-dock{padding-left:10px;padding-right:10px}.audio-dock .audio-dock-toggle{width:32px;height:25px;flex-basis:32px}.audio-dock.is-expanded .audio-dock-topline{margin-bottom:5px}.music-config-page.audio-dock-expanded{padding-bottom:350px}.music-config-page.audio-dock-collapsed{padding-bottom:145px}.sticky-actions{padding-top:8px;padding-bottom:max(8px,env(safe-area-inset-bottom))}}
+.button:disabled,.waveform-controls button:disabled{opacity:.92;filter:none}.button-primary:disabled{opacity:1;filter:saturate(.9)}
+.waveform-viewport,.waveform-canvas,.waveform-marker-layer{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:contain}.waveform-viewport{overscroll-behavior-x:contain;overscroll-behavior-y:contain}
+.waveform-marker{top:0!important;height:18px!important;width:2px!important;background:rgba(213,143,238,.55)!important;border-radius:0 0 2px 2px!important;z-index:4!important}.waveform-marker span{top:20px!important;left:4px!important;color:#8f8097!important;font-size:7px!important;pointer-events:none}.waveform-marker.is-selected{height:28px!important;background:#ff4fa3!important;box-shadow:0 0 8px rgba(255,79,163,.35)}.waveform-marker.is-selected span{color:#ff8fc5!important}.waveform-anchor-line{z-index:6!important;pointer-events:none}.waveform-position-line{z-index:7!important;pointer-events:none}
+@media(max-width:560px){.audio-dock.is-collapsed .waveform-compact-bar{display:flex}.audio-dock.is-collapsed .waveform-expanded-ui{display:none}.audio-dock.is-collapsed .audio-dock-topline{margin-bottom:2px;justify-content:flex-end}.audio-dock.is-collapsed .audio-dock-title{display:none}.audio-dock.is-collapsed .audio-dock-toggle{font-size:15px}}
