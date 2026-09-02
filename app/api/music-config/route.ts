@@ -33,7 +33,7 @@ function headers(key: string) {
   return {
     apikey: key,
     Authorization: `Bearer ${key}`,
-    "Content-Type": "application/json",
+    "Content-Type": "application/json`,
   };
 }
 
@@ -120,9 +120,9 @@ export async function POST(request: NextRequest) {
   try {
     let normalized: MusicConfig = { ...config, updatedAt: new Date().toISOString() };
 
-    // The displayed BPM stays human-friendly (for example 80 BPM), while the
-    // audio analyzer supplies the fractional tempo used by the runtime.
-    if (/^https?:\/\//i.test(normalized.audioUrl)) {
+    // Keep an admin-confirmed BPM_exact. Only fall back to server analysis when
+    // the chart does not already contain a usable fractional BPM.
+    if (/^https?:\/\//i.test(normalized.audioUrl) && !Number.isFinite(normalized.BPM_exact)) {
       const analysis = await analyzeAudioBpm(normalized.audioUrl, normalized.bpm);
       normalized = { ...normalized, BPM_exact: analysis.BPM_exact };
     }
