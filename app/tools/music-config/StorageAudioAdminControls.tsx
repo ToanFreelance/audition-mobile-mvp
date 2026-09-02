@@ -18,22 +18,12 @@ export default function StorageAudioAdminControls() {
         const actions = document.createElement("div");
         actions.className = "storage-admin-actions";
 
-        const editButton = document.createElement("button");
-        editButton.type = "button";
-        editButton.className = "storage-admin-edit";
-        editButton.textContent = "SỬA";
-        editButton.title = "Mở audio này trong Editor";
-        editButton.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          fileButton.click();
-        });
-
         const deleteButton = document.createElement("button");
         deleteButton.type = "button";
         deleteButton.className = "storage-admin-delete";
-        deleteButton.textContent = "XÓA";
+        deleteButton.textContent = "×";
         deleteButton.title = "Xóa audio khỏi Supabase Storage";
+        deleteButton.setAttribute("aria-label", `Xóa ${name}`);
         deleteButton.addEventListener("click", async (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -45,7 +35,6 @@ export default function StorageAudioAdminControls() {
           if (!confirmed) return;
 
           deleteButton.disabled = true;
-          editButton.disabled = true;
           try {
             const response = await fetch("/api/music-library", {
               method: "DELETE",
@@ -58,11 +47,10 @@ export default function StorageAudioAdminControls() {
           } catch (error) {
             window.alert(`Xóa audio thất bại: ${error instanceof Error ? error.message : "Unknown error"}`);
             deleteButton.disabled = false;
-            editButton.disabled = false;
           }
         });
 
-        actions.append(editButton, deleteButton);
+        actions.append(deleteButton);
         fileButton.insertAdjacentElement("afterend", actions);
         mounted.add(fileButton);
       });
