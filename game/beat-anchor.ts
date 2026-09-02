@@ -34,7 +34,7 @@ function closeAudioContext(context: AudioContext) {
   if (context.state !== "closed") void context.close().catch(() => undefined);
 }
 
-export async function analyzeFourBeatAnchors(audioUrl: string, bpmHint?: number): Promise<FourBeatAnalysis> {
+export async function analyzeFourBeatAnchors(audioUrl: string): Promise<FourBeatAnalysis> {
   if (typeof window === "undefined") throw new Error("Beat analysis is browser-only.");
 
   const response = await fetch(audioUrl, { cache: "no-store" });
@@ -52,7 +52,6 @@ export async function analyzeFourBeatAnchors(audioUrl: string, bpmHint?: number)
       fs: buffer.sampleRate,
       minBpm: 40,
       maxBpm: 220,
-      ...(Number.isFinite(bpmHint) && (bpmHint ?? 0) > 0 ? { bpm: bpmHint } : {}),
     });
 
     const beats = Array.from(result.beats)
