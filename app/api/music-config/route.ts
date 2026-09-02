@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { MusicConfig } from "../../../game/music-config";
-import { analyzeAudioBpm } from "../../../lib/analyze-bpm";
 
 export const runtime = "nodejs";
 
 const TABLE = "music_charts";
-const BPM_REANALYZE_THRESHOLD = 0.08;
 
 type MusicChartRow = {
   id: string;
@@ -64,7 +62,7 @@ function configToRow(config: MusicConfig): MusicChartRow {
     audio_url: config.audioUrl,
     duration_ms: Math.max(0, Math.round(config.durationMs)),
     bpm: Number(config.bpm),
-    bpm_exact: Number.isFinite(config.BPM_exact) ? Number(config.BPM_exact) : null,
+    bpm_exact: Number(config.BPM_exact),
     space_start_ms: Math.max(0, Math.round(config.spaceStartMs)),
     space_start_beat: config.spaceStartBeat ?? null,
     gauge: config.gauge,
@@ -84,17 +82,11 @@ export async function GET(request: NextRequest) {
     const query = id
       ? `?select=${select}&id=eq.${encodeURIComponent(id)}&limit=1`
       : `?select=${select}&order=updated_at.desc`;
-
-    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}${query}`, {
-      headers: headers(supabase.key),
-      cache: "no-store",
-    });
-
+    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}${query}`, { headers: headers(supabase.key), cache: "no-store" });
     if (!response.ok) {
       const detail = await response.text();
       return NextResponse.json({ error: "Supabase read failed", detail }, { status: 502 });
     }
-
     const rows = await response.json() as MusicChartRow[];
     const configs = rows.map(rowToConfig);
     return NextResponse.json(id ? { config: configs[0] ?? null } : { configs });
@@ -111,40 +103,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (!config?.id || !config.title || !config.audioUrl || !Number.isFinite(config.bpm)) {
-    return NextResponse.json({ error: "Invalid music config" }, { status: 400 });
+  if (!config?.id || !config.title || !config.audioUrl || !Number.isFinite(config.bpm) || !Number.isFinite(config.BPM_exact) || (config.BPM_exact ?? 0) <= 0) {
+    return NextResponse.json({ error: "Analyze the audio before saving. BPM_exact is required." }, { status: 400 });
   }
 
   const supabase = supabaseConfig();
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
 
   try {
-    let normalized: MusicConfig = { ...config, updatedAt: new Date().toISOString() };
-    const existingExact = Number(normalized.BPM_exact);
-    const exactIsMissing = !Number.isFinite(existingExact);
-    const exactIsFarFromDisplay = Number.isFinite(existingExact)
-      && Math.abs(existingExact - normalized.bpm) / Math.max(1, normalized.bpm) > BPM_REANALYZE_THRESHOLD;
-
-    if (/^https?:\/\//i.test(normalized.audioUrl) && (exactIsMissing || exactIsFarFromDisplay)) {
-      const analysis = await analyzeAudioBpm(normalized.audioUrl, normalized.bpm);
-      normalized = { ...normalized, BPM_exact: analysis.BPM_exact };
-    }
-
+    const normalized: MusicConfig = { ...config, updatedAt: new Date().toISOString() };
     const response = await fetch(`${supabase.url}/rest/v1/${TABLE}?on_conflict=id`, {
       method: "POST",
-      headers: {
-        ...headers(supabase.key),
-        Prefer: "resolution=merge-duplicates,return=minimal",
-      },
+      headers: { ...headers(supabase.key), Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify(configToRow(normalized)),
       cache: "no-store",
     });
-
     if (!response.ok) {
       const detail = await response.text();
       return NextResponse.json({ error: "Supabase write failed", detail }, { status: 502 });
     }
-
     return NextResponse.json({ ok: true, config: normalized });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase write failed" }, { status: 502 });
@@ -154,25 +131,14 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "Missing music id" }, { status: 400 });
-
   const supabase = supabaseConfig();
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
-
   try {
-    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      headers: {
-        ...headers(supabase.key),
-        Prefer: "return=minimal",
-      },
-      cache: "no-store",
-    });
-
+    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: { ...headers(supabase.key), Prefer: "return=minimal" }, cache: "no-store" });
     if (!response.ok) {
       const detail = await response.text();
       return NextResponse.json({ error: "Supabase delete failed", detail }, { status: 502 });
     }
-
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase delete failed" }, { status: 502 });
