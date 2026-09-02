@@ -5,6 +5,7 @@ import { analyzeAudioBpm } from "../../../lib/analyze-bpm";
 export const runtime = "nodejs";
 
 const TABLE = "music_charts";
+const BPM_REANALYZE_THRESHOLD = 0.08;
 
 type MusicChartRow = {
   id: string;
@@ -119,10 +120,12 @@ export async function POST(request: NextRequest) {
 
   try {
     let normalized: MusicConfig = { ...config, updatedAt: new Date().toISOString() };
+    const existingExact = Number(normalized.BPM_exact);
+    const exactIsMissing = !Number.isFinite(existingExact);
+    const exactIsFarFromDisplay = Number.isFinite(existingExact)
+      && Math.abs(existingExact - normalized.bpm) / Math.max(1, normalized.bpm) > BPM_REANALYZE_THRESHOLD;
 
-    // Keep an admin-confirmed BPM_exact. Only fall back to server analysis when
-    // the chart does not already contain a usable fractional BPM.
-    if (/^https?:\/\//i.test(normalized.audioUrl) && !Number.isFinite(normalized.BPM_exact)) {
+    if (/^https?:\/\//i.test(normalized.audioUrl) && (exactIsMissing || exactIsFarFromDisplay)) {
       const analysis = await analyzeAudioBpm(normalized.audioUrl, normalized.bpm);
       normalized = { ...normalized, BPM_exact: analysis.BPM_exact };
     }
