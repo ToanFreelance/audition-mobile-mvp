@@ -27,7 +27,7 @@ export default function WaveformPlayer({ url, title, markers = [], selectedMarke
 
   useEffect(() => {
     if (!containerRef.current || !url) return;
-    const wavesurfer = WaveSurfer.create({ container: containerRef.current, height: 132, waveColor: "#b78ad0", progressColor: "#c32df1", cursorColor: "#ff4fa3", cursorWidth: 2, barWidth: 2, barGap: 2, barRadius: 3, normalize: true, dragToSeek: true, interact: true, autoScroll: true, autoCenter: true, hideScrollbar: true, url });
+    const wavesurfer = WaveSurfer.create({ container: containerRef.current, height: 132, waveColor: "#a983bd", progressColor: "#c32df1", cursorColor: "#ff4fa3", cursorWidth: 2, barWidth: 1, barGap: 1, barRadius: 2, normalize: true, dragToSeek: true, interact: true, autoScroll: true, autoCenter: true, hideScrollbar: true, url });
     wavesurferRef.current = wavesurfer;
     setReady(false); setPlaying(false); setCurrentMs(0); setDurationMs(0);
     const updateTime = (seconds: number) => { const ms = Math.round(seconds * 1000); setCurrentMs(ms); callbacksRef.current.onTimeChange?.(ms); };
@@ -37,8 +37,25 @@ export default function WaveformPlayer({ url, title, markers = [], selectedMarke
     wavesurfer.on("play", () => { setPlaying(true); callbacksRef.current.onPlay?.(); });
     wavesurfer.on("pause", () => { setPlaying(false); callbacksRef.current.onPause?.(); });
     wavesurfer.on("finish", () => { setPlaying(false); callbacksRef.current.onPause?.(); });
-    return () => { wavesurfer.destroy(); wavesurferRef.current = null; };
-  }, [url]);
+
+    // The preview button lives in the chart editor, while the actual media
+    // engine lives here. Capture the user gesture here so iOS/Safari keeps
+    // the play() call inside the original tap activation.
+    const onPreviewClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      const button = target?.closest("button");
+      if (!button || !/^PREVIEW\s*−?\s*5S$/i.test(button.textContent?.trim() || "")) return;
+      const anchorMs = selectedMarkerMs;
+      if (anchorMs == null || !wavesurfer.getDuration()) return;
+      wavesurfer.setTime(Math.max(0, anchorMs - 5000) / 1000);
+      setCurrentMs(Math.max(0, anchorMs - 5000));
+      callbacksRef.current.onTimeChange?.(Math.max(0, anchorMs - 5000));
+      void wavesurfer.play();
+    };
+    document.addEventListener("click", onPreviewClick, true);
+
+    return () => { document.removeEventListener("click", onPreviewClick, true); wavesurfer.destroy(); wavesurferRef.current = null; };
+  }, [url, selectedMarkerMs]);
 
   useEffect(() => { const wavesurfer = wavesurferRef.current; if (!wavesurfer || !ready) return; wavesurfer.setOptions({ minPxPerSec: zoom === 1 ? 0 : zoom * 30 }); }, [zoom, ready]);
 
