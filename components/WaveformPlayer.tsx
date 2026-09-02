@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
 
 export type WaveformMarker = { ms: number; beatIndex: number };
@@ -32,8 +32,6 @@ const formatTime = (ms: number, precision = 3) => {
 const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(function WaveformPlayer({
   url,
   title,
-  markers = [],
-  selectedMarkerMs,
   compact = false,
   onTimeChange,
   onDurationChange,
@@ -44,7 +42,6 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
-  const selectedMarkerRef = useRef<number | null | undefined>(selectedMarkerMs);
   const callbacksRef = useRef({ onTimeChange, onDurationChange, onPlay, onPause, onReady });
   const [durationMs, setDurationMs] = useState(0);
   const [currentMs, setCurrentMs] = useState(0);
@@ -53,17 +50,6 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   const [playing, setPlaying] = useState(false);
 
   callbacksRef.current = { onTimeChange, onDurationChange, onPlay, onPause, onReady };
-  selectedMarkerRef.current = selectedMarkerMs;
-
-  const markerList = useMemo(() => {
-    const sorted = markers.filter(marker => marker.ms >= 0).slice().sort((a, b) => a.ms - b.ms);
-    if (zoom <= 1) return sorted.filter((_, index) => index % 32 === 0);
-    if (zoom === 2) return sorted.filter((_, index) => index % 16 === 0);
-    if (zoom === 3) return sorted.filter((_, index) => index % 8 === 0);
-    if (zoom === 4) return sorted.filter((_, index) => index % 4 === 0);
-    if (zoom === 5) return sorted.filter((_, index) => index % 2 === 0);
-    return sorted;
-  }, [markers, zoom]);
 
   const emitTime = (ms: number) => {
     const rounded = Math.round(ms);
@@ -73,9 +59,9 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
 
   const seekTo = (ms: number) => {
     const wavesurfer = wavesurferRef.current;
-    if (!wavesurfer) return;
+    if (!wavesurfer || !wavesurfer.getDuration()) return;
     const duration = wavesurfer.getDuration() * 1000;
-    const next = Math.max(0, Math.min(duration || Infinity, ms));
+    const next = Math.max(0, Math.min(duration, ms));
     wavesurfer.setTime(next / 1000);
     emitTime(next);
   };
@@ -83,10 +69,16 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   const previewFrom = (ms: number) => {
     const wavesurfer = wavesurferRef.current;
     if (!wavesurfer || !wavesurfer.getDuration()) return;
-    const next = Math.max(0, Math.min(wavesurfer.getDuration() * 1000, ms));
+    const duration = wavesurfer.getDuration() * 1000;
+    const next = Math.max(0, Math.min(duration, ms));
+
+    // Explicitly pause before seeking so Preview is a jump-to-position
+    // action, never a continuation of the current playback position.
+    wavesurfer.pause();
     wavesurfer.setTime(next / 1000);
     emitTime(next);
-    // Keep play() directly in the caller's click/tap call stack for iOS Safari.
+
+    // play() remains in the originating button tap call stack for iOS Safari.
     void wavesurfer.play();
   };
 
@@ -141,8 +133,8 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       callbacksRef.current.onPause?.();
     });
 
-    // Cancel only the moving touch gesture. Do not cancel touchstart,
-    // otherwise iOS may suppress the synthetic click used by anchor buttons.
+    // The waveform owns touch movement. Keep touchstart/click intact so iOS
+    // still treats Preview/anchor controls as genuine user gestures.
     const viewport = viewportRef.current;
     const preventPagePan = (event: TouchEvent) => {
       if (event.cancelable) event.preventDefault();
@@ -172,15 +164,11 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{ready ? "Interactive waveform" : "Preparing waveform…"}</small></div></div><div className="waveform-time"><strong>{formatTime(currentMs)}</strong><span>/ {formatTime(durationMs)}</span></div></div>
       <div ref={viewportRef} className="waveform-viewport">
         <div ref={containerRef} className="waveform-canvas" aria-label="Interactive audio waveform" />
-        <div className="waveform-marker-layer">
-          {durationMs > 0 && markerList.map(marker => <button key={`${marker.beatIndex}-${marker.ms}`} className={`waveform-marker ${selectedMarkerMs === marker.ms ? "is-selected" : ""}`} style={{ left: `${Math.min(100, Math.max(0, marker.ms / durationMs * 100))}%` }} onClick={() => seekTo(marker.ms)} type="button" aria-label={`Beat ${marker.beatIndex} at ${formatTime(marker.ms)}`}><span>{marker.beatIndex}</span></button>)}
-          {durationMs > 0 && selectedMarkerMs != null && <div className="waveform-anchor-line" style={{ left: `${Math.min(100, Math.max(0, selectedMarkerMs / durationMs * 100))}%` }}><span>SPACE START</span></div>}
-          <div className="waveform-position-line" style={{ left: `${currentPercent}%` }} />
-        </div>
+        <div className="waveform-position-line" style={{ left: `${currentPercent}%` }} />
         {!ready && <div className="waveform-loading">Preparing waveform…</div>}
       </div>
       <div className="waveform-controls"><button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-1000)} disabled={!ready}>−1s</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-100)} disabled={!ready}>−100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-10)} disabled={!ready}>−10</button><button className="waveform-current" type="button" onClick={() => callbacksRef.current.onTimeChange?.(currentMs)} disabled={!ready}>{formatTime(currentMs)}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(10)} disabled={!ready}>+10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(100)} disabled={!ready}>+100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(1000)} disabled={!ready}>+1s</button></div>
-      <div className="waveform-footer"><div className="waveform-zoom"><span>ZOOM</span><button type="button" onClick={() => setZoom(current => Math.max(1, current - 1))} disabled={zoom <= 1}>−</button><span>{zoom}×</span><button type="button" onClick={() => setZoom(current => Math.min(6, current + 1))}>+</button></div><span>Drag to seek · markers adapt to zoom</span></div>
+      <div className="waveform-footer"><div className="waveform-zoom"><span>ZOOM</span><button type="button" onClick={() => setZoom(current => Math.max(1, current - 1))} disabled={zoom <= 1}>−</button><span>{zoom}×</span><button type="button" onClick={() => setZoom(current => Math.min(6, current + 1))}>+</button></div><span>Drag to seek</span></div>
     </div>
   </div>;
 });
