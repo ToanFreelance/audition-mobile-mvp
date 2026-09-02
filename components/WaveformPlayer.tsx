@@ -78,6 +78,7 @@ export default function WaveformPlayer({ url, title, markers = [], selectedMarke
 
   if (compact) {
     return <div className="waveform-player waveform-player-compact">
+      <div ref={containerRef} className="waveform-engine-host" aria-hidden="true" />
       <button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button>
       <div className="waveform-compact-copy"><strong>{title || "Untitled track"}</strong><span>{formatTime(currentMs)} / {formatTime(durationMs)}</span></div>
       <div className="waveform-compact-progress"><span style={{ width: `${currentPercent}%` }} /></div>
@@ -86,15 +87,7 @@ export default function WaveformPlayer({ url, title, markers = [], selectedMarke
 
   return <div className="waveform-player">
     <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{ready ? "Interactive waveform" : "Preparing waveform…"}</small></div></div><div className="waveform-time"><strong>{formatTime(currentMs)}</strong><span>/ {formatTime(durationMs)}</span></div></div>
-    <div className="waveform-viewport">
-      <div ref={containerRef} className="waveform-canvas" aria-label="Interactive audio waveform" />
-      <div className="waveform-marker-layer">
-        {durationMs > 0 && markerList.map(marker => <button key={`${marker.beatIndex}-${marker.ms}`} className={`waveform-marker ${selectedMarkerMs === marker.ms ? "is-selected" : ""}`} style={{ left: `${Math.min(100, Math.max(0, marker.ms / durationMs * 100))}%` }} onClick={() => seekTo(marker.ms)} type="button" aria-label={`Beat ${marker.beatIndex} at ${formatTime(marker.ms)}`}><span>{marker.beatIndex}</span></button>)}
-        {durationMs > 0 && selectedMarkerMs != null && <div className="waveform-anchor-line" style={{ left: `${Math.min(100, Math.max(0, selectedMarkerMs / durationMs * 100))}%` }}><span>SPACE START</span></div>}
-        <div className="waveform-position-line" style={{ left: `${currentPercent}%` }} />
-      </div>
-      {!ready && <div className="waveform-loading">Preparing waveform…</div>}
-    </div>
+    <div className="waveform-viewport"><div ref={containerRef} className="waveform-canvas" aria-label="Interactive audio waveform" /><div className="waveform-marker-layer">{durationMs > 0 && markerList.map(marker => <button key={`${marker.beatIndex}-${marker.ms}`} className={`waveform-marker ${selectedMarkerMs === marker.ms ? "is-selected" : ""}`} style={{ left: `${Math.min(100, Math.max(0, marker.ms / durationMs * 100))}%` }} onClick={() => seekTo(marker.ms)} type="button" aria-label={`Beat ${marker.beatIndex} at ${formatTime(marker.ms)}`}><span>{marker.beatIndex}</span></button>)}{durationMs > 0 && selectedMarkerMs != null && <div className="waveform-anchor-line" style={{ left: `${Math.min(100, Math.max(0, selectedMarkerMs / durationMs * 100))}%` }}><span>SPACE START</span></div>}<div className="waveform-position-line" style={{ left: `${currentPercent}%` }} /></div>{!ready && <div className="waveform-loading">Preparing waveform…</div>}</div>
     <div className="waveform-controls"><button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-1000)} disabled={!ready}>−1s</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-100)} disabled={!ready}>−100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-10)} disabled={!ready}>−10</button><button className="waveform-current" type="button" onClick={() => callbacksRef.current.onTimeChange?.(currentMs)} disabled={!ready}>{formatTime(currentMs)}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(10)} disabled={!ready}>+10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(100)} disabled={!ready}>+100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(1000)} disabled={!ready}>+1s</button></div>
     <div className="waveform-footer"><div className="waveform-zoom"><span>ZOOM</span><button type="button" onClick={() => setZoom(current => Math.max(1, current - 1))} disabled={zoom <= 1}>−</button><span>{zoom}×</span><button type="button" onClick={() => setZoom(current => Math.min(6, current + 1))}>+</button></div><span>Drag to seek · tap a marker to jump</span></div>
   </div>;
