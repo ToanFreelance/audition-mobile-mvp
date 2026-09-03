@@ -1,4 +1,5 @@
 /* v3 layer is loaded after the legacy Chart Studio overrides. */
+.music-config-page{touch-action:pan-y}
 .music-config-page .chart-library-actions{display:flex;align-items:center;gap:8px}
 .music-config-page .editor-status-actions{display:flex;align-items:center;gap:8px}
 .music-config-page .editor-status-actions .status-chip{display:none!important}
@@ -14,6 +15,7 @@
 .music-config-page .audio-dock-live-time{display:flex;justify-content:flex-end;align-items:baseline;gap:4px;margin:0 2px 7px;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
 .music-config-page .audio-dock-live-time strong{color:#fff;font-weight:800}
 .music-config-page .audio-dock-live-time span{color:#756a7d}
+.music-config-page.theme-light .audio-dock-live-time strong{color:#2b2630}
 .music-config-page .waveform-player-head .waveform-time{display:none!important}
 .music-config-page .dock-gauge{margin-top:8px;padding-top:7px;border-top:1px solid rgba(128,110,145,.18)}
 .music-config-page .dock-gauge-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px 5px}
@@ -27,6 +29,7 @@
 .music-config-page .waveform-zoom-minus,.music-config-page .waveform-zoom-plus{border:1px solid #382c45;border-radius:9px;background:#130f19;color:#c8b9ce;font:800 11px/1 system-ui,sans-serif;padding:8px 3px;cursor:pointer}
 .music-config-page .waveform-zoom-value{display:grid;place-items:center;border:1px solid #382c45;border-radius:9px;background:#130f19;color:#e5a7ff;font:800 9px ui-monospace,SFMono-Regular,Menlo,monospace}
 .music-config-page .waveform-footer{justify-content:flex-start}
+.music-config-page .sticky-actions{touch-action:none!important;overscroll-behavior:none!important;-webkit-user-select:none;user-select:none}
 
 @media(max-width:760px){
   .music-config-page .config-header{align-items:flex-start}
@@ -50,8 +53,8 @@
   .music-config-page .save-button{min-width:0!important}
   .music-config-page .waveform-controls{grid-template-columns:34px repeat(6,minmax(0,1fr)) 34px 34px 34px;gap:4px;margin-top:7px}
   .music-config-page .waveform-controls .waveform-nudge{font-size:8px;padding-left:1px;padding-right:1px}
-  .music-config-page .waveform-zoom-minus,.music-config-page .waveform-zoom-plus{padding:7px 2px}
-  .music-config-page .waveform-zoom-value{font-size:8px}
+  .music-config-page .waveform-zoom-minus,.music-config-page .waveform-zoom-value,.music-config-page .waveform-zoom-plus{display:none!important}
+  .music-config-page .waveform-controls{grid-template-columns:34px repeat(6,minmax(0,1fr));}
   .music-config-page .waveform-footer{display:none}
 }
 
