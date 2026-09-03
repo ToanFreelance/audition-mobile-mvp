@@ -1,4 +1,4 @@
-import { beatTrack, combTempo, detect, tempo } from "@audio/beat";
+import { beatTrack, combTempo, tempo } from "@audio/beat";
 
 type BeatTrackOptions = Parameters<typeof beatTrack>[1];
 type TempoResult = Awaited<ReturnType<typeof tempo>>;
@@ -63,8 +63,9 @@ function fitPhaseToTempo(beats: number[], period: number): number {
   let bestPhase = phases[0] ?? 0;
   let bestError = Number.POSITIVE_INFINITY;
 
-  // The phase source may use a different BPM. Fit all of its beat timestamps
-  // onto the selected tempo period instead of inheriting that BPM.
+  // Fit the tracked beat positions onto the authoritative tempo period.
+  // This preserves the metrical phase selected by beatTrack while keeping
+  // tempo() authoritative for the exact BPM used by the saved uniform grid.
   for (const candidate of phases) {
     const error = phases.reduce((sum, phase) => {
       const distance = Math.abs(phase - candidate);
@@ -84,8 +85,6 @@ function buildUniformBeatGrid(durationSeconds: number, bpm: number, phaseSeconds
 
   const period = 60 / bpm;
   let phase = Number.isFinite(phaseSeconds) ? ((phaseSeconds % period) + period) % period : 0;
-
-  while (phase - period >= 0) phase -= period;
 
   const beats: number[] = [];
   for (let time = phase; time <= durationSeconds + 1e-6; time += period) {
@@ -122,12 +121,34 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
     const baseOptions = { fs: buffer.sampleRate, minBpm: 40, maxBpm: 220 } as const;
     const tempoResult = tempo(mono, { ...baseOptions, candidates: 8 });
     const combResult = combTempo(mono, baseOptions);
-    const detected = beatTrack(mono, baseOptions);
-    const phaseGrid = detect(mono, baseOptions);
-
     const tempoCandidateValues = finite(
       (tempoResult as TempoResult & { candidates?: ArrayLike<number> }).candidates,
     );
+
+    const tempoBpm = Number(tempoResult.bpm);
+    const targetBpm = Number.isFinite(tempoBpm) && tempoBpm > 0
+      ? tempoBpm
+      : cluster([
+          ...tempoCandidateValues.map((bpm): TempoCandidate => ({
+            bpm,
+            source: "tempo",
+            confidence: Number(tempoResult.confidence) || 0,
+          })),
+          { bpm: Number(combResult.bpm), source: "comb", confidence: Number(combResult.confidence) || 0 },
+        ])[0]?.center ?? 120;
+
+    // Use beatTrack only after the authoritative tempo is known. This gives
+    // us a stable metrical phase without allowing beatTrack to change BPM.
+    const trackedOptions: BeatTrackOptions = {
+      ...baseOptions,
+      bpm: targetBpm,
+      tightness: 5000,
+    };
+    const tracked = beatTrack(mono, trackedOptions);
+    const trackedBeats = finite(tracked.beats);
+    const period = 60 / targetBpm;
+    const phaseSeconds = fitPhaseToTempo(trackedBeats, period);
+    const beats = buildUniformBeatGrid(buffer.duration, targetBpm, phaseSeconds);
 
     const candidates: TempoCandidate[] = [
       ...tempoCandidateValues.map((bpm): TempoCandidate => ({
@@ -136,7 +157,7 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
         confidence: Number(tempoResult.confidence) || 0,
       })),
       {
-        bpm: Number(tempoResult.bpm),
+        bpm: tempoBpm,
         source: "tempo",
         confidence: Number(tempoResult.confidence) || 0,
       },
@@ -146,36 +167,15 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
         confidence: Number(combResult.confidence) || 0,
       },
       {
-        bpm: Number(detected.bpm),
+        bpm: Number(tracked.bpm),
         source: "beatTrack",
-        confidence: Number(detected.confidence) || 0,
+        confidence: Number(tracked.confidence) || 0,
       },
     ].filter(
       (item): item is TempoCandidate =>
         Number.isFinite(item.bpm) && item.bpm >= 40 && item.bpm <= 220 && isTempoSource(item.source),
     );
 
-    const bestCluster = cluster(candidates)[0];
-    const tempoBpm = Number(tempoResult.bpm);
-    const targetBpm = Number.isFinite(tempoBpm) && tempoBpm > 0
-      ? tempoBpm
-      : bestCluster?.center ?? Number(detected.bpm) ?? 120;
-
-    const trackedOptions: BeatTrackOptions = {
-      ...baseOptions,
-      bpm: targetBpm,
-      tightness: 5000,
-    };
-    // Keep tempo() as the authoritative BPM, but take phase from detect(),
-    // whose beat grid is explicitly phase-aligned to detected onsets.
-    // beatTrack remains available as a candidate/diagnostic rather than
-    // defining the saved uniform grid's phase.
-    const tracked = beatTrack(mono, trackedOptions);
-    const phaseBeats = finite(phaseGrid.beats);
-    const fallbackPhaseBeats = finite(tracked.beats);
-    const period = 60 / targetBpm;
-    const phaseSeconds = fitPhaseToTempo(phaseBeats.length ? phaseBeats : fallbackPhaseBeats, period);
-    const beats = buildUniformBeatGrid(buffer.duration, targetBpm, phaseSeconds);
     const bpmExact = Number(clamp(targetBpm, 40, 220).toFixed(4));
     const displayBpm = Math.round(bpmExact);
     const confidence = Number(
