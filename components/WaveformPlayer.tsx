@@ -73,10 +73,10 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     const duration = wavesurfer.getDuration() * 1000;
     const next = Math.max(0, Math.min(duration, ms));
 
-    wavesurfer.pause();
-    wavesurfer.setTime(next / 1000);
+    // WaveSurfer's play(start) performs the seek and play as one operation,
+    // which is more reliable on iOS than pause -> setTime -> play.
+    void wavesurfer.play(next / 1000);
     emitTime(next);
-    void wavesurfer.play();
   };
 
   useImperativeHandle(ref, () => ({ seekTo, previewFrom }), []);
