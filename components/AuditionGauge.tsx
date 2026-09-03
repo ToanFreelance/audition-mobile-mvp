@@ -126,9 +126,10 @@ export default function AuditionGauge({
           <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#fff"/><stop offset="35%" stopColor="#ff4d4d"/><stop offset="70%" stopColor="#e11d48"/><stop offset="100%" stopColor="#880015"/></radialGradient>
         </defs>
 
-        <rect x="20" y="12" width="460" height="46" rx="23" fill="#000" opacity=".6"/>
-        <rect x="20" y="12" width="460" height="46" rx="23" fill="#0a0c14" fillOpacity=".85" stroke="#a1a1aa" strokeWidth="2"/>
-        <rect x="22" y="14" width="456" height="42" rx="21" fill="none" stroke="#000" strokeWidth="1.5" opacity=".9"/>
+        {/* Translucent track: the area outside the Perfect zone should let the dock/background show through. */}
+        <rect x="20" y="12" width="460" height="46" rx="23" fill="#fff" opacity=".07" filter={`url(#${blurSoftId})`}/>
+        <rect x="20" y="12" width="460" height="46" rx="23" fill="#0a0c14" fillOpacity=".12" stroke="#a1a1aa" strokeWidth="2"/>
+        <rect x="22" y="14" width="456" height="42" rx="21" fill="none" stroke="#000" strokeWidth="1.5" opacity=".55"/>
 
         <g className={`breath-cyan-beat-${id}`}>
           <rect x={zoneX} y="20" width={zoneWidth} height={zoneHeight} rx={zoneRadius} ry={zoneRadius} fill="#00f0ff" filter={`url(#${blurGlowId})`} opacity=".5"/>
