@@ -42,8 +42,10 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   onReady,
 }, ref) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const callbacksRef = useRef({ onTimeChange, onDurationChange, onPlay, onPause, onReady });
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
   const [durationMs, setDurationMs] = useState(0);
   const [currentMs, setCurrentMs] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -72,9 +74,6 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     if (!wavesurfer || !wavesurfer.getDuration()) return;
     const duration = wavesurfer.getDuration() * 1000;
     const next = Math.max(0, Math.min(duration, ms));
-
-    // WaveSurfer's play(start) performs the seek and play as one operation,
-    // which is more reliable on iOS than pause -> setTime -> play.
     void wavesurfer.play(next / 1000);
     emitTime(next);
   };
@@ -95,11 +94,11 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       barRadius: 2,
       normalize: true,
       minPxPerSec: getZoomPxPerSecond(zoom),
-      fillParent: true,
-      dragToSeek: true,
+      fillParent: false,
+      dragToSeek: false,
       interact: true,
-      autoScroll: true,
-      autoCenter: true,
+      autoScroll: false,
+      autoCenter: false,
       hideScrollbar: true,
       url,
     });
@@ -144,6 +143,39 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     wavesurfer.setOptions({ minPxPerSec: getZoomPxPerSecond(zoom) });
   }, [zoom, ready]);
 
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (touch) touchRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      const start = touchRef.current;
+      const touch = event.touches[0];
+      if (!start || !touch) return;
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      // Keep vertical gestures inside the waveform from scrolling the page.
+      // Horizontal gestures remain native scrolling of the long waveform.
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 4) event.preventDefault();
+    };
+
+    const onTouchEnd = () => { touchRef.current = null; };
+    viewport.addEventListener("touchstart", onTouchStart, { passive: true });
+    viewport.addEventListener("touchmove", onTouchMove, { passive: false });
+    viewport.addEventListener("touchend", onTouchEnd, { passive: true });
+    viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    return () => {
+      viewport.removeEventListener("touchstart", onTouchStart);
+      viewport.removeEventListener("touchmove", onTouchMove);
+      viewport.removeEventListener("touchend", onTouchEnd);
+      viewport.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, []);
+
   const seekBy = (deltaMs: number) => seekTo(currentMs + deltaMs);
   const togglePlay = () => { void wavesurferRef.current?.playPause(); };
   const currentPercent = durationMs ? Math.min(100, Math.max(0, currentMs / durationMs * 100)) : 0;
@@ -152,7 +184,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     <div className="waveform-compact-bar"><button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><div className="waveform-compact-copy"><strong>{title || "Untitled track"}</strong><span>{formatTime(currentMs)} / {formatTime(durationMs)}</span></div><div className="waveform-compact-progress"><span style={{ width: `${currentPercent}%` }} /></div></div>
     <div className="waveform-expanded-ui">
       <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{ready ? "Swipe horizontally to browse · tap to seek" : "Preparing waveform…"}</small></div></div><div className="waveform-time"><strong>{formatTime(currentMs)}</strong><span>/ {formatTime(durationMs)}</span></div></div>
-      <div className="waveform-viewport">
+      <div ref={viewportRef} className="waveform-viewport">
         <div ref={containerRef} className="waveform-canvas" aria-label="Interactive audio waveform" />
         {!ready && <div className="waveform-loading">Preparing waveform…</div>}
       </div>
