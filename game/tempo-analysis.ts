@@ -56,17 +56,34 @@ function cluster(candidates: TempoCandidate[]): TempoCluster[] {
   return clusters.sort((a, b) => b.score - a.score);
 }
 
-/**
- * Build a uniform beat grid from the selected tempo while using beatTrack only
- * for the phase (where the first audible beat lands). This prevents a metrical
- * ambiguity in beatTrack from returning beat timestamps at a different tempo
- * than the tempo shown to the admin.
- */
+function fitPhaseToTempo(beats: number[], period: number): number {
+  if (!beats.length || !Number.isFinite(period) || period <= 0) return 0;
+
+  const phases = beats.map(time => ((time % period) + period) % period);
+  let bestPhase = phases[0] ?? 0;
+  let bestError = Number.POSITIVE_INFINITY;
+
+  // Pick the phase that minimizes circular distance for the whole detected beat set.
+  // This is more robust than trusting only beatTrack[0], especially after a noisy intro.
+  for (const candidate of phases) {
+    const error = phases.reduce((sum, phase) => {
+      const distance = Math.abs(phase - candidate);
+      return sum + Math.min(distance, period - distance) ** 2;
+    }, 0);
+    if (error < bestError) {
+      bestError = error;
+      bestPhase = candidate;
+    }
+  }
+
+  return bestPhase;
+}
+
 function buildUniformBeatGrid(durationSeconds: number, bpm: number, phaseSeconds: number): number[] {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || !Number.isFinite(bpm) || bpm <= 0) return [];
 
   const period = 60 / bpm;
-  let phase = Number.isFinite(phaseSeconds) ? Math.max(0, phaseSeconds) : 0;
+  let phase = Number.isFinite(phaseSeconds) ? ((phaseSeconds % period) + period) % period : 0;
 
   // Extend the detected phase backwards so the grid covers the whole track.
   while (phase - period >= 0) phase -= period;
@@ -151,7 +168,8 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
     };
     const tracked = beatTrack(mono, trackedOptions);
     const trackedBeats = finite(tracked.beats);
-    const phaseSeconds = trackedBeats[0] ?? 0;
+    const period = 60 / targetBpm;
+    const phaseSeconds = fitPhaseToTempo(trackedBeats, period);
     const beats = buildUniformBeatGrid(buffer.duration, targetBpm, phaseSeconds);
     const bpmExact = Number(clamp(targetBpm, 40, 220).toFixed(4));
     const displayBpm = Math.round(bpmExact);
