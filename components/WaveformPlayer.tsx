@@ -29,6 +29,8 @@ const formatTime = (ms: number, precision = 3) => {
   return `${minutes}:${seconds.toFixed(precision).padStart(precision === 0 ? 2 : precision + 3, "0")}`;
 };
 
+const getZoomPxPerSecond = (zoom: number) => zoom === 1 ? 12 : zoom * 30;
+
 const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(function WaveformPlayer({
   url,
   title,
@@ -40,7 +42,6 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   onReady,
 }, ref) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const callbacksRef = useRef({ onTimeChange, onDurationChange, onPlay, onPause, onReady });
   const [durationMs, setDurationMs] = useState(0);
@@ -72,13 +73,9 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     const duration = wavesurfer.getDuration() * 1000;
     const next = Math.max(0, Math.min(duration, ms));
 
-    // Explicitly pause before seeking so Preview is a jump-to-position
-    // action, never a continuation of the current playback position.
     wavesurfer.pause();
     wavesurfer.setTime(next / 1000);
     emitTime(next);
-
-    // play() remains in the originating button tap call stack for iOS Safari.
     void wavesurfer.play();
   };
 
@@ -97,6 +94,8 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       barGap: 1,
       barRadius: 2,
       normalize: true,
+      minPxPerSec: getZoomPxPerSecond(zoom),
+      fillParent: true,
       dragToSeek: true,
       interact: true,
       autoScroll: true,
@@ -133,16 +132,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       callbacksRef.current.onPause?.();
     });
 
-    // The waveform owns touch movement. Keep touchstart/click intact so iOS
-    // still treats Preview/anchor controls as genuine user gestures.
-    const viewport = viewportRef.current;
-    const preventPagePan = (event: TouchEvent) => {
-      if (event.cancelable) event.preventDefault();
-    };
-    viewport?.addEventListener("touchmove", preventPagePan, { passive: false });
-
     return () => {
-      viewport?.removeEventListener("touchmove", preventPagePan);
       wavesurfer.destroy();
       wavesurferRef.current = null;
     };
@@ -151,7 +141,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   useEffect(() => {
     const wavesurfer = wavesurferRef.current;
     if (!wavesurfer || !ready) return;
-    wavesurfer.setOptions({ minPxPerSec: zoom === 1 ? 0 : zoom * 30 });
+    wavesurfer.setOptions({ minPxPerSec: getZoomPxPerSecond(zoom) });
   }, [zoom, ready]);
 
   const seekBy = (deltaMs: number) => seekTo(currentMs + deltaMs);
@@ -161,14 +151,13 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   return <div className={`waveform-player ${compact ? "is-compact" : "is-expanded"}`}>
     <div className="waveform-compact-bar"><button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><div className="waveform-compact-copy"><strong>{title || "Untitled track"}</strong><span>{formatTime(currentMs)} / {formatTime(durationMs)}</span></div><div className="waveform-compact-progress"><span style={{ width: `${currentPercent}%` }} /></div></div>
     <div className="waveform-expanded-ui">
-      <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{ready ? "Interactive waveform" : "Preparing waveform…"}</small></div></div><div className="waveform-time"><strong>{formatTime(currentMs)}</strong><span>/ {formatTime(durationMs)}</span></div></div>
-      <div ref={viewportRef} className="waveform-viewport">
+      <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{ready ? "Swipe horizontally to browse · tap to seek" : "Preparing waveform…"}</small></div></div><div className="waveform-time"><strong>{formatTime(currentMs)}</strong><span>/ {formatTime(durationMs)}</span></div></div>
+      <div className="waveform-viewport">
         <div ref={containerRef} className="waveform-canvas" aria-label="Interactive audio waveform" />
-        <div className="waveform-position-line" style={{ left: `${currentPercent}%` }} />
         {!ready && <div className="waveform-loading">Preparing waveform…</div>}
       </div>
       <div className="waveform-controls"><button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-1000)} disabled={!ready}>−1s</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-100)} disabled={!ready}>−100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-10)} disabled={!ready}>−10</button><button className="waveform-current" type="button" onClick={() => callbacksRef.current.onTimeChange?.(currentMs)} disabled={!ready}>{formatTime(currentMs)}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(10)} disabled={!ready}>+10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(100)} disabled={!ready}>+100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(1000)} disabled={!ready}>+1s</button></div>
-      <div className="waveform-footer"><div className="waveform-zoom"><span>ZOOM</span><button type="button" onClick={() => setZoom(current => Math.max(1, current - 1))} disabled={zoom <= 1}>−</button><span>{zoom}×</span><button type="button" onClick={() => setZoom(current => Math.min(6, current + 1))}>+</button></div><span>Drag to seek</span></div>
+      <div className="waveform-footer"><div className="waveform-zoom"><span>ZOOM</span><button type="button" onClick={() => setZoom(current => Math.max(1, current - 1))} disabled={zoom <= 1}>−</button><span>{zoom}×</span><button type="button" onClick={() => setZoom(current => Math.min(6, current + 1))}>+</button></div><span>Swipe horizontally to browse · tap to seek</span></div>
     </div>
   </div>;
 });
