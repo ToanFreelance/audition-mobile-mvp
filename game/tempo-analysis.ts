@@ -1,4 +1,4 @@
-import { beatTrack, combTempo, tempo } from "@audio/beat";
+import { beatTrack, combTempo, detect, tempo } from "@audio/beat";
 
 type BeatTrackOptions = Parameters<typeof beatTrack>[1];
 type TempoResult = Awaited<ReturnType<typeof tempo>>;
@@ -63,8 +63,8 @@ function fitPhaseToTempo(beats: number[], period: number): number {
   let bestPhase = phases[0] ?? 0;
   let bestError = Number.POSITIVE_INFINITY;
 
-  // Pick the phase that minimizes circular distance for the whole detected beat set.
-  // This is more robust than trusting only beatTrack[0], especially after a noisy intro.
+  // The phase source may use a different BPM. Fit all of its beat timestamps
+  // onto the selected tempo period instead of inheriting that BPM.
   for (const candidate of phases) {
     const error = phases.reduce((sum, phase) => {
       const distance = Math.abs(phase - candidate);
@@ -85,7 +85,6 @@ function buildUniformBeatGrid(durationSeconds: number, bpm: number, phaseSeconds
   const period = 60 / bpm;
   let phase = Number.isFinite(phaseSeconds) ? ((phaseSeconds % period) + period) % period : 0;
 
-  // Extend the detected phase backwards so the grid covers the whole track.
   while (phase - period >= 0) phase -= period;
 
   const beats: number[] = [];
@@ -124,6 +123,7 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
     const tempoResult = tempo(mono, { ...baseOptions, candidates: 8 });
     const combResult = combTempo(mono, baseOptions);
     const detected = beatTrack(mono, baseOptions);
+    const phaseGrid = detect(mono, baseOptions);
 
     const tempoCandidateValues = finite(
       (tempoResult as TempoResult & { candidates?: ArrayLike<number> }).candidates,
@@ -166,10 +166,15 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
       bpm: targetBpm,
       tightness: 5000,
     };
+    // Keep tempo() as the authoritative BPM, but take phase from detect(),
+    // whose beat grid is explicitly phase-aligned to detected onsets.
+    // beatTrack remains available as a candidate/diagnostic rather than
+    // defining the saved uniform grid's phase.
     const tracked = beatTrack(mono, trackedOptions);
-    const trackedBeats = finite(tracked.beats);
+    const phaseBeats = finite(phaseGrid.beats);
+    const fallbackPhaseBeats = finite(tracked.beats);
     const period = 60 / targetBpm;
-    const phaseSeconds = fitPhaseToTempo(trackedBeats, period);
+    const phaseSeconds = fitPhaseToTempo(phaseBeats.length ? phaseBeats : fallbackPhaseBeats, period);
     const beats = buildUniformBeatGrid(buffer.duration, targetBpm, phaseSeconds);
     const bpmExact = Number(clamp(targetBpm, 40, 220).toFixed(4));
     const displayBpm = Math.round(bpmExact);
