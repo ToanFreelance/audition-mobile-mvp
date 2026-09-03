@@ -1,0 +1,48 @@
+/* v3 layer is loaded after the legacy Chart Studio overrides. */
+.music-config-page .chart-library-actions{display:flex;align-items:center;gap:8px}
+.music-config-page .editor-status-actions{display:flex;align-items:center;gap:8px}
+.music-config-page .editor-analyze-button{min-width:132px}
+.music-config-page .anchor-editor{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.music-config-page .anchor-current{padding:10px 14px}
+.music-config-page .anchor-current strong{margin:2px 0;font-size:18px}
+.music-config-page .anchor-actions{flex-wrap:wrap}
+.music-config-page .anchor-custom-button{display:none!important}
+.music-config-page .dock-actions{display:none!important}
+.music-config-page .dock-gauge{margin-top:8px;padding-top:7px;border-top:1px solid rgba(128,110,145,.18)}
+.music-config-page .dock-gauge-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px 5px}
+.music-config-page .dock-gauge-head span{font-size:8px;font-weight:900;letter-spacing:.14em;color:#b97acb}
+.music-config-page .dock-gauge-head small{font-size:8px;color:#817487}
+.music-config-page .dock-gauge .gauge-shell{margin-top:0;padding:8px 10px}
+.music-config-page .waveform-viewport{height:106px!important;touch-action:none!important;overflow:hidden!important;overscroll-behavior:none!important;-webkit-overflow-scrolling:auto!important}
+.music-config-page .waveform-canvas{touch-action:none!important;inset:5px 0 0!important}
+.music-config-page .waveform-footer{margin-top:5px}
+.music-config-page .button:disabled,.music-config-page .button-primary:disabled{opacity:1!important;filter:none!important}
+.music-config-page .editor-analyze-button,.music-config-page .sticky-use-current{opacity:1!important;filter:none!important}
+.music-config-page .sticky-use-current{min-width:104px}
+.music-config-page.audio-dock-expanded,.music-config-page.audio-dock-collapsed{padding-bottom:max(16px,var(--fixed-stack-reserve,0px))!important}
+
+@media(max-width:760px){
+  .music-config-page .config-header{align-items:flex-start}
+  .music-config-page .chart-library-actions{width:auto;justify-content:flex-end}
+  .music-config-page .chart-library-actions .count-badge{display:none}
+  .music-config-page .editor-status-actions{flex-direction:column;align-items:flex-end;gap:6px}
+  .music-config-page .editor-analyze-button{min-width:0;padding:10px 12px}
+  .music-config-page .anchor-editor{grid-template-columns:1fr;gap:8px}
+  .music-config-page .anchor-current{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .music-config-page .anchor-current span{font-size:8px}
+  .music-config-page .anchor-current strong{margin:0;font-size:17px}
+  .music-config-page .anchor-current small{font-size:8px}
+  .music-config-page .anchor-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .music-config-page .anchor-actions .button{width:100%}
+  .music-config-page .anchor-strip{margin-top:9px}
+  .music-config-page .sticky-actions{padding-left:10px!important;padding-right:10px!important;gap:6px!important}
+  .music-config-page .sticky-status{display:none}
+  .music-config-page .sticky-action-group{width:100%;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.9fr) minmax(0,.9fr) minmax(0,1.35fr);gap:6px}
+  .music-config-page .sticky-action-group .button{min-width:0!important;width:100%;padding:10px 4px;font-size:10px}
+  .music-config-page .sticky-use-current{min-width:0!important}
+  .music-config-page .save-button{min-width:0!important}
+}
+
+@media(min-width:761px){
+  .music-config-page .audio-dock{display:none!important}
+}
