@@ -71,37 +71,15 @@ export default function AuditionGauge({
   const blurSoftId = `${id}-blurSoft`;
 
   return (
-    <div
-      className={`audition-gauge-svg ${className}`}
-      onPointerDown={onPointerDown}
-      style={{
-        width: "100%",
-        aspectRatio: "464 / 56",
-        lineHeight: 0,
-        touchAction: "manipulation",
-        overflow: "visible",
-      }}
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="18 0 464 70"
-        width="100%"
-        height="100%"
-        preserveAspectRatio="none"
-        style={{ ...svgStyle, overflow: "visible" }}
-        aria-label="Audition timing gauge"
-      >
+    <div className={`audition-gauge-svg ${className}`} onPointerDown={onPointerDown} style={{ width: "100%", aspectRatio: "464 / 56", lineHeight: 0, touchAction: "manipulation", overflow: "visible" }}>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="18 0 464 70" width="100%" height="100%" preserveAspectRatio="none" style={{ ...svgStyle, overflow: "visible" }} aria-label="Audition timing gauge">
         <defs>
           <style>{`
             @keyframes auditionBeatPulse-${id}{
-              0%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}
-              12.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}
-              25%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}
-              37.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}
-              50%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}
-              62.5%{opacity:.95;transform:scaleX(1);filter:drop-shadow(0 0 10px #00f0ff)}
-              75%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}
+              0%,74%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}
+              82%{opacity:.82;transform:scaleX(1.12);filter:drop-shadow(0 0 9px #00f0ff)}
               87.5%{opacity:1;transform:scaleX(${stretchRatio});filter:drop-shadow(0 0 20px #00f0ff) drop-shadow(0 0 28px #fff)}
+              93%{opacity:.82;transform:scaleX(1.12);filter:drop-shadow(0 0 9px #00f0ff)}
               100%{opacity:.62;transform:scaleX(1);filter:drop-shadow(0 0 4px #00f0ff)}
             }
             @keyframes redGlowPulse-${id}{
@@ -126,7 +104,6 @@ export default function AuditionGauge({
           <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#fff"/><stop offset="35%" stopColor="#ff4d4d"/><stop offset="70%" stopColor="#e11d48"/><stop offset="100%" stopColor="#880015"/></radialGradient>
         </defs>
 
-        {/* Translucent track: the area outside the Perfect zone should let the dock/background show through. */}
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#fff" opacity=".07" filter={`url(#${blurSoftId})`}/>
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#0a0c14" fillOpacity=".12" stroke="#a1a1aa" strokeWidth="2"/>
         <rect x="22" y="14" width="456" height="42" rx="21" fill="none" stroke="#000" strokeWidth="1.5" opacity=".55"/>
