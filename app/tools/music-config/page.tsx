@@ -41,6 +41,7 @@ export default function MusicConfigPage() {
   const [currentTimeMs, setCurrentTimeMs] = useState(0);
   const [audioDurationMs, setAudioDurationMs] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [dockExpanded, setDockExpanded] = useState(true);
@@ -134,7 +135,7 @@ export default function MusicConfigPage() {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [dockExpanded, config.audioUrl, analysis, theme, previewingAnchorMs]);
+  }, [dockExpanded, config.audioUrl, analysis, theme, previewingAnchorMs, currentTimeMs]);
 
   const handleWaveTime = useCallback((ms: number) => setCurrentTimeMs(ms), []);
 
@@ -172,12 +173,8 @@ export default function MusicConfigPage() {
   };
 
   const analyze = async () => {
-    if (!config.audioUrl) {
-      setMessage("Choose an audio asset first.");
-      return;
-    }
-    if (loading) return;
-    setLoading(true);
+    if (!config.audioUrl || analyzing || analysis) return;
+    setAnalyzing(true);
     setMessage("Analyzing tempo and beat positions…");
     try {
       const result = await analyzeTempo(config.audioUrl);
@@ -191,7 +188,7 @@ export default function MusicConfigPage() {
     } catch (error) {
       setMessage(`Analysis failed: ${error instanceof Error ? error.message : "unknown error"}`);
     } finally {
-      setLoading(false);
+      setAnalyzing(false);
     }
   };
 
@@ -210,17 +207,16 @@ export default function MusicConfigPage() {
     setPreviewingAnchorMs(null);
   };
 
-  const useCustomSpaceStart = () => {
-    if (!config.audioUrl || !audioDurationMs) {
-      setMessage("Load an audio track first.");
+  const useAnchor = () => {
+    const anchor = anchors.find(item => item.ms === selectedAnchorMs) ?? anchors[0];
+    if (!anchor) {
+      setMessage("Run analysis and select an anchor first.");
       return;
     }
-    const ms = Math.max(0, Math.min(audioDurationMs, Math.round(currentTimeMs)));
-    const beat = timingBpm > 0 ? Number((1 + (ms / 1000) * timingBpm / 60).toFixed(4)) : undefined;
-    patch("spaceStartMs", ms);
-    if (beat !== undefined) patch("spaceStartBeat", beat);
-    setSelectedAnchorMs(ms);
-    setMessage(`Custom Space Start set to ${formatTime(ms, 3)}.`);
+    selectAnchor(anchor);
+    waveformRef.current?.seekTo(anchor.ms);
+    setCurrentTimeMs(anchor.ms);
+    setMessage(`Space Start set to Beat ${anchor.beatIndex} at ${formatTime(anchor.ms, 3)}. Gauge aligned to Perfect.`);
   };
 
   const previewAnchor = (anchor: WaveformMarker) => {
@@ -287,6 +283,9 @@ export default function MusicConfigPage() {
   }, [assetSearch, storageFiles]);
   const pageStyle = { "--fixed-stack-reserve": `${fixedStackHeight}px` } as CSSProperties;
 
+  const analyzeDisabled = loading || analyzing || Boolean(analysis) || !config.audioUrl;
+  const analyzeLabel = analyzing ? "WORKING…" : analysis ? "ANALYZED" : "ANALYZE AUDIO";
+
   return (
     <main className={`music-config-page theme-${theme} ${dockExpanded ? "audio-dock-expanded" : "audio-dock-collapsed"}`} style={pageStyle}>
       <input ref={fileInputRef} className="visually-hidden-file-input" type="file" accept="audio/*,.mp3,.wav,.m4a,.ogg,.aac,.flac" onChange={event => { void uploadFile(event.target.files?.[0]); event.currentTarget.value = ""; }} />
@@ -305,18 +304,18 @@ export default function MusicConfigPage() {
       </section>
 
       <section className="editor-grid"><div className="editor-main">
-        <section className="section-card editor-intro"><div><span className="eyebrow">CHART EDITOR</span><h2>{config.title || "Untitled track"}</h2><p>{config.artist || "Add artist information in Chart Details."}</p></div><div className="editor-status-actions"><span className="status-chip">{loading ? "WORKING" : analysis ? "ANALYZED" : config.audioUrl ? "READY" : "NO AUDIO"}</span><button className="button button-primary editor-analyze-button" onClick={() => void analyze()} type="button">{loading ? "ANALYZING…" : "ANALYZE AUDIO"}</button></div></section>
+        <section className="section-card editor-intro"><div><span className="eyebrow">CHART EDITOR</span><h2>{config.title || "Untitled track"}</h2><p>{config.artist || "Add artist information in Chart Details."}</p></div><div className="editor-status-actions"><button className="button button-primary editor-analyze-button" disabled={analyzeDisabled} onClick={() => void analyze()} type="button">{analyzeLabel}</button></div></section>
 
         <section className="section-card tempo-card"><div className="section-heading"><div><span className="eyebrow">TEMPO</span><h2>Detected timing</h2></div><div className="tempo-summary"><strong>{config.bpm || "—"}</strong><span>display BPM</span><small>{typeof exactBpm === "number" ? exactBpm.toFixed(4) : "—"} exact</small></div></div>{analysis ? <div className="candidate-list">{analysis.candidates.map((candidate, index) => <button className={`candidate-row ${Math.abs(candidate.bpm - timingBpm) < 0.02 && candidate.source === "tempo" ? "is-selected" : ""}`} key={`${candidate.source}-${candidate.bpm}-${index}`} onClick={() => { patch("bpm", Math.round(candidate.bpm)); patch("BPM_exact", Number(candidate.bpm.toFixed(4))); }} type="button"><span><strong>{candidate.bpm.toFixed(2)}</strong> BPM</span><small>{candidate.source} · confidence {(candidate.confidence * 100).toFixed(0)}%</small></button>)}</div> : <p className="hint">Waveform analysis is the source for BPM and beat positions. Run ANALYZE AUDIO after selecting a track.</p>}</section>
 
-        <section className="section-card anchor-card"><div className="section-heading"><div><span className="eyebrow">PHASE</span><h2>4-beat Space Start</h2></div><span className="mono-value">{formatTime(config.spaceStartMs, 3)}</span></div><div className="anchor-editor"><div className="anchor-current"><span>Selected anchor</span><strong>{selectedAnchorMs != null ? formatTime(selectedAnchorMs, 3) : "—"}</strong><small>{config.spaceStartBeat != null ? `Beat ${config.spaceStartBeat}` : "Run analysis first"}</small></div><div className="anchor-actions"><button className={`button ${previewingAnchorMs === selectedAnchorMs ? "is-previewing" : ""}`} onClick={() => { const anchor = anchors.find(item => item.ms === selectedAnchorMs) ?? anchors[0]; if (anchor) previewAnchor(anchor); else setMessage("Run analysis and select an anchor first."); }} type="button">{previewingAnchorMs === selectedAnchorMs ? "▶ PREVIEWING…" : "▶ PREVIEW −5s"}</button><button className="button button-primary" onClick={() => { const anchor = anchors.find(item => item.ms === selectedAnchorMs) ?? anchors[0]; if (anchor) selectAnchor(anchor); else setMessage("Run analysis and select an anchor first."); }} type="button">USE ANCHOR</button></div></div>{anchors.length > 0 && <div className="anchor-strip">{anchors.map(anchor => <button key={`${anchor.beatIndex}-${anchor.ms}`} className={anchor.ms === selectedAnchorMs ? "is-selected" : ""} onClick={() => selectAnchor(anchor)} type="button"><strong>{anchor.beatIndex}</strong><small>{formatTime(anchor.ms, 2)}</small></button>)}</div>}</section>
+        <section className="section-card anchor-card"><div className="section-heading"><div><span className="eyebrow">PHASE</span><h2>4-beat Space Start</h2></div><span className="mono-value">{formatTime(config.spaceStartMs, 3)}</span></div><div className="anchor-editor"><div className="anchor-current"><span>Selected anchor</span><strong>{selectedAnchorMs != null ? formatTime(selectedAnchorMs, 3) : "—"}</strong><small>{config.spaceStartBeat != null ? `Beat ${config.spaceStartBeat}` : "Run analysis first"}</small></div><div className="anchor-actions"><button className={`button ${previewingAnchorMs === selectedAnchorMs ? "is-previewing" : ""}`} onClick={() => { const anchor = anchors.find(item => item.ms === selectedAnchorMs) ?? anchors[0]; if (anchor) previewAnchor(anchor); else setMessage("Run analysis and select an anchor first."); }} type="button">{previewingAnchorMs === selectedAnchorMs ? "▶ PREVIEWING…" : "▶ PREVIEW −5s"}</button><button className="button button-primary" onClick={useAnchor} type="button">USE ANCHOR</button></div></div>{anchors.length > 0 && <div className="anchor-strip">{anchors.map(anchor => <button key={`${anchor.beatIndex}-${anchor.ms}`} className={anchor.ms === selectedAnchorMs ? "is-selected" : ""} onClick={() => selectAnchor(anchor)} type="button"><strong>{anchor.beatIndex}</strong><small>{formatTime(anchor.ms, 2)}</small></button>)}</div>}</section>
 
         <section className="section-card advanced-card"><div className="section-heading"><div><span className="eyebrow">CONFIG</span><h2>Chart details</h2></div></div><div className="form-grid"><label><span>Title</span><input value={config.title} onChange={event => patch("title", event.target.value)} /></label><label><span>Artist</span><input value={config.artist ?? ""} onChange={event => patch("artist", event.target.value)} /></label><label><span>Display BPM</span><input type="number" min={40} max={220} value={config.bpm} onChange={event => patch("bpm", Number(event.target.value) || 0)} /></label><label><span>BPM exact</span><input value={typeof exactBpm === "number" ? exactBpm.toFixed(4) : "—"} readOnly /></label><label className="form-span-2"><span>Audio asset</span><input value={storageFiles.find(asset => asset.url === config.audioUrl)?.name || config.audioUrl} readOnly /></label></div></section>
       </div></section>
 
-      <div ref={audioDockRef} className={`audio-dock ${dockExpanded ? "is-expanded" : "is-collapsed"}`}><div className="audio-dock-inner"><div className="audio-dock-topline"><span className="audio-dock-title">AUDIO WORKSTATION</span><button className="audio-dock-toggle" onClick={() => setDockExpanded(current => !current)} type="button" aria-label={dockExpanded ? "Collapse audio workstation" : "Expand audio workstation"}>{dockExpanded ? "−" : "＋"}</button></div>{config.audioUrl ? <WaveformPlayer ref={waveformRef} url={config.audioUrl} title={config.title} markers={anchors} selectedMarkerMs={selectedAnchorMs} onTimeChange={handleWaveTime} onDurationChange={handleWaveDuration} onPause={() => setPreviewingAnchorMs(null)} /> : <div className="dock-empty">Choose an audio asset to open the waveform player.</div>}{dockExpanded && config.audioUrl && <div className="dock-gauge"><div className="dock-gauge-head"><span>GAUGE CHECK</span><small>{timingBpm.toFixed(4)} BPM · Space Start {formatTime(config.spaceStartMs, 3)}</small></div><div className="gauge-shell"><AuditionGauge bpm={timingBpm} spaceStartMs={config.spaceStartMs} currentTimeMs={currentTimeMs} /></div></div>}</div></div>
+      <div ref={audioDockRef} className={`audio-dock ${dockExpanded ? "is-expanded" : "is-collapsed"}`}><div className="audio-dock-inner"><div className="audio-dock-topline"><span className="audio-dock-title">AUDIO WORKSTATION</span><button className="audio-dock-toggle" onClick={() => setDockExpanded(current => !current)} type="button" aria-label={dockExpanded ? "Collapse audio workstation" : "Expand audio workstation"}>{dockExpanded ? "−" : "＋"}</button></div>{config.audioUrl && <div className="audio-dock-live-time"><strong>{formatTime(currentTimeMs, 3)}</strong><span>/ {formatTime(audioDurationMs, 3)}</span></div>}{config.audioUrl ? <WaveformPlayer ref={waveformRef} url={config.audioUrl} title={config.title} markers={anchors} selectedMarkerMs={selectedAnchorMs} onTimeChange={handleWaveTime} onDurationChange={handleWaveDuration} onPause={() => setPreviewingAnchorMs(null)} /> : <div className="dock-empty">Choose an audio asset to open the waveform player.</div>}{dockExpanded && config.audioUrl && <div className="dock-gauge"><div className="dock-gauge-head"><span>GAUGE CHECK</span><small>{timingBpm.toFixed(4)} BPM · Space Start {formatTime(config.spaceStartMs, 3)}</small></div><div className="gauge-shell"><AuditionGauge bpm={timingBpm} spaceStartMs={config.spaceStartMs} currentTimeMs={currentTimeMs} /></div></div>}</div></div>
 
-      <footer ref={stickyActionsRef} className="sticky-actions"><div className="sticky-status"><strong>{config.title || "Untitled track"}</strong><span>{message || "Ready"}</span></div><div className="sticky-action-group"><button className="button button-primary sticky-use-current" onClick={useCustomSpaceStart} type="button">USE CURRENT</button>{isExistingChart && <button className="button button-danger" disabled={saving} onClick={() => void deleteChart()} type="button">DELETE</button>}<button className="button" disabled={saving} onClick={() => { loadConfig(cloneDefault({ id: makeId() })); setMessage("New chart draft."); }} type="button">RESET</button><button className="button button-primary save-button" disabled={saving || !config.audioUrl || !config.title.trim() || typeof exactBpm !== "number" || !Number.isFinite(exactBpm) || exactBpm <= 0} onClick={() => void save()} type="button">{saving ? "SAVING…" : "SAVE CHART"}</button></div></footer>
+      <footer ref={stickyActionsRef} className="sticky-actions"><div className="sticky-status"><strong>{config.title || "Untitled track"}</strong><span>{message || "Ready"}</span></div><div className="sticky-action-group"><button className="button button-primary sticky-use-current" onClick={() => { const ms = Math.max(0, Math.min(audioDurationMs, Math.round(currentTimeMs))); const beat = timingBpm > 0 ? Number((1 + (ms / 1000) * timingBpm / 60).toFixed(4)) : undefined; patch("spaceStartMs", ms); if (beat !== undefined) patch("spaceStartBeat", beat); setSelectedAnchorMs(ms); setMessage(`Space Start set to ${formatTime(ms, 3)}.`); }} type="button">USE CURRENT</button>{isExistingChart && <button className="button button-danger" disabled={saving} onClick={() => void deleteChart()} type="button">DELETE</button>}<button className="button" disabled={saving} onClick={() => { loadConfig(cloneDefault({ id: makeId() })); setMessage("New chart draft."); }} type="button">RESET</button><button className="button button-primary save-button" disabled={saving || !config.audioUrl || !config.title.trim() || typeof exactBpm !== "number" || !Number.isFinite(exactBpm) || exactBpm <= 0} onClick={() => void save()} type="button">{saving ? "SAVING…" : "SAVE CHART"}</button></div></footer>
 
       {addOpen && <div className="modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setAddOpen(false); }}><section className="asset-modal" role="dialog" aria-modal="true" aria-labelledby="asset-modal-title"><div className="modal-head"><div><span className="eyebrow">NEW CHART</span><h2 id="asset-modal-title">Choose audio</h2><p>Use an existing asset or upload a new track.</p></div><button className="modal-close" onClick={() => setAddOpen(false)} type="button" aria-label="Close">×</button></div><button className="upload-dropzone" disabled={uploading} onClick={() => fileInputRef.current?.click()} type="button"><span className="upload-icon">↑</span><strong>{uploading ? "UPLOADING…" : "UPLOAD AUDIO"}</strong><small>MP3, WAV, M4A, OGG, AAC, FLAC</small></button><div className="asset-divider"><span>EXISTING AUDIO ASSETS</span></div><label className="asset-search"><span>⌕</span><input value={assetSearch} onChange={event => setAssetSearch(event.target.value)} placeholder="Search audio…" /></label><div className="asset-list">{filteredAssets.map(asset => <button className="asset-row" key={asset.path} onClick={() => chooseAsset(asset)} type="button"><span className="asset-icon">♫</span><span><strong>{asset.name}</strong><small>{asset.size ? `${Math.round(asset.size / 1024 / 1024)} MB` : "Audio asset"}</small></span><span className="asset-arrow">›</span></button>)}{!filteredAssets.length && <p className="empty-state">No audio assets found.</p>}</div></section></div>}
     </main>
