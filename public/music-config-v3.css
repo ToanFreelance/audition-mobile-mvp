@@ -23,11 +23,10 @@
 .music-config-page .waveform-viewport{height:106px!important;touch-action:none!important;overflow:hidden!important;overscroll-behavior:none!important;-webkit-overflow-scrolling:auto!important}
 .music-config-page .waveform-canvas{touch-action:none!important;inset:5px 0 0!important}
 .music-config-page .waveform-footer{margin-top:5px}
-.music-config-page .button:disabled,.music-config-page .button-primary:disabled{opacity:1!important;filter:none!important}
-.music-config-page .editor-analyze-button,.music-config-page .sticky-use-current{opacity:1!important;filter:none!important}
-.music-config-page .editor-analyze-button:disabled{background:linear-gradient(135deg,#b72ad9,#7130d1);border-color:#d56be8;color:#fff}
-.music-config-page .sticky-use-current{min-width:104px}
-.music-config-page.audio-dock-expanded,.music-config-page.audio-dock-collapsed{padding-bottom:max(16px,var(--fixed-stack-reserve,0px))!important}
+.music-config-page .waveform-controls{align-items:stretch}
+.music-config-page .waveform-zoom-minus,.music-config-page .waveform-zoom-plus{border:1px solid #382c45;border-radius:9px;background:#130f19;color:#c8b9ce;font:800 11px/1 system-ui,sans-serif;padding:8px 3px;cursor:pointer}
+.music-config-page .waveform-zoom-value{display:grid;place-items:center;border:1px solid #382c45;border-radius:9px;background:#130f19;color:#e5a7ff;font:800 9px ui-monospace,SFMono-Regular,Menlo,monospace}
+.music-config-page .waveform-footer{justify-content:flex-start}
 
 @media(max-width:760px){
   .music-config-page .config-header{align-items:flex-start}
@@ -49,6 +48,11 @@
   .music-config-page .sticky-action-group .button{min-width:0!important;width:100%;padding:10px 4px;font-size:10px}
   .music-config-page .sticky-use-current{min-width:0!important}
   .music-config-page .save-button{min-width:0!important}
+  .music-config-page .waveform-controls{grid-template-columns:34px repeat(6,minmax(0,1fr)) 34px 34px 34px;gap:4px;margin-top:7px}
+  .music-config-page .waveform-controls .waveform-nudge{font-size:8px;padding-left:1px;padding-right:1px}
+  .music-config-page .waveform-zoom-minus,.music-config-page .waveform-zoom-plus{padding:7px 2px}
+  .music-config-page .waveform-zoom-value{font-size:8px}
+  .music-config-page .waveform-footer{display:none}
 }
 
 @media(min-width:761px){
