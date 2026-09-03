@@ -30,6 +30,7 @@ const formatTime = (ms: number, precision = 3) => {
 };
 
 const getZoomPxPerSecond = (zoom: number) => zoom === 1 ? 12 : zoom * 30;
+const clampZoom = (zoom: number) => Math.max(1, Math.min(6, zoom));
 
 const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(function WaveformPlayer({
   url,
@@ -45,7 +46,9 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const callbacksRef = useRef({ onTimeChange, onDurationChange, onPlay, onPause, onReady });
-  const touchRef = useRef<{ x: number; y: number } | null>(null);
+  const touchRef = useRef<{ x: number; y: number; distance?: number; zoom?: number } | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const lastClockEmitRef = useRef(0);
   const [durationMs, setDurationMs] = useState(0);
   const [currentMs, setCurrentMs] = useState(0);
   const [zoom, setZoom] = useState(1);
@@ -108,6 +111,32 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     setCurrentMs(0);
     setDurationMs(0);
 
+    const stopClock = () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+
+    const syncClock = () => {
+      if (!wavesurfer.isPlaying()) {
+        animationFrameRef.current = null;
+        return;
+      }
+      const now = performance.now();
+      if (now - lastClockEmitRef.current >= 25) {
+        emitTime(wavesurfer.getCurrentTime() * 1000);
+        lastClockEmitRef.current = now;
+      }
+      animationFrameRef.current = requestAnimationFrame(syncClock);
+    };
+
+    const startClock = () => {
+      stopClock();
+      lastClockEmitRef.current = 0;
+      animationFrameRef.current = requestAnimationFrame(syncClock);
+    };
+
     const updateTime = (seconds: number) => emitTime(seconds * 1000);
     wavesurfer.on("ready", duration => {
       const ms = Math.round(duration * 1000);
@@ -121,17 +150,23 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     wavesurfer.on("play", () => {
       setPlaying(true);
       callbacksRef.current.onPlay?.();
+      startClock();
     });
     wavesurfer.on("pause", () => {
       setPlaying(false);
+      stopClock();
+      updateTime(wavesurfer.getCurrentTime());
       callbacksRef.current.onPause?.();
     });
     wavesurfer.on("finish", () => {
       setPlaying(false);
+      stopClock();
+      updateTime(wavesurfer.getCurrentTime());
       callbacksRef.current.onPause?.();
     });
 
     return () => {
+      stopClock();
       wavesurfer.destroy();
       wavesurferRef.current = null;
     };
@@ -147,32 +182,62 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     const viewport = viewportRef.current;
     if (!viewport) return;
 
+    const applyZoom = (nextZoom: number) => setZoom(clampZoom(nextZoom));
+    const distance = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
     const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length >= 2) {
+        const a = event.touches[0];
+        const b = event.touches[1];
+        touchRef.current = { x: a.clientX, y: a.clientY, distance: distance(a, b), zoom };
+        return;
+      }
       const touch = event.touches[0];
       if (touch) touchRef.current = { x: touch.clientX, y: touch.clientY };
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      const start = touchRef.current;
+      const state = touchRef.current;
+      if (!state) return;
+      if (event.touches.length >= 2 && state.distance) {
+        const nextDistance = distance(event.touches[0], event.touches[1]);
+        applyZoom((state.zoom ?? zoom) * (nextDistance / state.distance));
+        event.preventDefault();
+        return;
+      }
       const touch = event.touches[0];
-      if (!start || !touch) return;
-      const dx = touch.clientX - start.x;
-      const dy = touch.clientY - start.y;
-      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 4) event.preventDefault();
+      if (!touch) return;
+      const dx = touch.clientX - state.x;
+      const dy = touch.clientY - state.y;
+      if (Math.abs(dy) > 4) event.preventDefault();
     };
 
-    const onTouchEnd = () => { touchRef.current = null; };
+    const onTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length >= 2) return;
+      touchRef.current = null;
+    };
+
+    const onWheel = (event: WheelEvent) => {
+      // Desktop middle-mouse wheel: zoom the waveform without hijacking normal scrolling.
+      if ((event.buttons & 4) === 4) {
+        event.preventDefault();
+        applyZoom(zoom + (event.deltaY < 0 ? 0.5 : -0.5));
+      }
+    };
+
     viewport.addEventListener("touchstart", onTouchStart, { passive: true });
     viewport.addEventListener("touchmove", onTouchMove, { passive: false });
     viewport.addEventListener("touchend", onTouchEnd, { passive: true });
     viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    viewport.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       viewport.removeEventListener("touchstart", onTouchStart);
       viewport.removeEventListener("touchmove", onTouchMove);
       viewport.removeEventListener("touchend", onTouchEnd);
       viewport.removeEventListener("touchcancel", onTouchEnd);
+      viewport.removeEventListener("wheel", onWheel);
     };
-  }, []);
+  }, [zoom]);
 
   const seekBy = (deltaMs: number) => seekTo(currentMs + deltaMs);
   const togglePlay = () => { void wavesurferRef.current?.playPause(); };
@@ -181,13 +246,13 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   return <div className={`waveform-player ${compact ? "is-compact" : "is-expanded"}`}>
     <div className="waveform-compact-bar"><button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><div className="waveform-compact-copy"><strong>{title || "Untitled track"}</strong><span>{formatTime(currentMs)} / {formatTime(durationMs)}</span></div><div className="waveform-compact-progress"><span style={{ width: `${currentPercent}%` }} /></div></div>
     <div className="waveform-expanded-ui">
-      <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{ready ? "Tap to seek · drag to adjust position" : "Preparing waveform…"}</small></div></div><div className="waveform-time"><strong>{formatTime(currentMs)}</strong><span>/ {formatTime(durationMs)}</span></div></div>
+      <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{ready ? "Tap to seek · pinch to zoom" : "Preparing waveform…"}</small></div></div></div>
       <div ref={viewportRef} className="waveform-viewport">
         <div ref={containerRef} className="waveform-canvas" aria-label="Interactive audio waveform" />
         {!ready && <div className="waveform-loading">Preparing waveform…</div>}
       </div>
-      <div className="waveform-controls"><button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-1000)} disabled={!ready}>−1s</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-100)} disabled={!ready}>−100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-10)} disabled={!ready}>−10</button><button className="waveform-current" type="button" onClick={() => callbacksRef.current.onTimeChange?.(currentMs)} disabled={!ready}>{formatTime(currentMs)}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(10)} disabled={!ready}>+10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(100)} disabled={!ready}>+100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(1000)} disabled={!ready}>+1s</button></div>
-      <div className="waveform-footer"><div className="waveform-zoom"><span>ZOOM</span><button type="button" onClick={() => setZoom(current => Math.max(1, current - 1))} disabled={zoom <= 1}>−</button><span>{zoom}×</span><button type="button" onClick={() => setZoom(current => Math.min(6, current + 1))}>+</button></div><span>Tap to seek · drag to adjust</span></div>
+      <div className="waveform-controls"><button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-1000)} disabled={!ready}>−1s</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-100)} disabled={!ready}>−100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-10)} disabled={!ready}>−10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(10)} disabled={!ready}>+10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(100)} disabled={!ready}>+100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(1000)} disabled={!ready}>+1s</button><button className="waveform-zoom-minus" type="button" onClick={() => setZoom(current => clampZoom(current - 1))} disabled={zoom <= 1}>−</button><span className="waveform-zoom-value">{zoom % 1 === 0 ? zoom : zoom.toFixed(1)}×</span><button className="waveform-zoom-plus" type="button" onClick={() => setZoom(current => clampZoom(current + 1))}>＋</button></div>
+      <div className="waveform-footer"><span>Tap to seek · pinch to zoom · desktop middle-wheel zoom</span></div>
     </div>
   </div>;
 });
