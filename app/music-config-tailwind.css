@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* Incremental Tailwind layer: new Chart Studio layout primitives live here first. */
+.music-config-page .chart-library-actions,
+.music-config-page .editor-status-actions {
+  @apply flex items-center gap-2;
+}
+
+.music-config-page .dock-gauge {
+  @apply mt-2 border-t border-black/10 pt-2;
+}
+
+.music-config-page .dock-gauge-head {
+  @apply flex items-center justify-between gap-2 px-1 pb-1;
+}
+
+.music-config-page .dock-gauge-head span {
+  @apply text-[9px] font-black uppercase tracking-[0.14em];
+}
+
+.music-config-page .dock-gauge-head small {
+  @apply text-[8px] opacity-70;
+}
+
+@media (max-width: 560px) {
+  .music-config-page .chart-library-actions {
+    @apply w-full justify-between;
+  }
+
+  .music-config-page .editor-status-actions {
+    @apply flex-col items-end;
+  }
+}
