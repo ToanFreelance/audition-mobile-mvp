@@ -55,6 +55,8 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     startDistance: number;
     startZoom: number;
   } | null>(null);
+  const zoomRef = useRef(1);
+  const currentMsRef = useRef(0);
   const animationFrameRef = useRef<number | null>(null);
   const lastClockEmitRef = useRef(0);
   const [durationMs, setDurationMs] = useState(0);
@@ -64,9 +66,12 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   const [playing, setPlaying] = useState(false);
 
   callbacksRef.current = { onTimeChange, onDurationChange, onPlay, onPause, onReady };
+  zoomRef.current = zoom;
+  currentMsRef.current = currentMs;
 
   const emitTime = (ms: number) => {
     const rounded = Math.round(ms);
+    currentMsRef.current = rounded;
     setCurrentMs(rounded);
     callbacksRef.current.onTimeChange?.(rounded);
   };
@@ -112,7 +117,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       barGap: 1,
       barRadius: 2,
       normalize: true,
-      minPxPerSec: getZoomPxPerSecond(zoom),
+      minPxPerSec: getZoomPxPerSecond(zoomRef.current),
       fillParent: false,
       dragToSeek: false,
       interact: true,
@@ -125,6 +130,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     setReady(false);
     setPlaying(false);
     setCurrentMs(0);
+    currentMsRef.current = 0;
     setDurationMs(0);
 
     const stopClock = () => {
@@ -199,7 +205,6 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     if (!viewport) return;
 
     const distance = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const pxPerSecond = () => getZoomPxPerSecond(zoom);
 
     const onTouchStart = (event: TouchEvent) => {
       if (event.touches.length >= 2) {
@@ -210,11 +215,12 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
           mode: "pan",
           startX: (a.clientX + b.clientX) / 2,
           startY: (a.clientY + b.clientY) / 2,
-          startTime: wavesurfer?.getCurrentTime() ?? currentMs / 1000,
+          startTime: wavesurfer?.getCurrentTime() ?? currentMsRef.current / 1000,
           startScroll: wavesurfer?.getScroll() ?? 0,
           startDistance: distance(a, b),
-          startZoom: zoom,
+          startZoom: zoomRef.current,
         };
+        event.preventDefault();
         return;
       }
 
@@ -228,7 +234,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         startTime: wavesurfer.getCurrentTime(),
         startScroll: wavesurfer.getScroll(),
         startDistance: 0,
-        startZoom: zoom,
+        startZoom: zoomRef.current,
       };
     };
 
@@ -243,14 +249,15 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         const centerX = (a.clientX + b.clientX) / 2;
         const centerY = (a.clientY + b.clientY) / 2;
         const nextDistance = distance(a, b);
-        const distanceRatio = gesture.startDistance > 0 ? nextDistance / gesture.startDistance : 1;
+        const distanceDelta = nextDistance - gesture.startDistance;
         const panDx = centerX - gesture.startX;
         const panDy = centerY - gesture.startY;
 
-        // Pinch = zoom. Two fingers kept roughly the same distance = horizontal pan.
-        if (Math.abs(nextDistance - gesture.startDistance) > 10) {
+        // Pinch changes zoom. If finger spacing stays roughly constant,
+        // two-finger horizontal dragging pans the waveform without seeking.
+        if (Math.abs(distanceDelta) > 10) {
           gesture.mode = "zoom";
-          setZoom(clampZoom(gesture.startZoom * distanceRatio));
+          setZoom(clampZoom(gesture.startZoom * (nextDistance / Math.max(1, gesture.startDistance))));
         } else if (Math.abs(panDx) > Math.abs(panDy) + 2) {
           gesture.mode = "pan";
           wavesurfer.setScroll(Math.max(0, gesture.startScroll - panDx));
@@ -264,11 +271,11 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       const dx = touch.clientX - gesture.startX;
       const dy = touch.clientY - gesture.startY;
 
-      // One finger always scrubs the playhead horizontally. Vertical movement is
-      // consumed so the fixed workstation never scrolls the page.
+      // One finger scrubs the playhead. Vertical movement is consumed by the
+      // workstation so it cannot bubble into document scrolling.
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
         gesture.mode = "seek";
-        const nextSeconds = gesture.startTime + dx / pxPerSecond();
+        const nextSeconds = gesture.startTime + dx / getZoomPxPerSecond(zoomRef.current);
         const duration = wavesurfer.getDuration();
         const clamped = Math.max(0, Math.min(duration, nextSeconds));
         wavesurfer.setTime(clamped);
@@ -283,13 +290,12 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     };
 
     const onWheel = (event: WheelEvent) => {
-      if ((event.buttons & 4) === 4) {
-        event.preventDefault();
-        setZoom(current => clampZoom(current + (event.deltaY < 0 ? 0.5 : -0.5)));
-      }
+      // Desktop mouse-wheel over the waveform zooms around the current zoom level.
+      event.preventDefault();
+      setZoom(current => clampZoom(current + (event.deltaY < 0 ? 0.5 : -0.5)));
     };
 
-    viewport.addEventListener("touchstart", onTouchStart, { passive: true });
+    viewport.addEventListener("touchstart", onTouchStart, { passive: false });
     viewport.addEventListener("touchmove", onTouchMove, { passive: false });
     viewport.addEventListener("touchend", onTouchEnd, { passive: true });
     viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
@@ -301,7 +307,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       viewport.removeEventListener("touchcancel", onTouchEnd);
       viewport.removeEventListener("wheel", onWheel);
     };
-  }, [zoom, currentMs]);
+  }, []);
 
   const seekBy = (deltaMs: number) => seekTo(currentMs + deltaMs);
   const togglePlay = () => { void wavesurferRef.current?.playPause(); };
@@ -316,7 +322,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         {!ready && <div className="waveform-loading">Preparing waveform…</div>}
       </div>
       <div className="waveform-controls"><button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-1000)} disabled={!ready}>−1s</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-100)} disabled={!ready}>−100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-10)} disabled={!ready}>−10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(10)} disabled={!ready}>+10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(100)} disabled={!ready}>+100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(1000)} disabled={!ready}>+1s</button><button className="waveform-zoom-minus" type="button" onClick={() => setZoom(current => clampZoom(current - 1))} disabled={zoom <= 1}>−</button><span className="waveform-zoom-value">{zoom % 1 === 0 ? zoom : zoom.toFixed(1)}×</span><button className="waveform-zoom-plus" type="button" onClick={() => setZoom(current => clampZoom(current + 1))}>＋</button></div>
-      <div className="waveform-footer"><span>1 finger seek · 2 fingers pan / pinch zoom · desktop middle-wheel zoom</span></div>
+      <div className="waveform-footer"><span>1 finger seek · 2 fingers pan / pinch zoom · mouse wheel zoom</span></div>
     </div>
   </div>;
 });
