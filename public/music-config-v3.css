@@ -1,23 +1,31 @@
 /* v3 layer is loaded after the legacy Chart Studio overrides. */
 .music-config-page .chart-library-actions{display:flex;align-items:center;gap:8px}
 .music-config-page .editor-status-actions{display:flex;align-items:center;gap:8px}
+.music-config-page .editor-status-actions .status-chip{display:none!important}
 .music-config-page .editor-analyze-button{min-width:132px}
+.music-config-page .editor-analyze-button:disabled{cursor:default}
 .music-config-page .anchor-editor{grid-template-columns:minmax(0,1fr) auto;align-items:center}
 .music-config-page .anchor-current{padding:10px 14px}
 .music-config-page .anchor-current strong{margin:2px 0;font-size:18px}
 .music-config-page .anchor-actions{flex-wrap:wrap}
 .music-config-page .anchor-custom-button{display:none!important}
 .music-config-page .dock-actions{display:none!important}
+.music-config-page .audio-dock-topline{margin-bottom:2px}
+.music-config-page .audio-dock-live-time{display:flex;justify-content:flex-end;align-items:baseline;gap:4px;margin:0 2px 7px;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+.music-config-page .audio-dock-live-time strong{color:#fff;font-weight:800}
+.music-config-page .audio-dock-live-time span{color:#756a7d}
+.music-config-page .waveform-player-head .waveform-time{display:none!important}
 .music-config-page .dock-gauge{margin-top:8px;padding-top:7px;border-top:1px solid rgba(128,110,145,.18)}
 .music-config-page .dock-gauge-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px 5px}
 .music-config-page .dock-gauge-head span{font-size:8px;font-weight:900;letter-spacing:.14em;color:#b97acb}
 .music-config-page .dock-gauge-head small{font-size:8px;color:#817487}
-.music-config-page .dock-gauge .gauge-shell{margin-top:0;padding:8px 10px}
+.music-config-page .dock-gauge .gauge-shell{margin-top:0;padding:8px 10px;background:rgba(255,255,255,.025);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .music-config-page .waveform-viewport{height:106px!important;touch-action:none!important;overflow:hidden!important;overscroll-behavior:none!important;-webkit-overflow-scrolling:auto!important}
 .music-config-page .waveform-canvas{touch-action:none!important;inset:5px 0 0!important}
 .music-config-page .waveform-footer{margin-top:5px}
 .music-config-page .button:disabled,.music-config-page .button-primary:disabled{opacity:1!important;filter:none!important}
 .music-config-page .editor-analyze-button,.music-config-page .sticky-use-current{opacity:1!important;filter:none!important}
+.music-config-page .editor-analyze-button:disabled{background:linear-gradient(135deg,#b72ad9,#7130d1);border-color:#d56be8;color:#fff}
 .music-config-page .sticky-use-current{min-width:104px}
 .music-config-page.audio-dock-expanded,.music-config-page.audio-dock-collapsed{padding-bottom:max(16px,var(--fixed-stack-reserve,0px))!important}
 
