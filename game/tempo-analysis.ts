@@ -2,7 +2,6 @@ import { beatTrack, combTempo, tempo } from "@audio/beat";
 
 type BeatTrackOptions = Parameters<typeof beatTrack>[1];
 type TempoResult = Awaited<ReturnType<typeof tempo>>;
-
 type TempoSource = "tempo" | "comb" | "beatTrack";
 
 export type TempoCandidate = {
@@ -30,23 +29,6 @@ function isTempoSource(value: unknown): value is TempoSource {
   return value === "tempo" || value === "comb" || value === "beatTrack";
 }
 
-function regressionBpm(beats: number[], fallbackBpm: number): number {
-  if (beats.length < 2) return fallbackBpm;
-
-  const intervals = beats
-    .slice(1)
-    .map((beat, index) => beat - beats[index])
-    .filter(interval => Number.isFinite(interval) && interval > 0.1 && interval < 3);
-
-  if (intervals.length < 1) return fallbackBpm;
-
-  const sorted = [...intervals].sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)];
-  const inliers = intervals.filter(interval => Math.abs(interval - median) <= Math.max(0.02, median * 0.08));
-  const mean = inliers.reduce((sum, interval) => sum + interval, 0) / Math.max(1, inliers.length);
-  return mean > 0 ? 60 / mean : fallbackBpm;
-}
-
 type TempoCluster = {
   center: number;
   members: TempoCandidate[];
@@ -72,6 +54,28 @@ function cluster(candidates: TempoCandidate[]): TempoCluster[] {
   }
 
   return clusters.sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Build a uniform beat grid from the selected tempo while using beatTrack only
+ * for the phase (where the first audible beat lands). This prevents a metrical
+ * ambiguity in beatTrack from returning beat timestamps at a different tempo
+ * than the tempo shown to the admin.
+ */
+function buildUniformBeatGrid(durationSeconds: number, bpm: number, phaseSeconds: number): number[] {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || !Number.isFinite(bpm) || bpm <= 0) return [];
+
+  const period = 60 / bpm;
+  let phase = Number.isFinite(phaseSeconds) ? Math.max(0, phaseSeconds) : 0;
+
+  // Extend the detected phase backwards so the grid covers the whole track.
+  while (phase - period >= 0) phase -= period;
+
+  const beats: number[] = [];
+  for (let time = phase; time <= durationSeconds + 1e-6; time += period) {
+    beats.push(Number(time.toFixed(6)));
+  }
+  return beats;
 }
 
 export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
@@ -135,21 +139,25 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
     );
 
     const bestCluster = cluster(candidates)[0];
-    const clusterCenter = bestCluster?.center ?? Number(tempoResult.bpm) ?? Number(detected.bpm) ?? 120;
+    const tempoBpm = Number(tempoResult.bpm);
+    const targetBpm = Number.isFinite(tempoBpm) && tempoBpm > 0
+      ? tempoBpm
+      : bestCluster?.center ?? Number(detected.bpm) ?? 120;
 
     const trackedOptions: BeatTrackOptions = {
       ...baseOptions,
-      bpm: clusterCenter,
-      tightness: 900,
+      bpm: targetBpm,
+      tightness: 5000,
     };
     const tracked = beatTrack(mono, trackedOptions);
-    const beats = finite(tracked.beats);
-    const fittedBpm = regressionBpm(beats, clusterCenter);
-    const bpmExact = Number(clamp(fittedBpm, 40, 220).toFixed(4));
+    const trackedBeats = finite(tracked.beats);
+    const phaseSeconds = trackedBeats[0] ?? 0;
+    const beats = buildUniformBeatGrid(buffer.duration, targetBpm, phaseSeconds);
+    const bpmExact = Number(clamp(targetBpm, 40, 220).toFixed(4));
     const displayBpm = Math.round(bpmExact);
     const confidence = Number(
       clamp(
-        (Number(tracked.confidence) || 0) + (Number(combResult.confidence) || 0) * 0.25,
+        (Number(tempoResult.confidence) || 0) + (Number(combResult.confidence) || 0) * 0.25,
         0,
         1,
       ).toFixed(4),
