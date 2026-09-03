@@ -155,9 +155,9 @@ export default function GameShell() {
       setAudioError(null); setAudioDetails(""); setAudioState("loading");
       if (restart) audio.currentTime = 0;
       audio.muted = false; audio.volume = 1; audio.load();
+      runtime.setTimeSource(() => audio.currentTime * 1000);
       await audio.play();
       setAudioState("playing");
-      runtime.setTimeSource(() => audio.currentTime * 1000);
       return true;
     } catch (error) {
       const err = error as DOMException | undefined;
@@ -172,9 +172,21 @@ export default function GameShell() {
     const audio = audioRef.current;
     if (!audio) return;
     try {
-      audio.pause(); audio.currentTime = 0; audio.load(); await audio.play();
-      setAudioState("playing"); runtime.setTimeSource(() => audio.currentTime * 1000); runtime.start(); setStarted(true);
+      audio.pause();
+      audio.currentTime = 0;
+      audio.load();
+      runtime.setTimeSource(() => audio.currentTime * 1000);
+      // Start the runtime against the media timeline before awaiting play().
+      // If iOS delays actual playback, elapsedMs remains at 0 until currentTime
+      // advances, so the countdown/gauge cannot run ahead of the audible track.
+      runtime.start();
+      const playPromise = audio.play();
+      setAudioState("loading");
+      await playPromise;
+      setAudioState("playing");
+      setStarted(true);
     } catch (error) {
+      runtime.stop();
       const err = error as DOMException | undefined;
       const reason = err?.name === "NotAllowedError" ? "iOS/browser chặn autoplay. Hãy dùng TEST SOUND/REPLAY bằng một lần chạm trực tiếp." : err?.name === "NotSupportedError" ? "Browser không decode được source MP3 đang deploy." : err?.message || "Không thể phát audio.";
       reportAudioError(reason); runtime.setTimeSource(null); setStarted(false);
