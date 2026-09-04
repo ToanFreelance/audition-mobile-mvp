@@ -3,188 +3,34 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
 
+export const WAVEFORM_MEDIA_TIME_EVENT = "audition:media-time";
 export type WaveformMarker = { ms: number; beatIndex: number };
-export type WaveformPlayerHandle = {
-  seekTo: (ms: number) => void;
-  previewFrom: (ms: number) => void;
-  getCurrentTimeMs: () => number;
-};
+export type WaveformPlayerHandle = { seekTo: (ms: number) => void; previewFrom: (ms: number) => void; getCurrentTimeMs: () => number };
+type WaveformPlayerProps = { url: string; title?: string; markers?: WaveformMarker[]; selectedMarkerMs?: number | null; compact?: boolean; onTimeChange?: (ms: number) => void; onDurationChange?: (ms: number) => void; onPlay?: () => void; onPause?: () => void; onReady?: (durationMs: number) => void };
+const formatTime=(ms:number,precision=3)=>{const s=Math.max(0,ms)/1000,m=Math.floor(s/60),r=s-m*60;return `${m}:${r.toFixed(precision).padStart(precision===0?2:precision+3,"0")}`};
+const getZoomPxPerSecond=(z:number)=>z===1?12:z*30; const clampZoom=(z:number)=>Math.max(1,Math.min(6,z));
 
-type WaveformPlayerProps = {
-  url: string;
-  title?: string;
-  markers?: WaveformMarker[];
-  selectedMarkerMs?: number | null;
-  compact?: boolean;
-  onTimeChange?: (ms: number) => void;
-  onDurationChange?: (ms: number) => void;
-  onPlay?: () => void;
-  onPause?: () => void;
-  onReady?: (durationMs: number) => void;
-};
-
-const formatTime = (ms: number, precision = 3) => {
-  const totalSeconds = Math.max(0, ms) / 1000;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds - minutes * 60;
-  return `${minutes}:${seconds.toFixed(precision).padStart(precision === 0 ? 2 : precision + 3, "0")}`;
-};
-
-const getZoomPxPerSecond = (zoom: number) => zoom === 1 ? 12 : zoom * 30;
-const clampZoom = (zoom: number) => Math.max(1, Math.min(6, zoom));
-
-const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(function WaveformPlayer({
-  url, title, compact = false, onTimeChange, onDurationChange, onPlay, onPause, onReady,
-}, ref) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const wavesurferRef = useRef<WaveSurfer | null>(null);
-  const callbacksRef = useRef({ onTimeChange, onDurationChange, onPlay, onPause, onReady });
-  const gestureRef = useRef<{ mode: "seek" | "pan"; startX: number; startScroll: number } | null>(null);
-  const zoomRef = useRef(1);
-  const currentMsRef = useRef(0);
-  const animationFrameRef = useRef<number | null>(null);
-  const lastClockEmitRef = useRef(0);
-  const [durationMs, setDurationMs] = useState(0);
-  const [currentMs, setCurrentMs] = useState(0);
-  const [zoom, setZoom] = useState(1);
-  const [ready, setReady] = useState(false);
-  const [playing, setPlaying] = useState(false);
-
-  callbacksRef.current = { onTimeChange, onDurationChange, onPlay, onPause, onReady };
-  zoomRef.current = zoom;
-  currentMsRef.current = currentMs;
-
-  const emitTime = (ms: number) => {
-    const rounded = Math.round(ms);
-    currentMsRef.current = rounded;
-    setCurrentMs(rounded);
-    callbacksRef.current.onTimeChange?.(rounded);
-  };
-
-  const scrollToTime = (wavesurfer: WaveSurfer, seconds: number) => {
-    const instance = wavesurfer as WaveSurfer & { setScrollTime?: (time: number) => void };
-    instance.setScrollTime?.(Math.max(0, seconds));
-  };
-
-  const seekTo = (ms: number) => {
-    const wavesurfer = wavesurferRef.current;
-    if (!wavesurfer || !wavesurfer.getDuration()) return;
-    const duration = wavesurfer.getDuration() * 1000;
-    const next = Math.max(0, Math.min(duration, ms));
-    wavesurfer.setTime(next / 1000);
-    scrollToTime(wavesurfer, next / 1000);
-    emitTime(next);
-  };
-
-  const previewFrom = (ms: number) => {
-    const wavesurfer = wavesurferRef.current;
-    if (!wavesurfer || !wavesurfer.getDuration()) return;
-    const duration = wavesurfer.getDuration() * 1000;
-    const next = Math.max(0, Math.min(duration, ms));
-    wavesurfer.setTime(next / 1000);
-    scrollToTime(wavesurfer, next / 1000);
-    void wavesurfer.play();
-    emitTime(next);
-  };
-
-  useImperativeHandle(ref, () => ({
-    seekTo,
-    previewFrom,
-    // This is the authoritative media position used by realtime consumers.
-    // It deliberately bypasses React state so a gauge frame never waits for
-    // reconciliation/commit before sampling the playback timeline.
-    getCurrentTimeMs: () => (wavesurferRef.current?.getCurrentTime() ?? 0) * 1000,
-  }), []);
-
-  useEffect(() => {
-    if (!containerRef.current || !url) return;
-    const wavesurfer = WaveSurfer.create({
-      container: containerRef.current, height: 92, waveColor: "#a983bd", progressColor: "#c32df1", cursorColor: "#ff4fa3", cursorWidth: 2,
-      barWidth: 1, barGap: 1, barRadius: 2, normalize: true, minPxPerSec: getZoomPxPerSecond(zoomRef.current), fillParent: false,
-      dragToSeek: false, interact: false, autoScroll: true, autoCenter: true, hideScrollbar: true, url,
-    });
-    wavesurferRef.current = wavesurfer;
-    setReady(false); setPlaying(false); setCurrentMs(0); currentMsRef.current = 0; setDurationMs(0);
-
-    const stopClock = () => { if (animationFrameRef.current !== null) { cancelAnimationFrame(animationFrameRef.current); animationFrameRef.current = null; } };
-    const syncClock = () => {
-      if (!wavesurfer.isPlaying()) { animationFrameRef.current = null; return; }
-      const now = performance.now();
-      const seconds = wavesurfer.getCurrentTime();
-      scrollToTime(wavesurfer, seconds);
-      if (now - lastClockEmitRef.current >= 25) { emitTime(seconds * 1000); lastClockEmitRef.current = now; }
-      animationFrameRef.current = requestAnimationFrame(syncClock);
-    };
-    const startClock = () => { stopClock(); lastClockEmitRef.current = 0; animationFrameRef.current = requestAnimationFrame(syncClock); };
-    const updateTime = (seconds: number) => emitTime(seconds * 1000);
-    wavesurfer.on("ready", duration => { const ms = Math.round(duration * 1000); setDurationMs(ms); setReady(true); callbacksRef.current.onDurationChange?.(ms); callbacksRef.current.onReady?.(ms); });
-    wavesurfer.on("timeupdate", updateTime);
-    wavesurfer.on("play", () => { setPlaying(true); callbacksRef.current.onPlay?.(); startClock(); });
-    wavesurfer.on("pause", () => { setPlaying(false); stopClock(); updateTime(wavesurfer.getCurrentTime()); callbacksRef.current.onPause?.(); });
-    wavesurfer.on("finish", () => { setPlaying(false); stopClock(); updateTime(wavesurfer.getCurrentTime()); callbacksRef.current.onPause?.(); });
-    return () => { stopClock(); wavesurfer.destroy(); wavesurferRef.current = null; };
-  }, [url]);
-
-  useEffect(() => {
-    const wavesurfer = wavesurferRef.current;
-    if (!wavesurfer || !ready) return;
-    wavesurfer.setOptions({ minPxPerSec: getZoomPxPerSecond(zoom) });
-    scrollToTime(wavesurfer, wavesurfer.getCurrentTime());
-  }, [zoom, ready]);
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const getScroll = (wavesurfer: WaveSurfer) => wavesurfer.getScroll();
-    const isZoomControl = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest(".waveform-zoom-controls"));
-    const setTimeFromClientX = (clientX: number) => {
-      const wavesurfer = wavesurferRef.current;
-      if (!wavesurfer || !ready) return;
-      const rect = viewport.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      const pxPerSecond = getZoomPxPerSecond(zoomRef.current);
-      const contentX = Math.max(0, getScroll(wavesurfer) + clientX - rect.left);
-      const clamped = Math.max(0, Math.min(wavesurfer.getDuration(), contentX / Math.max(0.001, pxPerSecond)));
-      wavesurfer.setTime(clamped); emitTime(clamped * 1000);
-    };
-    const onTouchStart = (event: TouchEvent) => {
-      if (isZoomControl(event.target)) return;
-      const wavesurfer = wavesurferRef.current; if (!wavesurfer) return;
-      if (event.touches.length >= 2) {
-        const a = event.touches[0], b = event.touches[1];
-        gestureRef.current = { mode: "pan", startX: (a.clientX + b.clientX) / 2, startScroll: getScroll(wavesurfer) }; event.preventDefault(); return;
-      }
-      const touch = event.touches[0]; if (!touch) return;
-      gestureRef.current = { mode: "seek", startX: touch.clientX, startScroll: getScroll(wavesurfer) }; setTimeFromClientX(touch.clientX); event.preventDefault();
-    };
-    const onTouchMove = (event: TouchEvent) => {
-      const gesture = gestureRef.current, wavesurfer = wavesurferRef.current; if (!gesture || !wavesurfer) return;
-      if (event.touches.length >= 2 && gesture.mode === "pan") {
-        const a = event.touches[0], b = event.touches[1], centerX = (a.clientX + b.clientX) / 2;
-        wavesurfer.setScroll(Math.max(0, gesture.startScroll - (centerX - gesture.startX))); event.preventDefault(); return;
-      }
-      const touch = event.touches[0]; if (!touch || gesture.mode !== "seek") return; setTimeFromClientX(touch.clientX); event.preventDefault();
-    };
-    const onTouchEnd = () => { gestureRef.current = null; };
-    const onWheel = (event: WheelEvent) => { event.preventDefault(); setZoom(current => clampZoom(current + (event.deltaY < 0 ? 0.5 : -0.5))); };
-    viewport.addEventListener("touchstart", onTouchStart, { passive: false }); viewport.addEventListener("touchmove", onTouchMove, { passive: false }); viewport.addEventListener("touchend", onTouchEnd, { passive: true }); viewport.addEventListener("touchcancel", onTouchEnd, { passive: true }); viewport.addEventListener("wheel", onWheel, { passive: false });
-    return () => { viewport.removeEventListener("touchstart", onTouchStart); viewport.removeEventListener("touchmove", onTouchMove); viewport.removeEventListener("touchend", onTouchEnd); viewport.removeEventListener("touchcancel", onTouchEnd); viewport.removeEventListener("wheel", onWheel); };
-  }, [ready]);
-
-  const seekBy = (deltaMs: number) => seekTo(currentMs + deltaMs);
-  const togglePlay = () => { void wavesurferRef.current?.playPause(); };
-  const currentPercent = durationMs ? Math.min(100, Math.max(0, currentMs / durationMs * 100)) : 0;
-
-  return <div className={`waveform-player ${compact ? "is-compact" : "is-expanded"}`}>
-    <div className="waveform-compact-bar"><button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><div className="waveform-compact-copy"><strong>{title || "Untitled track"}</strong><span>{formatTime(currentMs)} / {formatTime(durationMs)}</span></div><div className="waveform-compact-progress"><span style={{ width: `${currentPercent}%` }} /></div></div>
-    <div className="waveform-expanded-ui">
-      <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{ready ? "1 finger: seek · 2 fingers: pan" : "Preparing waveform…"}</small></div></div></div>
-      <div ref={viewportRef} className="waveform-viewport"><div className="waveform-zoom-controls" aria-label="Waveform zoom controls"><button type="button" onClick={() => setZoom(current => clampZoom(current - 1))} disabled={zoom <= 1} aria-label="Zoom out">−</button><span>{zoom % 1 === 0 ? zoom : zoom.toFixed(1)}×</span><button type="button" onClick={() => setZoom(current => clampZoom(current + 1))} aria-label="Zoom in">＋</button></div><div ref={containerRef} className="waveform-canvas" aria-label="Interactive audio waveform" />{!ready && <div className="waveform-loading">Preparing waveform…</div>}</div>
-      <div className="waveform-controls"><button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-1000)} disabled={!ready}>−1s</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-100)} disabled={!ready}>−100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(-10)} disabled={!ready}>−10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(10)} disabled={!ready}>+10</button><button className="waveform-nudge" type="button" onClick={() => seekBy(100)} disabled={!ready}>+100</button><button className="waveform-nudge" type="button" onClick={() => seekBy(1000)} disabled={!ready}>+1s</button></div>
-      <div className="waveform-footer"><span>1 finger seek · 2 fingers pan · zoom buttons</span></div>
-    </div>
-  </div>;
+const WaveformPlayer=forwardRef<WaveformPlayerHandle,WaveformPlayerProps>(function WaveformPlayer({url,title,compact=false,onTimeChange,onDurationChange,onPlay,onPause,onReady},ref){
+ const containerRef=useRef<HTMLDivElement|null>(null),viewportRef=useRef<HTMLDivElement|null>(null),wavesurferRef=useRef<WaveSurfer|null>(null);
+ const callbacksRef=useRef({onTimeChange,onDurationChange,onPlay,onPause,onReady}); const gestureRef=useRef<{mode:"seek"|"pan";startX:number;startScroll:number}|null>(null);
+ const zoomRef=useRef(1),currentMsRef=useRef(0),animationFrameRef=useRef<number|null>(null),lastClockEmitRef=useRef(0);
+ const [durationMs,setDurationMs]=useState(0),[currentMs,setCurrentMs]=useState(0),[zoom,setZoom]=useState(1),[ready,setReady]=useState(false),[playing,setPlaying]=useState(false);
+ callbacksRef.current={onTimeChange,onDurationChange,onPlay,onPause,onReady}; zoomRef.current=zoom; currentMsRef.current=currentMs;
+ const publishMediaTime=(ms:number)=>{if(typeof window!=="undefined")window.dispatchEvent(new CustomEvent<number>(WAVEFORM_MEDIA_TIME_EVENT,{detail:ms}))};
+ const emitTime=(ms:number)=>{const rounded=Math.round(ms);currentMsRef.current=rounded;setCurrentMs(rounded);callbacksRef.current.onTimeChange?.(rounded);publishMediaTime(ms)};
+ const scrollToTime=(w:WaveSurfer,s:number)=>{(w as WaveSurfer&{setScrollTime?:(time:number)=>void}).setScrollTime?.(Math.max(0,s))};
+ const seekTo=(ms:number)=>{const w=wavesurferRef.current;if(!w||!w.getDuration())return;const next=Math.max(0,Math.min(w.getDuration()*1000,ms));w.setTime(next/1000);scrollToTime(w,next/1000);emitTime(next)};
+ const previewFrom=(ms:number)=>{const w=wavesurferRef.current;if(!w||!w.getDuration())return;const next=Math.max(0,Math.min(w.getDuration()*1000,ms));w.setTime(next/1000);scrollToTime(w,next/1000);void w.play();emitTime(next)};
+ useImperativeHandle(ref,()=>({seekTo,previewFrom,getCurrentTimeMs:()=> (wavesurferRef.current?.getCurrentTime()??0)*1000}),[]);
+ useEffect(()=>{if(!containerRef.current||!url)return;const w=WaveSurfer.create({container:containerRef.current,height:92,waveColor:"#a983bd",progressColor:"#c32df1",cursorColor:"#ff4fa3",cursorWidth:2,barWidth:1,barGap:1,barRadius:2,normalize:true,minPxPerSec:getZoomPxPerSecond(zoomRef.current),fillParent:false,dragToSeek:false,interact:false,autoScroll:true,autoCenter:true,hideScrollbar:true,url});wavesurferRef.current=w;setReady(false);setPlaying(false);setCurrentMs(0);currentMsRef.current=0;setDurationMs(0);
+  const stopClock=()=>{if(animationFrameRef.current!==null){cancelAnimationFrame(animationFrameRef.current);animationFrameRef.current=null}};
+  const syncClock=()=>{if(!w.isPlaying()){animationFrameRef.current=null;return}const now=performance.now(),seconds=w.getCurrentTime(),ms=seconds*1000;scrollToTime(w,seconds);publishMediaTime(ms);if(now-lastClockEmitRef.current>=25){const rounded=Math.round(ms);currentMsRef.current=rounded;setCurrentMs(rounded);callbacksRef.current.onTimeChange?.(rounded);lastClockEmitRef.current=now}animationFrameRef.current=requestAnimationFrame(syncClock)};
+  const startClock=()=>{stopClock();lastClockEmitRef.current=0;animationFrameRef.current=requestAnimationFrame(syncClock)};const updateTime=(s:number)=>emitTime(s*1000);
+  w.on("ready",d=>{const ms=Math.round(d*1000);setDurationMs(ms);setReady(true);callbacksRef.current.onDurationChange?.(ms);callbacksRef.current.onReady?.(ms)});w.on("timeupdate",updateTime);w.on("play",()=>{setPlaying(true);callbacksRef.current.onPlay?.();startClock()});w.on("pause",()=>{setPlaying(false);stopClock();updateTime(w.getCurrentTime());callbacksRef.current.onPause?.()});w.on("finish",()=>{setPlaying(false);stopClock();updateTime(w.getCurrentTime());callbacksRef.current.onPause?.()});return()=>{stopClock();w.destroy();wavesurferRef.current=null}},[url]);
+ useEffect(()=>{const w=wavesurferRef.current;if(!w||!ready)return;w.setOptions({minPxPerSec:getZoomPxPerSecond(zoom)});scrollToTime(w,w.getCurrentTime())},[zoom,ready]);
+ useEffect(()=>{const viewport=viewportRef.current;if(!viewport)return;const getScroll=(w:WaveSurfer)=>w.getScroll(),isZoomControl=(t:EventTarget|null)=>t instanceof Element&&Boolean(t.closest(".waveform-zoom-controls"));const setTimeFromClientX=(x:number)=>{const w=wavesurferRef.current;if(!w||!ready)return;const rect=viewport.getBoundingClientRect();if(rect.width<=0)return;const contentX=Math.max(0,getScroll(w)+x-rect.left),s=Math.max(0,Math.min(w.getDuration(),contentX/Math.max(.001,getZoomPxPerSecond(zoomRef.current))));w.setTime(s);emitTime(s*1000)};
+  const start=(e:TouchEvent)=>{if(isZoomControl(e.target))return;const w=wavesurferRef.current;if(!w)return;if(e.touches.length>=2){const a=e.touches[0],b=e.touches[1];gestureRef.current={mode:"pan",startX:(a.clientX+b.clientX)/2,startScroll:getScroll(w)};e.preventDefault();return}const t=e.touches[0];if(!t)return;gestureRef.current={mode:"seek",startX:t.clientX,startScroll:getScroll(w)};setTimeFromClientX(t.clientX);e.preventDefault()};const move=(e:TouchEvent)=>{const g=gestureRef.current,w=wavesurferRef.current;if(!g||!w)return;if(e.touches.length>=2&&g.mode==="pan"){const a=e.touches[0],b=e.touches[1];w.setScroll(Math.max(0,g.startScroll-((a.clientX+b.clientX)/2-g.startX)));e.preventDefault();return}const t=e.touches[0];if(!t||g.mode!=="seek")return;setTimeFromClientX(t.clientX);e.preventDefault()};const end=()=>{gestureRef.current=null};const wheel=(e:WheelEvent)=>{e.preventDefault();setZoom(z=>clampZoom(z+(e.deltaY<0?.5:-.5)))};viewport.addEventListener("touchstart",start,{passive:false});viewport.addEventListener("touchmove",move,{passive:false});viewport.addEventListener("touchend",end,{passive:true});viewport.addEventListener("touchcancel",end,{passive:true});viewport.addEventListener("wheel",wheel,{passive:false});return()=>{viewport.removeEventListener("touchstart",start);viewport.removeEventListener("touchmove",move);viewport.removeEventListener("touchend",end);viewport.removeEventListener("touchcancel",end);viewport.removeEventListener("wheel",wheel)}},[ready]);
+ const seekBy=(d:number)=>seekTo(currentMs+d),togglePlay=()=>{void wavesurferRef.current?.playPause()},currentPercent=durationMs?Math.min(100,Math.max(0,currentMs/durationMs*100)):0;
+ return <div className={`waveform-player ${compact?"is-compact":"is-expanded"}`}><div className="waveform-compact-bar"><button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready}>{playing?"Ⅱ":"▶"}</button><div className="waveform-compact-copy"><strong>{title||"Untitled track"}</strong><span>{formatTime(currentMs)} / {formatTime(durationMs)}</span></div><div className="waveform-compact-progress"><span style={{width:`${currentPercent}%`}}/></div></div><div className="waveform-expanded-ui"><div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing?"is-playing":""}`}/><div><strong>{title||"Untitled track"}</strong><small>{ready?"1 finger: seek · 2 fingers: pan":"Preparing waveform…"}</small></div></div></div><div ref={viewportRef} className="waveform-viewport"><div className="waveform-zoom-controls"><button type="button" onClick={()=>setZoom(z=>clampZoom(z-1))} disabled={zoom<=1}>−</button><span>{zoom%1===0?zoom:zoom.toFixed(1)}×</span><button type="button" onClick={()=>setZoom(z=>clampZoom(z+1))}>＋</button></div><div ref={containerRef} className="waveform-canvas"/>{!ready&&<div className="waveform-loading">Preparing waveform…</div>}</div><div className="waveform-controls"><button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready}>{playing?"Ⅱ":"▶"}</button>{[-1000,-100,-10,10,100,1000].map(d=><button key={d} className="waveform-nudge" type="button" onClick={()=>seekBy(d)} disabled={!ready}>{d>0?"+":"−"}{Math.abs(d)>=1000?`${Math.abs(d)/1000}s`:Math.abs(d)}</button>)}</div><div className="waveform-footer"><span>1 finger seek · 2 fingers pan · zoom buttons</span></div></div></div>;
 });
-
 export default WaveformPlayer;
