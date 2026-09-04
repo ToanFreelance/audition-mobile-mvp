@@ -62,6 +62,10 @@ export default function AuditionGauge({
   const svgStyle = {
     "--gauge-cycle": `${cycleMs}ms`,
     "--gauge-beat": `${beatMs}ms`,
+    // A media-derived delay is already the complete animation phase. Letting
+    // CSS advance the animation as well would count elapsed time twice between
+    // player updates (most visibly when the waveform clock emits every frame).
+    "--gauge-animation-play-state": timing ? "paused" : "running",
     ...(effectiveAnimationDelayMs !== undefined ? { "--gauge-animation-delay": `${effectiveAnimationDelayMs}ms` } : {}),
   } as CSSProperties;
 
@@ -90,6 +94,7 @@ export default function AuditionGauge({
               transform-origin:${zoneCenterX}px ${trackCenterY}px;
               animation:auditionBeatPulse-${id} var(--gauge-cycle) cubic-bezier(.4,0,.2,1) infinite;
               animation-delay:var(--gauge-animation-delay, var(--gauge-breath-delay, 0ms));
+              animation-play-state:var(--gauge-animation-play-state, running);
             }
             .pulse-red-glow-${id}{
               transform-origin:150px ${trackCenterY}px;
