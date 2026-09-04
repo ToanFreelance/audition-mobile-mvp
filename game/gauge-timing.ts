@@ -56,7 +56,13 @@ export function getGaugeTiming(config: GaugeTimingConfig, nowMs: number): GaugeT
 
   const elapsedFromFirstGauge = nowMs - firstGaugeStartMs;
   const cycleIndex = Math.floor(elapsedFromFirstGauge / cycleMs);
-  const cycleElapsedMs = elapsedFromFirstGauge - cycleIndex * cycleMs;
+  // Calculate phase from the authoritative anchor itself. Deriving it by
+  // subtracting two large, independently rounded values can return a value
+  // infinitesimally below cycleMs at an exact boundary instead of zero.
+  const elapsedFromSpaceStart = nowMs - spaceStartMs;
+  const rawCycleElapsedMs = ((elapsedFromSpaceStart % cycleMs) + cycleMs) % cycleMs;
+  const boundaryToleranceMs = Math.max(1e-7, cycleMs * Number.EPSILON * 8);
+  const cycleElapsedMs = rawCycleElapsedMs >= cycleMs - boundaryToleranceMs ? 0 : rawCycleElapsedMs;
   const phase = cycleElapsedMs / cycleMs;
 
   // Slider starts at Perfect and traverses one complete gauge width over one
