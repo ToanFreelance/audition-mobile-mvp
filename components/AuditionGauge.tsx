@@ -29,7 +29,7 @@ const smoothPulse = (distance: number, radius: number) => {
 
 /**
  * Deterministic gauge visual. The score zone geometry never moves.
- * Beats 1-3 visibly breathe; beat 4 breathes too and adds a symmetric stretch.
+ * Beats 1-3 visibly breathe/flash; beat 4 does the same plus a symmetric stretch.
  */
 export default function AuditionGauge({
   value,
@@ -81,20 +81,22 @@ export default function AuditionGauge({
 
       const cyclePhase = timing.cycleMs > 0 ? timing.cycleElapsedMs / timing.cycleMs : 0;
 
-      // One clear inhale/exhale on every quarter of the four-beat cycle.
-      // This affects light only: no x/y/width/transform is ever applied to the
-      // base score zone or this breath layer.
+      // A clearly visible light flash on each beat. Geometry stays completely
+      // fixed: breath changes only opacity/filter so the score zone cannot drift.
       const beatPhase = (cyclePhase * 4) % 1;
       const beatDistance = Math.min(beatPhase, 1 - beatPhase);
-      const breath = smoothPulse(beatDistance, 0.48);
-      const zoneOpacity = 0.28 + breath * 0.72;
-      const zoneGlowPx = 3 + breath * 11;
+      const breath = smoothPulse(beatDistance, 0.46);
+      const zoneOpacity = 0.10 + breath * 0.90;
+      const zoneGlowPx = 2 + breath * 20;
       zoneGlow.setAttribute("opacity", zoneOpacity.toFixed(3));
-      zoneGlow.style.filter = `drop-shadow(0 0 ${zoneGlowPx.toFixed(1)}px #00f0ff)${breath > 0.65 ? " drop-shadow(0 0 8px #bdfbff)" : ""}`;
+      zoneGlow.style.filter = [
+        `drop-shadow(0 0 ${zoneGlowPx.toFixed(1)}px #00f0ff)`,
+        breath > 0.35 ? `drop-shadow(0 0 ${(8 + breath * 15).toFixed(1)}px #9ffaff)` : "",
+        breath > 0.62 ? `drop-shadow(0 0 ${(5 + breath * 12).toFixed(1)}px #ffffff)` : "",
+      ].filter(Boolean).join(" ");
 
-      // Space Start / each four-beat boundary is beat 4. It keeps the same
-      // breath above and additionally stretches a separate overlay from the
-      // fixed zone center, equally toward both edges.
+      // Beat 4 / Perfect keeps the same bright breath and adds a separate
+      // symmetric stretch overlay. The fixed score-zone geometry never moves.
       const distanceToPerfect = Math.min(cyclePhase, 1 - cyclePhase);
       const perfectStrength = smoothPulse(distanceToPerfect, 0.07);
       const perfectScale = 1 + perfectStrength * Math.max(0, stretchRatio - 1);
@@ -102,8 +104,8 @@ export default function AuditionGauge({
         "transform",
         `translate(${zoneCenterX} ${trackCenterY}) scale(${perfectScale} 1) translate(${-zoneCenterX} ${-trackCenterY})`,
       );
-      perfectOverlay.setAttribute("opacity", (perfectStrength * 0.95).toFixed(3));
-      perfectOverlay.style.filter = `drop-shadow(0 0 ${(10 + perfectStrength * 18).toFixed(1)}px #00f0ff)${perfectStrength > 0.25 ? " drop-shadow(0 0 24px #fff)" : ""}`;
+      perfectOverlay.setAttribute("opacity", (perfectStrength * 1).toFixed(3));
+      perfectOverlay.style.filter = `drop-shadow(0 0 ${(12 + perfectStrength * 25).toFixed(1)}px #00f0ff)${perfectStrength > 0.2 ? " drop-shadow(0 0 30px #fff)" : ""}`;
     };
 
     renderAt(lastMediaMsRef.current);
@@ -149,14 +151,14 @@ export default function AuditionGauge({
           <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} fill={`url(#${cyanGradientId})`} opacity=".82" />
         </g>
 
-        <g ref={zoneGlowRef} opacity=".28" style={{ pointerEvents: "none" }}>
-          <rect x={zoneX} y="20" width={zoneWidth} height={zoneHeight} rx={zoneRadius} fill="#00f0ff" opacity=".42" filter={`url(#${blurGlowId})`} />
-          <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} fill={`url(#${cyanGradientId})`} opacity=".62" filter={`url(#${blurSoftId})`} />
+        <g ref={zoneGlowRef} opacity=".10" style={{ pointerEvents: "none" }}>
+          <rect x={zoneX} y="19" width={zoneWidth} height={zoneHeight + 2} rx={zoneRadius} fill="#00f0ff" opacity=".70" filter={`url(#${blurGlowId})`} />
+          <rect x={zoneX} y="21" width={zoneWidth} height="28" rx={zoneRadius} fill={`url(#${cyanGradientId})`} opacity=".92" filter={`url(#${blurSoftId})`} />
         </g>
 
         <g ref={perfectPulseRef} opacity="0" style={{ pointerEvents: "none" }}>
-          <rect x={zoneX} y="19" width={zoneWidth} height={zoneHeight + 2} rx={zoneRadius} fill="#00f0ff" opacity=".42" filter={`url(#${blurGlowId})`} />
-          <rect x={zoneX} y="21" width={zoneWidth} height="28" rx={zoneRadius} fill={`url(#${cyanGradientId})`} filter={`url(#${blurSoftId})`} />
+          <rect x={zoneX} y="18" width={zoneWidth} height={zoneHeight + 4} rx={zoneRadius} fill="#00f0ff" opacity=".55" filter={`url(#${blurGlowId})`} />
+          <rect x={zoneX} y="20" width={zoneWidth} height="30" rx={zoneRadius} fill={`url(#${cyanGradientId})`} filter={`url(#${blurSoftId})`} />
         </g>
 
         <g ref={sliderRef} transform={`translate(${fallbackTranslate} 0)`}>
