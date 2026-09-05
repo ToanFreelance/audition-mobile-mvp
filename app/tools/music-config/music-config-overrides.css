@@ -33,3 +33,7 @@
 
 /* Reserve exactly the measured fixed stack: audio workstation + sticky actions. */
 @media(max-width:760px){.music-config-page.audio-dock-expanded,.music-config-page.audio-dock-collapsed{padding-bottom:max(16px,var(--fixed-stack-reserve,780px))!important}.audio-dock{z-index:880}.sticky-actions{z-index:900}}
+
+/* Space Start capture mode: Gauge is intentionally not part of chart authoring. */
+.dock-gauge{display:none!important}
+.sticky-use-current{box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 24px rgba(210,45,255,.28)}
