@@ -119,12 +119,12 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     return Math.max(trimStartMsRef.current, max > 0 ? Math.min(max, ms) : ms);
   };
 
-  const setNativeTime = (ms: number) => {
+  const setNativeTime = (ms: number, alignWaveform = true) => {
     const audio = audioRef.current;
     if (!audio) return;
     const next = clampMediaMs(ms);
     audio.currentTime = next / 1000;
-    scrollToTime(next / 1000);
+    if (alignWaveform) scrollToTime(next / 1000);
     emitTime(next);
   };
 
@@ -172,7 +172,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       }
       const now = performance.now();
       const ms = media.currentTime * 1000;
-      scrollToTime(media.currentTime);
+      if (!gestureRef.current) scrollToTime(media.currentTime);
       publishMediaTime(ms);
       if (now - lastClockEmitRef.current >= 25) {
         const rounded = Math.round(ms);
@@ -318,9 +318,14 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       const rect = viewport.getBoundingClientRect();
       if (rect.width <= 0) return;
       const pxPerSecond = getZoomPxPerSecond(zoomRef.current);
-      const contentX = Math.max(0, getScroll() + clientX - rect.left);
+      const gesture = gestureRef.current;
+      const scrollOrigin = gesture?.mode === "seek" ? gesture.startScroll : getScroll();
+      const contentX = Math.max(0, scrollOrigin + clientX - rect.left);
       const rawMs = contentX / Math.max(0.001, pxPerSecond) * 1000;
-      setNativeTime(rawMs);
+      // Keep the waveform viewport fixed while one-finger scrubbing. Re-centering
+      // here changes getScroll(), which previously fed back into the next
+      // touchmove and caused 9s -> 15s -> 1m12s -> 2m05s runaway jumps.
+      setNativeTime(rawMs, false);
     };
 
     const onTouchStart = (event: TouchEvent) => {
@@ -431,7 +436,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
           ))}
         </div>
 
-        <div className="waveform-footer"><span>playback trim = waveform onset edge · analysis anchors remain on original media timeline</span></div>
+        <div className="waveform-footer"><span>1 finger = stable seek · 2 fingers = pan · playback trim = adaptive onset edge</span></div>
       </div>
     </div>
   );
