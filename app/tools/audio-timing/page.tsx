@@ -53,10 +53,13 @@ export default function AudioTimingLabPage() {
 
   const getOutputContextTime = (context: AudioContext): number => {
     const withTimestamp = context as AudioContext & {
-      getOutputTimestamp?: () => { contextTime: number; performanceTime: number };
+      getOutputTimestamp?: () => { contextTime?: number; performanceTime?: number };
     };
     const stamp = withTimestamp.getOutputTimestamp?.();
-    if (stamp && Number.isFinite(stamp.contextTime)) return stamp.contextTime;
+    const timestampContextTime = stamp?.contextTime;
+    if (typeof timestampContextTime === "number" && Number.isFinite(timestampContextTime)) {
+      return timestampContextTime;
+    }
     return context.currentTime;
   };
 
@@ -130,7 +133,12 @@ export default function AudioTimingLabPage() {
     if (context.state === "suspended") await context.resume();
     setBaseLatency(Number.isFinite(context.baseLatency) ? context.baseLatency : null);
     const withOutputLatency = context as AudioContext & { outputLatency?: number };
-    setOutputLatency(Number.isFinite(withOutputLatency.outputLatency) ? withOutputLatency.outputLatency! : null);
+    const measuredOutputLatency = withOutputLatency.outputLatency;
+    setOutputLatency(
+      typeof measuredOutputLatency === "number" && Number.isFinite(measuredOutputLatency)
+        ? measuredOutputLatency
+        : null,
+    );
 
     if (!bufferRef.current) {
       setDecoding(true);
