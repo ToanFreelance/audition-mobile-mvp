@@ -81,7 +81,8 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   const zoomRef = useRef(1);
   const rafRef = useRef<number | null>(null);
   const lastReactEmitRef = useRef(0);
-  const decoderPrimedRef = useRef(false);
+  const playbackSessionPrimedRef = useRef(false);
+  const startResyncRef = useRef<(() => void) | null>(null);
   const resyncTimerRef = useRef<number | null>(null);
   const resyncReturnMsRef = useRef<number | null>(null);
   const resyncStageRef = useRef<"idle" | "back" | "return">("idle");
@@ -135,7 +136,21 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   const playNative = (requestedMs?: number) => {
     const audio = audioRef.current;
     if (!audio) return;
+
     if (requestedMs !== undefined) setNativeTime(requestedMs);
+
+    // Each new playback/preview session gets its own decoder resync. The prior
+    // implementation primed only once per file load, which is why the first
+    // Preview -5s could be correct while subsequent previews drifted again.
+    playbackSessionPrimedRef.current = false;
+
+    if (!audio.paused) {
+      // Previewing another anchor while audio is already playing does not emit a
+      // new `playing` event, so explicitly schedule the same in-play handshake.
+      requestAnimationFrame(() => startResyncRef.current?.());
+      return;
+    }
+
     void audio.play();
   };
 
@@ -200,14 +215,14 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     };
 
     const startRealInPlayResync = () => {
-      if (decoderPrimedRef.current || audio.paused || audio.ended || resyncStageRef.current !== "idle") return;
+      if (playbackSessionPrimedRef.current || audio.paused || audio.ended || resyncStageRef.current !== "idle") return;
       clearResyncTimer();
       resyncTimerRef.current = window.setTimeout(() => {
-        if (decoderPrimedRef.current || audio.paused || audio.ended) return;
+        if (playbackSessionPrimedRef.current || audio.paused || audio.ended) return;
         const resumeMs = clampMediaMs(audio.currentTime * 1000);
         const backMs = Math.max(trimStartMsRef.current, resumeMs - IOS_RESYNC_BACK_MS);
         if (Math.abs(resumeMs - backMs) < 20) {
-          decoderPrimedRef.current = true;
+          playbackSessionPrimedRef.current = true;
           return;
         }
 
@@ -219,6 +234,8 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       }, IOS_RESYNC_DELAY_MS);
     };
 
+    startResyncRef.current = startRealInPlayResync;
+
     const setup = async () => {
       setReady(false);
       setPlaying(false);
@@ -226,7 +243,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       setDurationMs(0);
       setTrimStartMs(0);
       trimStartMsRef.current = 0;
-      decoderPrimedRef.current = false;
+      playbackSessionPrimedRef.current = false;
       resyncStageRef.current = "idle";
       resyncReturnMsRef.current = null;
       clearResyncTimer();
@@ -296,7 +313,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
 
         if (resyncStageRef.current === "return") {
           const returnMs = resyncReturnMsRef.current;
-          decoderPrimedRef.current = true;
+          playbackSessionPrimedRef.current = true;
           resyncStageRef.current = "idle";
           resyncReturnMsRef.current = null;
           audio.muted = resyncWasMutedRef.current;
@@ -318,6 +335,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       const onEndedNative = () => {
         setPlaying(false);
         cancelResync();
+        playbackSessionPrimedRef.current = false;
         stopClock();
         emitTime(audio.currentTime * 1000);
         callbacksRef.current.onPause?.();
@@ -360,6 +378,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       cancelled = true;
       stopClock();
       cancelResync();
+      startResyncRef.current = null;
       cleanupNative?.();
       wavesurfer?.destroy();
       if (wavesurferRef.current === wavesurfer) wavesurferRef.current = null;
@@ -402,7 +421,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         <div className="waveform-player-head">
           <div className="waveform-player-title">
             <span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" />
-            <div><strong>{title || "Untitled track"}</strong><small>{ready ? `Trimmed begin ${formatTime(trimStartMs)} · native audio master · one-time real in-play resync` : "Detecting audio start…"}</small></div>
+            <div><strong>{title || "Untitled track"}</strong><small>{ready ? `Trimmed begin ${formatTime(trimStartMs)} · native audio master · per-play real in-play resync` : "Detecting audio start…"}</small></div>
           </div>
         </div>
 
@@ -426,7 +445,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
           ))}
         </div>
 
-        <div className="waveform-footer"><span>native audio timing master · automatic real −1s→return seek once after playback is running</span></div>
+        <div className="waveform-footer"><span>native audio timing master · automatic real −1s→return seek on every playback/preview session</span></div>
       </div>
     </div>
   );
