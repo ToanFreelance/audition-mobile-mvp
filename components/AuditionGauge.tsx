@@ -73,8 +73,8 @@ export default function AuditionGauge({
   useEffect(() => {
     const slider = sliderRef.current;
     const zoneGlow = zoneGlowRef.current;
-    const perfectPulse = perfectPulseRef.current;
-    if (!slider || !zoneGlow || !perfectPulse || spaceStartMs === undefined) return;
+    const perfectOverlay = perfectPulseRef.current;
+    if (!slider || !zoneGlow || !perfectOverlay || spaceStartMs === undefined) return;
 
     const renderAt = (nowMs: number) => {
       const timing = getGaugeTiming({ bpm, spaceStartMs }, nowMs);
@@ -97,15 +97,15 @@ export default function AuditionGauge({
       // The base score zone above remains fixed, so both edges expand equally
       // from the exact center instead of the whole zone wandering sideways.
       const distanceToPerfect = Math.min(cyclePhase, 1 - cyclePhase);
-      const perfectPulse = smoothPulse(distanceToPerfect, 0.075);
-      const perfectScale = 1 + perfectPulse * Math.max(0, stretchRatio - 1);
-      const pulseOpacity = perfectPulse * 0.95;
-      perfectPulseRef.current?.setAttribute(
+      const perfectStrength = smoothPulse(distanceToPerfect, 0.075);
+      const perfectScale = 1 + perfectStrength * Math.max(0, stretchRatio - 1);
+      const pulseOpacity = perfectStrength * 0.95;
+      perfectOverlay.setAttribute(
         "transform",
         `translate(${zoneCenterX} ${trackCenterY}) scale(${perfectScale} 1) translate(${-zoneCenterX} ${-trackCenterY})`,
       );
-      perfectPulseRef.current?.setAttribute("opacity", pulseOpacity.toFixed(3));
-      perfectPulseRef.current!.style.filter = `drop-shadow(0 0 ${(10 + perfectPulse * 18).toFixed(1)}px #00f0ff)${perfectPulse > 0.25 ? " drop-shadow(0 0 24px #fff)" : ""}`;
+      perfectOverlay.setAttribute("opacity", pulseOpacity.toFixed(3));
+      perfectOverlay.style.filter = `drop-shadow(0 0 ${(10 + perfectStrength * 18).toFixed(1)}px #00f0ff)${perfectStrength > 0.25 ? " drop-shadow(0 0 24px #fff)" : ""}`;
     };
 
     renderAt(lastMediaMsRef.current);
