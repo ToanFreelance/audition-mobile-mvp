@@ -1,8 +1,6 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import WaveSurfer from "wavesurfer.js";
-import { detectPlaybackTrimStart } from "../game/playback-trim";
 
 export const WAVEFORM_MEDIA_TIME_EVENT = "audition:media-time";
 export type WaveformMarker = { ms: number; beatIndex: number };
@@ -33,34 +31,7 @@ const formatTime = (ms: number, precision = 3) => {
   return `${minutes}:${seconds.toFixed(precision).padStart(precision === 0 ? 2 : precision + 3, "0")}`;
 };
 
-const getZoomPxPerSecond = (zoom: number) => zoom === 1 ? 12 : zoom * 30;
-const clampZoom = (zoom: number) => Math.max(1, Math.min(6, zoom));
-
-async function detectTrimStartMs(url: string): Promise<number> {
-  if (typeof window === "undefined") return 0;
-  const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) return 0;
-  const bytes = await response.arrayBuffer();
-  const AudioContextCtor = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioContextCtor) return 0;
-  const context = new AudioContextCtor();
-  try {
-    const buffer = await context.decodeAudioData(bytes.slice(0));
-    const mono = new Float32Array(buffer.length);
-    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
-      const source = buffer.getChannelData(channel);
-      for (let index = 0; index < buffer.length; index += 1) mono[index] += source[index] / buffer.numberOfChannels;
-    }
-    const sample = detectPlaybackTrimStart(mono, buffer.sampleRate);
-    return Math.max(0, Math.round(sample / buffer.sampleRate * 1000));
-  } catch {
-    return 0;
-  } finally {
-    await context.close().catch(() => undefined);
-  }
-}
-
-const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(function WaveformPlayer({
+const SimpleAudioPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(function SimpleAudioPlayer({
   url,
   title,
   compact = false,
@@ -71,29 +42,18 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   onReady,
 }, ref) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const wavesurferRef = useRef<WaveSurfer | null>(null);
   const callbacksRef = useRef({ onTimeChange, onDurationChange, onPlay, onPause, onReady });
-  const gestureRef = useRef<{ mode: "seek" | "pan"; startX: number; startScroll: number } | null>(null);
-  const zoomRef = useRef(1);
-  const trimStartMsRef = useRef(0);
-  const animationFrameRef = useRef<number | null>(null);
-  const lastClockEmitRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const lastReactEmitRef = useRef(0);
   const [durationMs, setDurationMs] = useState(0);
   const [currentMs, setCurrentMs] = useState(0);
-  const [trimStartMs, setTrimStartMs] = useState(0);
-  const [zoom, setZoom] = useState(1);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
 
   callbacksRef.current = { onTimeChange, onDurationChange, onPlay, onPause, onReady };
-  zoomRef.current = zoom;
 
   const publishMediaTime = (ms: number) => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent<number>(WAVEFORM_MEDIA_TIME_EVENT, { detail: ms }));
-    }
+    window.dispatchEvent(new CustomEvent<number>(WAVEFORM_MEDIA_TIME_EVENT, { detail: ms }));
   };
 
   const emitTime = (ms: number) => {
@@ -103,44 +63,31 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     publishMediaTime(ms);
   };
 
-  const scrollToTime = (seconds: number) => {
-    const wavesurfer = wavesurferRef.current as (WaveSurfer & { setScrollTime?: (time: number) => void }) | null;
-    wavesurfer?.setScrollTime?.(Math.max(trimStartMsRef.current / 1000, seconds));
-  };
-
   const getDurationMs = () => {
     const audio = audioRef.current;
-    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return durationMs;
-    return audio.duration * 1000;
+    return audio && Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration * 1000 : durationMs;
   };
 
-  const clampMediaMs = (ms: number) => {
-    const max = getDurationMs();
-    return Math.max(trimStartMsRef.current, max > 0 ? Math.min(max, ms) : ms);
-  };
-
-  const setNativeTime = (ms: number, alignWaveform = true) => {
+  const setNativeTime = (ms: number) => {
     const audio = audioRef.current;
     if (!audio) return;
-    const next = clampMediaMs(ms);
+    const max = getDurationMs();
+    const next = Math.max(0, max > 0 ? Math.min(max, ms) : ms);
     audio.currentTime = next / 1000;
-    if (alignWaveform) scrollToTime(next / 1000);
     emitTime(next);
   };
 
   const seekTo = (ms: number) => setNativeTime(ms);
-
   const previewFrom = (ms: number) => {
     const audio = audioRef.current;
     if (!audio) return;
     setNativeTime(ms);
     void audio.play();
   };
-
   const playFromBegin = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    setNativeTime(trimStartMsRef.current);
+    setNativeTime(0);
     void audio.play();
   };
 
@@ -148,258 +95,108 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     seekTo,
     previewFrom,
     playFromBegin,
-    getCurrentTimeMs: () => (audioRef.current?.currentTime ?? trimStartMsRef.current / 1000) * 1000,
+    getCurrentTimeMs: () => (audioRef.current?.currentTime ?? 0) * 1000,
   }));
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !containerRef.current || !url) return;
-    let cancelled = false;
-    let wavesurfer: WaveSurfer | null = null;
+    if (!audio || !url) return;
 
     const stopClock = () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     };
 
     const syncClock = () => {
-      const media = audioRef.current;
-      if (!media || media.paused || media.ended) {
-        animationFrameRef.current = null;
+      if (audio.paused || audio.ended) {
+        rafRef.current = null;
         return;
       }
-      const now = performance.now();
-      const ms = media.currentTime * 1000;
-      if (!gestureRef.current) scrollToTime(media.currentTime);
+      const ms = audio.currentTime * 1000;
       publishMediaTime(ms);
-      if (now - lastClockEmitRef.current >= 25) {
+      const now = performance.now();
+      if (now - lastReactEmitRef.current >= 25) {
         const rounded = Math.round(ms);
         setCurrentMs(rounded);
         callbacksRef.current.onTimeChange?.(rounded);
-        lastClockEmitRef.current = now;
+        lastReactEmitRef.current = now;
       }
-      animationFrameRef.current = requestAnimationFrame(syncClock);
+      rafRef.current = requestAnimationFrame(syncClock);
     };
 
     const startClock = () => {
       stopClock();
-      lastClockEmitRef.current = 0;
-      animationFrameRef.current = requestAnimationFrame(syncClock);
+      lastReactEmitRef.current = 0;
+      rafRef.current = requestAnimationFrame(syncClock);
     };
 
-    const setup = async () => {
-      setReady(false);
+    const markReady = () => {
+      if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
+      const total = Math.round(audio.duration * 1000);
+      setDurationMs(total);
+      setReady(true);
+      setCurrentMs(Math.round(audio.currentTime * 1000));
+      callbacksRef.current.onDurationChange?.(total);
+      callbacksRef.current.onReady?.(total);
+    };
+
+    const onPlayNative = () => {
+      setPlaying(true);
+      callbacksRef.current.onPlay?.();
+      startClock();
+    };
+    const onPauseNative = () => {
       setPlaying(false);
-      setCurrentMs(0);
-      setDurationMs(0);
-      setTrimStartMs(0);
-      trimStartMsRef.current = 0;
-
-      const detectedTrimMs = await detectTrimStartMs(url);
-      if (cancelled || !containerRef.current || !audioRef.current) return;
-      trimStartMsRef.current = detectedTrimMs;
-      setTrimStartMs(detectedTrimMs);
-
-      const instance = WaveSurfer.create({
-        container: containerRef.current,
-        media: audioRef.current,
-        height: 92,
-        waveColor: "#a983bd",
-        progressColor: "#c32df1",
-        cursorColor: "#ff4fa3",
-        cursorWidth: 2,
-        barWidth: 1,
-        barGap: 1,
-        barRadius: 2,
-        normalize: true,
-        minPxPerSec: getZoomPxPerSecond(zoomRef.current),
-        fillParent: false,
-        dragToSeek: false,
-        interact: false,
-        autoScroll: true,
-        autoCenter: true,
-        hideScrollbar: true,
-      });
-      wavesurfer = instance;
-      wavesurferRef.current = instance;
-
-      const markReady = () => {
-        const media = audioRef.current;
-        if (!media || !Number.isFinite(media.duration) || media.duration <= 0) return;
-        const total = Math.round(media.duration * 1000);
-        setDurationMs(total);
-        setReady(true);
-        const startMs = Math.min(trimStartMsRef.current, total);
-        scrollToTime(startMs / 1000);
-        setCurrentMs(startMs);
-        callbacksRef.current.onTimeChange?.(startMs);
-        callbacksRef.current.onDurationChange?.(total);
-        callbacksRef.current.onReady?.(total);
-      };
-
-      const onPlayNative = () => {
-        setPlaying(true);
-        callbacksRef.current.onPlay?.();
-        startClock();
-      };
-      const onPauseNative = () => {
-        setPlaying(false);
-        stopClock();
-        emitTime((audioRef.current?.currentTime ?? 0) * 1000);
-        callbacksRef.current.onPause?.();
-      };
-      const onEndedNative = () => {
-        setPlaying(false);
-        stopClock();
-        emitTime((audioRef.current?.currentTime ?? 0) * 1000);
-        callbacksRef.current.onPause?.();
-      };
-      const onTimeUpdateNative = () => {
-        const media = audioRef.current;
-        if (media) emitTime(media.currentTime * 1000);
-      };
-
-      audio.addEventListener("loadedmetadata", markReady);
-      audio.addEventListener("durationchange", markReady);
-      audio.addEventListener("play", onPlayNative);
-      audio.addEventListener("pause", onPauseNative);
-      audio.addEventListener("ended", onEndedNative);
-      audio.addEventListener("timeupdate", onTimeUpdateNative);
-
-      instance.on("ready", () => {
-        markReady();
-        scrollToTime(Math.max(trimStartMsRef.current / 1000, audio.currentTime));
-      });
-
-      if (audio.readyState >= 1) markReady();
-      else audio.load();
-
-      return () => {
-        audio.removeEventListener("loadedmetadata", markReady);
-        audio.removeEventListener("durationchange", markReady);
-        audio.removeEventListener("play", onPlayNative);
-        audio.removeEventListener("pause", onPauseNative);
-        audio.removeEventListener("ended", onEndedNative);
-        audio.removeEventListener("timeupdate", onTimeUpdateNative);
-      };
+      stopClock();
+      emitTime(audio.currentTime * 1000);
+      callbacksRef.current.onPause?.();
     };
+    const onEndedNative = () => {
+      setPlaying(false);
+      stopClock();
+      emitTime(audio.currentTime * 1000);
+      callbacksRef.current.onPause?.();
+    };
+    const onTimeUpdateNative = () => emitTime(audio.currentTime * 1000);
 
-    let cleanupNative: (() => void) | undefined;
-    void setup().then(cleanup => { cleanupNative = cleanup; });
+    audio.addEventListener("loadedmetadata", markReady);
+    audio.addEventListener("durationchange", markReady);
+    audio.addEventListener("play", onPlayNative);
+    audio.addEventListener("pause", onPauseNative);
+    audio.addEventListener("ended", onEndedNative);
+    audio.addEventListener("timeupdate", onTimeUpdateNative);
+
+    if (audio.readyState >= 1) markReady();
+    else audio.load();
 
     return () => {
-      cancelled = true;
       stopClock();
-      cleanupNative?.();
-      wavesurfer?.destroy();
-      if (wavesurferRef.current === wavesurfer) wavesurferRef.current = null;
+      audio.removeEventListener("loadedmetadata", markReady);
+      audio.removeEventListener("durationchange", markReady);
+      audio.removeEventListener("play", onPlayNative);
+      audio.removeEventListener("pause", onPauseNative);
+      audio.removeEventListener("ended", onEndedNative);
+      audio.removeEventListener("timeupdate", onTimeUpdateNative);
     };
   }, [url]);
 
-  useEffect(() => {
-    const wavesurfer = wavesurferRef.current;
-    if (!wavesurfer || !ready) return;
-    wavesurfer.setOptions({ minPxPerSec: getZoomPxPerSecond(zoom) });
-    scrollToTime(Math.max(trimStartMsRef.current / 1000, audioRef.current?.currentTime ?? 0));
-  }, [zoom, ready]);
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-
-    const getScroll = () => wavesurferRef.current?.getScroll() ?? 0;
-    const isZoomControl = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest(".waveform-zoom-controls"));
-
-    const setTimeFromClientX = (clientX: number) => {
-      const audio = audioRef.current;
-      if (!audio || !ready) return;
-      const rect = viewport.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      const pxPerSecond = getZoomPxPerSecond(zoomRef.current);
-      const gesture = gestureRef.current;
-      const scrollOrigin = gesture?.mode === "seek" ? gesture.startScroll : getScroll();
-      const contentX = Math.max(0, scrollOrigin + clientX - rect.left);
-      const rawMs = contentX / Math.max(0.001, pxPerSecond) * 1000;
-      // Keep the waveform viewport fixed while one-finger scrubbing. Re-centering
-      // here changes getScroll(), which previously fed back into the next
-      // touchmove and caused 9s -> 15s -> 1m12s -> 2m05s runaway jumps.
-      setNativeTime(rawMs, false);
-    };
-
-    const onTouchStart = (event: TouchEvent) => {
-      if (isZoomControl(event.target)) return;
-      if (event.touches.length >= 2) {
-        const a = event.touches[0];
-        const b = event.touches[1];
-        gestureRef.current = { mode: "pan", startX: (a.clientX + b.clientX) / 2, startScroll: getScroll() };
-        event.preventDefault();
-        return;
-      }
-      const touch = event.touches[0];
-      if (!touch) return;
-      gestureRef.current = { mode: "seek", startX: touch.clientX, startScroll: getScroll() };
-      setTimeFromClientX(touch.clientX);
-      event.preventDefault();
-    };
-
-    const onTouchMove = (event: TouchEvent) => {
-      const gesture = gestureRef.current;
-      const wavesurfer = wavesurferRef.current;
-      if (!gesture || !wavesurfer) return;
-      if (event.touches.length >= 2 && gesture.mode === "pan") {
-        const a = event.touches[0];
-        const b = event.touches[1];
-        const centerX = (a.clientX + b.clientX) / 2;
-        const trimPx = trimStartMsRef.current / 1000 * getZoomPxPerSecond(zoomRef.current);
-        wavesurfer.setScroll(Math.max(trimPx, gesture.startScroll - (centerX - gesture.startX)));
-        event.preventDefault();
-        return;
-      }
-      const touch = event.touches[0];
-      if (!touch || gesture.mode !== "seek") return;
-      setTimeFromClientX(touch.clientX);
-      event.preventDefault();
-    };
-
-    const onTouchEnd = () => { gestureRef.current = null; };
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      setZoom(current => clampZoom(current + (event.deltaY < 0 ? 0.5 : -0.5)));
-    };
-
-    viewport.addEventListener("touchstart", onTouchStart, { passive: false });
-    viewport.addEventListener("touchmove", onTouchMove, { passive: false });
-    viewport.addEventListener("touchend", onTouchEnd, { passive: true });
-    viewport.addEventListener("touchcancel", onTouchEnd, { passive: true });
-    viewport.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      viewport.removeEventListener("touchstart", onTouchStart);
-      viewport.removeEventListener("touchmove", onTouchMove);
-      viewport.removeEventListener("touchend", onTouchEnd);
-      viewport.removeEventListener("touchcancel", onTouchEnd);
-      viewport.removeEventListener("wheel", onWheel);
-    };
-  }, [ready]);
-
-  const seekBy = (deltaMs: number) => setNativeTime(currentMs + deltaMs);
+  const seekBy = (deltaMs: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    setNativeTime(audio.currentTime * 1000 + deltaMs);
+  };
 
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (audio.paused) {
-      if (audio.currentTime * 1000 < trimStartMsRef.current) setNativeTime(trimStartMsRef.current);
-      void audio.play();
-    } else {
-      audio.pause();
-    }
+    if (audio.paused) void audio.play();
+    else audio.pause();
   };
 
   const currentPercent = durationMs ? Math.min(100, Math.max(0, currentMs / durationMs * 100)) : 0;
 
   return (
-    <div className={`waveform-player ${compact ? "is-compact" : "is-expanded"}`}>
+    <div className={`waveform-player simple-audio-player ${compact ? "is-compact" : "is-expanded"}`}>
       <audio ref={audioRef} src={url} preload="auto" playsInline />
 
       <div className="waveform-compact-bar">
@@ -412,23 +209,30 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         <div className="waveform-player-head">
           <div className="waveform-player-title">
             <span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" />
-            <div><strong>{title || "Untitled track"}</strong><small>{ready ? `Trimmed begin ${formatTime(trimStartMs)} · adaptive onset edge · native audio master` : "Detecting waveform onset…"}</small></div>
+            <div><strong>{title || "Untitled track"}</strong><small>native audio only · original media timeline · no waveform / no auto trim</small></div>
           </div>
         </div>
 
-        <div ref={viewportRef} className="waveform-viewport">
-          <div className="waveform-zoom-controls" aria-label="Waveform zoom controls">
-            <button type="button" onClick={() => setZoom(current => clampZoom(current - 1))} disabled={zoom <= 1} aria-label="Zoom out">−</button>
-            <span>{zoom % 1 === 0 ? zoom : zoom.toFixed(1)}×</span>
-            <button type="button" onClick={() => setZoom(current => clampZoom(current + 1))} aria-label="Zoom in">＋</button>
-          </div>
-          <div ref={containerRef} className="waveform-canvas" aria-label="Waveform visualization" />
-          {!ready && <div className="waveform-loading">Detecting waveform onset…</div>}
+        <div className="simple-audio-time">
+          <strong>{formatTime(currentMs)}</strong>
+          <span>/ {formatTime(durationMs)}</span>
         </div>
+
+        <input
+          className="simple-audio-range"
+          type="range"
+          min={0}
+          max={Math.max(1, durationMs)}
+          step={1}
+          value={Math.min(currentMs, Math.max(1, durationMs))}
+          onChange={event => setNativeTime(Number(event.currentTarget.value))}
+          disabled={!ready}
+          aria-label="Audio position"
+        />
 
         <div className="waveform-controls">
           <button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button>
-          <button className="waveform-nudge" type="button" onClick={playFromBegin} disabled={!ready} aria-label="Play from audible beginning" title="Play from audible beginning">⏮</button>
+          <button className="waveform-nudge" type="button" onClick={playFromBegin} disabled={!ready} aria-label="Play from file beginning" title="Play from file beginning">⏮</button>
           {[-1000, -100, -10, 10, 100, 1000].map(delta => (
             <button key={delta} className="waveform-nudge" type="button" onClick={() => seekBy(delta)} disabled={!ready}>
               {delta > 0 ? "+" : "−"}{Math.abs(delta) >= 1000 ? `${Math.abs(delta) / 1000}s` : Math.abs(delta)}
@@ -436,10 +240,10 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
           ))}
         </div>
 
-        <div className="waveform-footer"><span>1 finger = stable seek · 2 fingers = pan · playback trim = adaptive onset edge</span></div>
+        <div className="waveform-footer"><span>listen → pause on the desired Space beat → USE CURRENT saves this exact native currentTime</span></div>
       </div>
     </div>
   );
 });
 
-export default WaveformPlayer;
+export default SimpleAudioPlayer;
