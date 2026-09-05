@@ -124,7 +124,7 @@ export default function AudioTimingLabPage() {
         if (!context || context.state === "closed") { const Ctor = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext; if (!Ctor) throw new Error("Web Audio API is unavailable."); context = new Ctor(); contextRef.current = context; }
         const response = await fetch(selected.audioUrl, { cache: "no-store" }); if (!response.ok) throw new Error(`Audio HTTP ${response.status}`);
         const bytes = await response.arrayBuffer(); const decoded = await context.decodeAudioData(bytes.slice(0)); if (cancelled) return;
-        bufferRef.current = decoded; setReadyToTest(true); setMessage("READY TO TEST · PLAY → MARK → PAUSE → RESET → PLAY must restart from 0:00.");
+        bufferRef.current = decoded; setReadyToTest(true); setMessage("READY TO TEST · PLAY → MARK → RESET → PLAY. RESET keeps previous marks.");
       } catch (error) { if (!cancelled) setMessage(`Prepare failed: ${error instanceof Error ? error.message : "unknown"}`); }
       finally { if (!cancelled) setDecoding(false); }
     };
@@ -178,26 +178,31 @@ export default function AudioTimingLabPage() {
   };
 
   const reset = () => {
-    // Reset must NOT call pauseAll(): pauseAll intentionally captures the current
-    // WebAudio position for resume, which was overwriting the zero offset.
+    // Immediate hard reset: works even while audio is playing and intentionally
+    // does not clear marks so repeated measurements can accumulate.
     stopForModeSwitch();
     webPausedOffsetRef.current = 0; runRef.current = null;
-    setWebTime(0); setMarks([]); setScheduledContextTime(null);
+    setWebTime(0); setScheduledContextTime(null);
     const native = nativeRef.current; if (native) { native.pause(); native.currentTime = 0; }
     setNativeTime(0);
-    setMessage("RESET COMPLETE · both Native and WebAudio next PLAY start from 0:00.");
+    setMessage("RESET COMPLETE · both players are at 0:00 · previous marks preserved.");
+  };
+
+  const clearMarks = () => {
+    setMarks([]);
+    setMessage("MARKS CLEARED · player position unchanged.");
   };
 
   return <main style={{ minHeight: "100vh", padding: 24, background: "#111016", color: "#f7f3fb", fontFamily: "system-ui, sans-serif" }}><div style={{ maxWidth: 760, margin: "0 auto" }}>
     <p style={{ color: "#cf51ff", fontWeight: 800, letterSpacing: ".12em", fontSize: 12 }}>AUDIO TIMING LAB · TRACK-RELATIVE CLOCK</p><h1 style={{ margin: "8px 0" }}>Native vs Web Audio song time</h1>
-    <p style={{ color: "#aaa1b0", lineHeight: 1.5 }}>PAUSE preserves position. RESET discards position and forces the next play to start at 0:00.</p>
+    <p style={{ color: "#aaa1b0", lineHeight: 1.5 }}>PAUSE preserves position. RESET immediately stops playback and returns to 0:00 while keeping previous marks.</p>
     <label style={{ display: "grid", gap: 8, margin: "24px 0" }}><span style={{ fontSize: 12, color: "#aaa1b0", fontWeight: 700 }}>TRACK</span><select value={selected?.id ?? ""} disabled={loading || mode !== "idle"} onChange={event => setSelectedId(event.target.value)} style={{ width: "100%", padding: 14, borderRadius: 12, background: "#1b1820", color: "white", border: "1px solid #403747" }}>{configs.map(item => <option value={item.id} key={item.id}>{item.title}</option>)}</select></label>
     <audio ref={nativeRef} src={selected?.audioUrl ?? ""} preload="auto" playsInline />
     <section style={{ display: "grid", gap: 12, padding: 18, border: "1px solid #3a3340", borderRadius: 18, background: "#18151c" }}><Clock label="NATIVE currentTime" value={fmt(nativeTime)} /><Clock label="OUTPUT SONG TIME" value={fmt(webTime)} strong /><Clock label="Source scheduled at ctx" value={scheduledContextTime != null ? fmt(scheduledContextTime) : "—"} /><Clock label="AudioContext.currentTime" value={contextTime ? fmt(contextTime) : "—"} /><Clock label="Output contextTime" value={outputContextTime != null ? fmt(outputContextTime) : "—"} /><Clock label="Output performanceTime" value={outputPerformanceTime != null ? `${outputPerformanceTime.toFixed(1)} ms` : "—"} /><Clock label="audioSession.type" value={audioSessionType} /><Clock label="baseLatency" value={baseLatency != null ? `${(baseLatency * 1000).toFixed(1)} ms` : "—"} /><Clock label="outputLatency" value={outputLatency != null ? `${(outputLatency * 1000).toFixed(1)} ms` : "—"} /></section>
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}><button onClick={() => void playWebAudio()} disabled={decoding || !readyToTest || mode !== "idle"} style={buttonStyle(true)}>{decoding ? "PREPARING…" : "▶ PLAY WEBAUDIO"}</button><button onClick={() => void playNative()} disabled={decoding || !readyToTest || mode !== "idle"} style={buttonStyle(false)}>▶ PLAY NATIVE</button><button onClick={markBeat} disabled={mode === "idle"} style={buttonStyle(true)}>🎯 MARK BEAT</button><button onClick={pauseAll} disabled={mode === "idle"} style={buttonStyle(false)}>Ⅱ PAUSE / RESUME POS</button><button onClick={reset} disabled={mode !== "idle"} style={{ ...buttonStyle(false), gridColumn: "1 / -1" }}>↺ RESET TO 0:00 + CLEAR MARKS</button></div>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}><button onClick={() => void playWebAudio()} disabled={decoding || !readyToTest || mode !== "idle"} style={buttonStyle(true)}>{decoding ? "PREPARING…" : "▶ PLAY WEBAUDIO"}</button><button onClick={() => void playNative()} disabled={decoding || !readyToTest || mode !== "idle"} style={buttonStyle(false)}>▶ PLAY NATIVE</button><button onClick={markBeat} disabled={mode === "idle"} style={buttonStyle(true)}>🎯 MARK BEAT</button><button onClick={pauseAll} disabled={mode === "idle"} style={buttonStyle(false)}>Ⅱ PAUSE / RESUME POS</button><button onClick={reset} disabled={decoding || !readyToTest} style={{ ...buttonStyle(false), gridColumn: "1 / -1" }}>↺ RESET TO 0:00 · KEEP MARKS</button><button onClick={clearMarks} disabled={!marks.length} style={{ ...buttonStyle(false), gridColumn: "1 / -1" }}>CLEAR MARKS ONLY</button></div>
     <section style={{ marginTop: 16, padding: 16, borderRadius: 14, background: "#18151c", border: "1px solid #3a3340" }}><strong style={{ display: "block", marginBottom: 8 }}>MARKS</strong><div style={{ color: "#c9c0cf", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", lineHeight: 1.6 }}>{marks.length ? marks.map((mark, index) => <div key={`${mark.mode}-${index}`}>#{index + 1} {mark.mode.toUpperCase()} · {fmt(mark.seconds)}</div>) : <div>No marks yet.</div>}<div style={{ marginTop: 8 }}>Native median: {nativeMedian != null ? fmt(nativeMedian) : "—"}</div><div>WebAudio median: {webMedian != null ? fmt(webMedian) : "—"}</div></div></section>
     <p style={{ marginTop: 18, padding: 14, borderRadius: 12, background: "#211a26", color: "#d7c9df", lineHeight: 1.45 }}>{message}</p>
-    <p style={{ color: "#8f8795", fontSize: 13, lineHeight: 1.5 }}><strong>Repeat test:</strong> PLAY → MARK → PAUSE → RESET TO 0:00 → PLAY again. After RESET, WebAudio must audibly restart from the beginning.</p>
+    <p style={{ color: "#8f8795", fontSize: 13, lineHeight: 1.5 }}><strong>Repeat test:</strong> PLAY → MARK → RESET TO 0:00 (while still playing is OK) → PLAY again. Marks accumulate until you press CLEAR MARKS.</p>
   </div></main>;
 }
 
