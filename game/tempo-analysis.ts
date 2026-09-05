@@ -68,10 +68,9 @@ function percentile(values: number[], ratio: number): number {
 }
 
 /**
- * Detect the first sustained audible region. A single click/noise spike is not
- * enough: several consecutive RMS windows must exceed the adaptive threshold.
- * The returned sample index includes a short pre-roll so the first transient is
- * preserved for beat tracking.
+ * Detect the first sustained audible region for tempo analysis. This remains
+ * intentionally conservative and includes a short pre-roll so transients are
+ * not removed from the BPM detector. It is NOT used to crop playback anymore.
  */
 export function detectLeadingAudioStart(mono: Float32Array, sampleRate: number): number {
   if (!mono.length || !Number.isFinite(sampleRate) || sampleRate <= 0) return 0;
@@ -93,16 +92,11 @@ export function detectLeadingAudioStart(mono: Float32Array, sampleRate: number):
     rmsFrames[frame] = Math.sqrt(sumSquares / Math.max(1, end - start));
   }
 
-  // Estimate the noise floor from the quietest part of the first ~2 seconds.
-  // Using a low percentile keeps this robust when a song begins immediately.
   const baselineFrames = rmsFrames.slice(0, Math.max(1, Math.min(frameCount, Math.round(2 / frameSeconds))));
   const noiseFloor = percentile(baselineFrames, 0.2);
   const threshold = Math.max(0.0035, noiseFloor * 4.5);
-
   const sustainFrames = Math.max(4, Math.round(0.12 / frameSeconds));
   const durationSeconds = mono.length / sampleRate;
-  // Always inspect at least the first 5 seconds when available; long tracks are
-  // capped at 15 seconds because this detector is only for leading dead-air.
   const maxSearchSeconds = Math.min(durationSeconds, Math.min(15, Math.max(5, durationSeconds * 0.25)));
   const maxSearchFrames = Math.min(frameCount, Math.round(maxSearchSeconds / frameSeconds));
 
@@ -123,40 +117,6 @@ export function detectLeadingAudioStart(mono: Float32Array, sampleRate: number):
   }
 
   return 0;
-}
-
-function fitPhaseToTempo(beats: number[], period: number): number {
-  if (!beats.length || !Number.isFinite(period) || period <= 0) return 0;
-
-  const phases = beats.map(time => ((time % period) + period) % period);
-  let bestPhase = phases[0] ?? 0;
-  let bestError = Number.POSITIVE_INFINITY;
-
-  for (const candidate of phases) {
-    const error = phases.reduce((sum, phase) => {
-      const distance = Math.abs(phase - candidate);
-      return sum + Math.min(distance, period - distance) ** 2;
-    }, 0);
-    if (error < bestError) {
-      bestError = error;
-      bestPhase = candidate;
-    }
-  }
-
-  return bestPhase;
-}
-
-function buildUniformBeatGrid(durationSeconds: number, bpm: number, phaseSeconds: number): number[] {
-  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || !Number.isFinite(bpm) || bpm <= 0) return [];
-
-  const period = 60 / bpm;
-  const phase = Number.isFinite(phaseSeconds) ? ((phaseSeconds % period) + period) % period : 0;
-
-  const beats: number[] = [];
-  for (let time = phase; time <= durationSeconds + 1e-6; time += period) {
-    beats.push(Number(time.toFixed(6)));
-  }
-  return beats;
 }
 
 export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
@@ -214,12 +174,6 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
       tightness: 5000,
     };
     const tracked = beatTrack(analysisMono, trackedOptions);
-    // beatTrack sees the trimmed buffer; restore every beat to the original
-    // media timeline before fitting the phase used by the saved beat grid.
-    const trackedBeats = finite(tracked.beats).map(time => time + analysisOffsetSeconds);
-    const period = 60 / targetBpm;
-    const phaseSeconds = fitPhaseToTempo(trackedBeats, period);
-    const beats = buildUniformBeatGrid(buffer.duration, targetBpm, phaseSeconds);
 
     const candidates: TempoCandidate[] = [
       ...tempoCandidateValues.map((bpm): TempoCandidate => ({
@@ -250,7 +204,12 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
       displayBpm,
       confidence,
       candidates,
-      beats,
+      // Auto phase/Beat-4 anchors are intentionally disabled. On tracks such
+      // as Please Tell Me Why the tracker can lock to the wrong musical phase
+      // by ~1 second even when BPM is correct. Space Start is now authored by
+      // ear from native media currentTime; gameplay derives later 4-beat cycles
+      // from that saved anchor plus BPM_exact.
+      beats: [],
       audioStartMs,
       analysisOffsetMs: audioStartMs,
     };
