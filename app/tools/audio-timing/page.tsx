@@ -51,12 +51,13 @@ export default function AudioTimingLabPage() {
     rafRef.current = null;
   };
 
-  const getOutputContextTime = (context: AudioContext) => {
+  const getOutputContextTime = (context: AudioContext): number => {
     const withTimestamp = context as AudioContext & {
       getOutputTimestamp?: () => { contextTime: number; performanceTime: number };
     };
     const stamp = withTimestamp.getOutputTimestamp?.();
-    return stamp && Number.isFinite(stamp.contextTime) ? stamp.contextTime : context.currentTime;
+    if (stamp && Number.isFinite(stamp.contextTime)) return stamp.contextTime;
+    return context.currentTime;
   };
 
   const tick = () => {
