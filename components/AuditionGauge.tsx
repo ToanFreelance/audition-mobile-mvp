@@ -28,9 +28,8 @@ const smoothPulse = (distance: number, radius: number) => {
 };
 
 /**
- * Gauge sampled from one deterministic media timeline.
- * The score zone itself never moves. Only its glow breathes; at the four-beat
- * Perfect boundary a separate overlay stretches symmetrically from the center.
+ * Deterministic gauge visual. The score zone geometry never moves.
+ * Beats 1-3 visibly breathe; beat 4 breathes too and adds a symmetric stretch.
  */
 export default function AuditionGauge({
   value,
@@ -78,33 +77,32 @@ export default function AuditionGauge({
 
     const renderAt = (nowMs: number) => {
       const timing = getGaugeTiming({ bpm, spaceStartMs }, nowMs);
-      const translate = x(timing.sliderPercent) - 150;
-      slider.setAttribute("transform", `translate(${translate} 0)`);
+      slider.setAttribute("transform", `translate(${x(timing.sliderPercent) - 150} 0)`);
 
       const cyclePhase = timing.cycleMs > 0 ? timing.cycleElapsedMs / timing.cycleMs : 0;
 
-      // Four subtle breaths per cycle. This changes only opacity/filter, never
-      // the score-zone geometry or x/y position.
+      // One clear inhale/exhale on every quarter of the four-beat cycle.
+      // This affects light only: no x/y/width/transform is ever applied to the
+      // base score zone or this breath layer.
       const beatPhase = (cyclePhase * 4) % 1;
       const beatDistance = Math.min(beatPhase, 1 - beatPhase);
-      const breath = smoothPulse(beatDistance, 0.42);
-      const zoneOpacity = 0.72 + breath * 0.20;
-      const zoneGlowPx = 5 + breath * 6;
+      const breath = smoothPulse(beatDistance, 0.48);
+      const zoneOpacity = 0.28 + breath * 0.72;
+      const zoneGlowPx = 3 + breath * 11;
       zoneGlow.setAttribute("opacity", zoneOpacity.toFixed(3));
-      zoneGlow.style.filter = `drop-shadow(0 0 ${zoneGlowPx.toFixed(1)}px #00f0ff)`;
+      zoneGlow.style.filter = `drop-shadow(0 0 ${zoneGlowPx.toFixed(1)}px #00f0ff)${breath > 0.65 ? " drop-shadow(0 0 8px #bdfbff)" : ""}`;
 
-      // Beat 4 / Perfect is the only moment where the cyan overlay stretches.
-      // The base score zone above remains fixed, so both edges expand equally
-      // from the exact center instead of the whole zone wandering sideways.
+      // Space Start / each four-beat boundary is beat 4. It keeps the same
+      // breath above and additionally stretches a separate overlay from the
+      // fixed zone center, equally toward both edges.
       const distanceToPerfect = Math.min(cyclePhase, 1 - cyclePhase);
-      const perfectStrength = smoothPulse(distanceToPerfect, 0.075);
+      const perfectStrength = smoothPulse(distanceToPerfect, 0.07);
       const perfectScale = 1 + perfectStrength * Math.max(0, stretchRatio - 1);
-      const pulseOpacity = perfectStrength * 0.95;
       perfectOverlay.setAttribute(
         "transform",
         `translate(${zoneCenterX} ${trackCenterY}) scale(${perfectScale} 1) translate(${-zoneCenterX} ${-trackCenterY})`,
       );
-      perfectOverlay.setAttribute("opacity", pulseOpacity.toFixed(3));
+      perfectOverlay.setAttribute("opacity", (perfectStrength * 0.95).toFixed(3));
       perfectOverlay.style.filter = `drop-shadow(0 0 ${(10 + perfectStrength * 18).toFixed(1)}px #00f0ff)${perfectStrength > 0.25 ? " drop-shadow(0 0 24px #fff)" : ""}`;
     };
 
@@ -127,68 +125,35 @@ export default function AuditionGauge({
   const blurSoftId = `${id}-blurSoft`;
 
   return (
-    <div
-      className={`audition-gauge-svg ${className}`}
-      onPointerDown={onPointerDown}
-      style={{ width: "100%", aspectRatio: "464 / 56", lineHeight: 0, touchAction: "manipulation", overflow: "visible" }}
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="18 0 464 70"
-        width="100%"
-        height="100%"
-        preserveAspectRatio="none"
-        style={{ overflow: "visible" }}
-        aria-label="Audition timing gauge"
-      >
+    <div className={`audition-gauge-svg ${className}`} onPointerDown={onPointerDown} style={{ width: "100%", aspectRatio: "464 / 56", lineHeight: 0, touchAction: "manipulation", overflow: "visible" }}>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="18 0 464 70" width="100%" height="100%" preserveAspectRatio="none" style={{ overflow: "visible" }} aria-label="Audition timing gauge">
         <defs>
           <style>{`
-            @keyframes redGlowPulse-${id}{
-              0%,100%{opacity:.8;transform:scale(.96)}
-              50%{opacity:1;transform:scale(1.06)}
-            }
-            .pulse-red-glow-${id}{
-              transform-origin:150px ${trackCenterY}px;
-              animation:redGlowPulse-${id} ${60000 / Math.max(1, bpm)}ms ease-in-out infinite;
-            }
+            @keyframes redGlowPulse-${id}{0%,100%{opacity:.8;transform:scale(.96)}50%{opacity:1;transform:scale(1.06)}}
+            .pulse-red-glow-${id}{transform-origin:150px ${trackCenterY}px;animation:redGlowPulse-${id} ${60000 / Math.max(1, bpm)}ms ease-in-out infinite}
           `}</style>
           <filter id={blurGlowId} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.5" /></filter>
           <filter id={blurSoftId} x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.5" /></filter>
           <linearGradient id={cyanGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0" />
-            <stop offset="12%" stopColor="#00d8ff" stopOpacity=".85" />
-            <stop offset="25%" stopColor="#70f3ff" stopOpacity=".95" />
-            <stop offset="35%" stopColor="#fff" />
-            <stop offset="65%" stopColor="#fff" />
-            <stop offset="75%" stopColor="#70f3ff" stopOpacity=".95" />
-            <stop offset="88%" stopColor="#00d8ff" stopOpacity=".85" />
-            <stop offset="100%" stopColor="#00f0ff" stopOpacity="0" />
+            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0" /><stop offset="12%" stopColor="#00d8ff" stopOpacity=".85" /><stop offset="25%" stopColor="#70f3ff" stopOpacity=".95" /><stop offset="35%" stopColor="#fff" /><stop offset="65%" stopColor="#fff" /><stop offset="75%" stopColor="#70f3ff" stopOpacity=".95" /><stop offset="88%" stopColor="#00d8ff" stopOpacity=".85" /><stop offset="100%" stopColor="#00f0ff" stopOpacity="0" />
           </linearGradient>
-          <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#fff" />
-            <stop offset="35%" stopColor="#ff4d4d" />
-            <stop offset="70%" stopColor="#e11d48" />
-            <stop offset="100%" stopColor="#880015" />
-          </radialGradient>
+          <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#fff" /><stop offset="35%" stopColor="#ff4d4d" /><stop offset="70%" stopColor="#e11d48" /><stop offset="100%" stopColor="#880015" /></radialGradient>
         </defs>
 
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#fff" opacity=".07" filter={`url(#${blurSoftId})`} />
         <rect x="20" y="12" width="460" height="46" rx="23" fill="#0a0c14" fillOpacity=".12" stroke="#a1a1aa" strokeWidth="2" />
         <rect x="22" y="14" width="456" height="42" rx="21" fill="none" stroke="#000" strokeWidth="1.5" opacity=".55" />
 
-        {/* Static score zone: geometry never changes. */}
         <g>
           <rect x={zoneX} y="20" width={zoneWidth} height={zoneHeight} rx={zoneRadius} fill="#00f0ff" opacity=".20" />
           <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} fill={`url(#${cyanGradientId})`} opacity=".82" />
         </g>
 
-        {/* Breath changes light intensity only, not position or width. */}
-        <g ref={zoneGlowRef} opacity=".72" style={{ pointerEvents: "none" }}>
-          <rect x={zoneX} y="20" width={zoneWidth} height={zoneHeight} rx={zoneRadius} fill="#00f0ff" opacity=".30" filter={`url(#${blurGlowId})`} />
-          <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} fill={`url(#${cyanGradientId})`} opacity=".38" filter={`url(#${blurSoftId})`} />
+        <g ref={zoneGlowRef} opacity=".28" style={{ pointerEvents: "none" }}>
+          <rect x={zoneX} y="20" width={zoneWidth} height={zoneHeight} rx={zoneRadius} fill="#00f0ff" opacity=".42" filter={`url(#${blurGlowId})`} />
+          <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} fill={`url(#${cyanGradientId})`} opacity=".62" filter={`url(#${blurSoftId})`} />
         </g>
 
-        {/* Beat-4 flash/stretch overlay only. */}
         <g ref={perfectPulseRef} opacity="0" style={{ pointerEvents: "none" }}>
           <rect x={zoneX} y="19" width={zoneWidth} height={zoneHeight + 2} rx={zoneRadius} fill="#00f0ff" opacity=".42" filter={`url(#${blurGlowId})`} />
           <rect x={zoneX} y="21" width={zoneWidth} height="28" rx={zoneRadius} fill={`url(#${cyanGradientId})`} filter={`url(#${blurSoftId})`} />
@@ -199,8 +164,7 @@ export default function AuditionGauge({
             <g className={`pulse-red-glow-${id}`}>
               <circle cx="150" cy="35" r="15" fill="#ff0044" filter={`url(#${blurGlowId})`} opacity=".5" />
               <circle cx="150" cy="35" r="14" fill="none" stroke="#e4e4e7" strokeWidth="2" opacity=".9" />
-              <circle cx="150" cy="35" r="9" fill={`url(#${redGradientId})`} />
-              <circle cx="150" cy="35" r="4" fill="#fff" opacity=".9" />
+              <circle cx="150" cy="35" r="9" fill={`url(#${redGradientId})`} /><circle cx="150" cy="35" r="4" fill="#fff" opacity=".9" />
             </g>
           </g>
         </g>
