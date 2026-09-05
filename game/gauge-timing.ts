@@ -16,12 +16,15 @@ export type GaugeTimingState = {
 };
 
 /**
- * The song's space-start is the authoritative musical anchor.
+ * Deterministic gauge trajectory derived entirely from BPM + Space Start.
  *
- * Example: 80 BPM => 750ms/beat => 3000ms/4-beat cycle.
- * If spaceStart=30000ms, the first gauge cycle begins at 2000ms,
- * then repeats at 5000, 8000, ... and every cycle boundary is again
- * the Perfect timing point.
+ * Space Start is a Perfect boundary. Every `beatsPerCycle` beats after (and
+ * before) that anchor is also a Perfect boundary. Between boundaries the
+ * slider travels from the left edge toward the Perfect center and reaches it
+ * exactly on beat 4, then starts the next cycle from the left again.
+ *
+ * No frame-to-frame delta is accumulated, so a dropped render frame cannot
+ * introduce timing drift: the position is recalculated from absolute time.
  */
 export function getGaugeTiming(config: GaugeTimingConfig, nowMs: number): GaugeTimingState {
   const bpm = Math.max(1, config.bpm);
@@ -30,49 +33,33 @@ export function getGaugeTiming(config: GaugeTimingConfig, nowMs: number): GaugeT
   const spaceStartMs = Math.max(0, config.spaceStartMs);
   const perfectCenterPercent = Math.max(0, Math.min(100, config.perfectCenterPercent ?? 80));
 
-  // Anchor the first visible cycle as the first non-negative time that is
-  // congruent with space-start modulo one complete cycle.
-  const firstGaugeStartMs = spaceStartMs % cycleMs;
+  // First non-negative timestamp that belongs to the same four-beat boundary
+  // grid as Space Start. Kept for consumers that use the old visibility hint.
+  const firstGaugeStartMs = ((spaceStartMs % cycleMs) + cycleMs) % cycleMs;
   const visible = nowMs >= firstGaugeStartMs;
 
-  // The SVG's strongest beat-4 stretch is defined at 87.5% of its animation
-  // cycle. Solve the phase equation so that its 87.5% point lands exactly on
-  // the space-start/cycle boundary. This is also valid during the lead-in,
-  // when the gauge has not become visible yet.
-  const animationPhaseAtNow = (((nowMs - firstGaugeStartMs + cycleMs * 0.875) % cycleMs) + cycleMs) % cycleMs;
-  const breathAnimationDelayMs = -animationPhaseAtNow;
-
-  if (!visible) {
-    return {
-      cycleMs,
-      firstGaugeStartMs,
-      visible: false,
-      cycleElapsedMs: 0,
-      cycleIndex: -1,
-      sliderPercent: perfectCenterPercent,
-      breathAnimationDelayMs,
-    };
-  }
-
-  const elapsedFromFirstGauge = nowMs - firstGaugeStartMs;
-  const cycleIndex = Math.floor(elapsedFromFirstGauge / cycleMs);
-  // Calculate phase from the authoritative anchor itself. Deriving it by
-  // subtracting two large, independently rounded values can return a value
-  // infinitesimally below cycleMs at an exact boundary instead of zero.
+  // Phase is always calculated from the authoritative musical anchor itself.
   const elapsedFromSpaceStart = nowMs - spaceStartMs;
   const rawCycleElapsedMs = ((elapsedFromSpaceStart % cycleMs) + cycleMs) % cycleMs;
   const boundaryToleranceMs = Math.max(1e-7, cycleMs * Number.EPSILON * 8);
-  const cycleElapsedMs = rawCycleElapsedMs >= cycleMs - boundaryToleranceMs ? 0 : rawCycleElapsedMs;
-  const phase = cycleElapsedMs / cycleMs;
+  const onPerfectBoundary = rawCycleElapsedMs <= boundaryToleranceMs || rawCycleElapsedMs >= cycleMs - boundaryToleranceMs;
+  const cycleElapsedMs = onPerfectBoundary ? 0 : rawCycleElapsedMs;
+  const cycleIndex = Math.floor((nowMs - firstGaugeStartMs) / cycleMs);
 
-  // Slider starts at Perfect and traverses one complete gauge width over one
-  // 4-beat cycle. At the next cycle boundary it wraps back to Perfect.
-  const sliderPercent = ((perfectCenterPercent + phase * 100) % 100 + 100) % 100;
+  // The requested Audition trajectory: left -> Perfect over one complete
+  // four-beat cycle. Perfect itself is an exact boundary; immediately after
+  // it the next cycle starts again near the left edge.
+  const phase = cycleElapsedMs / cycleMs;
+  const sliderPercent = onPerfectBoundary ? perfectCenterPercent : phase * perfectCenterPercent;
+
+  // Retained for API compatibility. Realtime visuals no longer run a CSS
+  // animation clock; they sample deterministic phase from media time instead.
+  const breathAnimationDelayMs = -cycleElapsedMs;
 
   return {
     cycleMs,
     firstGaugeStartMs,
-    visible: true,
+    visible,
     cycleElapsedMs,
     cycleIndex,
     sliderPercent,
