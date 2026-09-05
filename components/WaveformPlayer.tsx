@@ -190,7 +190,12 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         autoScroll: true,
         autoCenter: true,
         hideScrollbar: true,
-        backend: "MediaElement",
+        // MediaElement currentTime can disagree with decoded MP3/VBR timing on
+        // iOS until a seek forces it to re-synchronize. WebAudio decodes the
+        // file once and drives playback/currentTime from the AudioContext clock,
+        // so waveform, audible content and Gauge all share one deterministic
+        // timeline from the first play.
+        backend: "WebAudio",
         url,
       });
       wavesurfer = instance;
@@ -229,11 +234,8 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         setDurationMs(durationTotalMs);
         setReady(true);
 
-        // IMPORTANT: do not call setTime() here. WaveSurfer has an iOS bug
-        // where seeking from the ready callback can leave the visual position
-        // and the actual media playback position out of sync until a later
-        // in-play seek. We only scroll the renderer and present the virtual
-        // trimmed start; the real media seek happens on a user gesture.
+        // Keep the real playback clock untouched until a user gesture. The
+        // waveform is only scrolled to the virtual audible beginning here.
         scrollToTime(instance, startMs / 1000);
         setCurrentMs(startMs);
         callbacksRef.current.onTimeChange?.(startMs);
@@ -362,8 +364,6 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     const wavesurfer = wavesurferRef.current;
     if (!wavesurfer) return;
 
-    // The initial media position is intentionally left at 0 during ready.
-    // Move it to the virtual trimmed begin only now, inside the user gesture.
     if (!wavesurfer.isPlaying() && wavesurfer.getCurrentTime() * 1000 < trimStartMsRef.current) {
       const startMs = trimStartMsRef.current;
       wavesurfer.setTime(startMs / 1000);
@@ -388,7 +388,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         <div className="waveform-player-head">
           <div className="waveform-player-title">
             <span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" />
-            <div><strong>{title || "Untitled track"}</strong><small>{ready ? `Trimmed begin ${formatTime(trimStartMs)} · iOS-safe start · 1 finger seek · 2 fingers pan` : "Detecting audio start…"}</small></div>
+            <div><strong>{title || "Untitled track"}</strong><small>{ready ? `Trimmed begin ${formatTime(trimStartMs)} · WebAudio clock · 1 finger seek · 2 fingers pan` : "Detecting audio start…"}</small></div>
           </div>
         </div>
 
@@ -412,7 +412,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
           ))}
         </div>
 
-        <div className="waveform-footer"><span>⏮ play from begin · leading silence hidden · no ready-time media seek · 1 finger seek · 2 fingers pan</span></div>
+        <div className="waveform-footer"><span>⏮ play from begin · leading silence hidden · WebAudio timing · 1 finger seek · 2 fingers pan</span></div>
       </div>
     </div>
   );
