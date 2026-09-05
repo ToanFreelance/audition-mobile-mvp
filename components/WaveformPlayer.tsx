@@ -2,7 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
-import { detectLeadingAudioStart } from "../game/tempo-analysis";
+import { detectPlaybackTrimStart } from "../game/playback-trim";
 
 export const WAVEFORM_MEDIA_TIME_EVENT = "audition:media-time";
 export type WaveformMarker = { ms: number; beatIndex: number };
@@ -51,7 +51,7 @@ async function detectTrimStartMs(url: string): Promise<number> {
       const source = buffer.getChannelData(channel);
       for (let index = 0; index < buffer.length; index += 1) mono[index] += source[index] / buffer.numberOfChannels;
     }
-    const sample = detectLeadingAudioStart(mono, buffer.sampleRate);
+    const sample = detectPlaybackTrimStart(mono, buffer.sampleRate);
     return Math.max(0, Math.round(sample / buffer.sampleRate * 1000));
   } catch {
     return 0;
@@ -407,7 +407,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         <div className="waveform-player-head">
           <div className="waveform-player-title">
             <span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" />
-            <div><strong>{title || "Untitled track"}</strong><small>{ready ? `Trimmed begin ${formatTime(trimStartMs)} · native audio master · 1 finger seek · 2 fingers pan` : "Detecting audio start…"}</small></div>
+            <div><strong>{title || "Untitled track"}</strong><small>{ready ? `Trimmed begin ${formatTime(trimStartMs)} · adaptive onset edge · native audio master` : "Detecting waveform onset…"}</small></div>
           </div>
         </div>
 
@@ -418,7 +418,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
             <button type="button" onClick={() => setZoom(current => clampZoom(current + 1))} aria-label="Zoom in">＋</button>
           </div>
           <div ref={containerRef} className="waveform-canvas" aria-label="Waveform visualization" />
-          {!ready && <div className="waveform-loading">Detecting audio start…</div>}
+          {!ready && <div className="waveform-loading">Detecting waveform onset…</div>}
         </div>
 
         <div className="waveform-controls">
@@ -431,7 +431,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
           ))}
         </div>
 
-        <div className="waveform-footer"><span>native audio = playback + timing master · waveform = visualization only</span></div>
+        <div className="waveform-footer"><span>playback trim = waveform onset edge · analysis anchors remain on original media timeline</span></div>
       </div>
     </div>
   );
