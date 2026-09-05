@@ -76,7 +76,8 @@ function percentile(values: number[], ratio: number): number {
 export function detectLeadingAudioStart(mono: Float32Array, sampleRate: number): number {
   if (!mono.length || !Number.isFinite(sampleRate) || sampleRate <= 0) return 0;
 
-  const frameSize = Math.max(64, Math.round(sampleRate * 0.02)); // ~20 ms
+  const frameSeconds = 0.02;
+  const frameSize = Math.max(64, Math.round(sampleRate * frameSeconds));
   const frameCount = Math.floor(mono.length / frameSize);
   if (frameCount < 4) return 0;
 
@@ -94,12 +95,16 @@ export function detectLeadingAudioStart(mono: Float32Array, sampleRate: number):
 
   // Estimate the noise floor from the quietest part of the first ~2 seconds.
   // Using a low percentile keeps this robust when a song begins immediately.
-  const baselineFrames = rmsFrames.slice(0, Math.max(1, Math.min(frameCount, Math.round(2 / 0.02))));
+  const baselineFrames = rmsFrames.slice(0, Math.max(1, Math.min(frameCount, Math.round(2 / frameSeconds))));
   const noiseFloor = percentile(baselineFrames, 0.2);
   const threshold = Math.max(0.0035, noiseFloor * 4.5);
 
-  const sustainFrames = Math.max(4, Math.round(0.12 / 0.02)); // ~120 ms
-  const maxSearchFrames = Math.min(frameCount, Math.round(Math.min(15, mono.length / sampleRate * 0.25) / 0.02));
+  const sustainFrames = Math.max(4, Math.round(0.12 / frameSeconds));
+  const durationSeconds = mono.length / sampleRate;
+  // Always inspect at least the first 5 seconds when available; long tracks are
+  // capped at 15 seconds because this detector is only for leading dead-air.
+  const maxSearchSeconds = Math.min(durationSeconds, Math.min(15, Math.max(5, durationSeconds * 0.25)));
+  const maxSearchFrames = Math.min(frameCount, Math.round(maxSearchSeconds / frameSeconds));
 
   for (let frame = 0; frame + sustainFrames <= maxSearchFrames; frame += 1) {
     let audible = 0;
@@ -110,8 +115,6 @@ export function detectLeadingAudioStart(mono: Float32Array, sampleRate: number):
       peak = Math.max(peak, rms);
     }
 
-    // Allow one quiet frame inside the sustained window, but require a real
-    // peak so low-level encoder noise does not count as music onset.
     if (audible >= sustainFrames - 1 && peak >= threshold * 1.35) {
       const detectedSample = frame * frameSize;
       const preRollSamples = Math.round(sampleRate * 0.05);
@@ -224,21 +227,9 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
         source: "tempo",
         confidence: Number(tempoResult.confidence) || 0,
       })),
-      {
-        bpm: tempoBpm,
-        source: "tempo",
-        confidence: Number(tempoResult.confidence) || 0,
-      },
-      {
-        bpm: Number(combResult.bpm),
-        source: "comb",
-        confidence: Number(combResult.confidence) || 0,
-      },
-      {
-        bpm: Number(tracked.bpm),
-        source: "beatTrack",
-        confidence: Number(tracked.confidence) || 0,
-      },
+      { bpm: tempoBpm, source: "tempo", confidence: Number(tempoResult.confidence) || 0 },
+      { bpm: Number(combResult.bpm), source: "comb", confidence: Number(combResult.confidence) || 0 },
+      { bpm: Number(tracked.bpm), source: "beatTrack", confidence: Number(tracked.confidence) || 0 },
     ].filter(
       (item): item is TempoCandidate =>
         Number.isFinite(item.bpm) && item.bpm >= 40 && item.bpm <= 220 && isTempoSource(item.source),
