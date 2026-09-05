@@ -19,19 +19,18 @@ test.describe("media-anchored gauge timing", () => {
     }
   });
 
-  test("slider follows the precomputed left-to-Perfect four-beat trajectory", () => {
-    // Immediately after Perfect the next cycle restarts from the left.
-    const justAfter = getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + 1);
-    expect(justAfter.sliderPercent).toBeLessThan(0.1);
-
-    // Each beat advances one quarter of the 0 -> 80% journey.
-    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs).sliderPercent).toBeCloseTo(20, 8);
-    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 2).sliderPercent).toBeCloseTo(40, 8);
-    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 3).sliderPercent).toBeCloseTo(60, 8);
+  test("slider sweeps the complete 0..100 range once per four-beat cycle", () => {
+    // Space Start is Perfect at 80%, but the slider continues to 100 before
+    // wrapping to 0 and completing the rest of the full-width sweep.
+    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs).sliderPercent).toBeCloseTo(80, 8);
+    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 0.5).sliderPercent).toBeCloseTo(92.5, 8);
+    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs).sliderPercent).toBeCloseTo(5, 8);
+    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 2).sliderPercent).toBeCloseTo(30, 8);
+    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 3).sliderPercent).toBeCloseTo(55, 8);
     expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 4).sliderPercent).toBeCloseTo(80, 8);
 
-    // One beat before Space Start must already be at beat-3 position.
-    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs - beatMs).sliderPercent).toBeCloseTo(60, 8);
+    // One beat before Space Start is the previous beat-3 position.
+    expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs - beatMs).sliderPercent).toBeCloseTo(55, 8);
   });
 
   test("Aloha exact BPM produces the expected cycle duration", () => {
