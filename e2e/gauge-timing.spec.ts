@@ -3,6 +3,7 @@ import { createChartFromMusicConfig } from "../game/chart";
 import { DEFAULT_MUSIC_CONFIG } from "../game/music-config";
 import { getGaugeTiming } from "../game/gauge-timing";
 import { BeatClock } from "../game/clock";
+import { detectLeadingAudioStart } from "../game/tempo-analysis";
 
 test.describe("media-anchored gauge timing", () => {
   const bpmExact = 100.4464;
@@ -20,16 +21,12 @@ test.describe("media-anchored gauge timing", () => {
   });
 
   test("slider sweeps the complete 0..100 range once per four-beat cycle", () => {
-    // Space Start is Perfect at 80%, but the slider continues to 100 before
-    // wrapping to 0 and completing the rest of the full-width sweep.
     expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs).sliderPercent).toBeCloseTo(80, 8);
     expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 0.5).sliderPercent).toBeCloseTo(92.5, 8);
     expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs).sliderPercent).toBeCloseTo(5, 8);
     expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 2).sliderPercent).toBeCloseTo(30, 8);
     expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 3).sliderPercent).toBeCloseTo(55, 8);
     expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + beatMs * 4).sliderPercent).toBeCloseTo(80, 8);
-
-    // One beat before Space Start is the previous beat-3 position.
     expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs - beatMs).sliderPercent).toBeCloseTo(55, 8);
   });
 
@@ -37,6 +34,31 @@ test.describe("media-anchored gauge timing", () => {
     expect(beatMs).toBeCloseTo(597.3335, 3);
     expect(cycleMs).toBeCloseTo(2389.334, 3);
     expect(getGaugeTiming({ bpm: bpmExact, spaceStartMs }, spaceStartMs + cycleMs).sliderPercent).toBeCloseTo(80, 8);
+  });
+
+  test("leading silence detector ignores a click and finds sustained audio", () => {
+    const sampleRate = 1000;
+    const mono = new Float32Array(5000);
+
+    // A short click inside the silent lead-in must not become audio start.
+    for (let i = 400; i < 410; i += 1) mono[i] = 0.7;
+
+    // Sustained music begins at 2.0s.
+    for (let i = 2000; i < mono.length; i += 1) {
+      mono[i] = Math.sin(i * 0.2) * 0.25;
+    }
+
+    const startSample = detectLeadingAudioStart(mono, sampleRate);
+    // Detector intentionally keeps 50ms pre-roll before the sustained onset.
+    expect(startSample).toBeGreaterThanOrEqual(1900);
+    expect(startSample).toBeLessThanOrEqual(2000);
+  });
+
+  test("leading silence detector leaves immediate audio at zero", () => {
+    const sampleRate = 1000;
+    const mono = new Float32Array(2000);
+    for (let i = 0; i < mono.length; i += 1) mono[i] = Math.sin(i * 0.2) * 0.2;
+    expect(detectLeadingAudioStart(mono, sampleRate)).toBe(0);
   });
 
   test("BPM_exact, rather than rounded display BPM, builds runtime timing", () => {
