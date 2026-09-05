@@ -35,7 +35,6 @@ const formatTime = (ms: number, precision = 3) => {
 
 const getZoomPxPerSecond = (zoom: number) => zoom === 1 ? 12 : zoom * 30;
 const clampZoom = (zoom: number) => Math.max(1, Math.min(6, zoom));
-const ANCHOR_VERIFY_PREROLL_MS = 2000;
 
 async function detectTrimStartMs(url: string): Promise<number> {
   if (typeof window === "undefined") return 0;
@@ -77,9 +76,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   const callbacksRef = useRef({ onTimeChange, onDurationChange, onPlay, onPause, onReady });
   const gestureRef = useRef<{ mode: "seek" | "pan"; startX: number; startScroll: number } | null>(null);
   const zoomRef = useRef(1);
-  const currentMsRef = useRef(0);
   const trimStartMsRef = useRef(0);
-  const pendingAnchorVerifyMsRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const lastClockEmitRef = useRef(0);
   const [durationMs, setDurationMs] = useState(0);
@@ -91,15 +88,15 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
 
   callbacksRef.current = { onTimeChange, onDurationChange, onPlay, onPause, onReady };
   zoomRef.current = zoom;
-  currentMsRef.current = currentMs;
 
   const publishMediaTime = (ms: number) => {
-    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent<number>(WAVEFORM_MEDIA_TIME_EVENT, { detail: ms }));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent<number>(WAVEFORM_MEDIA_TIME_EVENT, { detail: ms }));
+    }
   };
 
   const emitTime = (ms: number) => {
     const rounded = Math.round(ms);
-    currentMsRef.current = rounded;
     setCurrentMs(rounded);
     callbacksRef.current.onTimeChange?.(rounded);
     publishMediaTime(ms);
@@ -110,13 +107,14 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     instance.setScrollTime?.(Math.max(trimStartMsRef.current / 1000, seconds));
   };
 
+  const clampMediaMs = (wavesurfer: WaveSurfer, ms: number) => {
+    return Math.max(trimStartMsRef.current, Math.min(wavesurfer.getDuration() * 1000, ms));
+  };
+
   const seekTo = (ms: number) => {
     const wavesurfer = wavesurferRef.current;
     if (!wavesurfer || !wavesurfer.getDuration()) return;
-    pendingAnchorVerifyMsRef.current = null;
-    const min = trimStartMsRef.current;
-    const max = wavesurfer.getDuration() * 1000;
-    const next = Math.max(min, Math.min(max, ms));
+    const next = clampMediaMs(wavesurfer, ms);
     wavesurfer.setTime(next / 1000);
     scrollToTime(wavesurfer, next / 1000);
     emitTime(next);
@@ -125,20 +123,16 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   const previewFrom = (ms: number) => {
     const wavesurfer = wavesurferRef.current;
     if (!wavesurfer || !wavesurfer.getDuration()) return;
-    pendingAnchorVerifyMsRef.current = null;
-    const min = trimStartMsRef.current;
-    const max = wavesurfer.getDuration() * 1000;
-    const next = Math.max(min, Math.min(max, ms));
+    const next = clampMediaMs(wavesurfer, ms);
     wavesurfer.setTime(next / 1000);
     scrollToTime(wavesurfer, next / 1000);
-    void wavesurfer.play();
     emitTime(next);
+    void wavesurfer.play();
   };
 
   const playFromBegin = () => {
     const wavesurfer = wavesurferRef.current;
     if (!wavesurfer || !wavesurfer.getDuration()) return;
-    pendingAnchorVerifyMsRef.current = null;
     const startMs = trimStartMsRef.current;
     wavesurfer.setTime(startMs / 1000);
     scrollToTime(wavesurfer, startMs / 1000);
@@ -147,14 +141,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   };
 
   useImperativeHandle(ref, () => ({
-    // External seek is currently used when an anchor is applied. Keep the UI
-    // parked exactly on that anchor, but remember it so the next Play can start
-    // with a short pre-roll. On iOS, cold-starting media exactly on a beat can
-    // make the audible output arrive after currentTime has already advanced.
-    seekTo: (ms: number) => {
-      seekTo(ms);
-      pendingAnchorVerifyMsRef.current = ms;
-    },
+    seekTo,
     previewFrom,
     playFromBegin,
     getCurrentTimeMs: () => (wavesurferRef.current?.getCurrentTime() ?? trimStartMsRef.current / 1000) * 1000,
@@ -176,11 +163,9 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
       setReady(false);
       setPlaying(false);
       setCurrentMs(0);
-      currentMsRef.current = 0;
       setDurationMs(0);
       setTrimStartMs(0);
       trimStartMsRef.current = 0;
-      pendingAnchorVerifyMsRef.current = null;
 
       const detectedTrimMs = await detectTrimStartMs(url);
       if (cancelled || !containerRef.current) return;
@@ -205,6 +190,7 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         autoScroll: true,
         autoCenter: true,
         hideScrollbar: true,
+        backend: "MediaElement",
         url,
       });
       wavesurfer = instance;
@@ -216,13 +202,12 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
           return;
         }
         const now = performance.now();
-        const seconds = Math.max(trimStartMsRef.current / 1000, instance.getCurrentTime());
+        const seconds = instance.getCurrentTime();
         const ms = seconds * 1000;
         scrollToTime(instance, seconds);
         publishMediaTime(ms);
         if (now - lastClockEmitRef.current >= 25) {
           const rounded = Math.round(ms);
-          currentMsRef.current = rounded;
           setCurrentMs(rounded);
           callbacksRef.current.onTimeChange?.(rounded);
           lastClockEmitRef.current = now;
@@ -236,22 +221,29 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
         animationFrameRef.current = requestAnimationFrame(syncClock);
       };
 
-      const updateTime = (seconds: number) => emitTime(Math.max(trimStartMsRef.current, seconds * 1000));
+      const updateTime = (seconds: number) => emitTime(seconds * 1000);
 
       instance.on("ready", duration => {
         const durationTotalMs = Math.round(duration * 1000);
+        const startMs = Math.min(trimStartMsRef.current, durationTotalMs);
         setDurationMs(durationTotalMs);
         setReady(true);
-        const startMs = Math.min(trimStartMsRef.current, durationTotalMs);
-        instance.setTime(startMs / 1000);
+
+        // IMPORTANT: do not call setTime() here. WaveSurfer has an iOS bug
+        // where seeking from the ready callback can leave the visual position
+        // and the actual media playback position out of sync until a later
+        // in-play seek. We only scroll the renderer and present the virtual
+        // trimmed start; the real media seek happens on a user gesture.
         scrollToTime(instance, startMs / 1000);
-        emitTime(startMs);
+        setCurrentMs(startMs);
+        callbacksRef.current.onTimeChange?.(startMs);
+
         callbacksRef.current.onDurationChange?.(durationTotalMs);
         callbacksRef.current.onReady?.(durationTotalMs);
       });
+
       instance.on("timeupdate", updateTime);
       instance.on("play", () => {
-        if (instance.getCurrentTime() * 1000 < trimStartMsRef.current) instance.setTime(trimStartMsRef.current / 1000);
         setPlaying(true);
         callbacksRef.current.onPlay?.();
         startClock();
@@ -297,7 +289,6 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
     const setTimeFromClientX = (clientX: number) => {
       const wavesurfer = wavesurferRef.current;
       if (!wavesurfer || !ready) return;
-      pendingAnchorVerifyMsRef.current = null;
       const rect = viewport.getBoundingClientRect();
       if (rect.width <= 0) return;
       const pxPerSecond = getZoomPxPerSecond(zoomRef.current);
@@ -366,39 +357,65 @@ const WaveformPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(fun
   }, [ready]);
 
   const seekBy = (deltaMs: number) => seekTo(currentMs + deltaMs);
+
   const togglePlay = () => {
     const wavesurfer = wavesurferRef.current;
     if (!wavesurfer) return;
 
-    if (!wavesurfer.isPlaying()) {
-      const pendingAnchorMs = pendingAnchorVerifyMsRef.current;
-      if (pendingAnchorMs !== null) {
-        // Reproduce the user's successful manual workflow automatically:
-        // start ~2s before the applied anchor, so iOS audio output is already
-        // running and stable when the musical Perfect boundary is reached.
-        const preRollMs = Math.max(trimStartMsRef.current, pendingAnchorMs - ANCHOR_VERIFY_PREROLL_MS);
-        pendingAnchorVerifyMsRef.current = null;
-        wavesurfer.setTime(preRollMs / 1000);
-        scrollToTime(wavesurfer, preRollMs / 1000);
-        emitTime(preRollMs);
-      } else if (wavesurfer.getCurrentTime() * 1000 < trimStartMsRef.current) {
-        wavesurfer.setTime(trimStartMsRef.current / 1000);
-      }
+    // The initial media position is intentionally left at 0 during ready.
+    // Move it to the virtual trimmed begin only now, inside the user gesture.
+    if (!wavesurfer.isPlaying() && wavesurfer.getCurrentTime() * 1000 < trimStartMsRef.current) {
+      const startMs = trimStartMsRef.current;
+      wavesurfer.setTime(startMs / 1000);
+      scrollToTime(wavesurfer, startMs / 1000);
+      emitTime(startMs);
     }
 
     void wavesurfer.playPause();
   };
+
   const currentPercent = durationMs ? Math.min(100, Math.max(0, currentMs / durationMs * 100)) : 0;
 
-  return <div className={`waveform-player ${compact ? "is-compact" : "is-expanded"}`}>
-    <div className="waveform-compact-bar"><button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><div className="waveform-compact-copy"><strong>{title || "Untitled track"}</strong><span>{formatTime(currentMs)} / {formatTime(durationMs)}</span></div><div className="waveform-compact-progress"><span style={{ width: `${currentPercent}%` }} /></div></div>
-    <div className="waveform-expanded-ui">
-      <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{ready ? `Trimmed begin ${formatTime(trimStartMs)} · 1 finger seek · 2 fingers pan` : "Detecting audio start…"}</small></div></div></div>
-      <div ref={viewportRef} className="waveform-viewport"><div className="waveform-zoom-controls" aria-label="Waveform zoom controls"><button type="button" onClick={() => setZoom(current => clampZoom(current - 1))} disabled={zoom <= 1} aria-label="Zoom out">−</button><span>{zoom % 1 === 0 ? zoom : zoom.toFixed(1)}×</span><button type="button" onClick={() => setZoom(current => clampZoom(current + 1))} aria-label="Zoom in">＋</button></div><div ref={containerRef} className="waveform-canvas" aria-label="Interactive audio waveform" />{!ready && <div className="waveform-loading">Detecting audio start…</div>}</div>
-      <div className="waveform-controls"><button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button><button className="waveform-nudge" type="button" onClick={playFromBegin} disabled={!ready} aria-label="Play from audible beginning" title="Play from audible beginning">⏮</button>{[-1000, -100, -10, 10, 100, 1000].map(delta => <button key={delta} className="waveform-nudge" type="button" onClick={() => seekBy(delta)} disabled={!ready}>{delta > 0 ? "+" : "−"}{Math.abs(delta) >= 1000 ? `${Math.abs(delta) / 1000}s` : Math.abs(delta)}</button>)}</div>
-      <div className="waveform-footer"><span>⏮ play from begin · leading silence hidden · anchor verify uses 2s pre-roll · 1 finger seek · 2 fingers pan</span></div>
+  return (
+    <div className={`waveform-player ${compact ? "is-compact" : "is-expanded"}`}>
+      <div className="waveform-compact-bar">
+        <button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button>
+        <div className="waveform-compact-copy"><strong>{title || "Untitled track"}</strong><span>{formatTime(currentMs)} / {formatTime(durationMs)}</span></div>
+        <div className="waveform-compact-progress"><span style={{ width: `${currentPercent}%` }} /></div>
+      </div>
+
+      <div className="waveform-expanded-ui">
+        <div className="waveform-player-head">
+          <div className="waveform-player-title">
+            <span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" />
+            <div><strong>{title || "Untitled track"}</strong><small>{ready ? `Trimmed begin ${formatTime(trimStartMs)} · iOS-safe start · 1 finger seek · 2 fingers pan` : "Detecting audio start…"}</small></div>
+          </div>
+        </div>
+
+        <div ref={viewportRef} className="waveform-viewport">
+          <div className="waveform-zoom-controls" aria-label="Waveform zoom controls">
+            <button type="button" onClick={() => setZoom(current => clampZoom(current - 1))} disabled={zoom <= 1} aria-label="Zoom out">−</button>
+            <span>{zoom % 1 === 0 ? zoom : zoom.toFixed(1)}×</span>
+            <button type="button" onClick={() => setZoom(current => clampZoom(current + 1))} aria-label="Zoom in">＋</button>
+          </div>
+          <div ref={containerRef} className="waveform-canvas" aria-label="Interactive audio waveform" />
+          {!ready && <div className="waveform-loading">Detecting audio start…</div>}
+        </div>
+
+        <div className="waveform-controls">
+          <button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button>
+          <button className="waveform-nudge" type="button" onClick={playFromBegin} disabled={!ready} aria-label="Play from audible beginning" title="Play from audible beginning">⏮</button>
+          {[-1000, -100, -10, 10, 100, 1000].map(delta => (
+            <button key={delta} className="waveform-nudge" type="button" onClick={() => seekBy(delta)} disabled={!ready}>
+              {delta > 0 ? "+" : "−"}{Math.abs(delta) >= 1000 ? `${Math.abs(delta) / 1000}s` : Math.abs(delta)}
+            </button>
+          ))}
+        </div>
+
+        <div className="waveform-footer"><span>⏮ play from begin · leading silence hidden · no ready-time media seek · 1 finger seek · 2 fingers pan</span></div>
+      </div>
     </div>
-  </div>;
+  );
 });
 
 export default WaveformPlayer;
