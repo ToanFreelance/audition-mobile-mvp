@@ -1,0 +1,46 @@
+/* Tool route is a normal scrollable document, never the fixed gameplay viewport. */
+html:has(.music-config-page),
+body:has(.music-config-page){
+  width:100%;
+  min-height:100%;
+  height:auto!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:auto;
+}
+
+.music-config-page{
+  width:100%;
+  max-width:100vw;
+  min-height:100dvh!important;
+  height:auto!important;
+  overflow:visible!important;
+  padding-bottom:48px;
+}
+
+.music-config-page *{min-width:0}
+.music-config-page .config-header,
+.music-config-page .config-layout,
+.music-config-page .editor-panel,
+.music-config-page .library-panel{width:100%;max-width:100%;box-sizing:border-box}
+
+.config-back-button{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:16px;
+  padding:9px 13px!important;
+  border:1px solid rgba(255,255,255,.24)!important;
+  border-radius:8px!important;
+  background:rgba(12,10,20,.9)!important;
+  color:#fff!important;
+  text-decoration:none;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.03em;
+}
+.config-back-button:hover{border-color:#d12cff!important;box-shadow:0 0 18px rgba(209,44,255,.22)}
+
+/* READY owns the only configure launcher. */
+.global-config-button,.configure-launcher{display:none!important}

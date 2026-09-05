@@ -1,21 +1,31 @@
+export type ClockTimeSource = () => number;
+
 export class BeatClock {
   private startPerf = 0;
   private paused = false;
-  private pausePerf = 0;
   private elapsedBeforePause = 0;
+  private timeSource: ClockTimeSource | null = null;
 
   constructor(private readonly bpm: number, private readonly offsetMs = 0) {}
+
+  setTimeSource(source: ClockTimeSource | null) { this.timeSource = source; }
+
+  syncToTimeSource() {
+    // The media element is the authoritative clock. HTMLAudioElement.currentTime
+    // already represents position from the beginning of the track, so do not
+    // create a second clock by translating it through performance.now().
+  }
 
   start() {
     this.startPerf = performance.now();
     this.paused = false;
-    this.pausePerf = 0;
     this.elapsedBeforePause = 0;
   }
 
   get elapsedMs() {
     if (!this.startPerf) return 0;
     if (this.paused) return this.elapsedBeforePause;
+    if (this.timeSource) return Math.max(0, this.timeSource());
     return performance.now() - this.startPerf;
   }
 

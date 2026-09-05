@@ -3,20 +3,23 @@ name: Audition Mobile QA
 on:
   push:
     branches:
-      - main
-  pull_request:
-    branches:
+      - feat/audition-ui-gauge-rebuild
       - main
   workflow_dispatch:
+  deployment_status:
+
+concurrency:
+  group: audition-mobile-qa-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  qa:
-    name: Playwright QA
+  build:
+    name: Build Gate
+    if: github.event_name != 'deployment_status'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,15 +27,35 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
         run: npm install
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium webkit
-
       - name: Build application
+        run: npm run build
+
+  e2e-local:
+    name: Playwright QA — local production build
+    if: github.event_name != 'deployment_status'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium + WebKit
+        run: npx playwright install chromium webkit --with-deps
+
+      - name: Build production app for E2E
         run: npm run build
 
       - name: Start application
@@ -47,7 +70,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-local
           path: |
             playwright-report/
             test-results/
@@ -59,4 +82,40 @@ jobs:
         with:
           name: next-server-log
           path: /tmp/audition-next.log
+          if-no-files-found: ignore
+
+  e2e-preview:
+    name: Playwright QA — Vercel Preview
+    if: github.event_name == 'deployment_status' && github.event.deployment_status.state == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout deployed commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium + WebKit
+        run: npx playwright install chromium webkit --with-deps
+
+      - name: Run Playwright QA against deployment
+        run: npm run test:qa
+        env:
+          PLAYWRIGHT_TEST_BASE_URL: ${{ github.event.deployment_status.target_url }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-preview
+          path: |
+            playwright-report/
+            test-results/
           if-no-files-found: ignore

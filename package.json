@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "predev": "node scripts/analyze-rhythm.mjs",
     "build": "next build",
+    "prebuild": "node scripts/analyze-rhythm.mjs",
     "start": "next start",
     "lint": "next lint",
     "test:qa": "playwright test",
@@ -12,11 +14,12 @@
     "test:qa:report": "playwright show-report"
   },
   "dependencies": {
+    "@audio/beat": "^2.1.3",
     "next": "16.3.2",
-    "phaser": "3.90.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "three": "0.180.0"
+    "three": "0.180.0",
+    "wavesurfer.js": "^7.12.11"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
@@ -24,6 +27,8 @@
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
     "@types/three": "0.180.0",
+    "@tailwindcss/postcss": "^4.1.13",
+    "tailwindcss": "^4.1.13",
     "typescript": "5.8.3"
   }
 }

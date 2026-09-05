@@ -1,0 +1,96 @@
+/* Audition-reference timing zone: flat/sharp edges, no rounded breath blobs. */
+.gauge-zone{
+  overflow:visible!important;
+  border-radius:0!important;
+  background:linear-gradient(90deg,rgba(112,112,122,.58) 0%,rgba(174,174,184,.78) 24%,rgba(232,232,238,.92) 42%,rgba(255,255,255,1) 50%,rgba(232,232,238,.92) 58%,rgba(174,174,184,.78) 76%,rgba(112,112,122,.58) 100%)!important;
+  box-shadow:0 0 14px rgba(255,255,255,.12),inset 0 0 8px rgba(255,255,255,.16)!important;
+  animation:gauge-zone-breathe 750ms ease-in-out infinite;
+}
+
+/* The original reference reads as a thin rectangular light sweep, not two
+   rounded capsules expanding from the zone edges. */
+.gauge-zone::before,.gauge-zone::after{
+  content:"";
+  position:absolute;
+  top:-5px;
+  bottom:-5px;
+  width:2px;
+  border-radius:0!important;
+  z-index:3;
+  background:#fff;
+  filter:blur(1px);
+  opacity:.22;
+  animation:gauge-edge-flash 750ms ease-in-out infinite;
+}
+.gauge-zone::before{left:0;transform-origin:center}
+.gauge-zone::after{right:0;transform-origin:center}
+
+.gauge-zone i{
+  left:0!important;
+  width:100%!important;
+  top:0!important;
+  bottom:0!important;
+  border-radius:0!important;
+  background:linear-gradient(90deg,transparent 0%,transparent 38%,rgba(255,255,255,.08) 45%,rgba(255,255,255,.72) 50%,rgba(255,255,255,.08) 55%,transparent 62%,transparent 100%)!important;
+  filter:none!important;
+  opacity:.2!important;
+  animation:gauge-zone-sheen 750ms ease-in-out infinite!important;
+}
+
+@keyframes gauge-zone-breathe{
+  0%,100%{filter:brightness(.88);box-shadow:0 0 10px rgba(255,255,255,.08),inset 0 0 7px rgba(255,255,255,.12)}
+  50%{filter:brightness(1.18);box-shadow:0 0 20px rgba(255,255,255,.28),inset 0 0 12px rgba(255,255,255,.3)}
+}
+
+@keyframes gauge-edge-flash{
+  0%,100%{opacity:.16;transform:scaleY(.72)}
+  50%{opacity:.72;transform:scaleY(1)}
+}
+
+@keyframes gauge-zone-sheen{
+  0%,100%{opacity:.16;transform:translateX(-2%)}
+  50%{opacity:.68;transform:translateX(2%)}
+}
+
+/* Reference-style READY / START overlays are driven directly by the runtime
+   phase so they do not depend on the React countdown number. */
+.audition-stage::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:47%;
+  transform:translate(-50%,-50%) scale(.94);
+  z-index:8;
+  pointer-events:none;
+  opacity:0;
+  font-size:clamp(28px,5vw,54px);
+  line-height:1;
+  font-weight:1000;
+  letter-spacing:.08em;
+  color:#fff;
+  text-shadow:0 0 8px #fff,0 0 22px #ff4fd8,0 0 42px #a45cff;
+}
+
+html[data-rhythm-phase="ready"] .audition-stage::before{
+  content:"SẴN SÀNG";
+  opacity:1;
+  animation:audition-ready-pulse .7s ease-out both;
+}
+
+html[data-rhythm-start-pulse="1"] .audition-stage::before{
+  content:"START";
+  opacity:1;
+  animation:audition-start-pulse .42s ease-out both;
+}
+
+@keyframes audition-ready-pulse{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.78)}
+  25%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}
+  100%{opacity:.9;transform:translate(-50%,-50%) scale(1)}
+}
+
+@keyframes audition-start-pulse{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(1.2)}
+  28%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(.96)}
+}
