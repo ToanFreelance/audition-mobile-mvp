@@ -78,17 +78,29 @@ const SimpleAudioPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(
   };
 
   const seekTo = (ms: number) => setNativeTime(ms);
-  const previewFrom = (ms: number) => {
+  const startPlayback = async () => {
     const audio = audioRef.current;
     if (!audio) return;
+    // Explicitly restore audible state on every user-triggered play. Earlier iOS
+    // resync experiments temporarily muted the media element; Safari can retain
+    // that element state across React/deployment updates in the same tab.
+    audio.muted = false;
+    audio.volume = 1;
+    try {
+      await audio.play();
+    } catch (error) {
+      console.warn("Native audio playback failed", error);
+    }
+  };
+  const previewFrom = (ms: number) => {
+    if (!audioRef.current) return;
     setNativeTime(ms);
-    void audio.play();
+    void startPlayback();
   };
   const playFromBegin = () => {
-    const audio = audioRef.current;
-    if (!audio) return;
+    if (!audioRef.current) return;
     setNativeTime(0);
-    void audio.play();
+    void startPlayback();
   };
 
   useImperativeHandle(ref, () => ({
@@ -101,6 +113,8 @@ const SimpleAudioPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !url) return;
+    audio.muted = false;
+    audio.volume = 1;
 
     const stopClock = () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -189,7 +203,7 @@ const SimpleAudioPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (audio.paused) void audio.play();
+    if (audio.paused) void startPlayback();
     else audio.pause();
   };
 
@@ -197,7 +211,7 @@ const SimpleAudioPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(
 
   return (
     <div className={`waveform-player simple-audio-player ${compact ? "is-compact" : "is-expanded"}`}>
-      <audio ref={audioRef} src={url} preload="auto" playsInline />
+      <audio ref={audioRef} src={url} preload="auto" playsInline muted={false} />
 
       <div className="waveform-compact-bar">
         <button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready} aria-label={playing ? "Pause" : "Play"}>{playing ? "Ⅱ" : "▶"}</button>
