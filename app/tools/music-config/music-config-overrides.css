@@ -17,17 +17,18 @@
 .anchor-actions .button-primary,.anchor-actions .button-primary:hover,.anchor-actions .button-primary:focus,.anchor-actions .button-primary:active,.anchor-actions .button-primary:disabled{opacity:1!important;filter:none!important;background:linear-gradient(135deg,#c62af0,#6f35df)!important;border-color:#d25ce8!important;color:#fff!important;-webkit-text-fill-color:#fff!important;box-shadow:0 8px 24px rgba(168,59,200,.18)}
 @media(hover:none){.button:hover{opacity:1!important;filter:none!important;transform:none!important}.button-primary:hover{opacity:1!important;filter:none!important;background:linear-gradient(135deg,#d52dff,#7928ff)!important;border-color:#ef73ff!important}.theme-light .button:hover{opacity:1!important;filter:none!important;background:#fff!important;border-color:#d3d7df!important}.theme-light .button-primary:hover{background:linear-gradient(135deg,#c62af0,#6f35df)!important;border-color:#d25ce8!important}}
 
-/* The waveform is a horizontal browser-scrolling editor, not a seek-drag control. */
-.waveform-viewport{touch-action:pan-x;overflow-x:auto!important;overflow-y:hidden!important;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;overscroll-behavior-y:none}
-.waveform-canvas{touch-action:pan-x;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-
 /* Anchor/beat markers are intentionally removed from the waveform. */
 .waveform-marker-layer,.waveform-marker,.waveform-anchor-line,.waveform-position-line{display:none!important}
 
 /* The anchor strip represents 4-beat phrase starts, not individual detected beats. */
 .anchor-strip{scroll-snap-type:x proximity;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.anchor-strip::-webkit-scrollbar{display:none}.anchor-strip>button{scroll-snap-align:start;flex:0 0 auto}
-
 .anchor-custom-button{width:100%;margin-top:8px}
+
+/* Native-only player: the timing scrubber must use the entire workstation width. */
+.simple-audio-player,.simple-audio-player .waveform-expanded-ui{width:100%;max-width:none!important;min-width:0}
+.simple-audio-player .simple-audio-range{display:block;width:100%!important;max-width:none!important;box-sizing:border-box;margin:10px 0 14px;padding:0;accent-color:#c62af0}
+.simple-audio-player .simple-audio-time{display:flex;align-items:baseline;gap:5px;width:100%}
+.simple-audio-player .waveform-controls{width:100%}
 
 @media(max-width:560px){.audio-dock.is-collapsed .waveform-compact-bar{display:flex}.audio-dock.is-collapsed .waveform-expanded-ui{display:none}.audio-dock.is-collapsed .audio-dock-topline{margin-bottom:2px;justify-content:flex-end}.audio-dock.is-collapsed .audio-dock-title{display:none}.audio-dock.is-collapsed .audio-dock-toggle{font-size:15px}}
 
