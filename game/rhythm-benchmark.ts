@@ -271,8 +271,7 @@ async function runWebAudioBeatDetector(input: BenchmarkInput): Promise<RhythmEng
   const started = performance.now();
   try {
     const guessed = await guessWebAudioBeat(input.buffer, { minTempo: 40, maxTempo: 220 });
-    const tempoValue = Number(guessed.tempo);
-    const bpm = Number.isFinite(tempoValue) && tempoValue > 0 ? tempoValue : Number(guessed.bpm);
+    const bpm = Number(guessed.bpm);
     const offset = Number(guessed.offset);
     const beats = synthesizeBeatGrid(Number.isFinite(offset) ? offset : 0, bpm, input.buffer.duration);
     return normalizeResult({ id: "web-audio-beat-detector", engine: "web-audio-beat-detector", variant: "guess", kind: "package", bpm: Number.isFinite(bpm) ? bpm : null, confidence: null, beatTimesMs: beats, processingTimeMs: performance.now() - started, notes: `Guessed first-beat offset ${Number.isFinite(offset) ? `${offset.toFixed(3)}s` : "n/a"}; grid is synthesized from package BPM+offset.` }, input.spaceStartMs);
