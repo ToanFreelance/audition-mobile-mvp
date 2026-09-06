@@ -15,9 +15,7 @@ export type TempoAnalysis = {
   confidence: number;
   candidates: TempoCandidate[];
   beats: number[];
-  /** First sustained non-silent audio on the original media timeline. */
   audioStartMs: number;
-  /** Number of milliseconds logically skipped before tempo/beat analysis. */
   analysisOffsetMs: number;
 };
 
@@ -46,10 +44,20 @@ function percentile(values: number[], ratio: number): number {
   return sorted[index] ?? 0;
 }
 
-/**
- * Build a deliberately small/cheap transient envelope from decoded PCM.
- * We only need relative beat-grid alignment, not automatic beat phase.
- */
+async function resolvePersistedSpaceStart(audioUrl: string): Promise<number | undefined> {
+  try {
+    const response = await fetch("/api/music-config", { cache: "no-store" });
+    if (!response.ok) return undefined;
+    const json = await response.json() as { configs?: Array<{ audioUrl?: string; spaceStartMs?: number }> } | Array<{ audioUrl?: string; spaceStartMs?: number }>;
+    const configs = Array.isArray(json) ? json : json.configs ?? [];
+    const match = configs.find(item => item.audioUrl === audioUrl);
+    const value = match?.spaceStartMs;
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function buildEnergyFlux(mono: Float32Array, sampleRate: number) {
   const frameSize = Math.max(128, Math.round(sampleRate * 0.02));
   const frameCount = Math.floor(mono.length / frameSize);
@@ -67,7 +75,6 @@ function buildEnergyFlux(mono: Float32Array, sampleRate: number) {
     }
     const rms = Math.sqrt(sumSquares / Math.max(1, end - start));
     const rawFlux = Math.max(0, rms - previousRms);
-    // Two-frame smoothing keeps drum attacks visible while reducing vocal RMS noise.
     flux[frame] = (rawFlux + previousFlux) * 0.5;
     previousFlux = rawFlux;
     previousRms = rms;
@@ -90,8 +97,6 @@ function scoreAnchorGrid(
   let sum = 0;
   let count = 0;
 
-  // Space Start is the phase authority. Score only forward from that authored
-  // boundary so intro/pickup material cannot bias the result.
   for (let beat = 0; beat < 1200; beat += 1) {
     const time = anchorSeconds + beat * beatSeconds;
     if (time > lastTime) break;
@@ -137,11 +142,6 @@ function refineBpmAgainstAnchor(
   return Number.isFinite(bestScore) ? Number(bestBpm.toFixed(4)) : null;
 }
 
-/**
- * Detect the first sustained audible region for tempo analysis. This remains
- * intentionally conservative and includes a short pre-roll so transients are
- * not removed from the BPM detector. It is NOT used to crop playback anymore.
- */
 export function detectLeadingAudioStart(mono: Float32Array, sampleRate: number): number {
   if (!mono.length || !Number.isFinite(sampleRate) || sampleRate <= 0) return 0;
 
@@ -196,9 +196,7 @@ export async function analyzeTempo(audioUrl: string, authoredSpaceStartMs?: numb
   if (!response.ok) throw new Error(`Không đọc được audio (HTTP ${response.status}).`);
 
   const bytes = await response.arrayBuffer();
-  const AudioContextCtor =
-    window.AudioContext ??
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  const AudioContextCtor = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextCtor) throw new Error("Thiết bị không hỗ trợ Web Audio API.");
 
   const context = new AudioContextCtor();
@@ -226,60 +224,38 @@ export async function analyzeTempo(audioUrl: string, authoredSpaceStartMs?: numb
     const combResult = combTempo(analysisMono, baseOptions);
     const tracked = beatTrack(analysisMono, baseOptions);
 
-    const tempoCandidateValues = finite(
-      (tempoResult as TempoResult & { candidates?: ArrayLike<number> }).candidates,
-    );
+    const tempoCandidateValues = finite((tempoResult as TempoResult & { candidates?: ArrayLike<number> }).candidates);
     const tempoBpm = Number(tempoResult.bpm);
     const combBpm = Number(combResult.bpm);
     const trackedBpm = Number(tracked.bpm);
 
-    // tempo() and beatTrack() usually agree on the correct tempo family. A
-    // comb-filter candidate can land on a harmonic (Aloha currently reports
-    // 119 while the musical pulse is ~101), so only admit comb when it is near
-    // the stable family instead of taking a blind median.
     const family = [tempoBpm, trackedBpm].filter(value => Number.isFinite(value) && value >= minBpm && value <= maxBpm);
     let coarseBpm = median(family) ?? (Number.isFinite(tempoBpm) ? tempoBpm : Number.isFinite(combBpm) ? combBpm : 120);
     if (Number.isFinite(combBpm) && Math.abs(combBpm - coarseBpm) / Math.max(1, coarseBpm) <= 0.035) {
       coarseBpm = median([...family, combBpm]) ?? coarseBpm;
     }
 
-    const anchorGridBpm = refineBpmAgainstAnchor(
-      mono,
-      buffer.sampleRate,
-      buffer.duration,
-      authoredSpaceStartMs,
-      coarseBpm,
-    );
+    const savedSpaceStartMs = authoredSpaceStartMs ?? await resolvePersistedSpaceStart(audioUrl);
+    const anchorGridBpm = refineBpmAgainstAnchor(mono, buffer.sampleRate, buffer.duration, savedSpaceStartMs, coarseBpm);
     const targetBpm = anchorGridBpm ?? coarseBpm;
 
     const candidates: TempoCandidate[] = [
       ...(anchorGridBpm == null ? [] : [{ bpm: anchorGridBpm, source: "anchorGrid" as const, confidence: 0.95 }]),
-      ...tempoCandidateValues.map((bpm): TempoCandidate => ({
-        bpm,
-        source: "tempo",
-        confidence: Number(tempoResult.confidence) || 0,
-      })),
+      ...tempoCandidateValues.map((bpm): TempoCandidate => ({ bpm, source: "tempo", confidence: Number(tempoResult.confidence) || 0 })),
       { bpm: tempoBpm, source: "tempo", confidence: Number(tempoResult.confidence) || 0 },
       { bpm: combBpm, source: "comb", confidence: Number(combResult.confidence) || 0 },
       { bpm: trackedBpm, source: "beatTrack", confidence: Number(tracked.confidence) || 0 },
-    ].filter(
-      (item): item is TempoCandidate =>
-        Number.isFinite(item.bpm) && item.bpm >= minBpm && item.bpm <= maxBpm && isTempoSource(item.source),
-    );
+    ].filter((item): item is TempoCandidate => Number.isFinite(item.bpm) && item.bpm >= minBpm && item.bpm <= maxBpm && isTempoSource(item.source));
 
     const bpmExact = Number(clamp(targetBpm, minBpm, maxBpm).toFixed(4));
     const displayBpm = Math.round(bpmExact);
-    const confidence = anchorGridBpm != null
-      ? 0.95
-      : Number(clamp(Math.max(Number(tracked.confidence) || 0, Number(tempoResult.confidence) || 0), 0, 1).toFixed(4));
+    const confidence = anchorGridBpm != null ? 0.95 : Number(clamp(Math.max(Number(tracked.confidence) || 0, Number(tempoResult.confidence) || 0), 0, 1).toFixed(4));
 
     return {
       bpmExact,
       displayBpm,
       confidence,
       candidates,
-      // Beat phase remains deliberately disabled. The user's Space Start is
-      // the phase authority; anchorGrid only refines beat spacing to stop drift.
       beats: [],
       audioStartMs,
       analysisOffsetMs: audioStartMs,
