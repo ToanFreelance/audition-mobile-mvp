@@ -142,6 +142,42 @@ function refineBpmAgainstAnchor(
   return Number.isFinite(bestScore) ? Number(bestBpm.toFixed(4)) : null;
 }
 
+function chooseCoarseBpm(args: {
+  tempoBpm: number;
+  tempoConfidence: number;
+  combBpm: number;
+  combConfidence: number;
+  trackedBpm: number;
+  trackedConfidence: number;
+  minBpm: number;
+  maxBpm: number;
+}) {
+  const { tempoBpm, tempoConfidence, combBpm, combConfidence, trackedBpm, trackedConfidence, minBpm, maxBpm } = args;
+  const valid = (value: number) => Number.isFinite(value) && value >= minBpm && value <= maxBpm;
+
+  // A high-confidence tempo estimate is the safest seed for local anchor-grid
+  // refinement. Do not average it with a low-confidence tracker that landed on
+  // a different harmonic (Aloha: tempo≈100.45 @100%, beatTrack≈119 @4%).
+  if (valid(tempoBpm) && tempoConfidence >= 0.5) {
+    const closeValues = [tempoBpm];
+    if (valid(trackedBpm) && trackedConfidence >= 0.35 && Math.abs(trackedBpm - tempoBpm) / tempoBpm <= 0.035) closeValues.push(trackedBpm);
+    if (valid(combBpm) && combConfidence >= 0.35 && Math.abs(combBpm - tempoBpm) / tempoBpm <= 0.035) closeValues.push(combBpm);
+    return median(closeValues) ?? tempoBpm;
+  }
+
+  if (valid(trackedBpm) && trackedConfidence >= 0.35) {
+    const closeValues = [trackedBpm];
+    if (valid(combBpm) && combConfidence >= 0.35 && Math.abs(combBpm - trackedBpm) / trackedBpm <= 0.035) closeValues.push(combBpm);
+    if (valid(tempoBpm) && Math.abs(tempoBpm - trackedBpm) / trackedBpm <= 0.035) closeValues.push(tempoBpm);
+    return median(closeValues) ?? trackedBpm;
+  }
+
+  if (valid(tempoBpm)) return tempoBpm;
+  if (valid(combBpm)) return combBpm;
+  if (valid(trackedBpm)) return trackedBpm;
+  return 120;
+}
+
 export function detectLeadingAudioStart(mono: Float32Array, sampleRate: number): number {
   if (!mono.length || !Number.isFinite(sampleRate) || sampleRate <= 0) return 0;
 
@@ -228,28 +264,26 @@ export async function analyzeTempo(audioUrl: string, authoredSpaceStartMs?: numb
     const tempoBpm = Number(tempoResult.bpm);
     const combBpm = Number(combResult.bpm);
     const trackedBpm = Number(tracked.bpm);
+    const tempoConfidence = clamp(Number(tempoResult.confidence) || 0, 0, 1);
+    const combConfidence = clamp(Number(combResult.confidence) || 0, 0, 1);
+    const trackedConfidence = clamp(Number(tracked.confidence) || 0, 0, 1);
 
-    const family = [tempoBpm, trackedBpm].filter(value => Number.isFinite(value) && value >= minBpm && value <= maxBpm);
-    let coarseBpm = median(family) ?? (Number.isFinite(tempoBpm) ? tempoBpm : Number.isFinite(combBpm) ? combBpm : 120);
-    if (Number.isFinite(combBpm) && Math.abs(combBpm - coarseBpm) / Math.max(1, coarseBpm) <= 0.035) {
-      coarseBpm = median([...family, combBpm]) ?? coarseBpm;
-    }
-
+    const coarseBpm = chooseCoarseBpm({ tempoBpm, tempoConfidence, combBpm, combConfidence, trackedBpm, trackedConfidence, minBpm, maxBpm });
     const savedSpaceStartMs = authoredSpaceStartMs ?? await resolvePersistedSpaceStart(audioUrl);
     const anchorGridBpm = refineBpmAgainstAnchor(mono, buffer.sampleRate, buffer.duration, savedSpaceStartMs, coarseBpm);
     const targetBpm = anchorGridBpm ?? coarseBpm;
 
     const candidates: TempoCandidate[] = [
       ...(anchorGridBpm == null ? [] : [{ bpm: anchorGridBpm, source: "anchorGrid" as const, confidence: 0.95 }]),
-      ...tempoCandidateValues.map((bpm): TempoCandidate => ({ bpm, source: "tempo", confidence: Number(tempoResult.confidence) || 0 })),
-      { bpm: tempoBpm, source: "tempo", confidence: Number(tempoResult.confidence) || 0 },
-      { bpm: combBpm, source: "comb", confidence: Number(combResult.confidence) || 0 },
-      { bpm: trackedBpm, source: "beatTrack", confidence: Number(tracked.confidence) || 0 },
+      ...tempoCandidateValues.map((bpm): TempoCandidate => ({ bpm, source: "tempo", confidence: tempoConfidence })),
+      { bpm: tempoBpm, source: "tempo", confidence: tempoConfidence },
+      { bpm: combBpm, source: "comb", confidence: combConfidence },
+      { bpm: trackedBpm, source: "beatTrack", confidence: trackedConfidence },
     ].filter((item): item is TempoCandidate => Number.isFinite(item.bpm) && item.bpm >= minBpm && item.bpm <= maxBpm && isTempoSource(item.source));
 
     const bpmExact = Number(clamp(targetBpm, minBpm, maxBpm).toFixed(4));
     const displayBpm = Math.round(bpmExact);
-    const confidence = anchorGridBpm != null ? 0.95 : Number(clamp(Math.max(Number(tracked.confidence) || 0, Number(tempoResult.confidence) || 0), 0, 1).toFixed(4));
+    const confidence = anchorGridBpm != null ? 0.95 : Number(clamp(Math.max(trackedConfidence, tempoConfidence), 0, 1).toFixed(4));
 
     return {
       bpmExact,
