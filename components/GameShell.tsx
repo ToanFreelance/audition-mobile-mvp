@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createChartFromMusicConfig, DEMO_CHART } from "../game/chart";
+import { createChartFromMusicConfig } from "../game/chart";
 import { DEFAULT_MUSIC_CONFIG, type MusicConfig } from "../game/music-config";
 import { RhythmRuntime, SCORE_ZONE_END, SCORE_ZONE_START } from "../game/runtime";
 import type { Direction, GameStats, Judgement } from "../game/types";
+import { WebAudioTransport } from "../game/web-audio-transport";
 import Stage3D from "./Stage3D";
 import AuditionGauge from "./AuditionGauge";
 
@@ -39,7 +40,7 @@ export default function GameShell() {
   const [spacePressed, setSpacePressed] = useState(false);
   const [songTime, setSongTime] = useState(0);
 
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const transportRef = useRef<WebAudioTransport | null>(null);
   const directionTimer = useRef<number | null>(null);
   const judgementTimer = useRef<number | null>(null);
   const startCueTimer = useRef<number | null>(null);
@@ -64,7 +65,7 @@ export default function GameShell() {
       setJudgement(value);
       judgementTimer.current = window.setTimeout(() => setJudgement(null), 1000);
     },
-    onFinished: (next) => { setStats(next); setFinished(true); setStarted(false); },
+    onFinished: (next) => { setStats(next); setFinished(true); setStarted(false); transportRef.current?.pause(); },
   }), [activeChart]);
 
   useEffect(() => {
@@ -89,6 +90,36 @@ export default function GameShell() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const previous = transportRef.current;
+    transportRef.current = null;
+    if (previous) void previous.destroy();
+
+    const transport = new WebAudioTransport(selectedMusic.audioUrl);
+    transportRef.current = transport;
+    setAudioError(null);
+    setAudioDetails("");
+    setAudioState("loading");
+    setSongTime(0);
+
+    void transport.prepare().then(() => {
+      if (cancelled || transportRef.current !== transport) return;
+      setAudioState("ready");
+    }).catch(error => {
+      if (cancelled) return;
+      setAudioState("error");
+      setAudioError(error instanceof Error ? error.message : "Không thể chuẩn bị Web Audio.");
+      setAudioDetails(`engine=WebAudio · src=${selectedMusic.audioUrl}`);
+    });
+
+    return () => {
+      cancelled = true;
+      if (transportRef.current === transport) transportRef.current = null;
+      void transport.destroy();
+    };
+  }, [selectedMusic.audioUrl]);
+
   useEffect(() => () => {
     runtime.destroy();
     if (directionTimer.current) window.clearTimeout(directionTimer.current);
@@ -101,7 +132,7 @@ export default function GameShell() {
     const tick = () => {
       setGauge(runtime.gaugePercent);
       setDelta(runtime.timingDeltaMs);
-      setSongTime(audioRef.current?.currentTime ?? 0);
+      setSongTime((transportRef.current?.getCurrentTimeMs() ?? 0) / 1000);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -111,6 +142,7 @@ export default function GameShell() {
   const chooseMusic = useCallback((music: MusicConfig) => {
     if (started) return;
     runtime.stop();
+    transportRef.current?.reset();
     setStarted(false);
     setFinished(false);
     setSongPickerOpen(false);
@@ -125,10 +157,6 @@ export default function GameShell() {
     setJudgement(null);
     setCountdown(null);
     setStartCue(false);
-    window.setTimeout(() => {
-      const audio = audioRef.current;
-      if (audio) { audio.pause(); audio.currentTime = 0; audio.load(); }
-    }, 0);
   }, [runtime, started]);
 
   const openSongPicker = useCallback(() => {
@@ -138,9 +166,7 @@ export default function GameShell() {
   const reportAudioError = useCallback((reason: string) => {
     setAudioState("error");
     setAudioError(reason);
-    const audio = audioRef.current;
-    const media = audio?.error;
-    const details = [`code=${media?.code ?? "n/a"}`, `readyState=${audio?.readyState ?? "n/a"}`, `networkState=${audio?.networkState ?? "n/a"}`, `src=${audio?.currentSrc || selectedMusic.audioUrl}`].join(" · ");
+    const details = `engine=WebAudio · src=${selectedMusic.audioUrl}`;
     setAudioDetails(details);
     if (!audioAlertedRef.current) {
       audioAlertedRef.current = true;
@@ -149,19 +175,17 @@ export default function GameShell() {
   }, [selectedMusic.audioUrl]);
 
   const playAudio = useCallback(async (restart = true) => {
-    const audio = audioRef.current;
-    if (!audio) { reportAudioError("Không tìm thấy HTMLAudioElement."); return false; }
+    const transport = transportRef.current;
+    if (!transport) { reportAudioError("Web Audio transport chưa sẵn sàng."); return false; }
     try {
       setAudioError(null); setAudioDetails(""); setAudioState("loading");
-      if (restart) audio.currentTime = 0;
-      audio.muted = false; audio.volume = 1; audio.load();
-      runtime.setTimeSource(() => audio.currentTime * 1000);
-      await audio.play();
+      if (restart) transport.reset();
+      runtime.setTimeSource(() => transport.getCurrentTimeMs());
+      await transport.play();
       setAudioState("playing");
       return true;
     } catch (error) {
-      const err = error as DOMException | undefined;
-      const reason = err?.name === "NotAllowedError" ? "iOS/browser đã chặn playback vì thao tác chưa được coi là user gesture." : err?.name === "NotSupportedError" ? "Browser không decode được source audio đang deploy." : err?.message || "Browser báo lỗi playback không xác định.";
+      const reason = error instanceof Error ? error.message : "Browser báo lỗi Web Audio không xác định.";
       reportAudioError(reason); runtime.setTimeSource(null); return false;
     }
   }, [reportAudioError, runtime]);
@@ -169,23 +193,19 @@ export default function GameShell() {
   const startGame = useCallback(async () => {
     audioAlertedRef.current = false;
     setStats(INITIAL_STATS); setSequence([]); setCompleted(0); setLevel(1); setJudgement(null); setFinished(false); setStarted(false); setCountdown(null); setStartCue(false); setAudioError(null); setSongTime(0);
-    const audio = audioRef.current;
-    if (!audio) return;
+    const transport = transportRef.current;
+    if (!transport) { reportAudioError("Web Audio transport chưa sẵn sàng."); return; }
     try {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.load();
-      runtime.setTimeSource(() => audio.currentTime * 1000);
+      transport.reset();
+      runtime.setTimeSource(() => transport.getCurrentTimeMs());
       runtime.start();
-      const playPromise = audio.play();
       setAudioState("loading");
-      await playPromise;
+      await transport.play();
       setAudioState("playing");
       setStarted(true);
     } catch (error) {
       runtime.stop();
-      const err = error as DOMException | undefined;
-      const reason = err?.name === "NotAllowedError" ? "iOS/browser chặn autoplay. Hãy dùng TEST SOUND/REPLAY bằng một lần chạm trực tiếp." : err?.name === "NotSupportedError" ? "Browser không decode được source MP3 đang deploy." : err?.message || "Không thể phát audio.";
+      const reason = error instanceof Error ? error.message : "Không thể phát Web Audio.";
       reportAudioError(reason); runtime.setTimeSource(null); setStarted(false);
     }
   }, [reportAudioError, runtime]);
@@ -237,7 +257,6 @@ export default function GameShell() {
 
   return (
     <main className="audition-page">
-      <audio ref={audioRef} preload="auto" playsInline src={selectedMusic.audioUrl} onCanPlay={() => setAudioState("ready")} onPlaying={() => setAudioState("playing")} onPause={() => setAudioState(current => current === "playing" ? "paused" : current)} onEnded={() => setAudioState("ended")} onError={() => { const code = audioRef.current?.error?.code; reportAudioError(code === 2 ? "Không thể tải file audio." : code === 3 ? "File audio đã tải nhưng browser không decode được." : code === 4 ? "Browser không hỗ trợ source audio này." : "Media element báo lỗi audio không xác định."); }} />
       <section className="audition-stage">
         <Stage3D />
         <div className="audition-hud">
@@ -261,7 +280,7 @@ export default function GameShell() {
           </div>
           <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All <i>▶</i></b></div><div className="bottom-mode"><strong>Audition - Club Dance</strong><span>{selectedMusic.bpm} BPM <b>Hard</b></span><div>★★★☆☆</div></div><button className="exit-button">⇥<small>EXIT</small></button>
           <div className="mobile-controls"><button className={`space-control ${spacePressed ? "pressed" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressSpace(); }}><strong>SPACE</strong><small>PRESS IN SCORE ZONE</small></button><div className="dpad-control">{DIRECTIONS.map(direction => <button key={direction} className={`dpad-${direction} ${activeDirection === direction ? "pressed" : ""} ${sequence[completed] === direction ? "target" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }} aria-label={direction}><ArrowIcon direction={direction} filled={false} target={sequence[completed] === direction} compact /></button>)}<span /></div></div>
-          {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>Song: <b>{selectedMusic.title}</b><br />Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first beat.</p><button onClick={startGame}>START</button><button className="song-select-button" onClick={openSongPicker} disabled={musicLoading}>♫ SELECT SONG</button><button className="configure-button" onClick={() => { window.location.href = "/tools/music-config"; }}>⚙ CONFIGURE MUSIC</button><button className="sound-button" onClick={() => { window.location.href = "/tools/audio-timing"; }}>🧪 AUDIO TIMING</button><button className="sound-button" onClick={retryAudio}>TEST SOUND</button></div></div>}
+          {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>Song: <b>{selectedMusic.title}</b><br />Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first SPACE.</p><button onClick={startGame} disabled={audioState === "loading"}>START</button><button className="song-select-button" onClick={openSongPicker} disabled={musicLoading}>♫ SELECT SONG</button><button className="configure-button" onClick={() => { window.location.href = "/tools/music-config"; }}>⚙ CONFIGURE MUSIC</button><button className="sound-button" onClick={() => { window.location.href = "/tools/audio-timing"; }}>🧪 AUDIO TIMING</button><button className="sound-button" onClick={retryAudio} disabled={audioState === "loading"}>TEST SOUND</button></div></div>}
           {finished && <div className="start-overlay"><div className="ready-card results-card"><span>DANCE COMPLETE</span><h1>{stats.score.toLocaleString()}</h1><p>P {stats.perfect} · G {stats.great} · C {stats.cool} · B {stats.bad} · M {stats.miss}</p><button onClick={startGame}>PLAY AGAIN</button><button onClick={openSongPicker}>SELECT SONG</button></div></div>}
           {songPickerOpen && <SongPicker songs={musicLibrary.length ? musicLibrary : [selectedMusic]} selectedId={selectedMusic.id} onSelect={chooseMusic} onClose={() => setSongPickerOpen(false)} />}
         </div>
