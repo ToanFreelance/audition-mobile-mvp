@@ -29,6 +29,35 @@ export type BenchmarkInput = {
   spaceStartMs?: number;
 };
 
+type EssentiaRawRhythm = {
+  bpm?: number;
+  ticks?: unknown;
+  confidence?: number;
+  estimates?: unknown;
+  bpmIntervals?: unknown;
+};
+
+type EssentiaInstance = {
+  arrayToVector: (data: Float32Array) => unknown;
+  vectorToArray?: (value: unknown) => Float32Array;
+  RhythmExtractor2013: (
+    signal: unknown,
+    maxTempo?: number,
+    method?: string,
+    minTempo?: number,
+  ) => EssentiaRawRhythm;
+  delete?: () => void;
+};
+
+type EssentiaWindow = Window & {
+  Essentia?: new (wasm: unknown) => EssentiaInstance;
+  EssentiaWASM?: () => Promise<unknown>;
+};
+
+const ESSENTIA_VERSION = "0.1.3";
+const ESSENTIA_WASM_SCRIPT = `https://cdn.jsdelivr.net/npm/essentia.js@${ESSENTIA_VERSION}/dist/essentia-wasm.web.js`;
+const ESSENTIA_CORE_SCRIPT = `https://cdn.jsdelivr.net/npm/essentia.js@${ESSENTIA_VERSION}/dist/essentia.js-core.js`;
+
 const finite = (values: ArrayLike<number> | undefined): number[] => {
   if (!values) return [];
   return Array.from(values).filter(Number.isFinite);
@@ -180,33 +209,55 @@ function vectorToNumbers(essentia: { vectorToArray?: (value: unknown) => Float32
   return [];
 }
 
+function loadBrowserScript(id: string, src: string): Promise<void> {
+  if (typeof document === "undefined") return Promise.reject(new Error("Browser script loader is unavailable."));
+  const existing = document.getElementById(id) as HTMLScriptElement | null;
+  if (existing?.dataset.loaded === "true") return Promise.resolve();
+  if (existing) {
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)), { once: true });
+    });
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.id = id;
+    script.src = src;
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
+  });
+}
+
+async function createEssentiaBrowserInstance(): Promise<EssentiaInstance> {
+  const browserWindow = window as EssentiaWindow;
+  if (!browserWindow.EssentiaWASM) {
+    await loadBrowserScript("essentia-wasm-web", ESSENTIA_WASM_SCRIPT);
+  }
+  if (!browserWindow.Essentia) {
+    await loadBrowserScript("essentia-core", ESSENTIA_CORE_SCRIPT);
+  }
+  if (!browserWindow.EssentiaWASM || !browserWindow.Essentia) {
+    throw new Error("Essentia browser globals were not initialized.");
+  }
+  const wasm = await browserWindow.EssentiaWASM();
+  return new browserWindow.Essentia(wasm);
+}
+
 async function runEssentia(input: BenchmarkInput): Promise<RhythmEngineResult> {
   const started = performance.now();
   try {
-    const pkg = await import("essentia.js") as unknown as {
-      Essentia?: new (wasm: unknown) => {
-        arrayToVector: (data: Float32Array) => unknown;
-        vectorToArray?: (value: unknown) => Float32Array;
-        RhythmExtractor2013: (signal: unknown, maxTempo?: number, method?: string, minTempo?: number) => { bpm?: number; ticks?: unknown; confidence?: number; estimates?: unknown; bpmIntervals?: unknown };
-        delete?: () => void;
-      };
-      EssentiaWASM?: unknown;
-      default?: { Essentia?: new (wasm: unknown) => unknown; EssentiaWASM?: unknown };
-    };
-    const EssentiaCtor = pkg.Essentia ?? pkg.default?.Essentia;
-    const wasm = pkg.EssentiaWASM ?? pkg.default?.EssentiaWASM;
-    if (!EssentiaCtor || !wasm) throw new Error("Essentia constructor/WASM export unavailable.");
-    const essentia = new EssentiaCtor(wasm) as {
-      arrayToVector: (data: Float32Array) => unknown;
-      vectorToArray?: (value: unknown) => Float32Array;
-      RhythmExtractor2013: (signal: unknown, maxTempo?: number, method?: string, minTempo?: number) => { bpm?: number; ticks?: unknown; confidence?: number; estimates?: unknown; bpmIntervals?: unknown };
-      delete?: () => void;
-    };
+    const essentia = await createEssentiaBrowserInstance();
     const signal = essentia.arrayToVector(input.mono);
     try {
       const raw = essentia.RhythmExtractor2013(signal, 220, "multifeature", 40);
       const ticks = vectorToNumbers(essentia, raw.ticks).map(seconds => seconds * 1000);
-      return normalizeResult({ id: "essentia-multifeature", engine: "Essentia.js", variant: "RhythmExtractor2013 multifeature", kind: "package", bpm: Number.isFinite(raw.bpm) ? Number(raw.bpm) : null, confidence: Number.isFinite(raw.confidence) ? Number(raw.confidence) : null, beatTimesMs: ticks, processingTimeMs: performance.now() - started, notes: "WASM multifeature beat tracker." }, input.spaceStartMs);
+      return normalizeResult({ id: "essentia-multifeature", engine: "Essentia.js", variant: "RhythmExtractor2013 multifeature", kind: "package", bpm: Number.isFinite(raw.bpm) ? Number(raw.bpm) : null, confidence: Number.isFinite(raw.confidence) ? Number(raw.confidence) : null, beatTimesMs: ticks, processingTimeMs: performance.now() - started, notes: `Browser WASM ${ESSENTIA_VERSION} · multifeature beat tracker.` }, input.spaceStartMs);
     } finally {
       try { (signal as { delete?: () => void }).delete?.(); } catch {}
       try { essentia.delete?.(); } catch {}
