@@ -1,6 +1,5 @@
 import { beatTrack, combTempo, tempo } from "@audio/beat";
 
-type BeatTrackOptions = Parameters<typeof beatTrack>[1];
 type TempoResult = Awaited<ReturnType<typeof tempo>>;
 type TempoSource = "tempo" | "comb" | "beatTrack";
 
@@ -33,31 +32,43 @@ function isTempoSource(value: unknown): value is TempoSource {
   return value === "tempo" || value === "comb" || value === "beatTrack";
 }
 
-type TempoCluster = {
-  center: number;
-  members: TempoCandidate[];
-  score: number;
-};
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] ?? null : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+}
 
-function cluster(candidates: TempoCandidate[]): TempoCluster[] {
-  const sorted = [...candidates].sort((a, b) => a.bpm - b.bpm);
-  const clusters: TempoCluster[] = [];
+/**
+ * Derive a robust constant BPM from tracked beat positions without using the
+ * beat phase itself. This is intentionally phase-agnostic: the user still
+ * authors Space Start by ear, while this value only controls long-run grid
+ * spacing so the gauge cannot accumulate drift from a weak tempo estimate.
+ */
+function bpmFromTrackedBeats(beats: number[], minBpm: number, maxBpm: number): number | null {
+  if (beats.length < 8) return null;
 
-  for (const candidate of sorted) {
-    const current = clusters[clusters.length - 1];
-    if (!current || Math.abs(candidate.bpm - current.center) > 0.8) {
-      clusters.push({ center: candidate.bpm, members: [candidate], score: candidate.confidence });
-      continue;
-    }
+  const minInterval = 60 / maxBpm;
+  const maxInterval = 60 / minBpm;
+  const intervals: number[] = [];
 
-    current.members.push(candidate);
-    const weighted = current.members.reduce((sum, item) => sum + item.bpm * Math.max(0.01, item.confidence), 0);
-    const weight = current.members.reduce((sum, item) => sum + Math.max(0.01, item.confidence), 0);
-    current.center = weighted / weight;
-    current.score = current.members.reduce((sum, item) => sum + Math.max(0.01, item.confidence), 0);
+  for (let index = 1; index < beats.length; index += 1) {
+    const interval = (beats[index] ?? 0) - (beats[index - 1] ?? 0);
+    if (Number.isFinite(interval) && interval >= minInterval && interval <= maxInterval) intervals.push(interval);
   }
 
-  return clusters.sort((a, b) => b.score - a.score);
+  const center = median(intervals);
+  if (!center || center <= 0) return null;
+
+  // Reject skipped/doubled beats and local tracker outliers, then use the
+  // median again. A 12% band is wide enough for real recordings but narrow
+  // enough to reject phase jumps.
+  const trimmed = intervals.filter(interval => Math.abs(interval - center) / center <= 0.12);
+  const robustInterval = median(trimmed.length >= 4 ? trimmed : intervals);
+  if (!robustInterval || robustInterval <= 0) return null;
+
+  const bpm = 60 / robustInterval;
+  return Number.isFinite(bpm) && bpm >= minBpm && bpm <= maxBpm ? bpm : null;
 }
 
 function percentile(values: number[], ratio: number): number {
@@ -149,31 +160,39 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
     const analysisMono = analysisStartSample > 0 ? mono.subarray(analysisStartSample) : mono;
     const audioStartMs = Math.round(analysisOffsetSeconds * 1000);
 
-    const baseOptions = { fs: buffer.sampleRate, minBpm: 40, maxBpm: 220 } as const;
+    const minBpm = 40;
+    const maxBpm = 220;
+    const baseOptions = { fs: buffer.sampleRate, minBpm, maxBpm } as const;
+
+    // Use three independent signals. tempo() is useful as a candidate, but it
+    // must not be the sole authority: on some real tracks its autocorrelation
+    // peak is slightly off, which creates visible cumulative gauge drift.
     const tempoResult = tempo(analysisMono, { ...baseOptions, candidates: 8 });
     const combResult = combTempo(analysisMono, baseOptions);
+    const tracked = beatTrack(analysisMono, baseOptions);
+
     const tempoCandidateValues = finite(
       (tempoResult as TempoResult & { candidates?: ArrayLike<number> }).candidates,
     );
+    const trackedBeats = finite(tracked.beats);
 
     const tempoBpm = Number(tempoResult.bpm);
-    const targetBpm = Number.isFinite(tempoBpm) && tempoBpm > 0
-      ? tempoBpm
-      : cluster([
-          ...tempoCandidateValues.map((bpm): TempoCandidate => ({
-            bpm,
-            source: "tempo",
-            confidence: Number(tempoResult.confidence) || 0,
-          })),
-          { bpm: Number(combResult.bpm), source: "comb", confidence: Number(combResult.confidence) || 0 },
-        ])[0]?.center ?? 120;
+    const combBpm = Number(combResult.bpm);
+    const trackedBpm = Number(tracked.bpm);
+    const gridBpm = bpmFromTrackedBeats(trackedBeats, minBpm, maxBpm);
 
-    const trackedOptions: BeatTrackOptions = {
-      ...baseOptions,
-      bpm: targetBpm,
-      tightness: 5000,
-    };
-    const tracked = beatTrack(analysisMono, trackedOptions);
+    // Prefer the median of comb-filter tempo, free-running beat-track tempo,
+    // and the robust period measured from the tracked beat sequence. These
+    // methods are less prone to the small autocorrelation bias that previously
+    // produced Aloha=100.4464 and caused ~20ms drift every four beats.
+    const strongValues = [combBpm, trackedBpm, gridBpm ?? Number.NaN].filter(
+      value => Number.isFinite(value) && value >= minBpm && value <= maxBpm,
+    );
+    const strongMedian = median(strongValues);
+    const fallbackValues = [tempoBpm, ...tempoCandidateValues].filter(
+      value => Number.isFinite(value) && value >= minBpm && value <= maxBpm,
+    );
+    const targetBpm = strongMedian ?? median(fallbackValues) ?? 120;
 
     const candidates: TempoCandidate[] = [
       ...tempoCandidateValues.map((bpm): TempoCandidate => ({
@@ -182,18 +201,19 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
         confidence: Number(tempoResult.confidence) || 0,
       })),
       { bpm: tempoBpm, source: "tempo", confidence: Number(tempoResult.confidence) || 0 },
-      { bpm: Number(combResult.bpm), source: "comb", confidence: Number(combResult.confidence) || 0 },
-      { bpm: Number(tracked.bpm), source: "beatTrack", confidence: Number(tracked.confidence) || 0 },
+      { bpm: combBpm, source: "comb", confidence: Number(combResult.confidence) || 0 },
+      { bpm: trackedBpm, source: "beatTrack", confidence: Number(tracked.confidence) || 0 },
+      ...(gridBpm == null ? [] : [{ bpm: gridBpm, source: "beatTrack" as const, confidence: Number(tracked.confidence) || 0 }]),
     ].filter(
       (item): item is TempoCandidate =>
-        Number.isFinite(item.bpm) && item.bpm >= 40 && item.bpm <= 220 && isTempoSource(item.source),
+        Number.isFinite(item.bpm) && item.bpm >= minBpm && item.bpm <= maxBpm && isTempoSource(item.source),
     );
 
-    const bpmExact = Number(clamp(targetBpm, 40, 220).toFixed(4));
+    const bpmExact = Number(clamp(targetBpm, minBpm, maxBpm).toFixed(4));
     const displayBpm = Math.round(bpmExact);
     const confidence = Number(
       clamp(
-        (Number(tempoResult.confidence) || 0) + (Number(combResult.confidence) || 0) * 0.25,
+        Math.max(Number(combResult.confidence) || 0, Number(tracked.confidence) || 0, Number(tempoResult.confidence) || 0),
         0,
         1,
       ).toFixed(4),
@@ -204,11 +224,9 @@ export async function analyzeTempo(audioUrl: string): Promise<TempoAnalysis> {
       displayBpm,
       confidence,
       candidates,
-      // Auto phase/Beat-4 anchors are intentionally disabled. On tracks such
-      // as Please Tell Me Why the tracker can lock to the wrong musical phase
-      // by ~1 second even when BPM is correct. Space Start is now authored by
-      // ear from native media currentTime; gameplay derives later 4-beat cycles
-      // from that saved anchor plus BPM_exact.
+      // Beat phase remains deliberately disabled. The user authors the first
+      // Space Start by ear on the same WebAudio timeline used by gameplay;
+      // BPM_exact only determines the spacing of subsequent four-beat cycles.
       beats: [],
       audioStartMs,
       analysisOffsetMs: audioStartMs,
