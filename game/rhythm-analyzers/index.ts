@@ -2,7 +2,8 @@ import { runAnchorGrid } from "./anchor-grid";
 import { runAudioBeatVariants } from "./audio-beat";
 import { runAutoGridValidator } from "./grid-validator";
 import { runEssentiaVariants } from "./essentia";
-import { runMusicTempo } from "./music-tempo";
+import { runMusicTempoVariants } from "./music-tempo";
+import { runPhaseGridValidator } from "./phase-grid-validator";
 import { runWebAudioBeatDetectorVariants } from "./web-audio-beat-detector";
 import type { BenchmarkInput, BenchmarkProgress, RhythmEngineResult } from "./types";
 
@@ -21,11 +22,15 @@ export async function runRhythmBenchmark(input: BenchmarkInput, progress?: Bench
   const webRows = await runWebAudioBeatDetectorVariants(input, progress);
   await yieldToBrowser();
 
-  const musicTempoRow = await runMusicTempo(input, progress);
+  const musicTempoRows = await runMusicTempoVariants(input, progress);
   await yieldToBrowser();
 
-  const packageRows = [...audioBeatRows, ...essentiaRows, ...webRows, musicTempoRow];
+  const packageRows = [...audioBeatRows, ...essentiaRows, ...webRows, ...musicTempoRows];
+
   const autoGridRow = await runAutoGridValidator(input, packageRows, progress);
+  await yieldToBrowser();
+
+  const phaseGridRow = await runPhaseGridValidator(input, packageRows, progress);
   await yieldToBrowser();
 
   progress?.("Running CUSTOM anchor grid…");
@@ -38,8 +43,9 @@ export async function runRhythmBenchmark(input: BenchmarkInput, progress?: Bench
     ...essentiaRows,
     ...audioBeatRows,
     ...webRows,
-    musicTempoRow,
+    ...musicTempoRows,
     autoGridRow,
+    phaseGridRow,
     anchorGridRow,
   ];
 }
