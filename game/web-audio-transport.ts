@@ -67,6 +67,12 @@ export class WebAudioTransport {
     return this.preparing;
   }
 
+  async getDecodedBuffer() {
+    await this.prepare();
+    if (!this.buffer) throw new Error("Decoded AudioBuffer is unavailable.");
+    return this.buffer;
+  }
+
   private stopSource() {
     const source = this.source;
     this.source = null;
