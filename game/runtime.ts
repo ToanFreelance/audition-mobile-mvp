@@ -1,8 +1,10 @@
 import { BeatClock } from "./clock";
 import { getGaugeTiming } from "./gauge-timing";
 import { randomizeChart, randomDirections } from "./chart";
-import { RhythmEngine } from "./rhythm";
+import { PERFECT_CENTER, RhythmEngine, SCORE_ZONE_END, SCORE_ZONE_START } from "./rhythm";
 import type { Chart, Direction, GameStats, Judgement } from "./types";
+
+export { PERFECT_CENTER, SCORE_ZONE_END, SCORE_ZONE_START } from "./rhythm";
 
 export type RhythmPhase = "idle" | "intro" | "ready" | "countdown" | "playing" | "penalty" | "finish" | "finished";
 export type RhythmRuntimeCallbacks = {
@@ -19,9 +21,6 @@ export type RhythmRuntimeCallbacks = {
 const COUNTDOWN_BEATS = 3;
 const TURN_INTERVAL_BEATS = 4;
 const READY_DURATION_MS = 500;
-export const SCORE_ZONE_START = 70;
-export const SCORE_ZONE_END = 90;
-export const PERFECT_CENTER = 80;
 
 export class RhythmRuntime {
   private readonly baseChart: Chart;
@@ -308,8 +307,7 @@ export class RhythmRuntime {
 
   private emitSequence() {
     if (!this.started || this.finished) { this.callbacks.onSequence?.([], 0); return; }
-    this.callbacks.onSequence?.(this.currentDirections, this.commandIndex);
-  }
+    this.callbacks.onSequence?.(this.currentDirections, this.commandIndex); }
 
   private emitStats(force = false) {
     const signature = JSON.stringify(this.engine.stats);
