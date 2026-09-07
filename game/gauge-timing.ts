@@ -31,7 +31,8 @@ export function getGaugeTiming(config: GaugeTimingConfig, nowMs: number): GaugeT
   const beatsPerCycle = Math.max(1, config.beatsPerCycle ?? 4);
   const cycleMs = (60000 / bpm) * beatsPerCycle;
   const spaceStartMs = Math.max(0, config.spaceStartMs);
-  const perfectCenterPercent = Math.max(0, Math.min(100, config.perfectCenterPercent ?? 80));
+  // Audition-origin reference places the fourth-beat/Perfect marker at ~75%.
+  const perfectCenterPercent = Math.max(0, Math.min(100, config.perfectCenterPercent ?? 75));
 
   // First non-negative timestamp on the same four-beat grid as Space Start.
   const firstGaugeStartMs = ((spaceStartMs % cycleMs) + cycleMs) % cycleMs;
@@ -46,7 +47,7 @@ export function getGaugeTiming(config: GaugeTimingConfig, nowMs: number): GaugeT
   const phase = cycleElapsedMs / cycleMs;
 
   // Continuous full-width sweep. At Space Start phase=0, therefore the
-  // slider is at Perfect. It then continues 80 -> 100 -> 0 -> ... -> 80.
+  // slider is at Perfect. It then continues 75 -> 100 -> 0 -> ... -> 75.
   const sliderPercent = ((perfectCenterPercent + phase * 100) % 100 + 100) % 100;
 
   // Kept for compatibility with older consumers. Realtime visuals now sample
