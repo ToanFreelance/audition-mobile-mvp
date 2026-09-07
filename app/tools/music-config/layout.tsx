@@ -2,6 +2,7 @@ import Link from "next/link";
 import DirectAudioUploadBridge from "./DirectAudioUploadBridge";
 import StorageAudioAdminControls from "./StorageAudioAdminControls";
 import "./config-layout.css";
+import "./mobile-storage-fixes.css";
 
 export default function MusicConfigLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
