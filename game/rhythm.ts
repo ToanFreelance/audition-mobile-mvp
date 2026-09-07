@@ -1,14 +1,15 @@
 import type { Judgement } from "./types";
 
-export const SCORE_ZONE_WIDTH = 0.2;
-export const SCORE_ZONE_START = 70;
-export const SCORE_ZONE_END = 90;
-export const PERFECT_CENTER = 80;
+/** Audition-origin score-zone geometry measured from the supplied gauge clip. */
+export const SCORE_ZONE_START = 56.5;
+export const SCORE_ZONE_END = 93.5;
+export const SCORE_ZONE_WIDTH = (SCORE_ZONE_END - SCORE_ZONE_START) / 100;
+export const PERFECT_CENTER = (SCORE_ZONE_START + SCORE_ZONE_END) / 2;
 export const JUDGEMENT_SEGMENTS = 7;
 
 /**
- * Seven equal judgement bands occupy the 70..90 score zone.
- * Perfect is the exact center of the zone at 80%; outside is Miss.
+ * Seven equal judgement bands occupy the reference score zone.
+ * Perfect is the exact center of that zone at 75%; outside is Miss.
  */
 export function judgementFromGaugePercent(gaugePercent: number): Judgement | null {
   if (gaugePercent < SCORE_ZONE_START || gaugePercent > SCORE_ZONE_END) return null;
