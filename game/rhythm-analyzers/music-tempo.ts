@@ -1,4 +1,4 @@
-import { finiteNumbers, normalizeResult } from "./metrics";
+import { beatMetrics, finiteNumbers, normalizeResult } from "./metrics";
 import type { BenchmarkInput, BenchmarkProgress, RhythmEngineResult } from "./types";
 
 const VERSION = "1.0.3";
@@ -39,6 +39,14 @@ function failed(input: BenchmarkInput, started: number, error: unknown): RhythmE
 
 function parityGrid(beatsMs: number[], parity: 0 | 1) {
   return beatsMs.filter((_, index) => index % 2 === parity);
+}
+
+function longSpanBpm(beatsMs: number[]) {
+  if (beatsMs.length < 2) return null;
+  const first = beatsMs[0] ?? 0;
+  const last = beatsMs[beatsMs.length - 1] ?? first;
+  const interval = (last - first) / (beatsMs.length - 1);
+  return interval > 0 ? 60000 / interval : null;
 }
 
 /**
@@ -97,9 +105,16 @@ export async function runMusicTempoVariants(input: BenchmarkInput, progress?: Be
       raw: sharedRaw,
     }, input);
 
-    const metricalBpm = rawBpm / 2;
+    const nominalMetricalBpm = rawBpm / 2;
     const metricalRows = ([0, 1] as const).map(parity => {
       const detected = parityGrid(beatTimesMs, parity);
+      const detectedMetrics = beatMetrics(detected);
+      // For a detected metrical row, the primary BPM should describe the actual
+      // detected grid, not simply rawTempo/2. This distinction matters when the
+      // Beatroot tempo hypothesis is slightly biased while its tracked intervals
+      // lock to a cleaner metrical pulse (e.g. 750 ms => exactly 80 BPM).
+      const detectedMetricalBpm = detectedMetrics.derivedBpmFromIntervals ?? nominalMetricalBpm;
+      const spanBpm = longSpanBpm(detected);
       return normalizeResult({
         id: `music-tempo-beatroot-half-${parity === 0 ? "a" : "b"}`,
         engine: "music-tempo",
@@ -107,19 +122,21 @@ export async function runMusicTempoVariants(input: BenchmarkInput, progress?: Be
         version: VERSION,
         kind: "package",
         beatGridKind: detected.length ? "detected" : "none",
-        bpm: metricalBpm,
+        bpm: detectedMetricalBpm,
         confidence: null,
         confidenceRaw: typeof rawAgentScore === "number" && Number.isFinite(rawAgentScore) ? rawAgentScore : null,
         confidenceScale: "Same Beatroot run as RAW; this row is a metrical interpretation, not an independent confidence vote.",
         beatTimesMs: detected,
         onsetTimesMs,
         processingTimeMs: 0,
-        notes: `Detected metrical ×0.5 variant derived directly from Beatroot ticks ${parity === 0 ? "0,2,4,6…" : "1,3,5,7…"}. No second Beatroot pass and no synthesized timestamps. Raw package tempo ${rawBpm.toFixed(3)} BPM → nominal half-level ${metricalBpm.toFixed(3)} BPM; interval-derived BPM below is computed independently from this parity grid.`,
+        notes: `Detected metrical ×0.5 variant derived directly from Beatroot ticks ${parity === 0 ? "0,2,4,6…" : "1,3,5,7…"}. No second Beatroot pass and no synthesized timestamps. Raw package tempo ${rawBpm.toFixed(3)} BPM → nominal half-level ${nominalMetricalBpm.toFixed(3)} BPM, but this row reports the detected-grid median interval BPM ${detectedMetricalBpm.toFixed(4)}. Long-span endpoint BPM=${spanBpm?.toFixed(4) ?? "n/a"}; compare it with the median-derived BPM to expose cumulative missing/extra-tick bias.`,
         raw: {
           parentId: "music-tempo-beatroot",
           parity,
           rawTempo: rawBpm,
-          nominalMetricalBpm: metricalBpm,
+          nominalMetricalBpm,
+          detectedMedianBpm: detectedMetricalBpm,
+          longSpanBpm: spanBpm,
           parentBeatCount: beatTimesMs.length,
           metricalBeatCount: detected.length,
           bestAgentScore: rawAgentScore ?? null,
