@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AuditionGauge from "../../../components/AuditionGauge";
 import {
   buildTempoConsensus,
   downmixAudioBuffer,
@@ -150,7 +151,7 @@ export default function RhythmBenchmarkPage() {
       await transport.play();
       setPlaying(true);
       startClock();
-      setMessage("Playing with the same WebAudio clock used by gameplay. Manual marks are optional ground truth; they are not required for AUTO GRID analysis.");
+      setMessage("Playing with the same WebAudio clock used by gameplay. Watch the live gauge below: after AUTO GRID runs it uses the zero-mark BPM/grid, otherwise it uses the saved chart timing.");
     } catch (error) {
       setMessage(`Play failed: ${error instanceof Error ? error.message : "unknown"}`);
     }
@@ -186,6 +187,14 @@ export default function RhythmBenchmarkPage() {
   const consensus = useMemo(() => buildTempoConsensus(results), [results]);
   const autoGrid = useMemo(() => results.find(result => result.id === "auto-grid-validator"), [results]);
   const timelineResults = useMemo(() => results.filter(result => result.beatTimesMs.length), [results]);
+  const gaugeBpm = autoGrid?.bpm ?? selected?.BPM_exact ?? selected?.bpm ?? 120;
+  const gaugeAnchorMs = useMemo(() => {
+    const savedAnchor = selected?.spaceStartMs ?? 0;
+    const beats = autoGrid?.bpm && autoGrid.beatTimesMs.length ? autoGrid.beatTimesMs : [];
+    if (!beats.length) return savedAnchor;
+    return beats.reduce((nearest, beat) => Math.abs(beat - savedAnchor) < Math.abs(nearest - savedAnchor) ? beat : nearest, beats[0] ?? savedAnchor);
+  }, [autoGrid, selected?.spaceStartMs]);
+  const gaugeSource = autoGrid?.bpm && autoGrid.beatTimesMs.length ? "AUTO GRID BPM + nearest grid beat to saved SPACE #1" : "SAVED CHART BPM + SPACE #1";
 
   const renderTimelineTrack = (pointsMs: number[], color: string, pointWidth = 2) => (
     <div style={{ position: "relative", background: "rgba(255,255,255,.015)", minHeight: 38 }}>
@@ -216,6 +225,14 @@ export default function RhythmBenchmarkPage() {
             <button disabled={!ready || running} onClick={mark} style={primaryButton}>🎯 MARK NEXT SPACE</button>
             <button disabled={!ready || running} onClick={reset} style={secondaryButton}>↺ RESET 0:00</button>
           </div>
+
+          <div style={{ marginTop: 16, padding: "14px 12px 10px", borderRadius: 14, background: "#0f0d12", border: "1px solid #403648", overflow: "visible" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}><span style={eyebrow}>LIVE GAMEPLAY GAUGE</span><small style={{ color: autoGrid?.bpm ? "#8ee7a7" : "#b8acbf", fontWeight: 800 }}>{autoGrid?.bpm ? "AUTO GRID" : "SAVED CHART"}</small></div>
+            <div style={{ marginTop: 12, padding: "8px 0", overflow: "visible" }}><AuditionGauge bpm={gaugeBpm} spaceStartMs={gaugeAnchorMs} currentTimeMs={currentMs} stretchRatio={1.6} /></div>
+            <div style={{ marginTop: 8, display: "flex", gap: "4px 12px", flexWrap: "wrap", color: "#cfc4d5", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}><span>BPM {fmtNumber(gaugeBpm, 4)}</span><span>PERFECT {fmtSeconds(gaugeAnchorMs)}</span><span>WEB {fmtSeconds(currentMs)}</span></div>
+            <p style={{ ...muted, marginTop: 8, fontSize: 12 }}>{gaugeSource}. The gauge is sampled directly from the same WebAudio transport clock. Cyan breath flashes every beat; beat 4 / Perfect adds the stretch pulse.</p>
+          </div>
+
           <div style={{ marginTop: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#cec4d3", fontSize: 13 }}>{marks.length ? marks.map((value, index) => <span key={`${value}-${index}`} style={{ display: "inline-block", marginRight: 12 }}>#{index + 1} {fmtSeconds(value)}</span>) : "No marks required. Use this only when you want human ground truth to verify AUTO GRID/engine drift."}</div>
           <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 }}>
             <Metric label="Manual 4-beat interval" value={manualSummary.medianSpaceIntervalMs == null ? "—" : `${manualSummary.medianSpaceIntervalMs.toFixed(2)}ms`} />
