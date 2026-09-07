@@ -80,7 +80,7 @@ export default function RhythmBenchmarkPage() {
         setConfigs(list);
         const aloha = list.find(item => item.title.toLowerCase().includes("aloha"));
         setSelectedId((aloha ?? list[0])?.id ?? "");
-        setMessage("Choose a chart, then RUN ALL ANALYZERS.");
+        setMessage("Choose a chart, then RUN ALL ANALYZERS. Manual marks are optional benchmark ground truth.");
       })
       .catch(error => !cancelled && setMessage(`Load failed: ${error instanceof Error ? error.message : "unknown"}`))
       .finally(() => !cancelled && setLoading(false));
@@ -107,7 +107,7 @@ export default function RhythmBenchmarkPage() {
       .then(() => {
         if (cancelled || transportRef.current !== transport) return;
         setReady(true);
-        setMessage("Shared AudioBuffer ready. Playback and analyzers will use the same decode.");
+        setMessage("Shared AudioBuffer ready. RUN ALL ANALYZERS works with zero manual marks.");
       })
       .catch(error => !cancelled && setMessage(`Playback prepare failed: ${error instanceof Error ? error.message : "unknown"}`))
       .finally(() => !cancelled && setPreparing(false));
@@ -135,7 +135,7 @@ export default function RhythmBenchmarkPage() {
       );
       setResults(next);
       const succeeded = next.filter(item => !item.error).length;
-      setMessage(`Benchmark complete: ${succeeded}/${next.length} analyzer variants returned results. Add 5–10 consecutive manual SPACE marks to rank phase accuracy and long-term drift.`);
+      setMessage(`Benchmark complete: ${succeeded}/${next.length} analyzer variants returned results. AUTO GRID is zero-mark; manual SPACE marks are optional validation only.`);
     } catch (error) {
       setMessage(`Benchmark failed: ${error instanceof Error ? error.message : "unknown"}`);
     } finally {
@@ -150,7 +150,7 @@ export default function RhythmBenchmarkPage() {
       await transport.play();
       setPlaying(true);
       startClock();
-      setMessage("Playing with the same WebAudio clock used by gameplay. Mark consecutive musical SPACE/Beat-4 points without resetting between them.");
+      setMessage("Playing with the same WebAudio clock used by gameplay. Manual marks are optional ground truth; they are not required for AUTO GRID analysis.");
     } catch (error) {
       setMessage(`Play failed: ${error instanceof Error ? error.message : "unknown"}`);
     }
@@ -184,6 +184,7 @@ export default function RhythmBenchmarkPage() {
   const scoreRows = useMemo(() => results.map(result => ({ result, score: scoreManualMarks(result, marks) })), [results, marks]);
   const manualSummary = useMemo(() => summarizeManualMarks(marks), [marks]);
   const consensus = useMemo(() => buildTempoConsensus(results), [results]);
+  const autoGrid = useMemo(() => results.find(result => result.id === "auto-grid-validator"), [results]);
   const timelineResults = useMemo(() => results.filter(result => result.beatTimesMs.length), [results]);
 
   const renderTimelineTrack = (pointsMs: number[], color: string, pointWidth = 2) => (
@@ -197,25 +198,25 @@ export default function RhythmBenchmarkPage() {
     <main style={{ minHeight: "100vh", background: "#0d0b12", color: "#f8f5fb", padding: "24px 16px 80px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <div style={{ maxWidth: 1120, margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <div><div style={eyebrow}>RHYTHM ANALYZER BENCHMARK</div><h1 style={{ margin: "8px 0", fontSize: 32 }}>Compare engines on real Audition charts</h1><p style={muted}>No engine is trusted by default. We compare tempo, beat grid, phase, jitter, local tempo, runtime, and manual listening accuracy.</p></div>
+          <div><div style={eyebrow}>RHYTHM ANALYZER BENCHMARK</div><h1 style={{ margin: "8px 0", fontSize: 32 }}>Compare engines on real Audition charts</h1><p style={muted}>AUTO GRID validates tempo against PCM across the whole track with zero marks. Manual SPACE taps remain optional benchmark ground truth.</p></div>
           <button style={secondaryButton} onClick={() => { window.location.href = "/"; }}>← READY</button>
         </div>
 
         <section style={card}>
           <label style={{ display: "grid", gap: 8 }}><span style={eyebrow}>TRACK</span><select disabled={loading || running || playing} value={selected?.id ?? ""} onChange={event => setSelectedId(event.target.value)} style={selectStyle}>{configs.map(item => <option key={item.id} value={item.id}>{item.title} · {item.BPM_exact?.toFixed(4) ?? item.bpm} BPM</option>)}</select></label>
           {selected && <div style={{ marginTop: 14, display: "flex", gap: 18, flexWrap: "wrap", color: "#bbb1c2" }}><span>Saved BPM <b style={{ color: "white" }}>{selected.BPM_exact?.toFixed(4) ?? selected.bpm}</b></span><span>SPACE #1 <b style={{ color: "white" }}>{fmtSeconds(selected.spaceStartMs)}</b></span><span>Duration <b style={{ color: "white" }}>{fmtSeconds(selected.durationMs)}</b></span></div>}
-          <button disabled={!selected || !ready || running || playing} onClick={() => void runAll()} style={{ ...primaryButton, width: "100%", marginTop: 16 }}>{running ? "RUNNING ANALYZERS…" : "⚗ RUN ALL ANALYZERS"}</button>
+          <button disabled={!selected || !ready || running || playing} onClick={() => void runAll()} style={{ ...primaryButton, width: "100%", marginTop: 16 }}>{running ? "RUNNING ANALYZERS…" : "⚗ RUN ZERO-MARK ANALYSIS"}</button>
         </section>
 
         <section style={card}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><div><div style={eyebrow}>MANUAL GROUND TRUTH</div><strong style={{ fontSize: 24 }}>{fmtSeconds(currentMs)}</strong></div><span style={muted}>{marks.length} marks</span></div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><div><div style={eyebrow}>MANUAL GROUND TRUTH · OPTIONAL</div><strong style={{ fontSize: 24 }}>{fmtSeconds(currentMs)}</strong></div><span style={muted}>{marks.length} marks</span></div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, marginTop: 14 }}>
             <button disabled={!ready || preparing || playing || running} onClick={() => void play()} style={primaryButton}>▶ PLAY / RESUME</button>
             <button disabled={!playing} onClick={pause} style={secondaryButton}>Ⅱ PAUSE</button>
             <button disabled={!ready || running} onClick={mark} style={primaryButton}>🎯 MARK NEXT SPACE</button>
             <button disabled={!ready || running} onClick={reset} style={secondaryButton}>↺ RESET 0:00</button>
           </div>
-          <div style={{ marginTop: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#cec4d3", fontSize: 13 }}>{marks.length ? marks.map((value, index) => <span key={`${value}-${index}`} style={{ display: "inline-block", marginRight: 12 }}>#{index + 1} {fmtSeconds(value)}</span>) : "Mark consecutive SPACE/Beat-4 points during one playback. 5–10 marks give useful manual BPM, MAE and drift."}</div>
+          <div style={{ marginTop: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#cec4d3", fontSize: 13 }}>{marks.length ? marks.map((value, index) => <span key={`${value}-${index}`} style={{ display: "inline-block", marginRight: 12 }}>#{index + 1} {fmtSeconds(value)}</span>) : "No marks required. Use this only when you want human ground truth to verify AUTO GRID/engine drift."}</div>
           <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 }}>
             <Metric label="Manual 4-beat interval" value={manualSummary.medianSpaceIntervalMs == null ? "—" : `${manualSummary.medianSpaceIntervalMs.toFixed(2)}ms`} />
             <Metric label="Manual derived BPM" value={fmtNumber(manualSummary.derivedBpm, 4)} />
@@ -223,6 +224,21 @@ export default function RhythmBenchmarkPage() {
           </div>
           {marks.length > 0 && <button onClick={() => setMarks([])} disabled={running} style={{ ...secondaryButton, marginTop: 10 }}>CLEAR MANUAL MARKS</button>}
         </section>
+
+        {autoGrid && <section style={{ ...card, border: "1px solid #8150a0" }}>
+          <div style={eyebrow}>ZERO-MARK AUTO GRID</div>
+          <div style={{ display: "flex", gap: 14, alignItems: "baseline", flexWrap: "wrap", marginTop: 8 }}>
+            <strong style={{ fontSize: 26 }}>{autoGrid.error ? "FAILED" : autoGrid.variant}</strong>
+            {!autoGrid.error && <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 22 }}>{fmtNumber(autoGrid.bpm, 4)} BPM</span>}
+          </div>
+          <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
+            <Metric label="Internal confidence" value={autoGrid.confidence == null ? "—" : `${(autoGrid.confidence * 100).toFixed(0)}%`} />
+            <Metric label="Grid" value={autoGrid.beatGridKind} />
+            <Metric label="Beat count" value={String(autoGrid.beatCount || "—")} />
+            <Metric label="Runtime" value={`${autoGrid.processingTimeMs.toFixed(0)}ms`} />
+          </div>
+          <p style={{ ...muted, marginTop: 12 }}>{autoGrid.error || autoGrid.notes}</p>
+        </section>}
 
         {results.length > 0 && <section style={card}>
           <div style={eyebrow}>HARMONIC-AWARE TEMPO CONSENSUS</div>
@@ -243,7 +259,7 @@ export default function RhythmBenchmarkPage() {
 
         {results.some(result => result.localTempo.length > 0) && <section style={card}>
           <div style={eyebrow}>LOCAL TEMPO · 30 SECOND WINDOWS</div>
-          <p style={muted}>Detected/synthesized beat grids are measured independently in each window. CONSTANT/VARIABLE is diagnostic; synthetic grids are constant by construction.</p>
+          <p style={muted}>Detected/synthetic/validated beat grids are measured independently in each window. Short tail windows no longer force VARIABLE by themselves.</p>
           {results.filter(result => result.localTempo.length > 0).map(result => <div key={`${result.id}-local`} style={{ padding: "12px 0", borderBottom: "1px solid #2b2530" }}><div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}><strong>{result.engine} · {result.variant}</strong><span style={{ color: result.tempoMode === "VARIABLE" ? "#ffb36b" : "#8ee7a7", fontSize: 12, fontWeight: 800 }}>{result.tempoMode}</span><small style={{ color: "#817788" }}>{result.beatGridKind} grid</small></div><div style={{ marginTop: 7, display: "flex", gap: 8, flexWrap: "wrap" }}>{result.localTempo.map(window => <span key={`${result.id}-${window.startMs}`} style={{ padding: "6px 8px", border: "1px solid #342b3b", borderRadius: 8, background: "#100d13", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 }}>{Math.round(window.startMs / 1000)}–{Math.round(window.endMs / 1000)}s: {fmtNumber(window.bpm, 3)} BPM · jitter {window.intervalJitterMs == null ? "—" : `${window.intervalJitterMs.toFixed(1)}ms`}</span>)}</div></div>)}
         </section>}
 
@@ -259,7 +275,7 @@ export default function RhythmBenchmarkPage() {
         {results.length > 0 && <section style={card}><div style={eyebrow}>RAW BEAT TIMESTAMPS · FIRST 16</div>{results.map(result => <div key={`${result.id}-beats`} style={{ padding: "12px 0", borderBottom: "1px solid #2b2530" }}><strong>{result.engine} · {result.variant}</strong><div style={{ marginTop: 6, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: "#bdb2c4", lineHeight: 1.65 }}>{result.beatTimesMs.length ? result.beatTimesMs.slice(0, 16).map(fmtSeconds).join(" · ") : result.notes || result.error || "No beat timestamps returned."}</div>{result.notes && result.beatTimesMs.length > 0 && <small style={{ display: "block", marginTop: 5, color: "#817788" }}>{result.notes}</small>}</div>)}</section>}
 
         <p style={{ ...muted, padding: 14, borderRadius: 12, background: "#211a27" }}>{message}</p>
-        <p style={{ ...muted, fontSize: 12 }}>Essentia.js remains benchmark-only because of AGPL-3.0. Multifeature confidence is normalized from its documented 0..5.32 range only for display. Package confidence values and CUSTOM confidence are not comparable. Production Music Config is unchanged by this benchmark.</p>
+        <p style={{ ...muted, fontSize: 12 }}>Essentia.js remains benchmark-only because of AGPL-3.0. Package confidence values, CUSTOM confidence and AUTO GRID confidence are not comparable. AUTO GRID is benchmark-only and does not change Production Music Config.</p>
       </div>
     </main>
   );
