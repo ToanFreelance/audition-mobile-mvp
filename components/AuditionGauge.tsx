@@ -13,7 +13,9 @@ type AuditionGaugeProps = {
   className?: string;
   zoneStart?: number;
   zoneEnd?: number;
+  /** Kept for backwards-compatible callers. Perfect is visually locked to score-zone center. */
   perfectStart?: number;
+  /** Kept for backwards-compatible callers. Perfect is visually locked to score-zone center. */
   perfectEnd?: number;
   stretchRatio?: number;
   spaceStartMs?: number;
@@ -28,26 +30,33 @@ const smoothPulse = (distance: number, radius: number) => {
 };
 
 /**
- * Deterministic gauge visual. The score zone geometry never moves.
- * Beats 1-3 visibly breathe/flash; beat 4 does the same plus a symmetric stretch.
+ * Audition-origin gauge visual measured from the supplied 110 BPM reference clip.
+ *
+ * Reference behavior:
+ * - score zone spans ~37% of the bar and is centered at ~75%;
+ * - the cyan/white zone is almost invisible between beats;
+ * - every beat produces a short ~260-300ms breath rather than a continuous glow;
+ * - beat 4 / Perfect adds a symmetric ~2x stretch from both zone edges;
+ * - all movement/pulsing is sampled from deterministic media time, never an
+ *   independent CSS rhythm clock, so dropped frames cannot create drift.
  */
 export default function AuditionGauge({
   value,
   bpm,
   onPointerDown,
   className = "",
-  zoneStart = 70,
-  zoneEnd = 90,
-  perfectStart = 79,
-  perfectEnd = 81,
-  stretchRatio = 1.6,
+  zoneStart = 56.5,
+  zoneEnd = 93.5,
+  perfectStart: _perfectStart,
+  perfectEnd: _perfectEnd,
+  stretchRatio = 2,
   spaceStartMs,
   currentTimeMs,
 }: AuditionGaugeProps) {
   const id = useId().replace(/:/g, "");
   const sliderRef = useRef<SVGGElement | null>(null);
-  const zoneGlowRef = useRef<SVGGElement | null>(null);
-  const perfectPulseRef = useRef<SVGGElement | null>(null);
+  const zoneBreathRef = useRef<SVGGElement | null>(null);
+  const perfectStretchRef = useRef<SVGGElement | null>(null);
   const lastMediaMsRef = useRef(currentTimeMs ?? 0);
   const renderAtRef = useRef<(nowMs: number) => void>(() => undefined);
 
@@ -57,49 +66,46 @@ export default function AuditionGauge({
   const trackWidth = 460;
   const trackCenterY = 35;
   const zoneHeight = 30;
-  const zoneRadius = zoneHeight * 0.15;
+  const zoneRadius = 9;
   const x = (percent: number) => trackLeftX + (trackWidth * percent) / 100;
   const zoneX = x(safeZoneStart);
   const zoneRightX = x(safeZoneEnd);
   const zoneWidth = zoneRightX - zoneX;
   const zoneCenterX = zoneX + zoneWidth / 2;
-  const perfectCenterPercent = clamp((perfectStart + perfectEnd) / 2);
+  // In the reference the fourth-beat marker sits at the exact center of the
+  // visible score zone. Keep that invariant even for callers that still pass
+  // the legacy perfectStart/perfectEnd props.
+  const perfectCenterPercent = clamp((safeZoneStart + safeZoneEnd) / 2);
+  const effectiveStretchRatio = Math.max(2, stretchRatio);
   const fallbackValue = clamp(value ?? perfectCenterPercent);
   const fallbackTranslate = x(fallbackValue) - 150;
 
   const applyVisualState = (sliderPercent: number, cyclePhase: number) => {
     const slider = sliderRef.current;
-    const zoneGlow = zoneGlowRef.current;
-    const perfectOverlay = perfectPulseRef.current;
-    if (!slider || !zoneGlow || !perfectOverlay) return;
+    const breathLayer = zoneBreathRef.current;
+    const stretchLayer = perfectStretchRef.current;
+    if (!slider || !breathLayer || !stretchLayer) return;
 
     slider.setAttribute("transform", `translate(${x(sliderPercent) - 150} 0)`);
 
-    // A clearly visible light flash on each beat. Geometry stays completely
-    // fixed: breath changes only opacity/filter so the score zone cannot drift.
+    // Reference clip: normal breath is concentrated to roughly ±130-150ms at
+    // 110 BPM. In beat-normalized phase that is about a 0.30-0.32 radius.
     const beatPhase = (cyclePhase * 4) % 1;
     const beatDistance = Math.min(beatPhase, 1 - beatPhase);
-    const breath = smoothPulse(beatDistance, 0.46);
-    const zoneOpacity = 0.10 + breath * 0.90;
-    const zoneGlowPx = 2 + breath * 20;
-    zoneGlow.setAttribute("opacity", zoneOpacity.toFixed(3));
-    zoneGlow.style.filter = [
-      `drop-shadow(0 0 ${zoneGlowPx.toFixed(1)}px #00f0ff)`,
-      breath > 0.35 ? `drop-shadow(0 0 ${(8 + breath * 15).toFixed(1)}px #9ffaff)` : "",
-      breath > 0.62 ? `drop-shadow(0 0 ${(5 + breath * 12).toFixed(1)}px #ffffff)` : "",
-    ].filter(Boolean).join(" ");
+    const breath = smoothPulse(beatDistance, 0.32);
+    breathLayer.setAttribute("opacity", (breath * 0.96).toFixed(3));
 
-    // Beat 4 / Perfect keeps the same bright breath and adds a separate
-    // symmetric stretch overlay. The fixed score-zone geometry never moves.
+    // Reference clip: only the fourth beat stretches. At its peak the normal
+    // ~37%-wide zone approximately doubles in width around the same center;
+    // the bar capsule clips the right-hand overflow naturally.
     const distanceToPerfect = Math.min(cyclePhase, 1 - cyclePhase);
-    const perfectStrength = smoothPulse(distanceToPerfect, 0.07);
-    const perfectScale = 1 + perfectStrength * Math.max(0, stretchRatio - 1);
-    perfectOverlay.setAttribute(
+    const perfectStrength = smoothPulse(distanceToPerfect, 0.055);
+    const perfectScale = 1 + perfectStrength * (effectiveStretchRatio - 1);
+    stretchLayer.setAttribute(
       "transform",
       `translate(${zoneCenterX} ${trackCenterY}) scale(${perfectScale} 1) translate(${-zoneCenterX} ${-trackCenterY})`,
     );
-    perfectOverlay.setAttribute("opacity", perfectStrength.toFixed(3));
-    perfectOverlay.style.filter = `drop-shadow(0 0 ${(12 + perfectStrength * 25).toFixed(1)}px #00f0ff)${perfectStrength > 0.2 ? " drop-shadow(0 0 30px #fff)" : ""}`;
+    stretchLayer.setAttribute("opacity", (perfectStrength * 0.94).toFixed(3));
   };
 
   useEffect(() => {
@@ -135,66 +141,115 @@ export default function AuditionGauge({
       window.removeEventListener(WAVEFORM_MEDIA_TIME_EVENT, onMediaTime);
       if (renderAtRef.current === renderAt) renderAtRef.current = () => undefined;
     };
-  }, [bpm, perfectCenterPercent, spaceStartMs, stretchRatio, zoneCenterX]);
+  }, [bpm, effectiveStretchRatio, perfectCenterPercent, spaceStartMs, zoneCenterX]);
 
-  // Runtime/gameplay historically supplied only the already-computed gauge
-  // percentage. Reconstruct cycle phase from that deterministic position so
-  // breath/stretch stay alive even without the old WaveSurfer media-time event.
+  // Gameplay supplies the already-computed deterministic gauge percentage.
+  // Reconstruct the four-beat phase from that value so the reference breath
+  // and two-edge stretch also work without WaveSurfer events.
   useEffect(() => {
     if (spaceStartMs !== undefined || value === undefined || !Number.isFinite(value)) return;
     const sliderPercent = clamp(value);
     const cyclePhase = ((sliderPercent - perfectCenterPercent) % 100 + 100) % 100 / 100;
     applyVisualState(sliderPercent, cyclePhase);
-  }, [perfectCenterPercent, spaceStartMs, stretchRatio, value, zoneCenterX]);
+  }, [effectiveStretchRatio, perfectCenterPercent, spaceStartMs, value, zoneCenterX]);
 
-  const cyanGradientId = `${id}-cyanToWhiteGrad`;
+  const trackFillId = `${id}-trackFill`;
+  const rimGradientId = `${id}-rimGradient`;
+  const zoneGradientId = `${id}-zoneGradient`;
   const redGradientId = `${id}-redCoreGrad`;
-  const blurGlowId = `${id}-blurGlow`;
-  const blurSoftId = `${id}-blurSoft`;
+  const trackClipId = `${id}-trackClip`;
+  const outerShadowId = `${id}-outerShadow`;
+  const zoneBlurId = `${id}-zoneBlur`;
+  const zoneSoftId = `${id}-zoneSoft`;
+  const markerGlowId = `${id}-markerGlow`;
 
   return (
     <div className={`audition-gauge-svg ${className}`} onPointerDown={onPointerDown} style={{ width: "100%", aspectRatio: "464 / 56", lineHeight: 0, touchAction: "manipulation", overflow: "visible" }}>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="18 0 464 70" width="100%" height="100%" preserveAspectRatio="none" style={{ overflow: "visible" }} aria-label="Audition timing gauge">
         <defs>
-          <style>{`
-            @keyframes redGlowPulse-${id}{0%,100%{opacity:.8;transform:scale(.96)}50%{opacity:1;transform:scale(1.06)}}
-            .pulse-red-glow-${id}{transform-origin:150px ${trackCenterY}px;animation:redGlowPulse-${id} ${60000 / Math.max(1, bpm)}ms ease-in-out infinite}
-          `}</style>
-          <filter id={blurGlowId} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.5" /></filter>
-          <filter id={blurSoftId} x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.5" /></filter>
-          <linearGradient id={cyanGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00f0ff" stopOpacity="0" /><stop offset="12%" stopColor="#00d8ff" stopOpacity=".85" /><stop offset="25%" stopColor="#70f3ff" stopOpacity=".95" /><stop offset="35%" stopColor="#fff" /><stop offset="65%" stopColor="#fff" /><stop offset="75%" stopColor="#70f3ff" stopOpacity=".95" /><stop offset="88%" stopColor="#00d8ff" stopOpacity=".85" /><stop offset="100%" stopColor="#00f0ff" stopOpacity="0" />
+          <linearGradient id={rimGradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#14171a" />
+            <stop offset="20%" stopColor="#777c7e" />
+            <stop offset="38%" stopColor="#272b2e" />
+            <stop offset="72%" stopColor="#080a0c" />
+            <stop offset="100%" stopColor="#777b7c" />
           </linearGradient>
-          <radialGradient id={redGradientId} cx="50%" cy="50%" r="50%"><stop offset="0%" stopColor="#fff" /><stop offset="35%" stopColor="#ff4d4d" /><stop offset="70%" stopColor="#e11d48" /><stop offset="100%" stopColor="#880015" /></radialGradient>
+          <linearGradient id={trackFillId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#111417" stopOpacity=".82" />
+            <stop offset="35%" stopColor="#080a0d" stopOpacity=".76" />
+            <stop offset="72%" stopColor="#101519" stopOpacity=".72" />
+            <stop offset="100%" stopColor="#07090c" stopOpacity=".82" />
+          </linearGradient>
+          <linearGradient id={zoneGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#00b9c7" stopOpacity="0" />
+            <stop offset="12%" stopColor="#00b9c7" stopOpacity=".30" />
+            <stop offset="25%" stopColor="#05d9e7" stopOpacity=".92" />
+            <stop offset="39%" stopColor="#78f4f8" stopOpacity=".96" />
+            <stop offset="47%" stopColor="#f4ffff" stopOpacity="1" />
+            <stop offset="54%" stopColor="#ffffff" stopOpacity="1" />
+            <stop offset="63%" stopColor="#8bf6f9" stopOpacity=".96" />
+            <stop offset="76%" stopColor="#0ad9e7" stopOpacity=".92" />
+            <stop offset="89%" stopColor="#00aebb" stopOpacity=".34" />
+            <stop offset="100%" stopColor="#00aebb" stopOpacity="0" />
+          </linearGradient>
+          <radialGradient id={redGradientId} cx="45%" cy="38%" r="62%">
+            <stop offset="0%" stopColor="#fff6bd" />
+            <stop offset="22%" stopColor="#ffc052" />
+            <stop offset="48%" stopColor="#ff7040" />
+            <stop offset="74%" stopColor="#e43627" />
+            <stop offset="100%" stopColor="#9b160f" />
+          </radialGradient>
+          <clipPath id={trackClipId}><rect x="24" y="16" width="452" height="38" rx="19" /></clipPath>
+          <filter id={outerShadowId} x="-20%" y="-60%" width="140%" height="220%">
+            <feGaussianBlur stdDeviation="2.4" />
+          </filter>
+          <filter id={zoneBlurId} x="-35%" y="-55%" width="170%" height="210%">
+            <feGaussianBlur stdDeviation="6.5 1.6" />
+          </filter>
+          <filter id={zoneSoftId} x="-20%" y="-35%" width="140%" height="170%">
+            <feGaussianBlur stdDeviation="1.7 .7" />
+          </filter>
+          <filter id={markerGlowId} x="-90%" y="-90%" width="280%" height="280%">
+            <feGaussianBlur stdDeviation="2.5" />
+          </filter>
         </defs>
 
-        <rect x="20" y="12" width="460" height="46" rx="23" fill="#fff" opacity=".07" filter={`url(#${blurSoftId})`} />
-        <rect x="20" y="12" width="460" height="46" rx="23" fill="#0a0c14" fillOpacity=".12" stroke="#a1a1aa" strokeWidth="2" />
-        <rect x="22" y="14" width="456" height="42" rx="21" fill="none" stroke="#000" strokeWidth="1.5" opacity=".55" />
+        {/* Dark metallic capsule from the reference: broad dark rim, thin upper
+            highlight and a deep translucent interior rather than a flat bar. */}
+        <rect x="20" y="12" width="460" height="46" rx="23" fill="#000" opacity=".64" filter={`url(#${outerShadowId})`} />
+        <rect x="20" y="12" width="460" height="46" rx="23" fill={`url(#${rimGradientId})`} stroke="#060708" strokeWidth="1.5" />
+        <rect x="23" y="15" width="454" height="40" rx="20" fill="#050709" stroke="#a0a3a3" strokeWidth="1.1" opacity=".76" />
+        <rect x="25" y="17" width="450" height="36" rx="18" fill={`url(#${trackFillId})`} stroke="#000" strokeWidth="1.8" />
+        <path d="M42 18.5 H458" stroke="#e5e7e7" strokeWidth="1" strokeLinecap="round" opacity=".13" />
+        <path d="M42 52 H458" stroke="#c9cccc" strokeWidth="1" strokeLinecap="round" opacity=".10" />
 
-        <g>
-          <rect x={zoneX} y="20" width={zoneWidth} height={zoneHeight} rx={zoneRadius} fill="#00f0ff" opacity=".20" />
-          <rect x={zoneX} y="22" width={zoneWidth} height="26" rx={zoneRadius} fill={`url(#${cyanGradientId})`} opacity=".82" />
-        </g>
+        <g clipPath={`url(#${trackClipId})`}>
+          {/* Very faint idle trace. The reference zone mostly disappears between beats. */}
+          <rect x={zoneX} y="20" width={zoneWidth} height={zoneHeight} rx={zoneRadius} fill={`url(#${zoneGradientId})`} opacity=".055" filter={`url(#${zoneSoftId})`} />
 
-        <g ref={zoneGlowRef} opacity=".10" style={{ pointerEvents: "none" }}>
-          <rect x={zoneX} y="19" width={zoneWidth} height={zoneHeight + 2} rx={zoneRadius} fill="#00f0ff" opacity=".70" filter={`url(#${blurGlowId})`} />
-          <rect x={zoneX} y="21" width={zoneWidth} height="28" rx={zoneRadius} fill={`url(#${cyanGradientId})`} opacity=".92" filter={`url(#${blurSoftId})`} />
-        </g>
-
-        <g ref={perfectPulseRef} opacity="0" style={{ pointerEvents: "none" }}>
-          <rect x={zoneX} y="18" width={zoneWidth} height={zoneHeight + 4} rx={zoneRadius} fill="#00f0ff" opacity=".55" filter={`url(#${blurGlowId})`} />
-          <rect x={zoneX} y="20" width={zoneWidth} height="30" rx={zoneRadius} fill={`url(#${cyanGradientId})`} filter={`url(#${blurSoftId})`} />
-        </g>
-
-        <g ref={sliderRef} transform={`translate(${fallbackTranslate} 0)`}>
-          <g transform="translate(150 35) scale(1 1.25) translate(-150 -35)">
-            <g className={`pulse-red-glow-${id}`}>
-              <circle cx="150" cy="35" r="15" fill="#ff0044" filter={`url(#${blurGlowId})`} opacity=".5" />
-              <circle cx="150" cy="35" r="14" fill="none" stroke="#e4e4e7" strokeWidth="2" opacity=".9" />
-              <circle cx="150" cy="35" r="9" fill={`url(#${redGradientId})`} /><circle cx="150" cy="35" r="4" fill="#fff" opacity=".9" />
-            </g>
+          {/* Short cyan/white breath on all four beats. Width itself stays fixed. */}
+          <g ref={zoneBreathRef} opacity="0" style={{ pointerEvents: "none" }}>
+            <rect x={zoneX} y="18" width={zoneWidth} height="34" rx={zoneRadius} fill={`url(#${zoneGradientId})`} opacity=".82" filter={`url(#${zoneBlurId})`} />
+            <rect x={zoneX} y="21" width={zoneWidth} height="28" rx={zoneRadius} fill={`url(#${zoneGradientId})`} opacity=".92" filter={`url(#${zoneSoftId})`} />
           </g>
+
+          {/* Beat 4 / Perfect: a second copy expands symmetrically from both
+              edges. It is clipped by the rounded bar exactly like the reference. */}
+          <g ref={perfectStretchRef} opacity="0" style={{ pointerEvents: "none" }}>
+            <rect x={zoneX} y="17" width={zoneWidth} height="36" rx={zoneRadius} fill={`url(#${zoneGradientId})`} opacity=".72" filter={`url(#${zoneBlurId})`} />
+            <rect x={zoneX} y="20" width={zoneWidth} height="30" rx={zoneRadius} fill={`url(#${zoneGradientId})`} opacity=".86" filter={`url(#${zoneSoftId})`} />
+          </g>
+        </g>
+
+        {/* Red/orange moving marker: fixed glow and rings; no independent CSS
+            pulse clock, so the visual cannot phase-drift from WebAudio. */}
+        <g ref={sliderRef} transform={`translate(${fallbackTranslate} 0)`} style={{ pointerEvents: "none" }}>
+          <circle cx="150" cy={trackCenterY} r="18" fill="#fff" opacity=".34" filter={`url(#${markerGlowId})`} />
+          <circle cx="150" cy={trackCenterY} r="16.2" fill="#f6f1eb" opacity=".96" />
+          <circle cx="150" cy={trackCenterY} r="13.4" fill="#b9271d" stroke="#7e160f" strokeWidth="1" />
+          <circle cx="150" cy={trackCenterY} r="10.7" fill={`url(#${redGradientId})`} stroke="#ff8a5b" strokeWidth="1.4" />
+          <circle cx="150" cy={trackCenterY} r="4.1" fill="#fff4b0" opacity=".96" />
+          <circle cx="147.5" cy="32.2" r="2.3" fill="#fff" opacity=".72" />
         </g>
       </svg>
     </div>
