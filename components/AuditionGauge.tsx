@@ -165,7 +165,7 @@ export default function AuditionGauge({
 
   return (
     <div className={`audition-gauge-svg ${className}`} onPointerDown={onPointerDown} style={{ width: "100%", aspectRatio: "464 / 56", lineHeight: 0, touchAction: "manipulation", overflow: "visible" }}>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="18 0 464 70" width="100%" height="100%" preserveAspectRatio="none" style={{ overflow: "visible" }} aria-label="Audition timing gauge">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="18 7 464 56" width="100%" height="100%" preserveAspectRatio="none" style={{ overflow: "visible" }} aria-label="Audition timing gauge">
         <defs>
           <linearGradient id={rimGradientId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#14171a" />
