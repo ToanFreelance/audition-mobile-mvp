@@ -31,6 +31,12 @@ function publicUrl(target: UploadTarget, path: string) {
   return `${target.baseUrl}/storage/v1/object/public/${encodeURIComponent(target.bucket)}/${encodeStoragePath(path)}`;
 }
 
+function withTimestampSuffix(path: string) {
+  const dot = path.lastIndexOf(".");
+  if (dot <= 0) return `${path}-${Date.now()}`;
+  return `${path.slice(0, dot)}-${Date.now()}${path.slice(dot)}`;
+}
+
 export default function DirectAudioUploadBridge() {
   useEffect(() => {
     const nativeFetch = window.fetch.bind(window);
@@ -60,7 +66,7 @@ export default function DirectAudioUploadBridge() {
       const file = body.get("file");
       if (!(file instanceof File) || file.size <= 0) return nativeFetch(input, init);
 
-      const path = safeStorageName(file.name);
+      let path = safeStorageName(file.name);
       if (!audioNameIsValid(path)) {
         return new Response(JSON.stringify({ error: "Unsupported audio format" }), {
           status: 400,
@@ -77,24 +83,38 @@ export default function DirectAudioUploadBridge() {
         externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
 
         try {
-          const uploadResponse = await nativeFetch(
-            `${target.baseUrl}/storage/v1/object/${encodeURIComponent(target.bucket)}/${encodeStoragePath(path)}`,
+          const uploadOnce = async (uploadPath: string) => nativeFetch(
+            `${target.baseUrl}/storage/v1/object/${encodeURIComponent(target.bucket)}/${encodeStoragePath(uploadPath)}`,
             {
               method: "POST",
               headers: {
+                // Modern sb_publishable_* keys are API keys, not JWT access tokens.
+                // Sending them as Authorization: Bearer causes Storage to reject the
+                // request as an invalid JWT. The apikey header maps this public client
+                // to the anon role and Storage RLS policies authorize the upload.
                 apikey: target.key,
-                Authorization: `Bearer ${target.key}`,
                 "Content-Type": file.type || "application/octet-stream",
-                "x-upsert": "true",
+                "cache-control": "3600",
               },
               body: file,
               signal: controller.signal,
             },
           );
 
+          let uploadResponse = await uploadOnce(path);
           if (!uploadResponse.ok) {
             const detail = await uploadResponse.text().catch(() => "");
-            throw new Error(detail || `Supabase upload HTTP ${uploadResponse.status}`);
+            const duplicate = uploadResponse.status === 400 && /already exists|duplicate/i.test(detail);
+            if (duplicate) {
+              path = withTimestampSuffix(path);
+              uploadResponse = await uploadOnce(path);
+              if (!uploadResponse.ok) {
+                const retryDetail = await uploadResponse.text().catch(() => "");
+                throw new Error(retryDetail || `Supabase upload HTTP ${uploadResponse.status}`);
+              }
+            } else {
+              throw new Error(detail || `Supabase upload HTTP ${uploadResponse.status}`);
+            }
           }
         } finally {
           window.clearTimeout(timeout);
@@ -111,13 +131,16 @@ export default function DirectAudioUploadBridge() {
           headers: { "Content-Type": "application/json" },
         });
       } catch (error) {
-        // Small files may still safely use the existing server route. Large audio
-        // files must bypass Vercel's function request-body path entirely.
+        // Keep the existing server route only as a fallback for small files.
+        // Larger audio files must bypass Vercel's request-body path.
         if (file.size <= SERVER_FALLBACK_MAX_BYTES) return nativeFetch(input, init);
         const message = error instanceof DOMException && error.name === "AbortError"
           ? "Direct audio upload timed out after 120 seconds"
           : error instanceof Error ? error.message : "Direct audio upload failed";
-        throw new Error(message);
+        return new Response(JSON.stringify({ error: "Direct audio upload failed", detail: message }), {
+          status: 502,
+          headers: { "Content-Type": "application/json" },
+        });
       }
     };
 
