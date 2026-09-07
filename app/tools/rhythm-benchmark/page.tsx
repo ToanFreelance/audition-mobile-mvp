@@ -101,12 +101,12 @@ export default function RhythmBenchmarkPage() {
     transportRef.current = transport;
     let cancelled = false;
     setPreparing(true);
-    setMessage("Preparing shared WebAudio playback clock…");
+    setMessage("Preparing shared WebAudio playback + analysis buffer…");
     void transport.prepare()
       .then(() => {
         if (cancelled || transportRef.current !== transport) return;
         setReady(true);
-        setMessage("Playback ready. RUN ALL ANALYZERS decodes once and compares all package variants.");
+        setMessage("Shared AudioBuffer ready. Playback and analyzers will use the same decode.");
       })
       .catch(error => !cancelled && setMessage(`Playback prepare failed: ${error instanceof Error ? error.message : "unknown"}`))
       .finally(() => !cancelled && setPreparing(false));
@@ -120,26 +120,19 @@ export default function RhythmBenchmarkPage() {
   useEffect(() => () => stopRaf(), [stopRaf]);
 
   const runAll = async () => {
-    if (!selected?.audioUrl || running) return;
+    if (!selected?.audioUrl || running || playing) return;
     setRunning(true);
-    setMessage("Decoding once → @audio/beat variants + Essentia multifeature/degara + web detector default/broad + custom anchor grid…");
+    setMessage("Preparing PCM from the shared WebAudio buffer…");
     try {
-      const response = await fetch(selected.audioUrl, { cache: "no-store" });
-      if (!response.ok) throw new Error(`Audio HTTP ${response.status}`);
-      const bytes = await response.arrayBuffer();
-      const Ctor = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!Ctor) throw new Error("Web Audio API unavailable.");
-      const context = new Ctor();
-      try {
-        const buffer = await context.decodeAudioData(bytes.slice(0));
-        const mono = downmixAudioBuffer(buffer);
-        const next = await runRhythmBenchmark({ buffer, mono, sampleRate: buffer.sampleRate, spaceStartMs: selected.spaceStartMs });
-        setResults(next);
-        const succeeded = next.filter(item => !item.error).length;
-        setMessage(`Benchmark complete: ${succeeded}/${next.length} analyzer variants returned results. Consecutive manual SPACE marks now score the best modulo-4 phase, MAE and drift.`);
-      } finally {
-        await context.close().catch(() => undefined);
-      }
+      const transport = transportRef.current;
+      if (!transport) throw new Error("WebAudio transport is unavailable.");
+      const buffer = await transport.getDecodedBuffer();
+      const mono = downmixAudioBuffer(buffer);
+      setMessage("Running @audio/beat + Essentia variants + web detector variants + custom anchor grid…");
+      const next = await runRhythmBenchmark({ buffer, mono, sampleRate: buffer.sampleRate, spaceStartMs: selected.spaceStartMs });
+      setResults(next);
+      const succeeded = next.filter(item => !item.error).length;
+      setMessage(`Benchmark complete: ${succeeded}/${next.length} analyzer variants returned results. Consecutive manual SPACE marks score the best modulo-4 phase, MAE and drift.`);
     } catch (error) {
       setMessage(`Benchmark failed: ${error instanceof Error ? error.message : "unknown"}`);
     } finally {
@@ -187,6 +180,14 @@ export default function RhythmBenchmarkPage() {
   const windowSize = Math.max(1, windowEnd - windowStart);
   const scoreRows = useMemo(() => results.map(result => ({ result, score: scoreManualMarks(result, marks) })), [results, marks]);
   const manualSummary = useMemo(() => summarizeManualMarks(marks), [marks]);
+  const timelineResults = useMemo(() => results.filter(result => result.beatTimesMs.length), [results]);
+
+  const renderTimelineTrack = (pointsMs: number[], color: string, pointWidth = 2) => (
+    <div style={{ position: "relative", background: "rgba(255,255,255,.015)", minHeight: 38 }}>
+      <span style={{ position: "absolute", left: `${((anchor - windowStart) / windowSize) * 100}%`, top: 0, bottom: 0, width: 2, background: "white", opacity: .9, transform: "translateX(-1px)", zIndex: 3 }} />
+      {pointsMs.filter(point => point >= windowStart && point <= windowEnd).map((point, index) => <span key={`${point}-${index}`} title={fmtSeconds(point)} style={{ position: "absolute", left: `${((point - windowStart) / windowSize) * 100}%`, top: 7, bottom: 7, width: pointWidth, background: color, transform: `translateX(-${pointWidth / 2}px)`, zIndex: 4 }} />)}
+    </div>
+  );
 
   return (
     <main style={{ minHeight: "100vh", background: "#0d0b12", color: "#f8f5fb", padding: "24px 16px 80px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
@@ -199,16 +200,16 @@ export default function RhythmBenchmarkPage() {
         <section style={card}>
           <label style={{ display: "grid", gap: 8 }}><span style={eyebrow}>TRACK</span><select disabled={loading || running || playing} value={selected?.id ?? ""} onChange={event => setSelectedId(event.target.value)} style={selectStyle}>{configs.map(item => <option key={item.id} value={item.id}>{item.title} · {item.BPM_exact?.toFixed(4) ?? item.bpm} BPM</option>)}</select></label>
           {selected && <div style={{ marginTop: 14, display: "flex", gap: 18, flexWrap: "wrap", color: "#bbb1c2" }}><span>Saved BPM <b style={{ color: "white" }}>{selected.BPM_exact?.toFixed(4) ?? selected.bpm}</b></span><span>SPACE #1 <b style={{ color: "white" }}>{fmtSeconds(selected.spaceStartMs)}</b></span><span>Duration <b style={{ color: "white" }}>{fmtSeconds(selected.durationMs)}</b></span></div>}
-          <button disabled={!selected || running} onClick={() => void runAll()} style={{ ...primaryButton, width: "100%", marginTop: 16 }}>{running ? "RUNNING ALL ENGINES…" : "⚗ RUN ALL ANALYZERS"}</button>
+          <button disabled={!selected || !ready || running || playing} onClick={() => void runAll()} style={{ ...primaryButton, width: "100%", marginTop: 16 }}>{running ? "RUNNING ALL ENGINES…" : "⚗ RUN ALL ANALYZERS"}</button>
         </section>
 
         <section style={card}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}><div><div style={eyebrow}>MANUAL GROUND TRUTH</div><strong style={{ fontSize: 24 }}>{fmtSeconds(currentMs)}</strong></div><span style={muted}>{marks.length} marks</span></div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, marginTop: 14 }}>
-            <button disabled={!ready || preparing || playing} onClick={() => void play()} style={primaryButton}>▶ PLAY / RESUME</button>
+            <button disabled={!ready || preparing || playing || running} onClick={() => void play()} style={primaryButton}>▶ PLAY / RESUME</button>
             <button disabled={!playing} onClick={pause} style={secondaryButton}>Ⅱ PAUSE</button>
-            <button disabled={!ready} onClick={mark} style={primaryButton}>🎯 MARK NEXT SPACE</button>
-            <button disabled={!ready} onClick={reset} style={secondaryButton}>↺ RESET 0:00</button>
+            <button disabled={!ready || running} onClick={mark} style={primaryButton}>🎯 MARK NEXT SPACE</button>
+            <button disabled={!ready || running} onClick={reset} style={secondaryButton}>↺ RESET 0:00</button>
           </div>
           <div style={{ marginTop: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", color: "#cec4d3", fontSize: 13 }}>{marks.length ? marks.map((value, index) => <span key={`${value}-${index}`} style={{ display: "inline-block", marginRight: 12 }}>#{index + 1} {fmtSeconds(value)}</span>) : "Mark consecutive SPACE/Beat-4 points during one playback. 5–10 marks give useful manual BPM, MAE and drift."}</div>
           <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 }}>
@@ -216,7 +217,7 @@ export default function RhythmBenchmarkPage() {
             <Metric label="Manual derived BPM" value={fmtNumber(manualSummary.derivedBpm, 4)} />
             <Metric label="Manual interval jitter" value={manualSummary.intervalJitterMs == null ? "—" : `${manualSummary.intervalJitterMs.toFixed(1)}ms`} />
           </div>
-          {marks.length > 0 && <button onClick={() => setMarks([])} style={{ ...secondaryButton, marginTop: 10 }}>CLEAR MANUAL MARKS</button>}
+          {marks.length > 0 && <button onClick={() => setMarks([])} disabled={running} style={{ ...secondaryButton, marginTop: 10 }}>CLEAR MANUAL MARKS</button>}
         </section>
 
         <section style={card}>
@@ -224,7 +225,14 @@ export default function RhythmBenchmarkPage() {
           <div style={{ overflowX: "auto", marginTop: 12 }}><table style={{ width: "100%", minWidth: 1140, borderCollapse: "collapse", fontSize: 13 }}><thead><tr>{["Engine", "BPM", "Conf", "Beats", "Median interval", "Derived BPM", "Jitter", "Nearest beat", "Anchor Δ", "SPACE phase", "Runtime", "SPACE MAE", "Drift/SPACE"].map(label => <th key={label} style={th}>{label}</th>)}</tr></thead><tbody>{scoreRows.length ? scoreRows.map(({ result, score }) => <tr key={result.id} style={{ opacity: result.error ? .6 : 1 }}><td style={td}><strong>{result.engine}</strong><small style={{ display: "block", color: "#9e93a5" }}>{result.variant}{result.kind === "custom" ? " · CUSTOM" : ""}</small>{result.error && <small style={{ display: "block", color: "#ff8da1" }}>{result.error}</small>}</td><td style={td}>{fmtNumber(result.bpm, 4)}</td><td style={td}>{result.confidence == null ? "—" : `${(result.confidence * 100).toFixed(0)}%`}</td><td style={td}>{result.beatCount || "—"}</td><td style={td}>{result.medianBeatIntervalMs == null ? "—" : `${result.medianBeatIntervalMs.toFixed(2)}ms`}</td><td style={td}>{fmtNumber(result.derivedBpmFromIntervals, 4)}</td><td style={td}>{result.intervalJitterMs == null ? "—" : `${result.intervalJitterMs.toFixed(1)}ms`}</td><td style={td}>{fmtSeconds(result.nearestBeatToSpaceStartMs)}</td><td style={td}>{fmtMs(result.spaceStartDeltaMs)}</td><td style={td}>{score.spacePhase == null ? "—" : `P${score.spacePhase}/4`}</td><td style={td}>{`${result.processingTimeMs.toFixed(0)}ms`}</td><td style={td}>{score.maeMs == null ? "—" : `${score.maeMs.toFixed(1)}ms`}</td><td style={td}>{score.signedDriftMsPerMark == null ? "—" : `${score.signedDriftMsPerMark >= 0 ? "+" : ""}${score.signedDriftMsPerMark.toFixed(1)}ms`}</td></tr>) : <tr><td style={td} colSpan={13}>Run the analyzers to populate the comparison.</td></tr>}</tbody></table></div>
         </section>
 
-        {results.length > 0 && <section style={card}><div style={eyebrow}>BEAT TIMELINE · AROUND SAVED SPACE #1</div><p style={muted}>Window {fmtSeconds(windowStart)} → {fmtSeconds(windowEnd)}. The vertical white line is your saved SPACE #1.</p><div style={{ position: "relative", marginTop: 18, borderLeft: "1px solid #3e3545", borderRight: "1px solid #3e3545" }}><div style={{ position: "absolute", top: 0, bottom: 0, left: `${((anchor - windowStart) / windowSize) * 100}%`, width: 2, background: "white", zIndex: 3 }} />{results.filter(result => result.beatTimesMs.length).map(result => <div key={result.id} style={{ display: "grid", gridTemplateColumns: "180px 1fr", minHeight: 38, borderBottom: "1px solid #27212d" }}><div style={{ padding: "10px 8px", fontSize: 12, color: "#d7cedc" }}>{result.engine}<small style={{ display: "block", color: "#827989" }}>{result.variant}</small></div><div style={{ position: "relative", background: "rgba(255,255,255,.015)" }}>{result.beatTimesMs.filter(beat => beat >= windowStart && beat <= windowEnd).map((beat, index) => <span key={`${beat}-${index}`} title={fmtSeconds(beat)} style={{ position: "absolute", left: `${((beat - windowStart) / windowSize) * 100}%`, top: 7, bottom: 7, width: 2, background: result.kind === "custom" ? "#f45cff" : "#48d9ff", transform: "translateX(-1px)" }} />)}</div></div>)}</div></section>}
+        {results.length > 0 && <section style={card}>
+          <div style={eyebrow}>BEAT TIMELINE · AROUND SAVED SPACE #1</div>
+          <p style={muted}>Window {fmtSeconds(windowStart)} → {fmtSeconds(windowEnd)}. The vertical white line is your saved SPACE #1. Manual marks use yellow ticks.</p>
+          <div style={{ marginTop: 18, borderLeft: "1px solid #3e3545", borderRight: "1px solid #3e3545" }}>
+            {marks.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", minHeight: 38, borderBottom: "1px solid #27212d" }}><div style={{ padding: "10px 8px", fontSize: 12, color: "#f2d66d" }}>Manual<small style={{ display: "block", color: "#9b8945" }}>SPACE marks</small></div>{renderTimelineTrack(marks, "#ffd65c", 4)}</div>}
+            {timelineResults.map(result => <div key={result.id} style={{ display: "grid", gridTemplateColumns: "180px 1fr", minHeight: 38, borderBottom: "1px solid #27212d" }}><div style={{ padding: "10px 8px", fontSize: 12, color: "#d7cedc" }}>{result.engine}<small style={{ display: "block", color: "#827989" }}>{result.variant}</small></div>{renderTimelineTrack(result.beatTimesMs, result.kind === "custom" ? "#f45cff" : "#48d9ff")}</div>)}
+          </div>
+        </section>}
 
         {results.length > 0 && <section style={card}><div style={eyebrow}>RAW BEAT TIMESTAMPS · FIRST 16</div>{results.map(result => <div key={`${result.id}-beats`} style={{ padding: "12px 0", borderBottom: "1px solid #2b2530" }}><strong>{result.engine} · {result.variant}</strong><div style={{ marginTop: 6, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: "#bdb2c4", lineHeight: 1.65 }}>{result.beatTimesMs.length ? result.beatTimesMs.slice(0, 16).map(fmtSeconds).join(" · ") : result.notes || result.error || "No beat timestamps returned."}</div>{result.notes && result.beatTimesMs.length > 0 && <small style={{ display: "block", marginTop: 5, color: "#817788" }}>{result.notes}</small>}</div>)}</section>}
 
