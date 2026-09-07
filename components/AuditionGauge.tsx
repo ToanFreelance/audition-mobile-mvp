@@ -38,8 +38,8 @@ export default function AuditionGauge({
   className = "",
   zoneStart = 70,
   zoneEnd = 90,
-  perfectStart: _perfectStart = 79,
-  perfectEnd: _perfectEnd = 81,
+  perfectStart = 79,
+  perfectEnd = 81,
   stretchRatio = 1.6,
   spaceStartMs,
   currentTimeMs,
@@ -49,6 +49,7 @@ export default function AuditionGauge({
   const zoneGlowRef = useRef<SVGGElement | null>(null);
   const perfectPulseRef = useRef<SVGGElement | null>(null);
   const lastMediaMsRef = useRef(currentTimeMs ?? 0);
+  const renderAtRef = useRef<(nowMs: number) => void>(() => undefined);
 
   const safeZoneStart = clamp(Math.min(zoneStart, zoneEnd));
   const safeZoneEnd = clamp(Math.max(zoneStart, zoneEnd));
@@ -62,52 +63,64 @@ export default function AuditionGauge({
   const zoneRightX = x(safeZoneEnd);
   const zoneWidth = zoneRightX - zoneX;
   const zoneCenterX = zoneX + zoneWidth / 2;
-  const fallbackValue = clamp(value ?? 80);
+  const perfectCenterPercent = clamp((perfectStart + perfectEnd) / 2);
+  const fallbackValue = clamp(value ?? perfectCenterPercent);
   const fallbackTranslate = x(fallbackValue) - 150;
 
-  useEffect(() => {
-    if (currentTimeMs !== undefined) lastMediaMsRef.current = currentTimeMs;
-  }, [currentTimeMs]);
-
-  useEffect(() => {
+  const applyVisualState = (sliderPercent: number, cyclePhase: number) => {
     const slider = sliderRef.current;
     const zoneGlow = zoneGlowRef.current;
     const perfectOverlay = perfectPulseRef.current;
-    if (!slider || !zoneGlow || !perfectOverlay || spaceStartMs === undefined) return;
+    if (!slider || !zoneGlow || !perfectOverlay) return;
+
+    slider.setAttribute("transform", `translate(${x(sliderPercent) - 150} 0)`);
+
+    // A clearly visible light flash on each beat. Geometry stays completely
+    // fixed: breath changes only opacity/filter so the score zone cannot drift.
+    const beatPhase = (cyclePhase * 4) % 1;
+    const beatDistance = Math.min(beatPhase, 1 - beatPhase);
+    const breath = smoothPulse(beatDistance, 0.46);
+    const zoneOpacity = 0.10 + breath * 0.90;
+    const zoneGlowPx = 2 + breath * 20;
+    zoneGlow.setAttribute("opacity", zoneOpacity.toFixed(3));
+    zoneGlow.style.filter = [
+      `drop-shadow(0 0 ${zoneGlowPx.toFixed(1)}px #00f0ff)`,
+      breath > 0.35 ? `drop-shadow(0 0 ${(8 + breath * 15).toFixed(1)}px #9ffaff)` : "",
+      breath > 0.62 ? `drop-shadow(0 0 ${(5 + breath * 12).toFixed(1)}px #ffffff)` : "",
+    ].filter(Boolean).join(" ");
+
+    // Beat 4 / Perfect keeps the same bright breath and adds a separate
+    // symmetric stretch overlay. The fixed score-zone geometry never moves.
+    const distanceToPerfect = Math.min(cyclePhase, 1 - cyclePhase);
+    const perfectStrength = smoothPulse(distanceToPerfect, 0.07);
+    const perfectScale = 1 + perfectStrength * Math.max(0, stretchRatio - 1);
+    perfectOverlay.setAttribute(
+      "transform",
+      `translate(${zoneCenterX} ${trackCenterY}) scale(${perfectScale} 1) translate(${-zoneCenterX} ${-trackCenterY})`,
+    );
+    perfectOverlay.setAttribute("opacity", perfectStrength.toFixed(3));
+    perfectOverlay.style.filter = `drop-shadow(0 0 ${(12 + perfectStrength * 25).toFixed(1)}px #00f0ff)${perfectStrength > 0.2 ? " drop-shadow(0 0 30px #fff)" : ""}`;
+  };
+
+  useEffect(() => {
+    if (currentTimeMs === undefined || !Number.isFinite(currentTimeMs)) return;
+    lastMediaMsRef.current = currentTimeMs;
+    renderAtRef.current(currentTimeMs);
+  }, [currentTimeMs]);
+
+  useEffect(() => {
+    if (spaceStartMs === undefined) {
+      renderAtRef.current = () => undefined;
+      return;
+    }
 
     const renderAt = (nowMs: number) => {
-      const timing = getGaugeTiming({ bpm, spaceStartMs }, nowMs);
-      slider.setAttribute("transform", `translate(${x(timing.sliderPercent) - 150} 0)`);
-
+      const timing = getGaugeTiming({ bpm, spaceStartMs, perfectCenterPercent }, nowMs);
       const cyclePhase = timing.cycleMs > 0 ? timing.cycleElapsedMs / timing.cycleMs : 0;
-
-      // A clearly visible light flash on each beat. Geometry stays completely
-      // fixed: breath changes only opacity/filter so the score zone cannot drift.
-      const beatPhase = (cyclePhase * 4) % 1;
-      const beatDistance = Math.min(beatPhase, 1 - beatPhase);
-      const breath = smoothPulse(beatDistance, 0.46);
-      const zoneOpacity = 0.10 + breath * 0.90;
-      const zoneGlowPx = 2 + breath * 20;
-      zoneGlow.setAttribute("opacity", zoneOpacity.toFixed(3));
-      zoneGlow.style.filter = [
-        `drop-shadow(0 0 ${zoneGlowPx.toFixed(1)}px #00f0ff)`,
-        breath > 0.35 ? `drop-shadow(0 0 ${(8 + breath * 15).toFixed(1)}px #9ffaff)` : "",
-        breath > 0.62 ? `drop-shadow(0 0 ${(5 + breath * 12).toFixed(1)}px #ffffff)` : "",
-      ].filter(Boolean).join(" ");
-
-      // Beat 4 / Perfect keeps the same bright breath and adds a separate
-      // symmetric stretch overlay. The fixed score-zone geometry never moves.
-      const distanceToPerfect = Math.min(cyclePhase, 1 - cyclePhase);
-      const perfectStrength = smoothPulse(distanceToPerfect, 0.07);
-      const perfectScale = 1 + perfectStrength * Math.max(0, stretchRatio - 1);
-      perfectOverlay.setAttribute(
-        "transform",
-        `translate(${zoneCenterX} ${trackCenterY}) scale(${perfectScale} 1) translate(${-zoneCenterX} ${-trackCenterY})`,
-      );
-      perfectOverlay.setAttribute("opacity", (perfectStrength * 1).toFixed(3));
-      perfectOverlay.style.filter = `drop-shadow(0 0 ${(12 + perfectStrength * 25).toFixed(1)}px #00f0ff)${perfectStrength > 0.2 ? " drop-shadow(0 0 30px #fff)" : ""}`;
+      applyVisualState(timing.sliderPercent, cyclePhase);
     };
 
+    renderAtRef.current = renderAt;
     renderAt(lastMediaMsRef.current);
 
     const onMediaTime = (event: Event) => {
@@ -118,8 +131,21 @@ export default function AuditionGauge({
     };
 
     window.addEventListener(WAVEFORM_MEDIA_TIME_EVENT, onMediaTime);
-    return () => window.removeEventListener(WAVEFORM_MEDIA_TIME_EVENT, onMediaTime);
-  }, [bpm, spaceStartMs, stretchRatio, zoneCenterX]);
+    return () => {
+      window.removeEventListener(WAVEFORM_MEDIA_TIME_EVENT, onMediaTime);
+      if (renderAtRef.current === renderAt) renderAtRef.current = () => undefined;
+    };
+  }, [bpm, perfectCenterPercent, spaceStartMs, stretchRatio, zoneCenterX]);
+
+  // Runtime/gameplay historically supplied only the already-computed gauge
+  // percentage. Reconstruct cycle phase from that deterministic position so
+  // breath/stretch stay alive even without the old WaveSurfer media-time event.
+  useEffect(() => {
+    if (spaceStartMs !== undefined || value === undefined || !Number.isFinite(value)) return;
+    const sliderPercent = clamp(value);
+    const cyclePhase = ((sliderPercent - perfectCenterPercent) % 100 + 100) % 100 / 100;
+    applyVisualState(sliderPercent, cyclePhase);
+  }, [perfectCenterPercent, spaceStartMs, stretchRatio, value, zoneCenterX]);
 
   const cyanGradientId = `${id}-cyanToWhiteGrad`;
   const redGradientId = `${id}-redCoreGrad`;
