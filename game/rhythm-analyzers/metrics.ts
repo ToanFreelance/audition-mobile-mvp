@@ -75,7 +75,12 @@ function buildLocalTempo(beatTimesMs: number[], durationMs: number, windowMs = 3
 }
 
 function classifyTempoMode(localTempo: LocalTempoWindow[]): TempoMode {
-  const bpms = localTempo.map(item => item.bpm).filter((value): value is number => value != null && Number.isFinite(value));
+  const substantial = localTempo.filter(item =>
+    item.bpm != null && Number.isFinite(item.bpm) && item.beatCount >= 8 && item.endMs - item.startMs >= 20_000,
+  );
+  const fallback = localTempo.filter(item => item.bpm != null && Number.isFinite(item.bpm) && item.beatCount >= 8);
+  const source = substantial.length >= 2 ? substantial : fallback;
+  const bpms = source.map(item => item.bpm).filter((value): value is number => value != null && Number.isFinite(value));
   if (bpms.length < 2) return "UNKNOWN";
   const center = median(bpms);
   if (!center || center <= 0) return "UNKNOWN";

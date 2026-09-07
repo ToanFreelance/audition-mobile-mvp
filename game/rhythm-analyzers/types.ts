@@ -1,5 +1,5 @@
 export type RhythmEngineKind = "package" | "custom";
-export type BeatGridKind = "detected" | "synthetic" | "none";
+export type BeatGridKind = "detected" | "synthetic" | "validated" | "none";
 export type TempoMode = "CONSTANT" | "VARIABLE" | "UNKNOWN";
 
 export type LocalTempoWindow = {
