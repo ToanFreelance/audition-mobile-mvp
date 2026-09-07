@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildTempoConsensus,
   downmixAudioBuffer,
   runRhythmBenchmark,
   scoreManualMarks,
@@ -128,11 +129,13 @@ export default function RhythmBenchmarkPage() {
       if (!transport) throw new Error("WebAudio transport is unavailable.");
       const buffer = await transport.getDecodedBuffer();
       const mono = downmixAudioBuffer(buffer);
-      setMessage("Running @audio/beat + Essentia variants + web detector variants + custom anchor grid…");
-      const next = await runRhythmBenchmark({ buffer, mono, sampleRate: buffer.sampleRate, spaceStartMs: selected.spaceStartMs });
+      const next = await runRhythmBenchmark(
+        { buffer, mono, sampleRate: buffer.sampleRate, spaceStartMs: selected.spaceStartMs },
+        stage => setMessage(stage),
+      );
       setResults(next);
       const succeeded = next.filter(item => !item.error).length;
-      setMessage(`Benchmark complete: ${succeeded}/${next.length} analyzer variants returned results. Consecutive manual SPACE marks score the best modulo-4 phase, MAE and drift.`);
+      setMessage(`Benchmark complete: ${succeeded}/${next.length} analyzer variants returned results. Add 5–10 consecutive manual SPACE marks to rank phase accuracy and long-term drift.`);
     } catch (error) {
       setMessage(`Benchmark failed: ${error instanceof Error ? error.message : "unknown"}`);
     } finally {
@@ -171,7 +174,7 @@ export default function RhythmBenchmarkPage() {
     const value = transportRef.current?.getCurrentTimeMs() ?? currentMs;
     setCurrentMs(value);
     setMarks(current => [...current, value]);
-    setMessage(`Manual mark #${marks.length + 1}: ${fmtSeconds(value)}. For manual BPM, mark consecutive SPACE points in one playback.`);
+    setMessage(`Manual mark #${marks.length + 1}: ${fmtSeconds(value)}. Keep playback continuous and mark the next SPACE.`);
   };
 
   const anchor = selected?.spaceStartMs ?? 0;
@@ -180,6 +183,7 @@ export default function RhythmBenchmarkPage() {
   const windowSize = Math.max(1, windowEnd - windowStart);
   const scoreRows = useMemo(() => results.map(result => ({ result, score: scoreManualMarks(result, marks) })), [results, marks]);
   const manualSummary = useMemo(() => summarizeManualMarks(marks), [marks]);
+  const consensus = useMemo(() => buildTempoConsensus(results), [results]);
   const timelineResults = useMemo(() => results.filter(result => result.beatTimesMs.length), [results]);
 
   const renderTimelineTrack = (pointsMs: number[], color: string, pointWidth = 2) => (
@@ -193,14 +197,14 @@ export default function RhythmBenchmarkPage() {
     <main style={{ minHeight: "100vh", background: "#0d0b12", color: "#f8f5fb", padding: "24px 16px 80px", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <div style={{ maxWidth: 1120, margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <div><div style={eyebrow}>RHYTHM ANALYZER BENCHMARK</div><h1 style={{ margin: "8px 0", fontSize: 32 }}>Compare engines on real Audition charts</h1><p style={muted}>No engine is trusted by default. We compare BPM, beat grid, jitter, anchor error, runtime, and manual listening accuracy.</p></div>
+          <div><div style={eyebrow}>RHYTHM ANALYZER BENCHMARK</div><h1 style={{ margin: "8px 0", fontSize: 32 }}>Compare engines on real Audition charts</h1><p style={muted}>No engine is trusted by default. We compare tempo, beat grid, phase, jitter, local tempo, runtime, and manual listening accuracy.</p></div>
           <button style={secondaryButton} onClick={() => { window.location.href = "/"; }}>← READY</button>
         </div>
 
         <section style={card}>
           <label style={{ display: "grid", gap: 8 }}><span style={eyebrow}>TRACK</span><select disabled={loading || running || playing} value={selected?.id ?? ""} onChange={event => setSelectedId(event.target.value)} style={selectStyle}>{configs.map(item => <option key={item.id} value={item.id}>{item.title} · {item.BPM_exact?.toFixed(4) ?? item.bpm} BPM</option>)}</select></label>
           {selected && <div style={{ marginTop: 14, display: "flex", gap: 18, flexWrap: "wrap", color: "#bbb1c2" }}><span>Saved BPM <b style={{ color: "white" }}>{selected.BPM_exact?.toFixed(4) ?? selected.bpm}</b></span><span>SPACE #1 <b style={{ color: "white" }}>{fmtSeconds(selected.spaceStartMs)}</b></span><span>Duration <b style={{ color: "white" }}>{fmtSeconds(selected.durationMs)}</b></span></div>}
-          <button disabled={!selected || !ready || running || playing} onClick={() => void runAll()} style={{ ...primaryButton, width: "100%", marginTop: 16 }}>{running ? "RUNNING ALL ENGINES…" : "⚗ RUN ALL ANALYZERS"}</button>
+          <button disabled={!selected || !ready || running || playing} onClick={() => void runAll()} style={{ ...primaryButton, width: "100%", marginTop: 16 }}>{running ? "RUNNING ANALYZERS…" : "⚗ RUN ALL ANALYZERS"}</button>
         </section>
 
         <section style={card}>
@@ -220,24 +224,42 @@ export default function RhythmBenchmarkPage() {
           {marks.length > 0 && <button onClick={() => setMarks([])} disabled={running} style={{ ...secondaryButton, marginTop: 10 }}>CLEAR MANUAL MARKS</button>}
         </section>
 
+        {results.length > 0 && <section style={card}>
+          <div style={eyebrow}>HARMONIC-AWARE TEMPO CONSENSUS</div>
+          <div style={{ marginTop: 8, display: "flex", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
+            <strong style={{ fontSize: 24 }}>{consensus.status}</strong>
+            {consensus.bpm != null && <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 20 }}>{consensus.bpm.toFixed(4)} BPM</span>}
+          </div>
+          <p style={muted}>{consensus.note}</p>
+          <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+            {consensus.clusters.slice(0, 5).map((cluster, index) => <div key={`${cluster.centerBpm}-${index}`} style={{ padding: 10, borderRadius: 10, border: "1px solid #342b3b", background: "#100d13" }}><strong>Cluster {cluster.centerBpm.toFixed(3)} BPM · {cluster.engineCount} independent engine{cluster.engineCount === 1 ? "" : "s"}</strong><div style={{ marginTop: 5, color: "#9f95a7", fontSize: 12 }}>{cluster.members.map(member => `${member.label}: ${member.rawBpm.toFixed(3)}${member.harmonicMultiplier === 1 ? "" : ` ×${member.harmonicMultiplier} → ${member.normalizedBpm.toFixed(3)}`}`).join(" · ")}</div></div>)}
+          </div>
+        </section>}
+
         <section style={card}>
           <div style={eyebrow}>NORMALIZED RESULTS</div>
-          <div style={{ overflowX: "auto", marginTop: 12 }}><table style={{ width: "100%", minWidth: 1140, borderCollapse: "collapse", fontSize: 13 }}><thead><tr>{["Engine", "BPM", "Conf", "Beats", "Median interval", "Derived BPM", "Jitter", "Nearest beat", "Anchor Δ", "SPACE phase", "Runtime", "SPACE MAE", "Drift/SPACE"].map(label => <th key={label} style={th}>{label}</th>)}</tr></thead><tbody>{scoreRows.length ? scoreRows.map(({ result, score }) => <tr key={result.id} style={{ opacity: result.error ? .6 : 1 }}><td style={td}><strong>{result.engine}</strong><small style={{ display: "block", color: "#9e93a5" }}>{result.variant}{result.kind === "custom" ? " · CUSTOM" : ""}</small>{result.error && <small style={{ display: "block", color: "#ff8da1" }}>{result.error}</small>}</td><td style={td}>{fmtNumber(result.bpm, 4)}</td><td style={td}>{result.confidence == null ? "—" : `${(result.confidence * 100).toFixed(0)}%`}</td><td style={td}>{result.beatCount || "—"}</td><td style={td}>{result.medianBeatIntervalMs == null ? "—" : `${result.medianBeatIntervalMs.toFixed(2)}ms`}</td><td style={td}>{fmtNumber(result.derivedBpmFromIntervals, 4)}</td><td style={td}>{result.intervalJitterMs == null ? "—" : `${result.intervalJitterMs.toFixed(1)}ms`}</td><td style={td}>{fmtSeconds(result.nearestBeatToSpaceStartMs)}</td><td style={td}>{fmtMs(result.spaceStartDeltaMs)}</td><td style={td}>{score.spacePhase == null ? "—" : `P${score.spacePhase}/4`}</td><td style={td}>{`${result.processingTimeMs.toFixed(0)}ms`}</td><td style={td}>{score.maeMs == null ? "—" : `${score.maeMs.toFixed(1)}ms`}</td><td style={td}>{score.signedDriftMsPerMark == null ? "—" : `${score.signedDriftMsPerMark >= 0 ? "+" : ""}${score.signedDriftMsPerMark.toFixed(1)}ms`}</td></tr>) : <tr><td style={td} colSpan={13}>Run the analyzers to populate the comparison.</td></tr>}</tbody></table></div>
+          <div style={{ overflowX: "auto", marginTop: 12 }}><table style={{ width: "100%", minWidth: 1580, borderCollapse: "collapse", fontSize: 13 }}><thead><tr>{["Engine", "BPM", "Conf", "Grid", "Beats", "Median interval", "Derived BPM", "Jitter", "Tempo mode", "Nearest beat", "Anchor Δ", "SPACE phase", "Runtime", "SPACE MAE", "Median err", "Max err", "Drift/SPACE", "Drift slope"].map(label => <th key={label} style={th}>{label}</th>)}</tr></thead><tbody>{scoreRows.length ? scoreRows.map(({ result, score }) => <tr key={result.id} style={{ opacity: result.error ? .6 : 1 }}><td style={td}><strong>{result.engine}</strong><small style={{ display: "block", color: "#9e93a5" }}>{result.variant}{result.kind === "custom" ? " · CUSTOM" : ""}</small>{result.error && <small style={{ display: "block", color: "#ff8da1" }}>{result.error}</small>}</td><td style={td}>{fmtNumber(result.bpm, 4)}</td><td style={td}>{result.confidence == null ? "—" : `${(result.confidence * 100).toFixed(0)}%`}</td><td style={td}>{result.beatGridKind}</td><td style={td}>{result.beatCount || "—"}</td><td style={td}>{result.medianBeatIntervalMs == null ? "—" : `${result.medianBeatIntervalMs.toFixed(2)}ms`}</td><td style={td}>{fmtNumber(result.derivedBpmFromIntervals, 4)}</td><td style={td}>{result.intervalJitterMs == null ? "—" : `${result.intervalJitterMs.toFixed(1)}ms`}</td><td style={td}>{result.tempoMode}</td><td style={td}>{fmtSeconds(result.nearestBeatToSpaceStartMs)}</td><td style={td}>{fmtMs(result.spaceStartDeltaMs)}</td><td style={td}>{score.spacePhase == null ? "—" : `P${score.spacePhase}/4`}</td><td style={td}>{`${result.processingTimeMs.toFixed(0)}ms`}</td><td style={td}>{score.maeMs == null ? "—" : `${score.maeMs.toFixed(1)}ms`}</td><td style={td}>{score.medianErrorMs == null ? "—" : `${score.medianErrorMs.toFixed(1)}ms`}</td><td style={td}>{score.maxErrorMs == null ? "—" : `${score.maxErrorMs.toFixed(1)}ms`}</td><td style={td}>{score.signedDriftMsPerMark == null ? "—" : `${score.signedDriftMsPerMark >= 0 ? "+" : ""}${score.signedDriftMsPerMark.toFixed(1)}ms`}</td><td style={td}>{score.driftSlopeMsPerSecond == null ? "—" : `${score.driftSlopeMsPerSecond >= 0 ? "+" : ""}${score.driftSlopeMsPerSecond.toFixed(2)}ms/s`}</td></tr>) : <tr><td style={td} colSpan={18}>Run the analyzers to populate the comparison.</td></tr>}</tbody></table></div>
         </section>
+
+        {results.some(result => result.localTempo.length > 0) && <section style={card}>
+          <div style={eyebrow}>LOCAL TEMPO · 30 SECOND WINDOWS</div>
+          <p style={muted}>Detected/synthesized beat grids are measured independently in each window. CONSTANT/VARIABLE is diagnostic; synthetic grids are constant by construction.</p>
+          {results.filter(result => result.localTempo.length > 0).map(result => <div key={`${result.id}-local`} style={{ padding: "12px 0", borderBottom: "1px solid #2b2530" }}><div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}><strong>{result.engine} · {result.variant}</strong><span style={{ color: result.tempoMode === "VARIABLE" ? "#ffb36b" : "#8ee7a7", fontSize: 12, fontWeight: 800 }}>{result.tempoMode}</span><small style={{ color: "#817788" }}>{result.beatGridKind} grid</small></div><div style={{ marginTop: 7, display: "flex", gap: 8, flexWrap: "wrap" }}>{result.localTempo.map(window => <span key={`${result.id}-${window.startMs}`} style={{ padding: "6px 8px", border: "1px solid #342b3b", borderRadius: 8, background: "#100d13", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 }}>{Math.round(window.startMs / 1000)}–{Math.round(window.endMs / 1000)}s: {fmtNumber(window.bpm, 3)} BPM · jitter {window.intervalJitterMs == null ? "—" : `${window.intervalJitterMs.toFixed(1)}ms`}</span>)}</div></div>)}
+        </section>}
 
         {results.length > 0 && <section style={card}>
           <div style={eyebrow}>BEAT TIMELINE · AROUND SAVED SPACE #1</div>
-          <p style={muted}>Window {fmtSeconds(windowStart)} → {fmtSeconds(windowEnd)}. The vertical white line is your saved SPACE #1. Manual marks use yellow ticks.</p>
+          <p style={muted}>Window {fmtSeconds(windowStart)} → {fmtSeconds(windowEnd)}. The vertical white line is saved SPACE #1. Manual marks use yellow ticks.</p>
           <div style={{ marginTop: 18, borderLeft: "1px solid #3e3545", borderRight: "1px solid #3e3545" }}>
             {marks.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", minHeight: 38, borderBottom: "1px solid #27212d" }}><div style={{ padding: "10px 8px", fontSize: 12, color: "#f2d66d" }}>Manual<small style={{ display: "block", color: "#9b8945" }}>SPACE marks</small></div>{renderTimelineTrack(marks, "#ffd65c", 4)}</div>}
-            {timelineResults.map(result => <div key={result.id} style={{ display: "grid", gridTemplateColumns: "180px 1fr", minHeight: 38, borderBottom: "1px solid #27212d" }}><div style={{ padding: "10px 8px", fontSize: 12, color: "#d7cedc" }}>{result.engine}<small style={{ display: "block", color: "#827989" }}>{result.variant}</small></div>{renderTimelineTrack(result.beatTimesMs, result.kind === "custom" ? "#f45cff" : "#48d9ff")}</div>)}
+            {timelineResults.map(result => <div key={result.id} style={{ display: "grid", gridTemplateColumns: "180px 1fr", minHeight: 38, borderBottom: "1px solid #27212d" }}><div style={{ padding: "10px 8px", fontSize: 12, color: "#d7cedc" }}>{result.engine}<small style={{ display: "block", color: "#827989" }}>{result.variant} · {result.beatGridKind}</small></div>{renderTimelineTrack(result.beatTimesMs, result.kind === "custom" ? "#f45cff" : "#48d9ff")}</div>)}
           </div>
         </section>}
 
         {results.length > 0 && <section style={card}><div style={eyebrow}>RAW BEAT TIMESTAMPS · FIRST 16</div>{results.map(result => <div key={`${result.id}-beats`} style={{ padding: "12px 0", borderBottom: "1px solid #2b2530" }}><strong>{result.engine} · {result.variant}</strong><div style={{ marginTop: 6, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: "#bdb2c4", lineHeight: 1.65 }}>{result.beatTimesMs.length ? result.beatTimesMs.slice(0, 16).map(fmtSeconds).join(" · ") : result.notes || result.error || "No beat timestamps returned."}</div>{result.notes && result.beatTimesMs.length > 0 && <small style={{ display: "block", marginTop: 5, color: "#817788" }}>{result.notes}</small>}</div>)}</section>}
 
         <p style={{ ...muted, padding: 14, borderRadius: 12, background: "#211a27" }}>{message}</p>
-        <p style={{ ...muted, fontSize: 12 }}>Essentia.js remains benchmark-only because of AGPL-3.0. Its documented multifeature confidence range 0..5.32 is normalized to 0..100% here. Confidence values from different engines still must not be compared directly.</p>
+        <p style={{ ...muted, fontSize: 12 }}>Essentia.js remains benchmark-only because of AGPL-3.0. Multifeature confidence is normalized from its documented 0..5.32 range only for display. Package confidence values and CUSTOM confidence are not comparable. Production Music Config is unchanged by this benchmark.</p>
       </div>
     </main>
   );
