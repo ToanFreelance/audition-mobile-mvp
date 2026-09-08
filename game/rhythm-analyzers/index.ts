@@ -1,5 +1,6 @@
 import { runAnchorGrid } from "./anchor-grid";
 import { runAudioBeatVariants } from "./audio-beat";
+import { runExactGridRefiner } from "./exact-grid-refiner";
 import { runFinalRhythmEstimator } from "./final-rhythm-estimator-v3";
 import { runAutoGridValidator } from "./grid-validator";
 import { runEssentiaVariants } from "./essentia";
@@ -34,7 +35,10 @@ export async function runRhythmBenchmark(input: BenchmarkInput, progress?: Bench
   const phaseGridRow = await runPhaseGridValidator(input, packageRows, progress);
   await yieldToBrowser();
 
-  const finalRhythmRow = await runFinalRhythmEstimator(input, packageRows, onsetGridRow, phaseGridRow, progress);
+  const v3RhythmRow = await runFinalRhythmEstimator(input, packageRows, onsetGridRow, phaseGridRow, progress);
+  await yieldToBrowser();
+
+  const finalRhythmRow = await runExactGridRefiner(input, v3RhythmRow, progress);
   await yieldToBrowser();
 
   const onsetDiagnosticRow: RhythmEngineResult = {
@@ -42,7 +46,7 @@ export async function runRhythmBenchmark(input: BenchmarkInput, progress?: Bench
     id: "onset-grid-validator",
     engine: "ONSET GRID",
     variant: onsetGridRow.variant.replace("whole-track onset fit", "whole-track onset periodicity"),
-    notes: `${onsetGridRow.notes ?? ""} Diagnostic only: FINAL RHYTHM v3 owns metrical selection, quality-gated independent-family exact tempo, nominal/source-speed diagnostics and the live gameplay candidate.`,
+    notes: `${onsetGridRow.notes ?? ""} Diagnostic only: FINAL RHYTHM v4 uses v3 for metrical/nominal decisions, then a dedicated narrow PCM exact-grid fit with phase-drift regression for final constant-source BPM and CI.`,
   };
 
   progress?.("Running CUSTOM anchor grid…");
