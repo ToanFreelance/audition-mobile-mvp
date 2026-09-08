@@ -1,6 +1,6 @@
 import { runAnchorGrid } from "./anchor-grid";
 import { runAudioBeatVariants } from "./audio-beat";
-import { runFinalRhythmEstimator } from "./final-rhythm-estimator-v2";
+import { runFinalRhythmEstimator } from "./final-rhythm-estimator-v3";
 import { runAutoGridValidator } from "./grid-validator";
 import { runEssentiaVariants } from "./essentia";
 import { runMusicTempoVariants } from "./music-tempo";
@@ -42,7 +42,7 @@ export async function runRhythmBenchmark(input: BenchmarkInput, progress?: Bench
     id: "onset-grid-validator",
     engine: "ONSET GRID",
     variant: onsetGridRow.variant.replace("whole-track onset fit", "whole-track onset periodicity"),
-    notes: `${onsetGridRow.notes ?? ""} Diagnostic only: FINAL RHYTHM v2 owns metrical selection, family-calibrated exact tempo, source-speed diagnostics and the live gameplay candidate.`,
+    notes: `${onsetGridRow.notes ?? ""} Diagnostic only: FINAL RHYTHM v3 owns metrical selection, quality-gated independent-family exact tempo, nominal/source-speed diagnostics and the live gameplay candidate.`,
   };
 
   progress?.("Running CUSTOM anchor grid…");
