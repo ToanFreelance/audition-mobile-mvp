@@ -1,5 +1,6 @@
 import { runAnchorGrid } from "./anchor-grid";
 import { runAudioBeatVariants } from "./audio-beat";
+import { runFinalRhythmEstimator } from "./final-rhythm-estimator";
 import { runAutoGridValidator } from "./grid-validator";
 import { runEssentiaVariants } from "./essentia";
 import { runMusicTempoVariants } from "./music-tempo";
@@ -27,11 +28,22 @@ export async function runRhythmBenchmark(input: BenchmarkInput, progress?: Bench
 
   const packageRows = [...audioBeatRows, ...essentiaRows, ...webRows, ...musicTempoRows];
 
-  const autoGridRow = await runAutoGridValidator(input, packageRows, progress);
+  const onsetGridRow = await runAutoGridValidator(input, packageRows, progress);
   await yieldToBrowser();
 
   const phaseGridRow = await runPhaseGridValidator(input, packageRows, progress);
   await yieldToBrowser();
+
+  const finalRhythmRow = await runFinalRhythmEstimator(input, packageRows, onsetGridRow, phaseGridRow, progress);
+  await yieldToBrowser();
+
+  const onsetDiagnosticRow: RhythmEngineResult = {
+    ...onsetGridRow,
+    id: "onset-grid-validator",
+    engine: "ONSET GRID",
+    variant: onsetGridRow.variant.replace("whole-track onset fit", "whole-track onset periodicity"),
+    notes: `${onsetGridRow.notes ?? ""} Diagnostic only: FINAL RHYTHM now owns metrical-level selection and the live gauge candidate.`,
+  };
 
   progress?.("Running CUSTOM anchor grid…");
   const seed = audioBeatRows.find(row => row.id === "audio-beat-tempo")?.bpm;
@@ -44,8 +56,9 @@ export async function runRhythmBenchmark(input: BenchmarkInput, progress?: Bench
     ...audioBeatRows,
     ...webRows,
     ...musicTempoRows,
-    autoGridRow,
+    onsetDiagnosticRow,
     phaseGridRow,
+    finalRhythmRow,
     anchorGridRow,
   ];
 }
