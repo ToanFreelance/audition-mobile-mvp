@@ -618,10 +618,11 @@ export default function MusicConfigPage() {
                 <p className={`rounded-xl border px-3 py-2 text-xs ${isDark ? "border-white/10 bg-white/[0.025] text-slate-400" : "border-slate-200 bg-slate-50 text-slate-500"}`}>Analysis start {formatTime(analysis.audioStartMs, 3)} · choose a candidate only when you intentionally want to override the detector.</p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {analysis.candidates.map((candidate, index) => {
-                    const selected = Math.abs(candidate.bpm - timingBpm) < 0.02 && candidate.source === "tempo";
+                    const selected = Math.abs(candidate.bpm - timingBpm) < 0.02;
                     return (
                       <button
-                        className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left transition ${selected ? "border-violet-400/70 bg-violet-500/10" : isDark ? "border-white/10 bg-white/[0.025] hover:bg-white/[0.05]" : "border-slate-200 bg-slate-50 hover:bg-violet-50"}`}
+                        aria-pressed={selected}
+                        className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left transition ${selected ? "border-violet-400 bg-violet-500/15 ring-1 ring-violet-400/40" : isDark ? "border-white/10 bg-white/[0.025] hover:bg-white/[0.05]" : "border-slate-200 bg-slate-50 hover:bg-violet-50"}`}
                         key={`${candidate.source}-${candidate.bpm}-${index}`}
                         onClick={() => {
                           patch("bpm", Math.round(candidate.bpm));
@@ -630,7 +631,7 @@ export default function MusicConfigPage() {
                         type="button"
                       >
                         <span><strong className="font-mono text-sm">{candidate.bpm.toFixed(2)}</strong> <span className={`text-[10px] ${mutedClass}`}>BPM</span></span>
-                        <small className={`text-[9px] ${mutedClass}`}>{candidate.source} · {(candidate.confidence * 100).toFixed(0)}%</small>
+                        <small className={`text-[9px] ${selected ? "font-bold text-violet-400" : mutedClass}`}>{selected ? "✓ selected · " : ""}{candidate.source} · {(candidate.confidence * 100).toFixed(0)}%</small>
                       </button>
                     );
                   })}
@@ -676,16 +677,16 @@ export default function MusicConfigPage() {
             </div>
 
             {anchors.length > 0 && (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="mt-3 flex snap-x snap-proximity gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {anchors.map(anchor => (
                   <button
                     key={`${anchor.beatIndex}-${anchor.ms}`}
-                    className={`min-w-[76px] rounded-xl border px-2.5 py-2 text-left transition ${anchor.ms === selectedAnchorMs ? "border-violet-400/70 bg-violet-500/10" : isDark ? "border-white/10 bg-white/[0.025]" : "border-slate-200 bg-slate-50"}`}
+                    className={`w-[92px] shrink-0 snap-start rounded-xl border px-2.5 py-2 text-left transition ${anchor.ms === selectedAnchorMs ? "border-violet-400/70 bg-violet-500/10" : isDark ? "border-white/10 bg-white/[0.025]" : "border-slate-200 bg-slate-50"}`}
                     onClick={() => selectAnchor(anchor)}
                     type="button"
                   >
-                    <strong className="block text-[10px]">Beat {anchor.beatIndex}</strong>
-                    <small className={`mt-0.5 block font-mono text-[9px] ${mutedClass}`}>{formatTime(anchor.ms, 2)}</small>
+                    <strong className="block whitespace-nowrap text-[10px]">Beat {anchor.beatIndex}</strong>
+                    <small className={`mt-0.5 block whitespace-nowrap font-mono text-[9px] ${mutedClass}`}>{formatTime(anchor.ms, 2)}</small>
                   </button>
                 ))}
               </div>
