@@ -54,8 +54,30 @@ function rawRecord(row: RhythmEngineResult): Record<string, unknown> {
 
 function pushUniqueCandidate(target: TempoCandidate[], candidate: TempoCandidate) {
   if (!Number.isFinite(candidate.bpm) || candidate.bpm < 40 || candidate.bpm > 220) return;
-  if (target.some(item => Math.abs(item.bpm - candidate.bpm) <= 0.01 && item.source === candidate.source)) return;
+  // The production UI is choosing a BPM value, not an analyzer family. Keep the
+  // first (highest-priority) representative for near-identical BPM estimates so
+  // one click can never make several candidate rows look selected at once.
+  if (target.some(item => Math.abs(item.bpm - candidate.bpm) <= 0.02)) return;
   target.push(candidate);
+}
+
+function buildAuthoredPhraseBeatGrid(authoredSpaceStartMs: number | undefined, bpm: number, durationMs: number) {
+  if (!finite(authoredSpaceStartMs) || authoredSpaceStartMs <= 0 || !finite(bpm) || bpm <= 0 || !finite(durationMs) || durationMs <= 0) {
+    return [] as number[];
+  }
+
+  const intervalMs = 60000 / bpm;
+  // Music Config defines authored Space Start as phrase Beat-4. Build the helper
+  // grid from that authored phase only. The analyzer can estimate beat phase,
+  // but it cannot infer Audition's phrase-level Beat-4 boundary reliably.
+  let firstBeatMs = authoredSpaceStartMs - 3 * intervalMs;
+  while (firstBeatMs < 0) firstBeatMs += 4 * intervalMs;
+
+  const beats: number[] = [];
+  for (let ms = firstBeatMs; ms <= durationMs + intervalMs; ms += intervalMs) {
+    beats.push(ms);
+  }
+  return beats;
 }
 
 export function detectLeadingAudioStart(mono: Float32Array, sampleRate: number): number {
@@ -186,7 +208,10 @@ export async function analyzeTempo(audioUrl: string, authoredSpaceStartMs?: numb
       displayBpm: Math.round(gameplayBpm),
       confidence: clamp(final.confidence ?? 0.5, 0, 1),
       candidates,
-      beats: final.beatTimesMs.map(ms => ms / 1000),
+      // Only expose phrase candidates when an admin-authored Space Start already
+      // exists. Without it, a beat grid has no trustworthy Audition Beat-4 phase,
+      // so the admin should listen and capture Space Start manually.
+      beats: buildAuthoredPhraseBeatGrid(authoredSpaceStartMs, gameplayBpm, buffer.duration * 1000).map(ms => ms / 1000),
       audioStartMs,
       analysisOffsetMs: audioStartMs,
       audioPulseBpm,
