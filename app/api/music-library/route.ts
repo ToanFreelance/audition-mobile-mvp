@@ -21,6 +21,13 @@ function supabaseConfig() {
   return { url: url.replace(/\/$/, ""), key };
 }
 
+function supabaseDeleteConfig() {
+  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return null;
+  return { url: url.replace(/\/$/, ""), key };
+}
+
 function publicUrl(baseUrl: string, path: string) {
   const encodedPath = path.split("/").map(segment => encodeURIComponent(segment)).join("/");
   return `${baseUrl}/storage/v1/object/public/${BUCKET}/${encodedPath}`;
@@ -126,34 +133,42 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const supabase = supabaseConfig();
+  const supabase = supabaseDeleteConfig();
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
 
   try {
-    const body = await request.json().catch(() => null) as { path?: string } | null;
+    const body = await request.json().catch(() => null) as { path?: string; deleteLinkedCharts?: boolean } | null;
     const path = (body?.path ?? "").trim();
+    const deleteLinkedCharts = body?.deleteLinkedCharts === true;
 
     if (!audioNameIsValid(path) || path.includes("..")) {
       return NextResponse.json({ error: "Invalid audio path" }, { status: 400 });
     }
 
     const objectUrl = publicUrl(supabase.url, path);
-    const chartResponse = await fetch(
-      `${supabase.url}/rest/v1/music_charts?audio_url=eq.${encodeURIComponent(objectUrl)}`,
-      {
-        method: "DELETE",
-        headers: {
-          apikey: supabase.key,
-          Authorization: `Bearer ${supabase.key}`,
-          Prefer: "return=representation",
-        },
-        cache: "no-store",
-      },
-    );
+    let deletedCharts = 0;
 
-    if (!chartResponse.ok) {
-      const detail = await chartResponse.text();
-      return NextResponse.json({ error: "Could not remove linked music chart", detail }, { status: 502 });
+    if (deleteLinkedCharts) {
+      const chartResponse = await fetch(
+        `${supabase.url}/rest/v1/music_charts?audio_url=eq.${encodeURIComponent(objectUrl)}`,
+        {
+          method: "DELETE",
+          headers: {
+            apikey: supabase.key,
+            Authorization: `Bearer ${supabase.key}`,
+            Prefer: "return=representation",
+          },
+          cache: "no-store",
+        },
+      );
+
+      if (!chartResponse.ok) {
+        const detail = await chartResponse.text();
+        return NextResponse.json({ error: "Could not remove linked music chart", detail }, { status: 502 });
+      }
+
+      const rows = await chartResponse.json().catch(() => []) as unknown[];
+      deletedCharts = Array.isArray(rows) ? rows.length : 0;
     }
 
     const storageResponse = await fetch(`${supabase.url}/storage/v1/object/remove`, {
@@ -169,10 +184,15 @@ export async function DELETE(request: Request) {
 
     if (!storageResponse.ok) {
       const detail = await storageResponse.text();
-      return NextResponse.json({ error: "Storage delete failed after chart removal", detail, partial: true, path }, { status: 502 });
+      return NextResponse.json({
+        error: deleteLinkedCharts ? "Storage delete failed after linked chart removal" : "Supabase Storage delete failed",
+        detail,
+        partial: deleteLinkedCharts && deletedCharts > 0,
+        path,
+      }, { status: 502 });
     }
 
-    return NextResponse.json({ ok: true, path, publicUrl: objectUrl });
+    return NextResponse.json({ ok: true, path, publicUrl: objectUrl, deleteLinkedCharts, deletedCharts });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase Storage delete failed" }, { status: 502 });
   }
