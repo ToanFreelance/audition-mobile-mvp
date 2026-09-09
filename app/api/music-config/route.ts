@@ -13,6 +13,8 @@ type MusicChartRow = {
   duration_ms: number;
   bpm: number;
   bpm_exact: number | null;
+  reference_bpm: number | null;
+  reference_source: string | null;
   space_start_ms: number;
   space_start_beat: number | null;
   gauge: MusicConfig["gauge"];
@@ -45,6 +47,8 @@ function rowToConfig(row: MusicChartRow): MusicConfig {
     durationMs: row.duration_ms ?? 0,
     bpm: Number(row.bpm),
     BPM_exact: row.bpm_exact == null ? undefined : Number(row.bpm_exact),
+    referenceBpm: row.reference_bpm == null ? undefined : Number(row.reference_bpm),
+    referenceSource: row.reference_source ?? undefined,
     spaceStartMs: row.space_start_ms,
     spaceStartBeat: row.space_start_beat == null ? undefined : Number(row.space_start_beat),
     gauge: row.gauge,
@@ -62,7 +66,9 @@ function configToRow(config: MusicConfig): MusicChartRow {
     audio_url: config.audioUrl,
     duration_ms: Math.max(0, Math.round(config.durationMs)),
     bpm: Number(config.bpm),
-    bpm_exact: Number(config.BPM_exact),
+    bpm_exact: config.BPM_exact == null ? null : Number(config.BPM_exact),
+    reference_bpm: config.referenceBpm == null || !Number.isFinite(config.referenceBpm) || config.referenceBpm <= 0 ? null : Number(config.referenceBpm),
+    reference_source: config.referenceSource?.trim() || null,
     space_start_ms: Math.max(0, Math.round(config.spaceStartMs)),
     space_start_beat: config.spaceStartBeat ?? null,
     gauge: config.gauge,
@@ -78,7 +84,7 @@ export async function GET(request: NextRequest) {
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
 
   try {
-    const select = "id,title,artist,audio_url,duration_ms,bpm,bpm_exact,space_start_ms,space_start_beat,gauge,gameplay,notes,updated_at";
+    const select = "id,title,artist,audio_url,duration_ms,bpm,bpm_exact,reference_bpm,reference_source,space_start_ms,space_start_beat,gauge,gameplay,notes,updated_at";
     const query = id
       ? `?select=${select}&id=eq.${encodeURIComponent(id)}&limit=1`
       : `?select=${select}&order=updated_at.desc`;
