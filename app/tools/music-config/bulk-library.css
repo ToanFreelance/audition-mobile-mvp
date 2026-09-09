@@ -54,6 +54,53 @@
   color: #fff;
 }
 
+.chart-row-shell,
+.asset-row-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.chart-row-shell .chart-row,
+.asset-row-shell .asset-row {
+  min-width: 0;
+}
+
+.chart-inline-delete,
+.asset-inline-delete {
+  appearance: none;
+  width: 48px;
+  min-height: 48px;
+  border: 1px solid rgba(255, 104, 148, .32);
+  border-radius: 12px;
+  background: rgba(87, 28, 51, .14);
+  color: #ff94b7;
+  font: 800 17px/1 system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.chart-inline-delete:hover,
+.asset-inline-delete:hover {
+  border-color: rgba(255, 104, 148, .72);
+  background: rgba(121, 36, 67, .25);
+}
+
+.chart-inline-delete:disabled,
+.asset-inline-delete:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.chart-row-shell.is-active .chart-inline-delete {
+  border-color: rgba(225, 91, 255, .42);
+}
+
+.asset-row-shell.is-selected .asset-inline-delete {
+  border-color: rgba(220, 119, 255, .42);
+}
+
 .reference-sync-card {
   margin-top: 12px;
   display: grid;
@@ -86,7 +133,20 @@
   .chart-library-actions .analyze-multiple-button {
     flex: 1 1 100%;
   }
+
   .asset-bulk-footer .button {
     flex: 1 1 140px;
+  }
+
+  .chart-row-shell,
+  .asset-row-shell {
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 6px;
+  }
+
+  .chart-inline-delete,
+  .asset-inline-delete {
+    width: 44px;
+    border-radius: 11px;
   }
 }
