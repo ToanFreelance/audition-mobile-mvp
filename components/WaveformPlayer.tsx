@@ -33,6 +33,10 @@ const formatTime = (ms: number, precision = 3) => {
   return `${minutes}:${seconds.toFixed(precision).padStart(precision === 0 ? 2 : precision + 3, "0")}`;
 };
 
+const controlBase = "inline-flex h-10 shrink-0 items-center justify-center rounded-xl border text-[11px] font-black transition active:scale-95 disabled:pointer-events-none disabled:opacity-35";
+const darkControl = `${controlBase} border-white/10 bg-slate-950 text-slate-100 shadow-sm hover:bg-slate-900`;
+const nudgeControl = `${darkControl} min-w-[52px] px-2 font-mono tracking-tight`;
+
 const WebAudioChartPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps>(function WebAudioChartPlayer({
   url,
   title,
@@ -72,7 +76,10 @@ const WebAudioChartPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps
 
   const tick = () => {
     const transport = transportRef.current;
-    if (!transport) { rafRef.current = null; return; }
+    if (!transport) {
+      rafRef.current = null;
+      return;
+    }
     const ms = transport.getCurrentTimeMs();
     emitTime(ms);
     if (!transport.playing) {
@@ -153,7 +160,10 @@ const WebAudioChartPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps
     const previous = transportRef.current;
     transportRef.current = null;
     if (previous) void previous.destroy();
-    if (!url) { setPreparing(false); return; }
+    if (!url) {
+      setPreparing(false);
+      return;
+    }
 
     const transport = new WebAudioTransport(url);
     transportRef.current = transport;
@@ -185,31 +195,101 @@ const WebAudioChartPlayer = forwardRef<WaveformPlayerHandle, WaveformPlayerProps
   const togglePlay = () => {
     const transport = transportRef.current;
     if (!transport || !ready || preparing) return;
-    if (transport.playing) pause(); else void play();
+    if (transport.playing) pause();
+    else void play();
   };
 
   const currentPercent = durationMs ? Math.min(100, Math.max(0, currentMs / durationMs * 100)) : 0;
-  const statusText = preparing ? "decoding chart audio…" : ready ? "WEB AUDIO · chart timeline ready" : "waiting for audio";
+  const statusText = preparing ? "Decoding chart audio…" : ready ? "Web Audio · chart timeline ready" : "Waiting for audio";
+  const disabled = !ready || preparing;
+
+  if (compact) {
+    return (
+      <div className="flex min-w-0 items-center gap-2.5">
+        <button
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-violet-400/40 bg-violet-500/15 text-sm font-black text-violet-300 disabled:opacity-35"
+          type="button"
+          onClick={togglePlay}
+          disabled={disabled}
+          aria-label={playing ? "Pause" : "Play"}
+        >
+          {preparing ? "…" : playing ? "Ⅱ" : "▶"}
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <strong className="truncate text-[11px] font-extrabold">{title || "Untitled track"}</strong>
+            <span className="shrink-0 font-mono text-[9px] text-slate-500">{formatTime(currentMs)} / {formatTime(durationMs)}</span>
+          </div>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-slate-500/20">
+            <span className="block h-full rounded-full bg-gradient-to-r from-fuchsia-500 to-violet-500" style={{ width: `${currentPercent}%` }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`waveform-player simple-audio-player ${compact ? "is-compact" : "is-expanded"}`}>
-      <div className="waveform-compact-bar">
-        <button className="waveform-compact-play" type="button" onClick={togglePlay} disabled={!ready || preparing} aria-label={playing ? "Pause" : "Play"}>{preparing ? "…" : playing ? "Ⅱ" : "▶"}</button>
-        <div className="waveform-compact-copy"><strong>{title || "Untitled track"}</strong><span>{formatTime(currentMs)} / {formatTime(durationMs)}</span></div>
-        <div className="waveform-compact-progress"><span style={{ width: `${currentPercent}%` }} /></div>
+    <div className="min-w-0">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${playing ? "bg-fuchsia-400 shadow-[0_0_10px_rgba(232,121,249,.8)]" : "bg-slate-400/50"}`} aria-hidden="true" />
+          <div className="min-w-0">
+            <strong className="block truncate text-xs font-extrabold">{title || "Untitled track"}</strong>
+            <small className="mt-0.5 block truncate text-[9px] text-slate-500">{statusText}</small>
+          </div>
+        </div>
+        <span className="shrink-0 font-mono text-[10px] font-bold text-slate-500">{formatTime(currentMs)} / {formatTime(durationMs)}</span>
       </div>
 
-      <div className="waveform-expanded-ui">
-        <div className="waveform-player-head"><div className="waveform-player-title"><span className={`waveform-live-dot ${playing ? "is-playing" : ""}`} aria-hidden="true" /><div><strong>{title || "Untitled track"}</strong><small>{statusText}</small></div></div></div>
-        <div className="simple-audio-time"><strong>{formatTime(currentMs)}</strong><span>/ {formatTime(durationMs)}</span></div>
-        <input className="simple-audio-range" type="range" min={0} max={Math.max(1, durationMs)} step={1} value={Math.min(currentMs, Math.max(1, durationMs))} onChange={event => seekTo(Number(event.currentTarget.value))} disabled={!ready || preparing} aria-label="Audio position" />
-        <div className="waveform-controls">
-          <button className="waveform-play-button" type="button" onClick={togglePlay} disabled={!ready || preparing} aria-label={playing ? "Pause" : "Play"}>{preparing ? "…" : playing ? "Ⅱ" : "▶"}</button>
-          <button className="waveform-nudge" type="button" onClick={playFromBegin} disabled={!ready || preparing} aria-label="Play from file beginning" title="Play from file beginning">⏮</button>
-          {[-1000, -100, -10, 10, 100, 1000].map(delta => <button key={delta} className="waveform-nudge" type="button" onClick={() => seekBy(delta)} disabled={!ready || preparing}>{delta > 0 ? "+" : "−"}{Math.abs(delta) >= 1000 ? `${Math.abs(delta) / 1000}s` : Math.abs(delta)}</button>)}
-        </div>
-        <div className="waveform-footer"><span>Web Audio chart clock · choose the exact moment for the first SPACE, then BPM drives every next 4-beat turn</span></div>
+      <div className="mt-2 flex items-baseline gap-1 font-mono">
+        <strong className="text-lg font-black tracking-tight">{formatTime(currentMs)}</strong>
+        <span className="text-xs text-slate-500">/ {formatTime(durationMs)}</span>
       </div>
+
+      <input
+        className="mt-2 h-5 w-full cursor-pointer accent-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-40"
+        type="range"
+        min={0}
+        max={Math.max(1, durationMs)}
+        step={1}
+        value={Math.min(currentMs, Math.max(1, durationMs))}
+        onChange={event => seekTo(Number(event.currentTarget.value))}
+        disabled={disabled}
+        aria-label="Audio position"
+      />
+
+      <div className="mt-2 grid grid-cols-[42px_42px_minmax(0,1fr)] items-center gap-2">
+        <button
+          className={`${controlBase} border-fuchsia-400/70 bg-gradient-to-br from-fuchsia-500 to-violet-600 text-white shadow-md shadow-violet-600/20`}
+          type="button"
+          onClick={togglePlay}
+          disabled={disabled}
+          aria-label={playing ? "Pause" : "Play"}
+          title={playing ? "Pause" : "Play"}
+        >
+          {preparing ? "…" : playing ? "Ⅱ" : "▶"}
+        </button>
+        <button className={`${darkControl} w-[42px] px-0`} type="button" onClick={playFromBegin} disabled={disabled} aria-label="Play from beginning" title="Play from beginning">↤</button>
+
+        <div className="min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Fine seek controls">
+          <div className="flex w-max gap-1.5 pr-1">
+            {[-1000, -100, -10, 10, 100, 1000].map(delta => (
+              <button
+                key={delta}
+                className={nudgeControl}
+                type="button"
+                onClick={() => seekBy(delta)}
+                disabled={disabled}
+                aria-label={`Seek ${delta > 0 ? "forward" : "back"} ${Math.abs(delta)} milliseconds`}
+              >
+                {delta > 0 ? "+" : "−"}{Math.abs(delta) >= 1000 ? `${Math.abs(delta) / 1000}s` : Math.abs(delta)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-2 text-[8px] leading-relaxed text-slate-500">Web Audio clock · use ±10/100ms for fine positioning, ±1s for fast listening.</p>
     </div>
   );
 });
