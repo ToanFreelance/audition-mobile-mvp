@@ -8,7 +8,7 @@ import { runPhaseGridValidator } from "./rhythm-analyzers/phase-grid-validator";
 import type { BenchmarkInput, RhythmEngineResult } from "./rhythm-analyzers/types";
 import { runWebAudioBeatDetectorVariants } from "./rhythm-analyzers/web-audio-beat-detector";
 
-export type TempoSource = "final-v4" | "audio-pulse" | "onset" | "phase" | "package";
+export type TempoSource = "tempo" | "final-v4" | "audio-pulse" | "onset" | "phase" | "package";
 
 export type TempoCandidate = {
   bpm: number;
