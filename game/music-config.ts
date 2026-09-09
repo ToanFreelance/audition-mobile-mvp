@@ -6,6 +6,10 @@ export type MusicConfig = {
   durationMs: number;
   bpm: number;
   BPM_exact?: number;
+  /** Optional official/reference tempo from Audition catalog or chart author. */
+  referenceBpm?: number;
+  /** Human-readable source for referenceBpm, e.g. PlayPark / official chart / manual. */
+  referenceSource?: string;
   spaceStartMs: number;
   spaceStartBeat?: number;
   gauge: {
