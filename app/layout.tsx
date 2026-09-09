@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import BatchStorageQueueBridge from "../components/BatchStorageQueueBridge";
 import "./globals.css";
 import "./music-config-tailwind.css";
 
@@ -25,7 +26,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="stylesheet" href="/song-picker.css" />
         <link rel="stylesheet" href="/music-config-v3.css" />
       </head>
-      <body>{children}</body>
+      <body>
+        <BatchStorageQueueBridge />
+        {children}
+      </body>
     </html>
   );
 }
