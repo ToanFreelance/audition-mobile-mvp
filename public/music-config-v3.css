@@ -1,0 +1,63 @@
+/* v3 layer is loaded after the legacy Chart Studio overrides. */
+.music-config-page{touch-action:pan-y}
+.music-config-page .chart-library-actions{display:flex;align-items:center;gap:8px}
+.music-config-page .editor-status-actions{display:flex;align-items:center;gap:8px}
+.music-config-page .editor-status-actions .status-chip{display:none!important}
+.music-config-page .editor-analyze-button{min-width:132px}
+.music-config-page .editor-analyze-button:disabled{cursor:default}
+.music-config-page .anchor-editor{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.music-config-page .anchor-current{padding:10px 14px}
+.music-config-page .anchor-current strong{margin:2px 0;font-size:18px}
+.music-config-page .anchor-actions{flex-wrap:wrap}
+.music-config-page .anchor-custom-button{display:none!important}
+.music-config-page .dock-actions{display:none!important}
+.music-config-page .audio-dock-topline{margin-bottom:2px}
+.music-config-page .audio-dock-live-time{display:flex;justify-content:flex-end;align-items:baseline;gap:4px;margin:0 2px 7px;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}
+.music-config-page .audio-dock-live-time strong{color:#fff;font-weight:800}
+.music-config-page .audio-dock-live-time span{color:#756a7d}
+.music-config-page.theme-light .audio-dock-live-time strong{color:#2b2630}
+.music-config-page .waveform-player-head .waveform-time{display:none!important}
+.music-config-page .dock-gauge{margin-top:8px;padding-top:7px;border-top:1px solid rgba(128,110,145,.18)}
+.music-config-page .dock-gauge-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px 5px}
+.music-config-page .dock-gauge-head span{font-size:8px;font-weight:900;letter-spacing:.14em;color:#b97acb}
+.music-config-page .dock-gauge-head small{font-size:8px;color:#817487}
+.music-config-page .dock-gauge .gauge-shell{margin-top:0;padding:8px 10px;background:rgba(255,255,255,.025);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.music-config-page .waveform-viewport{position:relative;height:106px!important;touch-action:none!important;overflow:hidden!important;overscroll-behavior:none!important;-webkit-overflow-scrolling:auto!important}
+.music-config-page .waveform-canvas{touch-action:none!important;inset:5px 0 0!important}
+.music-config-page .waveform-footer{margin-top:5px}
+.music-config-page .waveform-controls{align-items:stretch}
+.music-config-page .waveform-zoom-controls{position:absolute;z-index:5;top:6px;right:7px;display:grid;grid-template-columns:28px 34px 28px;gap:3px;align-items:stretch;pointer-events:auto}
+.music-config-page .waveform-zoom-controls button,.music-config-page .waveform-zoom-controls span{min-height:27px;border:1px solid #382c45;border-radius:8px;background:rgba(19,15,25,.92);color:#e5a7ff;font:800 11px/1 system-ui,sans-serif;display:grid;place-items:center;padding:0}
+.music-config-page .waveform-zoom-controls button{color:#c8b9ce;cursor:pointer}
+.music-config-page .waveform-zoom-controls button:disabled{opacity:.35;cursor:default}
+.music-config-page .sticky-actions{touch-action:none!important;overscroll-behavior:none!important;-webkit-user-select:none;user-select:none}
+
+@media(max-width:760px){
+  .music-config-page .config-header{align-items:flex-start}
+  .music-config-page .chart-library-actions{width:auto;justify-content:flex-end}
+  .music-config-page .chart-library-actions .count-badge{display:none}
+  .music-config-page .editor-status-actions{flex-direction:column;align-items:flex-end;gap:6px}
+  .music-config-page .editor-analyze-button{min-width:0;padding:10px 12px}
+  .music-config-page .anchor-editor{grid-template-columns:1fr;gap:8px}
+  .music-config-page .anchor-current{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .music-config-page .anchor-current span{font-size:8px}
+  .music-config-page .anchor-current strong{margin:0;font-size:17px}
+  .music-config-page .anchor-current small{font-size:8px}
+  .music-config-page .anchor-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .music-config-page .anchor-actions .button{width:100%}
+  .music-config-page .anchor-strip{margin-top:9px}
+  .music-config-page .sticky-actions{padding-left:10px!important;padding-right:10px!important;gap:6px!important}
+  .music-config-page .sticky-status{display:none}
+  .music-config-page .sticky-action-group{width:100%;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,.9fr) minmax(0,.9fr) minmax(0,1.35fr);gap:6px}
+  .music-config-page .sticky-action-group .button{min-width:0!important;width:100%;padding:10px 4px;font-size:10px}
+  .music-config-page .sticky-use-current{min-width:0!important}
+  .music-config-page .save-button{min-width:0!important}
+  .music-config-page .waveform-controls{grid-template-columns:34px repeat(6,minmax(0,1fr));gap:4px;margin-top:7px}
+  .music-config-page .waveform-controls .waveform-nudge{font-size:8px;padding-left:1px;padding-right:1px}
+  .music-config-page .waveform-footer{display:none}
+  .music-config-page .waveform-zoom-controls{top:5px;right:6px}
+}
+
+@media(min-width:761px){
+  .music-config-page .audio-dock{display:none!important}
+}

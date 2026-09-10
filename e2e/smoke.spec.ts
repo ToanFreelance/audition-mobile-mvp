@@ -1,303 +1,146 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
-async function startGame(page: any, isMobile: boolean) {
-  const startButton = page.getByRole("button", {
-    name: "Start Demo",
-  });
-
-  await expect(startButton).toBeVisible();
-
-  if (isMobile) {
-    await startButton.tap();
-  } else {
-    await startButton.click();
-  }
+async function startGame(page: Page) {
+  const start = page.getByRole("button", { name: /^START$/ });
+  await expect(start).toBeVisible();
+  await start.click();
 }
 
-async function pressDirection(
-  page: any,
-  isMobile: boolean,
-  direction: "left" | "up" | "down" | "right"
-) {
-  if (isMobile) {
-    await page.getByRole("button", {
-      name: direction,
-    }).tap();
-    return;
-  }
-
-  const keys = {
-    left: "ArrowLeft",
-    up: "ArrowUp",
-    down: "ArrowDown",
-    right: "ArrowRight",
-  } as const;
-
-  await page.keyboard.press(keys[direction]);
+async function waitForCountdown(page: Page) {
+  // At 80 BPM the first countdown starts 2.25s before the first target,
+  // which is 3s after game start. Allow for mobile/browser startup latency.
+  await expect(page.locator(".countdown")).toBeVisible({ timeout: 10000 });
 }
 
-async function pressSpace(page: any, isMobile: boolean) {
-  if (isMobile) {
-    await page.getByRole("button", {
-      name: "Space timing button",
-    }).tap();
-    return;
-  }
-
-  await page.keyboard.press("Space");
+async function pressDirection(page: Page, direction: string) {
+  await page.getByRole("button", { name: direction, exact: true }).click();
 }
 
-test.describe("Audition Mobile MVP — QA", () => {
-  test("A1 — application loads", async ({ page }) => {
+async function pressSpace(page: Page) {
+  const space = page.getByRole("button", { name: /SPACE/i });
+  await expect(space).toBeVisible();
+  await space.click();
+}
+
+async function waitForSequence(page: Page) {
+  const commands = page.locator(".command-key");
+  await expect(commands.first()).toBeVisible({ timeout: 5000 });
+  expect(await commands.count()).toBeGreaterThan(0);
+}
+
+test.describe("Audition Mobile — current gameplay QA", () => {
+  test("A1 — app loads without page or console errors", async ({ page }) => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
+    page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
+    page.on("pageerror", error => pageErrors.push(error.message));
 
-    page.on("console", (message) => {
-      if (message.type() === "error") {
-        consoleErrors.push(message.text());
-      }
-    });
-
-    page.on("pageerror", (error) => {
-      pageErrors.push(error.message);
-    });
-
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
-    });
-
-    await expect(
-      page.getByRole("heading", {
-        name: /Audition Mobile/i,
-      })
-    ).toBeVisible();
-
-    await expect(
-      page.locator("#game-container")
-    ).toBeVisible();
-
-    const horizontalOverflow = await page.evaluate(() => {
-      return (
-        document.documentElement.scrollWidth >
-        window.innerWidth + 1
-      );
-    });
-
-    expect(
-      horizontalOverflow,
-      "Application must not have horizontal overflow"
-    ).toBe(false);
-
-    expect(
-      pageErrors,
-      `Unexpected page errors:\n${pageErrors.join("\n")}`
-    ).toEqual([]);
-
-    expect(
-      consoleErrors,
-      `Unexpected console errors:\n${consoleErrors.join("\n")}`
-    ).toEqual([]);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("CLUB AUDITION")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^START$/ })).toBeVisible();
+    await expect(page.locator("canvas").first()).toBeVisible({ timeout: 5000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    expect(pageErrors).toEqual([]);
+    expect(consoleErrors).toEqual([]);
   });
 
-  test("A2 — mobile controls are visible and tappable", async ({
-    page,
-  }) => {
-    test.skip(
-      test.info().project.name !== "mobile",
-      "A2 is mobile-specific"
-    );
-
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
-    });
-
-    await startGame(page, true);
-
-    const buttonNames = [
-      "left",
-      "up",
-      "down",
-      "right",
-      "Space timing button",
-    ];
-
-    for (const name of buttonNames) {
-      const button = page.getByRole("button", {
-        name,
-      });
-
+  test("A2 — mobile D-pad and SPACE are visible and tappable", async ({ page }) => {
+    test.skip(test.info().project.name !== "mobile", "mobile-specific");
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    for (const direction of ["left", "up", "down", "right"]) {
+      const button = page.getByRole("button", { name: direction, exact: true });
       await expect(button).toBeVisible();
-    }
-  });
-
-  test("A3 — correct direction advances exactly one command", async ({
-    page,
-  }) => {
-    const isMobile =
-      test.info().project.name === "mobile";
-
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
-    });
-
-    await startGame(page, isMobile);
-
-    const commandBar = page.locator(
-      '[aria-label="Upcoming commands"]'
-    );
-
-    await expect(commandBar).toBeVisible();
-
-    const steps = commandBar.locator(
-      ".command-step"
-    );
-
-    await expect(steps).toHaveCount(8);
-
-    /*
-     * Approved demo sequence:
-     *
-     * LEFT → UP → DOWN → RIGHT
-     * → LEFT → RIGHT → UP → DOWN
-     */
-
-    await pressDirection(
-      page,
-      isMobile,
-      "left"
-    );
-
-    await expect(
-      steps.nth(0)
-    ).toHaveClass(/command-completed/);
-
-    await expect(
-      steps.nth(1)
-    ).toHaveClass(/command-target/);
-
-    await expect(
-      steps.nth(1)
-    ).not.toHaveClass(/command-completed/);
-  });
-
-  test("A4 — wrong direction does not advance sequence", async ({
-    page,
-  }) => {
-    const isMobile =
-      test.info().project.name === "mobile";
-
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
-    });
-
-    await startGame(page, isMobile);
-
-    const steps = page.locator(
-      '[aria-label="Upcoming commands"] .command-step'
-    );
-
-    /*
-     * First target is LEFT.
-     * Intentionally press RIGHT.
-     */
-
-    await pressDirection(
-      page,
-      isMobile,
-      "right"
-    );
-
-    await expect(
-      steps.nth(0)
-    ).toHaveClass(/command-target/);
-
-    await expect(
-      steps.nth(0)
-    ).not.toHaveClass(/command-completed/);
-
-    await expect(
-      steps.nth(1)
-    ).not.toHaveClass(/command-completed/);
-  });
-
-  test("A5 — SPACE input is interactive", async ({
-    page,
-  }) => {
-    const isMobile =
-      test.info().project.name === "mobile";
-
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
-    });
-
-    await startGame(page, isMobile);
-
-    const spaceButton = page.getByRole("button", {
-      name: "Space timing button",
-    });
-
-    if (isMobile) {
-      await expect(spaceButton).toBeVisible();
-    }
-
-    await pressSpace(page, isMobile);
-
-    /*
-     * Timing judgement is not part of this QA yet.
-     * This test verifies that the input path exists
-     * and does not crash the application.
-     */
-
-    if (isMobile) {
-      await expect(spaceButton).toBeVisible();
-    }
-  });
-
-  test("A6 — mobile controls have adequate hit area", async ({
-    page,
-  }) => {
-    test.skip(
-      test.info().project.name !== "mobile",
-      "A6 is mobile-specific"
-    );
-
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
-    });
-
-    await startGame(page, true);
-
-    const buttonNames = [
-      "left",
-      "up",
-      "down",
-      "right",
-      "Space timing button",
-    ];
-
-    for (const name of buttonNames) {
-      const button = page.getByRole("button", {
-        name,
-      });
-
-      await expect(button).toBeVisible();
-
       const box = await button.boundingBox();
-
-      expect(
-        box,
-        `${name} button must have a bounding box`
-      ).not.toBeNull();
-
-      expect(
-        box!.width,
-        `${name} button is too narrow`
-      ).toBeGreaterThanOrEqual(40);
-
-      expect(
-        box!.height,
-        `${name} button is too short`
-      ).toBeGreaterThanOrEqual(40);
+      expect(box?.width).toBeGreaterThanOrEqual(40);
+      expect(box?.height).toBeGreaterThanOrEqual(40);
     }
+    await expect(page.getByRole("button", { name: /SPACE/i })).toBeVisible();
+  });
+
+  test("A3 — countdown visibly runs through 3, 2, 1, then clears", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await startGame(page);
+
+    const countdown = page.locator(".countdown");
+    await expect(countdown).toBeVisible({ timeout: 10000 });
+
+    const seen = new Set<string>();
+    const deadline = Date.now() + 4000;
+    while (Date.now() < deadline && seen.size < 3) {
+      const text = (await countdown.textContent())?.trim();
+      if (text && ["3", "2", "1"].includes(text)) seen.add(text);
+      await page.waitForTimeout(100);
+    }
+
+    expect([...seen]).toEqual(expect.arrayContaining(["3", "2", "1"]));
+    await expect.poll(async () => await countdown.count(), { timeout: 4000 }).toBe(0);
+  });
+
+  test("A4 — command strip renders directions with gradient states", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await startGame(page);
+    await waitForSequence(page);
+
+    const commands = page.locator(".command-key");
+    const count = await commands.count();
+    expect(count).toBeGreaterThan(0);
+    for (let i = 0; i < count; i++) {
+      const background = await commands.nth(i).evaluate(el => getComputedStyle(el).backgroundImage);
+      expect(background).toContain("linear-gradient");
+    }
+  });
+
+  test("A5 — completing the displayed sequence advances command state", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await startGame(page);
+    await waitForSequence(page);
+
+    for (let guard = 0; guard < 20; guard++) {
+      const pending = page.locator('.command-key:not(.done)').first();
+      if (await pending.count() === 0) break;
+      const direction = await pending.locator("svg").evaluate((svg: SVGSVGElement) => {
+        const transform = svg.style.transform;
+        if (transform.includes("rotate(180")) return "left";
+        if (transform.includes("rotate(270")) return "up";
+        if (transform.includes("rotate(90")) return "down";
+        return "right";
+      });
+      await pressDirection(page, direction);
+    }
+
+    await expect.poll(async () => await page.locator('.command-key:not(.done)').count(), { timeout: 3000 }).toBe(0);
+    await expect(page.locator(".command-key.done").first()).toBeVisible();
+  });
+
+  test("A6 — early SPACE MISS immediately clears the countdown", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await startGame(page);
+    await waitForCountdown(page);
+    await pressSpace(page);
+
+    await expect.poll(async () => await page.locator(".countdown").count(), { timeout: 2000 }).toBe(0);
+    await expect(page.locator(".judgement-miss")).toBeVisible({ timeout: 2000 });
+  });
+
+  test("A7 — auto MISS enters penalty and then restores the command strip", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await startGame(page);
+    await waitForSequence(page);
+
+    await expect(page.locator(".command-key").first()).toBeVisible();
+    await expect(page.locator(".judgement-miss")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator(".command-key").first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test("A8 — audio starts from the user gesture and advances", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await startGame(page);
+    await expect.poll(async () => page.locator("audio").evaluate((audio: HTMLAudioElement) => !audio.paused && audio.currentTime > 0.2 && !audio.muted && audio.volume > 0.9), { timeout: 5000 }).toBe(true);
+  });
+
+  test("A9 — no horizontal overflow on mobile", async ({ page }) => {
+    test.skip(test.info().project.name !== "mobile", "mobile-specific");
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   });
 });

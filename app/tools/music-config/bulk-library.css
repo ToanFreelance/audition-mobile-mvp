@@ -1,0 +1,152 @@
+.bulk-upload-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid rgba(211, 92, 255, .35);
+  border-radius: 10px;
+  background: rgba(103, 40, 135, .12);
+  font-size: 12px;
+}
+
+.asset-bulk-toolbar,
+.asset-bulk-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.asset-bulk-toolbar {
+  margin: 10px 0;
+}
+
+.asset-bulk-footer {
+  position: sticky;
+  bottom: 0;
+  margin: 12px -2px -2px;
+  padding: 12px 2px 2px;
+  background: linear-gradient(180deg, rgba(16, 12, 20, 0), rgba(16, 12, 20, .96) 26%);
+}
+
+.asset-select-row {
+  grid-template-columns: 30px 34px minmax(0, 1fr) auto !important;
+}
+
+.asset-select-box {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid rgba(210, 185, 221, .38);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 900;
+  background: rgba(255,255,255,.03);
+}
+
+.asset-row.is-selected .asset-select-box {
+  border-color: #dc77ff;
+  background: rgba(182, 66, 226, .28);
+  color: #fff;
+}
+
+.chart-row-shell,
+.asset-row-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.chart-row-shell .chart-row,
+.asset-row-shell .asset-row {
+  min-width: 0;
+}
+
+.chart-inline-delete,
+.asset-inline-delete {
+  appearance: none;
+  width: 48px;
+  min-height: 48px;
+  border: 1px solid rgba(255, 104, 148, .32);
+  border-radius: 12px;
+  background: rgba(87, 28, 51, .14);
+  color: #ff94b7;
+  font: 800 17px/1 system-ui, -apple-system, sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.chart-inline-delete:hover,
+.asset-inline-delete:hover {
+  border-color: rgba(255, 104, 148, .72);
+  background: rgba(121, 36, 67, .25);
+}
+
+.chart-inline-delete:disabled,
+.asset-inline-delete:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.chart-row-shell.is-active .chart-inline-delete {
+  border-color: rgba(225, 91, 255, .42);
+}
+
+.asset-row-shell.is-selected .asset-inline-delete {
+  border-color: rgba(220, 119, 255, .42);
+}
+
+.reference-sync-card {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.reference-sync-card > div {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(159, 126, 176, .25);
+  background: rgba(255,255,255,.025);
+}
+
+.reference-sync-card small,
+.reference-sync-card strong {
+  display: block;
+}
+
+.reference-sync-card small {
+  color: var(--mc-muted, #9f95a7);
+  margin-bottom: 4px;
+}
+
+.reference-sync-card strong {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .chart-library-actions .analyze-multiple-button {
+    flex: 1 1 100%;
+  }
+
+  .asset-bulk-footer .button {
+    flex: 1 1 140px;
+  }
+
+  .chart-row-shell,
+  .asset-row-shell {
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 6px;
+  }
+
+  .chart-inline-delete,
+  .asset-inline-delete {
+    width: 44px;
+    border-radius: 11px;
+  }
+}

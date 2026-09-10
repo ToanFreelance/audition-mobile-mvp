@@ -1,13 +1,11 @@
 import GameShell from "@/components/GameShell";
-import ReferenceAudio from "@/components/ReferenceAudio";
-import StageMount from "@/components/StageMount";
+import ConfigureLauncher from "@/components/ConfigureLauncher";
 
 export default function Home() {
   return (
     <>
       <GameShell />
-      <StageMount />
-      <ReferenceAudio />
+      <ConfigureLauncher />
     </>
   );
 }

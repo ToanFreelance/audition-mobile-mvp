@@ -1,0 +1,9 @@
+/* Remove legacy config launchers. READY owns exactly one configure button. */
+.configure-button{display:none!important}
+.ready-card .configure-button{display:block!important}
+.configure-launcher{display:none!important}
+
+/* Gauge.svg is the single source of truth for gauge artwork. */
+.timing-gauge{width:100%!important;min-width:0!important}
+.timing-gauge>.gauge-readout{display:none!important}
+.audition-gauge-svg,.audition-gauge-svg>svg{display:block;width:100%;max-width:100%;height:auto}

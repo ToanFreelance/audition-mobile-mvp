@@ -1,0 +1,1 @@
+The supplied Gauge.svg artwork has its brightest center near 71.2% of the track. Gameplay scoring uses Perfect at 80% (79..81). The shared gauge should shift/reposition the visual score window to the configured 70..90 interval so the marker and judgement bands use one coordinate system.

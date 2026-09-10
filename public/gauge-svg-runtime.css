@@ -1,0 +1,14 @@
+/* Use the supplied Gauge.svg as the authoritative 80 BPM visual skin. */
+.timing-gauge .gauge-track{
+  background:#05060c url('/Gauge.svg') center/100% 100% no-repeat!important;
+  border:0!important;
+  padding:0!important;
+  box-shadow:none!important;
+}
+.timing-gauge .gauge-zone{display:none!important}
+.timing-gauge .gauge-marker{
+  top:-2px!important;
+  bottom:-2px!important;
+  width:3px!important;
+  border-radius:0!important;
+}

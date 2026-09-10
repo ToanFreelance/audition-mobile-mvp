@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/* Incremental Tailwind layer: new Chart Studio layout primitives live here first. */
+.music-config-page .chart-library-actions,
+.music-config-page .editor-status-actions {
+  @apply flex items-center gap-2;
+}
+
+.music-config-page .dock-gauge {
+  @apply mt-2 border-t border-black/10 pt-2;
+}
+
+.music-config-page .dock-gauge-head {
+  @apply flex items-center justify-between gap-2 px-1 pb-1;
+}
+
+.music-config-page .dock-gauge-head span {
+  @apply text-[9px] font-black uppercase tracking-[0.14em];
+}
+
+.music-config-page .dock-gauge-head small {
+  @apply text-[8px] opacity-70;
+}
+
+/*
+ * Music Config mobile fixed stack.
+ * The redesigned page uses Tailwind utility classes directly; these selectors
+ * intentionally target only its two high-z fixed layers.
+ */
+footer[class*="z-[900]"] {
+  overscroll-behavior: contain;
+  touch-action: pan-x;
+  padding-bottom: max(6px, env(safe-area-inset-bottom)) !important;
+}
+
+footer[class*="z-[900]"] > div {
+  @apply gap-1.5 px-3 pt-1.5;
+}
+
+footer[class*="z-[900]"] button {
+  min-height: 38px !important;
+  @apply rounded-xl px-3 py-1.5 text-[11px] leading-none;
+}
+
+/* Keep the audio dock flush with the smaller action bar. */
+div[class*="z-[880]"][class*="fixed"] {
+  bottom: calc(50px + env(safe-area-inset-bottom)) !important;
+  overscroll-behavior: contain;
+  touch-action: pan-x;
+}
+
+div[class*="z-[880]"][class*="fixed"] > div {
+  @apply px-3 py-1.5;
+}
+
+div[class*="z-[880]"][class*="fixed"] > div > div:first-child > button {
+  min-height: 34px !important;
+  @apply h-9 w-9 shrink-0 rounded-xl p-0 text-sm;
+}
+
+/*
+ * Prevent iOS Safari from scrolling the page behind Audio Library.
+ * The dialog keeps its own overflow-y-auto scroller.
+ */
+html:has(section[role="dialog"][aria-labelledby="asset-modal-title"]),
+body:has(section[role="dialog"][aria-labelledby="asset-modal-title"]) {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+div:has(> section[role="dialog"][aria-labelledby="asset-modal-title"]) {
+  overscroll-behavior: none;
+}
+
+section[role="dialog"][aria-labelledby="asset-modal-title"] {
+  overscroll-behavior: contain;
+}
+
+section[role="dialog"][aria-labelledby="asset-modal-title"] > div[class*="overflow-y-auto"] {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 560px) {
+  .music-config-page .chart-library-actions {
+    @apply w-full justify-between;
+  }
+
+  .music-config-page .editor-status-actions {
+    @apply flex-col items-end;
+  }
+
+  footer[class*="z-[900]"] button {
+    @apply px-2.5 text-[10px] tracking-normal;
+  }
+
+  section[role="dialog"][aria-labelledby="asset-modal-title"] {
+    max-height: 90svh;
+  }
+}
