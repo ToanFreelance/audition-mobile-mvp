@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
@@ -161,7 +161,7 @@ export default function Stage3D() {
       disposeObject(accessoryObject);
       accessoryObject = null;
       if (!characterRoot || id === "none") return;
-      const head = findHeadBone(characterRoot);
+      const head: THREE.Bone | null = findHeadBone(characterRoot);
       if (!head) return;
       accessoryObject = id === "headphones" ? createHeadphones() : createGlasses();
       head.add(accessoryObject);
@@ -294,7 +294,7 @@ export default function Stage3D() {
   );
 }
 
-function demoButton(active: boolean): React.CSSProperties {
+function demoButton(active: boolean): CSSProperties {
   return { border: active ? "1px solid #7ee3ff" : "1px solid rgba(255,255,255,.16)", borderRadius: 8, background: active ? "rgba(55,154,203,.3)" : "rgba(255,255,255,.07)", color: "white", padding: "6px 7px", fontSize: 10, fontWeight: 800, cursor: "pointer" };
 }
 
@@ -312,12 +312,12 @@ function normalizeCharacter(root: THREE.Group, targetHeight: number) {
   root.position.y -= box.min.y;
 }
 
-function findHeadBone(root: THREE.Object3D) {
+function findHeadBone(root: THREE.Object3D): THREE.Bone | null {
   let head: THREE.Bone | null = null;
   root.traverse((object) => {
-    if (!head && object instanceof THREE.Bone && /head/i.test(object.name)) head = object;
+    if (head === null && object instanceof THREE.Bone && /head/i.test(object.name)) head = object;
   });
-  return head;
+  return head as THREE.Bone | null;
 }
 
 function createHeadphones() {
