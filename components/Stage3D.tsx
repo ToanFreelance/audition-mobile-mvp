@@ -22,7 +22,11 @@ export default function Stage3D() {
     camera.position.set(0, 3.65, 20.5);
     camera.lookAt(0, 2.7, .2);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    // Rendering is optional; unavailable GPU must never stop the rhythm runtime.
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("webgl2");
+    if (!context) return;
+    const renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;

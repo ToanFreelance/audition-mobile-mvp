@@ -39,6 +39,13 @@ export default function GameShell() {
   const [wrongDirection, setWrongDirection] = useState<Direction | null>(null);
   const [spacePressed, setSpacePressed] = useState(false);
   const [songTime, setSongTime] = useState(0);
+  const [debugEnabled, setDebugEnabled] = useState(false);
+  const [seed, setSeed] = useState<number | undefined>();
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    setDebugEnabled(query.get("debug") === "1");
+    if (query.has("seed") && Number.isFinite(Number(query.get("seed")))) setSeed(Number(query.get("seed")));
+  }, []);
 
   const transportRef = useRef<WebAudioTransport | null>(null);
   const directionTimer = useRef<number | null>(null);
@@ -66,7 +73,7 @@ export default function GameShell() {
       judgementTimer.current = window.setTimeout(() => setJudgement(null), 1000);
     },
     onFinished: (next) => { setStats(next); setFinished(true); setStarted(false); transportRef.current?.pause(); },
-  }), [activeChart]);
+  }, { seed }), [activeChart, seed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -261,6 +268,7 @@ export default function GameShell() {
 
   return (
     <main className="audition-page">
+      {debugEnabled && <pre data-testid="rhythm-debug" style={{position:"fixed",top:0,left:0,zIndex:9999,maxHeight:"42dvh",overflow:"auto",maxWidth:"100vw",fontSize:10,background:"#000d",color:"#aef",pointerEvents:"none",margin:0}}>{JSON.stringify(runtime.debug, null, 2)}</pre>}
       <section className="audition-stage">
         <Stage3D />
         <div className="audition-hud">
