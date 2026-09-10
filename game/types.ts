@@ -1,6 +1,21 @@
 export type Direction = "left" | "up" | "down" | "right";
 export type Judgement = "perfect" | "great" | "cool" | "bad" | "miss";
 
+export type ArrowToken = {
+  displayDirection: Direction;
+  requiredDirection: Direction;
+  reverse: boolean;
+};
+
+export type SoloTurn = {
+  absoluteTurn: number;
+  level: number;
+  sequenceIndex: number;
+  targetSpaceMs: number;
+  arrowCommand: ArrowToken[];
+  isFinish: boolean;
+};
+
 export interface ChartNote {
   direction: Direction;
   beat: number;
@@ -11,10 +26,6 @@ export interface DanceTurn {
   level: number;
   startBeat: number;
   directions: Direction[];
-  /** A miss penalty consumes this turn with no command sequence. */
-  penalty?: boolean;
-  /** Finish move is the final choreography action. */
-  finish?: boolean;
 }
 
 export interface Chart {
@@ -24,6 +35,8 @@ export interface Chart {
   offsetMs: number;
   /** Absolute song time (ms) at which the first SPACE target is Perfect. */
   firstPerfectMs?: number;
+  durationMs?: number;
+  soloSettings?: import("./solo-easy").SoloSettings;
   beatTimesMs?: number[];
   notes: ChartNote[];
   turns?: DanceTurn[];

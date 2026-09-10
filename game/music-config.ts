@@ -25,7 +25,10 @@ export type MusicConfig = {
     levelSequenceCounts: number[];
     commandRevealPasses: Record<string, number>;
     finishReverseRequired: boolean;
-    finishHideTurns: number;
+    /** Legacy saved field; Solo Easy runtime uses duration-aware planning. */
+    finishHideTurns?: number;
+    commandLengths?: number[];
+    endingReserveTurns?: number;
     finishResumeLevel: number;
     missPenaltyTurns: Record<string, number>;
     judgementCombo: boolean;
@@ -65,3 +68,13 @@ export const DEFAULT_MUSIC_CONFIG: MusicConfig = {
   notes: "First SPACE/Perfect is the opening My vocal anchor.",
   updatedAt: "",
 };
+
+/** Only saved, fully authored timing is eligible for Song Select. */
+export function isPlayableMusicConfig(config: MusicConfig): boolean {
+  return typeof config?.audioUrl === 'string' && config.audioUrl.trim().length > 0
+    && typeof config.title === 'string' && config.title.trim().length > 0
+    && Number.isFinite(config.BPM_exact) && (config.BPM_exact ?? 0) > 0
+    && Number.isFinite(config.durationMs) && config.durationMs > 0
+    && Number.isFinite(config.spaceStartMs) && config.spaceStartMs > 0
+    && config.spaceStartMs < config.durationMs;
+}

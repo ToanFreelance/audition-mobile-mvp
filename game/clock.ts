@@ -11,8 +11,8 @@ export class BeatClock {
   setTimeSource(source: ClockTimeSource | null) { this.timeSource = source; }
 
   syncToTimeSource() {
-    // The media element is the authoritative clock. HTMLAudioElement.currentTime
-    // already represents position from the beginning of the track, so do not
+    // The supplied WebAudio time source already represents absolute song
+    // position, so do not
     // create a second clock by translating it through performance.now().
   }
 

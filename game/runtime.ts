@@ -1,16 +1,14 @@
-import { BeatClock } from "./clock";
-import { getGaugeTiming } from "./gauge-timing";
-import { randomizeChart, randomDirections } from "./chart";
-import { PERFECT_CENTER, RhythmEngine, SCORE_ZONE_END, SCORE_ZONE_START } from "./rhythm";
-import type { Chart, Direction, GameStats, Judgement } from "./types";
+import { getGaugeTiming } from './gauge-timing';
+import { RhythmEngine, PERFECT_CENTER, SCORE_ZONE_END, SCORE_ZONE_START } from './rhythm';
+import { createArrowCommand, DEFAULT_SOLO_SETTINGS, lastPlayableTurn, minimumRemainingTurns, missPenaltyTurns, planAfterFinish, seededRandom, soloCycle, successHiddenTurns, targetSpaceMs, turnDurationMs, zoneEntryMs, zoneExitMs, type SoloAppearance } from './solo-easy';
+import type { ArrowToken, Chart, Direction, GameStats, Judgement, SoloTurn } from './types';
 
-export { PERFECT_CENTER, SCORE_ZONE_END, SCORE_ZONE_START } from "./rhythm";
-
-export type RhythmPhase = "idle" | "intro" | "ready" | "countdown" | "playing" | "penalty" | "finish" | "finished";
+export { PERFECT_CENTER, SCORE_ZONE_END, SCORE_ZONE_START } from './rhythm';
+export type RhythmPhase = 'idle' | 'intro' | 'countdown' | 'playing-command' | 'awaiting-space' | 'command-hidden' | 'miss-penalty' | 'finish' | 'post-finish-rest' | 'ending' | 'song-finished';
 export type RhythmRuntimeCallbacks = {
   onStats?: (stats: GameStats) => void;
-  onJudgement?: (judgement: Judgement) => void;
-  onSequence?: (directions: Direction[], filledCount: number) => void;
+  onJudgement?: (judgement: Judgement, perfectStreak: number) => void;
+  onArrowCommand?: (arrowCommand: ArrowToken[], filled: number) => void;
   onFinished?: (stats: GameStats) => void;
   onLevel?: (level: number) => void;
   onPhase?: (phase: RhythmPhase) => void;
@@ -18,350 +16,215 @@ export type RhythmRuntimeCallbacks = {
   onPulse?: () => void;
 };
 
-const COUNTDOWN_BEATS = 3;
-const TURN_INTERVAL_BEATS = 4;
-const READY_DURATION_MS = 500;
-
+/** Rhythm transitions only consume the authoritative absolute WebAudio song time.
+ * advance() is public so deterministic QA can supply that clock without RAF. */
 export class RhythmRuntime {
-  private readonly baseChart: Chart;
-  private chart: Chart;
-  private readonly callbacks: RhythmRuntimeCallbacks;
   private engine = new RhythmEngine();
-  private clock: BeatClock;
   private timeSource: (() => number) | null = null;
   private raf = 0;
   private started = false;
-  private finished = false;
-  private phase: RhythmPhase = "idle";
-  private turnIndex = 0;
+  private ended = false;
+  private phase: RhythmPhase = 'idle';
+  private appearances: SoloAppearance[] = [];
+  private appearanceIndex = 0;
+  private turn!: SoloTurn;
+  private visible = false;
   private commandIndex = 0;
   private awaitingSpace = false;
-  private targetMs = 0;
-  private penaltyUntilMs = 0;
-  private penaltyResumeTurnIndex = -1;
-  private finishMove = false;
-  private finishDirections: Direction[] = [];
-  private countdownValue: number | null = null;
-  private lastStatsSignature = "";
-  private startPulseTimer: number | null = null;
+  private revealAtMs = 0;
+  private hiddenFromTurn = -1;
+  private penaltyCount = 0;
+  private countdown: number | null = null;
+  private random: () => number = Math.random;
+  private songDurationMs: number;
+  private streak = 0;
+  private cycle = 1;
+  private final = false;
+  private lastJudgement: Judgement | null = null;
+  private judgementAtMs = -Infinity;
 
-  constructor(chart: Chart, callbacks: RhythmRuntimeCallbacks = {}) {
-    this.baseChart = chart;
-    this.chart = chart;
-    this.callbacks = callbacks;
-    this.clock = new BeatClock(chart.bpm, chart.offsetMs);
+  constructor(private readonly chart: Chart, private readonly callbacks: RhythmRuntimeCallbacks = {}, private readonly options: { seed?: number } = {}) {
+    this.songDurationMs = chart.durationMs ?? Infinity;
   }
+  setTimeSource(source: (() => number) | null) { this.timeSource = source; }
+  setSongDuration(ms: number) { if (Number.isFinite(ms) && ms > 0) this.songDurationMs = ms; }
+  get songTimeMs() { return Math.max(0, this.timeSource?.() ?? 0); }
+  private get settings() { return this.chart.soloSettings ?? DEFAULT_SOLO_SETTINGS; }
+  private get firstPerfectMs() { return this.chart.firstPerfectMs!; }
+  private get lastTurn() { return lastPlayableTurn(Math.min(this.chart.durationMs ?? this.songDurationMs, this.songDurationMs), this.firstPerfectMs, this.chart.bpm, this.settings.endingReserveTurns); }
+  private target(index: number) { return targetSpaceMs(this.firstPerfectMs, this.chart.bpm, index); }
+  private exit(index: number) { return zoneExitMs(this.target(index), this.chart.bpm); }
 
-  setTimeSource(source: (() => number) | null) { this.timeSource = source; this.clock.setTimeSource(source); }
-  syncToTimeSource() { this.clock.syncToTimeSource(); }
-
-  start() {
+  start(animate = true) {
+    if (!this.timeSource) throw new Error('Solo Easy requires a WebAudio song-time source.');
+    if (!(this.chart.bpm > 0) || !(this.firstPerfectMs > 0) || !Number.isFinite(this.songDurationMs)) throw new Error('Solo Easy requires saved exact timing and duration.');
     this.stop();
-    this.chart = randomizeChart(this.baseChart);
     this.engine = new RhythmEngine();
-    this.clock = new BeatClock(this.chart.bpm, this.chart.offsetMs);
-    this.clock.setTimeSource(this.timeSource);
-    this.started = true;
-    this.finished = false;
-    this.phase = "intro";
-    this.turnIndex = 0;
-    this.commandIndex = 0;
-    this.awaitingSpace = false;
-    this.targetMs = this.firstPerfectMs;
-    this.penaltyUntilMs = 0;
-    this.penaltyResumeTurnIndex = -1;
-    this.finishMove = false;
-    this.finishDirections = [];
-    this.countdownValue = null;
-    this.lastStatsSignature = "";
-    this.clock.start();
-    this.syncGaugeAnimationPhase();
-    this.syncGaugeVisibility();
-    this.setDomPhase("intro");
-    this.callbacks.onPhase?.("intro");
+    this.random = this.options.seed === undefined ? Math.random : seededRandom(this.options.seed);
+    this.appearances = soloCycle(1, this.settings);
+    this.appearanceIndex = 0;
+    this.started = true; this.ended = false; this.streak = 0; this.cycle = 1; this.final = false;
+    this.penaltyCount = 0; this.countdown = null; this.lastJudgement = null; this.judgementAtMs = -Infinity;
+    this.setTurn(0, Math.max(0, this.firstPerfectMs - turnDurationMs(this.chart.bpm)));
+    this.setPhase('intro');
+    this.callbacks.onStats?.(this.stats);
     this.callbacks.onCountdown?.(null);
-    this.callbacks.onLevel?.(this.currentLevel);
-    this.emitSequence();
-    this.emitStats(true);
-    this.loop();
+    this.advance();
+    if (animate && typeof requestAnimationFrame !== 'undefined') this.raf = requestAnimationFrame(this.loop);
   }
-
   stop() {
-    if (this.raf) cancelAnimationFrame(this.raf);
-    this.raf = 0;
-    if (this.startPulseTimer !== null && typeof window !== "undefined") {
-      window.clearTimeout(this.startPulseTimer);
-      this.startPulseTimer = null;
-    }
-    this.started = false;
-    this.setGaugeVisible(false);
-    this.setDomPhase("idle");
-    this.clearStartPulse();
+    if (this.raf && typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(this.raf);
+    this.raf = 0; this.started = false; this.visible = false;
+    this.setPhase('idle'); this.emitCommand();
   }
-
   destroy() { this.stop(); }
+  private loop = () => {
+    this.advance();
+    if (this.started && !this.ended) this.raf = requestAnimationFrame(this.loop);
+  };
   get isStarted() { return this.started; }
-  get isFinished() { return this.finished; }
+  get isFinished() { return this.ended; }
   get stats() { return { ...this.engine.stats }; }
-  get currentLevel() { return this.finishMove ? 0 : (this.chart.turns?.[this.turnIndex]?.level ?? 1); }
-  get currentTurn() { return this.turnIndex + 1; }
+  get currentLevel() { return this.turn?.level ?? 1; }
+  get currentTurn() { return this.turn; }
   get currentPhase() { return this.phase; }
-  get isPenaltyTurn() { return this.phase === "penalty"; }
-  get currentDirections() {
-    if (this.phase === "intro" || this.phase === "penalty") return [];
-    if (this.finishMove) return this.finishDirections.slice();
-    const turn = this.chart.turns?.[this.turnIndex];
-    return turn ? turn.directions.slice() : [];
-  }
-  get sequence() { return this.started && !this.finished ? this.currentDirections : []; }
+  get arrowCommand() { return this.visible ? this.turn.arrowCommand : []; }
   get completedCommands() { return this.commandIndex; }
   get awaitingTiming() { return this.awaitingSpace; }
-
-  get gaugeTiming() {
-    return getGaugeTiming({
-      bpm: this.chart.bpm,
-      spaceStartMs: this.firstPerfectMs,
-      beatsPerCycle: TURN_INTERVAL_BEATS,
-      perfectCenterPercent: PERFECT_CENTER,
-    }, this.clock.elapsedMs);
-  }
+  get perfectStreak() { return this.streak; }
+  get finalFinish() { return this.final; }
+  get gaugeTiming() { return getGaugeTiming({ bpm: this.chart.bpm, spaceStartMs: this.firstPerfectMs, perfectCenterPercent: PERFECT_CENTER }, this.songTimeMs); }
   get gaugePercent() { return this.gaugeTiming.sliderPercent; }
-  get gaugeVisible() { return this.gaugeTiming.visible; }
-  get gaugeCycleElapsedMs() { return this.gaugeTiming.cycleElapsedMs; }
-  get gaugeAnimationDelayMs() { return this.gaugeTiming.breathAnimationDelayMs; }
-  get timingGaugePercent() { return this.gaugePercent; }
-  get timingDeltaMs() { return !this.started || !this.targetMs ? 0 : this.clock.elapsedMs - this.targetMs; }
-
-  handleDirection(direction: Direction) {
-    if (!this.canInputDirections() || this.awaitingSpace) return false;
-    const sequence = this.currentDirections;
-    if (!sequence.length || this.commandIndex >= sequence.length) return false;
-    if (this.clock.elapsedMs >= this.targetMs + this.fullGaugeLateWindowMs) {
-      this.resolveMiss();
-      return false;
-    }
-    if (direction !== sequence[this.commandIndex]) {
-      this.commandIndex = 0;
-      this.callbacks.onPulse?.();
-      this.emitSequence();
-      return false;
-    }
-    this.commandIndex += 1;
-    this.callbacks.onPulse?.();
-    if (this.commandIndex === sequence.length) this.awaitingSpace = true;
-    this.emitSequence();
-    return true;
+  get timingDeltaMs() { return this.turn ? this.songTimeMs - this.turn.targetSpaceMs : 0; }
+  get penaltyTurnsRemaining() {
+    if (!this.penaltyCount) return 0;
+    let passed = 0;
+    for (let i = 1; i <= this.penaltyCount; i++) if (this.songTimeMs > this.exit(this.hiddenFromTurn + i)) passed++;
+    return this.penaltyCount - passed;
+  }
+  get debug() {
+    return { songTimeMs: this.songTimeMs, BPM_exact: this.chart.bpm, spaceStartMs: this.firstPerfectMs,
+      absoluteTurnIndex: Math.floor((this.songTimeMs - this.firstPerfectMs) / turnDurationMs(this.chart.bpm)),
+      playableAbsoluteTurn: this.turn?.absoluteTurn, level: this.currentLevel, sequenceIndex: this.turn?.sequenceIndex,
+      targetSpaceMs: this.turn?.targetSpaceMs, deltaToTargetMs: this.timingDeltaMs, gaugePercent: this.gaugePercent,
+      runtimeState: this.phase, commandVisible: this.visible, commandIndex: this.commandIndex,
+      commandCompleted: this.awaitingSpace, awaitingSpace: this.awaitingSpace, penaltyTurnsRemaining: this.penaltyTurnsRemaining,
+      perfectStreak: this.streak, finishCycle: this.cycle, finalFinish: this.final, gameEnded: this.ended,
+      isFinish: this.turn?.isFinish, revealAtMs: this.revealAtMs, lastJudgement: this.lastJudgement, judgementAtMs: this.judgementAtMs };
   }
 
-  handleSpace() {
-    if (!this.started || this.finished || this.phase === "intro" || this.phase === "penalty") return null;
-    const gauge = this.gaugePercent;
-    if (gauge < SCORE_ZONE_START || gauge > SCORE_ZONE_END) {
-      this.resolveMiss();
-      return "miss" as Judgement;
+  advance() {
+    if (!this.started || this.ended) return;
+    const now = this.songTimeMs;
+    const until = Math.min(now, this.songDurationMs);
+    // Catch up deterministically after dropped frames. Penalty/rest turns never
+    // create chart objects and cannot recursively produce a Miss.
+    for (let guard = 0; guard < 10000 && this.phase !== 'ending'; guard++) {
+      if (!this.visible && until > this.revealAtMs) {
+        this.visible = true; this.penaltyCount = 0;
+        this.setPhase(this.turn.isFinish ? 'finish' : 'playing-command'); this.emitCommand();
+      }
+      const countdownStart = this.firstPerfectMs - 3 * 60000 / this.chart.bpm;
+      if (until >= countdownStart && until < this.firstPerfectMs && this.turn.absoluteTurn === 0 && this.visible) {
+        const count = Math.ceil((this.firstPerfectMs - until) / (60000 / this.chart.bpm));
+        this.setCountdown(count); this.setPhase('countdown');
+      } else if (this.countdown !== null) {
+        this.setCountdown(null);
+        if (this.visible) this.setPhase(this.awaitingSpace ? 'awaiting-space' : this.turn.isFinish ? 'finish' : 'playing-command');
+      }
+      const expired = zoneExitMs(this.turn.targetSpaceMs, this.chart.bpm);
+      if (this.visible && until > expired) { this.resolve('miss', expired); continue; }
+      break;
     }
+    if (now >= this.songDurationMs) this.endSong();
+  }
+  handleDirection(direction: Direction) {
+    this.advance();
+    if (!this.started || this.ended || !this.visible || this.awaitingSpace || this.phase === 'ending') return false;
+    const token = this.turn.arrowCommand[this.commandIndex];
+    if (!token) return false;
+    if (token.requiredDirection !== direction) { this.commandIndex = 0; this.emitCommand(); return false; }
+    this.commandIndex++;
+    this.awaitingSpace = this.commandIndex === this.turn.arrowCommand.length;
+    if (this.awaitingSpace) this.setPhase('awaiting-space');
+    this.callbacks.onPulse?.(); this.emitCommand(); return true;
+  }
+  handleSpace(): Judgement | null {
+    this.advance();
+    if (!this.started || this.ended || !this.visible || this.phase === 'ending') return null;
+    // Incomplete commands never score. The authored opportunity still expires.
     if (!this.awaitingSpace) return null;
-    const judgement = this.engine.judgeMove(this.moveId, gauge);
-    if (!judgement) return null;
-    this.completeMove(judgement);
+    const now = this.songTimeMs;
+    // Judge against this playable target, not a previous scoring-zone pass.
+    if (now < zoneEntryMs(this.turn.targetSpaceMs, this.chart.bpm) || now > zoneExitMs(this.turn.targetSpaceMs, this.chart.bpm)) {
+      this.resolve('miss', now); return 'miss';
+    }
+    const judgement = this.engine.judgeMove(this.turn.absoluteTurn, this.gaugePercent);
+    if (judgement) this.resolve(judgement, now);
     return judgement;
   }
+  private resolve(judgement: Judgement, atMs: number) {
+    if (judgement === 'miss' && !this.engine.missMove(this.turn.absoluteTurn)) return;
+    this.streak = judgement === 'perfect' ? this.streak + 1 : 0;
+    this.lastJudgement = judgement; this.judgementAtMs = atMs;
+    this.callbacks.onStats?.(this.stats); this.callbacks.onJudgement?.(judgement, this.streak);
+    this.setCountdown(null);
+    const previous = this.turn;
+    this.visible = false; this.commandIndex = 0; this.awaitingSpace = false;
+    const hidden = judgement === 'miss' ? missPenaltyTurns(previous.level) : successHiddenTurns(previous.level);
+    this.hiddenFromTurn = previous.absoluteTurn;
+    this.penaltyCount = judgement === 'miss' ? hidden : 0;
+    let nextAbsolute = previous.absoluteTurn + hidden + 1;
+    let reveal = hidden ? this.exit(previous.absoluteTurn + hidden) : atMs;
+    let hiddenPhase: RhythmPhase = judgement === 'miss' ? 'miss-penalty' : 'command-hidden';
 
-  private canInputDirections() {
-    return this.started && !this.finished && this.phase !== "penalty" && (this.phase === "ready" || this.phase === "countdown" || this.phase === "playing" || this.phase === "finish");
-  }
-
-  private loop = () => {
-    if (!this.started || this.finished) return;
-    const elapsed = this.clock.elapsedMs;
-    this.syncGaugeAnimationPhase();
-    this.syncGaugeVisibility();
-    const countdownStart = this.targetMs - this.countdownDurationMs;
-    const readyStart = Math.max(0, countdownStart - READY_DURATION_MS);
-
-    if (this.phase === "intro" && elapsed >= readyStart) {
-      this.phase = "ready";
-      this.setDomPhase("ready");
-      this.callbacks.onPhase?.("ready");
-      this.emitSequence();
+    if (previous.isFinish) {
+      const plan = planAfterFinish(previous.absoluteTurn, this.lastTurn, this.settings, judgement === 'miss');
+      if (this.final || plan.finalFinish) { this.beginEnding(); return; }
+      this.cycle++; this.appearances = soloCycle(6, this.settings); this.appearanceIndex = 0;
+      nextAbsolute = plan.nextAbsoluteTurn;
+      reveal = this.exit(nextAbsolute - 1);
+      hiddenPhase = judgement === 'miss' ? 'miss-penalty' : 'post-finish-rest';
+    } else {
+      this.appearanceIndex++;
     }
-
-    if (this.phase === "ready" && elapsed >= countdownStart) {
-      this.phase = "countdown";
-      this.setDomPhase("countdown");
-      this.callbacks.onPhase?.("countdown");
+    const next = this.appearances[this.appearanceIndex];
+    // Misses may make a once-possible complete repeat impossible. Preserve a
+    // final Level-9 Finish if there is room, instead of starting a partial loop.
+    if (!next.isFinish && nextAbsolute + minimumRemainingTurns(this.appearances, this.appearanceIndex) > this.lastTurn) {
+      this.appearanceIndex = this.appearances.length - 1;
     }
-
-    if (this.phase === "countdown") {
-      const relative = Math.max(0, elapsed - countdownStart);
-      const step = Math.min(COUNTDOWN_BEATS - 1, Math.floor(relative / this.beatDurationMs));
-      const value = Math.max(1, COUNTDOWN_BEATS - step);
-      if (value !== this.countdownValue) {
-        this.countdownValue = value;
-        this.callbacks.onCountdown?.(value);
-      }
-      if (elapsed >= this.targetMs) {
-        this.phase = "playing";
-        this.setDomPhase("playing");
-        this.pulseStart();
-        this.callbacks.onCountdown?.(null);
-        this.callbacks.onPhase?.("playing");
-      }
+    if (this.appearances[this.appearanceIndex].isFinish) {
+      const plan = planAfterFinish(nextAbsolute, this.lastTurn, this.settings);
+      this.final = plan.finalFinish;
+      if (this.final) nextAbsolute = Math.max(nextAbsolute, this.lastTurn);
+      if (nextAbsolute > previous.absoluteTurn + hidden + 1) reveal = this.exit(nextAbsolute - 1);
     }
-
-    if (this.phase === "penalty") {
-      if (elapsed >= this.penaltyUntilMs) {
-        const resumeTurn = this.penaltyResumeTurnIndex;
-        this.penaltyUntilMs = 0;
-        this.penaltyResumeTurnIndex = -1;
-        const resumeTurnData = resumeTurn >= 0 ? this.chart.turns?.[resumeTurn] : undefined;
-        if (resumeTurnData) {
-          this.turnIndex = resumeTurn;
-          this.commandIndex = 0;
-          this.awaitingSpace = false;
-          this.finishMove = false;
-          this.targetMs = elapsed + this.perfectIntervalMs * (PERFECT_CENTER / 100);
-          this.phase = "playing";
-          this.setDomPhase("playing");
-          this.callbacks.onPhase?.("playing");
-          this.callbacks.onLevel?.(this.currentLevel);
-          this.emitSequence();
-        } else {
-          this.beginFinishMove();
-        }
-      }
-      this.raf = requestAnimationFrame(this.loop);
-      return;
+    if (zoneExitMs(this.target(nextAbsolute), this.chart.bpm) >= Math.min(this.songDurationMs, this.chart.durationMs ?? Infinity)) {
+      this.beginEnding(); return;
     }
-
-    if ((this.phase === "playing" || this.phase === "finish") && elapsed >= this.targetMs + this.fullGaugeLateWindowMs) {
-      this.resolveMiss();
-      this.raf = requestAnimationFrame(this.loop);
-      return;
-    }
-
-    this.raf = requestAnimationFrame(this.loop);
-  };
-
-  private completeMove(judgement: Judgement) {
-    this.awaitingSpace = false;
-    this.commandIndex = 0;
-    this.callbacks.onJudgement?.(judgement);
-    this.callbacks.onPulse?.();
-    this.emitStats(true);
-    if (this.finishMove) {
-      this.finished = true;
-      this.started = false;
-      this.phase = "finished";
-      this.setDomPhase("finished");
-      this.setGaugeVisible(false);
-      this.callbacks.onSequence?.([], 0);
-      this.callbacks.onFinished?.({ ...this.engine.stats });
-      return;
-    }
-    if (judgement === "miss") {
-      this.countdownValue = null;
-      this.callbacks.onCountdown?.(null);
-      const normalTurns = this.chart.turns?.length ?? 0;
-      const resumeTurn = this.turnIndex + 2;
-      const currentGaugeEnd = this.targetMs + this.fullGaugeLateWindowMs;
-      this.penaltyResumeTurnIndex = resumeTurn < normalTurns ? resumeTurn : -1;
-      this.penaltyUntilMs = Math.max(this.clock.elapsedMs, currentGaugeEnd) + this.perfectIntervalMs;
-      this.phase = "penalty";
-      this.setDomPhase("penalty");
-      this.callbacks.onPhase?.("penalty");
-      this.callbacks.onSequence?.([], 0);
-      return;
-    }
-
-    const lastTurn = this.turnIndex >= ((this.chart.turns?.length ?? 1) - 1);
-    if (lastTurn) { this.beginFinishMove(); return; }
-    this.turnIndex += 1;
-    this.targetMs += this.perfectIntervalMs;
-    this.phase = "playing";
-    this.setDomPhase("playing");
-    this.callbacks.onPhase?.("playing");
-    this.callbacks.onLevel?.(this.currentLevel);
-    this.emitSequence();
+    this.setTurn(nextAbsolute, reveal);
+    if (hidden === 0 && reveal <= atMs) { this.visible = true; this.setPhase('playing-command'); }
+    else this.setPhase(hiddenPhase);
+    this.emitCommand();
   }
-
-  private resolveMiss() {
-    const moveId = this.moveId;
-    if (!this.engine.missMove(moveId)) return;
-    this.completeMove("miss");
+  private setTurn(absoluteTurn: number, revealAtMs: number) {
+    const appearance = this.appearances[this.appearanceIndex];
+    this.turn = { ...appearance, absoluteTurn, targetSpaceMs: this.target(absoluteTurn),
+      arrowCommand: createArrowCommand(appearance.level, appearance.isFinish, this.random, this.settings.commandLengths) };
+    this.commandIndex = 0; this.awaitingSpace = false; this.visible = false; this.revealAtMs = revealAtMs;
+    this.callbacks.onLevel?.(appearance.level); this.emitCommand();
   }
-
-  private beginFinishMove() {
-    this.finishMove = true;
-    this.penaltyUntilMs = 0;
-    this.penaltyResumeTurnIndex = -1;
-    this.awaitingSpace = false;
-    this.commandIndex = 0;
-    this.finishDirections = randomDirections(6);
-    this.targetMs = Math.max(this.targetMs, this.clock.elapsedMs) + this.perfectIntervalMs;
-    this.phase = "finish";
-    this.setDomPhase("finish");
-    this.callbacks.onPhase?.("finish");
-    this.emitSequence();
+  private beginEnding() {
+    this.final = true; this.visible = false; this.awaitingSpace = false; this.penaltyCount = 0;
+    this.setPhase('ending'); this.emitCommand();
   }
-
-  private emitSequence() {
-    if (!this.started || this.finished) { this.callbacks.onSequence?.([], 0); return; }
-    this.callbacks.onSequence?.(this.currentDirections, this.commandIndex); }
-
-  private emitStats(force = false) {
-    const signature = JSON.stringify(this.engine.stats);
-    if (force || signature !== this.lastStatsSignature) { this.lastStatsSignature = signature; this.callbacks.onStats?.({ ...this.engine.stats }); }
+  endSong() {
+    if (this.ended || !this.started) return;
+    this.ended = true; this.started = false; this.visible = false; this.awaitingSpace = false;
+    this.setCountdown(null); this.setPhase('song-finished'); this.emitCommand(); this.callbacks.onFinished?.(this.stats);
   }
-
-  private syncGaugeVisibility() {
-    this.setGaugeVisible(this.started && !this.finished && this.gaugeTiming.visible);
-  }
-
-  private syncGaugeAnimationPhase() {
-    if (typeof document === "undefined") return;
-    const timing = getGaugeTiming({
-      bpm: this.chart.bpm,
-      spaceStartMs: this.firstPerfectMs,
-      beatsPerCycle: TURN_INTERVAL_BEATS,
-      perfectCenterPercent: PERFECT_CENTER,
-    }, this.clock.elapsedMs);
-    const root = document.documentElement;
-    root.style.setProperty("--gauge-breath-delay", `${timing.breathAnimationDelayMs}ms`);
-  }
-
-  private setGaugeVisible(visible: boolean) {
-    if (typeof document === "undefined") return;
-    document.documentElement.dataset.gaugeVisible = visible ? "1" : "0";
-  }
-
-  private setDomPhase(phase: RhythmPhase) {
-    if (typeof document === "undefined") return;
-    document.documentElement.dataset.rhythmPhase = phase;
-    this.syncGaugeAnimationPhase();
-  }
-
-  private pulseStart() {
-    if (typeof document === "undefined") return;
-    document.documentElement.dataset.rhythmStartPulse = "1";
-    if (this.startPulseTimer !== null && typeof window !== "undefined") window.clearTimeout(this.startPulseTimer);
-    if (typeof window !== "undefined") {
-      this.startPulseTimer = window.setTimeout(() => {
-        this.clearStartPulse();
-      }, 420);
-    }
-  }
-
-  private clearStartPulse() {
-    if (typeof document !== "undefined") {
-      delete document.documentElement.dataset.rhythmStartPulse;
-    }
-  }
-
-  private get moveId() { return this.finishMove ? (this.chart.turns?.length ?? 0) + 1 : this.turnIndex; }
-  private get firstPerfectMs() { return this.chart.firstPerfectMs ?? this.beatDurationMs * 9; }
-  private get perfectIntervalMs() { return this.beatDurationMs * TURN_INTERVAL_BEATS; }
-  private get countdownDurationMs() { return this.beatDurationMs * COUNTDOWN_BEATS; }
-  private get fullGaugeLateWindowMs() { return this.perfectIntervalMs * (100 - PERFECT_CENTER) / 100; }
-  private get beatDurationMs() { return 60000 / this.chart.bpm; }
+  private setCountdown(value: number | null) { if (value !== this.countdown) { this.countdown = value; this.callbacks.onCountdown?.(value); } }
+  private setPhase(phase: RhythmPhase) { if (this.phase !== phase) { this.phase = phase; this.callbacks.onPhase?.(phase); } }
+  private emitCommand() { this.callbacks.onArrowCommand?.(this.arrowCommand, this.commandIndex); }
 }

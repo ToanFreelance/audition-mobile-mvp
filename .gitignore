@@ -3,3 +3,11 @@ node_modules
 out
 *.log
 .DS_Store
+
+.env*
+.vercel
+.sites-runtime
+playwright-report
+test-results
+*.tsbuildinfo
+game/generated-rhythm.ts

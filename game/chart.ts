@@ -1,4 +1,5 @@
-import type { MusicConfig } from "./music-config";
+import { DEFAULT_SOLO_SETTINGS, SOLO_COMMAND_LENGTHS, SOLO_SEQUENCE_COUNTS } from "./solo-easy";
+import { isPlayableMusicConfig, type MusicConfig } from "./music-config";
 import type { Chart, DanceTurn, Direction } from "./types";
 
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
@@ -24,7 +25,7 @@ function randomIndex(max: number) {
 }
 
 export function randomDirections(level: number): Direction[] {
-  const length = Math.max(1, Math.min(6, level));
+  const length = Math.max(1, Math.min(9, level));
   const result: Direction[] = [];
 
   for (let index = 0; index < length; index += 1) {
@@ -108,20 +109,21 @@ export const DEMO_CHART: Chart = createPleaseTellMeWhyChart();
 
 /** Generate the playable runtime chart from the persisted Music Config. */
 export function createChartFromMusicConfig(config: MusicConfig): Chart {
-  const levelTurns = config.gameplay.levelSequenceCounts?.length
-    ? config.gameplay.levelSequenceCounts
-    : OBSERVED_80BPM_LEVEL_TURNS;
-  const timingBpm = Number.isFinite(config.BPM_exact) && (config.BPM_exact ?? 0) > 0
-    ? config.BPM_exact!
-    : config.bpm;
-
-  return buildChart(
-    config.id,
-    config.title,
-    timingBpm,
-    levelTurns,
-    Math.max(0, config.spaceStartMs),
-  );
+  if (!isPlayableMusicConfig(config)) throw new Error("Chart requires saved audio, title, BPM_exact, duration and authored Space Start.");
+  const configured = config.gameplay?.levelSequenceCounts;
+  const validNine = (values: readonly number[] | undefined) => values?.length === 9 && values.every(value => Number.isInteger(value) && value > 0);
+  const levelTurns = validNine(configured) ? configured : SOLO_SEQUENCE_COUNTS;
+  const lengths = config.gameplay?.commandLengths;
+  return {
+    ...buildChart(config.id, config.title, config.BPM_exact!, levelTurns, config.spaceStartMs),
+    durationMs: config.durationMs,
+    soloSettings: {
+      sequenceCounts: levelTurns,
+      commandLengths: validNine(lengths) ? lengths! : SOLO_COMMAND_LENGTHS,
+      endingReserveTurns: Number.isInteger(config.gameplay?.endingReserveTurns) && config.gameplay.endingReserveTurns! >= 0
+        ? config.gameplay.endingReserveTurns! : DEFAULT_SOLO_SETTINGS.endingReserveTurns,
+    },
+  };
 }
 
 /** Re-randomize arrow content only; level/timing progression remains deterministic. */
