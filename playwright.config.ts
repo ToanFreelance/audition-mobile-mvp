@@ -21,6 +21,9 @@ export default defineConfig({
       process.env.PLAYWRIGHT_TEST_BASE_URL ??
       "http://127.0.0.1:3000",
 
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? {
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    } : undefined,
     trace: "retain-on-failure",
 
     screenshot: "only-on-failure",
@@ -37,6 +40,7 @@ export default defineConfig({
       name: "mobile",
       use: {
         ...devices["iPhone 13"],
+        browserName: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ? "chromium" : "webkit",
         isMobile: true,
         hasTouch: true,
       },

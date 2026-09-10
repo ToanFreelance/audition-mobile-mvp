@@ -22,6 +22,7 @@ export default function GameShell() {
   const [musicLoading, setMusicLoading] = useState(true);
   const [songPickerOpen, setSongPickerOpen] = useState(false);
   const [stats, setStats] = useState(INITIAL_STATS);
+  const [perfectStreak, setPerfectStreak] = useState(0);
   const [arrowCommand, setArrowCommand] = useState<ArrowToken[]>([]);
   const [completed, setCompleted] = useState(0);
   const [level, setLevel] = useState(1);
@@ -67,7 +68,8 @@ export default function GameShell() {
         startCueTimer.current = window.setTimeout(() => setStartCue(false), START_CUE_MS);
       }
     },
-    onJudgement: (value) => {
+    onJudgement: (value, streak) => {
+      setPerfectStreak(streak);
       if (judgementTimer.current) window.clearTimeout(judgementTimer.current);
       setJudgement(value);
       judgementTimer.current = window.setTimeout(() => setJudgement(null), 1000);
@@ -83,12 +85,12 @@ export default function GameShell() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json() as MusicApiResponse;
         if (cancelled) return;
-        const configs = data.configs ?? [];
+        const configs = (data.configs ?? []).filter(isPlayableMusicConfig);
         setMusicLibrary(configs);
         const preferred = configs.find(item => item.id === DEFAULT_MUSIC_CONFIG.id) ?? configs[0];
         if (preferred) setSelectedMusic(preferred);
       } catch {
-        if (!cancelled) setMusicLibrary([DEFAULT_MUSIC_CONFIG]);
+        if (!cancelled) setMusicLibrary([]);
       } finally {
         if (!cancelled) setMusicLoading(false);
       }
@@ -199,6 +201,8 @@ export default function GameShell() {
 
   const startGame = useCallback(async () => {
     audioAlertedRef.current = false;
+    if (!musicLibrary.some(item => item.id === selectedMusic.id)) return;
+    runtime.stop(); setPerfectStreak(0);
     setStats(INITIAL_STATS); setArrowCommand([]); setCompleted(0); setLevel(1); setJudgement(null); setFinished(false); setStarted(false); setCountdown(null); setStartCue(false); setAudioError(null); setSongTime(0);
     const transport = transportRef.current;
     if (!transport) { reportAudioError("Web Audio transport chưa sẵn sàng."); return; }
@@ -216,7 +220,7 @@ export default function GameShell() {
       const reason = error instanceof Error ? error.message : "Không thể phát Web Audio.";
       reportAudioError(reason); runtime.setTimeSource(null); setStarted(false);
     }
-  }, [reportAudioError, runtime]);
+  }, [reportAudioError, runtime, musicLibrary, selectedMusic]);
 
   const retryAudio = useCallback(async () => { audioAlertedRef.current = false; await playAudio(true); }, [playAudio]);
 
@@ -249,6 +253,7 @@ export default function GameShell() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.repeat) return;
       if (event.code === "Space") { event.preventDefault(); pressSpace(); return; }
       const map: Record<string, Direction> = { ArrowLeft: "left", ArrowUp: "up", ArrowDown: "down", ArrowRight: "right" };
       const direction = map[event.code]; if (direction) { event.preventDefault(); pressDirection(direction); }
@@ -272,24 +277,24 @@ export default function GameShell() {
       <section className="audition-stage">
         <Stage3D />
         <div className="audition-hud">
-          <button className="hud-song" onClick={openSongPicker} disabled={started || musicLoading} aria-label="Chọn bài nhạc"><div className="song-cover">♫</div><div className="song-copy"><strong>{selectedMusic.title}</strong><span>BPM <b>{selectedMusic.bpm}</b></span><div className="song-progress"><i style={{ width: `${progress}%` }} /></div><small>{formatTime(songTime)} / {formatTime(selectedMusic.durationMs)}</small></div></button>
+          <button className="hud-song" onClick={openSongPicker} disabled={started || musicLoading} aria-label="Chọn bài nhạc"><div className="song-cover">♫</div><div className="song-copy"><strong>{selectedMusic.title}</strong><span>BPM <b>{selectedMusic.BPM_exact}</b></span><div className="song-progress"><i style={{ width: `${progress}%` }} /></div><small>{formatTime(songTime)} / {formatTime(selectedMusic.durationMs / 1000)}</small></div></button>
           <div className="battle-score"><div className="score-number red">{stats.score.toLocaleString()}</div><b>VS</b><div className="score-number blue">179,342</div><div className="battle-bar"><i style={{ width: `${Math.min(100, 50 + stats.score / 10000)}%` }} /></div><span>RED</span><span>BLUE</span></div>
-          <div className="top-actions"><button onClick={retryAudio}>↻ REPLAY</button><button onClick={retryAudio}>ESC<small>ON/OFF</small></button></div>
+          <div className="top-actions"><button onClick={startGame}>↻ REPLAY</button><button onClick={retryAudio}>ESC<small>ON/OFF</small></button></div>
           <div className="level-panel"><div className="level-title">LEVEL <b>{level}</b></div><div className="mission"><strong>MISSION</strong><span>Perfect more than 20</span><small>({stats.perfect} / 20) {stats.perfect >= 20 ? "✓" : ""}</small></div><div className="function-key">F10&nbsp;&nbsp; ON/OFF</div></div>
           <div className="leaderboard">{[["1st", "ToanDev", stats.score, "gold"], ["2nd", "Audition King", 179342, "silver"], ["3rd", "Dancer Pro", 165230, "bronze"], ["4th", "Cool Girl", 142587, "blue"]].map(([rank, name, score, tone]) => <div className={`rank-line ${tone}`} key={String(rank)}><b>{rank}</b><span className="avatar">●</span><span>{name}</span><strong>{Number(score).toLocaleString()}</strong></div>)}</div>
-          <div className="combo-panel"><span>COMBO</span><strong>{stats.combo}</strong><b>{judgement ? `${judgement.toUpperCase()} x${stats.combo}` : stats.perfect ? `Perfect x${stats.perfect}` : "Ready"}</b></div>
+          <div className="combo-panel"><span>COMBO</span><strong>{stats.combo}</strong><b>{perfectStreak > 1 ? `Perfect x${perfectStreak}` : perfectStreak === 1 ? "Perfect" : ""}</b></div>
           {showIntro && <div className="intro-cue"><span>CLUB</span><strong>AUDITION</strong></div>}
           {showReady && <div className="ready-cue"><span>SẴN SÀNG</span><small>GET READY</small></div>}
           {countdown !== null && countdown > 0 && <div key={`countdown-${countdown}`} className="countdown">{countdown}</div>}
           {startCue && <div className="start-cue"><span>BẮT ĐẦU</span><strong>GO!</strong></div>}
-          {judgement && <div key={`judgement-${judgement}`} className={`judgement judgement-${judgement}`}>{judgement.toUpperCase()}</div>}
-          {anchorNear && <div style={{ position: "absolute", left: "50%", top: "42%", transform: "translate(-50%, -50%)", zIndex: 45, padding: "8px 12px", borderRadius: 10, background: "rgba(0,0,0,.78)", border: "1px solid rgba(255,255,255,.65)", color: "#fff", fontSize: 12, fontWeight: 900, letterSpacing: ".05em", pointerEvents: "none", whiteSpace: "nowrap" }}>SPACE #1 ANCHOR · GAUGE {gauge.toFixed(1)}%</div>}
+          {judgement && <div key={`judgement-${runtime.debug.judgementAtMs}`} className={`judgement judgement-${judgement}`}>{judgement === "perfect" && perfectStreak > 1 ? `PERFECT x${perfectStreak}` : judgement.toUpperCase()}</div>}
+          {debugEnabled && anchorNear && <div style={{ position: "absolute", left: "50%", top: "42%", transform: "translate(-50%, -50%)", zIndex: 45, padding: "8px 12px", borderRadius: 10, background: "rgba(0,0,0,.78)", border: "1px solid rgba(255,255,255,.65)", color: "#fff", fontSize: 12, fontWeight: 900, letterSpacing: ".05em", pointerEvents: "none", whiteSpace: "nowrap" }}>SPACE #1 ANCHOR · GAUGE {gauge.toFixed(1)}%</div>}
           {audioError && <div className="audio-error"><strong>🔇 SOUND ERROR</strong><span>{audioError}</span><small>{audioDetails}</small><button onClick={retryAudio}>RETRY SOUND</button></div>}
           <div className={`command-zone ${showCommandStrip ? "visible" : "pre-intro"}`}>
-            <div className="command-label"><span>LEVEL <b>{level}</b></span><small>{completed} / {arrowCommand.length}</small></div>
-            <div className="command-strip">{arrowCommand.map((token, index) => { const direction = token.displayDirection; const isCompleted = index < completed; const isTarget = index === completed; const isWrong = isTarget && wrongDirection !== null && wrongDirection !== direction; return <div key={`${level}-${index}-${direction}`} className={`command-key ${isCompleted ? "done" : ""} ${isTarget ? "target" : ""} ${isWrong ? "wrong" : ""}`} style={{ background: isCompleted ? "linear-gradient(145deg,#3fca72,#168a4d)" : "linear-gradient(145deg,#3b8eea,#1458a6)", opacity: 1 }}><ArrowIcon direction={direction} filled={isCompleted} target={isTarget} /></div>; })}</div>
+            <div className="command-label"><span>LEVEL <b>{level}</b> {runtime.currentTurn?.isFinish && <strong data-testid="finish-label" style={{color:"#ffde79",textShadow:"0 0 10px #f43"}}>{runtime.currentPhase === "ending" ? "FINAL FINISH" : arrowCommand.length ? "FINISH MOVE" : "GET READY • FINISH"}</strong>}</span><small>{completed} / {arrowCommand.length}</small></div>
+            <div className="command-strip">{arrowCommand.map((token, index) => { const direction = token.displayDirection; const isCompleted = index < completed; const isTarget = index === completed; const isWrong = isTarget && wrongDirection !== null && wrongDirection !== token.requiredDirection; return <div data-direction={direction} data-reverse={token.reverse} aria-label={`${token.reverse ? "reverse " : ""}${direction}`} key={`${runtime.currentTurn?.absoluteTurn}-${index}-${direction}`} className={`command-key ${isCompleted ? "done" : ""} ${isTarget ? "target" : ""} ${isWrong ? "wrong" : ""}`} style={{ background: isCompleted ? "linear-gradient(145deg,#3fca72,#168a4d)" : token.reverse ? "linear-gradient(145deg,#f43f5e,#a10c35)" : "linear-gradient(145deg,#3b8eea,#1458a6)", opacity: 1 }}><ArrowIcon direction={direction} filled={isCompleted} target={isTarget} /></div>; })}</div>
             <AuditionGauge bpm={activeChart.bpm} value={gauge} zoneStart={SCORE_ZONE_START} zoneEnd={SCORE_ZONE_END} perfectStart={79} perfectEnd={81} onPointerDown={pressGauge} />
-            <div className="gauge-readout" style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "3px 10px", lineHeight: 1.2 }}>
+            <div className="gauge-readout" style={{ display: debugEnabled ? "flex" : "none", flexWrap: "wrap", justifyContent: "center", gap: "3px 10px", lineHeight: 1.2 }}>
               <span>Δ TARGET {delta >= 0 ? "+" : ""}{delta.toFixed(0)}ms</span>
               <span>WEB {songTime.toFixed(3)}s</span>
               <span>SPACE#1 {firstPerfectSeconds.toFixed(3)}s</span>
@@ -297,11 +302,11 @@ export default function GameShell() {
               <span>GAUGE {gauge.toFixed(1)}%</span>
             </div>
           </div>
-          <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All <i>▶</i></b></div><div className="bottom-mode"><strong>Audition - Club Dance</strong><span>{selectedMusic.bpm} BPM <b>Hard</b></span><div>★★★☆☆</div></div><button className="exit-button">⇥<small>EXIT</small></button>
+          <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All <i>▶</i></b></div><div className="bottom-mode"><strong>Audition - Club Dance</strong><span>{selectedMusic.BPM_exact} BPM <b>Hard</b></span><div>★★★☆☆</div></div><button className="exit-button">⇥<small>EXIT</small></button>
           <div className="mobile-controls"><button className={`space-control ${spacePressed ? "pressed" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressSpace(); }}><strong>SPACE</strong><small>PRESS IN SCORE ZONE</small></button><div className="dpad-control">{DIRECTIONS.map(direction => <button key={direction} className={`dpad-${direction} ${activeDirection === direction ? "pressed" : ""} ${arrowCommand[completed]?.requiredDirection === direction ? "target" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }} aria-label={direction}><ArrowIcon direction={direction} filled={false} target={arrowCommand[completed]?.requiredDirection === direction} compact /></button>)}<span /></div></div>
-          {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>Song: <b>{selectedMusic.title}</b><br />SPACE #1: <b>{firstPerfectSeconds.toFixed(3)}s</b> · BPM exact: <b>{activeChart.bpm.toFixed(4)}</b><br />Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first SPACE.</p><button onClick={startGame} disabled={audioState === "loading"}>START</button><button className="song-select-button" onClick={openSongPicker} disabled={musicLoading}>♫ SELECT SONG</button><button className="configure-button" onClick={() => { window.location.href = "/tools/music-config"; }}>⚙ CONFIGURE MUSIC</button><button className="sound-button" onClick={() => { window.location.href = "/tools/audio-timing"; }}>🧪 AUDIO TIMING</button><button className="sound-button" onClick={() => { window.location.href = "/tools/rhythm-benchmark"; }}>📊 RHYTHM BENCHMARK</button><button className="sound-button" onClick={retryAudio} disabled={audioState === "loading"}>TEST SOUND</button></div></div>}
+          {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>{!musicLoading && musicLibrary.length === 0 && <strong>No playable saved charts available.<br /></strong>}Song: <b>{selectedMusic.title}</b><br />SPACE #1: <b>{firstPerfectSeconds.toFixed(3)}s</b> · BPM exact: <b>{activeChart.bpm.toFixed(4)}</b><br />Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first SPACE.</p><button onClick={startGame} disabled={musicLoading || audioState !== "ready" || !musicLibrary.some(item => item.id === selectedMusic.id)}>START</button><button className="song-select-button" onClick={openSongPicker} disabled={musicLoading}>♫ SELECT SONG</button><button className="configure-button" onClick={() => { window.location.href = "/tools/music-config"; }}>⚙ CONFIGURE MUSIC</button><button className="sound-button" onClick={() => { window.location.href = "/tools/audio-timing"; }}>🧪 AUDIO TIMING</button><button className="sound-button" onClick={() => { window.location.href = "/tools/rhythm-benchmark"; }}>📊 RHYTHM BENCHMARK</button><button className="sound-button" onClick={retryAudio} disabled={audioState === "loading"}>TEST SOUND</button></div></div>}
           {finished && <div className="start-overlay"><div className="ready-card results-card"><span>DANCE COMPLETE</span><h1>{stats.score.toLocaleString()}</h1><p>P {stats.perfect} · G {stats.great} · C {stats.cool} · B {stats.bad} · M {stats.miss}</p><button onClick={startGame}>PLAY AGAIN</button><button onClick={openSongPicker}>SELECT SONG</button></div></div>}
-          {songPickerOpen && <SongPicker songs={musicLibrary.length ? musicLibrary : [selectedMusic]} selectedId={selectedMusic.id} onSelect={chooseMusic} onClose={() => setSongPickerOpen(false)} />}
+          {songPickerOpen && <SongPicker songs={musicLibrary} selectedId={selectedMusic.id} onSelect={chooseMusic} onClose={() => setSongPickerOpen(false)} />}
         </div>
       </section>
     </main>

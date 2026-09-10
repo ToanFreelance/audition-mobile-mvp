@@ -131,3 +131,56 @@ test('dropped frames and all-miss play finish at song end with finite progressio
   expect(f.runtime.isFinished).toBe(true);expect(f.runtime.stats.miss).toBeGreaterThan(0);
   expect(f.runtime.stats.miss).toBeLessThan(60);
 });
+
+test('saved Aloha: record complete perfect-run Finish decision without changing production rules', () => {
+  let time = 0;
+  const chart = createChartFromMusicConfig({...DEFAULT_MUSIC_CONFIG, title:'aloha', BPM_exact:101.0504, spaceStartMs:10083, durationMs:277432});
+  const runtime = new RhythmRuntime(chart, {}, {seed:123});
+  runtime.setTimeSource(()=>time); runtime.start(false);
+  const snapshots = [];
+  for(let guard=0; runtime.currentPhase!=='ending' && guard<100; guard++){
+    time=Math.max(time,runtime.debug.revealAtMs+0.001);runtime.advance();
+    if(runtime.currentTurn.isFinish) snapshots.push({when:'before Finish',...runtime.debug});
+    runtime.arrowCommand.forEach(token=>runtime.handleDirection(token.requiredDirection));
+    time=runtime.currentTurn.targetSpaceMs;runtime.advance();
+    const finish=runtime.currentTurn.isFinish;
+    expect(runtime.handleSpace()).toBe('perfect');
+    if(finish) snapshots.push({when:'after Finish',...runtime.debug});
+  }
+  console.log('SAVED_ALOHA',JSON.stringify(snapshots));
+  expect(runtime.currentPhase).toBe('ending');
+  expect(runtime.isFinished).toBe(false);
+  time=277432;runtime.advance();expect(runtime.isFinished).toBe(true);
+});
+
+test('full default repeat cycle consumes 25 target advances and 25 hidden passes, with no double count',()=>{
+  const cycle=soloCycle(6);
+  expect(cycle.filter(a=>!a.isFinish)).toHaveLength(24);
+  expect(cycle.filter(a=>a.isFinish)).toHaveLength(1);
+  // From Finish #1 to first L6: 2. From L6 to Finish #2: 24 × 2.
+  expect(2 + cycle.slice(0,-1).reduce((sum,a)=>sum+(a.level>=6?2:1),0)).toBe(repeatCycleTurns());
+});
+test('default long-song progression completes repeat cycles and never resumes after final Finish',()=>{
+  const f=fixture(600000);const finishes:number[]=[];
+  for(let guard=0;guard<200&&f.runtime.currentPhase!=='ending';guard++){
+    const wasFinish=f.runtime.currentTurn.isFinish;
+    if(wasFinish)finishes.push(f.runtime.currentTurn.absoluteTurn);
+    f.hit();
+    if(wasFinish&&!f.runtime.finalFinish)expect(f.runtime.currentLevel).toBe(6);
+  }
+  expect(finishes.length).toBeGreaterThan(1);
+  expect(finishes.slice(1).every((turn,i)=>turn-finishes[i]>=repeatCycleTurns())).toBe(true);
+  const stats=f.runtime.stats;
+  f.at(599999);expect(f.runtime.currentPhase).toBe('ending');expect(f.runtime.stats).toEqual(stats);
+  f.at(600000);expect(f.runtime.isFinished).toBe(true);
+  console.log('DEFAULT_LONG_SONG_FINISH_TURNS',finishes);
+});
+test('two players share identical global turns despite different penalties',()=>{
+  const a=fixture(),b=fixture();a.hit();
+  b.at(zoneExitMs(b.runtime.currentTurn.targetSpaceMs,b.chart.bpm)+1);
+  for(const time of [15000,60000,120000,250000]){
+    a.at(time);b.at(time);
+    expect(a.runtime.debug.globalAbsoluteTurnIndex).toBe(b.runtime.debug.globalAbsoluteTurnIndex);
+    expect(a.runtime.gaugePercent).toBe(b.runtime.gaugePercent);
+  }
+});

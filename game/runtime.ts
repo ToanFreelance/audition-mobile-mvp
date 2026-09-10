@@ -103,7 +103,7 @@ export class RhythmRuntime {
     return this.penaltyCount - passed;
   }
   get debug() {
-    return { songTimeMs: this.songTimeMs, durationMs: this.songDurationMs, lastTurn: this.lastTurn, finishPlan: this.turn ? planAfterFinish(this.turn.absoluteTurn, this.lastTurn, this.settings) : null, globalAbsoluteTurnIndex: Math.floor((this.songTimeMs - this.firstPerfectMs) / turnDurationMs(this.chart.bpm)), BPM_exact: this.chart.bpm, spaceStartMs: this.firstPerfectMs,
+    return { songTimeMs: this.songTimeMs, durationMs: this.songDurationMs, lastTurn: this.lastTurn, earliestFinishTurn: this.turn ? this.turn.absoluteTurn + minimumRemainingTurns(this.appearances, this.appearanceIndex) : null, finishPlan: this.turn ? planAfterFinish(this.turn.absoluteTurn + minimumRemainingTurns(this.appearances, this.appearanceIndex), this.lastTurn, this.settings) : null, globalAbsoluteTurnIndex: Math.floor((this.songTimeMs - this.firstPerfectMs) / turnDurationMs(this.chart.bpm)), BPM_exact: this.chart.bpm, spaceStartMs: this.firstPerfectMs,
       absoluteTurnIndex: Math.floor((this.songTimeMs - this.firstPerfectMs) / turnDurationMs(this.chart.bpm)),
       playableAbsoluteTurn: this.turn?.absoluteTurn, level: this.currentLevel, sequenceIndex: this.turn?.sequenceIndex,
       targetSpaceMs: this.turn?.targetSpaceMs, deltaToTargetMs: this.timingDeltaMs, gaugePercent: this.gaugePercent,

@@ -56,8 +56,21 @@ export function lastPlayableTurn(durationMs: number, spaceStart: number, bpm: nu
   const ending = Math.max(reserve * turnMs, zoneExitMs(0, bpm));
   return Math.floor((durationMs - ending - spaceStart) / turnMs);
 }
+/** Cost measured from one Finish target to the next Finish target.
+ * Every arrival consumes one global turn; the departure's reveal rule inserts
+ * hidden passes. The first departure is the preceding Level-9 Finish.
+ * Default: 25 arrivals (24 normal + Finish) + 25 hidden passes = 50.
+ * Rest and extra Miss penalties are deliberately excluded here.
+ */
+export function repeatCycleCost(settings = DEFAULT_SOLO_SETTINGS) {
+  const arrivals = soloCycle(6, settings);
+  const departures = [{ level: 9 }, ...arrivals.slice(0, -1)];
+  const playableAppearances = arrivals.length;
+  const hiddenTurns = departures.reduce((sum, turn) => sum + successHiddenTurns(turn.level), 0);
+  return { playableAppearances, hiddenTurns, globalTurns: playableAppearances + hiddenTurns };
+}
 export function repeatCycleTurns(settings = DEFAULT_SOLO_SETTINGS) {
-  return soloCycle(6, settings).length * 2;
+  return repeatCycleCost(settings).globalTurns;
 }
 /** Whole-turn plan, recalculated after every Finish (including its miss cost). */
 export function planAfterFinish(finishTurn: number, lastTurn: number, settings = DEFAULT_SOLO_SETTINGS, missed = false) {
@@ -67,7 +80,7 @@ export function planAfterFinish(finishTurn: number, lastTurn: number, settings =
   const repeatCycles = Math.max(0, Math.floor(available / cycleTurns));
   const spareTurns = Math.max(0, available - repeatCycles * cycleTurns);
   const restTurns = repeatCycles ? Math.floor(spareTurns / repeatCycles) : 0;
-  return { finalFinish: repeatCycles === 0, repeatCycles, restTurns, nextAbsoluteTurn: finishTurn + 2 + extraPenalty + restTurns };
+  return { cycleCost: repeatCycleCost(settings), availableTurns: available, finalFinish: repeatCycles === 0, repeatCycles, restTurns, nextAbsoluteTurn: finishTurn + 2 + extraPenalty + restTurns };
 }
 export function minimumRemainingTurns(appearances: readonly SoloAppearance[], from: number) {
   let turns = 0;

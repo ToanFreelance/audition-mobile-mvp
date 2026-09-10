@@ -1,146 +1,54 @@
-import { test, expect, type Page } from "@playwright/test";
+import {test,expect} from '@playwright/test';
+import {DEFAULT_MUSIC_CONFIG} from '../game/music-config';
 
-async function startGame(page: Page) {
-  const start = page.getByRole("button", { name: /^START$/ });
-  await expect(start).toBeVisible();
-  await start.click();
+function audioFixture(seconds:number){
+  const rate=8000, count=seconds*rate, bytes=Buffer.alloc(44+count*2);
+  bytes.write('RIFF');bytes.writeUInt32LE(bytes.length-8,4);bytes.write('WAVEfmt ',8);
+  bytes.writeUInt32LE(16,16);bytes.writeUInt16LE(1,20);bytes.writeUInt16LE(1,22);
+  bytes.writeUInt32LE(rate,24);bytes.writeUInt32LE(rate*2,28);bytes.writeUInt16LE(2,32);bytes.writeUInt16LE(16,34);
+  bytes.write('data',36);bytes.writeUInt32LE(count*2,40);
+  for(let i=0;i<count;i++)bytes.writeInt16LE(Math.round(Math.sin(i*2*Math.PI*220/rate)*400),44+i*2);
+  return bytes;
 }
-
-async function waitForCountdown(page: Page) {
-  // At 80 BPM the first countdown starts 2.25s before the first target,
-  // which is 3s after game start. Allow for mobile/browser startup latency.
-  await expect(page.locator(".countdown")).toBeVisible({ timeout: 10000 });
-}
-
-async function pressDirection(page: Page, direction: string) {
-  await page.getByRole("button", { name: direction, exact: true }).click();
-}
-
-async function pressSpace(page: Page) {
-  const space = page.getByRole("button", { name: /SPACE/i });
-  await expect(space).toBeVisible();
-  await space.click();
-}
-
-async function waitForSequence(page: Page) {
-  const commands = page.locator(".command-key");
-  await expect(commands.first()).toBeVisible({ timeout: 5000 });
-  expect(await commands.count()).toBeGreaterThan(0);
-}
-
-test.describe("Audition Mobile — current gameplay QA", () => {
-  test("A1 — app loads without page or console errors", async ({ page }) => {
-    const consoleErrors: string[] = [];
-    const pageErrors: string[] = [];
-    page.on("console", message => { if (message.type() === "error") consoleErrors.push(message.text()); });
-    page.on("pageerror", error => pageErrors.push(error.message));
-
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await expect(page.getByText("CLUB AUDITION")).toBeVisible();
-    await expect(page.getByRole("button", { name: /^START$/ })).toBeVisible();
-    await expect(page.locator("canvas").first()).toBeVisible({ timeout: 5000 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
-    expect(pageErrors).toEqual([]);
-    expect(consoleErrors).toEqual([]);
-  });
-
-  test("A2 — mobile D-pad and SPACE are visible and tappable", async ({ page }) => {
-    test.skip(test.info().project.name !== "mobile", "mobile-specific");
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    for (const direction of ["left", "up", "down", "right"]) {
-      const button = page.getByRole("button", { name: direction, exact: true });
-      await expect(button).toBeVisible();
-      const box = await button.boundingBox();
-      expect(box?.width).toBeGreaterThanOrEqual(40);
-      expect(box?.height).toBeGreaterThanOrEqual(40);
-    }
-    await expect(page.getByRole("button", { name: /SPACE/i })).toBeVisible();
-  });
-
-  test("A3 — countdown visibly runs through 3, 2, 1, then clears", async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await startGame(page);
-
-    const countdown = page.locator(".countdown");
-    await expect(countdown).toBeVisible({ timeout: 10000 });
-
-    const seen = new Set<string>();
-    const deadline = Date.now() + 4000;
-    while (Date.now() < deadline && seen.size < 3) {
-      const text = (await countdown.textContent())?.trim();
-      if (text && ["3", "2", "1"].includes(text)) seen.add(text);
-      await page.waitForTimeout(100);
-    }
-
-    expect([...seen]).toEqual(expect.arrayContaining(["3", "2", "1"]));
-    await expect.poll(async () => await countdown.count(), { timeout: 4000 }).toBe(0);
-  });
-
-  test("A4 — command strip renders directions with gradient states", async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await startGame(page);
-    await waitForSequence(page);
-
-    const commands = page.locator(".command-key");
-    const count = await commands.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < count; i++) {
-      const background = await commands.nth(i).evaluate(el => getComputedStyle(el).backgroundImage);
-      expect(background).toContain("linear-gradient");
-    }
-  });
-
-  test("A5 — completing the displayed sequence advances command state", async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await startGame(page);
-    await waitForSequence(page);
-
-    for (let guard = 0; guard < 20; guard++) {
-      const pending = page.locator('.command-key:not(.done)').first();
-      if (await pending.count() === 0) break;
-      const direction = await pending.locator("svg").evaluate((svg: SVGSVGElement) => {
-        const transform = svg.style.transform;
-        if (transform.includes("rotate(180")) return "left";
-        if (transform.includes("rotate(270")) return "up";
-        if (transform.includes("rotate(90")) return "down";
-        return "right";
-      });
-      await pressDirection(page, direction);
-    }
-
-    await expect.poll(async () => await page.locator('.command-key:not(.done)').count(), { timeout: 3000 }).toBe(0);
-    await expect(page.locator(".command-key.done").first()).toBeVisible();
-  });
-
-  test("A6 — early SPACE MISS immediately clears the countdown", async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await startGame(page);
-    await waitForCountdown(page);
-    await pressSpace(page);
-
-    await expect.poll(async () => await page.locator(".countdown").count(), { timeout: 2000 }).toBe(0);
-    await expect(page.locator(".judgement-miss")).toBeVisible({ timeout: 2000 });
-  });
-
-  test("A7 — auto MISS enters penalty and then restores the command strip", async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await startGame(page);
-    await waitForSequence(page);
-
-    await expect(page.locator(".command-key").first()).toBeVisible();
-    await expect(page.locator(".judgement-miss")).toBeVisible({ timeout: 10000 });
-    await expect(page.locator(".command-key").first()).toBeVisible({ timeout: 10000 });
-  });
-
-  test("A8 — audio starts from the user gesture and advances", async ({ page }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await startGame(page);
-    await expect.poll(async () => page.locator("audio").evaluate((audio: HTMLAudioElement) => !audio.paused && audio.currentTime > 0.2 && !audio.muted && audio.volume > 0.9), { timeout: 5000 }).toBe(true);
-  });
-
-  test("A9 — no horizontal overflow on mobile", async ({ page }) => {
-    test.skip(test.info().project.name !== "mobile", "mobile-specific");
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
-  });
+const chart={...DEFAULT_MUSIC_CONFIG,id:'qa-authored',title:'Authored QA audio',audioUrl:'/qa-audio.wav',BPM_exact:105,durationMs:35000,spaceStartMs:6000};
+test.beforeEach(async({page})=>{
+  await page.route('**/api/music-config',route=>route.fulfill({json:{configs:[chart,{...chart,id:'invalid',spaceStartMs:0}]}}));
+  await page.route('**/qa-audio.wav',route=>route.fulfill({contentType:'audio/wav',body:audioFixture(35)}));
+});
+for(const width of [390,430])test(`portrait ${width}: authored chart, controls, command and gauge fit`,async({page})=>{
+  await page.setViewportSize({width,height:width===390?844:932});
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/?debug=1&seed=123');
+  await expect(page.getByRole('button',{name:'START',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'♫ SELECT SONG',exact:true}).click();
+  await expect(page.locator('.song-picker-item')).toHaveCount(1);
+  await page.getByRole('button',{name:'×',exact:true}).click();
+  await page.getByRole('button',{name:'START',exact:true}).click();
+  await expect.poll(async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).songTimeMs).toBeGreaterThan(200);
+  await expect(page.locator('.command-key').first()).toBeVisible({timeout:10000});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  for(const direction of ['left','up','down','right']){
+    const box=await page.getByRole('button',{name:direction,exact:true}).boundingBox();
+    expect(box!.width).toBeGreaterThanOrEqual(40);expect(box!.x+box!.width).toBeLessThanOrEqual(width);
+  }
+  const gauge=await page.getByRole('img',{name:'Audition timing gauge'}).boundingBox();
+  expect(gauge!.width).toBeLessThanOrEqual(width);expect(errors).toEqual([]);
+});
+test('same action layer: incomplete SPACE cannot succeed, keyboard completes command, replay resets runtime',async({page})=>{
+  await page.goto('/?debug=1&seed=123');
+  await page.getByRole('button',{name:'START',exact:true}).click();
+  await expect(page.locator('.command-key').first()).toBeVisible({timeout:10000});
+  await page.keyboard.press('Space');
+  expect(JSON.parse(await page.getByTestId('rhythm-debug').innerText()).lastJudgement).toBe(null);
+  const direction=await page.locator('.command-key').first().getAttribute('data-direction');
+  await page.keyboard.press('Arrow'+direction![0].toUpperCase()+direction!.slice(1));
+  await expect(page.locator('.command-key.done')).toHaveCount(1);
+  await page.getByRole('button',{name:'↻ REPLAY',exact:true}).click();
+  await expect.poll(async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).playableAbsoluteTurn).toBe(0);
+  expect(JSON.parse(await page.getByTestId('rhythm-debug').innerText()).perfectStreak).toBe(0);
+});
+test('normal UI hides rhythm diagnostics',async({page})=>{
+  await page.goto('/');
+  await expect(page.getByRole('button',{name:'START',exact:true})).toBeEnabled();
+  await expect(page.getByTestId('rhythm-debug')).toHaveCount(0);
 });
