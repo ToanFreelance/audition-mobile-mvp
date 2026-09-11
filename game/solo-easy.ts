@@ -18,7 +18,7 @@ export const successHiddenTurns = (level: number) => level <= 5 ? 0 : 1;
 
 export function soloCycle(startLevel: 1 | 6, settings = DEFAULT_SOLO_SETTINGS): SoloAppearance[] {
   const appearances: SoloAppearance[] = [];
-  for (let level = startLevel; level <= 9; level++) {
+  for (let level: number = startLevel; level <= 9; level++) {
     const budget = settings.sequenceCounts[level - 1];
     const ordinaryCount = level === 9 ? Math.max(0, budget - 1) : budget;
     for (let sequenceIndex = 0; sequenceIndex < ordinaryCount; sequenceIndex++) {
