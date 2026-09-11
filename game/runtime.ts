@@ -36,7 +36,6 @@ export class RhythmRuntime {
   private penaltyCount = 0;
   private countdown: number | null = null;
   private random: () => number = Math.random;
-  private levelTurnsConsumed = 0;
   private songDurationMs: number;
   private streak = 0;
   private cycle = 1;
@@ -66,7 +65,6 @@ export class RhythmRuntime {
     this.appearanceIndex = 0;
     this.started = true; this.ended = false; this.streak = 0; this.cycle = 1; this.final = false;
     this.penaltyCount = 0; this.countdown = null; this.lastJudgement = null; this.judgementAtMs = -Infinity;
-    this.levelTurnsConsumed = 0;
     this.setTurn(0, Math.max(0, this.firstPerfectMs - turnDurationMs(this.chart.bpm)));
     this.setPhase('intro');
     this.callbacks.onStats?.(this.stats);
@@ -119,8 +117,8 @@ export class RhythmRuntime {
     if (!this.started || this.ended) return;
     const now = this.songTimeMs;
     const until = Math.min(now, this.songDurationMs);
-    // Catch up deterministically after dropped frames. Penalty/rest turns never
-    // create chart objects and cannot recursively produce a Miss.
+    // Catch up deterministically after dropped frames. Suppressed global-turn
+    // slots never become playable and therefore cannot recursively produce a Miss.
     for (let guard = 0; guard < 10000 && this.phase !== 'ending'; guard++) {
       if (!this.visible && until > this.revealAtMs) {
         this.visible = true; this.penaltyCount = 0;
@@ -173,40 +171,34 @@ export class RhythmRuntime {
     this.setCountdown(null);
     const previous = this.turn;
     this.visible = false; this.commandIndex = 0; this.awaitingSpace = false;
-    const requestedHidden = judgement === 'miss' ? missPenaltyTurns(previous.level) : successHiddenTurns(previous.level);
-    const budget = this.settings.sequenceCounts[previous.level - 1] ?? 1;
-    const remainingAfterTurn = Math.max(0, budget - this.levelTurnsConsumed - 1);
-    // Level 9's final global turn is reserved for Finish. Suppression can
-    // never consume or hide that designated turn.
-    const reserveFinishTurn = previous.level === 9 && !previous.isFinish ? 1 : 0;
-    const hidden = Math.min(requestedHidden, Math.max(0, remainingAfterTurn - reserveFinishTurn));
-    this.levelTurnsConsumed += 1 + hidden;
+    const requestedHidden = previous.isFinish
+      ? this.settings.finishHideTurns
+      : judgement === 'miss' ? missPenaltyTurns(previous.level) : successHiddenTurns(previous.level);
     this.hiddenFromTurn = previous.absoluteTurn;
-    this.penaltyCount = judgement === 'miss' ? hidden : 0;
-    let nextAbsolute = previous.absoluteTurn + hidden + 1;
-    let reveal = hidden ? this.exit(previous.absoluteTurn + hidden) : atMs;
+    let nextAbsolute = previous.absoluteTurn + 1;
     let hiddenPhase: RhythmPhase = judgement === 'miss' ? 'miss-penalty' : 'command-hidden';
 
     if (previous.isFinish) {
       const plan = planAfterFinish(previous.absoluteTurn, this.lastTurn, this.settings, judgement === 'miss');
       if (this.final || plan.finalFinish) { this.beginEnding(); return; }
       this.cycle++; this.appearances = soloCycle(6, this.settings); this.appearanceIndex = 0;
-      const finishHidden = Math.min(this.settings.finishHideTurns, this.settings.sequenceCounts[5] ?? 0);
-      this.levelTurnsConsumed = finishHidden;
-      nextAbsolute = plan.nextAbsoluteTurn + finishHidden;
-      reveal = this.exit(nextAbsolute - 1);
+      nextAbsolute = plan.nextAbsoluteTurn;
       hiddenPhase = judgement === 'miss' ? 'miss-penalty' : 'post-finish-rest';
     } else {
       this.appearanceIndex++;
-      if (this.levelTurnsConsumed >= budget) {
-        this.levelTurnsConsumed = 0;
-        while (this.appearances[this.appearanceIndex]?.level === previous.level) this.appearanceIndex++;
-      } else if (previous.level === 9 && this.levelTurnsConsumed === budget - 1) {
-        // Keep the final turn of Level 9 reserved for its designated Finish,
-        // even when an earlier command consumed hidden/penalty turns.
-        while (this.appearances[this.appearanceIndex]?.level === 9 && !this.appearances[this.appearanceIndex]?.isFinish) this.appearanceIndex++;
-      }
     }
+
+    // Appearances are authoritative global-turn slots, not merely playable
+    // commands. Consume suppression from the destination slots so it naturally
+    // crosses level boundaries without extending either level or the cycle.
+    let hidden = 0;
+    while (hidden < requestedHidden && this.appearances[this.appearanceIndex] && !this.appearances[this.appearanceIndex].isFinish) {
+      this.appearanceIndex++;
+      nextAbsolute++;
+      hidden++;
+    }
+    this.penaltyCount = judgement === 'miss' ? hidden : 0;
+    let reveal = hidden ? this.exit(nextAbsolute - 1) : atMs;
     const next = this.appearances[this.appearanceIndex];
     if (next?.isFinish) {
       const plan = planAfterFinish(nextAbsolute, this.lastTurn, this.settings);

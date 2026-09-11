@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { RhythmRuntime } from '../game/runtime';
 import { createChartFromMusicConfig } from '../game/chart';
 import { DEFAULT_MUSIC_CONFIG, isPlayableMusicConfig } from '../game/music-config';
-import { DEFAULT_SOLO_SETTINGS, createArrowCommand, oppositeDirection, planAfterFinish, repeatCycleTurns, seededRandom, soloCycle, targetSpaceMs, turnDurationMs, zoneExitMs } from '../game/solo-easy';
+import { DEFAULT_SOLO_SETTINGS, createArrowCommand, oppositeDirection, planAfterFinish, renderedArrowDirection, repeatCycleTurns, seededRandom, soloCycle, targetSpaceMs, turnDurationMs, zoneExitMs } from '../game/solo-easy';
 import { getGaugeTiming } from '../game/gauge-timing';
 import { PERFECT_CENTER } from '../game/rhythm';
 
@@ -85,7 +85,52 @@ test('successful Finish preserves reverse input semantics and hides the next two
   expect(f.runtime.debug.commandVisible).toBe(false);
   f.at(f.runtime.debug.revealAtMs + 0.001);
   expect(f.runtime.debug.commandVisible).toBe(true);
-  expect(f.runtime.currentTurn.level).toBe(6);
+  expect(f.runtime.currentTurn).toMatchObject({ level: 6, sequenceIndex: 2, absoluteTurn: 41 });
+});
+
+test('L5 final-turn Miss consumes turn 15 in L6 and reveals on turn 16', () => {
+  const f = fixture();
+  while (f.runtime.currentTurn.absoluteTurn < 14) f.hit();
+  expect(f.runtime.currentTurn).toMatchObject({ level: 5, absoluteTurn: 14 });
+
+  f.show();
+  f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
+  expect(f.runtime.currentTurn).toMatchObject({ level: 6, sequenceIndex: 1, absoluteTurn: 16 });
+  expect(f.runtime.currentPhase).toBe('miss-penalty');
+  f.at(zoneExitMs(targetSpaceMs(10060, f.chart.bpm, 15), f.chart.bpm));
+  expect(f.runtime.debug.commandVisible).toBe(false);
+  f.at(f.runtime.debug.revealAtMs + 0.001);
+  expect(f.runtime.debug.commandVisible).toBe(true);
+
+  const slots = soloCycle(1);
+  expect(slots.slice(15, 21).map(slot => slot.level)).toEqual([6, 6, 6, 6, 6, 6]);
+  expect(slots[21].level).toBe(7);
+});
+
+test('L6 final-turn Miss consumes turns 21-22 in L7 and reveals on turn 23', () => {
+  const f = fixture();
+  while (f.runtime.currentTurn.absoluteTurn < 15) f.hit();
+  expect(f.runtime.currentTurn).toMatchObject({ level: 6, absoluteTurn: 15 });
+  f.show();
+  f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
+  expect(f.runtime.currentTurn.absoluteTurn).toBe(18);
+  f.hit();
+  expect(f.runtime.currentTurn).toMatchObject({ level: 6, absoluteTurn: 20 });
+
+  f.show();
+  f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
+  expect(f.runtime.currentTurn).toMatchObject({ level: 7, sequenceIndex: 2, absoluteTurn: 23 });
+  expect(f.runtime.currentPhase).toBe('miss-penalty');
+  for (const hiddenTurn of [21, 22]) {
+    f.at(zoneExitMs(targetSpaceMs(10060, f.chart.bpm, hiddenTurn), f.chart.bpm));
+    expect(f.runtime.debug.commandVisible).toBe(false);
+  }
+  f.at(f.runtime.debug.revealAtMs + 0.001);
+  expect(f.runtime.debug.commandVisible).toBe(true);
+
+  const slots = soloCycle(1);
+  expect(slots.slice(21, 27).map(slot => slot.level)).toEqual([7, 7, 7, 7, 7, 7]);
+  expect(slots[27].level).toBe(8);
 });
 for (const [name, bpm, start] of [['Aloha',101.0544,10060], ['Cannon Groove',105,10000], ['Please Tell Me Why',80.28,28870]] as const) {
   test(`${name}: exact phase through a full 10-minute grid and large absolute turn indexes`, () => {
@@ -163,6 +208,15 @@ test('Finish guarantees reverse input and deterministic seeds reproduce commands
     expect(tokens.some(t=>t.reverse)).toBe(true);
     tokens.forEach(t=>expect(t.requiredDirection).toBe(t.reverse?oppositeDirection(t.displayDirection):t.displayDirection));
   }
+});
+test('completed reverse rendering uses requiredDirection without changing ordinary tokens',()=>{
+  const tokens=createArrowCommand(9,true,seededRandom(123));
+  const reverse=tokens.find(token=>token.reverse)!;
+  const ordinary=tokens.find(token=>!token.reverse)!;
+  expect(renderedArrowDirection(reverse,false)).toBe(reverse.displayDirection);
+  expect(renderedArrowDirection(reverse,true)).toBe(reverse.requiredDirection);
+  expect(renderedArrowDirection(ordinary,false)).toBe(ordinary.displayDirection);
+  expect(renderedArrowDirection(ordinary,true)).toBe(ordinary.displayDirection);
 });
 test('Finish planner fits complete cycles and keeps positions after a Finish miss',()=>{
   expect(repeatCycleTurns()).toBe(24);

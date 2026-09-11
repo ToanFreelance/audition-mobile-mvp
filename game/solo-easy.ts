@@ -34,6 +34,9 @@ export function soloCycle(startLevel: 1 | 6, settings = DEFAULT_SOLO_SETTINGS): 
 export function oppositeDirection(direction: Direction): Direction {
   return ({ left: 'right', right: 'left', up: 'down', down: 'up' } as const)[direction];
 }
+export function renderedArrowDirection(token: ArrowToken, completed: boolean): Direction {
+  return completed && token.reverse ? token.requiredDirection : token.displayDirection;
+}
 export function seededRandom(seed: number) {
   let state = seed >>> 0;
   return () => {
