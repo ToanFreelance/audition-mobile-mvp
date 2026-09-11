@@ -217,7 +217,10 @@ export class RhythmRuntime {
       this.beginEnding(); return;
     }
     this.setTurn(nextAbsolute, reveal);
-    if (hidden === 0 && reveal <= atMs) { this.visible = true; this.setPhase('playing-command'); }
+    if (hidden === 0 && reveal <= atMs) {
+      this.visible = true;
+      this.setPhase(this.turn.isFinish ? 'finish' : 'playing-command');
+    }
     else this.setPhase(hiddenPhase);
     this.emitCommand();
   }
@@ -226,6 +229,12 @@ export class RhythmRuntime {
     this.turn = { ...appearance, absoluteTurn, targetSpaceMs: this.target(absoluteTurn),
       arrowCommand: createArrowCommand(appearance.level, appearance.isFinish, this.random, this.settings.commandLengths) };
     this.commandIndex = 0; this.awaitingSpace = false; this.visible = false; this.revealAtMs = revealAtMs;
+    if (appearance.isFinish) {
+      // Finish owns its scheduled input window. Clear only carry-over
+      // suppression bookkeeping; judgement consequences remain untouched.
+      this.penaltyCount = 0;
+      this.hiddenFromTurn = -1;
+    }
     this.callbacks.onLevel?.(appearance.level); this.emitCommand();
   }
   private beginEnding() {

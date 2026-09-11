@@ -6,9 +6,9 @@ import { DEFAULT_SOLO_SETTINGS, createArrowCommand, oppositeDirection, planAfter
 import { getGaugeTiming } from '../game/gauge-timing';
 import { PERFECT_CENTER } from '../game/rhythm';
 
-function fixture(durationMs = 600000, compact = false) {
+function fixture(durationMs = 600000, compact = false, bpm = 101.0544, spaceStartMs = 10060) {
   let time = 0;
-  const chart = createChartFromMusicConfig({ ...DEFAULT_MUSIC_CONFIG, BPM_exact: 101.0544, spaceStartMs: 10060, durationMs,
+  const chart = createChartFromMusicConfig({ ...DEFAULT_MUSIC_CONFIG, BPM_exact: bpm, spaceStartMs, durationMs,
     gameplay: { ...DEFAULT_MUSIC_CONFIG.gameplay, levelSequenceCounts: compact ? [1,1,1,1,1,1,1,1,1] : [1,2,3,4,5,6,6,6,6] } });
   const runtime = new RhythmRuntime(chart, {}, { seed: 123 });
   runtime.setTimeSource(() => time); runtime.start(false);
@@ -28,6 +28,43 @@ test('saved charts require all authored timing values; never fall back to displa
     expect(isPlayableMusicConfig(invalid)).toBe(false);
     expect(() => createChartFromMusicConfig(invalid)).toThrow();
   }
+});
+
+test('Aloha seed 123 keeps Finish on deterministic global turns and scores visible Finish', () => {
+  const f = fixture(277432, false, 101.0504, 10083);
+  const finishes:number[] = [];
+  for (let guard=0; f.runtime.currentPhase!=='ending' && guard<200; guard++) {
+    f.at(Math.max(0, f.runtime.debug.revealAtMs + 0.001));
+    const turn = f.runtime.currentTurn;
+    if (turn.isFinish) {
+      finishes.push(turn.absoluteTurn);
+      expect(f.runtime.debug.commandVisible).toBe(true);
+      expect(f.runtime.currentPhase).toBe('finish');
+    }
+    turn.arrowCommand.forEach(token=>f.runtime.handleDirection(token.requiredDirection));
+    f.at(turn.targetSpaceMs);
+    expect(f.runtime.handleSpace()).toBe('perfect');
+  }
+  expect(finishes).toEqual([38,62,86,110]);
+  expect(f.runtime.currentPhase).toBe('ending');
+  expect(f.runtime.isFinished).toBe(false);
+});
+
+test('all-Miss Finish remains visible, times out as Miss, and does not add a turn', () => {
+  const f = fixture(277432, false, 101.0504, 10083);
+  while (!f.runtime.currentTurn.isFinish) {
+    f.show();
+    f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
+  }
+  const finishTurn = f.runtime.currentTurn.absoluteTurn;
+  const before = f.runtime.stats;
+  f.show();
+  expect(f.runtime.debug.commandVisible).toBe(true);
+  expect(f.runtime.currentPhase).toBe('finish');
+  expect(f.runtime.arrowCommand.some(token=>token.reverse)).toBe(true);
+  f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
+  expect(f.runtime.stats.miss).toBe(before.miss + 1);
+  expect(f.runtime.currentTurn.absoluteTurn).toBe(finishTurn + 1);
 });
 for (const [name, bpm, start] of [['Aloha',101.0544,10060], ['Cannon Groove',105,10000], ['Please Tell Me Why',80.28,28870]] as const) {
   test(`${name}: exact phase through a full 10-minute grid and large absolute turn indexes`, () => {
@@ -106,11 +143,11 @@ test('Finish guarantees reverse input and deterministic seeds reproduce commands
     tokens.forEach(t=>expect(t.requiredDirection).toBe(t.reverse?oppositeDirection(t.displayDirection):t.displayDirection));
   }
 });
-test('Finish planner fits complete cycles, distributes rest, and drops repeats after miss cost',()=>{
+test('Finish planner fits complete cycles and keeps positions after a Finish miss',()=>{
   expect(repeatCycleTurns()).toBe(24);
-  expect(planAfterFinish(60,182)).toMatchObject({repeatCycles:5,restTurns:2,nextAbsoluteTurn:63,finalFinish:false});
-  expect(planAfterFinish(60,110)).toMatchObject({repeatCycles:2,restTurns:2});
-  expect(planAfterFinish(60,110,DEFAULT_SOLO_SETTINGS,true).finalFinish).toBe(true);
+  expect(planAfterFinish(60,182)).toMatchObject({repeatCycles:5,restTurns:0,nextAbsoluteTurn:61,finalFinish:false});
+  expect(planAfterFinish(60,110)).toMatchObject({repeatCycles:2,restTurns:1});
+  expect(planAfterFinish(60,83,DEFAULT_SOLO_SETTINGS,true).finalFinish).toBe(true);
   expect(planAfterFinish(60,83).finalFinish).toBe(true);
 });
 test('intermediate Finish remains Level 9, returns to L6, final Finish locks input until actual song end',()=>{
