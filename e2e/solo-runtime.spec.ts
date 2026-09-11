@@ -50,7 +50,7 @@ test('Aloha seed 123 keeps Finish on deterministic global turns and scores visib
   expect(f.runtime.isFinished).toBe(false);
 });
 
-test('all-Miss Finish remains visible, times out as Miss, and does not add a turn', () => {
+test('all-Miss Finish remains visible, times out as Miss, and preserves post-Finish suppression', () => {
   const f = fixture(277432, false, 101.0504, 10083);
   while (!f.runtime.currentTurn.isFinish) {
     f.show();
@@ -64,7 +64,28 @@ test('all-Miss Finish remains visible, times out as Miss, and does not add a tur
   expect(f.runtime.arrowCommand.some(token=>token.reverse)).toBe(true);
   f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
   expect(f.runtime.stats.miss).toBe(before.miss + 1);
-  expect(f.runtime.currentTurn.absoluteTurn).toBe(finishTurn + 1);
+  expect(f.runtime.currentTurn.absoluteTurn).toBe(finishTurn + 3);
+  expect(f.runtime.debug.commandVisible).toBe(false);
+});
+
+test('successful Finish preserves reverse input semantics and hides the next two global turns', () => {
+  const f = fixture(277432, false, 101.0504, 10083);
+  while (!f.runtime.currentTurn.isFinish) f.hit();
+  expect(f.runtime.currentTurn.absoluteTurn).toBe(38);
+  const finishToken = f.runtime.currentTurn.arrowCommand.find(token => token.reverse);
+  expect(finishToken).toBeTruthy();
+  expect(finishToken?.requiredDirection).toBe(oppositeDirection(finishToken!.displayDirection));
+
+  expect(f.hit()).toBe('perfect');
+  expect(f.runtime.currentTurn.absoluteTurn).toBe(41);
+  expect(f.runtime.currentPhase).toBe('post-finish-rest');
+  expect(f.runtime.debug.commandVisible).toBe(false);
+
+  f.at(targetSpaceMs(10083, 101.0504, 40));
+  expect(f.runtime.debug.commandVisible).toBe(false);
+  f.at(f.runtime.debug.revealAtMs + 0.001);
+  expect(f.runtime.debug.commandVisible).toBe(true);
+  expect(f.runtime.currentTurn.level).toBe(6);
 });
 for (const [name, bpm, start] of [['Aloha',101.0544,10060], ['Cannon Groove',105,10000], ['Please Tell Me Why',80.28,28870]] as const) {
   test(`${name}: exact phase through a full 10-minute grid and large absolute turn indexes`, () => {
@@ -177,9 +198,10 @@ test('saved Aloha: record complete perfect-run Finish decision without changing 
   const runtime = new RhythmRuntime(chart, {}, {seed:123});
   runtime.setTimeSource(()=>time); runtime.start(false);
   const snapshots = [];
+  const finishTurns:number[] = [];
   for(let guard=0; runtime.currentPhase!=='ending' && guard<100; guard++){
     time=Math.max(time,runtime.debug.revealAtMs+0.001);runtime.advance();
-    if(runtime.currentTurn.isFinish) snapshots.push({when:'before Finish',...runtime.debug});
+    if(runtime.currentTurn.isFinish) { finishTurns.push(runtime.currentTurn.absoluteTurn); snapshots.push({when:'before Finish',...runtime.debug}); }
     runtime.arrowCommand.forEach(token=>runtime.handleDirection(token.requiredDirection));
     time=runtime.currentTurn.targetSpaceMs;runtime.advance();
     const finish=runtime.currentTurn.isFinish;
@@ -187,6 +209,7 @@ test('saved Aloha: record complete perfect-run Finish decision without changing 
     if(finish) snapshots.push({when:'after Finish',...runtime.debug});
   }
   console.log('SAVED_ALOHA',JSON.stringify(snapshots));
+  expect(finishTurns).toEqual([38,62,86,110]);
   expect(runtime.currentPhase).toBe('ending');
   expect(runtime.isFinished).toBe(false);
   time=277432;runtime.advance();expect(runtime.isFinished).toBe(true);

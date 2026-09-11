@@ -191,8 +191,9 @@ export class RhythmRuntime {
       const plan = planAfterFinish(previous.absoluteTurn, this.lastTurn, this.settings, judgement === 'miss');
       if (this.final || plan.finalFinish) { this.beginEnding(); return; }
       this.cycle++; this.appearances = soloCycle(6, this.settings); this.appearanceIndex = 0;
-      this.levelTurnsConsumed = 0;
-      nextAbsolute = plan.nextAbsoluteTurn;
+      const finishHidden = Math.min(this.settings.finishHideTurns, this.settings.sequenceCounts[5] ?? 0);
+      this.levelTurnsConsumed = finishHidden;
+      nextAbsolute = plan.nextAbsoluteTurn + finishHidden;
       reveal = this.exit(nextAbsolute - 1);
       hiddenPhase = judgement === 'miss' ? 'miss-penalty' : 'post-finish-rest';
     } else {

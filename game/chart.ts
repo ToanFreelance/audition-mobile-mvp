@@ -122,6 +122,8 @@ export function createChartFromMusicConfig(config: MusicConfig): Chart {
       commandLengths: validNine(lengths) ? lengths! : SOLO_COMMAND_LENGTHS,
       endingReserveTurns: Number.isInteger(config.gameplay?.endingReserveTurns) && config.gameplay.endingReserveTurns! >= 0
         ? config.gameplay.endingReserveTurns! : DEFAULT_SOLO_SETTINGS.endingReserveTurns,
+      finishHideTurns: Number.isInteger(config.gameplay?.finishHideTurns) && config.gameplay.finishHideTurns! >= 0
+        ? config.gameplay.finishHideTurns! : DEFAULT_SOLO_SETTINGS.finishHideTurns,
     },
   };
 }
