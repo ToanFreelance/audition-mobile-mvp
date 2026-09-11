@@ -2,8 +2,8 @@ import { PERFECT_CENTER, SCORE_ZONE_END, SCORE_ZONE_START } from './rhythm';
 import type { ArrowToken, Direction } from './types';
 
 export const SOLO_SEQUENCE_COUNTS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
-// Provisional Solo Easy lengths. The reference includes another mode's extra
-// tokens, so lengths are deliberately independent of level appearance counts.
+// Each value is the total global-turn budget for its level. Command length is
+// independent from that budget; hidden and penalty turns consume it too.
 export const SOLO_COMMAND_LENGTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 export const ENDING_RESERVE_TURNS = 2;
 export type SoloSettings = { sequenceCounts: readonly number[]; commandLengths: readonly number[]; endingReserveTurns: number };
@@ -19,11 +19,15 @@ export const successHiddenTurns = (level: number) => level <= 5 ? 0 : 1;
 export function soloCycle(startLevel: 1 | 6, settings = DEFAULT_SOLO_SETTINGS): SoloAppearance[] {
   const appearances: SoloAppearance[] = [];
   for (let level = startLevel; level <= 9; level++) {
-    for (let sequenceIndex = 0; sequenceIndex < settings.sequenceCounts[level - 1]; sequenceIndex++) {
+    const budget = settings.sequenceCounts[level - 1];
+    const ordinaryCount = level === 9 ? Math.max(0, budget - 1) : budget;
+    for (let sequenceIndex = 0; sequenceIndex < ordinaryCount; sequenceIndex++) {
       appearances.push({ level, sequenceIndex, isFinish: false });
     }
+    if (level === 9) {
+      appearances.push({ level, sequenceIndex: ordinaryCount, isFinish: true });
+    }
   }
-  appearances.push({ level: 9, sequenceIndex: settings.sequenceCounts[8], isFinish: true });
   return appearances;
 }
 
@@ -56,18 +60,10 @@ export function lastPlayableTurn(durationMs: number, spaceStart: number, bpm: nu
   const ending = Math.max(reserve * turnMs, zoneExitMs(0, bpm));
   return Math.floor((durationMs - ending - spaceStart) / turnMs);
 }
-/** Cost measured from one Finish target to the next Finish target.
- * Every arrival consumes one global turn; the departure's reveal rule inserts
- * hidden passes. The first departure is the preceding Level-9 Finish.
- * Default: 25 arrivals (24 normal + Finish) + 25 hidden passes = 50.
- * Rest and extra Miss penalties are deliberately excluded here.
- */
+/** Cost measured from one Finish target to the next Finish target. */
 export function repeatCycleCost(settings = DEFAULT_SOLO_SETTINGS) {
-  const arrivals = soloCycle(6, settings);
-  const departures = [{ level: 9 }, ...arrivals.slice(0, -1)];
-  const playableAppearances = arrivals.length;
-  const hiddenTurns = departures.reduce((sum, turn) => sum + successHiddenTurns(turn.level), 0);
-  return { playableAppearances, hiddenTurns, globalTurns: playableAppearances + hiddenTurns };
+  const globalTurns = settings.sequenceCounts.slice(5, 9).reduce((sum, count) => sum + count, 0);
+  return { playableAppearances: soloCycle(6, settings).length, hiddenTurns: 0, globalTurns };
 }
 export function repeatCycleTurns(settings = DEFAULT_SOLO_SETTINGS) {
   return repeatCycleCost(settings).globalTurns;
@@ -75,15 +71,14 @@ export function repeatCycleTurns(settings = DEFAULT_SOLO_SETTINGS) {
 /** Whole-turn plan, recalculated after every Finish (including its miss cost). */
 export function planAfterFinish(finishTurn: number, lastTurn: number, settings = DEFAULT_SOLO_SETTINGS, missed = false) {
   const cycleTurns = repeatCycleTurns(settings);
-  const extraPenalty = missed ? 1 : 0;
-  const available = lastTurn - finishTurn - extraPenalty;
+  // A Finish miss affects judgement/score only. Its scheduled global turn is
+  // never replaced or extended, so repeat positions remain deterministic.
+  const available = lastTurn - finishTurn;
   const repeatCycles = Math.max(0, Math.floor(available / cycleTurns));
   const spareTurns = Math.max(0, available - repeatCycles * cycleTurns);
   const restTurns = repeatCycles ? Math.floor(spareTurns / repeatCycles) : 0;
-  return { cycleCost: repeatCycleCost(settings), availableTurns: available, finalFinish: repeatCycles === 0, repeatCycles, restTurns, nextAbsoluteTurn: finishTurn + 2 + extraPenalty + restTurns };
+  return { cycleCost: repeatCycleCost(settings), availableTurns: available, finalFinish: repeatCycles === 0, repeatCycles, restTurns, nextAbsoluteTurn: finishTurn + 1 + restTurns };
 }
 export function minimumRemainingTurns(appearances: readonly SoloAppearance[], from: number) {
-  let turns = 0;
-  for (let i = from; i < appearances.length - 1; i++) turns += successHiddenTurns(appearances[i].level) + 1;
-  return turns;
+  return appearances.slice(from).reduce((turns, appearance) => turns + (appearance.isFinish ? 0 : 1), 0);
 }

@@ -36,6 +36,7 @@ export class RhythmRuntime {
   private penaltyCount = 0;
   private countdown: number | null = null;
   private random: () => number = Math.random;
+  private levelTurnsConsumed = 0;
   private songDurationMs: number;
   private streak = 0;
   private cycle = 1;
@@ -65,6 +66,7 @@ export class RhythmRuntime {
     this.appearanceIndex = 0;
     this.started = true; this.ended = false; this.streak = 0; this.cycle = 1; this.final = false;
     this.penaltyCount = 0; this.countdown = null; this.lastJudgement = null; this.judgementAtMs = -Infinity;
+    this.levelTurnsConsumed = 0;
     this.setTurn(0, Math.max(0, this.firstPerfectMs - turnDurationMs(this.chart.bpm)));
     this.setPhase('intro');
     this.callbacks.onStats?.(this.stats);
@@ -171,7 +173,14 @@ export class RhythmRuntime {
     this.setCountdown(null);
     const previous = this.turn;
     this.visible = false; this.commandIndex = 0; this.awaitingSpace = false;
-    const hidden = judgement === 'miss' ? missPenaltyTurns(previous.level) : successHiddenTurns(previous.level);
+    const requestedHidden = judgement === 'miss' ? missPenaltyTurns(previous.level) : successHiddenTurns(previous.level);
+    const budget = this.settings.sequenceCounts[previous.level - 1] ?? 1;
+    const remainingAfterTurn = Math.max(0, budget - this.levelTurnsConsumed - 1);
+    // Level 9's final global turn is reserved for Finish. Suppression can
+    // never consume or hide that designated turn.
+    const reserveFinishTurn = previous.level === 9 && !previous.isFinish ? 1 : 0;
+    const hidden = Math.min(requestedHidden, Math.max(0, remainingAfterTurn - reserveFinishTurn));
+    this.levelTurnsConsumed += 1 + hidden;
     this.hiddenFromTurn = previous.absoluteTurn;
     this.penaltyCount = judgement === 'miss' ? hidden : 0;
     let nextAbsolute = previous.absoluteTurn + hidden + 1;
@@ -182,19 +191,23 @@ export class RhythmRuntime {
       const plan = planAfterFinish(previous.absoluteTurn, this.lastTurn, this.settings, judgement === 'miss');
       if (this.final || plan.finalFinish) { this.beginEnding(); return; }
       this.cycle++; this.appearances = soloCycle(6, this.settings); this.appearanceIndex = 0;
+      this.levelTurnsConsumed = 0;
       nextAbsolute = plan.nextAbsoluteTurn;
       reveal = this.exit(nextAbsolute - 1);
       hiddenPhase = judgement === 'miss' ? 'miss-penalty' : 'post-finish-rest';
     } else {
       this.appearanceIndex++;
+      if (this.levelTurnsConsumed >= budget) {
+        this.levelTurnsConsumed = 0;
+        while (this.appearances[this.appearanceIndex]?.level === previous.level) this.appearanceIndex++;
+      } else if (previous.level === 9 && this.levelTurnsConsumed === budget - 1) {
+        // Keep the final turn of Level 9 reserved for its designated Finish,
+        // even when an earlier command consumed hidden/penalty turns.
+        while (this.appearances[this.appearanceIndex]?.level === 9 && !this.appearances[this.appearanceIndex]?.isFinish) this.appearanceIndex++;
+      }
     }
     const next = this.appearances[this.appearanceIndex];
-    // Misses may make a once-possible complete repeat impossible. Preserve a
-    // final Level-9 Finish if there is room, instead of starting a partial loop.
-    if (!next.isFinish && nextAbsolute + minimumRemainingTurns(this.appearances, this.appearanceIndex) > this.lastTurn) {
-      this.appearanceIndex = this.appearances.length - 1;
-    }
-    if (this.appearances[this.appearanceIndex].isFinish) {
+    if (next?.isFinish) {
       const plan = planAfterFinish(nextAbsolute, this.lastTurn, this.settings);
       this.final = plan.finalFinish;
       if (this.final) nextAbsolute = Math.max(nextAbsolute, this.lastTurn);

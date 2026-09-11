@@ -40,9 +40,11 @@ for (const [name, bpm, start] of [['Aloha',101.0544,10060], ['Cannon Groove',105
     expect(targetSpaceMs(start,bpm,n)).toBe(start+n*turnDurationMs(bpm));
   });
 }
-test('sequence counts are appearances, command lengths are independently configured', () => {
+test('sequence counts are global-turn budgets, command lengths are independent', () => {
   const cycle = soloCycle(1);
-  expect(Array.from({length:9},(_,i)=>cycle.filter(x=>x.level===i+1&&!x.isFinish).length)).toEqual([1,2,3,4,5,6,6,6,6]);
+  expect(Array.from({length:9},(_,i)=>cycle.filter(x=>x.level===i+1).length)).toEqual([1,2,3,4,5,6,6,6,6]);
+  expect(cycle.filter(x=>x.isFinish)).toHaveLength(1);
+  expect(soloCycle(6)).toHaveLength(24);
   expect(createArrowCommand(9)).toHaveLength(9);
   expect(createArrowCommand(9,false,Math.random,[1,1,1,1,1,1,1,1,3])).toHaveLength(3);
 });
@@ -105,11 +107,11 @@ test('Finish guarantees reverse input and deterministic seeds reproduce commands
   }
 });
 test('Finish planner fits complete cycles, distributes rest, and drops repeats after miss cost',()=>{
-  expect(repeatCycleTurns()).toBe(50);
-  expect(planAfterFinish(60,182)).toMatchObject({repeatCycles:2,restTurns:11,nextAbsoluteTurn:73,finalFinish:false});
-  expect(planAfterFinish(60,110)).toMatchObject({repeatCycles:1,restTurns:0});
+  expect(repeatCycleTurns()).toBe(24);
+  expect(planAfterFinish(60,182)).toMatchObject({repeatCycles:5,restTurns:2,nextAbsoluteTurn:63,finalFinish:false});
+  expect(planAfterFinish(60,110)).toMatchObject({repeatCycles:2,restTurns:2});
   expect(planAfterFinish(60,110,DEFAULT_SOLO_SETTINGS,true).finalFinish).toBe(true);
-  expect(planAfterFinish(60,109).finalFinish).toBe(true);
+  expect(planAfterFinish(60,83).finalFinish).toBe(true);
 });
 test('intermediate Finish remains Level 9, returns to L6, final Finish locks input until actual song end',()=>{
   const f=fixture(170000,true); let finishes=0; let guard=0;
@@ -153,12 +155,15 @@ test('saved Aloha: record complete perfect-run Finish decision without changing 
   time=277432;runtime.advance();expect(runtime.isFinished).toBe(true);
 });
 
-test('full default repeat cycle consumes 25 target advances and 25 hidden passes, with no double count',()=>{
+test('full default repeat cycle consumes exactly its 24 global-turn budget',()=>{
   const cycle=soloCycle(6);
-  expect(cycle.filter(a=>!a.isFinish)).toHaveLength(24);
+  expect(cycle.filter(a=>!a.isFinish)).toHaveLength(23);
   expect(cycle.filter(a=>a.isFinish)).toHaveLength(1);
-  // From Finish #1 to first L6: 2. From L6 to Finish #2: 24 × 2.
-  expect(2 + cycle.slice(0,-1).reduce((sum,a)=>sum+(a.level>=6?2:1),0)).toBe(repeatCycleTurns());
+  expect(cycle.filter(a=>a.level===6)).toHaveLength(6);
+  expect(cycle.filter(a=>a.level===7)).toHaveLength(6);
+  expect(cycle.filter(a=>a.level===8)).toHaveLength(6);
+  expect(cycle.filter(a=>a.level===9)).toHaveLength(6);
+  expect(repeatCycleTurns()).toBe(24);
 });
 test('default long-song progression completes repeat cycles and never resumes after final Finish',()=>{
   const f=fixture(600000);const finishes:number[]=[];
