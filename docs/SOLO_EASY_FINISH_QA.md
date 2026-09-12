@@ -1,60 +1,82 @@
-# Phase 1 Finish investigation
+# Phase 1 Solo Easy — Final QA
 
-Status: owner acceptance pending. No development merge or Phase 2/3 work.
+**Status: OWNER QA ACCEPTED / READY FOR FINAL INTEGRATION GATE**
 
-## Reproduction before planner changes
+This document is the final Phase 1 Solo Easy and Finish behavior record for `work/solo-easy-gameplay`.
 
-Baseline gameplay commit eb8faac. The newest unrelated Vercel deployment belonged to the retired character branch and was excluded.
-Baseline cloud browser crashed in Stage3D when WebGL was unavailable. Commit 07b1e39 added optional-renderer fallback and debug/seed wiring **without changing planner logic**.
+## Authoritative architecture
 
-Observed real Aloha audio on that preview, seed 123, deliberately all-Miss (no seeking or alternate runtime):
+- WebAudio is the authoritative song clock.
+- One global turn equals four beats.
+- `sequenceCounts[level]` is the total global-turn budget of that level.
+- Playable, hidden, suppressed and penalty turns consume existing global-turn slots.
+- Suppression may cross a level boundary.
+- Suppression never pauses, repeats, rewinds, creates a replacement turn, creates an extra global turn or extends a level.
+- Player state does not own the clock.
 
-| WebAudio ms | Global turn | Playable turn | State / evidence |
-|---|---:|---:|---|
-| 64698.440 | 22 | 24 | L5 penalty=1; global clock continues |
-| 144698.425 | 56 | 57 | L7 command visible |
-| 247628.439 | 100 | 110 | L9, sequenceIndex=6, Finish cycle=1, final=true, command hidden |
-| 269518.407 | 109 | 110 | Finish visible; **all nine arrows blue**, no FINISH label |
-| 276538.424 | 112 | 110 | ending, no command, gameEnded=false |
-| 277432.018 | 112 | 110 | song-finished and DANCE COMPLETE result |
+## Deterministic progression
 
-Finish target=271338.769ms; revealAt=269403.102ms; missed Finish resolves at zone exit=271778.154ms.
-This reproduces the missing visual distinction. Song-end handling itself correctly waits for actual decoded audio end.
+The initial Solo Easy schedule is:
 
-## Why Aloha does not repeat under the specified rules
+| Level | Global turns |
+|---|---:|
+| L6 | 15–20 |
+| L7 | 21–26 |
+| L8 | 27–32 |
+| L9 | 33–38 |
 
-Actual saved chart: BPM_exact=101.0504, spaceStartMs=10083, durationMs=277432.
-Turn duration=2375.052449ms; ending reserve=2 turns; last playable target index=110.
+L6→L9 consumes exactly 24 global turns.
 
-- Initial normal appearances: 15 low-level + 24 high-level =39.
-- First L6 target index=15; last normal L9 target index=61.
-- Earliest Finish #1 target index=63, at159711.304ms.
-- A full subsequent cycle has24 normal appearances plus1 Finish.
-- From previous Finish to first L6:1 arrival turn +1 hidden pass.
-- From first L6 through the next Finish:24 arrivals +24 hidden passes.
-- Total=25 arrival turns +25 hidden passes=50 global turns. No rests or Miss penalties are included twice.
-- Only110−63=47 turns remain. Earliest Finish #2 would be index113 at278463.927ms, beyond the audio itself even with zero ending reserve.
+For Aloha with `seed=123`, Finish positions are:
 
-Therefore reducing50 to force a repeat would violate the current reveal/appearance rules.
-The helper now exposes this cost breakdown; its default result remains50.
-Misses add their explicit extra cost and can only reduce remaining capacity.
-A default 600000ms deterministic chart (101.0544BPM, Space Start10060ms) produces Finish target indexes63,124,185,246; each intermediate Finish resumes L6.
+`38, 62, 86, 110`
 
-## Changes
+Post-Finish behavior:
 
-- Finish label and red reverse tokens are connected to the production runtime. Completed tokens become green; required input stays opposite for reverse tokens.
-- Perfect streak comes from consecutive runtime judgements; Replay resets runtime and transport together.
-- Song Select filters authored playable charts. Duration display uses seconds, exact BPM is displayed.
-- Debug reports saved/decoded timeline, global and playable targets, Finish costs, remaining capacity, reveal, penalties and ending state. Normal UI hides diagnostics.
-- Nine-command fitting and pointer touch behavior are small Phase 1 usability fixes; gauge component and calibration remain unchanged.
-- /tools/solo-qa embeds the same production game in390×844 or430×932 for cloud inspection. It does not alter chart, audio clock or gameplay rules.
+`38 Finish → 39–40 hidden → 41 L6 visible`
 
-## Validation / remaining uncertainty
+## Boundary Miss behavior
 
-- Deterministic coverage includes full default cycles, saved Aloha timeline, per-player penalties independent of global time, repeat boundaries, reverse input and audio-end behavior.
-- Local optimized Next build and TypeScript pass. The legacy prebuild analyzer tried a network fetch that this environment canceled; local build used existing generated output with npm --ignore-scripts run build. No analyzer tuning.
-- Local browser-backed smoke tests attempted but Chromium exited with SIGSEGV before page creation. This is not reported as a test pass; cloud QA is separate.
-- Only Aloha currently exists in saved music_charts. Cannon105 and Please Tell Me Why80.28 have synthetic formula coverage only; real saved-chart/audio regression remains pending.
-- Command lengths1–9 are configurable and provisional; mixed-mode original video cannot conclusively settle Solo Easy lengths.
-- The final Finish is currently held until the ending window. With perfect Aloha play this leaves a long no-command gap after154961.199ms until269403.102ms. This is a real gameplay pacing uncertainty requiring owner rule confirmation; no new turns or partial repeat have been silently invented.
-- Real iPhone: dynamic toolbar/safe-area, rapid D-pad and opposite red input, SPACE timing at start/1min/2min/end, orientation, background/resume and final result require owner QA.
+- L5 final-turn Miss: `14 L5 Miss → 15 L6 hidden → 16 L6 visible`.
+- L6 final-turn Miss: `20 L6 Miss → 21–22 L7 hidden → 23 L7 visible`.
+
+These hidden turns consume the destination level's existing budget. They do not add time or turns to the preceding level.
+
+## Finish behavior
+
+- Finish label is visible.
+- Finish uses the red reverse-token treatment.
+- Input judgement uses `requiredDirection`.
+- A correctly completed reverse token renders `requiredDirection`.
+- Perfect Finish is scorable.
+- Finish does not end the song.
+- The post-Finish hidden interval completes on the running global timeline, after which L6 commands return and gameplay continues.
+
+## Game-end authority
+
+Only actual AUDIO END ends gameplay and produces the song result. Finish is never itself the game-end condition.
+
+## Owner QA accepted observations
+
+- No duplicate turns on Miss.
+- Cross-level suppression behaves correctly in current owner testing.
+- Finish is visible and scorable.
+- Reverse Finish input and rendering work correctly.
+- Post-Finish rest occurs.
+- L6 commands return after Finish.
+- Gameplay continues normally after Finish.
+
+## Validation evidence
+
+- Vercel deployment for `afcfae40fa5e8a629720850f67502fde71015048`: PASS.
+- Owner real-iPhone QA for the current Phase 1 behavior: PASS / ACCEPTED.
+- Latest Work local automated tests/build: **NOT RUN — dependencies unavailable in Work checkout**.
+- Static source and test review confirms global-turn budgets, cross-boundary suppression, Finish cadence, reverse rendering and AUDIO END authority.
+
+## Phase 2 presentation debt
+
+- Level 9 long command layout.
+- Portrait spacing and safe areas.
+- iPhone dynamic browser-toolbar behavior.
+
+These are presentation concerns and are not Phase 1 scheduler blockers. Phase 2 must preserve the WebAudio/global-turn architecture, `sequenceCounts` semantics, suppression behavior, Finish cadence, calibrated gauge and AUDIO END game-end authority.
