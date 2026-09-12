@@ -22,6 +22,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="stylesheet" href="/audition-figma.css" />
         <link rel="stylesheet" href="/audition-final-overrides.css" />
         <link rel="stylesheet" href="/audition-gauge.css" />
+        <link rel="stylesheet" href="/audition-judgement.css" />
         <link rel="stylesheet" href="/music-config-overrides.css" />
         <link rel="stylesheet" href="/song-picker.css" />
         <link rel="stylesheet" href="/music-config-v3.css" />
