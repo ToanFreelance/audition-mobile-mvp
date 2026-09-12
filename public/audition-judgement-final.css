@@ -1,0 +1,83 @@
+/* Final contrast/material pass against the owner-approved judgement sketch.
+   Motion stays owned by audition-judgement.css; this file only deepens the label material. */
+@media (max-width:700px) and (orientation:portrait){
+  .judgement{
+    --j-hi:#bfe8ff;
+    --j-top:#52c9ff;
+    --j-mid:#247be9;
+    --j-bottom:#1648ae;
+    --j-deep:#071a56;
+    --j-stroke:#07112f;
+    --j-shadow:#02030b;
+    --j-glow:#258dff;
+    -webkit-text-stroke:2px var(--j-stroke);
+    background:linear-gradient(180deg,var(--j-hi) 0 8%,var(--j-top) 20%,var(--j-mid) 46%,var(--j-bottom) 72%,var(--j-deep) 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    filter:drop-shadow(0 2px 0 #050613) drop-shadow(0 4px 0 var(--j-stroke)) drop-shadow(0 0 3px var(--j-glow)) drop-shadow(0 0 8px color-mix(in srgb,var(--j-glow) 46%,transparent));
+  }
+
+  .judgement::before{
+    opacity:.56;
+    filter:drop-shadow(0 0 7px color-mix(in srgb,var(--j-glow) 72%,transparent));
+  }
+
+  .judgement::after{
+    background:linear-gradient(90deg,transparent 0%,color-mix(in srgb,var(--j-glow) 30%,transparent) 18%,var(--j-hi) 50%,color-mix(in srgb,var(--j-glow) 34%,transparent) 72%,transparent 100%);
+    box-shadow:0 -12px 0 -1px color-mix(in srgb,var(--j-glow) 18%,transparent),0 13px 0 -1px color-mix(in srgb,var(--j-glow) 18%,transparent);
+  }
+
+  .judgement-bad,
+  .judgement-miss{
+    --j-hi:#ffb0a4;
+    --j-top:#ff5a55;
+    --j-mid:#e92535;
+    --j-bottom:#9e081d;
+    --j-deep:#45020e;
+    --j-stroke:#320008;
+    --j-shadow:#130003;
+    --j-glow:#ed183c;
+  }
+
+  .judgement-cool{
+    --j-hi:#b6f7ff;
+    --j-top:#43dcfa;
+    --j-mid:#138fd8;
+    --j-bottom:#0754c8;
+    --j-deep:#02186d;
+    --j-stroke:#03133f;
+    --j-shadow:#010516;
+    --j-glow:#087fff;
+  }
+
+  .judgement-great{
+    --j-hi:#ffe99a;
+    --j-top:#ffd13d;
+    --j-mid:#f3a313;
+    --j-bottom:#c96000;
+    --j-deep:#662700;
+    --j-stroke:#3e1900;
+    --j-shadow:#170800;
+    --j-glow:#f18b00;
+  }
+
+  .judgement-perfect{
+    --j-hi:#ffc6fb;
+    --j-top:#ff68ee;
+    --j-mid:#e22fd9;
+    --j-bottom:#9f15c9;
+    --j-deep:#4b0872;
+    --j-stroke:#2a063d;
+    --j-shadow:#100219;
+    --j-glow:#ca1bff;
+  }
+
+  .judgement-perfect::before{
+    opacity:.58;
+    filter:drop-shadow(0 0 5px color-mix(in srgb,var(--j-glow) 70%,transparent)) drop-shadow(0 0 10px color-mix(in srgb,var(--j-glow) 38%,transparent));
+  }
+
+  .judgement-perfect::after{
+    box-shadow:0 -15px 0 -1px rgba(255,57,240,.18),0 16px 0 -1px rgba(158,63,255,.19),0 0 5px rgba(255,255,255,.3);
+  }
+}
