@@ -98,3 +98,38 @@
     align-self:end;
   }
 }
+
+/* Phase 2 P2.2: fit the existing command presentation as one portrait
+   gameplay module. Token backgrounds remain inline so gameplay state colors
+   (normal, completed and Finish) stay authoritative. */
+@media (max-width:700px) and (orientation:portrait){
+  .command-label{margin:0 8px 5px;line-height:1.1}
+  .command-strip{
+    flex-wrap:nowrap;
+    gap:clamp(3px,1.5vw,6px);
+    padding:5px 8px;
+    overflow:visible;
+    background:linear-gradient(180deg,rgba(4,5,18,.97),rgba(9,7,24,.92));
+    border-color:rgba(173,91,255,.9);
+    box-shadow:0 0 24px rgba(142,74,255,.3),0 0 8px rgba(75,190,255,.16),inset 0 0 18px rgba(255,255,255,.05);
+  }
+  .command-key{
+    width:clamp(30px,calc((100% - 48px)/9),42px);
+    height:auto;
+    aspect-ratio:1;
+    flex:0 1 clamp(30px,calc((100% - 48px)/9),42px);
+    min-width:0;
+    box-sizing:border-box;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    border-color:rgba(177,214,255,.72);
+    box-shadow:0 0 0 1px rgba(93,88,255,.42),0 0 11px rgba(75,164,255,.28),inset 0 0 9px rgba(255,255,255,.13);
+    overflow:visible;
+  }
+  .command-key > svg{display:block;width:90%;height:90%;max-width:none;max-height:none}
+  .command-key[data-reverse="true"]:not(.done){border-color:rgba(255,114,142,.95);box-shadow:0 0 0 1px rgba(255,56,103,.48),0 0 13px rgba(255,56,103,.38),inset 0 0 9px rgba(255,210,220,.12)}
+  .command-key.target:not(.done){box-shadow:0 0 0 2px rgba(255,255,255,.58),0 0 16px rgba(95,210,255,.72),inset 0 0 10px rgba(255,255,255,.16);transform:scale(1.06);z-index:2}
+  .command-key.done{border-color:rgba(93,255,142,.9)!important;box-shadow:0 0 16px rgba(71,255,126,.55),inset 0 0 12px rgba(152,255,186,.2)!important}
+  .command-zone > .audition-gauge-svg{display:block;width:100%;max-width:100%;margin:7px auto 0}
+}
