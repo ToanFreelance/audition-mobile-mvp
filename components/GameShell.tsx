@@ -323,6 +323,7 @@ function formatTime(value: number) { const total = Math.max(0, Math.floor(value)
 function ArrowIcon({ direction, filled, target, compact = false }: { direction: Direction; filled: boolean; target: boolean; compact?: boolean }) {
   const rotation = direction === "right" ? 0 : direction === "down" ? 90 : direction === "left" ? 180 : 270;
   const size = compact ? 32 : undefined;
-  const path = compact ? "M5 14H22V8L36 20L22 32V26H5V14Z" : "M7 15H23V9L36 20L23 31V25H7V15Z";
-  return <svg className={compact ? "control-arrow" : "command-arrow"} data-filled={filled} data-target={target} viewBox="0 0 42 40" aria-hidden="true" style={{ width: size, height: size, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) rotate(${rotation}deg)`, opacity: 1 }}><path d={path} fill="#fff" stroke="#fff" strokeWidth="0" strokeLinejoin="miter" /></svg>;
+  const viewBox = compact ? "0 0 42 40" : "0 0 48 48";
+  const path = compact ? "M5 14H22V8L36 20L22 32V26H5V14Z" : "M6 18.5H25V10.5L41 24L25 37.5V29.5H6Z";
+  return <svg className={compact ? "control-arrow" : "command-arrow"} data-filled={filled} data-target={target} viewBox={viewBox} aria-hidden="true" style={{ width: size, height: size, position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) rotate(${rotation}deg)`, opacity: 1 }}><path d={path} fill="#fff" stroke="#fff" strokeWidth={compact ? 0 : 1.4} strokeLinejoin={compact ? "miter" : "round"} strokeLinecap={compact ? "butt" : "round"} /></svg>;
 }
