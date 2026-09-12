@@ -99,37 +99,50 @@
   }
 }
 
-/* Phase 2 P2.2: fit the existing command presentation as one portrait
-   gameplay module. Token backgrounds remain inline so gameplay state colors
-   (normal, completed and Finish) stay authoritative. */
+/* Phase 2 P2.2A: match the portrait sketch's compact capsule, dark token
+   surfaces and state-coloured luminous rings without changing token state. */
 @media (max-width:700px) and (orientation:portrait){
-  .command-label{margin:0 8px 5px;line-height:1.1}
+  .command-label.normal{display:none}
+  .command-label.finish{min-height:18px;justify-content:center;margin:0 0 4px;line-height:1}
+  .command-label.finish .command-level-prefix,.command-label.finish .command-progress{display:none}
+  .command-label.finish strong{font-size:11px;letter-spacing:.15em}
   .command-strip{
+    width:calc(100% + 16px);
+    height:clamp(48px,12.4vw,54px);
+    min-height:0;
+    margin-left:-8px;
     flex-wrap:nowrap;
-    gap:clamp(3px,1.5vw,6px);
-    padding:5px 8px;
+    gap:clamp(3px,1vw,4px);
+    padding:4px 8px;
     overflow:visible;
-    background:linear-gradient(180deg,rgba(4,5,18,.97),rgba(9,7,24,.92));
-    border-color:rgba(173,91,255,.9);
-    box-shadow:0 0 24px rgba(142,74,255,.3),0 0 8px rgba(75,190,255,.16),inset 0 0 18px rgba(255,255,255,.05);
+    border:1px solid rgba(226,74,255,.88);
+    border-radius:999px;
+    background:linear-gradient(180deg,rgba(3,4,14,.92),rgba(8,6,20,.9));
+    box-shadow:0 0 8px rgba(204,49,255,.38),inset 0 0 0 1px rgba(128,93,255,.2),inset 0 5px 12px rgba(255,255,255,.025);
   }
-  .command-key{
-    width:clamp(30px,calc((100% - 48px)/9),42px);
-    height:auto;
+  .command-strip .command-key{
+    width:clamp(30px,8.8vw,38px);
+    height:clamp(30px,8.8vw,38px);
     aspect-ratio:1;
-    flex:0 1 clamp(30px,calc((100% - 48px)/9),42px);
+    flex:0 1 clamp(30px,8.8vw,38px);
     min-width:0;
     box-sizing:border-box;
     display:grid;
     place-items:center;
     border-radius:50%;
-    border-color:rgba(177,214,255,.72);
-    box-shadow:0 0 0 1px rgba(93,88,255,.42),0 0 11px rgba(75,164,255,.28),inset 0 0 9px rgba(255,255,255,.13);
+    opacity:1;
+    border:1px solid rgba(183,226,255,.96);
+    background:radial-gradient(circle at 48% 42%,rgba(18,30,65,.98) 0 56%,rgba(5,8,22,.99) 72%,rgba(2,3,12,1) 100%)!important;
+    box-shadow:0 0 0 1px rgba(48,91,255,.82),0 0 7px rgba(42,145,255,.78),inset 0 0 0 1px rgba(221,243,255,.16),inset 0 0 7px rgba(40,112,255,.22);
     overflow:visible;
+    transform:none;
   }
-  .command-key > svg{display:block;width:90%;height:90%;max-width:none;max-height:none}
-  .command-key[data-reverse="true"]:not(.done){border-color:rgba(255,114,142,.95);box-shadow:0 0 0 1px rgba(255,56,103,.48),0 0 13px rgba(255,56,103,.38),inset 0 0 9px rgba(255,210,220,.12)}
-  .command-key.target:not(.done){box-shadow:0 0 0 2px rgba(255,255,255,.58),0 0 16px rgba(95,210,255,.72),inset 0 0 10px rgba(255,255,255,.16);transform:scale(1.06);z-index:2}
-  .command-key.done{border-color:rgba(93,255,142,.9)!important;box-shadow:0 0 16px rgba(71,255,126,.55),inset 0 0 12px rgba(152,255,186,.2)!important}
-  .command-zone > .audition-gauge-svg{display:block;width:100%;max-width:100%;margin:7px auto 0}
+  .command-strip .command-key.reverse:not(.done){border-color:rgba(255,164,209,.98);background:radial-gradient(circle at 48% 42%,rgba(60,13,43,.98) 0 56%,rgba(21,4,19,.99) 72%,rgba(7,2,11,1) 100%)!important;box-shadow:0 0 0 1px rgba(255,31,149,.84),0 0 8px rgba(255,35,153,.8),inset 0 0 0 1px rgba(255,219,239,.15),inset 0 0 7px rgba(255,41,153,.2)}
+  .command-strip .command-key.done{border-color:rgba(168,255,195,.98)!important;background:radial-gradient(circle at 48% 42%,rgba(11,54,35,.98) 0 56%,rgba(3,20,14,.99) 72%,rgba(1,8,7,1) 100%)!important;box-shadow:0 0 0 1px rgba(33,231,102,.86),0 0 8px rgba(41,255,115,.76),inset 0 0 0 1px rgba(218,255,228,.16),inset 0 0 7px rgba(53,255,120,.2)!important}
+  .command-strip .command-key.target:not(.done){border-color:#fff;box-shadow:0 0 0 1px rgba(72,141,255,.98),0 0 10px rgba(67,173,255,.95),inset 0 0 0 1px rgba(255,255,255,.24),inset 0 0 8px rgba(75,143,255,.28);transform:none;z-index:2}
+  .command-strip .command-key.reverse.target:not(.done){box-shadow:0 0 0 1px rgba(255,58,164,.98),0 0 10px rgba(255,45,157,.95),inset 0 0 0 1px rgba(255,255,255,.22),inset 0 0 8px rgba(255,56,164,.26)}
+  .command-strip .command-key.wrong:not(.done){border-color:rgba(255,174,190,.98);box-shadow:0 0 0 1px rgba(255,48,86,.9),0 0 9px rgba(255,53,91,.82),inset 0 0 7px rgba(255,62,99,.22)}
+  .command-arrow{display:block;width:76%;height:76%;max-width:none;max-height:none;filter:drop-shadow(0 0 2px rgba(255,255,255,.68))}
+  .command-key.target .command-arrow,.command-key.done .command-arrow{filter:drop-shadow(0 0 3px rgba(255,255,255,.82))}
+  .command-zone > .audition-gauge-svg{display:block;width:100%;max-width:100%;margin:8px auto 0}
 }
