@@ -1,0 +1,192 @@
+/* Phase 2 judgement feedback skin.
+   Visual reference: owner-approved judgement label sketch.
+   Presentation only: runtime judgement timing/state remains authoritative. */
+@media (max-width:700px) and (orientation:portrait){
+  .judgement{
+    --j-top:#ffffff;
+    --j-mid:#d9e8ff;
+    --j-bottom:#547dff;
+    --j-stroke:#132054;
+    --j-shadow:#070a24;
+    --j-glow:#5ca8ff;
+    position:absolute;
+    left:50%;
+    top:43%;
+    z-index:20;
+    width:max-content;
+    max-width:88vw;
+    pointer-events:none;
+    white-space:nowrap;
+    text-align:center;
+    font-family:"Arial Black",Impact,Inter,ui-sans-serif,system-ui,sans-serif;
+    font-size:clamp(40px,12vw,66px);
+    font-style:italic;
+    font-weight:1000;
+    line-height:.9;
+    letter-spacing:-.055em;
+    color:#fff;
+    -webkit-text-fill-color:transparent;
+    -webkit-text-stroke:1.2px rgba(255,255,255,.96);
+    background:linear-gradient(180deg,var(--j-top) 0 16%,var(--j-mid) 34%,var(--j-bottom) 67%,var(--j-top) 100%);
+    -webkit-background-clip:text;
+    background-clip:text;
+    filter:drop-shadow(0 3px 0 var(--j-stroke)) drop-shadow(0 5px 0 var(--j-shadow)) drop-shadow(0 0 7px var(--j-glow)) drop-shadow(0 0 18px color-mix(in srgb,var(--j-glow) 72%,transparent));
+    transform:translate(-50%,-50%);
+    transform-origin:50% 52%;
+    isolation:isolate;
+    will-change:transform,opacity,filter;
+    animation:judgement-pop 980ms cubic-bezier(.16,.86,.2,1) both;
+  }
+
+  .judgement::before,
+  .judgement::after{
+    content:"";
+    position:absolute;
+    left:50%;
+    top:50%;
+    pointer-events:none;
+    z-index:-1;
+  }
+
+  .judgement::before{
+    width:122%;
+    height:150%;
+    transform:translate(-50%,-50%);
+    opacity:.82;
+    background:radial-gradient(ellipse at center,color-mix(in srgb,var(--j-glow) 30%,transparent) 0 24%,transparent 62%);
+    filter:drop-shadow(0 0 12px var(--j-glow));
+    animation:judgement-backdrop 980ms ease-out both;
+  }
+
+  .judgement::after{
+    width:150%;
+    height:4px;
+    transform:translate(-50%,-50%) scaleX(.2) skewX(-18deg);
+    opacity:0;
+    background:linear-gradient(90deg,transparent 0%,color-mix(in srgb,var(--j-glow) 38%,transparent) 13%,#fff 49%,color-mix(in srgb,var(--j-glow) 52%,transparent) 72%,transparent 100%);
+    box-shadow:0 -12px 0 -1px color-mix(in srgb,var(--j-glow) 26%,transparent),0 13px 0 -1px color-mix(in srgb,var(--j-glow) 24%,transparent);
+    animation:judgement-streak 980ms ease-out both;
+  }
+
+  .judgement-bad,
+  .judgement-miss{
+    --j-top:#fff8ee;
+    --j-mid:#ff6676;
+    --j-bottom:#b60627;
+    --j-stroke:#560013;
+    --j-shadow:#220008;
+    --j-glow:#ff244c;
+    animation-name:judgement-hit;
+  }
+  .judgement-bad::before,
+  .judgement-miss::before{
+    width:132%;
+    height:164%;
+    border-radius:0;
+    clip-path:polygon(0 45%,15% 36%,7% 20%,27% 26%,35% 5%,46% 25%,59% 10%,66% 31%,91% 21%,82% 41%,100% 50%,81% 59%,94% 80%,69% 70%,60% 94%,48% 73%,31% 90%,34% 66%,8% 76%,17% 58%);
+    background:radial-gradient(circle at 50% 48%,rgba(255,118,118,.36) 0 28%,rgba(210,0,40,.22) 29% 52%,rgba(255,16,69,.58) 53% 56%,transparent 58%);
+  }
+
+  .judgement-cool{
+    --j-top:#ffffff;
+    --j-mid:#63e9ff;
+    --j-bottom:#1470ff;
+    --j-stroke:#08205e;
+    --j-shadow:#02071f;
+    --j-glow:#1baeff;
+  }
+  .judgement-cool::before{
+    width:112%;
+    height:150%;
+    border-radius:50%;
+    background:radial-gradient(circle,transparent 0 42%,rgba(69,212,255,.28) 43% 49%,rgba(31,94,255,.7) 50% 54%,transparent 55%),radial-gradient(circle,rgba(43,161,255,.2),transparent 67%);
+  }
+
+  .judgement-great{
+    --j-top:#fffef0;
+    --j-mid:#ffe55b;
+    --j-bottom:#ff9b08;
+    --j-stroke:#783d00;
+    --j-shadow:#271000;
+    --j-glow:#ffb51f;
+  }
+  .judgement-great::before{
+    width:128%;
+    height:172%;
+    clip-path:polygon(50% 0,61% 32%,96% 26%,68% 48%,82% 82%,51% 63%,19% 84%,33% 49%,4% 27%,39% 32%);
+    background:radial-gradient(circle,rgba(255,222,78,.2) 0 34%,rgba(255,152,8,.18) 35% 56%,rgba(255,186,22,.64) 57% 60%,transparent 61%);
+  }
+
+  .judgement-perfect{
+    --j-top:#fff8ff;
+    --j-mid:#ff8cff;
+    --j-bottom:#d71eff;
+    --j-stroke:#511175;
+    --j-shadow:#190623;
+    --j-glow:#f12dff;
+    font-size:clamp(39px,11.7vw,64px);
+    animation-name:judgement-perfect-pop;
+  }
+  .judgement-perfect::before{
+    width:138%;
+    height:158%;
+    clip-path:polygon(0 44%,14% 39%,18% 22%,31% 30%,40% 11%,50% 28%,60% 8%,69% 30%,82% 20%,86% 39%,100% 43%,92% 55%,100% 67%,76% 64%,70% 82%,52% 70%,36% 88%,31% 67%,8% 71%,15% 56%);
+    background:linear-gradient(165deg,rgba(255,73,246,.08),rgba(130,32,255,.23) 45%,rgba(255,44,235,.08)),radial-gradient(ellipse at center,rgba(255,85,244,.24),transparent 68%);
+    filter:drop-shadow(0 0 7px #ff4ff3) drop-shadow(0 0 16px rgba(160,57,255,.7));
+  }
+  .judgement-perfect::after{
+    height:5px;
+    width:166%;
+    box-shadow:0 -15px 0 -1px rgba(255,57,240,.28),0 16px 0 -1px rgba(158,63,255,.28),0 0 9px rgba(255,255,255,.75);
+  }
+
+  @keyframes judgement-pop{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.48) rotate(-7deg);filter:blur(2px) drop-shadow(0 0 0 transparent)}
+    13%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(1.5deg)}
+    25%{transform:translate(-50%,-50%) scale(.95) rotate(-.5deg)}
+    38%{transform:translate(-50%,-50%) scale(1.045)}
+    58%{transform:translate(-50%,-50%) scale(1)}
+    76%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-62%) scale(1.08)}
+  }
+
+  @keyframes judgement-perfect-pop{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.38) rotate(-5deg)}
+    10%{opacity:1;transform:translate(-50%,-50%) scale(1.28) rotate(1deg)}
+    21%{transform:translate(-50%,-50%) scale(.93)}
+    33%{transform:translate(-50%,-50%) scale(1.09)}
+    46%{transform:translate(-50%,-50%) scale(1)}
+    74%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-64%) scale(1.1)}
+  }
+
+  @keyframes judgement-hit{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.55) rotate(-8deg)}
+    12%{opacity:1;transform:translate(-52%,-50%) scale(1.17) rotate(2deg)}
+    20%{transform:translate(-47%,-50%) scale(1.01) rotate(-1deg)}
+    28%{transform:translate(-51%,-50%) scale(1.035)}
+    38%{transform:translate(-50%,-50%) scale(1)}
+    72%{opacity:1}
+    100%{opacity:0;transform:translate(-50%,-61%) scale(1.04)}
+  }
+
+  @keyframes judgement-backdrop{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.28) rotate(-10deg)}
+    16%{opacity:.92;transform:translate(-50%,-50%) scale(1.08) rotate(1deg)}
+    38%{opacity:.72;transform:translate(-50%,-50%) scale(1)}
+    74%{opacity:.62}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1.18)}
+  }
+
+  @keyframes judgement-streak{
+    0%,5%{opacity:0;transform:translate(-50%,-50%) scaleX(.08) skewX(-18deg)}
+    16%{opacity:.9;transform:translate(-50%,-50%) scaleX(1.03) skewX(-18deg)}
+    31%{opacity:.52;transform:translate(-50%,-50%) scaleX(.88) skewX(-18deg)}
+    58%{opacity:.2;transform:translate(-50%,-50%) scaleX(1.12) skewX(-18deg)}
+    100%{opacity:0;transform:translate(-50%,-50%) scaleX(1.22) skewX(-18deg)}
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .judgement,.judgement::before,.judgement::after{animation:none!important}
+}
