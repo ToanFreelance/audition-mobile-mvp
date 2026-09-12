@@ -110,6 +110,7 @@
     --command-gap:clamp(4.8px,1.3vw,5.6px);
     --command-gap-total:clamp(38.4px,10.4vw,44.8px);
     --command-token-size:min(clamp(32px,9.5vw,41px),calc((100% - var(--command-gap-total)) / 9));
+    --command-token-y:clamp(-20px,-4.6vw,-18px);
     position:relative;
     isolation:isolate;
     align-items:center;
@@ -166,7 +167,7 @@
     background:none!important;
     box-shadow:none!important;
     overflow:visible;
-    transform:none!important;
+    transform:translateY(var(--command-token-y))!important;
   }
   .command-strip .command-token-visual,
   .command-strip .command-key.done .command-token-visual{display:block;width:100%;height:100%;max-width:none!important;max-height:none!important;overflow:visible;filter:none!important}
