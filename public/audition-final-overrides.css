@@ -25,3 +25,76 @@
 .gauge-config-preview .audition-gauge-svg{max-width:100%}
 
 @media(max-width:700px){.timing-gauge .gauge-track{height:24px}.timing-gauge .gauge-readout{font-size:7px}.ready-cue span,.start-cue span{font-size:26px}.intro-cue strong{font-size:31px}.configure-launcher{bottom:76px;min-width:185px;font-size:11px}}
+
+/* Phase 2 P2.1: keep portrait gameplay regions in one stable layout.
+   Runtime state, command semantics and gauge timing remain unchanged. */
+@media (max-width:700px) and (orientation:portrait){
+  .audition-hud{
+    display:grid;
+    grid-template-columns:minmax(0,145px) minmax(0,1fr);
+    grid-template-rows:91px 184px minmax(0,1fr) auto auto;
+    column-gap:12px;
+    row-gap:0;
+    padding:12px 18px 19px;
+  }
+  .hud-song{
+    position:relative;
+    left:auto;
+    top:auto;
+    grid-column:1;
+    grid-row:1;
+    width:100%;
+    height:91px;
+  }
+  .level-panel{
+    position:relative;
+    left:auto;
+    top:auto;
+    grid-column:1;
+    grid-row:2;
+    width:100%;
+    align-self:start;
+  }
+  .leaderboard{
+    position:relative;
+    right:auto;
+    top:auto;
+    grid-column:2;
+    grid-row:2;
+    width:100%;
+    align-self:start;
+  }
+  .combo-panel{
+    position:relative;
+    right:auto;
+    top:auto;
+    grid-column:2;
+    grid-row:3;
+    align-self:center;
+    justify-self:end;
+  }
+  .command-zone{
+    position:relative;
+    left:auto;
+    right:auto;
+    bottom:auto;
+    grid-column:1 / -1;
+    grid-row:4;
+    width:100%;
+    transform:none;
+    align-self:end;
+  }
+  .mobile-controls{
+    position:relative;
+    left:auto;
+    right:auto;
+    bottom:auto;
+    grid-column:1 / -1;
+    grid-row:5;
+    width:calc(100% + 36px);
+    height:142px;
+    margin:0 -18px;
+    padding:0 22px;
+    align-self:end;
+  }
+}
