@@ -19,6 +19,13 @@ Phase 1 — Solo Easy Core Gameplay is complete for the current scope. Owner iPh
 | 12 | Reconnect, security, telemetry, mobile performance | Planned |
 | 13 | Content rights and distribution review | Required before commercial release |
 
+## Phase 2 locked production visual contract
+
+- The Portrait Mobile Gameplay Sketch (`IMG_1975.jpeg`) is the final production UI source of truth; Phase 2 mobile gameplay UI reproduces it 1:1 rather than reinterpreting it.
+- Character and stage/background fidelity are deferred until their corresponding phases.
+- Locked gameplay architecture and semantics take priority if a visual reference conflicts with them.
+- Owner iPhone visual QA is the final visual acceptance gate.
+
 ## Phase 1 architecture invariants
 
 - WebAudio is the authoritative song clock. A global turn is four beats: `target(N) = authored Space Start + N × 240000 / BPM_exact`. Player results never move the clock.

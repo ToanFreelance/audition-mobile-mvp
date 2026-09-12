@@ -99,50 +99,70 @@
   }
 }
 
-/* Phase 2 P2.2B: reproduce the portrait sketch's compact capsule and glossy
-   cobalt, green and magenta command orbs without changing token state. */
+/* Phase 2 P2.2C: traced portrait command capsule and self-contained SVG orbs.
+   Legacy token skins cannot alter this presentation. */
 @media (max-width:700px) and (orientation:portrait){
   .command-label.normal{display:none}
   .command-label.finish{min-height:18px;justify-content:center;margin:0 0 4px;line-height:1}
   .command-label.finish .command-level-prefix,.command-label.finish .command-progress{display:none}
   .command-label.finish strong{font-size:11px;letter-spacing:.15em}
   .command-strip{
-    width:calc(100% + 16px);
-    height:clamp(48px,12.4vw,54px);
+    --command-gap:clamp(4.8px,1.3vw,5.6px);
+    --command-gap-total:clamp(38.4px,10.4vw,44.8px);
+    --command-token-size:min(clamp(32px,9.5vw,41px),calc((100% - var(--command-gap-total)) / 9));
+    position:relative;
+    isolation:isolate;
+    width:calc(100% + 10px);
+    height:clamp(47px,12.2vw,53px);
     min-height:0;
-    margin-left:-8px;
+    margin-left:-5px;
     flex-wrap:nowrap;
-    gap:clamp(4.8px,1.3vw,5.6px);
+    gap:var(--command-gap);
     padding:4px 8px;
     overflow:visible;
-    border:1px solid rgba(226,74,255,.88);
+    border:0;
     border-radius:999px;
-    background:linear-gradient(180deg,rgba(4,6,19,.93),rgba(9,5,24,.9));
-    box-shadow:0 0 5px rgba(204,49,255,.4),0 0 10px rgba(74,91,255,.12),inset 0 0 0 1px rgba(128,93,255,.18),inset 0 5px 12px rgba(255,255,255,.025);
+    background:transparent;
+    box-shadow:none;
+  }
+  .command-strip::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    z-index:-1;
+    border:1px solid rgba(224,88,255,.82);
+    border-radius:inherit;
+    background:linear-gradient(180deg,rgba(3,5,17,.94),rgba(4,4,15,.92));
+    box-shadow:0 0 4px rgba(222,49,255,.34),0 0 9px rgba(65,69,255,.13),inset 0 0 0 1px rgba(111,76,255,.16);
+  }
+  .command-strip::after{
+    content:"";
+    position:absolute;
+    inset:2px;
+    z-index:-1;
+    border:1px solid rgba(128,111,255,.11);
+    border-radius:inherit;
+    pointer-events:none;
   }
   .command-strip .command-key{
-    width:clamp(30px,8.8vw,38px);
-    height:clamp(30px,8.8vw,38px);
+    width:var(--command-token-size);
+    height:var(--command-token-size);
     aspect-ratio:1;
-    flex:0 1 clamp(30px,8.8vw,38px);
+    flex:0 0 var(--command-token-size);
     min-width:0;
     box-sizing:border-box;
     display:grid;
     place-items:center;
     border-radius:50%;
-    opacity:1;
-    border:1.5px solid rgba(174,224,255,.98);
-    background:radial-gradient(circle at 34% 25%,rgba(255,255,255,.5) 0 3%,rgba(157,211,255,.22) 7%,rgba(157,211,255,0) 22%),radial-gradient(circle at 50% 46%,#347ee8 0 18%,#195bc2 45%,#0a2b78 71%,#020a27 100%)!important;
-    box-shadow:0 0 0 1px rgba(31,91,255,.92),0 0 6px rgba(37,139,255,.86),inset 0 0 0 1px rgba(232,248,255,.2),inset 0 -5px 8px rgba(0,8,54,.34);
+    opacity:1!important;
+    border:0!important;
+    background:none!important;
+    box-shadow:none!important;
     overflow:visible;
-    transform:none;
+    transform:none!important;
   }
-  .command-strip .command-key.reverse:not(.done){border-color:rgba(255,179,222,.98);background:radial-gradient(circle at 34% 25%,rgba(255,255,255,.48) 0 3%,rgba(255,175,224,.2) 7%,rgba(255,175,224,0) 22%),radial-gradient(circle at 50% 46%,#f02b9a 0 18%,#c10b70 45%,#69033e 71%,#230018 100%)!important;box-shadow:0 0 0 1px rgba(255,23,144,.94),0 0 7px rgba(255,27,150,.88),inset 0 0 0 1px rgba(255,231,246,.2),inset 0 -5px 8px rgba(64,0,39,.34)}
-  .command-strip .command-key.done{border-color:rgba(190,255,208,.98)!important;background:radial-gradient(circle at 34% 25%,rgba(255,255,255,.5) 0 3%,rgba(178,255,204,.22) 7%,rgba(178,255,204,0) 22%),radial-gradient(circle at 50% 46%,#31ee79 0 18%,#11b84e 45%,#056327 71%,#01230e 100%)!important;box-shadow:0 0 0 1px rgba(23,239,91,.94),0 0 7px rgba(34,255,104,.88),inset 0 0 0 1px rgba(228,255,235,.2),inset 0 -5px 8px rgba(0,67,24,.34)!important}
-  .command-strip .command-key.target:not(.done){border-color:#fff;box-shadow:0 0 0 1px rgba(69,139,255,.96),0 0 7px rgba(56,158,255,.92),inset 0 0 0 1px rgba(255,255,255,.26),inset 0 -5px 8px rgba(0,8,54,.3);transform:none;z-index:2}
-  .command-strip .command-key.reverse.target:not(.done){box-shadow:0 0 0 1px rgba(255,58,164,.98),0 0 8px rgba(255,45,157,.94),inset 0 0 0 1px rgba(255,255,255,.22),inset 0 -5px 8px rgba(64,0,39,.3)}
-  .command-strip .command-key.wrong:not(.done){border-color:rgba(255,174,190,.98);box-shadow:0 0 0 1px rgba(255,48,86,.9),0 0 9px rgba(255,53,91,.82),inset 0 0 7px rgba(255,62,99,.22)}
-  .command-arrow{display:block;width:82%;height:82%;max-width:none;max-height:none;filter:drop-shadow(0 0 2px rgba(255,255,255,.72))}
-  .command-key.target .command-arrow,.command-key.done .command-arrow{filter:drop-shadow(0 0 3px rgba(255,255,255,.82))}
+  .command-strip .command-token-visual,
+  .command-strip .command-key.done .command-token-visual{display:block;width:100%;height:100%;max-width:none!important;max-height:none!important;overflow:visible;filter:none!important}
+  .command-strip .command-key.wrong .command-token-visual{filter:drop-shadow(0 0 3px rgba(255,57,94,.75))!important}
   .command-zone > .audition-gauge-svg{display:block;width:100%;max-width:100%;margin:8px auto 0}
 }
