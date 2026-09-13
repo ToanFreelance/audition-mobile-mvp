@@ -3,10 +3,9 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { CameraPreset } from "./PortraitGameMenu";
+import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 
-type Rig = { root: THREE.Group; body: THREE.Group; leftArm: THREE.Group; rightArm: THREE.Group; leftLeg: THREE.Group; rightLeg: THREE.Group };
-
-const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, skin: 0xf0b7aa, hair: 0x241a2b, dark: 0x10111d, floor: 0x130f28 };
+const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 
 type Stage3DProps = { cameraPreset?: CameraPreset };
 
@@ -105,10 +104,17 @@ export default function Stage3D({ cameraPreset = "center" }: Stage3DProps) {
     createSpeaker(stage, -4.7, 1.7, COLORS.violet, .7);
     createSpeaker(stage, 4.7, 1.7, COLORS.violet, .7);
 
-    const player = createPlayerCharacter();
-    player.root.position.set(0, .02, .25);
-    player.root.scale.setScalar(.78);
-    stage.add(player.root);
+    const character = new CharacterActor();
+    character.root.position.set(0, .02, .25);
+    stage.add(character.root);
+    host.dataset.characterSource = "loading";
+    void character.load().then((result) => {
+      if (!result || disposed) return;
+      host.dataset.characterSource = result.source;
+      host.dataset.characterIdle = result.idleClip ?? "static";
+      host.dataset.characterMetrics = JSON.stringify(result.metrics);
+      if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
+    });
 
     const cameraTarget = (portrait: boolean) => {
       const preset = cameraPresetRef.current;
@@ -145,21 +151,15 @@ export default function Stage3D({ cameraPreset = "center" }: Stage3DProps) {
     const animate = () => {
       if (disposed) return;
       raf = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
+      const delta = Math.min(clock.getDelta(), .1);
+      const t = clock.elapsedTime;
       const target = cameraTarget(host.clientHeight > host.clientWidth);
       camera.position.y += (target.y - camera.position.y) * .14;
       camera.position.z += (target.z - camera.position.z) * .14;
       camera.fov += (target.fov - camera.fov) * .14;
       camera.lookAt(0, target.targetY, .2);
       camera.updateProjectionMatrix();
-      const beat = t * 2.094;
-      player.root.position.y = .02 + Math.abs(Math.sin(beat)) * .035 + Math.sin(beat * .5) * .022;
-      player.root.rotation.y = Math.sin(beat * .32) * .08;
-      player.body.rotation.z = Math.sin(beat * .72) * .028;
-      player.leftArm.rotation.z = -.2 - Math.sin(beat) * .23;
-      player.rightArm.rotation.z = .2 + Math.sin(beat + .8) * .23;
-      player.leftLeg.rotation.x = Math.sin(beat + .6) * .09;
-      player.rightLeg.rotation.x = Math.sin(beat + Math.PI + .6) * .09;
+      character.update(delta, t);
       spots.forEach((light, index) => { light.intensity = 32 + (Math.sin(t * 2.0 + index) + 1) * 8; });
       const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
       sign.scale.set(signPulse, signPulse, signPulse);
@@ -171,57 +171,15 @@ export default function Stage3D({ cameraPreset = "center" }: Stage3DProps) {
       disposed = true;
       cancelAnimationFrame(raf);
       observer.disconnect();
+      character.dispose();
+      disposeObjectResources(scene);
       renderer.dispose();
-      signTexture.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
-      scene.traverse((object) => {
-        const mesh = object as THREE.Mesh;
-        if (mesh.geometry) mesh.geometry.dispose();
-        if (Array.isArray(mesh.material)) mesh.material.forEach((material) => material.dispose());
-        else if (mesh.material) mesh.material.dispose();
-      });
+      scene.clear();
     };
   }, []);
 
   return <div ref={hostRef} className="stage-3d" aria-label="3D club dance stage" />;
-}
-
-function createPlayerCharacter(): Rig {
-  const root = new THREE.Group();
-  const body = new THREE.Group();
-  root.add(body);
-  const skin = new THREE.MeshStandardMaterial({ color: COLORS.skin, roughness: .7 });
-  const hair = new THREE.MeshStandardMaterial({ color: COLORS.hair, roughness: .55 });
-  const outfit = new THREE.MeshStandardMaterial({ color: 0xc45ab7, emissive: 0x3c103d, emissiveIntensity: .28, roughness: .6 });
-  const dark = new THREE.MeshStandardMaterial({ color: COLORS.dark, roughness: .75 });
-
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.62, 1.35, 6, 12), outfit);
-  torso.position.y = 2.25; body.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.62, 20, 14), skin);
-  head.position.y = 3.62; body.add(head);
-  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(.66, 20, 10, 0, Math.PI * 2, 0, Math.PI * .52), hair);
-  hairCap.position.set(0, 3.72, 0); hairCap.scale.set(1.04, .72, 1.02); body.add(hairCap);
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(1.2, .16, .72), hair);
-  visor.position.set(0, 3.62, .48); visor.rotation.x = -.08; body.add(visor);
-  const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0x191321 });
-  for (const x of [-.2, .2]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 6), eyeMaterial); eye.position.set(x, 3.52, .58); body.add(eye); }
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(.16, .018, 6, 18, Math.PI), new THREE.MeshBasicMaterial({ color: 0x7d244d }));
-  mouth.position.set(0, 3.34, .58); mouth.rotation.x = Math.PI / 2; body.add(mouth);
-
-  const leftArm = new THREE.Group(); const rightArm = new THREE.Group();
-  const armGeometry = new THREE.CylinderGeometry(.13, .16, 1.55, 10);
-  const leftArmMesh = new THREE.Mesh(armGeometry, skin); const rightArmMesh = new THREE.Mesh(armGeometry, skin);
-  leftArmMesh.position.y = -.72; rightArmMesh.position.y = -.72;
-  leftArm.position.set(-.72, 2.75, 0); rightArm.position.set(.72, 2.75, 0);
-  leftArm.add(leftArmMesh); rightArm.add(rightArmMesh); body.add(leftArm, rightArm);
-
-  const leftLeg = new THREE.Group(); const rightLeg = new THREE.Group();
-  const legGeometry = new THREE.CylinderGeometry(.18, .22, 1.8, 10);
-  const leftLegMesh = new THREE.Mesh(legGeometry, dark); const rightLegMesh = new THREE.Mesh(legGeometry, dark);
-  leftLegMesh.position.y = -.9; rightLegMesh.position.y = -.9;
-  leftLeg.position.set(-.32, 1.15, 0); rightLeg.position.set(.32, 1.15, 0);
-  leftLeg.add(leftLegMesh); rightLeg.add(rightLegMesh); body.add(leftLeg, rightLeg);
-  return { root, body, leftArm, rightArm, leftLeg, rightLeg };
 }
 
 function createSpeaker(parent: THREE.Group, x: number, y: number, accent: number, scale = 1) {
