@@ -98,7 +98,7 @@
   }
 }
 
-/* P2.6 portrait replay/menu/settings. Opening this presentation layer never
+/* P2.6 portrait menu/settings. Opening this presentation layer never
    pauses or mutates the authoritative runtime/audio timeline. */
 .portrait-top-actions{
   display:flex!important;
@@ -337,18 +337,22 @@
   .song-copy span{
     display:flex;
     align-items:baseline;
-    gap:4px;
+    gap:3px;
     min-width:0;
     margin:0;
-    font-size:9px;
+    font-size:8px;
     line-height:1;
   }
   .song-copy span b{
-    overflow:hidden;
+    flex:0 0 auto;
+    overflow:visible;
     padding:0 2px 1px;
     border-bottom-width:1px;
-    font-size:10px;
-    text-overflow:ellipsis;
+    font-size:8px;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:-.025em;
+    text-overflow:clip;
+    white-space:nowrap;
   }
   .song-progress{
     width:100%;

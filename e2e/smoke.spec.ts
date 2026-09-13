@@ -34,7 +34,7 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
   const gauge=await page.getByRole('img',{name:'Audition timing gauge'}).boundingBox();
   expect(gauge!.width).toBeLessThanOrEqual(width);expect(errors).toEqual([]);
 });
-test('same action layer: incomplete SPACE cannot succeed, keyboard completes command, replay resets runtime',async({page})=>{
+test('same action layer: incomplete SPACE cannot succeed, keyboard completes command, menu does not create replay authority',async({page})=>{
   await page.goto('/?debug=1&seed=123');
   await page.getByRole('button',{name:'START',exact:true}).click();
   await expect(page.locator('.command-key').first()).toBeVisible({timeout:10000});
@@ -43,9 +43,11 @@ test('same action layer: incomplete SPACE cannot succeed, keyboard completes com
   const direction=await page.locator('.command-key').first().getAttribute('data-direction');
   await page.keyboard.press('Arrow'+direction![0].toUpperCase()+direction!.slice(1));
   await expect(page.locator('.command-key.done')).toHaveCount(1);
-  await page.getByRole('button',{name:'↻ REPLAY',exact:true}).click();
-  await expect.poll(async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).playableAbsoluteTurn).toBe(0);
-  expect(JSON.parse(await page.getByTestId('rhythm-debug').innerText()).perfectStreak).toBe(0);
+  await expect(page.getByRole('button',{name:/replay|play again|rematch/i})).toHaveCount(0);
+  const beforeMenu=JSON.parse(await page.getByTestId('rhythm-debug').innerText()).songTimeMs;
+  await page.getByRole('button',{name:'Mở menu',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'MENU'})).toBeVisible();
+  await expect.poll(async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).songTimeMs).toBeGreaterThan(beforeMenu);
 });
 test('normal UI hides rhythm diagnostics',async({page})=>{
   await page.goto('/');
