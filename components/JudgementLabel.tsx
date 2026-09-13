@@ -34,11 +34,11 @@ function PerfectMultiplier({ streak }: { streak: number }) {
     >
       <defs>
         <linearGradient id="perfect-multiplier-gold" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fffbd0" />
-          <stop offset=".18" stopColor="#fff068" />
-          <stop offset=".52" stopColor="#ffc21c" />
-          <stop offset=".78" stopColor="#f57a00" />
-          <stop offset="1" stopColor="#9a2d00" />
+          <stop offset="0" stopColor="#fff3b0" />
+          <stop offset=".18" stopColor="#f5d95a" />
+          <stop offset=".52" stopColor="#d99a18" />
+          <stop offset=".78" stopColor="#b9650b" />
+          <stop offset="1" stopColor="#6f2400" />
         </linearGradient>
       </defs>
       <path className="perfect-multiplier-flare" d={`M4 57 L${width - 2} 8 L${width - 16} 64 Z`} />
