@@ -381,84 +381,68 @@
   }
 }
 
-/* P2.5 canonical portrait D-pad and SPACE artwork. */
+/* P2.5 canonical controls traced from owner-provided SVG targets. */
 @media (max-width:700px) and (orientation:portrait){
   .mobile-controls{
+    --portrait-controls-gap:clamp(12px,1.8dvh,18px);
+    --portrait-dpad-size:clamp(108px,29vw,116px);
+    grid-column:1/-1;
+    grid-row:5;
+    justify-self:center;
     width:100%;
-    height:clamp(132px,16.5dvh,146px);
+    height:calc(var(--portrait-controls-gap) + var(--portrait-dpad-size) + max(8px,env(safe-area-inset-bottom)));
     margin:0;
-    padding:0 clamp(18px,5vw,24px) max(8px,env(safe-area-inset-bottom));
+    padding:var(--portrait-controls-gap) 18px max(8px,env(safe-area-inset-bottom));
     align-items:center;
-    justify-content:space-between;
-    gap:clamp(24px,7vw,38px);
+    justify-content:center;
+    gap:clamp(44px,12vw,50px);
   }
   .space-control{
     position:relative;
-    isolation:isolate;
-    flex:0 1 clamp(148px,40vw,172px);
-    width:auto;
-    min-width:0;
-    height:clamp(66px,18vw,76px);
-    padding:0 14px;
+    flex:0 0 clamp(150px,42vw,164px);
+    width:clamp(150px,42vw,164px);
+    height:clamp(66px,18.45vw,72px);
+    padding:0;
     overflow:visible;
-    border:2px solid transparent;
-    border-radius:24px;
-    background:
-      linear-gradient(180deg,rgba(15,11,35,.98),rgba(3,4,15,.98)) padding-box,
-      linear-gradient(105deg,#31a9ff 0%,#574bff 24%,#ed43d4 62%,#7a31ff 100%) border-box;
-    box-shadow:
-      -5px 0 14px rgba(30,142,255,.28),
-      5px 0 15px rgba(234,50,220,.27),
-      inset 0 0 18px rgba(90,45,185,.16);
+    border:0;
+    border-radius:0;
+    background:transparent;
+    box-shadow:none;
+    color:#fff;
     transition:transform 80ms ease,filter 80ms ease;
   }
-  .space-control::before{
-    content:"";
-    position:absolute;
-    inset:3px;
-    z-index:0;
-    border:1px solid rgba(213,135,255,.58);
-    border-radius:19px;
-    box-shadow:inset 0 1px 0 rgba(163,214,255,.4),inset 0 -1px 0 rgba(255,67,215,.22);
+  .portrait-space-svg{
+    display:block;
+    width:100%;
+    height:100%;
+    overflow:visible;
     pointer-events:none;
-  }
-  .space-control::after{
-    content:"";
-    position:absolute;
-    inset:-4px;
-    z-index:-1;
-    border:1px solid rgba(43,145,255,.32);
-    border-radius:28px;
-    box-shadow:0 0 9px rgba(51,107,255,.2),0 0 12px rgba(255,45,211,.14);
-    pointer-events:none;
-  }
-  .space-control strong{
-    position:relative;
-    z-index:1;
-    font-size:clamp(17px,4.8vw,20px);
-    line-height:1;
-    letter-spacing:-.02em;
-    text-shadow:0 0 7px rgba(255,255,255,.28);
   }
   .space-control small{
-    position:relative;
-    z-index:1;
-    margin-top:5px;
-    font-size:clamp(6px,1.45vw,7px);
-    letter-spacing:.09em;
-    color:#c9c0d2;
-    opacity:.24;
+    position:absolute;
+    left:50%;
+    bottom:8px;
+    transform:translateX(-50%);
+    width:max-content;
+    margin:0;
+    color:#d7d3e3;
+    font-size:5px;
+    line-height:1;
+    letter-spacing:.12em;
+    opacity:.08;
+    pointer-events:none;
   }
   .space-control.pressed{
     transform:scale(.96);
-    filter:brightness(1.15);
-    box-shadow:-4px 0 16px rgba(30,142,255,.38),4px 0 17px rgba(234,50,220,.38),inset 0 0 20px rgba(112,59,209,.2);
+    filter:brightness(1.18);
+    box-shadow:none;
   }
   .dpad-control{
     position:relative;
-    flex:0 0 clamp(136px,35vw,144px);
-    width:clamp(136px,35vw,144px);
-    height:clamp(136px,35vw,144px);
+    flex:0 0 var(--portrait-dpad-size);
+    width:var(--portrait-dpad-size);
+    height:var(--portrait-dpad-size);
+    overflow:visible;
     border:0;
     border-radius:0;
     background:transparent;
@@ -469,63 +453,49 @@
     width:44px;
     height:44px;
     padding:0;
+    display:grid;
+    place-items:center;
     overflow:visible;
+    clip-path:circle(50%);
     border:0;
     border-radius:50%;
     background:transparent;
     box-shadow:none;
     color:#fff;
+    transform:translate(-50%,-50%);
     transition:transform 80ms ease,filter 80ms ease;
   }
-  .dpad-control button::before{
-    content:"";
-    position:absolute;
-    inset:2px;
-    border:1px solid transparent;
-    border-radius:50%;
-    background:
-      radial-gradient(circle at 46% 38%,#20295f 0%,#0b1234 48%,#030713 76%) padding-box,
-      linear-gradient(145deg,#57ceff 0%,#5263ff 34%,#e747dc 70%,#8750ff 100%) border-box;
-    box-shadow:
-      0 0 0 1px rgba(218,84,255,.36),
-      0 0 8px rgba(39,125,255,.3),
-      0 0 7px rgba(255,54,218,.17),
-      inset 0 0 0 1px rgba(157,196,255,.25),
-      inset 0 -6px 10px rgba(0,0,12,.45);
-  }
-  .dpad-control button::after{
-    content:"";
-    position:absolute;
-    inset:6px;
-    border:1px solid rgba(139,151,255,.2);
-    border-radius:50%;
+  .portrait-dpad-svg{
+    display:block;
+    width:42px;
+    height:42px;
+    overflow:visible;
     pointer-events:none;
   }
-  .dpad-control .control-arrow{
-    z-index:2;
-    width:26px!important;
-    height:26px!important;
-    filter:drop-shadow(0 0 2px rgba(255,255,255,.58));
-  }
-  .dpad-control .dpad-left,.dpad-control .dpad-right{top:50%;transform:translateY(-50%)}
-  .dpad-control .dpad-left{left:0}
-  .dpad-control .dpad-right{right:0}
-  .dpad-control .dpad-up,.dpad-control .dpad-down{left:50%;transform:translateX(-50%)}
-  .dpad-control .dpad-up{top:0}
-  .dpad-control .dpad-down{bottom:0}
+  .dpad-control .dpad-up{left:50%;top:18.103448%}
+  .dpad-control .dpad-left{left:18.103448%;top:50%}
+  .dpad-control .dpad-right{left:81.896552%;right:auto;top:50%}
+  .dpad-control .dpad-down{left:50%;top:81.896552%;bottom:auto}
   .dpad-control span{
+    position:absolute;
     left:50%;
     top:50%;
-    width:14px;
-    height:14px;
+    width:6px;
+    height:6px;
     transform:translate(-50%,-50%);
     border:0;
-    background:radial-gradient(circle,#ff59d7 0 2px,rgba(255,89,215,.3) 3px,transparent 6px);
-    box-shadow:none;
+    border-radius:50%;
+    background:#ff64dc;
+    box-shadow:0 0 5px rgba(255,85,215,.34);
     pointer-events:none;
   }
-  .dpad-control button.target{border:0;box-shadow:none;filter:brightness(1.12)}
-  .dpad-control button.target::before{box-shadow:0 0 0 1px rgba(235,102,255,.48),0 0 11px rgba(45,135,255,.42),0 0 9px rgba(255,57,218,.25),inset 0 0 0 1px rgba(177,210,255,.34),inset 0 -6px 10px rgba(0,0,12,.4)}
-  .dpad-control button.pressed.dpad-left,.dpad-control button.pressed.dpad-right{transform:translateY(-50%) scale(.93);filter:brightness(1.22)}
-  .dpad-control button.pressed.dpad-up,.dpad-control button.pressed.dpad-down{transform:translateX(-50%) scale(.93);filter:brightness(1.22)}
+  .dpad-control button.target{
+    border:0;
+    box-shadow:none;
+    filter:brightness(1.14) drop-shadow(0 0 3px rgba(91,114,255,.42));
+  }
+  .dpad-control button.pressed{
+    transform:translate(-50%,-50%) scale(.93);
+    filter:brightness(1.24);
+  }
 }
