@@ -40,13 +40,13 @@
   height: 62%;
   max-width: 42vw;
   overflow: visible;
-  filter: drop-shadow(0 2px 0 rgba(55, 20, 18, .82)) drop-shadow(0 0 2px rgba(255, 181, 46, .42));
+  filter: drop-shadow(0 1px 0 rgba(103, 43, 17, .52)) drop-shadow(0 0 1.5px rgba(255, 210, 78, .20));
 }
 
 .perfect-multiplier-flare {
-  fill: rgba(255, 79, 227, .18);
-  stroke: rgba(255, 129, 238, .55);
-  stroke-width: 1.4;
+  fill: rgba(255, 79, 227, .14);
+  stroke: rgba(255, 129, 238, .48);
+  stroke-width: 1.2;
 }
 
 .perfect-multiplier-text {
@@ -58,23 +58,23 @@
 }
 
 .perfect-multiplier-outline {
-  fill: #8a3f0f;
-  stroke: #4d2114;
-  stroke-width: 7.5px;
+  fill: none;
+  stroke: #9f4318;
+  stroke-width: 4.2px;
   stroke-linejoin: round;
 }
 
 .perfect-multiplier-fill {
   fill: url(#perfect-multiplier-gold);
-  stroke: #ffe083;
-  stroke-width: 1.2px;
+  stroke: #fff0a5;
+  stroke-width: .85px;
   stroke-linejoin: round;
 }
 
 .perfect-multiplier-shine {
   fill: none;
-  stroke: rgba(255, 244, 190, .55);
-  stroke-width: 1.1;
+  stroke: rgba(255, 252, 207, .84);
+  stroke-width: 1.25;
   stroke-linecap: round;
   filter: none;
 }
