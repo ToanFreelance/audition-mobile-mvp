@@ -9,7 +9,7 @@ import type { ArrowToken, Direction, GameStats, Judgement } from "../game/types"
 import { WebAudioTransport } from "../game/web-audio-transport";
 import Stage3D from "./Stage3D";
 import AuditionGauge from "./AuditionGauge";
-import JudgementLabel from "./JudgementLabel";
+import JudgementLabel, { JUDGEMENT_ARTWORK_SOURCES } from "./JudgementLabel";
 
 const INITIAL_STATS: GameStats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
@@ -55,6 +55,23 @@ export default function GameShell() {
   const judgementTimer = useRef<number | null>(null);
   const startCueTimer = useRef<number | null>(null);
   const audioAlertedRef = useRef(false);
+
+  useEffect(() => {
+    const images = JUDGEMENT_ARTWORK_SOURCES.map(src => {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = src;
+      void image.decode?.().catch(() => undefined);
+      return image;
+    });
+
+    return () => {
+      images.forEach(image => {
+        image.onload = null;
+        image.onerror = null;
+      });
+    };
+  }, []);
 
   const activeChart = useMemo(() => createChartFromMusicConfig(selectedMusic), [selectedMusic]);
 
