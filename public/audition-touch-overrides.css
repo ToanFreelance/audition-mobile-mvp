@@ -1,0 +1,16 @@
+/* P2.5 touch ergonomics: enlarge the sketch-derived D-pad without changing gameplay semantics. */
+@media (max-width:700px) and (orientation:portrait){
+  .mobile-controls{
+    --portrait-dpad-size:clamp(132px,35vw,140px);
+    --portrait-dpad-height:clamp(122px,32.3vw,129px);
+    gap:clamp(34px,9vw,42px);
+  }
+  .dpad-control button{
+    width:50px;
+    height:50px;
+  }
+  .dpad-control .dpad-up{left:50%;top:21.5%}
+  .dpad-control .dpad-left{left:22.5%;top:50%}
+  .dpad-control .dpad-right{left:77.5%;right:auto;top:50%}
+  .dpad-control .dpad-down{left:50%;top:78.5%;bottom:auto}
+}
