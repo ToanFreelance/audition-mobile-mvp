@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import NextImage from "next/image";
 import { createChartFromMusicConfig } from "../game/chart";
 import { DEFAULT_MUSIC_CONFIG, isPlayableMusicConfig, type MusicConfig } from "../game/music-config";
 import { RhythmRuntime, SCORE_ZONE_END, SCORE_ZONE_START } from "../game/runtime";
@@ -324,12 +325,11 @@ export default function GameShell() {
           <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All <i>▶</i></b></div><div className="bottom-mode"><strong>Audition - Club Dance</strong><span>{selectedMusic.BPM_exact} BPM <b>Hard</b></span><div>★★★☆☆</div></div><button className="exit-button">⇥<small>EXIT</small></button>
           <div className="mobile-controls">
             <button className={`space-control ${spacePressed ? "pressed" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressSpace(); }} aria-label="SPACE">
-              <PortraitSpaceVisual />
-              <small>PRESS IN SCORE ZONE</small>
+              <NextImage className="portrait-space-art" src="/ui/controls/portrait-space-from-sketch.png" alt="" width={315} height={150} priority unoptimized draggable={false} aria-hidden="true" />
             </button>
             <div className="dpad-control">
-              {DIRECTIONS.map(direction => <button key={direction} className={`dpad-${direction} ${activeDirection === direction ? "pressed" : ""} ${arrowCommand[completed]?.requiredDirection === direction ? "target" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }} aria-label={direction}><PortraitDpadVisual direction={direction} /></button>)}
-              <span />
+              <NextImage className="portrait-dpad-art" src="/ui/controls/portrait-dpad-from-sketch.png" alt="" width={206} height={190} priority unoptimized draggable={false} aria-hidden="true" />
+              {DIRECTIONS.map(direction => <button key={direction} className={`dpad-${direction} ${activeDirection === direction ? "pressed" : ""} ${arrowCommand[completed]?.requiredDirection === direction ? "target" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }} aria-label={direction} />)}
             </div>
           </div>
           {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>{!musicLoading && musicLibrary.length === 0 && <strong>No playable saved charts available.<br /></strong>}Song: <b>{selectedMusic.title}</b><br />SPACE #1: <b>{firstPerfectSeconds.toFixed(3)}s</b> · BPM exact: <b>{activeChart.bpm.toFixed(4)}</b><br />Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first SPACE.</p><button onClick={startGame} disabled={musicLoading || audioState !== "ready" || !musicLibrary.some(item => item.id === selectedMusic.id)}>START</button><button className="song-select-button" onClick={openSongPicker} disabled={musicLoading}>♫ SELECT SONG</button><button className="configure-button" onClick={() => { window.location.href = "/tools/music-config"; }}>⚙ CONFIGURE MUSIC</button><button className="sound-button" onClick={() => { window.location.href = "/tools/audio-timing"; }}>🧪 AUDIO TIMING</button><button className="sound-button" onClick={() => { window.location.href = "/tools/rhythm-benchmark"; }}>📊 RHYTHM BENCHMARK</button><button className="sound-button" onClick={retryAudio} disabled={audioState === "loading"}>TEST SOUND</button></div></div>}
@@ -346,45 +346,6 @@ function SongPicker({ songs, selectedId, onSelect, onClose }: { songs: MusicConf
 }
 
 function formatTime(value: number) { const total = Math.max(0, Math.floor(value)); return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`; }
-
-function PortraitDpadVisual({ direction }: { direction: Direction }) {
-  const id = `portrait-dpad-${direction}`;
-  const rotation = direction === "right" ? 90 : direction === "down" ? 180 : direction === "left" ? -90 : 0;
-  return <svg className="portrait-dpad-svg" viewBox="0 0 64 64" aria-hidden="true">
-    <defs>
-      <radialGradient id={`${id}-body`} cx="38%" cy="30%" r="72%"><stop offset="0" stopColor="#1a255d" /><stop offset=".46" stopColor="#0b1232" /><stop offset="1" stopColor="#030616" /></radialGradient>
-      <linearGradient id={`${id}-rim`} x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#54a8ff" /><stop offset=".28" stopColor="#386cff" /><stop offset=".58" stopColor="#8b4dff" /><stop offset="1" stopColor="#ff48d7" /></linearGradient>
-      <linearGradient id={`${id}-inner`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#d7ddff" /><stop offset=".18" stopColor="#7e8bff" /><stop offset=".72" stopColor="#a548ff" /><stop offset="1" stopColor="#ff62dc" /></linearGradient>
-      <filter id={`${id}-glow`} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-      <filter id={`${id}-arrow`} x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur in="SourceAlpha" stdDeviation=".7" result="blur" /><feFlood floodColor="#fff" floodOpacity=".72" result="white" /><feComposite in="white" in2="blur" operator="in" result="halo" /><feMerge><feMergeNode in="halo" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-    </defs>
-    <circle cx="32" cy="32" r="27.5" fill="none" stroke="#4c62ff" strokeOpacity=".34" strokeWidth="3.4" filter={`url(#${id}-glow)`} />
-    <circle cx="32" cy="32" r="25.5" fill="#020515" stroke={`url(#${id}-rim)`} strokeWidth="2.1" />
-    <circle cx="32" cy="32" r="22.7" fill={`url(#${id}-body)`} stroke={`url(#${id}-inner)`} strokeWidth="1.15" />
-    <ellipse cx="27" cy="23.5" rx="13.5" ry="7.8" fill="#fff" opacity=".055" />
-    <path d="M32 15.2 20.7 27.1h7.1v15.6h8.4V27.1h7.1L32 15.2Z" fill="#fff" stroke="#fff" strokeWidth="1" strokeLinejoin="round" filter={`url(#${id}-arrow)`} transform={`rotate(${rotation} 32 32)`} />
-  </svg>;
-}
-
-function PortraitSpaceVisual() {
-  return <svg className="portrait-space-svg" viewBox="0 0 164 72" aria-hidden="true">
-    <defs>
-      <linearGradient id="portrait-space-outer" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#2f85ff" /><stop offset=".32" stopColor="#4b5dff" /><stop offset=".66" stopColor="#b239ff" /><stop offset="1" stopColor="#fa45cf" /></linearGradient>
-      <linearGradient id="portrait-space-middle" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#5f4cff" /><stop offset=".5" stopColor="#c12eff" /><stop offset="1" stopColor="#ee43c8" /></linearGradient>
-      <radialGradient id="portrait-space-fill" cx="46%" cy="38%" r="76%"><stop offset="0" stopColor="#161943" /><stop offset=".46" stopColor="#0a0c25" /><stop offset="1" stopColor="#030412" /></radialGradient>
-      <linearGradient id="portrait-space-shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fff" stopOpacity=".34" /><stop offset=".22" stopColor="#fff" stopOpacity=".07" /><stop offset=".7" stopColor="#fff" stopOpacity="0" /></linearGradient>
-      <filter id="portrait-space-glow" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="3.2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-      <filter id="portrait-space-text" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur in="SourceAlpha" stdDeviation="1" result="blur" /><feFlood floodColor="#a7b9ff" floodOpacity=".6" result="color" /><feComposite in="color" in2="blur" operator="in" result="halo" /><feMerge><feMergeNode in="halo" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-    </defs>
-    <path d="M30 4H134C150 4 160 15 160 30V42C160 57 150 68 134 68H30C14 68 4 57 4 42V30C4 15 14 4 30 4Z" fill="none" stroke="#3d6fff" strokeOpacity=".55" strokeWidth="3.6" filter="url(#portrait-space-glow)" />
-    <path d="M30 5.5H134C148 5.5 158 16 158 30V42C158 56 148 66.5 134 66.5H30C16 66.5 6 56 6 42V30C6 16 16 5.5 30 5.5Z" fill="#040516" stroke="url(#portrait-space-outer)" strokeWidth="2.2" />
-    <path d="M31 10H133C145 10 153 18 153 30V42C153 54 145 62 133 62H31C19 62 11 54 11 42V30C11 18 19 10 31 10Z" fill="url(#portrait-space-fill)" stroke="url(#portrait-space-middle)" strokeWidth="1.7" />
-    <path d="M32 12H132C143 12 151 19.5 151 30.5" fill="none" stroke="#d6d8ff" strokeOpacity=".36" strokeWidth=".85" strokeLinecap="round" />
-    <path d="M12.5 42C12.5 53 20 60 31 60H133" fill="none" stroke="#f250da" strokeOpacity=".25" strokeWidth=".85" strokeLinecap="round" />
-    <path d="M31 11H133C144 11 151 18.5 151 30.5H13C13 18.5 20 11 31 11Z" fill="url(#portrait-space-shine)" opacity=".2" />
-    <text x="82" y="42.5" textAnchor="middle" fill="#fff" fontFamily="Arial Black, Impact, system-ui, sans-serif" fontSize="21" fontWeight="900" letterSpacing=".2" filter="url(#portrait-space-text)">SPACE</text>
-  </svg>;
-}
 
 function CommandTokenVisual({ direction, state, target, visualId }: { direction: Direction; state: "normal" | "completed" | "reverse"; target: boolean; visualId: string }) {
   const rotation = direction === "right" ? 0 : direction === "down" ? 90 : direction === "left" ? 180 : 270;
