@@ -40,7 +40,7 @@
   height: 62%;
   max-width: 42vw;
   overflow: visible;
-  filter: drop-shadow(0 3px 0 #28102f) drop-shadow(0 0 3px #c76500) drop-shadow(0 0 6px rgba(255, 38, 218, .48));
+  filter: drop-shadow(0 2px 0 #28102f) drop-shadow(0 0 2px rgba(199, 101, 0, .58));
 }
 
 .perfect-multiplier-flare {
@@ -53,30 +53,35 @@
   font-family: "Arial Black", Impact, ui-sans-serif, system-ui, sans-serif;
   font-style: italic;
   font-weight: 1000;
-  letter-spacing: -5px;
+  letter-spacing: -2px;
   paint-order: stroke fill;
 }
 
 .perfect-multiplier-outline {
   fill: #4d1700;
   stroke: #241126;
-  stroke-width: 11px;
+  stroke-width: 8px;
   stroke-linejoin: round;
 }
 
 .perfect-multiplier-fill {
   fill: url(#perfect-multiplier-gold);
-  stroke: #f2c85a;
-  stroke-width: 1.8px;
+  stroke: #d18b24;
+  stroke-width: 1.4px;
   stroke-linejoin: round;
 }
 
 .perfect-multiplier-shine {
   fill: none;
-  stroke: rgba(255, 255, 255, .62);
-  stroke-width: 1.4;
+  stroke: rgba(255, 244, 190, .55);
+  stroke-width: 1.1;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 2px rgba(255, 240, 180, .72));
+  filter: none;
+}
+
+.perfect-multiplier-prefix {
+  font-size: .82em;
+  letter-spacing: -1px;
 }
 
 @keyframes judgement-asset-pop {

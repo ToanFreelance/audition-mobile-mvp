@@ -22,7 +22,7 @@ function PerfectMultiplier({ streak }: { streak: number }) {
   const digits = String(streak).length;
   const width = 76 + Math.max(0, digits - 1) * 24;
   const fontSize = digits === 1 ? 52 : digits === 2 ? 45 : Math.max(27, 45 - (digits - 2) * 6);
-  const label = `x${streak}`;
+  const multiplierDigits = String(streak);
 
   return (
     <svg
@@ -49,7 +49,8 @@ function PerfectMultiplier({ streak }: { streak: number }) {
         fontSize={fontSize}
         textAnchor="middle"
       >
-        {label}
+        <tspan className="perfect-multiplier-prefix">x</tspan>
+        <tspan dx="3">{multiplierDigits}</tspan>
       </text>
       <text
         className="perfect-multiplier-text perfect-multiplier-fill"
@@ -58,7 +59,8 @@ function PerfectMultiplier({ streak }: { streak: number }) {
         fontSize={fontSize}
         textAnchor="middle"
       >
-        {label}
+        <tspan className="perfect-multiplier-prefix">x</tspan>
+        <tspan dx="3">{multiplierDigits}</tspan>
       </text>
       <path className="perfect-multiplier-shine" d={`M13 22 L${width - 14} 9`} />
     </svg>
