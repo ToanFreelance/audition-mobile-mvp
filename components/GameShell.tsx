@@ -9,6 +9,7 @@ import type { ArrowToken, Direction, GameStats, Judgement } from "../game/types"
 import { WebAudioTransport } from "../game/web-audio-transport";
 import Stage3D from "./Stage3D";
 import AuditionGauge from "./AuditionGauge";
+import JudgementLabel from "./JudgementLabel";
 
 const INITIAL_STATS: GameStats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
@@ -288,7 +289,7 @@ export default function GameShell() {
           {showReady && <div className="ready-cue"><span>SẴN SÀNG</span><small>GET READY</small></div>}
           {countdown !== null && countdown > 0 && <div key={`countdown-${countdown}`} className="countdown">{countdown}</div>}
           {startCue && <div className="start-cue"><span>BẮT ĐẦU</span><strong>GO!</strong></div>}
-          {judgement && <div key={`judgement-${runtime.debug.judgementAtMs}`} className={`judgement judgement-${judgement}`}>{judgement === "perfect" && perfectStreak > 1 ? `PERFECT x${perfectStreak}` : judgement.toUpperCase()}</div>}
+          {judgement && <JudgementLabel key={`judgement-${runtime.debug.judgementAtMs}`} judgement={judgement} perfectStreak={perfectStreak} />}
           {debugEnabled && anchorNear && <div style={{ position: "absolute", left: "50%", top: "42%", transform: "translate(-50%, -50%)", zIndex: 45, padding: "8px 12px", borderRadius: 10, background: "rgba(0,0,0,.78)", border: "1px solid rgba(255,255,255,.65)", color: "#fff", fontSize: 12, fontWeight: 900, letterSpacing: ".05em", pointerEvents: "none", whiteSpace: "nowrap" }}>SPACE #1 ANCHOR · GAUGE {gauge.toFixed(1)}%</div>}
           {audioError && <div className="audio-error"><strong>🔇 SOUND ERROR</strong><span>{audioError}</span><small>{audioDetails}</small><button onClick={retryAudio}>RETRY SOUND</button></div>}
           <div className={`command-zone ${showCommandStrip ? "visible" : "pre-intro"}`}>
