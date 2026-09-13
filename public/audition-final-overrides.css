@@ -99,6 +99,70 @@
   }
 }
 
+/* P2.5 portrait bottom-control geometry: keep directional hitboxes independent. */
+@media (max-width:700px) and (orientation:portrait){
+  .mobile-controls{
+    height:clamp(148px,19dvh,176px);
+    padding:0 clamp(14px,5vw,24px) max(8px,env(safe-area-inset-bottom));
+    gap:clamp(12px,5vw,28px);
+    align-items:center;
+  }
+  .space-control{
+    flex:0 1 clamp(142px,42vw,178px);
+    width:auto;
+    min-width:0;
+    height:clamp(72px,10vw,90px);
+  }
+  .space-control small{font-size:clamp(7px,1.8vw,9px);opacity:.68}
+  .dpad-control{
+    flex:0 0 clamp(150px,39vw,168px);
+    width:clamp(150px,39vw,168px);
+    height:clamp(150px,39vw,168px);
+    border-color:rgba(255,95,207,.18);
+    background:rgba(4,5,14,.12);
+    box-shadow:0 0 18px rgba(255,64,213,.08);
+  }
+  .dpad-control button{
+    width:clamp(48px,13vw,54px);
+    height:clamp(48px,13vw,54px);
+    border-radius:50%;
+  }
+  .dpad-control .dpad-left,.dpad-control .dpad-right{
+    top:50%;
+    transform:translateY(-50%);
+  }
+  .dpad-control .dpad-left{left:0}
+  .dpad-control .dpad-right{right:0}
+  .dpad-control .dpad-up,.dpad-control .dpad-down{
+    left:50%;
+    transform:translateX(-50%);
+  }
+  .dpad-control .dpad-up{top:0}
+  .dpad-control .dpad-down{bottom:0}
+  .dpad-control span{
+    left:50%;
+    top:50%;
+    width:clamp(26px,7vw,32px);
+    height:clamp(26px,7vw,32px);
+    transform:translate(-50%,-50%);
+    border-width:1px;
+    box-shadow:0 0 10px rgba(255,95,207,.18);
+    pointer-events:none;
+  }
+  .dpad-control button.pressed.dpad-left,.dpad-control button.pressed.dpad-right{
+    transform:translateY(-50%) scale(.92);
+  }
+  .dpad-control button.pressed.dpad-up,.dpad-control button.pressed.dpad-down{
+    transform:translateX(-50%) scale(.92);
+  }
+  .dpad-control button.target.dpad-left,.dpad-control button.target.dpad-right{
+    transform:translateY(-50%) scale(1.03);
+  }
+  .dpad-control button.target.dpad-up,.dpad-control button.target.dpad-down{
+    transform:translateX(-50%) scale(1.03);
+  }
+}
+
 /* Phase 2 P2.2C: traced portrait command capsule and self-contained SVG orbs.
    Legacy token skins cannot alter this presentation. */
 @media (max-width:700px) and (orientation:portrait){
@@ -379,4 +443,40 @@
     width:calc(100% + 20px);
     margin:0 -10px;
   }
+}
+
+/* P2.5 final portrait control geometry overrides. */
+@media (max-width:700px) and (orientation:portrait){
+  .mobile-controls{height:clamp(148px,19dvh,176px);width:100%;margin:0;padding:0 clamp(14px,5vw,24px) max(8px,env(safe-area-inset-bottom));gap:clamp(12px,5vw,28px);align-items:center}
+  .space-control{flex:0 1 clamp(142px,42vw,178px);width:auto;min-width:0;height:clamp(72px,10vw,90px)}
+  .space-control small{font-size:clamp(7px,1.8vw,9px);opacity:.68}
+  .dpad-control{flex:0 0 clamp(150px,39vw,168px);width:clamp(150px,39vw,168px);height:clamp(150px,39vw,168px);border-color:rgba(255,95,207,.18);background:rgba(4,5,14,.12);box-shadow:0 0 18px rgba(255,64,213,.08)}
+  .dpad-control button{width:clamp(48px,13vw,54px);height:clamp(48px,13vw,54px);border-radius:50%}
+  .dpad-control .dpad-left,.dpad-control .dpad-right{top:50%;transform:translateY(-50%)}
+  .dpad-control .dpad-left{left:0}.dpad-control .dpad-right{right:0}
+  .dpad-control .dpad-up,.dpad-control .dpad-down{left:50%;transform:translateX(-50%)}
+  .dpad-control .dpad-up{top:0}.dpad-control .dpad-down{bottom:0}
+  .dpad-control span{left:50%;top:50%;width:clamp(26px,7vw,32px);height:clamp(26px,7vw,32px);transform:translate(-50%,-50%);border-width:1px;box-shadow:0 0 10px rgba(255,95,207,.18);pointer-events:none}
+  .dpad-control button.pressed.dpad-left,.dpad-control button.pressed.dpad-right{transform:translateY(-50%) scale(.92)}
+  .dpad-control button.pressed.dpad-up,.dpad-control button.pressed.dpad-down{transform:translateX(-50%) scale(.92)}
+  .dpad-control button.target.dpad-left,.dpad-control button.target.dpad-right{transform:translateY(-50%) scale(1.03)}
+  .dpad-control button.target.dpad-up,.dpad-control button.target.dpad-down{transform:translateX(-50%) scale(1.03)}
+}
+
+/* P2.5 final portrait control geometry overrides. */
+@media (max-width:700px) and (orientation:portrait){
+  .mobile-controls{height:clamp(148px,19dvh,176px);width:100%;margin:0;padding:0 clamp(14px,5vw,24px) max(8px,env(safe-area-inset-bottom));gap:clamp(12px,5vw,28px);align-items:center}
+  .space-control{flex:0 1 clamp(142px,42vw,178px);width:auto;min-width:0;height:clamp(72px,10vw,90px)}
+  .space-control small{font-size:clamp(7px,1.8vw,9px);opacity:.68}
+  .dpad-control{flex:0 0 clamp(150px,39vw,168px);width:clamp(150px,39vw,168px);height:clamp(150px,39vw,168px);border-color:rgba(255,95,207,.18);background:rgba(4,5,14,.12);box-shadow:0 0 18px rgba(255,64,213,.08)}
+  .dpad-control button{width:clamp(48px,13vw,54px);height:clamp(48px,13vw,54px);border-radius:50%}
+  .dpad-control .dpad-left,.dpad-control .dpad-right{top:50%;transform:translateY(-50%)}
+  .dpad-control .dpad-left{left:0}.dpad-control .dpad-right{right:0}
+  .dpad-control .dpad-up,.dpad-control .dpad-down{left:50%;transform:translateX(-50%)}
+  .dpad-control .dpad-up{top:0}.dpad-control .dpad-down{bottom:0}
+  .dpad-control span{left:50%;top:50%;width:clamp(26px,7vw,32px);height:clamp(26px,7vw,32px);transform:translate(-50%,-50%);border-width:1px;box-shadow:0 0 10px rgba(255,95,207,.18);pointer-events:none}
+  .dpad-control button.pressed.dpad-left,.dpad-control button.pressed.dpad-right{transform:translateY(-50%) scale(.92)}
+  .dpad-control button.pressed.dpad-up,.dpad-control button.pressed.dpad-down{transform:translateX(-50%) scale(.92)}
+  .dpad-control button.target.dpad-left,.dpad-control button.target.dpad-right{transform:translateY(-50%) scale(1.03)}
+  .dpad-control button.target.dpad-up,.dpad-control button.target.dpad-down{transform:translateX(-50%) scale(1.03)}
 }
