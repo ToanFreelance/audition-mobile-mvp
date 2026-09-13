@@ -1,1 +1,99 @@
-m«ë
+.judgement {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: judgement-asset-pop 1000ms cubic-bezier(.16, .86, .2, 1) 0ms both;
+}
+
+.judgement-asset-wrap {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: max-content;
+  max-width: 100%;
+}
+
+.judgement-art {
+  display: block;
+  width: auto;
+  max-width: calc(100vw - 48px);
+  height: clamp(82px, 11.5svh, 108px);
+  object-fit: contain;
+}
+
+.judgement-perfect .judgement-art {
+  max-width: calc(100vw - 108px);
+}
+
+.perfect-multiplier {
+  position: absolute;
+  right: -13%;
+  bottom: -4%;
+  width: auto;
+  height: 62%;
+  max-width: 42vw;
+  overflow: visible;
+  filter: drop-shadow(0 3px 0 #35103f) drop-shadow(0 0 5px #ff8a00) drop-shadow(0 0 10px rgba(255, 38, 218, .72));
+}
+
+.perfect-multiplier-flare {
+  fill: rgba(255, 79, 227, .26);
+  stroke: rgba(255, 129, 238, .8);
+  stroke-width: 1.4;
+}
+
+.perfect-multiplier-text {
+  font-family: "Arial Black", Impact, ui-sans-serif, system-ui, sans-serif;
+  font-style: italic;
+  font-weight: 1000;
+  letter-spacing: -5px;
+  paint-order: stroke fill;
+}
+
+.perfect-multiplier-outline {
+  fill: #6a1700;
+  stroke: #38102f;
+  stroke-width: 10px;
+  stroke-linejoin: round;
+}
+
+.perfect-multiplier-fill {
+  fill: url(#perfect-multiplier-gold);
+  stroke: #fff0a0;
+  stroke-width: 2.2px;
+  stroke-linejoin: round;
+}
+
+.perfect-multiplier-shine {
+  fill: none;
+  stroke: rgba(255, 255, 255, .92);
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px #fff);
+}
+
+@keyframes judgement-asset-pop {
+  0% { opacity: 1; transform: translate(-50%, -46%) scale(.8); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.045); }
+  22% { transform: translate(-50%, -50%) scale(.985); }
+  34%, 82% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -58%) scale(.98); }
+}
+
+@media (max-width: 700px) and (orientation: portrait) {
+  .judgement {
+    top: 42%;
+    max-width: calc(100vw - 32px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .judgement { animation-duration: 1ms; }
+}
