@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { CharacterAnimationController } from "./CharacterAnimationController";
 import { createFallbackCharacter, updateFallbackCharacter, type FallbackCharacter } from "./FallbackCharacter";
-import type { CharacterAssetMetrics, CharacterLoadResult, CharacterPresentation } from "./character-types";
+import type { CharacterAssetMetrics, CharacterBaseState, CharacterLoadResult, CharacterPresentation, CharacterReaction } from "./character-types";
 
 export const DEFAULT_CHARACTER_ASSET_URL = "/characters/default/character.glb";
 
@@ -13,8 +14,10 @@ export class CharacterActor implements CharacterPresentation {
   private readonly loader = new GLTFLoader();
   private model: THREE.Object3D | null = null;
   private mixer: THREE.AnimationMixer | null = null;
+  private animationController: CharacterAnimationController | null = null;
   private clips: THREE.AnimationClip[] = [];
   private fallback: FallbackCharacter | null = null;
+  private baseState: CharacterBaseState = "idle";
   private loadVersion = 0;
   private disposed = false;
 
@@ -39,10 +42,9 @@ export class CharacterActor implements CharacterPresentation {
       this.root.add(this.model);
 
       const idleClip = this.clips.find((clip) => clip.name.toLowerCase() === "idle") ?? null;
-      if (idleClip) {
-        this.mixer = new THREE.AnimationMixer(this.model);
-        this.mixer.clipAction(idleClip).setLoop(THREE.LoopRepeat, Infinity).play();
-      }
+      this.mixer = new THREE.AnimationMixer(this.model);
+      this.animationController = new CharacterAnimationController(this.mixer, this.clips);
+      this.animationController.setBaseState(this.baseState);
 
       return {
         source: "gltf",
@@ -57,8 +59,17 @@ export class CharacterActor implements CharacterPresentation {
   }
 
   update(deltaSeconds: number, renderTimeSeconds: number) {
-    this.mixer?.update(Math.max(0, deltaSeconds));
+    this.animationController?.update(deltaSeconds);
     if (this.fallback) updateFallbackCharacter(this.fallback, renderTimeSeconds);
+  }
+
+  setBaseState(state: CharacterBaseState) {
+    this.baseState = state;
+    this.animationController?.setBaseState(state);
+  }
+
+  triggerReaction(reaction: CharacterReaction, eventId: number) {
+    return this.animationController?.triggerReaction(reaction, eventId) ?? false;
   }
 
   setVisible(visible: boolean) {
@@ -88,8 +99,9 @@ export class CharacterActor implements CharacterPresentation {
   }
 
   private releaseCurrentCharacter() {
+    this.animationController?.dispose();
+    this.animationController = null;
     if (this.mixer && this.model) {
-      this.mixer.stopAllAction();
       for (const clip of this.clips) this.mixer.uncacheClip(clip);
       this.mixer.uncacheRoot(this.model);
     }

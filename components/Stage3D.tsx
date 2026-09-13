@@ -4,15 +4,31 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
+import type { CharacterReactionSignal } from "./character/character-types";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 
-type Stage3DProps = { cameraPreset?: CameraPreset };
+type Stage3DProps = {
+  cameraPreset?: CameraPreset;
+  isPlaying?: boolean;
+  reaction?: CharacterReactionSignal | null;
+};
 
-export default function Stage3D({ cameraPreset = "center" }: Stage3DProps) {
+export default function Stage3D({ cameraPreset = "center", isPlaying = false, reaction = null }: Stage3DProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
+  const isPlayingRef = useRef(isPlaying);
   cameraPresetRef.current = cameraPreset;
+  isPlayingRef.current = isPlaying;
+
+  useEffect(() => {
+    characterRef.current?.setBaseState(isPlaying ? "dance" : "idle");
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (reaction) characterRef.current?.triggerReaction(reaction.reaction, reaction.id);
+  }, [reaction]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -105,6 +121,8 @@ export default function Stage3D({ cameraPreset = "center" }: Stage3DProps) {
     createSpeaker(stage, 4.7, 1.7, COLORS.violet, .7);
 
     const character = new CharacterActor();
+    characterRef.current = character;
+    character.setBaseState(isPlayingRef.current ? "dance" : "idle");
     character.root.position.set(0, .02, .25);
     stage.add(character.root);
     host.dataset.characterSource = "loading";
@@ -172,6 +190,7 @@ export default function Stage3D({ cameraPreset = "center" }: Stage3DProps) {
       cancelAnimationFrame(raf);
       observer.disconnect();
       character.dispose();
+      if (characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
