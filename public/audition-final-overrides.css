@@ -15,7 +15,6 @@
 
 /* Keep the stage readable on mobile: remove secondary utility controls that
    compete with the actual rhythm UI. */
-.audition-stage .top-actions,
 .audition-stage .mission,
 .audition-stage .function-key{display:none!important}
 
@@ -97,6 +96,103 @@
     padding:0 22px;
     align-self:end;
   }
+}
+
+/* P2.6 portrait replay/menu/settings. Opening this presentation layer never
+   pauses or mutates the authoritative runtime/audio timeline. */
+.portrait-top-actions{
+  display:flex!important;
+  z-index:14;
+  gap:7px;
+}
+.portrait-top-actions button{
+  width:68px;
+  min-width:68px;
+  height:54px;
+  display:grid;
+  place-content:center;
+  gap:2px;
+  padding:4px;
+  border:1px solid rgba(224,218,255,.75);
+  border-radius:10px;
+  background:linear-gradient(155deg,rgba(15,14,33,.93),rgba(5,7,18,.82));
+  color:#fff;
+  box-shadow:0 0 12px rgba(107,75,255,.16),inset 0 0 12px rgba(255,255,255,.025);
+}
+.portrait-top-actions button>span{font-size:24px;font-weight:900;line-height:.8}
+.portrait-top-actions button>small{margin:0;color:#e5e1ed;font-size:10px;font-weight:700;line-height:1}
+.portrait-top-actions button:active{transform:translateY(1px);filter:brightness(.88)}
+.portrait-menu-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:60;
+  display:grid;
+  place-items:center;
+  padding:max(18px,env(safe-area-inset-top)) 18px max(18px,env(safe-area-inset-bottom));
+  background:rgba(0,0,8,.54);
+  pointer-events:auto;
+}
+.portrait-game-menu{
+  width:min(356px,100%);
+  max-height:calc(100dvh - max(36px,env(safe-area-inset-top)) - max(36px,env(safe-area-inset-bottom)));
+  overflow:auto;
+  padding:16px;
+  border:1px solid rgba(220,76,255,.82);
+  border-radius:18px;
+  background:linear-gradient(155deg,rgba(16,12,34,.98),rgba(4,6,18,.98));
+  box-shadow:0 0 24px rgba(73,104,255,.2),0 0 14px rgba(245,65,224,.18),inset 0 0 22px rgba(255,255,255,.025);
+  color:#fff;
+}
+.portrait-game-menu header{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+.portrait-game-menu header span{display:block;color:#ca7cff;font-size:9px;font-weight:800;letter-spacing:.22em}
+.portrait-game-menu h2{margin:2px 0 0;font-size:24px;line-height:1}
+.portrait-menu-x{width:44px;height:44px;border:1px solid rgba(255,255,255,.24);border-radius:50%;background:rgba(15,15,32,.86);color:#fff;font-size:26px}
+.portrait-settings-title{margin-bottom:8px;color:#ff83e2;font-size:11px;font-weight:900;letter-spacing:.14em}
+.portrait-setting-row{margin-top:8px;padding:10px;border:1px solid rgba(157,139,208,.24);border-radius:12px;background:rgba(5,7,20,.56)}
+.portrait-setting-row>strong{display:block;margin-bottom:7px;font-size:12px}
+.portrait-segments{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.portrait-segments.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.portrait-layout-segments{grid-template-columns:1fr}
+.portrait-segments button,.portrait-menu-action,.portrait-exit-confirm button{
+  min-height:44px;
+  border:1px solid rgba(160,150,194,.34);
+  border-radius:9px;
+  background:rgba(19,19,42,.9);
+  color:#d8d4e3;
+  font-size:11px;
+  font-weight:800;
+}
+.portrait-segments button.selected{
+  border-color:#c85cff;
+  background:linear-gradient(135deg,rgba(99,39,183,.84),rgba(174,35,135,.7));
+  color:#fff;
+  box-shadow:0 0 10px rgba(207,67,255,.22),inset 0 0 8px rgba(255,255,255,.08);
+}
+.portrait-menu-action{width:100%;margin-top:9px}
+.portrait-menu-action.danger,.portrait-exit-confirm .danger{border-color:rgba(255,91,145,.58);color:#ff9cbd}
+.portrait-menu-action.close{border-color:rgba(93,182,255,.58);color:#fff}
+.portrait-exit-confirm{padding:18px 4px 4px;text-align:center}
+.portrait-exit-confirm strong{font-size:21px}
+.portrait-exit-confirm p{margin:8px 0 18px;color:#aaa5b5;font-size:12px}
+.portrait-exit-confirm>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+@media (max-width:700px) and (orientation:portrait){
+  .portrait-top-actions{top:max(12px,env(safe-area-inset-top));right:18px}
+  .portrait-top-actions button{width:48px;min-width:48px;height:55px;padding:3px}
+  .portrait-top-actions button>span{font-size:22px}
+  .portrait-top-actions button>small{font-size:8px}
+  .mobile-controls[data-control-layout="dpad-left"]{flex-direction:row-reverse}
+  .mobile-controls[data-control-size="large"]{
+    --portrait-dpad-size:clamp(140px,37vw,148px);
+    --portrait-dpad-height:clamp(129px,34.15vw,137px);
+    gap:clamp(22px,6vw,28px);
+  }
+  .mobile-controls[data-control-size="large"] .space-control{
+    flex-basis:clamp(160px,44vw,174px);
+    width:clamp(160px,44vw,174px);
+    height:clamp(70px,19.5vw,78px);
+  }
+  .mobile-controls[data-control-size="large"] .dpad-control button{width:54px;height:54px}
 }
 
 /* Phase 2 P2.2C: traced portrait command capsule and self-contained SVG orbs.

@@ -2,13 +2,18 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import type { CameraPreset } from "./PortraitGameMenu";
 
 type Rig = { root: THREE.Group; body: THREE.Group; leftArm: THREE.Group; rightArm: THREE.Group; leftLeg: THREE.Group; rightLeg: THREE.Group };
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, skin: 0xf0b7aa, hair: 0x241a2b, dark: 0x10111d, floor: 0x130f28 };
 
-export default function Stage3D() {
+type Stage3DProps = { cameraPreset?: CameraPreset };
+
+export default function Stage3D({ cameraPreset = "center" }: Stage3DProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const cameraPresetRef = useRef(cameraPreset);
+  cameraPresetRef.current = cameraPreset;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -105,13 +110,26 @@ export default function Stage3D() {
     player.root.scale.setScalar(.78);
     stage.add(player.root);
 
+    const cameraTarget = (portrait: boolean) => {
+      const preset = cameraPresetRef.current;
+      if (portrait) {
+        if (preset === "wide") return { fov: 38, y: 3.7, z: 26.5, targetY: 2.8 };
+        if (preset === "close") return { fov: 31, y: 3.42, z: 20.8, targetY: 2.7 };
+        return { fov: 34, y: 3.55, z: 23.5, targetY: 2.75 };
+      }
+      if (preset === "wide") return { fov: 42, y: 3.8, z: 23, targetY: 2.75 };
+      if (preset === "close") return { fov: 35, y: 3.5, z: 18.2, targetY: 2.65 };
+      return { fov: 38, y: 3.65, z: 20.5, targetY: 2.7 };
+    };
+
     const resize = () => {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
       const portrait = height > width;
-      camera.fov = portrait ? 34 : 38;
-      camera.position.set(0, portrait ? 3.55 : 3.65, portrait ? 23.5 : 20.5);
-      camera.lookAt(0, portrait ? 2.75 : 2.7, .2);
+      const target = cameraTarget(portrait);
+      camera.fov = target.fov;
+      camera.position.set(0, target.y, target.z);
+      camera.lookAt(0, target.targetY, .2);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
@@ -128,6 +146,12 @@ export default function Stage3D() {
       if (disposed) return;
       raf = requestAnimationFrame(animate);
       const t = clock.getElapsedTime();
+      const target = cameraTarget(host.clientHeight > host.clientWidth);
+      camera.position.y += (target.y - camera.position.y) * .14;
+      camera.position.z += (target.z - camera.position.z) * .14;
+      camera.fov += (target.fov - camera.fov) * .14;
+      camera.lookAt(0, target.targetY, .2);
+      camera.updateProjectionMatrix();
       const beat = t * 2.094;
       player.root.position.y = .02 + Math.abs(Math.sin(beat)) * .035 + Math.sin(beat * .5) * .022;
       player.root.rotation.y = Math.sin(beat * .32) * .08;

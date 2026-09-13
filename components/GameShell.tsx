@@ -11,11 +11,17 @@ import { WebAudioTransport } from "../game/web-audio-transport";
 import Stage3D from "./Stage3D";
 import AuditionGauge from "./AuditionGauge";
 import JudgementLabel, { JUDGEMENT_ARTWORK_SOURCES } from "./JudgementLabel";
+import PortraitGameMenu, { type CameraPreset, type ControlLayout, type ControlSize } from "./PortraitGameMenu";
 
 const INITIAL_STATS: GameStats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
 const READY_START_SECONDS = 4;
 const START_CUE_MS = 850;
+const SETTING_KEYS = {
+  controlLayout: "audition.controlLayout",
+  cameraPreset: "audition.cameraPreset",
+  controlSize: "audition.controlSize",
+} as const;
 
 type MusicApiResponse = { configs?: MusicConfig[] };
 
@@ -45,10 +51,28 @@ export default function GameShell() {
   const [songTime, setSongTime] = useState(0);
   const [debugEnabled, setDebugEnabled] = useState(false);
   const [seed, setSeed] = useState<number | undefined>();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
+  const [controlLayout, setControlLayout] = useState<ControlLayout>("space-left");
+  const [cameraPreset, setCameraPreset] = useState<CameraPreset>("center");
+  const [controlSize, setControlSize] = useState<ControlSize>("default");
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     setDebugEnabled(query.get("debug") === "1");
     if (query.has("seed") && Number.isFinite(Number(query.get("seed")))) setSeed(Number(query.get("seed")));
+  }, []);
+
+  useEffect(() => {
+    try {
+      const savedLayout = window.localStorage.getItem(SETTING_KEYS.controlLayout);
+      const savedCamera = window.localStorage.getItem(SETTING_KEYS.cameraPreset);
+      const savedSize = window.localStorage.getItem(SETTING_KEYS.controlSize);
+      if (savedLayout === "space-left" || savedLayout === "dpad-left") setControlLayout(savedLayout);
+      if (savedCamera === "center" || savedCamera === "wide" || savedCamera === "close") setCameraPreset(savedCamera);
+      if (savedSize === "default" || savedSize === "large") setControlSize(savedSize);
+    } catch {
+      // Storage can be unavailable in private/restricted browsing; defaults remain usable.
+    }
   }, []);
 
   const transportRef = useRef<WebAudioTransport | null>(null);
@@ -242,6 +266,40 @@ export default function GameShell() {
     }
   }, [reportAudioError, runtime, musicLibrary, selectedMusic]);
 
+  const persistControlLayout = useCallback((value: ControlLayout) => {
+    setControlLayout(value);
+    try { window.localStorage.setItem(SETTING_KEYS.controlLayout, value); } catch {}
+  }, []);
+
+  const persistCameraPreset = useCallback((value: CameraPreset) => {
+    setCameraPreset(value);
+    try { window.localStorage.setItem(SETTING_KEYS.cameraPreset, value); } catch {}
+  }, []);
+
+  const persistControlSize = useCallback((value: ControlSize) => {
+    setControlSize(value);
+    try { window.localStorage.setItem(SETTING_KEYS.controlSize, value); } catch {}
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setExitConfirmOpen(false);
+    setMenuOpen(false);
+  }, []);
+
+  const leaveGame = useCallback(() => {
+    runtime.stop();
+    runtime.setTimeSource(null);
+    transportRef.current?.reset();
+    if (directionTimer.current) window.clearTimeout(directionTimer.current);
+    if (judgementTimer.current) window.clearTimeout(judgementTimer.current);
+    if (startCueTimer.current) window.clearTimeout(startCueTimer.current);
+    setStarted(false); setFinished(false); setStats(INITIAL_STATS); setPerfectStreak(0);
+    setArrowCommand([]); setCompleted(0); setLevel(1); setJudgement(null); setGauge(0); setDelta(0);
+    setCountdown(null); setStartCue(false); setSongTime(0); setActiveDirection(null); setWrongDirection(null); setSpacePressed(false);
+    setAudioState(transportRef.current?.ready ? "ready" : "loading");
+    closeMenu();
+  }, [closeMenu, runtime]);
+
   const retryAudio = useCallback(async () => { audioAlertedRef.current = false; await playAudio(true); }, [playAudio]);
 
   const pressDirection = useCallback((direction: Direction) => {
@@ -295,11 +353,11 @@ export default function GameShell() {
     <main className="audition-page">
       {debugEnabled && <pre data-testid="rhythm-debug" style={{position:"fixed",top:0,left:0,zIndex:9999,maxHeight:"42dvh",overflow:"auto",maxWidth:"100vw",fontSize:10,background:"#000d",color:"#aef",pointerEvents:"none",margin:0}}>{JSON.stringify(runtime.debug, null, 2)}</pre>}
       <section className="audition-stage">
-        <Stage3D />
+        <Stage3D cameraPreset={cameraPreset} />
         <div className="audition-hud">
           <button className="hud-song" onClick={openSongPicker} disabled={started || musicLoading} aria-label="Chọn bài nhạc"><div className="song-cover">♫</div><div className="song-copy"><strong>{selectedMusic.title}</strong><span>BPM <b>{selectedMusic.BPM_exact}</b></span><div className="song-progress"><i style={{ width: `${progress}%` }} /></div><small>{formatTime(songTime)} / {formatTime(selectedMusic.durationMs / 1000)}</small></div></button>
           <div className="battle-score"><div className="score-number red">{stats.score.toLocaleString()}</div><b>VS</b><div className="score-number blue">179,342</div><div className="battle-bar"><i style={{ width: `${Math.min(100, 50 + stats.score / 10000)}%` }} /></div><span>RED</span><span>BLUE</span></div>
-          <div className="top-actions"><button onClick={startGame}>↻ REPLAY</button><button onClick={retryAudio}>ESC<small>ON/OFF</small></button></div>
+          <div className="top-actions portrait-top-actions"><button type="button" onClick={() => void startGame()} aria-label="Chơi lại"><span aria-hidden="true">↻</span><small>REPLAY</small></button><button type="button" onClick={() => setMenuOpen(true)} aria-label="Mở menu"><span aria-hidden="true">Ⅱ</span><small>MENU</small></button></div>
           <div className="level-panel"><div className="level-title">LEVEL <b>{level}</b></div><div className="mission"><strong>MISSION</strong><span>Perfect more than 20</span><small>({stats.perfect} / 20) {stats.perfect >= 20 ? "✓" : ""}</small></div><div className="function-key">F10&nbsp;&nbsp; ON/OFF</div></div>
           <div className="leaderboard">{[["1st", "ToanDev", stats.score, "gold"], ["2nd", "Audition King", 179342, "silver"], ["3rd", "Dancer Pro", 165230, "bronze"], ["4th", "Cool Girl", 142587, "blue"]].map(([rank, name, score, tone]) => <div className={`rank-line ${tone}`} key={String(rank)}><b>{rank}</b><span className="avatar" aria-hidden="true" /><span className="rank-copy"><span>{name}</span><strong>{Number(score).toLocaleString()}</strong></span></div>)}</div>
           <div className="combo-panel"><span>COMBO</span><strong>{stats.combo}</strong><b>{perfectStreak > 1 ? `Perfect x${perfectStreak}` : perfectStreak === 1 ? "Perfect" : ""}</b></div>
@@ -323,7 +381,7 @@ export default function GameShell() {
             </div>
           </div>
           <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All <i>▶</i></b></div><div className="bottom-mode"><strong>Audition - Club Dance</strong><span>{selectedMusic.BPM_exact} BPM <b>Hard</b></span><div>★★★☆☆</div></div><button className="exit-button">⇥<small>EXIT</small></button>
-          <div className="mobile-controls">
+          <div className="mobile-controls" data-control-layout={controlLayout} data-control-size={controlSize}>
             <button className={`space-control ${spacePressed ? "pressed" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressSpace(); }} aria-label="SPACE">
               <NextImage className="portrait-space-art" src="/ui/controls/portrait-space-from-sketch.png" alt="" width={315} height={150} priority unoptimized draggable={false} aria-hidden="true" />
             </button>
@@ -332,6 +390,7 @@ export default function GameShell() {
               {DIRECTIONS.map(direction => <button key={direction} className={`dpad-${direction} ${activeDirection === direction ? "pressed" : ""} ${arrowCommand[completed]?.requiredDirection === direction ? "target" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }} aria-label={direction} />)}
             </div>
           </div>
+          {menuOpen && <PortraitGameMenu controlLayout={controlLayout} cameraPreset={cameraPreset} controlSize={controlSize} exitConfirmOpen={exitConfirmOpen} onControlLayoutChange={persistControlLayout} onCameraPresetChange={persistCameraPreset} onControlSizeChange={persistControlSize} onRequestExit={() => setExitConfirmOpen(true)} onCancelExit={() => setExitConfirmOpen(false)} onConfirmExit={leaveGame} onClose={closeMenu} />}
           {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>{!musicLoading && musicLibrary.length === 0 && <strong>No playable saved charts available.<br /></strong>}Song: <b>{selectedMusic.title}</b><br />SPACE #1: <b>{firstPerfectSeconds.toFixed(3)}s</b> · BPM exact: <b>{activeChart.bpm.toFixed(4)}</b><br />Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first SPACE.</p><button onClick={startGame} disabled={musicLoading || audioState !== "ready" || !musicLibrary.some(item => item.id === selectedMusic.id)}>START</button><button className="song-select-button" onClick={openSongPicker} disabled={musicLoading}>♫ SELECT SONG</button><button className="configure-button" onClick={() => { window.location.href = "/tools/music-config"; }}>⚙ CONFIGURE MUSIC</button><button className="sound-button" onClick={() => { window.location.href = "/tools/audio-timing"; }}>🧪 AUDIO TIMING</button><button className="sound-button" onClick={() => { window.location.href = "/tools/rhythm-benchmark"; }}>📊 RHYTHM BENCHMARK</button><button className="sound-button" onClick={retryAudio} disabled={audioState === "loading"}>TEST SOUND</button></div></div>}
           {finished && <div className="start-overlay"><div className="ready-card results-card"><span>DANCE COMPLETE</span><h1>{stats.score.toLocaleString()}</h1><p>P {stats.perfect} · G {stats.great} · C {stats.cool} · B {stats.bad} · M {stats.miss}</p><button onClick={startGame}>PLAY AGAIN</button><button onClick={openSongPicker}>SELECT SONG</button></div></div>}
           {songPickerOpen && <SongPicker songs={musicLibrary} selectedId={selectedMusic.id} onSelect={chooseMusic} onClose={() => setSongPickerOpen(false)} />}
