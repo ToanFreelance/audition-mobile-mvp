@@ -196,6 +196,13 @@ Acceptance:
 
 Goal: close Phase 3 with a stable mobile character pipeline.
 
+Implementation complete — awaiting owner physical iPhone QA.
+
+- Mobile stage rendering uses a named 1.25 DPR cap while retaining antialiasing; desktop retains the 1.6 cap.
+- The placeholder stage uses one static SpotLight instead of three continuously animated SpotLights, while material-based cyan/violet accents remain.
+- The Stage3D RAF is suspended while the document is hidden and resumes from authoritative song time when foregrounded.
+- Stage3D retains one mount-owned RAF, with visibility listener, ResizeObserver, character, mixer/actions, scene resources and renderer cleanup on unmount.
+
 Validate:
 
 - iPhone Safari rendering stability;

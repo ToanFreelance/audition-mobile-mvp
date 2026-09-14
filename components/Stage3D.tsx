@@ -8,6 +8,13 @@ import type { CharacterPresentationEvent } from "./character/character-types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
+const MOBILE_DPR_CAP = 1.25;
+const DESKTOP_DPR_CAP = 1.6;
+
+function getStagePixelRatio() {
+  const mobileProfile = window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
+  return Math.min(window.devicePixelRatio || 1, mobileProfile ? MOBILE_DPR_CAP : DESKTOP_DPR_CAP);
+}
 
 type Stage3DProps = {
   cameraPreset?: CameraPreset;
@@ -53,7 +60,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     const context = canvas.getContext("webgl2");
     if (!context) return;
     const renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+    renderer.setPixelRatio(getStagePixelRatio());
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -69,14 +76,13 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     key.position.set(2, 8, 8);
     scene.add(key);
 
-    const spots: THREE.SpotLight[] = [];
-    for (const [x, color] of [[-5, COLORS.cyan], [0, COLORS.pink], [5, COLORS.violet]] as const) {
-      const light = new THREE.SpotLight(color, 45, 22, Math.PI / 7, 0.58, 1.1);
-      light.position.set(x, 8, 4.5);
-      light.target.position.set(0, 1.8, 0);
-      scene.add(light, light.target);
-      spots.push(light);
-    }
+    // One static key accent is enough for the placeholder stage. The cyan and
+    // violet accents remain in emissive/basic materials without adding lights
+    // to every MeshStandardMaterial shader or mutating intensities per frame.
+    const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
+    accent.position.set(0, 8, 4.5);
+    accent.target.position.set(0, 1.8, 0);
+    scene.add(accent, accent.target);
 
     const wall = new THREE.Mesh(new THREE.BoxGeometry(19, 8.5, 0.6), new THREE.MeshStandardMaterial({ color: 0x0c0b1c, roughness: .88, metalness: .15 }));
     wall.position.set(0, 4.2, -3.2);
@@ -161,6 +167,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       }
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      renderer.setPixelRatio(getStagePixelRatio());
       renderer.setSize(width, height, false);
     };
 
@@ -171,9 +178,14 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     const clock = new THREE.Clock();
     let raf = 0;
     let disposed = false;
-    const animate = () => {
-      if (disposed) return;
+    const scheduleFrame = () => {
+      if (disposed || document.hidden || raf !== 0) return;
       raf = requestAnimationFrame(animate);
+    };
+    const animate = () => {
+      raf = 0;
+      if (disposed) return;
+      if (document.hidden) return;
       const delta = Math.min(clock.getDelta(), .1);
       const t = clock.elapsedTime;
       const target = cameraTarget(host.clientHeight > host.clientWidth);
@@ -186,16 +198,26 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
       character.update(delta, t, getSongTimeMsRef.current?.() ?? 0);
-      spots.forEach((light, index) => { light.intensity = 32 + (Math.sin(t * 2.0 + index) + 1) * 8; });
       const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
       sign.scale.set(signPulse, signPulse, signPulse);
       renderer.render(scene, camera);
+      scheduleFrame();
     };
-    animate();
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+        return;
+      }
+      scheduleFrame();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    scheduleFrame();
 
     return () => {
       disposed = true;
       cancelAnimationFrame(raf);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       observer.disconnect();
       character.dispose();
       if (characterRef.current === character) characterRef.current = null;
