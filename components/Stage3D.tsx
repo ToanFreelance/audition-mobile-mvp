@@ -5,6 +5,7 @@ import * as THREE from "three";
 import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 import type { CharacterPresentationEvent } from "./character/character-types";
+import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 
@@ -41,9 +42,11 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     scene.background = new THREE.Color(0x03040a);
     scene.fog = new THREE.FogExp2(0x05050e, 0.032);
 
-    const camera = new THREE.PerspectiveCamera(38, 16 / 9, 0.1, 100);
-    camera.position.set(0, 3.65, 20.5);
-    camera.lookAt(0, 2.7, .2);
+    const initialCameraFrame = getCharacterCameraFrame("center", false);
+    const camera = new THREE.PerspectiveCamera(initialCameraFrame.fov, 16 / 9, 0.1, 100);
+    const cameraLookTarget = new THREE.Vector3(0, initialCameraFrame.targetY, initialCameraFrame.targetZ);
+    camera.position.set(0, initialCameraFrame.y, initialCameraFrame.z);
+    camera.lookAt(cameraLookTarget);
 
     // Rendering is optional; unavailable GPU must never stop the rhythm runtime.
     const canvas = document.createElement("canvas");
@@ -126,7 +129,11 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     const character = new CharacterActor();
     characterRef.current = character;
     character.setGameActive(isPlayingRef.current);
-    character.root.position.set(0, .02, .25);
+    character.root.position.set(
+      CHARACTER_STAGE_POSITION.x,
+      CHARACTER_STAGE_POSITION.y,
+      CHARACTER_STAGE_POSITION.z,
+    );
     stage.add(character.root);
     host.dataset.characterSource = "loading";
     void character.load().then((result) => {
@@ -137,26 +144,21 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
     });
 
-    const cameraTarget = (portrait: boolean) => {
-      const preset = cameraPresetRef.current;
-      if (portrait) {
-        if (preset === "wide") return { fov: 38, y: 3.7, z: 26.5, targetY: 2.8 };
-        if (preset === "close") return { fov: 31, y: 3.42, z: 20.8, targetY: 2.7 };
-        return { fov: 34, y: 3.55, z: 23.5, targetY: 2.75 };
-      }
-      if (preset === "wide") return { fov: 42, y: 3.8, z: 23, targetY: 2.75 };
-      if (preset === "close") return { fov: 35, y: 3.5, z: 18.2, targetY: 2.65 };
-      return { fov: 38, y: 3.65, z: 20.5, targetY: 2.7 };
-    };
+    const cameraTarget = (portrait: boolean) => getCharacterCameraFrame(cameraPresetRef.current, portrait);
 
+    let hasSized = false;
     const resize = () => {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
       const portrait = height > width;
       const target = cameraTarget(portrait);
-      camera.fov = target.fov;
-      camera.position.set(0, target.y, target.z);
-      camera.lookAt(0, target.targetY, .2);
+      if (!hasSized) {
+        camera.fov = target.fov;
+        camera.position.set(0, target.y, target.z);
+        cameraLookTarget.set(0, target.targetY, target.targetZ);
+        camera.lookAt(cameraLookTarget);
+        hasSized = true;
+      }
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
@@ -175,10 +177,13 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       const delta = Math.min(clock.getDelta(), .1);
       const t = clock.elapsedTime;
       const target = cameraTarget(host.clientHeight > host.clientWidth);
-      camera.position.y += (target.y - camera.position.y) * .14;
-      camera.position.z += (target.z - camera.position.z) * .14;
-      camera.fov += (target.fov - camera.fov) * .14;
-      camera.lookAt(0, target.targetY, .2);
+      const cameraEase = 1 - Math.pow(1 - .14, delta * 60);
+      camera.position.y += (target.y - camera.position.y) * cameraEase;
+      camera.position.z += (target.z - camera.position.z) * cameraEase;
+      camera.fov += (target.fov - camera.fov) * cameraEase;
+      cameraLookTarget.y += (target.targetY - cameraLookTarget.y) * cameraEase;
+      cameraLookTarget.z += (target.targetZ - cameraLookTarget.z) * cameraEase;
+      camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
       character.update(delta, t, getSongTimeMsRef.current?.() ?? 0);
       spots.forEach((light, index) => { light.intensity = 32 + (Math.sin(t * 2.0 + index) + 1) * 8; });
@@ -201,7 +206,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     };
   }, []);
 
-  return <div ref={hostRef} className="stage-3d" aria-label="3D club dance stage" />;
+  return <div ref={hostRef} className="stage-3d" data-camera-preset={cameraPreset} aria-label="3D club dance stage" />;
 }
 
 function createSpeaker(parent: THREE.Group, x: number, y: number, accent: number, scale = 1) {

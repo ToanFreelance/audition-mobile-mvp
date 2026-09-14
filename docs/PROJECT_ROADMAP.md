@@ -178,10 +178,13 @@ Acceptance:
 
 Goal: ensure the real humanoid works with the accepted portrait gameplay composition.
 
-- Validate `Center`, `Wide`, `Close` camera presets against the new humanoid.
+- Validate `Center`, `Wide`, `Close` camera presets against the new humanoid at both 390×844 and 430×932.
+- Keep the model normalized to 3.4 world units at a stable `(0, 0.02, 0.25)` actor root. Frame the full P3.4 clip pool from a fixed torso target rather than following animated bones.
+- Use distinct portrait camera contracts: `Center` `(FOV 38, y 3.45, z 18.5 → target y 1.75)`, `Wide` `(FOV 41, y 3.65, z 20.5 → target y 1.75)`, and `Close` `(FOV 36, y 3.3, z 17.9 → target y 1.8)`.
 - Keep character readable without covering command/judgement/leaderboard/controls.
 - Tune model scale, root position and camera target before changing HUD geometry.
 - Preserve safe-area and dynamic viewport behavior.
+- Treat continuous RAF, antialiasing, capped 1.6 device pixel ratio, five stage lights and continuous skeletal evaluation as P3.6 thermal/performance review inputs; P3.5 does not change those accepted render features.
 
 Acceptance:
 

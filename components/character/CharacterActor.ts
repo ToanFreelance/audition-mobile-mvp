@@ -3,10 +3,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { CharacterAnimationController } from "./CharacterAnimationController";
 import { createFallbackCharacter, updateFallbackCharacter, type FallbackCharacter } from "./FallbackCharacter";
 import type { CharacterAssetMetrics, CharacterLoadResult, CharacterPresentation, CharacterPresentationEvent } from "./character-types";
+import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
 
 export const DEFAULT_CHARACTER_ASSET_URL = "/characters/default/character.glb";
-
-const TARGET_CHARACTER_HEIGHT = 3.4;
 
 export class CharacterActor implements CharacterPresentation {
   readonly root = new THREE.Group();
@@ -127,7 +126,7 @@ function normalizeHumanoid(model: THREE.Object3D) {
   const initialSize = initialBounds.getSize(new THREE.Vector3());
   if (!Number.isFinite(initialSize.y) || initialSize.y <= 0) throw new Error("Character asset has invalid bounds");
 
-  model.scale.multiplyScalar(TARGET_CHARACTER_HEIGHT / initialSize.y);
+  model.scale.multiplyScalar(NORMALIZED_CHARACTER_HEIGHT / initialSize.y);
   model.updateMatrixWorld(true);
 
   const bounds = new THREE.Box3().setFromObject(model);
