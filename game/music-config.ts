@@ -25,8 +25,10 @@ export type MusicConfig = {
     levelSequenceCounts: number[];
     commandRevealPasses: Record<string, number>;
     finishReverseRequired: boolean;
-    /** Legacy saved field; Solo Easy runtime uses duration-aware planning. */
+    /** Legacy saved field; used only as a fallback for missed Finish suppression. */
     finishHideTurns?: number;
+    successfulFinishHideTurns?: number;
+    missedFinishHideTurns?: number;
     commandLengths?: number[];
     endingReserveTurns?: number;
     finishResumeLevel: number;
@@ -60,7 +62,8 @@ export const DEFAULT_MUSIC_CONFIG: MusicConfig = {
     levelSequenceCounts: [1, 2, 3, 4, 4, 6, 6],
     commandRevealPasses: { "1-5": 1, "6-9": 2 },
     finishReverseRequired: true,
-    finishHideTurns: 2,
+    successfulFinishHideTurns: 4,
+    missedFinishHideTurns: 2,
     finishResumeLevel: 6,
     missPenaltyTurns: { "1-5": 1, "6-9": 2 },
     judgementCombo: true,

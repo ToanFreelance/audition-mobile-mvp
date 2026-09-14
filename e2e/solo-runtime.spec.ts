@@ -50,8 +50,9 @@ test('Aloha seed 123 keeps Finish on deterministic global turns and scores visib
   expect(f.runtime.isFinished).toBe(false);
 });
 
-test('all-Miss Finish remains visible, times out as Miss, and preserves post-Finish suppression', () => {
+test('Finish miss remains visible, times out as Miss, and keeps its existing two hidden turns', () => {
   const f = fixture(277432, false, 101.0504, 10083);
+  expect(f.chart.soloSettings?.missedFinishHideTurns).toBe(2);
   while (!f.runtime.currentTurn.isFinish) {
     f.show();
     f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
@@ -65,11 +66,17 @@ test('all-Miss Finish remains visible, times out as Miss, and preserves post-Fin
   f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
   expect(f.runtime.stats.miss).toBe(before.miss + 1);
   expect(f.runtime.currentTurn.absoluteTurn).toBe(finishTurn + 3);
+  expect(f.runtime.currentTurn).toMatchObject({ level: 6, sequenceIndex: 2 });
+  for (const hiddenTurn of [finishTurn + 1, finishTurn + 2]) {
+    f.at(zoneExitMs(targetSpaceMs(10083, 101.0504, hiddenTurn), f.chart.bpm));
+    expect(f.runtime.debug.commandVisible).toBe(false);
+  }
   expect(f.runtime.debug.commandVisible).toBe(false);
 });
 
-test('successful Finish preserves reverse input semantics and hides the next two global turns', () => {
+test('successful Finish hides turns 39-42, resumes L6 at 43, and keeps the next Finish at 62', () => {
   const f = fixture(277432, false, 101.0504, 10083);
+  expect(f.chart.soloSettings?.successfulFinishHideTurns).toBe(4);
   while (!f.runtime.currentTurn.isFinish) f.hit();
   expect(f.runtime.currentTurn.absoluteTurn).toBe(38);
   const finishToken = f.runtime.currentTurn.arrowCommand.find(token => token.reverse);
@@ -77,15 +84,20 @@ test('successful Finish preserves reverse input semantics and hides the next two
   expect(finishToken?.requiredDirection).toBe(oppositeDirection(finishToken!.displayDirection));
 
   expect(f.hit()).toBe('perfect');
-  expect(f.runtime.currentTurn.absoluteTurn).toBe(41);
+  expect(f.runtime.currentTurn.absoluteTurn).toBe(43);
   expect(f.runtime.currentPhase).toBe('post-finish-rest');
   expect(f.runtime.debug.commandVisible).toBe(false);
 
-  f.at(targetSpaceMs(10083, 101.0504, 40));
-  expect(f.runtime.debug.commandVisible).toBe(false);
+  for (const hiddenTurn of [39, 40, 41, 42]) {
+    f.at(zoneExitMs(targetSpaceMs(10083, 101.0504, hiddenTurn), f.chart.bpm));
+    expect(f.runtime.debug.commandVisible).toBe(false);
+  }
   f.at(f.runtime.debug.revealAtMs + 0.001);
   expect(f.runtime.debug.commandVisible).toBe(true);
-  expect(f.runtime.currentTurn).toMatchObject({ level: 6, sequenceIndex: 2, absoluteTurn: 41 });
+  expect(f.runtime.currentTurn).toMatchObject({ level: 6, sequenceIndex: 4, absoluteTurn: 43 });
+
+  while (!f.runtime.currentTurn.isFinish) f.hit();
+  expect(f.runtime.currentTurn).toMatchObject({ level: 9, absoluteTurn: 62, isFinish: true });
 });
 
 test('L5 final-turn Miss consumes turn 15 in L6 and reveals on turn 16', () => {
@@ -225,13 +237,18 @@ test('Finish planner fits complete cycles and keeps positions after a Finish mis
   expect(planAfterFinish(60,83,DEFAULT_SOLO_SETTINGS,true).finalFinish).toBe(true);
   expect(planAfterFinish(60,83).finalFinish).toBe(true);
 });
-test('intermediate Finish remains Level 9, returns to L6, final Finish locks input until actual song end',()=>{
+test('intermediate Finish enters authoritative rest; final Finish locks input until actual song end',()=>{
   const f=fixture(170000,true); let finishes=0; let guard=0;
   while(f.runtime.currentPhase!=='ending'&&guard++<100){
     if(f.runtime.currentTurn.isFinish){
       expect(f.runtime.currentLevel).toBe(9);expect(f.runtime.currentTurn.arrowCommand.some(t=>t.reverse)).toBe(true);finishes++;
       const final=f.runtime.finalFinish;f.hit();
-      if(!final){expect(f.runtime.currentLevel).toBe(6);expect(f.runtime.currentPhase).toBe('post-finish-rest');}
+      if(!final){
+        expect(f.runtime.currentPhase).toBe('post-finish-rest');expect(f.runtime.debug.commandVisible).toBe(false);
+        // This synthetic fixture budgets one slot per level. Suppression consumes
+        // its L6-L8 slots, while the next Level 9 Finish remains unsuppressed.
+        expect(f.runtime.currentTurn).toMatchObject({ level: 9, isFinish: true });
+      }
     }else f.hit();
   }
   expect(finishes).toBeGreaterThan(1);expect(f.runtime.currentPhase).toBe('ending');

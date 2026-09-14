@@ -228,7 +228,10 @@ Those remain assigned to later roadmap phases.
 - Finish preserves its label, red special treatment and reverse token. Input judgement uses `requiredDirection`; a completed reverse token renders `requiredDirection`.
 - Finish is not a game-end condition. Only actual AUDIO END ends gameplay.
 - With Aloha and `seed=123`, the deterministic Finish cadence is `38, 62, 86, 110`.
-- Post-Finish behavior is `38 Finish → 39–40 hidden → 41 L6 visible`; the timeline continues normally afterward.
+- Reference review of the original 110 BPM gameplay establishes successful-Finish behavior as `38 Finish → 39–42 hidden → 43 L6 visible`; the timeline continues normally afterward.
+- Those four hidden slots consume the existing L6→L9 global-turn budget. They do not add replacement turns, extend a level or shift the locked `38, 62, 86, 110` Finish cadence.
+- A missed Finish preserves its existing two-hidden-turn penalty. Success and miss suppression settings are explicit and independent.
+- Future character special animation may consume this authoritative presentation window, but animation duration must never own or change scheduler timing.
 
 ## Cross-level suppression examples
 

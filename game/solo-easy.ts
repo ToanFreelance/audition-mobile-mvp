@@ -6,8 +6,20 @@ export const SOLO_SEQUENCE_COUNTS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 // independent from that budget; hidden and penalty turns consume it too.
 export const SOLO_COMMAND_LENGTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 export const ENDING_RESERVE_TURNS = 2;
-export type SoloSettings = { sequenceCounts: readonly number[]; commandLengths: readonly number[]; endingReserveTurns: number; finishHideTurns: number };
-export const DEFAULT_SOLO_SETTINGS: SoloSettings = { sequenceCounts: SOLO_SEQUENCE_COUNTS, commandLengths: SOLO_COMMAND_LENGTHS, endingReserveTurns: ENDING_RESERVE_TURNS, finishHideTurns: 2 };
+export type SoloSettings = {
+  sequenceCounts: readonly number[];
+  commandLengths: readonly number[];
+  endingReserveTurns: number;
+  successfulFinishHideTurns: number;
+  missedFinishHideTurns: number;
+};
+export const DEFAULT_SOLO_SETTINGS: SoloSettings = {
+  sequenceCounts: SOLO_SEQUENCE_COUNTS,
+  commandLengths: SOLO_COMMAND_LENGTHS,
+  endingReserveTurns: ENDING_RESERVE_TURNS,
+  successfulFinishHideTurns: 4,
+  missedFinishHideTurns: 2,
+};
 export type SoloAppearance = { level: number; sequenceIndex: number; isFinish: boolean };
 export const turnDurationMs = (bpmExact: number) => 4 * 60000 / bpmExact;
 export const targetSpaceMs = (spaceStartMs: number, bpmExact: number, absoluteTurn: number) => spaceStartMs + absoluteTurn * turnDurationMs(bpmExact);

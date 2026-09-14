@@ -172,7 +172,7 @@ export class RhythmRuntime {
     const previous = this.turn;
     this.visible = false; this.commandIndex = 0; this.awaitingSpace = false;
     const requestedHidden = previous.isFinish
-      ? this.settings.finishHideTurns
+      ? judgement === 'miss' ? this.settings.missedFinishHideTurns : this.settings.successfulFinishHideTurns
       : judgement === 'miss' ? missPenaltyTurns(previous.level) : successHiddenTurns(previous.level);
     this.hiddenFromTurn = previous.absoluteTurn;
     let nextAbsolute = previous.absoluteTurn + 1;
