@@ -4,31 +4,34 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
-import type { CharacterReactionSignal } from "./character/character-types";
+import type { CharacterPresentationEvent } from "./character/character-types";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 
 type Stage3DProps = {
   cameraPreset?: CameraPreset;
   isPlaying?: boolean;
-  reaction?: CharacterReactionSignal | null;
+  characterEvent?: CharacterPresentationEvent | null;
+  getSongTimeMs?: () => number;
 };
 
-export default function Stage3D({ cameraPreset = "center", isPlaying = false, reaction = null }: Stage3DProps) {
+export default function Stage3D({ cameraPreset = "center", isPlaying = false, characterEvent = null, getSongTimeMs }: Stage3DProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
   const isPlayingRef = useRef(isPlaying);
+  const getSongTimeMsRef = useRef(getSongTimeMs);
   cameraPresetRef.current = cameraPreset;
   isPlayingRef.current = isPlaying;
+  getSongTimeMsRef.current = getSongTimeMs;
 
   useEffect(() => {
-    characterRef.current?.setBaseState(isPlaying ? "dance" : "idle");
+    characterRef.current?.setGameActive(isPlaying);
   }, [isPlaying]);
 
   useEffect(() => {
-    if (reaction) characterRef.current?.triggerReaction(reaction.reaction, reaction.id);
-  }, [reaction]);
+    if (characterEvent) characterRef.current?.handlePresentationEvent(characterEvent);
+  }, [characterEvent]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -122,7 +125,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, re
 
     const character = new CharacterActor();
     characterRef.current = character;
-    character.setBaseState(isPlayingRef.current ? "dance" : "idle");
+    character.setGameActive(isPlayingRef.current);
     character.root.position.set(0, .02, .25);
     stage.add(character.root);
     host.dataset.characterSource = "loading";
@@ -177,7 +180,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, re
       camera.fov += (target.fov - camera.fov) * .14;
       camera.lookAt(0, target.targetY, .2);
       camera.updateProjectionMatrix();
-      character.update(delta, t);
+      character.update(delta, t, getSongTimeMsRef.current?.() ?? 0);
       spots.forEach((light, index) => { light.intensity = 32 + (Math.sin(t * 2.0 + index) + 1) * 8; });
       const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
       sign.scale.set(signPulse, signPulse, signPulse);

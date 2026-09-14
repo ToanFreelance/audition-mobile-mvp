@@ -12,7 +12,8 @@ import Stage3D from "./Stage3D";
 import AuditionGauge from "./AuditionGauge";
 import JudgementLabel, { JUDGEMENT_ARTWORK_SOURCES } from "./JudgementLabel";
 import PortraitGameMenu, { type CameraPreset, type ControlLayout, type ControlSize } from "./PortraitGameMenu";
-import type { CharacterReactionSignal } from "./character/character-types";
+import { createCharacterPresentationEvent } from "./character/choreography";
+import type { CharacterPresentationEvent } from "./character/character-types";
 
 const INITIAL_STATS: GameStats = { score: 0, combo: 0, maxCombo: 0, perfect: 0, great: 0, cool: 0, bad: 0, miss: 0 };
 const DIRECTIONS: Direction[] = ["left", "up", "down", "right"];
@@ -57,7 +58,7 @@ export default function GameShell() {
   const [controlLayout, setControlLayout] = useState<ControlLayout>("space-left");
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>("center");
   const [controlSize, setControlSize] = useState<ControlSize>("default");
-  const [characterReaction, setCharacterReaction] = useState<CharacterReactionSignal | null>(null);
+  const [characterEvent, setCharacterEvent] = useState<CharacterPresentationEvent | null>(null);
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     setDebugEnabled(query.get("debug") === "1");
@@ -82,7 +83,8 @@ export default function GameShell() {
   const judgementTimer = useRef<number | null>(null);
   const startCueTimer = useRef<number | null>(null);
   const audioAlertedRef = useRef(false);
-  const characterReactionSequence = useRef(0);
+  const characterEventSequence = useRef(0);
+  const getAuthoritativeSongTimeMs = useCallback(() => transportRef.current?.getCurrentTimeMs() ?? 0, []);
 
   useEffect(() => {
     const images = JUDGEMENT_ARTWORK_SOURCES.map(src => {
@@ -115,12 +117,9 @@ export default function GameShell() {
         startCueTimer.current = window.setTimeout(() => setStartCue(false), START_CUE_MS);
       }
     },
-    onJudgement: (value, streak) => {
+    onJudgement: (value, streak, meta) => {
       setPerfectStreak(streak);
-      setCharacterReaction({
-        id: ++characterReactionSequence.current,
-        reaction: value === "bad" || value === "miss" ? "miss" : "hit",
-      });
+      setCharacterEvent(createCharacterPresentationEvent(++characterEventSequence.current, value, meta, seed));
       if (judgementTimer.current) window.clearTimeout(judgementTimer.current);
       setJudgement(value);
       judgementTimer.current = window.setTimeout(() => setJudgement(null), 1000);
@@ -215,6 +214,7 @@ export default function GameShell() {
     setCompleted(0);
     setLevel(1);
     setJudgement(null);
+    setCharacterEvent(null);
     setCountdown(null);
     setStartCue(false);
   }, [runtime, started]);
@@ -254,7 +254,7 @@ export default function GameShell() {
     audioAlertedRef.current = false;
     if (!musicLibrary.some(item => item.id === selectedMusic.id)) return;
     runtime.stop(); setPerfectStreak(0);
-    setStats(INITIAL_STATS); setArrowCommand([]); setCompleted(0); setLevel(1); setJudgement(null); setFinished(false); setStarted(false); setCountdown(null); setStartCue(false); setAudioError(null); setSongTime(0);
+    setStats(INITIAL_STATS); setArrowCommand([]); setCompleted(0); setLevel(1); setJudgement(null); setCharacterEvent(null); setFinished(false); setStarted(false); setCountdown(null); setStartCue(false); setAudioError(null); setSongTime(0);
     const transport = transportRef.current;
     if (!transport) { reportAudioError("Web Audio transport chưa sẵn sàng."); return; }
     try {
@@ -302,7 +302,7 @@ export default function GameShell() {
     if (startCueTimer.current) window.clearTimeout(startCueTimer.current);
     setStarted(false); setFinished(false); setStats(INITIAL_STATS); setPerfectStreak(0);
     setArrowCommand([]); setCompleted(0); setLevel(1); setJudgement(null); setGauge(0); setDelta(0);
-    setCountdown(null); setStartCue(false); setSongTime(0); setActiveDirection(null); setWrongDirection(null); setSpacePressed(false);
+    setCountdown(null); setStartCue(false); setSongTime(0); setCharacterEvent(null); setActiveDirection(null); setWrongDirection(null); setSpacePressed(false);
     setAudioState(transportRef.current?.ready ? "ready" : "loading");
     closeMenu();
   }, [closeMenu, runtime]);
@@ -360,7 +360,7 @@ export default function GameShell() {
     <main className="audition-page">
       {debugEnabled && <pre data-testid="rhythm-debug" style={{position:"fixed",top:0,left:0,zIndex:9999,maxHeight:"42dvh",overflow:"auto",maxWidth:"100vw",fontSize:10,background:"#000d",color:"#aef",pointerEvents:"none",margin:0}}>{JSON.stringify(runtime.debug, null, 2)}</pre>}
       <section className="audition-stage">
-        <Stage3D cameraPreset={cameraPreset} isPlaying={started} reaction={characterReaction} />
+        <Stage3D cameraPreset={cameraPreset} isPlaying={started} characterEvent={characterEvent} getSongTimeMs={getAuthoritativeSongTimeMs} />
         <div className="audition-hud">
           <button className="hud-song" onClick={openSongPicker} disabled={started || musicLoading} aria-label="Chọn bài nhạc"><div className="song-cover">♫</div><div className="song-copy"><strong>{selectedMusic.title}</strong><span>BPM <b>{selectedMusic.BPM_exact}</b></span><div className="song-progress"><i style={{ width: `${progress}%` }} /></div><small>{formatTime(songTime)} / {formatTime(selectedMusic.durationMs / 1000)}</small></div></button>
           <div className="battle-score"><div className="score-number red">{stats.score.toLocaleString()}</div><b>VS</b><div className="score-number blue">179,342</div><div className="battle-bar"><i style={{ width: `${Math.min(100, 50 + stats.score / 10000)}%` }} /></div><span>RED</span><span>BLUE</span></div>

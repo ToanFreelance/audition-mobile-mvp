@@ -143,6 +143,10 @@ Goal: synchronize beat-critical character motion to the authoritative song timel
 - Remove reliance on hard-coded independent rhythm constants for beat-critical character motion.
 - Render interpolation may still use `requestAnimationFrame`, but phase alignment must come from authoritative song time.
 - Do not create a second scheduler.
+- Select choreography deterministically from shared seed + absolute turn identity, while anchoring each player's move to that player's exact authoritative judgement timestamp.
+- Recompute action phase from `songTimeMs - actionStartSongTimeMs` so late delivery and dropped render frames catch up without permanent drift.
+- Miss/Bad presentation does not start a normal dance; the next successful turn establishes a fresh per-player anchor.
+- Successful Finish presentation preserves its actual SPACE timestamp and `isFinish` identity, but never owns or extends the locked scheduler rest window.
 
 Acceptance:
 

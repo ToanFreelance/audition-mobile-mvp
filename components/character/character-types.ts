@@ -2,18 +2,38 @@ import type * as THREE from "three";
 
 export type CharacterSource = "gltf" | "fallback";
 
-export type CharacterBaseState = "idle" | "dance";
-export type CharacterReaction = "hit" | "miss";
+export type CharacterChoreographyId = "dance" | "wave" | "yes" | "finish-jump";
+export type CharacterSuccessJudgement = "perfect" | "great" | "cool";
+export type CharacterFailJudgement = "bad" | "miss";
 
-export type CharacterReactionSignal = {
-  id: number;
-  reaction: CharacterReaction;
+type CharacterEventBase = {
+  eventId: number;
+  absoluteTurn: number;
+  level: number;
+  isFinish: boolean;
+  actionStartSongTimeMs: number;
 };
 
+export type CharacterDanceEvent = CharacterEventBase & {
+  kind: "dance";
+  judgement: CharacterSuccessJudgement;
+  choreographyId: CharacterChoreographyId;
+};
+
+export type CharacterFailEvent = CharacterEventBase & {
+  kind: "fail";
+  judgement: CharacterFailJudgement;
+};
+
+export type CharacterPresentationEvent = CharacterDanceEvent | CharacterFailEvent;
+export type CharacterAnimationMode = "idle" | "dance" | "miss";
+
 export type CharacterAnimationState = {
-  baseState: CharacterBaseState;
-  reaction: CharacterReaction | null;
+  mode: CharacterAnimationMode;
   activeClip: string | null;
+  activeEventId: number | null;
+  actionStartSongTimeMs: number | null;
+  clipTimeSeconds: number;
 };
 
 export type CharacterAssetMetrics = {
@@ -37,9 +57,9 @@ export type CharacterLoadResult = {
 export interface CharacterPresentation {
   readonly root: THREE.Group;
   load(): Promise<CharacterLoadResult | null>;
-  update(deltaSeconds: number, renderTimeSeconds: number): void;
-  setBaseState(state: CharacterBaseState): void;
-  triggerReaction(reaction: CharacterReaction, eventId: number): boolean;
+  update(deltaSeconds: number, renderTimeSeconds: number, songTimeMs: number): void;
+  setGameActive(active: boolean): void;
+  handlePresentationEvent(event: CharacterPresentationEvent): boolean;
   setVisible(visible: boolean): void;
   dispose(): void;
 }

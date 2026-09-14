@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { CharacterAnimationController } from "./CharacterAnimationController";
 import { createFallbackCharacter, updateFallbackCharacter, type FallbackCharacter } from "./FallbackCharacter";
-import type { CharacterAssetMetrics, CharacterBaseState, CharacterLoadResult, CharacterPresentation, CharacterReaction } from "./character-types";
+import type { CharacterAssetMetrics, CharacterLoadResult, CharacterPresentation, CharacterPresentationEvent } from "./character-types";
 
 export const DEFAULT_CHARACTER_ASSET_URL = "/characters/default/character.glb";
 
@@ -17,7 +17,8 @@ export class CharacterActor implements CharacterPresentation {
   private animationController: CharacterAnimationController | null = null;
   private clips: THREE.AnimationClip[] = [];
   private fallback: FallbackCharacter | null = null;
-  private baseState: CharacterBaseState = "idle";
+  private gameActive = false;
+  private presentationEvent: CharacterPresentationEvent | null = null;
   private loadVersion = 0;
   private disposed = false;
 
@@ -44,7 +45,8 @@ export class CharacterActor implements CharacterPresentation {
       const idleClip = this.clips.find((clip) => clip.name.toLowerCase() === "idle") ?? null;
       this.mixer = new THREE.AnimationMixer(this.model);
       this.animationController = new CharacterAnimationController(this.mixer, this.clips);
-      this.animationController.setBaseState(this.baseState);
+      this.animationController.setGameActive(this.gameActive);
+      if (this.presentationEvent) this.animationController.handlePresentationEvent(this.presentationEvent);
 
       return {
         source: "gltf",
@@ -58,18 +60,20 @@ export class CharacterActor implements CharacterPresentation {
     }
   }
 
-  update(deltaSeconds: number, renderTimeSeconds: number) {
-    this.animationController?.update(deltaSeconds);
+  update(deltaSeconds: number, renderTimeSeconds: number, songTimeMs: number) {
+    this.animationController?.update(deltaSeconds, songTimeMs);
     if (this.fallback) updateFallbackCharacter(this.fallback, renderTimeSeconds);
   }
 
-  setBaseState(state: CharacterBaseState) {
-    this.baseState = state;
-    this.animationController?.setBaseState(state);
+  setGameActive(active: boolean) {
+    this.gameActive = active;
+    if (!active) this.presentationEvent = null;
+    this.animationController?.setGameActive(active);
   }
 
-  triggerReaction(reaction: CharacterReaction, eventId: number) {
-    return this.animationController?.triggerReaction(reaction, eventId) ?? false;
+  handlePresentationEvent(event: CharacterPresentationEvent) {
+    this.presentationEvent = event;
+    return this.animationController?.handlePresentationEvent(event) ?? false;
   }
 
   setVisible(visible: boolean) {

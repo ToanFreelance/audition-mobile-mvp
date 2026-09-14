@@ -1,13 +1,13 @@
 import { getGaugeTiming } from './gauge-timing';
 import { RhythmEngine, PERFECT_CENTER, SCORE_ZONE_END, SCORE_ZONE_START } from './rhythm';
 import { createArrowCommand, DEFAULT_SOLO_SETTINGS, lastPlayableTurn, minimumRemainingTurns, missPenaltyTurns, planAfterFinish, seededRandom, soloCycle, successHiddenTurns, targetSpaceMs, turnDurationMs, zoneEntryMs, zoneExitMs, type SoloAppearance } from './solo-easy';
-import type { ArrowToken, Chart, Direction, GameStats, Judgement, SoloTurn } from './types';
+import type { ArrowToken, Chart, Direction, GameStats, Judgement, JudgementMeta, SoloTurn } from './types';
 
 export { PERFECT_CENTER, SCORE_ZONE_END, SCORE_ZONE_START } from './rhythm';
 export type RhythmPhase = 'idle' | 'intro' | 'countdown' | 'playing-command' | 'awaiting-space' | 'command-hidden' | 'miss-penalty' | 'finish' | 'post-finish-rest' | 'ending' | 'song-finished';
 export type RhythmRuntimeCallbacks = {
   onStats?: (stats: GameStats) => void;
-  onJudgement?: (judgement: Judgement, perfectStreak: number) => void;
+  onJudgement?: (judgement: Judgement, perfectStreak: number, meta: JudgementMeta) => void;
   onArrowCommand?: (arrowCommand: ArrowToken[], filled: number) => void;
   onFinished?: (stats: GameStats) => void;
   onLevel?: (level: number) => void;
@@ -165,11 +165,16 @@ export class RhythmRuntime {
   }
   private resolve(judgement: Judgement, atMs: number) {
     if (judgement === 'miss' && !this.engine.missMove(this.turn.absoluteTurn)) return;
+    const previous = this.turn;
     this.streak = judgement === 'perfect' ? this.streak + 1 : 0;
     this.lastJudgement = judgement; this.judgementAtMs = atMs;
-    this.callbacks.onStats?.(this.stats); this.callbacks.onJudgement?.(judgement, this.streak);
+    this.callbacks.onStats?.(this.stats); this.callbacks.onJudgement?.(judgement, this.streak, {
+      atMs,
+      absoluteTurn: previous.absoluteTurn,
+      level: previous.level,
+      isFinish: previous.isFinish,
+    });
     this.setCountdown(null);
-    const previous = this.turn;
     this.visible = false; this.commandIndex = 0; this.awaitingSpace = false;
     const requestedHidden = previous.isFinish
       ? judgement === 'miss' ? this.settings.missedFinishHideTurns : this.settings.successfulFinishHideTurns

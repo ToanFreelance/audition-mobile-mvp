@@ -1,31 +1,44 @@
 import * as THREE from "three";
-import type { CharacterAnimationState, CharacterBaseState, CharacterReaction } from "./character-types";
-
-const TRANSITION_SECONDS = 0.14;
+import type {
+  CharacterAnimationState,
+  CharacterChoreographyId,
+  CharacterDanceEvent,
+  CharacterPresentationEvent,
+} from "./character-types";
 
 export const ROBOT_EXPRESSIVE_CLIP_MAP = {
   idle: "Idle",
-  dance: "Dance",
-  hit: "ThumbsUp",
   miss: "No",
-} as const satisfies Record<CharacterBaseState | CharacterReaction, string>;
+  dance: "Dance",
+  wave: "Wave",
+  yes: "Yes",
+  "finish-jump": "Jump",
+} as const satisfies Record<"idle" | "miss" | CharacterChoreographyId, string>;
+
+export function deriveLoopedClipTimeSeconds(
+  songTimeMs: number,
+  actionStartSongTimeMs: number,
+  clipDurationSeconds: number,
+) {
+  const elapsedSeconds = Math.max(0, songTimeMs - actionStartSongTimeMs) / 1000;
+  if (!(clipDurationSeconds > 0)) return 0;
+  return elapsedSeconds % clipDurationSeconds;
+}
 
 export class CharacterAnimationController {
   private readonly clipsByName = new Map<string, THREE.AnimationClip>();
   private readonly actions = new Map<string, THREE.AnimationAction>();
-  private baseState: CharacterBaseState = "idle";
-  private activeBaseAction: THREE.AnimationAction | null = null;
-  private activeReaction: CharacterReaction | null = null;
-  private activeReactionAction: THREE.AnimationAction | null = null;
-  private lastReactionEventId: number | null = null;
+  private activeAction: THREE.AnimationAction | null = null;
+  private activeDanceEvent: CharacterDanceEvent | null = null;
+  private mode: CharacterAnimationState["mode"] = "idle";
+  private lastEventId: number | null = null;
+  private clipTimeSeconds = 0;
+  private gameActive = false;
   private disposed = false;
 
   private readonly onMixerFinished = (event: THREE.AnimationMixerEventMap["finished"]) => {
-    if (event.action !== this.activeReactionAction) return;
-    event.action.stop();
-    this.activeReaction = null;
-    this.activeReactionAction = null;
-    this.playBaseState();
+    if (this.mode !== "miss" || event.action !== this.activeAction) return;
+    this.playIdle();
   };
 
   constructor(
@@ -34,57 +47,49 @@ export class CharacterAnimationController {
   ) {
     for (const clip of clips) this.clipsByName.set(clip.name.toLowerCase(), clip);
     this.mixer.addEventListener("finished", this.onMixerFinished);
-    this.playBaseState();
+    this.playIdle();
   }
 
-  setBaseState(state: CharacterBaseState) {
-    if (this.disposed) return;
-    if (state === this.baseState && this.activeBaseAction) return;
+  setGameActive(active: boolean) {
+    if (this.disposed || active === this.gameActive) return;
+    this.gameActive = active;
+    if (!active) {
+      this.lastEventId = null;
+      this.playIdle();
+    }
+  }
 
-    const stateChanged = state !== this.baseState;
-    this.baseState = state;
-    if (this.activeReactionAction) {
-      if (stateChanged && this.activeBaseAction) {
-        this.activeBaseAction.stop();
-        this.activeBaseAction = null;
-      }
+  handlePresentationEvent(event: CharacterPresentationEvent) {
+    if (this.disposed || !this.gameActive || event.eventId === this.lastEventId) return false;
+    this.lastEventId = event.eventId;
+    return event.kind === "dance" ? this.playDance(event) : this.playMiss();
+  }
+
+  update(deltaSeconds: number, songTimeMs: number) {
+    if (this.disposed) return;
+    if (this.mode === "dance" && this.activeDanceEvent && this.activeAction) {
+      this.clipTimeSeconds = deriveLoopedClipTimeSeconds(
+        songTimeMs,
+        this.activeDanceEvent.actionStartSongTimeMs,
+        this.activeAction.getClip().duration,
+      );
+      this.activeAction.time = this.clipTimeSeconds;
+      // A paused action cannot accumulate render delta. update(0) evaluates the
+      // skeleton at the absolute song-time-derived action.time.
+      this.mixer.update(0);
       return;
     }
-    this.playBaseState();
-  }
-
-  triggerReaction(reaction: CharacterReaction, eventId: number) {
-    if (this.disposed || eventId === this.lastReactionEventId) return false;
-    this.lastReactionEventId = eventId;
-
-    const action = this.actionFor(reaction);
-    if (!action) return false;
-
-    if (this.activeReactionAction) this.activeReactionAction.stop();
-    this.activeBaseAction?.fadeOut(TRANSITION_SECONDS);
-
-    this.activeReaction = reaction;
-    this.activeReactionAction = action;
-    action.reset();
-    action.enabled = true;
-    action.clampWhenFinished = true;
-    action.setLoop(THREE.LoopOnce, 1);
-    action.fadeIn(TRANSITION_SECONDS);
-    action.play();
-    return true;
-  }
-
-  update(deltaSeconds: number) {
-    if (!this.disposed) this.mixer.update(Math.max(0, deltaSeconds));
+    this.mixer.update(Math.max(0, deltaSeconds));
+    this.clipTimeSeconds = this.activeAction?.time ?? 0;
   }
 
   getState(): CharacterAnimationState {
     return {
-      baseState: this.baseState,
-      reaction: this.activeReaction,
-      activeClip: this.activeReaction
-        ? ROBOT_EXPRESSIVE_CLIP_MAP[this.activeReaction]
-        : this.activeBaseAction?.getClip().name ?? null,
+      mode: this.mode,
+      activeClip: this.activeAction?.getClip().name ?? null,
+      activeEventId: this.activeDanceEvent?.eventId ?? (this.mode === "miss" ? this.lastEventId : null),
+      actionStartSongTimeMs: this.activeDanceEvent?.actionStartSongTimeMs ?? null,
+      clipTimeSeconds: this.clipTimeSeconds,
     };
   }
 
@@ -94,38 +99,73 @@ export class CharacterAnimationController {
     this.mixer.removeEventListener("finished", this.onMixerFinished);
     this.mixer.stopAllAction();
     this.actions.clear();
-    this.activeBaseAction = null;
-    this.activeReactionAction = null;
-    this.activeReaction = null;
+    this.activeAction = null;
+    this.activeDanceEvent = null;
   }
 
-  private playBaseState() {
-    const nextAction = this.actionFor(this.baseState);
-    if (!nextAction) {
-      this.activeBaseAction = null;
-      return;
-    }
-    if (nextAction === this.activeBaseAction && nextAction.isRunning()) {
-      nextAction.enabled = true;
-      nextAction.fadeIn(TRANSITION_SECONDS);
-      return;
-    }
+  private playDance(event: CharacterDanceEvent) {
+    const action = this.actionFor(ROBOT_EXPRESSIVE_CLIP_MAP[event.choreographyId]);
+    if (!action) return false;
 
-    this.activeBaseAction?.fadeOut(TRANSITION_SECONDS);
-    this.activeBaseAction = nextAction;
-    nextAction.reset();
-    nextAction.enabled = true;
-    nextAction.clampWhenFinished = false;
-    nextAction.setLoop(THREE.LoopRepeat, Infinity);
-    nextAction.fadeIn(TRANSITION_SECONDS);
-    nextAction.play();
+    this.stopActiveAction();
+    this.mode = "dance";
+    this.activeDanceEvent = event;
+    this.activeAction = action;
+    this.clipTimeSeconds = 0;
+    action.reset();
+    action.enabled = true;
+    action.paused = true;
+    action.clampWhenFinished = false;
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.play();
+    return true;
   }
 
-  private actionFor(state: CharacterBaseState | CharacterReaction) {
-    const clipName = ROBOT_EXPRESSIVE_CLIP_MAP[state];
+  private playMiss() {
+    const action = this.actionFor(ROBOT_EXPRESSIVE_CLIP_MAP.miss);
+    if (!action) {
+      this.playIdle();
+      return false;
+    }
+
+    this.stopActiveAction();
+    this.mode = "miss";
+    this.activeDanceEvent = null;
+    this.activeAction = action;
+    this.clipTimeSeconds = 0;
+    action.reset();
+    action.enabled = true;
+    action.paused = false;
+    action.clampWhenFinished = true;
+    action.setLoop(THREE.LoopOnce, 1);
+    action.play();
+    return true;
+  }
+
+  private playIdle() {
+    const action = this.actionFor(ROBOT_EXPRESSIVE_CLIP_MAP.idle);
+    this.stopActiveAction();
+    this.mode = "idle";
+    this.activeDanceEvent = null;
+    this.activeAction = action;
+    this.clipTimeSeconds = 0;
+    if (!action) return;
+    action.reset();
+    action.enabled = true;
+    action.paused = false;
+    action.clampWhenFinished = false;
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.play();
+  }
+
+  private stopActiveAction() {
+    this.activeAction?.stop();
+    this.activeAction = null;
+  }
+
+  private actionFor(clipName: string) {
     const existing = this.actions.get(clipName);
     if (existing) return existing;
-
     const clip = this.clipsByName.get(clipName.toLowerCase());
     if (!clip) return null;
     const action = this.mixer.clipAction(clip);

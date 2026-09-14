@@ -1,16 +1,16 @@
 import { test, expect } from '@playwright/test';
-import { RhythmRuntime } from '../game/runtime';
+import { RhythmRuntime, type RhythmRuntimeCallbacks } from '../game/runtime';
 import { createChartFromMusicConfig } from '../game/chart';
 import { DEFAULT_MUSIC_CONFIG, isPlayableMusicConfig } from '../game/music-config';
 import { DEFAULT_SOLO_SETTINGS, createArrowCommand, oppositeDirection, planAfterFinish, renderedArrowDirection, repeatCycleTurns, seededRandom, soloCycle, targetSpaceMs, turnDurationMs, zoneExitMs } from '../game/solo-easy';
 import { getGaugeTiming } from '../game/gauge-timing';
 import { PERFECT_CENTER } from '../game/rhythm';
 
-function fixture(durationMs = 600000, compact = false, bpm = 101.0544, spaceStartMs = 10060) {
+function fixture(durationMs = 600000, compact = false, bpm = 101.0544, spaceStartMs = 10060, callbacks: RhythmRuntimeCallbacks = {}) {
   let time = 0;
   const chart = createChartFromMusicConfig({ ...DEFAULT_MUSIC_CONFIG, BPM_exact: bpm, spaceStartMs, durationMs,
     gameplay: { ...DEFAULT_MUSIC_CONFIG.gameplay, levelSequenceCounts: compact ? [1,1,1,1,1,1,1,1,1] : [1,2,3,4,5,6,6,6,6] } });
-  const runtime = new RhythmRuntime(chart, {}, { seed: 123 });
+  const runtime = new RhythmRuntime(chart, callbacks, { seed: 123 });
   runtime.setTimeSource(() => time); runtime.start(false);
   const at = (ms: number) => { time = ms; runtime.advance(); };
   const show = () => at(Math.max(time, runtime.debug.revealAtMs + 0.001));
@@ -98,6 +98,32 @@ test('successful Finish hides turns 39-42, resumes L6 at 43, and keeps the next 
 
   while (!f.runtime.currentTurn.isFinish) f.hit();
   expect(f.runtime.currentTurn).toMatchObject({ level: 9, absoluteTurn: 62, isFinish: true });
+});
+
+test('judgement metadata exposes the exact authoritative Finish input timestamp without changing its rest schedule', () => {
+  const events: Array<{ judgement: string; atMs: number; absoluteTurn: number; level: number; isFinish: boolean }> = [];
+  const f = fixture(277432, false, 101.0504, 10083, {
+    onJudgement: (judgement, _streak, meta) => events.push({ judgement, ...meta }),
+  });
+  while (!f.runtime.currentTurn.isFinish) f.hit();
+  const finishTargetMs = f.runtime.currentTurn.targetSpaceMs;
+  expect(f.runtime.currentTurn.absoluteTurn).toBe(38);
+  expect(f.hit()).toBe('perfect');
+  expect(events.at(-1)).toEqual({
+    judgement: 'perfect',
+    atMs: finishTargetMs,
+    absoluteTurn: 38,
+    level: 9,
+    isFinish: true,
+  });
+  expect(f.runtime.currentTurn).toMatchObject({ absoluteTurn: 43, level: 6 });
+  expect(f.runtime.currentPhase).toBe('post-finish-rest');
+  for (const hiddenTurn of [39, 40, 41, 42]) {
+    f.at(zoneExitMs(targetSpaceMs(10083, 101.0504, hiddenTurn), f.chart.bpm));
+    expect(f.runtime.debug.commandVisible).toBe(false);
+  }
+  f.at(f.runtime.debug.revealAtMs + 0.001);
+  expect(f.runtime.debug.commandVisible).toBe(true);
 });
 
 test('L5 final-turn Miss consumes turn 15 in L6 and reveals on turn 16', () => {
