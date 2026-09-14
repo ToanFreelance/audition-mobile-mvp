@@ -3,6 +3,17 @@ import type * as THREE from "three";
 export type CharacterSource = "gltf" | "fallback";
 
 export type CharacterChoreographyId =
+  | "dance-01"
+  | "dance-02"
+  | "dance-03"
+  | "dance-04"
+  | "dance-05"
+  | "dance-06"
+  | "dance-07"
+  | "dance-08"
+  | "finish-special"
+  // Legacy RobotExpressive IDs stay accepted for deterministic test fixtures
+  // and fallback tooling; live choreography no longer emits them.
   | "dance"
   | "wave"
   | "yes"

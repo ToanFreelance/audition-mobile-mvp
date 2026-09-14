@@ -4,14 +4,16 @@ import { CharacterAnimationController } from "./CharacterAnimationController";
 import { createFallbackCharacter, updateFallbackCharacter, type FallbackCharacter } from "./FallbackCharacter";
 import type { CharacterAssetMetrics, CharacterLoadResult, CharacterPresentation, CharacterPresentationEvent } from "./character-types";
 import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
+import { HUMAN_CHARACTER_ASSET_URL, loadHumanAnimationLibrary } from "./human-animation-library";
 
-export const DEFAULT_CHARACTER_ASSET_URL = "/characters/default/character.glb";
+export const DEFAULT_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL;
 
 export class CharacterActor implements CharacterPresentation {
   readonly root = new THREE.Group();
 
   private readonly loader = new GLTFLoader();
   private model: THREE.Object3D | null = null;
+  private animationRoot: THREE.Object3D | null = null;
   private mixer: THREE.AnimationMixer | null = null;
   private animationController: CharacterAnimationController | null = null;
   private clips: THREE.AnimationClip[] = [];
@@ -31,18 +33,26 @@ export class CharacterActor implements CharacterPresentation {
 
     try {
       const gltf = await this.loader.loadAsync(this.assetUrl);
+      const model = gltf.scene;
+      normalizeHumanoid(model);
+      const skinnedMesh = findPrimarySkinnedMesh(model);
+      const clips = gltf.animations.length > 0
+        ? gltf.animations
+        : await loadHumanAnimationLibrary(skinnedMesh);
+
       if (this.disposed || version !== this.loadVersion) {
-        disposeObjectResources(gltf.scene);
+        disposeObjectResources(model);
         return null;
       }
 
-      this.model = gltf.scene;
-      this.clips = gltf.animations;
-      normalizeHumanoid(this.model);
+      const animationRoot: THREE.Object3D = gltf.animations.length > 0 ? model : skinnedMesh;
+      this.model = model;
+      this.animationRoot = animationRoot;
+      this.clips = clips;
       this.root.add(this.model);
 
       const idleClip = this.clips.find((clip) => clip.name.toLowerCase() === "idle") ?? null;
-      this.mixer = new THREE.AnimationMixer(this.model);
+      this.mixer = new THREE.AnimationMixer(animationRoot);
       this.animationController = new CharacterAnimationController(this.mixer, this.clips);
       this.animationController.setGameActive(this.gameActive);
       if (this.presentationEvent) this.animationController.handlePresentationEvent(this.presentationEvent);
@@ -104,11 +114,12 @@ export class CharacterActor implements CharacterPresentation {
   private releaseCurrentCharacter() {
     this.animationController?.dispose();
     this.animationController = null;
-    if (this.mixer && this.model) {
+    if (this.mixer && this.animationRoot) {
       for (const clip of this.clips) this.mixer.uncacheClip(clip);
-      this.mixer.uncacheRoot(this.model);
+      this.mixer.uncacheRoot(this.animationRoot);
     }
     this.mixer = null;
+    this.animationRoot = null;
     this.clips = [];
 
     if (this.model) {
@@ -118,6 +129,15 @@ export class CharacterActor implements CharacterPresentation {
     this.model = null;
     this.fallback = null;
   }
+}
+
+function findPrimarySkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh {
+  let target: THREE.SkinnedMesh | null = null;
+  root.traverse((object) => {
+    if (!target && (object as THREE.SkinnedMesh).isSkinnedMesh) target = object as THREE.SkinnedMesh;
+  });
+  if (!target) throw new Error("Human character asset has no skinned mesh");
+  return target;
 }
 
 function normalizeHumanoid(model: THREE.Object3D) {

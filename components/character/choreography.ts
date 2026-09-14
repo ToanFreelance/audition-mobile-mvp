@@ -2,14 +2,16 @@ import type { Judgement, JudgementMeta } from "../../game/types";
 import type { CharacterChoreographyId, CharacterPresentationEvent } from "./character-types";
 
 export const NORMAL_CHOREOGRAPHY_POOL = [
-  "dance",
-  "wave",
-  "yes",
-  "punch",
-  "walk-jump",
-  "thumbs-up",
+  "dance-01",
+  "dance-02",
+  "dance-03",
+  "dance-04",
+  "dance-05",
+  "dance-06",
+  "dance-07",
+  "dance-08",
 ] as const satisfies readonly CharacterChoreographyId[];
-export const FINISH_CHOREOGRAPHY: CharacterChoreographyId = "finish-jump";
+export const FINISH_CHOREOGRAPHY: CharacterChoreographyId = "finish-special";
 
 export function selectCharacterChoreography(
   seed: number | undefined,

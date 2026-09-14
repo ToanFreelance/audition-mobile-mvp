@@ -8,6 +8,8 @@ import type {
 
 export const DANCE_BLEND_DURATION_MS = 150;
 
+// Kept as an exported compatibility fixture for the completed P3.4 robot tests.
+// Live P3.7 choreography uses CHARACTER_CLIP_MAP's human IDs below.
 export const ROBOT_EXPRESSIVE_CLIP_MAP = {
   idle: "Idle",
   miss: "No",
@@ -18,9 +20,33 @@ export const ROBOT_EXPRESSIVE_CLIP_MAP = {
   "walk-jump": "WalkJump",
   "thumbs-up": "ThumbsUp",
   "finish-jump": "Jump",
-} as const satisfies Record<"idle" | "miss" | CharacterChoreographyId, string>;
+} as const;
 
-type ActionKind = "idle" | "dance" | "miss";
+export const CHARACTER_CLIP_MAP = {
+  "dance-01": "HumanDance01",
+  "dance-02": "HumanDance02",
+  "dance-03": "HumanDance03",
+  "dance-04": "HumanDance04",
+  "dance-05": "HumanDance05",
+  "dance-06": "HumanDance06",
+  "dance-07": "HumanDance07",
+  "dance-08": "HumanDance08",
+  "finish-special": "HumanFinish",
+  // Legacy semantic IDs remain accepted so isolated controller fixtures and
+  // tooling can still exercise the old RobotExpressive clips.
+  dance: "Dance",
+  wave: "Wave",
+  yes: "Yes",
+  punch: "Punch",
+  "walk-jump": "WalkJump",
+  "thumbs-up": "ThumbsUp",
+  "finish-jump": "Jump",
+} as const satisfies Record<CharacterChoreographyId, string>;
+
+const IDLE_CLIP_CANDIDATES = ["Idle"] as const;
+const MISS_CLIP_CANDIDATES = ["HumanMiss", ROBOT_EXPRESSIVE_CLIP_MAP.miss] as const;
+
+type ActionKind = "idle" | "dance" | "miss" | "finish";
 
 type ActionSlot = {
   action: THREE.AnimationAction;
@@ -81,9 +107,6 @@ export class CharacterAnimationController {
     this.gameActive = active;
     if (!active) {
       this.lastEventId = null;
-      // Leaving/resetting a run may reset WebAudio time to zero immediately.
-      // Install neutral idle synchronously so a backward clock jump cannot
-      // strand a lifecycle transition at zero blend progress.
       this.installIdleImmediately();
     }
   }
@@ -98,7 +121,10 @@ export class CharacterAnimationController {
     if (this.disposed) return;
     this.latestSongTimeMs = Math.max(0, songTimeMs);
 
-    if (this.activeSlot?.kind === "miss" && this.activeSlot.actionStartSongTimeMs !== null) {
+    if (
+      (this.activeSlot?.kind === "miss" || this.activeSlot?.kind === "finish")
+      && this.activeSlot.actionStartSongTimeMs !== null
+    ) {
       const completionSongTimeMs =
         this.activeSlot.actionStartSongTimeMs + this.activeSlot.clip.duration * 1000;
       if (this.latestSongTimeMs >= completionSongTimeMs) {
@@ -124,8 +150,8 @@ export class CharacterAnimationController {
       this.setSlotWeight(this.activeSlot, 1);
     }
 
-    // All actions are paused and receive explicit clip times. update(0) only
-    // evaluates the blended skeleton pose; it never becomes a rhythm clock.
+    // Beat-critical actions receive explicit clip times. update(0) evaluates
+    // the blended skeleton only; WebAudio remains the phase authority.
     this.mixer.update(0);
   }
 
@@ -158,9 +184,10 @@ export class CharacterAnimationController {
   }
 
   private transitionToDance(event: CharacterDanceEvent) {
+    const kind: ActionKind = event.isFinish ? "finish" : "dance";
     const slot = this.createSlot(
-      ROBOT_EXPRESSIVE_CLIP_MAP[event.choreographyId],
-      "dance",
+      CHARACTER_CLIP_MAP[event.choreographyId],
+      kind,
       event.actionStartSongTimeMs,
       event.eventId,
     );
@@ -171,8 +198,8 @@ export class CharacterAnimationController {
   }
 
   private transitionToMiss(event: Extract<CharacterPresentationEvent, { kind: "fail" }>) {
-    const slot = this.createSlot(
-      ROBOT_EXPRESSIVE_CLIP_MAP.miss,
+    const slot = this.createFirstAvailableSlot(
+      MISS_CLIP_CANDIDATES,
       "miss",
       event.actionStartSongTimeMs,
       event.eventId,
@@ -188,8 +215,8 @@ export class CharacterAnimationController {
 
   private transitionToIdle(startSongTimeMs: number, initialLocalTimeSeconds = 0) {
     if (this.activeSlot?.kind === "idle" && !this.previousSlot) return true;
-    const slot = this.createSlot(
-      ROBOT_EXPRESSIVE_CLIP_MAP.idle,
+    const slot = this.createFirstAvailableSlot(
+      IDLE_CLIP_CANDIDATES,
       "idle",
       null,
       null,
@@ -216,7 +243,7 @@ export class CharacterAnimationController {
     this.activeSlot = null;
     this.blend = null;
     this.mode = "idle";
-    const slot = this.createSlot(ROBOT_EXPRESSIVE_CLIP_MAP.idle, "idle", null, null);
+    const slot = this.createFirstAvailableSlot(IDLE_CLIP_CANDIDATES, "idle", null, null);
     this.activeSlot = slot;
     if (slot) this.setSlotWeight(slot, 1);
   }
@@ -261,6 +288,20 @@ export class CharacterAnimationController {
     slot.action.time = slot.clipTimeSeconds;
   }
 
+  private createFirstAvailableSlot(
+    clipNames: readonly string[],
+    kind: ActionKind,
+    actionStartSongTimeMs: number | null,
+    eventId: number | null,
+    localTimeSeconds = 0,
+  ) {
+    for (const clipName of clipNames) {
+      const slot = this.createSlot(clipName, kind, actionStartSongTimeMs, eventId, localTimeSeconds);
+      if (slot) return slot;
+    }
+    return null;
+  }
+
   private createSlot(
     clipName: string,
     kind: ActionKind,
@@ -271,11 +312,12 @@ export class CharacterAnimationController {
     const action = this.actionFor(clipName);
     if (!action) return null;
     const clip = action.getClip();
+    const oneShot = kind === "miss" || kind === "finish";
     action.reset();
     action.enabled = true;
     action.paused = true;
-    action.clampWhenFinished = kind === "miss";
-    action.setLoop(kind === "miss" ? THREE.LoopOnce : THREE.LoopRepeat, kind === "miss" ? 1 : Infinity);
+    action.clampWhenFinished = oneShot;
+    action.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity);
     action.setEffectiveTimeScale(1);
     action.setEffectiveWeight(0);
     action.play();
@@ -305,8 +347,6 @@ export class CharacterAnimationController {
     const available = lanes.find((action) => !excluded.has(action));
     if (available) return available;
 
-    // A second lane lets the same clip re-anchor on a consecutive turn while
-    // old and new phases briefly coexist instead of snapping one action.time.
     const clip = lanes.length === 0 ? sourceClip : sourceClip.clone();
     if (clip !== sourceClip) this.clonedClips.add(clip);
     const action = this.mixer.clipAction(clip);
