@@ -158,9 +158,13 @@ Acceptance:
 
 Goal: make transitions production-quality rather than abrupt.
 
-- Add a minimal set of approved dance clips.
-- Cross-fade between idle/dance/reaction clips.
-- Tune fade durations for mobile visual quality.
+- Use the temporary RobotExpressive validation pool (`Dance`, `Wave`, `Yes`, `Punch`, `WalkJump`, `ThumbsUp`) with `Jump` reserved for successful Finish presentation.
+- Select every normal move deterministically from seed + absolute turn; player input timing never changes clip selection.
+- Cross-fade between idle/dance/reaction clips with a named 150ms blend window.
+- Derive both the incoming dance phase and blend progress from authoritative song time, so late event delivery and dropped frames catch up without delaying the exact SPACE anchor.
+- Allow same-clip consecutive turns to use separate action lanes, preserving the new turn anchor without a hard pose reset.
+- Blend Miss into `No`, then back to neutral `Idle`; the next successful turn remains free to establish a new authoritative dance anchor.
+- Keep the bounded RobotExpressive root translations intact: inspected validation clips remain centered and do not contain locomotion that requires runtime stripping.
 - Avoid clip restart spam on every React render/turn update.
 - Keep reactions visual-only and bounded in duration.
 

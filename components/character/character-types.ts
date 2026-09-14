@@ -2,7 +2,14 @@ import type * as THREE from "three";
 
 export type CharacterSource = "gltf" | "fallback";
 
-export type CharacterChoreographyId = "dance" | "wave" | "yes" | "finish-jump";
+export type CharacterChoreographyId =
+  | "dance"
+  | "wave"
+  | "yes"
+  | "punch"
+  | "walk-jump"
+  | "thumbs-up"
+  | "finish-jump";
 export type CharacterSuccessJudgement = "perfect" | "great" | "cool";
 export type CharacterFailJudgement = "bad" | "miss";
 
@@ -31,9 +38,15 @@ export type CharacterAnimationMode = "idle" | "dance" | "miss";
 export type CharacterAnimationState = {
   mode: CharacterAnimationMode;
   activeClip: string | null;
+  previousClip: string | null;
   activeEventId: number | null;
   actionStartSongTimeMs: number | null;
   clipTimeSeconds: number;
+  previousClipTimeSeconds: number | null;
+  blendProgress: number;
+  activeWeight: number;
+  previousWeight: number;
+  transitioning: boolean;
 };
 
 export type CharacterAssetMetrics = {
