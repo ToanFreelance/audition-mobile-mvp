@@ -45,7 +45,10 @@ export class CharacterActor implements CharacterPresentation {
         return null;
       }
 
-      const animationRoot: THREE.Object3D = gltf.animations.length > 0 ? model : skinnedMesh;
+      // Direct Quaternius UAL clips address bones by node name. Their mixer
+      // root must therefore be the whole character hierarchy, not an isolated
+      // SkinnedMesh. This also remains correct for an asset with embedded clips.
+      const animationRoot: THREE.Object3D = model;
       this.model = model;
       this.animationRoot = animationRoot;
       this.clips = clips;

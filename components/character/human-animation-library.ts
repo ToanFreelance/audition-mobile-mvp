@@ -1,128 +1,160 @@
 import * as THREE from "three";
-import { BVHLoader } from "three/examples/jsm/loaders/BVHLoader.js";
-import { retargetClip } from "three/examples/jsm/utils/SkeletonUtils.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
+const QUATERNIUS_PACK_COMMIT = "122378c422148390c781adc6d7019eda7b5d07f3";
+const QUATERNIUS_PACK_BASE_URL =
+  `https://cdn.jsdelivr.net/gh/Ashen-Skool/Aot-Fable-5.1@${QUATERNIUS_PACK_COMMIT}/assets/staged/anim`;
+
+// These two assets come from the same current Quaternius UBC/UAL export family
+// and share the same 65-bone UE-style skeleton. Keeping model and animation rig
+// identical avoids runtime cross-rig retargeting and its bind-axis/rest-pose
+// ambiguity on Safari/Three.js.
 export const HUMAN_CHARACTER_ASSET_URL =
-  "https://cdn.jsdelivr.net/gh/programasweights/avatar@ddd5fc34a445bcded3cf9836607aaeebc19a5c78/public/assets/character.glb";
-
-const CMU_MOCAP_COMMIT = "09a07f54f3bbb58797325f009282d0b2048a2871";
-const CMU_MOCAP_BASE_URL = `https://cdn.jsdelivr.net/gh/una-dinosauria/cmu-mocap@${CMU_MOCAP_COMMIT}/data`;
-const RETARGET_FPS = 30;
+  `${QUATERNIUS_PACK_BASE_URL}/UBC_Superhero_Male_FullBody.glb`;
+export const HUMAN_ANIMATION_LIBRARY_URL =
+  `${QUATERNIUS_PACK_BASE_URL}/UAL1_Standard.glb`;
 
 export type HumanMotionSpec = {
   clipName: string;
-  sourceId: string;
+  sourceClipName: string;
   label: string;
-  url: string;
-  trim: [number, number];
 };
 
-function cmuMotion(folder: string, take: string, clipName: string, label: string, trim: [number, number]): HumanMotionSpec {
-  const subject = String(Number(folder));
-  return {
-    clipName,
-    sourceId: `${subject}_${take}`,
-    label,
-    url: `${CMU_MOCAP_BASE_URL}/${folder}/${subject}_${take}.bvh`,
-    trim,
-  };
-}
-
-// Curated windows keep the generated runtime clips bounded even though the
-// source CMU takes are much longer. Source BVHs are pinned and are retargeted
-// once during CharacterActor.load(), never per frame.
+// P3.7 still uses a deliberately compact presentation pool. Some UAL1 clips
+// are emotes/combat accents rather than final Audition choreography; the key
+// invariant here is that every clip is authored on the exact same skeleton as
+// the active human character. Richer final dance art can replace these clips
+// later without changing song-time ownership or the animation controller.
 export const HUMAN_MOTION_SPECS = [
-  cmuMotion("085", "04", "HumanDance01", "FancyFootWork", [0.15, 5.15]),
-  cmuMotion("090", "28", "HumanDance02", "breakdance", [0.15, 5.15]),
-  cmuMotion("090", "30", "HumanDance03", "russian dance A", [0.15, 5.15]),
-  cmuMotion("090", "31", "HumanDance04", "russian dance B", [0.15, 5.15]),
-  cmuMotion("090", "32", "HumanDance05", "moonwalk", [0.15, 5.15]),
-  cmuMotion("093", "03", "HumanDance06", "charleston", [0.15, 5.15]),
-  cmuMotion("093", "06", "HumanDance07", "lindy hop", [0.15, 5.15]),
-  cmuMotion("093", "08", "HumanDance08", "fancy charleston", [0.15, 5.15]),
-  cmuMotion("080", "45", "HumanMiss", "crying / fail reaction", [0.15, 2.15]),
-  cmuMotion("087", "01", "HumanFinish", "jump with kick and spin", [0.15, 4.15]),
+  { clipName: "HumanDance01", sourceClipName: "Dance_Loop", label: "dance loop" },
+  { clipName: "HumanDance02", sourceClipName: "Walk_Formal_Loop", label: "formal step loop" },
+  { clipName: "HumanDance03", sourceClipName: "Idle_Talking_Loop", label: "talking groove" },
+  { clipName: "HumanDance04", sourceClipName: "Punch_Jab", label: "jab accent" },
+  { clipName: "HumanDance05", sourceClipName: "Punch_Cross", label: "cross accent" },
+  { clipName: "HumanDance06", sourceClipName: "Interact", label: "interaction accent" },
+  { clipName: "HumanDance07", sourceClipName: "Sword_Attack", label: "swing accent" },
+  { clipName: "HumanDance08", sourceClipName: "Pistol_Shoot", label: "shoot accent" },
+  { clipName: "HumanMiss", sourceClipName: "Hit_Head", label: "failure / hit reaction" },
+  { clipName: "HumanFinish", sourceClipName: "Roll", label: "special acrobatic finish" },
 ] as const satisfies readonly HumanMotionSpec[];
 
-// SkeletonUtils expects target-bone -> source-bone names. This deliberately
-// stays a small fixed adapter for the chosen Quaternius/CMU pair rather than a
-// general-purpose runtime retargeting framework. Fingers stay in the target
-// reference pose because CMU did not capture useful finger motion.
-const QUATERNIUS_TO_CMU_BONES: Record<string, string> = {
-  pelvis: "Hips",
-  spine_01: "LowerBack",
-  spine_02: "Spine",
-  spine_03: "Spine1",
-  neck_01: "Neck1",
-  Head: "Head",
-  clavicle_l: "LeftShoulder",
-  upperarm_l: "LeftArm",
-  lowerarm_l: "LeftForeArm",
-  hand_l: "LeftHand",
-  thigh_l: "LeftUpLeg",
-  calf_l: "LeftLeg",
-  foot_l: "LeftFoot",
-  ball_l: "LeftToeBase",
-  clavicle_r: "RightShoulder",
-  upperarm_r: "RightArm",
-  lowerarm_r: "RightForeArm",
-  hand_r: "RightHand",
-  thigh_r: "RightUpLeg",
-  calf_r: "RightLeg",
-  foot_r: "RightFoot",
-  ball_r: "RightToeBase",
+const IDLE_MOTION: HumanMotionSpec = {
+  clipName: "Idle",
+  sourceClipName: "Idle_Loop",
+  label: "idle loop",
 };
 
-const REQUIRED_TARGET_BONES = Object.keys(QUATERNIUS_TO_CMU_BONES);
+const REQUIRED_HUMAN_BONES = [
+  "root",
+  "pelvis",
+  "spine_01",
+  "spine_02",
+  "spine_03",
+  "neck_01",
+  "Head",
+  "clavicle_l",
+  "upperarm_l",
+  "lowerarm_l",
+  "hand_l",
+  "thigh_l",
+  "calf_l",
+  "foot_l",
+  "ball_l",
+  "clavicle_r",
+  "upperarm_r",
+  "lowerarm_r",
+  "hand_r",
+  "thigh_r",
+  "calf_r",
+  "foot_r",
+  "ball_r",
+] as const;
 
 export async function loadHumanAnimationLibrary(target: THREE.SkinnedMesh): Promise<THREE.AnimationClip[]> {
-  assertCompatibleHumanRig(target.skeleton);
+  assertCompatibleHumanRig(target.skeleton, "character");
 
-  const clips = await Promise.all(HUMAN_MOTION_SPECS.map((spec) => retargetMotion(target, spec)));
-  target.skeleton.pose();
-  target.updateMatrixWorld(true);
+  const loader = new GLTFLoader();
+  const library = await loader.loadAsync(HUMAN_ANIMATION_LIBRARY_URL);
 
-  // A zero-track clip intentionally means "use the humanoid reference pose".
-  // When weighted mocap actions fade out, AnimationMixer restores the original
-  // bone transforms, making neutral Idle cheap and deterministic.
-  return [new THREE.AnimationClip("Idle", 1, []), ...clips];
+  try {
+    const source = findPrimarySkinnedMesh(library.scene);
+    assertCompatibleHumanRig(source.skeleton, "animation library");
+    assertSkeletonCompatibility(target.skeleton, source.skeleton);
+
+    const clipsByName = new Map(
+      library.animations.map((clip) => [clip.name.toLowerCase(), clip] as const),
+    );
+    const specs = [IDLE_MOTION, ...HUMAN_MOTION_SPECS];
+
+    return specs.map((spec) => {
+      const sourceClip = clipsByName.get(spec.sourceClipName.toLowerCase());
+      if (!sourceClip) {
+        throw new Error(`Quaternius animation library is missing ${spec.sourceClipName}`);
+      }
+      const clip = sourceClip.clone();
+      clip.name = spec.clipName;
+      return clip;
+    });
+  } finally {
+    disposeLibraryScene(library.scene);
+  }
 }
 
-async function retargetMotion(target: THREE.SkinnedMesh, spec: HumanMotionSpec) {
-  const loader = new BVHLoader();
-  const source = await loader.loadAsync(spec.url);
-  const safeEnd = Math.min(spec.trim[1], source.clip.duration - 1 / RETARGET_FPS);
-  const safeStart = Math.min(spec.trim[0], Math.max(0, safeEnd - 0.5));
-
-  if (!(safeEnd > safeStart)) {
-    source.skeleton.dispose();
-    throw new Error(`CMU motion ${spec.sourceId} is too short for its curated window`);
-  }
-
-  const clip = retargetClip(target, source.skeleton, source.clip, {
-    names: QUATERNIUS_TO_CMU_BONES,
-    hip: "Hips",
-    fps: RETARGET_FPS,
-    trim: [safeStart, safeEnd],
-    useFirstFramePosition: true,
+function findPrimarySkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh {
+  let target: THREE.SkinnedMesh | null = null;
+  root.traverse((object) => {
+    if (!target && (object as THREE.SkinnedMesh).isSkinnedMesh) {
+      target = object as THREE.SkinnedMesh;
+    }
   });
-  clip.name = spec.clipName;
-
-  // Gameplay characters are stage-centered. Preserve hip/body rotations while
-  // removing only global pelvis translation so moonwalk, breakdance and Finish
-  // cannot move CharacterActor off its fixed stage root.
-  clip.tracks = clip.tracks.filter((track) => track.name !== ".bones[pelvis].position");
-
-  source.skeleton.dispose();
-  target.skeleton.pose();
-  target.updateMatrixWorld(true);
-  return clip;
+  if (!target) throw new Error("Quaternius animation library has no skinned mesh");
+  return target;
 }
 
-function assertCompatibleHumanRig(skeleton: THREE.Skeleton) {
+function assertCompatibleHumanRig(skeleton: THREE.Skeleton, label: string) {
   const names = new Set(skeleton.bones.map((bone) => bone.name));
-  const missing = REQUIRED_TARGET_BONES.filter((name) => !names.has(name));
+  const missing = REQUIRED_HUMAN_BONES.filter((name) => !names.has(name));
   if (missing.length) {
-    throw new Error(`Human character rig is missing required bones: ${missing.join(", ")}`);
+    throw new Error(`${label} rig is missing required bones: ${missing.join(", ")}`);
   }
+}
+
+function assertSkeletonCompatibility(target: THREE.Skeleton, source: THREE.Skeleton) {
+  const targetNames = new Set(target.bones.map((bone) => bone.name));
+  const missing = source.bones
+    .map((bone) => bone.name)
+    .filter((name) => !targetNames.has(name));
+  if (missing.length) {
+    throw new Error(`Character rig does not match Quaternius UAL skeleton: ${missing.join(", ")}`);
+  }
+}
+
+function disposeLibraryScene(root: THREE.Object3D) {
+  const geometries = new Set<THREE.BufferGeometry>();
+  const materials = new Set<THREE.Material>();
+  const textures = new Set<THREE.Texture>();
+  const skeletons = new Set<THREE.Skeleton>();
+
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (mesh.geometry) geometries.add(mesh.geometry);
+    const meshMaterials = Array.isArray(mesh.material)
+      ? mesh.material
+      : mesh.material
+        ? [mesh.material]
+        : [];
+    for (const material of meshMaterials) {
+      materials.add(material);
+      for (const value of Object.values(material)) {
+        if (value instanceof THREE.Texture) textures.add(value);
+      }
+    }
+    const skinnedMesh = object as THREE.SkinnedMesh;
+    if (skinnedMesh.isSkinnedMesh && skinnedMesh.skeleton) skeletons.add(skinnedMesh.skeleton);
+  });
+
+  for (const texture of textures) texture.dispose();
+  for (const material of materials) material.dispose();
+  for (const geometry of geometries) geometry.dispose();
+  for (const skeleton of skeletons) skeleton.dispose();
 }
