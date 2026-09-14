@@ -203,13 +203,17 @@ export class RhythmRuntime {
       hidden++;
     }
     this.penaltyCount = judgement === 'miss' ? hidden : 0;
-    let reveal = hidden ? this.exit(nextAbsolute - 1) : atMs;
     const next = this.appearances[this.appearanceIndex];
+    // From L6 onward the next command becomes readable at the Perfect center of
+    // the final suppressed slot, while its own target/global-turn timing stays unchanged.
+    const revealSuppressedAt = (absoluteTurn: number) =>
+      (next?.level ?? previous.level) >= 6 ? this.target(absoluteTurn) : this.exit(absoluteTurn);
+    let reveal = hidden ? revealSuppressedAt(nextAbsolute - 1) : atMs;
     if (next?.isFinish) {
       const plan = planAfterFinish(nextAbsolute, this.lastTurn, this.settings);
       this.final = plan.finalFinish;
       if (this.final) nextAbsolute = Math.max(nextAbsolute, this.lastTurn);
-      if (nextAbsolute > previous.absoluteTurn + hidden + 1) reveal = this.exit(nextAbsolute - 1);
+      if (nextAbsolute > previous.absoluteTurn + hidden + 1) reveal = revealSuppressedAt(nextAbsolute - 1);
     }
     if (zoneExitMs(this.target(nextAbsolute), this.chart.bpm) >= Math.min(this.songDurationMs, this.chart.durationMs ?? Infinity)) {
       this.beginEnding(); return;
