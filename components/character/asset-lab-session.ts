@@ -15,5 +15,7 @@ export function setAssetLabSourceArchive(archive: LocalAssetZip | null) {
 export function subscribeAssetLabSourceArchive(listener: (archive: LocalAssetZip | null) => void) {
   listeners.add(listener);
   listener(currentArchive);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
