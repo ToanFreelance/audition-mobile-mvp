@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import AssetLabPreview from "@/components/character/AssetLabPreview";
+import AssetLabAutoProcessor from "@/components/character/AssetLabAutoProcessor";
 import {
   P37_DANCE_CANDIDATES,
   P37_REFERENCE_CHARACTERS,
@@ -83,11 +84,11 @@ export default function AssetLabPage() {
       <div style={styles.shell}>
         <header style={styles.header}>
           <div>
-            <p style={styles.eyebrow}>P3.7 · ASSET LAB · 2A-2</p>
+            <p style={styles.eyebrow}>P3.7 · ASSET LAB · 3B-1</p>
             <h1 style={styles.title}>Animation Review</h1>
-            <p style={styles.lead}>Choose character → preview dance → approve or reject. Draft decisions stay in this browser only.</p>
+            <p style={styles.lead}>Choose character → preview dance → approve or reject. Approved animations are processed automatically when the private source ZIP is loaded.</p>
           </div>
-          <span style={styles.lockBadge}>GAMEPLAY DISCONNECTED</span>
+          <span style={styles.lockBadge}>AUTO PROCESS · NOT PUBLISHED</span>
         </header>
 
         <section style={styles.characterSection}>
@@ -165,6 +166,8 @@ export default function AssetLabPage() {
           )}
         </section>
 
+        <AssetLabAutoProcessor decisions={draftSelections} selectedAssetId={selected.id} />
+
         <details style={styles.librarySection}>
           <summary style={styles.librarySummary}>
             <div>
@@ -205,7 +208,7 @@ export default function AssetLabPage() {
         </details>
 
         <footer style={styles.footer}>
-          Source FBX stays private. The preview ZIP is opened locally in the browser and is not uploaded by this tool. Gameplay, WebAudio, Finish, gauge and choreography runtime are untouched.
+          Raw FBX stays private. Preview and runtime processing happen locally in the owner browser; approved processed clips are cached in IndexedDB. Gameplay, WebAudio, Finish, gauge and choreography runtime are still untouched until the explicit publish checkpoint.
         </footer>
       </div>
     </main>
