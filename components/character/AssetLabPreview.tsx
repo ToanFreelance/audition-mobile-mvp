@@ -140,8 +140,8 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x090b11);
     const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
-    camera.position.set(0, 1.05, 5.2);
-    camera.lookAt(0, 1.0, 0);
+    camera.position.set(0, 1.05, 5.4);
+    camera.lookAt(0, 1.05, 0);
     cameraRef.current = camera;
 
     const canvas = document.createElement("canvas");
@@ -483,23 +483,25 @@ function normalizeHumanoid(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
 }
 
-function fitPreviewCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D, width: number, height: number) {
-  model.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(model);
-  if (bounds.isEmpty()) return;
-
-  const size = bounds.getSize(new THREE.Vector3());
-  const center = bounds.getCenter(new THREE.Vector3());
+function fitPreviewCamera(camera: THREE.PerspectiveCamera, _model: THREE.Object3D, width: number, height: number) {
+  // The character is normalized to ~2 m before it reaches this function.
+  // Do not derive the review camera from Box3 bounds of an animated SkinnedMesh:
+  // those bounds can reflect rest/static geometry rather than the current skinned pose,
+  // which caused iPhone previews to zoom into the torso and crop the legs. Instead,
+  // frame a stable dance-safe volume that covers full body plus extended limbs.
   const aspect = Math.max(0.2, width / height);
   const verticalFov = THREE.MathUtils.degToRad(camera.fov);
   const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
-  const distanceForHeight = (size.y * 0.5) / Math.tan(verticalFov / 2);
-  const distanceForWidth = (size.x * 0.5) / Math.tan(horizontalFov / 2);
-  const distance = Math.max(distanceForHeight * 1.16, distanceForWidth * 1.18, 3.2);
+  const safeHeight = 2.7;
+  const safeWidth = 3.8;
+  const distanceForHeight = (safeHeight * 0.5) / Math.tan(verticalFov / 2);
+  const distanceForWidth = (safeWidth * 0.5) / Math.tan(horizontalFov / 2);
+  const distance = Math.max(distanceForHeight * 1.08, distanceForWidth * 1.08, 5.4);
+  const targetY = 1.05;
 
   camera.aspect = aspect;
-  camera.position.set(center.x, center.y + size.y * 0.015, center.z + distance);
-  camera.lookAt(center.x, center.y, center.z);
+  camera.position.set(0, targetY, distance);
+  camera.lookAt(0, targetY, 0);
   camera.updateProjectionMatrix();
 }
 
