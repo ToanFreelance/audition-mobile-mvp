@@ -29,6 +29,7 @@ type Props = { character: ReferenceCharacterAsset; candidate: DanceCandidateAsse
 
 export default function AssetLabPreview({ character, candidate }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const archiveRef = useRef<LocalAssetZip | null>(null);
   const targetModelRef = useRef<THREE.Object3D | null>(null);
   const targetRigRef = useRef<TargetRig | null>(null);
@@ -52,6 +53,14 @@ export default function AssetLabPreview({ character, candidate }: Props) {
   const setPlayback = useCallback((next: boolean) => {
     playingRef.current = next;
     setPlaying(next);
+  }, []);
+
+  const frameCurrentCharacter = useCallback(() => {
+    const camera = cameraRef.current;
+    const model = targetModelRef.current;
+    const host = hostRef.current;
+    if (!camera || !model || !host) return;
+    fitPreviewCamera(camera, model, Math.max(1, host.clientWidth), Math.max(1, host.clientHeight));
   }, []);
 
   const clearMotion = useCallback(() => {
@@ -115,13 +124,14 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       previewTimeRef.current = 0;
       setDuration(clip.duration);
       applyRetarget(targetRig, sourceRigRef.current);
+      frameCurrentCharacter();
       setPlayback(true);
       setMotionStatus(`${label} · ${clip.duration.toFixed(2)}s · Mixamo → Quaternius preview`);
     } catch (error) {
       clearMotion();
       setMotionStatus(`Preview failed: ${error instanceof Error ? error.message : "unknown error"}`);
     }
-  }, [clearMotion, setPlayback]);
+  }, [clearMotion, frameCurrentCharacter, setPlayback]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -129,9 +139,10 @@ export default function AssetLabPreview({ character, candidate }: Props) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x090b11);
-    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50);
-    camera.position.set(0, 1.15, 4.6);
-    camera.lookAt(0, 1.05, 0);
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
+    camera.position.set(0, 1.05, 5.2);
+    camera.lookAt(0, 1.0, 0);
+    cameraRef.current = camera;
 
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
@@ -168,7 +179,8 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
       camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+      if (targetModelRef.current) fitPreviewCamera(camera, targetModelRef.current, width, height);
+      else camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
     };
     const observer = new ResizeObserver(resize);
@@ -216,6 +228,7 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       }
       targetModelRef.current = null;
       targetRigRef.current = null;
+      cameraRef.current = null;
       clearMotion();
       disposeObjectTree(scene);
       renderer.dispose();
@@ -248,6 +261,7 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       targetModelRef.current = model;
       targetRigRef.current = rig;
       scene.add(model);
+      frameCurrentCharacter();
       setCharacterStatus(`${character.sex === "male" ? "Male" : "Female"} reference ready`);
 
       const pending = pendingMotionRef.current;
@@ -258,13 +272,14 @@ export default function AssetLabPreview({ character, candidate }: Props) {
         rig.skeleton.pose();
         updateSkeletonWorld(rig.skeleton);
         applyRetarget(rig, sourceRigRef.current);
+        frameCurrentCharacter();
       }
     }).catch(error => {
       if (!cancelled) setCharacterStatus(`Character load failed: ${error instanceof Error ? error.message : "unknown error"}`);
     });
 
     return () => { cancelled = true; };
-  }, [character.id, character.sex, character.sourceUrl, installMotion, setPlayback]);
+  }, [character.id, character.sex, character.sourceUrl, frameCurrentCharacter, installMotion, setPlayback]);
 
   useEffect(() => {
     const archive = archiveRef.current;
@@ -313,6 +328,7 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     mixer.setTime(0);
     sourceRig.root.updateMatrixWorld(true);
     applyRetarget(targetRig, sourceRig);
+    frameCurrentCharacter();
     setPlayback(true);
   };
 
@@ -467,6 +483,26 @@ function normalizeHumanoid(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
 }
 
+function fitPreviewCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D, width: number, height: number) {
+  model.updateMatrixWorld(true);
+  const bounds = new THREE.Box3().setFromObject(model);
+  if (bounds.isEmpty()) return;
+
+  const size = bounds.getSize(new THREE.Vector3());
+  const center = bounds.getCenter(new THREE.Vector3());
+  const aspect = Math.max(0.2, width / height);
+  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
+  const distanceForHeight = (size.y * 0.5) / Math.tan(verticalFov / 2);
+  const distanceForWidth = (size.x * 0.5) / Math.tan(horizontalFov / 2);
+  const distance = Math.max(distanceForHeight * 1.16, distanceForWidth * 1.18, 3.2);
+
+  camera.aspect = aspect;
+  camera.position.set(center.x, center.y + size.y * 0.015, center.z + distance);
+  camera.lookAt(center.x, center.y, center.z);
+  camera.updateProjectionMatrix();
+}
+
 function updateSkeletonWorld(skeleton: THREE.Skeleton) {
   const root = skeleton.bones[0];
   if (!root) return;
@@ -499,7 +535,7 @@ const styles: Record<string, CSSProperties> = {
   kicker: { margin: 0, color: "#8f98aa", fontSize: 10, fontWeight: 900, letterSpacing: ".12em" },
   packageButton: { flex: "0 0 auto", border: "1px solid #6c52a0", background: "#251c37", color: "#dac8ff", borderRadius: 10, padding: "9px 10px", fontSize: 11, fontWeight: 800, cursor: "pointer" },
   packageStatus: { margin: 0, color: "#8892a4", fontSize: 11, lineHeight: 1.4 },
-  canvasHost: { width: "100%", height: "min(48vh, 390px)", minHeight: 300, overflow: "hidden", borderRadius: 14, border: "1px solid #272d39", background: "#090b11" },
+  canvasHost: { width: "100%", height: "min(43vh, 360px)", minHeight: 280, overflow: "hidden", borderRadius: 14, border: "1px solid #272d39", background: "#090b11" },
   statusStrip: { display: "grid", gap: 3, color: "#8f98aa", fontSize: 11 },
   controls: { display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" },
   controlButton: { border: "1px solid #3b4250", background: "#191d26", color: "#d9deea", borderRadius: 10, padding: "10px 12px", fontWeight: 800 },
