@@ -13,55 +13,19 @@ import {
 import { LocalAssetZip, readVerifiedAssetZip } from "./asset-lab-local-package";
 
 const TARGET_TO_MIXAMO = [
-  ["pelvis", "Hips"],
-  ["spine_01", "Spine"],
-  ["spine_02", "Spine1"],
-  ["spine_03", "Spine2"],
-  ["neck_01", "Neck"],
-  ["Head", "Head"],
-  ["clavicle_l", "LeftShoulder"],
-  ["upperarm_l", "LeftArm"],
-  ["lowerarm_l", "LeftForeArm"],
-  ["hand_l", "LeftHand"],
-  ["clavicle_r", "RightShoulder"],
-  ["upperarm_r", "RightArm"],
-  ["lowerarm_r", "RightForeArm"],
-  ["hand_r", "RightHand"],
-  ["thigh_l", "LeftUpLeg"],
-  ["calf_l", "LeftLeg"],
-  ["foot_l", "LeftFoot"],
-  ["ball_l", "LeftToeBase"],
-  ["thigh_r", "RightUpLeg"],
-  ["calf_r", "RightLeg"],
-  ["foot_r", "RightFoot"],
-  ["ball_r", "RightToeBase"],
+  ["pelvis", "Hips"], ["spine_01", "Spine"], ["spine_02", "Spine1"], ["spine_03", "Spine2"],
+  ["neck_01", "Neck"], ["Head", "Head"], ["clavicle_l", "LeftShoulder"], ["upperarm_l", "LeftArm"],
+  ["lowerarm_l", "LeftForeArm"], ["hand_l", "LeftHand"], ["clavicle_r", "RightShoulder"], ["upperarm_r", "RightArm"],
+  ["lowerarm_r", "RightForeArm"], ["hand_r", "RightHand"], ["thigh_l", "LeftUpLeg"], ["calf_l", "LeftLeg"],
+  ["foot_l", "LeftFoot"], ["ball_l", "LeftToeBase"], ["thigh_r", "RightUpLeg"], ["calf_r", "RightLeg"],
+  ["foot_r", "RightFoot"], ["ball_r", "RightToeBase"],
 ] as const;
 
-type RestPose = {
-  bone: THREE.Bone;
-  worldQuaternion: THREE.Quaternion;
-  worldPosition: THREE.Vector3;
-};
-
-type TargetRig = {
-  skeleton: THREE.Skeleton;
-  restByName: Map<string, RestPose>;
-  basis: THREE.Quaternion;
-};
-
-type SourceRig = {
-  root: THREE.Group;
-  restByCanonical: Map<string, RestPose>;
-  basis: THREE.Quaternion;
-  rootStartDeltaInverse: THREE.Quaternion;
-};
-
+type RestPose = { bone: THREE.Bone; worldQuaternion: THREE.Quaternion; worldPosition: THREE.Vector3 };
+type TargetRig = { skeleton: THREE.Skeleton; restByName: Map<string, RestPose>; basis: THREE.Quaternion };
+type SourceRig = { root: THREE.Group; restByCanonical: Map<string, RestPose>; basis: THREE.Quaternion; rootStartDeltaInverse: THREE.Quaternion };
 type PendingMotion = { buffer: ArrayBuffer; label: string };
-
-type Props = {
-  character: ReferenceCharacterAsset;
-  candidate: DanceCandidateAsset;
-};
+type Props = { character: ReferenceCharacterAsset; candidate: DanceCandidateAsset };
 
 export default function AssetLabPreview({ character, candidate }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -135,29 +99,19 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       );
 
       const mixer = new THREE.AnimationMixer(sourceRoot);
-      const action = mixer.clipAction(clip);
-      action.play();
+      mixer.clipAction(clip).play();
       mixer.setTime(0);
       sourceRoot.updateMatrixWorld(true);
 
       const hips = requiredSourceBone(sourceRoot, "Hips");
       const rootAnimated = hips.getWorldQuaternion(new THREE.Quaternion()).normalize();
       const rootRest = requiredSourceRest(sourceRest, "Hips").worldQuaternion;
-      const rootStartDeltaInverse = rootAnimated
-        .clone()
-        .multiply(rootRest.clone().invert())
-        .normalize()
-        .invert();
+      const rootStartDeltaInverse = rootAnimated.clone().multiply(rootRest.clone().invert()).normalize().invert();
 
       sourceRootRef.current = sourceRoot;
       sourceMixerRef.current = mixer;
       sourceClipRef.current = clip;
-      sourceRigRef.current = {
-        root: sourceRoot,
-        restByCanonical: sourceRest,
-        basis: sourceBasis,
-        rootStartDeltaInverse,
-      };
+      sourceRigRef.current = { root: sourceRoot, restByCanonical: sourceRest, basis: sourceBasis, rootStartDeltaInverse };
       previewTimeRef.current = 0;
       setDuration(clip.duration);
       applyRetarget(targetRig, sourceRigRef.current);
@@ -186,7 +140,7 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       return;
     }
 
-    const renderer = new THREE.WebGLRenderer({ canvas, context: context as WebGLRenderingContext, antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, alpha: false });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
@@ -201,14 +155,10 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     rim.position.set(-4, 3, -2);
     scene.add(rim);
 
-    const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(2.4, 48),
-      new THREE.MeshStandardMaterial({ color: 0x151823, roughness: 0.8, metalness: 0.15 }),
-    );
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(2.4, 48), new THREE.MeshStandardMaterial({ color: 0x151823, roughness: 0.8, metalness: 0.15 }));
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = -0.012;
     scene.add(floor);
-
     const grid = new THREE.GridHelper(4.8, 12, 0x7251a8, 0x252936);
     (grid.material as THREE.Material).transparent = true;
     (grid.material as THREE.Material).opacity = 0.2;
@@ -227,7 +177,6 @@ export default function AssetLabPreview({ character, candidate }: Props) {
 
     const clock = new THREE.Clock();
     let raf = 0;
-    let disposed = false;
     const animate = () => {
       raf = requestAnimationFrame(animate);
       const delta = Math.min(clock.getDelta(), 0.05);
@@ -235,7 +184,6 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       const clip = sourceClipRef.current;
       const targetRig = targetRigRef.current;
       const sourceRig = sourceRigRef.current;
-
       if (mixer && clip && targetRig && sourceRig && playingRef.current) {
         let next = previewTimeRef.current + delta;
         if (next >= clip.duration) {
@@ -251,7 +199,6 @@ export default function AssetLabPreview({ character, candidate }: Props) {
         sourceRig.root.updateMatrixWorld(true);
         applyRetarget(targetRig, sourceRig);
       }
-
       renderer.render(scene, camera);
     };
     animate();
@@ -260,8 +207,6 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     (host as HTMLDivElement & { __assetLabScene?: THREE.Scene }).__assetLabScene = scene;
 
     return () => {
-      disposed = true;
-      void disposed;
       cancelAnimationFrame(raf);
       observer.disconnect();
       const model = targetModelRef.current;
@@ -284,21 +229,18 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     const scene = host?.__assetLabScene;
     if (!scene) return;
     let cancelled = false;
-    const loader = new GLTFLoader();
     setCharacterStatus(`Loading ${character.sex} reference…`);
     setPlayback(false);
 
-    void loader.loadAsync(character.sourceUrl).then(gltf => {
+    void new GLTFLoader().loadAsync(character.sourceUrl).then(gltf => {
       if (cancelled) {
         disposeObjectTree(gltf.scene);
         return;
       }
-
       if (targetModelRef.current) {
         scene.remove(targetModelRef.current);
         disposeObjectTree(targetModelRef.current);
       }
-
       const model = gltf.scene;
       normalizeHumanoid(model);
       const skinned = findPrimarySkinnedMesh(model);
@@ -313,18 +255,15 @@ export default function AssetLabPreview({ character, candidate }: Props) {
         pendingMotionRef.current = null;
         installMotion(pending.buffer, pending.label);
       } else if (sourceRigRef.current) {
-        const currentSource = sourceRigRef.current;
         rig.skeleton.pose();
         updateSkeletonWorld(rig.skeleton);
-        applyRetarget(rig, currentSource);
+        applyRetarget(rig, sourceRigRef.current);
       }
     }).catch(error => {
       if (!cancelled) setCharacterStatus(`Character load failed: ${error instanceof Error ? error.message : "unknown error"}`);
     });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [character.id, character.sex, character.sourceUrl, installMotion, setPlayback]);
 
   useEffect(() => {
@@ -334,7 +273,6 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       clearMotion();
       return;
     }
-
     let cancelled = false;
     setMotionStatus(`Preparing ${candidate.name}…`);
     setPlayback(false);
@@ -345,10 +283,7 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     }).catch(error => {
       if (!cancelled) setMotionStatus(`Preview failed: ${error instanceof Error ? error.message : "unknown error"}`);
     });
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [candidate.id, candidate.name, candidate.sourceFileName, clearMotion, installMotion, packageReady, setPlayback]);
 
   const handlePackage = async (file: File | undefined) => {
@@ -357,9 +292,7 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     setPlayback(false);
     try {
       const { archive } = await readVerifiedAssetZip(file, P37_PRIVATE_SOURCE_PACKAGE.sha256);
-      const missing = P37_DANCE_CANDIDATES
-        .map(asset => `mixamo/${asset.sourceFileName}`)
-        .filter(name => !archive.has(name));
+      const missing = P37_DANCE_CANDIDATES.map(asset => `mixamo/${asset.sourceFileName}`).filter(name => !archive.has(name));
       if (missing.length) throw new Error(`Package is missing ${missing.length} expected FBX file(s)`);
       archiveRef.current = archive;
       setPackageReady(true);
@@ -392,37 +325,19 @@ export default function AssetLabPreview({ character, candidate }: Props) {
   return (
     <section style={styles.previewCard}>
       <div style={styles.previewTopbar}>
-        <div>
-          <p style={styles.kicker}>3D PREVIEW</p>
-          <strong>{candidate.name}</strong>
-        </div>
+        <div><p style={styles.kicker}>3D PREVIEW</p><strong>{candidate.name}</strong></div>
         <label style={styles.packageButton}>
           {packageReady ? "✓ Source ZIP loaded" : "Choose source ZIP"}
-          <input
-            type="file"
-            accept=".zip,application/zip"
-            style={{ display: "none" }}
-            onChange={event => void handlePackage(event.target.files?.[0])}
-          />
+          <input type="file" accept=".zip,application/zip" style={{ display: "none" }} onChange={event => void handlePackage(event.target.files?.[0])} />
         </label>
       </div>
-
       <p style={styles.packageStatus}>{packageStatus}</p>
       <div ref={hostRef} style={styles.canvasHost} aria-label={`${character.sex} character animation preview`} />
-
-      <div style={styles.statusStrip}>
-        <span>{characterStatus}</span>
-        <span>{motionStatus}</span>
-      </div>
-
+      <div style={styles.statusStrip}><span>{characterStatus}</span><span>{motionStatus}</span></div>
       <div style={styles.controls}>
-        <button type="button" onClick={() => setPlayback(!playing)} disabled={!sourceClipRef.current} style={styles.controlButton}>
-          {playing ? "Ⅱ Pause" : "▶ Play"}
-        </button>
+        <button type="button" onClick={() => setPlayback(!playing)} disabled={!sourceClipRef.current} style={styles.controlButton}>{playing ? "Ⅱ Pause" : "▶ Play"}</button>
         <button type="button" onClick={restart} disabled={!sourceClipRef.current} style={styles.controlButton}>↺ Restart</button>
-        <button type="button" onClick={toggleLoop} style={loop ? styles.controlButtonActive : styles.controlButton}>
-          {loop ? "✓ Loop" : "Loop"}
-        </button>
+        <button type="button" onClick={toggleLoop} style={loop ? styles.controlButtonActive : styles.controlButton}>{loop ? "✓ Loop" : "Loop"}</button>
         <span style={styles.duration}>{duration != null ? `${duration.toFixed(2)}s` : "—"}</span>
       </div>
     </section>
@@ -434,11 +349,7 @@ function captureTargetRig(skeleton: THREE.Skeleton): TargetRig {
   updateSkeletonWorld(skeleton);
   const restByName = new Map<string, RestPose>();
   for (const bone of skeleton.bones) {
-    restByName.set(bone.name, {
-      bone,
-      worldQuaternion: bone.getWorldQuaternion(new THREE.Quaternion()).normalize(),
-      worldPosition: bone.getWorldPosition(new THREE.Vector3()),
-    });
+    restByName.set(bone.name, { bone, worldQuaternion: bone.getWorldQuaternion(new THREE.Quaternion()).normalize(), worldPosition: bone.getWorldPosition(new THREE.Vector3()) });
   }
   for (const [targetName] of TARGET_TO_MIXAMO) requiredTargetRest(restByName, targetName);
   const basis = deriveBasis(
@@ -457,11 +368,7 @@ function captureSourceRest(root: THREE.Object3D) {
     if (!bone.isBone) return;
     const canonical = canonicalMixamoBoneName(bone.name);
     if (!canonical || rest.has(canonical)) return;
-    rest.set(canonical, {
-      bone,
-      worldQuaternion: bone.getWorldQuaternion(new THREE.Quaternion()).normalize(),
-      worldPosition: bone.getWorldPosition(new THREE.Vector3()),
-    });
+    rest.set(canonical, { bone, worldQuaternion: bone.getWorldQuaternion(new THREE.Quaternion()).normalize(), worldPosition: bone.getWorldPosition(new THREE.Vector3()) });
   });
   for (const [, sourceName] of TARGET_TO_MIXAMO) requiredSourceRest(rest, sourceName);
   return rest;
@@ -471,43 +378,27 @@ function applyRetarget(target: TargetRig, source: SourceRig) {
   const alignment = target.basis.clone().multiply(source.basis.clone().invert()).normalize();
   const alignmentInverse = alignment.clone().invert();
   const desiredWorldByTarget = new Map<string, THREE.Quaternion>();
-
   for (const [targetName, sourceName] of TARGET_TO_MIXAMO) {
     const targetRest = requiredTargetRest(target.restByName, targetName);
     const sourceRest = requiredSourceRest(source.restByCanonical, sourceName);
     const sourceBone = requiredSourceBone(source.root, sourceName);
     const sourceAnimatedWorld = sourceBone.getWorldQuaternion(new THREE.Quaternion()).normalize();
-
-    const normalizedSourceDelta = source.rootStartDeltaInverse
-      .clone()
-      .multiply(sourceAnimatedWorld)
-      .multiply(sourceRest.worldQuaternion.clone().invert())
-      .normalize();
-
-    const alignedDelta = alignment
-      .clone()
-      .multiply(normalizedSourceDelta)
-      .multiply(alignmentInverse)
-      .normalize();
-
+    const normalizedSourceDelta = source.rootStartDeltaInverse.clone().multiply(sourceAnimatedWorld).multiply(sourceRest.worldQuaternion.clone().invert()).normalize();
+    const alignedDelta = alignment.clone().multiply(normalizedSourceDelta).multiply(alignmentInverse).normalize();
     const desiredWorld = alignedDelta.multiply(targetRest.worldQuaternion).normalize();
     const parent = targetRest.bone.parent;
     let desiredParentWorld = new THREE.Quaternion();
-
     if (parent) {
       const parentBone = parent as THREE.Bone;
       if (parentBone.isBone) {
-        desiredParentWorld = desiredWorldByTarget.get(parentBone.name)?.clone()
-          ?? requiredTargetRest(target.restByName, parentBone.name).worldQuaternion.clone();
+        desiredParentWorld = desiredWorldByTarget.get(parentBone.name)?.clone() ?? requiredTargetRest(target.restByName, parentBone.name).worldQuaternion.clone();
       } else {
         desiredParentWorld = parent.getWorldQuaternion(new THREE.Quaternion()).normalize();
       }
     }
-
     targetRest.bone.quaternion.copy(desiredParentWorld.invert().multiply(desiredWorld).normalize());
     desiredWorldByTarget.set(targetName, desiredWorld.clone());
   }
-
   updateSkeletonWorld(target.skeleton);
 }
 
@@ -522,43 +413,41 @@ function deriveBasis(hips: THREE.Vector3, head: THREE.Vector3, leftArm: THREE.Ve
   return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(orthogonalLeft, up, forward)).normalize();
 }
 
-function requiredTargetRest(rest: Map<string, RestPose>, name: string) {
+function requiredTargetRest(rest: Map<string, RestPose>, name: string): RestPose {
   const value = rest.get(name);
   if (!value) throw new Error(`Character rig is missing ${name}`);
   return value;
 }
 
-function requiredSourceRest(rest: Map<string, RestPose>, canonical: string) {
+function requiredSourceRest(rest: Map<string, RestPose>, canonical: string): RestPose {
   const value = rest.get(canonical.toLowerCase());
   if (!value) throw new Error(`Mixamo rig is missing ${canonical}`);
   return value;
 }
 
-function requiredSourceBone(root: THREE.Object3D, canonical: string) {
+function requiredSourceBone(root: THREE.Object3D, canonical: string): THREE.Bone {
   const target = canonical.toLowerCase();
-  let result: THREE.Bone | null = null;
+  const matches: THREE.Bone[] = [];
   root.traverse(object => {
-    if (result) return;
     const bone = object as THREE.Bone;
-    if (bone.isBone && canonicalMixamoBoneName(bone.name) === target) result = bone;
+    if (bone.isBone && canonicalMixamoBoneName(bone.name) === target) matches.push(bone);
   });
+  const result = matches[0];
   if (!result) throw new Error(`Mixamo rig is missing ${canonical}`);
   return result;
 }
 
 function canonicalMixamoBoneName(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/^mixamorig[:_]?/, "")
-    .replace(/[^a-z0-9]/g, "");
+  return name.toLowerCase().replace(/^mixamorig[:_]?/, "").replace(/[^a-z0-9]/g, "");
 }
 
-function findPrimarySkinnedMesh(root: THREE.Object3D) {
-  let result: THREE.SkinnedMesh | null = null;
+function findPrimarySkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh {
+  const matches: THREE.SkinnedMesh[] = [];
   root.traverse(object => {
     const mesh = object as THREE.SkinnedMesh;
-    if (!result && mesh.isSkinnedMesh) result = mesh;
+    if (mesh.isSkinnedMesh) matches.push(mesh);
   });
+  const result = matches[0];
   if (!result) throw new Error("Character has no skinned mesh");
   return result;
 }
