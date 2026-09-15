@@ -1,30 +1,36 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "phase": "P3.7",
-  "checkpoint": "1C-private-persistence-pending-manual-upload",
-  "status": "metadata-checkpointed-binary-persistence-pending",
+  "checkpoint": "1C-private-persistence-complete",
+  "status": "private-source-persisted",
   "notes": [
     "This checkpoint records the Phase 3 reference characters plus 15 owner-acquired Adobe Mixamo dance candidates.",
     "No gameplay/runtime integration is performed here.",
     "The Quaternius reference characters are recoverable from immutable commit-pinned public CC0 sources.",
-    "The Mixamo FBX files were owner-downloaded and uploaded to the working chat, validated as Kaydara FBX Binary, and fingerprinted with SHA-256.",
+    "The Mixamo FBX files were owner-downloaded, validated as Kaydara FBX Binary, and fingerprinted with SHA-256 before packaging.",
     "Raw Mixamo FBX binaries are intentionally NOT committed to the public project repository.",
-    "P3.7 Step 1C targets a private Supabase Storage bucket named asset-sources. The connected Supabase tool cannot accept binary file uploads and the chat file runtime has no outbound DNS, so binary persistence requires one manual dashboard upload checkpoint before verification can continue."
+    "The complete 15-animation source package is persisted in a private Supabase Storage bucket.",
+    "Remote object name, byte size, MIME type, bucket privacy, and storage policies were verified after upload. The package SHA-256 below is the locally computed source-package hash; the remote object body was not re-downloaded through the connector for an independent remote SHA-256 recomputation."
   ],
   "privatePersistence": {
     "provider": "Supabase Storage",
     "projectRef": "uaosdkrfxidiwqljmelg",
-    "targetBucket": "asset-sources",
+    "bucket": "asset-sources",
     "bucketVisibility": "private",
-    "targetPrefix": "p3.7/mixamo/2026-09-15",
-    "status": "awaiting-manual-dashboard-upload",
-    "temporaryIngestEndpoint": "disabled",
-    "verificationRequiredAfterUpload": [
-      "bucket is private",
-      "15 expected objects exist",
-      "object byte sizes match manifest",
-      "no public read policy exists"
-    ]
+    "objectPath": "P3_7_Mixamo_Source_Batch_2026-09-15.zip",
+    "objectBytes": 6185438,
+    "mimeType": "application/zip",
+    "packageSha256": "b2ea022a0f9941c46975c37a0f9d34d093accf5eeab009008a3987021216c1ef",
+    "packageContents": "15 canonical Mixamo FBX files + manifest.json + README.txt",
+    "status": "verified-private-persistence",
+    "verification": {
+      "objectExists": true,
+      "objectByteSizeMatches": true,
+      "bucketPublic": false,
+      "publicReadPolicyForAssetSources": false,
+      "storagePoliciesObserved": "existing policies are scoped to audio bucket only",
+      "temporaryIngestEndpoint": "disabled-inert"
+    }
   },
   "referenceCharacters": {
     "sourceRepository": "Ashen-Skool/Aot-Fable-5.1",
@@ -62,7 +68,8 @@
     "sourceProvider": "Adobe Mixamo",
     "acquisition": "owner-downloaded-and-uploaded-to-working-chat",
     "format": "FBX Binary",
-    "binaryPersistence": "pending-private-storage",
+    "binaryPersistence": "private-supabase-package",
+    "storagePackage": "asset-sources/P3_7_Mixamo_Source_Batch_2026-09-15.zip",
     "runtimeStatus": "not-integrated",
     "assets": [
       { "id": "dance_mixamo_001", "name": "Hip Hop Dancing", "uploadedFileName": "Hip Hop Dancing(1).fbx", "storageFileName": "dance_mixamo_001.fbx", "bytes": 1411312, "sha256": "fc1603e56237a7010e0e3f73340444fb03609b429b3f915db67d330e4bd486c7" },
