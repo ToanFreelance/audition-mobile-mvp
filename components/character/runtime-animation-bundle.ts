@@ -146,7 +146,7 @@ function validateClipRecord(input: unknown): RuntimeAnimationBundleClipJson {
     fps: Number(input.fps),
     trackCount: Number(input.trackCount),
     strippedRootTranslation: true,
-    clip: input.clip as ReturnType<typeof THREE.AnimationClip.toJSON>,
+    clip: input.clip as unknown as ReturnType<typeof THREE.AnimationClip.toJSON>,
   };
 }
 
