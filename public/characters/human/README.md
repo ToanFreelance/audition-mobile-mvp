@@ -1,6 +1,6 @@
-# P3.7 human validation character and dance sources
+# P3.7 human character and dance sources
 
-Phase 3.7 replaces the active RobotExpressive validation character with a pinned human humanoid plus curated public mocap. No Audition commercial character, clothing, texture, or animation asset is included.
+Phase 3.7 keeps the active human humanoid on the proven Quaternius skeleton and replaces the temporary action-game placeholders with genuine dance motion. No Audition commercial character, clothing, texture, or animation asset is included.
 
 ## Human character
 
@@ -9,45 +9,88 @@ Active validation model: **Quaternius Universal Base Characters — Superhero Ma
 - Original author: Quaternius
 - Original pack: Universal Base Characters
 - License: **CC0 1.0 Universal**
-- Prepared GLB source used by this project: `programasweights/avatar`, `public/assets/character.glb`
-- Pinned source commit: `ddd5fc34a445bcded3cf9836607aaeebc19a5c78`
-- Prepared GLB size: 741,320 bytes
-- Runtime URL: pinned jsDelivr mirror of that exact commit
-- The prepared derivative keeps the Quaternius humanoid skeleton and uses a simple material with no embedded image payloads.
+- Runtime GLB mirror: `Ashen-Skool/Aot-Fable-5.1`
+- Pinned mirror commit: `122378c422148390c781adc6d7019eda7b5d07f3`
+- Runtime file: `assets/staged/anim/UBC_Superhero_Male_FullBody.glb`
+- Skeleton: 65-bone UE-style humanoid (`root`, `pelvis`, `spine_01..03`, arms, legs and fingers)
 
-The model is loaded from the pinned CDN during this validation milestone rather than copying a large binary into the repository. `CharacterActor` retains its procedural fallback if the external asset or animation sources cannot be loaded.
+The model is loaded from a commit-pinned jsDelivr URL. `CharacterActor` retains its procedural fallback if the external asset path fails.
 
-## Dance / reaction motion data
+## Stable same-rig support clips
 
-Motion source: **Carnegie Mellon University Graphics Lab Motion Capture Database**, using Bruce Hahne's MotionBuilder-friendly BVH conversion as mirrored by `una-dinosauria/cmu-mocap`.
+Quaternius **Universal Animation Library 1 — Standard** is loaded from the same pinned mirror and the same skeleton family.
 
-- Mirror commit pinned by this project: `09a07f54f3bbb58797325f009282d0b2048a2871`
-- CMU states that the original dataset is free for use in research and commercial projects worldwide.
-- Bruce Hahne places no additional restrictions on this BVH conversion.
-- The project downsamples the selected windows to 30 fps during one-time load/retarget and does not redistribute the source BVH files themselves.
+It is now used only for stable support/fallback presentation:
 
-Curated P3.7 set:
+- `Idle_Loop` → `Idle`
+- `Hit_Head` → `HumanMiss`
+- `Dance_Loop` → emergency fallback for a dance slot if CMU motion cannot load
+- `Roll` → emergency fallback for Finish if CMU Finish motion cannot load
 
-- `85_04` — FancyFootWork → `HumanDance01`
-- `90_28` — breakdance → `HumanDance02`
-- `90_30` — russian dance → `HumanDance03`
-- `90_31` — russian dance → `HumanDance04`
-- `90_32` — moonwalk → `HumanDance05`
-- `93_03` — charleston_01 → `HumanDance06`
-- `93_06` — lindyHop2 → `HumanDance07`
-- `93_08` — xtra fancy charleston → `HumanDance08`
-- `80_45` — crying → `HumanMiss`
-- `87_01` — Jump with kick and spin → `HumanFinish`
+Normal successful gameplay no longer maps dance slots to `Punch_Jab`, `Punch_Cross`, `Sword_Attack`, `Pistol_Shoot`, `Interact`, `Walk_Formal_Loop` or `Idle_Talking_Loop`.
 
-## Retargeting / root motion
+## Real dance motion
 
-Three.js `BVHLoader` and `SkeletonUtils.retargetClip` are used only once during character load with a fixed Quaternius-to-CMU bone map. This is a focused adapter for this asset pair, not a gameplay scheduler and not a general retargeting framework.
+Dance source: **Carnegie Mellon University Graphics Lab Motion Capture Database**, using Bruce Hahne's MotionBuilder-friendly BVH conversion mirrored by `una-dinosauria/cmu-mocap`.
 
-The generated pelvis translation track is removed so CMU locomotion cannot move the gameplay character away from the fixed stage root. Bone rotations and dance body motion are preserved. Animation phase, blend progress, SPACE anchors, Finish scheduling, and global turns remain owned by the existing P3.3/P3.4 gameplay-presentation architecture.
+- Mirror commit: `09a07f54f3bbb58797325f009282d0b2048a2871`
+- CMU source take: `85_04` — `FancyFootWork`
+- Finish source take: `87_01` — jump with kick and spin
+- CMU states that the original motion database is free for use in research and commercial projects worldwide.
+- Bruce Hahne's conversion adds no further restrictions.
+
+To keep mobile download/parse cost bounded, one genuine ~21 second `FancyFootWork` routine is split into eight 2.5 second excerpts:
+
+- `HumanDance01` — 0.25–2.75 s
+- `HumanDance02` — 2.75–5.25 s
+- `HumanDance03` — 5.25–7.75 s
+- `HumanDance04` — 7.75–10.25 s
+- `HumanDance05` — 10.25–12.75 s
+- `HumanDance06` — 12.75–15.25 s
+- `HumanDance07` — 15.25–17.75 s
+- `HumanDance08` — 17.75–20.25 s
+
+`HumanFinish` uses `87_01` from 0.15–4.15 s.
+
+The source BVH files are not copied into this repository. They are fetched from commit-pinned URLs and converted once during character load into ordinary Three.js `AnimationClip`s.
+
+## Why the retarget path changed
+
+The first CMU attempt used name-only `SkeletonUtils.retargetClip()`. Bone names matched semantically, but CMU and Quaternius do not share identical local bone axes/rest orientations, so the iPhone build showed severe limb twisting.
+
+The current adapter does **not** apply CMU local quaternions directly to Quaternius bones. Instead it:
+
+1. captures both rigs in rest pose;
+2. derives an anatomical world basis from hips/head/arms;
+3. samples the CMU clip at 30 fps;
+4. converts every mapped source bone to a rest-relative **world-space rotation delta**;
+5. removes each excerpt's initial global heading;
+6. aligns that physical world delta to the Quaternius anatomical frame;
+7. solves the corresponding Quaternius local-bone quaternion;
+8. writes those samples into a normal `QuaternionKeyframeTrack`.
+
+The target `root` is never animated. CMU translation tracks are intentionally not transferred, so the gameplay character stays stage-centered. The existing 150 ms cross-fade hides the bounded excerpt boundaries.
+
+If CMU loading fails, the affected dance slots fall back to the rig-compatible Quaternius `Dance_Loop`; they never fall back to gun/combat animations.
+
+## Gameplay timing
+
+This asset conversion does not own rhythm time.
+
+The existing P3.3/P3.4 architecture remains unchanged:
+
+- WebAudio is authoritative;
+- successful motion starts from the player's exact `SPACE` judgement timestamp;
+- phase is derived from `songTimeMs - actionStartSongTimeMs`;
+- choreography selection remains deterministic by seed + absolute turn;
+- blend progress remains song-time-derived;
+- Miss and Finish remain presentation-only;
+- Finish/global-turn scheduling is unchanged.
 
 ## Source rights references
 
-- Quaternius: https://quaternius.com/packs/universalbasecharacters.html
+- Quaternius Universal Base Characters: https://quaternius.com/packs/universalbasecharacters.html
+- Quaternius Universal Animation Library: https://quaternius.com/packs/universalanimationlibrary.html
 - CC0 1.0: https://creativecommons.org/publicdomain/zero/1.0/
 - CMU Motion Capture Database: https://mocap.cs.cmu.edu/
 - BVH mirror / rights text: https://github.com/una-dinosauria/cmu-mocap/blob/master/READMEFIRST.txt
