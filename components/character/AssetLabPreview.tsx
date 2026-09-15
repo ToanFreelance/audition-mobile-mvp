@@ -57,10 +57,10 @@ export default function AssetLabPreview({ character, candidate }: Props) {
 
   const frameCurrentCharacter = useCallback(() => {
     const camera = cameraRef.current;
-    const model = targetModelRef.current;
+    const rig = targetRigRef.current;
     const host = hostRef.current;
-    if (!camera || !model || !host) return;
-    fitPreviewCamera(camera, model, Math.max(1, host.clientWidth), Math.max(1, host.clientHeight));
+    if (!camera || !rig || !host) return;
+    fitPreviewCameraFromRig(camera, rig, Math.max(1, host.clientWidth), Math.max(1, host.clientHeight));
   }, []);
 
   const clearMotion = useCallback(() => {
@@ -140,8 +140,8 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x090b11);
     const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
-    camera.position.set(0, 1.05, 5.4);
-    camera.lookAt(0, 1.05, 0);
+    camera.position.set(0, 1.05, 5.2);
+    camera.lookAt(0, 1.0, 0);
     cameraRef.current = camera;
 
     const canvas = document.createElement("canvas");
@@ -179,7 +179,8 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
       camera.aspect = width / height;
-      if (targetModelRef.current) fitPreviewCamera(camera, targetModelRef.current, width, height);
+      const rig = targetRigRef.current;
+      if (rig) fitPreviewCameraFromRig(camera, rig, width, height);
       else camera.updateProjectionMatrix();
       renderer.setSize(width, height, false);
     };
@@ -483,25 +484,40 @@ function normalizeHumanoid(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
 }
 
-function fitPreviewCamera(camera: THREE.PerspectiveCamera, _model: THREE.Object3D, width: number, height: number) {
-  // The character is normalized to ~2 m before it reaches this function.
-  // Do not derive the review camera from Box3 bounds of an animated SkinnedMesh:
-  // those bounds can reflect rest/static geometry rather than the current skinned pose,
-  // which caused iPhone previews to zoom into the torso and crop the legs. Instead,
-  // frame a stable dance-safe volume that covers full body plus extended limbs.
+function fitPreviewCameraFromRig(camera: THREE.PerspectiveCamera, rig: TargetRig, width: number, height: number) {
+  const pelvis = requiredTargetRest(rig.restByName, "pelvis").worldPosition;
+  const head = requiredTargetRest(rig.restByName, "Head").worldPosition;
+  const handL = requiredTargetRest(rig.restByName, "hand_l").worldPosition;
+  const handR = requiredTargetRest(rig.restByName, "hand_r").worldPosition;
+  const footL = requiredTargetRest(rig.restByName, "foot_l").worldPosition;
+  const footR = requiredTargetRest(rig.restByName, "foot_r").worldPosition;
+  const ballL = requiredTargetRest(rig.restByName, "ball_l").worldPosition;
+  const ballR = requiredTargetRest(rig.restByName, "ball_r").worldPosition;
+
+  const groundY = Math.min(footL.y, footR.y, ballL.y, ballR.y);
+  const skeletonHeight = Math.max(0.25, head.y - groundY);
+  const topY = head.y + skeletonHeight * 0.22;
+  const bottomY = groundY - skeletonHeight * 0.14;
+  const centerY = (topY + bottomY) * 0.5;
+  const halfHeight = (topY - bottomY) * 0.5;
+
+  const restHalfWidth = Math.max(
+    Math.abs(handL.x - pelvis.x),
+    Math.abs(handR.x - pelvis.x),
+    skeletonHeight * 0.58,
+  );
+  const halfWidth = Math.max(restHalfWidth * 1.16, skeletonHeight * 0.72);
+
   const aspect = Math.max(0.2, width / height);
   const verticalFov = THREE.MathUtils.degToRad(camera.fov);
   const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
-  const safeHeight = 2.7;
-  const safeWidth = 3.8;
-  const distanceForHeight = (safeHeight * 0.5) / Math.tan(verticalFov / 2);
-  const distanceForWidth = (safeWidth * 0.5) / Math.tan(horizontalFov / 2);
-  const distance = Math.max(distanceForHeight * 1.08, distanceForWidth * 1.08, 5.4);
-  const targetY = 1.05;
+  const distanceForHeight = halfHeight / Math.tan(verticalFov / 2);
+  const distanceForWidth = halfWidth / Math.tan(horizontalFov / 2);
+  const distance = Math.max(distanceForHeight, distanceForWidth) * 1.08;
 
   camera.aspect = aspect;
-  camera.position.set(0, targetY, distance);
-  camera.lookAt(0, targetY, 0);
+  camera.position.set(pelvis.x, centerY, pelvis.z + distance);
+  camera.lookAt(pelvis.x, centerY, pelvis.z);
   camera.updateProjectionMatrix();
 }
 
