@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "phase": "P3.7",
+  "checkpoint": "1B-1-reference-characters",
+  "status": "source-pinned",
+  "notes": [
+    "This checkpoint records immutable, recoverable source locations for the two Phase 3 reference characters.",
+    "No gameplay/runtime integration is performed here.",
+    "Binary duplication into project-owned storage is deferred because the currently connected GitHub/Supabase tools do not expose a safe binary upload path."
+  ],
+  "sourceRepository": "Ashen-Skool/Aot-Fable-5.1",
+  "sourceCommit": "122378c422148390c781adc6d7019eda7b5d07f3",
+  "license": "CC0-1.0",
+  "canonicalFamily": "Quaternius Universal Base Characters",
+  "assets": [
+    {
+      "id": "char_male_reference_01",
+      "name": "Quaternius UBC Superhero Male FullBody",
+      "role": "reference-male",
+      "format": "glb",
+      "sourceProvider": "Quaternius Universal Base Characters",
+      "sourcePath": "assets/staged/anim/UBC_Superhero_Male_FullBody.glb",
+      "sourceUrl": "https://raw.githubusercontent.com/Ashen-Skool/Aot-Fable-5.1/122378c422148390c781adc6d7019eda7b5d07f3/assets/staged/anim/UBC_Superhero_Male_FullBody.glb",
+      "gitBlobSha1": "27485e3044fe1b4e390d08771aedb890310057f3",
+      "bytes": 1079732,
+      "approxHeightM": 1.82,
+      "license": "CC0-1.0",
+      "runtimeStatus": "not-integrated"
+    },
+    {
+      "id": "char_female_reference_01",
+      "name": "Quaternius UBC Superhero Female FullBody",
+      "role": "reference-female",
+      "format": "glb",
+      "sourceProvider": "Quaternius Universal Base Characters",
+      "sourcePath": "assets/staged/anim/UBC_Superhero_Female_FullBody.glb",
+      "sourceUrl": "https://raw.githubusercontent.com/Ashen-Skool/Aot-Fable-5.1/122378c422148390c781adc6d7019eda7b5d07f3/assets/staged/anim/UBC_Superhero_Female_FullBody.glb",
+      "gitBlobSha1": "4330fb14eae61506bd7294139ce620e2e7b4bbb2",
+      "bytes": 1482720,
+      "approxHeightM": 1.78,
+      "license": "CC0-1.0",
+      "runtimeStatus": "not-integrated"
+    }
+  ]
+}
