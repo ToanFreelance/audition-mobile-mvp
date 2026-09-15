@@ -140,7 +140,7 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x090b11);
     const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
-    camera.position.set(0, 1.05, 5.2);
+    camera.position.set(0, 1.0, 5.4);
     camera.lookAt(0, 1.0, 0);
     cameraRef.current = camera;
 
@@ -469,15 +469,41 @@ function findPrimarySkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh {
   return result;
 }
 
+function computeRestSkinnedBounds(root: THREE.Object3D) {
+  root.updateMatrixWorld(true);
+  const bounds = new THREE.Box3();
+  let found = false;
+
+  root.traverse(object => {
+    const mesh = object as THREE.SkinnedMesh;
+    if (!mesh.isSkinnedMesh) return;
+    mesh.skeleton.pose();
+    mesh.updateMatrixWorld(true);
+    mesh.computeBoundingBox();
+    if (!mesh.boundingBox) return;
+    const worldBox = mesh.boundingBox.clone().applyMatrix4(mesh.matrixWorld);
+    if (!found) {
+      bounds.copy(worldBox);
+      found = true;
+    } else {
+      bounds.union(worldBox);
+    }
+  });
+
+  if (!found || bounds.isEmpty()) throw new Error("Character has no valid skinned bounds");
+  return bounds;
+}
+
 function normalizeHumanoid(model: THREE.Object3D) {
-  model.updateMatrixWorld(true);
-  const initial = new THREE.Box3().setFromObject(model);
-  const size = initial.getSize(new THREE.Vector3());
+  let bounds = computeRestSkinnedBounds(model);
+  const size = bounds.getSize(new THREE.Vector3());
   if (!(size.y > 0)) throw new Error("Character has invalid bounds");
+
   model.scale.multiplyScalar(2 / size.y);
   model.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(model);
+  bounds = computeRestSkinnedBounds(model);
   const center = bounds.getCenter(new THREE.Vector3());
+
   model.position.x -= center.x;
   model.position.y -= bounds.min.y;
   model.position.z -= center.z;
@@ -485,39 +511,22 @@ function normalizeHumanoid(model: THREE.Object3D) {
 }
 
 function fitPreviewCameraFromRig(camera: THREE.PerspectiveCamera, rig: TargetRig, width: number, height: number) {
-  const pelvis = requiredTargetRest(rig.restByName, "pelvis").worldPosition;
-  const head = requiredTargetRest(rig.restByName, "Head").worldPosition;
-  const handL = requiredTargetRest(rig.restByName, "hand_l").worldPosition;
-  const handR = requiredTargetRest(rig.restByName, "hand_r").worldPosition;
-  const footL = requiredTargetRest(rig.restByName, "foot_l").worldPosition;
-  const footR = requiredTargetRest(rig.restByName, "foot_r").worldPosition;
-  const ballL = requiredTargetRest(rig.restByName, "ball_l").worldPosition;
-  const ballR = requiredTargetRest(rig.restByName, "ball_r").worldPosition;
-
-  const groundY = Math.min(footL.y, footR.y, ballL.y, ballR.y);
-  const skeletonHeight = Math.max(0.25, head.y - groundY);
-  const topY = head.y + skeletonHeight * 0.22;
-  const bottomY = groundY - skeletonHeight * 0.14;
-  const centerY = (topY + bottomY) * 0.5;
-  const halfHeight = (topY - bottomY) * 0.5;
-
-  const restHalfWidth = Math.max(
-    Math.abs(handL.x - pelvis.x),
-    Math.abs(handR.x - pelvis.x),
-    skeletonHeight * 0.58,
-  );
-  const halfWidth = Math.max(restHalfWidth * 1.16, skeletonHeight * 0.72);
-
+  // The reference mesh is normalized to a stable 2 m envelope around x/z=0.
+  // Keep camera framing independent of bind-matrix offsets and animated mesh bounds.
+  void rig;
   const aspect = Math.max(0.2, width / height);
   const verticalFov = THREE.MathUtils.degToRad(camera.fov);
   const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
+  const centerY = 1.0;
+  const halfHeight = 1.22;
+  const halfWidth = 1.55;
   const distanceForHeight = halfHeight / Math.tan(verticalFov / 2);
   const distanceForWidth = halfWidth / Math.tan(horizontalFov / 2);
-  const distance = Math.max(distanceForHeight, distanceForWidth) * 1.08;
+  const distance = Math.max(distanceForHeight, distanceForWidth) * 1.06;
 
   camera.aspect = aspect;
-  camera.position.set(pelvis.x, centerY, pelvis.z + distance);
-  camera.lookAt(pelvis.x, centerY, pelvis.z);
+  camera.position.set(0, centerY, distance);
+  camera.lookAt(0, centerY, 0);
   camera.updateProjectionMatrix();
 }
 
