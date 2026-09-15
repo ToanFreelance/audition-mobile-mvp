@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "phase": "P3.7",
+  "checkpoint": "1C-private-source-package-prepared",
+  "status": "archive-prepared-awaiting-private-storage-upload",
+  "archiveFileName": "P3_7_Mixamo_Source_Batch_2026-09-15.zip",
+  "archiveBytes": 6185438,
+  "archiveSha256": "b2ea022a0f9941c46975c37a0f9d34d093accf5eeab009008a3987021216c1ef",
+  "assetCount": 15,
+  "contents": "15 canonical-named Mixamo FBX files plus manifest.json and README.txt",
+  "storageTarget": {
+    "provider": "Supabase Storage",
+    "projectRef": "uaosdkrfxidiwqljmelg",
+    "bucket": "asset-sources",
+    "visibility": "private",
+    "path": "p3.7/mixamo/2026-09-15/P3_7_Mixamo_Source_Batch_2026-09-15.zip"
+  },
+  "security": {
+    "rawMixamoMustRemainPrivate": true,
+    "publicProjectRepositoryMustNotContainArchive": true,
+    "temporaryIngestEndpoint": "disabled"
+  }
+}
