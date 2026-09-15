@@ -40,6 +40,7 @@ export default function AssetLabPage() {
   const character = P37_REFERENCE_CHARACTERS.find(item => item.id === characterId) ?? P37_REFERENCE_CHARACTERS[0];
   const selected = P37_DANCE_CANDIDATES.find(item => item.id === selectedId) ?? P37_DANCE_CANDIDATES[0];
   const selectedDecision = getDecision(draftSelections, selected.id);
+  const selectedIndex = Math.max(0, P37_DANCE_CANDIDATES.findIndex(item => item.id === selected.id));
 
   const counts = useMemo(() => {
     let approved = 0;
@@ -64,6 +65,17 @@ export default function AssetLabPage() {
       else next[id] = decision;
       return next;
     });
+  };
+
+  const selectAnimation = (id: string) => {
+    setSelectedId(id);
+    setDetailsOpen(false);
+  };
+
+  const stepAnimation = (offset: number) => {
+    const total = P37_DANCE_CANDIDATES.length;
+    const nextIndex = (selectedIndex + offset + total) % total;
+    selectAnimation(P37_DANCE_CANDIDATES[nextIndex].id);
   };
 
   return (
@@ -95,12 +107,38 @@ export default function AssetLabPage() {
           </div>
         </section>
 
+        <section style={styles.quickPicker}>
+          <div style={styles.quickPickerTop}>
+            <div>
+              <p style={styles.sectionLabel}>ANIMATION</p>
+              <strong style={styles.quickPickerTitle}>{String(selectedIndex + 1).padStart(2, "0")} / {P37_DANCE_CANDIDATES.length}</strong>
+            </div>
+            <DecisionBadge decision={selectedDecision} />
+          </div>
+          <div style={styles.quickPickerControls}>
+            <button type="button" onClick={() => stepAnimation(-1)} style={styles.navButton} aria-label="Previous animation">‹</button>
+            <select
+              value={selected.id}
+              onChange={event => selectAnimation(event.target.value)}
+              style={styles.animationSelect}
+              aria-label="Select animation"
+            >
+              {P37_DANCE_CANDIDATES.map((asset, index) => (
+                <option key={asset.id} value={asset.id}>
+                  {String(index + 1).padStart(2, "0")} · {asset.name}
+                </option>
+              ))}
+            </select>
+            <button type="button" onClick={() => stepAnimation(1)} style={styles.navButton} aria-label="Next animation">›</button>
+          </div>
+        </section>
+
         <AssetLabPreview character={character} candidate={selected} />
 
         <section style={styles.selectedCard}>
           <div style={styles.selectedTop}>
             <div>
-              <p style={styles.sectionLabel}>SELECTED ANIMATION</p>
+              <p style={styles.sectionLabel}>REVIEW</p>
               <h2 style={styles.selectedName}>{selected.name}</h2>
             </div>
             <DecisionBadge decision={selectedDecision} />
@@ -127,45 +165,44 @@ export default function AssetLabPage() {
           )}
         </section>
 
-        <section style={styles.librarySection}>
-          <div style={styles.libraryHeader}>
+        <details style={styles.librarySection}>
+          <summary style={styles.librarySummary}>
             <div>
-              <p style={styles.sectionLabel}>ANIMATIONS</p>
-              <h2 style={styles.libraryTitle}>15 dance candidates</h2>
+              <p style={styles.sectionLabel}>ALL ANIMATIONS</p>
+              <strong>Browse 15 candidates</strong>
             </div>
-            <div style={styles.countText}>{counts.approved} approved · {counts.rejected} rejected</div>
-          </div>
+            <span style={styles.countText}>{counts.approved} approved · {counts.rejected} rejected · tap to expand</span>
+          </summary>
 
-          <div style={styles.filters}>
-            {(["all", "unreviewed", "approved", "rejected"] as const).map(value => (
-              <button key={value} type="button" onClick={() => setFilter(value)} style={filterButtonStyle(filter === value)}>
-                {value === "all" ? "All" : value[0].toUpperCase() + value.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          <div style={styles.animationList}>
-            {visibleCandidates.map(asset => {
-              const decision = getDecision(draftSelections, asset.id);
-              const isSelected = asset.id === selected.id;
-              return (
-                <button
-                  key={asset.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(asset.id);
-                    setDetailsOpen(false);
-                  }}
-                  style={animationRowStyle(isSelected)}
-                >
-                  <span style={styles.animationIndex}>{String(P37_DANCE_CANDIDATES.findIndex(item => item.id === asset.id) + 1).padStart(2, "0")}</span>
-                  <span style={styles.animationName}>{asset.name}</span>
-                  <DecisionDot decision={decision} />
+          <div style={styles.libraryBody}>
+            <div style={styles.filters}>
+              {(["all", "unreviewed", "approved", "rejected"] as const).map(value => (
+                <button key={value} type="button" onClick={() => setFilter(value)} style={filterButtonStyle(filter === value)}>
+                  {value === "all" ? "All" : value[0].toUpperCase() + value.slice(1)}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+
+            <div style={styles.animationList}>
+              {visibleCandidates.map(asset => {
+                const decision = getDecision(draftSelections, asset.id);
+                const isSelected = asset.id === selected.id;
+                return (
+                  <button
+                    key={asset.id}
+                    type="button"
+                    onClick={() => selectAnimation(asset.id)}
+                    style={animationRowStyle(isSelected)}
+                  >
+                    <span style={styles.animationIndex}>{String(P37_DANCE_CANDIDATES.findIndex(item => item.id === asset.id) + 1).padStart(2, "0")}</span>
+                    <span style={styles.animationName}>{asset.name}</span>
+                    <DecisionDot decision={decision} />
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </section>
+        </details>
 
         <footer style={styles.footer}>
           Source FBX stays private. The preview ZIP is opened locally in the browser and is not uploaded by this tool. Gameplay, WebAudio, Finish, gauge and choreography runtime are untouched.
@@ -274,6 +311,12 @@ const styles: Record<string, CSSProperties> = {
   sectionLabel: { margin: 0, color: "#7f899a", fontSize: 9, fontWeight: 950, letterSpacing: ".12em" },
   characterButtons: { display: "flex", gap: 8 },
   characterIcon: { fontSize: 18, lineHeight: 1 },
+  quickPicker: { display: "grid", gap: 8, padding: 10, border: "1px solid #2f3441", borderRadius: 14, background: "#11141a" },
+  quickPickerTop: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  quickPickerTitle: { fontSize: 13, color: "#d9deea" },
+  quickPickerControls: { display: "grid", gridTemplateColumns: "42px minmax(0, 1fr) 42px", gap: 7, alignItems: "center" },
+  navButton: { width: 42, height: 42, border: "1px solid #3b4250", background: "#191d26", color: "#e7eaf0", borderRadius: 11, fontSize: 24, lineHeight: 1, fontWeight: 800 },
+  animationSelect: { width: "100%", minWidth: 0, height: 42, border: "1px solid #785bb3", background: "#241c35", color: "#f0e9ff", borderRadius: 11, padding: "0 10px", fontSize: 14, fontWeight: 800 },
   selectedCard: { display: "grid", gap: 10, padding: 12, border: "1px solid #2a303c", borderRadius: 15, background: "#11141a" },
   selectedTop: { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" },
   selectedName: { margin: "3px 0 0", fontSize: 20 },
@@ -282,10 +325,10 @@ const styles: Record<string, CSSProperties> = {
   detailsButton: { justifySelf: "start", border: 0, background: "transparent", color: "#8d97a8", padding: 0, fontSize: 11, fontWeight: 800 },
   detailsBox: { display: "grid", gap: 4, padding: 10, borderRadius: 10, background: "#181b22", color: "#8e98a9", fontSize: 11 },
   hash: { color: "#727c8c", fontSize: 9, overflowWrap: "anywhere", wordBreak: "break-all" },
-  librarySection: { display: "grid", gap: 10, padding: 12, border: "1px solid #282d38", borderRadius: 15, background: "#11141a" },
-  libraryHeader: { display: "flex", justifyContent: "space-between", alignItems: "end", gap: 10 },
-  libraryTitle: { margin: "3px 0 0", fontSize: 18 },
-  countText: { color: "#828c9d", fontSize: 10 },
+  librarySection: { padding: 12, border: "1px solid #282d38", borderRadius: 15, background: "#11141a" },
+  librarySummary: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, cursor: "pointer", listStyle: "none" },
+  libraryBody: { display: "grid", gap: 10, marginTop: 12 },
+  countText: { color: "#828c9d", fontSize: 10, textAlign: "right" },
   filters: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 },
   animationList: { display: "grid", gap: 5 },
   animationIndex: { color: "#6f798a", fontSize: 10, fontWeight: 900, textAlign: "center" },
