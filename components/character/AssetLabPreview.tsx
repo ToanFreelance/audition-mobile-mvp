@@ -11,6 +11,7 @@ import {
   type ReferenceCharacterAsset,
 } from "./asset-catalog";
 import { LocalAssetZip, readVerifiedAssetZip } from "./asset-lab-local-package";
+import { setAssetLabSourceArchive } from "./asset-lab-session";
 import {
   CHARACTER_STAGE_POSITION,
   NORMALIZED_CHARACTER_HEIGHT,
@@ -360,10 +361,12 @@ export default function AssetLabPreview({ character, candidate }: Props) {
         .filter(name => !archive.has(name));
       if (missing.length) throw new Error(`Package is missing ${missing.length} expected FBX file(s)`);
       archiveRef.current = archive;
+      setAssetLabSourceArchive(archive);
       setPackageReady(true);
       setPackageStatus("Private source package ready · 15/15 animations · stays local in this browser session");
     } catch (error) {
       archiveRef.current = null;
+      setAssetLabSourceArchive(null);
       setPackageReady(false);
       setPackageStatus(`Package rejected: ${error instanceof Error ? error.message : "unknown error"}`);
     }
