@@ -363,9 +363,14 @@ export default function AssetLabPreview({ character, candidate }: Props) {
 function applyGameplayCameraFrame(camera: THREE.PerspectiveCamera, width: number, height: number) {
   const portrait = height > width;
   const frame = getCharacterCameraFrame("center", portrait);
+  const reviewDollyScale = portrait ? 0.46 : 0.56;
   camera.aspect = width / height;
   camera.fov = frame.fov;
-  camera.position.set(0, frame.y, frame.z);
+  camera.position.set(
+    0,
+    frame.targetY + (frame.y - frame.targetY) * reviewDollyScale,
+    frame.targetZ + (frame.z - frame.targetZ) * reviewDollyScale,
+  );
   camera.lookAt(0, frame.targetY, frame.targetZ);
   camera.updateProjectionMatrix();
 }
