@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import AssetLabPreview from "@/components/character/AssetLabPreview";
 import {
   P37_DANCE_CANDIDATES,
-  P37_PRIVATE_SOURCE_PACKAGE,
   P37_REFERENCE_CHARACTERS,
 } from "@/components/character/asset-catalog";
 
@@ -14,37 +14,32 @@ type Filter = "all" | DisplayDecision;
 
 const STORAGE_KEY = "audition:p3.7:asset-lab:draft-selection:v1";
 
-const formatBytes = (bytes: number) => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-};
-
-const getDecision = (draft: DraftSelections, id: string): DisplayDecision => draft[id] ?? "unreviewed";
-
 export default function AssetLabPage() {
+  const [characterId, setCharacterId] = useState(P37_REFERENCE_CHARACTERS[0].id);
+  const [selectedId, setSelectedId] = useState(P37_DANCE_CANDIDATES[0].id);
   const [draftSelections, setDraftSelections] = useState<DraftSelections>({});
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as DraftSelections;
-        if (parsed && typeof parsed === "object") setDraftSelections(parsed);
-      }
+      if (raw) setDraftSelections(JSON.parse(raw) as DraftSelections);
     } catch {
-      // A broken local draft should never block the internal tool.
+      // Local review state must never block the internal tool.
     } finally {
       setDraftLoaded(true);
     }
   }, []);
 
   useEffect(() => {
-    if (!draftLoaded) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draftSelections));
+    if (draftLoaded) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draftSelections));
   }, [draftLoaded, draftSelections]);
+
+  const character = P37_REFERENCE_CHARACTERS.find(item => item.id === characterId) ?? P37_REFERENCE_CHARACTERS[0];
+  const selected = P37_DANCE_CANDIDATES.find(item => item.id === selectedId) ?? P37_DANCE_CANDIDATES[0];
+  const selectedDecision = getDecision(draftSelections, selected.id);
 
   const counts = useMemo(() => {
     let approved = 0;
@@ -54,11 +49,7 @@ export default function AssetLabPage() {
       if (decision === "approved") approved += 1;
       if (decision === "rejected") rejected += 1;
     }
-    return {
-      approved,
-      rejected,
-      unreviewed: P37_DANCE_CANDIDATES.length - approved - rejected,
-    };
+    return { approved, rejected, unreviewed: P37_DANCE_CANDIDATES.length - approved - rejected };
   }, [draftSelections]);
 
   const visibleCandidates = useMemo(() => {
@@ -80,206 +71,224 @@ export default function AssetLabPage() {
       <div style={styles.shell}>
         <header style={styles.header}>
           <div>
-            <p style={styles.eyebrow}>P3.7 · ASSET LAB · 2A-1</p>
-            <h1 style={styles.title}>Character & Animation Catalog</h1>
-            <p style={styles.lead}>
-              Catalog foundation only. Draft review is stored in this browser and does not publish content or change gameplay.
-            </p>
+            <p style={styles.eyebrow}>P3.7 · ASSET LAB · 2A-2</p>
+            <h1 style={styles.title}>Animation Review</h1>
+            <p style={styles.lead}>Choose character → preview dance → approve or reject. Draft decisions stay in this browser only.</p>
           </div>
-          <div style={styles.lockBadge}>GAMEPLAY DISCONNECTED</div>
+          <span style={styles.lockBadge}>GAMEPLAY DISCONNECTED</span>
         </header>
 
-        <section style={styles.notice}>
-          <strong>Private source checkpoint verified.</strong>
-          <span>
-            Supabase / {P37_PRIVATE_SOURCE_PACKAGE.bucket} / {P37_PRIVATE_SOURCE_PACKAGE.object} · {formatBytes(P37_PRIVATE_SOURCE_PACKAGE.bytes)}
-          </span>
-          <code style={styles.hash}>SHA-256 {P37_PRIVATE_SOURCE_PACKAGE.sha256}</code>
-        </section>
-
-        <section style={styles.section}>
-          <div style={styles.sectionHeading}>
-            <div>
-              <p style={styles.kicker}>REFERENCE CHARACTERS</p>
-              <h2 style={styles.h2}>Male / Female rig references</h2>
-            </div>
-            <span style={styles.muted}>3D preview comes in Step 2A-2</span>
-          </div>
-          <div style={styles.characterGrid}>
-            {P37_REFERENCE_CHARACTERS.map(character => (
-              <article key={character.id} style={styles.characterCard}>
-                <div style={styles.characterPlaceholder}>{character.sex === "male" ? "♂" : "♀"}</div>
-                <div style={{ minWidth: 0 }}>
-                  <p style={styles.cardTitle}>{character.name}</p>
-                  <p style={styles.meta}>{character.id}</p>
-                  <p style={styles.meta}>
-                    {character.provider} · {character.family} · {character.format} · {character.license}
-                  </p>
-                  <p style={styles.meta}>Approx. {character.approxHeightM.toFixed(2)} m · source pinned</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section style={styles.section}>
-          <div style={styles.sectionHeading}>
-            <div>
-              <p style={styles.kicker}>DANCE CANDIDATES</p>
-              <h2 style={styles.h2}>15 owner-acquired Mixamo motions</h2>
-            </div>
-            <div style={styles.summaryRow}>
-              <Summary label="Approved" value={counts.approved} />
-              <Summary label="Rejected" value={counts.rejected} />
-              <Summary label="Unreviewed" value={counts.unreviewed} />
-            </div>
-          </div>
-
-          <div style={styles.toolbar}>
-            {(["all", "unreviewed", "approved", "rejected"] as const).map(value => (
+        <section style={styles.characterSection}>
+          <div style={styles.sectionLabel}>CHARACTER</div>
+          <div style={styles.characterButtons}>
+            {P37_REFERENCE_CHARACTERS.map(item => (
               <button
-                key={value}
+                key={item.id}
                 type="button"
-                onClick={() => setFilter(value)}
-                style={filterButtonStyle(filter === value)}
+                onClick={() => setCharacterId(item.id)}
+                style={characterButtonStyle(item.id === character.id)}
               >
-                {value === "all" ? "All 15" : value[0].toUpperCase() + value.slice(1)}
+                <span style={styles.characterIcon}>{item.sex === "male" ? "♂" : "♀"}</span>
+                <span>{item.sex === "male" ? "Male" : "Female"}</span>
               </button>
             ))}
-            <button
-              type="button"
-              onClick={() => setDraftSelections({})}
-              disabled={!Object.keys(draftSelections).length}
-              style={styles.resetButton}
-            >
-              Reset draft
-            </button>
+          </div>
+        </section>
+
+        <AssetLabPreview character={character} candidate={selected} />
+
+        <section style={styles.selectedCard}>
+          <div style={styles.selectedTop}>
+            <div>
+              <p style={styles.sectionLabel}>SELECTED ANIMATION</p>
+              <h2 style={styles.selectedName}>{selected.name}</h2>
+            </div>
+            <DecisionBadge decision={selectedDecision} />
           </div>
 
-          <div style={styles.list}>
+          <div style={styles.reviewActions}>
+            <button type="button" onClick={() => setDecision(selected.id, "approved")} style={reviewButtonStyle(selectedDecision === "approved", "approve")}>✓ Approve</button>
+            <button type="button" onClick={() => setDecision(selected.id, "rejected")} style={reviewButtonStyle(selectedDecision === "rejected", "reject")}>× Reject</button>
+            {selectedDecision !== "unreviewed" && (
+              <button type="button" onClick={() => setDecision(selected.id, "unreviewed")} style={styles.clearButton}>Clear</button>
+            )}
+          </div>
+
+          <button type="button" onClick={() => setDetailsOpen(value => !value)} style={styles.detailsButton}>
+            {detailsOpen ? "Hide technical details" : "Technical details"} {detailsOpen ? "▴" : "▾"}
+          </button>
+          {detailsOpen && (
+            <div style={styles.detailsBox}>
+              <div>{selected.id}</div>
+              <div>{selected.provider} · {selected.format}</div>
+              <div>{selected.sourceFileName} · {(selected.bytes / 1024).toFixed(0)} KB</div>
+              <code style={styles.hash}>SHA-256 {selected.sha256}</code>
+            </div>
+          )}
+        </section>
+
+        <section style={styles.librarySection}>
+          <div style={styles.libraryHeader}>
+            <div>
+              <p style={styles.sectionLabel}>ANIMATIONS</p>
+              <h2 style={styles.libraryTitle}>15 dance candidates</h2>
+            </div>
+            <div style={styles.countText}>{counts.approved} approved · {counts.rejected} rejected</div>
+          </div>
+
+          <div style={styles.filters}>
+            {(["all", "unreviewed", "approved", "rejected"] as const).map(value => (
+              <button key={value} type="button" onClick={() => setFilter(value)} style={filterButtonStyle(filter === value)}>
+                {value === "all" ? "All" : value[0].toUpperCase() + value.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          <div style={styles.animationList}>
             {visibleCandidates.map(asset => {
               const decision = getDecision(draftSelections, asset.id);
+              const isSelected = asset.id === selected.id;
               return (
-                <article key={asset.id} style={styles.assetRow}>
-                  <div style={styles.assetMain}>
-                    <div style={styles.assetTitleRow}>
-                      <strong style={styles.assetName}>{asset.name}</strong>
-                      <span style={decisionBadgeStyle(decision)}>{decision.toUpperCase()}</span>
-                    </div>
-                    <p style={styles.meta}>{asset.id} · {asset.sourceFileName} · {formatBytes(asset.bytes)}</p>
-                    <p style={styles.meta}>{asset.provider} · {asset.format} · private source persisted</p>
-                    <code style={styles.hash}>SHA-256 {asset.sha256}</code>
-                  </div>
-                  <div style={styles.actions}>
-                    <button
-                      type="button"
-                      onClick={() => setDecision(asset.id, "approved")}
-                      style={actionButtonStyle(decision === "approved", "approve")}
-                    >
-                      ✓ Approve draft
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDecision(asset.id, "rejected")}
-                      style={actionButtonStyle(decision === "rejected", "reject")}
-                    >
-                      × Reject
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDecision(asset.id, "unreviewed")}
-                      disabled={decision === "unreviewed"}
-                      style={styles.clearButton}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </article>
+                <button
+                  key={asset.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(asset.id);
+                    setDetailsOpen(false);
+                  }}
+                  style={animationRowStyle(isSelected)}
+                >
+                  <span style={styles.animationIndex}>{String(P37_DANCE_CANDIDATES.findIndex(item => item.id === asset.id) + 1).padStart(2, "0")}</span>
+                  <span style={styles.animationName}>{asset.name}</span>
+                  <DecisionDot decision={decision} />
+                </button>
               );
             })}
           </div>
-
-          {!visibleCandidates.length && <p style={styles.empty}>No candidates in this filter.</p>}
         </section>
 
         <footer style={styles.footer}>
-          <strong>Scope guard:</strong> this page does not load FBX, retarget animation, modify the approved game pool, or touch WebAudio/gameplay timing. Those are later checkpoints.
+          Source FBX stays private. The preview ZIP is opened locally in the browser and is not uploaded by this tool. Gameplay, WebAudio, Finish, gauge and choreography runtime are untouched.
         </footer>
       </div>
     </main>
   );
 }
 
-function Summary({ label, value }: { label: string; value: number }) {
+function getDecision(draft: DraftSelections, id: string): DisplayDecision {
+  return draft[id] ?? "unreviewed";
+}
+
+function DecisionBadge({ decision }: { decision: DisplayDecision }) {
+  return <span style={decisionBadgeStyle(decision)}>{decision.toUpperCase()}</span>;
+}
+
+function DecisionDot({ decision }: { decision: DisplayDecision }) {
   return (
-    <div style={styles.summary}>
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </div>
+    <span style={decisionDotStyle(decision)} aria-label={decision}>
+      {decision === "approved" ? "✓" : decision === "rejected" ? "×" : "○"}
+    </span>
   );
 }
 
-const filterButtonStyle = (active: boolean): CSSProperties => ({
-  border: active ? "1px solid #9d6cff" : "1px solid #343844",
-  background: active ? "#2a1f46" : "#171a21",
-  color: active ? "#eee5ff" : "#aeb4c2",
-  borderRadius: 10,
-  padding: "9px 12px",
-  fontWeight: 700,
-  cursor: "pointer",
+const characterButtonStyle = (active: boolean): CSSProperties => ({
+  flex: 1,
+  minWidth: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+  padding: "11px 12px",
+  borderRadius: 12,
+  border: active ? "1px solid #9b74e3" : "1px solid #343946",
+  background: active ? "#2b2142" : "#171a21",
+  color: active ? "#f0e9ff" : "#aeb5c3",
+  fontWeight: 850,
 });
 
-const actionButtonStyle = (active: boolean, kind: "approve" | "reject"): CSSProperties => ({
-  border: active ? `1px solid ${kind === "approve" ? "#54d59b" : "#ff7686"}` : "1px solid #3a3e49",
-  background: active ? (kind === "approve" ? "#123c2e" : "#481f29") : "#171a21",
-  color: active ? "#ffffff" : "#c6cbd6",
-  borderRadius: 10,
-  padding: "10px 12px",
-  fontWeight: 750,
-  cursor: "pointer",
+const filterButtonStyle = (active: boolean): CSSProperties => ({
+  border: active ? "1px solid #8c67cf" : "1px solid #323744",
+  background: active ? "#2a2040" : "#171a21",
+  color: active ? "#efe7ff" : "#9da6b6",
+  borderRadius: 999,
+  padding: "8px 11px",
+  fontWeight: 800,
+  fontSize: 12,
+});
+
+const reviewButtonStyle = (active: boolean, kind: "approve" | "reject"): CSSProperties => ({
+  flex: 1,
+  border: active ? `1px solid ${kind === "approve" ? "#4bd598" : "#ff7184"}` : "1px solid #3b414e",
+  background: active ? (kind === "approve" ? "#123b2d" : "#45202a") : "#191d25",
+  color: "#f6f8fb",
+  borderRadius: 12,
+  padding: "12px 14px",
+  fontWeight: 900,
+});
+
+const animationRowStyle = (selected: boolean): CSSProperties => ({
+  width: "100%",
+  display: "grid",
+  gridTemplateColumns: "34px minmax(0, 1fr) 30px",
+  gap: 8,
+  alignItems: "center",
+  textAlign: "left",
+  border: selected ? "1px solid #8a65cc" : "1px solid transparent",
+  background: selected ? "#251d37" : "#171a21",
+  color: "#e7eaf0",
+  borderRadius: 11,
+  padding: "10px 9px",
 });
 
 const decisionBadgeStyle = (decision: DisplayDecision): CSSProperties => ({
   borderRadius: 999,
-  padding: "5px 8px",
-  fontSize: 10,
-  fontWeight: 900,
+  padding: "6px 8px",
+  fontSize: 9,
+  fontWeight: 950,
   letterSpacing: ".08em",
-  color: decision === "approved" ? "#7bf0b8" : decision === "rejected" ? "#ff9aa7" : "#aeb4c2",
-  background: decision === "approved" ? "#123c2e" : decision === "rejected" ? "#481f29" : "#252933",
+  color: decision === "approved" ? "#75e9b2" : decision === "rejected" ? "#ff9eaa" : "#a8b0be",
+  background: decision === "approved" ? "#12372b" : decision === "rejected" ? "#42202a" : "#232832",
+});
+
+const decisionDotStyle = (decision: DisplayDecision): CSSProperties => ({
+  width: 26,
+  height: 26,
+  display: "grid",
+  placeItems: "center",
+  justifySelf: "end",
+  borderRadius: 999,
+  color: decision === "approved" ? "#75e9b2" : decision === "rejected" ? "#ff8f9e" : "#6f7888",
+  background: decision === "approved" ? "#12372b" : decision === "rejected" ? "#42202a" : "#222630",
+  fontWeight: 950,
 });
 
 const styles: Record<string, CSSProperties> = {
-  page: { minHeight: "100vh", padding: "28px 16px 48px", background: "#0d0f14", color: "#f4f6fb", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
-  shell: { width: "100%", maxWidth: 1080, margin: "0 auto", display: "grid", gap: 18 },
-  header: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 16, alignItems: "flex-start" },
-  eyebrow: { margin: 0, color: "#a978ff", fontSize: 12, fontWeight: 900, letterSpacing: ".14em" },
-  title: { margin: "7px 0 8px", fontSize: "clamp(28px, 5vw, 44px)", lineHeight: 1.05 },
-  lead: { maxWidth: 720, margin: 0, color: "#aeb4c2", lineHeight: 1.55 },
-  lockBadge: { border: "1px solid #59457d", color: "#c6a9ff", background: "#21182f", borderRadius: 999, padding: "8px 11px", fontSize: 11, fontWeight: 900, letterSpacing: ".08em" },
-  notice: { display: "grid", gap: 5, padding: 16, border: "1px solid #2f6a54", borderRadius: 14, background: "#10251e", color: "#c9f7e3" },
-  section: { padding: 18, border: "1px solid #2c3039", borderRadius: 18, background: "#12151b" },
-  sectionHeading: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 12, alignItems: "end", marginBottom: 16 },
-  kicker: { margin: 0, color: "#8f98aa", fontSize: 11, fontWeight: 900, letterSpacing: ".12em" },
-  h2: { margin: "5px 0 0", fontSize: 21 },
-  muted: { color: "#808899", fontSize: 12 },
-  characterGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 },
-  characterCard: { display: "flex", gap: 14, padding: 14, border: "1px solid #2f3440", borderRadius: 14, background: "#181b22" },
-  characterPlaceholder: { width: 62, height: 72, flex: "0 0 auto", display: "grid", placeItems: "center", borderRadius: 12, background: "#262032", color: "#bc95ff", fontSize: 30, fontWeight: 900 },
-  cardTitle: { margin: "1px 0 5px", fontWeight: 800 },
-  meta: { margin: "3px 0", color: "#929bab", fontSize: 12, overflowWrap: "anywhere" },
-  hash: { color: "#747d8d", fontSize: 10, overflowWrap: "anywhere", wordBreak: "break-all" },
-  summaryRow: { display: "flex", gap: 8, flexWrap: "wrap" },
-  summary: { minWidth: 78, display: "grid", textAlign: "center", padding: "8px 10px", border: "1px solid #303540", borderRadius: 10, background: "#181b22", color: "#9ba4b5", fontSize: 11 },
-  toolbar: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 },
-  resetButton: { marginLeft: "auto", border: "1px solid #443d4e", background: "transparent", color: "#aeb4c2", borderRadius: 10, padding: "9px 12px", fontWeight: 700 },
-  list: { display: "grid", gap: 9 },
-  assetRow: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 14, padding: 14, border: "1px solid #292e38", borderRadius: 14, background: "#171a21" },
-  assetMain: { flex: "1 1 440px", minWidth: 0 },
-  assetTitleRow: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" },
-  assetName: { fontSize: 16 },
-  actions: { flex: "0 1 360px", display: "flex", flexWrap: "wrap", gap: 7, alignItems: "center", justifyContent: "flex-end" },
-  clearButton: { border: "1px solid #333844", background: "transparent", color: "#8f98aa", borderRadius: 10, padding: "10px 11px", fontWeight: 700 },
-  empty: { padding: 24, textAlign: "center", color: "#7f8796" },
-  footer: { padding: 14, borderRadius: 12, background: "#171a21", color: "#8f98aa", fontSize: 12, lineHeight: 1.5 },
+  page: { minHeight: "100vh", background: "#0b0d12", color: "#f4f6fb", padding: "18px 12px 40px", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+  shell: { width: "100%", maxWidth: 760, margin: "0 auto", display: "grid", gap: 12 },
+  header: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" },
+  eyebrow: { margin: 0, color: "#aa82ef", fontSize: 10, fontWeight: 950, letterSpacing: ".13em" },
+  title: { margin: "5px 0 5px", fontSize: "clamp(25px, 7vw, 36px)", lineHeight: 1 },
+  lead: { margin: 0, maxWidth: 560, color: "#9099aa", fontSize: 12, lineHeight: 1.45 },
+  lockBadge: { flex: "0 0 auto", border: "1px solid #514169", color: "#bda7e9", borderRadius: 999, padding: "6px 8px", fontSize: 8, fontWeight: 950, letterSpacing: ".08em" },
+  characterSection: { display: "grid", gap: 7, padding: 10, border: "1px solid #282d38", borderRadius: 14, background: "#11141a" },
+  sectionLabel: { margin: 0, color: "#7f899a", fontSize: 9, fontWeight: 950, letterSpacing: ".12em" },
+  characterButtons: { display: "flex", gap: 8 },
+  characterIcon: { fontSize: 18, lineHeight: 1 },
+  selectedCard: { display: "grid", gap: 10, padding: 12, border: "1px solid #2a303c", borderRadius: 15, background: "#11141a" },
+  selectedTop: { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" },
+  selectedName: { margin: "3px 0 0", fontSize: 20 },
+  reviewActions: { display: "flex", gap: 8 },
+  clearButton: { border: "1px solid #343a46", background: "transparent", color: "#9ca5b4", borderRadius: 12, padding: "12px 11px", fontWeight: 800 },
+  detailsButton: { justifySelf: "start", border: 0, background: "transparent", color: "#8d97a8", padding: 0, fontSize: 11, fontWeight: 800 },
+  detailsBox: { display: "grid", gap: 4, padding: 10, borderRadius: 10, background: "#181b22", color: "#8e98a9", fontSize: 11 },
+  hash: { color: "#727c8c", fontSize: 9, overflowWrap: "anywhere", wordBreak: "break-all" },
+  librarySection: { display: "grid", gap: 10, padding: 12, border: "1px solid #282d38", borderRadius: 15, background: "#11141a" },
+  libraryHeader: { display: "flex", justifyContent: "space-between", alignItems: "end", gap: 10 },
+  libraryTitle: { margin: "3px 0 0", fontSize: 18 },
+  countText: { color: "#828c9d", fontSize: 10 },
+  filters: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 },
+  animationList: { display: "grid", gap: 5 },
+  animationIndex: { color: "#6f798a", fontSize: 10, fontWeight: 900, textAlign: "center" },
+  animationName: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 800 },
+  footer: { padding: 11, borderRadius: 11, background: "#13161c", color: "#747e8e", fontSize: 10, lineHeight: 1.45 },
 };
