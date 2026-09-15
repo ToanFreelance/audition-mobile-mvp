@@ -11,6 +11,11 @@ import {
   type ReferenceCharacterAsset,
 } from "./asset-catalog";
 import { LocalAssetZip, readVerifiedAssetZip } from "./asset-lab-local-package";
+import {
+  CHARACTER_STAGE_POSITION,
+  NORMALIZED_CHARACTER_HEIGHT,
+  getCharacterCameraFrame,
+} from "./framing";
 
 const TARGET_TO_MIXAMO = [
   ["pelvis", "Hips"], ["spine_01", "Spine"], ["spine_02", "Spine1"], ["spine_03", "Spine2"],
@@ -29,6 +34,7 @@ type Props = { character: ReferenceCharacterAsset; candidate: DanceCandidateAsse
 
 export default function AssetLabPreview({ character, candidate }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const archiveRef = useRef<LocalAssetZip | null>(null);
   const targetModelRef = useRef<THREE.Object3D | null>(null);
@@ -53,14 +59,6 @@ export default function AssetLabPreview({ character, candidate }: Props) {
   const setPlayback = useCallback((next: boolean) => {
     playingRef.current = next;
     setPlaying(next);
-  }, []);
-
-  const frameCurrentCharacter = useCallback(() => {
-    const camera = cameraRef.current;
-    const rig = targetRigRef.current;
-    const host = hostRef.current;
-    if (!camera || !rig || !host) return;
-    fitPreviewCameraFromRig(camera, rig, Math.max(1, host.clientWidth), Math.max(1, host.clientHeight));
   }, []);
 
   const clearMotion = useCallback(() => {
@@ -124,25 +122,26 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       previewTimeRef.current = 0;
       setDuration(clip.duration);
       applyRetarget(targetRig, sourceRigRef.current);
-      frameCurrentCharacter();
       setPlayback(true);
       setMotionStatus(`${label} · ${clip.duration.toFixed(2)}s · Mixamo → Quaternius preview`);
     } catch (error) {
       clearMotion();
       setMotionStatus(`Preview failed: ${error instanceof Error ? error.message : "unknown error"}`);
     }
-  }, [clearMotion, frameCurrentCharacter, setPlayback]);
+  }, [clearMotion, setPlayback]);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
 
     const scene = new THREE.Scene();
+    sceneRef.current = scene;
     scene.background = new THREE.Color(0x090b11);
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
-    camera.position.set(0, 1.0, 5.4);
-    camera.lookAt(0, 1.0, 0);
+
+    const initialFrame = getCharacterCameraFrame("center", true);
+    const camera = new THREE.PerspectiveCamera(initialFrame.fov, 1, 0.1, 100);
     cameraRef.current = camera;
+    applyGameplayCameraFrame(camera, Math.max(1, host.clientWidth), Math.max(1, host.clientHeight));
 
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
@@ -154,23 +153,25 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     const renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, alpha: false });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.toneMappingExposure = 1.08;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
     host.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xc8c7ff, 0x16121f, 2.2));
-    const key = new THREE.DirectionalLight(0xffffff, 2.4);
-    key.position.set(3, 6, 5);
+    scene.add(new THREE.HemisphereLight(0xaaa6ff, 0x05040d, 1.55));
+    const key = new THREE.DirectionalLight(0xffeaff, 2.1);
+    key.position.set(2, 8, 8);
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0xa978ff, 1.4);
-    rim.position.set(-4, 3, -2);
-    scene.add(rim);
 
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(2.4, 48), new THREE.MeshStandardMaterial({ color: 0x151823, roughness: 0.8, metalness: 0.15 }));
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(4.4, 48),
+      new THREE.MeshStandardMaterial({ color: 0x151823, roughness: 0.8, metalness: 0.15 }),
+    );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.012;
+    floor.position.y = 0;
     scene.add(floor);
-    const grid = new THREE.GridHelper(4.8, 12, 0x7251a8, 0x252936);
+
+    const grid = new THREE.GridHelper(8.8, 18, 0x7251a8, 0x252936);
+    grid.position.y = 0.025;
     (grid.material as THREE.Material).transparent = true;
     (grid.material as THREE.Material).opacity = 0.2;
     scene.add(grid);
@@ -178,10 +179,7 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     const resize = () => {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
-      camera.aspect = width / height;
-      const rig = targetRigRef.current;
-      if (rig) fitPreviewCameraFromRig(camera, rig, width, height);
-      else camera.updateProjectionMatrix();
+      applyGameplayCameraFrame(camera, width, height);
       renderer.setSize(width, height, false);
     };
     const observer = new ResizeObserver(resize);
@@ -216,9 +214,6 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     };
     animate();
 
-    host.dataset.assetLabScene = "ready";
-    (host as HTMLDivElement & { __assetLabScene?: THREE.Scene }).__assetLabScene = scene;
-
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
@@ -230,17 +225,16 @@ export default function AssetLabPreview({ character, candidate }: Props) {
       targetModelRef.current = null;
       targetRigRef.current = null;
       cameraRef.current = null;
+      sceneRef.current = null;
       clearMotion();
       disposeObjectTree(scene);
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
-      delete (host as HTMLDivElement & { __assetLabScene?: THREE.Scene }).__assetLabScene;
     };
   }, [clearMotion]);
 
   useEffect(() => {
-    const host = hostRef.current as (HTMLDivElement & { __assetLabScene?: THREE.Scene }) | null;
-    const scene = host?.__assetLabScene;
+    const scene = sceneRef.current;
     if (!scene) return;
     let cancelled = false;
     setCharacterStatus(`Loading ${character.sex} reference…`);
@@ -255,15 +249,20 @@ export default function AssetLabPreview({ character, candidate }: Props) {
         scene.remove(targetModelRef.current);
         disposeObjectTree(targetModelRef.current);
       }
+
       const model = gltf.scene;
-      normalizeHumanoid(model);
+      normalizeHumanoidLikeGameplay(model);
+      model.position.x += CHARACTER_STAGE_POSITION.x;
+      model.position.y += CHARACTER_STAGE_POSITION.y;
+      model.position.z += CHARACTER_STAGE_POSITION.z;
+      model.updateMatrixWorld(true);
+
       const skinned = findPrimarySkinnedMesh(model);
       const rig = captureTargetRig(skinned.skeleton);
       targetModelRef.current = model;
       targetRigRef.current = rig;
       scene.add(model);
-      frameCurrentCharacter();
-      setCharacterStatus(`${character.sex === "male" ? "Male" : "Female"} reference ready`);
+      setCharacterStatus(`${character.sex === "male" ? "Male" : "Female"} reference ready · gameplay framing`);
 
       const pending = pendingMotionRef.current;
       if (pending) {
@@ -273,14 +272,13 @@ export default function AssetLabPreview({ character, candidate }: Props) {
         rig.skeleton.pose();
         updateSkeletonWorld(rig.skeleton);
         applyRetarget(rig, sourceRigRef.current);
-        frameCurrentCharacter();
       }
     }).catch(error => {
       if (!cancelled) setCharacterStatus(`Character load failed: ${error instanceof Error ? error.message : "unknown error"}`);
     });
 
     return () => { cancelled = true; };
-  }, [character.id, character.sex, character.sourceUrl, frameCurrentCharacter, installMotion, setPlayback]);
+  }, [character.id, character.sex, character.sourceUrl, installMotion, setPlayback]);
 
   useEffect(() => {
     const archive = archiveRef.current;
@@ -308,7 +306,9 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     setPlayback(false);
     try {
       const { archive } = await readVerifiedAssetZip(file, P37_PRIVATE_SOURCE_PACKAGE.sha256);
-      const missing = P37_DANCE_CANDIDATES.map(asset => `mixamo/${asset.sourceFileName}`).filter(name => !archive.has(name));
+      const missing = P37_DANCE_CANDIDATES
+        .map(asset => `mixamo/${asset.sourceFileName}`)
+        .filter(name => !archive.has(name));
       if (missing.length) throw new Error(`Package is missing ${missing.length} expected FBX file(s)`);
       archiveRef.current = archive;
       setPackageReady(true);
@@ -329,7 +329,6 @@ export default function AssetLabPreview({ character, candidate }: Props) {
     mixer.setTime(0);
     sourceRig.root.updateMatrixWorld(true);
     applyRetarget(targetRig, sourceRig);
-    frameCurrentCharacter();
     setPlayback(true);
   };
 
@@ -361,12 +360,43 @@ export default function AssetLabPreview({ character, candidate }: Props) {
   );
 }
 
+function applyGameplayCameraFrame(camera: THREE.PerspectiveCamera, width: number, height: number) {
+  const portrait = height > width;
+  const frame = getCharacterCameraFrame("center", portrait);
+  camera.aspect = width / height;
+  camera.fov = frame.fov;
+  camera.position.set(0, frame.y, frame.z);
+  camera.lookAt(0, frame.targetY, frame.targetZ);
+  camera.updateProjectionMatrix();
+}
+
+function normalizeHumanoidLikeGameplay(model: THREE.Object3D) {
+  model.updateMatrixWorld(true);
+  const initialBounds = new THREE.Box3().setFromObject(model);
+  const initialSize = initialBounds.getSize(new THREE.Vector3());
+  if (!Number.isFinite(initialSize.y) || initialSize.y <= 0) throw new Error("Character asset has invalid bounds");
+
+  model.scale.multiplyScalar(NORMALIZED_CHARACTER_HEIGHT / initialSize.y);
+  model.updateMatrixWorld(true);
+
+  const bounds = new THREE.Box3().setFromObject(model);
+  const center = bounds.getCenter(new THREE.Vector3());
+  model.position.x -= center.x;
+  model.position.y -= bounds.min.y;
+  model.position.z -= center.z;
+  model.updateMatrixWorld(true);
+}
+
 function captureTargetRig(skeleton: THREE.Skeleton): TargetRig {
   skeleton.pose();
   updateSkeletonWorld(skeleton);
   const restByName = new Map<string, RestPose>();
   for (const bone of skeleton.bones) {
-    restByName.set(bone.name, { bone, worldQuaternion: bone.getWorldQuaternion(new THREE.Quaternion()).normalize(), worldPosition: bone.getWorldPosition(new THREE.Vector3()) });
+    restByName.set(bone.name, {
+      bone,
+      worldQuaternion: bone.getWorldQuaternion(new THREE.Quaternion()).normalize(),
+      worldPosition: bone.getWorldPosition(new THREE.Vector3()),
+    });
   }
   for (const [targetName] of TARGET_TO_MIXAMO) requiredTargetRest(restByName, targetName);
   const basis = deriveBasis(
@@ -385,7 +415,11 @@ function captureSourceRest(root: THREE.Object3D) {
     if (!bone.isBone) return;
     const canonical = canonicalMixamoBoneName(bone.name);
     if (!canonical || rest.has(canonical)) return;
-    rest.set(canonical, { bone, worldQuaternion: bone.getWorldQuaternion(new THREE.Quaternion()).normalize(), worldPosition: bone.getWorldPosition(new THREE.Vector3()) });
+    rest.set(canonical, {
+      bone,
+      worldQuaternion: bone.getWorldQuaternion(new THREE.Quaternion()).normalize(),
+      worldPosition: bone.getWorldPosition(new THREE.Vector3()),
+    });
   });
   for (const [, sourceName] of TARGET_TO_MIXAMO) requiredSourceRest(rest, sourceName);
   return rest;
@@ -395,24 +429,32 @@ function applyRetarget(target: TargetRig, source: SourceRig) {
   const alignment = target.basis.clone().multiply(source.basis.clone().invert()).normalize();
   const alignmentInverse = alignment.clone().invert();
   const desiredWorldByTarget = new Map<string, THREE.Quaternion>();
+
   for (const [targetName, sourceName] of TARGET_TO_MIXAMO) {
     const targetRest = requiredTargetRest(target.restByName, targetName);
     const sourceRest = requiredSourceRest(source.restByCanonical, sourceName);
     const sourceBone = requiredSourceBone(source.root, sourceName);
     const sourceAnimatedWorld = sourceBone.getWorldQuaternion(new THREE.Quaternion()).normalize();
-    const normalizedSourceDelta = source.rootStartDeltaInverse.clone().multiply(sourceAnimatedWorld).multiply(sourceRest.worldQuaternion.clone().invert()).normalize();
+    const normalizedSourceDelta = source.rootStartDeltaInverse
+      .clone()
+      .multiply(sourceAnimatedWorld)
+      .multiply(sourceRest.worldQuaternion.clone().invert())
+      .normalize();
     const alignedDelta = alignment.clone().multiply(normalizedSourceDelta).multiply(alignmentInverse).normalize();
     const desiredWorld = alignedDelta.multiply(targetRest.worldQuaternion).normalize();
     const parent = targetRest.bone.parent;
     let desiredParentWorld = new THREE.Quaternion();
+
     if (parent) {
       const parentBone = parent as THREE.Bone;
       if (parentBone.isBone) {
-        desiredParentWorld = desiredWorldByTarget.get(parentBone.name)?.clone() ?? requiredTargetRest(target.restByName, parentBone.name).worldQuaternion.clone();
+        desiredParentWorld = desiredWorldByTarget.get(parentBone.name)?.clone()
+          ?? requiredTargetRest(target.restByName, parentBone.name).worldQuaternion.clone();
       } else {
         desiredParentWorld = parent.getWorldQuaternion(new THREE.Quaternion()).normalize();
       }
     }
+
     targetRest.bone.quaternion.copy(desiredParentWorld.invert().multiply(desiredWorld).normalize());
     desiredWorldByTarget.set(targetName, desiredWorld.clone());
   }
@@ -467,67 +509,6 @@ function findPrimarySkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh {
   const result = matches[0];
   if (!result) throw new Error("Character has no skinned mesh");
   return result;
-}
-
-function computeRestSkinnedBounds(root: THREE.Object3D) {
-  root.updateMatrixWorld(true);
-  const bounds = new THREE.Box3();
-  let found = false;
-
-  root.traverse(object => {
-    const mesh = object as THREE.SkinnedMesh;
-    if (!mesh.isSkinnedMesh) return;
-    mesh.skeleton.pose();
-    mesh.updateMatrixWorld(true);
-    mesh.computeBoundingBox();
-    if (!mesh.boundingBox) return;
-    const worldBox = mesh.boundingBox.clone().applyMatrix4(mesh.matrixWorld);
-    if (!found) {
-      bounds.copy(worldBox);
-      found = true;
-    } else {
-      bounds.union(worldBox);
-    }
-  });
-
-  if (!found || bounds.isEmpty()) throw new Error("Character has no valid skinned bounds");
-  return bounds;
-}
-
-function normalizeHumanoid(model: THREE.Object3D) {
-  let bounds = computeRestSkinnedBounds(model);
-  const size = bounds.getSize(new THREE.Vector3());
-  if (!(size.y > 0)) throw new Error("Character has invalid bounds");
-
-  model.scale.multiplyScalar(2 / size.y);
-  model.updateMatrixWorld(true);
-  bounds = computeRestSkinnedBounds(model);
-  const center = bounds.getCenter(new THREE.Vector3());
-
-  model.position.x -= center.x;
-  model.position.y -= bounds.min.y;
-  model.position.z -= center.z;
-  model.updateMatrixWorld(true);
-}
-
-function fitPreviewCameraFromRig(camera: THREE.PerspectiveCamera, rig: TargetRig, width: number, height: number) {
-  // The reference mesh is normalized to a stable 2 m envelope around x/z=0.
-  // Keep camera framing independent of bind-matrix offsets and animated mesh bounds.
-  void rig;
-  const aspect = Math.max(0.2, width / height);
-  const verticalFov = THREE.MathUtils.degToRad(camera.fov);
-  const horizontalFov = 2 * Math.atan(Math.tan(verticalFov / 2) * aspect);
-  const centerY = 1.0;
-  const halfHeight = 1.22;
-  const halfWidth = 1.55;
-  const distanceForHeight = halfHeight / Math.tan(verticalFov / 2);
-  const distanceForWidth = halfWidth / Math.tan(horizontalFov / 2);
-  const distance = Math.max(distanceForHeight, distanceForWidth) * 1.06;
-
-  camera.aspect = aspect;
-  camera.position.set(0, centerY, distance);
-  camera.lookAt(0, centerY, 0);
-  camera.updateProjectionMatrix();
 }
 
 function updateSkeletonWorld(skeleton: THREE.Skeleton) {
