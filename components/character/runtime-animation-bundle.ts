@@ -23,6 +23,7 @@ export type RuntimeAnimationBundleJson = {
   kind: "audition-runtime-animation-bundle";
   poolId: typeof P37_DANCE_POOL_ID;
   poolVersion: typeof P37_DANCE_POOL_VERSION;
+  releaseVersion?: number;
   sourceVersion: typeof P37_DANCE_POOL_SOURCE_VERSION;
   status: "processed-not-published" | "published";
   targetRig: "quaternius-ubc-superhero";
@@ -32,6 +33,7 @@ export type RuntimeAnimationBundleJson = {
   processingIds: string[];
   clipCount: number;
   clips: RuntimeAnimationBundleClipJson[];
+  publishedAt?: string;
 };
 
 export type LoadedRuntimeAnimationBundle = {
@@ -93,12 +95,26 @@ function validateBundle(input: unknown): RuntimeAnimationBundleJson {
     throw new Error("Runtime animation bundle targetReferenceCharacterId is missing");
   }
 
+  let releaseVersion: number | undefined;
+  let publishedAt: string | undefined;
+  if (input.status === "published") {
+    if (!Number.isInteger(input.releaseVersion) || Number(input.releaseVersion) <= 0) {
+      throw new Error("Published runtime animation bundle releaseVersion is invalid");
+    }
+    if (typeof input.publishedAt !== "string" || Number.isNaN(Date.parse(input.publishedAt))) {
+      throw new Error("Published runtime animation bundle publishedAt is invalid");
+    }
+    releaseVersion = Number(input.releaseVersion);
+    publishedAt = input.publishedAt;
+  }
+
   const clips = input.clips.map(validateClipRecord);
   return {
     schemaVersion: 1,
     kind: "audition-runtime-animation-bundle",
     poolId: P37_DANCE_POOL_ID,
     poolVersion: P37_DANCE_POOL_VERSION,
+    releaseVersion,
     sourceVersion: P37_DANCE_POOL_SOURCE_VERSION,
     status: input.status,
     targetRig: "quaternius-ubc-superhero",
@@ -108,6 +124,7 @@ function validateBundle(input: unknown): RuntimeAnimationBundleJson {
     processingIds: [...input.processingIds],
     clipCount: clips.length,
     clips,
+    publishedAt,
   };
 }
 
