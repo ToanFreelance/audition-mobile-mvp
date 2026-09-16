@@ -54,6 +54,9 @@ export class RhythmRuntime {
   private get lastTurn() { return lastPlayableTurn(Math.min(this.chart.durationMs ?? this.songDurationMs, this.songDurationMs), this.firstPerfectMs, this.chart.bpm, this.settings.endingReserveTurns); }
   private target(index: number) { return targetSpaceMs(this.firstPerfectMs, this.chart.bpm, index); }
   private exit(index: number) { return zoneExitMs(this.target(index), this.chart.bpm); }
+  private get debugFinishAssistEnabled() {
+    return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
+  }
 
   start(animate = true) {
     if (!this.timeSource) throw new Error('Solo Easy requires a WebAudio song-time source.');
@@ -110,6 +113,7 @@ export class RhythmRuntime {
       runtimeState: this.phase, commandVisible: this.visible, commandIndex: this.commandIndex,
       commandCompleted: this.awaitingSpace, awaitingSpace: this.awaitingSpace, penaltyTurnsRemaining: this.penaltyTurnsRemaining,
       perfectStreak: this.streak, finishCycle: this.cycle, finalFinish: this.final, gameEnded: this.ended,
+      debugFinishAssist: this.debugFinishAssistEnabled,
       isFinish: this.turn?.isFinish, revealAtMs: this.revealAtMs, lastJudgement: this.lastJudgement, judgementAtMs: this.judgementAtMs };
   }
 
@@ -152,9 +156,17 @@ export class RhythmRuntime {
   handleSpace(): Judgement | null {
     this.advance();
     if (!this.started || this.ended || !this.visible || this.phase === 'ending') return null;
+    const now = this.songTimeMs;
+    // debug=1 owner QA assist: on a visible Finish turn, SPACE alone forces a
+    // Perfect so Finish→post-rest→L6 can be tested without entering 9 arrows.
+    // Production gameplay (no debug=1) remains unchanged.
+    if (this.turn.isFinish && this.debugFinishAssistEnabled) {
+      const judgement = this.engine.judgeMove(this.turn.absoluteTurn, PERFECT_CENTER);
+      if (judgement) this.resolve(judgement, now);
+      return judgement;
+    }
     // Incomplete commands never score. The authored opportunity still expires.
     if (!this.awaitingSpace) return null;
-    const now = this.songTimeMs;
     // Judge against this playable target, not a previous scoring-zone pass.
     if (now < zoneEntryMs(this.turn.targetSpaceMs, this.chart.bpm) || now > zoneExitMs(this.turn.targetSpaceMs, this.chart.bpm)) {
       this.resolve('miss', now); return 'miss';
@@ -185,7 +197,10 @@ export class RhythmRuntime {
 
     if (previous.isFinish) {
       const plan = planAfterFinish(previous.absoluteTurn, this.lastTurn, this.settings, judgement === 'miss');
-      if (this.final || plan.finalFinish) { this.beginEnding(); return; }
+      // Recompute finality at the authoritative Finish turn. A cached planning
+      // flag must never stop a non-final Finish or replace future global turns.
+      this.final = plan.finalFinish;
+      if (plan.finalFinish) { this.beginEnding(); return; }
       this.cycle++; this.appearances = soloCycle(6, this.settings); this.appearanceIndex = 0;
       nextAbsolute = plan.nextAbsoluteTurn;
       hiddenPhase = judgement === 'miss' ? 'miss-penalty' : 'post-finish-rest';
