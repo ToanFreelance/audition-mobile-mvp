@@ -2,18 +2,18 @@
 
 Phase 1 — Solo Easy Core Gameplay and Phase 2 — Portrait HUD / iPhone UX are complete for the accepted MVP scope and integrated into `development`.
 
-Current next planned phase:
+Current phase:
 
-**Phase 3 — Human Character + Animation Controller**
+**Phase 3 — Human Character + Animation Controller — functional closeout on `work/character`**
 
-Phase 3 must start from `development` on a dedicated work branch. Do not develop directly on `development` or `main`.
+Phase 3 functional owner QA has passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, and successful Finish continuation. The branch is **not merged** into `development` yet. Owner observed rapid iPhone heating / battery drain during debug gameplay; thermal and battery profiling remain an explicit performance debt and are not being misrepresented as complete.
 
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Music Config, exact BPM, authored Space Start, FINAL RHYTHM v4, WebAudio | Complete; calibration preserved |
 | 1 | Solo Easy commands, progression, penalties, Finish, song result | Complete; owner QA accepted; integrated into `development` |
 | 2 | Portrait HUD / iPhone UX | Complete; owner iPhone QA accepted; integrated into `development` |
-| 3 | Human character, animation controller, cross-fades | **Next planned phase** |
+| 3 | Human character, animation controller, published Normal/Final dance content | **Functional closeout on `work/character`; performance debt open; not integrated** |
 | 4 | Multiplayer shared song clock | Planned |
 | 5 | Room, lobby, ready and mode selection | Planned |
 | 6 | Additional game modes | Planned |
@@ -59,7 +59,7 @@ Owner iPhone/Vercel QA accepted the Phase 2 result. `work/portrait-ui` was clean
 
 ### Phase 3 goal
 
-Replace the current placeholder/procedural character with a production-oriented humanoid character pipeline while preserving the authoritative gameplay timeline and the completed Phase 2 portrait HUD.
+Replace the placeholder/procedural character with a production-oriented humanoid character pipeline while preserving the authoritative gameplay timeline and the completed Phase 2 portrait HUD.
 
 Phase 3 is presentation/character work. It must not redesign Solo Easy gameplay, gauge calibration, command scheduling, judgement timing, Finish semantics, or the WebAudio clock architecture.
 
@@ -68,7 +68,7 @@ Phase 3 is presentation/character work. It must not redesign Solo Easy gameplay,
 - WebAudio remains the authoritative song clock.
 - Character animation is a **consumer** of authoritative song/gameplay timing; it never owns or modifies the gameplay clock.
 - Do not use a separate animation timer as a competing rhythm timeline for beat-critical dance transitions.
-- `Stage3D` may use render-frame time for interpolation/rendering only. Beat/dance phase that must align with music should be derived from authoritative song time / BPM exposed by gameplay state.
+- `Stage3D` may use render-frame time for interpolation/rendering only. Beat/dance phase that must align with music is derived from authoritative song time exposed by gameplay state.
 - Character misses, hits, dance clips and visual reactions must not pause, repeat, rewind or extend global turns.
 - Existing camera presets (`Center`, `Wide`, `Close`) remain compatible with the character pipeline.
 - Do not change the accepted Phase 2 HUD geometry unless a character-framing blocker is explicitly identified and reviewed.
@@ -89,131 +89,158 @@ Prefer the existing direct Three.js architecture. Do not introduce React Three F
 
 Use standard Three.js animation facilities (`AnimationMixer`, `AnimationAction`, GLTF loading) before adding another animation framework.
 
-### Proposed Phase 3 milestones
+### Phase 3 milestone history
 
 #### P3.1 — Character pipeline foundation
 
-Goal: establish the production character asset/runtime contract without changing gameplay.
+Implemented:
 
-- Inspect and isolate current placeholder character creation in `Stage3D`.
-- Define a small character presentation interface.
-- Load one humanoid GLB/GLTF test character.
-- Validate rig, scale, origin, orientation and portrait framing.
-- Keep existing stage/background and camera presets working.
-- Add graceful fallback if character asset loading fails.
-- No dance-state logic yet beyond a basic idle clip.
+- production-oriented `CharacterActor` boundary;
+- humanoid GLB loading with direct Three.js `GLTFLoader`;
+- scale/origin normalization and portrait framing integration;
+- fallback character path if the humanoid load fails;
+- mount/update/dispose lifecycle separated from gameplay state.
 
-Acceptance:
-
-- character loads reliably on iPhone/Safari;
-- no HUD regression;
-- no gameplay/runtime changes;
-- no uncaught loader/WebGL errors.
+Acceptance status: **PASS**.
 
 #### P3.2 — Animation controller
 
-Goal: create a presentation-only character animation state machine.
+Implemented:
 
-Initial states should remain intentionally small:
+- presentation-only `CharacterAnimationController`;
+- `idle`, normal dance, Miss and Finish presentation paths;
+- one owner for animation action transitions;
+- action lane reuse / cloning so same-clip consecutive turns can re-anchor safely;
+- mixer/action cleanup on dispose.
 
-- `idle`;
-- `dance` / primary dance loop;
-- `hit-accent` or success reaction if needed;
-- `miss` reaction if needed.
-
-Requirements:
-
-- one owner for animation state transitions;
-- avoid scattered direct `AnimationAction.play()` calls across UI/gameplay code;
-- use `AnimationMixer` and named clips/actions;
-- define deterministic transition rules;
-- no gameplay timing ownership.
-
-Acceptance:
-
-- no animation action leaks;
-- repeated state changes remain stable;
-- idle/dance transitions are visually clean.
+Acceptance status: **PASS**.
 
 #### P3.3 — WebAudio-derived dance sync
 
-Goal: synchronize beat-critical character motion to the authoritative song timeline.
+Implemented:
 
-- Expose only the minimum timing presentation data needed by `Stage3D` / character controller, for example authoritative song time, BPM and/or derived beat phase.
-- Remove reliance on hard-coded independent rhythm constants for beat-critical character motion.
-- Render interpolation may still use `requestAnimationFrame`, but phase alignment must come from authoritative song time.
-- Do not create a second scheduler.
-- Select choreography deterministically from shared seed + absolute turn identity, while anchoring each player's move to that player's exact authoritative judgement timestamp.
-- Recompute action phase from `songTimeMs - actionStartSongTimeMs` so late delivery and dropped render frames catch up without permanent drift.
-- Miss/Bad presentation does not start a normal dance; the next successful turn establishes a fresh per-player anchor.
-- Successful Finish presentation preserves its actual SPACE timestamp and `isFinish` identity, but never owns or extends the locked scheduler rest window.
+- judgement events carry the exact authoritative SPACE timestamp plus absolute turn / level / Finish identity;
+- animation phase is derived from `songTimeMs - actionStartSongTimeMs`;
+- dropped render frames catch up to song time instead of accumulating animation drift;
+- animation state never owns or modifies the global turn scheduler.
 
-Acceptance:
-
-- changing song BPM keeps character beat motion aligned;
-- menu/camera/control settings do not alter song/character phase;
-- dropped frames do not permanently drift character rhythm away from WebAudio.
+Acceptance status: **PASS**.
 
 #### P3.4 — Dance clips + cross-fades
 
-Goal: make transitions production-quality rather than abrupt.
+Historical validation used RobotExpressive as a temporary test pool. That pool is no longer the active production-content path.
 
-- Use the temporary RobotExpressive validation pool (`Dance`, `Wave`, `Yes`, `Punch`, `WalkJump`, `ThumbsUp`) with `Jump` reserved for successful Finish presentation.
-- Select every normal move deterministically from seed + absolute turn; player input timing never changes clip selection.
-- Cross-fade between idle/dance/reaction clips with a named 150ms blend window.
-- Derive both the incoming dance phase and blend progress from authoritative song time, so late event delivery and dropped frames catch up without delaying the exact SPACE anchor.
-- Allow same-clip consecutive turns to use separate action lanes, preserving the new turn anchor without a hard pose reset.
-- Blend Miss into `No`, then back to neutral `Idle`; the next successful turn remains free to establish a new authoritative dance anchor.
-- Keep the bounded RobotExpressive root translations intact: inspected validation clips remain centered and do not contain locomotion that requires runtime stripping.
-- Avoid clip restart spam on every React render/turn update.
-- Keep reactions visual-only and bounded in duration.
+The retained runtime contract is:
 
-Acceptance:
+- 150 ms song-time-derived cross-fade;
+- deterministic semantic choreography IDs;
+- exact authoritative action anchors;
+- same-clip consecutive turns use separate action lanes;
+- Miss blends to a bounded reaction then back to Idle;
+- Finish is presentation-only and never extends scheduler timing.
 
-- no visible pose snapping during normal transitions;
-- repeated Perfect/Miss events do not corrupt mixer state;
-- character returns to the expected loop cleanly.
+Acceptance status: **PASS; superseded content source by P3.7**.
 
 #### P3.5 — Portrait framing + camera integration
 
-Goal: ensure the real humanoid works with the accepted portrait gameplay composition.
+Implemented and owner-tested:
 
-- Validate `Center`, `Wide`, `Close` camera presets against the new humanoid at both 390×844 and 430×932.
-- Keep the model normalized to 3.4 world units at a stable `(0, 0.02, 0.25)` actor root. Frame the full P3.4 clip pool from a fixed torso target rather than following animated bones.
-- Use distinct portrait camera contracts: `Center` `(FOV 38, y 3.45, z 18.5 → target y 1.75)`, `Wide` `(FOV 41, y 3.65, z 20.5 → target y 1.75)`, and `Close` `(FOV 36, y 3.3, z 17.9 → target y 1.8)`.
-- Keep character readable without covering command/judgement/leaderboard/controls.
-- Tune model scale, root position and camera target before changing HUD geometry.
-- Preserve safe-area and dynamic viewport behavior.
-- Treat continuous RAF, antialiasing, capped 1.6 device pixel ratio, five stage lights and continuous skeletal evaluation as P3.6 thermal/performance review inputs; P3.5 does not change those accepted render features.
+- normalized humanoid height `3.4` world units;
+- stable actor root `(0, 0.02, 0.25)`;
+- portrait `Center`, `Wide`, `Close` camera contracts;
+- fixed torso-oriented framing rather than camera chasing animated bones;
+- compatibility with accepted Phase 2 portrait HUD and safe-area behavior.
 
-Acceptance:
+Portrait camera presets remain:
 
-- 390×844 and 430×932 remain usable;
-- character does not clip through primary HUD regions in normal gameplay;
-- camera preset changes remain presentation-only.
+- `Center`: FOV 38, y 3.45, z 18.5, target y 1.75;
+- `Wide`: FOV 41, y 3.65, z 20.5, target y 1.75;
+- `Close`: FOV 36, y 3.3, z 17.9, target y 1.8.
 
-#### P3.6 — Mobile performance + owner QA
+Acceptance status: **PASS**.
 
-Goal: close Phase 3 with a stable mobile character pipeline.
+#### P3.6 — Mobile rendering lifecycle + performance baseline
 
-Implementation complete — awaiting owner physical iPhone QA.
+Implemented baseline protections:
 
-- Mobile stage rendering uses a named 1.25 DPR cap while retaining antialiasing; desktop retains the 1.6 cap.
-- The placeholder stage uses one static SpotLight instead of three continuously animated SpotLights, while material-based cyan/violet accents remain.
-- The Stage3D RAF is suspended while the document is hidden and resumes from authoritative song time when foregrounded.
-- Stage3D retains one mount-owned RAF, with visibility listener, ResizeObserver, character, mixer/actions, scene resources and renderer cleanup on unmount.
+- mobile DPR cap `1.25`; desktop cap `1.6`;
+- antialiasing retained;
+- placeholder stage reduced to one static SpotLight plus existing material accents;
+- `Stage3D` RAF suspends while the document is hidden and resumes without creating a competing gameplay clock;
+- one mount-owned RAF with visibility listener, ResizeObserver, character, mixer/actions, scene resources and renderer cleanup.
 
-Validate:
+Owner physical iPhone QA result:
 
-- iPhone Safari rendering stability;
-- character load time;
-- texture memory / material count;
-- animation mixer cleanup;
-- resize/orientation behavior;
-- no WebAudio/gameplay timing regression;
-- owner visual QA.
+- functional rendering/gameplay integration passes;
+- owner observed the device heating quickly and battery draining quickly during debug gameplay.
 
-Only after owner acceptance should Phase 3 be integrated into `development`.
+Therefore **P3.6 is not a completed thermal/performance acceptance gate**. The current behavior is recorded as known debt rather than hidden behind a PASS label. Profiling should measure GPU/RAF cost, SkinnedMesh/AnimationMixer evaluation, debug UI update frequency, runtime bundle parse/load, stage rendering cost and Safari behavior before changing quality settings.
+
+#### P3.7 — Human asset + published animation content pipeline
+
+Implemented:
+
+- Quaternius UBC humanoid as canonical Phase 3 reference character;
+- owner-acquired Mixamo dance source package kept private;
+- Asset Lab preview/review flow;
+- automatic browser-side FBX → canonical rig bake;
+- 30 FPS quaternion-only runtime clips with root translation stripped;
+- IndexedDB runtime-ready cache;
+- immutable versioned publisher backed by private Supabase Storage;
+- idempotent publish guard;
+- runtime bundle validation and safe legacy fallback;
+- separate mutable review approval from published content roles;
+- `NORMAL` and `FINAL` pool roles;
+- deterministic Final Dance selection from seed + absolute turn, never `Math.random()`;
+- published release v3 with 13 Normal selections and 3 Final selections;
+- gameplay consumes published runtime JSON, never raw FBX.
+
+Current Final pool in release v3:
+
+- `dance_mixamo_006` — Breakdance Freezes;
+- `dance_mixamo_007` — Capoeira;
+- `dance_mixamo_015` — Flair.
+
+Owner QA confirmed published animations load and play after the large-bundle timeout regression was fixed. Legacy CMU FancyFootWork slices remain fallback-only and are not the canonical live Normal pool.
+
+Acceptance status: **FUNCTIONAL PASS**.
+
+### Phase 3 gameplay-adjacent fixes discovered during integration
+
+Phase 3 exposed a pre-existing/adjacent Finish contract issue that was fixed on `work/character` and owner-tested before continuing character work:
+
+- successful Finish suppression is explicitly four hidden global turns;
+- missed Finish suppression remains two hidden global turns;
+- non-final Finish recomputes finality from its authoritative current turn instead of allowing stale cached planning state to stop the timeline;
+- owner QA reconfirmed `T38 Finish success → T39–42 hidden → T43 L6 visible`;
+- deterministic Aloha Finish cadence remains `38, 62, 86, 110`;
+- `debug=1` adds an owner-QA-only Finish SPACE assist and does not change non-debug production input behavior.
+
+These changes are gameplay-adjacent but preserve the locked Phase 1 architecture; they must remain visible during integration review rather than being hidden inside character work.
+
+### Phase 3 functional closeout checklist
+
+Confirmed by code review / owner Vercel+iPhone QA:
+
+- humanoid GLB loads and character fallback exists;
+- Idle / normal published dance / Miss / published Final Dance paths work;
+- Normal and Final selection are deterministic presentation decisions;
+- 150 ms cross-fade remains song-time-derived;
+- exact judgement timestamp remains the animation anchor;
+- Finish presentation does not own game-end or scheduler timing;
+- successful Finish returns to L6 after the four locked hidden turns;
+- Phase 2 HUD remains structurally unchanged by Phase 3;
+- Center / Wide / Close remain presentation-only camera presets;
+- raw Mixamo FBX is not served by gameplay;
+- published release loading falls back safely if unavailable;
+- current Vercel branch builds successfully.
+
+Not claimed complete:
+
+- thermal/battery optimization;
+- full automated Playwright execution in this closeout pass;
+- `work/character → development` integration;
+- Phase 4 work.
 
 ### Phase 3 non-goals
 
@@ -249,7 +276,7 @@ Those remain assigned to later roadmap phases.
 - Reference review of the original 110 BPM gameplay establishes successful-Finish behavior as `38 Finish → 39–42 hidden → 43 L6 visible`; the timeline continues normally afterward.
 - Those four hidden slots consume the existing L6→L9 global-turn budget. They do not add replacement turns, extend a level or shift the locked `38, 62, 86, 110` Finish cadence.
 - A missed Finish preserves its existing two-hidden-turn penalty. Success and miss suppression settings are explicit and independent.
-- Future character special animation may consume this authoritative presentation window, but animation duration must never own or change scheduler timing.
+- Character Final Dance may consume this authoritative presentation window, but animation duration must never own or change scheduler timing.
 
 ## Cross-level suppression examples
 
@@ -266,8 +293,8 @@ Completed Phase 2 integration path:
 
 `development → work/portrait-ui → implementation → owner iPhone/Vercel QA → clean fast-forward to development`
 
-Phase 3 delivery path:
+Current Phase 3 path:
 
-`development → dedicated work/character branch → milestone implementation → owner review / QA → development → final integration gate`
+`development → work/character → implementation → owner functional QA → functional closeout → performance debt review / owner integration decision → development`
 
 Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 3 work unless owner explicitly requests a later production promotion.
