@@ -5,6 +5,7 @@ import { createFallbackCharacter, updateFallbackCharacter, type FallbackCharacte
 import type { CharacterAssetMetrics, CharacterLoadResult, CharacterPresentation, CharacterPresentationEvent } from "./character-types";
 import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
 import { HUMAN_CHARACTER_ASSET_URL, loadHumanAnimationLibrary } from "./human-animation-library";
+import { preferPublishedDanceRelease } from "./published-animation-library";
 
 export const DEFAULT_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL;
 
@@ -36,18 +37,19 @@ export class CharacterActor implements CharacterPresentation {
       const model = gltf.scene;
       normalizeHumanoid(model);
       const skinnedMesh = findPrimarySkinnedMesh(model);
-      const clips = gltf.animations.length > 0
+      const baseClips = gltf.animations.length > 0
         ? gltf.animations
         : await loadHumanAnimationLibrary(skinnedMesh);
+      const { clips } = await preferPublishedDanceRelease(baseClips);
 
       if (this.disposed || version !== this.loadVersion) {
         disposeObjectResources(model);
         return null;
       }
 
-      // Direct Quaternius UAL clips address bones by node name. Their mixer
-      // root must therefore be the whole character hierarchy, not an isolated
-      // SkinnedMesh. This also remains correct for an asset with embedded clips.
+      // Direct Quaternius UAL clips and the baked P3.7 runtime clips address
+      // bones by node name. Their mixer root must therefore be the whole
+      // character hierarchy, not an isolated SkinnedMesh.
       const animationRoot: THREE.Object3D = model;
       this.model = model;
       this.animationRoot = animationRoot;
