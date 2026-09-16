@@ -5,7 +5,7 @@ import { createFallbackCharacter, updateFallbackCharacter, type FallbackCharacte
 import type { CharacterAssetMetrics, CharacterLoadResult, CharacterPresentation, CharacterPresentationEvent } from "./character-types";
 import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
 import { HUMAN_CHARACTER_ASSET_URL, loadHumanAnimationLibrary } from "./human-animation-library";
-import { preferPublishedDanceRelease } from "./published-animation-library";
+import { applyPublishedDanceRelease, loadPublishedDanceRelease } from "./published-animation-library";
 
 export const DEFAULT_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL;
 
@@ -33,14 +33,23 @@ export class CharacterActor implements CharacterPresentation {
     this.releaseCurrentCharacter();
 
     try {
+      // Resolve the canonical published pool in parallel with the character GLB.
+      // When available, the human library can skip downloading/parsing/retargeting
+      // the legacy CMU FancyFootWork source that would be replaced immediately.
+      const publishedDancePromise = loadPublishedDanceRelease();
       const gltf = await this.loader.loadAsync(this.assetUrl);
       const model = gltf.scene;
       normalizeHumanoid(model);
       const skinnedMesh = findPrimarySkinnedMesh(model);
+      const publishedDance = await publishedDancePromise;
       const baseClips = gltf.animations.length > 0
         ? gltf.animations
-        : await loadHumanAnimationLibrary(skinnedMesh);
-      const { clips } = await preferPublishedDanceRelease(baseClips);
+        : await loadHumanAnimationLibrary(skinnedMesh, {
+          skipLegacyNormalDanceMocap: publishedDance !== null,
+        });
+      const { clips } = publishedDance
+        ? applyPublishedDanceRelease(baseClips, publishedDance)
+        : { clips: baseClips };
 
       if (this.disposed || version !== this.loadVersion) {
         disposeObjectResources(model);
