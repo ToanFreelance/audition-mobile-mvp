@@ -31,16 +31,17 @@ export function selectCharacterChoreography(
 }
 
 /**
- * Produces a stable random-looking 32-bit key for presentation variants.
- * Runtime maps this key onto the currently published Final Dance pool size.
- * No gameplay timing/state is read or changed here.
+ * Produces a stable random-looking 32-bit key for presentation variants using
+ * a Mulberry-style integer mix. Runtime maps this key onto the currently
+ * published Final Dance pool size. No gameplay timing/state is read or changed.
  */
 export function selectFinalDanceVariantKey(seed: number | undefined, absoluteTurn: number) {
   const stableSeed = stableSeedValue(seed) >>> 0;
-  let value = (stableSeed ^ Math.imul(absoluteTurn | 0, 0x9e3779b1) ^ 0x85ebca6b) >>> 0;
-  value = Math.imul(value ^ (value >>> 16), 0x7feb352d) >>> 0;
-  value = Math.imul(value ^ (value >>> 15), 0x846ca68b) >>> 0;
-  return (value ^ (value >>> 16)) >>> 0;
+  let value = (stableSeed + Math.imul((absoluteTurn + 1) | 0, 0x6d2b79f5)) >>> 0;
+  value = (value + 0x6d2b79f5) >>> 0;
+  value = Math.imul(value ^ (value >>> 15), value | 1) >>> 0;
+  value ^= (value + Math.imul(value ^ (value >>> 7), value | 61)) >>> 0;
+  return (value ^ (value >>> 14)) >>> 0;
 }
 
 export function createCharacterPresentationEvent(
