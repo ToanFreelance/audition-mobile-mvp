@@ -50,9 +50,9 @@ test('Aloha seed 123 keeps Finish on deterministic global turns and scores visib
   expect(f.runtime.isFinished).toBe(false);
 });
 
-test('Finish miss remains visible, times out as Miss, and keeps its existing two hidden turns', () => {
+test('Finish miss keeps the shared four-turn post-Finish rest and resumes L6 at the same turn', () => {
   const f = fixture(277432, false, 101.0504, 10083);
-  expect(f.chart.soloSettings?.missedFinishHideTurns).toBe(2);
+  expect(f.chart.soloSettings?.finishRestTurns).toBe(4);
   while (!f.runtime.currentTurn.isFinish) {
     f.show();
     f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
@@ -65,9 +65,11 @@ test('Finish miss remains visible, times out as Miss, and keeps its existing two
   expect(f.runtime.arrowCommand.some(token=>token.reverse)).toBe(true);
   f.at(zoneExitMs(f.runtime.currentTurn.targetSpaceMs, f.chart.bpm) + 0.001);
   expect(f.runtime.stats.miss).toBe(before.miss + 1);
-  expect(f.runtime.currentTurn.absoluteTurn).toBe(finishTurn + 3);
-  expect(f.runtime.currentTurn).toMatchObject({ level: 6, sequenceIndex: 2 });
-  for (const hiddenTurn of [finishTurn + 1, finishTurn + 2]) {
+  expect(f.runtime.currentTurn.absoluteTurn).toBe(finishTurn + 5);
+  expect(f.runtime.currentTurn).toMatchObject({ level: 6, sequenceIndex: 4 });
+  expect(f.runtime.currentPhase).toBe('post-finish-rest');
+  expect(f.runtime.penaltyTurnsRemaining).toBe(0);
+  for (const hiddenTurn of [finishTurn + 1, finishTurn + 2, finishTurn + 3, finishTurn + 4]) {
     f.at(targetSpaceMs(10083, 101.0504, hiddenTurn));
     expect(f.runtime.debug.commandVisible).toBe(false);
   }
@@ -75,9 +77,32 @@ test('Finish miss remains visible, times out as Miss, and keeps its existing two
   expect(f.runtime.debug.commandVisible).toBe(true);
 });
 
+test('Finish success and Finish miss produce the same shared next turn and reveal schedule', () => {
+  const success = fixture(277432, false, 101.0504, 10083);
+  const miss = fixture(277432, false, 101.0504, 10083);
+  while (!success.runtime.currentTurn.isFinish) {
+    expect(success.hit()).toBe('perfect');
+    expect(miss.hit()).toBe('perfect');
+  }
+  expect(success.runtime.currentTurn.absoluteTurn).toBe(38);
+  expect(miss.runtime.currentTurn.absoluteTurn).toBe(38);
+
+  expect(success.hit()).toBe('perfect');
+  miss.show();
+  miss.at(zoneExitMs(miss.runtime.currentTurn.targetSpaceMs, miss.chart.bpm) + 0.001);
+
+  expect(success.runtime.currentTurn).toMatchObject({ absoluteTurn: 43, level: 6, sequenceIndex: 4 });
+  expect(miss.runtime.currentTurn).toMatchObject({ absoluteTurn: 43, level: 6, sequenceIndex: 4 });
+  expect(success.runtime.currentPhase).toBe('post-finish-rest');
+  expect(miss.runtime.currentPhase).toBe('post-finish-rest');
+  expect(success.runtime.debug.revealAtMs).toBe(miss.runtime.debug.revealAtMs);
+  expect(success.runtime.debug.finishRestTurns).toBe(4);
+  expect(miss.runtime.debug.finishRestTurns).toBe(4);
+});
+
 test('successful Finish hides turns 39-42, resumes L6 at 43, and keeps the next Finish at 62', () => {
   const f = fixture(277432, false, 101.0504, 10083);
-  expect(f.chart.soloSettings?.successfulFinishHideTurns).toBe(4);
+  expect(f.chart.soloSettings?.finishRestTurns).toBe(4);
   while (!f.runtime.currentTurn.isFinish) f.hit();
   expect(f.runtime.currentTurn.absoluteTurn).toBe(38);
   const finishToken = f.runtime.currentTurn.arrowCommand.find(token => token.reverse);
@@ -257,11 +282,10 @@ test('completed reverse rendering uses requiredDirection without changing ordina
   expect(renderedArrowDirection(ordinary,false)).toBe(ordinary.displayDirection);
   expect(renderedArrowDirection(ordinary,true)).toBe(ordinary.displayDirection);
 });
-test('Finish planner fits complete cycles and keeps positions after a Finish miss',()=>{
+test('Finish planner fits complete cycles and is independent from player outcome',()=>{
   expect(repeatCycleTurns()).toBe(24);
   expect(planAfterFinish(60,182)).toMatchObject({repeatCycles:5,restTurns:0,nextAbsoluteTurn:61,finalFinish:false});
   expect(planAfterFinish(60,110)).toMatchObject({repeatCycles:2,restTurns:1});
-  expect(planAfterFinish(60,83,DEFAULT_SOLO_SETTINGS,true).finalFinish).toBe(true);
   expect(planAfterFinish(60,83).finalFinish).toBe(true);
 });
 test('intermediate Finish enters authoritative rest; final Finish locks input until actual song end',()=>{
