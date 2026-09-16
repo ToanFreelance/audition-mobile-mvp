@@ -6,7 +6,7 @@ Current phase:
 
 **Phase 3 — Human Character + Animation Controller — functional closeout on `work/character`**
 
-Phase 3 functional owner QA has passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, and successful Finish continuation. The branch is **not merged** into `development` yet. Owner observed rapid iPhone heating / battery drain during debug gameplay; thermal and battery profiling remain an explicit performance debt and are not being misrepresented as complete.
+Phase 3 functional owner QA has passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, and Finish continuation. The branch is **not merged** into `development` yet. Owner observed rapid iPhone heating / battery drain during debug gameplay; thermal and battery profiling remain an explicit performance debt and are not being misrepresented as complete.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -207,12 +207,13 @@ Acceptance status: **FUNCTIONAL PASS**.
 
 ### Phase 3 gameplay-adjacent fixes discovered during integration
 
-Phase 3 exposed a pre-existing/adjacent Finish contract issue that was fixed on `work/character` and owner-tested before continuing character work:
+Phase 3 exposed pre-existing/adjacent Finish contract issues that were fixed on `work/character` before integration:
 
-- successful Finish suppression is explicitly four hidden global turns;
-- missed Finish suppression remains two hidden global turns;
+- non-final Finish uses one shared `finishRestTurns = 4` global rest, independent of Perfect/Great/Cool/Bad/Miss outcome;
+- player-specific Finish judgement may affect score/combo/gauge/animation but may not change the next global turn, level, reveal time, or Finish cadence;
 - non-final Finish recomputes finality from its authoritative current turn instead of allowing stale cached planning state to stop the timeline;
 - owner QA reconfirmed `T38 Finish success → T39–42 hidden → T43 L6 visible`;
+- a deterministic regression test locks the same T43 L6 schedule for Finish Miss and verifies success/miss players receive the same reveal schedule;
 - deterministic Aloha Finish cadence remains `38, 62, 86, 110`;
 - `debug=1` adds an owner-QA-only Finish SPACE assist and does not change non-debug production input behavior.
 
@@ -220,7 +221,7 @@ These changes are gameplay-adjacent but preserve the locked Phase 1 architecture
 
 ### Phase 3 functional closeout checklist
 
-Confirmed by code review / owner Vercel+iPhone QA:
+Confirmed by code review / owner Vercel+iPhone QA unless explicitly marked otherwise:
 
 - humanoid GLB loads and character fallback exists;
 - Idle / normal published dance / Miss / published Final Dance paths work;
@@ -228,7 +229,8 @@ Confirmed by code review / owner Vercel+iPhone QA:
 - 150 ms cross-fade remains song-time-derived;
 - exact judgement timestamp remains the animation anchor;
 - Finish presentation does not own game-end or scheduler timing;
-- successful Finish returns to L6 after the four locked hidden turns;
+- successful Finish returns to L6 after the four locked hidden turns (owner QA);
+- Finish Miss is now locked to the same four-turn shared rest by scheduler contract + regression test; owner physical retest remains optional before integration;
 - Phase 2 HUD remains structurally unchanged by Phase 3;
 - Center / Wide / Close remain presentation-only camera presets;
 - raw Mixamo FBX is not served by gameplay;
@@ -273,9 +275,10 @@ Those remain assigned to later roadmap phases.
 - Finish preserves its label, red special treatment and reverse token. Input judgement uses `requiredDirection`; a completed reverse token renders `requiredDirection`.
 - Finish is not a game-end condition. Only actual AUDIO END ends gameplay.
 - With Aloha and `seed=123`, the deterministic Finish cadence is `38, 62, 86, 110`.
-- Reference review of the original 110 BPM gameplay establishes successful-Finish behavior as `38 Finish → 39–42 hidden → 43 L6 visible`; the timeline continues normally afterward.
+- Reference review of the original 110 BPM gameplay establishes the shared post-Finish cadence: after a non-final Finish, command presentation rests and the room resumes together. The accepted Aloha mapping is `38 Finish → 39–42 hidden → 43 L6 visible`.
 - Those four hidden slots consume the existing L6→L9 global-turn budget. They do not add replacement turns, extend a level or shift the locked `38, 62, 86, 110` Finish cadence.
-- A missed Finish preserves its existing two-hidden-turn penalty. Success and miss suppression settings are explicit and independent.
+- The shared scheduler uses one `finishRestTurns = 4` contract for every player outcome. Perfect/Great/Cool/Bad/Miss may change player state but may not change global turn, next level, reveal time, or room cadence.
+- Ordinary non-Finish Miss suppression remains player-specific presentation/gameplay state; it does not own the global clock.
 - Character Final Dance may consume this authoritative presentation window, but animation duration must never own or change scheduler timing.
 
 ## Cross-level suppression examples
