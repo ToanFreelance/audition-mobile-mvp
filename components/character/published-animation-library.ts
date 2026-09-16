@@ -4,6 +4,8 @@ import { loadRuntimeAnimationBundle } from "./runtime-animation-bundle";
 export const PUBLISHED_DANCE_BUNDLE_URL =
   "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
 
+const PUBLISHED_DANCE_FETCH_TIMEOUT_MS = 3500;
+
 const NORMAL_DANCE_SLOT_NAMES = [
   "HumanDance01",
   "HumanDance02",
@@ -41,11 +43,15 @@ export type PublishedDanceLibraryResult = {
  * built-in human-library fallback and must never affect gameplay timing.
  */
 export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceRelease | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PUBLISHED_DANCE_FETCH_TIMEOUT_MS);
+
   try {
     const response = await fetch(PUBLISHED_DANCE_BUNDLE_URL, {
       method: "GET",
       cache: "no-store",
       headers: { Accept: "application/json" },
+      signal: controller.signal,
     });
     if (!response.ok) {
       throw new Error(`published animation endpoint returned ${response.status}`);
@@ -84,6 +90,8 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
       error,
     );
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
