@@ -10,6 +10,7 @@ import {
   subscribeAssetLabSourceArchive,
 } from "./asset-lab-session";
 import type { LocalAssetZip } from "./asset-lab-local-package";
+import AssetLabPublisher from "./AssetLabPublisher";
 
 type RuntimeStatus = "idle" | "waiting-source" | "processing" | "ready" | "error";
 type Props = {
@@ -148,51 +149,55 @@ export default function AssetLabAutoProcessor({ decisions, selectedAssetId }: Pr
   };
 
   return (
-    <section style={styles.card}>
-      <div style={styles.topline}>
-        <div>
-          <p style={styles.kicker}>AUTO PROCESSING</p>
-          <strong>Approved → runtime-ready</strong>
+    <>
+      <section style={styles.card}>
+        <div style={styles.topline}>
+          <div>
+            <p style={styles.kicker}>AUTO PROCESSING</p>
+            <strong>Approved → runtime-ready</strong>
+          </div>
+          <RuntimeBadge status={selectedStatus} />
         </div>
-        <RuntimeBadge status={selectedStatus} />
-      </div>
 
-      <div style={styles.stats}>
-        <span>{approvedIds.length} approved</span>
-        <span>{readyApproved} ready</span>
-        {processingApproved > 0 && <span>{processingApproved} processing</span>}
-        {waitingApproved > 0 && <span>{waitingApproved} waiting</span>}
-        {errorApproved > 0 && <span style={styles.errorText}>{errorApproved} error</span>}
-      </div>
-
-      <div style={styles.track} aria-label="approved runtime processing progress">
-        <div style={{ ...styles.fill, width: `${Math.round(progress * 100)}%` }} />
-      </div>
-
-      <p style={styles.note}>
-        {!cacheLoaded
-          ? "Checking the browser runtime cache…"
-          : !archive && approvedIds.length > readyApproved
-            ? "Approved animations are queued. Load the private source ZIP once above; queued items will bake automatically."
-            : approvedIds.length === 0
-              ? "Approve any dance to process it automatically. Processed clips are cached in IndexedDB so review changes do not require another bake."
-              : readyApproved === approvedIds.length
-                ? "All approved animations are runtime-ready in the local processing cache."
-                : "Processing approved animations into Quaternius rotation-only clips…"}
-      </p>
-
-      {selectedStatus === "error" && (
-        <div style={styles.errorBox}>
-          <span>{selectedError ?? "Runtime processing failed"}</span>
-          <button type="button" onClick={retrySelected} style={styles.retryButton}>Retry selected</button>
+        <div style={styles.stats}>
+          <span>{approvedIds.length} approved</span>
+          <span>{readyApproved} ready</span>
+          {processingApproved > 0 && <span>{processingApproved} processing</span>}
+          {waitingApproved > 0 && <span>{waitingApproved} waiting</span>}
+          {errorApproved > 0 && <span style={styles.errorText}>{errorApproved} error</span>}
         </div>
-      )}
 
-      <div style={styles.publishGate}>
-        <strong>Publish gate</strong>
-        <span>Not live yet. Browser processing is automatic; canonical pool persistence + gameplay consumption is Step 3B-2.</span>
-      </div>
-    </section>
+        <div style={styles.track} aria-label="approved runtime processing progress">
+          <div style={{ ...styles.fill, width: `${Math.round(progress * 100)}%` }} />
+        </div>
+
+        <p style={styles.note}>
+          {!cacheLoaded
+            ? "Checking the browser runtime cache…"
+            : !archive && approvedIds.length > readyApproved
+              ? "Approved animations are queued. Load the private source ZIP once above; queued items will bake automatically."
+              : approvedIds.length === 0
+                ? "Approve any dance to process it automatically. Processed clips are cached in IndexedDB so review changes do not require another bake."
+                : readyApproved === approvedIds.length
+                  ? "All approved animations are runtime-ready in the local processing cache."
+                  : "Processing approved animations into Quaternius rotation-only clips…"}
+        </p>
+
+        {selectedStatus === "error" && (
+          <div style={styles.errorBox}>
+            <span>{selectedError ?? "Runtime processing failed"}</span>
+            <button type="button" onClick={retrySelected} style={styles.retryButton}>Retry selected</button>
+          </div>
+        )}
+
+        <div style={styles.publishGate}>
+          <strong>Publish gate</strong>
+          <span>Only Approved + READY clips can enter a canonical release. Publishing creates an immutable version; gameplay consumes releases separately.</span>
+        </div>
+      </section>
+
+      <AssetLabPublisher decisions={decisions} />
+    </>
   );
 }
 
