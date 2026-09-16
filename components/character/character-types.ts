@@ -36,6 +36,11 @@ export type CharacterDanceEvent = CharacterEventBase & {
   kind: "dance";
   judgement: CharacterSuccessJudgement;
   choreographyId: CharacterChoreographyId;
+  /**
+   * Stable presentation-only selection key derived from seed + absoluteTurn.
+   * Optional for backward-compatible fixtures; live events always provide it.
+   */
+  presentationVariantKey?: number;
 };
 
 export type CharacterFailEvent = CharacterEventBase & {
