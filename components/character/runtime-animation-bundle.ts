@@ -31,6 +31,8 @@ export type RuntimeAnimationBundleJson = {
   fps: number;
   rootTranslation: "stripped";
   processingIds: string[];
+  normalIds: string[];
+  finalIds: string[];
   clipCount: number;
   clips: RuntimeAnimationBundleClipJson[];
   publishedAt?: string;
@@ -70,6 +72,10 @@ export function loadRuntimeAnimationBundle(input: unknown): LoadedRuntimeAnimati
     clipsByRuntimeName.set(record.runtimeClipName.toLowerCase(), clip);
   }
 
+  for (const id of [...manifest.normalIds, ...manifest.finalIds]) {
+    if (!clipsByAssetId.has(id)) throw new Error(`Runtime animation pool role references missing clip ${id}`);
+  }
+
   return { manifest, clipsByAssetId, clipsByRuntimeName };
 }
 
@@ -89,6 +95,14 @@ function validateBundle(input: unknown): RuntimeAnimationBundleJson {
   if (!Array.isArray(input.processingIds) || !input.processingIds.every(value => typeof value === "string")) {
     throw new Error("Runtime animation bundle processingIds are invalid");
   }
+  const processingIds = [...input.processingIds];
+  if (new Set(processingIds).size !== processingIds.length) throw new Error("Runtime animation bundle processingIds contain duplicates");
+
+  // Releases published before the Final Dance pool existed remain valid:
+  // their processingIds are the Normal pool and Final falls back to HumanFinish.
+  const normalIds = validateRoleIds(input.normalIds, processingIds, "normalIds", processingIds);
+  const finalIds = validateRoleIds(input.finalIds, processingIds, "finalIds", []);
+
   if (!Array.isArray(input.clips)) throw new Error("Runtime animation bundle clips are missing");
   if (input.clipCount !== input.clips.length) throw new Error("Runtime animation bundle clipCount mismatch");
   if (typeof input.targetReferenceCharacterId !== "string" || !input.targetReferenceCharacterId) {
@@ -121,11 +135,30 @@ function validateBundle(input: unknown): RuntimeAnimationBundleJson {
     targetReferenceCharacterId: input.targetReferenceCharacterId,
     fps: Number(input.fps),
     rootTranslation: "stripped",
-    processingIds: [...input.processingIds],
+    processingIds,
+    normalIds,
+    finalIds,
     clipCount: clips.length,
     clips,
     publishedAt,
   };
+}
+
+function validateRoleIds(
+  value: unknown,
+  processingIds: readonly string[],
+  label: string,
+  fallback: readonly string[],
+) {
+  if (value === undefined) return [...fallback];
+  if (!Array.isArray(value) || !value.every(id => typeof id === "string")) {
+    throw new Error(`Runtime animation bundle ${label} are invalid`);
+  }
+  const ids = [...value];
+  if (new Set(ids).size !== ids.length) throw new Error(`Runtime animation bundle ${label} contain duplicates`);
+  const processing = new Set(processingIds);
+  for (const id of ids) if (!processing.has(id)) throw new Error(`Runtime animation bundle ${label} contains unpublished clip ${id}`);
+  return ids;
 }
 
 function validateClipRecord(input: unknown): RuntimeAnimationBundleClipJson {
