@@ -17,12 +17,22 @@ type Props = {
   decisions: DanceReviewDecisions;
 };
 
-type PublishState = "idle" | "checking" | "publishing" | "published" | "error";
+type PublishState = "idle" | "checking" | "publishing" | "published" | "no-changes" | "error";
 
 type LatestRelease = {
   releaseVersion: number;
   approvedCount: number;
   publishedAt?: string;
+};
+
+type PublishPayload = {
+  error?: string;
+  noChanges?: boolean;
+  release?: {
+    releaseVersion?: number;
+    clipCount?: number;
+    publishedAt?: string;
+  };
 };
 
 export default function AssetLabPublisher({ decisions }: Props) {
@@ -96,7 +106,7 @@ export default function AssetLabPublisher({ decisions }: Props) {
 
       const clips = approvedIds.map(id => cached.get(id)!);
       setState("publishing");
-      setStatus(`Publishing ${clips.length} runtime-ready clip(s) as a new immutable release…`);
+      setStatus(`Checking canonical content and publishing only if it changed…`);
 
       const response = await fetch(PUBLISH_ENDPOINT, {
         method: "POST",
@@ -115,7 +125,7 @@ export default function AssetLabPublisher({ decisions }: Props) {
         }),
       });
 
-      const payload = await response.json() as { error?: string; release?: { releaseVersion?: number; clipCount?: number; publishedAt?: string } };
+      const payload = await response.json() as PublishPayload;
       if (!response.ok) throw new Error(payload.error ?? `Publish failed (${response.status})`);
 
       const releaseVersion = Number(payload.release?.releaseVersion ?? 0);
@@ -124,6 +134,13 @@ export default function AssetLabPublisher({ decisions }: Props) {
         approvedCount: Number(payload.release?.clipCount ?? clips.length),
         publishedAt: payload.release?.publishedAt,
       });
+
+      if (payload.noChanges) {
+        setState("no-changes");
+        setStatus(`No changes · release v${releaseVersion} already contains this approved runtime content.`);
+        return;
+      }
+
       setState("published");
       setStatus(`Published release v${releaseVersion} · ${clips.length} approved animation(s).`);
     } catch (error) {
@@ -139,7 +156,9 @@ export default function AssetLabPublisher({ decisions }: Props) {
           <p style={styles.kicker}>PUBLISH</p>
           <strong>Approved pool → canonical release</strong>
         </div>
-        <span style={badgeStyle(state)}>{state === "published" ? "PUBLISHED" : state.toUpperCase()}</span>
+        <span style={badgeStyle(state)}>
+          {state === "published" ? "PUBLISHED" : state === "no-changes" ? "NO CHANGES" : state.toUpperCase()}
+        </span>
       </div>
 
       {latest && latest.releaseVersion > 0 && (
@@ -172,14 +191,14 @@ export default function AssetLabPublisher({ decisions }: Props) {
       <p style={state === "error" ? styles.error : styles.note}>{status}</p>
       <div style={styles.safety}>
         <strong>Safe publish contract</strong>
-        <span>Key stays in this tab session only. Raw FBX is never published. Each publish creates a new immutable release; gameplay integration is the next checkpoint.</span>
+        <span>Key stays in this tab session only. Raw FBX is never published. Unchanged content reuses the latest release; changed content creates a new immutable release.</span>
       </div>
     </section>
   );
 }
 
 function badgeStyle(state: PublishState): CSSProperties {
-  const success = state === "published";
+  const success = state === "published" || state === "no-changes";
   const error = state === "error";
   const busy = state === "checking" || state === "publishing";
   return {
