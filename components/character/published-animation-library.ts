@@ -4,7 +4,10 @@ import { loadRuntimeAnimationBundle } from "./runtime-animation-bundle";
 export const PUBLISHED_DANCE_BUNDLE_URL =
   "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
 
-const PUBLISHED_DANCE_FETCH_TIMEOUT_MS = 3500;
+// Bound only the time needed to establish the published-release response.
+// Once response headers arrive, a larger private runtime bundle must be allowed
+// to finish streaming/parsing on mobile instead of being aborted mid-body.
+const PUBLISHED_DANCE_CONNECT_TIMEOUT_MS = 8000;
 
 const NORMAL_DANCE_SLOT_NAMES = [
   "HumanDance01",
@@ -42,14 +45,19 @@ export type PublishedDanceLibraryResult = {
   release: PublishedDanceReleaseInfo | null;
 };
 
+let cachedPublishedDanceRelease: LoadedPublishedDanceRelease | null = null;
+
 /**
  * Fetches and validates the latest canonical P3.7 animation release.
  * Failure is intentionally soft because character presentation must retain its
  * built-in human-library fallback and must never affect gameplay timing.
  */
 export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceRelease | null> {
+  if (cachedPublishedDanceRelease) return cachedPublishedDanceRelease;
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PUBLISHED_DANCE_FETCH_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), PUBLISHED_DANCE_CONNECT_TIMEOUT_MS);
+  let responseReceived = false;
 
   try {
     const response = await fetch(PUBLISHED_DANCE_BUNDLE_URL, {
@@ -58,6 +66,13 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
       headers: { Accept: "application/json" },
       signal: controller.signal,
     });
+
+    // fetch() resolves when response headers arrive, before response.json()
+    // necessarily finishes consuming a multi-megabyte body. Clear the abort
+    // timer now so slow mobile transfer/JSON parsing cannot trigger fallback.
+    responseReceived = true;
+    clearTimeout(timeout);
+
     if (!response.ok) {
       throw new Error(`published animation endpoint returned ${response.status}`);
     }
@@ -85,7 +100,7 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
       `[character] published Mixamo release v${releaseVersion} loaded: ${normalSourceAssetIds.length} normal · ${finalSourceAssetIds.length} final`,
     );
 
-    return {
+    const loaded: LoadedPublishedDanceRelease = {
       normalSourceClips,
       finalSourceClips,
       info: {
@@ -96,6 +111,8 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
         finalSourceAssetIds,
       },
     };
+    cachedPublishedDanceRelease = loaded;
+    return loaded;
   } catch (error) {
     console.warn(
       "[character] published dance release unavailable; keeping built-in human dance fallback",
@@ -103,7 +120,7 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
     );
     return null;
   } finally {
-    clearTimeout(timeout);
+    if (!responseReceived) clearTimeout(timeout);
   }
 }
 
