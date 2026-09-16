@@ -25,7 +25,9 @@ export type MusicConfig = {
     levelSequenceCounts: number[];
     commandRevealPasses: Record<string, number>;
     finishReverseRequired: boolean;
-    /** Legacy saved field; used only as a fallback for missed Finish suppression. */
+    /** Shared global/room rest after any non-final Finish outcome. */
+    finishRestTurns?: number;
+    /** Legacy persisted fields. Read only for migration/backward compatibility. */
     finishHideTurns?: number;
     successfulFinishHideTurns?: number;
     missedFinishHideTurns?: number;
@@ -62,8 +64,7 @@ export const DEFAULT_MUSIC_CONFIG: MusicConfig = {
     levelSequenceCounts: [1, 2, 3, 4, 4, 6, 6],
     commandRevealPasses: { "1-5": 1, "6-9": 2 },
     finishReverseRequired: true,
-    successfulFinishHideTurns: 4,
-    missedFinishHideTurns: 2,
+    finishRestTurns: 4,
     finishResumeLevel: 6,
     missPenaltyTurns: { "1-5": 1, "6-9": 2 },
     judgementCombo: true,
