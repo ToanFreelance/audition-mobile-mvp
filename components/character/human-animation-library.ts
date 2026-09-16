@@ -32,6 +32,10 @@ export type HumanMotionSpec = {
   label: string;
 };
 
+export type HumanAnimationLibraryOptions = {
+  skipLegacyNormalDanceMocap?: boolean;
+};
+
 function cmuMotion(
   clipName: string,
   label: string,
@@ -132,7 +136,10 @@ type RigSnapshot = {
   basis: THREE.Quaternion;
 };
 
-export async function loadHumanAnimationLibrary(target: THREE.SkinnedMesh): Promise<THREE.AnimationClip[]> {
+export async function loadHumanAnimationLibrary(
+  target: THREE.SkinnedMesh,
+  options: HumanAnimationLibraryOptions = {},
+): Promise<THREE.AnimationClip[]> {
   assertCompatibleHumanRig(target.skeleton, "character");
   const targetRig = captureTargetRig(target.skeleton);
 
@@ -158,7 +165,11 @@ export async function loadHumanAnimationLibrary(target: THREE.SkinnedMesh): Prom
     }
     resolved.set("HumanFinish", fallbackFinish);
 
-    await tryLoadMocapSet(targetRig, DANCE_MOTIONS, resolved);
+    if (!options.skipLegacyNormalDanceMocap) {
+      await tryLoadMocapSet(targetRig, DANCE_MOTIONS, resolved);
+    } else {
+      console.info("[character] published dance pool available; skipping legacy CMU FancyFootWork load");
+    }
     await tryLoadMocapSet(targetRig, [FINISH_MOTION], resolved);
 
     target.skeleton.pose();
