@@ -112,7 +112,7 @@ export class RhythmRuntime {
       targetSpaceMs: this.turn?.targetSpaceMs, deltaToTargetMs: this.timingDeltaMs, gaugePercent: this.gaugePercent,
       runtimeState: this.phase, commandVisible: this.visible, commandIndex: this.commandIndex,
       commandCompleted: this.awaitingSpace, awaitingSpace: this.awaitingSpace, penaltyTurnsRemaining: this.penaltyTurnsRemaining,
-      perfectStreak: this.streak, finishCycle: this.cycle, finalFinish: this.final, gameEnded: this.ended,
+      perfectStreak: this.streak, finishCycle: this.cycle, finalFinish: this.final, finishRestTurns: this.settings.finishRestTurns, gameEnded: this.ended,
       debugFinishAssist: this.debugFinishAssistEnabled,
       isFinish: this.turn?.isFinish, revealAtMs: this.revealAtMs, lastJudgement: this.lastJudgement, judgementAtMs: this.judgementAtMs };
   }
@@ -188,22 +188,25 @@ export class RhythmRuntime {
     });
     this.setCountdown(null);
     this.visible = false; this.commandIndex = 0; this.awaitingSpace = false;
+    // Finish is a shared global-turn event. Its post-Finish rest is identical
+    // for every player outcome; judgement may change player state but never the
+    // room/global command schedule.
     const requestedHidden = previous.isFinish
-      ? judgement === 'miss' ? this.settings.missedFinishHideTurns : this.settings.successfulFinishHideTurns
+      ? this.settings.finishRestTurns
       : judgement === 'miss' ? missPenaltyTurns(previous.level) : successHiddenTurns(previous.level);
     this.hiddenFromTurn = previous.absoluteTurn;
     let nextAbsolute = previous.absoluteTurn + 1;
     let hiddenPhase: RhythmPhase = judgement === 'miss' ? 'miss-penalty' : 'command-hidden';
 
     if (previous.isFinish) {
-      const plan = planAfterFinish(previous.absoluteTurn, this.lastTurn, this.settings, judgement === 'miss');
+      const plan = planAfterFinish(previous.absoluteTurn, this.lastTurn, this.settings);
       // Recompute finality at the authoritative Finish turn. A cached planning
       // flag must never stop a non-final Finish or replace future global turns.
       this.final = plan.finalFinish;
       if (plan.finalFinish) { this.beginEnding(); return; }
       this.cycle++; this.appearances = soloCycle(6, this.settings); this.appearanceIndex = 0;
       nextAbsolute = plan.nextAbsoluteTurn;
-      hiddenPhase = judgement === 'miss' ? 'miss-penalty' : 'post-finish-rest';
+      hiddenPhase = 'post-finish-rest';
     } else {
       this.appearanceIndex++;
     }
@@ -217,7 +220,9 @@ export class RhythmRuntime {
       nextAbsolute++;
       hidden++;
     }
-    this.penaltyCount = judgement === 'miss' ? hidden : 0;
+    // Ordinary Miss suppression remains player-specific bookkeeping. Finish
+    // rest is shared scheduler state, so it is never exposed as a miss penalty.
+    this.penaltyCount = judgement === 'miss' && !previous.isFinish ? hidden : 0;
     const next = this.appearances[this.appearanceIndex];
     // From L6 onward the next command becomes readable at the Perfect center of
     // the final suppressed slot, while its own target/global-turn timing stays unchanged.
