@@ -1,13 +1,13 @@
 import { getGaugeTiming } from './gauge-timing';
 import { RhythmEngine, PERFECT_CENTER, SCORE_ZONE_END, SCORE_ZONE_START } from './rhythm';
 import { createArrowCommand, DEFAULT_SOLO_SETTINGS, lastPlayableTurn, minimumRemainingTurns, missPenaltyTurns, planAfterFinish, seededRandom, soloCycle, successHiddenTurns, targetSpaceMs, turnDurationMs, zoneEntryMs, zoneExitMs, type SoloAppearance } from './solo-easy';
-import type { ArrowToken, Chart, Direction, GameStats, Judgement, SoloTurn } from './types';
+import type { ArrowToken, Chart, Direction, GameStats, Judgement, JudgementMeta, SoloTurn } from './types';
 
 export { PERFECT_CENTER, SCORE_ZONE_END, SCORE_ZONE_START } from './rhythm';
 export type RhythmPhase = 'idle' | 'intro' | 'countdown' | 'playing-command' | 'awaiting-space' | 'command-hidden' | 'miss-penalty' | 'finish' | 'post-finish-rest' | 'ending' | 'song-finished';
 export type RhythmRuntimeCallbacks = {
   onStats?: (stats: GameStats) => void;
-  onJudgement?: (judgement: Judgement, perfectStreak: number) => void;
+  onJudgement?: (judgement: Judgement, perfectStreak: number, meta: JudgementMeta) => void;
   onArrowCommand?: (arrowCommand: ArrowToken[], filled: number) => void;
   onFinished?: (stats: GameStats) => void;
   onLevel?: (level: number) => void;
@@ -54,6 +54,9 @@ export class RhythmRuntime {
   private get lastTurn() { return lastPlayableTurn(Math.min(this.chart.durationMs ?? this.songDurationMs, this.songDurationMs), this.firstPerfectMs, this.chart.bpm, this.settings.endingReserveTurns); }
   private target(index: number) { return targetSpaceMs(this.firstPerfectMs, this.chart.bpm, index); }
   private exit(index: number) { return zoneExitMs(this.target(index), this.chart.bpm); }
+  private get debugFinishAssistEnabled() {
+    return typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === '1';
+  }
 
   start(animate = true) {
     if (!this.timeSource) throw new Error('Solo Easy requires a WebAudio song-time source.');
@@ -109,7 +112,8 @@ export class RhythmRuntime {
       targetSpaceMs: this.turn?.targetSpaceMs, deltaToTargetMs: this.timingDeltaMs, gaugePercent: this.gaugePercent,
       runtimeState: this.phase, commandVisible: this.visible, commandIndex: this.commandIndex,
       commandCompleted: this.awaitingSpace, awaitingSpace: this.awaitingSpace, penaltyTurnsRemaining: this.penaltyTurnsRemaining,
-      perfectStreak: this.streak, finishCycle: this.cycle, finalFinish: this.final, gameEnded: this.ended,
+      perfectStreak: this.streak, finishCycle: this.cycle, finalFinish: this.final, finishRestTurns: this.settings.finishRestTurns, gameEnded: this.ended,
+      debugFinishAssist: this.debugFinishAssistEnabled,
       isFinish: this.turn?.isFinish, revealAtMs: this.revealAtMs, lastJudgement: this.lastJudgement, judgementAtMs: this.judgementAtMs };
   }
 
@@ -152,9 +156,17 @@ export class RhythmRuntime {
   handleSpace(): Judgement | null {
     this.advance();
     if (!this.started || this.ended || !this.visible || this.phase === 'ending') return null;
+    const now = this.songTimeMs;
+    // debug=1 owner QA assist: on a visible Finish turn, SPACE alone forces a
+    // Perfect so Finish→post-rest→L6 can be tested without entering 9 arrows.
+    // Production gameplay (no debug=1) remains unchanged.
+    if (this.turn.isFinish && this.debugFinishAssistEnabled) {
+      const judgement = this.engine.judgeMove(this.turn.absoluteTurn, PERFECT_CENTER);
+      if (judgement) this.resolve(judgement, now);
+      return judgement;
+    }
     // Incomplete commands never score. The authored opportunity still expires.
     if (!this.awaitingSpace) return null;
-    const now = this.songTimeMs;
     // Judge against this playable target, not a previous scoring-zone pass.
     if (now < zoneEntryMs(this.turn.targetSpaceMs, this.chart.bpm) || now > zoneExitMs(this.turn.targetSpaceMs, this.chart.bpm)) {
       this.resolve('miss', now); return 'miss';
@@ -165,25 +177,36 @@ export class RhythmRuntime {
   }
   private resolve(judgement: Judgement, atMs: number) {
     if (judgement === 'miss' && !this.engine.missMove(this.turn.absoluteTurn)) return;
+    const previous = this.turn;
     this.streak = judgement === 'perfect' ? this.streak + 1 : 0;
     this.lastJudgement = judgement; this.judgementAtMs = atMs;
-    this.callbacks.onStats?.(this.stats); this.callbacks.onJudgement?.(judgement, this.streak);
+    this.callbacks.onStats?.(this.stats); this.callbacks.onJudgement?.(judgement, this.streak, {
+      atMs,
+      absoluteTurn: previous.absoluteTurn,
+      level: previous.level,
+      isFinish: previous.isFinish,
+    });
     this.setCountdown(null);
-    const previous = this.turn;
     this.visible = false; this.commandIndex = 0; this.awaitingSpace = false;
+    // Finish is a shared global-turn event. Its post-Finish rest is identical
+    // for every player outcome; judgement may change player state but never the
+    // room/global command schedule.
     const requestedHidden = previous.isFinish
-      ? this.settings.finishHideTurns
+      ? this.settings.finishRestTurns
       : judgement === 'miss' ? missPenaltyTurns(previous.level) : successHiddenTurns(previous.level);
     this.hiddenFromTurn = previous.absoluteTurn;
     let nextAbsolute = previous.absoluteTurn + 1;
     let hiddenPhase: RhythmPhase = judgement === 'miss' ? 'miss-penalty' : 'command-hidden';
 
     if (previous.isFinish) {
-      const plan = planAfterFinish(previous.absoluteTurn, this.lastTurn, this.settings, judgement === 'miss');
-      if (this.final || plan.finalFinish) { this.beginEnding(); return; }
+      const plan = planAfterFinish(previous.absoluteTurn, this.lastTurn, this.settings);
+      // Recompute finality at the authoritative Finish turn. A cached planning
+      // flag must never stop a non-final Finish or replace future global turns.
+      this.final = plan.finalFinish;
+      if (plan.finalFinish) { this.beginEnding(); return; }
       this.cycle++; this.appearances = soloCycle(6, this.settings); this.appearanceIndex = 0;
       nextAbsolute = plan.nextAbsoluteTurn;
-      hiddenPhase = judgement === 'miss' ? 'miss-penalty' : 'post-finish-rest';
+      hiddenPhase = 'post-finish-rest';
     } else {
       this.appearanceIndex++;
     }
@@ -197,14 +220,20 @@ export class RhythmRuntime {
       nextAbsolute++;
       hidden++;
     }
-    this.penaltyCount = judgement === 'miss' ? hidden : 0;
-    let reveal = hidden ? this.exit(nextAbsolute - 1) : atMs;
+    // Ordinary Miss suppression remains player-specific bookkeeping. Finish
+    // rest is shared scheduler state, so it is never exposed as a miss penalty.
+    this.penaltyCount = judgement === 'miss' && !previous.isFinish ? hidden : 0;
     const next = this.appearances[this.appearanceIndex];
+    // From L6 onward the next command becomes readable at the Perfect center of
+    // the final suppressed slot, while its own target/global-turn timing stays unchanged.
+    const revealSuppressedAt = (absoluteTurn: number) =>
+      (next?.level ?? previous.level) >= 6 ? this.target(absoluteTurn) : this.exit(absoluteTurn);
+    let reveal = hidden ? revealSuppressedAt(nextAbsolute - 1) : atMs;
     if (next?.isFinish) {
       const plan = planAfterFinish(nextAbsolute, this.lastTurn, this.settings);
       this.final = plan.finalFinish;
       if (this.final) nextAbsolute = Math.max(nextAbsolute, this.lastTurn);
-      if (nextAbsolute > previous.absoluteTurn + hidden + 1) reveal = this.exit(nextAbsolute - 1);
+      if (nextAbsolute > previous.absoluteTurn + hidden + 1) reveal = revealSuppressedAt(nextAbsolute - 1);
     }
     if (zoneExitMs(this.target(nextAbsolute), this.chart.bpm) >= Math.min(this.songDurationMs, this.chart.durationMs ?? Infinity)) {
       this.beginEnding(); return;

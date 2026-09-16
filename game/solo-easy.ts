@@ -6,8 +6,19 @@ export const SOLO_SEQUENCE_COUNTS = [1, 2, 3, 4, 5, 6, 6, 6, 6] as const;
 // independent from that budget; hidden and penalty turns consume it too.
 export const SOLO_COMMAND_LENGTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 export const ENDING_RESERVE_TURNS = 2;
-export type SoloSettings = { sequenceCounts: readonly number[]; commandLengths: readonly number[]; endingReserveTurns: number; finishHideTurns: number };
-export const DEFAULT_SOLO_SETTINGS: SoloSettings = { sequenceCounts: SOLO_SEQUENCE_COUNTS, commandLengths: SOLO_COMMAND_LENGTHS, endingReserveTurns: ENDING_RESERVE_TURNS, finishHideTurns: 2 };
+export type SoloSettings = {
+  sequenceCounts: readonly number[];
+  commandLengths: readonly number[];
+  endingReserveTurns: number;
+  /** Shared room/global rest after any non-final Finish outcome. */
+  finishRestTurns: number;
+};
+export const DEFAULT_SOLO_SETTINGS: SoloSettings = {
+  sequenceCounts: SOLO_SEQUENCE_COUNTS,
+  commandLengths: SOLO_COMMAND_LENGTHS,
+  endingReserveTurns: ENDING_RESERVE_TURNS,
+  finishRestTurns: 4,
+};
 export type SoloAppearance = { level: number; sequenceIndex: number; isFinish: boolean };
 export const turnDurationMs = (bpmExact: number) => 4 * 60000 / bpmExact;
 export const targetSpaceMs = (spaceStartMs: number, bpmExact: number, absoluteTurn: number) => spaceStartMs + absoluteTurn * turnDurationMs(bpmExact);
@@ -71,11 +82,9 @@ export function repeatCycleCost(settings = DEFAULT_SOLO_SETTINGS) {
 export function repeatCycleTurns(settings = DEFAULT_SOLO_SETTINGS) {
   return repeatCycleCost(settings).globalTurns;
 }
-/** Whole-turn plan, recalculated after every Finish (including its miss cost). */
-export function planAfterFinish(finishTurn: number, lastTurn: number, settings = DEFAULT_SOLO_SETTINGS, missed = false) {
+/** Whole-turn plan, recalculated after every Finish. Player outcome never changes it. */
+export function planAfterFinish(finishTurn: number, lastTurn: number, settings = DEFAULT_SOLO_SETTINGS) {
   const cycleTurns = repeatCycleTurns(settings);
-  // A Finish miss affects judgement/score only. Its scheduled global turn is
-  // never replaced or extended, so repeat positions remain deterministic.
   const available = lastTurn - finishTurn;
   const repeatCycles = Math.max(0, Math.floor(available / cycleTurns));
   const spareTurns = Math.max(0, available - repeatCycles * cycleTurns);

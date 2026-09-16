@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 4,
+  "phase": "P3.7",
+  "checkpoint": "1C-private-persistence-complete",
+  "status": "private-source-persisted",
+  "notes": [
+    "This checkpoint records the Phase 3 reference characters plus 15 owner-acquired Adobe Mixamo dance candidates.",
+    "No gameplay/runtime integration is performed here.",
+    "The Quaternius reference characters are recoverable from immutable commit-pinned public CC0 sources.",
+    "The Mixamo FBX files were owner-downloaded, validated as Kaydara FBX Binary, and fingerprinted with SHA-256 before packaging.",
+    "Raw Mixamo FBX binaries are intentionally NOT committed to the public project repository.",
+    "The complete 15-animation source package is persisted in a private Supabase Storage bucket.",
+    "Remote object name, byte size, MIME type, bucket privacy, and storage policies were verified after upload. The package SHA-256 below is the locally computed source-package hash; the remote object body was not re-downloaded through the connector for an independent remote SHA-256 recomputation."
+  ],
+  "privatePersistence": {
+    "provider": "Supabase Storage",
+    "projectRef": "uaosdkrfxidiwqljmelg",
+    "bucket": "asset-sources",
+    "bucketVisibility": "private",
+    "objectPath": "P3_7_Mixamo_Source_Batch_2026-09-15.zip",
+    "objectBytes": 6185438,
+    "mimeType": "application/zip",
+    "packageSha256": "b2ea022a0f9941c46975c37a0f9d34d093accf5eeab009008a3987021216c1ef",
+    "packageContents": "15 canonical Mixamo FBX files + manifest.json + README.txt",
+    "status": "verified-private-persistence",
+    "verification": {
+      "objectExists": true,
+      "objectByteSizeMatches": true,
+      "bucketPublic": false,
+      "publicReadPolicyForAssetSources": false,
+      "storagePoliciesObserved": "existing policies are scoped to audio bucket only",
+      "temporaryIngestEndpoint": "disabled-inert"
+    }
+  },
+  "referenceCharacters": {
+    "sourceRepository": "Ashen-Skool/Aot-Fable-5.1",
+    "sourceCommit": "122378c422148390c781adc6d7019eda7b5d07f3",
+    "canonicalFamily": "Quaternius Universal Base Characters",
+    "license": "CC0-1.0",
+    "assets": [
+      {
+        "id": "char_male_reference_01",
+        "name": "Quaternius UBC Superhero Male FullBody",
+        "role": "reference-male",
+        "format": "glb",
+        "sourcePath": "assets/staged/anim/UBC_Superhero_Male_FullBody.glb",
+        "sourceUrl": "https://raw.githubusercontent.com/Ashen-Skool/Aot-Fable-5.1/122378c422148390c781adc6d7019eda7b5d07f3/assets/staged/anim/UBC_Superhero_Male_FullBody.glb",
+        "gitBlobSha1": "27485e3044fe1b4e390d08771aedb890310057f3",
+        "bytes": 1079732,
+        "approxHeightM": 1.82,
+        "runtimeStatus": "not-integrated"
+      },
+      {
+        "id": "char_female_reference_01",
+        "name": "Quaternius UBC Superhero Female FullBody",
+        "role": "reference-female",
+        "format": "glb",
+        "sourcePath": "assets/staged/anim/UBC_Superhero_Female_FullBody.glb",
+        "sourceUrl": "https://raw.githubusercontent.com/Ashen-Skool/Aot-Fable-5.1/122378c422148390c781adc6d7019eda7b5d07f3/assets/staged/anim/UBC_Superhero_Female_FullBody.glb",
+        "gitBlobSha1": "4330fb14eae61506bd7294139ce620e2e7b4bbb2",
+        "bytes": 1482720,
+        "approxHeightM": 1.78,
+        "runtimeStatus": "not-integrated"
+      }
+    ]
+  },
+  "danceCandidates": {
+    "sourceProvider": "Adobe Mixamo",
+    "acquisition": "owner-downloaded-and-uploaded-to-working-chat",
+    "format": "FBX Binary",
+    "binaryPersistence": "private-supabase-package",
+    "storagePackage": "asset-sources/P3_7_Mixamo_Source_Batch_2026-09-15.zip",
+    "runtimeStatus": "not-integrated",
+    "assets": [
+      { "id": "dance_mixamo_001", "name": "Hip Hop Dancing", "uploadedFileName": "Hip Hop Dancing(1).fbx", "storageFileName": "dance_mixamo_001.fbx", "bytes": 1411312, "sha256": "fc1603e56237a7010e0e3f73340444fb03609b429b3f915db67d330e4bd486c7" },
+      { "id": "dance_mixamo_002", "name": "Silly Dancing", "uploadedFileName": "Silly Dancing(1).fbx", "storageFileName": "dance_mixamo_002.fbx", "bytes": 572912, "sha256": "dc274060446b604072e5c34615a1e99794b7cb02c56670323392cff9a2c13644" },
+      { "id": "dance_mixamo_003", "name": "Salsa Dancing", "uploadedFileName": "Salsa Dancing(1).fbx", "storageFileName": "dance_mixamo_003.fbx", "bytes": 1841232, "sha256": "cacad46bcbfbad09634fad30b84f189c3fec4a89b3c1c3537c8694bb2d3d1254" },
+      { "id": "dance_mixamo_004", "name": "Swing Dancing", "uploadedFileName": "Swing Dancing(1).fbx", "storageFileName": "dance_mixamo_004.fbx", "bytes": 1721168, "sha256": "e32b7e7f4535581aab39b0be6da4d19280bbc111ce5d85ee1f8d6e02372c7297" },
+      { "id": "dance_mixamo_005", "name": "Wave Hip Hop Dance", "uploadedFileName": "Wave Hip Hop Dance.fbx", "storageFileName": "dance_mixamo_005.fbx", "bytes": 2995360, "sha256": "22fc8e02cacb12e60cec6581c00410ada3447c3146b06f9af3abee9b3903bbff" },
+      { "id": "dance_mixamo_006", "name": "Breakdance Freezes", "uploadedFileName": "Breakdance Freezes.fbx", "storageFileName": "dance_mixamo_006.fbx", "bytes": 869584, "sha256": "79d99d5ccf7729756e3c3a8a13d9d94bbf55e386840a2f67cf45e058b1f7af42" },
+      { "id": "dance_mixamo_007", "name": "Capoeira", "uploadedFileName": "Capoeira.fbx", "storageFileName": "dance_mixamo_007.fbx", "bytes": 690880, "sha256": "f65fb0fddd111b1ce7de710a5598d776371c1969d1599541f92e3268a723b85e" },
+      { "id": "dance_mixamo_008", "name": "Jazz Dancing", "uploadedFileName": "Jazz Dancing.fbx", "storageFileName": "dance_mixamo_008.fbx", "bytes": 572368, "sha256": "d6a6ff5407d711fa593f76d409e8c619e3fb60cb050e1300f1d905c7a583a285" },
+      { "id": "dance_mixamo_009", "name": "Samba Dancing", "uploadedFileName": "Samba Dancing.fbx", "storageFileName": "dance_mixamo_009.fbx", "bytes": 1721952, "sha256": "f4c60b749eb3e1368cef4fdd560d3b417ea85f86ad00da1a70a544ea3a97e1a2" },
+      { "id": "dance_mixamo_010", "name": "YMCA Dance", "uploadedFileName": "Ymca Dance.fbx", "storageFileName": "dance_mixamo_010.fbx", "bytes": 669712, "sha256": "d295eba941f4e7189862b3f316d446eac5dd2e83fad8ae46492738a242adf813" },
+      { "id": "dance_mixamo_011", "name": "Macarena Dance", "uploadedFileName": "Macarena Dance.fbx", "storageFileName": "dance_mixamo_011.fbx", "bytes": 957216, "sha256": "620fda08dee0a247c600feef05dbcac29e50b0226e10bb0055b7cbad6434c5e7" },
+      { "id": "dance_mixamo_012", "name": "Rumba Dancing", "uploadedFileName": "Rumba Dancing.fbx", "storageFileName": "dance_mixamo_012.fbx", "bytes": 495008, "sha256": "5e71dc98f9c08cd65f82e81cab911c3cd7ad726186c542e3b988fed07be790a0" },
+      { "id": "dance_mixamo_013", "name": "Northern Soul Spin", "uploadedFileName": "Northern Soul Spin.fbx", "storageFileName": "dance_mixamo_013.fbx", "bytes": 724144, "sha256": "259720115d2c28f89b2855c397dffae25088ba405acbea62b09babdd47bd3e92" },
+      { "id": "dance_mixamo_014", "name": "Twist Dance", "uploadedFileName": "Twist Dance.fbx", "storageFileName": "dance_mixamo_014.fbx", "bytes": 995920, "sha256": "df101318dd8ea4bc7dfeee90043191d57339061ec90f7f7554983b7fd38a9d0c" },
+      { "id": "dance_mixamo_015", "name": "Flair", "uploadedFileName": "Flair.fbx", "storageFileName": "dance_mixamo_015.fbx", "bytes": 379136, "sha256": "bb4ce4d3d4d47165f3e941ca70e3ef0abbbe8a2b16b6e7dccb847e9d34ee4068" }
+    ]
+  }
+}

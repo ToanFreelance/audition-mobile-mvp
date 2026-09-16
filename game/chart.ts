@@ -114,16 +114,25 @@ export function createChartFromMusicConfig(config: MusicConfig): Chart {
   const validNine = (values: readonly number[] | undefined) => values?.length === 9 && values.every(value => Number.isInteger(value) && value > 0);
   const levelTurns = validNine(configured) ? configured : SOLO_SEQUENCE_COUNTS;
   const lengths = config.gameplay?.commandLengths;
+  const validNonNegativeInt = (value: number | undefined) => Number.isInteger(value) && value! >= 0;
+  // New releases use one shared Finish rest. For older saved configs, the
+  // former successful-Finish value is the closest representation of the
+  // original shared presentation/rest cadence. Player-specific miss fields
+  // must never control the global scheduler.
+  const finishRestTurns = validNonNegativeInt(config.gameplay?.finishRestTurns)
+    ? config.gameplay.finishRestTurns!
+    : validNonNegativeInt(config.gameplay?.successfulFinishHideTurns)
+      ? config.gameplay.successfulFinishHideTurns!
+      : DEFAULT_SOLO_SETTINGS.finishRestTurns;
   return {
     ...buildChart(config.id, config.title, config.BPM_exact!, levelTurns, config.spaceStartMs),
     durationMs: config.durationMs,
     soloSettings: {
       sequenceCounts: levelTurns,
       commandLengths: validNine(lengths) ? lengths! : SOLO_COMMAND_LENGTHS,
-      endingReserveTurns: Number.isInteger(config.gameplay?.endingReserveTurns) && config.gameplay.endingReserveTurns! >= 0
+      endingReserveTurns: validNonNegativeInt(config.gameplay?.endingReserveTurns)
         ? config.gameplay.endingReserveTurns! : DEFAULT_SOLO_SETTINGS.endingReserveTurns,
-      finishHideTurns: Number.isInteger(config.gameplay?.finishHideTurns) && config.gameplay.finishHideTurns! >= 0
-        ? config.gameplay.finishHideTurns! : DEFAULT_SOLO_SETTINGS.finishHideTurns,
+      finishRestTurns,
     },
   };
 }

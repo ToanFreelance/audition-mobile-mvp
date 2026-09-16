@@ -1,6 +1,14 @@
 export type Direction = "left" | "up" | "down" | "right";
 export type Judgement = "perfect" | "great" | "cool" | "bad" | "miss";
 
+export type JudgementMeta = {
+  /** Exact authoritative song time used by RhythmRuntime for this judgement. */
+  atMs: number;
+  absoluteTurn: number;
+  level: number;
+  isFinish: boolean;
+};
+
 export type ArrowToken = {
   displayDirection: Direction;
   requiredDirection: Direction;

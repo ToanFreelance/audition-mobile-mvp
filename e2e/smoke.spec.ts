@@ -19,6 +19,7 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
   await page.setViewportSize({width,height:width===390?844:932});
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('/?debug=1&seed=123');
+  await expect(page.locator('.stage-3d')).toHaveAttribute('data-character-source','gltf',{timeout:10000});
   await expect(page.getByRole('button',{name:'START',exact:true})).toBeEnabled();
   await page.getByRole('button',{name:'♫ SELECT SONG',exact:true}).click();
   await expect(page.locator('.song-picker-item')).toHaveCount(1);
@@ -53,4 +54,12 @@ test('normal UI hides rhythm diagnostics',async({page})=>{
   await page.goto('/');
   await expect(page.getByRole('button',{name:'START',exact:true})).toBeEnabled();
   await expect(page.getByTestId('rhythm-debug')).toHaveCount(0);
+});
+test('character loader failure falls back without crashing the stage',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.route('**/characters/default/character.glb',route=>route.abort('failed'));
+  await page.goto('/');
+  await expect(page.locator('.stage-3d')).toHaveAttribute('data-character-source','fallback',{timeout:10000});
+  await expect(page.locator('.stage-3d-canvas')).toBeVisible();
+  expect(errors).toEqual([]);
 });
