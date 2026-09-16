@@ -16,9 +16,9 @@ export const CHARACTER_STAGE_POSITION = {
   z: 0.25,
 } as const;
 
-// Portrait presets are sized against the full animated extents of the active
-// RobotExpressive clip pool, not only its neutral pose. The stable torso target
-// keeps the camera from chasing animated bones.
+// Portrait presets are sized for the canonical humanoid and its active
+// published/fallback animation envelope, not only the neutral rest pose. The
+// stable torso target keeps the camera from chasing animated bones.
 export const PORTRAIT_CAMERA_FRAMES = {
   wide: { fov: 41, y: 3.65, z: 20.5, targetY: 1.75, targetZ: 0.25 },
   center: { fov: 38, y: 3.45, z: 18.5, targetY: 1.75, targetZ: 0.25 },
