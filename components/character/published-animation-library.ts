@@ -25,22 +25,22 @@ export type PublishedDanceReleaseInfo = {
   sourceClipCount: number;
 };
 
+export type LoadedPublishedDanceRelease = {
+  sourceClips: THREE.AnimationClip[];
+  info: PublishedDanceReleaseInfo;
+};
+
 export type PublishedDanceLibraryResult = {
   clips: THREE.AnimationClip[];
   release: PublishedDanceReleaseInfo | null;
 };
 
 /**
- * Replaces only the normal successful-turn dance slots with the latest
- * canonical published P3.7 release. Idle, miss and Finish remain owned by the
- * existing human animation library.
- *
- * Failure is intentionally soft: presentation falls back to the checked-in
- * human library and gameplay timing remains unaffected.
+ * Fetches and validates the latest canonical published P3.7 dance release.
+ * Failure is intentionally soft because character presentation must retain its
+ * built-in human-library fallback and must never affect gameplay timing.
  */
-export async function preferPublishedDanceRelease(
-  baseClips: THREE.AnimationClip[],
-): Promise<PublishedDanceLibraryResult> {
+export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceRelease | null> {
   try {
     const response = await fetch(PUBLISHED_DANCE_BUNDLE_URL, {
       method: "GET",
@@ -66,23 +66,13 @@ export async function preferPublishedDanceRelease(
     }
 
     const sourceClips = sourceAssetIds.map(id => bundle.clipsByAssetId.get(id) as THREE.AnimationClip);
-    const replacementSlots = NORMAL_DANCE_SLOT_NAMES.map((slotName, index) => {
-      const source = sourceClips[index % sourceClips.length];
-      const clip = source.clone();
-      clip.name = slotName;
-      return clip;
-    });
-
-    const retained = baseClips.filter(clip => !NORMAL_DANCE_SLOT_KEYS.has(clip.name.toLowerCase()));
-    const clips = [...retained, ...replacementSlots];
-
     console.info(
       `[character] published Mixamo dance release v${releaseVersion} loaded: ${sourceAssetIds.join(", ")}`,
     );
 
     return {
-      clips,
-      release: {
+      sourceClips,
+      info: {
         releaseVersion,
         sourceAssetIds,
         sourceClipCount: sourceClips.length,
@@ -93,6 +83,37 @@ export async function preferPublishedDanceRelease(
       "[character] published dance release unavailable; keeping built-in human dance fallback",
       error,
     );
-    return { clips: baseClips, release: null };
+    return null;
   }
+}
+
+/**
+ * Replaces only the normal successful-turn dance slots. Idle, miss and Finish
+ * remain owned by the human animation library.
+ */
+export function applyPublishedDanceRelease(
+  baseClips: THREE.AnimationClip[],
+  published: LoadedPublishedDanceRelease,
+): PublishedDanceLibraryResult {
+  const replacementSlots = NORMAL_DANCE_SLOT_NAMES.map((slotName, index) => {
+    const source = published.sourceClips[index % published.sourceClips.length];
+    const clip = source.clone();
+    clip.name = slotName;
+    return clip;
+  });
+
+  const retained = baseClips.filter(clip => !NORMAL_DANCE_SLOT_KEYS.has(clip.name.toLowerCase()));
+  return {
+    clips: [...retained, ...replacementSlots],
+    release: published.info,
+  };
+}
+
+/** Backward-compatible helper for callers that already have a complete fallback library. */
+export async function preferPublishedDanceRelease(
+  baseClips: THREE.AnimationClip[],
+): Promise<PublishedDanceLibraryResult> {
+  const published = await loadPublishedDanceRelease();
+  if (!published) return { clips: baseClips, release: null };
+  return applyPublishedDanceRelease(baseClips, published);
 }
