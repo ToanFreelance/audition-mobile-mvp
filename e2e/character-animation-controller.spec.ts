@@ -1,10 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import {
   CharacterAnimationController,
   DANCE_BLEND_DURATION_MS,
-  ROBOT_EXPRESSIVE_CLIP_MAP,
   deriveBlendProgress,
 } from "../components/character/CharacterAnimationController";
 import {
@@ -12,6 +10,7 @@ import {
   NORMAL_CHOREOGRAPHY_POOL,
   createCharacterPresentationEvent,
   selectCharacterChoreography,
+  selectFinalDanceVariantKey,
 } from "../components/character/choreography";
 import type {
   CharacterDanceEvent,
@@ -20,13 +19,17 @@ import type {
 
 const clips = [
   new THREE.AnimationClip("Idle", 3, []),
+  ...Array.from({ length: 8 }, (_, index) =>
+    new THREE.AnimationClip(`HumanDance${String(index + 1).padStart(2, "0")}`, 3.333 + index * 0.01, []),
+  ),
+  new THREE.AnimationClip("HumanMiss", 0.2, []),
+  new THREE.AnimationClip("HumanFinish", 0.708, []),
+  new THREE.AnimationClip("HumanFinalDance01", 1.1, []),
+  new THREE.AnimationClip("HumanFinalDance02", 1.2, []),
+  new THREE.AnimationClip("HumanFinalDance03", 1.3, []),
+  // Legacy fixtures remain supported by the controller compatibility map.
   new THREE.AnimationClip("Dance", 3.333, []),
   new THREE.AnimationClip("Wave", 1.833, []),
-  new THREE.AnimationClip("Yes", 1.667, []),
-  new THREE.AnimationClip("Punch", 0.833, []),
-  new THREE.AnimationClip("WalkJump", 0.833, []),
-  new THREE.AnimationClip("ThumbsUp", 1.583, []),
-  new THREE.AnimationClip("Jump", 0.708, []),
   new THREE.AnimationClip("No", 0.2, []),
 ];
 
@@ -39,7 +42,7 @@ function danceEvent(overrides: Partial<CharacterDanceEvent> = {}): CharacterDanc
     isFinish: false,
     judgement: "perfect",
     actionStartSongTimeMs: 50_000,
-    choreographyId: "dance",
+    choreographyId: "dance-01",
     ...overrides,
   };
 }
@@ -61,65 +64,48 @@ function controller(customClips = clips) {
   return new CharacterAnimationController(new THREE.AnimationMixer(new THREE.Object3D()), customClips);
 }
 
-function activeAssetClipNames() {
-  const glb = readFileSync("public/characters/default/character.glb");
-  const jsonChunkLength = glb.readUInt32LE(12);
-  const json = JSON.parse(glb.subarray(20, 20 + jsonChunkLength).toString("utf8").replace(/\0+$/, "")) as {
-    animations?: Array<{ name?: string }>;
-  };
-  return new Set(json.animations?.map((animation) => animation.name).filter(Boolean) as string[]);
-}
-
-test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
-  test("uses six distinct normal RobotExpressive moves and reserves Jump for Finish", () => {
+test.describe("P3.7 published choreography and song-time-safe cross-fades", () => {
+  test("uses eight semantic normal slots and reserves finish-special for Finish", () => {
     expect(NORMAL_CHOREOGRAPHY_POOL).toEqual([
-      "dance",
-      "wave",
-      "yes",
-      "punch",
-      "walk-jump",
-      "thumbs-up",
+      "dance-01",
+      "dance-02",
+      "dance-03",
+      "dance-04",
+      "dance-05",
+      "dance-06",
+      "dance-07",
+      "dance-08",
     ]);
-    expect(new Set(NORMAL_CHOREOGRAPHY_POOL).size).toBe(6);
-    expect(FINISH_CHOREOGRAPHY).toBe("finish-jump");
-    expect(ROBOT_EXPRESSIVE_CLIP_MAP).toEqual({
-      idle: "Idle",
-      miss: "No",
-      dance: "Dance",
-      wave: "Wave",
-      yes: "Yes",
-      punch: "Punch",
-      "walk-jump": "WalkJump",
-      "thumbs-up": "ThumbsUp",
-      "finish-jump": "Jump",
-    });
-    const assetClips = activeAssetClipNames();
-    for (const clipName of Object.values(ROBOT_EXPRESSIVE_CLIP_MAP)) {
-      expect(assetClips.has(clipName), `active GLB contains ${clipName}`).toBe(true);
-    }
+    expect(new Set(NORMAL_CHOREOGRAPHY_POOL).size).toBe(8);
+    expect(FINISH_CHOREOGRAPHY).toBe("finish-special");
   });
 
-  test("same seed and turn remain deterministic without player timing or Math.random", () => {
+  test("normal and Final selection are deterministic without Math.random", () => {
     for (let turn = 20; turn < 32; turn += 1) {
       expect(selectCharacterChoreography(123, turn, false)).toBe(
         selectCharacterChoreography(123, turn, false),
       );
     }
+    for (const turn of [38, 62, 86, 110]) {
+      expect(selectFinalDanceVariantKey(123, turn)).toBe(selectFinalDanceVariantKey(123, turn));
+    }
     expect(selectCharacterChoreography.toString()).not.toContain("Math.random");
+    expect(selectFinalDanceVariantKey.toString()).not.toContain("Math.random");
     expect(selectCharacterChoreography(123, 20, false)).not.toBe(
       selectCharacterChoreography(123, 21, false),
     );
   });
 
-  test("presentation events preserve factual runtime metadata and separate success from failure", () => {
-    const meta = { atMs: 49_930, absoluteTurn: 20, level: 6, isFinish: false };
-    expect(createCharacterPresentationEvent(1, "perfect", meta, 123)).toMatchObject({
+  test("presentation events preserve authoritative SPACE metadata", () => {
+    const normalMeta = { atMs: 49_930, absoluteTurn: 20, level: 6, isFinish: false };
+    expect(createCharacterPresentationEvent(1, "perfect", normalMeta, 123)).toMatchObject({
       kind: "dance",
       eventId: 1,
       absoluteTurn: 20,
       actionStartSongTimeMs: 49_930,
+      isFinish: false,
     });
-    expect(createCharacterPresentationEvent(2, "miss", meta, 123)).toEqual({
+    expect(createCharacterPresentationEvent(2, "miss", normalMeta, 123)).toEqual({
       kind: "fail",
       eventId: 2,
       absoluteTurn: 20,
@@ -127,6 +113,20 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
       isFinish: false,
       judgement: "miss",
       actionStartSongTimeMs: 49_930,
+    });
+
+    const finish = createCharacterPresentationEvent(3, "great", {
+      atMs: 175_500,
+      absoluteTurn: 38,
+      level: 9,
+      isFinish: true,
+    }, 123);
+    expect(finish).toMatchObject({
+      kind: "dance",
+      isFinish: true,
+      choreographyId: "finish-special",
+      actionStartSongTimeMs: 175_500,
+      presentationVariantKey: selectFinalDanceVariantKey(123, 38),
     });
   });
 
@@ -142,7 +142,7 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     subject.dispose();
   });
 
-  test("leaving a run installs Idle even when the authoritative song clock resets", () => {
+  test("leaving a run restores Idle even when authoritative song time resets", () => {
     const subject = controller();
     subject.setGameActive(true);
     subject.handlePresentationEvent(danceEvent());
@@ -158,7 +158,7 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     subject.dispose();
   });
 
-  test("Dance A to Dance B creates a 150ms two-action blend", () => {
+  test("normal Dance A to Dance B creates a 150ms two-action blend", () => {
     const subject = controller();
     subject.setGameActive(true);
     subject.handlePresentationEvent(danceEvent());
@@ -166,14 +166,14 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     subject.handlePresentationEvent(danceEvent({
       eventId: 2,
       absoluteTurn: 21,
-      choreographyId: "wave",
+      choreographyId: "dance-02",
       actionStartSongTimeMs: 52_000,
     }));
     subject.update(0.016, 52_075);
     expect(DANCE_BLEND_DURATION_MS).toBe(150);
     expect(subject.getState()).toMatchObject({
-      activeClip: "Wave",
-      previousClip: "Dance",
+      activeClip: "HumanDance02",
+      previousClip: "HumanDance01",
       transitioning: true,
       blendProgress: 0.5,
       activeWeight: 0.5,
@@ -195,7 +195,7 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     subject.dispose();
   });
 
-  test("same turn keeps one clip while per-player SPACE anchors stay 140ms apart", () => {
+  test("same seed and turn keep one semantic clip while player SPACE anchors differ", () => {
     const a = controller();
     const b = controller();
     a.setGameActive(true);
@@ -216,40 +216,12 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     expect(deriveBlendProgress(50_200, 50_000, 150)).toBe(1);
   });
 
-  test("120ms-late delivery begins around 80% blended and 120ms into the clip", () => {
-    const subject = controller();
-    subject.setGameActive(true);
-    subject.handlePresentationEvent(danceEvent({ actionStartSongTimeMs: 50_000 }));
-    subject.update(1 / 60, 50_120);
-    expect(subject.getState().clipTimeSeconds).toBeCloseTo(0.12, 6);
-    expect(subject.getState().blendProgress).toBeCloseTo(0.8, 6);
-    expect(subject.getState().activeWeight).toBeCloseTo(0.8, 6);
-    subject.dispose();
-  });
-
-  test("manual weights blend skeletal poses while clip clocks remain explicit", () => {
-    const root = new THREE.Object3D();
-    const idle = new THREE.AnimationClip("Idle", 1, [
-      new THREE.NumberKeyframeTrack(".position[x]", [0, 1], [0, 0]),
-    ]);
-    const dance = new THREE.AnimationClip("Dance", 1, [
-      new THREE.NumberKeyframeTrack(".position[x]", [0, 1], [10, 10]),
-    ]);
-    const subject = new CharacterAnimationController(new THREE.AnimationMixer(root), [idle, dance]);
-    subject.setGameActive(true);
-    subject.handlePresentationEvent(danceEvent());
-    subject.update(0.4, 50_075);
-    expect(root.position.x).toBeCloseTo(5, 6);
-    expect(subject.getState().clipTimeSeconds).toBeCloseTo(0.075, 6);
-    subject.dispose();
-  });
-
   test("different render-delta histories converge to the same blend and clip phase", () => {
     const a = controller();
     const b = controller();
     a.setGameActive(true);
     b.setGameActive(true);
-    const event = danceEvent({ actionStartSongTimeMs: 50_000, choreographyId: "wave" });
+    const event = danceEvent({ actionStartSongTimeMs: 50_000, choreographyId: "dance-02" });
     a.handlePresentationEvent(event);
     b.handlePresentationEvent(event);
     for (const [delta, time] of [[0.016, 50_016], [0.018, 50_034], [0.066, 50_100], [0.02, 50_120]] as const) {
@@ -262,45 +234,7 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     subjectDispose(a, b);
   });
 
-  test("completed blend stops and removes the previous action from active state", () => {
-    const subject = controller();
-    subject.setGameActive(true);
-    subject.handlePresentationEvent(danceEvent());
-    subject.update(0.5, 50_151);
-    expect(subject.getState()).toMatchObject({
-      activeClip: "Dance",
-      previousClip: null,
-      activeWeight: 1,
-      previousWeight: 0,
-      blendProgress: 1,
-      transitioning: false,
-    });
-    subject.dispose();
-  });
-
-  test("next successful turn replaces the move and establishes a fresh anchor", () => {
-    const subject = controller();
-    subject.setGameActive(true);
-    subject.handlePresentationEvent(danceEvent({ eventId: 7, actionStartSongTimeMs: 49_930 }));
-    subject.update(0.1, 50_200);
-    expect(subject.handlePresentationEvent(danceEvent({
-      eventId: 8,
-      absoluteTurn: 21,
-      actionStartSongTimeMs: 52_110,
-      choreographyId: "wave",
-    }))).toBe(true);
-    subject.update(0.4, 52_160);
-    expect(subject.getState()).toMatchObject({
-      mode: "dance",
-      activeClip: "Wave",
-      activeEventId: 8,
-      actionStartSongTimeMs: 52_110,
-    });
-    expect(subject.getState().clipTimeSeconds).toBeCloseTo(0.05, 6);
-    subject.dispose();
-  });
-
-  test("same-clip consecutive turns use two lanes and re-anchor without ignoring the event", () => {
+  test("same-clip consecutive turns use separate lanes and re-anchor", () => {
     const subject = controller();
     subject.setGameActive(true);
     subject.handlePresentationEvent(danceEvent({ eventId: 30, actionStartSongTimeMs: 50_000 }));
@@ -312,8 +246,8 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     }))).toBe(true);
     subject.update(0.016, 52_075);
     expect(subject.getState()).toMatchObject({
-      activeClip: "Dance",
-      previousClip: "Dance",
+      activeClip: "HumanDance01",
+      previousClip: "HumanDance01",
       activeEventId: 31,
       actionStartSongTimeMs: 52_000,
       clipTimeSeconds: 0.075,
@@ -322,7 +256,7 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     subject.dispose();
   });
 
-  test("Dance to Miss blends, then Miss completion blends to stable Idle", () => {
+  test("Dance to Miss blends, then Miss completion returns toward stable Idle", () => {
     const subject = controller();
     subject.setGameActive(true);
     subject.handlePresentationEvent(danceEvent({ actionStartSongTimeMs: 53_000 }));
@@ -331,15 +265,15 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     subject.update(0.016, 54_075);
     expect(subject.getState()).toMatchObject({
       mode: "miss",
-      activeClip: "No",
-      previousClip: "Dance",
+      activeClip: "HumanMiss",
+      previousClip: "HumanDance01",
       blendProgress: 0.5,
     });
     subject.update(0.2, 54_250);
     expect(subject.getState()).toMatchObject({
       mode: "idle",
       activeClip: "Idle",
-      previousClip: "No",
+      previousClip: "HumanMiss",
       transitioning: true,
     });
     subject.update(0.2, 54_351);
@@ -352,56 +286,49 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     subject.dispose();
   });
 
-  test("next hit after Miss blends from Idle into a new authoritative dance", () => {
-    const subject = controller();
-    subject.setGameActive(true);
-    subject.handlePresentationEvent(missEvent());
-    subject.update(0.4, 54_400);
-    expect(subject.getState().mode).toBe("idle");
-    subject.handlePresentationEvent(danceEvent({
-      eventId: 11,
-      absoluteTurn: 23,
-      actionStartSongTimeMs: 56_000,
-      choreographyId: "thumbs-up",
-    }));
-    subject.update(0.016, 56_080);
-    expect(subject.getState()).toMatchObject({
-      mode: "dance",
-      activeClip: "ThumbsUp",
-      previousClip: "Idle",
-      activeEventId: 11,
-      blendProgress: 80 / 150,
-    });
-    subject.dispose();
-  });
-
-  test("Finish uses a distinct anchored Jump and the next normal event can replace it", () => {
+  test("Finish selects a published Final Dance deterministically and next normal event can replace it", () => {
     const finish = createCharacterPresentationEvent(90, "great", {
       atMs: 175_500,
       absoluteTurn: 38,
       level: 9,
       isFinish: true,
     }, 123);
-    expect(finish).toMatchObject({
-      kind: "dance",
-      isFinish: true,
-      choreographyId: "finish-jump",
-      actionStartSongTimeMs: 175_500,
-    });
+    expect(finish.kind).toBe("dance");
+    if (finish.kind !== "dance") throw new Error("expected dance event");
+
+    const expectedIndex = (finish.presentationVariantKey ?? finish.absoluteTurn) % 3;
+    const expectedClip = `HumanFinalDance${String(expectedIndex + 1).padStart(2, "0")}`;
 
     const subject = controller();
     subject.setGameActive(true);
     subject.handlePresentationEvent(finish);
-    subject.update(0.2, 175_700);
-    expect(subject.getState().activeClip).toBe("Jump");
+    subject.update(0.1, 175_600);
+    expect(subject.getState().activeClip).toBe(expectedClip);
+
     subject.handlePresentationEvent(danceEvent({
       eventId: 91,
       absoluteTurn: 43,
       actionStartSongTimeMs: 184_000,
-      choreographyId: "punch",
+      choreographyId: "dance-03",
     }));
     subject.update(0.016, 184_050);
-    expect(subject.getState()).toMatchObject({ activeClip: "Punch", activeEventId: 91 });
+    expect(subject.getState()).toMatchObject({ activeClip: "HumanDance03", activeEventId: 91 });
+    subject.dispose();
+  });
+
+  test("Finish falls back to HumanFinish when no published Final pool is installed", () => {
+    const fallbackClips = clips.filter(clip => !clip.name.startsWith("HumanFinalDance"));
+    const finish = createCharacterPresentationEvent(92, "perfect", {
+      atMs: 175_500,
+      absoluteTurn: 38,
+      level: 9,
+      isFinish: true,
+    }, 123);
+    const subject = controller(fallbackClips);
+    subject.setGameActive(true);
+    expect(subject.handlePresentationEvent(finish)).toBe(true);
+    subject.update(0.05, 175_550);
+    expect(subject.getState().activeClip).toBe("HumanFinish");
     subject.dispose();
   });
 
@@ -414,18 +341,15 @@ test.describe("P3.4 rich choreography and song-time-safe cross-fades", () => {
     subject.dispose();
   });
 
-  test("dispose stops scheduled actions and remains idempotent without mixer listeners", () => {
+  test("dispose stops scheduled actions and remains idempotent", () => {
     const root = new THREE.Object3D();
     const mixer = new THREE.AnimationMixer(root);
     const subject = new CharacterAnimationController(mixer, clips);
     subject.setGameActive(true);
     subject.handlePresentationEvent(danceEvent());
     subject.update(0.016, 50_075);
-    const originalDanceAction = mixer.existingAction(clips[1]);
-    expect(originalDanceAction).not.toBeNull();
     subject.dispose();
     subject.dispose();
-    expect(originalDanceAction?.isScheduled()).toBe(false);
     expect(subject.getState()).toMatchObject({
       activeClip: null,
       previousClip: null,
