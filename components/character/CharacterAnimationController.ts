@@ -45,6 +45,7 @@ export const CHARACTER_CLIP_MAP = {
 
 const IDLE_CLIP_CANDIDATES = ["Idle"] as const;
 const MISS_CLIP_CANDIDATES = ["HumanMiss", ROBOT_EXPRESSIVE_CLIP_MAP.miss] as const;
+const FINAL_DANCE_CLIP_PREFIX = "humanfinaldance";
 
 type ActionKind = "idle" | "dance" | "miss" | "finish";
 
@@ -83,6 +84,7 @@ export function deriveBlendProgress(songTimeMs: number, blendStartSongTimeMs: nu
 
 export class CharacterAnimationController {
   private readonly clipsByName = new Map<string, THREE.AnimationClip>();
+  private readonly finalClipNames: string[];
   private readonly actionLanes = new Map<string, THREE.AnimationAction[]>();
   private readonly clonedClips = new Set<THREE.AnimationClip>();
   private activeSlot: ActionSlot | null = null;
@@ -99,6 +101,10 @@ export class CharacterAnimationController {
     clips: THREE.AnimationClip[],
   ) {
     for (const clip of clips) this.clipsByName.set(clip.name.toLowerCase(), clip);
+    this.finalClipNames = clips
+      .filter(clip => clip.name.toLowerCase().startsWith(FINAL_DANCE_CLIP_PREFIX))
+      .map(clip => clip.name)
+      .sort((a, b) => a.localeCompare(b));
     this.installIdleImmediately();
   }
 
@@ -185,8 +191,11 @@ export class CharacterAnimationController {
 
   private transitionToDance(event: CharacterDanceEvent) {
     const kind: ActionKind = event.isFinish ? "finish" : "dance";
+    const clipName = event.isFinish
+      ? this.selectFinalClipName(event)
+      : CHARACTER_CLIP_MAP[event.choreographyId];
     const slot = this.createSlot(
-      CHARACTER_CLIP_MAP[event.choreographyId],
+      clipName,
       kind,
       event.actionStartSongTimeMs,
       event.eventId,
@@ -195,6 +204,12 @@ export class CharacterAnimationController {
     this.mode = "dance";
     this.beginBlend(slot, event.actionStartSongTimeMs);
     return true;
+  }
+
+  private selectFinalClipName(event: CharacterDanceEvent) {
+    if (this.finalClipNames.length === 0) return CHARACTER_CLIP_MAP[event.choreographyId];
+    const stableKey = (event.presentationVariantKey ?? event.absoluteTurn) >>> 0;
+    return this.finalClipNames[stableKey % this.finalClipNames.length];
   }
 
   private transitionToMiss(event: Extract<CharacterPresentationEvent, { kind: "fail" }>) {
