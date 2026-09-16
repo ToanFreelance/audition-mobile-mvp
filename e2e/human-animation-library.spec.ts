@@ -4,8 +4,8 @@ import {
   HUMAN_MOTION_SPECS,
 } from "../components/character/human-animation-library";
 
-test.describe("P3.7 human animation asset contract", () => {
-  test("uses genuine dance mocap for all eight normal choreography slots", () => {
+test.describe("P3.7 human animation fallback contract", () => {
+  test("retains the legacy human motion set for offline/published-pool fallback", () => {
     expect(HUMAN_MOTION_SPECS).toHaveLength(10);
     expect(HUMAN_MOTION_SPECS.map((motion) => motion.clipName)).toEqual([
       "HumanDance01",
@@ -20,12 +20,12 @@ test.describe("P3.7 human animation asset contract", () => {
       "HumanFinish",
     ]);
 
-    const danceMotions = HUMAN_MOTION_SPECS.slice(0, 8);
-    expect(danceMotions.every((motion) => motion.sourceId === "85_04")).toBe(true);
-    expect(danceMotions.every((motion) => motion.sourceClipName.includes("FancyFootWork"))).toBe(true);
-    expect(danceMotions.some((motion) =>
-      /pistol|sword|punch|interact|walk_formal|talking/i.test(motion.sourceClipName)
-    )).toBe(false);
+    // These eight CMU slices are no longer the canonical live Normal pool.
+    // They remain intentionally available so gameplay can degrade gracefully if
+    // the published Mixamo release is unavailable at character load time.
+    const fallbackDanceMotions = HUMAN_MOTION_SPECS.slice(0, 8);
+    expect(fallbackDanceMotions.every((motion) => motion.sourceId === "85_04")).toBe(true);
+    expect(fallbackDanceMotions.every((motion) => motion.sourceClipName.includes("FancyFootWork"))).toBe(true);
 
     expect(HUMAN_MOTION_SPECS[8]).toMatchObject({
       clipName: "HumanMiss",
@@ -38,7 +38,7 @@ test.describe("P3.7 human animation asset contract", () => {
     });
   });
 
-  test("fixture proves generated same-name quaternion tracks drive the target hierarchy", () => {
+  test("same-name quaternion tracks drive the canonical target hierarchy", () => {
     const root = new THREE.Group();
     const pelvis = new THREE.Bone();
     pelvis.name = "pelvis";
