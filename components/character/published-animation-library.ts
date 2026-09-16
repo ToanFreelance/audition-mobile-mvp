@@ -21,14 +21,19 @@ const NORMAL_DANCE_SLOT_KEYS = new Set(
   NORMAL_DANCE_SLOT_NAMES.map(name => name.toLowerCase()),
 );
 
+export const FINAL_DANCE_CLIP_PREFIX = "HumanFinalDance" as const;
+
 export type PublishedDanceReleaseInfo = {
   releaseVersion: number;
   sourceAssetIds: readonly string[];
   sourceClipCount: number;
+  normalSourceAssetIds: readonly string[];
+  finalSourceAssetIds: readonly string[];
 };
 
 export type LoadedPublishedDanceRelease = {
-  sourceClips: THREE.AnimationClip[];
+  normalSourceClips: THREE.AnimationClip[];
+  finalSourceClips: THREE.AnimationClip[];
   info: PublishedDanceReleaseInfo;
 };
 
@@ -38,7 +43,7 @@ export type PublishedDanceLibraryResult = {
 };
 
 /**
- * Fetches and validates the latest canonical published P3.7 dance release.
+ * Fetches and validates the latest canonical P3.7 animation release.
  * Failure is intentionally soft because character presentation must retain its
  * built-in human-library fallback and must never affect gameplay timing.
  */
@@ -66,22 +71,29 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
       throw new Error("published animation release has no releaseVersion");
     }
 
-    const sourceAssetIds = bundle.manifest.processingIds.filter(id => bundle.clipsByAssetId.has(id));
-    if (sourceAssetIds.length === 0) {
-      throw new Error("published animation release contains no usable clips");
+    const normalSourceAssetIds = bundle.manifest.normalIds.filter(id => bundle.clipsByAssetId.has(id));
+    const finalSourceAssetIds = bundle.manifest.finalIds.filter(id => bundle.clipsByAssetId.has(id));
+    if (normalSourceAssetIds.length === 0) {
+      throw new Error("published animation release contains no usable normal clips");
     }
 
-    const sourceClips = sourceAssetIds.map(id => bundle.clipsByAssetId.get(id) as THREE.AnimationClip);
+    const normalSourceClips = normalSourceAssetIds.map(id => bundle.clipsByAssetId.get(id) as THREE.AnimationClip);
+    const finalSourceClips = finalSourceAssetIds.map(id => bundle.clipsByAssetId.get(id) as THREE.AnimationClip);
+    const sourceAssetIds = [...new Set([...normalSourceAssetIds, ...finalSourceAssetIds])];
+
     console.info(
-      `[character] published Mixamo dance release v${releaseVersion} loaded: ${sourceAssetIds.join(", ")}`,
+      `[character] published Mixamo release v${releaseVersion} loaded: ${normalSourceAssetIds.length} normal · ${finalSourceAssetIds.length} final`,
     );
 
     return {
-      sourceClips,
+      normalSourceClips,
+      finalSourceClips,
       info: {
         releaseVersion,
         sourceAssetIds,
-        sourceClipCount: sourceClips.length,
+        sourceClipCount: sourceAssetIds.length,
+        normalSourceAssetIds,
+        finalSourceAssetIds,
       },
     };
   } catch (error) {
@@ -96,23 +108,33 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
 }
 
 /**
- * Replaces only the normal successful-turn dance slots. Idle, miss and Finish
- * remain owned by the human animation library.
+ * Replaces normal successful-turn dance slots and installs zero or more Final
+ * variants. Idle, miss and the legacy HumanFinish clip remain available as
+ * presentation-only fallbacks.
  */
 export function applyPublishedDanceRelease(
   baseClips: THREE.AnimationClip[],
   published: LoadedPublishedDanceRelease,
 ): PublishedDanceLibraryResult {
   const replacementSlots = NORMAL_DANCE_SLOT_NAMES.map((slotName, index) => {
-    const source = published.sourceClips[index % published.sourceClips.length];
+    const source = published.normalSourceClips[index % published.normalSourceClips.length];
     const clip = source.clone();
     clip.name = slotName;
     return clip;
   });
 
-  const retained = baseClips.filter(clip => !NORMAL_DANCE_SLOT_KEYS.has(clip.name.toLowerCase()));
+  const finalVariants = published.finalSourceClips.map((source, index) => {
+    const clip = source.clone();
+    clip.name = `${FINAL_DANCE_CLIP_PREFIX}${String(index + 1).padStart(2, "0")}`;
+    return clip;
+  });
+
+  const retained = baseClips.filter(clip => {
+    const key = clip.name.toLowerCase();
+    return !NORMAL_DANCE_SLOT_KEYS.has(key) && !key.startsWith(FINAL_DANCE_CLIP_PREFIX.toLowerCase());
+  });
   return {
-    clips: [...retained, ...replacementSlots],
+    clips: [...retained, ...replacementSlots, ...finalVariants],
     release: published.info,
   };
 }
