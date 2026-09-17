@@ -11,6 +11,7 @@ import {
   type DanceReviewDecisions,
 } from "./animation-pool";
 import { listCachedRuntimeClips } from "./asset-lab-runtime-cache";
+import type { RuntimeAnimationBundleClipJson } from "./runtime-animation-bundle";
 import IdleAssetLabSection from "./IdleAssetLabSection";
 
 const PUBLISH_ENDPOINT = "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
@@ -31,6 +32,13 @@ type LatestRelease = {
   publishedAt?: string;
 };
 
+type LatestBundle = LatestRelease & {
+  normalIds: string[];
+  finalIds: string[];
+  idleIds: string[];
+  clips: RuntimeAnimationBundleClipJson[];
+};
+
 type PublishPayload = {
   error?: string;
   noChanges?: boolean;
@@ -49,6 +57,7 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
   const [state, setState] = useState<PublishState>("idle");
   const [status, setStatus] = useState("Approved + READY role-assigned clips can be published as an immutable game-content release.");
   const [latest, setLatest] = useState<LatestRelease | null>(null);
+  const [latestBundle, setLatestBundle] = useState<LatestBundle | null>(null);
   const [idleIds, setIdleIds] = useState<string[]>([]);
 
   const normalizedRoles = useMemo(() => normalizeDancePoolRoles(decisions, roles), [decisions, roles]);
@@ -60,7 +69,25 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
     () => P37_DANCE_CANDIDATES.filter(asset => decisions[asset.id] === "approved" && normalizedRoles[asset.id]?.final).map(asset => asset.id),
     [decisions, normalizedRoles],
   );
-  const publishIds = useMemo(() => [...new Set([...normalIds, ...finalIds, ...idleIds])], [normalIds, finalIds, idleIds]);
+
+  // An idle-only editing session must never erase the canonical gameplay dance
+  // roles just because this browser has no local P3.7 review state. If the owner
+  // has made any local Normal/Final selection, that selection remains authoritative;
+  // otherwise preserve the latest immutable published dance roles and clips.
+  const hasLocalDanceSelection = normalIds.length > 0 || finalIds.length > 0;
+  const resolvedNormalIds = useMemo(
+    () => hasLocalDanceSelection ? normalIds : latestBundle?.normalIds ?? [],
+    [hasLocalDanceSelection, normalIds, latestBundle],
+  );
+  const resolvedFinalIds = useMemo(
+    () => hasLocalDanceSelection ? finalIds : latestBundle?.finalIds ?? [],
+    [hasLocalDanceSelection, finalIds, latestBundle],
+  );
+  const publishIds = useMemo(
+    () => [...new Set([...resolvedNormalIds, ...resolvedFinalIds, ...idleIds])],
+    [resolvedNormalIds, resolvedFinalIds, idleIds],
+  );
+  const preservingPublishedDance = !hasLocalDanceSelection && Boolean(latestBundle?.normalIds.length);
 
   useEffect(() => {
     try {
@@ -77,10 +104,17 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
         if (response.status === 404) return null;
         if (!response.ok) throw new Error(`Latest release check failed (${response.status})`);
         const bundle = await response.json() as Record<string, unknown>;
-        const processingIds = Array.isArray(bundle.processingIds) ? bundle.processingIds : [];
-        const latestNormal = Array.isArray(bundle.normalIds) ? bundle.normalIds : processingIds;
-        const latestFinal = Array.isArray(bundle.finalIds) ? bundle.finalIds : [];
-        const latestIdle = Array.isArray(bundle.idleIds) ? bundle.idleIds : [];
+        const processingIds = Array.isArray(bundle.processingIds) ? bundle.processingIds.filter((id): id is string => typeof id === "string") : [];
+        const latestNormal = Array.isArray(bundle.normalIds) ? bundle.normalIds.filter((id): id is string => typeof id === "string") : processingIds;
+        const latestFinal = Array.isArray(bundle.finalIds) ? bundle.finalIds.filter((id): id is string => typeof id === "string") : [];
+        const latestIdle = Array.isArray(bundle.idleIds) ? bundle.idleIds.filter((id): id is string => typeof id === "string") : [];
+        const clips = Array.isArray(bundle.clips)
+          ? bundle.clips.filter((record): record is RuntimeAnimationBundleClipJson => {
+              if (!record || typeof record !== "object") return false;
+              const value = record as Record<string, unknown>;
+              return typeof value.assetId === "string" && typeof value.runtimeClipName === "string";
+            })
+          : [];
         return {
           releaseVersion: Number(bundle.releaseVersion ?? 0),
           clipCount: Number(bundle.clipCount ?? processingIds.length),
@@ -88,9 +122,24 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
           finalCount: latestFinal.length,
           idleCount: latestIdle.length,
           publishedAt: typeof bundle.publishedAt === "string" ? bundle.publishedAt : undefined,
-        } satisfies LatestRelease;
+          normalIds: latestNormal,
+          finalIds: latestFinal,
+          idleIds: latestIdle,
+          clips,
+        } satisfies LatestBundle;
       })
-      .then(value => { if (!cancelled) setLatest(value); })
+      .then(value => {
+        if (cancelled) return;
+        setLatestBundle(value);
+        setLatest(value ? {
+          releaseVersion: value.releaseVersion,
+          clipCount: value.clipCount,
+          normalCount: value.normalCount,
+          finalCount: value.finalCount,
+          idleCount: value.idleCount,
+          publishedAt: value.publishedAt,
+        } : null);
+      })
       .catch(error => { if (!cancelled) console.warn("[asset-lab] latest release check failed", error); });
     return () => { cancelled = true; };
   }, [state === "published"]);
@@ -106,9 +155,9 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
   };
 
   const publish = async () => {
-    if (!normalIds.length) {
+    if (!resolvedNormalIds.length) {
       setState("error");
-      setStatus("Assign at least one approved animation to the NORMAL pool before publishing.");
+      setStatus("No NORMAL dance pool is available. Load the latest published release or assign at least one approved animation to NORMAL before publishing.");
       return;
     }
     if (!publishKey.trim()) {
@@ -118,16 +167,23 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
     }
 
     setState("checking");
-    setStatus(`Checking ${publishIds.length} unique Normal/Final/Idle clip(s) in the runtime cache…`);
+    setStatus(`Checking ${publishIds.length} unique Normal/Final/Idle clip(s)…`);
 
     try {
       const cached = await listCachedRuntimeClips(publishIds);
-      const missing = publishIds.filter(id => !cached.has(id));
-      if (missing.length) throw new Error(`${missing.length} selected animation(s) are not runtime READY yet`);
+      const publishedClipById = new Map(
+        (latestBundle?.clips ?? []).map(record => [record.assetId, record] as const),
+      );
+      const missing = publishIds.filter(id => !cached.has(id) && !publishedClipById.has(id));
+      if (missing.length) throw new Error(`${missing.length} selected animation(s) are not runtime READY and are not present in the latest release`);
 
-      const clips = publishIds.map(id => cached.get(id)!);
+      const clips = publishIds.map(id => cached.get(id) ?? publishedClipById.get(id)!);
       setState("publishing");
-      setStatus("Checking canonical Normal/Final/Idle content and publishing only if it changed…");
+      setStatus(
+        preservingPublishedDance
+          ? "Preserving the published Normal/Final dance pools and merging the selected Idle pool…"
+          : "Checking canonical Normal/Final/Idle content and publishing only if it changed…",
+      );
 
       const response = await fetch(PUBLISH_ENDPOINT, {
         method: "POST",
@@ -141,9 +197,9 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
           poolId: P37_DANCE_POOL_ID,
           poolVersion: P37_DANCE_POOL_VERSION,
           sourceVersion: P37_DANCE_POOL_SOURCE_VERSION,
-          approvedIds: [...new Set([...normalIds, ...finalIds])],
-          normalIds,
-          finalIds,
+          approvedIds: [...new Set([...resolvedNormalIds, ...resolvedFinalIds])],
+          normalIds: resolvedNormalIds,
+          finalIds: resolvedFinalIds,
           idleIds,
           clips,
         }),
@@ -153,8 +209,8 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
       if (!response.ok) throw new Error(payload.error ?? `Publish failed (${response.status})`);
 
       const releaseVersion = Number(payload.release?.releaseVersion ?? 0);
-      const releasedNormalIds = payload.release?.normalIds ?? normalIds;
-      const releasedFinalIds = payload.release?.finalIds ?? finalIds;
+      const releasedNormalIds = payload.release?.normalIds ?? resolvedNormalIds;
+      const releasedFinalIds = payload.release?.finalIds ?? resolvedFinalIds;
       const releasedIdleIds = payload.release?.idleIds ?? idleIds;
       setLatest({
         releaseVersion,
@@ -172,7 +228,7 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
       }
 
       setState("published");
-      setStatus(`Published release v${releaseVersion} · ${normalIds.length} normal · ${finalIds.length} final · ${idleIds.length} idle · ${clips.length} unique clip(s).`);
+      setStatus(`Published release v${releaseVersion} · ${releasedNormalIds.length} normal · ${releasedFinalIds.length} final · ${releasedIdleIds.length} idle · ${clips.length} unique clip(s).`);
     } catch (error) {
       setState("error");
       setStatus(error instanceof Error ? error.message : "Unknown publish error");
@@ -200,8 +256,8 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
         )}
 
         <div style={styles.selectionBox}>
-          <span><b>NORMAL</b> {normalIds.length}</span>
-          <span><b>FINAL</b> {finalIds.length}</span>
+          <span><b>NORMAL</b> {resolvedNormalIds.length}{preservingPublishedDance ? " preserved" : ""}</span>
+          <span><b>FINAL</b> {resolvedFinalIds.length}{preservingPublishedDance ? " preserved" : ""}</span>
           <span><b>IDLE</b> {idleIds.length}</span>
           <span><b>UNIQUE</b> {publishIds.length}</span>
         </div>
@@ -209,14 +265,14 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
         <div style={styles.keyRow}>
           <input type="password" autoComplete="off" value={publishKey} onChange={event => updateKey(event.target.value)} placeholder="Owner publish key" style={styles.keyInput} aria-label="Owner publish key" />
           <button type="button" onClick={() => void publish()} disabled={state === "checking" || state === "publishing"} style={styles.publishButton}>
-            {state === "publishing" ? "Publishing…" : `Publish ${normalIds.length}N · ${finalIds.length}F · ${idleIds.length}I`}
+            {state === "publishing" ? "Publishing…" : `Publish ${resolvedNormalIds.length}N · ${resolvedFinalIds.length}F · ${idleIds.length}I`}
           </button>
         </div>
 
         <p style={state === "error" ? styles.error : styles.note}>{status}</p>
         <div style={styles.safety}>
           <strong>Safe publish contract</strong>
-          <span>Key stays in this tab session only. Raw FBX is never published. Role-only changes create a new immutable release without rebaking; unchanged Normal/Final/Idle content reuses the latest release.</span>
+          <span>Idle-only sessions preserve the latest published Normal/Final dance pools automatically. Key stays in this tab session only; raw FBX is never published.</span>
         </div>
       </section>
     </>
