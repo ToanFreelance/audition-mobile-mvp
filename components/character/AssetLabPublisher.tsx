@@ -11,6 +11,7 @@ import {
   type DanceReviewDecisions,
 } from "./animation-pool";
 import { listCachedRuntimeClips } from "./asset-lab-runtime-cache";
+import IdleAssetLabSection from "./IdleAssetLabSection";
 
 const PUBLISH_ENDPOINT = "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
 const KEY_STORAGE = "audition:p3.7:asset-lab:publish-key:session";
@@ -21,12 +22,12 @@ type Props = {
 };
 
 type PublishState = "idle" | "checking" | "publishing" | "published" | "no-changes" | "error";
-
 type LatestRelease = {
   releaseVersion: number;
   clipCount: number;
   normalCount: number;
   finalCount: number;
+  idleCount: number;
   publishedAt?: string;
 };
 
@@ -38,6 +39,7 @@ type PublishPayload = {
     clipCount?: number;
     normalIds?: string[];
     finalIds?: string[];
+    idleIds?: string[];
     publishedAt?: string;
   };
 };
@@ -47,6 +49,7 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
   const [state, setState] = useState<PublishState>("idle");
   const [status, setStatus] = useState("Approved + READY role-assigned clips can be published as an immutable game-content release.");
   const [latest, setLatest] = useState<LatestRelease | null>(null);
+  const [idleIds, setIdleIds] = useState<string[]>([]);
 
   const normalizedRoles = useMemo(() => normalizeDancePoolRoles(decisions, roles), [decisions, roles]);
   const normalIds = useMemo(
@@ -57,7 +60,7 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
     () => P37_DANCE_CANDIDATES.filter(asset => decisions[asset.id] === "approved" && normalizedRoles[asset.id]?.final).map(asset => asset.id),
     [decisions, normalizedRoles],
   );
-  const publishIds = useMemo(() => [...new Set([...normalIds, ...finalIds])], [normalIds, finalIds]);
+  const publishIds = useMemo(() => [...new Set([...normalIds, ...finalIds, ...idleIds])], [normalIds, finalIds, idleIds]);
 
   useEffect(() => {
     try {
@@ -77,11 +80,13 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
         const processingIds = Array.isArray(bundle.processingIds) ? bundle.processingIds : [];
         const latestNormal = Array.isArray(bundle.normalIds) ? bundle.normalIds : processingIds;
         const latestFinal = Array.isArray(bundle.finalIds) ? bundle.finalIds : [];
+        const latestIdle = Array.isArray(bundle.idleIds) ? bundle.idleIds : [];
         return {
           releaseVersion: Number(bundle.releaseVersion ?? 0),
           clipCount: Number(bundle.clipCount ?? processingIds.length),
           normalCount: latestNormal.length,
           finalCount: latestFinal.length,
+          idleCount: latestIdle.length,
           publishedAt: typeof bundle.publishedAt === "string" ? bundle.publishedAt : undefined,
         } satisfies LatestRelease;
       })
@@ -113,18 +118,16 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
     }
 
     setState("checking");
-    setStatus(`Checking ${publishIds.length} unique Normal/Final clip(s) in the runtime cache…`);
+    setStatus(`Checking ${publishIds.length} unique Normal/Final/Idle clip(s) in the runtime cache…`);
 
     try {
       const cached = await listCachedRuntimeClips(publishIds);
       const missing = publishIds.filter(id => !cached.has(id));
-      if (missing.length) {
-        throw new Error(`${missing.length} selected animation(s) are not runtime READY yet`);
-      }
+      if (missing.length) throw new Error(`${missing.length} selected animation(s) are not runtime READY yet`);
 
       const clips = publishIds.map(id => cached.get(id)!);
       setState("publishing");
-      setStatus("Checking canonical Normal/Final content and publishing only if it changed…");
+      setStatus("Checking canonical Normal/Final/Idle content and publishing only if it changed…");
 
       const response = await fetch(PUBLISH_ENDPOINT, {
         method: "POST",
@@ -138,9 +141,10 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
           poolId: P37_DANCE_POOL_ID,
           poolVersion: P37_DANCE_POOL_VERSION,
           sourceVersion: P37_DANCE_POOL_SOURCE_VERSION,
-          approvedIds: publishIds,
+          approvedIds: [...new Set([...normalIds, ...finalIds])],
           normalIds,
           finalIds,
+          idleIds,
           clips,
         }),
       });
@@ -151,22 +155,24 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
       const releaseVersion = Number(payload.release?.releaseVersion ?? 0);
       const releasedNormalIds = payload.release?.normalIds ?? normalIds;
       const releasedFinalIds = payload.release?.finalIds ?? finalIds;
+      const releasedIdleIds = payload.release?.idleIds ?? idleIds;
       setLatest({
         releaseVersion,
         clipCount: Number(payload.release?.clipCount ?? clips.length),
         normalCount: releasedNormalIds.length,
         finalCount: releasedFinalIds.length,
+        idleCount: releasedIdleIds.length,
         publishedAt: payload.release?.publishedAt,
       });
 
       if (payload.noChanges) {
         setState("no-changes");
-        setStatus(`No changes · release v${releaseVersion} already contains this Normal/Final runtime content.`);
+        setStatus(`No changes · release v${releaseVersion} already contains this Normal/Final/Idle runtime content.`);
         return;
       }
 
       setState("published");
-      setStatus(`Published release v${releaseVersion} · ${normalIds.length} normal · ${finalIds.length} final · ${clips.length} unique clip(s).`);
+      setStatus(`Published release v${releaseVersion} · ${normalIds.length} normal · ${finalIds.length} final · ${idleIds.length} idle · ${clips.length} unique clip(s).`);
     } catch (error) {
       setState("error");
       setStatus(error instanceof Error ? error.message : "Unknown publish error");
@@ -174,56 +180,46 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
   };
 
   return (
-    <section style={styles.card}>
-      <div style={styles.topline}>
-        <div>
-          <p style={styles.kicker}>PUBLISH</p>
-          <strong>Normal + Final pools → canonical release</strong>
+    <>
+      <IdleAssetLabSection onReadyIdleIdsChange={setIdleIds} />
+
+      <section style={styles.card}>
+        <div style={styles.topline}>
+          <div>
+            <p style={styles.kicker}>PUBLISH</p>
+            <strong>Normal + Final + Idle pools → canonical release</strong>
+          </div>
+          <span style={badgeStyle(state)}>{state === "published" ? "PUBLISHED" : state === "no-changes" ? "NO CHANGES" : state.toUpperCase()}</span>
         </div>
-        <span style={badgeStyle(state)}>
-          {state === "published" ? "PUBLISHED" : state === "no-changes" ? "NO CHANGES" : state.toUpperCase()}
-        </span>
-      </div>
 
-      {latest && latest.releaseVersion > 0 && (
-        <div style={styles.latestBox}>
-          <strong>Latest: release v{latest.releaseVersion}</strong>
-          <span>{latest.normalCount} normal · {latest.finalCount} final · {latest.clipCount} unique runtime clip(s){latest.publishedAt ? ` · ${new Date(latest.publishedAt).toLocaleString()}` : ""}</span>
+        {latest && latest.releaseVersion > 0 && (
+          <div style={styles.latestBox}>
+            <strong>Latest: release v{latest.releaseVersion}</strong>
+            <span>{latest.normalCount} normal · {latest.finalCount} final · {latest.idleCount} idle · {latest.clipCount} unique runtime clip(s){latest.publishedAt ? ` · ${new Date(latest.publishedAt).toLocaleString()}` : ""}</span>
+          </div>
+        )}
+
+        <div style={styles.selectionBox}>
+          <span><b>NORMAL</b> {normalIds.length}</span>
+          <span><b>FINAL</b> {finalIds.length}</span>
+          <span><b>IDLE</b> {idleIds.length}</span>
+          <span><b>UNIQUE</b> {publishIds.length}</span>
         </div>
-      )}
 
-      <div style={styles.selectionBox}>
-        <span><b>NORMAL</b> {normalIds.length}</span>
-        <span><b>FINAL</b> {finalIds.length}</span>
-        <span><b>UNIQUE</b> {publishIds.length}</span>
-      </div>
+        <div style={styles.keyRow}>
+          <input type="password" autoComplete="off" value={publishKey} onChange={event => updateKey(event.target.value)} placeholder="Owner publish key" style={styles.keyInput} aria-label="Owner publish key" />
+          <button type="button" onClick={() => void publish()} disabled={state === "checking" || state === "publishing"} style={styles.publishButton}>
+            {state === "publishing" ? "Publishing…" : `Publish ${normalIds.length}N · ${finalIds.length}F · ${idleIds.length}I`}
+          </button>
+        </div>
 
-      <div style={styles.keyRow}>
-        <input
-          type="password"
-          autoComplete="off"
-          value={publishKey}
-          onChange={event => updateKey(event.target.value)}
-          placeholder="Owner publish key"
-          style={styles.keyInput}
-          aria-label="Owner publish key"
-        />
-        <button
-          type="button"
-          onClick={() => void publish()}
-          disabled={state === "checking" || state === "publishing"}
-          style={styles.publishButton}
-        >
-          {state === "publishing" ? "Publishing…" : `Publish ${normalIds.length}N · ${finalIds.length}F`}
-        </button>
-      </div>
-
-      <p style={state === "error" ? styles.error : styles.note}>{status}</p>
-      <div style={styles.safety}>
-        <strong>Safe publish contract</strong>
-        <span>Key stays in this tab session only. Raw FBX is never published. Role-only changes create a new immutable release without rebaking; unchanged Normal/Final content reuses the latest release.</span>
-      </div>
-    </section>
+        <p style={state === "error" ? styles.error : styles.note}>{status}</p>
+        <div style={styles.safety}>
+          <strong>Safe publish contract</strong>
+          <span>Key stays in this tab session only. Raw FBX is never published. Role-only changes create a new immutable release without rebaking; unchanged Normal/Final/Idle content reuses the latest release.</span>
+        </div>
+      </section>
+    </>
   );
 }
 
