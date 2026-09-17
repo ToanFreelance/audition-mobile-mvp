@@ -50,6 +50,25 @@ function normalizeModel(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
 }
 
+function tintActor(actor: THREE.Object3D, participant: RoomParticipant, index: number) {
+  const tint = new THREE.Color(
+    participant.role === "host" ? 0x7eb8ff : participant.kind === "bot" ? 0x75e7c0 : index % 2 ? 0xff9acb : 0xba9cff,
+  );
+  const cloneMaterial = (material: THREE.Material) => {
+    const next = material.clone();
+    const colored = next as THREE.Material & { color?: THREE.Color };
+    colored.color?.lerp(tint, 0.16);
+    return next;
+  };
+  actor.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.material = Array.isArray(mesh.material)
+      ? mesh.material.map(cloneMaterial)
+      : cloneMaterial(mesh.material);
+  });
+}
+
 function fallbackActor(female: boolean) {
   const root = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({
@@ -129,7 +148,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
 
     participants.forEach((participant, index) => {
       const centered = index - (participants.length - 1) / 2;
-      const ringColor = participant.role === "host" ? 0x42dfff : participant.readyState === "ready" ? 0xff4fcf : 0x6b6c9d;
+      const ringColor = participant.role === "host" ? 0x42dfff : index % 2 ? 0xff4fcf : 0x63efad;
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(0.88, 0.96, 48),
         new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.92, side: THREE.DoubleSide }),
@@ -182,6 +201,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
         const source = female ? femaleSource : maleSource;
         const actor = source ? cloneSkeleton(source) : fallbackActor(female);
         if (!source) usedFallback = true;
+        tintActor(actor, participant, index);
         const centered = index - (participants.length - 1) / 2;
         actor.position.x += centered * 2.45;
         actor.position.z += Math.abs(centered) * 0.15;
@@ -204,6 +224,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
       if (disposed) return;
       participants.forEach((participant, index) => {
         const actor = fallbackActor(isFemale(participant));
+        tintActor(actor, participant, index);
         const centered = index - (participants.length - 1) / 2;
         actor.position.x = centered * 2.45;
         scene.add(actor);
@@ -225,7 +246,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [identityKey, participants]);
+  }, [identityKey]);
 
   return (
     <div className={styles.stage}>
