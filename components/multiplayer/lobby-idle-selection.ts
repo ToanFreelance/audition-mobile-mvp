@@ -50,6 +50,38 @@ export function selectParticipantIdleClipByIndex(
   return index >= 0 ? clips[index] ?? null : null;
 }
 
+export function selectParticipantNextIdleIndex(
+  participantId: string,
+  poolSize: number,
+  releaseVersion: number,
+  roomId: string,
+  transitionOrdinal: number,
+  currentIndex: number,
+) {
+  if (poolSize <= 0) return -1;
+  if (poolSize === 1) return 0;
+  const seed = stableHash32(
+    `${IDLE_SELECTION_NAMESPACE}|next|${roomId}|${releaseVersion}|${participantId}|${transitionOrdinal}`,
+  );
+  const offset = 1 + (seed % (poolSize - 1));
+  return ((Math.max(0, currentIndex) + offset) % poolSize) >>> 0;
+}
+
+export function selectParticipantIdleHoldSeconds(
+  participantId: string,
+  clipDurationSeconds: number,
+  releaseVersion: number,
+  roomId: string,
+  transitionOrdinal: number,
+) {
+  const value = stableHash32(
+    `${IDLE_SELECTION_NAMESPACE}|hold|${roomId}|${releaseVersion}|${participantId}|${transitionOrdinal}`,
+  ) / 0x1_0000_0000;
+  const minimum = Math.max(7, Math.min(10, clipDurationSeconds * 1.5));
+  const maximum = Math.max(minimum + 2, Math.min(14, clipDurationSeconds * 3));
+  return minimum + value * (maximum - minimum);
+}
+
 export function selectParticipantIdlePhaseSeconds(
   participantId: string,
   clipDurationSeconds: number,
