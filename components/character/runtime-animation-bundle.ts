@@ -33,6 +33,7 @@ export type RuntimeAnimationBundleJson = {
   processingIds: string[];
   normalIds: string[];
   finalIds: string[];
+  idleIds: string[];
   clipCount: number;
   clips: RuntimeAnimationBundleClipJson[];
   publishedAt?: string;
@@ -72,7 +73,7 @@ export function loadRuntimeAnimationBundle(input: unknown): LoadedRuntimeAnimati
     clipsByRuntimeName.set(record.runtimeClipName.toLowerCase(), clip);
   }
 
-  for (const id of [...manifest.normalIds, ...manifest.finalIds]) {
+  for (const id of [...manifest.normalIds, ...manifest.finalIds, ...manifest.idleIds]) {
     if (!clipsByAssetId.has(id)) throw new Error(`Runtime animation pool role references missing clip ${id}`);
   }
 
@@ -98,10 +99,11 @@ function validateBundle(input: unknown): RuntimeAnimationBundleJson {
   const processingIds = [...input.processingIds];
   if (new Set(processingIds).size !== processingIds.length) throw new Error("Runtime animation bundle processingIds contain duplicates");
 
-  // Releases published before the Final Dance pool existed remain valid:
-  // their processingIds are the Normal pool and Final falls back to HumanFinish.
+  // Backward compatibility: older published releases did not have Final/Idle
+  // role arrays. Normal falls back to processingIds; Final/Idle fall back empty.
   const normalIds = validateRoleIds(input.normalIds, processingIds, "normalIds", processingIds);
   const finalIds = validateRoleIds(input.finalIds, processingIds, "finalIds", []);
+  const idleIds = validateRoleIds(input.idleIds, processingIds, "idleIds", []);
 
   if (!Array.isArray(input.clips)) throw new Error("Runtime animation bundle clips are missing");
   if (input.clipCount !== input.clips.length) throw new Error("Runtime animation bundle clipCount mismatch");
@@ -138,6 +140,7 @@ function validateBundle(input: unknown): RuntimeAnimationBundleJson {
     processingIds,
     normalIds,
     finalIds,
+    idleIds,
     clipCount: clips.length,
     clips,
     publishedAt,
