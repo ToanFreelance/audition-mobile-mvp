@@ -15,7 +15,9 @@ import type { RuntimeAnimationBundleClipJson } from "./runtime-animation-bundle"
 import IdleAssetLabSection from "./IdleAssetLabSection";
 
 const PUBLISH_ENDPOINT = "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
+const IDLE_PUBLISH_ENDPOINT = "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish-idle";
 const KEY_STORAGE = "audition:p3.7:asset-lab:publish-key:session";
+const PUBLISH_TIMEOUT_MS = 60_000;
 
 type Props = {
   decisions: DanceReviewDecisions;
@@ -73,7 +75,7 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
   // An idle-only editing session must never erase the canonical gameplay dance
   // roles just because this browser has no local P3.7 review state. If the owner
   // has made any local Normal/Final selection, that selection remains authoritative;
-  // otherwise preserve the latest immutable published dance roles and clips.
+  // otherwise preserve the latest immutable published dance roles.
   const hasLocalDanceSelection = normalIds.length > 0 || finalIds.length > 0;
   const resolvedNormalIds = useMemo(
     () => hasLocalDanceSelection ? normalIds : latestBundle?.normalIds ?? [],
@@ -165,33 +167,51 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
       setStatus("Enter the owner publish key first.");
       return;
     }
+    if (preservingPublishedDance && !idleIds.length) {
+      setState("error");
+      setStatus("Select at least one runtime-ready Idle animation before publishing an idle-only update.");
+      return;
+    }
 
     setState("checking");
-    setStatus(`Checking ${publishIds.length} unique Normal/Final/Idle clip(s)…`);
 
     try {
-      const cached = await listCachedRuntimeClips(publishIds);
-      const publishedClipById = new Map(
-        (latestBundle?.clips ?? []).map(record => [record.assetId, record] as const),
-      );
-      const missing = publishIds.filter(id => !cached.has(id) && !publishedClipById.has(id));
-      if (missing.length) throw new Error(`${missing.length} selected animation(s) are not runtime READY and are not present in the latest release`);
+      let endpoint = PUBLISH_ENDPOINT;
+      let body: Record<string, unknown>;
+      let publishedClipCount = publishIds.length;
 
-      const clips = publishIds.map(id => cached.get(id) ?? publishedClipById.get(id)!);
-      setState("publishing");
-      setStatus(
-        preservingPublishedDance
-          ? "Preserving the published Normal/Final dance pools and merging the selected Idle pool…"
-          : "Checking canonical Normal/Final/Idle content and publishing only if it changed…",
-      );
-
-      const response = await fetch(PUBLISH_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Asset-Lab-Publish-Key": publishKey.trim(),
-        },
-        body: JSON.stringify({
+      if (preservingPublishedDance) {
+        // Critical mobile path: upload only the new Idle clips. The Edge Function
+        // merges them with the canonical Normal/Final bundle server-side. This
+        // avoids round-tripping the existing ~9 MB dance bundle through Safari.
+        setStatus(`Checking ${idleIds.length} Idle clip(s) in the local runtime cache…`);
+        const cachedIdle = await listCachedRuntimeClips(idleIds);
+        const missingIdle = idleIds.filter(id => !cachedIdle.has(id));
+        if (missingIdle.length) throw new Error(`${missingIdle.length} selected Idle animation(s) are not runtime READY yet`);
+        const idleClips = idleIds.map(id => cachedIdle.get(id)!);
+        endpoint = IDLE_PUBLISH_ENDPOINT;
+        publishedClipCount = resolvedNormalIds.length + resolvedFinalIds.filter(id => !resolvedNormalIds.includes(id)).length + idleIds.length;
+        body = {
+          schemaVersion: 1,
+          kind: "audition-idle-animation-publish-request",
+          poolId: P37_DANCE_POOL_ID,
+          poolVersion: P37_DANCE_POOL_VERSION,
+          sourceVersion: P37_DANCE_POOL_SOURCE_VERSION,
+          idleIds,
+          clips: idleClips,
+        };
+        setState("publishing");
+        setStatus(`Uploading ${idleIds.length} Idle clip(s); server is preserving ${resolvedNormalIds.length} Normal + ${resolvedFinalIds.length} Final dance roles…`);
+      } else {
+        setStatus(`Checking ${publishIds.length} unique Normal/Final/Idle clip(s)…`);
+        const cached = await listCachedRuntimeClips(publishIds);
+        const publishedClipById = new Map(
+          (latestBundle?.clips ?? []).map(record => [record.assetId, record] as const),
+        );
+        const missing = publishIds.filter(id => !cached.has(id) && !publishedClipById.has(id));
+        if (missing.length) throw new Error(`${missing.length} selected animation(s) are not runtime READY and are not present in the latest release`);
+        const clips = publishIds.map(id => cached.get(id) ?? publishedClipById.get(id)!);
+        body = {
           schemaVersion: 1,
           kind: "audition-animation-publish-request",
           poolId: P37_DANCE_POOL_ID,
@@ -202,8 +222,33 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
           finalIds: resolvedFinalIds,
           idleIds,
           clips,
-        }),
-      });
+        };
+        publishedClipCount = clips.length;
+        setState("publishing");
+        setStatus("Checking canonical Normal/Final/Idle content and publishing only if it changed…");
+      }
+
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), PUBLISH_TIMEOUT_MS);
+      let response: Response;
+      try {
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Asset-Lab-Publish-Key": publishKey.trim(),
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          throw new Error("Publish timed out after 60 seconds. Nothing was confirmed; retry once after checking the latest release.");
+        }
+        throw error;
+      } finally {
+        window.clearTimeout(timeout);
+      }
 
       const payload = await response.json() as PublishPayload;
       if (!response.ok) throw new Error(payload.error ?? `Publish failed (${response.status})`);
@@ -212,9 +257,10 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
       const releasedNormalIds = payload.release?.normalIds ?? resolvedNormalIds;
       const releasedFinalIds = payload.release?.finalIds ?? resolvedFinalIds;
       const releasedIdleIds = payload.release?.idleIds ?? idleIds;
+      const releaseClipCount = Number(payload.release?.clipCount ?? publishedClipCount);
       setLatest({
         releaseVersion,
-        clipCount: Number(payload.release?.clipCount ?? clips.length),
+        clipCount: releaseClipCount,
         normalCount: releasedNormalIds.length,
         finalCount: releasedFinalIds.length,
         idleCount: releasedIdleIds.length,
@@ -228,7 +274,7 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
       }
 
       setState("published");
-      setStatus(`Published release v${releaseVersion} · ${releasedNormalIds.length} normal · ${releasedFinalIds.length} final · ${releasedIdleIds.length} idle · ${clips.length} unique clip(s).`);
+      setStatus(`Published release v${releaseVersion} · ${releasedNormalIds.length} normal · ${releasedFinalIds.length} final · ${releasedIdleIds.length} idle · ${releaseClipCount} unique clip(s).`);
     } catch (error) {
       setState("error");
       setStatus(error instanceof Error ? error.message : "Unknown publish error");
@@ -272,7 +318,7 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
         <p style={state === "error" ? styles.error : styles.note}>{status}</p>
         <div style={styles.safety}>
           <strong>Safe publish contract</strong>
-          <span>Idle-only sessions preserve the latest published Normal/Final dance pools automatically. Key stays in this tab session only; raw FBX is never published.</span>
+          <span>Idle-only sessions upload only the new Idle runtime clips; the server preserves the latest Normal/Final dance bundle. Key stays in this tab session only; raw FBX is never published.</span>
         </div>
       </section>
     </>
