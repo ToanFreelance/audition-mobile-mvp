@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { DanceCandidateAsset } from "./asset-catalog";
 import { P37_DANCE_CANDIDATES, P37_REFERENCE_CHARACTERS } from "./asset-catalog";
+import type { IdleCandidateAsset } from "./idle-animation-catalog";
+import { P51_IDLE_CANDIDATES } from "./idle-animation-catalog";
 import type { LocalAssetZip } from "./asset-lab-local-package";
 import {
   bakeMixamoRuntimeClip,
@@ -10,21 +12,23 @@ import {
 } from "./runtime-animation-baker";
 import type { RuntimeAnimationBundleClipJson } from "./runtime-animation-bundle";
 
+type AnimationCandidateAsset = DanceCandidateAsset | IdleCandidateAsset;
+
 export class P37AssetLabRuntimeProcessor {
   private scene: THREE.Object3D | null = null;
   private skinned: THREE.SkinnedMesh | null = null;
   private loading: Promise<void> | null = null;
 
-  async process(archive: LocalAssetZip, asset: DanceCandidateAsset): Promise<RuntimeAnimationBundleClipJson> {
+  async process(archive: LocalAssetZip, asset: AnimationCandidateAsset): Promise<RuntimeAnimationBundleClipJson> {
     await this.ensureTarget();
     const skinned = this.skinned;
     if (!skinned) throw new Error("Canonical target rig is unavailable");
 
-    const candidateIndex = P37_DANCE_CANDIDATES.findIndex(candidate => candidate.id === asset.id);
-    if (candidateIndex < 0) throw new Error(`Unknown P3.7 animation asset ${asset.id}`);
-
-    const sourceBuffer = await archive.extract(`mixamo/${asset.sourceFileName}`);
-    const runtimeClipName = `MixamoDance${String(candidateIndex + 1).padStart(3, "0")}`;
+    const runtimeClipName = runtimeNameFor(asset);
+    const sourcePath = asset.category === "idle"
+      ? asset.sourceFileName
+      : `mixamo/${asset.sourceFileName}`;
+    const sourceBuffer = await archive.extract(sourcePath);
     const baked = bakeMixamoRuntimeClip(
       skinned.skeleton,
       sourceBuffer,
@@ -71,6 +75,18 @@ export class P37AssetLabRuntimeProcessor {
     this.scene = gltf.scene;
     this.skinned = skinned;
   }
+}
+
+function runtimeNameFor(asset: AnimationCandidateAsset) {
+  if (asset.category === "idle") {
+    const index = P51_IDLE_CANDIDATES.findIndex(candidate => candidate.id === asset.id);
+    if (index < 0) throw new Error(`Unknown P5.1c idle animation asset ${asset.id}`);
+    return `MixamoIdle${String(index + 1).padStart(3, "0")}`;
+  }
+
+  const index = P37_DANCE_CANDIDATES.findIndex(candidate => candidate.id === asset.id);
+  if (index < 0) throw new Error(`Unknown P3.7 animation asset ${asset.id}`);
+  return `MixamoDance${String(index + 1).padStart(3, "0")}`;
 }
 
 function findPrimarySkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh {
