@@ -4,9 +4,6 @@ import { loadRuntimeAnimationBundle } from "./runtime-animation-bundle";
 export const PUBLISHED_DANCE_BUNDLE_URL =
   "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
 
-// Bound only the time needed to establish the published-release response.
-// Once response headers arrive, a larger private runtime bundle must be allowed
-// to finish streaming/parsing on mobile instead of being aborted mid-body.
 const PUBLISHED_DANCE_CONNECT_TIMEOUT_MS = 8000;
 
 const NORMAL_DANCE_SLOT_NAMES = [
@@ -32,11 +29,13 @@ export type PublishedDanceReleaseInfo = {
   sourceClipCount: number;
   normalSourceAssetIds: readonly string[];
   finalSourceAssetIds: readonly string[];
+  idleSourceAssetIds: readonly string[];
 };
 
 export type LoadedPublishedDanceRelease = {
   normalSourceClips: THREE.AnimationClip[];
   finalSourceClips: THREE.AnimationClip[];
+  idleSourceClips: THREE.AnimationClip[];
   info: PublishedDanceReleaseInfo;
 };
 
@@ -48,9 +47,8 @@ export type PublishedDanceLibraryResult = {
 let cachedPublishedDanceRelease: LoadedPublishedDanceRelease | null = null;
 
 /**
- * Fetches and validates the latest canonical P3.7 animation release.
- * Failure is intentionally soft because character presentation must retain its
- * built-in human-library fallback and must never affect gameplay timing.
+ * Fetches and validates the latest canonical animation release. Failure stays
+ * presentation-only and must never affect gameplay timing.
  */
 export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceRelease | null> {
   if (cachedPublishedDanceRelease) return cachedPublishedDanceRelease;
@@ -67,9 +65,6 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
       signal: controller.signal,
     });
 
-    // fetch() resolves when response headers arrive, before response.json()
-    // necessarily finishes consuming a multi-megabyte body. Clear the abort
-    // timer now so slow mobile transfer/JSON parsing cannot trigger fallback.
     responseReceived = true;
     clearTimeout(timeout);
 
@@ -88,34 +83,38 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
 
     const normalSourceAssetIds = bundle.manifest.normalIds.filter(id => bundle.clipsByAssetId.has(id));
     const finalSourceAssetIds = bundle.manifest.finalIds.filter(id => bundle.clipsByAssetId.has(id));
+    const idleSourceAssetIds = bundle.manifest.idleIds.filter(id => bundle.clipsByAssetId.has(id));
     if (normalSourceAssetIds.length === 0) {
       throw new Error("published animation release contains no usable normal clips");
     }
 
     const normalSourceClips = normalSourceAssetIds.map(id => bundle.clipsByAssetId.get(id) as THREE.AnimationClip);
     const finalSourceClips = finalSourceAssetIds.map(id => bundle.clipsByAssetId.get(id) as THREE.AnimationClip);
-    const sourceAssetIds = [...new Set([...normalSourceAssetIds, ...finalSourceAssetIds])];
+    const idleSourceClips = idleSourceAssetIds.map(id => bundle.clipsByAssetId.get(id) as THREE.AnimationClip);
+    const sourceAssetIds = [...new Set([...normalSourceAssetIds, ...finalSourceAssetIds, ...idleSourceAssetIds])];
 
     console.info(
-      `[character] published Mixamo release v${releaseVersion} loaded: ${normalSourceAssetIds.length} normal · ${finalSourceAssetIds.length} final`,
+      `[character] published Mixamo release v${releaseVersion} loaded: ${normalSourceAssetIds.length} normal · ${finalSourceAssetIds.length} final · ${idleSourceAssetIds.length} idle`,
     );
 
     const loaded: LoadedPublishedDanceRelease = {
       normalSourceClips,
       finalSourceClips,
+      idleSourceClips,
       info: {
         releaseVersion,
         sourceAssetIds,
         sourceClipCount: sourceAssetIds.length,
         normalSourceAssetIds,
         finalSourceAssetIds,
+        idleSourceAssetIds,
       },
     };
     cachedPublishedDanceRelease = loaded;
     return loaded;
   } catch (error) {
     console.warn(
-      "[character] published dance release unavailable; keeping built-in human dance fallback",
+      "[character] published animation release unavailable; keeping built-in presentation fallback",
       error,
     );
     return null;
@@ -126,8 +125,8 @@ export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceR
 
 /**
  * Replaces normal successful-turn dance slots and installs zero or more Final
- * variants. Idle, miss and the legacy HumanFinish clip remain available as
- * presentation-only fallbacks.
+ * variants. Published Idle clips stay exposed through loadPublishedDanceRelease
+ * for Waiting Room use and do not replace Solo gameplay Idle automatically.
  */
 export function applyPublishedDanceRelease(
   baseClips: THREE.AnimationClip[],
@@ -156,7 +155,6 @@ export function applyPublishedDanceRelease(
   };
 }
 
-/** Backward-compatible helper for callers that already have a complete fallback library. */
 export async function preferPublishedDanceRelease(
   baseClips: THREE.AnimationClip[],
 ): Promise<PublishedDanceLibraryResult> {
