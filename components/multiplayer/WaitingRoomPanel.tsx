@@ -35,7 +35,7 @@ export default function WaitingRoomPanel() {
   const viewer = room.participants.find(item => item.participantId === viewParticipantId) ?? room.participants[0];
   const hostView = viewer.participantId === room.hostParticipantId;
   const startGate = useMemo(() => canStartRoom(room), [room]);
-  const participantById = useMemo(() => new Map(room.participants.map(item => [item.participantId, item])), [room]);
+  const participantById = useMemo(() => new Map(room.participants.map(item => [item.participantId, item])), [room.participants]);
   const orderedParticipants = useMemo(
     () => [...room.participants].sort((a, b) => a.slotIndex - b.slotIndex),
     [room.participants],
@@ -113,7 +113,7 @@ export default function WaitingRoomPanel() {
         )}
 
         <section className={styles.stageWrap}>
-          <WaitingRoomStage3D participants={stageParticipants} />
+          <WaitingRoomStage3D participants={stageParticipants} roomId={room.roomId} />
           {stagePageCount > 1 && (
             <>
               <button className={`${styles.stageArrow} ${styles.stageArrowLeft}`} onClick={previousStagePage} type="button" aria-label="Previous participants">‹</button>
