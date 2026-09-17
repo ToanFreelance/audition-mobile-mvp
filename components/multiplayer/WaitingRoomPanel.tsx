@@ -42,7 +42,6 @@ export default function WaitingRoomPanel() {
   );
   const stagePageCount = Math.max(1, Math.ceil(orderedParticipants.length / 2));
   const safeStagePage = Math.min(stagePage, stagePageCount - 1);
-  const stageParticipants = orderedParticipants.slice(safeStagePage * 2, safeStagePage * 2 + 2);
 
   const toggleSlot = (slotIndex: RoomSlotIndex) => {
     if (!hostView) return;
@@ -113,7 +112,12 @@ export default function WaitingRoomPanel() {
         )}
 
         <section className={styles.stageWrap}>
-          <WaitingRoomStage3D participants={stageParticipants} roomId={room.roomId} />
+          <WaitingRoomStage3D
+            participants={orderedParticipants}
+            roomId={room.roomId}
+            pageIndex={safeStagePage}
+            pageSize={2}
+          />
           {stagePageCount > 1 && (
             <>
               <button className={`${styles.stageArrow} ${styles.stageArrowLeft}`} onClick={previousStagePage} type="button" aria-label="Previous participants">‹</button>
