@@ -59,3 +59,58 @@ test("P4.3 transport payloads carry room metadata only, not gameplay-turn author
   expect("absoluteTurn" in startEpoch.payload).toBe(false);
   expect("songTimeMs" in startEpoch.payload).toBe(false);
 });
+
+test("P4.4 transport carries versioned Loaded/start metadata without gameplay authority", () => {
+  const loadedAck = {
+    transportVersion: MULTIPLAYER_TRANSPORT_VERSION,
+    roomId: "qa-room",
+    senderParticipantId: "guest",
+    messageId: "message-3",
+    payload: {
+      kind: "match-loaded-ack",
+      ack: {
+        protocolVersion: 1,
+        roomId: "qa-room",
+        matchId: "match",
+        roomRevision: 7,
+        startRevision: 2,
+        participantId: "guest",
+        content: {
+          manifestVersion: 1,
+          audioVersion: "audio-v1",
+          audioHash: "sha256:audio-v1",
+          chartVersion: "chart-v1",
+          chartHash: "sha256:chart-v1",
+          gameplayConfigVersion: "solo-easy-v1",
+          gameplayConfigHash: "sha256:solo-easy-v1",
+          characterRuntimeVersion: "character-runtime-v1",
+          animationReleaseVersion: 3,
+          animationReleaseHash: "sha256:animation-v3",
+          characterReadiness: "ready",
+          animationReadiness: "fallback-ready",
+        },
+      },
+    },
+  };
+
+  const versionedEpoch = {
+    transportVersion: MULTIPLAYER_TRANSPORT_VERSION,
+    roomId: "qa-room",
+    senderParticipantId: "host",
+    messageId: "message-4",
+    payload: {
+      kind: "match-start-epoch-v2",
+      roomRevision: 7,
+      matchId: "match",
+      startRevision: 2,
+      startAtServerMs: 1_005_000,
+    },
+  };
+
+  expect(isRoomTransportEnvelope(loadedAck)).toBe(true);
+  expect(isRoomTransportEnvelope(versionedEpoch)).toBe(true);
+  expect("absoluteTurn" in loadedAck.payload).toBe(false);
+  expect("judgement" in loadedAck.payload).toBe(false);
+  expect("absoluteTurn" in versionedEpoch.payload).toBe(false);
+  expect("songTimeMs" in versionedEpoch.payload).toBe(false);
+});

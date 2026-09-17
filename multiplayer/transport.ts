@@ -1,3 +1,4 @@
+import type { MatchLoadedAck } from "./match-start-protocol";
 import type { MatchManifest, RoomState } from "./types";
 
 export const MULTIPLAYER_TRANSPORT_VERSION = 1 as const;
@@ -29,9 +30,38 @@ export type RoomTransportPayload =
       manifest: MatchManifest;
     }
   | {
+      kind: "client-load-state";
+      roomRevision: number;
+      matchId: string;
+      startRevision: number;
+      participantId: string;
+      state: "loading" | "failed";
+      detail?: string;
+    }
+  | {
+      kind: "match-loaded-ack";
+      ack: MatchLoadedAck;
+    }
+  | {
+      kind: "match-start-cancelled";
+      roomRevision: number;
+      matchId: string;
+      startRevision: number;
+      reason: string;
+    }
+  | {
+      /** P4.3 legacy start-epoch metadata retained for transport regression QA. */
       kind: "match-start-epoch";
       roomRevision: number;
       matchId: string;
+      startAtServerMs: number;
+    }
+  | {
+      /** P4.4 versioned start epoch bound to one preload/start session. */
+      kind: "match-start-epoch-v2";
+      roomRevision: number;
+      matchId: string;
+      startRevision: number;
       startAtServerMs: number;
     }
   | {

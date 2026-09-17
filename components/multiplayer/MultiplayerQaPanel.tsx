@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { simulateSharedStartClock } from "../../multiplayer/clock-sync-simulation";
 import { createP41QaFixture, simulateRoom } from "../../multiplayer/simulated-room";
 import type { BotProfile } from "../../multiplayer/types";
+import MatchStartQa from "./MatchStartQa";
 import NetworkTransportQa from "./NetworkTransportQa";
 import styles from "./MultiplayerQaPanel.module.css";
 
@@ -46,9 +47,9 @@ export default function MultiplayerQaPanel() {
     <main className={styles.shell}>
       <section className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>PHASE 4 / P4.1–P4.3</p>
+          <p className={styles.eyebrow}>PHASE 4 / P4.1–P4.4</p>
           <h1>Multiplayer Clock QA</h1>
-          <p>Deterministic gameplay/clock simulation plus an opt-in real Supabase Realtime transport check. Networking still never owns global turns.</p>
+          <p>Deterministic gameplay/clock simulation, P4.4 preload/start scenarios, and opt-in real Supabase Realtime metadata transport. Networking never owns global turns.</p>
         </div>
         <div className={`${styles.overall} ${statusClass(overallPass)}`}>
           {overallPass ? "SYNC PASS" : "DIVERGENCE"}
@@ -104,38 +105,14 @@ export default function MultiplayerQaPanel() {
       </section>
 
       <section className={styles.roomCard}>
-        <div>
-          <span className={styles.label}>Shared timeline</span>
-          <strong>T{shared.absoluteTurn}</strong>
-        </div>
-        <div>
-          <span className={styles.label}>Level / sequence</span>
-          <strong>L{shared.level} / {shared.sequenceIndex}</strong>
-        </div>
-        <div>
-          <span className={styles.label}>State</span>
-          <strong>{shared.isFinish ? "FINISH" : shared.roomRest ? "POST-FINISH REST" : "GLOBAL TURN"}</strong>
-        </div>
-        <div>
-          <span className={styles.label}>Target song time</span>
-          <strong>{Math.round(shared.targetSpaceMs)} ms</strong>
-        </div>
-        <div>
-          <span className={styles.label}>Canonical command hash</span>
-          <strong>{shared.commandHash}</strong>
-        </div>
-        <div>
-          <span className={styles.label}>Shared start epoch</span>
-          <strong>{clockResult.startAtServerMs} ms</strong>
-        </div>
-        <div>
-          <span className={styles.label}>Clock QA RTT profile</span>
-          <strong>{latencyProfileMs} ms</strong>
-        </div>
-        <div>
-          <span className={styles.label}>Max expected song drift</span>
-          <strong>{signedMs(clockResult.maxAbsoluteDriftMs)}</strong>
-        </div>
+        <div><span className={styles.label}>Shared timeline</span><strong>T{shared.absoluteTurn}</strong></div>
+        <div><span className={styles.label}>Level / sequence</span><strong>L{shared.level} / {shared.sequenceIndex}</strong></div>
+        <div><span className={styles.label}>State</span><strong>{shared.isFinish ? "FINISH" : shared.roomRest ? "POST-FINISH REST" : "GLOBAL TURN"}</strong></div>
+        <div><span className={styles.label}>Target song time</span><strong>{Math.round(shared.targetSpaceMs)} ms</strong></div>
+        <div><span className={styles.label}>Canonical command hash</span><strong>{shared.commandHash}</strong></div>
+        <div><span className={styles.label}>Shared start epoch</span><strong>{clockResult.startAtServerMs} ms</strong></div>
+        <div><span className={styles.label}>Clock QA RTT profile</span><strong>{latencyProfileMs} ms</strong></div>
+        <div><span className={styles.label}>Max expected song drift</span><strong>{signedMs(clockResult.maxAbsoluteDriftMs)}</strong></div>
       </section>
 
       <section className={styles.invariants}>
@@ -183,12 +160,14 @@ export default function MultiplayerQaPanel() {
       </section>
 
       <section className={styles.notes}>
-        <strong>Locked P4.1–P4.3 semantics</strong>
-        <p>Host has no Ready state. Bots are auto-ready. T38 Finish is shared; T39–T42 are room-wide rest; T43 resumes L6 for every participant regardless of Finish judgement.</p>
-        <p>P4.2 maps one immutable server start epoch onto each client&apos;s local monotonic/AudioContext clock. Latency changes the clock estimate, never the global turn, Finish cadence, command seed, or room start epoch.</p>
-        <p>P4.3 transports room snapshots/revisions, participant presence and shared-start metadata only. It does not broadcast `Turn N now` messages and does not move WebAudio or the gameplay scheduler.</p>
+        <strong>Locked P4.1–P4.4 semantics</strong>
+        <p>Host has no Ready state but must become Loaded. Bots are auto-ready and may auto-load only through the same versioned P4.4 ACK gate.</p>
+        <p>T38 Finish is shared; T39–T42 are room-wide rest; T43 resumes L6 for every participant regardless of Finish judgement.</p>
+        <p>P4.2 maps one immutable server start epoch onto each client&apos;s local monotonic/AudioContext clock. P4.4 only issues that epoch after every active frozen participant is Loaded.</p>
+        <p>Countdown is presentation derived from the shared epoch. Realtime transports room/start metadata only; it does not broadcast `Turn N now` messages or move WebAudio/gameplay scheduling.</p>
       </section>
 
+      <MatchStartQa />
       <NetworkTransportQa />
     </main>
   );

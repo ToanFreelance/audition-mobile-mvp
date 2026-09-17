@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { MatchLoadedAck } from "../../multiplayer/match-start-protocol";
 import { estimateServerNowMs, planSharedAudioStart } from "../../multiplayer/shared-clock";
 import { estimateNetworkServerClock } from "../../multiplayer/server-clock-client";
 import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
@@ -20,7 +21,9 @@ type QaState = {
   presenceCount?: number;
   pingPong?: boolean;
   roomRevision?: boolean;
+  loadedAck?: boolean;
   sharedEpoch?: boolean;
+  versionedEpoch?: boolean;
   hostMinRttMs?: number;
   guestMinRttMs?: number;
 };
@@ -29,7 +32,7 @@ function uniqueRoomId() {
   const suffix = typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID().slice(0, 8)
     : Date.now().toString(36);
-  return `p43-qa-${suffix}`;
+  return `p44-qa-${suffix}`;
 }
 
 async function waitUntil(check: () => boolean, description: string, timeoutMs = 5_000) {
@@ -46,10 +49,35 @@ async function fetchRealtimeConfig(): Promise<RealtimeConfig> {
   return response.json() as Promise<RealtimeConfig>;
 }
 
+function qaLoadedAck(roomId: string): MatchLoadedAck {
+  return {
+    protocolVersion: 1,
+    roomId,
+    matchId: "p44-qa-match",
+    roomRevision: 7,
+    startRevision: 1,
+    participantId: "qa-guest",
+    content: {
+      manifestVersion: 1,
+      audioVersion: "qa-audio-v1",
+      audioHash: "sha256:qa-audio-v1",
+      chartVersion: "qa-chart-v1",
+      chartHash: "sha256:qa-chart-v1",
+      gameplayConfigVersion: "solo-easy-v1",
+      gameplayConfigHash: "sha256:solo-easy-v1",
+      characterRuntimeVersion: "character-runtime-v1",
+      animationReleaseVersion: 3,
+      animationReleaseHash: "sha256:animation-release-v3",
+      characterReadiness: "ready",
+      animationReadiness: "ready",
+    },
+  };
+}
+
 export default function NetworkTransportQa() {
   const [state, setState] = useState<QaState>({
     phase: "idle",
-    detail: "Run two real Supabase Realtime clients from this browser. No second phone is required for P4.3 transport QA.",
+    detail: "Run two real Supabase Realtime clients from this browser. One physical iPhone is enough for P4.3/P4.4 metadata transport QA.",
   });
 
   const run = async () => {
@@ -92,7 +120,9 @@ export default function NetworkTransportQa() {
       let guestPresenceCount = 0;
       let pongReceived = false;
       let revisionReceived = false;
+      let loadedAckReceived = false;
       let epochReceived = false;
+      let versionedEpochReceived = false;
       let expectedEpoch = 0;
       let pongSendError: Error | null = null;
       const nonce = `ping-${roomId}`;
@@ -101,6 +131,12 @@ export default function NetworkTransportQa() {
       cleanups.push(guest.onPresence(presence => { guestPresenceCount = presence.length; }));
       cleanups.push(host.onEvent(event => {
         if (event.payload.kind === "qa-pong" && event.payload.nonce === nonce) pongReceived = true;
+        if (event.payload.kind === "match-loaded-ack"
+          && event.payload.ack.matchId === "p44-qa-match"
+          && event.payload.ack.startRevision === 1
+          && event.payload.ack.participantId === "qa-guest") {
+          loadedAckReceived = true;
+        }
       }));
       cleanups.push(guest.onEvent(event => {
         if (event.payload.kind === "qa-ping" && event.payload.nonce === nonce) {
@@ -110,6 +146,12 @@ export default function NetworkTransportQa() {
         }
         if (event.payload.kind === "room-revision" && event.payload.roomRevision === 7) revisionReceived = true;
         if (event.payload.kind === "match-start-epoch" && event.payload.startAtServerMs === expectedEpoch) epochReceived = true;
+        if (event.payload.kind === "match-start-epoch-v2"
+          && event.payload.matchId === "p44-qa-match"
+          && event.payload.startRevision === 1
+          && event.payload.startAtServerMs === expectedEpoch) {
+          versionedEpochReceived = true;
+        }
       }));
 
       await Promise.all([host.connect(), guest.connect()]);
@@ -128,7 +170,7 @@ export default function NetworkTransportQa() {
       ]);
 
       const estimatedServerNow = estimateServerNowMs(performance.now(), hostClock.estimate.offsetMs);
-      expectedEpoch = Math.ceil(estimatedServerNow) + 4_000;
+      expectedEpoch = Math.ceil(estimatedServerNow) + 4_500;
       const guestPlan = planSharedAudioStart({
         startAtServerMs: expectedEpoch,
         estimatedServerOffsetMs: guestClock.estimate.offsetMs,
@@ -137,26 +179,39 @@ export default function NetworkTransportQa() {
       });
       if (guestPlan.status !== "scheduled") throw new Error("Guest mapped the shared epoch as late.");
 
+      await guest.send({ kind: "match-loaded-ack", ack: qaLoadedAck(roomId) });
       await host.send({ kind: "room-revision", roomRevision: 7, reason: "other" });
       await host.send({
         kind: "match-start-epoch",
         roomRevision: 7,
-        matchId: "p43-qa-match",
+        matchId: "p44-qa-match",
+        startAtServerMs: expectedEpoch,
+      });
+      await host.send({
+        kind: "match-start-epoch-v2",
+        roomRevision: 7,
+        matchId: "p44-qa-match",
+        startRevision: 1,
         startAtServerMs: expectedEpoch,
       });
       await host.send({ kind: "qa-ping", nonce });
 
-      await waitUntil(() => revisionReceived && epochReceived && pongReceived, "Realtime event exchange");
+      await waitUntil(
+        () => revisionReceived && loadedAckReceived && epochReceived && versionedEpochReceived && pongReceived,
+        "Realtime event exchange",
+      );
       if (pongSendError) throw pongSendError;
 
       setState({
         phase: "pass",
         roomId,
-        detail: "Real Supabase Presence + Broadcast + Vercel clock exchange passed. No gameplay turn was sent over the network.",
+        detail: "Real Supabase Presence + Broadcast + Vercel clock exchange passed for P4.3 and P4.4 metadata. No gameplay turn was sent over the network.",
         presenceCount: Math.min(hostPresenceCount, guestPresenceCount),
         pingPong: true,
         roomRevision: true,
+        loadedAck: true,
         sharedEpoch: true,
+        versionedEpoch: true,
         hostMinRttMs: hostClock.estimate.minRoundTripMs,
         guestMinRttMs: guestClock.estimate.minRoundTripMs,
       });
@@ -164,7 +219,7 @@ export default function NetworkTransportQa() {
       setState({
         phase: "fail",
         roomId,
-        detail: error instanceof Error ? error.message : "Unknown P4.3 transport QA failure.",
+        detail: error instanceof Error ? error.message : "Unknown multiplayer transport QA failure.",
       });
     } finally {
       for (const cleanup of cleanups) cleanup();
@@ -180,8 +235,8 @@ export default function NetworkTransportQa() {
     <section className={styles.notes}>
       <div className={styles.clientHeader}>
         <div>
-          <span className={styles.role}>P4.3 · REAL NETWORK</span>
-          <strong>Supabase Realtime Transport QA</strong>
+          <span className={styles.role}>P4.3–P4.4 · REAL NETWORK</span>
+          <strong>Supabase Realtime Metadata QA</strong>
         </div>
         <span className={pass ? styles.visible : state.phase === "fail" ? styles.hidden : styles.role}>
           {running ? "RUNNING" : state.phase.toUpperCase()}
@@ -196,7 +251,9 @@ export default function NetworkTransportQa() {
           <div><span className={styles.label}>Presence</span><strong>{state.presenceCount ?? 0}/2</strong></div>
           <div><span className={styles.label}>Broadcast ping/pong</span><strong>{state.pingPong ? "PASS" : "—"}</strong></div>
           <div><span className={styles.label}>Room revision event</span><strong>{state.roomRevision ? "PASS" : "—"}</strong></div>
-          <div><span className={styles.label}>Shared epoch event</span><strong>{state.sharedEpoch ? "PASS" : "—"}</strong></div>
+          <div><span className={styles.label}>P4.4 Loaded ACK event</span><strong>{state.loadedAck ? "PASS" : "—"}</strong></div>
+          <div><span className={styles.label}>P4.3 shared epoch event</span><strong>{state.sharedEpoch ? "PASS" : "—"}</strong></div>
+          <div><span className={styles.label}>P4.4 versioned epoch event</span><strong>{state.versionedEpoch ? "PASS" : "—"}</strong></div>
           <div><span className={styles.label}>Host min RTT</span><strong>{state.hostMinRttMs === undefined ? "—" : `${Math.round(state.hostMinRttMs * 10) / 10} ms`}</strong></div>
           <div><span className={styles.label}>Guest min RTT</span><strong>{state.guestMinRttMs === undefined ? "—" : `${Math.round(state.guestMinRttMs * 10) / 10} ms`}</strong></div>
         </div>
@@ -204,11 +261,11 @@ export default function NetworkTransportQa() {
 
       <div className={styles.buttonRow}>
         <button className={styles.activeButton} disabled={running} onClick={() => void run()} type="button">
-          {running ? "Running real transport…" : "Run P4.3 real network QA"}
+          {running ? "Running real transport…" : "Run P4.3/P4.4 real network QA"}
         </button>
       </div>
 
-      <p>Security note: P4.3 uses an ephemeral public QA channel with a publishable key. Authentication/private-room authorization is not claimed here and remains a later hardening concern.</p>
+      <p>Security note: these checks use an ephemeral public QA channel with a publishable key. Authentication/private-room authorization remains later hardening scope.</p>
     </section>
   );
 }
