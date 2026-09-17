@@ -15,7 +15,7 @@ P5.1 begins Phase 5 as a presentation/domain-binding slice on top of the accepte
 - changing song or mode resets non-host human Ready while bots remain Ready;
 - Ready remains consent to the current room configuration; P4.4 Loaded remains a separate technical preflight state.
 
-## P5.1 first slice
+## P5.1 waiting-room shell
 
 `/tools/lobby-qa` renders a portrait waiting-room shell bound directly to `RoomState`:
 
@@ -28,7 +28,19 @@ P5.1 begins Phase 5 as a presentation/domain-binding slice on top of the accepte
 - host song/mode QA controls;
 - Start gate driven by the existing domain rule only.
 
-The lineup is intentionally presentation-only in this first slice. A dedicated waiting-room Three.js stage may mount real Phase 3 character actors in a subsequent P5 slice without modifying gameplay `Stage3D`.
+## Dedicated waiting-room 3D stage
+
+The waiting room uses a new `WaitingRoomStage3D` rather than modifying gameplay `Stage3D`.
+
+- direct Three.js remains the renderer;
+- canonical Phase 3 humanoid GLB is loaded once per stage mount and skeleton-cloned for occupied participants;
+- participant identity includes the frozen avatar `characterId`, leaving room for later visual variants without replacing room-domain identity;
+- a lightweight local fallback actor is used if the canonical model fails to load;
+- the waiting-room stage is intentionally static in P5.1 and has **no continuous RAF loop**;
+- it renders on model load and resize only, minimizing idle GPU/battery cost on iPhone;
+- renderer/scene resources and ResizeObserver are cleaned up on unmount.
+
+Waiting-room visuals are presentation-only. They own no WebAudio clock, beat clock, global turn, Ready rule, or start authority.
 
 ## Non-goals
 
@@ -36,5 +48,6 @@ The lineup is intentionally presentation-only in this first slice. A dedicated w
 - no persistence/database room service;
 - no quick-join algorithm;
 - no gameplay HUD redesign;
+- no waiting-room dance/idle animation loop yet;
 - no Phase 6 game modes;
 - no changes to WebAudio, global turns, Finish, gauge, or P4.5 multiplayer gameplay authority.

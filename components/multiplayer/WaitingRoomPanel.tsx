@@ -3,17 +3,12 @@
 import { useMemo, useState } from "react";
 import { canStartRoom, changeMode, changeSong, closeSlot, openSlot, setGuestReady } from "../../multiplayer/room-state";
 import { createP51WaitingRoomFixture } from "../../multiplayer/waiting-room-qa";
-import type { RoomParticipant, RoomSlotIndex } from "../../multiplayer/types";
+import type { RoomSlotIndex } from "../../multiplayer/types";
+import WaitingRoomStage3D from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
 
 function initials(name: string) {
   return name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
-}
-
-function readyLabel(participant: RoomParticipant) {
-  if (participant.role === "host") return "HOST";
-  if (participant.kind === "bot") return "READY";
-  return participant.readyState === "ready" ? "READY" : "NOT READY";
 }
 
 export default function WaitingRoomPanel() {
@@ -61,20 +56,7 @@ export default function WaitingRoomPanel() {
           <button className={styles.iconButton} type="button" aria-label="Settings">⚙</button>
         </header>
 
-        <section className={styles.stage} aria-label="Waiting room lineup">
-          <div className={styles.stageGlow} />
-          <div className={styles.lineup}>
-            {room.participants.map(participant => (
-              <article className={styles.actor} key={participant.participantId}>
-                <span className={participant.role === "host" ? styles.crown : styles.kind}>{participant.role === "host" ? "♛" : participant.kind.toUpperCase()}</span>
-                <div className={styles.avatar}>{initials(participant.displayName)}</div>
-                <strong>{participant.displayName}</strong>
-                <span className={participant.role === "host" || participant.readyState === "ready" ? styles.ready : styles.notReady}>{readyLabel(participant)}</span>
-              </article>
-            ))}
-          </div>
-          <p className={styles.swipeHint}>P5.1 room-state lineup · 3D actor rendering is isolated for the next slice</p>
-        </section>
+        <WaitingRoomStage3D participants={room.participants} />
 
         <section className={styles.slots}>
           {room.slots.map(slot => {
@@ -129,10 +111,11 @@ export default function WaitingRoomPanel() {
         </footer>
 
         <section className={styles.contract}>
-          <strong>P5.1 DOMAIN BINDING</strong>
+          <strong>P5.1 DOMAIN + 3D BINDING</strong>
           <span>Start gate: {startGate.allowed ? "PASS / ENABLED" : startGate.reason}</span>
           <span>Room revision: {room.revision}</span>
           <span>Host Ready state: not-applicable</span>
+          <span>Waiting-stage clock owner: none</span>
         </section>
       </section>
     </main>
