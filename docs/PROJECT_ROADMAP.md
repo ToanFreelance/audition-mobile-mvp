@@ -1,20 +1,20 @@
 # Audition Mobile roadmap
 
-Phase 1 — Solo Easy Core Gameplay and Phase 2 — Portrait HUD / iPhone UX are complete for the accepted MVP scope and integrated into `development`.
+Phase 1 — Solo Easy Core Gameplay, Phase 2 — Portrait HUD / iPhone UX, and Phase 3 — Human Character + Animation Controller are complete for their accepted functional scope and integrated into `development`.
 
 Current phase:
 
-**Phase 3 — Human Character + Animation Controller — functional closeout on `work/character`**
+**Phase 4 — Multiplayer shared song clock — P4.1 implementation on `work/multiplayer-clock`**
 
-Phase 3 functional owner QA has passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, and Finish continuation. The branch is **not merged** into `development` yet. Owner observed rapid iPhone heating / battery drain during debug gameplay; thermal and battery profiling remain an explicit performance debt and are not being misrepresented as complete.
+Phase 3 functional owner QA passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, Finish continuation, and the shared Finish Miss cadence. Phase 3 was merged into `development` at `e1d7a814b95144b3947cfb39503b998564b2bc29`, and owner iPhone staging QA passed. Rapid iPhone heating / battery drain remains explicit performance debt; thermal and battery profiling are not being misrepresented as complete.
 
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Music Config, exact BPM, authored Space Start, FINAL RHYTHM v4, WebAudio | Complete; calibration preserved |
 | 1 | Solo Easy commands, progression, penalties, Finish, song result | Complete; owner QA accepted; integrated into `development` |
 | 2 | Portrait HUD / iPhone UX | Complete; owner iPhone QA accepted; integrated into `development` |
-| 3 | Human character, animation controller, published Normal/Final dance content | **Functional closeout on `work/character`; performance debt open; not integrated** |
-| 4 | Multiplayer shared song clock | Planned |
+| 3 | Human character, animation controller, published Normal/Final dance content | **Functional PASS; integrated into `development`; thermal/battery debt open** |
+| 4 | Multiplayer shared song clock | **P4.1 in progress on `work/multiplayer-clock`** |
 | 5 | Room, lobby, ready and mode selection | Planned |
 | 6 | Additional game modes | Planned |
 | 7 | Account, profile, progression | Planned |
@@ -217,7 +217,7 @@ Phase 3 exposed pre-existing/adjacent Finish contract issues that were fixed on 
 - deterministic Aloha Finish cadence remains `38, 62, 86, 110`;
 - `debug=1` adds an owner-QA-only Finish SPACE assist and does not change non-debug production input behavior.
 
-These changes are gameplay-adjacent but preserve the locked Phase 1 architecture; they must remain visible during integration review rather than being hidden inside character work.
+These changes are gameplay-adjacent but preserve the locked Phase 1 architecture; they remain visible in the Phase 3 integration history.
 
 ### Phase 3 functional closeout checklist
 
@@ -230,19 +230,18 @@ Confirmed by code review / owner Vercel+iPhone QA unless explicitly marked other
 - exact judgement timestamp remains the animation anchor;
 - Finish presentation does not own game-end or scheduler timing;
 - successful Finish returns to L6 after the four locked hidden turns (owner QA);
-- Finish Miss is now locked to the same four-turn shared rest by scheduler contract + regression test; owner physical retest remains optional before integration;
+- Finish Miss uses the same four-turn shared rest and owner physical iPhone retest passed;
 - Phase 2 HUD remains structurally unchanged by Phase 3;
 - Center / Wide / Close remain presentation-only camera presets;
 - raw Mixamo FBX is not served by gameplay;
 - published release loading falls back safely if unavailable;
-- current Vercel branch builds successfully.
+- Phase 3 Vercel builds and owner staging iPhone QA passed;
+- `work/character` was merged into `development` as `e1d7a814b95144b3947cfb39503b998564b2bc29`.
 
 Not claimed complete:
 
 - thermal/battery optimization;
-- full automated Playwright execution in this closeout pass;
-- `work/character → development` integration;
-- Phase 4 work.
+- full automated Playwright execution in the Phase 3 closeout pass.
 
 ### Phase 3 non-goals
 
@@ -259,6 +258,37 @@ Do not include in Phase 3 unless separately approved:
 - new game modes.
 
 Those remain assigned to later roadmap phases.
+
+## Phase 4 — Multiplayer shared song clock
+
+Current branch: `work/multiplayer-clock`.
+
+Detailed P4.1 contract: `docs/P4_1_MULTIPLAYER_DOMAIN.md`.
+
+### P4.1 — Multiplayer Domain Foundation + Deterministic QA Harness
+
+P4.1 is additive architecture only. It must not modify the accepted Solo Easy runtime, gauge calibration, WebAudio transport, Stage3D, character animation pipeline, or Phase 2 gameplay HUD.
+
+Locked P4.1 requirements:
+
+- one shared global timeline drives all participants;
+- maximum six occupied participants;
+- Human and Bot share one participant model; Bot never owns a clock or scheduler;
+- host has no Ready state; human guests use NOT_READY / READY; bots are auto-ready;
+- Start requires at least one non-host participant and every occupied non-host participant Ready;
+- READY and pre-game LOADED are separate states;
+- participants carry avatar snapshots so Phase 5 can render a 3D social waiting room without replacing the room domain model;
+- MatchManifest freezes song/chart/content versions, room revision, seed, exact BPM, authored Space Start, participant snapshots and gameplay settings for one match;
+- multiplayer canonical commands are stateless per global turn (`match seed + absoluteTurn + purpose`) rather than dependent on a sequential PRNG stream;
+- mixed player outcomes may alter player-local state but never shared absolute turn, level, Finish cadence, target song time or canonical command;
+- locked Finish cadence remains `38, 62, 86, 110` and every non-final Finish uses the room-wide T39–T42 rest before T43 L6 resume;
+- `/tools/multiplayer-qa` provides deterministic one-iPhone validation with one human host plus five simulated bots.
+
+P4.1 does **not** implement real-time networking, shared server start-epoch mapping, pre-game client-loaded acknowledgements, or the Phase 5 lobby/waiting-room presentation.
+
+Planned sequence after P4.1:
+
+`P4.2 shared start clock → P4.3 networking transport → P4.4 preload/start protocol → P4.5 multiplayer gameplay integration → Phase 5 lobby/3D waiting room`
 
 ## Phase 1 architecture invariants
 
@@ -296,8 +326,12 @@ Completed Phase 2 integration path:
 
 `development → work/portrait-ui → implementation → owner iPhone/Vercel QA → clean fast-forward to development`
 
-Current Phase 3 path:
+Completed Phase 3 integration path:
 
-`development → work/character → implementation → owner functional QA → functional closeout → performance debt review / owner integration decision → development`
+`development → work/character → implementation → owner functional QA → shared-Finish regression → integration review → development → owner staging iPhone PASS`
 
-Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 3 work unless owner explicitly requests a later production promotion.
+Current Phase 4 path:
+
+`development → work/multiplayer-clock → P4 milestones → focused validation → owner review → development`
+
+Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 4 work unless owner explicitly requests a later production promotion.
