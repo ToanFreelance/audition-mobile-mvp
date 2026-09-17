@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { MultiplayerGameplayJudgementEvent } from "../../multiplayer/gameplay-runtime";
 import type { MatchLoadedAck } from "../../multiplayer/match-start-protocol";
 import { estimateServerNowMs, planSharedAudioStart } from "../../multiplayer/shared-clock";
 import { estimateNetworkServerClock } from "../../multiplayer/server-clock-client";
@@ -24,6 +25,7 @@ type QaState = {
   loadedAck?: boolean;
   sharedEpoch?: boolean;
   versionedEpoch?: boolean;
+  playerJudgement?: boolean;
   hostMinRttMs?: number;
   guestMinRttMs?: number;
 };
@@ -32,7 +34,7 @@ function uniqueRoomId() {
   const suffix = typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID().slice(0, 8)
     : Date.now().toString(36);
-  return `p44-qa-${suffix}`;
+  return `p45-qa-${suffix}`;
 }
 
 async function waitUntil(check: () => boolean, description: string, timeoutMs = 5_000) {
@@ -53,7 +55,7 @@ function qaLoadedAck(roomId: string): MatchLoadedAck {
   return {
     protocolVersion: 1,
     roomId,
-    matchId: "p44-qa-match",
+    matchId: "p45-qa-match",
     roomRevision: 7,
     startRevision: 1,
     participantId: "qa-guest",
@@ -74,10 +76,25 @@ function qaLoadedAck(roomId: string): MatchLoadedAck {
   };
 }
 
+function qaJudgement(roomId: string): MultiplayerGameplayJudgementEvent {
+  return {
+    matchId: "p45-qa-match",
+    roomId,
+    participantId: "qa-guest",
+    absoluteTurn: 38,
+    judgement: "perfect",
+    atSongTimeMs: 100_000,
+    targetSpaceMs: 100_000,
+    level: 9,
+    isFinish: true,
+    commandHash: "qa-p45-finish",
+  };
+}
+
 export default function NetworkTransportQa() {
   const [state, setState] = useState<QaState>({
     phase: "idle",
-    detail: "Run two real Supabase Realtime clients from this browser. One physical iPhone is enough for P4.3/P4.4 metadata transport QA.",
+    detail: "Run two real Supabase Realtime clients from this browser. One physical iPhone is enough for P4.3–P4.5 metadata transport QA.",
   });
 
   const run = async () => {
@@ -123,6 +140,7 @@ export default function NetworkTransportQa() {
       let loadedAckReceived = false;
       let epochReceived = false;
       let versionedEpochReceived = false;
+      let judgementReceived = false;
       let expectedEpoch = 0;
       let pongSendError: Error | null = null;
       const nonce = `ping-${roomId}`;
@@ -132,10 +150,18 @@ export default function NetworkTransportQa() {
       cleanups.push(host.onEvent(event => {
         if (event.payload.kind === "qa-pong" && event.payload.nonce === nonce) pongReceived = true;
         if (event.payload.kind === "match-loaded-ack"
-          && event.payload.ack.matchId === "p44-qa-match"
+          && event.payload.ack.matchId === "p45-qa-match"
           && event.payload.ack.startRevision === 1
           && event.payload.ack.participantId === "qa-guest") {
           loadedAckReceived = true;
+        }
+        if (event.payload.kind === "player-judgement"
+          && event.payload.matchId === "p45-qa-match"
+          && event.payload.startRevision === 1
+          && event.payload.event.participantId === "qa-guest"
+          && event.payload.event.absoluteTurn === 38
+          && event.payload.event.isFinish) {
+          judgementReceived = true;
         }
       }));
       cleanups.push(guest.onEvent(event => {
@@ -147,7 +173,7 @@ export default function NetworkTransportQa() {
         if (event.payload.kind === "room-revision" && event.payload.roomRevision === 7) revisionReceived = true;
         if (event.payload.kind === "match-start-epoch" && event.payload.startAtServerMs === expectedEpoch) epochReceived = true;
         if (event.payload.kind === "match-start-epoch-v2"
-          && event.payload.matchId === "p44-qa-match"
+          && event.payload.matchId === "p45-qa-match"
           && event.payload.startRevision === 1
           && event.payload.startAtServerMs === expectedEpoch) {
           versionedEpochReceived = true;
@@ -180,24 +206,31 @@ export default function NetworkTransportQa() {
       if (guestPlan.status !== "scheduled") throw new Error("Guest mapped the shared epoch as late.");
 
       await guest.send({ kind: "match-loaded-ack", ack: qaLoadedAck(roomId) });
+      await guest.send({
+        kind: "player-judgement",
+        roomRevision: 7,
+        matchId: "p45-qa-match",
+        startRevision: 1,
+        event: qaJudgement(roomId),
+      });
       await host.send({ kind: "room-revision", roomRevision: 7, reason: "other" });
       await host.send({
         kind: "match-start-epoch",
         roomRevision: 7,
-        matchId: "p44-qa-match",
+        matchId: "p45-qa-match",
         startAtServerMs: expectedEpoch,
       });
       await host.send({
         kind: "match-start-epoch-v2",
         roomRevision: 7,
-        matchId: "p44-qa-match",
+        matchId: "p45-qa-match",
         startRevision: 1,
         startAtServerMs: expectedEpoch,
       });
       await host.send({ kind: "qa-ping", nonce });
 
       await waitUntil(
-        () => revisionReceived && loadedAckReceived && epochReceived && versionedEpochReceived && pongReceived,
+        () => revisionReceived && loadedAckReceived && epochReceived && versionedEpochReceived && judgementReceived && pongReceived,
         "Realtime event exchange",
       );
       if (pongSendError) throw pongSendError;
@@ -205,13 +238,14 @@ export default function NetworkTransportQa() {
       setState({
         phase: "pass",
         roomId,
-        detail: "Real Supabase Presence + Broadcast + Vercel clock exchange passed for P4.3 and P4.4 metadata. No gameplay turn was sent over the network.",
+        detail: "Real Supabase Presence + Broadcast + Vercel clock exchange passed through P4.5 metadata. Player judgement travelled as metadata only; no gameplay turn authority was sent over the network.",
         presenceCount: Math.min(hostPresenceCount, guestPresenceCount),
         pingPong: true,
         roomRevision: true,
         loadedAck: true,
         sharedEpoch: true,
         versionedEpoch: true,
+        playerJudgement: true,
         hostMinRttMs: hostClock.estimate.minRoundTripMs,
         guestMinRttMs: guestClock.estimate.minRoundTripMs,
       });
@@ -235,7 +269,7 @@ export default function NetworkTransportQa() {
     <section className={styles.notes}>
       <div className={styles.clientHeader}>
         <div>
-          <span className={styles.role}>P4.3–P4.4 · REAL NETWORK</span>
+          <span className={styles.role}>P4.3–P4.5 · REAL NETWORK</span>
           <strong>Supabase Realtime Metadata QA</strong>
         </div>
         <span className={pass ? styles.visible : state.phase === "fail" ? styles.hidden : styles.role}>
@@ -254,6 +288,7 @@ export default function NetworkTransportQa() {
           <div><span className={styles.label}>P4.4 Loaded ACK event</span><strong>{state.loadedAck ? "PASS" : "—"}</strong></div>
           <div><span className={styles.label}>P4.3 shared epoch event</span><strong>{state.sharedEpoch ? "PASS" : "—"}</strong></div>
           <div><span className={styles.label}>P4.4 versioned epoch event</span><strong>{state.versionedEpoch ? "PASS" : "—"}</strong></div>
+          <div><span className={styles.label}>P4.5 judgement metadata</span><strong>{state.playerJudgement ? "PASS" : "—"}</strong></div>
           <div><span className={styles.label}>Host min RTT</span><strong>{state.hostMinRttMs === undefined ? "—" : `${Math.round(state.hostMinRttMs * 10) / 10} ms`}</strong></div>
           <div><span className={styles.label}>Guest min RTT</span><strong>{state.guestMinRttMs === undefined ? "—" : `${Math.round(state.guestMinRttMs * 10) / 10} ms`}</strong></div>
         </div>
@@ -261,11 +296,11 @@ export default function NetworkTransportQa() {
 
       <div className={styles.buttonRow}>
         <button className={styles.activeButton} disabled={running} onClick={() => void run()} type="button">
-          {running ? "Running real transport…" : "Run P4.3/P4.4 real network QA"}
+          {running ? "Running real transport…" : "Run P4.3–P4.5 real network QA"}
         </button>
       </div>
 
-      <p>Security note: these checks use an ephemeral public QA channel with a publishable key. Authentication/private-room authorization remains later hardening scope.</p>
+      <p>Security note: these checks use an ephemeral public QA channel with a publishable key. Authentication/private-room authorization and authoritative anti-cheat validation remain later hardening scope.</p>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 # Phase 4 / P4.5 — Multiplayer Gameplay Integration
 
-Status: core implementation started on `work/multiplayer-clock` after owner iPhone P4.4 PASS.
+Status: implementation on `work/multiplayer-clock` after owner iPhone P4.4 PASS.
 
 ## Purpose
 
@@ -46,6 +46,14 @@ The multiplayer runtime therefore consumes `describeSharedTurn()` for canonical 
 
 It has no RAF, interval, network clock, or independent scheduler. The caller supplies WebAudio song time. Dropped render frames are handled by deterministic catch-up from that same song time.
 
+## Shared epoch → WebAudio
+
+`multiplayer/audio-gameplay-start.ts` is the P4.4→P4.5 integration bridge.
+
+It maps the immutable `startAtServerMs` through the accepted P4.2 offset estimate onto the local AudioContext timeline, creates the local multiplayer runtime with `WebAudioTransport.getCurrentTimeMs()` as its time source, and schedules the decoded audio buffer at that exact AudioContext time.
+
+`WebAudioTransport.playAtContextTime()` rejects an already-past epoch rather than silently moving one client to a replacement start time. The late-device room policy remains separate from clock authority.
+
 ## Finish
 
 Finish remains a scheduled Level 9 shared turn and never ends the song.
@@ -56,14 +64,31 @@ Every Finish outcome uses the same `finishRestTurns = 4` room rest. For the acce
 
 Only AUDIO END ends gameplay.
 
-## Current P4.5 split
+## Result transport
 
-Part 1:
+P4.5 adds `player-judgement` as player-local result metadata. It is bound to match/start identity by the envelope and carries the participant, absolute turn, judgement, song-time, target, level, Finish flag, and canonical command hash.
 
-- deterministic multiplayer gameplay runtime boundary;
-- shared/global turn projection from WebAudio song time;
-- stateless canonical command consumption;
-- local input/judgement/score/suppression state;
-- AUDIO END-only termination contract.
+This event may feed remote presentation/leaderboard state. It is explicitly not a command to advance the global turn. Server-authoritative anti-cheat/result verification remains later hardening scope.
 
-Next P4.5 parts will add focused QA/result transport integration and then the actual scheduled WebAudio start seam. Production Phase 2 HUD and Phase 3 character files remain untouched unless an explicit integration blocker is demonstrated.
+## Deterministic QA
+
+`/tools/multiplayer-qa` now includes P4.5 checks for:
+
+- divergent Perfect/Miss local outcomes while global turn remains identical;
+- canonical command identity independent of local suppression;
+- T38 Finish outcome divergence converging on shared T43 resume;
+- dropped-frame catch-up from WebAudio time;
+- AUDIO END-only match termination;
+- judgement metadata generation;
+- real Supabase transport of result metadata without turn authority.
+
+Playwright is not required for the current owner-validation pass.
+
+## Non-goals
+
+- Phase 5 lobby / 3D waiting room;
+- broad Phase 2 HUD redesign;
+- Stage3D redesign;
+- gauge recalibration;
+- server-authoritative anti-cheat;
+- per-beat/per-turn/song-time network synchronization.

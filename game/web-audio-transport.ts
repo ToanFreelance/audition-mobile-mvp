@@ -49,6 +49,11 @@ export class WebAudioTransport {
     return this.context;
   }
 
+  async unlock() {
+    const context = this.ensureContext();
+    if (context.state !== "running") await context.resume();
+  }
+
   async prepare() {
     if (this.buffer) return;
     if (this.preparing) return this.preparing;
@@ -71,6 +76,13 @@ export class WebAudioTransport {
     await this.prepare();
     if (!this.buffer) throw new Error("Decoded AudioBuffer is unavailable.");
     return this.buffer;
+  }
+
+  async getSchedulingContextTimeSec() {
+    await this.prepare();
+    await this.unlock();
+    const context = this.ensureContext();
+    return context.currentTime;
   }
 
   private stopSource() {
@@ -120,6 +132,43 @@ export class WebAudioTransport {
       this.run = null;
     };
     source.start(when, offset);
+  }
+
+  /**
+   * Schedule playback on an already-mapped AudioContext epoch.
+   * A past epoch is rejected instead of silently moving the room start time.
+   */
+  async playAtContextTime(startContextTimeSec: number, offsetMs = 0) {
+    if (!Number.isFinite(startContextTimeSec)) throw new Error("startContextTimeSec must be finite.");
+    if (!Number.isFinite(offsetMs) || offsetMs < 0) throw new Error("offsetMs must be a non-negative finite value.");
+    await this.prepare();
+    const context = this.ensureContext();
+    const buffer = this.buffer;
+    if (!buffer) throw new Error("Decoded AudioBuffer is unavailable.");
+
+    const session = getAudioSession();
+    if (session) {
+      try { session.type = "playback"; } catch {}
+    }
+    if (context.state !== "running") await context.resume();
+    if (startContextTimeSec < context.currentTime) {
+      throw new Error("Shared AudioContext start epoch is already late.");
+    }
+
+    this.stopSource();
+    const offset = Math.min(Math.max(0, offsetMs / 1000), Math.max(0, buffer.duration - 0.001));
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    this.run = { startContextTime: startContextTimeSec, offsetSeconds: offset };
+    this.source = source;
+    source.onended = () => {
+      if (this.source !== source) return;
+      this.offsetSeconds = buffer.duration;
+      this.source = null;
+      this.run = null;
+    };
+    source.start(startContextTimeSec, offset);
   }
 
   pause() {
