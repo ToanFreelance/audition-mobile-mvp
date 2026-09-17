@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { simulateSharedStartClock } from "../../multiplayer/clock-sync-simulation";
+import { runP45GameplayQa } from "../../multiplayer/gameplay-qa-simulation";
 import { createP41QaFixture, simulateRoom } from "../../multiplayer/simulated-room";
 import type { BotProfile } from "../../multiplayer/types";
+import GameplayIntegrationQa from "./GameplayIntegrationQa";
 import MatchStartQa from "./MatchStartQa";
 import NetworkTransportQa from "./NetworkTransportQa";
 import styles from "./MultiplayerQaPanel.module.css";
@@ -23,6 +25,7 @@ function signedMs(value: number) {
 
 export default function MultiplayerQaPanel() {
   const fixture = useMemo(() => createP41QaFixture(), []);
+  const gameplayResult = useMemo(() => runP45GameplayQa(), []);
   const [throughTurn, setThroughTurn] = useState<number>(38);
   const [humanProfile, setHumanProfile] = useState<BotProfile>("miss");
   const [latencyProfileMs, setLatencyProfileMs] = useState<number>(100);
@@ -41,15 +44,15 @@ export default function MultiplayerQaPanel() {
   ), [clockResult]);
 
   const shared = result.clients[0];
-  const overallPass = result.invariants.pass && clockResult.startMappingPass;
+  const overallPass = result.invariants.pass && clockResult.startMappingPass && gameplayResult.pass;
 
   return (
     <main className={styles.shell}>
       <section className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>PHASE 4 / P4.1–P4.4</p>
+          <p className={styles.eyebrow}>PHASE 4 / P4.1–P4.5</p>
           <h1>Multiplayer Clock QA</h1>
-          <p>Deterministic gameplay/clock simulation, P4.4 preload/start scenarios, and opt-in real Supabase Realtime metadata transport. Networking never owns global turns.</p>
+          <p>Deterministic gameplay/clock simulation, P4.4 preload/start scenarios, P4.5 shared gameplay projection, and opt-in real Supabase Realtime metadata transport. Networking never owns global turns.</p>
         </div>
         <div className={`${styles.overall} ${statusClass(overallPass)}`}>
           {overallPass ? "SYNC PASS" : "DIVERGENCE"}
@@ -123,6 +126,7 @@ export default function MultiplayerQaPanel() {
           ["Target", result.invariants.targetSync],
           ["Command", result.invariants.commandSync],
           ["Start clock", clockResult.startMappingPass],
+          ["P4.5 gameplay", gameplayResult.pass],
         ].map(([name, pass]) => (
           <div className={`${styles.invariant} ${statusClass(Boolean(pass))}`} key={String(name)}>
             <span>{name}</span>
@@ -160,14 +164,16 @@ export default function MultiplayerQaPanel() {
       </section>
 
       <section className={styles.notes}>
-        <strong>Locked P4.1–P4.4 semantics</strong>
+        <strong>Locked P4.1–P4.5 semantics</strong>
         <p>Host has no Ready state but must become Loaded. Bots are auto-ready and may auto-load only through the same versioned P4.4 ACK gate.</p>
         <p>T38 Finish is shared; T39–T42 are room-wide rest; T43 resumes L6 for every participant regardless of Finish judgement.</p>
         <p>P4.2 maps one immutable server start epoch onto each client&apos;s local monotonic/AudioContext clock. P4.4 only issues that epoch after every active frozen participant is Loaded.</p>
-        <p>Countdown is presentation derived from the shared epoch. Realtime transports room/start metadata only; it does not broadcast `Turn N now` messages or move WebAudio/gameplay scheduling.</p>
+        <p>P4.5 derives the global gameplay projection from local WebAudio song time plus the frozen manifest. Player judgement/suppression remains local and cannot move the room timeline.</p>
+        <p>Countdown is presentation derived from the shared epoch. Realtime transports room/start/result metadata only; it does not broadcast `Turn N now` messages or move WebAudio/gameplay scheduling.</p>
       </section>
 
       <MatchStartQa />
+      <GameplayIntegrationQa result={gameplayResult} />
       <NetworkTransportQa />
     </main>
   );

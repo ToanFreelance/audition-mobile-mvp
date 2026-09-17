@@ -1,3 +1,4 @@
+import type { MultiplayerGameplayJudgementEvent } from "./gameplay-runtime";
 import type { MatchLoadedAck } from "./match-start-protocol";
 import type { MatchManifest, RoomState } from "./types";
 
@@ -63,6 +64,14 @@ export type RoomTransportPayload =
       matchId: string;
       startRevision: number;
       startAtServerMs: number;
+    }
+  | {
+      /** P4.5 player-local result metadata. Never a shared timeline command. */
+      kind: "player-judgement";
+      roomRevision: number;
+      matchId: string;
+      startRevision: number;
+      event: MultiplayerGameplayJudgementEvent;
     }
   | {
       kind: "qa-ping";
