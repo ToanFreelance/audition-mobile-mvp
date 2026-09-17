@@ -7,10 +7,17 @@ import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.j
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import { loadPublishedDanceRelease } from "../character/published-animation-library";
 import type { RoomParticipant } from "../../multiplayer/types";
-import { selectParticipantIdleClip, selectParticipantIdlePhaseSeconds } from "./lobby-idle-selection";
+import {
+  selectParticipantIdleClipByIndex,
+  selectParticipantIdlePhaseSeconds,
+  selectRoomParticipantIdleIndices,
+} from "./lobby-idle-selection";
 import styles from "./WaitingRoomStage3D.module.css";
 
-type Props = { participants: readonly RoomParticipant[] };
+type Props = {
+  participants: readonly RoomParticipant[];
+  roomId: string;
+};
 
 const FEMALE_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL.replace(
   "UBC_Superhero_Male_FullBody.glb",
@@ -128,12 +135,12 @@ function isFemale(participant: RoomParticipant) {
   return participant.avatar.characterId.toLowerCase().includes("female");
 }
 
-export default function WaitingRoomStage3D({ participants }: Props) {
+export default function WaitingRoomStage3D({ participants, roomId }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
   const identityKey = useMemo(
-    () => participants.map(item => `${item.participantId}:${item.avatar.characterId}`).join("|"),
-    [participants],
+    () => `${roomId}|${participants.map(item => `${item.participantId}:${item.avatar.characterId}:${item.slotIndex}`).join("|")}`,
+    [participants, roomId],
   );
 
   useEffect(() => {
@@ -257,6 +264,12 @@ export default function WaitingRoomStage3D({ participants }: Props) {
 
         const idleClips = published?.idleSourceClips ?? [];
         const releaseVersion = published?.info.releaseVersion ?? 0;
+        const idleIndexByParticipant = selectRoomParticipantIdleIndices(
+          participants,
+          idleClips.length,
+          releaseVersion,
+          roomId,
+        );
         let usedFallback = false;
 
         participants.forEach((participant, index) => {
@@ -274,7 +287,8 @@ export default function WaitingRoomStage3D({ participants }: Props) {
           scene.add(actor);
 
           if (source && idleClips.length > 0) {
-            const idleClip = selectParticipantIdleClip(idleClips, participant.participantId, releaseVersion);
+            const idleIndex = idleIndexByParticipant.get(participant.participantId) ?? -1;
+            const idleClip = selectParticipantIdleClipByIndex(idleClips, idleIndex);
             if (idleClip) {
               const mixer = new THREE.AnimationMixer(actor);
               const action = mixer.clipAction(idleClip);
@@ -283,9 +297,20 @@ export default function WaitingRoomStage3D({ participants }: Props) {
               action.enabled = true;
               action.clampWhenFinished = false;
               action.play();
-              action.time = selectParticipantIdlePhaseSeconds(participant.participantId, idleClip.duration, releaseVersion);
+              action.time = selectParticipantIdlePhaseSeconds(
+                participant.participantId,
+                idleClip.duration,
+                releaseVersion,
+                roomId,
+              );
               mixer.update(0);
               mixers.push(mixer);
+              console.info("[waiting-room] idle assignment", {
+                participantId: participant.participantId,
+                clipIndex: idleIndex,
+                clipName: idleClip.name,
+                releaseVersion,
+              });
             }
           }
         });
@@ -328,7 +353,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [identityKey]);
+  }, [identityKey, participants, roomId]);
 
   return (
     <div className={styles.stage}>
