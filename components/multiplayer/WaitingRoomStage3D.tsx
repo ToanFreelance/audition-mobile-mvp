@@ -40,7 +40,7 @@ function normalizeModel(model: THREE.Object3D) {
   const bounds = new THREE.Box3().setFromObject(model);
   const size = bounds.getSize(new THREE.Vector3());
   if (!(size.y > 0) || !Number.isFinite(size.y)) throw new Error("Waiting-room character has invalid bounds.");
-  model.scale.multiplyScalar(4.2 / size.y);
+  model.scale.multiplyScalar(3.7 / size.y);
   model.updateMatrixWorld(true);
   const scaledBounds = new THREE.Box3().setFromObject(model);
   const center = scaledBounds.getCenter(new THREE.Vector3());
@@ -57,7 +57,7 @@ function tintActor(actor: THREE.Object3D, participant: RoomParticipant, index: n
   const cloneMaterial = (material: THREE.Material) => {
     const next = material.clone();
     const colored = next as THREE.Material & { color?: THREE.Color };
-    colored.color?.lerp(tint, 0.16);
+    colored.color?.lerp(tint, 0.18);
     return next;
   };
   actor.traverse(object => {
@@ -86,7 +86,7 @@ function fallbackActor(female: boolean) {
 }
 
 function statusLabel(participant: RoomParticipant) {
-  if (participant.role === "host") return "READY";
+  if (participant.role === "host") return "HOST";
   if (participant.kind === "bot") return "READY";
   return participant.readyState === "ready" ? "READY" : "NOT READY";
 }
@@ -99,6 +99,13 @@ function levelFor(participant: RoomParticipant) {
 
 function isFemale(participant: RoomParticipant) {
   return participant.avatar.characterId.toLowerCase().includes("female");
+}
+
+function findStandingIdle(clips: readonly THREE.AnimationClip[]) {
+  const normalize = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  return clips.find(clip => normalize(clip.name).endsWith("idle_loop"))
+    ?? clips.find(clip => normalize(clip.name) === "idle_loop")
+    ?? null;
 }
 
 export default function WaitingRoomStage3D({ participants }: Props) {
@@ -118,8 +125,8 @@ export default function WaitingRoomStage3D({ participants }: Props) {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 100);
-    camera.position.set(0, 3.35, 10.1);
-    camera.lookAt(0, 2.05, 0);
+    camera.position.set(0, 3.2, 10.4);
+    camera.lookAt(0, 1.82, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
@@ -150,11 +157,11 @@ export default function WaitingRoomStage3D({ participants }: Props) {
       const centered = index - (participants.length - 1) / 2;
       const ringColor = participant.role === "host" ? 0x42dfff : index % 2 ? 0xff4fcf : 0x63efad;
       const ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.88, 0.96, 48),
+        new THREE.RingGeometry(0.78, 0.87, 48),
         new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.92, side: THREE.DoubleSide }),
       );
       ring.rotation.x = -Math.PI / 2;
-      ring.position.set(centered * 2.45, 0.02, Math.abs(centered) * 0.15);
+      ring.position.set(centered * 2.25, 0.02, Math.abs(centered) * 0.12);
       scene.add(ring);
     });
 
@@ -190,10 +197,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
       if (femaleSource) { normalizeModel(femaleSource); disposableSources.push(femaleSource); }
       if (animationGltf) disposableSources.push(animationGltf.scene);
 
-      const idleClip = animationGltf?.animations.find(clip => /idle/i.test(clip.name))
-        ?? animationGltf?.animations.find(clip => /standing/i.test(clip.name))
-        ?? animationGltf?.animations[0]
-        ?? null;
+      const idleClip = findStandingIdle(animationGltf?.animations ?? []);
       let usedFallback = false;
 
       participants.forEach((participant, index) => {
@@ -203,9 +207,9 @@ export default function WaitingRoomStage3D({ participants }: Props) {
         if (!source) usedFallback = true;
         tintActor(actor, participant, index);
         const centered = index - (participants.length - 1) / 2;
-        actor.position.x += centered * 2.45;
-        actor.position.z += Math.abs(centered) * 0.15;
-        actor.rotation.y = centered * -0.08;
+        actor.position.x += centered * 2.25;
+        actor.position.z += Math.abs(centered) * 0.12;
+        actor.rotation.y = centered * -0.06;
         actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
         scene.add(actor);
 
@@ -213,7 +217,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
           const mixer = new THREE.AnimationMixer(actor);
           const action = mixer.clipAction(idleClip);
           action.reset().play();
-          mixer.update(0.22 + index * 0.31);
+          mixer.update(0.95 + index * 0.17);
           mixers.push(mixer);
         }
       });
@@ -226,7 +230,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
         const actor = fallbackActor(isFemale(participant));
         tintActor(actor, participant, index);
         const centered = index - (participants.length - 1) / 2;
-        actor.position.x = centered * 2.45;
+        actor.position.x = centered * 2.25;
         scene.add(actor);
       });
       render();
@@ -258,14 +262,18 @@ export default function WaitingRoomStage3D({ participants }: Props) {
       <div className={styles.canvas} ref={mountRef} />
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
       <div className={styles.labels}>
-        {participants.map(participant => (
-          <div className={styles.label} key={participant.participantId}>
-            <span>{participant.role === "host" ? "♛" : ""}</span>
-            <strong>{participant.displayName}</strong>
-            <small>Lv. {levelFor(participant)}</small>
-            <b className={statusLabel(participant) === "READY" ? styles.ready : styles.notReady}>{statusLabel(participant)}</b>
-          </div>
-        ))}
+        {participants.map(participant => {
+          const state = statusLabel(participant);
+          const stateClass = state === "HOST" ? styles.hostState : state === "READY" ? styles.ready : styles.notReady;
+          return (
+            <div className={styles.label} key={participant.participantId}>
+              <span>{participant.role === "host" ? "♛" : ""}</span>
+              <strong>{participant.displayName}</strong>
+              <small>Lv. {levelFor(participant)}</small>
+              <b className={stateClass}>{state}</b>
+            </div>
+          );
+        })}
       </div>
       <p className={styles.note}>Kéo ngang để xem khu vực khác</p>
     </div>
