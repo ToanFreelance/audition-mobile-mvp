@@ -50,7 +50,8 @@ let cachedPublishedDanceRelease: LoadedPublishedDanceRelease | null = null;
  * Fetches and validates the latest canonical animation release. Failure stays
  * presentation-only and must never affect gameplay timing.
  */
-export async function loadPublishedDanceRelease(): Promise<LoadedPublishedDanceRelease | null> {
+export async function loadPublishedDanceRelease(forceRefresh = false): Promise<LoadedPublishedDanceRelease | null> {
+  if (forceRefresh) cachedPublishedDanceRelease = null;
   if (cachedPublishedDanceRelease) return cachedPublishedDanceRelease;
 
   const controller = new AbortController();
