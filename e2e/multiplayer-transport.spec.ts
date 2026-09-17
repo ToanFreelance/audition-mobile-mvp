@@ -10,8 +10,8 @@ import {
 } from "../multiplayer/transport";
 
 test("P4.3 room ids are sanitized deterministically before becoming realtime topics", () => {
-  expect(sanitizeRealtimeRoomId(" Room / QA : 42 ")).toBe("Room-QA-42-");
-  expect(realtimeTopicForRoom(" Room / QA : 42 ")).toBe("realtime:audition-room:Room-QA-42-");
+  expect(sanitizeRealtimeRoomId(" Room / QA : 42 ")).toBe("Room-QA-42");
+  expect(realtimeTopicForRoom(" Room / QA : 42 ")).toBe("realtime:audition-room:Room-QA-42");
   expect(() => sanitizeRealtimeRoomId("///")).toThrow("roomId must contain at least one safe character");
 });
 
