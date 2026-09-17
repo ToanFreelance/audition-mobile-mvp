@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { simulateSharedStartClock } from "../../multiplayer/clock-sync-simulation";
 import { createP41QaFixture, simulateRoom } from "../../multiplayer/simulated-room";
 import type { BotProfile } from "../../multiplayer/types";
+import NetworkTransportQa from "./NetworkTransportQa";
 import styles from "./MultiplayerQaPanel.module.css";
 
 const TURN_PRESETS = [38, 39, 42, 43, 62, 86, 100] as const;
@@ -45,9 +46,9 @@ export default function MultiplayerQaPanel() {
     <main className={styles.shell}>
       <section className={styles.hero}>
         <div>
-          <p className={styles.eyebrow}>PHASE 4 / P4.1–P4.2</p>
+          <p className={styles.eyebrow}>PHASE 4 / P4.1–P4.3</p>
           <h1>Multiplayer Clock QA</h1>
-          <p>1 human host + 5 deterministic bots. Shared start-clock mapping is simulated; no real networking transport yet.</p>
+          <p>Deterministic gameplay/clock simulation plus an opt-in real Supabase Realtime transport check. Networking still never owns global turns.</p>
         </div>
         <div className={`${styles.overall} ${statusClass(overallPass)}`}>
           {overallPass ? "SYNC PASS" : "DIVERGENCE"}
@@ -182,11 +183,13 @@ export default function MultiplayerQaPanel() {
       </section>
 
       <section className={styles.notes}>
-        <strong>Locked P4.1–P4.2 semantics</strong>
+        <strong>Locked P4.1–P4.3 semantics</strong>
         <p>Host has no Ready state. Bots are auto-ready. T38 Finish is shared; T39–T42 are room-wide rest; T43 resumes L6 for every participant regardless of Finish judgement.</p>
         <p>P4.2 maps one immutable server start epoch onto each client&apos;s local monotonic/AudioContext clock. Latency changes the clock estimate, never the global turn, Finish cadence, command seed, or room start epoch.</p>
-        <p>Drift shown here is observational QA only. P4.2 does not seek, stretch, pause, repeat, or otherwise correct active WebAudio playback.</p>
+        <p>P4.3 transports room snapshots/revisions, participant presence and shared-start metadata only. It does not broadcast `Turn N now` messages and does not move WebAudio or the gameplay scheduler.</p>
       </section>
+
+      <NetworkTransportQa />
     </main>
   );
 }
