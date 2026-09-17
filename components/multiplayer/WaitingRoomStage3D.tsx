@@ -178,6 +178,7 @@ export default function WaitingRoomStage3D({
   const mountRef = useRef<HTMLDivElement | null>(null);
   const stageNodesRef = useRef(new Map<string, StageNode>());
   const renderRef = useRef<(() => void) | null>(null);
+  const visibleIdsRef = useRef(new Set<string>());
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
 
   const identityKey = useMemo(
@@ -195,6 +196,7 @@ export default function WaitingRoomStage3D({
 
   useEffect(() => {
     const visibleIds = new Set(visibleParticipants.map(item => item.participantId));
+    visibleIdsRef.current = visibleIds;
     stageNodesRef.current.forEach((node, participantId) => {
       const visible = visibleIds.has(participantId);
       node.actor.visible = visible;
@@ -216,7 +218,6 @@ export default function WaitingRoomStage3D({
 
     const idleRuntimes: IdleRuntime[] = [];
     const disposableSources: THREE.Object3D[] = [];
-    const initialVisibleIds = new Set(visibleParticipants.map(item => item.participantId));
     stageNodesRef.current.clear();
 
     const scene = new THREE.Scene();
@@ -294,6 +295,8 @@ export default function WaitingRoomStage3D({
       nextAction.setLoop(THREE.LoopRepeat, Infinity);
       nextAction.enabled = true;
       nextAction.clampWhenFinished = false;
+      nextAction.setEffectiveWeight(1);
+      nextAction.setEffectiveTimeScale(1);
       nextAction.play();
 
       runtime.retiringAction?.stop();
@@ -397,7 +400,7 @@ export default function WaitingRoomStage3D({
           actor.position.z += position.z;
           actor.rotation.y = position.rotationY;
           actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
-          actor.visible = initialVisibleIds.has(participant.participantId);
+          actor.visible = visibleIdsRef.current.has(participant.participantId);
           scene.add(actor);
 
           const ringColor = participant.role === "host"
@@ -486,7 +489,7 @@ export default function WaitingRoomStage3D({
           const position = stagePosition(index, participants.length, pageSize);
           actor.position.x = position.x;
           actor.position.z = position.z;
-          actor.visible = initialVisibleIds.has(participant.participantId);
+          actor.visible = visibleIdsRef.current.has(participant.participantId);
           scene.add(actor);
 
           const ring = new THREE.Mesh(
