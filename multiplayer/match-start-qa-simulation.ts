@@ -7,6 +7,7 @@ import {
   createMatchStartSession,
   deriveSharedCountdown,
   issueSharedStartEpoch,
+  markParticipantLoading,
   planMatchAudioStart,
   type MatchStartSession,
 } from "./match-start-protocol";
@@ -150,10 +151,14 @@ export function runP44QaScenario(scenarioId: P44QaScenarioId): P44QaScenarioResu
     for (const participant of manifest.participants.slice(0, -1)) {
       session = ackParticipant(session, participant.participantId);
     }
-    const pass = !allClientsLoaded(session) && session.startAtServerMs === null;
+    const delayedParticipant = manifest.participants.at(-1)!;
+    session = markParticipantLoading(session, delayedParticipant.participantId);
+    const pass = !allClientsLoaded(session)
+      && session.startAtServerMs === null
+      && session.participants.find(item => item.participantId === delayedParticipant.participantId)?.state === "loading";
     return baseResult(scenarioId, "B. One client delayed", session, {
       pass,
-      detail: "One active participant remains IDLE, so the allClientsLoaded gate blocks clock sampling and epoch issue.",
+      detail: "One active participant remains LOADING, so the allClientsLoaded gate blocks clock sampling and epoch issue.",
     });
   }
 
