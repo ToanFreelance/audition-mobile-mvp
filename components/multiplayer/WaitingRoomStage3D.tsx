@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
-import { HUMAN_ANIMATION_LIBRARY_URL, HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
+import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import type { RoomParticipant } from "../../multiplayer/types";
 import styles from "./WaitingRoomStage3D.module.css";
 
@@ -19,6 +19,7 @@ function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
   const textures = new Set<THREE.Texture>();
+
   root.traverse(object => {
     const mesh = object as THREE.Mesh;
     if (!mesh.isMesh) return;
@@ -27,9 +28,12 @@ function disposeObject(root: THREE.Object3D) {
     for (const material of meshMaterials) {
       if (!material) continue;
       materials.add(material);
-      for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
+      for (const value of Object.values(material)) {
+        if (value instanceof THREE.Texture) textures.add(value);
+      }
     }
   });
+
   textures.forEach(texture => texture.dispose());
   materials.forEach(material => material.dispose());
   geometries.forEach(geometry => geometry.dispose());
@@ -39,9 +43,13 @@ function normalizeModel(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
   const bounds = new THREE.Box3().setFromObject(model);
   const size = bounds.getSize(new THREE.Vector3());
-  if (!(size.y > 0) || !Number.isFinite(size.y)) throw new Error("Waiting-room character has invalid bounds.");
-  model.scale.multiplyScalar(3.7 / size.y);
+  if (!(size.y > 0) || !Number.isFinite(size.y)) {
+    throw new Error("Waiting-room character has invalid bounds.");
+  }
+
+  model.scale.multiplyScalar(4.05 / size.y);
   model.updateMatrixWorld(true);
+
   const scaledBounds = new THREE.Box3().setFromObject(model);
   const center = scaledBounds.getCenter(new THREE.Vector3());
   model.position.x -= center.x;
@@ -52,14 +60,22 @@ function normalizeModel(model: THREE.Object3D) {
 
 function tintActor(actor: THREE.Object3D, participant: RoomParticipant, index: number) {
   const tint = new THREE.Color(
-    participant.role === "host" ? 0x7eb8ff : participant.kind === "bot" ? 0x75e7c0 : index % 2 ? 0xff9acb : 0xba9cff,
+    participant.role === "host"
+      ? 0x7eb8ff
+      : participant.kind === "bot"
+        ? 0x75e7c0
+        : index % 2
+          ? 0xff9acb
+          : 0xba9cff,
   );
+
   const cloneMaterial = (material: THREE.Material) => {
     const next = material.clone();
     const colored = next as THREE.Material & { color?: THREE.Color };
-    colored.color?.lerp(tint, 0.18);
+    colored.color?.lerp(tint, 0.12);
     return next;
   };
+
   actor.traverse(object => {
     const mesh = object as THREE.Mesh;
     if (!mesh.isMesh) return;
@@ -76,12 +92,15 @@ function fallbackActor(female: boolean) {
     roughness: 0.72,
     metalness: 0.04,
   });
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(female ? 0.38 : 0.44, 1.75, 5, 10), material);
-  body.position.y = 1.4;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 16, 12), material);
-  head.position.y = 2.82;
+  const body = new THREE.Mesh(
+    new THREE.CapsuleGeometry(female ? 0.36 : 0.41, 1.7, 5, 10),
+    material,
+  );
+  body.position.y = 1.42;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 12), material);
+  head.position.y = 2.76;
   root.add(body, head);
-  root.scale.setScalar(1.2);
+  root.scale.setScalar(1.18);
   return root;
 }
 
@@ -89,6 +108,11 @@ function statusLabel(participant: RoomParticipant) {
   if (participant.role === "host") return "HOST";
   if (participant.kind === "bot") return "READY";
   return participant.readyState === "ready" ? "READY" : "NOT READY";
+}
+
+function statusClass(participant: RoomParticipant) {
+  if (participant.role === "host") return styles.host;
+  return statusLabel(participant) === "READY" ? styles.ready : styles.notReady;
 }
 
 function levelFor(participant: RoomParticipant) {
@@ -99,13 +123,6 @@ function levelFor(participant: RoomParticipant) {
 
 function isFemale(participant: RoomParticipant) {
   return participant.avatar.characterId.toLowerCase().includes("female");
-}
-
-function findStandingIdle(clips: readonly THREE.AnimationClip[]) {
-  const normalize = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "_");
-  return clips.find(clip => normalize(clip.name).endsWith("idle_loop"))
-    ?? clips.find(clip => normalize(clip.name) === "idle_loop")
-    ?? null;
 }
 
 export default function WaitingRoomStage3D({ participants }: Props) {
@@ -119,46 +136,57 @@ export default function WaitingRoomStage3D({ participants }: Props) {
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
+
     let disposed = false;
-    const mixers: THREE.AnimationMixer[] = [];
     const disposableSources: THREE.Object3D[] = [];
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 100);
-    camera.position.set(0, 3.2, 10.4);
-    camera.lookAt(0, 1.82, 0);
+    const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+    camera.position.set(0, 2.95, 9.25);
+    camera.lookAt(0, 1.95, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true,
+      powerPreference: "high-performance",
+    });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xc8d4ff, 0x190b36, 2.3));
-    const key = new THREE.DirectionalLight(0xffffff, 2.45);
+    scene.add(new THREE.HemisphereLight(0xc8d4ff, 0x190b36, 2.15));
+    const key = new THREE.DirectionalLight(0xffffff, 2.4);
     key.position.set(2.4, 6.2, 5.3);
     scene.add(key);
-    const magenta = new THREE.PointLight(0xff46ca, 8.5, 13, 2);
+
+    const magenta = new THREE.PointLight(0xff46ca, 7.5, 13, 2);
     magenta.position.set(-4.2, 4.6, 1.2);
     scene.add(magenta);
-    const cyan = new THREE.PointLight(0x4bdcff, 8.5, 13, 2);
+
+    const cyan = new THREE.PointLight(0x4bdcff, 7.5, 13, 2);
     cyan.position.set(4.2, 4.6, 1.2);
     scene.add(cyan);
 
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(5.8, 64),
-      new THREE.MeshStandardMaterial({ color: 0x11194a, roughness: 0.48, metalness: 0.28 }),
+      new THREE.CircleGeometry(5.5, 64),
+      new THREE.MeshStandardMaterial({ color: 0x11194a, roughness: 0.5, metalness: 0.24 }),
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.set(0, -0.03, 0.15);
+    floor.position.set(0, -0.03, 0.2);
     scene.add(floor);
 
     participants.forEach((participant, index) => {
       const centered = index - (participants.length - 1) / 2;
       const ringColor = participant.role === "host" ? 0x42dfff : index % 2 ? 0xff4fcf : 0x63efad;
       const ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.78, 0.87, 48),
-        new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.92, side: THREE.DoubleSide }),
+        new THREE.RingGeometry(0.78, 0.86, 48),
+        new THREE.MeshBasicMaterial({
+          color: ringColor,
+          transparent: true,
+          opacity: 0.9,
+          side: THREE.DoubleSide,
+        }),
       );
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(centered * 2.25, 0.02, Math.abs(centered) * 0.12);
@@ -181,61 +209,63 @@ export default function WaitingRoomStage3D({ participants }: Props) {
     const needsMale = participants.some(participant => !isFemale(participant));
     const malePromise = needsMale ? loader.loadAsync(HUMAN_CHARACTER_ASSET_URL) : Promise.resolve(null);
     const femalePromise = needsFemale ? loader.loadAsync(FEMALE_CHARACTER_ASSET_URL) : Promise.resolve(null);
-    const animationPromise = loader.loadAsync(HUMAN_ANIMATION_LIBRARY_URL).catch(() => null);
 
-    void Promise.all([malePromise, femalePromise, animationPromise]).then(([maleGltf, femaleGltf, animationGltf]) => {
-      if (disposed) {
-        if (maleGltf) disposeObject(maleGltf.scene);
-        if (femaleGltf) disposeObject(femaleGltf.scene);
-        if (animationGltf) disposeObject(animationGltf.scene);
-        return;
-      }
-
-      const maleSource = maleGltf?.scene ?? null;
-      const femaleSource = femaleGltf?.scene ?? null;
-      if (maleSource) { normalizeModel(maleSource); disposableSources.push(maleSource); }
-      if (femaleSource) { normalizeModel(femaleSource); disposableSources.push(femaleSource); }
-      if (animationGltf) disposableSources.push(animationGltf.scene);
-
-      const idleClip = findStandingIdle(animationGltf?.animations ?? []);
-      let usedFallback = false;
-
-      participants.forEach((participant, index) => {
-        const female = isFemale(participant);
-        const source = female ? femaleSource : maleSource;
-        const actor = source ? cloneSkeleton(source) : fallbackActor(female);
-        if (!source) usedFallback = true;
-        tintActor(actor, participant, index);
-        const centered = index - (participants.length - 1) / 2;
-        actor.position.x += centered * 2.25;
-        actor.position.z += Math.abs(centered) * 0.12;
-        actor.rotation.y = centered * -0.06;
-        actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
-        scene.add(actor);
-
-        if (idleClip && source) {
-          const mixer = new THREE.AnimationMixer(actor);
-          const action = mixer.clipAction(idleClip);
-          action.reset().play();
-          mixer.update(0.95 + index * 0.17);
-          mixers.push(mixer);
+    void Promise.all([malePromise, femalePromise])
+      .then(([maleGltf, femaleGltf]) => {
+        if (disposed) {
+          if (maleGltf) disposeObject(maleGltf.scene);
+          if (femaleGltf) disposeObject(femaleGltf.scene);
+          return;
         }
-      });
 
-      render();
-      setLoadState(usedFallback ? "fallback" : "ready");
-    }).catch(() => {
-      if (disposed) return;
-      participants.forEach((participant, index) => {
-        const actor = fallbackActor(isFemale(participant));
-        tintActor(actor, participant, index);
-        const centered = index - (participants.length - 1) / 2;
-        actor.position.x = centered * 2.25;
-        scene.add(actor);
+        const maleSource = maleGltf?.scene ?? null;
+        const femaleSource = femaleGltf?.scene ?? null;
+        if (maleSource) {
+          normalizeModel(maleSource);
+          disposableSources.push(maleSource);
+        }
+        if (femaleSource) {
+          normalizeModel(femaleSource);
+          disposableSources.push(femaleSource);
+        }
+
+        let usedFallback = false;
+
+        participants.forEach((participant, index) => {
+          const female = isFemale(participant);
+          const source = female ? femaleSource : maleSource;
+          const actor = source ? cloneSkeleton(source) : fallbackActor(female);
+          if (!source) usedFallback = true;
+
+          // Waiting room deliberately uses the GLB bind/rest pose. Do not sample an
+          // animation clip here: a frozen idle frame can be crouched and is not a
+          // stable room presentation contract.
+          tintActor(actor, participant, index);
+          const centered = index - (participants.length - 1) / 2;
+          actor.position.x += centered * 2.25;
+          actor.position.z += Math.abs(centered) * 0.12;
+          actor.rotation.y = centered * -0.055;
+          actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
+          scene.add(actor);
+        });
+
+        render();
+        setLoadState(usedFallback ? "fallback" : "ready");
+      })
+      .catch(() => {
+        if (disposed) return;
+
+        participants.forEach((participant, index) => {
+          const actor = fallbackActor(isFemale(participant));
+          tintActor(actor, participant, index);
+          const centered = index - (participants.length - 1) / 2;
+          actor.position.x = centered * 2.25;
+          scene.add(actor);
+        });
+
+        render();
+        setLoadState("fallback");
       });
-      render();
-      setLoadState("fallback");
-    });
 
     const observer = new ResizeObserver(render);
     observer.observe(mount);
@@ -244,7 +274,6 @@ export default function WaitingRoomStage3D({ participants }: Props) {
     return () => {
       disposed = true;
       observer.disconnect();
-      mixers.forEach(mixer => mixer.stopAllAction());
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
       renderer.dispose();
@@ -257,23 +286,24 @@ export default function WaitingRoomStage3D({ participants }: Props) {
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
         <span className={styles.lightBarRight} />
-        <div className={styles.brand}><strong>AUDITION</strong><small>DANCE TOGETHER</small></div>
+        <div className={styles.brand}>
+          <strong>AUDITION</strong>
+          <small>DANCE TOGETHER</small>
+        </div>
       </div>
       <div className={styles.canvas} ref={mountRef} />
-      <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
+      <div className={styles.badge}>
+        {loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}
+      </div>
       <div className={styles.labels}>
-        {participants.map(participant => {
-          const state = statusLabel(participant);
-          const stateClass = state === "HOST" ? styles.hostState : state === "READY" ? styles.ready : styles.notReady;
-          return (
-            <div className={styles.label} key={participant.participantId}>
-              <span>{participant.role === "host" ? "♛" : ""}</span>
-              <strong>{participant.displayName}</strong>
-              <small>Lv. {levelFor(participant)}</small>
-              <b className={stateClass}>{state}</b>
-            </div>
-          );
-        })}
+        {participants.map(participant => (
+          <div className={styles.label} key={participant.participantId}>
+            <span>{participant.role === "host" ? "♛" : ""}</span>
+            <strong>{participant.displayName}</strong>
+            <small>Lv. {levelFor(participant)}</small>
+            <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+          </div>
+        ))}
       </div>
       <p className={styles.note}>Kéo ngang để xem khu vực khác</p>
     </div>
