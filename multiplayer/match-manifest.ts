@@ -1,5 +1,5 @@
 import { canStartRoom, occupiedParticipants } from "./room-state";
-import type { MatchManifest, MatchParticipantSnapshot, RoomState } from "./types";
+import type { AvatarSnapshot, MatchManifest, MatchParticipantSnapshot, RoomState } from "./types";
 
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
@@ -7,6 +7,16 @@ function deepFreeze<T>(value: T): T {
     for (const nested of Object.values(value as Record<string, unknown>)) deepFreeze(nested);
   }
   return value;
+}
+
+function cloneAvatar(avatar: AvatarSnapshot): AvatarSnapshot {
+  return {
+    characterId: avatar.characterId,
+    outfit: { ...avatar.outfit },
+    accessoryIds: [...avatar.accessoryIds],
+    petId: avatar.petId,
+    titleId: avatar.titleId,
+  };
 }
 
 export function createMatchManifest(room: RoomState, input: {
@@ -33,7 +43,7 @@ export function createMatchManifest(room: RoomState, input: {
     kind: participant.kind,
     role: participant.role,
     slotIndex: participant.slotIndex,
-    avatar: participant.avatar,
+    avatar: cloneAvatar(participant.avatar),
     ...(participant.kind === "bot" ? { botProfile: participant.botProfile } : {}),
   }));
 

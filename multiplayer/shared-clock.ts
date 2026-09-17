@@ -53,9 +53,11 @@ export function measureClockSyncSample(sample: ClockSyncSample): ClockSyncSample
 
   // NTP-style four-timestamp estimate. Server processing time is removed from
   // RTT; network asymmetry remains the bounded source of offset error.
-  const roundTripMs = Math.max(0,
-    (sample.clientReceiveMonotonicMs - sample.clientSendMonotonicMs)
-      - (sample.serverSendMs - sample.serverReceiveMs));
+  const roundTripMs = (sample.clientReceiveMonotonicMs - sample.clientSendMonotonicMs)
+    - (sample.serverSendMs - sample.serverReceiveMs);
+  if (roundTripMs < 0) {
+    throw new Error("Clock-sync sample has impossible negative network RTT.");
+  }
   const offsetMs = (
     (sample.serverReceiveMs - sample.clientSendMonotonicMs)
       + (sample.serverSendMs - sample.clientReceiveMonotonicMs)

@@ -107,8 +107,9 @@ test.describe("P4.1 room domain", () => {
     expect(room.participants.find(item => item.participantId === "guest")?.readyState).toBe("not-ready");
   });
 
-  test("MatchManifest freezes one eligible room revision and avatar-bearing participant snapshot", () => {
+  test("MatchManifest freezes an isolated avatar-bearing snapshot without freezing room state", () => {
     const room = addParticipant(roomWithSong(), bot(1));
+    const roomAvatar = room.participants[0].avatar;
     const manifest = createMatchManifest(room, {
       matchId: "match",
       audioVersion: "audio-v1",
@@ -125,8 +126,15 @@ test.describe("P4.1 room domain", () => {
     expect(manifest.roomRevision).toBe(room.revision);
     expect(manifest.participants).toHaveLength(2);
     expect(manifest.participants[0].avatar.characterId).toBe("qa");
+    expect(manifest.participants[0].avatar).not.toBe(roomAvatar);
+    expect(manifest.participants[0].avatar.outfit).not.toBe(roomAvatar.outfit);
+    expect(manifest.participants[0].avatar.accessoryIds).not.toBe(roomAvatar.accessoryIds);
     expect(Object.isFrozen(manifest)).toBe(true);
     expect(Object.isFrozen(manifest.gameplay)).toBe(true);
     expect(Object.isFrozen(manifest.participants)).toBe(true);
+    expect(Object.isFrozen(manifest.participants[0].avatar)).toBe(true);
+    expect(Object.isFrozen(roomAvatar)).toBe(false);
+    expect(Object.isFrozen(roomAvatar.outfit)).toBe(false);
+    expect(Object.isFrozen(roomAvatar.accessoryIds)).toBe(false);
   });
 });

@@ -22,6 +22,35 @@ test("NTP-style clock sample removes server processing time", () => {
   expect(metrics.offsetMs).toBeCloseTo(110, 8);
 });
 
+test("impossible negative network RTT samples are rejected instead of winning best-sample selection", () => {
+  expect(() => measureClockSyncSample({
+    clientSendMonotonicMs: 1_000,
+    serverReceiveMs: 1_100,
+    serverSendMs: 1_200,
+    clientReceiveMonotonicMs: 1_050,
+  })).toThrow("Clock-sync sample has impossible negative network RTT");
+});
+
+test("asymmetric one-way latency exposes the expected bounded offset bias", () => {
+  const outboundHeavy = measureClockSyncSample({
+    clientSendMonotonicMs: 1_000,
+    serverReceiveMs: 1_210,
+    serverSendMs: 1_215,
+    clientReceiveMonotonicMs: 1_105,
+  });
+  const inboundHeavy = measureClockSyncSample({
+    clientSendMonotonicMs: 1_000,
+    serverReceiveMs: 1_130,
+    serverSendMs: 1_135,
+    clientReceiveMonotonicMs: 1_105,
+  });
+
+  expect(outboundHeavy.roundTripMs).toBe(100);
+  expect(inboundHeavy.roundTripMs).toBe(100);
+  expect(outboundHeavy.offsetMs).toBe(160); // true offset 120ms + 40ms path asymmetry bias
+  expect(inboundHeavy.offsetMs).toBe(80); // true offset 120ms - 40ms path asymmetry bias
+});
+
 test("offset estimator prefers low-RTT samples and uses their median", () => {
   const estimate = estimateServerClockOffset([
     { clientSendMonotonicMs: 0, serverReceiveMs: 160, serverSendMs: 162, clientReceiveMonotonicMs: 102 },
@@ -33,7 +62,7 @@ test("offset estimator prefers low-RTT samples and uses their median", () => {
 
   expect(estimate.selectedSampleCount).toBe(3);
   expect(estimate.maxSelectedRoundTripMs).toBe(100);
-  expect(estimate.offsetMs).toBeCloseTo(104, 8);
+  expect(estimate.offsetMs).toBeCloseTo(105, 8);
 });
 
 test("one immutable server epoch maps to a future AudioContext start without moving the epoch", () => {
