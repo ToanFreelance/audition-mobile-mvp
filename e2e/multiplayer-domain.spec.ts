@@ -107,14 +107,20 @@ test.describe("P4.1 room domain", () => {
     expect(room.participants.find(item => item.participantId === "guest")?.readyState).toBe("not-ready");
   });
 
-  test("MatchManifest freezes an isolated avatar-bearing snapshot without freezing room state", () => {
+  test("MatchManifest freezes an isolated avatar/content snapshot without freezing room state", () => {
     const room = addParticipant(roomWithSong(), bot(1));
     const roomAvatar = room.participants[0].avatar;
     const manifest = createMatchManifest(room, {
       matchId: "match",
       audioVersion: "audio-v1",
+      audioHash: "sha256:audio-v1",
       chartVersion: "chart-v1",
+      chartHash: "sha256:chart-v1",
+      characterRuntimeVersion: "character-runtime-v1",
       animationReleaseVersion: 3,
+      animationReleaseHash: "sha256:animation-release-v3",
+      gameplayConfigVersion: "solo-easy-v1",
+      gameplayConfigHash: "sha256:solo-easy-v1",
       seed: 123,
       bpmExact: 101.0504,
       spaceStartMs: 10083,
@@ -125,12 +131,17 @@ test.describe("P4.1 room domain", () => {
 
     expect(manifest.roomRevision).toBe(room.revision);
     expect(manifest.participants).toHaveLength(2);
+    expect(manifest.content.audioHash).toBe("sha256:audio-v1");
+    expect(manifest.content.chartHash).toBe("sha256:chart-v1");
+    expect(manifest.gameplay.configVersion).toBe("solo-easy-v1");
+    expect(manifest.gameplay.configHash).toBe("sha256:solo-easy-v1");
     expect(manifest.participants[0].avatar.characterId).toBe("qa");
     expect(manifest.participants[0].avatar).not.toBe(roomAvatar);
     expect(manifest.participants[0].avatar.outfit).not.toBe(roomAvatar.outfit);
     expect(manifest.participants[0].avatar.accessoryIds).not.toBe(roomAvatar.accessoryIds);
     expect(Object.isFrozen(manifest)).toBe(true);
     expect(Object.isFrozen(manifest.gameplay)).toBe(true);
+    expect(Object.isFrozen(manifest.content)).toBe(true);
     expect(Object.isFrozen(manifest.participants)).toBe(true);
     expect(Object.isFrozen(manifest.participants[0].avatar)).toBe(true);
     expect(Object.isFrozen(roomAvatar)).toBe(false);

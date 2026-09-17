@@ -86,10 +86,16 @@ export type MatchManifest = {
   content: {
     songId: string;
     audioVersion: string;
+    audioHash: string;
     chartVersion: string;
+    chartHash: string;
+    characterRuntimeVersion: string;
     animationReleaseVersion: number;
+    animationReleaseHash: string;
   };
   gameplay: {
+    configVersion: string;
+    configHash: string;
     modeId: string;
     seed: number;
     bpmExact: number;
