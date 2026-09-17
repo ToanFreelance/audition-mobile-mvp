@@ -9,7 +9,9 @@ import { loadPublishedDanceRelease } from "../character/published-animation-libr
 import type { RoomParticipant } from "../../multiplayer/types";
 import {
   selectParticipantIdleClipByIndex,
+  selectParticipantIdleHoldSeconds,
   selectParticipantIdlePhaseSeconds,
+  selectParticipantNextIdleIndex,
   selectRoomParticipantIdleIndices,
 } from "./lobby-idle-selection";
 import styles from "./WaitingRoomStage3D.module.css";
@@ -17,6 +19,25 @@ import styles from "./WaitingRoomStage3D.module.css";
 type Props = {
   participants: readonly RoomParticipant[];
   roomId: string;
+  pageIndex: number;
+  pageSize?: number;
+};
+
+type StageNode = {
+  actor: THREE.Object3D;
+  ring: THREE.Object3D;
+};
+
+type IdleRuntime = {
+  participantId: string;
+  mixer: THREE.AnimationMixer;
+  currentAction: THREE.AnimationAction;
+  currentIndex: number;
+  transitionOrdinal: number;
+  elapsedSeconds: number;
+  holdSeconds: number;
+  retiringAction: THREE.AnimationAction | null;
+  retiringSeconds: number;
 };
 
 const FEMALE_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL.replace(
@@ -24,6 +45,7 @@ const FEMALE_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL.replace(
   "UBC_Superhero_Female_FullBody.glb",
 );
 const IDLE_RENDER_FPS = 30;
+const IDLE_CROSSFADE_SECONDS = 0.35;
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -135,13 +157,51 @@ function isFemale(participant: RoomParticipant) {
   return participant.avatar.characterId.toLowerCase().includes("female");
 }
 
-export default function WaitingRoomStage3D({ participants, roomId }: Props) {
+function stagePosition(index: number, total: number, pageSize: number) {
+  const pageStart = Math.floor(index / pageSize) * pageSize;
+  const localIndex = index - pageStart;
+  const localCount = Math.min(pageSize, total - pageStart);
+  const centered = localIndex - (localCount - 1) / 2;
+  return {
+    x: centered * 2.25,
+    z: Math.abs(centered) * 0.12,
+    rotationY: centered * -0.055,
+  };
+}
+
+export default function WaitingRoomStage3D({
+  participants,
+  roomId,
+  pageIndex,
+  pageSize = 2,
+}: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const stageNodesRef = useRef(new Map<string, StageNode>());
+  const renderRef = useRef<(() => void) | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
+
   const identityKey = useMemo(
     () => `${roomId}|${participants.map(item => `${item.participantId}:${item.avatar.characterId}:${item.slotIndex}`).join("|")}`,
     [participants, roomId],
   );
+  const visibleParticipants = useMemo(
+    () => participants.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize),
+    [pageIndex, pageSize, participants],
+  );
+  const visibleKey = useMemo(
+    () => visibleParticipants.map(item => item.participantId).join("|"),
+    [visibleParticipants],
+  );
+
+  useEffect(() => {
+    const visibleIds = new Set(visibleParticipants.map(item => item.participantId));
+    stageNodesRef.current.forEach((node, participantId) => {
+      const visible = visibleIds.has(participantId);
+      node.actor.visible = visible;
+      node.ring.visible = visible;
+    });
+    renderRef.current?.();
+  }, [visibleKey, visibleParticipants]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -151,8 +211,13 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
     let animationFrame = 0;
     let lastFrameMs = 0;
     let accumulatedMs = 0;
-    const mixers: THREE.AnimationMixer[] = [];
+    let idleClips: readonly THREE.AnimationClip[] = [];
+    let releaseVersion = 0;
+
+    const idleRuntimes: IdleRuntime[] = [];
     const disposableSources: THREE.Object3D[] = [];
+    const initialVisibleIds = new Set(visibleParticipants.map(item => item.participantId));
+    stageNodesRef.current.clear();
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
@@ -190,18 +255,6 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
     floor.position.set(0, -0.03, 0.2);
     scene.add(floor);
 
-    participants.forEach((participant, index) => {
-      const centered = index - (participants.length - 1) / 2;
-      const ringColor = participant.role === "host" ? 0x42dfff : index % 2 ? 0xff4fcf : 0x63efad;
-      const ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.78, 0.86, 48),
-        new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
-      );
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.set(centered * 2.25, 0.02, Math.abs(centered) * 0.12);
-      scene.add(ring);
-    });
-
     const render = () => {
       const width = Math.max(1, mount.clientWidth);
       const height = Math.max(1, mount.clientHeight);
@@ -210,9 +263,65 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
       camera.updateProjectionMatrix();
       renderer.render(scene, camera);
     };
+    renderRef.current = render;
+
+    const switchIdleIfNeeded = (runtime: IdleRuntime, deltaSeconds: number) => {
+      if (runtime.retiringAction) {
+        runtime.retiringSeconds -= deltaSeconds;
+        if (runtime.retiringSeconds <= 0) {
+          runtime.retiringAction.stop();
+          runtime.retiringAction = null;
+        }
+      }
+
+      runtime.elapsedSeconds += deltaSeconds;
+      if (idleClips.length <= 1 || runtime.elapsedSeconds < runtime.holdSeconds) return;
+
+      const nextOrdinal = runtime.transitionOrdinal + 1;
+      const nextIndex = selectParticipantNextIdleIndex(
+        runtime.participantId,
+        idleClips.length,
+        releaseVersion,
+        roomId,
+        nextOrdinal,
+        runtime.currentIndex,
+      );
+      const nextClip = selectParticipantIdleClipByIndex(idleClips, nextIndex);
+      if (!nextClip) return;
+
+      const nextAction = runtime.mixer.clipAction(nextClip);
+      nextAction.reset();
+      nextAction.setLoop(THREE.LoopRepeat, Infinity);
+      nextAction.enabled = true;
+      nextAction.clampWhenFinished = false;
+      nextAction.play();
+
+      runtime.retiringAction?.stop();
+      runtime.currentAction.crossFadeTo(nextAction, IDLE_CROSSFADE_SECONDS, false);
+      runtime.retiringAction = runtime.currentAction;
+      runtime.retiringSeconds = IDLE_CROSSFADE_SECONDS + 0.05;
+      runtime.currentAction = nextAction;
+      runtime.currentIndex = nextIndex;
+      runtime.transitionOrdinal = nextOrdinal;
+      runtime.elapsedSeconds = 0;
+      runtime.holdSeconds = selectParticipantIdleHoldSeconds(
+        runtime.participantId,
+        nextClip.duration,
+        releaseVersion,
+        roomId,
+        nextOrdinal,
+      );
+
+      console.info("[waiting-room] idle transition", {
+        participantId: runtime.participantId,
+        clipIndex: nextIndex,
+        clipName: nextClip.name,
+        transitionOrdinal: nextOrdinal,
+      });
+    };
 
     const startIdleLoop = () => {
-      if (mixers.length === 0 || animationFrame) return;
+      if (idleRuntimes.length === 0 || animationFrame) return;
       const minFrameMs = 1000 / IDLE_RENDER_FPS;
       const tick = (nowMs: number) => {
         if (disposed) return;
@@ -228,7 +337,11 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
         if (accumulatedMs < minFrameMs) return;
         const deltaSeconds = accumulatedMs / 1000;
         accumulatedMs = 0;
-        mixers.forEach(mixer => mixer.update(deltaSeconds));
+
+        idleRuntimes.forEach(runtime => {
+          runtime.mixer.update(deltaSeconds);
+          switchIdleIfNeeded(runtime, deltaSeconds);
+        });
         render();
       };
       animationFrame = requestAnimationFrame(tick);
@@ -262,8 +375,8 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
           disposableSources.push(femaleSource);
         }
 
-        const idleClips = published?.idleSourceClips ?? [];
-        const releaseVersion = published?.info.releaseVersion ?? 0;
+        idleClips = published?.idleSourceClips ?? [];
+        releaseVersion = published?.info.releaseVersion ?? 0;
         const idleIndexByParticipant = selectRoomParticipantIdleIndices(
           participants,
           idleClips.length,
@@ -279,12 +392,34 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
           if (!source) usedFallback = true;
 
           tintActor(actor, participant, index);
-          const centered = index - (participants.length - 1) / 2;
-          actor.position.x += centered * 2.25;
-          actor.position.z += Math.abs(centered) * 0.12;
-          actor.rotation.y = centered * -0.055;
+          const position = stagePosition(index, participants.length, pageSize);
+          actor.position.x += position.x;
+          actor.position.z += position.z;
+          actor.rotation.y = position.rotationY;
           actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
+          actor.visible = initialVisibleIds.has(participant.participantId);
           scene.add(actor);
+
+          const ringColor = participant.role === "host"
+            ? 0x42dfff
+            : index % 2
+              ? 0xff4fcf
+              : 0x63efad;
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.78, 0.86, 48),
+            new THREE.MeshBasicMaterial({
+              color: ringColor,
+              transparent: true,
+              opacity: 0.9,
+              side: THREE.DoubleSide,
+            }),
+          );
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.set(position.x, 0.02, position.z);
+          ring.visible = actor.visible;
+          scene.add(ring);
+
+          stageNodesRef.current.set(participant.participantId, { actor, ring });
 
           if (source && idleClips.length > 0) {
             const idleIndex = idleIndexByParticipant.get(participant.participantId) ?? -1;
@@ -304,7 +439,25 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
                 roomId,
               );
               mixer.update(0);
-              mixers.push(mixer);
+
+              idleRuntimes.push({
+                participantId: participant.participantId,
+                mixer,
+                currentAction: action,
+                currentIndex: idleIndex,
+                transitionOrdinal: 0,
+                elapsedSeconds: 0,
+                holdSeconds: selectParticipantIdleHoldSeconds(
+                  participant.participantId,
+                  idleClip.duration,
+                  releaseVersion,
+                  roomId,
+                  0,
+                ),
+                retiringAction: null,
+                retiringSeconds: 0,
+              });
+
               console.info("[waiting-room] idle assignment", {
                 participantId: participant.participantId,
                 clipIndex: idleIndex,
@@ -330,9 +483,26 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
         participants.forEach((participant, index) => {
           const actor = fallbackActor(isFemale(participant));
           tintActor(actor, participant, index);
-          const centered = index - (participants.length - 1) / 2;
-          actor.position.x = centered * 2.25;
+          const position = stagePosition(index, participants.length, pageSize);
+          actor.position.x = position.x;
+          actor.position.z = position.z;
+          actor.visible = initialVisibleIds.has(participant.participantId);
           scene.add(actor);
+
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.78, 0.86, 48),
+            new THREE.MeshBasicMaterial({
+              color: participant.role === "host" ? 0x42dfff : 0x63efad,
+              transparent: true,
+              opacity: 0.9,
+              side: THREE.DoubleSide,
+            }),
+          );
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.set(position.x, 0.02, position.z);
+          ring.visible = actor.visible;
+          scene.add(ring);
+          stageNodesRef.current.set(participant.participantId, { actor, ring });
         });
 
         render();
@@ -347,13 +517,15 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
       disposed = true;
       if (animationFrame) cancelAnimationFrame(animationFrame);
       observer.disconnect();
-      mixers.forEach(mixer => mixer.stopAllAction());
+      idleRuntimes.forEach(runtime => runtime.mixer.stopAllAction());
+      renderRef.current = null;
+      stageNodesRef.current.clear();
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [identityKey, roomId]);
+  }, [identityKey, pageSize, roomId]);
 
   return (
     <div className={styles.stage}>
@@ -368,7 +540,7 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
       <div className={styles.canvas} ref={mountRef} />
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
       <div className={styles.labels}>
-        {participants.map(participant => (
+        {visibleParticipants.map(participant => (
           <div className={styles.label} key={participant.participantId}>
             <span>{participant.role === "host" ? "♛" : ""}</span>
             <strong>{participant.displayName}</strong>
