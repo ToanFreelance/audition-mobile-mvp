@@ -5,7 +5,9 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
+import { loadPublishedDanceRelease } from "../character/published-animation-library";
 import type { RoomParticipant } from "../../multiplayer/types";
+import { selectParticipantIdleClip, selectParticipantIdlePhaseSeconds } from "./lobby-idle-selection";
 import styles from "./WaitingRoomStage3D.module.css";
 
 type Props = { participants: readonly RoomParticipant[] };
@@ -14,6 +16,7 @@ const FEMALE_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL.replace(
   "UBC_Superhero_Male_FullBody.glb",
   "UBC_Superhero_Female_FullBody.glb",
 );
+const IDLE_RENDER_FPS = 30;
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -138,6 +141,10 @@ export default function WaitingRoomStage3D({ participants }: Props) {
     if (!mount) return;
 
     let disposed = false;
+    let animationFrame = 0;
+    let lastFrameMs = 0;
+    let accumulatedMs = 0;
+    const mixers: THREE.AnimationMixer[] = [];
     const disposableSources: THREE.Object3D[] = [];
 
     const scene = new THREE.Scene();
@@ -181,12 +188,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
       const ringColor = participant.role === "host" ? 0x42dfff : index % 2 ? 0xff4fcf : 0x63efad;
       const ring = new THREE.Mesh(
         new THREE.RingGeometry(0.78, 0.86, 48),
-        new THREE.MeshBasicMaterial({
-          color: ringColor,
-          transparent: true,
-          opacity: 0.9,
-          side: THREE.DoubleSide,
-        }),
+        new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.9, side: THREE.DoubleSide }),
       );
       ring.rotation.x = -Math.PI / 2;
       ring.position.set(centered * 2.25, 0.02, Math.abs(centered) * 0.12);
@@ -202,6 +204,29 @@ export default function WaitingRoomStage3D({ participants }: Props) {
       renderer.render(scene, camera);
     };
 
+    const startIdleLoop = () => {
+      if (mixers.length === 0 || animationFrame) return;
+      const minFrameMs = 1000 / IDLE_RENDER_FPS;
+      const tick = (nowMs: number) => {
+        if (disposed) return;
+        animationFrame = requestAnimationFrame(tick);
+        if (document.hidden) {
+          lastFrameMs = nowMs;
+          accumulatedMs = 0;
+          return;
+        }
+        if (!lastFrameMs) lastFrameMs = nowMs;
+        accumulatedMs += Math.min(100, Math.max(0, nowMs - lastFrameMs));
+        lastFrameMs = nowMs;
+        if (accumulatedMs < minFrameMs) return;
+        const deltaSeconds = accumulatedMs / 1000;
+        accumulatedMs = 0;
+        mixers.forEach(mixer => mixer.update(deltaSeconds));
+        render();
+      };
+      animationFrame = requestAnimationFrame(tick);
+    };
+
     const loader = new GLTFLoader();
     setLoadState("loading");
 
@@ -209,9 +234,10 @@ export default function WaitingRoomStage3D({ participants }: Props) {
     const needsMale = participants.some(participant => !isFemale(participant));
     const malePromise = needsMale ? loader.loadAsync(HUMAN_CHARACTER_ASSET_URL) : Promise.resolve(null);
     const femalePromise = needsFemale ? loader.loadAsync(FEMALE_CHARACTER_ASSET_URL) : Promise.resolve(null);
+    const publishedPromise = loadPublishedDanceRelease(true);
 
-    void Promise.all([malePromise, femalePromise])
-      .then(([maleGltf, femaleGltf]) => {
+    void Promise.all([malePromise, femalePromise, publishedPromise])
+      .then(([maleGltf, femaleGltf, published]) => {
         if (disposed) {
           if (maleGltf) disposeObject(maleGltf.scene);
           if (femaleGltf) disposeObject(femaleGltf.scene);
@@ -229,6 +255,8 @@ export default function WaitingRoomStage3D({ participants }: Props) {
           disposableSources.push(femaleSource);
         }
 
+        const idleClips = published?.idleSourceClips ?? [];
+        const releaseVersion = published?.info.releaseVersion ?? 0;
         let usedFallback = false;
 
         participants.forEach((participant, index) => {
@@ -237,9 +265,6 @@ export default function WaitingRoomStage3D({ participants }: Props) {
           const actor = source ? cloneSkeleton(source) : fallbackActor(female);
           if (!source) usedFallback = true;
 
-          // Waiting room deliberately uses the GLB bind/rest pose. Do not sample an
-          // animation clip here: a frozen idle frame can be crouched and is not a
-          // stable room presentation contract.
           tintActor(actor, participant, index);
           const centered = index - (participants.length - 1) / 2;
           actor.position.x += centered * 2.25;
@@ -247,13 +272,35 @@ export default function WaitingRoomStage3D({ participants }: Props) {
           actor.rotation.y = centered * -0.055;
           actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
           scene.add(actor);
+
+          if (source && idleClips.length > 0) {
+            const idleClip = selectParticipantIdleClip(idleClips, participant.participantId, releaseVersion);
+            if (idleClip) {
+              const mixer = new THREE.AnimationMixer(actor);
+              const action = mixer.clipAction(idleClip);
+              action.reset();
+              action.setLoop(THREE.LoopRepeat, Infinity);
+              action.enabled = true;
+              action.clampWhenFinished = false;
+              action.play();
+              action.time = selectParticipantIdlePhaseSeconds(participant.participantId, idleClip.duration, releaseVersion);
+              mixer.update(0);
+              mixers.push(mixer);
+            }
+          }
         });
 
+        if (idleClips.length === 0) {
+          console.info("[waiting-room] published Idle pool is empty; using upright rest pose until an Idle release is published");
+        }
+
         render();
+        startIdleLoop();
         setLoadState(usedFallback ? "fallback" : "ready");
       })
-      .catch(() => {
+      .catch(error => {
         if (disposed) return;
+        console.warn("[waiting-room] character/idle load failed; using fallback actors", error);
 
         participants.forEach((participant, index) => {
           const actor = fallbackActor(isFemale(participant));
@@ -273,7 +320,9 @@ export default function WaitingRoomStage3D({ participants }: Props) {
 
     return () => {
       disposed = true;
+      if (animationFrame) cancelAnimationFrame(animationFrame);
       observer.disconnect();
+      mixers.forEach(mixer => mixer.stopAllAction());
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
       renderer.dispose();
@@ -292,9 +341,7 @@ export default function WaitingRoomStage3D({ participants }: Props) {
         </div>
       </div>
       <div className={styles.canvas} ref={mountRef} />
-      <div className={styles.badge}>
-        {loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}
-      </div>
+      <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
       <div className={styles.labels}>
         {participants.map(participant => (
           <div className={styles.label} key={participant.participantId}>
