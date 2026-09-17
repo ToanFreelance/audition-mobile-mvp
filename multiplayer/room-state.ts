@@ -120,9 +120,15 @@ export function setGuestReady(room: RoomState, participantId: string, ready: boo
   if (participant.role === "host") throw new Error("Host does not have Ready state.");
   if (participant.kind === "bot") throw new Error("Bots are always Ready.");
 
-  const participants = room.participants.map(item => item.participantId === participantId
-    ? { ...item, readyState: ready ? "ready" as const : "not-ready" as const }
-    : item);
+  const participants: RoomParticipant[] = room.participants.map(item => {
+    if (item.participantId !== participantId) return item;
+    if (item.kind !== "human" || item.role !== "guest") return item;
+    const updated: HumanGuestParticipant = {
+      ...item,
+      readyState: ready ? "ready" : "not-ready",
+    };
+    return updated;
+  });
   return bump(room, { participants });
 }
 
