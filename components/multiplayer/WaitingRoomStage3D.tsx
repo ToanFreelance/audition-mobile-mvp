@@ -353,7 +353,7 @@ export default function WaitingRoomStage3D({ participants, roomId }: Props) {
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [identityKey, participants, roomId]);
+  }, [identityKey, roomId]);
 
   return (
     <div className={styles.stage}>
