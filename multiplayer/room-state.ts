@@ -30,6 +30,7 @@ export function createRoomState(input: {
   maxPlayers?: 2 | 3 | 4 | 5 | 6;
   modeId: string;
   selectedSongId?: string | null;
+  selectedStageId?: string;
 }): RoomState {
   const maxPlayers = input.maxPlayers ?? 6;
   if (input.host.slotIndex >= maxPlayers) throw new Error("Host slot must be inside maxPlayers.");
@@ -49,6 +50,7 @@ export function createRoomState(input: {
     maxPlayers,
     modeId: input.modeId,
     selectedSongId: input.selectedSongId ?? null,
+    selectedStageId: input.selectedStageId ?? "studio-81",
     slots,
     participants: [input.host],
     revision: 1,
@@ -137,6 +139,13 @@ export function changeSong(room: RoomState, hostParticipantId: string, songId: s
   if (room.status !== "waiting") throw new Error("Song can only change while waiting.");
   if (room.selectedSongId === songId) return room;
   return bump(room, { selectedSongId: songId, participants: resetHumanGuests(room.participants) });
+}
+
+export function changeStage(room: RoomState, hostParticipantId: string, stageId: string): RoomState {
+  if (hostParticipantId !== room.hostParticipantId) throw new Error("Only the host can change stage.");
+  if (room.status !== "waiting") throw new Error("Stage can only change while waiting.");
+  if (room.selectedStageId === stageId) return room;
+  return bump(room, { selectedStageId: stageId, participants: resetHumanGuests(room.participants) });
 }
 
 export function changeMode(room: RoomState, hostParticipantId: string, modeId: string): RoomState {
