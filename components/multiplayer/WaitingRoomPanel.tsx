@@ -223,26 +223,31 @@ export default function WaitingRoomPanel() {
           </aside>
         )}
 
-        <nav className={styles.viewModeBar} aria-label="Camera view">
-          {(["wide", "center", "close"] as WaitingRoomStageView[]).map(mode => (
-            <button
-              aria-pressed={viewMode === mode}
-              className={viewMode === mode ? styles.viewModeActive : styles.viewModeButton}
-              key={mode}
-              onClick={() => {
-                setViewMode(mode);
-                if (mode === "close" && !selectedParticipantId) {
-                  setSelectedParticipantId(orderedParticipants[0]?.participantId ?? null);
-                }
-              }}
-              type="button"
-            >
-              <span>{mode === "wide" ? "♟♟♟" : mode === "center" ? "♟♟" : "◎"}</span>
-              {mode.toUpperCase()}
-            </button>
-          ))}
-        </nav>
         <section className={styles.stageWrap}>
+          <nav className={styles.viewModeBar} aria-label="Camera view">
+            {(["wide", "center", "close"] as WaitingRoomStageView[]).map(mode => {
+              const label = mode === "wide" ? "Wide view" : mode === "center" ? "Center view" : "Close view";
+              const symbol = mode === "wide" ? "⠿" : mode === "center" ? "◉◉" : "◎";
+              return (
+                <button
+                  aria-label={label}
+                  aria-pressed={viewMode === mode}
+                  className={viewMode === mode ? styles.viewModeActive : styles.viewModeButton}
+                  key={mode}
+                  onClick={() => {
+                    setViewMode(mode);
+                    if (mode === "close" && !selectedParticipantId) {
+                      setSelectedParticipantId(orderedParticipants[0]?.participantId ?? null);
+                    }
+                  }}
+                  title={label}
+                  type="button"
+                >
+                  <span aria-hidden="true">{symbol}</span>
+                </button>
+              );
+            })}
+          </nav>
           <WaitingRoomStage3D
             participants={orderedParticipants}
             slots={room.slots}
