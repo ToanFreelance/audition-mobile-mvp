@@ -226,6 +226,7 @@ export default function WaitingRoomPanel() {
         <section className={styles.stageWrap}>
           <WaitingRoomStage3D
             participants={orderedParticipants}
+            slots={room.slots}
             roomId={room.roomId}
             stageId={room.selectedStageId}
             viewMode={viewMode}
