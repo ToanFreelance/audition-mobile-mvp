@@ -277,7 +277,7 @@ export default function WaitingRoomPanel() {
             const selected = participant?.participantId === selectedParticipantId;
             return (
               <button
-                className={`${styles.slot} ${styles[slot.state]} ${selected ? styles.slotSelected : ""}`}
+                className={`${styles.slot} ${styles[slot.state]} ${participant?.role === "host" ? styles.slotHost : ""} ${selected ? styles.slotSelected : ""}`}
                 disabled={!participant && !hostView}
                 key={slot.slotIndex}
                 onClick={() => participant ? selectParticipant(participant) : toggleSlot(slot.slotIndex)}
