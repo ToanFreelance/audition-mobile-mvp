@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   canStartRoom,
   changeMode,
@@ -11,12 +11,29 @@ import {
   removeParticipant,
   setGuestReady,
 } from "../../multiplayer/room-state";
+import { applyGuestReadyIntent, applyHostRoomSnapshot } from "../../multiplayer/room-sync";
+import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
+import type { RoomTransportStatus } from "../../multiplayer/transport";
 import { createP51WaitingRoomFixture } from "../../multiplayer/waiting-room-qa";
 import type { RoomParticipant, RoomSlotIndex } from "../../multiplayer/types";
 import WaitingRoomStage3D, { type WaitingRoomStageView } from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
 
 type PanelKind = "song" | "stage" | "player" | null;
+type SyncClientRole = "host" | "guest";
+type LobbySyncOptions = {
+  enabled: true;
+  roomId: string;
+  participantId: string;
+  role: SyncClientRole;
+};
+type RealtimeConfig = {
+  transport: "supabase-realtime";
+  protocolVersion: 1;
+  supabaseUrl: string;
+  publishableKey: string;
+};
+
 
 type SongOption = {
   id: string;
@@ -77,6 +94,181 @@ export default function WaitingRoomPanel() {
   const [stageDraft, setStageDraft] = useState(room.selectedStageId);
   const [songSearch, setSongSearch] = useState("");
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [syncOptions, setSyncOptions] = useState<LobbySyncOptions | null>(null);
+  const [syncStatus, setSyncStatus] = useState<RoomTransportStatus>("idle");
+  const [syncDetail, setSyncDetail] = useState<string | null>(null);
+  const [readyIntentPending, setReadyIntentPending] = useState(false);
+  const roomRef = useRef(room);
+  const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
+  const publishedRevisionRef = useRef<number | null>(null);
+
+
+  useEffect(() => {
+    roomRef.current = room;
+  }, [room]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("sync") !== "1") return;
+
+    const role: SyncClientRole = params.get("client") === "guest" ? "guest" : "host";
+    const participantId = role === "guest" ? "p51-guest" : "p51-host";
+    const requestedRoomId = params.get("room")?.trim() || "p53-room";
+    const syncedRoom = createP51WaitingRoomFixture(requestedRoomId);
+
+    setRoom(syncedRoom);
+    roomRef.current = syncedRoom;
+    setViewParticipantId(participantId);
+    setSelectedParticipantId(participantId);
+    setSyncOptions({ enabled: true, roomId: requestedRoomId, participantId, role });
+  }, []);
+
+  useEffect(() => {
+    if (!syncOptions) return;
+
+    let disposed = false;
+    let transport: SupabaseRealtimeRoomTransport | null = null;
+    const cleanups: Array<() => void> = [];
+
+    const sendSnapshot = async (snapshot = roomRef.current) => {
+      if (!transport || transport.status !== "connected") return;
+      await transport.send({
+        kind: "room-snapshot",
+        roomRevision: snapshot.revision,
+        snapshot,
+      });
+    };
+
+    const connect = async () => {
+      try {
+        setSyncStatus("connecting");
+        setSyncDetail("Connecting room realtime…");
+
+        const response = await fetch("/api/multiplayer/realtime-config", { cache: "no-store" });
+        if (!response.ok) throw new Error(`Realtime config failed (${response.status}).`);
+        const config = await response.json() as RealtimeConfig;
+        if (disposed) return;
+
+        const participant = roomRef.current.participants.find(
+          item => item.participantId === syncOptions.participantId,
+        );
+        if (!participant) throw new Error("Local sync participant is not in the room fixture.");
+
+        transport = new SupabaseRealtimeRoomTransport({
+          supabaseUrl: config.supabaseUrl,
+          publishableKey: config.publishableKey,
+          roomId: syncOptions.roomId,
+          presence: {
+            participantId: participant.participantId,
+            displayName: participant.displayName,
+            kind: participant.kind,
+            role: participant.role,
+            roomRevision: roomRef.current.revision,
+          },
+        });
+        transportRef.current = transport;
+
+        cleanups.push(transport.onStatus((status, detail) => {
+          if (disposed) return;
+          setSyncStatus(status);
+          if (detail) setSyncDetail(detail);
+          else if (status === "connected") setSyncDetail("Realtime room synced.");
+        }));
+
+        cleanups.push(transport.onEvent(event => {
+          if (disposed) return;
+          const payload = event.payload;
+
+          if (payload.kind === "room-snapshot" && syncOptions.role === "guest") {
+            const result = applyHostRoomSnapshot(roomRef.current, event.senderParticipantId, payload);
+            if (!result.accepted) {
+              if (result.reason !== "stale-revision") {
+                setSyncDetail(`Snapshot rejected: ${result.reason}.`);
+              }
+              return;
+            }
+            roomRef.current = result.room;
+            setRoom(result.room);
+            setReadyIntentPending(false);
+            const localStillPresent = result.room.participants.some(
+              item => item.participantId === syncOptions.participantId,
+            );
+            if (!localStillPresent) {
+              setSyncDetail("This participant was removed from the room.");
+            }
+            return;
+          }
+
+          if (payload.kind === "room-sync-request" && syncOptions.role === "host") {
+            void sendSnapshot().catch(error => {
+              setSyncDetail(error instanceof Error ? error.message : "Room snapshot send failed.");
+            });
+            return;
+          }
+
+          if (payload.kind === "guest-ready-intent" && syncOptions.role === "host") {
+            const current = roomRef.current;
+            const result = applyGuestReadyIntent(current, event.senderParticipantId, payload);
+            if (!result.accepted) {
+              setSyncDetail(`Ready intent rejected: ${result.reason}.`);
+              if (result.reason === "stale-revision") {
+                void sendSnapshot(current).catch(() => undefined);
+              }
+              return;
+            }
+            if (result.changed) {
+              roomRef.current = result.room;
+              setRoom(result.room);
+            } else {
+              void sendSnapshot(current).catch(() => undefined);
+            }
+          }
+        }));
+
+        await transport.connect();
+        if (disposed) return;
+
+        if (syncOptions.role === "host") {
+          publishedRevisionRef.current = roomRef.current.revision;
+          await sendSnapshot();
+        } else {
+          await transport.send({
+            kind: "room-sync-request",
+            roomRevision: roomRef.current.revision,
+          });
+        }
+      } catch (error) {
+        if (disposed) return;
+        setSyncStatus("error");
+        setSyncDetail(error instanceof Error ? error.message : "Realtime room sync failed.");
+      }
+    };
+
+    void connect();
+
+    return () => {
+      disposed = true;
+      for (const cleanup of cleanups) cleanup();
+      if (transportRef.current === transport) transportRef.current = null;
+      transport?.disconnect();
+    };
+  }, [syncOptions]);
+
+  useEffect(() => {
+    if (!syncOptions || syncOptions.role !== "host" || syncStatus !== "connected") return;
+    if (publishedRevisionRef.current === room.revision) return;
+    const transport = transportRef.current;
+    if (!transport) return;
+
+    publishedRevisionRef.current = room.revision;
+    void transport.send({
+      kind: "room-snapshot",
+      roomRevision: room.revision,
+      snapshot: room,
+    }).catch(error => {
+      setSyncDetail(error instanceof Error ? error.message : "Room snapshot send failed.");
+    });
+  }, [room, syncOptions, syncStatus]);
 
   const viewer = room.participants.find(item => item.participantId === viewParticipantId) ?? room.participants[0];
   const hostView = viewer.participantId === room.hostParticipantId;
@@ -109,6 +301,24 @@ export default function WaitingRoomPanel() {
 
   const toggleReady = () => {
     if (viewer.kind !== "human" || viewer.role !== "guest") return;
+
+    if (syncOptions) {
+      if (syncOptions.role !== "guest" || viewer.participantId !== syncOptions.participantId) return;
+      const transport = transportRef.current;
+      if (!transport || syncStatus !== "connected" || readyIntentPending) return;
+      setReadyIntentPending(true);
+      void transport.send({
+        kind: "guest-ready-intent",
+        roomRevision: room.revision,
+        participantId: viewer.participantId,
+        ready: viewer.readyState !== "ready",
+      }).catch(error => {
+        setReadyIntentPending(false);
+        setSyncDetail(error instanceof Error ? error.message : "Ready update failed.");
+      });
+      return;
+    }
+
     setRoom(current => setGuestReady(current, viewer.participantId, viewer.readyState !== "ready"));
   };
 
@@ -193,26 +403,35 @@ export default function WaitingRoomPanel() {
           </div>
           <div className={styles.headerRight}>
             <button className={styles.iconButton} onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
-            <small>{hostView ? "Host" : "Guest"}</small>
+            <small>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${syncOptions.role === "host" ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
           </div>
         </header>
 
         {settingsOpen && (
           <aside className={styles.settingsPopover}>
             <strong>ROOM QA</strong>
-            <div className={styles.settingsRow}>
-              <span>View as</span>
-              {room.participants.filter(item => item.kind === "human").map(participant => (
-                <button
-                  className={participant.participantId === viewer.participantId ? styles.settingsSelected : styles.settingsButton}
-                  key={participant.participantId}
-                  onClick={() => setViewParticipantId(participant.participantId)}
-                  type="button"
-                >
-                  {participant.role === "host" ? "HOST" : "GUEST"}
-                </button>
-              ))}
-            </div>
+            {syncOptions ? (
+              <div className={styles.settingsMeta}>
+                <span>Realtime · {syncStatus.toUpperCase()}</span>
+                <span>Client · {syncOptions.role.toUpperCase()}</span>
+                <span>Sync room · {syncOptions.roomId}</span>
+                {syncDetail && <span>{syncDetail}</span>}
+              </div>
+            ) : (
+              <div className={styles.settingsRow}>
+                <span>View as</span>
+                {room.participants.filter(item => item.kind === "human").map(participant => (
+                  <button
+                    className={participant.participantId === viewer.participantId ? styles.settingsSelected : styles.settingsButton}
+                    key={participant.participantId}
+                    onClick={() => setViewParticipantId(participant.participantId)}
+                    type="button"
+                  >
+                    {participant.role === "host" ? "HOST" : "GUEST"}
+                  </button>
+                ))}
+              </div>
+            )}
             {hostView && <button className={styles.settingsAction} onClick={changeModeQa} type="button">Switch mode QA</button>}
             <div className={styles.settingsMeta}>
               <span>Stage · {currentStage.name}</span>
@@ -310,8 +529,13 @@ export default function WaitingRoomPanel() {
         <footer className={`${styles.actions} ${viewer.kind === "human" && viewer.role === "guest" ? styles.actionsGuest : ""}`}>
           <button className={styles.leaveButton} type="button">↪ Rời phòng</button>
           {viewer.kind === "human" && viewer.role === "guest" ? (
-            <button className={viewer.readyState === "ready" ? styles.readyButtonActive : styles.readyButton} onClick={toggleReady} type="button">
-              ✓ {viewer.readyState === "ready" ? "ĐÃ SẴN SÀNG" : "SẴN SÀNG"}
+            <button
+              className={viewer.readyState === "ready" ? styles.readyButtonActive : styles.readyButton}
+              disabled={Boolean(syncOptions && (syncStatus !== "connected" || readyIntentPending))}
+              onClick={toggleReady}
+              type="button"
+            >
+              ✓ {readyIntentPending ? "ĐANG CẬP NHẬT" : viewer.readyState === "ready" ? "ĐÃ SẴN SÀNG" : "SẴN SÀNG"}
             </button>
           ) : (
             <button className={styles.stagePickerButton} onClick={openStagePicker} type="button">
