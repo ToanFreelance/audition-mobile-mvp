@@ -63,6 +63,11 @@ const FEMALE_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL.replace(
 );
 const IDLE_RENDER_FPS = 30;
 const IDLE_CROSSFADE_SECONDS = 0.35;
+const SLOT_ACCENTS = [0x43dfff, 0xff4fcf, 0x69efae, 0xff5fbd, 0xa968ff, 0x56b4ff] as const;
+
+function participantAccent(participant: RoomParticipant) {
+  return SLOT_ACCENTS[participant.slotIndex] ?? 0x43dfff;
+}
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -182,47 +187,87 @@ function centerPosition(index: number, total: number, pageSize: number) {
   return { x: centered * 2.25, z: Math.abs(centered) * 0.12, rotationY: centered * -0.055 };
 }
 
-function createParticipantRing(color: number, pulsePhase: number) {
+function createParticipantRing(color: number, pulsePhase: number, host: boolean) {
   const group = new THREE.Group();
 
-  const floorMaterial = new THREE.MeshBasicMaterial({
+  const underglowMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.075,
+    opacity: 0.045,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  const floorGlow = new THREE.Mesh(new THREE.CircleGeometry(0.72, 64), floorMaterial);
+  const underglow = new THREE.Mesh(new THREE.CircleGeometry(1.08, 40), underglowMaterial);
+  underglow.rotation.x = -Math.PI / 2;
+  underglow.position.y = -0.018;
+
+  const floorMaterial = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.11,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const floorGlow = new THREE.Mesh(new THREE.CircleGeometry(0.76, 40), floorMaterial);
   floorGlow.rotation.x = -Math.PI / 2;
   floorGlow.position.y = -0.006;
 
   const haloMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.24,
+    opacity: 0.22,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  const halo = new THREE.Mesh(new THREE.RingGeometry(0.69, 0.99, 64), haloMaterial);
+  const halo = new THREE.Mesh(new THREE.RingGeometry(0.68, 1.0, 48), haloMaterial);
   halo.rotation.x = -Math.PI / 2;
-  halo.position.y = 0.004;
+  halo.position.y = 0.002;
+
+  const outerMaterial = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.2,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const outer = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.035, 48), outerMaterial);
+  outer.rotation.x = -Math.PI / 2;
+  outer.position.y = 0.008;
 
   const coreMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.96,
+    opacity: 0.94,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
-  const core = new THREE.Mesh(new THREE.RingGeometry(0.79, 0.86, 64), coreMaterial);
+  const core = new THREE.Mesh(new THREE.RingGeometry(0.79, 0.875, 48), coreMaterial);
   core.rotation.x = -Math.PI / 2;
-  core.position.y = 0.012;
+  core.position.y = 0.014;
 
-  group.add(floorGlow, halo, core);
+  const innerMaterial = new THREE.MeshBasicMaterial({
+    color: host ? 0xffd454 : color,
+    transparent: true,
+    opacity: host ? 0.66 : 0.34,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const inner = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.59, 40), innerMaterial);
+  inner.rotation.x = -Math.PI / 2;
+  inner.position.y = 0.018;
+
+  group.add(underglow, floorGlow, halo, outer, core, inner);
   group.userData.pulsePhase = pulsePhase;
+  group.userData.emphasis = host ? 0.55 : 0;
+  group.userData.underglowMaterial = underglowMaterial;
   group.userData.haloMaterial = haloMaterial;
+  group.userData.outerMaterial = outerMaterial;
+  group.userData.coreMaterial = coreMaterial;
   group.userData.floorMaterial = floorMaterial;
   return group;
 }
@@ -307,27 +352,71 @@ export default function WaitingRoomStage3D({
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xc8d4ff, 0x190b36, 2.15));
-    const key = new THREE.DirectionalLight(0xffffff, 2.4);
-    key.position.set(2.4, 6.2, 5.3);
+    scene.add(new THREE.HemisphereLight(0x8ea8ff, 0x050510, 1.18));
+
+    const key = new THREE.DirectionalLight(0xf4f8ff, 2.0);
+    key.position.set(1.6, 6.6, 5.8);
     scene.add(key);
-    const magenta = new THREE.PointLight(0xff46ca, 7.5, 13, 2);
-    magenta.position.set(-4.2, 4.6, 1.2);
-    scene.add(magenta);
-    const cyan = new THREE.PointLight(0x4bdcff, 7.5, 13, 2);
-    cyan.position.set(4.2, 4.6, 1.2);
-    scene.add(cyan);
+
+    const cyanRim = new THREE.SpotLight(0x42dcff, 16, 16, Math.PI / 4.2, 0.72, 1.6);
+    cyanRim.position.set(4.7, 6.1, 2.8);
+    cyanRim.target.position.set(0.7, 1.7, 0);
+    scene.add(cyanRim, cyanRim.target);
+
+    const magentaRim = new THREE.SpotLight(0xff43cc, 15, 16, Math.PI / 4.2, 0.72, 1.6);
+    magentaRim.position.set(-4.7, 5.8, 2.2);
+    magentaRim.target.position.set(-0.7, 1.65, 0);
+    scene.add(magentaRim, magentaRim.target);
+
+    const overhead = new THREE.SpotLight(0xb8c9ff, 12, 15, Math.PI / 5, 0.7, 1.7);
+    overhead.position.set(0, 7.4, 1.1);
+    overhead.target.position.set(0, 1.1, 0);
+    scene.add(overhead, overhead.target);
 
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(5.5, 64),
-      new THREE.MeshStandardMaterial({ color: 0x11194a, roughness: 0.5, metalness: 0.24 }),
+      new THREE.CircleGeometry(5.75, 64),
+      new THREE.MeshStandardMaterial({
+        color: 0x070d27,
+        roughness: 0.24,
+        metalness: 0.58,
+      }),
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.set(0, -0.03, 0.2);
+    floor.position.set(0, -0.045, 0.18);
     scene.add(floor);
+
+    const floorHaloMaterial = new THREE.MeshBasicMaterial({
+      color: 0x395dff,
+      transparent: true,
+      opacity: 0.12,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const floorHalo = new THREE.Mesh(new THREE.RingGeometry(3.55, 5.35, 64), floorHaloMaterial);
+    floorHalo.rotation.x = -Math.PI / 2;
+    floorHalo.position.set(0, -0.027, 0.18);
+    scene.add(floorHalo);
+
+    const runway = new THREE.Mesh(
+      new THREE.PlaneGeometry(5.9, 2.2),
+      new THREE.MeshBasicMaterial({
+        color: 0x4722a8,
+        transparent: true,
+        opacity: 0.09,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    runway.rotation.x = -Math.PI / 2;
+    runway.position.set(0, -0.02, 0.42);
+    scene.add(runway);
 
     for (let slotIndex = 0; slotIndex < 6; slotIndex += 1) {
       const group = new THREE.Group();
@@ -337,9 +426,21 @@ export default function WaitingRoomStage3D({
         opacity: 0.45,
         side: THREE.DoubleSide,
       });
-      const ring = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.83, 48), ringMaterial);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.84, 40), ringMaterial);
       ring.rotation.x = -Math.PI / 2;
-      group.add(ring);
+      ring.position.y = 0.008;
+      const padMaterial = new THREE.MeshBasicMaterial({
+        color: 0x43dfff,
+        transparent: true,
+        opacity: 0.08,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      const pad = new THREE.Mesh(new THREE.CircleGeometry(0.88, 36), padMaterial);
+      pad.rotation.x = -Math.PI / 2;
+      pad.position.y = -0.005;
+      group.add(pad, ring);
 
       const bodyMaterial = new THREE.MeshBasicMaterial({
         color: 0x4fcfff,
@@ -385,13 +486,13 @@ export default function WaitingRoomStage3D({
         if (current.viewMode === "wide") {
           visible = true;
           const centered = participant.slotIndex - 2.5;
-          x = centered * 1.1;
-          z = Math.abs(centered) * 0.035;
-          rotationY = centered * -0.025;
-          scale = 0.55;
+          x = centered * 0.94;
+          z = Math.abs(centered) * 0.045;
+          rotationY = centered * -0.024;
+          scale = 0.62;
         } else if (current.viewMode === "close") {
           visible = participant.participantId === selected;
-          scale = 1.18;
+          scale = 1.12;
         } else {
           const pageStart = current.pageIndex * current.pageSize;
           visible = index >= pageStart && index < pageStart + current.pageSize;
@@ -408,13 +509,15 @@ export default function WaitingRoomStage3D({
         node.actor.rotation.y = rotationY;
         node.ring.position.set(x, 0.02, z);
         setScale(node, scale);
+        const selectedRing = participant.participantId === current.selectedParticipantId;
+        node.ring.userData.emphasis = selectedRing ? 1 : participant.role === "host" ? 0.55 : 0;
       });
 
       slotPlaceholdersRef.current.forEach(placeholder => {
         const slot = slotsRef.current.find(item => item.slotIndex === placeholder.slotIndex);
         const centered = placeholder.slotIndex - 2.5;
-        placeholder.group.position.set(centered * 1.1, 0.02, Math.abs(centered) * 0.035);
-        placeholder.group.scale.setScalar(0.62);
+        placeholder.group.position.set(centered * 0.94, 0.02, Math.abs(centered) * 0.045);
+        placeholder.group.scale.setScalar(0.68);
         const showPlaceholder = current.viewMode === "wide" && slot?.state !== "occupied";
         placeholder.group.visible = showPlaceholder;
         const closed = slot?.state === "closed";
@@ -425,14 +528,14 @@ export default function WaitingRoomStage3D({
       });
 
       if (current.viewMode === "wide") {
-        camera.position.set(0, 3.0, 11.9);
-        camera.lookAt(0, 1.8, 0);
+        camera.position.set(0, 3.12, 12.25);
+        camera.lookAt(0, 1.72, 0);
       } else if (current.viewMode === "close") {
-        camera.position.set(0, 3.0, 8.0);
-        camera.lookAt(0, 2.02, 0);
+        camera.position.set(0, 3.06, 8.9);
+        camera.lookAt(0, 1.98, 0);
       } else {
-        camera.position.set(0, 2.95, 9.25);
-        camera.lookAt(0, 1.95, 0);
+        camera.position.set(0, 3.0, 9.35);
+        camera.lookAt(0, 1.92, 0);
       }
       render();
     };
@@ -514,10 +617,17 @@ export default function WaitingRoomStage3D({
         stageNodesRef.current.forEach(node => {
           const phase = Number(node.ring.userData.pulsePhase ?? 0);
           const wave = (Math.sin(ringTime * 2.15 + phase) + 1) * 0.5;
+          const emphasis = Number(node.ring.userData.emphasis ?? 0);
+          const underglowMaterial = node.ring.userData.underglowMaterial as THREE.MeshBasicMaterial | undefined;
           const haloMaterial = node.ring.userData.haloMaterial as THREE.MeshBasicMaterial | undefined;
+          const outerMaterial = node.ring.userData.outerMaterial as THREE.MeshBasicMaterial | undefined;
+          const coreMaterial = node.ring.userData.coreMaterial as THREE.MeshBasicMaterial | undefined;
           const floorMaterial = node.ring.userData.floorMaterial as THREE.MeshBasicMaterial | undefined;
-          if (haloMaterial) haloMaterial.opacity = 0.18 + wave * 0.14;
-          if (floorMaterial) floorMaterial.opacity = 0.055 + wave * 0.055;
+          if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
+          if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
+          if (outerMaterial) outerMaterial.opacity = 0.12 + wave * 0.12 + emphasis * 0.08;
+          if (coreMaterial) coreMaterial.opacity = 0.86 + emphasis * 0.12;
+          if (floorMaterial) floorMaterial.opacity = 0.07 + wave * 0.065 + emphasis * 0.055;
         });
         render();
       };
@@ -596,12 +706,8 @@ export default function WaitingRoomStage3D({
           actor.userData.participantId = participant.participantId;
           scene.add(actor);
 
-          const ringColor = participant.role === "host"
-            ? 0x42dfff
-            : participant.kind === "bot"
-              ? 0x63efad
-              : 0xff4fcf;
-          const ring = createParticipantRing(ringColor, index * 1.37);
+          const ringColor = participantAccent(participant);
+          const ring = createParticipantRing(ringColor, index * 1.37, participant.role === "host");
           scene.add(ring);
 
           stageNodesRef.current.set(participant.participantId, {
@@ -664,8 +770,9 @@ export default function WaitingRoomStage3D({
           actor.userData.participantId = participant.participantId;
           scene.add(actor);
           const ring = createParticipantRing(
-            participant.role === "host" ? 0x42dfff : participant.kind === "bot" ? 0x63efad : 0xff4fcf,
+            participantAccent(participant),
             index * 1.37,
+            participant.role === "host",
           );
           scene.add(ring);
           stageNodesRef.current.set(participant.participantId, {
