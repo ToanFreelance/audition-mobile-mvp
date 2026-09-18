@@ -17,3 +17,274 @@
 .viewModeBar{bottom:31px;width:min(294px,74%);padding:4px 5px;background:rgba(5,9,29,.9);border-color:rgba(82,108,199,.7)}
 .viewModeButton,.viewModeActive{min-height:31px;font-size:7.5px}.viewModeActive{border-color:#5ce8ff;box-shadow:0 0 14px rgba(61,218,255,.38),inset 0 0 12px rgba(95,220,255,.14)}
 @media(max-width:370px){.stageWrap{height:445px}.slotAvatar{width:35px;height:35px}.slotHost .slotAvatar:before{transform:translateY(-24px)}}
+
+
+/* P5.2 visual identity — lobby chrome and picker */
+.shell{
+  background:
+    radial-gradient(circle at 50% 8%,rgba(63,52,188,.16),transparent 30%),
+    linear-gradient(180deg,#02040d,#050816 62%,#03050e);
+}
+.phone{
+  background:
+    radial-gradient(circle at 50% 16%,rgba(64,48,176,.16),transparent 31%),
+    linear-gradient(180deg,#05081a 0%,#070a1d 48%,#050715 100%);
+  box-shadow:0 0 72px rgba(24,32,100,.26),inset 0 0 45px rgba(38,32,104,.05);
+}
+.phone:before{
+  background:
+    radial-gradient(circle at 50% 18%,rgba(111,50,224,.19),transparent 30%),
+    radial-gradient(circle at 18% 59%,rgba(20,161,255,.065),transparent 24%),
+    radial-gradient(circle at 82% 65%,rgba(255,45,196,.06),transparent 22%);
+}
+.header{
+  background:linear-gradient(180deg,rgba(3,6,19,.985) 0,rgba(6,9,28,.93) 66%,rgba(6,9,28,.18) 100%);
+  border-bottom:1px solid rgba(70,95,180,.12);
+}
+.iconButton{
+  border-color:rgba(89,130,226,.72);
+  background:linear-gradient(180deg,rgba(19,31,72,.96),rgba(8,14,40,.98));
+  box-shadow:inset 0 0 15px rgba(68,111,227,.16),0 0 12px rgba(32,99,218,.08),0 5px 15px rgba(0,0,0,.26);
+}
+.titleBlock strong{color:#f8faff;text-shadow:0 1px 5px rgba(0,0,0,.85)}
+.titleBlock span{color:#a9b9e5}
+.stageWrap{
+  border-bottom-color:rgba(61,99,188,.25);
+  box-shadow:0 12px 34px rgba(0,0,0,.2);
+}
+.viewModeBar{
+  border-color:rgba(80,128,225,.72);
+  background:linear-gradient(180deg,rgba(4,8,25,.94),rgba(5,9,29,.9));
+  box-shadow:0 10px 26px rgba(0,0,0,.4),inset 0 1px rgba(255,255,255,.035),inset 0 0 18px rgba(66,84,190,.1);
+}
+.viewModeButton,.viewModeActive{
+  border-color:rgba(61,83,154,.7);
+  background:linear-gradient(180deg,#111837,#090e26);
+  color:#97a8d5;
+  text-shadow:0 1px 2px rgba(0,0,0,.9);
+}
+.viewModeActive{
+  border-color:#5de7ff;
+  color:#fff;
+  background:linear-gradient(180deg,#1769a2,#173a79 72%,#132d62);
+  box-shadow:0 0 15px rgba(55,216,255,.42),inset 0 0 13px rgba(92,228,255,.16);
+}
+.stageArrow{
+  color:#7decff;
+  text-shadow:0 0 9px #38d4ff,0 0 24px rgba(91,69,255,.75),0 2px 6px #000;
+}
+.slotDock{
+  border-color:rgba(68,98,187,.62);
+  background:
+    linear-gradient(180deg,rgba(10,15,39,.995),rgba(5,9,26,.995));
+  box-shadow:0 -8px 25px rgba(0,0,0,.35),0 8px 20px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.025),inset 0 0 25px rgba(53,63,157,.09);
+}
+.slotAvatar{
+  border-color:#405783;
+  background:radial-gradient(circle at 43% 30%,#35466f,#11182f 67%,#080d1f);
+  box-shadow:0 0 0 2px rgba(0,0,0,.28),inset 0 0 13px rgba(104,127,209,.08),0 0 13px rgba(68,97,192,.12);
+}
+.slot.occupied .slotAvatar{
+  border-color:#57dca8;
+  box-shadow:0 0 0 2px rgba(3,37,28,.55),0 0 12px rgba(65,237,168,.26),inset 0 0 12px rgba(77,211,172,.08);
+}
+.slot.open .slotAvatar{
+  border-color:#45cbff;
+  background:radial-gradient(circle at 50% 38%,#173251,#0b1329 72%);
+  box-shadow:0 0 10px rgba(59,206,255,.18),inset 0 0 11px rgba(62,191,255,.08);
+}
+.slot.closed .slotAvatar{
+  border-color:#d3416c;
+  background:radial-gradient(circle at 50% 38%,#43162c,#170c18 72%);
+  box-shadow:0 0 10px rgba(255,61,117,.12),inset 0 0 11px rgba(218,47,99,.08);
+}
+.slotSelected .slotAvatar{
+  border-color:#eafcff!important;
+  box-shadow:0 0 0 2px #4de4ff,0 0 18px rgba(76,221,255,.62),inset 0 0 10px rgba(122,236,255,.12)!important;
+}
+.slotHost .slotAvatar{
+  border-color:#ffd555!important;
+  box-shadow:0 0 0 2px rgba(73,44,0,.68),0 0 15px rgba(255,193,45,.42),inset 0 0 11px rgba(255,198,48,.08)!important;
+}
+.slotHost .slotAvatar:before{
+  color:#ffdb55;
+  text-shadow:0 0 5px #7b4200,0 0 11px rgba(255,198,43,.76);
+}
+.slot.occupied strong{color:#6effaa;text-shadow:0 0 6px rgba(63,237,154,.24)}
+.slotHost strong{color:#ffda5c!important;text-shadow:0 0 6px rgba(255,190,44,.4)!important}
+.slot.open strong{color:#75ddff}
+.slot.closed strong{color:#ff6f99}
+.songCard{
+  border-color:rgba(70,107,205,.82);
+  background:
+    radial-gradient(circle at 4% 50%,rgba(88,42,213,.08),transparent 28%),
+    linear-gradient(180deg,rgba(12,20,51,.995),rgba(6,11,31,.998));
+  box-shadow:inset 0 1px rgba(255,255,255,.035),inset 0 0 24px rgba(35,68,162,.1),0 7px 20px rgba(0,0,0,.18);
+}
+.cover{
+  border:1px solid rgba(114,142,255,.52);
+  background:
+    linear-gradient(145deg,transparent 0 34%,rgba(90,231,255,.35) 35% 39%,transparent 40% 62%,rgba(255,73,214,.34) 63% 67%,transparent 68%),
+    radial-gradient(circle at 50% 35%,#ff65d7,#7537f0 38%,#10184d 76%);
+  box-shadow:0 0 17px rgba(218,59,255,.28),inset 0 0 20px rgba(255,255,255,.13);
+}
+.songMeta strong{color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.songMeta>span{color:#b6c4e9}
+.songMeta small{color:#a3b3dc}
+.changeSongButton{
+  border-color:#567bd1;
+  background:linear-gradient(180deg,#192c62,#0d183d);
+  color:#f4f9ff;
+  box-shadow:inset 0 0 12px rgba(84,132,244,.12),0 0 10px rgba(54,115,226,.08);
+}
+.actions button{letter-spacing:.005em}
+.leaveButton{
+  border-color:#e1487a;
+  background:linear-gradient(180deg,#a22958,#611736);
+  box-shadow:inset 0 0 15px rgba(255,105,159,.16),0 0 13px rgba(220,49,105,.1);
+}
+.stagePickerButton{
+  border-color:#4fcfff;
+  background:linear-gradient(180deg,#147dc8,#16478f);
+  box-shadow:0 0 15px rgba(40,158,255,.2),inset 0 0 14px rgba(102,225,255,.1);
+}
+.startButton{
+  border-color:#67edff;
+  background:linear-gradient(180deg,#25b6f6,#2860e4 75%,#264fd0);
+  box-shadow:0 0 19px rgba(58,174,255,.34),inset 0 1px rgba(255,255,255,.2),inset 0 0 14px rgba(124,237,255,.16);
+}
+.startButtonDisabled{
+  border-color:#454a5e;
+  background:linear-gradient(180deg,#303342,#20232f);
+  color:#73798e;
+  box-shadow:inset 0 1px rgba(255,255,255,.025);
+}
+.readyButton{
+  border-color:#58a9ff;
+  background:linear-gradient(180deg,#277cc4,#174c8e);
+}
+.readyButtonActive{
+  border-color:#65f0b0;
+  background:linear-gradient(180deg,#218c68,#12553f);
+  box-shadow:0 0 14px rgba(53,232,161,.2),inset 0 0 12px rgba(101,245,190,.09);
+}
+.overlay{
+  background:
+    radial-gradient(circle at 50% 72%,rgba(73,50,179,.13),transparent 42%),
+    linear-gradient(180deg,rgba(2,4,15,.36),rgba(1,3,12,.88));
+  backdrop-filter:blur(7px);
+}
+.sheet{
+  border-color:rgba(78,127,232,.88);
+  background:
+    radial-gradient(circle at 50% 0,rgba(83,51,190,.16),transparent 32%),
+    linear-gradient(180deg,rgba(8,15,43,.995),rgba(3,8,25,.998));
+  box-shadow:0 -18px 48px rgba(0,0,0,.68),0 0 25px rgba(52,97,218,.2),inset 0 1px rgba(255,255,255,.04),inset 0 0 35px rgba(46,67,169,.09);
+}
+.sheetHeader small{color:#73edff;text-shadow:0 0 7px rgba(67,225,255,.34)}
+.sheetHeader>button{
+  border-color:#526daf;
+  background:linear-gradient(180deg,#15204a,#0b1331);
+  box-shadow:inset 0 0 10px rgba(75,106,202,.1);
+}
+.songTabs button,.filterRow span{
+  border-color:#354d8d;
+  background:linear-gradient(180deg,#111d43,#0b1433);
+  color:#b5c4eb;
+}
+.songTabs .chipActive{
+  border-color:#d66aff;
+  background:linear-gradient(180deg,#b038f4,#6224c9);
+  box-shadow:0 0 13px rgba(187,62,255,.34),inset 0 0 10px rgba(250,137,255,.12);
+}
+.searchBox{
+  border-color:#3c5a9d;
+  background:linear-gradient(180deg,#071431,#061027);
+  box-shadow:inset 0 0 14px rgba(44,92,184,.08);
+}
+.searchBox:focus-within{
+  border-color:#51dfff;
+  box-shadow:0 0 12px rgba(58,213,255,.18),inset 0 0 14px rgba(44,92,184,.08);
+}
+.songList{gap:6px}
+.songRow,.songRowSelected{
+  border-color:rgba(55,79,145,.78);
+  background:
+    linear-gradient(90deg,rgba(71,43,153,.045),transparent 35%),
+    linear-gradient(180deg,#0d1739,#081029);
+  box-shadow:inset 0 1px rgba(255,255,255,.018);
+}
+.songRowSelected{
+  border-color:#56e3ff;
+  background:
+    linear-gradient(90deg,rgba(44,188,255,.11),rgba(103,57,213,.055) 54%,transparent),
+    linear-gradient(180deg,#102247,#09132e);
+  box-shadow:0 0 14px rgba(52,207,255,.27),inset 3px 0 0 #57e5ff,inset 0 0 17px rgba(53,154,255,.07);
+}
+.songThumb{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(137,139,255,.55);
+  background:
+    linear-gradient(135deg,transparent 0 32%,rgba(75,231,255,.5) 33% 38%,transparent 39% 61%,rgba(255,67,210,.42) 62% 67%,transparent 68%),
+    radial-gradient(circle at 48% 34%,#ff65d4,#7438ef 38%,#10194e 76%);
+  box-shadow:0 0 12px rgba(175,65,255,.22),inset 0 0 14px rgba(255,255,255,.12);
+}
+.songThumb:after{
+  content:"";
+  position:absolute;
+  inset:auto -12px 6px;
+  height:2px;
+  transform:rotate(-12deg);
+  background:#62ecff;
+  box-shadow:0 0 8px #5ee6ff;
+  opacity:.6;
+}
+.difficultyEasy{color:#66f5aa}
+.difficultyNormal{color:#6ee8ff}
+.difficultyHard{color:#ff7199}
+.randomButton{
+  border-color:#d258ff;
+  background:linear-gradient(180deg,#a02eef,#5c20ba);
+  box-shadow:0 0 14px rgba(183,49,255,.2),inset 0 0 11px rgba(255,115,244,.1);
+}
+.confirmButton{
+  border-color:#68edff;
+  background:linear-gradient(180deg,#23b9f7,#2865e6);
+  box-shadow:0 0 17px rgba(56,183,255,.28),inset 0 0 12px rgba(121,238,255,.12);
+}
+.stageCard,.stageCardSelected{
+  border-color:#385493;
+  background:
+    radial-gradient(circle at 50% 32%,rgba(83,72,210,.26),transparent 43%),
+    linear-gradient(180deg,#101a3d,#071027);
+}
+.stageCardSelected{
+  border-color:#59e5ff;
+  box-shadow:0 0 18px rgba(51,207,255,.28),inset 0 0 20px rgba(64,105,220,.14);
+}
+.playerIdentity{
+  border-color:rgba(69,104,190,.7);
+  background:linear-gradient(180deg,#0b1737,#08112b);
+  box-shadow:inset 0 0 16px rgba(52,84,173,.08);
+}
+.playerAvatar{
+  border-color:#5ce7ff;
+  box-shadow:0 0 13px rgba(76,219,255,.27),inset 0 0 11px rgba(75,151,255,.1);
+}
+.playerActions button{
+  border-color:#3a579a;
+  background:linear-gradient(180deg,#11214a,#0a1535);
+  box-shadow:inset 0 1px rgba(255,255,255,.02);
+}
+.playerActions button:active{border-color:#5ddfff;background:linear-gradient(180deg,#15305c,#0d1d42)}
+.playerActions .kickButton{
+  border-color:#d24774;
+  background:linear-gradient(180deg,#861f48,#4b132d);
+}
+@media(max-width:370px){
+  .slotDock{gap:3px}
+  .songCard{gap:7px}
+  .changeSongButton{font-size:8.5px}
+  .viewModeBar{width:78%}
+}
