@@ -377,3 +377,77 @@
   .actionsGuest .readyButton,
   .actionsGuest .readyButtonActive{font-size:10.5px}
 }
+
+
+/* P5.2 compact camera side rail */
+.viewModeBar{
+  position:absolute;
+  z-index:18;
+  top:50%;
+  right:8px;
+  left:auto;
+  bottom:auto;
+  transform:translateY(-50%);
+  width:40px;
+  margin:0;
+  padding:4px;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:5px;
+  border:1px solid rgba(86,133,229,.72);
+  border-radius:13px;
+  background:linear-gradient(180deg,rgba(5,10,31,.86),rgba(3,7,24,.94));
+  box-shadow:
+    0 10px 25px rgba(0,0,0,.36),
+    inset 0 1px rgba(255,255,255,.04),
+    inset 0 0 16px rgba(57,87,191,.12);
+  backdrop-filter:blur(7px);
+}
+.viewModeButton,.viewModeActive{
+  width:32px;
+  height:32px;
+  min-height:32px;
+  padding:0;
+  border-radius:9px;
+  display:grid;
+  place-items:center;
+  font-size:0;
+}
+.viewModeButton span,.viewModeActive span{
+  font-size:15px;
+  line-height:1;
+  letter-spacing:-.12em;
+  transform:translateX(-.5px);
+}
+.viewModeActive{
+  border-color:#64eaff;
+  background:linear-gradient(180deg,#1883bd,#184f92 72%,#15366f);
+  box-shadow:
+    0 0 13px rgba(60,220,255,.44),
+    inset 0 0 11px rgba(113,233,255,.17);
+}
+.stageWrap{
+  margin-top:0;
+  height:clamp(420px,57dvh,520px);
+}
+.stageArrowRight{
+  right:52px;
+}
+.stagePager{
+  bottom:8px;
+}
+@media(max-width:370px){
+  .viewModeBar{
+    right:6px;
+    width:38px;
+    padding:3px;
+  }
+  .viewModeButton,.viewModeActive{
+    width:30px;
+    height:30px;
+    min-height:30px;
+  }
+  .viewModeButton span,.viewModeActive span{font-size:14px}
+  .stageArrowRight{right:48px}
+  .stageWrap{height:435px}
+}
