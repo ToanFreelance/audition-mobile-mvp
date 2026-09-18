@@ -62,6 +62,7 @@ export type RoomState = {
   maxPlayers: 2 | 3 | 4 | 5 | 6;
   modeId: string;
   selectedSongId: string | null;
+  selectedStageId: string;
   slots: readonly RoomSlot[];
   participants: readonly RoomParticipant[];
   revision: number;
