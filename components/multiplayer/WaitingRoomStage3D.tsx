@@ -184,7 +184,7 @@ function centerPosition(index: number, total: number, pageSize: number) {
   const localIndex = index - pageStart;
   const localCount = Math.min(pageSize, total - pageStart);
   const centered = localIndex - (localCount - 1) / 2;
-  return { x: centered * 2.25, z: Math.abs(centered) * 0.12, rotationY: centered * -0.055 };
+  return { x: centered * 2.42, z: Math.abs(centered) * 0.12, rotationY: centered * -0.05 };
 }
 
 function createParticipantRing(color: number, pulsePhase: number, host: boolean) {
@@ -272,9 +272,9 @@ function createParticipantRing(color: number, pulsePhase: number, host: boolean)
   return group;
 }
 
-function setScale(node: StageNode, multiplier: number) {
-  node.actor.scale.copy(node.baseScale).multiplyScalar(multiplier);
-  node.ring.scale.setScalar(multiplier);
+function setScale(node: StageNode, actorMultiplier: number, ringMultiplier = actorMultiplier) {
+  node.actor.scale.copy(node.baseScale).multiplyScalar(actorMultiplier);
+  node.ring.scale.setScalar(ringMultiplier);
 }
 
 export default function WaitingRoomStage3D({
@@ -481,7 +481,8 @@ export default function WaitingRoomStage3D({
         let x = 0;
         let z = 0;
         let rotationY = 0;
-        let scale = 1;
+        let actorScale = 0.88;
+        let ringScale = 0.96;
 
         if (current.viewMode === "wide") {
           visible = true;
@@ -489,10 +490,12 @@ export default function WaitingRoomStage3D({
           x = centered * 0.94;
           z = Math.abs(centered) * 0.045;
           rotationY = centered * -0.024;
-          scale = 0.62;
+          actorScale = 0.62;
+          ringScale = 0.62;
         } else if (current.viewMode === "close") {
           visible = participant.participantId === selected;
-          scale = 1.12;
+          actorScale = 0.98;
+          ringScale = 1.02;
         } else {
           const pageStart = current.pageIndex * current.pageSize;
           visible = index >= pageStart && index < pageStart + current.pageSize;
@@ -508,7 +511,7 @@ export default function WaitingRoomStage3D({
         node.actor.position.z = z;
         node.actor.rotation.y = rotationY;
         node.ring.position.set(x, 0.02, z);
-        setScale(node, scale);
+        setScale(node, actorScale, ringScale);
         const selectedRing = participant.participantId === current.selectedParticipantId;
         node.ring.userData.emphasis = selectedRing ? 1 : participant.role === "host" ? 0.55 : 0;
       });
@@ -531,11 +534,11 @@ export default function WaitingRoomStage3D({
         camera.position.set(0, 3.12, 12.25);
         camera.lookAt(0, 1.72, 0);
       } else if (current.viewMode === "close") {
-        camera.position.set(0, 3.06, 8.9);
-        camera.lookAt(0, 1.98, 0);
+        camera.position.set(0, 3.16, 9.45);
+        camera.lookAt(0, 2.08, 0);
       } else {
-        camera.position.set(0, 3.0, 9.35);
-        camera.lookAt(0, 1.92, 0);
+        camera.position.set(0, 3.08, 9.65);
+        camera.lookAt(0, 2.0, 0);
       }
       render();
     };
