@@ -16,16 +16,25 @@ import {
 } from "./lobby-idle-selection";
 import styles from "./WaitingRoomStage3D.module.css";
 
+export type WaitingRoomStageView = "wide" | "center" | "close";
+
 type Props = {
   participants: readonly RoomParticipant[];
   roomId: string;
+  stageId: string;
+  viewMode: WaitingRoomStageView;
   pageIndex: number;
+  selectedParticipantId: string | null;
   pageSize?: number;
+  onSelectParticipant?: (participant: RoomParticipant) => void;
 };
 
 type StageNode = {
+  participant: RoomParticipant;
+  index: number;
   actor: THREE.Object3D;
   ring: THREE.Object3D;
+  baseScale: THREE.Vector3;
 };
 
 type IdleRuntime = {
@@ -157,53 +166,57 @@ function isFemale(participant: RoomParticipant) {
   return participant.avatar.characterId.toLowerCase().includes("female");
 }
 
-function stagePosition(index: number, total: number, pageSize: number) {
+function centerPosition(index: number, total: number, pageSize: number) {
   const pageStart = Math.floor(index / pageSize) * pageSize;
   const localIndex = index - pageStart;
   const localCount = Math.min(pageSize, total - pageStart);
   const centered = localIndex - (localCount - 1) / 2;
-  return {
-    x: centered * 2.25,
-    z: Math.abs(centered) * 0.12,
-    rotationY: centered * -0.055,
-  };
+  return { x: centered * 2.25, z: Math.abs(centered) * 0.12, rotationY: centered * -0.055 };
+}
+
+function setScale(node: StageNode, multiplier: number) {
+  node.actor.scale.copy(node.baseScale).multiplyScalar(multiplier);
+  node.ring.scale.setScalar(multiplier);
 }
 
 export default function WaitingRoomStage3D({
   participants,
   roomId,
+  stageId,
+  viewMode,
   pageIndex,
+  selectedParticipantId,
   pageSize = 2,
+  onSelectParticipant,
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const stageNodesRef = useRef(new Map<string, StageNode>());
   const renderRef = useRef<(() => void) | null>(null);
-  const visibleIdsRef = useRef(new Set<string>());
+  const layoutRef = useRef<(() => void) | null>(null);
+  const selectCallbackRef = useRef(onSelectParticipant);
+  const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId });
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
+
+  selectCallbackRef.current = onSelectParticipant;
+  viewRef.current = { viewMode, pageIndex, pageSize, selectedParticipantId };
 
   const identityKey = useMemo(
     () => `${roomId}|${participants.map(item => `${item.participantId}:${item.avatar.characterId}:${item.slotIndex}`).join("|")}`,
     [participants, roomId],
   );
-  const visibleParticipants = useMemo(
-    () => participants.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize),
-    [pageIndex, pageSize, participants],
-  );
-  const visibleKey = useMemo(
-    () => visibleParticipants.map(item => item.participantId).join("|"),
-    [visibleParticipants],
-  );
+
+  const visibleParticipants = useMemo(() => {
+    if (viewMode === "wide") return participants;
+    if (viewMode === "close") {
+      const selected = participants.find(item => item.participantId === selectedParticipantId);
+      return selected ? [selected] : participants.slice(0, 1);
+    }
+    return participants.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
+  }, [pageIndex, pageSize, participants, selectedParticipantId, viewMode]);
 
   useEffect(() => {
-    const visibleIds = new Set(visibleParticipants.map(item => item.participantId));
-    visibleIdsRef.current = visibleIds;
-    stageNodesRef.current.forEach((node, participantId) => {
-      const visible = visibleIds.has(participantId);
-      node.actor.visible = visible;
-      node.ring.visible = visible;
-    });
-    renderRef.current?.();
-  }, [visibleKey, visibleParticipants]);
+    layoutRef.current?.();
+  }, [pageIndex, pageSize, selectedParticipantId, viewMode]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -222,9 +235,6 @@ export default function WaitingRoomStage3D({
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-    camera.position.set(0, 2.95, 9.25);
-    camera.lookAt(0, 1.95, 0);
-
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -239,11 +249,9 @@ export default function WaitingRoomStage3D({
     const key = new THREE.DirectionalLight(0xffffff, 2.4);
     key.position.set(2.4, 6.2, 5.3);
     scene.add(key);
-
     const magenta = new THREE.PointLight(0xff46ca, 7.5, 13, 2);
     magenta.position.set(-4.2, 4.6, 1.2);
     scene.add(magenta);
-
     const cyan = new THREE.PointLight(0x4bdcff, 7.5, 13, 2);
     cyan.position.set(4.2, 4.6, 1.2);
     scene.add(cyan);
@@ -265,6 +273,65 @@ export default function WaitingRoomStage3D({
       renderer.render(scene, camera);
     };
     renderRef.current = render;
+
+    const applyLayout = () => {
+      const current = viewRef.current;
+      const selected = current.selectedParticipantId
+        ?? participants[current.pageIndex * current.pageSize]?.participantId
+        ?? participants[0]?.participantId
+        ?? null;
+
+      stageNodesRef.current.forEach(node => {
+        const { participant, index } = node;
+        let visible = false;
+        let x = 0;
+        let z = 0;
+        let rotationY = 0;
+        let scale = 1;
+
+        if (current.viewMode === "wide") {
+          visible = true;
+          const count = Math.max(1, participants.length);
+          const centered = index - (count - 1) / 2;
+          const spacing = count >= 5 ? 1.12 : count >= 3 ? 1.42 : 2.25;
+          x = centered * spacing;
+          z = Math.abs(centered) * 0.05;
+          rotationY = centered * -0.03;
+          scale = count >= 5 ? 0.56 : count >= 3 ? 0.7 : 0.86;
+        } else if (current.viewMode === "close") {
+          visible = participant.participantId === selected;
+          scale = 1.18;
+        } else {
+          const pageStart = current.pageIndex * current.pageSize;
+          visible = index >= pageStart && index < pageStart + current.pageSize;
+          const position = centerPosition(index, participants.length, current.pageSize);
+          x = position.x;
+          z = position.z;
+          rotationY = position.rotationY;
+        }
+
+        node.actor.visible = visible;
+        node.ring.visible = visible;
+        node.actor.position.x = x;
+        node.actor.position.z = z;
+        node.actor.rotation.y = rotationY;
+        node.ring.position.set(x, 0.02, z);
+        setScale(node, scale);
+      });
+
+      if (current.viewMode === "wide") {
+        camera.position.set(0, 3.05, 11.65);
+        camera.lookAt(0, 1.8, 0);
+      } else if (current.viewMode === "close") {
+        camera.position.set(0, 3.0, 8.0);
+        camera.lookAt(0, 2.02, 0);
+      } else {
+        camera.position.set(0, 2.95, 9.25);
+        camera.lookAt(0, 1.95, 0);
+      }
+      render();
+    };
+    layoutRef.current = applyLayout;
 
     const switchIdleIfNeeded = (runtime: IdleRuntime, deltaSeconds: number) => {
       if (runtime.retiringAction) {
@@ -314,13 +381,6 @@ export default function WaitingRoomStage3D({
         roomId,
         nextOrdinal,
       );
-
-      console.info("[waiting-room] idle transition", {
-        participantId: runtime.participantId,
-        clipIndex: nextIndex,
-        clipName: nextClip.name,
-        transitionOrdinal: nextOrdinal,
-      });
     };
 
     const startIdleLoop = () => {
@@ -340,7 +400,6 @@ export default function WaitingRoomStage3D({
         if (accumulatedMs < minFrameMs) return;
         const deltaSeconds = accumulatedMs / 1000;
         accumulatedMs = 0;
-
         idleRuntimes.forEach(runtime => {
           runtime.mixer.update(deltaSeconds);
           switchIdleIfNeeded(runtime, deltaSeconds);
@@ -349,6 +408,29 @@ export default function WaitingRoomStage3D({
       };
       animationFrame = requestAnimationFrame(tick);
     };
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const onPointerDown = (event: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const intersections = raycaster.intersectObjects(
+        [...stageNodesRef.current.values()].filter(node => node.actor.visible).map(node => node.actor),
+        true,
+      );
+      const hit = intersections[0]?.object;
+      let cursor: THREE.Object3D | null = hit ?? null;
+      while (cursor && !cursor.userData.participantId) cursor = cursor.parent;
+      const participantId = cursor?.userData.participantId as string | undefined;
+      const participant = participantId
+        ? participants.find(item => item.participantId === participantId)
+        : null;
+      if (participant) selectCallbackRef.current?.(participant);
+    };
+    renderer.domElement.addEventListener("pointerdown", onPointerDown);
 
     const loader = new GLTFLoader();
     setLoadState("loading");
@@ -395,34 +477,34 @@ export default function WaitingRoomStage3D({
           if (!source) usedFallback = true;
 
           tintActor(actor, participant, index);
-          const position = stagePosition(index, participants.length, pageSize);
-          actor.position.x += position.x;
-          actor.position.z += position.z;
-          actor.rotation.y = position.rotationY;
           actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
-          actor.visible = visibleIdsRef.current.has(participant.participantId);
+          actor.userData.participantId = participant.participantId;
           scene.add(actor);
 
           const ringColor = participant.role === "host"
             ? 0x42dfff
-            : index % 2
-              ? 0xff4fcf
-              : 0x63efad;
+            : participant.kind === "bot"
+              ? 0x63efad
+              : 0xff4fcf;
           const ring = new THREE.Mesh(
-            new THREE.RingGeometry(0.78, 0.86, 48),
+            new THREE.RingGeometry(0.76, 0.86, 64),
             new THREE.MeshBasicMaterial({
               color: ringColor,
               transparent: true,
-              opacity: 0.9,
+              opacity: 0.92,
               side: THREE.DoubleSide,
             }),
           );
           ring.rotation.x = -Math.PI / 2;
-          ring.position.set(position.x, 0.02, position.z);
-          ring.visible = actor.visible;
           scene.add(ring);
 
-          stageNodesRef.current.set(participant.participantId, { actor, ring });
+          stageNodesRef.current.set(participant.participantId, {
+            participant,
+            index,
+            actor,
+            ring,
+            baseScale: actor.scale.clone(),
+          });
 
           if (source && idleClips.length > 0) {
             const idleIndex = idleIndexByParticipant.get(participant.participantId) ?? -1;
@@ -442,7 +524,6 @@ export default function WaitingRoomStage3D({
                 roomId,
               );
               mixer.update(0);
-
               idleRuntimes.push({
                 participantId: participant.participantId,
                 mixer,
@@ -460,55 +541,42 @@ export default function WaitingRoomStage3D({
                 retiringAction: null,
                 retiringSeconds: 0,
               });
-
-              console.info("[waiting-room] idle assignment", {
-                participantId: participant.participantId,
-                clipIndex: idleIndex,
-                clipName: idleClip.name,
-                releaseVersion,
-              });
             }
           }
         });
 
-        if (idleClips.length === 0) {
-          console.info("[waiting-room] published Idle pool is empty; using upright rest pose until an Idle release is published");
-        }
-
-        render();
+        applyLayout();
         startIdleLoop();
         setLoadState(usedFallback ? "fallback" : "ready");
       })
       .catch(error => {
         if (disposed) return;
         console.warn("[waiting-room] character/idle load failed; using fallback actors", error);
-
         participants.forEach((participant, index) => {
           const actor = fallbackActor(isFemale(participant));
           tintActor(actor, participant, index);
-          const position = stagePosition(index, participants.length, pageSize);
-          actor.position.x = position.x;
-          actor.position.z = position.z;
-          actor.visible = visibleIdsRef.current.has(participant.participantId);
+          actor.userData.participantId = participant.participantId;
           scene.add(actor);
-
           const ring = new THREE.Mesh(
-            new THREE.RingGeometry(0.78, 0.86, 48),
+            new THREE.RingGeometry(0.76, 0.86, 64),
             new THREE.MeshBasicMaterial({
               color: participant.role === "host" ? 0x42dfff : 0x63efad,
               transparent: true,
-              opacity: 0.9,
+              opacity: 0.92,
               side: THREE.DoubleSide,
             }),
           );
           ring.rotation.x = -Math.PI / 2;
-          ring.position.set(position.x, 0.02, position.z);
-          ring.visible = actor.visible;
           scene.add(ring);
-          stageNodesRef.current.set(participant.participantId, { actor, ring });
+          stageNodesRef.current.set(participant.participantId, {
+            participant,
+            index,
+            actor,
+            ring,
+            baseScale: actor.scale.clone(),
+          });
         });
-
-        render();
+        applyLayout();
         setLoadState("fallback");
       });
 
@@ -520,18 +588,20 @@ export default function WaitingRoomStage3D({
       disposed = true;
       if (animationFrame) cancelAnimationFrame(animationFrame);
       observer.disconnect();
+      renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       idleRuntimes.forEach(runtime => runtime.mixer.stopAllAction());
       renderRef.current = null;
+      layoutRef.current = null;
       stageNodesRef.current.clear();
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [identityKey, pageSize, roomId]);
+  }, [identityKey, participants, roomId]);
 
   return (
-    <div className={styles.stage}>
+    <div className={styles.stage} data-stage={stageId} data-view={viewMode}>
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
         <span className={styles.lightBarRight} />
@@ -542,17 +612,22 @@ export default function WaitingRoomStage3D({
       </div>
       <div className={styles.canvas} ref={mountRef} />
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
-      <div className={styles.labels}>
+      <div className={`${styles.labels} ${viewMode === "wide" ? styles.labelsWide : viewMode === "close" ? styles.labelsClose : ""}`}>
         {visibleParticipants.map(participant => (
-          <div className={styles.label} key={participant.participantId}>
+          <button
+            className={styles.label}
+            key={participant.participantId}
+            onClick={() => onSelectParticipant?.(participant)}
+            type="button"
+          >
             <span>{participant.role === "host" ? "♛" : ""}</span>
             <strong>{participant.displayName}</strong>
             <small>Lv. {levelFor(participant)}</small>
             <b className={statusClass(participant)}>{statusLabel(participant)}</b>
-          </div>
+          </button>
         ))}
       </div>
-      <p className={styles.note}>Kéo ngang để xem khu vực khác</p>
+      {viewMode === "center" && <p className={styles.note}>Kéo ngang để xem khu vực khác</p>}
     </div>
   );
 }
