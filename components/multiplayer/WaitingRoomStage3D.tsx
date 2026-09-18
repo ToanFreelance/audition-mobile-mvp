@@ -194,10 +194,12 @@ export default function WaitingRoomStage3D({
   const renderRef = useRef<(() => void) | null>(null);
   const layoutRef = useRef<(() => void) | null>(null);
   const selectCallbackRef = useRef(onSelectParticipant);
+  const participantsRef = useRef(participants);
   const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId });
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
 
   selectCallbackRef.current = onSelectParticipant;
+  participantsRef.current = participants;
   viewRef.current = { viewMode, pageIndex, pageSize, selectedParticipantId };
 
   const identityKey = useMemo(
@@ -426,7 +428,7 @@ export default function WaitingRoomStage3D({
       while (cursor && !cursor.userData.participantId) cursor = cursor.parent;
       const participantId = cursor?.userData.participantId as string | undefined;
       const participant = participantId
-        ? participants.find(item => item.participantId === participantId)
+        ? participantsRef.current.find(item => item.participantId === participantId)
         : null;
       if (participant) selectCallbackRef.current?.(participant);
     };
@@ -598,7 +600,7 @@ export default function WaitingRoomStage3D({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [identityKey, participants, roomId]);
+  }, [identityKey, roomId]);
 
   return (
     <div className={styles.stage} data-stage={stageId} data-view={viewMode}>
