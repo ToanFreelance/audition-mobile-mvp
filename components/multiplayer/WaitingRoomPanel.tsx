@@ -223,6 +223,25 @@ export default function WaitingRoomPanel() {
           </aside>
         )}
 
+        <nav className={styles.viewModeBar} aria-label="Camera view">
+          {(["wide", "center", "close"] as WaitingRoomStageView[]).map(mode => (
+            <button
+              aria-pressed={viewMode === mode}
+              className={viewMode === mode ? styles.viewModeActive : styles.viewModeButton}
+              key={mode}
+              onClick={() => {
+                setViewMode(mode);
+                if (mode === "close" && !selectedParticipantId) {
+                  setSelectedParticipantId(orderedParticipants[0]?.participantId ?? null);
+                }
+              }}
+              type="button"
+            >
+              <span>{mode === "wide" ? "♟♟♟" : mode === "center" ? "♟♟" : "◎"}</span>
+              {mode.toUpperCase()}
+            </button>
+          ))}
+        </nav>
         <section className={styles.stageWrap}>
           <WaitingRoomStage3D
             participants={orderedParticipants}
@@ -236,24 +255,6 @@ export default function WaitingRoomPanel() {
             onSelectParticipant={selectParticipant}
           />
 
-          <div className={styles.viewModeBar}>
-            {(["wide", "center", "close"] as WaitingRoomStageView[]).map(mode => (
-              <button
-                className={viewMode === mode ? styles.viewModeActive : styles.viewModeButton}
-                key={mode}
-                onClick={() => {
-                  setViewMode(mode);
-                  if (mode === "close" && !selectedParticipantId) {
-                    setSelectedParticipantId(orderedParticipants[0]?.participantId ?? null);
-                  }
-                }}
-                type="button"
-              >
-                <span>{mode === "wide" ? "♟♟♟" : mode === "center" ? "♟♟" : "◎"}</span>
-                {mode.toUpperCase()}
-              </button>
-            ))}
-          </div>
 
           {viewMode !== "wide" && orderedParticipants.length > 1 && (
             <>
@@ -301,11 +302,11 @@ export default function WaitingRoomPanel() {
           {hostView && <button className={styles.changeSongButton} onClick={openSongPicker} type="button">♫ Đổi nhạc</button>}
         </section>
 
-        <footer className={styles.actions}>
+        <footer className={`${styles.actions} ${viewer.kind === "human" && viewer.role === "guest" ? styles.actionsGuest : ""}`}>
           <button className={styles.leaveButton} type="button">↪ Rời phòng</button>
           {viewer.kind === "human" && viewer.role === "guest" ? (
             <button className={viewer.readyState === "ready" ? styles.readyButtonActive : styles.readyButton} onClick={toggleReady} type="button">
-              ✓ {viewer.readyState === "ready" ? "Đã sẵn sàng" : "Sẵn sàng"}
+              ✓ {viewer.readyState === "ready" ? "ĐÃ SẴN SÀNG" : "SẴN SÀNG"}
             </button>
           ) : (
             <button className={styles.stagePickerButton} onClick={openStagePicker} type="button">
