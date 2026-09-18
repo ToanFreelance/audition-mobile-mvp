@@ -353,15 +353,19 @@ export default function WaitingRoomStage3D({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1.16;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0x8ea8ff, 0x050510, 1.18));
+    scene.add(new THREE.HemisphereLight(0x9bb4ff, 0x050510, 1.34));
 
-    const key = new THREE.DirectionalLight(0xf4f8ff, 2.0);
-    key.position.set(1.6, 6.6, 5.8);
+    const key = new THREE.DirectionalLight(0xf8fbff, 2.32);
+    key.position.set(1.8, 6.8, 5.9);
     scene.add(key);
+
+    const frontFill = new THREE.DirectionalLight(0xffffff, 0.82);
+    frontFill.position.set(0, 3.2, 6.8);
+    scene.add(frontFill);
 
     const cyanRim = new THREE.SpotLight(0x42dcff, 16, 16, Math.PI / 4.2, 0.72, 1.6);
     cyanRim.position.set(4.7, 6.1, 2.8);
@@ -373,9 +377,9 @@ export default function WaitingRoomStage3D({
     magentaRim.target.position.set(-0.7, 1.65, 0);
     scene.add(magentaRim, magentaRim.target);
 
-    const overhead = new THREE.SpotLight(0xb8c9ff, 12, 15, Math.PI / 5, 0.7, 1.7);
-    overhead.position.set(0, 7.4, 1.1);
-    overhead.target.position.set(0, 1.1, 0);
+    const overhead = new THREE.SpotLight(0xc4d4ff, 14, 16, Math.PI / 5, 0.7, 1.7);
+    overhead.position.set(0, 7.5, 1.1);
+    overhead.target.position.set(0, 1.2, 0);
     scene.add(overhead, overhead.target);
 
     const floor = new THREE.Mesh(
@@ -393,7 +397,7 @@ export default function WaitingRoomStage3D({
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
       color: 0x395dff,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.16,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -408,7 +412,7 @@ export default function WaitingRoomStage3D({
       new THREE.MeshBasicMaterial({
         color: 0x4722a8,
         transparent: true,
-        opacity: 0.09,
+        opacity: 0.13,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -857,14 +861,23 @@ export default function WaitingRoomStage3D({
         </div>
       ) : (
         <div className={`${styles.labels} ${viewMode === "close" ? styles.labelsClose : ""}`}>
-          {visibleParticipants.map(participant => (
+          {visibleParticipants.map((participant, visibleIndex) => (
             <button
-              className={`${styles.label} ${participant.participantId === selectedParticipantId ? styles.labelSelected : ""}`}
+              className={[
+                styles.label,
+                participant.participantId === selectedParticipantId ? styles.labelSelected : "",
+                viewMode === "center"
+                  ? visibleIndex === 0
+                    ? styles.labelLeft
+                    : styles.labelRight
+                  : "",
+                viewMode === "close" ? styles.labelSolo : "",
+              ].filter(Boolean).join(" ")}
               key={participant.participantId}
               onClick={() => onSelectParticipant?.(participant)}
               type="button"
             >
-              <span className={styles.crown}>{participant.role === "host" ? "♛" : ""}</span>
+              {participant.role === "host" ? <span className={styles.crown}>♛</span> : null}
               <strong>{participant.displayName}</strong>
               <small>Lv. {levelFor(participant)}</small>
               <b className={statusClass(participant)}>{statusLabel(participant)}</b>
