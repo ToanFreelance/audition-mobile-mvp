@@ -5,7 +5,7 @@ function avatar(characterId: string): AvatarSnapshot {
   return { characterId, outfit: {}, accessoryIds: [], petId: null, titleId: null };
 }
 
-export function createP51WaitingRoomFixture(): RoomState {
+export function createP51WaitingRoomFixture(roomId = "10234"): RoomState {
   const host: HumanHostParticipant = {
     participantId: "p51-host",
     displayName: "Toan",
@@ -42,7 +42,7 @@ export function createP51WaitingRoomFixture(): RoomState {
   };
 
   let room = createRoomState({
-    roomId: "10234",
+    roomId,
     roomName: "Toan Dance Room",
     host,
     maxPlayers: 6,
