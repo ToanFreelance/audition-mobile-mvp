@@ -27,3 +27,162 @@
 .stage[data-view="wide"] .architecture:before,.stage[data-view="wide"] .architecture:after{opacity:.5}
 .note{bottom:78px;font-size:8px;color:#bdc5e0;opacity:.62;letter-spacing:.01em}
 @media(max-width:370px){.labels{left:32px;right:32px;gap:18px}.label strong{font-size:13px}.wideSlotLabels{left:12px;right:12px}.wideSlotNumber{width:16px;height:16px}.wideSlotLabel strong{font-size:6.5px}}
+
+
+/* P5.2 visual identity — stage depth pass */
+.stage{
+  isolation:isolate;
+  background:
+    radial-gradient(ellipse at 50% 72%,rgba(240,36,214,.24),transparent 25%),
+    radial-gradient(ellipse at 17% 18%,rgba(22,142,255,.25),transparent 24%),
+    radial-gradient(ellipse at 83% 16%,rgba(255,45,197,.22),transparent 23%),
+    linear-gradient(180deg,#040713 0%,#0a0d29 28%,#111038 56%,#06091e 100%);
+  box-shadow:inset 0 -28px 60px rgba(0,0,0,.48);
+}
+.stage:before{
+  inset:-4% -8% 0;
+  background:
+    linear-gradient(103deg,transparent 0 12%,rgba(69,221,255,.20) 13%,rgba(69,221,255,.035) 21%,transparent 31%),
+    linear-gradient(77deg,transparent 0 69%,rgba(255,62,203,.035) 79%,rgba(255,62,203,.18) 87%,transparent 88%),
+    linear-gradient(96deg,transparent 0 38%,rgba(116,83,255,.08) 48%,transparent 58%),
+    radial-gradient(ellipse at 50% 23%,rgba(79,75,255,.22),transparent 43%);
+  opacity:.92;
+}
+.stage:after{
+  left:-18%;
+  right:-18%;
+  bottom:-17%;
+  height:52%;
+  border-top:1px solid rgba(85,192,255,.28);
+  background:
+    repeating-radial-gradient(ellipse at 50% 0,rgba(74,159,255,.24) 0 2px,transparent 3px 28px),
+    repeating-linear-gradient(90deg,rgba(54,224,255,.075) 0 1px,transparent 1px 13px),
+    linear-gradient(180deg,rgba(20,34,93,.92),rgba(4,7,22,.985));
+  box-shadow:
+    0 -4px 25px rgba(26,120,255,.22),
+    inset 0 17px 38px rgba(90,34,201,.18);
+}
+.architecture:before,.architecture:after{
+  top:-4%;
+  width:35%;
+  height:70%;
+  opacity:.78;
+  background:
+    linear-gradient(180deg,rgba(15,20,57,.2),rgba(3,5,18,.85)),
+    repeating-linear-gradient(0deg,rgba(12,16,45,.92) 0 17px,rgba(54,72,151,.7) 18px 20px),
+    repeating-linear-gradient(90deg,transparent 0 19px,rgba(104,74,199,.34) 20px 22px);
+  border-inline:1px solid rgba(80,111,213,.16);
+  box-shadow:inset 0 0 44px rgba(0,0,0,.62),0 0 32px rgba(10,15,55,.72);
+}
+.architecture:before{left:-6%;transform:skewY(-6deg)}
+.architecture:after{right:-6%;transform:skewY(6deg)}
+.lightBarLeft,.lightBarRight{
+  top:42px;
+  width:10px;
+  height:178px;
+  border:1px solid rgba(194,244,255,.45);
+  background:linear-gradient(180deg,#baf8ff 0,#37e6ff 15%,#375bff 55%,#c84cff 100%);
+  box-shadow:
+    0 0 8px #71efff,
+    0 0 22px rgba(42,186,255,.78),
+    0 0 45px rgba(79,76,255,.42);
+  opacity:.82;
+}
+.lightBarLeft{left:11.5%;transform:rotate(3deg)}
+.lightBarRight{right:11.5%;transform:rotate(-3deg);background:linear-gradient(180deg,#fff0ff 0,#ff69db 18%,#884dff 56%,#3adfff 100%);box-shadow:0 0 8px #ff8ce3,0 0 22px rgba(255,55,198,.68),0 0 45px rgba(101,70,255,.4)}
+.brand{
+  top:30%;
+  opacity:.48;
+  filter:drop-shadow(0 0 9px rgba(255,56,221,.78)) drop-shadow(0 0 24px rgba(52,180,255,.32));
+}
+.brand strong{
+  font-size:47px;
+  color:#d65cff;
+  -webkit-text-stroke:1px rgba(95,231,255,.9);
+  text-shadow:0 0 5px #ff48d7,0 0 15px rgba(187,61,255,.9),0 0 34px rgba(55,181,255,.48);
+}
+.brand small{color:#8ef5ff;text-shadow:0 0 9px rgba(77,224,255,.56)}
+.labels{
+  top:20px;
+  left:38px;
+  right:38px;
+  gap:24px;
+}
+.label{
+  padding:5px 9px 6px;
+  border:1px solid rgba(82,117,198,.18);
+  background:linear-gradient(180deg,rgba(4,8,27,.66),rgba(5,8,25,.18));
+  box-shadow:inset 0 1px rgba(255,255,255,.035),0 7px 18px rgba(0,0,0,.16);
+  backdrop-filter:blur(2px);
+}
+.labelSelected{
+  border-color:rgba(74,221,255,.42);
+  background:linear-gradient(180deg,rgba(8,34,63,.72),rgba(8,12,36,.25));
+  box-shadow:inset 0 0 14px rgba(45,192,255,.08),0 0 14px rgba(48,194,255,.12);
+}
+.crown{
+  color:#ffd85b!important;
+  text-shadow:0 0 5px #8f4f00,0 0 12px rgba(255,199,53,.74)!important;
+}
+.hostState{color:#ffdc65;text-shadow:0 0 8px rgba(255,195,54,.72),0 1px 3px #2b1500}
+.ready{color:#76ffad;text-shadow:0 0 8px rgba(44,255,156,.64),0 1px 3px #002b1a}
+.notReady{color:#ff6fc7;text-shadow:0 0 8px rgba(255,61,190,.62),0 1px 3px #330020}
+.wideSlotLabels{
+  top:28px;
+  left:14px;
+  right:14px;
+  gap:4px;
+}
+.wideSlotLabel{
+  min-height:54px;
+  align-content:start;
+  padding:3px 2px 4px;
+  border-radius:9px;
+  background:linear-gradient(180deg,rgba(5,9,30,.68),rgba(5,8,25,.12));
+  text-shadow:0 2px 4px #000,0 0 8px rgba(0,0,0,.92);
+}
+.wideSlotNumber{
+  width:20px;
+  height:20px;
+  border-color:rgba(111,157,255,.76);
+  background:linear-gradient(180deg,rgba(18,30,68,.96),rgba(5,9,28,.96));
+  box-shadow:inset 0 0 7px rgba(57,116,255,.18),0 0 9px rgba(58,115,255,.16);
+}
+.wideSlotLabel strong{font-size:7.3px;color:#f5f7ff;text-shadow:0 1px 3px #000}
+.wideSlotLabel b{font-size:6.4px}
+.wideSlotSelected{
+  background:linear-gradient(180deg,rgba(9,44,71,.72),rgba(5,10,28,.1));
+  box-shadow:0 0 13px rgba(58,213,255,.1);
+}
+.wideSlotSelected .wideSlotNumber{
+  border-color:#68efff;
+  background:linear-gradient(180deg,#164a69,#0b1b3d);
+  box-shadow:0 0 11px rgba(79,226,255,.65),inset 0 0 8px rgba(118,241,255,.2);
+}
+.wideOpen{color:#6eeaff;text-shadow:0 0 7px rgba(56,220,255,.56)}
+.wideClosed{color:#ff668f;text-shadow:0 0 7px rgba(255,65,119,.45)}
+.stage[data-view="wide"] .brand{top:27%;opacity:.53}
+.stage[data-view="wide"] .brand strong{font-size:43px}
+.stage[data-view="wide"] .architecture:before,.stage[data-view="wide"] .architecture:after{opacity:.74}
+.stage[data-view="wide"] .lightBarLeft,.stage[data-view="wide"] .lightBarRight{top:48px;height:150px}
+.stage[data-view="center"] .brand{top:33%;opacity:.35}
+.stage[data-view="close"] .brand{top:35%;opacity:.22}
+.labelsClose{
+  left:27%;
+  right:27%;
+  top:20px;
+}
+.note{
+  bottom:80px;
+  color:#d3dcf6;
+  opacity:.68;
+  text-shadow:0 1px 5px #000;
+}
+@media(max-width:370px){
+  .labels{left:28px;right:28px;gap:16px}
+  .label{padding-left:5px;padding-right:5px}
+  .brand strong{font-size:40px}
+  .wideSlotLabels{left:8px;right:8px;gap:2px}
+  .wideSlotLabel{padding-left:0;padding-right:0}
+  .wideSlotLabel strong{font-size:6.4px}
+}
