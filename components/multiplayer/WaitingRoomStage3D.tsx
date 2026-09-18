@@ -160,7 +160,7 @@ function statusLabel(participant: RoomParticipant) {
 }
 
 function statusClass(participant: RoomParticipant) {
-  if (participant.role === "host") return styles.host;
+  if (participant.role === "host") return styles.hostState;
   return statusLabel(participant) === "READY" ? styles.ready : styles.notReady;
 }
 
@@ -180,6 +180,51 @@ function centerPosition(index: number, total: number, pageSize: number) {
   const localCount = Math.min(pageSize, total - pageStart);
   const centered = localIndex - (localCount - 1) / 2;
   return { x: centered * 2.25, z: Math.abs(centered) * 0.12, rotationY: centered * -0.055 };
+}
+
+function createParticipantRing(color: number, pulsePhase: number) {
+  const group = new THREE.Group();
+
+  const floorMaterial = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.075,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const floorGlow = new THREE.Mesh(new THREE.CircleGeometry(0.72, 64), floorMaterial);
+  floorGlow.rotation.x = -Math.PI / 2;
+  floorGlow.position.y = -0.006;
+
+  const haloMaterial = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.24,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const halo = new THREE.Mesh(new THREE.RingGeometry(0.69, 0.99, 64), haloMaterial);
+  halo.rotation.x = -Math.PI / 2;
+  halo.position.y = 0.004;
+
+  const coreMaterial = new THREE.MeshBasicMaterial({
+    color,
+    transparent: true,
+    opacity: 0.96,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const core = new THREE.Mesh(new THREE.RingGeometry(0.79, 0.86, 64), coreMaterial);
+  core.rotation.x = -Math.PI / 2;
+  core.position.y = 0.012;
+
+  group.add(floorGlow, halo, core);
+  group.userData.pulsePhase = pulsePhase;
+  group.userData.haloMaterial = haloMaterial;
+  group.userData.floorMaterial = floorMaterial;
+  return group;
 }
 
 function setScale(node: StageNode, multiplier: number) {
@@ -464,6 +509,16 @@ export default function WaitingRoomStage3D({
           runtime.mixer.update(deltaSeconds);
           switchIdleIfNeeded(runtime, deltaSeconds);
         });
+
+        const ringTime = nowMs / 1000;
+        stageNodesRef.current.forEach(node => {
+          const phase = Number(node.ring.userData.pulsePhase ?? 0);
+          const wave = (Math.sin(ringTime * 2.15 + phase) + 1) * 0.5;
+          const haloMaterial = node.ring.userData.haloMaterial as THREE.MeshBasicMaterial | undefined;
+          const floorMaterial = node.ring.userData.floorMaterial as THREE.MeshBasicMaterial | undefined;
+          if (haloMaterial) haloMaterial.opacity = 0.18 + wave * 0.14;
+          if (floorMaterial) floorMaterial.opacity = 0.055 + wave * 0.055;
+        });
         render();
       };
       animationFrame = requestAnimationFrame(tick);
@@ -546,16 +601,7 @@ export default function WaitingRoomStage3D({
             : participant.kind === "bot"
               ? 0x63efad
               : 0xff4fcf;
-          const ring = new THREE.Mesh(
-            new THREE.RingGeometry(0.76, 0.86, 64),
-            new THREE.MeshBasicMaterial({
-              color: ringColor,
-              transparent: true,
-              opacity: 0.92,
-              side: THREE.DoubleSide,
-            }),
-          );
-          ring.rotation.x = -Math.PI / 2;
+          const ring = createParticipantRing(ringColor, index * 1.37);
           scene.add(ring);
 
           stageNodesRef.current.set(participant.participantId, {
@@ -617,16 +663,10 @@ export default function WaitingRoomStage3D({
           tintActor(actor, participant, index);
           actor.userData.participantId = participant.participantId;
           scene.add(actor);
-          const ring = new THREE.Mesh(
-            new THREE.RingGeometry(0.76, 0.86, 64),
-            new THREE.MeshBasicMaterial({
-              color: participant.role === "host" ? 0x42dfff : 0x63efad,
-              transparent: true,
-              opacity: 0.92,
-              side: THREE.DoubleSide,
-            }),
+          const ring = createParticipantRing(
+            participant.role === "host" ? 0x42dfff : participant.kind === "bot" ? 0x63efad : 0xff4fcf,
+            index * 1.37,
           );
-          ring.rotation.x = -Math.PI / 2;
           scene.add(ring);
           stageNodesRef.current.set(participant.participantId, {
             participant,
@@ -673,21 +713,55 @@ export default function WaitingRoomStage3D({
       </div>
       <div className={styles.canvas} ref={mountRef} />
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
-      <div className={`${styles.labels} ${viewMode === "wide" ? styles.labelsWide : viewMode === "close" ? styles.labelsClose : ""}`}>
-        {visibleParticipants.map(participant => (
-          <button
-            className={styles.label}
-            key={participant.participantId}
-            onClick={() => onSelectParticipant?.(participant)}
-            type="button"
-          >
-            <span>{participant.role === "host" ? "♛" : ""}</span>
-            <strong>{participant.displayName}</strong>
-            <small>Lv. {levelFor(participant)}</small>
-            <b className={statusClass(participant)}>{statusLabel(participant)}</b>
-          </button>
-        ))}
-      </div>
+      {viewMode === "wide" ? (
+        <div className={styles.wideSlotLabels}>
+          {slots.map(slot => {
+            const participant = slot.state === "occupied"
+              ? participants.find(item => item.participantId === slot.participantId) ?? null
+              : null;
+            return (
+              <button
+                className={`${styles.wideSlotLabel} ${participant?.participantId === selectedParticipantId ? styles.wideSlotSelected : ""}`}
+                disabled={!participant}
+                key={slot.slotIndex}
+                onClick={() => participant && onSelectParticipant?.(participant)}
+                type="button"
+              >
+                <span className={styles.wideSlotNumber}>{slot.slotIndex + 1}</span>
+                {participant ? (
+                  <>
+                    <strong>{participant.displayName}</strong>
+                    <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+                  </>
+                ) : (
+                  <>
+                    <strong>{slot.state === "closed" ? "CLOSED" : "OPEN"}</strong>
+                    <b className={slot.state === "closed" ? styles.wideClosed : styles.wideOpen}>
+                      {slot.state === "closed" ? "×" : "+"}
+                    </b>
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className={`${styles.labels} ${viewMode === "close" ? styles.labelsClose : ""}`}>
+          {visibleParticipants.map(participant => (
+            <button
+              className={`${styles.label} ${participant.participantId === selectedParticipantId ? styles.labelSelected : ""}`}
+              key={participant.participantId}
+              onClick={() => onSelectParticipant?.(participant)}
+              type="button"
+            >
+              <span className={styles.crown}>{participant.role === "host" ? "♛" : ""}</span>
+              <strong>{participant.displayName}</strong>
+              <small>Lv. {levelFor(participant)}</small>
+              <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+            </button>
+          ))}
+        </div>
+      )}
       {viewMode === "center" && <p className={styles.note}>Kéo ngang để xem khu vực khác</p>}
     </div>
   );
