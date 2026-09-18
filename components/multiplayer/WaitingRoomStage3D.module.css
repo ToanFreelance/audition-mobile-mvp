@@ -608,3 +608,159 @@
     max-width:132px;
   }
 }
+
+
+/* P5.2 sketch identity fidelity — crown + status badges */
+.labels{
+  top:15px;
+}
+.label{
+  width:142px;
+  max-width:142px;
+  gap:1px;
+}
+.labelLeft{left:11.5%}
+.labelRight{right:11.5%}
+.crown{
+  position:static!important;
+  display:inline-block!important;
+  justify-self:start;
+  margin:0 0 2px 5px;
+  font-size:32px!important;
+  line-height:.82!important;
+  transform:scaleX(1.08);
+  transform-origin:center bottom;
+  color:#ffdf4f!important;
+  text-shadow:
+    0 2px 1px #5b3000,
+    0 0 5px #ffbd28,
+    0 0 11px rgba(255,186,34,.95),
+    0 0 22px rgba(255,126,29,.42)!important;
+}
+.labelRight .crown{
+  justify-self:end;
+  margin-left:0;
+  margin-right:5px;
+}
+.label strong{
+  font-size:18px;
+  line-height:1.02;
+  font-weight:1000;
+  letter-spacing:-.035em;
+  color:#fff;
+  text-shadow:
+    0 2px 3px #01020a,
+    0 0 7px rgba(0,0,0,.98),
+    0 0 3px rgba(255,255,255,.18);
+}
+.label small{
+  margin-top:3px;
+  font-size:11px;
+  line-height:1;
+  font-weight:750;
+  color:#f3f5ff;
+  text-shadow:0 1px 3px #000,0 0 5px rgba(0,0,0,.85);
+}
+.label b{
+  position:relative;
+  width:max-content;
+  margin-top:7px;
+  padding:4px 9px 5px;
+  border-radius:5px;
+  border:1px solid currentColor;
+  font-size:11px;
+  line-height:1;
+  font-weight:1000;
+  font-style:normal;
+  letter-spacing:.045em;
+  text-shadow:0 1px 2px rgba(0,0,0,.78);
+}
+.labelLeft b{justify-self:start}
+.labelRight b{justify-self:end}
+.hostState{
+  color:#fff1a5;
+  border-color:#ffcf43!important;
+  background:linear-gradient(180deg,#f6a927,#d76d0f);
+  box-shadow:
+    0 0 8px rgba(255,184,36,.78),
+    0 0 18px rgba(255,113,18,.32),
+    inset 0 1px rgba(255,255,255,.3);
+}
+.hostState:before,
+.hostState:after{
+  position:absolute;
+  top:50%;
+  transform:translateY(-50%);
+  color:#62f1ff;
+  font-size:15px;
+  line-height:1;
+  text-shadow:0 0 5px #29dfff,0 0 10px rgba(61,195,255,.72);
+}
+.hostState:before{
+  content:"❮";
+  left:-17px;
+}
+.hostState:after{
+  content:"❯";
+  right:-17px;
+}
+.ready{
+  color:#d9ffe6;
+  border-color:#45ff9f!important;
+  background:linear-gradient(180deg,#24ca72,#11874e);
+  box-shadow:
+    0 0 8px rgba(63,255,150,.58),
+    0 0 17px rgba(27,220,119,.23),
+    inset 0 1px rgba(255,255,255,.24);
+}
+.notReady{
+  color:#ffe5f5;
+  border-color:#ff54bd!important;
+  background:linear-gradient(180deg,#ef3d9f,#a71566);
+  box-shadow:
+    0 0 8px rgba(255,62,181,.62),
+    0 0 17px rgba(255,40,162,.22),
+    inset 0 1px rgba(255,255,255,.2);
+}
+.labelsClose{
+  top:3px;
+}
+.labelSolo,
+.labelsClose .label,
+.labelsClose .label:nth-child(2){
+  width:150px;
+  max-width:150px;
+  text-align:center;
+}
+.labelSolo .crown,
+.labelsClose .crown,
+.labelsClose .label:nth-child(2) .crown{
+  justify-self:center;
+  margin:0 0 2px;
+  font-size:32px!important;
+}
+.labelSolo b,
+.labelsClose .label b,
+.labelsClose .label:nth-child(2) b{
+  justify-self:center;
+}
+.labelsClose .label strong{font-size:18px}
+.labelsClose .label small{font-size:11px}
+.labelsClose .label b{font-size:11px}
+@media(max-width:370px){
+  .labels{top:12px}
+  .label{width:126px;max-width:126px}
+  .labelLeft{left:8.5%}
+  .labelRight{right:8.5%}
+  .crown{font-size:28px!important}
+  .label strong{font-size:16px}
+  .label small{font-size:10px}
+  .label b{font-size:10px;padding:4px 8px}
+  .labelsClose{top:2px}
+  .labelSolo,
+  .labelsClose .label,
+  .labelsClose .label:nth-child(2){
+    width:138px;
+    max-width:138px;
+  }
+}
