@@ -499,3 +499,112 @@
     max-width:122px;
   }
 }
+
+
+/* P5.2 composition pass — sketch-scale participant identity */
+.labels{
+  top:20px;
+}
+.label{
+  width:132px;
+  max-width:132px;
+  gap:2px;
+}
+.labelLeft{
+  left:12%;
+}
+.labelRight{
+  right:12%;
+}
+.crown{
+  position:static!important;
+  display:inline-block!important;
+  justify-self:start;
+  width:auto;
+  height:auto!important;
+  margin:0 0 1px 8px;
+  font-size:25px!important;
+  line-height:.9!important;
+  color:#ffda4f!important;
+  filter:none!important;
+  text-shadow:
+    0 2px 2px #563000,
+    0 0 7px rgba(255,194,44,.92),
+    0 0 15px rgba(255,160,27,.42)!important;
+}
+.labelRight .crown{
+  justify-self:end;
+  margin-left:0;
+  margin-right:8px;
+}
+.label strong{
+  font-size:16px;
+  line-height:1.02;
+  letter-spacing:-.03em;
+  text-shadow:0 2px 3px #01020a,0 0 7px rgba(0,0,0,.92);
+}
+.label small{
+  margin-top:2px;
+  font-size:10px;
+  line-height:1;
+  color:#edf1ff;
+}
+.label b{
+  margin-top:4px;
+  font-size:11px;
+  line-height:1;
+  letter-spacing:.045em;
+}
+.hostState{
+  color:#ffd34e;
+  text-shadow:0 0 8px rgba(255,188,42,.72),0 1px 2px #351900;
+}
+.ready{
+  color:#72ffad;
+  text-shadow:0 0 8px rgba(47,244,155,.58),0 1px 2px #002b1a;
+}
+.notReady{
+  color:#ff6cc7;
+  text-shadow:0 0 8px rgba(255,58,190,.58),0 1px 2px #350021;
+}
+.labelsClose{
+  top:10px;
+}
+.labelSolo,
+.labelsClose .label,
+.labelsClose .label:nth-child(2){
+  width:144px;
+  max-width:144px;
+  text-align:center;
+}
+.labelSolo .crown,
+.labelsClose .crown,
+.labelsClose .label:nth-child(2) .crown{
+  position:static!important;
+  justify-self:center;
+  margin:0 0 1px;
+  font-size:25px!important;
+}
+.labelsClose .label strong{font-size:16px}
+.labelsClose .label small{font-size:10px}
+.labelsClose .label b{font-size:11px}
+.note{
+  display:none;
+}
+@media(max-width:370px){
+  .labels{top:18px}
+  .label{width:118px;max-width:118px}
+  .labelLeft{left:9%}
+  .labelRight{right:9%}
+  .crown{font-size:22px!important}
+  .label strong{font-size:15px}
+  .label small{font-size:9px}
+  .label b{font-size:10px}
+  .labelsClose{top:8px}
+  .labelSolo,
+  .labelsClose .label,
+  .labelsClose .label:nth-child(2){
+    width:132px;
+    max-width:132px;
+  }
+}
