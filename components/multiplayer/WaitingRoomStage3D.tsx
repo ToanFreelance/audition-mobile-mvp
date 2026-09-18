@@ -6,7 +6,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import { loadPublishedDanceRelease } from "../character/published-animation-library";
-import type { RoomParticipant } from "../../multiplayer/types";
+import type { RoomParticipant, RoomSlot } from "../../multiplayer/types";
 import {
   selectParticipantIdleClipByIndex,
   selectParticipantIdleHoldSeconds,
@@ -20,6 +20,7 @@ export type WaitingRoomStageView = "wide" | "center" | "close";
 
 type Props = {
   participants: readonly RoomParticipant[];
+  slots: readonly RoomSlot[];
   roomId: string;
   stageId: string;
   viewMode: WaitingRoomStageView;
@@ -35,6 +36,13 @@ type StageNode = {
   actor: THREE.Object3D;
   ring: THREE.Object3D;
   baseScale: THREE.Vector3;
+};
+
+type SlotPlaceholder = {
+  slotIndex: number;
+  group: THREE.Group;
+  ringMaterial: THREE.MeshBasicMaterial;
+  bodyMaterial: THREE.MeshBasicMaterial;
 };
 
 type IdleRuntime = {
@@ -181,6 +189,7 @@ function setScale(node: StageNode, multiplier: number) {
 
 export default function WaitingRoomStage3D({
   participants,
+  slots,
   roomId,
   stageId,
   viewMode,
@@ -191,6 +200,8 @@ export default function WaitingRoomStage3D({
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const stageNodesRef = useRef(new Map<string, StageNode>());
+  const slotPlaceholdersRef = useRef<SlotPlaceholder[]>([]);
+  const slotsRef = useRef(slots);
   const renderRef = useRef<(() => void) | null>(null);
   const layoutRef = useRef<(() => void) | null>(null);
   const selectCallbackRef = useRef(onSelectParticipant);
@@ -200,7 +211,13 @@ export default function WaitingRoomStage3D({
 
   selectCallbackRef.current = onSelectParticipant;
   participantsRef.current = participants;
+  slotsRef.current = slots;
   viewRef.current = { viewMode, pageIndex, pageSize, selectedParticipantId };
+
+  const slotStateKey = useMemo(
+    () => slots.map(slot => `${slot.slotIndex}:${slot.state}`).join("|"),
+    [slots],
+  );
 
   const identityKey = useMemo(
     () => `${roomId}|${participants.map(item => `${item.participantId}:${item.avatar.characterId}:${item.slotIndex}`).join("|")}`,
@@ -218,7 +235,7 @@ export default function WaitingRoomStage3D({
 
   useEffect(() => {
     layoutRef.current?.();
-  }, [pageIndex, pageSize, selectedParticipantId, viewMode]);
+  }, [pageIndex, pageSize, selectedParticipantId, slotStateKey, viewMode]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -234,6 +251,7 @@ export default function WaitingRoomStage3D({
     const idleRuntimes: IdleRuntime[] = [];
     const disposableSources: THREE.Object3D[] = [];
     stageNodesRef.current.clear();
+    slotPlaceholdersRef.current = [];
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
@@ -266,6 +284,34 @@ export default function WaitingRoomStage3D({
     floor.position.set(0, -0.03, 0.2);
     scene.add(floor);
 
+    for (let slotIndex = 0; slotIndex < 6; slotIndex += 1) {
+      const group = new THREE.Group();
+      const ringMaterial = new THREE.MeshBasicMaterial({
+        color: 0x43dfff,
+        transparent: true,
+        opacity: 0.45,
+        side: THREE.DoubleSide,
+      });
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.72, 0.83, 48), ringMaterial);
+      ring.rotation.x = -Math.PI / 2;
+      group.add(ring);
+
+      const bodyMaterial = new THREE.MeshBasicMaterial({
+        color: 0x4fcfff,
+        transparent: true,
+        opacity: 0.14,
+        depthWrite: false,
+      });
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 1.05, 4, 8), bodyMaterial);
+      body.position.y = 0.96;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), bodyMaterial);
+      head.position.y = 1.78;
+      group.add(body, head);
+      group.visible = false;
+      scene.add(group);
+      slotPlaceholdersRef.current.push({ slotIndex, group, ringMaterial, bodyMaterial });
+    }
+
     const render = () => {
       const width = Math.max(1, mount.clientWidth);
       const height = Math.max(1, mount.clientHeight);
@@ -293,13 +339,11 @@ export default function WaitingRoomStage3D({
 
         if (current.viewMode === "wide") {
           visible = true;
-          const count = Math.max(1, participants.length);
-          const centered = index - (count - 1) / 2;
-          const spacing = count >= 5 ? 1.12 : count >= 3 ? 1.42 : 2.25;
-          x = centered * spacing;
-          z = Math.abs(centered) * 0.05;
-          rotationY = centered * -0.03;
-          scale = count >= 5 ? 0.56 : count >= 3 ? 0.7 : 0.86;
+          const centered = participant.slotIndex - 2.5;
+          x = centered * 1.1;
+          z = Math.abs(centered) * 0.035;
+          rotationY = centered * -0.025;
+          scale = 0.55;
         } else if (current.viewMode === "close") {
           visible = participant.participantId === selected;
           scale = 1.18;
@@ -321,8 +365,22 @@ export default function WaitingRoomStage3D({
         setScale(node, scale);
       });
 
+      slotPlaceholdersRef.current.forEach(placeholder => {
+        const slot = slotsRef.current.find(item => item.slotIndex === placeholder.slotIndex);
+        const centered = placeholder.slotIndex - 2.5;
+        placeholder.group.position.set(centered * 1.1, 0.02, Math.abs(centered) * 0.035);
+        placeholder.group.scale.setScalar(0.62);
+        const showPlaceholder = current.viewMode === "wide" && slot?.state !== "occupied";
+        placeholder.group.visible = showPlaceholder;
+        const closed = slot?.state === "closed";
+        placeholder.ringMaterial.color.setHex(closed ? 0xff4f7d : 0x43dfff);
+        placeholder.ringMaterial.opacity = closed ? 0.3 : 0.48;
+        placeholder.bodyMaterial.color.setHex(closed ? 0xff557f : 0x4fcfff);
+        placeholder.bodyMaterial.opacity = closed ? 0.08 : 0.16;
+      });
+
       if (current.viewMode === "wide") {
-        camera.position.set(0, 3.05, 11.65);
+        camera.position.set(0, 3.0, 11.9);
         camera.lookAt(0, 1.8, 0);
       } else if (current.viewMode === "close") {
         camera.position.set(0, 3.0, 8.0);
@@ -595,6 +653,7 @@ export default function WaitingRoomStage3D({
       renderRef.current = null;
       layoutRef.current = null;
       stageNodesRef.current.clear();
+      slotPlaceholdersRef.current = [];
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
       renderer.dispose();
