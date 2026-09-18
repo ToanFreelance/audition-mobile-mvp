@@ -21,6 +21,18 @@ export type RoomTransportPayload =
       snapshot: RoomState;
     }
   | {
+      /** Guest asks the authoritative host for the latest canonical room snapshot. */
+      kind: "room-sync-request";
+      roomRevision: number;
+    }
+  | {
+      /** Guest intent only. Host validates revision/identity and owns the RoomState mutation. */
+      kind: "guest-ready-intent";
+      roomRevision: number;
+      participantId: string;
+      ready: boolean;
+    }
+  | {
       kind: "room-revision";
       roomRevision: number;
       reason: "participant" | "song" | "mode" | "slot" | "other";
