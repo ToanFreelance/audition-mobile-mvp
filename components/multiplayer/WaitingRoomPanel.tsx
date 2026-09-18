@@ -403,7 +403,7 @@ export default function WaitingRoomPanel() {
           </div>
           <div className={styles.headerRight}>
             <button className={styles.iconButton} onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
-            <small>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${syncOptions.role === "host" ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
+            <small className={syncOptions ? (syncStatus === "connected" ? styles.syncLive : styles.syncOffline) : ""}>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${syncOptions.role === "host" ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
           </div>
         </header>
 
