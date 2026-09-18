@@ -451,3 +451,19 @@
   .stageArrowRight{right:48px}
   .stageWrap{height:435px}
 }
+
+
+/* P5.3 realtime room sync status */
+.syncLive{
+  color:#70ffae!important;
+  text-shadow:0 0 7px rgba(63,238,155,.5);
+}
+.syncOffline{
+  color:#ffb266!important;
+}
+.readyButton:disabled,
+.readyButtonActive:disabled{
+  opacity:.66;
+  filter:saturate(.72);
+  cursor:wait;
+}
