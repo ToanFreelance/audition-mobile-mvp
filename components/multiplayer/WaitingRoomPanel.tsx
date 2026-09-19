@@ -161,19 +161,28 @@ export default function WaitingRoomPanel() {
     let transport: SupabaseRealtimeRoomTransport | null = null;
     const cleanups: Array<() => void> = [];
 
-    const sendSnapshot = async (snapshot = roomRef.current) => {
-      if (!transport || transport.status !== "connected") return;
-      await transport.send({
-        kind: "room-snapshot",
-        roomRevision: snapshot.revision,
-        snapshot,
-      });
+    const applyCanonicalSnapshot = (snapshot: RoomState) => {
+      if (disposed) return;
+      if (snapshot.roomId !== syncOptions.roomId || !isCanonicalRoomSnapshot(snapshot)) {
+        setSyncDetail("Rejected invalid server room snapshot.");
+        return;
+      }
+      if (snapshot.revision < roomRef.current.revision) return;
+
+      roomRef.current = snapshot;
+      setRoom(snapshot);
+      setReadyIntentPending(false);
+
+      const localStillPresent = snapshot.participants.some(
+        item => item.participantId === syncOptions.participantId,
+      );
+      if (!localStillPresent) setSyncDetail("This participant was removed from the room.");
     };
 
     const connect = async () => {
       try {
         setSyncStatus("connecting");
-        setSyncDetail("Connecting room realtime…");
+        setSyncDetail("Connecting authoritative room…");
 
         const response = await fetch("/api/multiplayer/realtime-config", { cache: "no-store" });
         if (!response.ok) throw new Error(`Realtime config failed (${response.status}).`);
@@ -203,75 +212,37 @@ export default function WaitingRoomPanel() {
           if (disposed) return;
           setSyncStatus(status);
           if (detail) setSyncDetail(detail);
-          else if (status === "connected") setSyncDetail("Realtime room synced.");
         }));
 
         cleanups.push(transport.onEvent(event => {
-          if (disposed) return;
-          const payload = event.payload;
-
-          if (payload.kind === "room-snapshot" && syncOptions.role === "guest") {
-            const result = applyHostRoomSnapshot(roomRef.current, event.senderParticipantId, payload);
-            if (!result.accepted) {
-              if (result.reason !== "stale-revision") {
-                setSyncDetail(`Snapshot rejected: ${result.reason}.`);
-              }
-              return;
-            }
-            roomRef.current = result.room;
-            setRoom(result.room);
-            setReadyIntentPending(false);
-            const localStillPresent = result.room.participants.some(
-              item => item.participantId === syncOptions.participantId,
-            );
-            if (!localStillPresent) {
-              setSyncDetail("This participant was removed from the room.");
+          if (disposed || event.payload.kind !== "server-room-snapshot") return;
+          const result = applyServerRoomSnapshot(roomRef.current, event.senderParticipantId, event.payload);
+          if (!result.accepted) {
+            if (result.reason !== "stale-revision") {
+              setSyncDetail(`Server snapshot rejected: ${result.reason}.`);
             }
             return;
           }
-
-          if (payload.kind === "room-sync-request" && syncOptions.role === "host") {
-            void sendSnapshot().catch(error => {
-              setSyncDetail(error instanceof Error ? error.message : "Room snapshot send failed.");
-            });
-            return;
-          }
-
-          if (payload.kind === "guest-ready-intent" && syncOptions.role === "host") {
-            const current = roomRef.current;
-            const result = applyGuestReadyIntent(current, event.senderParticipantId, payload);
-            if (!result.accepted) {
-              setSyncDetail(`Ready intent rejected: ${result.reason}.`);
-              if (result.reason === "stale-revision") {
-                void sendSnapshot(current).catch(() => undefined);
-              }
-              return;
-            }
-            if (result.changed) {
-              roomRef.current = result.room;
-              setRoom(result.room);
-            } else {
-              void sendSnapshot(current).catch(() => undefined);
-            }
-          }
+          applyCanonicalSnapshot(result.room);
         }));
 
         await transport.connect();
         if (disposed) return;
 
-        if (syncOptions.role === "host") {
-          publishedRevisionRef.current = roomRef.current.revision;
-          await sendSnapshot();
-        } else {
-          await transport.send({
-            kind: "room-sync-request",
-            roomRevision: roomRef.current.revision,
-          });
-        }
+        const snapshot = await postRoomMutation({
+          action: "bootstrap",
+          roomId: syncOptions.roomId,
+        });
+        if (disposed) return;
+
+        applyCanonicalSnapshot(snapshot);
+        setSyncStatus("connected");
+        setSyncDetail("Server-authoritative room synced.");
       } catch (error) {
         if (disposed) return;
+        setReadyIntentPending(false);
         setSyncStatus("error");
-        setSyncDetail(error instanceof Error ? error.message : "Realtime room sync failed.");
+        setSyncDetail(error instanceof Error ? error.message : "Authoritative room sync failed.");
       }
     };
 
@@ -284,22 +255,6 @@ export default function WaitingRoomPanel() {
       transport?.disconnect();
     };
   }, [syncOptions]);
-
-  useEffect(() => {
-    if (!syncOptions || syncOptions.role !== "host" || syncStatus !== "connected") return;
-    if (publishedRevisionRef.current === room.revision) return;
-    const transport = transportRef.current;
-    if (!transport) return;
-
-    publishedRevisionRef.current = room.revision;
-    void transport.send({
-      kind: "room-snapshot",
-      roomRevision: room.revision,
-      snapshot: room,
-    }).catch(error => {
-      setSyncDetail(error instanceof Error ? error.message : "Room snapshot send failed.");
-    });
-  }, [room, syncOptions, syncStatus]);
 
   const viewer = room.participants.find(item => item.participantId === viewParticipantId) ?? room.participants[0];
   const hostView = viewer.participantId === room.hostParticipantId;
