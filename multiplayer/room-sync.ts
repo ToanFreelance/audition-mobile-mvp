@@ -3,6 +3,7 @@ import type { RoomTransportPayload } from "./transport";
 import type { RoomParticipant, RoomState } from "./types";
 
 type RoomSnapshotPayload = Extract<RoomTransportPayload, { kind: "room-snapshot" }>;
+type ServerRoomSnapshotPayload = Extract<RoomTransportPayload, { kind: "server-room-snapshot" }>;
 type GuestReadyIntentPayload = Extract<RoomTransportPayload, { kind: "guest-ready-intent" }>;
 
 export type RoomSnapshotApplyResult =
@@ -75,6 +76,28 @@ export function isCanonicalRoomSnapshot(room: RoomState) {
     && host.role === "host"
     && host.readyState === "not-applicable",
   );
+}
+
+export function applyServerRoomSnapshot(
+  current: RoomState,
+  senderParticipantId: string,
+  payload: ServerRoomSnapshotPayload,
+): RoomSnapshotApplyResult {
+  const snapshot = payload.snapshot;
+  if (senderParticipantId !== "server") {
+    return { accepted: false, reason: "non-host-sender", room: current };
+  }
+  if (snapshot.roomId !== current.roomId) return { accepted: false, reason: "wrong-room", room: current };
+  if (payload.roomRevision !== snapshot.revision) {
+    return { accepted: false, reason: "revision-mismatch", room: current };
+  }
+  if (snapshot.revision < current.revision) {
+    return { accepted: false, reason: "stale-revision", room: current };
+  }
+  if (!isCanonicalRoomSnapshot(snapshot)) {
+    return { accepted: false, reason: "invalid-room-shape", room: current };
+  }
+  return { accepted: true, room: snapshot };
 }
 
 /**
