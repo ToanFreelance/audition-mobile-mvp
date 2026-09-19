@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  addParticipant,
   changeMode,
   changeSong,
   changeStage,
@@ -9,8 +10,8 @@ import {
   setGuestReady,
 } from "../../../../multiplayer/room-state";
 import { isCanonicalRoomSnapshot } from "../../../../multiplayer/room-sync";
-import type { RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
-import { createP51WaitingRoomFixture } from "../../../../multiplayer/waiting-room-qa";
+import type { HumanGuestParticipant, RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
+import { createP53SyncedWaitingRoomBase } from "../../../../multiplayer/waiting-room-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,15 @@ type CompareAndSwapRow = StoredRoomRow & {
 
 type RoomMutationBody =
   | { action: "bootstrap"; roomId: string }
+  | {
+      action: "join";
+      roomId: string;
+      expectedRevision: number;
+      participantId: string;
+      displayName: string;
+      slotIndex: RoomSlotIndex;
+      characterId: string;
+    }
   | { action: "ready"; roomId: string; expectedRevision: number; participantId: string; ready: boolean }
   | { action: "song"; roomId: string; expectedRevision: number; actorParticipantId: string; songId: string }
   | { action: "stage"; roomId: string; expectedRevision: number; actorParticipantId: string; stageId: string }
@@ -137,12 +147,56 @@ function requireHost(room: RoomState, actorParticipantId: string) {
   }
 }
 
+function joinHumanGuest(
+  room: RoomState,
+  body: Extract<RoomMutationBody, { action: "join" }>,
+): RoomState {
+  if (room.status !== "waiting") throw new Error("Participants can only join a waiting room.");
+  if (!body.participantId.trim() || body.participantId === room.hostParticipantId) {
+    throw new Error("Invalid guest participant id.");
+  }
+  if (!body.displayName.trim()) throw new Error("Guest display name is required.");
+  if (!Number.isInteger(body.slotIndex) || body.slotIndex < 0 || body.slotIndex > 5) {
+    throw new Error("Invalid guest slot.");
+  }
+
+  const existing = room.participants.find(item => item.participantId === body.participantId);
+  if (existing) {
+    if (existing.kind === "human" && existing.role === "guest" && existing.slotIndex === body.slotIndex) {
+      return room;
+    }
+    throw new Error("Participant id is already used by another room member.");
+  }
+
+  const participant: HumanGuestParticipant = {
+    participantId: body.participantId,
+    displayName: body.displayName.trim().slice(0, 32),
+    kind: "human",
+    role: "guest",
+    slotIndex: body.slotIndex,
+    readyState: "not-ready",
+    loadState: "idle",
+    connectionState: "connected",
+    avatar: {
+      characterId: body.characterId.trim() || "default-female",
+      outfit: {},
+      accessoryIds: [],
+      petId: null,
+      titleId: null,
+    },
+  };
+
+  return addParticipant(room, participant);
+}
+
 function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" }>) {
   assertExpectedRevision(row, body.expectedRevision);
   const room = row.snapshot;
   if (!isCanonicalRoomSnapshot(room)) throw new Error("Stored room snapshot is invalid.");
 
   switch (body.action) {
+    case "join":
+      return joinHumanGuest(room, body);
     case "ready":
       return setGuestReady(room, body.participantId, body.ready);
     case "song":
@@ -164,9 +218,9 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
 async function bootstrap(roomId: string) {
   const existing = await readRoom(roomId);
   if (existing) return existing;
-  const fixture = createP51WaitingRoomFixture(roomId);
-  if (!isCanonicalRoomSnapshot(fixture)) throw new Error("Lobby QA fixture is invalid.");
-  return insertInitialRoom(fixture);
+  const baseRoom = createP53SyncedWaitingRoomBase(roomId);
+  if (!isCanonicalRoomSnapshot(baseRoom)) throw new Error("Synced lobby bootstrap is invalid.");
+  return insertInitialRoom(baseRoom);
 }
 
 function parseBody(value: unknown): RoomMutationBody | null {
