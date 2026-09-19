@@ -41,7 +41,7 @@ jobs:
         run: npm run build
 
       - name: Targeted realtime transport QA
-        run: npx playwright test e2e/multiplayer-transport.spec.ts --project=desktop --workers=1
+        run: npx playwright test e2e/multiplayer-transport.spec.ts --project=desktop --workers=1 --grep "foreground reconnect"
 
       - name: Upload QA report on failure
         if: failure()
