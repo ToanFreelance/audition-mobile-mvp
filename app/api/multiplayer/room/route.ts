@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
     if (!current) return jsonError("Room not found.", 404);
 
     const next = mutateRoom(current, body);
-    if (next === current || next.revision === current.revision) {
+    if (next === current.snapshot || next.revision === current.revision) {
       return NextResponse.json({ ok: true, snapshot: current.snapshot }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
