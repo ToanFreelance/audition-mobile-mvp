@@ -403,6 +403,21 @@ export default function WaitingRoomPanel() {
   const confirmSong = () => {
     const song = SONGS.find(item => item.id === songDraft);
     if (!hostView || !song?.playable) return;
+
+    if (syncOptions) {
+      void runServerMutation({
+        action: "song",
+        expectedRevision: room.revision,
+        actorParticipantId: room.hostParticipantId,
+        songId: song.id,
+      }, "Song synced; human guest Ready reset.").then(() => {
+        setPanel(null);
+      }).catch(error => {
+        setSyncDetail(error instanceof Error ? error.message : "Song update failed.");
+      });
+      return;
+    }
+
     setRoom(current => changeSong(current, current.hostParticipantId, song.id));
     setPanel(null);
   };
@@ -415,6 +430,21 @@ export default function WaitingRoomPanel() {
 
   const confirmStage = () => {
     if (!hostView) return;
+
+    if (syncOptions) {
+      void runServerMutation({
+        action: "stage",
+        expectedRevision: room.revision,
+        actorParticipantId: room.hostParticipantId,
+        stageId: stageDraft,
+      }, "Stage synced; human guest Ready reset.").then(() => {
+        setPanel(null);
+      }).catch(error => {
+        setSyncDetail(error instanceof Error ? error.message : "Stage update failed.");
+      });
+      return;
+    }
+
     setRoom(current => changeStage(current, current.hostParticipantId, stageDraft));
     setPanel(null);
   };
@@ -422,11 +452,28 @@ export default function WaitingRoomPanel() {
   const kickSelectedParticipant = () => {
     if (!hostView || !selectedParticipant || selectedParticipant.participantId === room.hostParticipantId) return;
     const kickedId = selectedParticipant.participantId;
+
+    const resetSelection = () => {
+      setSelectedParticipantId(room.hostParticipantId);
+      setPanel(null);
+      setViewMode("center");
+      setStagePage(0);
+    };
+
+    if (syncOptions) {
+      void runServerMutation({
+        action: "kick",
+        expectedRevision: room.revision,
+        actorParticipantId: room.hostParticipantId,
+        participantId: kickedId,
+      }, "Participant removed from the room.").then(resetSelection).catch(error => {
+        setSyncDetail(error instanceof Error ? error.message : "Kick failed.");
+      });
+      return;
+    }
+
     setRoom(current => removeParticipant(current, kickedId));
-    setSelectedParticipantId(room.hostParticipantId);
-    setPanel(null);
-    setViewMode("center");
-    setStagePage(0);
+    resetSelection();
   };
 
   const playerAction = (label: string) => setActionNotice(`${label} sẽ được nối dữ liệu thật ở milestone tương ứng.`);
