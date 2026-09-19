@@ -195,6 +195,9 @@ export default function WaitingRoomPanel() {
 
     let disposed = false;
     let transport: SupabaseRealtimeRoomTransport | null = null;
+    let resumePromise: Promise<void> | null = null;
+    let lastResumeAt = 0;
+    let guestJoinedThisSession = false;
     const cleanups: Array<() => void> = [];
 
     const applyCanonicalSnapshot = (snapshot: RoomState) => {
@@ -209,10 +212,98 @@ export default function WaitingRoomPanel() {
       setRoom(snapshot);
       setReadyIntentPending(false);
 
-      const localStillPresent = snapshot.participants.some(
-        item => item.participantId === syncOptions.participantId,
-      );
-      if (!localStillPresent) setSyncDetail("This participant was removed from the room.");
+      if (syncOptions.role === "guest") {
+        const localStillPresent = snapshot.participants.some(
+          item => item.participantId === syncOptions.participantId,
+        );
+        if (localStillPresent) {
+          guestJoinedThisSession = true;
+        } else if (guestJoinedThisSession) {
+          setSyncDetail("This participant was removed from the room.");
+        }
+      }
+    };
+
+    const ensureGuestJoined = async (initialSnapshot: RoomState) => {
+      if (syncOptions.role !== "guest") return initialSnapshot;
+      if (initialSnapshot.participants.some(item => item.participantId === syncOptions.participantId)) {
+        guestJoinedThisSession = true;
+        return initialSnapshot;
+      }
+      if (guestJoinedThisSession) return initialSnapshot;
+
+      const guest = createP53QaGuestParticipant();
+      let current = initialSnapshot;
+
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const result = await postRoomMutation({
+          action: "join",
+          roomId: syncOptions.roomId,
+          expectedRevision: current.revision,
+          participantId: guest.participantId,
+          displayName: guest.displayName,
+          slotIndex: guest.slotIndex,
+          characterId: guest.avatar.characterId,
+        });
+        current = result.snapshot;
+        applyCanonicalSnapshot(current);
+
+        if (current.participants.some(item => item.participantId === syncOptions.participantId)) {
+          guestJoinedThisSession = true;
+          return current;
+        }
+        if (!result.conflict) break;
+      }
+
+      throw new Error("Guest could not join the current room state.");
+    };
+
+    const ensureTransportConnected = async (forceReconnect = false) => {
+      if (!transport) return;
+      if (forceReconnect && transport.status === "connected") {
+        transport.disconnect();
+      } else if (transport.status === "error") {
+        transport.disconnect();
+      }
+      if (transport.status === "connected") return;
+      if (transport.status === "connecting") return;
+      await transport.connect();
+    };
+
+    const refreshCanonicalRoom = async () => {
+      const latest = await fetchRoomSnapshot(syncOptions.roomId);
+      applyCanonicalSnapshot(latest);
+      return ensureGuestJoined(latest);
+    };
+
+    const resumeFromServer = (forceReconnect = true) => {
+      if (disposed) return Promise.resolve();
+      if (resumePromise) return resumePromise;
+
+      const now = Date.now();
+      if (now - lastResumeAt < 700) return Promise.resolve();
+      lastResumeAt = now;
+
+      resumePromise = (async () => {
+        try {
+          setSyncDetail("Refreshing canonical room…");
+          await ensureTransportConnected(forceReconnect);
+          if (disposed) return;
+          await refreshCanonicalRoom();
+          if (disposed) return;
+          setSyncStatus(transport?.status === "connected" ? "connected" : "disconnected");
+          setSyncDetail("Canonical room refreshed.");
+        } catch (error) {
+          if (disposed) return;
+          setReadyIntentPending(false);
+          setSyncStatus(transport?.status === "connected" ? "connected" : "error");
+          setSyncDetail(error instanceof Error ? error.message : "Room refresh failed.");
+        } finally {
+          resumePromise = null;
+        }
+      })();
+
+      return resumePromise;
     };
 
     const connect = async () => {
@@ -220,26 +311,36 @@ export default function WaitingRoomPanel() {
         setSyncStatus("connecting");
         setSyncDetail("Connecting authoritative room…");
 
-        const response = await fetch("/api/multiplayer/realtime-config", { cache: "no-store" });
-        if (!response.ok) throw new Error(`Realtime config failed (${response.status}).`);
-        const config = await response.json() as RealtimeConfig;
+        const configResponse = await fetch("/api/multiplayer/realtime-config", { cache: "no-store" });
+        if (!configResponse.ok) throw new Error(`Realtime config failed (${configResponse.status}).`);
+        const config = await configResponse.json() as RealtimeConfig;
         if (disposed) return;
 
-        const participant = roomRef.current.participants.find(
-          item => item.participantId === syncOptions.participantId,
-        );
-        if (!participant) throw new Error("Local sync participant is not in the room fixture.");
+        const bootstrapResult = await postRoomMutation({
+          action: "bootstrap",
+          roomId: syncOptions.roomId,
+        });
+        if (disposed) return;
+
+        applyCanonicalSnapshot(bootstrapResult.snapshot);
+        const joinedSnapshot = await ensureGuestJoined(bootstrapResult.snapshot);
+        if (disposed) return;
+
+        const localParticipant = syncOptions.role === "guest"
+          ? createP53QaGuestParticipant()
+          : joinedSnapshot.participants.find(item => item.participantId === syncOptions.participantId);
+        if (!localParticipant) throw new Error("Local sync participant is unavailable.");
 
         transport = new SupabaseRealtimeRoomTransport({
           supabaseUrl: config.supabaseUrl,
           publishableKey: config.publishableKey,
           roomId: syncOptions.roomId,
           presence: {
-            participantId: participant.participantId,
-            displayName: participant.displayName,
-            kind: participant.kind,
-            role: participant.role,
-            roomRevision: roomRef.current.revision,
+            participantId: localParticipant.participantId,
+            displayName: localParticipant.displayName,
+            kind: localParticipant.kind,
+            role: localParticipant.role,
+            roomRevision: joinedSnapshot.revision,
           },
         });
         transportRef.current = transport;
@@ -265,15 +366,26 @@ export default function WaitingRoomPanel() {
         await transport.connect();
         if (disposed) return;
 
-        const bootstrapResult = await postRoomMutation({
-          action: "bootstrap",
-          roomId: syncOptions.roomId,
-        });
+        await refreshCanonicalRoom();
         if (disposed) return;
 
-        applyCanonicalSnapshot(bootstrapResult.snapshot);
         setSyncStatus("connected");
         setSyncDetail("Server-authoritative room synced.");
+
+        const handleForeground = () => {
+          if (document.visibilityState === "visible") void resumeFromServer(true);
+        };
+        const handlePageShow = () => void resumeFromServer(true);
+        const handleFocus = () => {
+          if (document.visibilityState === "visible") void resumeFromServer(true);
+        };
+
+        document.addEventListener("visibilitychange", handleForeground);
+        window.addEventListener("pageshow", handlePageShow);
+        window.addEventListener("focus", handleFocus);
+        cleanups.push(() => document.removeEventListener("visibilitychange", handleForeground));
+        cleanups.push(() => window.removeEventListener("pageshow", handlePageShow));
+        cleanups.push(() => window.removeEventListener("focus", handleFocus));
       } catch (error) {
         if (disposed) return;
         setReadyIntentPending(false);
