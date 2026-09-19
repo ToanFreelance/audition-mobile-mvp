@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { addParticipant } from "../multiplayer/room-state";
-import { projectRoomForPresence } from "../multiplayer/lobby-presence";
+import { latchLobbyPresence, projectRoomForPresence } from "../multiplayer/lobby-presence";
 import {
   createP53QaGuestParticipant,
   createP53SyncedWaitingRoomBase,
@@ -43,4 +43,31 @@ test("local guest remains visible before the realtime presence snapshot catches 
   const guestView = projectRoomForPresence(withGuest, [], "p51-guest");
 
   expect(guestView.participants.some(item => item.participantId === "p51-guest")).toBe(true);
+});
+
+
+test("latched presence survives a later empty realtime snapshot", () => {
+  let confirmed = latchLobbyPresence(
+    ["p51-host"],
+    ["p51-host", "p51-guest"],
+    "p51-host",
+  );
+
+  expect(confirmed).toContain("p51-guest");
+
+  // iOS backgrounds the guest browser: Supabase may temporarily emit a
+  // snapshot without the guest. The latch must not forget a confirmed member.
+  confirmed = latchLobbyPresence(
+    confirmed,
+    ["p51-host"],
+    "p51-host",
+  );
+
+  expect(confirmed).toContain("p51-guest");
+
+  const base = createP53SyncedWaitingRoomBase("presence-latch-room");
+  const withGuest = addParticipant(base, createP53QaGuestParticipant());
+  const projected = projectRoomForPresence(withGuest, confirmed, "p51-host");
+
+  expect(projected.participants.some(item => item.participantId === "p51-guest")).toBe(true);
 });

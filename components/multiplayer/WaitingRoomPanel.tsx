@@ -12,7 +12,7 @@ import {
   setGuestReady,
 } from "../../multiplayer/room-state";
 import { applyServerRoomSnapshot, isCanonicalRoomSnapshot } from "../../multiplayer/room-sync";
-import { projectRoomForPresence } from "../../multiplayer/lobby-presence";
+import { latchLobbyPresence, projectRoomForPresence } from "../../multiplayer/lobby-presence";
 import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
 import type { RoomTransportStatus } from "../../multiplayer/transport";
 import {
@@ -158,7 +158,6 @@ type WaitingRoomPanelProps = {
   } | null;
 };
 
-const PRESENCE_GRACE_MS = 12_000;
 
 export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPanelProps) {
   const initialParticipantId = initialSync?.role === "guest" ? "p51-guest" : "p51-host";
@@ -228,33 +227,11 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     let lastResumeAt = 0;
     let guestJoinedThisSession = false;
     const cleanups: Array<() => void> = [];
-    const visiblePresence = new Set<string>([syncOptions.participantId]);
-    const lastSeenAt = new Map<string, number>([[syncOptions.participantId, Date.now()]]);
-    const presenceRemovalTimers = new Map<string, number>();
+    let confirmedPresenceIds: readonly string[] = [syncOptions.participantId];
 
-    const commitVisiblePresence = () => {
+    const commitConfirmedPresence = () => {
       if (disposed) return;
-      setPresentParticipantIds([...visiblePresence]);
-    };
-
-    const cancelPresenceRemoval = (participantId: string) => {
-      const timeoutId = presenceRemovalTimers.get(participantId);
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-        presenceRemovalTimers.delete(participantId);
-      }
-    };
-
-    const schedulePresenceRemoval = (participantId: string) => {
-      if (participantId === syncOptions.participantId || presenceRemovalTimers.has(participantId)) return;
-      const timeoutId = window.setTimeout(() => {
-        presenceRemovalTimers.delete(participantId);
-        const lastSeen = lastSeenAt.get(participantId) ?? 0;
-        if (Date.now() - lastSeen < PRESENCE_GRACE_MS) return;
-        visiblePresence.delete(participantId);
-        commitVisiblePresence();
-      }, PRESENCE_GRACE_MS);
-      presenceRemovalTimers.set(participantId, timeoutId);
+      setPresentParticipantIds(confirmedPresenceIds);
     };
 
     const applyCanonicalSnapshot = (snapshot: RoomState) => {
@@ -268,6 +245,12 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
       roomRef.current = snapshot;
       setRoom(snapshot);
       setReadyIntentPending(false);
+
+      const memberIds = new Set(snapshot.participants.map(item => item.participantId));
+      confirmedPresenceIds = confirmedPresenceIds.filter(
+        participantId => participantId === syncOptions.participantId || memberIds.has(participantId),
+      );
+      commitConfirmedPresence();
 
       if (syncOptions.role === "guest") {
         const localStillPresent = snapshot.participants.some(
@@ -410,26 +393,18 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
 
         cleanups.push(transport.onPresence(presence => {
           if (disposed) return;
-          const now = Date.now();
-          const currentIds = new Set(presence.map(item => item.participantId));
 
-          // The local client remains visible while its socket is reconnecting.
-          currentIds.add(syncOptions.participantId);
-
-          for (const participantId of currentIds) {
-            lastSeenAt.set(participantId, now);
-            visiblePresence.add(participantId);
-            cancelPresenceRemoval(participantId);
-          }
-
-          // iOS can briefly publish an empty/partial presence snapshot while
-          // Safari or Chrome is backgrounded. Keep participants that were
-          // actually seen online for a short lease instead of flickering them.
-          for (const participantId of [...visiblePresence]) {
-            if (!currentIds.has(participantId)) schedulePresenceRemoval(participantId);
-          }
-
-          commitVisiblePresence();
+          // Presence is a discovery signal, not room membership authority.
+          // Once a remote participant has been observed online in this page
+          // session, keep it latched while the authoritative RoomState still
+          // contains that participant. iOS may suspend Safari/Chrome for an
+          // arbitrary duration and temporarily drop realtime presence.
+          confirmedPresenceIds = latchLobbyPresence(
+            confirmedPresenceIds,
+            presence.map(item => item.participantId),
+            syncOptions.participantId,
+          );
+          commitConfirmedPresence();
         }));
 
         cleanups.push(transport.onEvent(event => {
@@ -480,8 +455,6 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     return () => {
       disposed = true;
       for (const cleanup of cleanups) cleanup();
-      for (const timeoutId of presenceRemovalTimers.values()) window.clearTimeout(timeoutId);
-      presenceRemovalTimers.clear();
       if (transportRef.current === transport) transportRef.current = null;
       transport?.disconnect();
     };
