@@ -758,7 +758,11 @@ export default function WaitingRoomPanel() {
           {viewer.kind === "human" && viewer.role === "guest" ? (
             <button
               className={viewer.readyState === "ready" ? styles.readyButtonActive : styles.readyButton}
-              disabled={Boolean(syncOptions && (syncStatus !== "connected" || readyIntentPending))}
+              disabled={Boolean(
+                readyIntentPending
+                || (syncOptions?.role === "guest"
+                  && !room.participants.some(item => item.participantId === syncOptions.participantId))
+              )}
               onClick={toggleReady}
               type="button"
             >
