@@ -40,7 +40,12 @@ type RoomApiResponse = {
   error?: string;
 };
 
-async function postRoomMutation(payload: Record<string, unknown>, timeoutMs = 8000): Promise<RoomState> {
+type RoomMutationResult = {
+  snapshot: RoomState;
+  conflict: boolean;
+};
+
+async function postRoomMutation(payload: Record<string, unknown>, timeoutMs = 8000): Promise<RoomMutationResult> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -52,11 +57,14 @@ async function postRoomMutation(payload: Record<string, unknown>, timeoutMs = 80
       signal: controller.signal,
     });
     const data = await response.json() as RoomApiResponse;
+    if (data.snapshot && isCanonicalRoomSnapshot(data.snapshot) && response.status === 409) {
+      return { snapshot: data.snapshot, conflict: true };
+    }
     if (!response.ok || !data.ok || !data.snapshot) {
       throw new Error(data.error ?? `Room mutation failed (${response.status}).`);
     }
     if (!isCanonicalRoomSnapshot(data.snapshot)) throw new Error("Server returned an invalid room snapshot.");
-    return data.snapshot;
+    return { snapshot: data.snapshot, conflict: false };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error("Room update timed out. Please retry.");
@@ -229,13 +237,13 @@ export default function WaitingRoomPanel() {
         await transport.connect();
         if (disposed) return;
 
-        const snapshot = await postRoomMutation({
+        const bootstrapResult = await postRoomMutation({
           action: "bootstrap",
           roomId: syncOptions.roomId,
         });
         if (disposed) return;
 
-        applyCanonicalSnapshot(snapshot);
+        applyCanonicalSnapshot(bootstrapResult.snapshot);
         setSyncStatus("connected");
         setSyncDetail("Server-authoritative room synced.");
       } catch (error) {
