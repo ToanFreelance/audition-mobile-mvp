@@ -11,11 +11,11 @@ import {
   removeParticipant,
   setGuestReady,
 } from "../../multiplayer/room-state";
-import { applyGuestReadyIntent, applyHostRoomSnapshot } from "../../multiplayer/room-sync";
+import { applyServerRoomSnapshot, isCanonicalRoomSnapshot } from "../../multiplayer/room-sync";
 import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
 import type { RoomTransportStatus } from "../../multiplayer/transport";
 import { createP51WaitingRoomFixture } from "../../multiplayer/waiting-room-qa";
-import type { RoomParticipant, RoomSlotIndex } from "../../multiplayer/types";
+import type { RoomParticipant, RoomSlotIndex, RoomState } from "../../multiplayer/types";
 import WaitingRoomStage3D, { type WaitingRoomStageView } from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
 
@@ -34,6 +34,38 @@ type RealtimeConfig = {
   publishableKey: string;
 };
 
+type RoomApiResponse = {
+  ok: boolean;
+  snapshot?: RoomState | null;
+  error?: string;
+};
+
+async function postRoomMutation(payload: Record<string, unknown>, timeoutMs = 8000): Promise<RoomState> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch("/api/multiplayer/room", {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    const data = await response.json() as RoomApiResponse;
+    if (!response.ok || !data.ok || !data.snapshot) {
+      throw new Error(data.error ?? `Room mutation failed (${response.status}).`);
+    }
+    if (!isCanonicalRoomSnapshot(data.snapshot)) throw new Error("Server returned an invalid room snapshot.");
+    return data.snapshot;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Room update timed out. Please retry.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
 
 type SongOption = {
   id: string;
@@ -100,7 +132,6 @@ export default function WaitingRoomPanel() {
   const [readyIntentPending, setReadyIntentPending] = useState(false);
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
-  const publishedRevisionRef = useRef<number | null>(null);
 
 
   useEffect(() => {
