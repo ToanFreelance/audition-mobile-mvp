@@ -151,23 +151,48 @@ function modeLabel(modeId: string) {
   return modeId === "solo-easy-battle" ? "Solo Easy" : modeId === "team-easy" ? "Team Easy" : modeId;
 }
 
-export default function WaitingRoomPanel() {
-  const [room, setRoom] = useState(createP51WaitingRoomFixture);
-  const [viewParticipantId, setViewParticipantId] = useState(room.hostParticipantId);
+type WaitingRoomPanelProps = {
+  initialSync?: {
+    roomId: string;
+    role: SyncClientRole;
+  } | null;
+};
+
+const PRESENCE_GRACE_MS = 12_000;
+
+export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPanelProps) {
+  const initialParticipantId = initialSync?.role === "guest" ? "p51-guest" : "p51-host";
+  const [room, setRoom] = useState(() => initialSync
+    ? createP53SyncedWaitingRoomBase(initialSync.roomId)
+    : createP51WaitingRoomFixture());
+  const [viewParticipantId, setViewParticipantId] = useState(
+    initialSync ? initialParticipantId : room.hostParticipantId,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stagePage, setStagePage] = useState(0);
   const [viewMode, setViewMode] = useState<WaitingRoomStageView>("center");
-  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(room.hostParticipantId);
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(
+    initialSync ? initialParticipantId : room.hostParticipantId,
+  );
   const [panel, setPanel] = useState<PanelKind>(null);
   const [songDraft, setSongDraft] = useState(room.selectedSongId ?? "aloha");
   const [stageDraft, setStageDraft] = useState(room.selectedStageId);
   const [songSearch, setSongSearch] = useState("");
   const [actionNotice, setActionNotice] = useState<string | null>(null);
-  const [syncOptions, setSyncOptions] = useState<LobbySyncOptions | null>(null);
+  const [syncOptions, setSyncOptions] = useState<LobbySyncOptions | null>(() => initialSync
+    ? {
+        enabled: true,
+        roomId: initialSync.roomId,
+        participantId: initialParticipantId,
+        role: initialSync.role,
+      }
+    : null);
   const [syncStatus, setSyncStatus] = useState<RoomTransportStatus>("idle");
   const [syncDetail, setSyncDetail] = useState<string | null>(null);
   const [readyIntentPending, setReadyIntentPending] = useState(false);
-  const [presentParticipantIds, setPresentParticipantIds] = useState<readonly string[]>([]);
+  const [presentParticipantIds, setPresentParticipantIds] = useState<readonly string[]>(
+    initialSync ? [initialParticipantId] : [],
+  );
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
 
@@ -177,6 +202,7 @@ export default function WaitingRoomPanel() {
   }, [room]);
 
   useEffect(() => {
+    if (initialSync) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("sync") !== "1") return;
 
@@ -191,7 +217,7 @@ export default function WaitingRoomPanel() {
     setSelectedParticipantId(participantId);
     setPresentParticipantIds([participantId]);
     setSyncOptions({ enabled: true, roomId: requestedRoomId, participantId, role });
-  }, []);
+  }, [initialSync]);
 
   useEffect(() => {
     if (!syncOptions) return;
@@ -202,6 +228,34 @@ export default function WaitingRoomPanel() {
     let lastResumeAt = 0;
     let guestJoinedThisSession = false;
     const cleanups: Array<() => void> = [];
+    const visiblePresence = new Set<string>([syncOptions.participantId]);
+    const lastSeenAt = new Map<string, number>([[syncOptions.participantId, Date.now()]]);
+    const presenceRemovalTimers = new Map<string, number>();
+
+    const commitVisiblePresence = () => {
+      if (disposed) return;
+      setPresentParticipantIds([...visiblePresence]);
+    };
+
+    const cancelPresenceRemoval = (participantId: string) => {
+      const timeoutId = presenceRemovalTimers.get(participantId);
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        presenceRemovalTimers.delete(participantId);
+      }
+    };
+
+    const schedulePresenceRemoval = (participantId: string) => {
+      if (participantId === syncOptions.participantId || presenceRemovalTimers.has(participantId)) return;
+      const timeoutId = window.setTimeout(() => {
+        presenceRemovalTimers.delete(participantId);
+        const lastSeen = lastSeenAt.get(participantId) ?? 0;
+        if (Date.now() - lastSeen < PRESENCE_GRACE_MS) return;
+        visiblePresence.delete(participantId);
+        commitVisiblePresence();
+      }, PRESENCE_GRACE_MS);
+      presenceRemovalTimers.set(participantId, timeoutId);
+    };
 
     const applyCanonicalSnapshot = (snapshot: RoomState) => {
       if (disposed) return;
@@ -356,7 +410,26 @@ export default function WaitingRoomPanel() {
 
         cleanups.push(transport.onPresence(presence => {
           if (disposed) return;
-          setPresentParticipantIds(presence.map(item => item.participantId));
+          const now = Date.now();
+          const currentIds = new Set(presence.map(item => item.participantId));
+
+          // The local client remains visible while its socket is reconnecting.
+          currentIds.add(syncOptions.participantId);
+
+          for (const participantId of currentIds) {
+            lastSeenAt.set(participantId, now);
+            visiblePresence.add(participantId);
+            cancelPresenceRemoval(participantId);
+          }
+
+          // iOS can briefly publish an empty/partial presence snapshot while
+          // Safari or Chrome is backgrounded. Keep participants that were
+          // actually seen online for a short lease instead of flickering them.
+          for (const participantId of [...visiblePresence]) {
+            if (!currentIds.has(participantId)) schedulePresenceRemoval(participantId);
+          }
+
+          commitVisiblePresence();
         }));
 
         cleanups.push(transport.onEvent(event => {
@@ -407,6 +480,8 @@ export default function WaitingRoomPanel() {
     return () => {
       disposed = true;
       for (const cleanup of cleanups) cleanup();
+      for (const timeoutId of presenceRemovalTimers.values()) window.clearTimeout(timeoutId);
+      presenceRemovalTimers.clear();
       if (transportRef.current === transport) transportRef.current = null;
       transport?.disconnect();
     };

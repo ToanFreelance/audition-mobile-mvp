@@ -667,32 +667,6 @@ export default function WaitingRoomStage3D({
     const loader = new GLTFLoader();
     setLoadState("loading");
 
-    // Paint lightweight actors immediately so the stage never appears empty
-    // while GLB assets and the published idle release are still loading.
-    participants.forEach((participant, index) => {
-      const actor = fallbackActor(isFemale(participant));
-      tintActor(actor, participant, index);
-      actor.name = `WaitingRoomActorFallback:${participant.participantId}:${participant.avatar.characterId}`;
-      actor.userData.participantId = participant.participantId;
-      scene.add(actor);
-
-      const ring = createParticipantRing(
-        participantAccent(participant),
-        index * 1.37,
-        participant.role === "host",
-      );
-      scene.add(ring);
-
-      stageNodesRef.current.set(participant.participantId, {
-        participant,
-        index,
-        actor,
-        ring,
-        baseScale: actor.scale.clone(),
-      });
-    });
-    applyLayout();
-
     const needsFemale = participants.some(isFemale);
     const needsMale = participants.some(participant => !isFemale(participant));
     const malePromise = needsMale ? loader.loadAsync(HUMAN_CHARACTER_ASSET_URL) : Promise.resolve(null);
@@ -718,8 +692,42 @@ export default function WaitingRoomStage3D({
           disposableSources.push(femaleSource);
         }
 
-        // Swap in the real character model as soon as GLB loading finishes.
-        // Animation metadata may arrive later and must not block first paint.
+        let usedFallback = false;
+
+        // Render the real GLB characters immediately after model loading.
+        // Published idle-animation metadata is deliberately not on this path.
+        participants.forEach((participant, index) => {
+          const female = isFemale(participant);
+          const source = female ? femaleSource : maleSource;
+          const actor = source ? cloneSkeleton(source) : fallbackActor(female);
+          if (!source) usedFallback = true;
+
+          tintActor(actor, participant, index);
+          actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
+          actor.userData.participantId = participant.participantId;
+          scene.add(actor);
+
+          const ring = createParticipantRing(
+            participantAccent(participant),
+            index * 1.37,
+            participant.role === "host",
+          );
+          scene.add(ring);
+
+          stageNodesRef.current.set(participant.participantId, {
+            participant,
+            index,
+            actor,
+            ring,
+            baseScale: actor.scale.clone(),
+          });
+        });
+
+        applyLayout();
+        setLoadState(usedFallback ? "fallback" : "ready");
+
+        // Idle animations enhance an already visible character; they must never
+        // delay first character paint.
         const published = await publishedPromise.catch(() => null);
         if (disposed) return;
 
@@ -731,76 +739,75 @@ export default function WaitingRoomStage3D({
           releaseVersion,
           roomId,
         );
-        let usedFallback = false;
 
-        participants.forEach((participant, index) => {
-          const female = isFemale(participant);
-          const source = female ? femaleSource : maleSource;
-          const node = stageNodesRef.current.get(participant.participantId);
-          if (!node) return;
-
-          let actor = node.actor;
-          if (source) {
-            const fallback = actor;
-            actor = cloneSkeleton(source);
-            tintActor(actor, participant, index);
-            actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
-            actor.userData.participantId = participant.participantId;
-            scene.add(actor);
-            scene.remove(fallback);
-            disposeObject(fallback);
-            node.actor = actor;
-            node.baseScale = actor.scale.clone();
-          } else {
-            usedFallback = true;
-          }
-
-          if (source && idleClips.length > 0) {
+        if (idleClips.length > 0) {
+          stageNodesRef.current.forEach(node => {
+            const participant = node.participant;
+            // Procedural fallback actors have no compatible humanoid skeleton.
+            const source = isFemale(participant) ? femaleSource : maleSource;
+            if (!source) return;
             const idleIndex = idleIndexByParticipant.get(participant.participantId) ?? -1;
             const idleClip = selectParticipantIdleClipByIndex(idleClips, idleIndex);
-            if (idleClip) {
-              const mixer = new THREE.AnimationMixer(actor);
-              const action = mixer.clipAction(idleClip);
-              action.reset();
-              action.setLoop(THREE.LoopRepeat, Infinity);
-              action.enabled = true;
-              action.clampWhenFinished = false;
-              action.play();
-              action.time = selectParticipantIdlePhaseSeconds(
+            if (!idleClip) return;
+
+            const mixer = new THREE.AnimationMixer(node.actor);
+            const action = mixer.clipAction(idleClip);
+            action.reset();
+            action.setLoop(THREE.LoopRepeat, Infinity);
+            action.enabled = true;
+            action.clampWhenFinished = false;
+            action.play();
+            action.time = selectParticipantIdlePhaseSeconds(
+              participant.participantId,
+              idleClip.duration,
+              releaseVersion,
+              roomId,
+            );
+            mixer.update(0);
+            idleRuntimes.push({
+              participantId: participant.participantId,
+              mixer,
+              currentAction: action,
+              currentIndex: idleIndex,
+              transitionOrdinal: 0,
+              elapsedSeconds: 0,
+              holdSeconds: selectParticipantIdleHoldSeconds(
                 participant.participantId,
                 idleClip.duration,
                 releaseVersion,
                 roomId,
-              );
-              mixer.update(0);
-              idleRuntimes.push({
-                participantId: participant.participantId,
-                mixer,
-                currentAction: action,
-                currentIndex: idleIndex,
-                transitionOrdinal: 0,
-                elapsedSeconds: 0,
-                holdSeconds: selectParticipantIdleHoldSeconds(
-                  participant.participantId,
-                  idleClip.duration,
-                  releaseVersion,
-                  roomId,
-                  0,
-                ),
-                retiringAction: null,
-                retiringSeconds: 0,
-              });
-            }
-          }
-        });
-
-        applyLayout();
-        startIdleLoop();
-        setLoadState(usedFallback ? "fallback" : "ready");
+                0,
+              ),
+              retiringAction: null,
+              retiringSeconds: 0,
+            });
+          });
+          startIdleLoop();
+        }
       })
       .catch(error => {
         if (disposed) return;
-        console.warn("[waiting-room] character/idle load failed; keeping fallback actors", error);
+        console.warn("[waiting-room] character load failed; using emergency fallback actors", error);
+        participants.forEach((participant, index) => {
+          if (stageNodesRef.current.has(participant.participantId)) return;
+          const actor = fallbackActor(isFemale(participant));
+          tintActor(actor, participant, index);
+          actor.userData.participantId = participant.participantId;
+          scene.add(actor);
+          const ring = createParticipantRing(
+            participantAccent(participant),
+            index * 1.37,
+            participant.role === "host",
+          );
+          scene.add(ring);
+          stageNodesRef.current.set(participant.participantId, {
+            participant,
+            index,
+            actor,
+            ring,
+            baseScale: actor.scale.clone(),
+          });
+        });
         applyLayout();
         setLoadState("fallback");
       });
