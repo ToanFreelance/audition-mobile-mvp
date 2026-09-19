@@ -20,6 +20,10 @@ type StoredRoomRow = {
   snapshot: RoomState;
 };
 
+type CompareAndSwapRow = StoredRoomRow & {
+  applied: boolean;
+};
+
 type RoomMutationBody =
   | { action: "bootstrap"; roomId: string }
   | { action: "ready"; roomId: string; expectedRevision: number; participantId: string; ready: boolean }
@@ -43,83 +47,77 @@ function roomIdIsSafe(roomId: string) {
 
 function getSupabaseServerConfig() {
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) return null;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return null;
   return {
     url: url.replace(/\/$/, ""),
-    serviceRoleKey,
+    key,
   };
 }
 
-function dbHeaders(serviceRoleKey: string, extra?: Record<string, string>) {
+function dbHeaders(key: string) {
   return {
-    apikey: serviceRoleKey,
-    Authorization: `Bearer ${serviceRoleKey}`,
+    apikey: key,
+    Authorization: `Bearer ${key}`,
     "Content-Type": "application/json",
-    ...extra,
   };
+}
+
+async function callRoomRpc<T>(functionName: string, body: Record<string, unknown>): Promise<T[]> {
+  const config = getSupabaseServerConfig();
+  if (!config) throw new Error("Supabase room storage configuration is unavailable.");
+
+  const response = await fetch(`${config.url}/rest/v1/rpc/${functionName}`, {
+    method: "POST",
+    cache: "no-store",
+    headers: dbHeaders(config.key),
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Room storage RPC ${functionName} failed (${response.status})${detail ? `: ${detail.slice(0, 180)}` : ""}.`);
+  }
+
+  return await response.json() as T[];
 }
 
 async function readRoom(roomId: string): Promise<StoredRoomRow | null> {
-  const config = getSupabaseServerConfig();
-  if (!config) throw new Error("Supabase service-role configuration is unavailable.");
-  const response = await fetch(
-    `${config.url}/rest/v1/lobby_rooms?room_id=eq.${encodeURIComponent(roomId)}&select=room_id,revision,snapshot`,
-    {
-      cache: "no-store",
-      headers: dbHeaders(config.serviceRoleKey),
-    },
-  );
-  if (!response.ok) throw new Error(`Room read failed (${response.status}).`);
-  const rows = await response.json() as StoredRoomRow[];
+  const rows = await callRoomRpc<StoredRoomRow>("get_lobby_room", {
+    p_room_id: roomId,
+  });
   return rows[0] ?? null;
 }
 
 async function insertInitialRoom(room: RoomState): Promise<StoredRoomRow> {
-  const config = getSupabaseServerConfig();
-  if (!config) throw new Error("Supabase service-role configuration is unavailable.");
-  const response = await fetch(`${config.url}/rest/v1/lobby_rooms`, {
-    method: "POST",
-    cache: "no-store",
-    headers: dbHeaders(config.serviceRoleKey, { Prefer: "return=representation" }),
-    body: JSON.stringify({
-      room_id: room.roomId,
-      revision: room.revision,
-      snapshot: room,
-      updated_at: new Date().toISOString(),
-    }),
+  const rows = await callRoomRpc<StoredRoomRow>("bootstrap_lobby_room", {
+    p_room_id: room.roomId,
+    p_snapshot: room,
   });
-
-  if (response.status === 409) {
-    const existing = await readRoom(room.roomId);
-    if (existing) return existing;
-  }
-  if (!response.ok) throw new Error(`Room bootstrap failed (${response.status}).`);
-  const rows = await response.json() as StoredRoomRow[];
   const row = rows[0];
   if (!row) throw new Error("Room bootstrap returned no row.");
   return row;
 }
 
-async function compareAndSwapRoom(current: StoredRoomRow, next: RoomState): Promise<StoredRoomRow | null> {
-  const config = getSupabaseServerConfig();
-  if (!config) throw new Error("Supabase service-role configuration is unavailable.");
-  const response = await fetch(
-    `${config.url}/rest/v1/lobby_rooms?room_id=eq.${encodeURIComponent(current.room_id)}&revision=eq.${current.revision}`,
-    {
-      method: "PATCH",
-      cache: "no-store",
-      headers: dbHeaders(config.serviceRoleKey, { Prefer: "return=representation" }),
-      body: JSON.stringify({
-        revision: next.revision,
-        snapshot: next,
-        updated_at: new Date().toISOString(),
-      }),
+async function compareAndSwapRoom(
+  current: StoredRoomRow,
+  next: RoomState,
+): Promise<{ applied: boolean; row: StoredRoomRow | null }> {
+  const rows = await callRoomRpc<CompareAndSwapRow>("compare_and_swap_lobby_room", {
+    p_room_id: current.room_id,
+    p_expected_revision: current.revision,
+    p_snapshot: next,
+  });
+  const result = rows[0];
+  if (!result) return { applied: false, row: null };
+  return {
+    applied: Boolean(result.applied),
+    row: {
+      room_id: result.room_id,
+      revision: result.revision,
+      snapshot: result.snapshot,
     },
-  );
-  if (!response.ok) throw new Error(`Room update failed (${response.status}).`);
-  const rows = await response.json() as StoredRoomRow[];
-  return rows[0] ?? null;
+  };
 }
 
 function assertExpectedRevision(row: StoredRoomRow, expectedRevision: number) {
@@ -182,7 +180,7 @@ function parseBody(value: unknown): RoomMutationBody | null {
 export async function GET(request: NextRequest) {
   const roomId = request.nextUrl.searchParams.get("roomId")?.trim() ?? "";
   if (!roomIdIsSafe(roomId)) return jsonError("Invalid roomId.", 400);
-  if (!getSupabaseServerConfig()) return jsonError("Supabase service-role configuration is unavailable.", 503);
+  if (!getSupabaseServerConfig()) return jsonError("Supabase room storage configuration is unavailable.", 503);
 
   try {
     const row = await readRoom(roomId);
@@ -196,7 +194,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!getSupabaseServerConfig()) return jsonError("Supabase service-role configuration is unavailable.", 503);
+  if (!getSupabaseServerConfig()) return jsonError("Supabase room storage configuration is unavailable.", 503);
 
   let body: RoomMutationBody | null = null;
   try {
@@ -228,13 +226,15 @@ export async function POST(request: NextRequest) {
       throw new Error("Server mutation produced an invalid room snapshot.");
     }
 
-    const updated = await compareAndSwapRoom(current, next);
-    if (!updated) {
-      const latest = await readRoom(body.roomId);
-      return jsonError("Room revision conflict.", 409, { snapshot: latest?.snapshot ?? null });
+    const result = await compareAndSwapRoom(current, next);
+    if (!result.row) {
+      return jsonError("Room disappeared during update.", 404);
+    }
+    if (!result.applied) {
+      return jsonError("Room revision conflict.", 409, { snapshot: result.row.snapshot });
     }
 
-    return NextResponse.json({ ok: true, snapshot: updated.snapshot }, {
+    return NextResponse.json({ ok: true, snapshot: result.row.snapshot }, {
       headers: { "Cache-Control": "no-store, max-age=0" },
     });
   } catch (error) {
