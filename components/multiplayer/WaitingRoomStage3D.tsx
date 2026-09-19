@@ -7,6 +7,7 @@ import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.j
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import { loadPublishedDanceRelease } from "../character/published-animation-library";
 import type { RoomParticipant, RoomSlot } from "../../multiplayer/types";
+import { lobbyStageParticipantIdentity } from "../../multiplayer/lobby-stage-identity";
 import {
   selectParticipantIdleClipByIndex,
   selectParticipantIdleHoldSeconds,
@@ -33,6 +34,7 @@ type Props = {
 type StageNode = {
   participant: RoomParticipant;
   index: number;
+  characterId: string;
   actor: THREE.Object3D;
   ring: THREE.Object3D;
   baseScale: THREE.Vector3;
@@ -294,6 +296,7 @@ export default function WaitingRoomStage3D({
   const slotsRef = useRef(slots);
   const renderRef = useRef<(() => void) | null>(null);
   const layoutRef = useRef<(() => void) | null>(null);
+  const reconcileParticipantsRef = useRef<(() => void) | null>(null);
   const selectCallbackRef = useRef(onSelectParticipant);
   const participantsRef = useRef(participants);
   const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId });
@@ -309,9 +312,9 @@ export default function WaitingRoomStage3D({
     [slots],
   );
 
-  const identityKey = useMemo(
-    () => `${roomId}|${participants.map(item => `${item.participantId}:${item.avatar.characterId}:${item.slotIndex}`).join("|")}`,
-    [participants, roomId],
+  const participantRenderKey = useMemo(
+    () => participants.map(lobbyStageParticipantIdentity).join("|"),
+    [participants],
   );
 
   const visibleParticipants = useMemo(() => {
@@ -328,6 +331,10 @@ export default function WaitingRoomStage3D({
   }, [pageIndex, pageSize, selectedParticipantId, slotStateKey, viewMode]);
 
   useEffect(() => {
+    reconcileParticipantsRef.current?.();
+  }, [participantRenderKey]);
+
+  useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
@@ -337,8 +344,11 @@ export default function WaitingRoomStage3D({
     let accumulatedMs = 0;
     let idleClips: readonly THREE.AnimationClip[] = [];
     let releaseVersion = 0;
+    let maleSource: THREE.Object3D | null = null;
+    let femaleSource: THREE.Object3D | null = null;
+    let characterAssetsReady = false;
 
-    const idleRuntimes: IdleRuntime[] = [];
+    const idleRuntimeByParticipant = new Map<string, IdleRuntime>();
     const disposableSources: THREE.Object3D[] = [];
     stageNodesRef.current.clear();
     slotPlaceholdersRef.current = [];
@@ -474,9 +484,10 @@ export default function WaitingRoomStage3D({
 
     const applyLayout = () => {
       const current = viewRef.current;
+      const activeParticipants = participantsRef.current;
       const selected = current.selectedParticipantId
-        ?? participants[current.pageIndex * current.pageSize]?.participantId
-        ?? participants[0]?.participantId
+        ?? activeParticipants[current.pageIndex * current.pageSize]?.participantId
+        ?? activeParticipants[0]?.participantId
         ?? null;
 
       stageNodesRef.current.forEach(node => {
@@ -503,7 +514,7 @@ export default function WaitingRoomStage3D({
         } else {
           const pageStart = current.pageIndex * current.pageSize;
           visible = index >= pageStart && index < pageStart + current.pageSize;
-          const position = centerPosition(index, participants.length, current.pageSize);
+          const position = centerPosition(index, activeParticipants.length, current.pageSize);
           x = position.x;
           z = position.z;
           rotationY = position.rotationY;
@@ -599,7 +610,7 @@ export default function WaitingRoomStage3D({
     };
 
     const startIdleLoop = () => {
-      if (idleRuntimes.length === 0 || animationFrame) return;
+      if (idleRuntimeByParticipant.size === 0 || animationFrame) return;
       const minFrameMs = 1000 / IDLE_RENDER_FPS;
       const tick = (nowMs: number) => {
         if (disposed) return;
@@ -615,7 +626,7 @@ export default function WaitingRoomStage3D({
         if (accumulatedMs < minFrameMs) return;
         const deltaSeconds = accumulatedMs / 1000;
         accumulatedMs = 0;
-        idleRuntimes.forEach(runtime => {
+        idleRuntimeByParticipant.forEach(runtime => {
           runtime.mixer.update(deltaSeconds);
           switchIdleIfNeeded(runtime, deltaSeconds);
         });
@@ -667,22 +678,177 @@ export default function WaitingRoomStage3D({
     const loader = new GLTFLoader();
     setLoadState("loading");
 
-    const needsFemale = participants.some(isFemale);
-    const needsMale = participants.some(participant => !isFemale(participant));
-    const malePromise = needsMale ? loader.loadAsync(HUMAN_CHARACTER_ASSET_URL) : Promise.resolve(null);
-    const femalePromise = needsFemale ? loader.loadAsync(FEMALE_CHARACTER_ASSET_URL) : Promise.resolve(null);
-    const publishedPromise = loadPublishedDanceRelease(true);
+    const disposeActorInstance = (actor: THREE.Object3D) => {
+      const materials = new Set<THREE.Material>();
+      actor.traverse(object => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const meshMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        meshMaterials.forEach(material => {
+          if (material) materials.add(material);
+        });
+      });
+      materials.forEach(material => material.dispose());
+    };
+
+    const stopIdleRuntime = (participantId: string) => {
+      const runtime = idleRuntimeByParticipant.get(participantId);
+      if (!runtime) return;
+      runtime.mixer.stopAllAction();
+      runtime.mixer.uncacheRoot(runtime.mixer.getRoot());
+      idleRuntimeByParticipant.delete(participantId);
+    };
+
+    const attachIdleRuntime = (node: StageNode) => {
+      if (idleRuntimeByParticipant.has(node.participant.participantId) || idleClips.length === 0) return;
+      const assignments = selectRoomParticipantIdleIndices(
+        participantsRef.current,
+        idleClips.length,
+        releaseVersion,
+        roomId,
+      );
+      const idleIndex = assignments.get(node.participant.participantId) ?? -1;
+      const idleClip = selectParticipantIdleClipByIndex(idleClips, idleIndex);
+      if (!idleClip) return;
+
+      const mixer = new THREE.AnimationMixer(node.actor);
+      const action = mixer.clipAction(idleClip);
+      action.reset();
+      action.setLoop(THREE.LoopRepeat, Infinity);
+      action.enabled = true;
+      action.clampWhenFinished = false;
+      action.play();
+      action.time = selectParticipantIdlePhaseSeconds(
+        node.participant.participantId,
+        idleClip.duration,
+        releaseVersion,
+        roomId,
+      );
+      mixer.update(0);
+
+      idleRuntimeByParticipant.set(node.participant.participantId, {
+        participantId: node.participant.participantId,
+        mixer,
+        currentAction: action,
+        currentIndex: idleIndex,
+        transitionOrdinal: 0,
+        elapsedSeconds: 0,
+        holdSeconds: selectParticipantIdleHoldSeconds(
+          node.participant.participantId,
+          idleClip.duration,
+          releaseVersion,
+          roomId,
+          0,
+        ),
+        retiringAction: null,
+        retiringSeconds: 0,
+      });
+    };
+
+    const removeStageNode = (participantId: string) => {
+      const node = stageNodesRef.current.get(participantId);
+      if (!node) return;
+      stopIdleRuntime(participantId);
+      scene.remove(node.actor);
+      scene.remove(node.ring);
+      disposeActorInstance(node.actor);
+      disposeObject(node.ring);
+      stageNodesRef.current.delete(participantId);
+    };
+
+    const createStageNode = (participant: RoomParticipant, index: number) => {
+      const source = isFemale(participant) ? femaleSource : maleSource;
+      const actor = source ? cloneSkeleton(source) : fallbackActor(isFemale(participant));
+      tintActor(actor, participant, index);
+      actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
+      actor.userData.participantId = participant.participantId;
+      scene.add(actor);
+
+      const ring = createParticipantRing(
+        participantAccent(participant),
+        index * 1.37,
+        participant.role === "host",
+      );
+      scene.add(ring);
+
+      const node: StageNode = {
+        participant,
+        index,
+        characterId: participant.avatar.characterId,
+        actor,
+        ring,
+        baseScale: actor.scale.clone(),
+      };
+      stageNodesRef.current.set(participant.participantId, node);
+      attachIdleRuntime(node);
+      return node;
+    };
+
+    const reconcileParticipants = () => {
+      if (disposed || !characterAssetsReady) return;
+      const activeParticipants = participantsRef.current;
+      const activeIds = new Set(activeParticipants.map(item => item.participantId));
+
+      // Remove only the participant that actually left. Existing actors,
+      // mixers, animation phase, and WebGL scene survive untouched.
+      for (const participantId of [...stageNodesRef.current.keys()]) {
+        if (!activeIds.has(participantId)) removeStageNode(participantId);
+      }
+
+      activeParticipants.forEach((participant, index) => {
+        const existing = stageNodesRef.current.get(participant.participantId);
+        if (!existing) {
+          createStageNode(participant, index);
+          return;
+        }
+
+        // Avatar identity changes replace only that one actor.
+        if (existing.characterId !== participant.avatar.characterId) {
+          removeStageNode(participant.participantId);
+          createStageNode(participant, index);
+          return;
+        }
+
+        // READY / NOT READY and connection metadata only refresh the node's
+        // logical participant reference. Never restart its AnimationMixer.
+        existing.participant = participant;
+        existing.index = index;
+      });
+
+      const needsFallback = activeParticipants.some(participant => (
+        isFemale(participant) ? !femaleSource : !maleSource
+      ));
+      setLoadState(needsFallback ? "fallback" : "ready");
+      applyLayout();
+      startIdleLoop();
+    };
+    reconcileParticipantsRef.current = reconcileParticipants;
+
+    // Load both reusable character sources once per room. Future joins clone
+    // from memory instead of rebuilding the stage or refetching GLBs.
+    const malePromise = loader.loadAsync(HUMAN_CHARACTER_ASSET_URL).catch(error => {
+      console.warn("[waiting-room] male character asset failed; fallback only for male actors", error);
+      return null;
+    });
+    const femalePromise = loader.loadAsync(FEMALE_CHARACTER_ASSET_URL).catch(error => {
+      console.warn("[waiting-room] female character asset failed; fallback only for female actors", error);
+      return null;
+    });
+    const publishedPromise = loadPublishedDanceRelease(true).catch(error => {
+      console.warn("[waiting-room] idle release failed; characters remain visible without lobby idle clips", error);
+      return null;
+    });
 
     void Promise.all([malePromise, femalePromise])
-      .then(async ([maleGltf, femaleGltf]) => {
+      .then(([maleGltf, femaleGltf]) => {
         if (disposed) {
           if (maleGltf) disposeObject(maleGltf.scene);
           if (femaleGltf) disposeObject(femaleGltf.scene);
           return;
         }
 
-        const maleSource = maleGltf?.scene ?? null;
-        const femaleSource = femaleGltf?.scene ?? null;
+        maleSource = maleGltf?.scene ?? null;
+        femaleSource = femaleGltf?.scene ?? null;
         if (maleSource) {
           normalizeModel(maleSource);
           disposableSources.push(maleSource);
@@ -692,124 +858,26 @@ export default function WaitingRoomStage3D({
           disposableSources.push(femaleSource);
         }
 
-        let usedFallback = false;
+        characterAssetsReady = true;
+        reconcileParticipants();
 
-        // Render the real GLB characters immediately after model loading.
-        // Published idle-animation metadata is deliberately not on this path.
-        participants.forEach((participant, index) => {
-          const female = isFemale(participant);
-          const source = female ? femaleSource : maleSource;
-          const actor = source ? cloneSkeleton(source) : fallbackActor(female);
-          if (!source) usedFallback = true;
+        return publishedPromise;
+      })
+      .then(published => {
+        if (disposed || !published) return;
+        idleClips = published.idleSourceClips ?? [];
+        releaseVersion = published.info.releaseVersion ?? 0;
 
-          tintActor(actor, participant, index);
-          actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
-          actor.userData.participantId = participant.participantId;
-          scene.add(actor);
-
-          const ring = createParticipantRing(
-            participantAccent(participant),
-            index * 1.37,
-            participant.role === "host",
-          );
-          scene.add(ring);
-
-          stageNodesRef.current.set(participant.participantId, {
-            participant,
-            index,
-            actor,
-            ring,
-            baseScale: actor.scale.clone(),
-          });
-        });
-
-        applyLayout();
-        setLoadState(usedFallback ? "fallback" : "ready");
-
-        // Idle animations enhance an already visible character; they must never
-        // delay first character paint.
-        const published = await publishedPromise.catch(() => null);
-        if (disposed) return;
-
-        idleClips = published?.idleSourceClips ?? [];
-        releaseVersion = published?.info.releaseVersion ?? 0;
-        const idleIndexByParticipant = selectRoomParticipantIdleIndices(
-          participants,
-          idleClips.length,
-          releaseVersion,
-          roomId,
-        );
-
-        if (idleClips.length > 0) {
-          stageNodesRef.current.forEach(node => {
-            const participant = node.participant;
-            // Procedural fallback actors have no compatible humanoid skeleton.
-            const source = isFemale(participant) ? femaleSource : maleSource;
-            if (!source) return;
-            const idleIndex = idleIndexByParticipant.get(participant.participantId) ?? -1;
-            const idleClip = selectParticipantIdleClipByIndex(idleClips, idleIndex);
-            if (!idleClip) return;
-
-            const mixer = new THREE.AnimationMixer(node.actor);
-            const action = mixer.clipAction(idleClip);
-            action.reset();
-            action.setLoop(THREE.LoopRepeat, Infinity);
-            action.enabled = true;
-            action.clampWhenFinished = false;
-            action.play();
-            action.time = selectParticipantIdlePhaseSeconds(
-              participant.participantId,
-              idleClip.duration,
-              releaseVersion,
-              roomId,
-            );
-            mixer.update(0);
-            idleRuntimes.push({
-              participantId: participant.participantId,
-              mixer,
-              currentAction: action,
-              currentIndex: idleIndex,
-              transitionOrdinal: 0,
-              elapsedSeconds: 0,
-              holdSeconds: selectParticipantIdleHoldSeconds(
-                participant.participantId,
-                idleClip.duration,
-                releaseVersion,
-                roomId,
-                0,
-              ),
-              retiringAction: null,
-              retiringSeconds: 0,
-            });
-          });
-          startIdleLoop();
-        }
+        // Attach animation only to actors that do not already own a mixer.
+        // Existing actor phase is never reset by roster/status updates.
+        stageNodesRef.current.forEach(attachIdleRuntime);
+        startIdleLoop();
       })
       .catch(error => {
         if (disposed) return;
-        console.warn("[waiting-room] character load failed; using emergency fallback actors", error);
-        participants.forEach((participant, index) => {
-          if (stageNodesRef.current.has(participant.participantId)) return;
-          const actor = fallbackActor(isFemale(participant));
-          tintActor(actor, participant, index);
-          actor.userData.participantId = participant.participantId;
-          scene.add(actor);
-          const ring = createParticipantRing(
-            participantAccent(participant),
-            index * 1.37,
-            participant.role === "host",
-          );
-          scene.add(ring);
-          stageNodesRef.current.set(participant.participantId, {
-            participant,
-            index,
-            actor,
-            ring,
-            baseScale: actor.scale.clone(),
-          });
-        });
-        applyLayout();
-        setLoadState("fallback");
+        console.warn("[waiting-room] character initialization failed", error);
+        characterAssetsReady = true;
+        reconcileParticipants();
       });
 
     const observer = new ResizeObserver(render);
@@ -821,9 +889,11 @@ export default function WaitingRoomStage3D({
       if (animationFrame) cancelAnimationFrame(animationFrame);
       observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
-      idleRuntimes.forEach(runtime => runtime.mixer.stopAllAction());
+      idleRuntimeByParticipant.forEach(runtime => runtime.mixer.stopAllAction());
+      idleRuntimeByParticipant.clear();
       renderRef.current = null;
       layoutRef.current = null;
+      reconcileParticipantsRef.current = null;
       stageNodesRef.current.clear();
       slotPlaceholdersRef.current = [];
       disposeObject(scene);
@@ -831,7 +901,7 @@ export default function WaitingRoomStage3D({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [identityKey, roomId]);
+  }, [roomId]);
 
   return (
     <div className={styles.stage} data-stage={stageId} data-view={viewMode}>
