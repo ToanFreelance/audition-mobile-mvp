@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { addParticipant } from "../multiplayer/room-state";
+import { addParticipant, removeParticipant } from "../multiplayer/room-state";
 import { latchLobbyPresence, projectRoomForPresence } from "../multiplayer/lobby-presence";
 import {
   createP53QaGuestParticipant,
@@ -70,4 +70,21 @@ test("latched presence survives a later empty realtime snapshot", () => {
   const projected = projectRoomForPresence(withGuest, confirmed, "p51-host");
 
   expect(projected.participants.some(item => item.participantId === "p51-guest")).toBe(true);
+});
+
+
+test("authoritative guest leave overrides latched presence", () => {
+  const base = createP53SyncedWaitingRoomBase("leave-room");
+  const withGuest = addParticipant(base, createP53QaGuestParticipant());
+  const confirmed = latchLobbyPresence(
+    ["p51-host"],
+    ["p51-host", "p51-guest"],
+    "p51-host",
+  );
+
+  const afterLeave = removeParticipant(withGuest, "p51-guest");
+  const projected = projectRoomForPresence(afterLeave, confirmed, "p51-host");
+
+  expect(projected.participants.some(item => item.participantId === "p51-guest")).toBe(false);
+  expect(projected.slots[1]).toEqual({ slotIndex: 1, state: "open" });
 });

@@ -189,6 +189,8 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   const [syncStatus, setSyncStatus] = useState<RoomTransportStatus>("idle");
   const [syncDetail, setSyncDetail] = useState<string | null>(null);
   const [readyIntentPending, setReadyIntentPending] = useState(false);
+  const [leaveIntentPending, setLeaveIntentPending] = useState(false);
+  const [leftRoom, setLeftRoom] = useState(false);
   const [presentParticipantIds, setPresentParticipantIds] = useState<readonly string[]>(
     initialSync ? [initialParticipantId] : [],
   );
@@ -215,6 +217,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     setViewParticipantId(participantId);
     setSelectedParticipantId(participantId);
     setPresentParticipantIds([participantId]);
+    setLeftRoom(false);
     setSyncOptions({ enabled: true, roomId: requestedRoomId, participantId, role });
   }, [initialSync]);
 
@@ -557,6 +560,56 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     setRoom(current => setGuestReady(current, viewer.participantId, viewer.readyState !== "ready"));
   };
 
+  const leaveRoom = () => {
+    if (leaveIntentPending || leftRoom) return;
+
+    if (syncOptions) {
+      if (syncOptions.role !== "guest") {
+        setSyncDetail("Host leave requires a room-close/host-transfer flow and is not part of this demo.");
+        return;
+      }
+
+      const localParticipant = room.participants.find(
+        item => item.participantId === syncOptions.participantId,
+      );
+      if (!localParticipant) {
+        setLeftRoom(true);
+        setSyncDetail("Guest already left the room.");
+        return;
+      }
+
+      setLeaveIntentPending(true);
+      void runServerMutation({
+        action: "leave",
+        expectedRevision: room.revision,
+        participantId: syncOptions.participantId,
+      }, "Guest left the room.").then(() => {
+        setLeftRoom(true);
+        setReadyIntentPending(false);
+        setPresentParticipantIds(current =>
+          current.filter(participantId => participantId !== syncOptions.participantId)
+        );
+        setSelectedParticipantId(room.hostParticipantId);
+        setPanel(null);
+        transportRef.current?.disconnect();
+        setSyncStatus("disconnected");
+        setSyncDetail("Bạn đã rời phòng.");
+      }).catch(error => {
+        setSyncDetail(error instanceof Error ? error.message : "Leave room failed.");
+      }).finally(() => {
+        setLeaveIntentPending(false);
+      });
+      return;
+    }
+
+    if (viewer.kind === "human" && viewer.role === "guest") {
+      setRoom(current => removeParticipant(current, viewer.participantId));
+      setLeftRoom(true);
+      setSelectedParticipantId(room.hostParticipantId);
+      setPanel(null);
+    }
+  };
+
   const changeModeQa = () => {
     const nextMode = room.modeId === "solo-easy-battle" ? "team-easy" : "solo-easy-battle";
     if (syncOptions) {
@@ -819,12 +872,21 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         </section>
 
         <footer className={`${styles.actions} ${viewer.kind === "human" && viewer.role === "guest" ? styles.actionsGuest : ""}`}>
-          <button className={styles.leaveButton} type="button">↪ Rời phòng</button>
+          <button
+            className={styles.leaveButton}
+            disabled={Boolean(hostView || leaveIntentPending || leftRoom)}
+            onClick={leaveRoom}
+            title={hostView ? "Host leave cần room-close/host-transfer flow." : undefined}
+            type="button"
+          >
+            ↪ {leaveIntentPending ? "ĐANG RỜI..." : leftRoom ? "ĐÃ RỜI PHÒNG" : "Rời phòng"}
+          </button>
           {viewer.kind === "human" && viewer.role === "guest" ? (
             <button
               className={viewer.readyState === "ready" ? styles.readyButtonActive : styles.readyButton}
               disabled={Boolean(
                 readyIntentPending
+                || leftRoom
                 || (syncOptions?.role === "guest"
                   && !room.participants.some(item => item.participantId === syncOptions.participantId))
               )}

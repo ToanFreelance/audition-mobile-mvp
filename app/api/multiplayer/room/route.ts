@@ -37,6 +37,7 @@ type RoomMutationBody =
       characterId: string;
     }
   | { action: "ready"; roomId: string; expectedRevision: number; participantId: string; ready: boolean }
+  | { action: "leave"; roomId: string; expectedRevision: number; participantId: string }
   | { action: "song"; roomId: string; expectedRevision: number; actorParticipantId: string; songId: string }
   | { action: "stage"; roomId: string; expectedRevision: number; actorParticipantId: string; stageId: string }
   | { action: "mode"; roomId: string; expectedRevision: number; actorParticipantId: string; modeId: string }
@@ -189,6 +190,19 @@ function joinHumanGuest(
   return addParticipant(room, participant);
 }
 
+function leaveHumanGuest(
+  room: RoomState,
+  body: Extract<RoomMutationBody, { action: "leave" }>,
+): RoomState {
+  if (room.status !== "waiting") throw new Error("Participants can only leave a waiting room.");
+  const participant = room.participants.find(item => item.participantId === body.participantId);
+  if (!participant) return room;
+  if (participant.kind !== "human" || participant.role !== "guest") {
+    throw new Error("Only a human guest can leave through this action.");
+  }
+  return removeParticipant(room, participant.participantId);
+}
+
 function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" }>) {
   assertExpectedRevision(row, body.expectedRevision);
   const room = row.snapshot;
@@ -199,6 +213,8 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
       return joinHumanGuest(room, body);
     case "ready":
       return setGuestReady(room, body.participantId, body.ready);
+    case "leave":
+      return leaveHumanGuest(room, body);
     case "song":
       return changeSong(room, body.actorParticipantId, body.songId);
     case "stage":
