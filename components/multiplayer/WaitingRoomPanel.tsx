@@ -12,6 +12,7 @@ import {
   setGuestReady,
 } from "../../multiplayer/room-state";
 import { applyServerRoomSnapshot, isCanonicalRoomSnapshot } from "../../multiplayer/room-sync";
+import { projectRoomForPresence } from "../../multiplayer/lobby-presence";
 import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
 import type { RoomTransportStatus } from "../../multiplayer/transport";
 import {
@@ -166,6 +167,7 @@ export default function WaitingRoomPanel() {
   const [syncStatus, setSyncStatus] = useState<RoomTransportStatus>("idle");
   const [syncDetail, setSyncDetail] = useState<string | null>(null);
   const [readyIntentPending, setReadyIntentPending] = useState(false);
+  const [presentParticipantIds, setPresentParticipantIds] = useState<readonly string[]>([]);
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
 
@@ -187,6 +189,7 @@ export default function WaitingRoomPanel() {
     roomRef.current = syncedRoom;
     setViewParticipantId(participantId);
     setSelectedParticipantId(participantId);
+    setPresentParticipantIds([participantId]);
     setSyncOptions({ enabled: true, roomId: requestedRoomId, participantId, role });
   }, []);
 
@@ -351,6 +354,11 @@ export default function WaitingRoomPanel() {
           if (detail) setSyncDetail(detail);
         }));
 
+        cleanups.push(transport.onPresence(presence => {
+          if (disposed) return;
+          setPresentParticipantIds(presence.map(item => item.participantId));
+        }));
+
         cleanups.push(transport.onEvent(event => {
           if (disposed || event.payload.kind !== "server-room-snapshot") return;
           const result = applyServerRoomSnapshot(roomRef.current, event.senderParticipantId, event.payload);
@@ -404,17 +412,26 @@ export default function WaitingRoomPanel() {
     };
   }, [syncOptions]);
 
+  const displayRoom = useMemo(
+    () => syncOptions
+      ? projectRoomForPresence(room, presentParticipantIds, syncOptions.participantId)
+      : room,
+    [presentParticipantIds, room, syncOptions],
+  );
   const viewer = room.participants.find(item => item.participantId === viewParticipantId)
     ?? (syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
   const hostView = syncOptions ? syncOptions.role === "host" : viewer.participantId === room.hostParticipantId;
-  const startGate = useMemo(() => canStartRoom(room), [room]);
-  const participantById = useMemo(() => new Map(room.participants.map(item => [item.participantId, item])), [room.participants]);
+  const startGate = useMemo(() => canStartRoom(displayRoom), [displayRoom]);
+  const participantById = useMemo(
+    () => new Map(displayRoom.participants.map(item => [item.participantId, item])),
+    [displayRoom.participants],
+  );
   const orderedParticipants = useMemo(
-    () => [...room.participants].sort((a, b) => a.slotIndex - b.slotIndex),
-    [room.participants],
+    () => [...displayRoom.participants].sort((a, b) => a.slotIndex - b.slotIndex),
+    [displayRoom.participants],
   );
   const selectedParticipant = selectedParticipantId
-    ? room.participants.find(item => item.participantId === selectedParticipantId) ?? null
+    ? displayRoom.participants.find(item => item.participantId === selectedParticipantId) ?? null
     : null;
   const stagePageCount = Math.max(1, Math.ceil(orderedParticipants.length / 2));
   const safeStagePage = Math.min(stagePage, stagePageCount - 1);
@@ -626,7 +643,7 @@ export default function WaitingRoomPanel() {
           <button className={styles.iconButton} type="button" aria-label="Back">‹</button>
           <div className={styles.titleBlock}>
             <strong>{room.roomName}</strong>
-            <span>ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {room.participants.length}/{room.maxPlayers}</span>
+            <span>ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {displayRoom.participants.length}/{room.maxPlayers}</span>
           </div>
           <div className={styles.headerRight}>
             <button className={styles.iconButton} onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
@@ -696,7 +713,7 @@ export default function WaitingRoomPanel() {
           </nav>
           <WaitingRoomStage3D
             participants={orderedParticipants}
-            slots={room.slots}
+            slots={displayRoom.slots}
             roomId={room.roomId}
             stageId={room.selectedStageId}
             viewMode={viewMode}
@@ -723,7 +740,7 @@ export default function WaitingRoomPanel() {
         </section>
 
         <section className={styles.slotDock}>
-          {room.slots.map(slot => {
+          {displayRoom.slots.map(slot => {
             const participant = slot.state === "occupied" ? participantById.get(slot.participantId) : null;
             const status = participant ? statusLabel(participant) : slot.state.toUpperCase();
             const selected = participant?.participantId === selectedParticipantId;

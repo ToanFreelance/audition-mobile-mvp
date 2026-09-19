@@ -667,14 +667,40 @@ export default function WaitingRoomStage3D({
     const loader = new GLTFLoader();
     setLoadState("loading");
 
+    // Paint lightweight actors immediately so the stage never appears empty
+    // while GLB assets and the published idle release are still loading.
+    participants.forEach((participant, index) => {
+      const actor = fallbackActor(isFemale(participant));
+      tintActor(actor, participant, index);
+      actor.name = `WaitingRoomActorFallback:${participant.participantId}:${participant.avatar.characterId}`;
+      actor.userData.participantId = participant.participantId;
+      scene.add(actor);
+
+      const ring = createParticipantRing(
+        participantAccent(participant),
+        index * 1.37,
+        participant.role === "host",
+      );
+      scene.add(ring);
+
+      stageNodesRef.current.set(participant.participantId, {
+        participant,
+        index,
+        actor,
+        ring,
+        baseScale: actor.scale.clone(),
+      });
+    });
+    applyLayout();
+
     const needsFemale = participants.some(isFemale);
     const needsMale = participants.some(participant => !isFemale(participant));
     const malePromise = needsMale ? loader.loadAsync(HUMAN_CHARACTER_ASSET_URL) : Promise.resolve(null);
     const femalePromise = needsFemale ? loader.loadAsync(FEMALE_CHARACTER_ASSET_URL) : Promise.resolve(null);
     const publishedPromise = loadPublishedDanceRelease(true);
 
-    void Promise.all([malePromise, femalePromise, publishedPromise])
-      .then(([maleGltf, femaleGltf, published]) => {
+    void Promise.all([malePromise, femalePromise])
+      .then(async ([maleGltf, femaleGltf]) => {
         if (disposed) {
           if (maleGltf) disposeObject(maleGltf.scene);
           if (femaleGltf) disposeObject(femaleGltf.scene);
@@ -692,6 +718,11 @@ export default function WaitingRoomStage3D({
           disposableSources.push(femaleSource);
         }
 
+        // Swap in the real character model as soon as GLB loading finishes.
+        // Animation metadata may arrive later and must not block first paint.
+        const published = await publishedPromise.catch(() => null);
+        if (disposed) return;
+
         idleClips = published?.idleSourceClips ?? [];
         releaseVersion = published?.info.releaseVersion ?? 0;
         const idleIndexByParticipant = selectRoomParticipantIdleIndices(
@@ -705,25 +736,24 @@ export default function WaitingRoomStage3D({
         participants.forEach((participant, index) => {
           const female = isFemale(participant);
           const source = female ? femaleSource : maleSource;
-          const actor = source ? cloneSkeleton(source) : fallbackActor(female);
-          if (!source) usedFallback = true;
+          const node = stageNodesRef.current.get(participant.participantId);
+          if (!node) return;
 
-          tintActor(actor, participant, index);
-          actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
-          actor.userData.participantId = participant.participantId;
-          scene.add(actor);
-
-          const ringColor = participantAccent(participant);
-          const ring = createParticipantRing(ringColor, index * 1.37, participant.role === "host");
-          scene.add(ring);
-
-          stageNodesRef.current.set(participant.participantId, {
-            participant,
-            index,
-            actor,
-            ring,
-            baseScale: actor.scale.clone(),
-          });
+          let actor = node.actor;
+          if (source) {
+            const fallback = actor;
+            actor = cloneSkeleton(source);
+            tintActor(actor, participant, index);
+            actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
+            actor.userData.participantId = participant.participantId;
+            scene.add(actor);
+            scene.remove(fallback);
+            disposeObject(fallback);
+            node.actor = actor;
+            node.baseScale = actor.scale.clone();
+          } else {
+            usedFallback = true;
+          }
 
           if (source && idleClips.length > 0) {
             const idleIndex = idleIndexByParticipant.get(participant.participantId) ?? -1;
@@ -770,26 +800,7 @@ export default function WaitingRoomStage3D({
       })
       .catch(error => {
         if (disposed) return;
-        console.warn("[waiting-room] character/idle load failed; using fallback actors", error);
-        participants.forEach((participant, index) => {
-          const actor = fallbackActor(isFemale(participant));
-          tintActor(actor, participant, index);
-          actor.userData.participantId = participant.participantId;
-          scene.add(actor);
-          const ring = createParticipantRing(
-            participantAccent(participant),
-            index * 1.37,
-            participant.role === "host",
-          );
-          scene.add(ring);
-          stageNodesRef.current.set(participant.participantId, {
-            participant,
-            index,
-            actor,
-            ring,
-            baseScale: actor.scale.clone(),
-          });
-        });
+        console.warn("[waiting-room] character/idle load failed; keeping fallback actors", error);
         applyLayout();
         setLoadState("fallback");
       });

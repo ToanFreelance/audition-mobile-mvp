@@ -41,7 +41,7 @@ jobs:
         run: npm run build
 
       - name: Targeted realtime transport QA
-        run: npx playwright test e2e/multiplayer-transport.spec.ts --project=desktop --workers=1 --grep "foreground reconnect"
+        run: npx playwright test e2e/multiplayer-transport.spec.ts e2e/lobby-presence.spec.ts --project=desktop --workers=1 --grep "foreground reconnect|presence projection|local guest remains visible"
 
       - name: Upload QA report on failure
         if: failure()
