@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  SupabaseRealtimeRoomTransport,
   buildSupabaseRealtimeWebSocketUrl,
   realtimeTopicForRoom,
   sanitizeRealtimeRoomId,
@@ -113,4 +114,110 @@ test("P4.4 transport carries versioned Loaded/start metadata without gameplay au
   expect("judgement" in loadedAck.payload).toBe(false);
   expect("absoluteTurn" in versionedEpoch.payload).toBe(false);
   expect("songTimeMs" in versionedEpoch.payload).toBe(false);
+});
+
+
+test("foreground reconnect ignores delayed close from the superseded realtime socket", async () => {
+  class FakeWebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+    static readonly instances: FakeWebSocket[] = [];
+
+    readonly url: string;
+    readyState = FakeWebSocket.CONNECTING;
+    onopen: ((event: Event) => void) | null = null;
+    onmessage: ((event: MessageEvent<string>) => void) | null = null;
+    onclose: ((event: CloseEvent) => void) | null = null;
+    onerror: ((event: Event) => void) | null = null;
+    sent: string[] = [];
+
+    constructor(url: string | URL) {
+      this.url = String(url);
+      FakeWebSocket.instances.push(this);
+      queueMicrotask(() => {
+        this.readyState = FakeWebSocket.OPEN;
+        this.onopen?.(new Event("open"));
+      });
+    }
+
+    send(data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+      const text = String(data);
+      this.sent.push(text);
+      const frame = JSON.parse(text) as {
+        topic: string;
+        event: string;
+        payload: unknown;
+        ref: string | null;
+        join_ref: string | null;
+      };
+
+      if (frame.event === "phx_join" || frame.event === "presence" || frame.event === "broadcast") {
+        queueMicrotask(() => {
+          this.onmessage?.({
+            data: JSON.stringify({
+              topic: frame.topic,
+              event: "phx_reply",
+              payload: { status: "ok", response: {} },
+              ref: frame.ref,
+              join_ref: frame.join_ref,
+            }),
+          } as MessageEvent<string>);
+        });
+      }
+    }
+
+    close() {
+      this.readyState = FakeWebSocket.CLOSING;
+    }
+
+    emitClose() {
+      this.readyState = FakeWebSocket.CLOSED;
+      this.onclose?.({} as CloseEvent);
+    }
+  }
+
+  const originalWebSocket = globalThis.WebSocket;
+  globalThis.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
+
+  try {
+    const transport = new SupabaseRealtimeRoomTransport({
+      supabaseUrl: "https://example.supabase.co",
+      publishableKey: "sb_publishable_test",
+      roomId: "foreground-resume-room",
+      presence: {
+        participantId: "p51-host",
+        displayName: "Toan",
+        kind: "human",
+        role: "host",
+        roomRevision: 1,
+      },
+    });
+
+    await transport.connect();
+    const firstSocket = FakeWebSocket.instances[0];
+    expect(transport.status).toBe("connected");
+
+    transport.disconnect();
+    await transport.connect();
+
+    const replacementSocket = FakeWebSocket.instances[1];
+    expect(replacementSocket).not.toBe(firstSocket);
+    expect(transport.status).toBe("connected");
+
+    // iOS may deliver socket A's close only after socket B is already live.
+    firstSocket.emitClose();
+
+    expect(transport.status).toBe("connected");
+    await transport.send({ kind: "qa-ping", nonce: "after-foreground-resume" });
+    expect(replacementSocket.sent.some(frame => JSON.parse(frame).event === "broadcast")).toBe(true);
+
+    transport.disconnect();
+    replacementSocket.emitClose();
+    expect(transport.status).toBe("disconnected");
+  } finally {
+    globalThis.WebSocket = originalWebSocket;
+    FakeWebSocket.instances.length = 0;
+  }
 });

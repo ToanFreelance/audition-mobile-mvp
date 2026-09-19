@@ -168,9 +168,19 @@ export class SupabaseRealtimeRoomTransport implements MultiplayerRoomTransport {
       throw error;
     });
 
-    socket.onmessage = event => this.handleMessage(event.data);
-    socket.onclose = () => this.handleSocketClosed();
-    socket.onerror = () => this.setStatus("error", "Realtime WebSocket error.");
+    // A backgrounded iOS browser can resume after the old socket has already
+    // started closing. If we reconnect immediately, late events from that old
+    // socket must never clobber the replacement connection.
+    socket.onmessage = event => {
+      if (this.socket !== socket) return;
+      this.handleMessage(event.data);
+    };
+    socket.onclose = () => this.handleSocketClosed(socket);
+    socket.onerror = () => {
+      if (this.socket === socket) {
+        this.setStatus("error", "Realtime WebSocket error.");
+      }
+    };
 
     const joinRef = this.nextRef();
     this.joinRef = joinRef;
@@ -362,7 +372,12 @@ export class SupabaseRealtimeRoomTransport implements MultiplayerRoomTransport {
     this.pending.clear();
   }
 
-  private handleSocketClosed() {
+  private handleSocketClosed(socket: WebSocket) {
+    // Ignore a delayed close from a superseded socket. This is common on
+    // iOS Safari/Chrome when the app is backgrounded and then foregrounded:
+    // reconnect() can establish socket B before socket A dispatches onclose.
+    if (this.socket !== socket) return;
+
     this.stopHeartbeat();
     this.rejectPending(new Error("Realtime WebSocket closed."));
     this.socket = null;
