@@ -284,6 +284,29 @@ export default function WaitingRoomPanel() {
     || `${song.title} ${song.artist} ${song.bpm}`.toLowerCase().includes(songSearch.trim().toLowerCase()),
   );
 
+  const adoptServerSnapshot = (snapshot: RoomState) => {
+    if (snapshot.roomId !== room.roomId || !isCanonicalRoomSnapshot(snapshot)) {
+      throw new Error("Server returned an invalid room snapshot.");
+    }
+    roomRef.current = snapshot;
+    setRoom(snapshot);
+  };
+
+  const runServerMutation = async (payload: Record<string, unknown>, successDetail?: string) => {
+    if (!syncOptions) throw new Error("Realtime room sync is not enabled.");
+    const result = await postRoomMutation({
+      roomId: syncOptions.roomId,
+      ...payload,
+    });
+    adoptServerSnapshot(result.snapshot);
+    if (result.conflict) {
+      setSyncDetail("Room changed on another client. State refreshed; retry the action.");
+    } else if (successDetail) {
+      setSyncDetail(successDetail);
+    }
+    return result;
+  };
+
   const toggleSlot = (slotIndex: RoomSlotIndex) => {
     if (!hostView) return;
     const slot = room.slots.find(item => item.slotIndex === slotIndex);
