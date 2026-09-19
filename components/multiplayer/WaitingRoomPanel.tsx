@@ -181,7 +181,7 @@ export default function WaitingRoomPanel() {
     const role: SyncClientRole = params.get("client") === "guest" ? "guest" : "host";
     const participantId = role === "guest" ? "p51-guest" : "p51-host";
     const requestedRoomId = params.get("room")?.trim() || "p53-room";
-    const syncedRoom = createP51WaitingRoomFixture(requestedRoomId);
+    const syncedRoom = createP53SyncedWaitingRoomBase(requestedRoomId);
 
     setRoom(syncedRoom);
     roomRef.current = syncedRoom;
@@ -292,8 +292,9 @@ export default function WaitingRoomPanel() {
     };
   }, [syncOptions]);
 
-  const viewer = room.participants.find(item => item.participantId === viewParticipantId) ?? room.participants[0];
-  const hostView = viewer.participantId === room.hostParticipantId;
+  const viewer = room.participants.find(item => item.participantId === viewParticipantId)
+    ?? (syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
+  const hostView = syncOptions ? syncOptions.role === "host" : viewer.participantId === room.hostParticipantId;
   const startGate = useMemo(() => canStartRoom(room), [room]);
   const participantById = useMemo(() => new Map(room.participants.map(item => [item.participantId, item])), [room.participants]);
   const orderedParticipants = useMemo(
