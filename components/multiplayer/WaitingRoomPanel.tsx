@@ -311,6 +311,19 @@ export default function WaitingRoomPanel() {
     if (!hostView) return;
     const slot = room.slots.find(item => item.slotIndex === slotIndex);
     if (!slot || slot.state === "occupied") return;
+
+    if (syncOptions) {
+      void runServerMutation({
+        action: slot.state === "open" ? "close-slot" : "open-slot",
+        expectedRevision: room.revision,
+        actorParticipantId: room.hostParticipantId,
+        slotIndex,
+      }, "Slot state synced.").catch(error => {
+        setSyncDetail(error instanceof Error ? error.message : "Slot update failed.");
+      });
+      return;
+    }
+
     setRoom(current => slot.state === "open"
       ? closeSlot(current, current.hostParticipantId, slotIndex)
       : openSlot(current, current.hostParticipantId, slotIndex));
@@ -320,18 +333,17 @@ export default function WaitingRoomPanel() {
     if (viewer.kind !== "human" || viewer.role !== "guest") return;
 
     if (syncOptions) {
-      if (syncOptions.role !== "guest" || viewer.participantId !== syncOptions.participantId) return;
-      const transport = transportRef.current;
-      if (!transport || syncStatus !== "connected" || readyIntentPending) return;
+      if (syncOptions.role !== "guest" || viewer.participantId !== syncOptions.participantId || readyIntentPending) return;
       setReadyIntentPending(true);
-      void transport.send({
-        kind: "guest-ready-intent",
-        roomRevision: room.revision,
+      void runServerMutation({
+        action: "ready",
+        expectedRevision: room.revision,
         participantId: viewer.participantId,
         ready: viewer.readyState !== "ready",
-      }).catch(error => {
-        setReadyIntentPending(false);
+      }, "Ready state synced.").catch(error => {
         setSyncDetail(error instanceof Error ? error.message : "Ready update failed.");
+      }).finally(() => {
+        setReadyIntentPending(false);
       });
       return;
     }
@@ -339,11 +351,21 @@ export default function WaitingRoomPanel() {
     setRoom(current => setGuestReady(current, viewer.participantId, viewer.readyState !== "ready"));
   };
 
-  const changeModeQa = () => setRoom(current => changeMode(
-    current,
-    current.hostParticipantId,
-    current.modeId === "solo-easy-battle" ? "team-easy" : "solo-easy-battle",
-  ));
+  const changeModeQa = () => {
+    const nextMode = room.modeId === "solo-easy-battle" ? "team-easy" : "solo-easy-battle";
+    if (syncOptions) {
+      void runServerMutation({
+        action: "mode",
+        expectedRevision: room.revision,
+        actorParticipantId: room.hostParticipantId,
+        modeId: nextMode,
+      }, "Mode synced; human guest Ready reset.").catch(error => {
+        setSyncDetail(error instanceof Error ? error.message : "Mode update failed.");
+      });
+      return;
+    }
+    setRoom(current => changeMode(current, current.hostParticipantId, nextMode));
+  };
 
   const previousStagePage = () => {
     if (viewMode === "close") {
