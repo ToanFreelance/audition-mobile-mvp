@@ -14,7 +14,11 @@ import {
 import { applyServerRoomSnapshot, isCanonicalRoomSnapshot } from "../../multiplayer/room-sync";
 import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
 import type { RoomTransportStatus } from "../../multiplayer/transport";
-import { createP51WaitingRoomFixture } from "../../multiplayer/waiting-room-qa";
+import {
+  createP51WaitingRoomFixture,
+  createP53QaGuestParticipant,
+  createP53SyncedWaitingRoomBase,
+} from "../../multiplayer/waiting-room-qa";
 import type { RoomParticipant, RoomSlotIndex, RoomState } from "../../multiplayer/types";
 import WaitingRoomStage3D, { type WaitingRoomStageView } from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
@@ -68,6 +72,30 @@ async function postRoomMutation(payload: Record<string, unknown>, timeoutMs = 80
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error("Room update timed out. Please retry.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function fetchRoomSnapshot(roomId: string, timeoutMs = 8000): Promise<RoomState> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`/api/multiplayer/room?roomId=${encodeURIComponent(roomId)}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    const data = await response.json() as RoomApiResponse;
+    if (!response.ok || !data.ok || !data.snapshot) {
+      throw new Error(data.error ?? `Room fetch failed (${response.status}).`);
+    }
+    if (!isCanonicalRoomSnapshot(data.snapshot)) throw new Error("Server returned an invalid room snapshot.");
+    return data.snapshot;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("Room refresh timed out. Please retry.");
     }
     throw error;
   } finally {
