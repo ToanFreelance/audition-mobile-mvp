@@ -21,6 +21,12 @@ export type RoomTransportPayload =
       snapshot: RoomState;
     }
   | {
+      /** Canonical RoomState emitted by the server-owned lobby_rooms store. */
+      kind: "server-room-snapshot";
+      roomRevision: number;
+      snapshot: RoomState;
+    }
+  | {
       /** Guest asks the authoritative host for the latest canonical room snapshot. */
       kind: "room-sync-request";
       roomRevision: number;
