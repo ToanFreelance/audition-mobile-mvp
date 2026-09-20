@@ -59,6 +59,7 @@ type RealtimeConfig = {
 type RoomApiResponse = {
   ok: boolean;
   snapshot?: RoomState | null;
+  conflict?: boolean;
   error?: string;
 };
 
@@ -79,7 +80,7 @@ async function postRoomMutation(payload: Record<string, unknown>, timeoutMs = 80
       signal: controller.signal,
     });
     const data = await response.json() as RoomApiResponse;
-    if (data.snapshot && isCanonicalRoomSnapshot(data.snapshot) && response.status === 409) {
+    if (data.conflict && data.snapshot && isCanonicalRoomSnapshot(data.snapshot)) {
       return { snapshot: data.snapshot, conflict: true };
     }
     if (!response.ok || !data.ok || !data.snapshot) {

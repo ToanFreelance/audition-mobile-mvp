@@ -92,6 +92,16 @@ function jsonError(message: string, status: number, extra?: Record<string, unkno
   });
 }
 
+function jsonConflict(snapshot: RoomState) {
+  return NextResponse.json({
+    ok: true,
+    conflict: true,
+    snapshot,
+  }, {
+    headers: { "Cache-Control": "no-store, max-age=0" },
+  });
+}
+
 function roomIdIsSafe(roomId: string) {
   return /^[a-zA-Z0-9_-]{1,64}$/.test(roomId);
 }
@@ -373,7 +383,7 @@ export async function POST(request: NextRequest) {
       return jsonError("Room disappeared during update.", 404);
     }
     if (!result.applied) {
-      return jsonError("Room revision conflict.", 409, { snapshot: result.row.snapshot });
+      return jsonConflict(result.row.snapshot);
     }
 
     return NextResponse.json({ ok: true, snapshot: result.row.snapshot }, {
@@ -381,8 +391,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const current = (error as Error & { current?: RoomState }).current;
-    if (error instanceof Error && error.message === "ROOM_REVISION_CONFLICT") {
-      return jsonError("Room revision conflict.", 409, { snapshot: current ?? null });
+    if (error instanceof Error && error.message === "ROOM_REVISION_CONFLICT" && current) {
+      return jsonConflict(current);
     }
     return jsonError(error instanceof Error ? error.message : "Room mutation failed.", 400);
   }
