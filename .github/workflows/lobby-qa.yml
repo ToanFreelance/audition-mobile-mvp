@@ -5,6 +5,18 @@ on:
   push:
     branches:
       - "work/lobby*"
+    paths:
+      - "components/multiplayer/**"
+      - "components/character/**"
+      - "multiplayer/**"
+      - "game/**"
+      - "app/api/multiplayer/**"
+      - "app/api/music-config/**"
+      - "app/tools/lobby-qa/**"
+      - "e2e/**"
+      - "playwright.config.ts"
+      - "package*.json"
+      - ".github/workflows/lobby-qa.yml"
   pull_request:
     branches:
       - development
@@ -36,8 +48,34 @@ env:
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
 
 jobs:
+  fast-lobby-qa:
+    name: fast-lobby-qa
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Focused lobby architecture regression
+        run: npm run test:qa:lobby:fast
+
   static-build:
     name: static-build
+    if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[full-qa]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
 
@@ -62,6 +100,7 @@ jobs:
 
   core-regression:
     name: core-regression
+    if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[full-qa]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 18
 
@@ -102,6 +141,7 @@ jobs:
 
   real-browser-e2e:
     name: real-host-guest-e2e
+    if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[full-qa]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

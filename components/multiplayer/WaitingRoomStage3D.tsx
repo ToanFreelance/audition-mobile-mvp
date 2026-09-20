@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
-import { loadPublishedDanceRelease } from "../character/published-animation-library";
+import { loadLobbyIdleLibrary } from "../character/lobby-idle-library";
 import type { RoomParticipant, RoomSlot } from "../../multiplayer/types";
 import { lobbyStageParticipantIdentity } from "../../multiplayer/lobby-stage-identity";
 import {
@@ -303,6 +303,8 @@ export default function WaitingRoomStage3D({
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
   const [sceneGeneration, setSceneGeneration] = useState(0);
   const [renderedActorCount, setRenderedActorCount] = useState(0);
+  const [idleRuntimeCount, setIdleRuntimeCount] = useState(0);
+  const [idleSource, setIdleSource] = useState<"loading" | "published" | "builtin" | "none">("loading");
 
   selectCallbackRef.current = onSelectParticipant;
   participantsRef.current = participants;
@@ -355,6 +357,8 @@ export default function WaitingRoomStage3D({
     const disposableSources: THREE.Object3D[] = [];
     stageNodesRef.current.clear();
     slotPlaceholdersRef.current = [];
+    setIdleRuntimeCount(0);
+    setIdleSource("loading");
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
@@ -700,6 +704,7 @@ export default function WaitingRoomStage3D({
       runtime.mixer.stopAllAction();
       runtime.mixer.uncacheRoot(runtime.mixer.getRoot());
       idleRuntimeByParticipant.delete(participantId);
+      setIdleRuntimeCount(idleRuntimeByParticipant.size);
     };
 
     const attachIdleRuntime = (node: StageNode) => {
@@ -746,6 +751,7 @@ export default function WaitingRoomStage3D({
         retiringAction: null,
         retiringSeconds: 0,
       });
+      setIdleRuntimeCount(idleRuntimeByParticipant.size);
     };
 
     const removeStageNode = (participantId: string) => {
@@ -838,10 +844,7 @@ export default function WaitingRoomStage3D({
       console.warn("[waiting-room] female character asset failed; fallback only for female actors", error);
       return null;
     });
-    const publishedPromise = loadPublishedDanceRelease(true).catch(error => {
-      console.warn("[waiting-room] idle release failed; characters remain visible without lobby idle clips", error);
-      return null;
-    });
+    const idleLibraryPromise = loadLobbyIdleLibrary();
 
     void Promise.all([malePromise, femalePromise])
       .then(([maleGltf, femaleGltf]) => {
@@ -865,12 +868,17 @@ export default function WaitingRoomStage3D({
         characterAssetsReady = true;
         reconcileParticipants();
 
-        return publishedPromise;
+        return idleLibraryPromise;
       })
-      .then(published => {
-        if (disposed || !published) return;
-        idleClips = published.idleSourceClips ?? [];
-        releaseVersion = published.info.releaseVersion ?? 0;
+      .then(idleLibrary => {
+        if (disposed) return;
+        if (!idleLibrary) {
+          setIdleSource("none");
+          return;
+        }
+        idleClips = idleLibrary.clips;
+        releaseVersion = idleLibrary.releaseVersion;
+        setIdleSource(idleLibrary.source);
 
         // Attach animation only to actors that do not already own a mixer.
         // Existing actor phase is never reset by roster/status updates.
@@ -915,6 +923,8 @@ export default function WaitingRoomStage3D({
       data-view={viewMode}
       data-scene-generation={sceneGeneration}
       data-actor-count={renderedActorCount}
+      data-idle-count={idleRuntimeCount}
+      data-idle-source={idleSource}
     >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />

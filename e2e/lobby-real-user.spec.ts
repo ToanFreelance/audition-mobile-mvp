@@ -101,6 +101,10 @@ async function actorCount(page: Page) {
   return Number(await page.getByTestId("waiting-room-stage").getAttribute("data-actor-count"));
 }
 
+async function idleCount(page: Page) {
+  return Number(await page.getByTestId("waiting-room-stage").getAttribute("data-idle-count"));
+}
+
 async function sceneGeneration(page: Page) {
   return await page.getByTestId("waiting-room-stage").getAttribute("data-scene-generation");
 }
@@ -121,12 +125,17 @@ test("@real host + guest perform realtime Ready/Not Ready and freeze one authori
     await openLobby(host, "host", room);
     await expect(host.page.getByTestId("slot-1")).toContainText("OPEN");
     await expect.poll(() => actorCount(host.page), { timeout: 25_000 }).toBe(2);
+    await expect.poll(() => idleCount(host.page), { timeout: 35_000 }).toBe(2);
+    await expect(host.page.getByTestId("waiting-room-stage")).not.toHaveAttribute("data-idle-source", "none");
     const generation = await sceneGeneration(host.page);
 
     await openLobby(guest, "guest", room);
     await expect(host.page.getByTestId("slot-1")).toContainText("NOT READY", { timeout: 20_000 });
     await expect.poll(() => actorCount(host.page), { timeout: 20_000 }).toBe(3);
+    await expect.poll(() => idleCount(host.page), { timeout: 20_000 }).toBe(3);
     await expect(host.page.getByTestId("start-button")).toBeDisabled();
+    await expect(guest.page.getByTestId("start-button")).toHaveCount(0);
+    await expect(guest.page.getByTestId("guest-start-status")).toContainText("CHỜ HOST BẮT ĐẦU");
     expect(await sceneGeneration(host.page)).toBe(generation);
 
     await guest.page.getByTestId("ready-button").click();
@@ -150,6 +159,7 @@ test("@real host + guest perform realtime Ready/Not Ready and freeze one authori
     });
     await expect(host.page.getByTestId("preload-state")).toBeVisible();
     await expect(guest.page.getByTestId("preload-state")).toBeVisible({ timeout: 20_000 });
+    await expect(guest.page.getByTestId("guest-start-status")).toContainText("PRELOADING");
 
     const hostMatchId = await host.page.getByTestId("preload-match-id").innerText();
     const guestMatchId = await guest.page.getByTestId("preload-match-id").innerText();

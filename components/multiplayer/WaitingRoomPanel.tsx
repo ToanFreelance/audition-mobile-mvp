@@ -1100,29 +1100,39 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               ♜ Đổi sân khấu
             </button>
           )}
-          <button
-            className={startGate.allowed && hostView && !startIntentPending && !matchStartSession
-              ? styles.startButton
-              : styles.startButtonDisabled}
-            data-testid="start-button"
-            disabled={Boolean(
-              !hostView
-              || !startGate.allowed
-              || startIntentPending
-              || frozenMatchManifest
-              || matchStartSession
-            )}
-            onClick={freezeMatchForStart}
-            type="button"
-          >
-            {startIntentPending
-              ? "⏳ ĐANG KHÓA"
-              : matchStartSession
-                ? "⏳ PRELOADING"
-                : frozenMatchManifest
-                  ? "✓ MATCH ĐÃ KHÓA"
-                  : "▶ Bắt đầu"}
-          </button>
+          {hostView ? (
+            <button
+              className={startGate.allowed && !startIntentPending && !matchStartSession
+                ? styles.startButton
+                : styles.startButtonDisabled}
+              data-testid="start-button"
+              disabled={Boolean(
+                !startGate.allowed
+                || startIntentPending
+                || frozenMatchManifest
+                || matchStartSession
+              )}
+              onClick={freezeMatchForStart}
+              type="button"
+            >
+              {startIntentPending
+                ? "⏳ ĐANG KHÓA"
+                : matchStartSession
+                  ? "⏳ PRELOADING"
+                  : frozenMatchManifest
+                    ? "✓ MATCH ĐÃ KHÓA"
+                    : "▶ Bắt đầu"}
+            </button>
+          ) : (
+            <button
+              className={styles.startButtonDisabled}
+              data-testid="guest-start-status"
+              disabled
+              type="button"
+            >
+              {matchStartSession ? "⏳ PRELOADING" : "⌛ CHỜ HOST BẮT ĐẦU"}
+            </button>
+          )}
         </footer>
 
         {panel && (
