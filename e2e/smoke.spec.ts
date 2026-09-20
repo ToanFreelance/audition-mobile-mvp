@@ -54,6 +54,12 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
   expect(gauge!.width).toBeLessThanOrEqual(width);expect(errors).toEqual([]);
 });
 test('same action layer: incomplete SPACE cannot succeed, keyboard completes command, menu does not create replay authority',async({page})=>{
+  // This scenario isolates browser keyboard/action wiring from scheduler timing.
+  // A slow authored BPM gives the same production runtime an 8s first-command
+  // window, so CI load cannot turn a valid input path into a timing flake.
+  const inputChart={...chart,id:'qa-input',title:'Input QA audio',BPM_exact:30,spaceStartMs:9000};
+  await page.unroute('**/api/music-config');
+  await page.route('**/api/music-config',route=>route.fulfill({json:{configs:[inputChart]}}));
   await page.goto('/?debug=1&seed=123');
   await page.getByRole('button',{name:'START',exact:true}).click();
 
