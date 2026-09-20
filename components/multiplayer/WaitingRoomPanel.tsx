@@ -14,6 +14,12 @@ import {
 import { applyServerRoomSnapshot, isCanonicalRoomSnapshot } from "../../multiplayer/room-sync";
 import { latchLobbyPresence, projectRoomForPresence } from "../../multiplayer/lobby-presence";
 import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
+import {
+  freezeLobbyMatch,
+  matchManifestMatchesRoom,
+} from "../../multiplayer/lobby-match-freeze";
+import type { MatchManifest } from "../../multiplayer/types";
+import { prepareLobbyMatchFreezeInput } from "./lobby-match-content";
 import type { RoomTransportStatus } from "../../multiplayer/transport";
 import {
   createP51WaitingRoomFixture,
@@ -191,6 +197,8 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   const [readyIntentPending, setReadyIntentPending] = useState(false);
   const [leaveIntentPending, setLeaveIntentPending] = useState(false);
   const [leftRoom, setLeftRoom] = useState(false);
+  const [startIntentPending, setStartIntentPending] = useState(false);
+  const [frozenMatchManifest, setFrozenMatchManifest] = useState<MatchManifest | null>(null);
   const [presentParticipantIds, setPresentParticipantIds] = useState<readonly string[]>(
     initialSync ? [initialParticipantId] : [],
   );
@@ -201,6 +209,13 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   useEffect(() => {
     roomRef.current = room;
   }, [room]);
+
+  useEffect(() => {
+    if (!frozenMatchManifest) return;
+    if (matchManifestMatchesRoom(frozenMatchManifest, room)) return;
+    setFrozenMatchManifest(null);
+    setSyncDetail("Room changed after Start freeze. Start again with the new room revision.");
+  }, [frozenMatchManifest, room]);
 
   useEffect(() => {
     if (initialSync) return;
@@ -517,7 +532,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   };
 
   const toggleSlot = (slotIndex: RoomSlotIndex) => {
-    if (!hostView) return;
+    if (!hostView || frozenMatchManifest) return;
     const slot = room.slots.find(item => item.slotIndex === slotIndex);
     if (!slot || slot.state === "occupied") return;
 
@@ -610,7 +625,63 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     }
   };
 
+  const freezeMatchForStart = () => {
+    if (!hostView || startIntentPending || frozenMatchManifest || !startGate.allowed) return;
+    if (!room.selectedSongId) {
+      setSyncDetail("A selected song is required before Start.");
+      return;
+    }
+
+    setStartIntentPending(true);
+    setSyncDetail("Freezing authoritative room into MatchManifest…");
+
+    void (async () => {
+      const latest = syncOptions
+        ? await fetchRoomSnapshot(syncOptions.roomId)
+        : roomRef.current;
+
+      if (latest.revision !== roomRef.current.revision) {
+        if (syncOptions) adoptServerSnapshot(latest);
+        throw new Error("Room changed before Start. State refreshed; press Start again.");
+      }
+
+      const gate = canStartRoom(latest);
+      if (!gate.allowed) {
+        throw new Error(`Room cannot start: ${gate.reason}.`);
+      }
+      if (!latest.selectedSongId) throw new Error("Selected song is required.");
+
+      const content = await prepareLobbyMatchFreezeInput({
+        roomId: latest.roomId,
+        roomRevision: latest.revision,
+        songId: latest.selectedSongId,
+      });
+
+      // Re-check after async content resolution. A Ready/config mutation that
+      // lands while metadata is loading must invalidate this freeze attempt.
+      if (roomRef.current.revision !== latest.revision) {
+        throw new Error("Room changed while MatchManifest content was resolving. Press Start again.");
+      }
+
+      const manifest = freezeLobbyMatch(
+        latest,
+        latest.hostParticipantId,
+        content,
+      );
+      setFrozenMatchManifest(manifest);
+      setSyncDetail(
+        `Match frozen · ${manifest.matchId} · room revision ${manifest.roomRevision}. Preload is the next milestone.`,
+      );
+    })().catch(error => {
+      setFrozenMatchManifest(null);
+      setSyncDetail(error instanceof Error ? error.message : "Match freeze failed.");
+    }).finally(() => {
+      setStartIntentPending(false);
+    });
+  };
+
   const changeModeQa = () => {
+    if (frozenMatchManifest) return;
     const nextMode = room.modeId === "solo-easy-battle" ? "team-easy" : "solo-easy-battle";
     if (syncOptions) {
       void runServerMutation({
@@ -653,7 +724,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   };
 
   const openSongPicker = () => {
-    if (!hostView) return;
+    if (!hostView || frozenMatchManifest) return;
     setSongDraft(room.selectedSongId ?? "aloha");
     setSongSearch("");
     setPanel("song");
@@ -661,7 +732,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
 
   const confirmSong = () => {
     const song = SONGS.find(item => item.id === songDraft);
-    if (!hostView || !song?.playable) return;
+    if (!hostView || frozenMatchManifest || !song?.playable) return;
 
     if (syncOptions) {
       void runServerMutation({
@@ -682,13 +753,13 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   };
 
   const openStagePicker = () => {
-    if (!hostView) return;
+    if (!hostView || frozenMatchManifest) return;
     setStageDraft(room.selectedStageId);
     setPanel("stage");
   };
 
   const confirmStage = () => {
-    if (!hostView) return;
+    if (!hostView || frozenMatchManifest) return;
 
     if (syncOptions) {
       void runServerMutation({
@@ -783,6 +854,9 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               <span>Start gate · {startGate.allowed ? "ENABLED" : startGate.reason}</span>
               <span>Revision · {room.revision}</span>
               <span>Host Ready · not-applicable</span>
+              {frozenMatchManifest && (
+                <span>Frozen match · {frozenMatchManifest.matchId} · r{frozenMatchManifest.roomRevision}</span>
+              )}
             </div>
           </aside>
         )}
@@ -900,8 +974,24 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               ♜ Đổi sân khấu
             </button>
           )}
-          <button className={startGate.allowed && hostView ? styles.startButton : styles.startButtonDisabled} disabled={!hostView || !startGate.allowed} type="button">
-            ▶ Bắt đầu
+          <button
+            className={startGate.allowed && hostView && !startIntentPending
+              ? styles.startButton
+              : styles.startButtonDisabled}
+            disabled={Boolean(
+              !hostView
+              || !startGate.allowed
+              || startIntentPending
+              || frozenMatchManifest
+            )}
+            onClick={freezeMatchForStart}
+            type="button"
+          >
+            {startIntentPending
+              ? "⏳ ĐANG KHÓA"
+              : frozenMatchManifest
+                ? "✓ MATCH ĐÃ KHÓA"
+                : "▶ Bắt đầu"}
           </button>
         </footer>
 
