@@ -44,7 +44,6 @@ async function createUser(
   label: string,
 ): Promise<QaUser> {
   const context = await browser.newContext(contextOptions(testInfo, label));
-  await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
   const page = await context.newPage();
   const criticalErrors: string[] = [];
   const baseOrigin = new URL(process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://127.0.0.1:3000").origin;
@@ -86,8 +85,6 @@ async function closeUser(user: QaUser, testInfo: TestInfo) {
     }).catch(() => undefined);
   }
 
-  const tracePath = testInfo.outputPath(`${user.label}-trace.zip`);
-  await user.context.tracing.stop({ path: tracePath }).catch(() => undefined);
   await user.context.close().catch(() => undefined);
 }
 
