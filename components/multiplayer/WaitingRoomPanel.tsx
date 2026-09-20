@@ -19,6 +19,10 @@ import {
   matchManifestMatchesRoom,
 } from "../../multiplayer/lobby-match-freeze";
 import type { MatchManifest } from "../../multiplayer/types";
+import {
+  beginLobbyPreload,
+  restoreRoomMatchStartSession,
+} from "../../multiplayer/lobby-start-handoff";
 import { prepareLobbyMatchFreezeInput } from "./lobby-match-content";
 import type { RoomTransportStatus } from "../../multiplayer/transport";
 import {
@@ -219,6 +223,12 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   }, [room]);
 
   useEffect(() => {
+    if (room.matchStart?.manifest) {
+      if (frozenMatchManifest?.matchId !== room.matchStart.matchId) {
+        setFrozenMatchManifest(room.matchStart.manifest);
+      }
+      return;
+    }
     if (!frozenMatchManifest) return;
     if (matchManifestMatchesRoom(frozenMatchManifest, room)) return;
     setFrozenMatchManifest(null);
@@ -517,6 +527,14 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
       : room,
     [presentParticipantIds, room, syncOptions],
   );
+  const matchStartSession = useMemo(() => {
+    if (!room.matchStart) return null;
+    try {
+      return restoreRoomMatchStartSession(room.matchStart);
+    } catch {
+      return null;
+    }
+  }, [room.matchStart]);
   const viewer = room.participants.find(item => item.participantId === viewParticipantId)
     ?? (syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
   const hostView = syncOptions ? syncOptions.role === "host" : viewer.participantId === room.hostParticipantId;
@@ -720,14 +738,44 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         throw new Error("Room changed while MatchManifest content was resolving. State refreshed; press Start again.");
       }
 
+      const actorParticipantId = syncOptions?.participantId ?? viewer.participantId;
       const manifest = freezeLobbyMatch(
         finalSnapshot,
-        syncOptions?.participantId ?? viewer.participantId,
+        actorParticipantId,
         content,
       );
-      setFrozenMatchManifest(manifest);
+      const startRevision = (finalSnapshot.matchStart?.startRevision ?? 0) + 1;
+
+      if (syncOptions) {
+        const result = await runServerMutation({
+          action: "start-preload",
+          expectedRevision: finalSnapshot.revision,
+          actorParticipantId,
+          startRevision,
+          manifest,
+        });
+        if (result.conflict || !result.snapshot.matchStart) {
+          throw new Error("Room changed before preload handoff. State refreshed; press Start again.");
+        }
+        const session = restoreRoomMatchStartSession(result.snapshot.matchStart);
+        setFrozenMatchManifest(session.manifest);
+        setSyncDetail(
+          `PRELOADING · ${session.matchId} · room r${session.roomRevision} · start r${session.startRevision}.`,
+        );
+        return;
+      }
+
+      const transition = beginLobbyPreload(
+        finalSnapshot,
+        actorParticipantId,
+        manifest,
+        startRevision,
+      );
+      roomRef.current = transition.room;
+      setRoom(transition.room);
+      setFrozenMatchManifest(transition.session.manifest);
       setSyncDetail(
-        `Match frozen · ${manifest.matchId} · room revision ${manifest.roomRevision}. Preload is the next milestone.`,
+        `PRELOADING · ${transition.session.matchId} · room r${transition.session.roomRevision} · start r${transition.session.startRevision}.`,
       );
     })().catch(error => {
       setFrozenMatchManifest(null);
@@ -910,9 +958,15 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               <span>Stage · {currentStage.name}</span>
               <span>Start gate · {startGate.allowed ? "ENABLED" : startGate.reason}</span>
               <span>Revision · {room.revision}</span>
+              <span>Room status · {room.status.toUpperCase()}</span>
               <span>Host Ready · not-applicable</span>
               {frozenMatchManifest && (
                 <span data-testid="frozen-match">Frozen match · {frozenMatchManifest.matchId} · r{frozenMatchManifest.roomRevision}</span>
+              )}
+              {matchStartSession && (
+                <span data-testid="start-session-meta">
+                  Start session · PRELOADING · start r{matchStartSession.startRevision}
+                </span>
               )}
             </div>
           </aside>
@@ -1003,6 +1057,17 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           {hostView && <button className={styles.changeSongButton} data-testid="change-song-button" onClick={openSongPicker} type="button">♫ Đổi nhạc</button>}
         </section>
 
+        {matchStartSession && (
+          <section className={styles.preloadBanner} data-testid="preload-state">
+            <strong>PRELOADING</strong>
+            <span data-testid="preload-match-id">{matchStartSession.matchId}</span>
+            <small>
+              room r<span data-testid="preload-room-revision">{matchStartSession.roomRevision}</span>
+              {" · "}start r<span data-testid="preload-start-revision">{matchStartSession.startRevision}</span>
+            </small>
+          </section>
+        )}
+
         <footer className={`${styles.actions} ${viewer.kind === "human" && viewer.role === "guest" ? styles.actionsGuest : ""}`}>
           <button
             className={styles.leaveButton}
@@ -1021,6 +1086,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               disabled={Boolean(
                 readyIntentPending
                 || leftRoom
+                || room.status !== "waiting"
                 || (syncOptions?.role === "guest"
                   && !room.participants.some(item => item.participantId === syncOptions.participantId))
               )}
@@ -1035,7 +1101,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
             </button>
           )}
           <button
-            className={startGate.allowed && hostView && !startIntentPending
+            className={startGate.allowed && hostView && !startIntentPending && !matchStartSession
               ? styles.startButton
               : styles.startButtonDisabled}
             data-testid="start-button"
@@ -1044,15 +1110,18 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               || !startGate.allowed
               || startIntentPending
               || frozenMatchManifest
+              || matchStartSession
             )}
             onClick={freezeMatchForStart}
             type="button"
           >
             {startIntentPending
               ? "⏳ ĐANG KHÓA"
-              : frozenMatchManifest
-                ? "✓ MATCH ĐÃ KHÓA"
-                : "▶ Bắt đầu"}
+              : matchStartSession
+                ? "⏳ PRELOADING"
+                : frozenMatchManifest
+                  ? "✓ MATCH ĐÃ KHÓA"
+                  : "▶ Bắt đầu"}
           </button>
         </footer>
 

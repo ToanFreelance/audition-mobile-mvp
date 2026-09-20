@@ -9,8 +9,9 @@ import {
   removeParticipant,
   setGuestReady,
 } from "../../../../multiplayer/room-state";
+import { beginLobbyPreload } from "../../../../multiplayer/lobby-start-handoff";
 import { isCanonicalRoomSnapshot } from "../../../../multiplayer/room-sync";
-import type { HumanGuestParticipant, RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
+import type { HumanGuestParticipant, MatchManifest, RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
 import { createP53SyncedWaitingRoomBase } from "../../../../multiplayer/waiting-room-qa";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,15 @@ type RoomMutationBody =
   | { action: "mode"; roomId: string; expectedRevision: number; actorParticipantId: string; modeId: string }
   | { action: "open-slot"; roomId: string; expectedRevision: number; actorParticipantId: string; slotIndex: RoomSlotIndex }
   | { action: "close-slot"; roomId: string; expectedRevision: number; actorParticipantId: string; slotIndex: RoomSlotIndex }
-  | { action: "kick"; roomId: string; expectedRevision: number; actorParticipantId: string; participantId: string };
+  | { action: "kick"; roomId: string; expectedRevision: number; actorParticipantId: string; participantId: string }
+  | {
+      action: "start-preload";
+      roomId: string;
+      expectedRevision: number;
+      actorParticipantId: string;
+      startRevision: number;
+      manifest: MatchManifest;
+    };
 
 function jsonError(message: string, status: number, extra?: Record<string, unknown>) {
   return NextResponse.json({ ok: false, error: message, ...extra }, {
@@ -228,6 +237,13 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
     case "kick":
       requireHost(room, body.actorParticipantId);
       return removeParticipant(room, body.participantId);
+    case "start-preload":
+      return beginLobbyPreload(
+        room,
+        body.actorParticipantId,
+        body.manifest,
+        body.startRevision,
+      ).room;
   }
 }
 
