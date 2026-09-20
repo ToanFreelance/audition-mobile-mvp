@@ -119,7 +119,7 @@ test("@real host + guest perform realtime Ready/Not Ready and freeze one authori
 }, testInfo) => {
   const room = roomId(testInfo, "start");
   const host = await createUser(browser, testInfo, "host");
-  const guest = await createUser(browser, testInfo, "guest");
+  let guest = await createUser(browser, testInfo, "guest");
 
   try {
     await openLobby(host, "host", room);
@@ -172,6 +172,48 @@ test("@real host + guest perform realtime Ready/Not Ready and freeze one authori
     expect(guestStartRevision).toBe(hostStartRevision);
     expect(guestRoomRevision).toBe(hostRoomRevision);
     await expect(host.page.getByTestId("start-button")).toBeDisabled();
+
+    await expect(host.page.getByTestId("preload-participant-p51-host")).toHaveAttribute(
+      "data-load-state",
+      "loaded",
+      { timeout: 60_000 },
+    );
+    await expect(host.page.getByTestId("preload-participant-p51-guest")).toHaveAttribute(
+      "data-load-state",
+      "loaded",
+      { timeout: 60_000 },
+    );
+    await expect(host.page.getByTestId("preload-participant-p51-bot")).toHaveAttribute(
+      "data-load-state",
+      "loaded",
+    );
+    await expect(host.page.getByTestId("preload-all-loaded")).toBeVisible({ timeout: 60_000 });
+    await expect(guest.page.getByTestId("preload-all-loaded")).toBeVisible({ timeout: 60_000 });
+    await expect.poll(() => idleCount(host.page), { timeout: 20_000 }).toBe(3);
+    await expect(host.page.locator('[data-testid="countdown"]')).toHaveCount(0);
+    expect(new URL(host.page.url()).pathname).toBe("/tools/lobby-qa");
+
+    assertNoCriticalErrors(host, guest);
+    await closeUser(guest, testInfo);
+
+    // Accepted LOADED state is canonical; temporary Presence loss cannot erase it.
+    await host.page.waitForTimeout(1_500);
+    await expect(host.page.getByTestId("preload-participant-p51-guest")).toHaveAttribute(
+      "data-load-state",
+      "loaded",
+    );
+
+    guest = await createUser(browser, testInfo, "guest-preload-reload");
+    await openLobby(guest, "guest", room);
+    await expect(guest.page.getByTestId("preload-state")).toBeVisible({ timeout: 20_000 });
+    await expect(guest.page.getByTestId("preload-participant-p51-guest")).toHaveAttribute(
+      "data-load-state",
+      "loaded",
+      { timeout: 20_000 },
+    );
+    await expect(guest.page.getByTestId("preload-all-loaded")).toBeVisible({ timeout: 20_000 });
+    await expect(guest.page.getByTestId("start-button")).toHaveCount(0);
+    await expect.poll(() => idleCount(guest.page), { timeout: 35_000 }).toBe(3);
 
     await host.page.getByTestId("room-settings-button").click();
     await expect(host.page.getByTestId("frozen-match")).toContainText("Frozen match");

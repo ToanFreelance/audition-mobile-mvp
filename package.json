@@ -14,7 +14,7 @@
     "test:qa:report": "playwright show-report",
     "test:qa:core": "playwright test --project=desktop --workers=1 --grep-invert @real",
     "test:qa:lobby:e2e": "playwright test e2e/lobby-real-user.spec.ts --project=desktop --project=mobile --workers=1 --grep @real",
-    "test:qa:lobby:fast": "playwright test e2e/lobby-preload-handoff.spec.ts e2e/lobby-start-freeze.spec.ts e2e/lobby-presence.spec.ts e2e/lobby-stage-identity.spec.ts e2e/multiplayer-start-protocol.spec.ts e2e/multiplayer-transport.spec.ts --project=desktop --workers=1"
+    "test:qa:lobby:fast": "playwright test e2e/lobby-preload-handoff.spec.ts e2e/lobby-all-clients-loaded.spec.ts e2e/lobby-start-freeze.spec.ts e2e/lobby-presence.spec.ts e2e/lobby-stage-identity.spec.ts e2e/multiplayer-start-protocol.spec.ts e2e/multiplayer-transport.spec.ts --project=desktop --workers=1"
   },
   "dependencies": {
     "@audio/beat": "^2.1.3",

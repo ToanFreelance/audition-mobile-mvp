@@ -23,7 +23,14 @@ import {
   beginLobbyPreload,
   restoreRoomMatchStartSession,
 } from "../../multiplayer/lobby-start-handoff";
-import { prepareLobbyMatchFreezeInput } from "./lobby-match-content";
+import {
+  preloadFrozenLobbyMatch,
+  prepareLobbyMatchFreezeInput,
+} from "./lobby-match-content";
+import {
+  allClientsLoaded,
+  createLoadedAckForSession,
+} from "../../multiplayer/match-start-protocol";
 import type { RoomTransportStatus } from "../../multiplayer/transport";
 import {
   createP51WaitingRoomFixture,
@@ -216,6 +223,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   );
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
+  const preloadAttemptRef = useRef<string | null>(null);
 
 
   useEffect(() => {
@@ -530,11 +538,12 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   const matchStartSession = useMemo(() => {
     if (!room.matchStart) return null;
     try {
-      return restoreRoomMatchStartSession(room.matchStart);
+      return restoreRoomMatchStartSession(room.matchStart, room.participants);
     } catch {
       return null;
     }
-  }, [room.matchStart]);
+  }, [room.matchStart, room.participants]);
+  const allParticipantsLoaded = matchStartSession ? allClientsLoaded(matchStartSession) : false;
   const viewer = room.participants.find(item => item.participantId === viewParticipantId)
     ?? (syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
   const hostView = syncOptions ? syncOptions.role === "host" : viewer.participantId === room.hostParticipantId;
@@ -600,6 +609,102 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     }
     return result;
   };
+
+  useEffect(() => {
+    if (!syncOptions || room.status !== "preloading" || !matchStartSession) return;
+
+    const localParticipant = room.participants.find(
+      participant => participant.participantId === syncOptions.participantId,
+    );
+    if (!localParticipant || localParticipant.kind !== "human") return;
+
+    const identity = {
+      matchId: matchStartSession.matchId,
+      roomRevision: matchStartSession.roomRevision,
+      startRevision: matchStartSession.startRevision,
+    };
+    const identityKey = `${identity.matchId}:${identity.roomRevision}:${identity.startRevision}:${localParticipant.participantId}`;
+
+    if (localParticipant.loadState === "loaded") {
+      preloadAttemptRef.current = identityKey;
+      return;
+    }
+    if (preloadAttemptRef.current === identityKey) return;
+    preloadAttemptRef.current = identityKey;
+
+    let cancelled = false;
+
+    const submitPreloadMutation = async (
+      action: "preload-loading" | "preload-failed" | "loaded",
+      ack?: ReturnType<typeof createLoadedAckForSession>,
+    ) => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const current = roomRef.current;
+        const binding = current.matchStart;
+        if (!binding
+          || binding.matchId !== identity.matchId
+          || binding.roomRevision !== identity.roomRevision
+          || binding.startRevision !== identity.startRevision) {
+          throw new Error("Active preload session changed before the client ACK completed.");
+        }
+
+        const result = await runServerMutation({
+          action,
+          expectedRevision: current.revision,
+          actorParticipantId: localParticipant.participantId,
+          matchId: identity.matchId,
+          roomRevision: identity.roomRevision,
+          startRevision: identity.startRevision,
+          ...(ack ? { ack } : {}),
+        });
+        if (!result.conflict) return result.snapshot;
+      }
+      throw new Error("Preload ACK could not win the canonical RoomState CAS after retries.");
+    };
+
+    void (async () => {
+      await submitPreloadMutation("preload-loading");
+      if (cancelled) return;
+
+      const readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest);
+      if (cancelled) return;
+
+      const current = roomRef.current;
+      if (!current.matchStart) throw new Error("Preload session disappeared before LOADED ACK.");
+      const currentSession = restoreRoomMatchStartSession(current.matchStart, current.participants);
+      const ack = createLoadedAckForSession(
+        currentSession,
+        localParticipant.participantId,
+        readiness,
+      );
+      const loadedSnapshot = await submitPreloadMutation("loaded", ack);
+      if (cancelled || !loadedSnapshot.matchStart) return;
+
+      const loadedSession = restoreRoomMatchStartSession(
+        loadedSnapshot.matchStart,
+        loadedSnapshot.participants,
+      );
+      setSyncDetail(
+        allClientsLoaded(loadedSession)
+          ? "ALL CLIENTS LOADED."
+          : `${localParticipant.displayName} LOADED; waiting for remaining clients.`,
+      );
+    })().catch(error => {
+      if (cancelled) return;
+      setSyncDetail(error instanceof Error ? error.message : "Match preload failed.");
+      void submitPreloadMutation("preload-failed").catch(() => undefined);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    matchStartSession?.matchId,
+    matchStartSession?.roomRevision,
+    matchStartSession?.startRevision,
+    room.status,
+    syncOptions?.participantId,
+  ]);
 
   const toggleSlot = (slotIndex: RoomSlotIndex) => {
     if (!hostView || frozenMatchManifest) return;
@@ -1065,6 +1170,27 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               room r<span data-testid="preload-room-revision">{matchStartSession.roomRevision}</span>
               {" · "}start r<span data-testid="preload-start-revision">{matchStartSession.startRevision}</span>
             </small>
+            <div className={styles.preloadParticipants} data-testid="preload-participants">
+              {matchStartSession.participants.map(participant => {
+                const roomParticipant = room.participants.find(
+                  item => item.participantId === participant.participantId,
+                );
+                return (
+                  <span
+                    data-load-state={participant.state}
+                    data-testid={`preload-participant-${participant.participantId}`}
+                    key={participant.participantId}
+                  >
+                    {roomParticipant?.displayName ?? participant.participantId}: {participant.state.toUpperCase()}
+                  </span>
+                );
+              })}
+            </div>
+            {allParticipantsLoaded && (
+              <em className={styles.preloadAllLoaded} data-testid="preload-all-loaded">
+                ALL CLIENTS LOADED
+              </em>
+            )}
           </section>
         )}
 

@@ -1,13 +1,21 @@
 import {
+  allClientsLoaded,
+  applyLoadedAck,
+  createLoadedAckForSession,
   createMatchStartSession,
+  markParticipantLoadFailed,
+  markParticipantLoading,
   MATCH_START_PROTOCOL_VERSION,
+  type LoadedAckRejectionReason,
+  type MatchLoadedAck,
   type MatchStartSession,
 } from "./match-start-protocol";
 import { matchManifestMatchesRoom } from "./lobby-match-freeze";
-import { beginRoomPreloading } from "./room-state";
+import { beginRoomPreloading, setParticipantLoadState } from "./room-state";
 import type {
   MatchManifest,
   RoomMatchStartBinding,
+  RoomParticipant,
   RoomState,
 } from "./types";
 
@@ -30,11 +38,12 @@ export function createRoomMatchStartBinding(
 
 export function restoreRoomMatchStartSession(
   binding: RoomMatchStartBinding,
+  participants?: readonly RoomParticipant[],
 ): MatchStartSession {
   if (binding.protocolVersion !== MATCH_START_PROTOCOL_VERSION || binding.phase !== "preloading") {
     throw new Error("Unsupported lobby match-start binding.");
   }
-  const session = createMatchStartSession({
+  let session = createMatchStartSession({
     manifest: binding.manifest,
     startRevision: binding.startRevision,
     safeLeadTimeMs: binding.safeLeadTimeMs,
@@ -44,7 +53,139 @@ export function restoreRoomMatchStartSession(
     || session.roomRevision !== binding.roomRevision) {
     throw new Error("Persisted match-start identity is inconsistent.");
   }
+  if (!participants) return session;
+
+  if (participants.length !== session.participants.length) {
+    throw new Error("Canonical preload participants do not match the frozen MatchManifest.");
+  }
+
+  for (const expected of session.participants) {
+    const participant = participants.find(item => item.participantId === expected.participantId);
+    if (!participant || participant.kind !== expected.kind || participant.role !== expected.role) {
+      throw new Error(`Canonical preload participant ${expected.participantId} does not match the frozen MatchManifest.`);
+    }
+
+    if (participant.loadState === "loading") {
+      session = markParticipantLoading(session, participant.participantId);
+    } else if (participant.loadState === "loaded") {
+      const result = applyLoadedAck(
+        session,
+        createLoadedAckForSession(session, participant.participantId),
+      );
+      if (!result.accepted) throw new Error(`Persisted Loaded state is invalid: ${result.reason}.`);
+      session = result.session;
+    } else if (participant.loadState === "failed") {
+      session = markParticipantLoadFailed(
+        session,
+        participant.participantId,
+        "Restored canonical preload failure.",
+      );
+    }
+  }
+
   return session;
+}
+
+export type LobbyPreloadIdentity = {
+  matchId: string;
+  roomRevision: number;
+  startRevision: number;
+};
+
+function requireActivePreload(
+  room: RoomState,
+  identity: LobbyPreloadIdentity,
+) {
+  if (room.status !== "preloading" || !room.matchStart) {
+    throw new Error("Room has no active preloading session.");
+  }
+  const binding = room.matchStart;
+  if (binding.matchId !== identity.matchId
+    || binding.roomRevision !== identity.roomRevision
+    || binding.startRevision !== identity.startRevision) {
+    throw new Error("Preload identity does not match the active match-start session.");
+  }
+  return restoreRoomMatchStartSession(binding, room.participants);
+}
+
+export function markLobbyParticipantLoading(
+  room: RoomState,
+  actorParticipantId: string,
+  identity: LobbyPreloadIdentity,
+) {
+  const session = requireActivePreload(room, identity);
+  const participant = session.participants.find(item => item.participantId === actorParticipantId);
+  if (!participant) throw new Error(`Unknown participant ${actorParticipantId}.`);
+  if (participant.kind !== "human") throw new Error("Bot preload state is server-owned.");
+  if (participant.state === "loaded" || participant.state === "loading") return { room, session };
+
+  const nextSession = markParticipantLoading(session, actorParticipantId);
+  const nextRoom = setParticipantLoadState(room, actorParticipantId, "loading");
+  return { room: nextRoom, session: nextSession };
+}
+
+export function markLobbyParticipantLoadFailed(
+  room: RoomState,
+  actorParticipantId: string,
+  identity: LobbyPreloadIdentity,
+) {
+  const session = requireActivePreload(room, identity);
+  const participant = session.participants.find(item => item.participantId === actorParticipantId);
+  if (!participant) throw new Error(`Unknown participant ${actorParticipantId}.`);
+  if (participant.kind !== "human") throw new Error("Bot preload state is server-owned.");
+  if (participant.state === "loaded") return { room, session };
+
+  const nextSession = markParticipantLoadFailed(session, actorParticipantId, "Client preload failed.");
+  const nextRoom = setParticipantLoadState(room, actorParticipantId, "failed");
+  return { room: nextRoom, session: nextSession };
+}
+
+export type LobbyLoadedAckResult =
+  | {
+      accepted: true;
+      duplicate: boolean;
+      allLoaded: boolean;
+      room: RoomState;
+      session: MatchStartSession;
+    }
+  | {
+      accepted: false;
+      reason: LoadedAckRejectionReason | "sender-mismatch";
+      room: RoomState;
+      session: MatchStartSession;
+    };
+
+export function applyLobbyLoadedAck(
+  room: RoomState,
+  actorParticipantId: string,
+  ack: MatchLoadedAck,
+): LobbyLoadedAckResult {
+  if (room.status !== "preloading" || !room.matchStart) {
+    throw new Error("Room has no active preloading session.");
+  }
+
+  const session = restoreRoomMatchStartSession(room.matchStart, room.participants);
+  if (actorParticipantId !== ack.participantId) {
+    return { accepted: false, reason: "sender-mismatch", room, session };
+  }
+
+  const result = applyLoadedAck(session, ack);
+  if (!result.accepted) {
+    return { accepted: false, reason: result.reason, room, session: result.session };
+  }
+
+  const nextRoom = setParticipantLoadState(room, ack.participantId, "loaded");
+  const nextSession = restoreRoomMatchStartSession(
+    nextRoom.matchStart as RoomMatchStartBinding,
+    nextRoom.participants,
+  );
+  return {
+    accepted: true,
+    duplicate: nextRoom === room,
+    allLoaded: allClientsLoaded(nextSession),
+    room: nextRoom,
+    session: nextSession,
+  };
 }
 
 export function beginLobbyPreload(

@@ -9,7 +9,13 @@ import {
   removeParticipant,
   setGuestReady,
 } from "../../../../multiplayer/room-state";
-import { beginLobbyPreload } from "../../../../multiplayer/lobby-start-handoff";
+import {
+  applyLobbyLoadedAck,
+  beginLobbyPreload,
+  markLobbyParticipantLoadFailed,
+  markLobbyParticipantLoading,
+} from "../../../../multiplayer/lobby-start-handoff";
+import type { MatchLoadedAck } from "../../../../multiplayer/match-start-protocol";
 import { isCanonicalRoomSnapshot } from "../../../../multiplayer/room-sync";
 import type { HumanGuestParticipant, MatchManifest, RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
 import { createP53SyncedWaitingRoomBase } from "../../../../multiplayer/waiting-room-qa";
@@ -52,6 +58,31 @@ type RoomMutationBody =
       actorParticipantId: string;
       startRevision: number;
       manifest: MatchManifest;
+    }
+  | {
+      action: "preload-loading";
+      roomId: string;
+      expectedRevision: number;
+      actorParticipantId: string;
+      matchId: string;
+      roomRevision: number;
+      startRevision: number;
+    }
+  | {
+      action: "preload-failed";
+      roomId: string;
+      expectedRevision: number;
+      actorParticipantId: string;
+      matchId: string;
+      roomRevision: number;
+      startRevision: number;
+    }
+  | {
+      action: "loaded";
+      roomId: string;
+      expectedRevision: number;
+      actorParticipantId: string;
+      ack: MatchLoadedAck;
     };
 
 function jsonError(message: string, status: number, extra?: Record<string, unknown>) {
@@ -244,6 +275,31 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
         body.manifest,
         body.startRevision,
       ).room;
+    case "preload-loading":
+      return markLobbyParticipantLoading(
+        room,
+        body.actorParticipantId,
+        {
+          matchId: body.matchId,
+          roomRevision: body.roomRevision,
+          startRevision: body.startRevision,
+        },
+      ).room;
+    case "preload-failed":
+      return markLobbyParticipantLoadFailed(
+        room,
+        body.actorParticipantId,
+        {
+          matchId: body.matchId,
+          roomRevision: body.roomRevision,
+          startRevision: body.startRevision,
+        },
+      ).room;
+    case "loaded": {
+      const result = applyLobbyLoadedAck(room, body.actorParticipantId, body.ack);
+      if (!result.accepted) throw new Error(`LOADED_ACK_REJECTED:${result.reason}`);
+      return result.room;
+    }
   }
 }
 

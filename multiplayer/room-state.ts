@@ -2,6 +2,7 @@ import type {
   BotParticipant,
   HumanGuestParticipant,
   HumanHostParticipant,
+  LoadState,
   RoomParticipant,
   RoomSlot,
   RoomSlotIndex,
@@ -202,8 +203,39 @@ export function beginRoomPreloading(
     || matchStart.manifest.matchId !== matchStart.matchId) {
     throw new Error("Match start binding does not match the waiting-room revision.");
   }
+  const participants: RoomParticipant[] = room.participants.map(participant => (
+    participant.kind === "bot"
+      ? participant
+      : { ...participant, loadState: "idle" as const }
+  ));
+
   return bump(room, {
     status: "preloading",
     matchStart,
+    participants,
   });
+}
+
+export function setParticipantLoadState(
+  room: RoomState,
+  participantId: string,
+  loadState: LoadState,
+): RoomState {
+  if (room.status !== "preloading" || !room.matchStart) {
+    throw new Error("Participant load state can only change during active preloading.");
+  }
+
+  const participant = room.participants.find(item => item.participantId === participantId);
+  if (!participant) throw new Error(`Unknown participant ${participantId}.`);
+
+  if (participant.kind === "bot") {
+    if (loadState !== "loaded") throw new Error("Bot preload state is server-owned and remains loaded.");
+    return room;
+  }
+  if (participant.loadState === loadState) return room;
+
+  const participants: RoomParticipant[] = room.participants.map(item => (
+    item.participantId === participantId ? { ...item, loadState } : item
+  ));
+  return bump(room, { participants });
 }

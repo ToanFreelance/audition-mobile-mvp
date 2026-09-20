@@ -74,6 +74,8 @@ const FINISH_MOTION: MocapMotionSpec = {
   trim: [0.15, 4.15],
 };
 
+export const HUMAN_FINISH_MOCAP_URL = FINISH_MOTION.url;
+
 export const HUMAN_MOTION_SPECS = [
   ...DANCE_MOTIONS.map(({ clipName, sourceId, sourceClipName, label }) => ({
     clipName,

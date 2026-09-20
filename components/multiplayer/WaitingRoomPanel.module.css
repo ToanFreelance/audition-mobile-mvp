@@ -500,3 +500,25 @@
   color: rgba(255, 255, 255, .68);
   font-size: 9px;
 }
+
+
+.preloadParticipants{
+  grid-column:1/-1;
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px 8px;
+  padding-top:4px;
+}
+.preloadParticipants span{
+  color:rgba(255,255,255,.74);
+  font-size:9px;
+  font-weight:800;
+}
+.preloadAllLoaded{
+  grid-column:1/-1;
+  color:#70ffae;
+  font-size:10px;
+  font-style:normal;
+  font-weight:900;
+  letter-spacing:.08em;
+}

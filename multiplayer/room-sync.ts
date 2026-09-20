@@ -48,11 +48,29 @@ function validMatchStartBinding(room: RoomState) {
   if (!binding.matchId || !Number.isInteger(binding.startRevision) || binding.startRevision < 1) return false;
   if (!Number.isInteger(binding.roomRevision) || binding.roomRevision < 1) return false;
   if (!(binding.safeLeadTimeMs >= 3_000)) return false;
-  if (binding.roomRevision + 1 !== room.revision) return false;
-  return binding.manifest?.manifestVersion === 1
-    && binding.manifest.matchId === binding.matchId
-    && binding.manifest.roomId === room.roomId
-    && binding.manifest.roomRevision === binding.roomRevision;
+  if (binding.roomRevision + 1 > room.revision) return false;
+  if (binding.manifest?.manifestVersion !== 1
+    || binding.manifest.matchId !== binding.matchId
+    || binding.manifest.roomId !== room.roomId
+    || binding.manifest.roomRevision !== binding.roomRevision) {
+    return false;
+  }
+
+  if (binding.manifest.participants.length !== room.participants.length) return false;
+  const manifestById = new Map(
+    binding.manifest.participants.map(participant => [participant.participantId, participant] as const),
+  );
+  return room.participants.every(participant => {
+    const frozen = manifestById.get(participant.participantId);
+    if (!frozen
+      || frozen.kind !== participant.kind
+      || frozen.role !== participant.role
+      || frozen.slotIndex !== participant.slotIndex) {
+      return false;
+    }
+    if (!["idle", "loading", "loaded", "failed"].includes(participant.loadState)) return false;
+    return participant.kind !== "bot" || participant.loadState === "loaded";
+  });
 }
 
 function participantMap(room: RoomState) {
