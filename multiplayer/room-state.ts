@@ -234,8 +234,10 @@ export function setParticipantLoadState(
   }
   if (participant.loadState === loadState) return room;
 
-  const participants: RoomParticipant[] = room.participants.map(item => (
-    item.participantId === participantId ? { ...item, loadState } : item
-  ));
+  const participants: RoomParticipant[] = room.participants.map(item => {
+    if (item.participantId !== participantId) return item;
+    if (item.kind === "bot") return item;
+    return { ...item, loadState };
+  });
   return bump(room, { participants });
 }
