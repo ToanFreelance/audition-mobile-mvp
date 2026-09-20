@@ -6,6 +6,8 @@ import {
   type LobbyMatchFreezeInput,
 } from "../multiplayer/lobby-match-freeze";
 import { addParticipant, setGuestReady } from "../multiplayer/room-state";
+import { selectLobbyMusicConfig } from "../multiplayer/lobby-song-config";
+import type { MusicConfig } from "../game/music-config";
 import {
   createP53QaGuestParticipant,
   createP53SyncedWaitingRoomBase,
@@ -77,4 +79,20 @@ test("a later RoomState revision makes the frozen manifest stale", () => {
 
   expect(room.revision).toBeGreaterThan(manifest.roomRevision);
   expect(matchManifestMatchesRoom(manifest, room)).toBe(false);
+});
+
+
+test("lobby song slug resolves to the authored UUID-backed chart", () => {
+  const aloha = {
+    id: "61cb27d6-ce3d-4cdc-b15f-cec4932d063e",
+    title: "aloha",
+  } as MusicConfig;
+  const pleaseTellMeWhy = {
+    id: "8799f421-2729-46f0-a145-5b2e67ad32c1",
+    title: "please-tell-me-why-80bpm",
+  } as MusicConfig;
+
+  expect(selectLobbyMusicConfig([aloha, pleaseTellMeWhy], "aloha")).toBe(aloha);
+  expect(selectLobbyMusicConfig([aloha, pleaseTellMeWhy], "please-tell-me-why"))
+    .toBe(pleaseTellMeWhy);
 });

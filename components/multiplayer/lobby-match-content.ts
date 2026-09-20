@@ -8,12 +8,14 @@ import {
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import { loadPublishedDanceRelease } from "../character/published-animation-library";
 import type { LobbyMatchFreezeInput } from "../../multiplayer/lobby-match-freeze";
+import { selectLobbyMusicConfig } from "../../multiplayer/lobby-song-config";
 
 const LOBBY_QA_MATCH_SEED = 123;
 const GAMEPLAY_CONFIG_VERSION = "solo-easy-locked-v1";
 
 type MusicConfigResponse = {
   config?: MusicConfig | null;
+  configs?: MusicConfig[];
   error?: string;
 };
 
@@ -37,18 +39,20 @@ async function sha256(value: unknown) {
 }
 
 async function fetchPlayableMusicConfig(songId: string) {
-  const response = await fetch(
-    `/api/music-config?id=${encodeURIComponent(songId)}`,
-    { cache: "no-store" },
-  );
+  // Lobby song IDs are product-facing stable slugs. music_charts rows currently
+  // use generated UUID primary keys, so resolve against both id and authored title.
+  const response = await fetch("/api/music-config", { cache: "no-store" });
   const data = await response.json() as MusicConfigResponse;
-  if (!response.ok || !data.config) {
-    throw new Error(data.error ?? `Music config ${songId} is unavailable.`);
+  if (!response.ok || !data.configs) {
+    throw new Error(data.error ?? "Music config library is unavailable.");
   }
-  if (!isPlayableMusicConfig(data.config)) {
+
+  const config = selectLobbyMusicConfig(data.configs, songId);
+  if (!config) throw new Error(`Music config ${songId} is unavailable.`);
+  if (!isPlayableMusicConfig(config)) {
     throw new Error(`Music config ${songId} has no playable authored timing.`);
   }
-  return data.config;
+  return config;
 }
 
 /**
