@@ -145,11 +145,27 @@ test("@real host + guest perform realtime Ready/Not Ready and freeze one authori
     await expect(host.page.getByTestId("start-button")).toBeEnabled();
 
     await host.page.getByTestId("start-button").click();
-    await expect(host.page.getByTestId("start-button")).toContainText("MATCH ĐÃ KHÓA", {
+    await expect(host.page.getByTestId("start-button")).toContainText("PRELOADING", {
       timeout: 25_000,
     });
+    await expect(host.page.getByTestId("preload-state")).toBeVisible();
+    await expect(guest.page.getByTestId("preload-state")).toBeVisible({ timeout: 20_000 });
+
+    const hostMatchId = await host.page.getByTestId("preload-match-id").innerText();
+    const guestMatchId = await guest.page.getByTestId("preload-match-id").innerText();
+    const hostStartRevision = await host.page.getByTestId("preload-start-revision").innerText();
+    const guestStartRevision = await guest.page.getByTestId("preload-start-revision").innerText();
+    const hostRoomRevision = await host.page.getByTestId("preload-room-revision").innerText();
+    const guestRoomRevision = await guest.page.getByTestId("preload-room-revision").innerText();
+
+    expect(guestMatchId).toBe(hostMatchId);
+    expect(guestStartRevision).toBe(hostStartRevision);
+    expect(guestRoomRevision).toBe(hostRoomRevision);
+    await expect(host.page.getByTestId("start-button")).toBeDisabled();
+
     await host.page.getByTestId("room-settings-button").click();
     await expect(host.page.getByTestId("frozen-match")).toContainText("Frozen match");
+    await expect(host.page.getByTestId("start-session-meta")).toContainText("PRELOADING");
     expect(await sceneGeneration(host.page)).toBe(generation);
     expect(await actorCount(host.page)).toBe(3);
 
