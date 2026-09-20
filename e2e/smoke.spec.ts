@@ -11,6 +11,10 @@ function audioFixture(seconds:number){
   return bytes;
 }
 const chart={...DEFAULT_MUSIC_CONFIG,id:'qa-authored',title:'Authored QA audio',audioUrl:'/qa-audio.wav',BPM_exact:105,durationMs:35000,spaceStartMs:6000};
+
+async function rhythmDebug(page: import('@playwright/test').Page){
+  return JSON.parse(await page.getByTestId('rhythm-debug').innerText());
+}
 test.beforeEach(async({page})=>{
   await page.route('**/api/music-config',route=>route.fulfill({json:{configs:[chart,{...chart,id:'invalid',spaceStartMs:0}]}}));
   await page.route('**/qa-audio.wav',route=>route.fulfill({contentType:'audio/wav',body:audioFixture(35)}));
@@ -32,10 +36,15 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
   await expect(page.locator('.command-zone')).toHaveClass(/visible/);
   const commandToken = page.locator('.command-key').first();
   await expect(commandToken).toBeVisible();
-  const commandBox = await commandToken.boundingBox();
-  expect(commandBox).not.toBeNull();
-  expect(commandBox!.height).toBeGreaterThanOrEqual(30);
-  expect(Math.abs(commandBox!.width - commandBox!.height)).toBeLessThan(1);
+  await expect.poll(
+    async()=>commandToken.evaluate(element=>element.getBoundingClientRect().height).catch(()=>0),
+  ).toBeGreaterThanOrEqual(30);
+  await expect.poll(
+    async()=>commandToken.evaluate(element=>{
+      const rect=element.getBoundingClientRect();
+      return Math.abs(rect.width-rect.height);
+    }).catch(()=>999),
+  ).toBeLessThan(1);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   for(const direction of ['left','up','down','right']){
     const box=await page.getByRole('button',{name:direction,exact:true}).boundingBox();
@@ -47,23 +56,49 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
 test('same action layer: incomplete SPACE cannot succeed, keyboard completes command, menu does not create replay authority',async({page})=>{
   await page.goto('/?debug=1&seed=123');
   await page.getByRole('button',{name:'START',exact:true}).click();
+
+  // Enter a freshly revealed command with ample time before its scoring target.
+  // This avoids asserting on a turn that is already expiring while WebGL/assets
+  // finish settling on a slower CI worker.
   await expect.poll(
-    async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).commandVisible,
+    async()=>{
+      const debug=await rhythmDebug(page);
+      return debug.commandVisible && debug.deltaToTargetMs < -500;
+    },
     {timeout:15000},
   ).toBe(true);
+
+  const beforeInput=await rhythmDebug(page);
   await expect(page.locator('.command-key').first()).toBeVisible();
+
+  // SPACE before completing the command must remain a no-op for scoring.
   await page.keyboard.press('Space');
-  expect(JSON.parse(await page.getByTestId('rhythm-debug').innerText()).lastJudgement).toBe(null);
-  const direction=await page.locator('.command-key').first().getAttribute('data-direction');
-  await page.keyboard.press('Arrow'+direction![0].toUpperCase()+direction!.slice(1));
+  const afterIncompleteSpace=await rhythmDebug(page);
+  expect(afterIncompleteSpace.lastJudgement).toBe(beforeInput.lastJudgement);
+  expect(afterIncompleteSpace.playableAbsoluteTurn).toBe(beforeInput.playableAbsoluteTurn);
+  expect(afterIncompleteSpace.commandIndex).toBe(0);
+
+  // D-pad target is the authoritative requiredDirection. The rendered arrow can
+  // intentionally differ for reverse commands, so keyboard QA must not derive
+  // gameplay input from presentation direction.
+  const requiredDirection=await page.locator('.dpad-control button.target').getAttribute('aria-label');
+  expect(requiredDirection).toMatch(/^(left|up|down|right)$/);
+  await page.keyboard.press('Arrow'+requiredDirection![0].toUpperCase()+requiredDirection!.slice(1));
+
   await expect.poll(
-    async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).commandIndex,
+    async()=>{
+      const debug=await rhythmDebug(page);
+      if(debug.playableAbsoluteTurn!==beforeInput.playableAbsoluteTurn) return -1;
+      return debug.commandIndex;
+    },
+    {timeout:3000},
   ).toBe(1);
+
   await expect(page.getByRole('button',{name:/replay|play again|rematch/i})).toHaveCount(0);
-  const beforeMenu=JSON.parse(await page.getByTestId('rhythm-debug').innerText()).songTimeMs;
+  const beforeMenu=(await rhythmDebug(page)).songTimeMs;
   await page.getByRole('button',{name:'Mở menu',exact:true}).click();
   await expect(page.getByRole('dialog',{name:'MENU'})).toBeVisible();
-  await expect.poll(async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).songTimeMs).toBeGreaterThan(beforeMenu);
+  await expect.poll(async()=>(await rhythmDebug(page)).songTimeMs).toBeGreaterThan(beforeMenu);
 });
 test('normal UI hides rhythm diagnostics',async({page})=>{
   await page.goto('/');
