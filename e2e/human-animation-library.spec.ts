@@ -52,6 +52,8 @@ test.describe("P3.7 human animation fallback contract", () => {
     ]);
     const mixer = new THREE.AnimationMixer(root);
     const action = mixer.clipAction(clip);
+    action.setLoop(THREE.LoopOnce, 1);
+    action.clampWhenFinished = true;
     action.play();
     mixer.setTime(1);
     expect(Math.abs(pelvis.quaternion.y)).toBeGreaterThan(0.3);
