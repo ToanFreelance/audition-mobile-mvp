@@ -30,7 +30,36 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
     {timeout:15000},
   ).toBe(true);
   await expect(page.locator('.command-zone')).toHaveClass(/visible/);
-  await expect(page.locator('.command-key').first()).toBeVisible();
+  const commandToken = page.locator('.command-key').first();
+  const commandDiagnostics = await commandToken.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const strip = element.parentElement;
+    const zone = strip?.parentElement;
+    const stripRect = strip?.getBoundingClientRect();
+    const zoneRect = zone?.getBoundingClientRect();
+    return {
+      viewport: { width: innerWidth, height: innerHeight },
+      token: {
+        x: rect.x, y: rect.y, width: rect.width, height: rect.height,
+        display: style.display, visibility: style.visibility, opacity: style.opacity,
+        transform: style.transform, flex: style.flex, position: style.position,
+      },
+      strip: stripRect ? {
+        x: stripRect.x, y: stripRect.y, width: stripRect.width, height: stripRect.height,
+        display: getComputedStyle(strip!).display,
+        overflow: getComputedStyle(strip!).overflow,
+      } : null,
+      zone: zoneRect ? {
+        x: zoneRect.x, y: zoneRect.y, width: zoneRect.width, height: zoneRect.height,
+        display: getComputedStyle(zone!).display,
+        visibility: getComputedStyle(zone!).visibility,
+        opacity: getComputedStyle(zone!).opacity,
+      } : null,
+    };
+  });
+  console.log('COMMAND_TOKEN_DIAGNOSTICS', JSON.stringify(commandDiagnostics));
+  await expect(commandToken).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   for(const direction of ['left','up','down','right']){
     const box=await page.getByRole('button',{name:direction,exact:true}).boundingBox();
