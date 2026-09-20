@@ -245,8 +245,8 @@
   }
   .command-strip .command-key{
     width:var(--command-token-size);
-    height:var(--command-token-size);
-    aspect-ratio:1;
+    height:auto;
+    aspect-ratio:1 / 1;
     flex:0 0 var(--command-token-size);
     min-width:0;
     box-sizing:border-box;
