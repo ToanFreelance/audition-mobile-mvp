@@ -26,9 +26,9 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
   await page.getByRole('button',{name:'×',exact:true}).click();
   await page.getByRole('button',{name:'START',exact:true}).click();
   await expect.poll(
-    async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).songTimeMs,
+    async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).commandVisible,
     {timeout:15000},
-  ).toBeGreaterThan(4100);
+  ).toBe(true);
   await expect(page.locator('.command-zone')).toHaveClass(/visible/);
   await expect(page.locator('.command-key').first()).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -42,12 +42,18 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
 test('same action layer: incomplete SPACE cannot succeed, keyboard completes command, menu does not create replay authority',async({page})=>{
   await page.goto('/?debug=1&seed=123');
   await page.getByRole('button',{name:'START',exact:true}).click();
-  await expect(page.locator('.command-key').first()).toBeVisible({timeout:10000});
+  await expect.poll(
+    async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).commandVisible,
+    {timeout:15000},
+  ).toBe(true);
+  await expect(page.locator('.command-key').first()).toBeVisible();
   await page.keyboard.press('Space');
   expect(JSON.parse(await page.getByTestId('rhythm-debug').innerText()).lastJudgement).toBe(null);
   const direction=await page.locator('.command-key').first().getAttribute('data-direction');
   await page.keyboard.press('Arrow'+direction![0].toUpperCase()+direction!.slice(1));
-  await expect(page.locator('.command-key.done')).toHaveCount(1);
+  await expect.poll(
+    async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).commandIndex,
+  ).toBe(1);
   await expect(page.getByRole('button',{name:/replay|play again|rematch/i})).toHaveCount(0);
   const beforeMenu=JSON.parse(await page.getByTestId('rhythm-debug').innerText()).songTimeMs;
   await page.getByRole('button',{name:'Mở menu',exact:true}).click();

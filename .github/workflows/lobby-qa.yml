@@ -28,17 +28,18 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CI: "true"
+  PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+  SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+  NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+
 jobs:
-  lobby-qa-qc:
-    name: full-lobby-qa-qc
+  static-build:
+    name: static-build
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    env:
-      CI: "true"
-      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
-      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
-      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+    timeout-minutes: 12
 
     steps:
       - name: Checkout
@@ -59,24 +60,80 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
+  core-regression:
+    name: core-regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
 
-      - name: Core regression suite
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Full deterministic and browser regression suite
         env:
           PLAYWRIGHT_WEB_SERVER: "1"
         run: npm run test:qa:core
+
+      - name: Upload core regression evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lobby-core-regression-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  real-browser-e2e:
+    name: real-host-guest-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Real Host Guest browser E2E
         env:
           PLAYWRIGHT_WEB_SERVER: "1"
         run: npm run test:qa:lobby:e2e
 
-      - name: Upload QA QC evidence
+      - name: Upload real-browser evidence
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: lobby-qa-qc-${{ github.run_id }}
+          name: lobby-real-browser-${{ github.run_id }}
           path: |
             playwright-report/
             test-results/
