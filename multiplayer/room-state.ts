@@ -6,6 +6,7 @@ import type {
   RoomSlot,
   RoomSlotIndex,
   RoomState,
+  RoomMatchStartBinding,
 } from "./types";
 
 const ALL_SLOT_INDEXES: readonly RoomSlotIndex[] = [0, 1, 2, 3, 4, 5];
@@ -53,6 +54,7 @@ export function createRoomState(input: {
     selectedStageId: input.selectedStageId ?? "studio-81",
     slots,
     participants: [input.host],
+    matchStart: null,
     revision: 1,
   };
 }
@@ -176,4 +178,32 @@ export function openSlot(room: RoomState, hostParticipantId: string, slotIndex: 
   if (slot.state === "open") return room;
   const slots = room.slots.map(item => item.slotIndex === slotIndex ? { slotIndex, state: "open" as const } : item);
   return bump(room, { slots });
+}
+
+
+export function beginRoomPreloading(
+  room: RoomState,
+  hostParticipantId: string,
+  matchStart: RoomMatchStartBinding,
+): RoomState {
+  if (hostParticipantId !== room.hostParticipantId) {
+    throw new Error("Only the host can start preloading.");
+  }
+  const eligibility = canStartRoom(room);
+  if (!eligibility.allowed) {
+    throw new Error(`Room cannot start preloading: ${eligibility.reason}.`);
+  }
+  if (matchStart.phase !== "preloading") {
+    throw new Error("Lobby handoff must begin in preloading phase.");
+  }
+  if (matchStart.roomRevision !== room.revision
+    || matchStart.manifest.roomRevision !== room.revision
+    || matchStart.manifest.roomId !== room.roomId
+    || matchStart.manifest.matchId !== matchStart.matchId) {
+    throw new Error("Match start binding does not match the waiting-room revision.");
+  }
+  return bump(room, {
+    status: "preloading",
+    matchStart,
+  });
 }

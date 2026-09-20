@@ -65,6 +65,8 @@ export type RoomState = {
   selectedStageId: string;
   slots: readonly RoomSlot[];
   participants: readonly RoomParticipant[];
+  /** Immutable P5→P4.4 handoff identity while a match is starting. */
+  matchStart?: RoomMatchStartBinding | null;
   revision: number;
 };
 
@@ -105,4 +107,15 @@ export type MatchManifest = {
     commandLengths: readonly number[];
     finishRestTurns: number;
   };
+};
+
+export type RoomMatchStartBinding = {
+  protocolVersion: 1;
+  matchId: string;
+  /** Waiting-room revision frozen into the manifest; RoomState itself becomes revision + 1. */
+  roomRevision: number;
+  startRevision: number;
+  phase: "preloading";
+  safeLeadTimeMs: number;
+  manifest: MatchManifest;
 };

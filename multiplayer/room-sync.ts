@@ -40,6 +40,21 @@ function validSlotIndexes(room: RoomState) {
   return indexes.size === 6 && [0, 1, 2, 3, 4, 5].every(index => indexes.has(index as 0 | 1 | 2 | 3 | 4 | 5));
 }
 
+function validMatchStartBinding(room: RoomState) {
+  const binding = room.matchStart ?? null;
+  if (room.status === "waiting") return binding === null;
+  if (room.status !== "preloading") return true;
+  if (!binding || binding.protocolVersion !== 1 || binding.phase !== "preloading") return false;
+  if (!binding.matchId || !Number.isInteger(binding.startRevision) || binding.startRevision < 1) return false;
+  if (!Number.isInteger(binding.roomRevision) || binding.roomRevision < 1) return false;
+  if (!(binding.safeLeadTimeMs >= 3_000)) return false;
+  if (binding.roomRevision + 1 !== room.revision) return false;
+  return binding.manifest?.manifestVersion === 1
+    && binding.manifest.matchId === binding.matchId
+    && binding.manifest.roomId === room.roomId
+    && binding.manifest.roomRevision === binding.roomRevision;
+}
+
 function participantMap(room: RoomState) {
   const map = new Map<string, RoomParticipant>();
   for (const participant of room.participants) {
@@ -65,6 +80,7 @@ export function isCanonicalRoomSnapshot(room: RoomState) {
   if (!Number.isInteger(room.revision) || room.revision < 1) return false;
   if (![2, 3, 4, 5, 6].includes(room.maxPlayers)) return false;
   if (!validSlotIndexes(room)) return false;
+  if (!validMatchStartBinding(room)) return false;
 
   const participants = participantMap(room);
   if (!participants || !validOccupiedSlots(room, participants)) return false;
