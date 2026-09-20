@@ -334,4 +334,8 @@ Current Phase 4 path:
 
 `development → work/multiplayer-clock → P4 milestones → focused validation → owner review → development`
 
+Current Phase 5 integration path:
+
+`development → work/lobby → waiting-room/realtime acceptance → development → work/lobby-preload → P5.2 Lobby→P4.4 PRELOADING handoff`
+
 Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 4 work unless owner explicitly requests a later production promotion.
