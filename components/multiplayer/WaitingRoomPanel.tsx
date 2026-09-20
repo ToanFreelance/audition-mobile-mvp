@@ -657,15 +657,20 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         songId: latest.selectedSongId,
       });
 
-      // Re-check after async content resolution. A Ready/config mutation that
-      // lands while metadata is loading must invalidate this freeze attempt.
-      if (roomRef.current.revision !== latest.revision) {
-        throw new Error("Room changed while MatchManifest content was resolving. Press Start again.");
+      // Re-fetch canonical state after async content resolution. A Ready/config
+      // mutation may land on the server while this page has not received any
+      // realtime presentation update yet, so local roomRef alone is insufficient.
+      const finalSnapshot = syncOptions
+        ? await fetchRoomSnapshot(syncOptions.roomId)
+        : roomRef.current;
+      if (finalSnapshot.revision !== latest.revision) {
+        if (syncOptions) adoptServerSnapshot(finalSnapshot);
+        throw new Error("Room changed while MatchManifest content was resolving. State refreshed; press Start again.");
       }
 
       const manifest = freezeLobbyMatch(
-        latest,
-        latest.hostParticipantId,
+        finalSnapshot,
+        syncOptions?.participantId ?? viewer.participantId,
         content,
       );
       setFrozenMatchManifest(manifest);
