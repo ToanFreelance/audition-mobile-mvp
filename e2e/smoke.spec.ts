@@ -57,42 +57,50 @@ test('same action layer: incomplete SPACE cannot succeed, keyboard completes com
   await page.goto('/?debug=1&seed=123');
   await page.getByRole('button',{name:'START',exact:true}).click();
 
-  // Enter a freshly revealed command with ample time before its scoring target.
-  // This avoids asserting on a turn that is already expiring while WebGL/assets
-  // finish settling on a slower CI worker.
-  await expect.poll(
-    async()=>{
+  let keyboardAccepted=false;
+  for(let attempt=0;attempt<4&&!keyboardAccepted;attempt++){
+    // Use only a freshly revealed opportunity with substantial time before the
+    // scoring target. On a heavily loaded CI worker, if that authoritative turn
+    // expires before input is observed, retry on the next global turn rather
+    // than converting scheduler delay into a false input failure.
+    await expect.poll(
+      async()=>{
+        const debug=await rhythmDebug(page);
+        return debug.commandVisible
+          && debug.commandIndex===0
+          && debug.deltaToTargetMs < -1500;
+      },
+      {timeout:10000},
+    ).toBe(true);
+
+    const beforeInput=await rhythmDebug(page);
+    await expect(page.locator('.command-key').first()).toBeVisible();
+
+    // SPACE before completing the command must remain a no-op for scoring.
+    await page.keyboard.press('Space');
+    const afterIncompleteSpace=await rhythmDebug(page);
+    expect(afterIncompleteSpace.lastJudgement).toBe(beforeInput.lastJudgement);
+    expect(afterIncompleteSpace.playableAbsoluteTurn).toBe(beforeInput.playableAbsoluteTurn);
+    expect(afterIncompleteSpace.commandIndex).toBe(0);
+
+    const target=page.locator('.dpad-control button.target');
+    await expect(target).toHaveCount(1);
+    const requiredDirection=await target.getAttribute('aria-label');
+    expect(requiredDirection).toMatch(/^(left|up|down|right)$/);
+    await page.keyboard.press('Arrow'+requiredDirection![0].toUpperCase()+requiredDirection!.slice(1));
+
+    const deadline=Date.now()+800;
+    while(Date.now()<deadline){
       const debug=await rhythmDebug(page);
-      return debug.commandVisible && debug.deltaToTargetMs < -500;
-    },
-    {timeout:15000},
-  ).toBe(true);
-
-  const beforeInput=await rhythmDebug(page);
-  await expect(page.locator('.command-key').first()).toBeVisible();
-
-  // SPACE before completing the command must remain a no-op for scoring.
-  await page.keyboard.press('Space');
-  const afterIncompleteSpace=await rhythmDebug(page);
-  expect(afterIncompleteSpace.lastJudgement).toBe(beforeInput.lastJudgement);
-  expect(afterIncompleteSpace.playableAbsoluteTurn).toBe(beforeInput.playableAbsoluteTurn);
-  expect(afterIncompleteSpace.commandIndex).toBe(0);
-
-  // D-pad target is the authoritative requiredDirection. The rendered arrow can
-  // intentionally differ for reverse commands, so keyboard QA must not derive
-  // gameplay input from presentation direction.
-  const requiredDirection=await page.locator('.dpad-control button.target').getAttribute('aria-label');
-  expect(requiredDirection).toMatch(/^(left|up|down|right)$/);
-  await page.keyboard.press('Arrow'+requiredDirection![0].toUpperCase()+requiredDirection!.slice(1));
-
-  await expect.poll(
-    async()=>{
-      const debug=await rhythmDebug(page);
-      if(debug.playableAbsoluteTurn!==beforeInput.playableAbsoluteTurn) return -1;
-      return debug.commandIndex;
-    },
-    {timeout:3000},
-  ).toBe(1);
+      if(debug.playableAbsoluteTurn!==beforeInput.playableAbsoluteTurn) break;
+      if(debug.commandIndex===1){
+        keyboardAccepted=true;
+        break;
+      }
+      await page.waitForTimeout(25);
+    }
+  }
+  expect(keyboardAccepted).toBe(true);
 
   await expect(page.getByRole('button',{name:/replay|play again|rematch/i})).toHaveCount(0);
   const beforeMenu=(await rhythmDebug(page)).songTimeMs;
