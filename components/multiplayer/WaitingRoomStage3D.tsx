@@ -301,6 +301,8 @@ export default function WaitingRoomStage3D({
   const participantsRef = useRef(participants);
   const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId });
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
+  const [sceneGeneration, setSceneGeneration] = useState(0);
+  const [renderedActorCount, setRenderedActorCount] = useState(0);
 
   selectCallbackRef.current = onSelectParticipant;
   participantsRef.current = participants;
@@ -339,6 +341,7 @@ export default function WaitingRoomStage3D({
     if (!mount) return;
 
     let disposed = false;
+    setSceneGeneration(current => current + 1);
     let animationFrame = 0;
     let lastFrameMs = 0;
     let accumulatedMs = 0;
@@ -818,6 +821,7 @@ export default function WaitingRoomStage3D({
       const needsFallback = activeParticipants.some(participant => (
         isFemale(participant) ? !femaleSource : !maleSource
       ));
+      setRenderedActorCount(stageNodesRef.current.size);
       setLoadState(needsFallback ? "fallback" : "ready");
       applyLayout();
       startIdleLoop();
@@ -904,7 +908,14 @@ export default function WaitingRoomStage3D({
   }, [roomId]);
 
   return (
-    <div className={styles.stage} data-stage={stageId} data-view={viewMode}>
+    <div
+      className={styles.stage}
+      data-testid="waiting-room-stage"
+      data-stage={stageId}
+      data-view={viewMode}
+      data-scene-generation={sceneGeneration}
+      data-actor-count={renderedActorCount}
+    >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
         <span className={styles.lightBarRight} />

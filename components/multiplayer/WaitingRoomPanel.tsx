@@ -866,22 +866,22 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   const playerAction = (label: string) => setActionNotice(`${label} sẽ được nối dữ liệu thật ở milestone tương ứng.`);
 
   return (
-    <main className={styles.shell}>
+    <main className={styles.shell} data-testid="lobby-root">
       <section className={styles.phone}>
         <header className={styles.header}>
           <button className={styles.iconButton} type="button" aria-label="Back">‹</button>
           <div className={styles.titleBlock}>
             <strong>{room.roomName}</strong>
-            <span>ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {displayRoom.participants.length}/{room.maxPlayers}</span>
+            <span data-testid="room-summary">ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {displayRoom.participants.length}/{room.maxPlayers}</span>
           </div>
           <div className={styles.headerRight}>
-            <button className={styles.iconButton} onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
-            <small className={syncOptions ? (syncStatus === "connected" ? styles.syncLive : styles.syncOffline) : ""}>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${syncOptions.role === "host" ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
+            <button className={styles.iconButton} data-testid="room-settings-button" onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
+            <small data-testid="sync-status" className={syncOptions ? (syncStatus === "connected" ? styles.syncLive : styles.syncOffline) : ""}>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${syncOptions.role === "host" ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
           </div>
         </header>
 
         {settingsOpen && (
-          <aside className={styles.settingsPopover}>
+          <aside className={styles.settingsPopover} data-testid="room-settings-panel">
             <strong>ROOM QA</strong>
             {syncOptions ? (
               <div className={styles.settingsMeta}>
@@ -912,7 +912,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               <span>Revision · {room.revision}</span>
               <span>Host Ready · not-applicable</span>
               {frozenMatchManifest && (
-                <span>Frozen match · {frozenMatchManifest.matchId} · r{frozenMatchManifest.roomRevision}</span>
+                <span data-testid="frozen-match">Frozen match · {frozenMatchManifest.matchId} · r{frozenMatchManifest.roomRevision}</span>
               )}
             </div>
           </aside>
@@ -981,6 +981,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                 className={`${styles.slot} ${styles[slot.state]} ${participant?.role === "host" ? styles.slotHost : ""} ${selected ? styles.slotSelected : ""}`}
                 disabled={!participant && !hostView}
                 key={slot.slotIndex}
+                data-testid={`slot-${slot.slotIndex}`}
                 onClick={() => participant ? selectParticipant(participant) : toggleSlot(slot.slotIndex)}
                 type="button"
               >
@@ -995,16 +996,17 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         <section className={styles.songCard}>
           <div className={styles.cover}><span>{currentSong.accent}</span><b>{currentSong.title.slice(0, 8).toUpperCase()}</b></div>
           <div className={styles.songMeta}>
-            <strong>{currentSong.title}</strong>
+            <strong data-testid="song-title">{currentSong.title}</strong>
             <span>{currentSong.artist}</span>
             <small>BPM {currentSong.bpm} <i /> {currentSong.duration} <i /> <em>{currentSong.difficulty}</em></small>
           </div>
-          {hostView && <button className={styles.changeSongButton} onClick={openSongPicker} type="button">♫ Đổi nhạc</button>}
+          {hostView && <button className={styles.changeSongButton} data-testid="change-song-button" onClick={openSongPicker} type="button">♫ Đổi nhạc</button>}
         </section>
 
         <footer className={`${styles.actions} ${viewer.kind === "human" && viewer.role === "guest" ? styles.actionsGuest : ""}`}>
           <button
             className={styles.leaveButton}
+            data-testid="leave-button"
             disabled={Boolean(hostView || leaveIntentPending || leftRoom)}
             onClick={leaveRoom}
             title={hostView ? "Host leave cần room-close/host-transfer flow." : undefined}
@@ -1015,6 +1017,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           {viewer.kind === "human" && viewer.role === "guest" ? (
             <button
               className={viewer.readyState === "ready" ? styles.readyButtonActive : styles.readyButton}
+              data-testid="ready-button"
               disabled={Boolean(
                 readyIntentPending
                 || leftRoom
@@ -1027,7 +1030,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               ✓ {readyIntentPending ? "ĐANG CẬP NHẬT" : viewer.readyState === "ready" ? "ĐÃ SẴN SÀNG" : "SẴN SÀNG"}
             </button>
           ) : (
-            <button className={styles.stagePickerButton} onClick={openStagePicker} type="button">
+            <button className={styles.stagePickerButton} data-testid="change-stage-button" onClick={openStagePicker} type="button">
               ♜ Đổi sân khấu
             </button>
           )}
@@ -1035,6 +1038,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
             className={startGate.allowed && hostView && !startIntentPending
               ? styles.startButton
               : styles.startButtonDisabled}
+            data-testid="start-button"
             disabled={Boolean(
               !hostView
               || !startGate.allowed
@@ -1077,6 +1081,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                     <button
                       className={songDraft === song.id ? styles.songRowSelected : styles.songRow}
                       disabled={!song.playable}
+                      data-testid={`song-option-${song.id}`}
                       key={song.id}
                       onClick={() => setSongDraft(song.id)}
                       type="button"
@@ -1090,7 +1095,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                 </div>
                 <div className={styles.sheetActions}>
                   <button className={styles.randomButton} type="button">⤨ Ngẫu nhiên</button>
-                  <button className={styles.confirmButton} disabled={!SONGS.find(song => song.id === songDraft)?.playable} onClick={confirmSong} type="button">✓ Xác nhận</button>
+                  <button className={styles.confirmButton} data-testid="song-confirm" disabled={!SONGS.find(song => song.id === songDraft)?.playable} onClick={confirmSong} type="button">✓ Xác nhận</button>
                 </div>
               </section>
             )}
@@ -1105,6 +1110,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                   {STAGES.map(stage => (
                     <button
                       className={stageDraft === stage.id ? styles.stageCardSelected : styles.stageCard}
+                      data-testid={`stage-option-${stage.id}`}
                       key={stage.id}
                       onClick={() => setStageDraft(stage.id)}
                       type="button"
@@ -1118,13 +1124,13 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                 <p className={styles.sheetHint}>Đổi sân khấu là thay đổi match config và sẽ reset Ready của guest.</p>
                 <div className={styles.sheetActions}>
                   <button className={styles.cancelButton} onClick={() => setPanel(null)} type="button">Hủy</button>
-                  <button className={styles.confirmButton} onClick={confirmStage} type="button">✓ Xác nhận</button>
+                  <button className={styles.confirmButton} data-testid="stage-confirm" onClick={confirmStage} type="button">✓ Xác nhận</button>
                 </div>
               </section>
             )}
 
             {panel === "player" && selectedParticipant && (
-              <section className={`${styles.sheet} ${styles.playerSheet}`}>
+              <section className={`${styles.sheet} ${styles.playerSheet}`} data-testid="player-sheet">
                 <div className={styles.sheetHeader}>
                   <div><small>NGƯỜI CHƠI</small><strong>{selectedParticipant.displayName}</strong></div>
                   <button onClick={() => setPanel(null)} type="button">×</button>
@@ -1142,7 +1148,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                   <button onClick={() => playerAction("Thông tin")} type="button">▤ <span>Thông tin</span></button>
                   <button onClick={() => playerAction("Chat riêng")} type="button">● <span>Chat riêng</span></button>
                   {hostView && selectedParticipant.participantId !== room.hostParticipantId && (
-                    <button className={styles.kickButton} onClick={kickSelectedParticipant} type="button">⌁ <span>Kick khỏi phòng</span></button>
+                    <button className={styles.kickButton} data-testid="kick-button" onClick={kickSelectedParticipant} type="button">⌁ <span>Kick khỏi phòng</span></button>
                   )}
                 </div>
                 {actionNotice && <p className={styles.actionNotice}>{actionNotice}</p>}
