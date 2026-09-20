@@ -58,7 +58,10 @@ function nextMessageId(prefix: string) {
 }
 
 export function sanitizeRealtimeRoomId(roomId: string) {
-  const normalized = roomId.trim().replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/-+/g, "-");
+  const normalized = roomId.trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
   if (!normalized) throw new Error("roomId must contain at least one safe character.");
   return normalized.slice(0, 64);
 }

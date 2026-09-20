@@ -157,6 +157,14 @@ function modeLabel(modeId: string) {
   return modeId === "solo-easy-battle" ? "Solo Easy" : modeId === "team-easy" ? "Team Easy" : modeId;
 }
 
+function roomRevisionReason(action: unknown): "participant" | "song" | "mode" | "slot" | "other" {
+  if (action === "join" || action === "ready" || action === "leave" || action === "kick") return "participant";
+  if (action === "song") return "song";
+  if (action === "mode") return "mode";
+  if (action === "stage" || action === "open-slot" || action === "close-slot") return "slot";
+  return "other";
+}
+
 type WaitingRoomPanelProps = {
   initialSync?: {
     roomId: string;
@@ -242,6 +250,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     let disposed = false;
     let transport: SupabaseRealtimeRoomTransport | null = null;
     let resumePromise: Promise<void> | null = null;
+    let canonicalRefreshPromise: Promise<RoomState> | null = null;
     let lastResumeAt = 0;
     let guestJoinedThisSession = false;
     const cleanups: Array<() => void> = [];
@@ -328,10 +337,18 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
       await transport.connect();
     };
 
-    const refreshCanonicalRoom = async () => {
-      const latest = await fetchRoomSnapshot(syncOptions.roomId);
-      applyCanonicalSnapshot(latest);
-      return ensureGuestJoined(latest);
+    const refreshCanonicalRoom = () => {
+      if (canonicalRefreshPromise) return canonicalRefreshPromise;
+
+      canonicalRefreshPromise = (async () => {
+        const latest = await fetchRoomSnapshot(syncOptions.roomId);
+        applyCanonicalSnapshot(latest);
+        return ensureGuestJoined(latest);
+      })().finally(() => {
+        canonicalRefreshPromise = null;
+      });
+
+      return canonicalRefreshPromise;
     };
 
     const resumeFromServer = (forceReconnect = true) => {
@@ -423,10 +440,26 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
             syncOptions.participantId,
           );
           commitConfirmedPresence();
+
+          const knownIds = new Set(roomRef.current.participants.map(item => item.participantId));
+          const discoveredRemoteMember = presence.some(item => (
+            item.participantId !== syncOptions.participantId
+            && !knownIds.has(item.participantId)
+          ));
+          if (discoveredRemoteMember) void refreshCanonicalRoom();
         }));
 
         cleanups.push(transport.onEvent(event => {
-          if (disposed || event.payload.kind !== "server-room-snapshot") return;
+          if (disposed) return;
+
+          if (event.payload.kind === "room-revision") {
+            if (event.payload.roomRevision > roomRef.current.revision) {
+              void refreshCanonicalRoom();
+            }
+            return;
+          }
+
+          if (event.payload.kind !== "server-room-snapshot") return;
           const result = applyServerRoomSnapshot(roomRef.current, event.senderParticipantId, event.payload);
           if (!result.accepted) {
             if (result.reason !== "stale-revision") {
@@ -518,11 +551,30 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
 
   const runServerMutation = async (payload: Record<string, unknown>, successDetail?: string) => {
     if (!syncOptions) throw new Error("Realtime room sync is not enabled.");
+    const beforeRevision = roomRef.current.revision;
     const result = await postRoomMutation({
       roomId: syncOptions.roomId,
       ...payload,
     });
     adoptServerSnapshot(result.snapshot);
+
+    if (!result.conflict && result.snapshot.revision > beforeRevision) {
+      const currentTransport = transportRef.current;
+      if (currentTransport?.status === "connected") {
+        try {
+          await currentTransport.send({
+            kind: "room-revision",
+            roomRevision: result.snapshot.revision,
+            reason: roomRevisionReason(payload.action),
+          });
+        } catch {
+          // Mutation is already authoritative on the server. Foreground refresh
+          // remains the recovery path if this best-effort realtime hint fails.
+          setSyncDetail("Room updated; realtime notification will recover on refresh.");
+        }
+      }
+    }
+
     if (result.conflict) {
       setSyncDetail("Room changed on another client. State refreshed; retry the action.");
     } else if (successDetail) {
