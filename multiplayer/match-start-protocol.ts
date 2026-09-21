@@ -243,6 +243,27 @@ export function issueSharedStartEpoch(session: MatchStartSession, serverNowMs: n
   return freezeSession({ ...session, phase: "countdown", startAtServerMs });
 }
 
+/**
+ * Rehydrate an already-issued canonical epoch after RoomState reload/reconnect.
+ * This does not create a replacement epoch; it only restores immutable server state.
+ */
+export function restoreIssuedSharedStartEpoch(
+  session: MatchStartSession,
+  startAtServerMs: number,
+) {
+  if (session.phase !== "clock-sampling") {
+    throw new Error("Restoring a shared start epoch requires clock-sampling phase.");
+  }
+  if (!allClientsLoaded(session)) {
+    throw new Error("Every active participant must remain Loaded before epoch restore.");
+  }
+  if (session.startAtServerMs !== null) {
+    throw new Error("Shared start epoch is immutable once issued.");
+  }
+  finite(startAtServerMs, "startAtServerMs");
+  return freezeSession({ ...session, phase: "countdown", startAtServerMs });
+}
+
 export function cancelMatchStart(session: MatchStartSession, reason: string) {
   if (!reason.trim()) throw new Error("Cancellation reason is required.");
   if (session.phase === "cancelled") return session;
