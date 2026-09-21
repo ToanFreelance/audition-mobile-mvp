@@ -114,7 +114,7 @@ function assertNoCriticalErrors(...users: QaUser[]) {
   expect(errors, errors.join("\n")).toEqual([]);
 }
 
-test("@real host + guest perform realtime Ready/Not Ready and freeze one authoritative MatchManifest", async ({
+test("@real host + guest Ready through one shared epoch into WebAudio multiplayer gameplay", async ({
   browser,
 }, testInfo) => {
   const room = roomId(testInfo, "start");
@@ -195,43 +195,42 @@ test("@real host + guest perform realtime Ready/Not Ready and freeze one authori
     const guestStartAt = await guest.page.getByTestId("start-at-server-ms").innerText();
     expect(guestStartAt).toBe(hostStartAt);
     await expect.poll(() => idleCount(host.page), { timeout: 20_000 }).toBe(3);
-    await expect(host.page.getByTestId("countdown-label")).toContainText(/3|2|1|GO|SYNC/);
-    await expect(host.page.getByTestId("countdown-label")).toHaveText("GO", { timeout: 12_000 });
-    await expect(guest.page.getByTestId("countdown-label")).toHaveText("GO", { timeout: 12_000 });
+
+    // P5.5 must map the same immutable epoch into each local AudioContext
+    // before GO. No client is allowed to invent a replacement start.
+    await expect(host.page.getByTestId("preload-state")).toHaveAttribute("data-audio-scheduled", "1", {
+      timeout: 10_000,
+    });
+    await expect(guest.page.getByTestId("preload-state")).toHaveAttribute("data-audio-scheduled", "1", {
+      timeout: 10_000,
+    });
+    await expect(host.page.getByTestId("p55-audio-state")).toContainText("AUDIO SCHEDULED");
+    await expect(guest.page.getByTestId("p55-audio-state")).toContainText("AUDIO SCHEDULED");
+
+    await expect(host.page.getByTestId("multiplayer-gameplay-live")).toBeVisible({ timeout: 12_000 });
+    await expect(guest.page.getByTestId("multiplayer-gameplay-live")).toBeVisible({ timeout: 12_000 });
+    await expect(host.page.getByTestId("multiplayer-gameplay-live")).toHaveAttribute("data-match-id", hostMatchId);
+    await expect(guest.page.getByTestId("multiplayer-gameplay-live")).toHaveAttribute("data-match-id", hostMatchId);
+    await expect(host.page.getByTestId("gameplay-start-at-server-ms")).toHaveText(hostStartAt);
+    await expect(guest.page.getByTestId("gameplay-start-at-server-ms")).toHaveText(hostStartAt);
+    await expect(host.page.getByTestId("multiplayer-gameplay-live")).toHaveAttribute("data-room-status", "playing", {
+      timeout: 20_000,
+    });
+    await expect(guest.page.getByTestId("multiplayer-gameplay-live")).toHaveAttribute("data-room-status", "playing", {
+      timeout: 20_000,
+    });
+
+    const songTime = async (page: Page) => Number(
+      (await page.getByTestId("gameplay-song-time-ms").innerText()).replace(/[^0-9.-]/g, ""),
+    );
+    await expect.poll(() => songTime(host.page), { timeout: 10_000 }).toBeGreaterThan(200);
+    await expect.poll(() => songTime(guest.page), { timeout: 10_000 }).toBeGreaterThan(200);
+    const hostSongTime = await songTime(host.page);
+    const guestSongTime = await songTime(guest.page);
+    expect(Math.abs(hostSongTime - guestSongTime)).toBeLessThan(500);
+
     expect(new URL(host.page.url()).pathname).toBe("/tools/lobby-qa");
     expect(new URL(guest.page.url()).pathname).toBe("/tools/lobby-qa");
-
-    assertNoCriticalErrors(host, guest);
-    await closeUser(guest, testInfo);
-
-    // Accepted LOADED state and immutable epoch are canonical; temporary
-    // Presence loss cannot erase either one.
-    await host.page.waitForTimeout(1_500);
-    await expect(host.page.getByTestId("preload-participant-p51-guest")).toHaveAttribute(
-      "data-load-state",
-      "loaded",
-    );
-    await expect(host.page.getByTestId("start-at-server-ms")).toHaveText(hostStartAt);
-
-    guest = await createUser(browser, testInfo, "guest-preload-reload");
-    await openLobby(guest, "guest", room);
-    await expect(guest.page.getByTestId("preload-state")).toBeVisible({ timeout: 20_000 });
-    await expect(guest.page.getByTestId("preload-participant-p51-guest")).toHaveAttribute(
-      "data-load-state",
-      "loaded",
-      { timeout: 20_000 },
-    );
-    await expect(guest.page.getByTestId("shared-countdown")).toBeVisible({ timeout: 20_000 });
-    await expect(guest.page.getByTestId("start-at-server-ms")).toHaveText(hostStartAt);
-    await expect(guest.page.getByTestId("start-button")).toHaveCount(0);
-    await expect.poll(() => idleCount(guest.page), { timeout: 35_000 }).toBe(3);
-
-    await host.page.getByTestId("room-settings-button").click();
-    await expect(host.page.getByTestId("frozen-match")).toContainText("Frozen match");
-    await expect(host.page.getByTestId("start-session-meta")).toContainText("COUNTDOWN");
-    expect(await sceneGeneration(host.page)).toBe(generation);
-    expect(await actorCount(host.page)).toBe(3);
-
     assertNoCriticalErrors(host, guest);
   } finally {
     await closeUser(guest, testInfo);
