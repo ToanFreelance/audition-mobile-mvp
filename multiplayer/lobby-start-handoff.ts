@@ -34,16 +34,18 @@ export function createRoomMatchStartBinding(
   if (session.phase === "countdown" && session.startAtServerMs === null) {
     throw new Error("Countdown requires an immutable shared start epoch.");
   }
-  return Object.freeze({
+  const base = {
     protocolVersion: MATCH_START_PROTOCOL_VERSION,
     matchId: session.matchId,
     roomRevision: session.roomRevision,
     startRevision: session.startRevision,
     phase: session.phase,
     safeLeadTimeMs: session.safeLeadTimeMs,
-    startAtServerMs: session.startAtServerMs,
     manifest: session.manifest,
-  });
+  };
+  return Object.freeze(session.phase === "countdown"
+    ? { ...base, startAtServerMs: session.startAtServerMs }
+    : base);
 }
 
 export function restoreRoomMatchStartSession(
