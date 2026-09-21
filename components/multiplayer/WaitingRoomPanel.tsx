@@ -1017,7 +1017,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         await previous.transport.destroy();
       }
 
-      const transport = new WebAudioTransport(music.audioUrl, activeContext);
+      const transport = new WebAudioTransport(music.audioUrl, activeContext, "force-cache");
       try {
         await transport.prepare();
       } catch (error) {
