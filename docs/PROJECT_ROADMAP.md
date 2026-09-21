@@ -20,7 +20,7 @@ Phase 3 functional owner QA passed for the humanoid runtime, published Normal Da
 | 3 | Human character, animation controller, published Normal/Final dance content | **Functional PASS; integrated into `development`; thermal/battery debt open** |
 | 4 | Multiplayer shared song clock | **P4.1–P4.5 complete; architecture present in `development`** |
 | 5 | Room, lobby, Ready, preload, synchronized start and gameplay handoff | **P5.1–P5.5 PASS; integrated into `development`** |
-| Golden Flow | Login → character gate → rooms → Phase 5 → gameplay UX source of truth | **In review on `work/golden-flow-prototype`; Phase 6 not started** |
+| Golden Flow / UI System | Logic-coupled visual source of truth from Login → Gameplay | **Active on `work/golden-flow-prototype`; screens G1–G6 precede Phase 6** |
 | 6 | Additional game modes | Planned |
 | 7 | Account, profile, progression | Planned |
 | 8 | Modular humanoid clothing, accessories, inventory | Planned |
@@ -29,6 +29,117 @@ Phase 3 functional owner QA passed for the humanoid runtime, published Normal Da
 | 11 | Versioned charts/assets, admin and live operations | Planned |
 | 12 | Reconnect, security, telemetry, mobile performance | Planned |
 | 13 | Content rights and distribution review | Required before commercial release |
+
+## Golden UI / Logic-Coupled Product Alignment
+
+This alignment track is intentionally inserted **after Phase 5 integration and before Phase 6** so the project no longer develops core product logic in isolation from the final portrait UX.
+
+Primary source:
+
+- `docs/GOLDEN_VISUAL_DIRECTION.md`
+- Figma: `Audition Mobile — Golden UI System V1`
+- approved six-screen neon portrait sketch.
+
+Branch:
+
+`work/golden-flow-prototype`
+
+The track is not a new gameplay phase and must not alter the accepted Phase 5 authority model.
+
+### G0 — Design system + source-of-truth foundation
+
+Scope:
+
+- lock the approved sketch as Visual Source of Truth V1;
+- maintain the Golden Player Flow as logic source;
+- build Figma tokens/styles/components;
+- map visual states to real product states;
+- establish screenshot/owner visual review gates.
+
+Status: **IN PROGRESS**.
+
+Current Figma foundation:
+
+- 3-page Starter-plan structure;
+- 5 variable collections;
+- 57 variables;
+- 10 text styles;
+- 5 neon/glass effect styles.
+
+### G1 — Login
+
+Design and implement Login together with authentication-entry states.
+
+Acceptance requires:
+
+- sketch-level visual fidelity;
+- loading/error interaction states;
+- successful auth routes into the profile gate;
+- no production-auth provider assumption is required until Account/Auth implementation.
+
+### G2 — Character Creation
+
+Design and implement first-character creation together.
+
+Locked interaction:
+
+- live runtime 3D avatar;
+- drag left/right for free 360° rotation;
+- gender, skin tone, hair color, basic hairstyle and character name;
+- invalid/incomplete state prevents confirmation;
+- confirmed profile proceeds to Room List.
+
+### G3 — Room List / Create Room
+
+Design and implement room discovery presentation and room-creation journey together.
+
+Golden path:
+
+`Room List → Create Room → creator becomes Host → Waiting Room`.
+
+### G4 — Waiting Room visual production pass
+
+Preserve canonical Phase 5 room logic while replacing presentation with the approved premium visual language.
+
+Locked composition:
+
+- each client sees its own account character largest and centered;
+- remote/bot participants form a curved arc/ring around and behind the local character;
+- client-relative camera/layout never modifies canonical slot or room state.
+
+### G5 — Preparing / Loading visual production pass
+
+Bind the approved loading design directly to canonical P5.2–P5.5 state.
+
+No decorative/fake progress may replace canonical preload/LOADED/countdown state.
+
+### G6 — Gameplay visual redesign
+
+Redesign the Gameplay HUD in the same visual family as screens G1–G5.
+
+Locked multiplayer composition:
+
+- local account character is center-front and visually dominant;
+- other participants form an arc/ring around/behind;
+- composition is presentation-only.
+
+Gameplay redesign must preserve:
+
+- WebAudio authority;
+- global-turn semantics;
+- calibrated gauge semantics;
+- Finish semantics;
+- AUDIO END game end.
+
+### Golden UI acceptance policy
+
+For each G1–G6 milestone:
+
+`design frame → state/logic map → implementation → screenshot regression → iPhone owner review → acceptance`.
+
+Do not implement all logic first and postpone the visual production pass.
+
+Phase 6 may begin only after the owner accepts the Golden Flow / Golden UI source of truth or explicitly authorizes parallel work.
 
 ## Phase 2 closeout
 
