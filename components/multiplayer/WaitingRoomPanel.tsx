@@ -663,25 +663,28 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   const clockSyncEstimate = matchStartSessionKey && clockSyncState?.sessionKey === matchStartSessionKey
     ? clockSyncState.estimate
     : null;
+  const estimatedServerNowMs = clockSyncEstimate && countdownNowMonotonicMs !== null
+    ? estimateServerNowMs(countdownNowMonotonicMs, clockSyncEstimate.offsetMs)
+    : null;
   const countdownState = useMemo(() => {
-    if (room.status !== "countdown"
+    if ((room.status !== "countdown" && room.status !== "playing")
       || matchStartSession?.startAtServerMs === null
       || matchStartSession?.startAtServerMs === undefined
-      || !clockSyncEstimate
-      || countdownNowMonotonicMs === null) {
+      || estimatedServerNowMs === null) {
       return null;
     }
-    const serverNowMs = estimateServerNowMs(
-      countdownNowMonotonicMs,
-      clockSyncEstimate.offsetMs,
-    );
-    return deriveSharedCountdown(matchStartSession.startAtServerMs, serverNowMs);
+    return deriveSharedCountdown(matchStartSession.startAtServerMs, estimatedServerNowMs);
   }, [
-    clockSyncEstimate,
-    countdownNowMonotonicMs,
+    estimatedServerNowMs,
     matchStartSession?.startAtServerMs,
     room.status,
   ]);
+  const gameplayActive = Boolean(
+    gameplaySchedule
+    && gameplaySchedule.sessionKey === matchStartSessionKey
+    && estimatedServerNowMs !== null
+    && estimatedServerNowMs >= gameplaySchedule.startAtServerMs,
+  );
   const viewer = room.participants.find(item => item.participantId === viewParticipantId)
     ?? (syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
   const hostView = syncOptions ? syncOptions.role === "host" : viewer.participantId === room.hostParticipantId;
