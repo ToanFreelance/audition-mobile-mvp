@@ -1185,6 +1185,8 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   const toggleReady = () => {
     if (viewer.kind !== "human" || viewer.role !== "guest") return;
 
+    if (viewer.readyState !== "ready") activateGameplayAudioFromGesture();
+
     if (syncOptions) {
       if (syncOptions.role !== "guest" || viewer.participantId !== syncOptions.participantId || readyIntentPending) return;
       setReadyIntentPending(true);
@@ -1256,6 +1258,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
 
   const freezeMatchForStart = () => {
     if (!hostView || startIntentPending || frozenMatchManifest || !startGate.allowed) return;
+    activateGameplayAudioFromGesture();
     if (!room.selectedSongId) {
       setSyncDetail("A selected song is required before Start.");
       return;
