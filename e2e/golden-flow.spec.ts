@@ -8,6 +8,18 @@ test.describe("Golden player flow source of truth", () => {
     await page.getByTestId("golden-login-button").click();
 
     await expect(page.getByTestId("golden-create-character")).toBeVisible({ timeout: 5_000 });
+
+    const creatorViewport = page.getByTestId("golden-character-viewport");
+    const yawBefore = await creatorViewport.getAttribute("data-yaw");
+    const creatorBox = await creatorViewport.boundingBox();
+    expect(creatorBox).not.toBeNull();
+    if (!creatorBox) throw new Error("Character viewport has no bounding box");
+    await page.mouse.move(creatorBox.x + creatorBox.width * 0.5, creatorBox.y + creatorBox.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(creatorBox.x + creatorBox.width * 0.75, creatorBox.y + creatorBox.height * 0.5, { steps: 5 });
+    await page.mouse.up();
+    await expect(creatorViewport).not.toHaveAttribute("data-yaw", yawBefore ?? "0");
+
     await page.getByTestId("golden-confirm-character").click();
 
     await expect(page.getByTestId("golden-rooms")).toBeVisible();
