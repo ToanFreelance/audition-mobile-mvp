@@ -14,7 +14,12 @@ import {
   type MatchStartSession,
 } from "./match-start-protocol";
 import { matchManifestMatchesRoom } from "./lobby-match-freeze";
-import { beginRoomCountdown, beginRoomPreloading, setParticipantLoadState } from "./room-state";
+import {
+  beginRoomCountdown,
+  beginRoomPlaying,
+  beginRoomPreloading,
+  setParticipantLoadState,
+} from "./room-state";
 import type {
   MatchManifest,
   RoomMatchStartBinding,
@@ -246,6 +251,41 @@ export function beginLobbyCountdown(
   const binding = createRoomMatchStartBinding(countdownSession);
   const nextRoom = beginRoomCountdown(room, binding);
   return { room: nextRoom, session: countdownSession, binding };
+}
+
+export function beginLobbyPlaying(
+  room: RoomState,
+  actorParticipantId: string,
+  identity: LobbyPreloadIdentity,
+  serverNowMs: number,
+) {
+  if (room.status !== "countdown" && room.status !== "playing") {
+    throw new Error("Room has no issued shared countdown.");
+  }
+  const binding = room.matchStart;
+  if (!binding
+    || binding.phase !== "countdown"
+    || binding.matchId !== identity.matchId
+    || binding.roomRevision !== identity.roomRevision
+    || binding.startRevision !== identity.startRevision) {
+    throw new Error("Countdown identity does not match the active match-start session.");
+  }
+
+  const session = restoreRoomMatchStartSession(binding, room.participants);
+  const actor = session.participants.find(participant => participant.participantId === actorParticipantId);
+  if (!actor || actor.kind !== "human") {
+    throw new Error("Only a frozen human participant may enter gameplay.");
+  }
+  if (!allClientsLoaded(session)) {
+    throw new Error("Gameplay requires every frozen participant to remain Loaded.");
+  }
+  if (session.startAtServerMs === null || serverNowMs < session.startAtServerMs) {
+    throw new Error("Shared gameplay epoch has not been reached yet.");
+  }
+  if (room.status === "playing") return { room, session };
+
+  const nextRoom = beginRoomPlaying(room);
+  return { room: nextRoom, session };
 }
 
 export function beginLobbyPreload(
