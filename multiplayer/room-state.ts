@@ -275,3 +275,19 @@ export function beginRoomCountdown(
     matchStart,
   });
 }
+
+export function beginRoomPlaying(room: RoomState): RoomState {
+  if (room.status === "playing") return room;
+  if (room.status !== "countdown" || !room.matchStart) {
+    throw new Error("Playing can only begin from the canonical countdown.");
+  }
+  if (room.matchStart.phase !== "countdown"
+    || !Number.isFinite(room.matchStart.startAtServerMs)
+    || (room.matchStart.startAtServerMs as number) <= 0) {
+    throw new Error("Playing requires the issued shared start epoch.");
+  }
+  if (!room.participants.length || room.participants.some(participant => participant.loadState !== "loaded")) {
+    throw new Error("Playing requires every frozen participant to remain Loaded.");
+  }
+  return bump(room, { status: "playing" });
+}
