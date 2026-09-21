@@ -35,7 +35,11 @@ export class WebAudioTransport {
   private preparing: Promise<void> | null = null;
   private destroyed = false;
 
-  constructor(private url: string, context?: AudioContext) {
+  constructor(
+    private url: string,
+    context?: AudioContext,
+    private fetchCache: RequestCache = "no-store",
+  ) {
     if (context) {
       if (context.state === "closed") throw new Error("Injected AudioContext is already closed.");
       this.context = context;
@@ -72,7 +76,7 @@ export class WebAudioTransport {
     if (this.preparing) return this.preparing;
     this.preparing = (async () => {
       const context = this.ensureContext();
-      const response = await fetch(this.url, { cache: "no-store" });
+      const response = await fetch(this.url, { cache: this.fetchCache });
       if (!response.ok) throw new Error(`Audio HTTP ${response.status}`);
       const bytes = await response.arrayBuffer();
       const decoded = await context.decodeAudioData(bytes.slice(0));
