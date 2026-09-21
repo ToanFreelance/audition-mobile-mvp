@@ -43,10 +43,10 @@ function validSlotIndexes(room: RoomState) {
 function validMatchStartBinding(room: RoomState) {
   const binding = room.matchStart ?? null;
   if (room.status === "waiting") return binding === null;
-  if (room.status !== "preloading" && room.status !== "countdown") return true;
+  if (room.status !== "preloading" && room.status !== "countdown" && room.status !== "playing") return true;
   if (!binding || binding.protocolVersion !== 1) return false;
   if (room.status === "preloading" && binding.phase !== "preloading") return false;
-  if (room.status === "countdown" && binding.phase !== "countdown") return false;
+  if ((room.status === "countdown" || room.status === "playing") && binding.phase !== "countdown") return false;
   if (!binding.matchId || !Number.isInteger(binding.startRevision) || binding.startRevision < 1) return false;
   if (!Number.isInteger(binding.roomRevision) || binding.roomRevision < 1) return false;
   if (!(binding.safeLeadTimeMs >= 3_000)) return false;
@@ -80,7 +80,7 @@ function validMatchStartBinding(room: RoomState) {
     }
     if (!["idle", "loading", "loaded", "failed"].includes(participant.loadState)) return false;
     if (participant.kind === "bot" && participant.loadState !== "loaded") return false;
-    return room.status !== "countdown" || participant.loadState === "loaded";
+    return room.status === "preloading" || participant.loadState === "loaded";
   });
 }
 
