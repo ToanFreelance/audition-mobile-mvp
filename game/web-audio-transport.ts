@@ -18,8 +18,16 @@ function getOutputContextTime(context: AudioContext): number {
   return typeof value === "number" && Number.isFinite(value) ? value : context.currentTime;
 }
 
+export function createWebAudioContext() {
+  const Ctor = window.AudioContext
+    ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Ctor) throw new Error("Web Audio API is unavailable.");
+  return new Ctor();
+}
+
 export class WebAudioTransport {
   private context: AudioContext | null = null;
+  private ownsContext = true;
   private buffer: AudioBuffer | null = null;
   private source: AudioBufferSourceNode | null = null;
   private run: RunState | null = null;
@@ -27,7 +35,13 @@ export class WebAudioTransport {
   private preparing: Promise<void> | null = null;
   private destroyed = false;
 
-  constructor(private url: string) {}
+  constructor(private url: string, context?: AudioContext) {
+    if (context) {
+      if (context.state === "closed") throw new Error("Injected AudioContext is already closed.");
+      this.context = context;
+      this.ownsContext = false;
+    }
+  }
 
   get durationMs() {
     return (this.buffer?.duration ?? 0) * 1000;
@@ -43,9 +57,8 @@ export class WebAudioTransport {
 
   private ensureContext() {
     if (this.context && this.context.state !== "closed") return this.context;
-    const Ctor = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctor) throw new Error("Web Audio API is unavailable.");
-    this.context = new Ctor();
+    if (!this.ownsContext) throw new Error("Injected AudioContext is no longer available.");
+    this.context = createWebAudioContext();
     return this.context;
   }
 
@@ -196,7 +209,7 @@ export class WebAudioTransport {
     this.buffer = null;
     const context = this.context;
     this.context = null;
-    if (context && context.state !== "closed") {
+    if (this.ownsContext && context && context.state !== "closed") {
       try { await context.close(); } catch {}
     }
   }
