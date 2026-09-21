@@ -30,6 +30,7 @@ export default function LiveMultiplayerGameplay(props: {
   runtime: MultiplayerGameplayRuntime;
   transport: WebAudioTransport;
   startAtServerMs: number;
+  roomStatus: string;
 }) {
   const [snapshot, setSnapshot] = useState<MultiplayerGameplaySnapshot>(() => props.runtime.snapshot());
 
@@ -93,6 +94,7 @@ export default function LiveMultiplayerGameplay(props: {
       className={styles.shell}
       data-audio-ended={snapshot.audioEnded ? "1" : "0"}
       data-match-id={props.manifest.matchId}
+      data-room-status={props.roomStatus}
       data-testid="multiplayer-gameplay-live"
     >
       <section className={styles.hero}>
@@ -159,7 +161,7 @@ export default function LiveMultiplayerGameplay(props: {
 
       <footer className={styles.footer}>
         <span>Audio authority: <b>WEBAUDIO</b></span>
-        <span>Room status: <b>PLAYING</b></span>
+        <span>Room status: <b>{props.roomStatus.toUpperCase()}</b></span>
         <span>{snapshot.audioEnded ? "AUDIO END" : snapshot.started ? "RUNNING" : "STOPPED"}</span>
       </footer>
     </main>
