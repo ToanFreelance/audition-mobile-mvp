@@ -3,6 +3,7 @@ import { DEFAULT_SOLO_SETTINGS } from "../game/solo-easy";
 import {
   applyLobbyLoadedAck,
   beginLobbyCountdown,
+  beginLobbyPlaying,
   beginLobbyPreload,
   markLobbyParticipantLoading,
   restoreRoomMatchStartSession,
@@ -269,6 +270,90 @@ test.describe("P5.4 shared countdown", () => {
       exact,
       2_000_000,
     )).toThrow("frozen human participant");
+  });
+});
+
+test.describe("P5.5 shared epoch to playing", () => {
+  function countdownRoom() {
+    let room = startRoom();
+    for (const participantId of ["p51-host", "p51-guest"] as const) {
+      room = markLobbyParticipantLoading(room, participantId, identity(room)).room;
+      const session = restoreRoomMatchStartSession(room.matchStart!, room.participants);
+      const loaded = applyLobbyLoadedAck(
+        room,
+        participantId,
+        createLoadedAckForSession(session, participantId),
+      );
+      expect(loaded.accepted).toBe(true);
+      if (!loaded.accepted) throw new Error(loaded.reason);
+      room = loaded.room;
+    }
+    return beginLobbyCountdown(room, "p51-host", identity(room), 1_000_000).room;
+  }
+
+  test("canonical PLAYING transition preserves the one immutable shared epoch", () => {
+    const countdown = countdownRoom();
+    const startAt = countdown.matchStart!.startAtServerMs as number;
+    const beforeRevision = countdown.revision;
+    const exact = identity(countdown);
+
+    expect(() => beginLobbyPlaying(
+      countdown,
+      "p51-host",
+      exact,
+      startAt - 1,
+    )).toThrow("epoch has not been reached");
+
+    const playing = beginLobbyPlaying(
+      countdown,
+      "p51-guest",
+      exact,
+      startAt,
+    ).room;
+
+    expect(playing.status).toBe("playing");
+    expect(playing.revision).toBe(beforeRevision + 1);
+    expect(playing.matchStart?.phase).toBe("countdown");
+    expect(playing.matchStart?.startAtServerMs).toBe(startAt);
+    expect(playing.matchStart?.matchId).toBe(countdown.matchStart?.matchId);
+    expect(isCanonicalRoomSnapshot(playing)).toBe(true);
+
+    const restored = restoreRoomMatchStartSession(playing.matchStart!, playing.participants);
+    expect(restored.phase).toBe("countdown");
+    expect(restored.startAtServerMs).toBe(startAt);
+    expect(allClientsLoaded(restored)).toBe(true);
+
+    const duplicate = beginLobbyPlaying(
+      playing,
+      "p51-host",
+      exact,
+      startAt + 500,
+    ).room;
+    expect(duplicate).toBe(playing);
+    expect(duplicate.revision).toBe(playing.revision);
+  });
+
+  test("PLAYING rejects stale identity and non-frozen actors without creating replacement epochs", () => {
+    const countdown = countdownRoom();
+    const exact = identity(countdown);
+    const startAt = countdown.matchStart!.startAtServerMs as number;
+
+    expect(() => beginLobbyPlaying(
+      countdown,
+      "p51-host",
+      { ...exact, startRevision: exact.startRevision + 1 },
+      startAt + 1,
+    )).toThrow("Countdown identity does not match");
+
+    expect(() => beginLobbyPlaying(
+      countdown,
+      "intruder",
+      exact,
+      startAt + 1,
+    )).toThrow("frozen human participant");
+
+    expect(countdown.status).toBe("countdown");
+    expect(countdown.matchStart?.startAtServerMs).toBe(startAt);
   });
 });
 
