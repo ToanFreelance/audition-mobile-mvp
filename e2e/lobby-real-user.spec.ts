@@ -187,21 +187,29 @@ test("@real host + guest perform realtime Ready/Not Ready and freeze one authori
       "data-load-state",
       "loaded",
     );
-    await expect(host.page.getByTestId("preload-all-loaded")).toBeVisible({ timeout: 60_000 });
-    await expect(guest.page.getByTestId("preload-all-loaded")).toBeVisible({ timeout: 60_000 });
+    await expect(host.page.getByTestId("shared-countdown")).toBeVisible({ timeout: 60_000 });
+    await expect(guest.page.getByTestId("shared-countdown")).toBeVisible({ timeout: 60_000 });
+    const hostStartAt = await host.page.getByTestId("start-at-server-ms").innerText();
+    const guestStartAt = await guest.page.getByTestId("start-at-server-ms").innerText();
+    expect(guestStartAt).toBe(hostStartAt);
     await expect.poll(() => idleCount(host.page), { timeout: 20_000 }).toBe(3);
-    await expect(host.page.locator('[data-testid="countdown"]')).toHaveCount(0);
+    await expect(host.page.getByTestId("countdown-label")).toContainText(/3|2|1|GO|SYNC/);
+    await expect(host.page.getByTestId("countdown-label")).toHaveText("GO", { timeout: 12_000 });
+    await expect(guest.page.getByTestId("countdown-label")).toHaveText("GO", { timeout: 12_000 });
     expect(new URL(host.page.url()).pathname).toBe("/tools/lobby-qa");
+    expect(new URL(guest.page.url()).pathname).toBe("/tools/lobby-qa");
 
     assertNoCriticalErrors(host, guest);
     await closeUser(guest, testInfo);
 
-    // Accepted LOADED state is canonical; temporary Presence loss cannot erase it.
+    // Accepted LOADED state and immutable epoch are canonical; temporary
+    // Presence loss cannot erase either one.
     await host.page.waitForTimeout(1_500);
     await expect(host.page.getByTestId("preload-participant-p51-guest")).toHaveAttribute(
       "data-load-state",
       "loaded",
     );
+    await expect(host.page.getByTestId("start-at-server-ms")).toHaveText(hostStartAt);
 
     guest = await createUser(browser, testInfo, "guest-preload-reload");
     await openLobby(guest, "guest", room);
@@ -211,13 +219,14 @@ test("@real host + guest perform realtime Ready/Not Ready and freeze one authori
       "loaded",
       { timeout: 20_000 },
     );
-    await expect(guest.page.getByTestId("preload-all-loaded")).toBeVisible({ timeout: 20_000 });
+    await expect(guest.page.getByTestId("shared-countdown")).toBeVisible({ timeout: 20_000 });
+    await expect(guest.page.getByTestId("start-at-server-ms")).toHaveText(hostStartAt);
     await expect(guest.page.getByTestId("start-button")).toHaveCount(0);
     await expect.poll(() => idleCount(guest.page), { timeout: 35_000 }).toBe(3);
 
     await host.page.getByTestId("room-settings-button").click();
     await expect(host.page.getByTestId("frozen-match")).toContainText("Frozen match");
-    await expect(host.page.getByTestId("start-session-meta")).toContainText("PRELOADING");
+    await expect(host.page.getByTestId("start-session-meta")).toContainText("COUNTDOWN");
     expect(await sceneGeneration(host.page)).toBe(generation);
     expect(await actorCount(host.page)).toBe(3);
 
