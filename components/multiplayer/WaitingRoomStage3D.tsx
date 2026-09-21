@@ -29,6 +29,7 @@ type Props = {
   selectedParticipantId: string | null;
   pageSize?: number;
   onSelectParticipant?: (participant: RoomParticipant) => void;
+  selectedActorYawOffset?: number;
 };
 
 type StageNode = {
@@ -289,6 +290,7 @@ export default function WaitingRoomStage3D({
   selectedParticipantId,
   pageSize = 2,
   onSelectParticipant,
+  selectedActorYawOffset = 0,
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const stageNodesRef = useRef(new Map<string, StageNode>());
@@ -299,7 +301,7 @@ export default function WaitingRoomStage3D({
   const reconcileParticipantsRef = useRef<(() => void) | null>(null);
   const selectCallbackRef = useRef(onSelectParticipant);
   const participantsRef = useRef(participants);
-  const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId });
+  const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId, selectedActorYawOffset });
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
   const [sceneGeneration, setSceneGeneration] = useState(0);
   const [renderedActorCount, setRenderedActorCount] = useState(0);
@@ -309,7 +311,7 @@ export default function WaitingRoomStage3D({
   selectCallbackRef.current = onSelectParticipant;
   participantsRef.current = participants;
   slotsRef.current = slots;
-  viewRef.current = { viewMode, pageIndex, pageSize, selectedParticipantId };
+  viewRef.current = { viewMode, pageIndex, pageSize, selectedParticipantId, selectedActorYawOffset };
 
   const slotStateKey = useMemo(
     () => slots.map(slot => `${slot.slotIndex}:${slot.state}`).join("|"),
@@ -332,7 +334,7 @@ export default function WaitingRoomStage3D({
 
   useEffect(() => {
     layoutRef.current?.();
-  }, [pageIndex, pageSize, selectedParticipantId, slotStateKey, viewMode]);
+  }, [pageIndex, pageSize, selectedActorYawOffset, selectedParticipantId, slotStateKey, viewMode]);
 
   useEffect(() => {
     reconcileParticipantsRef.current?.();
@@ -531,7 +533,8 @@ export default function WaitingRoomStage3D({
         node.ring.visible = visible;
         node.actor.position.x = x;
         node.actor.position.z = z;
-        node.actor.rotation.y = rotationY;
+        node.actor.rotation.y = rotationY
+          + (participant.participantId === selected ? current.selectedActorYawOffset : 0);
         node.ring.position.set(x, 0.02, z);
         setScale(node, actorScale, ringScale);
         const selectedRing = participant.participantId === current.selectedParticipantId;
