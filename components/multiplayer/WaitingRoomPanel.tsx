@@ -977,6 +977,189 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     room.status,
   ]);
 
+  useEffect(() => {
+    if (!syncOptions || !matchStartSession || !matchStartSessionKey) return;
+    if (roomRef.current.status !== "preloading"
+      && roomRef.current.status !== "countdown"
+      && roomRef.current.status !== "playing") return;
+
+    const localParticipant = roomRef.current.participants.find(
+      participant => participant.participantId === syncOptions.participantId,
+    );
+    if (!localParticipant || localParticipant.kind !== "human") return;
+
+    const context = gameplayAudioContextRef.current;
+    if (!context || context.state === "closed") return;
+    if (gameplayAudioRef.current?.sessionKey === matchStartSessionKey) {
+      setGameplayAudioReadyKey(matchStartSessionKey);
+      return;
+    }
+
+    const attemptKey = `${matchStartSessionKey}:activation-${audioActivationNonce}`;
+    if (gameplayAudioPrepareAttemptRef.current === attemptKey) return;
+    gameplayAudioPrepareAttemptRef.current = attemptKey;
+
+    let cancelled = false;
+    void (async () => {
+      const music = await resolveFrozenLobbyMusic(matchStartSession.manifest);
+      if (cancelled) return;
+
+      const activeContext = gameplayAudioContextRef.current;
+      if (!activeContext || activeContext.state === "closed") {
+        throw new Error("WebAudio context disappeared before gameplay preparation.");
+      }
+
+      const previous = gameplayAudioRef.current;
+      if (previous && previous.sessionKey !== matchStartSessionKey) {
+        gameplayRuntimeRef.current?.stop();
+        gameplayRuntimeRef.current = null;
+        gameplayAudioRef.current = null;
+        await previous.transport.destroy();
+      }
+
+      const transport = new WebAudioTransport(music.audioUrl, activeContext);
+      try {
+        await transport.prepare();
+      } catch (error) {
+        await transport.destroy();
+        throw error;
+      }
+      if (cancelled) {
+        await transport.destroy();
+        return;
+      }
+
+      gameplayAudioRef.current = { sessionKey: matchStartSessionKey, transport };
+      setGameplayAudioReadyKey(matchStartSessionKey);
+      setGameplayHandoffError(null);
+      setSyncDetail("P5.5 gameplay audio decoded and ready for the shared epoch.");
+    })().catch(error => {
+      if (cancelled) return;
+      gameplayAudioPrepareAttemptRef.current = null;
+      setGameplayAudioReadyKey(null);
+      setGameplayHandoffError(
+        error instanceof Error ? error.message : "Gameplay audio preparation failed.",
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    audioActivationNonce,
+    matchStartSessionKey,
+  ]);
+
+  useEffect(() => {
+    if (!syncOptions
+      || !matchStartSession
+      || !matchStartSessionKey
+      || !clockSyncEstimate
+      || gameplayAudioReadyKey !== matchStartSessionKey) return;
+    if (matchStartSession.startAtServerMs === null) return;
+    if (gameplaySchedule?.sessionKey === matchStartSessionKey) return;
+
+    const prepared = gameplayAudioRef.current;
+    if (!prepared || prepared.sessionKey !== matchStartSessionKey) return;
+    if (gameplayScheduleAttemptRef.current === matchStartSessionKey) return;
+    gameplayScheduleAttemptRef.current = matchStartSessionKey;
+
+    let cancelled = false;
+    void scheduleMultiplayerAudioGameplay({
+      session: matchStartSession,
+      participantId: syncOptions.participantId,
+      transport: prepared.transport,
+      estimatedServerOffsetMs: clockSyncEstimate.offsetMs,
+    }).then(result => {
+      if (cancelled) {
+        result.runtime?.stop();
+        return;
+      }
+      if (result.status === "late") {
+        setGameplayHandoffError(
+          `Shared start epoch is already late by ${Math.round(result.plan.lateByMs)} ms; epoch was not moved.`,
+        );
+        setSyncDetail("P5.5 LATE CLIENT · shared epoch remains immutable.");
+        return;
+      }
+
+      gameplayRuntimeRef.current?.stop();
+      gameplayRuntimeRef.current = result.runtime;
+      setGameplaySchedule({
+        sessionKey: matchStartSessionKey,
+        transport: prepared.transport,
+        runtime: result.runtime,
+        plan: result.plan,
+        startAtServerMs: matchStartSession.startAtServerMs as number,
+      });
+      setGameplayHandoffError(null);
+      setSyncDetail(
+        `AUDIO SCHEDULED · shared epoch ${Math.round(result.plan.startAtServerMs)} · lead ${Math.round(result.plan.leadTimeMs)} ms.`,
+      );
+    }).catch(error => {
+      if (cancelled) return;
+      gameplayScheduleAttemptRef.current = null;
+      setGameplayHandoffError(
+        error instanceof Error ? error.message : "Shared WebAudio scheduling failed.",
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    clockSyncEstimate,
+    gameplayAudioReadyKey,
+    gameplaySchedule?.sessionKey,
+    matchStartSession,
+    matchStartSessionKey,
+    syncOptions,
+  ]);
+
+  useEffect(() => {
+    if (!syncOptions
+      || !matchStartSession
+      || !matchStartSessionKey
+      || !gameplaySchedule
+      || gameplaySchedule.sessionKey !== matchStartSessionKey
+      || !gameplayActive
+      || estimatedServerNowMs === null
+      || matchStartSession.startAtServerMs === null) return;
+    if (room.status === "playing") return;
+    if (room.status !== "countdown") return;
+
+    // Room status is metadata only. Give the server epoch a small margin so
+    // clock-estimation error cannot promote PLAYING before the canonical epoch.
+    if (estimatedServerNowMs < matchStartSession.startAtServerMs + 150) return;
+
+    const attemptKey = `${matchStartSessionKey}:r${room.revision}`;
+    if (playingTransitionAttemptRef.current === attemptKey) return;
+    playingTransitionAttemptRef.current = attemptKey;
+
+    void runServerMutation({
+      action: "enter-playing",
+      expectedRevision: room.revision,
+      actorParticipantId: syncOptions.participantId,
+      matchId: matchStartSession.matchId,
+      roomRevision: matchStartSession.roomRevision,
+      startRevision: matchStartSession.startRevision,
+    }, "PLAYING · WebAudio owns the gameplay clock.").catch(error => {
+      playingTransitionAttemptRef.current = null;
+      setGameplayHandoffError(
+        error instanceof Error ? error.message : "Canonical playing transition failed.",
+      );
+    });
+  }, [
+    estimatedServerNowMs,
+    gameplayActive,
+    gameplaySchedule,
+    matchStartSession,
+    matchStartSessionKey,
+    room.revision,
+    room.status,
+    syncOptions,
+  ]);
+
   const toggleSlot = (slotIndex: RoomSlotIndex) => {
     if (!hostView || frozenMatchManifest) return;
     const slot = room.slots.find(item => item.slotIndex === slotIndex);
