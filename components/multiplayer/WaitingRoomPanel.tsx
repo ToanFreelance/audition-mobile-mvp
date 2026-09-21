@@ -874,7 +874,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
 
   useEffect(() => {
     if (!syncOptions || !matchStartSession || !allParticipantsLoaded) return;
-    if (room.status !== "preloading" && room.status !== "countdown") return;
+    if (room.status !== "preloading" && room.status !== "countdown" && room.status !== "playing") return;
 
     const localParticipant = room.participants.find(
       participant => participant.participantId === syncOptions.participantId,
@@ -882,7 +882,8 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     if (!localParticipant || localParticipant.kind !== "human") return;
 
     const sessionKey = `${matchStartSession.matchId}:${matchStartSession.roomRevision}:${matchStartSession.startRevision}:${localParticipant.participantId}`;
-    if (room.status === "countdown" && clockSyncState?.sessionKey === sessionKey) return;
+    if ((room.status === "countdown" || room.status === "playing")
+      && clockSyncState?.sessionKey === sessionKey) return;
 
     const attemptKey = `${sessionKey}:${room.status}`;
     if (countdownAttemptRef.current === attemptKey) return;
@@ -892,16 +893,16 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
 
     void (async () => {
       setSyncDetail(
-        room.status === "countdown"
-          ? "Recovering shared server clock…"
-          : "ALL CLIENTS LOADED · sampling shared server clock…",
+        room.status === "preloading"
+          ? "ALL CLIENTS LOADED · sampling shared server clock…"
+          : "Recovering shared server clock…",
       );
       const estimate = await sampleLobbyServerClock();
       if (cancelled) return;
       setClockSyncState({ sessionKey, estimate });
 
-      if (roomRef.current.status === "countdown") {
-        setSyncDetail(`COUNTDOWN synced · RTT ${Math.round(estimate.minRoundTripMs)} ms.`);
+      if (roomRef.current.status === "countdown" || roomRef.current.status === "playing") {
+        setSyncDetail(`${roomRef.current.status.toUpperCase()} synced · RTT ${Math.round(estimate.minRoundTripMs)} ms.`);
         return;
       }
 
@@ -914,7 +915,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           || binding.startRevision !== matchStartSession.startRevision) {
           throw new Error("Active match-start session changed before countdown issue.");
         }
-        if (current.status === "countdown") return;
+        if (current.status === "countdown" || current.status === "playing") return;
         if (current.status !== "preloading") {
           throw new Error("Shared countdown can only issue from PRELOADING.");
         }
@@ -957,7 +958,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   ]);
 
   useEffect(() => {
-    if (room.status !== "countdown"
+    if ((room.status !== "countdown" && room.status !== "playing")
       || !clockSyncEstimate
       || matchStartSession?.startAtServerMs === null
       || matchStartSession?.startAtServerMs === undefined) {
