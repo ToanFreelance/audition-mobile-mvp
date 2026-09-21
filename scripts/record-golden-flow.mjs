@@ -37,7 +37,7 @@ try {
   await root.evaluate(element => {
     document.documentElement.style.background = "#02040e";
     document.body.style.margin = "0";
-    (element as HTMLElement).style.width = "390px";
+    element.style.width = "390px";
   });
 
   await page.waitForFunction(
