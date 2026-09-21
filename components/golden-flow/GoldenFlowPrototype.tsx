@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Stage3D from "../Stage3D";
 import WaitingRoomStage3D from "../multiplayer/WaitingRoomStage3D";
 import { createP53SyncedWaitingRoomBase } from "../../multiplayer/waiting-room-qa";
@@ -74,6 +74,8 @@ export default function GoldenFlowPrototype() {
   const [hairColor, setHairColor] = useState<HairColor>("violet");
   const [hairStyle, setHairStyle] = useState<HairStyle>("pony");
   const [characterName, setCharacterName] = useState("Luna");
+  const [characterYaw, setCharacterYaw] = useState(0);
+  const creatorDragRef = useRef<{ pointerId: number; startX: number; startYaw: number } | null>(null);
   const [preloadStep, setPreloadStep] = useState(0);
   const [countdownLabel, setCountdownLabel] = useState<"3" | "2" | "1" | "GO">("3");
   const [judgement, setJudgement] = useState(false);
@@ -145,6 +147,7 @@ export default function GoldenFlowPrototype() {
     setSkinTone("light");
     setHairColor("black");
     setHairStyle("bob");
+    setCharacterYaw(0);
 
     later(1350, () => setScreen("checking"));
 
@@ -164,6 +167,31 @@ export default function GoldenFlowPrototype() {
     later(10400, () => setScreen("lobby"));
     later(13900, runMatchStartSequence);
   }, [autoplay, clearTimers, existingProfile, later, runMatchStartSequence]);
+
+  const beginCreatorRotate = (event: ReactPointerEvent<HTMLDivElement>) => {
+    creatorDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startYaw: characterYaw,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const updateCreatorRotate = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = creatorDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - drag.startX;
+    setCharacterYaw(drag.startYaw + deltaX * 0.012);
+  };
+
+  const endCreatorRotate = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = creatorDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    creatorDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
 
   const beginLogin = () => {
     clearTimers();
@@ -217,20 +245,63 @@ export default function GoldenFlowPrototype() {
 
   const renderLogin = () => (
     <section className={styles.loginScreen} data-testid="golden-login">
+      <div className={styles.loginBackdrop} aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
       <div className={styles.loginGlowA} />
       <div className={styles.loginGlowB} />
-      <div className={styles.brandWrap}>{renderBrand()}</div>
-      <div className={styles.loginCard}>
-        <span className={styles.kicker}>WELCOME TO THE DANCE FLOOR</span>
-        <h1>Chào mừng trở lại</h1>
-        <p>Đăng nhập để tiếp tục hành trình của bạn.</p>
-        <button data-testid="golden-login-button" onClick={beginLogin} type="button">
-          <span>✦</span>
-          ĐĂNG NHẬP
-        </button>
-        <small>Prototype: phương thức đăng nhập thật sẽ được chọn ở phase Account/Auth.</small>
+
+      <div className={styles.loginTop}>
+        <span>◈ AUDITION WORLD</span>
+        <button aria-label="Audio settings" type="button">♫</button>
       </div>
-      <div className={styles.loginFooter}>AUDITION MOBILE · GOLDEN FLOW MVP</div>
+
+      <div className={styles.loginBrand}>{renderBrand()}</div>
+
+      <div className={styles.loginHeroStage} aria-hidden="true">
+        <WaitingRoomStage3D
+          participants={[creatorParticipant]}
+          slots={lobbyRoom.slots}
+          roomId="golden-login-hero"
+          stageId="neon-club"
+          viewMode="close"
+          pageIndex={0}
+          pageSize={1}
+          selectedParticipantId={creatorParticipant.participantId}
+          selectedActorYawOffset={-0.16}
+        />
+      </div>
+
+      <div className={styles.loginHeroCopy}>
+        <span>STYLE · MUSIC · FRIENDS</span>
+        <strong>DANCE YOUR STORY</strong>
+      </div>
+
+      <div className={styles.loginActions}>
+        <button
+          className={styles.loginPrimary}
+          data-testid="golden-login-button"
+          onClick={beginLogin}
+          type="button"
+        >
+          <b>✦</b>
+          <span>ĐĂNG NHẬP</span>
+          <i>›</i>
+        </button>
+        <button className={styles.loginSecondary} type="button">
+          TẠO TÀI KHOẢN
+        </button>
+        <div className={styles.loginProviders}>
+          <button type="button">G</button>
+          <button type="button"></button>
+          <button type="button">f</button>
+        </div>
+        <small>Tiếp tục nghĩa là bạn đồng ý với Điều khoản & Chính sách quyền riêng tư.</small>
+      </div>
+
+      <div className={styles.loginFooter}>AUDITION MOBILE · GOLDEN UI V1</div>
     </section>
   );
 
@@ -258,16 +329,34 @@ export default function GoldenFlowPrototype() {
 
       <div className={styles.creatorStage}>
         <div className={styles.creatorStageGlow} />
-        <WaitingRoomStage3D
-          participants={[creatorParticipant]}
-          slots={lobbyRoom.slots}
-          roomId="golden-character-creator"
-          stageId="neon-club"
-          viewMode="close"
-          pageIndex={0}
-          pageSize={1}
-          selectedParticipantId={creatorParticipant.participantId}
-        />
+        <div className={styles.creatorStageGrid} aria-hidden="true" />
+        <div className={styles.creatorBadge}>LIVE 3D PREVIEW</div>
+        <div
+          className={styles.creatorViewport}
+          data-testid="golden-character-viewport"
+          data-yaw={Math.round(characterYaw * 1000)}
+          onPointerCancel={endCreatorRotate}
+          onPointerDown={beginCreatorRotate}
+          onPointerMove={updateCreatorRotate}
+          onPointerUp={endCreatorRotate}
+        >
+          <WaitingRoomStage3D
+            participants={[creatorParticipant]}
+            slots={lobbyRoom.slots}
+            roomId="golden-character-creator"
+            stageId="neon-club"
+            viewMode="close"
+            pageIndex={0}
+            pageSize={1}
+            selectedParticipantId={creatorParticipant.participantId}
+            selectedActorYawOffset={characterYaw}
+          />
+        </div>
+        <div className={styles.rotateHint}>
+          <span>↔</span>
+          KÉO ĐỂ XOAY 360°
+          <button onClick={() => setCharacterYaw(0)} type="button">RESET</button>
+        </div>
         <div className={styles.avatarNameplate}>
           <strong>{characterName || "Tên nhân vật"}</strong>
           <span>{gender === "female" ? "NỮ" : "NAM"} · {SKIN_LABELS[skinTone]} · {HAIR_LABELS[hairStyle]}</span>
@@ -275,6 +364,10 @@ export default function GoldenFlowPrototype() {
       </div>
 
       <div className={styles.creatorSheet}>
+        <div className={styles.creatorSheetTitle}>
+          <div><span>CHARACTER STUDIO</span><strong>Thiết kế phong cách của bạn</strong></div>
+          <i>STEP 1</i>
+        </div>
         <div className={styles.creatorField}>
           <label>GIỚI TÍNH</label>
           <div className={styles.segmented}>
