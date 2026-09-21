@@ -764,3 +764,23 @@
     max-width:138px;
   }
 }
+
+
+/* Character-preview isolation */
+.stage[data-presentation="character-preview"]{
+  background:transparent;
+  box-shadow:none;
+}
+.stage[data-presentation="character-preview"]:before,
+.stage[data-presentation="character-preview"]:after{
+  display:none;
+}
+.stage[data-presentation="character-preview"] .architecture,
+.stage[data-presentation="character-preview"] .labels,
+.stage[data-presentation="character-preview"] .wideSlotLabels,
+.stage[data-presentation="character-preview"] .note{
+  display:none!important;
+}
+.stage[data-presentation="character-preview"] .canvas{
+  inset:0;
+}
