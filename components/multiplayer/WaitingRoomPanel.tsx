@@ -1635,15 +1635,16 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         {matchStartSession && (
           <section
             className={styles.preloadBanner}
+            data-audio-scheduled={gameplaySchedule?.sessionKey === matchStartSessionKey ? "1" : "0"}
             data-phase={room.status}
             data-testid="preload-state"
           >
-            <strong>{room.status === "countdown" ? "COUNTDOWN" : "PRELOADING"}</strong>
+            <strong>{room.status === "playing" ? "STARTING" : room.status === "countdown" ? "COUNTDOWN" : "PRELOADING"}</strong>
             <span data-testid="preload-match-id">{matchStartSession.matchId}</span>
             <small>
               room r<span data-testid="preload-room-revision">{matchStartSession.roomRevision}</span>
               {" · "}start r<span data-testid="preload-start-revision">{matchStartSession.startRevision}</span>
-              {room.status === "countdown" && matchStartSession.startAtServerMs !== null && (
+              {(room.status === "countdown" || room.status === "playing") && matchStartSession.startAtServerMs !== null && (
                 <>
                   {" · "}epoch <span data-testid="start-at-server-ms">{Math.round(matchStartSession.startAtServerMs ?? 0)}</span>
                 </>
@@ -1665,7 +1666,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                 );
               })}
             </div>
-            {room.status === "countdown" ? (
+            {(room.status === "countdown" || room.status === "playing") ? (
               <em
                 className={styles.preloadAllLoaded}
                 data-testid="shared-countdown"
@@ -1682,6 +1683,34 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                 ALL CLIENTS LOADED
               </em>
             ) : null}
+            {(room.status === "countdown" || room.status === "playing") && (
+              <div className={styles.preloadAudioState}>
+                <small data-testid="p55-audio-state">
+                  {gameplaySchedule?.sessionKey === matchStartSessionKey
+                    ? `AUDIO SCHEDULED · lead ${Math.round(gameplaySchedule.plan.leadTimeMs)}ms`
+                    : gameplayAudioReadyKey === matchStartSessionKey
+                      ? "AUDIO DECODED · scheduling shared epoch…"
+                      : audioActivationNonce === 0
+                        ? "AUDIO ACTIVATION REQUIRED"
+                        : "AUDIO PREPARING…"}
+                </small>
+                {(audioActivationNonce === 0 || gameplayHandoffError) && !gameplaySchedule && (
+                  <button
+                    className={styles.preloadAudioButton}
+                    data-testid="enable-gameplay-audio"
+                    onClick={activateGameplayAudioFromGesture}
+                    type="button"
+                  >
+                    🔊 KÍCH HOẠT ÂM THANH
+                  </button>
+                )}
+                {gameplayHandoffError && (
+                  <small className={styles.preloadAudioError} data-testid="p55-audio-error">
+                    {gameplayHandoffError}
+                  </small>
+                )}
+              </div>
+            )}
           </section>
         )}
 
