@@ -241,3 +241,37 @@ export function setParticipantLoadState(
   });
   return bump(room, { participants });
 }
+
+export function beginRoomCountdown(
+  room: RoomState,
+  matchStart: RoomMatchStartBinding,
+): RoomState {
+  if (room.status !== "preloading" || !room.matchStart) {
+    throw new Error("Countdown can only begin from active preloading.");
+  }
+  if (!room.participants.length || room.participants.some(participant => participant.loadState !== "loaded")) {
+    throw new Error("Countdown requires every frozen participant to be Loaded.");
+  }
+  if (matchStart.phase !== "countdown"
+    || !Number.isFinite(matchStart.startAtServerMs)
+    || (matchStart.startAtServerMs as number) <= 0) {
+    throw new Error("Countdown requires an immutable future server epoch.");
+  }
+
+  const current = room.matchStart;
+  if (matchStart.protocolVersion !== current.protocolVersion
+    || matchStart.matchId !== current.matchId
+    || matchStart.roomRevision !== current.roomRevision
+    || matchStart.startRevision !== current.startRevision
+    || matchStart.safeLeadTimeMs !== current.safeLeadTimeMs
+    || matchStart.manifest.matchId !== current.manifest.matchId
+    || matchStart.manifest.roomId !== current.manifest.roomId
+    || matchStart.manifest.roomRevision !== current.manifest.roomRevision) {
+    throw new Error("Countdown binding does not match the active preload session.");
+  }
+
+  return bump(room, {
+    status: "countdown",
+    matchStart,
+  });
+}
