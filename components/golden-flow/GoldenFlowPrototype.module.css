@@ -1161,3 +1161,474 @@
   .creatorScreen{grid-template-rows:auto minmax(315px,45vh) minmax(0,1fr)}
   .rotateHint{bottom:48px}
 }
+
+
+/* GOLDEN UI reference-locked G1/G2 v2 */
+
+/* G1 — copy the approved login composition, not merely its palette */
+.loginScreen{
+  position:relative;
+  height:100%;
+  min-height:100%;
+  overflow:hidden;
+  isolation:isolate;
+  background:
+    radial-gradient(ellipse at 52% 28%,rgba(155,67,255,.28),transparent 30%),
+    radial-gradient(ellipse at 18% 18%,rgba(39,114,255,.34),transparent 27%),
+    radial-gradient(ellipse at 84% 23%,rgba(255,52,213,.28),transparent 26%),
+    linear-gradient(180deg,#070719 0%,#171041 42%,#0a0b28 70%,#040615 100%);
+}
+.loginAmbient{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    linear-gradient(101deg,transparent 0 14%,rgba(83,229,255,.18) 15% 16%,transparent 17% 73%,rgba(255,64,221,.16) 74% 76%,transparent 77%),
+    radial-gradient(circle at 76% 16%,rgba(255,87,225,.18),transparent 4%),
+    radial-gradient(circle at 24% 12%,rgba(98,126,255,.22),transparent 4%);
+}
+.loginAmbient:after{
+  content:"";
+  position:absolute;
+  left:-15%;
+  right:-15%;
+  bottom:26%;
+  height:31%;
+  border-top:1px solid rgba(97,226,255,.28);
+  transform:perspective(360px) rotateX(66deg);
+  transform-origin:center top;
+  background:
+    linear-gradient(rgba(85,211,255,.08) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(220,69,255,.08) 1px,transparent 1px);
+  background-size:30px 30px;
+  mask-image:linear-gradient(180deg,#000,transparent);
+}
+.loginScript{
+  position:absolute;
+  z-index:6;
+  left:14px;
+  top:calc(52px + env(safe-area-inset-top));
+  color:#ff72df;
+  font:italic 700 17px/1.05 "Snell Roundhand","Segoe Script",cursive;
+  transform:rotate(-8deg);
+  text-shadow:0 0 8px rgba(255,58,211,.75),0 0 20px rgba(108,55,232,.48);
+  pointer-events:none;
+}
+.loginHeroStage{
+  position:absolute;
+  z-index:2;
+  left:-18%;
+  right:-18%;
+  top:3%;
+  height:71%;
+  pointer-events:none;
+  mask-image:linear-gradient(180deg,#000 0,#000 82%,transparent 100%);
+}
+.loginHeroStage>div{position:absolute!important;inset:0!important}
+.loginLogoLockup{
+  position:absolute;
+  z-index:8;
+  left:50%;
+  bottom:221px;
+  width:82%;
+  transform:translateX(-50%);
+  display:grid;
+  justify-items:center;
+  pointer-events:none;
+}
+.loginLogoLockup .brand{
+  transform:scale(.92);
+  transform-origin:center;
+}
+.loginLogoLockup .brand span{
+  font-family:var(--am-font-display);
+  font-size:52px;
+  line-height:.72;
+  color:#fff;
+  -webkit-text-stroke:1.2px rgba(116,231,255,.82);
+  text-shadow:
+    0 3px 0 #5d2bba,
+    0 0 8px #ff57dc,
+    0 0 20px rgba(92,100,255,.85);
+}
+.loginLogoLockup .brand strong{
+  margin-top:9px;
+  color:#eefaff;
+  font-size:16px;
+  letter-spacing:.42em;
+}
+.loginLogoLockup .brand small{display:none}
+.loginLogoLockup>span{
+  margin-top:5px;
+  color:#d9dbff;
+  font:700 6px/1 var(--am-font-ui);
+  letter-spacing:.24em;
+}
+.loginActionsSketch{
+  position:absolute;
+  z-index:10;
+  left:18px;
+  right:18px;
+  bottom:calc(14px + env(safe-area-inset-bottom));
+  display:grid;
+  gap:7px;
+}
+.loginPrimarySketch,.loginSecondarySketch{
+  width:100%;
+  min-height:47px;
+  border-radius:12px;
+  color:#fff;
+  font:800 12px/1 var(--am-font-ui);
+}
+.loginPrimarySketch{
+  border:1px solid #ff8bea;
+  background:linear-gradient(180deg,#ee54dd,#be37d8 56%,#8e39dc);
+  box-shadow:
+    0 0 11px rgba(255,77,222,.66),
+    0 0 26px rgba(126,71,255,.35),
+    inset 0 1px rgba(255,255,255,.35);
+}
+.loginSecondarySketch{
+  min-height:38px;
+  border:1px solid rgba(125,125,255,.82);
+  background:linear-gradient(180deg,rgba(18,17,62,.88),rgba(10,11,39,.95));
+  box-shadow:inset 0 0 14px rgba(79,80,212,.12);
+}
+.loginProvidersSketch{
+  display:grid;
+  grid-template-columns:repeat(4,38px);
+  justify-content:center;
+  gap:10px;
+  padding-top:2px;
+}
+.loginProvidersSketch button{
+  width:38px;
+  height:34px;
+  border:1px solid rgba(145,157,255,.54);
+  border-radius:9px;
+  color:#fff;
+  background:rgba(9,12,37,.92);
+  box-shadow:inset 0 0 10px rgba(70,93,203,.13);
+  font:800 13px/1 var(--am-font-ui);
+}
+.loginActionsSketch>small{
+  margin-top:2px;
+  color:#f1b6ee;
+  font:italic 600 8px/1.2 "Segoe Script",cursive;
+  text-align:center;
+  text-shadow:0 0 8px rgba(255,88,222,.35);
+}
+.loginTop,.loginHeroCopy,.loginActions,.loginFooter{display:none!important}
+
+/* G2 — approved sketch geometry */
+.creatorScreenSketch{
+  position:relative;
+  height:100%;
+  min-height:100%;
+  display:grid;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  overflow:hidden;
+  color:#fff;
+  background:
+    radial-gradient(ellipse at 56% 28%,rgba(173,58,255,.22),transparent 29%),
+    linear-gradient(180deg,#090a24,#121040 58%,#07091e);
+}
+.creatorHeaderSketch{
+  position:relative;
+  z-index:15;
+  min-height:55px;
+  display:grid;
+  grid-template-columns:42px 1fr 42px;
+  align-items:center;
+  gap:8px;
+  padding:calc(8px + env(safe-area-inset-top)) 10px 8px;
+  border-bottom:1px solid rgba(81,124,232,.38);
+  background:linear-gradient(180deg,rgba(8,9,31,.98),rgba(13,12,43,.94));
+}
+.creatorHeaderSketch button{
+  width:38px;
+  height:38px;
+  border:1px solid rgba(119,119,255,.75);
+  border-radius:8px;
+  color:#dbe6ff;
+  background:linear-gradient(180deg,#28165d,#17143f);
+  font-size:26px;
+  line-height:1;
+}
+.creatorHeaderSketch strong{
+  font:900 16px/1 var(--am-font-ui);
+  letter-spacing:.02em;
+}
+.creatorHeroSketch{
+  position:relative;
+  min-height:0;
+  overflow:hidden;
+  border-bottom:1px solid rgba(107,72,224,.34);
+  background:
+    radial-gradient(ellipse at 57% 78%,rgba(37,162,255,.17),transparent 30%),
+    linear-gradient(180deg,rgba(13,13,49,.6),rgba(17,13,54,.86));
+}
+.creatorHeroSketch:after{
+  content:"";
+  position:absolute;
+  z-index:0;
+  left:12%;
+  right:-20%;
+  bottom:-18%;
+  height:46%;
+  border-radius:50%;
+  border-top:1px solid rgba(80,225,255,.30);
+  background:
+    repeating-radial-gradient(ellipse at 50% 0,rgba(82,116,255,.19) 0 1px,transparent 2px 24px),
+    linear-gradient(180deg,rgba(38,37,113,.2),rgba(5,8,29,.75));
+  pointer-events:none;
+}
+.creatorRail{
+  position:absolute;
+  z-index:10;
+  left:10px;
+  top:18px;
+  bottom:58px;
+  width:58px;
+  display:grid;
+  align-content:center;
+  gap:7px;
+}
+.creatorRail button{
+  min-height:55px;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:3px;
+  padding:4px;
+  border:1px solid rgba(111,89,211,.54);
+  border-radius:10px;
+  color:#cfd7f6;
+  background:linear-gradient(180deg,rgba(31,23,78,.91),rgba(13,14,46,.93));
+  box-shadow:inset 0 0 12px rgba(78,64,190,.1);
+}
+.creatorRail button span{
+  font-size:19px;
+  line-height:1;
+}
+.creatorRail button small{
+  font:700 6px/1.05 var(--am-font-ui);
+}
+.creatorRail .creatorRailActive{
+  border-color:#f45bd9;
+  color:#fff;
+  background:linear-gradient(180deg,#7d31be,#391c78);
+  box-shadow:0 0 13px rgba(242,68,218,.34),inset 0 0 11px rgba(255,255,255,.08);
+}
+.creatorViewportSketch{
+  position:absolute;
+  z-index:2;
+  inset:0 0 0 62px;
+  touch-action:none;
+  cursor:grab;
+  user-select:none;
+}
+.creatorViewportSketch:active{cursor:grabbing}
+.creatorViewportSketch>div{position:absolute!important;inset:0!important}
+.creatorRotateSketch{
+  position:absolute;
+  z-index:11;
+  left:88px;
+  bottom:21px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#fff;
+  pointer-events:none;
+  text-shadow:0 2px 4px #000;
+}
+.creatorRotateSketch>span{
+  color:#8febff;
+  font-size:34px;
+  line-height:.7;
+  text-shadow:0 0 9px #61e9ff;
+}
+.creatorRotateSketch>div{display:grid}
+.creatorRotateSketch strong{
+  font:800 10px/1 var(--am-font-ui);
+}
+.creatorRotateSketch small{
+  margin-top:3px;
+  color:#c9d5f7;
+  font:500 7px/1 var(--am-font-ui);
+}
+.creatorDock{
+  position:relative;
+  z-index:12;
+  display:grid;
+  gap:8px;
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at 50% 0,rgba(114,47,218,.14),transparent 34%),
+    linear-gradient(180deg,#0b0e2b,#07091e);
+}
+.creatorHairColors{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-height:29px;
+}
+.creatorHairColors>span,.creatorBodyPanel span{
+  margin-right:3px;
+  color:#9aa9d4;
+  font:800 6px/1 var(--am-font-ui);
+  letter-spacing:.12em;
+}
+.creatorHairColors .swatch,.creatorSkinRow .swatch{
+  width:24px;
+  height:24px;
+}
+.creatorThumbStrip{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:6px;
+}
+.creatorThumb,.creatorThumbActive{
+  min-height:67px;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:2px;
+  padding:4px;
+  border:1px solid rgba(106,92,211,.58);
+  border-radius:8px;
+  color:#d8dcf7;
+  background:
+    radial-gradient(circle at 50% 32%,rgba(232,85,218,.23),transparent 30%),
+    linear-gradient(180deg,#20134b,#11123d);
+}
+.creatorThumbActive{
+  border-color:#ff5cdc;
+  box-shadow:0 0 11px rgba(255,74,222,.48),inset 0 0 12px rgba(131,70,255,.23);
+}
+.creatorThumb span,.creatorThumbActive span{
+  color:#fff;
+  font-size:25px;
+  line-height:1;
+}
+.creatorThumb small,.creatorThumbActive small{
+  max-width:66px;
+  overflow:hidden;
+  color:#c5cae7;
+  font:700 5.8px/1 var(--am-font-ui);
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.creatorBodyPanel{
+  min-height:103px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  align-items:start;
+}
+.creatorBodyPanel>div{
+  min-height:92px;
+  display:flex;
+  flex-wrap:wrap;
+  align-content:flex-start;
+  gap:6px;
+  padding:8px;
+  border:1px solid rgba(87,102,196,.47);
+  border-radius:9px;
+  background:#0c1132;
+}
+.creatorBodyPanel>div>span{width:100%;margin-bottom:2px}
+.creatorBodyPanel>div>button:not(.swatch){
+  flex:1;
+  min-height:37px;
+  border:1px solid rgba(90,93,188,.54);
+  border-radius:7px;
+  color:#aeb7db;
+  background:#101438;
+  font:700 8px/1 var(--am-font-ui);
+}
+.creatorBodyPanel>div>.bodyChoiceActive{
+  border-color:#f45bd9!important;
+  color:#fff!important;
+  background:linear-gradient(180deg,#8a36c6,#4b237f)!important;
+}
+.creatorSkinRow{
+  display:flex;
+  gap:6px;
+}
+.creatorLockedCategory{
+  min-height:103px;
+  display:grid;
+  place-content:center;
+  justify-items:center;
+  gap:6px;
+  border:1px dashed rgba(121,104,216,.46);
+  border-radius:9px;
+  background:rgba(18,15,55,.72);
+  text-align:center;
+}
+.creatorLockedCategory strong{
+  color:#fff;
+  font:800 11px/1 var(--am-font-ui);
+}
+.creatorLockedCategory span{
+  max-width:250px;
+  color:#7f8db9;
+  font:500 7px/1.4 var(--am-font-ui);
+}
+.creatorNameSketch{
+  min-height:39px;
+  display:grid;
+  grid-template-columns:1fr 36px;
+  align-items:center;
+  overflow:hidden;
+  border:1px solid rgba(87,93,195,.68);
+  border-radius:8px;
+  background:#0b1031;
+}
+.creatorNameSketch input{
+  min-width:0;
+  height:100%;
+  padding:0 11px;
+  border:0;
+  outline:0;
+  color:#fff;
+  background:transparent;
+  font:700 10px/1 var(--am-font-ui);
+}
+.creatorNameSketch button{
+  height:100%;
+  border:0;
+  border-left:1px solid rgba(87,93,195,.42);
+  color:#dfe6ff;
+  background:rgba(26,25,72,.8);
+}
+.creatorCreateSketch{
+  min-height:47px;
+  border:1px solid #ff8ae9;
+  border-radius:10px;
+  color:#fff;
+  background:linear-gradient(180deg,#f04fe0,#bb39db 58%,#7736d6);
+  box-shadow:0 0 12px rgba(255,69,218,.58),0 0 22px rgba(103,77,255,.28),inset 0 1px rgba(255,255,255,.3);
+  font:900 12px/1 var(--am-font-ui);
+}
+.creatorCreateSketch:disabled{opacity:.42;filter:grayscale(.7)}
+.creatorTagline{
+  color:#c1b1ef;
+  font:700 6.5px/1 var(--am-font-ui);
+  letter-spacing:.23em;
+  text-align:center;
+}
+
+@media(max-width:370px){
+  .loginLogoLockup{bottom:211px}
+  .loginLogoLockup .brand span{font-size:46px}
+  .loginHeroStage{left:-22%;right:-22%;height:69%}
+  .creatorHeaderSketch{min-height:51px}
+  .creatorRail{width:52px;left:7px;gap:5px}
+  .creatorRail button{min-height:50px}
+  .creatorViewportSketch{left:54px}
+  .creatorRotateSketch{left:73px}
+  .creatorThumb,.creatorThumbActive{min-height:61px}
+}
