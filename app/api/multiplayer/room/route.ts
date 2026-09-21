@@ -12,6 +12,7 @@ import {
 import {
   applyLobbyLoadedAck,
   beginLobbyCountdown,
+  beginLobbyPlaying,
   beginLobbyPreload,
   markLobbyParticipantLoadFailed,
   markLobbyParticipantLoading,
@@ -87,6 +88,15 @@ type RoomMutationBody =
     }
   | {
       action: "issue-countdown";
+      roomId: string;
+      expectedRevision: number;
+      actorParticipantId: string;
+      matchId: string;
+      roomRevision: number;
+      startRevision: number;
+    }
+  | {
+      action: "enter-playing";
       roomId: string;
       expectedRevision: number;
       actorParticipantId: string;
@@ -322,6 +332,17 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
     }
     case "issue-countdown":
       return beginLobbyCountdown(
+        room,
+        body.actorParticipantId,
+        {
+          matchId: body.matchId,
+          roomRevision: body.roomRevision,
+          startRevision: body.startRevision,
+        },
+        Date.now(),
+      ).room;
+    case "enter-playing":
+      return beginLobbyPlaying(
         room,
         body.actorParticipantId,
         {
