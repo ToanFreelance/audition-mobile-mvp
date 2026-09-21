@@ -1,0 +1,99 @@
+name: Golden Flow QA
+
+on:
+  push:
+    branches:
+      - "work/golden-flow-prototype"
+    paths:
+      - "app/tools/golden-flow/**"
+      - "components/golden-flow/**"
+      - "docs/GOLDEN_PLAYER_FLOW.md"
+      - "e2e/golden-flow.spec.ts"
+      - "scripts/record-golden-flow.mjs"
+      - "package.json"
+      - ".github/workflows/golden-flow-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  golden-flow:
+    name: golden-flow-build-qa-record
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: "true"
+      PLAYWRIGHT_TEST_BASE_URL: http://127.0.0.1:3000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc --noEmit
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Golden Flow Playwright QA
+        env:
+          PLAYWRIGHT_WEB_SERVER: "1"
+        run: npm run test:qa:golden-flow
+
+      - name: Start built app for recording
+        run: |
+          npm start -- --hostname 127.0.0.1 > /tmp/golden-flow-next.log 2>&1 &
+          echo $! > /tmp/golden-flow-next.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/tools/golden-flow >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/golden-flow-next.log
+          exit 1
+
+      - name: Ensure ffmpeg
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -version | head -n 1
+
+      - name: Record canonical new-player Golden Flow
+        run: npm run record:golden-flow
+
+      - name: Upload Golden Flow video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audition-mobile-golden-flow
+          path: |
+            artifacts/golden-flow/*.mp4
+            artifacts/golden-flow/*.webm
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload Playwright evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-flow-playwright-evidence
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
