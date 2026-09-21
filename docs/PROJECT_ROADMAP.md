@@ -4,7 +4,11 @@ Phase 1 — Solo Easy Core Gameplay, Phase 2 — Portrait HUD / iPhone UX, and P
 
 Current integration checkpoint:
 
-**Phase 5 — Room / lobby / Ready / preload / shared countdown / WebAudio gameplay handoff is functionally complete on `work/lobby-preload`. P5.1–P5.5 implementation, Full QA, and owner Host iPhone P5.5 acceptance are PASS. The branch is pending owner-approved integration into `development`. Phase 6 has not started.**
+**Phase 5 — Room / lobby / Ready / preload / shared countdown / WebAudio gameplay handoff is integrated into `development` at `991abb65e4a0c2a7fb5175a80284b533206a7a94`. P5.1–P5.5 implementation, Full QA, Vercel staging and owner Host iPhone acceptance are PASS.**
+
+Current product-alignment milestone:
+
+**Golden Player Flow prototype on `work/golden-flow-prototype` locks the intended MVP journey from Login → profile gate → Character Creation when required → Room List/Create Room → Host Waiting Room → preparation/loading → shared countdown → Gameplay. It is a UX/source-of-truth milestone, not Phase 6 and not a replacement for the accepted Phase 5 runtime. Phase 6 has not started.**
 
 Phase 3 functional owner QA passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, Finish continuation, and the shared Finish Miss cadence. Phase 3 was merged into `development` at `e1d7a814b95144b3947cfb39503b998564b2bc29`, and owner iPhone staging QA passed. Rapid iPhone heating / battery drain remains explicit performance debt; thermal and battery profiling are not being misrepresented as complete.
 
@@ -15,7 +19,8 @@ Phase 3 functional owner QA passed for the humanoid runtime, published Normal Da
 | 2 | Portrait HUD / iPhone UX | Complete; owner iPhone QA accepted; integrated into `development` |
 | 3 | Human character, animation controller, published Normal/Final dance content | **Functional PASS; integrated into `development`; thermal/battery debt open** |
 | 4 | Multiplayer shared song clock | **P4.1–P4.5 complete; architecture present in `development`** |
-| 5 | Room, lobby, Ready, preload, synchronized start and gameplay handoff | **P5.1–P5.5 PASS on `work/lobby-preload`; pending owner-approved integration** |
+| 5 | Room, lobby, Ready, preload, synchronized start and gameplay handoff | **P5.1–P5.5 PASS; integrated into `development`** |
+| Golden Flow | Login → character gate → rooms → Phase 5 → gameplay UX source of truth | **In review on `work/golden-flow-prototype`; Phase 6 not started** |
 | 6 | Additional game modes | Planned |
 | 7 | Account, profile, progression | Planned |
 | 8 | Modular humanoid clothing, accessories, inventory | Planned |
@@ -400,11 +405,13 @@ Owner physical P5.5 Host acceptance: **PASS**.
 
 ### Phase 5 closeout status
 
-Phase 5 implementation is **READY FOR INTEGRATION REVIEW**.
+Phase 5 implementation is **INTEGRATED INTO `development`**.
 
-The branch must not merge itself. Owner approval is required before merging `work/lobby-preload` into `development`.
+Integration was a clean fast-forward to `991abb65e4a0c2a7fb5175a80284b533206a7a94`. The tested Phase 5 runtime tree was preserved and Vercel staging reached READY.
 
-Do not start Phase 6 from the unmerged Phase 5 branch. After owner-approved integration, create a new `work/<phase-6-milestone>` branch from updated `development`.
+Before starting Phase 6, the project is using `work/golden-flow-prototype` to lock the end-to-end MVP product journey and source-of-truth recording. This alignment milestone does not modify Phase 5 multiplayer authority.
+
+Do not develop Phase 6 directly on `work/golden-flow-prototype`, `development`, or `main`.
 
 ## Phase 1 architecture invariants
 
