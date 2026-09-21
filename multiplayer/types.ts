@@ -115,7 +115,12 @@ export type RoomMatchStartBinding = {
   /** Waiting-room revision frozen into the manifest; RoomState itself becomes revision + 1. */
   roomRevision: number;
   startRevision: number;
-  phase: "preloading";
+  phase: "preloading" | "countdown";
   safeLeadTimeMs: number;
+  /**
+   * Immutable server epoch once P5.4 enters countdown. Older P5.2/P5.3
+   * preloading snapshots may omit this field and are treated as null.
+   */
+  startAtServerMs?: number | null;
   manifest: MatchManifest;
 };
