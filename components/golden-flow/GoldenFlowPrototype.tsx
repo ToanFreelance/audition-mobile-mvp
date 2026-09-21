@@ -21,6 +21,7 @@ type Gender = "female" | "male";
 type SkinTone = "light" | "warm" | "tan" | "deep";
 type HairColor = "black" | "violet" | "brown" | "silver";
 type HairStyle = "pony" | "bob" | "short" | "wave";
+type CreatorCategory = "hair" | "outfit" | "accessory" | "shoes" | "body";
 
 const ROOM_CARDS = [
   { id: "10321", title: "Dance With Me", mode: "Solo Easy", song: "Aloha", players: "3/6", locked: false },
@@ -73,6 +74,7 @@ export default function GoldenFlowPrototype() {
   const [skinTone, setSkinTone] = useState<SkinTone>("warm");
   const [hairColor, setHairColor] = useState<HairColor>("violet");
   const [hairStyle, setHairStyle] = useState<HairStyle>("pony");
+  const [creatorCategory, setCreatorCategory] = useState<CreatorCategory>("hair");
   const [characterName, setCharacterName] = useState("Luna");
   const [characterYaw, setCharacterYaw] = useState(0);
   const creatorDragRef = useRef<{ pointerId: number; startX: number; startYaw: number } | null>(null);
@@ -245,20 +247,8 @@ export default function GoldenFlowPrototype() {
 
   const renderLogin = () => (
     <section className={styles.loginScreen} data-testid="golden-login">
-      <div className={styles.loginBackdrop} aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
-      <div className={styles.loginGlowA} />
-      <div className={styles.loginGlowB} />
-
-      <div className={styles.loginTop}>
-        <span>◈ AUDITION WORLD</span>
-        <button aria-label="Audio settings" type="button">♫</button>
-      </div>
-
-      <div className={styles.loginBrand}>{renderBrand()}</div>
+      <div className={styles.loginAmbient} aria-hidden="true" />
+      <div className={styles.loginScript} aria-hidden="true">Dance<br />Your<br />Story ♡</div>
 
       <div className={styles.loginHeroStage} aria-hidden="true">
         <WaitingRoomStage3D
@@ -270,38 +260,34 @@ export default function GoldenFlowPrototype() {
           pageIndex={0}
           pageSize={1}
           selectedParticipantId={creatorParticipant.participantId}
-          selectedActorYawOffset={-0.16}
+          selectedActorYawOffset={-0.18}
+          presentationMode="character-preview"
         />
       </div>
 
-      <div className={styles.loginHeroCopy}>
-        <span>STYLE · MUSIC · FRIENDS</span>
-        <strong>DANCE YOUR STORY</strong>
+      <div className={styles.loginLogoLockup}>
+        {renderBrand()}
+        <span>DANCE TOGETHER A BRIGHTER TOMORROW</span>
       </div>
 
-      <div className={styles.loginActions}>
+      <div className={styles.loginActionsSketch}>
         <button
-          className={styles.loginPrimary}
+          className={styles.loginPrimarySketch}
           data-testid="golden-login-button"
           onClick={beginLogin}
           type="button"
         >
-          <b>✦</b>
-          <span>ĐĂNG NHẬP</span>
-          <i>›</i>
+          Đăng nhập
         </button>
-        <button className={styles.loginSecondary} type="button">
-          TẠO TÀI KHOẢN
-        </button>
-        <div className={styles.loginProviders}>
-          <button type="button">G</button>
-          <button type="button"></button>
-          <button type="button">f</button>
+        <button className={styles.loginSecondarySketch} type="button">Đăng ký</button>
+        <div className={styles.loginProvidersSketch}>
+          <button aria-label="Google" type="button">G</button>
+          <button aria-label="Apple" type="button"></button>
+          <button aria-label="Facebook" type="button">f</button>
+          <button aria-label="More" type="button">•••</button>
         </div>
-        <small>Tiếp tục nghĩa là bạn đồng ý với Điều khoản & Chính sách quyền riêng tư.</small>
+        <small>Âm nhạc kết nối chúng ta ♡</small>
       </div>
-
-      <div className={styles.loginFooter}>AUDITION MOBILE · GOLDEN UI V1</div>
     </section>
   );
 
@@ -316,151 +302,149 @@ export default function GoldenFlowPrototype() {
     </section>
   );
 
-  const renderCharacterCreate = () => (
-    <section className={styles.creatorScreen} data-testid="golden-create-character">
-      <header className={styles.creatorHeader}>
-        <button aria-label="Back" onClick={() => setScreen("login")} type="button">‹</button>
-        <div>
-          <span>WELCOME, DANCER</span>
+  const renderCharacterCreate = () => {
+    const categories: Array<{ id: CreatorCategory; icon: string; label: string }> = [
+      { id: "hair", icon: "◒", label: "Kiểu tóc" },
+      { id: "outfit", icon: "♜", label: "Trang phục" },
+      { id: "accessory", icon: "∞", label: "Phụ kiện" },
+      { id: "shoes", icon: "◜", label: "Giày" },
+      { id: "body", icon: "◉", label: "Tạo hình" },
+    ];
+
+    return (
+      <section className={styles.creatorScreenSketch} data-testid="golden-create-character">
+        <header className={styles.creatorHeaderSketch}>
+          <button aria-label="Back" onClick={() => setScreen("login")} type="button">‹</button>
           <strong>TẠO NHÂN VẬT</strong>
-        </div>
-        <i>1/1</i>
-      </header>
+          <button aria-label="Randomize" type="button">◇</button>
+        </header>
 
-      <div className={styles.creatorStage}>
-        <div className={styles.creatorStageGlow} />
-        <div className={styles.creatorStageGrid} aria-hidden="true" />
-        <div className={styles.creatorBadge}>LIVE 3D PREVIEW</div>
-        <div
-          className={styles.creatorViewport}
-          data-testid="golden-character-viewport"
-          data-yaw={Math.round(characterYaw * 1000)}
-          onPointerCancel={endCreatorRotate}
-          onPointerDown={beginCreatorRotate}
-          onPointerMove={updateCreatorRotate}
-          onPointerUp={endCreatorRotate}
-        >
-          <WaitingRoomStage3D
-            participants={[creatorParticipant]}
-            slots={lobbyRoom.slots}
-            roomId="golden-character-creator"
-            stageId="neon-club"
-            viewMode="close"
-            pageIndex={0}
-            pageSize={1}
-            selectedParticipantId={creatorParticipant.participantId}
-            selectedActorYawOffset={characterYaw}
-          />
-        </div>
-        <div className={styles.rotateHint}>
-          <span>↔</span>
-          KÉO ĐỂ XOAY 360°
-          <button onClick={() => setCharacterYaw(0)} type="button">RESET</button>
-        </div>
-        <div className={styles.avatarNameplate}>
-          <strong>{characterName || "Tên nhân vật"}</strong>
-          <span>{gender === "female" ? "NỮ" : "NAM"} · {SKIN_LABELS[skinTone]} · {HAIR_LABELS[hairStyle]}</span>
-        </div>
-      </div>
-
-      <div className={styles.creatorSheet}>
-        <div className={styles.creatorSheetTitle}>
-          <div><span>CHARACTER STUDIO</span><strong>Thiết kế phong cách của bạn</strong></div>
-          <i>STEP 1</i>
-        </div>
-        <div className={styles.creatorField}>
-          <label>GIỚI TÍNH</label>
-          <div className={styles.segmented}>
-            <button
-              className={gender === "female" ? styles.selectedSegment : ""}
-              onClick={() => setGender("female")}
-              type="button"
-            >
-              ♀ Nữ
-            </button>
-            <button
-              className={gender === "male" ? styles.selectedSegment : ""}
-              onClick={() => setGender("male")}
-              type="button"
-            >
-              ♂ Nam
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.twoColumns}>
-          <div className={styles.creatorField}>
-            <label>MÀU DA</label>
-            <div className={styles.swatches}>
-              {(["light", "warm", "tan", "deep"] as const).map(tone => (
-                <button
-                  aria-label={SKIN_LABELS[tone]}
-                  className={`${styles.swatch} ${styles[`skin_${tone}`]} ${skinTone === tone ? styles.swatchSelected : ""}`}
-                  key={tone}
-                  onClick={() => setSkinTone(tone)}
-                  type="button"
-                />
-              ))}
-            </div>
-          </div>
-          <div className={styles.creatorField}>
-            <label>MÀU TÓC</label>
-            <div className={styles.swatches}>
-              {(["black", "violet", "brown", "silver"] as const).map(color => (
-                <button
-                  aria-label={color}
-                  className={`${styles.swatch} ${styles[`hair_${color}`]} ${hairColor === color ? styles.swatchSelected : ""}`}
-                  key={color}
-                  onClick={() => setHairColor(color)}
-                  type="button"
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.creatorField}>
-          <label>KIỂU TÓC CƠ BẢN</label>
-          <div className={styles.hairOptions}>
-            {(["pony", "bob", "short", "wave"] as const).map(style => (
+        <div className={styles.creatorHeroSketch}>
+          <nav className={styles.creatorRail} aria-label="Character categories">
+            {categories.map(category => (
               <button
-                className={hairStyle === style ? styles.hairOptionSelected : styles.hairOption}
-                key={style}
-                onClick={() => setHairStyle(style)}
+                className={creatorCategory === category.id ? styles.creatorRailActive : ""}
+                key={category.id}
+                onClick={() => setCreatorCategory(category.id)}
                 type="button"
               >
-                <span>{style === "pony" ? "⑂" : style === "bob" ? "◖" : style === "short" ? "⌒" : "≈"}</span>
-                {HAIR_LABELS[style]}
+                <span>{category.icon}</span>
+                <small>{category.label}</small>
               </button>
             ))}
+          </nav>
+
+          <div
+            className={styles.creatorViewportSketch}
+            data-testid="golden-character-viewport"
+            data-yaw={Math.round(characterYaw * 1000)}
+            onPointerCancel={endCreatorRotate}
+            onPointerDown={beginCreatorRotate}
+            onPointerMove={updateCreatorRotate}
+            onPointerUp={endCreatorRotate}
+          >
+            <WaitingRoomStage3D
+              participants={[creatorParticipant]}
+              slots={lobbyRoom.slots}
+              roomId="golden-character-creator"
+              stageId="neon-club"
+              viewMode="close"
+              pageIndex={0}
+              pageSize={1}
+              selectedParticipantId={creatorParticipant.participantId}
+              selectedActorYawOffset={characterYaw}
+              presentationMode="character-preview"
+            />
+          </div>
+
+          <div className={styles.creatorRotateSketch}>
+            <span>↔</span>
+            <div><strong>Xoay nhân vật</strong><small>Drag to rotate</small></div>
           </div>
         </div>
 
-        <div className={styles.creatorField}>
-          <label>TÊN NHÂN VẬT</label>
-          <div className={styles.nameInput}>
+        <div className={styles.creatorDock}>
+          {creatorCategory === "hair" ? (
+            <>
+              <div className={styles.creatorHairColors}>
+                <span>MÀU TÓC</span>
+                {(["black", "violet", "brown", "silver"] as const).map(color => (
+                  <button
+                    aria-label={color}
+                    className={`${styles.swatch} ${styles[`hair_${color}`]} ${hairColor === color ? styles.swatchSelected : ""}`}
+                    key={color}
+                    onClick={() => setHairColor(color)}
+                    type="button"
+                  />
+                ))}
+              </div>
+              <div className={styles.creatorThumbStrip}>
+                {(["pony", "bob", "short", "wave"] as const).map(style => (
+                  <button
+                    className={hairStyle === style ? styles.creatorThumbActive : styles.creatorThumb}
+                    key={style}
+                    onClick={() => setHairStyle(style)}
+                    type="button"
+                  >
+                    <span>{style === "pony" ? "⑂" : style === "bob" ? "◖" : style === "short" ? "⌒" : "≈"}</span>
+                    <small>{HAIR_LABELS[style]}</small>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : creatorCategory === "body" ? (
+            <div className={styles.creatorBodyPanel}>
+              <div>
+                <span>GIỚI TÍNH</span>
+                <button className={gender === "female" ? styles.bodyChoiceActive : ""} onClick={() => setGender("female")} type="button">♀ Nữ</button>
+                <button className={gender === "male" ? styles.bodyChoiceActive : ""} onClick={() => setGender("male")} type="button">♂ Nam</button>
+              </div>
+              <div>
+                <span>MÀU DA</span>
+                <div className={styles.creatorSkinRow}>
+                  {(["light", "warm", "tan", "deep"] as const).map(tone => (
+                    <button
+                      aria-label={SKIN_LABELS[tone]}
+                      className={`${styles.swatch} ${styles[`skin_${tone}`]} ${skinTone === tone ? styles.swatchSelected : ""}`}
+                      key={tone}
+                      onClick={() => setSkinTone(tone)}
+                      type="button"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.creatorLockedCategory}>
+              <strong>{categories.find(item => item.id === creatorCategory)?.label}</strong>
+              <span>Bộ cơ bản sẽ được mở ở phase Cosmetics. Visual slot đã khóa theo sketch.</span>
+            </div>
+          )}
+
+          <div className={styles.creatorNameSketch}>
             <input
               maxLength={14}
               onChange={event => setCharacterName(event.target.value)}
-              placeholder="Nhập tên..."
+              placeholder="Tên nhân vật"
               value={characterName}
             />
-            <span>{characterName.length}/14</span>
+            <button aria-label="Edit name" type="button">✎</button>
           </div>
-        </div>
 
-        <button
-          className={styles.primaryCta}
-          data-testid="golden-confirm-character"
-          disabled={!characterName.trim()}
-          onClick={confirmCharacter}
-          type="button"
-        >
-          XÁC NHẬN NHÂN VẬT
-        </button>
-      </div>
-    </section>
-  );
+          <button
+            className={styles.creatorCreateSketch}
+            data-testid="golden-confirm-character"
+            disabled={!characterName.trim()}
+            onClick={confirmCharacter}
+            type="button"
+          >
+            Tạo nhân vật
+          </button>
+          <small className={styles.creatorTagline}>DANCE YOUR STORY ♡</small>
+        </div>
+      </section>
+    );
+  };
 
   const renderRooms = () => (
     <section className={styles.roomsScreen} data-testid="golden-rooms">
