@@ -24,9 +24,12 @@ type HairStyle = "pony" | "bob" | "short" | "wave";
 type CreatorCategory = "hair" | "outfit" | "accessory" | "shoes" | "body";
 
 const ROOM_CARDS = [
-  { id: "10321", title: "Dance With Me", mode: "Solo Easy", song: "Aloha", players: "3/6", locked: false },
-  { id: "10318", title: "K-Pop Night", mode: "Solo Easy", song: "Aloha", players: "5/6", locked: true },
-  { id: "10312", title: "Practice Club", mode: "Solo Easy", song: "Aloha", players: "2/6", locked: false },
+  { id: "10321", title: "Hey Beautiful!", mode: "4/4", song: "Audition", bpm: 128, players: "6/8", locked: false, difficulty: "Dễ", cover: "heart" },
+  { id: "10318", title: "Love Scenario", mode: "4/4", song: "Dance Crew", bpm: 110, players: "2/8", locked: false, difficulty: "Thường", cover: "couple" },
+  { id: "10312", title: "Dynamite", mode: "4/4", song: "Neon Beat", bpm: 124, players: "5/8", locked: true, difficulty: "Khó", cover: "spark" },
+  { id: "10308", title: "Perfect Night", mode: "4/4", song: "Moonlight", bpm: 120, players: "1/8", locked: false, difficulty: "Thường", cover: "moon" },
+  { id: "10302", title: "Smoke", mode: "4/4", song: "Street Mix", bpm: 132, players: "7/8", locked: true, difficulty: "Khó", cover: "fire" },
+  { id: "10297", title: "Super Shy", mode: "4/4", song: "Pop Star", bpm: 125, players: "3/8", locked: false, difficulty: "Dễ", cover: "star" },
 ] as const;
 
 const SKIN_LABELS: Record<SkinTone, string> = {
@@ -443,59 +446,97 @@ export default function GoldenFlowPrototype() {
   };
 
   const renderRooms = () => (
-    <section className={styles.roomsScreen} data-testid="golden-rooms">
-      <header className={styles.roomsHeader}>
-        {renderBrand(true)}
-        <div className={styles.profileChip}>
+    <section className={styles.roomsScreenSketch} data-testid="golden-rooms">
+      <header className={styles.roomsHeaderSketch}>
+        <div className={styles.roomsProfile}>
           <MiniAvatar label={(characterName || "L").slice(0, 1).toUpperCase()} accent="pink" />
-          <div><strong>{characterName || "Luna"}</strong><span>Lv. 1 · Dancer</span></div>
-          <button type="button">☰</button>
+          <div>
+            <strong>{characterName || "Luna"}</strong>
+            <span>Lv. 25</span>
+          </div>
+        </div>
+
+        <div className={styles.roomsWallet}>
+          <span><i>◉</i><b>12,450</b></span>
+          <span><i>◆</i><b>1,260</b></span>
+          <button aria-label="Add currency" type="button">＋</button>
         </div>
       </header>
 
-      <div className={styles.roomsHero}>
-        <span>PLAY TOGETHER</span>
-        <h1>Chọn một phòng<br />hoặc tạo sân khấu của bạn</h1>
-        <div className={styles.modePills}>
-          <button className={styles.modeActive} type="button">PHÒNG</button>
-          <button type="button">NHANH</button>
-          <button type="button">BẠN BÈ</button>
+      <div className={styles.roomsTabsSketch}>
+        <button className={styles.roomsTabActive} type="button">Phòng</button>
+        <button type="button">Giải trí</button>
+        <button type="button">Bạn bè</button>
+      </div>
+
+      <div className={styles.roomsFilters}>
+        <button className={styles.roomFilterActive} type="button">Tất cả</button>
+        <button type="button">Solo</button>
+        <button type="button">Team</button>
+        <button type="button">Đang chơi</button>
+      </div>
+
+      <div className={styles.roomsScroll}>
+        <button
+          className={styles.createRoomHero}
+          data-testid="golden-create-room"
+          onClick={createRoom}
+          type="button"
+        >
+          <span className={styles.createRoomPlus}>＋</span>
+          <div>
+            <strong>Tạo phòng</strong>
+            <small>Tự do thiết lập, chơi cùng bạn bè</small>
+          </div>
+          <b>›</b>
+        </button>
+
+        <div className={styles.roomListSketch}>
+          {ROOM_CARDS.map((room, index) => (
+            <button
+              className={selectedRoomId === room.id ? styles.roomCardSketchSelected : styles.roomCardSketch}
+              key={room.id}
+              onClick={() => setSelectedRoomId(room.id)}
+              type="button"
+            >
+              <div className={`${styles.roomArt} ${styles[`roomArt_${room.cover}`]}`}>
+                <span>{index === 0 ? "♡" : index === 1 ? "♬" : index === 2 ? "✦" : index === 3 ? "☾" : index === 4 ? "⌁" : "★"}</span>
+                <i />
+              </div>
+
+              <div className={styles.roomCardMain}>
+                <div className={styles.roomCardTitle}>
+                  <strong>{room.title}</strong>
+                  <span className={styles.roomSignal}>▥</span>
+                </div>
+                <div className={styles.roomMetaLine}>
+                  <span>BPM {room.bpm}</span>
+                  <em>{room.mode}</em>
+                </div>
+                <div className={styles.roomBadges}>
+                  <span className={
+                    room.difficulty === "Dễ"
+                      ? styles.roomEasy
+                      : room.difficulty === "Khó"
+                        ? styles.roomHard
+                        : styles.roomNormal
+                  }>{room.difficulty}</span>
+                  <span className={styles.roomPeople}>{room.locked ? "🔒" : "♟"} {room.players}</span>
+                </div>
+              </div>
+
+              <span className={styles.roomChevron}>›</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className={styles.roomTools}>
-        <div>⌕ <span>Tìm phòng...</span></div>
-        <button type="button">⚙</button>
-      </div>
-
-      <div className={styles.roomList}>
-        {ROOM_CARDS.map((room, index) => (
-          <button
-            className={selectedRoomId === room.id ? styles.roomCardSelected : styles.roomCard}
-            key={room.id}
-            onClick={() => setSelectedRoomId(room.id)}
-            type="button"
-          >
-            <div className={styles.roomCover}>
-              <span>{index === 0 ? "♪" : index === 1 ? "✦" : "◇"}</span>
-              <small>#{room.id}</small>
-            </div>
-            <div className={styles.roomInfo}>
-              <strong>{room.title}</strong>
-              <span>{room.song} · {room.mode}</span>
-              <div><i>{room.locked ? "🔒" : "●"}</i> {room.players} người chơi</div>
-            </div>
-            <b>›</b>
-          </button>
-        ))}
-      </div>
-
-      <div className={styles.roomsBottom}>
-        <button className={styles.quickJoin} type="button">⚡ VÀO NHANH</button>
-        <button className={styles.createRoom} data-testid="golden-create-room" onClick={createRoom} type="button">
-          ＋ TẠO PHÒNG
-        </button>
-      </div>
+      <nav className={styles.roomsBottomNav} aria-label="Main navigation">
+        <button className={styles.roomsNavActive} type="button"><span>⌂</span><small>Phòng</small></button>
+        <button type="button"><span>◇</span><small>Shop</small></button>
+        <button type="button"><span>▣</span><small>Túi đồ</small></button>
+        <button type="button"><span>♙</span><small>Bạn bè</small></button>
+      </nav>
     </section>
   );
 
