@@ -176,7 +176,6 @@ export default function GoldenFlowPrototype() {
       startX: event.clientX,
       startYaw: characterYaw,
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const updateCreatorRotate = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -190,9 +189,6 @@ export default function GoldenFlowPrototype() {
     const drag = creatorDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     creatorDragRef.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
   };
 
   const beginLogin = () => {
