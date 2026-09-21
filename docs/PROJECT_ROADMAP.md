@@ -2,9 +2,9 @@
 
 Phase 1 — Solo Easy Core Gameplay, Phase 2 — Portrait HUD / iPhone UX, and Phase 3 — Human Character + Animation Controller are complete for their accepted functional scope and integrated into `development`.
 
-Current phase:
+Current integration checkpoint:
 
-**Phase 4 — Multiplayer shared song clock — P4.1 implementation on `work/multiplayer-clock`**
+**Phase 5 — Room / lobby / Ready / preload / shared countdown / WebAudio gameplay handoff is functionally complete on `work/lobby-preload`. P5.1–P5.5 implementation, Full QA, and owner Host iPhone P5.5 acceptance are PASS. The branch is pending owner-approved integration into `development`. Phase 6 has not started.**
 
 Phase 3 functional owner QA passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, Finish continuation, and the shared Finish Miss cadence. Phase 3 was merged into `development` at `e1d7a814b95144b3947cfb39503b998564b2bc29`, and owner iPhone staging QA passed. Rapid iPhone heating / battery drain remains explicit performance debt; thermal and battery profiling are not being misrepresented as complete.
 
@@ -14,8 +14,8 @@ Phase 3 functional owner QA passed for the humanoid runtime, published Normal Da
 | 1 | Solo Easy commands, progression, penalties, Finish, song result | Complete; owner QA accepted; integrated into `development` |
 | 2 | Portrait HUD / iPhone UX | Complete; owner iPhone QA accepted; integrated into `development` |
 | 3 | Human character, animation controller, published Normal/Final dance content | **Functional PASS; integrated into `development`; thermal/battery debt open** |
-| 4 | Multiplayer shared song clock | **P4.1 in progress on `work/multiplayer-clock`** |
-| 5 | Room, lobby, ready and mode selection | Planned |
+| 4 | Multiplayer shared song clock | **P4.1–P4.5 complete; architecture present in `development`** |
+| 5 | Room, lobby, Ready, preload, synchronized start and gameplay handoff | **P5.1–P5.5 PASS on `work/lobby-preload`; pending owner-approved integration** |
 | 6 | Additional game modes | Planned |
 | 7 | Account, profile, progression | Planned |
 | 8 | Modular humanoid clothing, accessories, inventory | Planned |
@@ -261,7 +261,9 @@ Those remain assigned to later roadmap phases.
 
 ## Phase 4 — Multiplayer shared song clock
 
-Current branch: `work/multiplayer-clock`.
+Status: **P4.1–P4.5 complete; accepted multiplayer clock/start/gameplay architecture is present in `development`.**
+
+Historical implementation branch: `work/multiplayer-clock`.
 
 Detailed P4.1 contract: `docs/P4_1_MULTIPLAYER_DOMAIN.md`.
 
@@ -286,9 +288,123 @@ Locked P4.1 requirements:
 
 P4.1 does **not** implement real-time networking, shared server start-epoch mapping, pre-game client-loaded acknowledgements, or the Phase 5 lobby/waiting-room presentation.
 
-Planned sequence after P4.1:
+Completed sequence:
 
 `P4.2 shared start clock → P4.3 networking transport → P4.4 preload/start protocol → P4.5 multiplayer gameplay integration → Phase 5 lobby/3D waiting room`
+
+
+## Phase 5 — Room / Lobby / Ready / Match Start
+
+Current branch: `work/lobby-preload`.
+
+Phase 5 binds the accepted Phase 4 multiplayer architecture to the production-facing waiting-room flow without moving gameplay authority away from WebAudio.
+
+### P5.1 — Waiting Room Foundation
+
+Implemented and accepted:
+
+- portrait 3D waiting room bound to canonical `RoomState`;
+- maximum six slots;
+- Host has no Ready state;
+- human Guest Ready / Not Ready;
+- Bot auto-ready;
+- Start gate through the existing room-domain rules;
+- dedicated waiting-room Three.js scene;
+- participant/avatar snapshots;
+- lobby presentation remains independent from gameplay timing.
+
+P5.1b completed the visual-fidelity pass against the portrait waiting-room sketch without changing room or gameplay authority.
+
+### P5.2 — Lobby → PRELOADING handoff
+
+Implemented and owner physical-tested:
+
+`Guest READY → Host START → canonical RoomState refetch → immutable MatchManifest → P4.4 MatchStartSession → WAITING revision N → PRELOADING revision N+1`.
+
+Canonical RoomState persists the exact match/start binding. Realtime remains notification/delivery only.
+
+Owner iPhone acceptance: **PASS**.
+
+### P5.3 — ALL CLIENTS LOADED
+
+Implemented:
+
+- real frozen resource preload;
+- participant `IDLE → LOADING → LOADED`;
+- exact P4.4 LOADED ACK validation;
+- canonical load-state persistence;
+- reload/reconnect recovery from `matchStart + participants[].loadState`;
+- actual selected audio/chart, gameplay config, characters and animation resources included in preload.
+
+Expected CAS contention between Host/Guest is retry-safe and adopts the winning canonical snapshot.
+
+Owner iPhone acceptance: **PASS**.
+
+### P5.4 — Shared Countdown
+
+Implemented:
+
+`ALL CLIENTS LOADED → NTP-style server-clock sampling → one immutable startAtServerMs → canonical COUNTDOWN → 3/2/1/GO derived from the shared epoch`.
+
+Countdown is presentation only. It does not own audio, gameplay start or global turns.
+
+Automated acceptance:
+
+- Fast Lobby QA PASS;
+- Core regression PASS;
+- real Host + Guest PASS;
+- Chromium PASS;
+- WebKit/iPhone emulation PASS.
+
+Acceptance status: **PASS**.
+
+### P5.5 — Shared WebAudio Gameplay Start
+
+Implemented:
+
+`shared startAtServerMs → local AudioContext mapping → scheduled WebAudio start → MultiplayerGameplayRuntime → canonical PLAYING metadata`.
+
+Locked authority remains:
+
+`shared server epoch → local WebAudio song time → global turn / level / Finish / canonical command → player-local input and judgement`.
+
+Important behavior:
+
+- existing P4.5 runtime is reused; no second multiplayer scheduler exists;
+- Safari/WebKit AudioContext is unlocked from lobby user gestures;
+- P5.3-warmed audio bytes are reused for P5.5 decode;
+- late clients do not move or replace the shared epoch;
+- RoomState `playing` is metadata only;
+- only AUDIO END ends gameplay;
+- Finish never ends the match.
+
+Final Full QA on commit `49b793733054a35fd797f264ff40f8efacf614dc`:
+
+- TypeScript: PASS;
+- production build: PASS;
+- Fast Lobby QA: 33/33 PASS;
+- full core regression: 116/116 PASS;
+- real Host + Guest E2E: 6/6 PASS;
+- Chromium/Desktop: PASS;
+- WebKit/iPhone 13 emulation: PASS;
+- Vercel deployment: READY.
+
+Owner physical iPhone Host test confirmed:
+
+- Start succeeds;
+- preload/countdown succeeds;
+- transition into multiplayer gameplay succeeds;
+- WebAudio playback/gameplay starts successfully.
+
+Owner physical P5.5 Host acceptance: **PASS**.
+
+### Phase 5 closeout status
+
+Phase 5 implementation is **READY FOR INTEGRATION REVIEW**.
+
+The branch must not merge itself. Owner approval is required before merging `work/lobby-preload` into `development`.
+
+Do not start Phase 6 from the unmerged Phase 5 branch. After owner-approved integration, create a new `work/<phase-6-milestone>` branch from updated `development`.
 
 ## Phase 1 architecture invariants
 
@@ -330,12 +446,12 @@ Completed Phase 3 integration path:
 
 `development → work/character → implementation → owner functional QA → shared-Finish regression → integration review → development → owner staging iPhone PASS`
 
-Current Phase 4 path:
+Completed Phase 4 path:
 
-`development → work/multiplayer-clock → P4 milestones → focused validation → owner review → development`
+`development → work/multiplayer-clock → P4.1–P4.5 → focused validation → owner review → development`
 
 Current Phase 5 integration path:
 
-`development → work/lobby → waiting-room/realtime acceptance → development → work/lobby-preload → P5.2 Lobby→P4.4 PRELOADING handoff`
+`development → work/lobby → waiting-room/realtime acceptance → development → work/lobby-preload → P5.2 PRELOADING → P5.3 ALL CLIENTS LOADED → P5.4 shared countdown → P5.5 shared WebAudio gameplay handoff → Full QA → owner iPhone Host PASS → pending owner-approved merge to development`
 
 Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 4 work unless owner explicitly requests a later production promotion.
