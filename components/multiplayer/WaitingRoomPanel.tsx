@@ -30,7 +30,14 @@ import {
 import {
   allClientsLoaded,
   createLoadedAckForSession,
+  deriveSharedCountdown,
 } from "../../multiplayer/match-start-protocol";
+import {
+  estimateServerClockOffset,
+  estimateServerNowMs,
+  type ClockSyncEstimate,
+  type ClockSyncSample,
+} from "../../multiplayer/shared-clock";
 import type { RoomTransportStatus } from "../../multiplayer/transport";
 import {
   createP51WaitingRoomFixture,
@@ -67,6 +74,65 @@ type RoomMutationResult = {
   snapshot: RoomState;
   conflict: boolean;
 };
+
+type ClockApiResponse = {
+  protocolVersion?: number;
+  serverReceiveMs?: number;
+  serverSendMs?: number;
+  error?: string;
+};
+
+const LOBBY_CLOCK_SAMPLE_COUNT = 5;
+const LOBBY_CLOCK_MIN_SAMPLES = 3;
+
+async function fetchLobbyClockSample(timeoutMs = 4000): Promise<ClockSyncSample> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  const clientSendMonotonicMs = performance.now();
+  try {
+    const response = await fetch("/api/multiplayer/clock", {
+      method: "POST",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    const clientReceiveMonotonicMs = performance.now();
+    const data = await response.json() as ClockApiResponse;
+    if (!response.ok
+      || data.protocolVersion !== 1
+      || !Number.isFinite(data.serverReceiveMs)
+      || !Number.isFinite(data.serverSendMs)) {
+      throw new Error(data.error ?? `Clock sample failed (${response.status}).`);
+    }
+    return {
+      clientSendMonotonicMs,
+      serverReceiveMs: data.serverReceiveMs as number,
+      serverSendMs: data.serverSendMs as number,
+      clientReceiveMonotonicMs,
+    };
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function sampleLobbyServerClock(): Promise<ClockSyncEstimate> {
+  const samples: ClockSyncSample[] = [];
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < LOBBY_CLOCK_SAMPLE_COUNT; attempt += 1) {
+    try {
+      samples.push(await fetchLobbyClockSample());
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (samples.length < LOBBY_CLOCK_MIN_SAMPLES) {
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("Not enough server clock samples for shared countdown.");
+  }
+  return estimateServerClockOffset(samples);
+}
 
 async function postRoomMutation(payload: Record<string, unknown>, timeoutMs = 8000): Promise<RoomMutationResult> {
   const controller = new AbortController();
@@ -222,9 +288,15 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   const [presentParticipantIds, setPresentParticipantIds] = useState<readonly string[]>(
     initialSync ? [initialParticipantId] : [],
   );
+  const [clockSyncState, setClockSyncState] = useState<{
+    sessionKey: string;
+    estimate: ClockSyncEstimate;
+  } | null>(null);
+  const [countdownNowMonotonicMs, setCountdownNowMonotonicMs] = useState<number | null>(null);
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
   const preloadAttemptRef = useRef<string | null>(null);
+  const countdownAttemptRef = useRef<string | null>(null);
 
 
   useEffect(() => {
@@ -545,6 +617,31 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     }
   }, [room.matchStart, room.participants]);
   const allParticipantsLoaded = matchStartSession ? allClientsLoaded(matchStartSession) : false;
+  const matchStartSessionKey = matchStartSession && syncOptions
+    ? `${matchStartSession.matchId}:${matchStartSession.roomRevision}:${matchStartSession.startRevision}:${syncOptions.participantId}`
+    : null;
+  const clockSyncEstimate = matchStartSessionKey && clockSyncState?.sessionKey === matchStartSessionKey
+    ? clockSyncState.estimate
+    : null;
+  const countdownState = useMemo(() => {
+    if (room.status !== "countdown"
+      || matchStartSession?.startAtServerMs === null
+      || matchStartSession?.startAtServerMs === undefined
+      || !clockSyncEstimate
+      || countdownNowMonotonicMs === null) {
+      return null;
+    }
+    const serverNowMs = estimateServerNowMs(
+      countdownNowMonotonicMs,
+      clockSyncEstimate.offsetMs,
+    );
+    return deriveSharedCountdown(matchStartSession.startAtServerMs, serverNowMs);
+  }, [
+    clockSyncEstimate,
+    countdownNowMonotonicMs,
+    matchStartSession?.startAtServerMs,
+    room.status,
+  ]);
   const viewer = room.participants.find(item => item.participantId === viewParticipantId)
     ?? (syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
   const hostView = syncOptions ? syncOptions.role === "host" : viewer.participantId === room.hostParticipantId;
@@ -705,6 +802,110 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     matchStartSession?.startRevision,
     room.status,
     syncOptions?.participantId,
+  ]);
+
+  useEffect(() => {
+    if (!syncOptions || !matchStartSession || !allParticipantsLoaded) return;
+    if (room.status !== "preloading" && room.status !== "countdown") return;
+
+    const localParticipant = room.participants.find(
+      participant => participant.participantId === syncOptions.participantId,
+    );
+    if (!localParticipant || localParticipant.kind !== "human") return;
+
+    const sessionKey = `${matchStartSession.matchId}:${matchStartSession.roomRevision}:${matchStartSession.startRevision}:${localParticipant.participantId}`;
+    if (room.status === "countdown" && clockSyncState?.sessionKey === sessionKey) return;
+
+    const attemptKey = `${sessionKey}:${room.status}`;
+    if (countdownAttemptRef.current === attemptKey) return;
+    countdownAttemptRef.current = attemptKey;
+
+    let cancelled = false;
+
+    void (async () => {
+      setSyncDetail(
+        room.status === "countdown"
+          ? "Recovering shared server clock…"
+          : "ALL CLIENTS LOADED · sampling shared server clock…",
+      );
+      const estimate = await sampleLobbyServerClock();
+      if (cancelled) return;
+      setClockSyncState({ sessionKey, estimate });
+
+      if (roomRef.current.status === "countdown") {
+        setSyncDetail(`COUNTDOWN synced · RTT ${Math.round(estimate.minRoundTripMs)} ms.`);
+        return;
+      }
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const current = roomRef.current;
+        const binding = current.matchStart;
+        if (!binding
+          || binding.matchId !== matchStartSession.matchId
+          || binding.roomRevision !== matchStartSession.roomRevision
+          || binding.startRevision !== matchStartSession.startRevision) {
+          throw new Error("Active match-start session changed before countdown issue.");
+        }
+        if (current.status === "countdown") return;
+        if (current.status !== "preloading") {
+          throw new Error("Shared countdown can only issue from PRELOADING.");
+        }
+
+        const result = await runServerMutation({
+          action: "issue-countdown",
+          expectedRevision: current.revision,
+          actorParticipantId: localParticipant.participantId,
+          matchId: matchStartSession.matchId,
+          roomRevision: matchStartSession.roomRevision,
+          startRevision: matchStartSession.startRevision,
+        });
+
+        if (result.snapshot.status === "countdown") {
+          setSyncDetail(`COUNTDOWN · shared epoch issued · RTT ${Math.round(estimate.minRoundTripMs)} ms.`);
+          return;
+        }
+        if (!result.conflict) break;
+      }
+
+      throw new Error("Shared countdown epoch could not win the canonical RoomState CAS.");
+    })().catch(error => {
+      if (cancelled) return;
+      countdownAttemptRef.current = null;
+      setSyncDetail(error instanceof Error ? error.message : "Shared countdown synchronization failed.");
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    allParticipantsLoaded,
+    clockSyncState?.sessionKey,
+    matchStartSession?.matchId,
+    matchStartSession?.roomRevision,
+    matchStartSession?.startRevision,
+    room.status,
+    syncOptions?.participantId,
+    syncStatus,
+  ]);
+
+  useEffect(() => {
+    if (room.status !== "countdown"
+      || !clockSyncEstimate
+      || matchStartSession?.startAtServerMs === null
+      || matchStartSession?.startAtServerMs === undefined) {
+      setCountdownNowMonotonicMs(null);
+      return;
+    }
+
+    const update = () => setCountdownNowMonotonicMs(performance.now());
+    update();
+    const intervalId = window.setInterval(update, 100);
+    return () => window.clearInterval(intervalId);
+  }, [
+    clockSyncEstimate,
+    matchStartSession?.startAtServerMs,
+    matchStartSessionKey,
+    room.status,
   ]);
 
   const toggleSlot = (slotIndex: RoomSlotIndex) => {
@@ -1164,12 +1365,21 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         </section>
 
         {matchStartSession && (
-          <section className={styles.preloadBanner} data-testid="preload-state">
-            <strong>PRELOADING</strong>
+          <section
+            className={styles.preloadBanner}
+            data-phase={room.status}
+            data-testid="preload-state"
+          >
+            <strong>{room.status === "countdown" ? "COUNTDOWN" : "PRELOADING"}</strong>
             <span data-testid="preload-match-id">{matchStartSession.matchId}</span>
             <small>
               room r<span data-testid="preload-room-revision">{matchStartSession.roomRevision}</span>
               {" · "}start r<span data-testid="preload-start-revision">{matchStartSession.startRevision}</span>
+              {room.status === "countdown" && matchStartSession.startAtServerMs !== null && (
+                <>
+                  {" · "}epoch <span data-testid="start-at-server-ms">{Math.round(matchStartSession.startAtServerMs ?? 0)}</span>
+                </>
+              )}
             </small>
             <div className={styles.preloadParticipants} data-testid="preload-participants">
               {matchStartSession.participants.map(participant => {
@@ -1187,11 +1397,23 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                 );
               })}
             </div>
-            {allParticipantsLoaded && (
+            {room.status === "countdown" ? (
+              <em
+                className={styles.preloadAllLoaded}
+                data-testid="shared-countdown"
+                data-countdown-label={countdownState?.label ?? "SYNC"}
+              >
+                <span data-testid="countdown-label">{countdownState?.label ?? "SYNC"}</span>
+                {" · SHARED EPOCH · "}
+                <span data-testid="clock-rtt-ms">
+                  {clockSyncEstimate ? `${Math.round(clockSyncEstimate.minRoundTripMs)}ms RTT` : "CLOCK SYNC"}
+                </span>
+              </em>
+            ) : allParticipantsLoaded ? (
               <em className={styles.preloadAllLoaded} data-testid="preload-all-loaded">
                 ALL CLIENTS LOADED
               </em>
-            )}
+            ) : null}
           </section>
         )}
 
@@ -1245,7 +1467,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               {startIntentPending
                 ? "⏳ ĐANG KHÓA"
                 : matchStartSession
-                  ? "⏳ PRELOADING"
+                  ? room.status === "countdown" ? "⏱ COUNTDOWN" : "⏳ PRELOADING"
                   : frozenMatchManifest
                     ? "✓ MATCH ĐÃ KHÓA"
                     : "▶ Bắt đầu"}
@@ -1257,7 +1479,9 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               disabled
               type="button"
             >
-              {matchStartSession ? "⏳ PRELOADING" : "⌛ CHỜ HOST BẮT ĐẦU"}
+              {matchStartSession
+                ? room.status === "countdown" ? "⏱ COUNTDOWN" : "⏳ PRELOADING"
+                : "⌛ CHỜ HOST BẮT ĐẦU"}
             </button>
           )}
         </footer>
