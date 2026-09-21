@@ -43,12 +43,22 @@ function validSlotIndexes(room: RoomState) {
 function validMatchStartBinding(room: RoomState) {
   const binding = room.matchStart ?? null;
   if (room.status === "waiting") return binding === null;
-  if (room.status !== "preloading") return true;
-  if (!binding || binding.protocolVersion !== 1 || binding.phase !== "preloading") return false;
+  if (room.status !== "preloading" && room.status !== "countdown") return true;
+  if (!binding || binding.protocolVersion !== 1) return false;
+  if (room.status === "preloading" && binding.phase !== "preloading") return false;
+  if (room.status === "countdown" && binding.phase !== "countdown") return false;
   if (!binding.matchId || !Number.isInteger(binding.startRevision) || binding.startRevision < 1) return false;
   if (!Number.isInteger(binding.roomRevision) || binding.roomRevision < 1) return false;
   if (!(binding.safeLeadTimeMs >= 3_000)) return false;
   if (binding.roomRevision + 1 > room.revision) return false;
+
+  const startAtServerMs = binding.startAtServerMs ?? null;
+  if (binding.phase === "preloading" && startAtServerMs !== null) return false;
+  if (binding.phase === "countdown"
+    && (!Number.isFinite(startAtServerMs) || (startAtServerMs as number) <= 0)) {
+    return false;
+  }
+
   if (binding.manifest?.manifestVersion !== 1
     || binding.manifest.matchId !== binding.matchId
     || binding.manifest.roomId !== room.roomId
@@ -69,7 +79,8 @@ function validMatchStartBinding(room: RoomState) {
       return false;
     }
     if (!["idle", "loading", "loaded", "failed"].includes(participant.loadState)) return false;
-    return participant.kind !== "bot" || participant.loadState === "loaded";
+    if (participant.kind === "bot" && participant.loadState !== "loaded") return false;
+    return room.status !== "countdown" || participant.loadState === "loaded";
   });
 }
 
