@@ -214,6 +214,41 @@ function assertFrozenContent(
   }
 }
 
+export async function resolveFrozenLobbyMusic(manifest: MatchManifest) {
+  const music = await fetchPlayableMusicConfig(manifest.content.songId);
+  const audioIdentity = {
+    songId: music.id,
+    audioUrl: music.audioUrl,
+    durationMs: music.durationMs,
+    updatedAt: music.updatedAt || "unversioned",
+  };
+  const chartIdentity = {
+    songId: music.id,
+    bpmExact: music.BPM_exact,
+    spaceStartMs: music.spaceStartMs,
+    gameplay: music.gameplay,
+    updatedAt: music.updatedAt || "unversioned",
+  };
+  const [audioHash, chartHash] = await Promise.all([
+    sha256(audioIdentity),
+    sha256(chartIdentity),
+  ]);
+  const audioVersion = `music:${music.id}:${music.updatedAt || "unversioned"}`;
+  const chartVersion = `chart:${music.id}:${music.updatedAt || "unversioned"}`;
+
+  if (audioVersion !== manifest.content.audioVersion || audioHash !== manifest.content.audioHash) {
+    throw new Error("Frozen gameplay audio no longer matches the MatchManifest.");
+  }
+  if (chartVersion !== manifest.content.chartVersion || chartHash !== manifest.content.chartHash) {
+    throw new Error("Frozen gameplay chart no longer matches the MatchManifest.");
+  }
+  if (music.BPM_exact !== manifest.gameplay.bpmExact
+    || music.spaceStartMs !== manifest.gameplay.spaceStartMs) {
+    throw new Error("Frozen gameplay timing no longer matches the MatchManifest.");
+  }
+  return music;
+}
+
 /**
  * P5.3 warms the frozen match resources only. It does not create an
  * AudioContext, schedule a shared start, render countdown state, or navigate.
