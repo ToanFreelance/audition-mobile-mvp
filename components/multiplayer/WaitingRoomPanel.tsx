@@ -1475,6 +1475,19 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
 
   const playerAction = (label: string) => setActionNotice(`${label} sẽ được nối dữ liệu thật ở milestone tương ứng.`);
 
+  if (gameplayActive && gameplaySchedule && matchStartSession) {
+    return (
+      <LiveMultiplayerGameplay
+        manifest={matchStartSession.manifest}
+        participantId={syncOptions?.participantId ?? viewer.participantId}
+        roomStatus={room.status}
+        runtime={gameplaySchedule.runtime}
+        startAtServerMs={gameplaySchedule.startAtServerMs}
+        transport={gameplaySchedule.transport}
+      />
+    );
+  }
+
   return (
     <main className={styles.shell} data-testid="lobby-root">
       <section className={styles.phone}>
