@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createWebAudioContext, WebAudioTransport } from "../../game/web-audio-transport";
 import {
   canStartRoom,
   changeMode,
@@ -14,6 +15,8 @@ import {
 import { applyServerRoomSnapshot, isCanonicalRoomSnapshot } from "../../multiplayer/room-sync";
 import { latchLobbyPresence, projectRoomForPresence } from "../../multiplayer/lobby-presence";
 import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
+import { scheduleMultiplayerAudioGameplay } from "../../multiplayer/audio-gameplay-start";
+import type { MultiplayerGameplayRuntime } from "../../multiplayer/gameplay-runtime";
 import {
   freezeLobbyMatch,
   matchManifestMatchesRoom,
@@ -26,6 +29,7 @@ import {
 import {
   preloadFrozenLobbyMatch,
   prepareLobbyMatchFreezeInput,
+  resolveFrozenLobbyMusic,
 } from "./lobby-match-content";
 import {
   allClientsLoaded,
@@ -37,6 +41,7 @@ import {
   estimateServerNowMs,
   type ClockSyncEstimate,
   type ClockSyncSample,
+  type SharedStartPlan,
 } from "../../multiplayer/shared-clock";
 import type { RoomTransportStatus } from "../../multiplayer/transport";
 import {
@@ -45,6 +50,7 @@ import {
   createP53SyncedWaitingRoomBase,
 } from "../../multiplayer/waiting-room-qa";
 import type { RoomParticipant, RoomSlotIndex, RoomState } from "../../multiplayer/types";
+import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
 import WaitingRoomStage3D, { type WaitingRoomStageView } from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
 
@@ -73,6 +79,19 @@ type RoomApiResponse = {
 type RoomMutationResult = {
   snapshot: RoomState;
   conflict: boolean;
+};
+
+type PreparedGameplayAudio = {
+  sessionKey: string;
+  transport: WebAudioTransport;
+};
+
+type ScheduledGameplay = {
+  sessionKey: string;
+  transport: WebAudioTransport;
+  runtime: MultiplayerGameplayRuntime;
+  plan: SharedStartPlan;
+  startAtServerMs: number;
 };
 
 type ClockApiResponse = {
@@ -293,10 +312,20 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     estimate: ClockSyncEstimate;
   } | null>(null);
   const [countdownNowMonotonicMs, setCountdownNowMonotonicMs] = useState<number | null>(null);
+  const [gameplayAudioReadyKey, setGameplayAudioReadyKey] = useState<string | null>(null);
+  const [gameplaySchedule, setGameplaySchedule] = useState<ScheduledGameplay | null>(null);
+  const [gameplayHandoffError, setGameplayHandoffError] = useState<string | null>(null);
+  const [audioActivationNonce, setAudioActivationNonce] = useState(0);
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
   const preloadAttemptRef = useRef<string | null>(null);
   const countdownAttemptRef = useRef<string | null>(null);
+  const gameplayAudioContextRef = useRef<AudioContext | null>(null);
+  const gameplayAudioRef = useRef<PreparedGameplayAudio | null>(null);
+  const gameplayAudioPrepareAttemptRef = useRef<string | null>(null);
+  const gameplayScheduleAttemptRef = useRef<string | null>(null);
+  const gameplayRuntimeRef = useRef<MultiplayerGameplayRuntime | null>(null);
+  const playingTransitionAttemptRef = useRef<string | null>(null);
 
 
   useEffect(() => {
