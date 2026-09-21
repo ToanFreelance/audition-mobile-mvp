@@ -1272,7 +1272,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
               )}
               {matchStartSession && (
                 <span data-testid="start-session-meta">
-                  Start session · PRELOADING · start r{matchStartSession.startRevision}
+                  Start session · {matchStartSession.phase.toUpperCase()} · start r{matchStartSession.startRevision}
                 </span>
               )}
             </div>
