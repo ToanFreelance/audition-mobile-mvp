@@ -189,6 +189,8 @@ test("@real host + guest perform realtime Ready/Not Ready and freeze one authori
     );
     await expect(host.page.getByTestId("shared-countdown")).toBeVisible({ timeout: 60_000 });
     await expect(guest.page.getByTestId("shared-countdown")).toBeVisible({ timeout: 60_000 });
+    await expect(host.page.getByTestId("preload-state")).toHaveAttribute("data-phase", "countdown");
+    await expect(guest.page.getByTestId("preload-state")).toHaveAttribute("data-phase", "countdown");
     const hostStartAt = await host.page.getByTestId("start-at-server-ms").innerText();
     const guestStartAt = await guest.page.getByTestId("start-at-server-ms").innerText();
     expect(guestStartAt).toBe(hostStartAt);
