@@ -1,17 +1,20 @@
 import {
   allClientsLoaded,
   applyLoadedAck,
+  beginServerClockSampling,
   createLoadedAckForSession,
   createMatchStartSession,
+  issueSharedStartEpoch,
   markParticipantLoadFailed,
   markParticipantLoading,
   MATCH_START_PROTOCOL_VERSION,
+  restoreIssuedSharedStartEpoch,
   type LoadedAckRejectionReason,
   type MatchLoadedAck,
   type MatchStartSession,
 } from "./match-start-protocol";
 import { matchManifestMatchesRoom } from "./lobby-match-freeze";
-import { beginRoomPreloading, setParticipantLoadState } from "./room-state";
+import { beginRoomCountdown, beginRoomPreloading, setParticipantLoadState } from "./room-state";
 import type {
   MatchManifest,
   RoomMatchStartBinding,
@@ -22,16 +25,23 @@ import type {
 export function createRoomMatchStartBinding(
   session: MatchStartSession,
 ): RoomMatchStartBinding {
-  if (session.phase !== "preloading" || session.startAtServerMs !== null) {
-    throw new Error("Lobby can persist only a fresh preloading start session.");
+  if (session.phase !== "preloading" && session.phase !== "countdown") {
+    throw new Error("Lobby can persist only preloading or countdown start sessions.");
+  }
+  if (session.phase === "preloading" && session.startAtServerMs !== null) {
+    throw new Error("Preloading cannot already own a shared start epoch.");
+  }
+  if (session.phase === "countdown" && session.startAtServerMs === null) {
+    throw new Error("Countdown requires an immutable shared start epoch.");
   }
   return Object.freeze({
     protocolVersion: MATCH_START_PROTOCOL_VERSION,
     matchId: session.matchId,
     roomRevision: session.roomRevision,
     startRevision: session.startRevision,
-    phase: "preloading" as const,
+    phase: session.phase,
     safeLeadTimeMs: session.safeLeadTimeMs,
+    startAtServerMs: session.startAtServerMs,
     manifest: session.manifest,
   });
 }
@@ -40,7 +50,8 @@ export function restoreRoomMatchStartSession(
   binding: RoomMatchStartBinding,
   participants?: readonly RoomParticipant[],
 ): MatchStartSession {
-  if (binding.protocolVersion !== MATCH_START_PROTOCOL_VERSION || binding.phase !== "preloading") {
+  if (binding.protocolVersion !== MATCH_START_PROTOCOL_VERSION
+    || (binding.phase !== "preloading" && binding.phase !== "countdown")) {
     throw new Error("Unsupported lobby match-start binding.");
   }
   let session = createMatchStartSession({
@@ -53,37 +64,60 @@ export function restoreRoomMatchStartSession(
     || session.roomRevision !== binding.roomRevision) {
     throw new Error("Persisted match-start identity is inconsistent.");
   }
-  if (!participants) return session;
 
-  if (participants.length !== session.participants.length) {
-    throw new Error("Canonical preload participants do not match the frozen MatchManifest.");
-  }
-
-  for (const expected of session.participants) {
-    const participant = participants.find(item => item.participantId === expected.participantId);
-    if (!participant || participant.kind !== expected.kind || participant.role !== expected.role) {
-      throw new Error(`Canonical preload participant ${expected.participantId} does not match the frozen MatchManifest.`);
+  if (participants) {
+    if (participants.length !== session.participants.length) {
+      throw new Error("Canonical preload participants do not match the frozen MatchManifest.");
     }
 
-    if (participant.loadState === "loading") {
-      session = markParticipantLoading(session, participant.participantId);
-    } else if (participant.loadState === "loaded") {
+    for (const expected of session.participants) {
+      const participant = participants.find(item => item.participantId === expected.participantId);
+      if (!participant || participant.kind !== expected.kind || participant.role !== expected.role) {
+        throw new Error(`Canonical preload participant ${expected.participantId} does not match the frozen MatchManifest.`);
+      }
+
+      if (participant.loadState === "loading") {
+        session = markParticipantLoading(session, participant.participantId);
+      } else if (participant.loadState === "loaded") {
+        const result = applyLoadedAck(
+          session,
+          createLoadedAckForSession(session, participant.participantId),
+        );
+        if (!result.accepted) throw new Error(`Persisted Loaded state is invalid: ${result.reason}.`);
+        session = result.session;
+      } else if (participant.loadState === "failed") {
+        session = markParticipantLoadFailed(
+          session,
+          participant.participantId,
+          "Restored canonical preload failure.",
+        );
+      }
+    }
+  } else if (binding.phase === "countdown") {
+    // Countdown is only legal after the all-loaded gate, so the binding itself
+    // is sufficient to recover protocol state when participant rows are omitted.
+    for (const participant of session.participants) {
       const result = applyLoadedAck(
         session,
         createLoadedAckForSession(session, participant.participantId),
       );
       if (!result.accepted) throw new Error(`Persisted Loaded state is invalid: ${result.reason}.`);
       session = result.session;
-    } else if (participant.loadState === "failed") {
-      session = markParticipantLoadFailed(
-        session,
-        participant.participantId,
-        "Restored canonical preload failure.",
-      );
     }
   }
 
-  return session;
+  if (binding.phase === "preloading") {
+    if ((binding.startAtServerMs ?? null) !== null) {
+      throw new Error("Preloading binding cannot contain a shared start epoch.");
+    }
+    return session;
+  }
+
+  if (!Number.isFinite(binding.startAtServerMs)) {
+    throw new Error("Countdown binding is missing its immutable shared start epoch.");
+  }
+  session = beginServerClockSampling(session);
+  return restoreIssuedSharedStartEpoch(session, binding.startAtServerMs as number);
 }
 
 export type LobbyPreloadIdentity = {
@@ -186,6 +220,30 @@ export function applyLobbyLoadedAck(
     room: nextRoom,
     session: nextSession,
   };
+}
+
+export function beginLobbyCountdown(
+  room: RoomState,
+  actorParticipantId: string,
+  identity: LobbyPreloadIdentity,
+  serverNowMs: number,
+) {
+  const session = requireActivePreload(room, identity);
+  const actor = session.participants.find(participant => participant.participantId === actorParticipantId);
+  if (!actor || actor.kind !== "human") {
+    throw new Error("Only a frozen human participant may request the shared start epoch.");
+  }
+  if (!allClientsLoaded(session)) {
+    throw new Error("Shared countdown requires ALL CLIENTS LOADED.");
+  }
+
+  const countdownSession = issueSharedStartEpoch(
+    beginServerClockSampling(session),
+    serverNowMs,
+  );
+  const binding = createRoomMatchStartBinding(countdownSession);
+  const nextRoom = beginRoomCountdown(room, binding);
+  return { room: nextRoom, session: countdownSession, binding };
 }
 
 export function beginLobbyPreload(
