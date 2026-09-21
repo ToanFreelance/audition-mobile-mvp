@@ -11,6 +11,7 @@ import {
 } from "../../../../multiplayer/room-state";
 import {
   applyLobbyLoadedAck,
+  beginLobbyCountdown,
   beginLobbyPreload,
   markLobbyParticipantLoadFailed,
   markLobbyParticipantLoading,
@@ -83,6 +84,15 @@ type RoomMutationBody =
       expectedRevision: number;
       actorParticipantId: string;
       ack: MatchLoadedAck;
+    }
+  | {
+      action: "issue-countdown";
+      roomId: string;
+      expectedRevision: number;
+      actorParticipantId: string;
+      matchId: string;
+      roomRevision: number;
+      startRevision: number;
     };
 
 function jsonError(message: string, status: number, extra?: Record<string, unknown>) {
@@ -310,6 +320,17 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
       if (!result.accepted) throw new Error(`LOADED_ACK_REJECTED:${result.reason}`);
       return result.room;
     }
+    case "issue-countdown":
+      return beginLobbyCountdown(
+        room,
+        body.actorParticipantId,
+        {
+          matchId: body.matchId,
+          roomRevision: body.roomRevision,
+          startRevision: body.startRevision,
+        },
+        Date.now(),
+      ).room;
   }
 }
 
