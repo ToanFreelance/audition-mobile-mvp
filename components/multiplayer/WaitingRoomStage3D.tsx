@@ -30,6 +30,7 @@ type Props = {
   pageSize?: number;
   onSelectParticipant?: (participant: RoomParticipant) => void;
   selectedActorYawOffset?: number;
+  presentationMode?: "room" | "character-preview";
 };
 
 type StageNode = {
@@ -291,6 +292,7 @@ export default function WaitingRoomStage3D({
   pageSize = 2,
   onSelectParticipant,
   selectedActorYawOffset = 0,
+  presentationMode = "room",
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const stageNodesRef = useRef(new Map<string, StageNode>());
@@ -301,7 +303,7 @@ export default function WaitingRoomStage3D({
   const reconcileParticipantsRef = useRef<(() => void) | null>(null);
   const selectCallbackRef = useRef(onSelectParticipant);
   const participantsRef = useRef(participants);
-  const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId, selectedActorYawOffset });
+  const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId, selectedActorYawOffset, presentationMode });
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
   const [sceneGeneration, setSceneGeneration] = useState(0);
   const [renderedActorCount, setRenderedActorCount] = useState(0);
@@ -311,7 +313,7 @@ export default function WaitingRoomStage3D({
   selectCallbackRef.current = onSelectParticipant;
   participantsRef.current = participants;
   slotsRef.current = slots;
-  viewRef.current = { viewMode, pageIndex, pageSize, selectedParticipantId, selectedActorYawOffset };
+  viewRef.current = { viewMode, pageIndex, pageSize, selectedParticipantId, selectedActorYawOffset, presentationMode };
 
   const slotStateKey = useMemo(
     () => slots.map(slot => `${slot.slotIndex}:${slot.state}`).join("|"),
@@ -334,7 +336,7 @@ export default function WaitingRoomStage3D({
 
   useEffect(() => {
     layoutRef.current?.();
-  }, [pageIndex, pageSize, selectedActorYawOffset, selectedParticipantId, slotStateKey, viewMode]);
+  }, [pageIndex, pageSize, presentationMode, selectedActorYawOffset, selectedParticipantId, slotStateKey, viewMode]);
 
   useEffect(() => {
     reconcileParticipantsRef.current?.();
@@ -499,6 +501,11 @@ export default function WaitingRoomStage3D({
         ?? activeParticipants[0]?.participantId
         ?? null;
 
+      const roomPresentation = current.presentationMode === "room";
+      floor.visible = roomPresentation;
+      floorHalo.visible = roomPresentation;
+      runway.visible = roomPresentation;
+
       stageNodesRef.current.forEach(node => {
         const { participant, index } = node;
         let visible = false;
@@ -530,7 +537,7 @@ export default function WaitingRoomStage3D({
         }
 
         node.actor.visible = visible;
-        node.ring.visible = visible;
+        node.ring.visible = visible && roomPresentation;
         node.actor.position.x = x;
         node.actor.position.z = z;
         node.actor.rotation.y = rotationY
@@ -546,7 +553,7 @@ export default function WaitingRoomStage3D({
         const centered = placeholder.slotIndex - 2.5;
         placeholder.group.position.set(centered * 0.94, 0.02, Math.abs(centered) * 0.045);
         placeholder.group.scale.setScalar(0.68);
-        const showPlaceholder = current.viewMode === "wide" && slot?.state !== "occupied";
+        const showPlaceholder = roomPresentation && current.viewMode === "wide" && slot?.state !== "occupied";
         placeholder.group.visible = showPlaceholder;
         const closed = slot?.state === "closed";
         placeholder.ringMaterial.color.setHex(closed ? 0xff4f7d : 0x43dfff);
@@ -928,18 +935,19 @@ export default function WaitingRoomStage3D({
       data-actor-count={renderedActorCount}
       data-idle-count={idleRuntimeCount}
       data-idle-source={idleSource}
+      data-presentation={presentationMode}
     >
-      <div className={styles.architecture} aria-hidden="true">
+      {presentationMode === "room" ? <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
         <span className={styles.lightBarRight} />
         <div className={styles.brand}>
           <strong>AUDITION</strong>
           <small>DANCE TOGETHER</small>
         </div>
-      </div>
+      </div> : null}
       <div className={styles.canvas} ref={mountRef} />
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
-      {viewMode === "wide" ? (
+      {presentationMode === "room" ? (viewMode === "wide" ? (
         <div className={styles.wideSlotLabels}>
           {slots.map(slot => {
             const participant = slot.state === "occupied"
@@ -996,8 +1004,8 @@ export default function WaitingRoomStage3D({
             </button>
           ))}
         </div>
-      )}
-      {viewMode === "center" && <p className={styles.note}>Kéo ngang để xem khu vực khác</p>}
+      )) : null}
+      {presentationMode === "room" && viewMode === "center" && <p className={styles.note}>Kéo ngang để xem khu vực khác</p>}
     </div>
   );
 }
