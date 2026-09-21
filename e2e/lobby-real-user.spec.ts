@@ -229,6 +229,17 @@ test("@real host + guest Ready through one shared epoch into WebAudio multiplaye
     const guestSongTime = await songTime(guest.page);
     expect(Math.abs(hostSongTime - guestSongTime)).toBeLessThan(500);
 
+    const globalTurn = async (page: Page) => Number(
+      (await page.getByTestId("gameplay-global-turn").innerText()).replace(/[^0-9-]/g, ""),
+    );
+    await expect.poll(() => globalTurn(host.page), { timeout: 20_000 }).toBeGreaterThanOrEqual(0);
+    await expect.poll(() => globalTurn(guest.page), { timeout: 20_000 }).toBeGreaterThanOrEqual(0);
+    const hostTurn = await globalTurn(host.page);
+    const guestTurn = await globalTurn(guest.page);
+    expect(Math.abs(hostTurn - guestTurn)).toBeLessThanOrEqual(1);
+    await expect(host.page.getByTestId("multiplayer-gameplay-live")).toHaveAttribute("data-audio-ended", "0");
+    await expect(guest.page.getByTestId("multiplayer-gameplay-live")).toHaveAttribute("data-audio-ended", "0");
+
     expect(new URL(host.page.url()).pathname).toBe("/tools/lobby-qa");
     expect(new URL(guest.page.url()).pathname).toBe("/tools/lobby-qa");
     assertNoCriticalErrors(host, guest);
