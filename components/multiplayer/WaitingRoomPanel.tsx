@@ -332,6 +332,17 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     roomRef.current = room;
   }, [room]);
 
+  useEffect(() => () => {
+    gameplayRuntimeRef.current?.stop();
+    gameplayRuntimeRef.current = null;
+    const prepared = gameplayAudioRef.current;
+    gameplayAudioRef.current = null;
+    if (prepared) void prepared.transport.destroy();
+    const context = gameplayAudioContextRef.current;
+    gameplayAudioContextRef.current = null;
+    if (context && context.state !== "closed") void context.close().catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     if (room.matchStart?.manifest) {
       if (frozenMatchManifest?.matchId !== room.matchStart.matchId) {
@@ -735,6 +746,31 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
       setSyncDetail(successDetail);
     }
     return result;
+  };
+
+  const activateGameplayAudioFromGesture = () => {
+    try {
+      let context = gameplayAudioContextRef.current;
+      if (!context || context.state === "closed") {
+        context = createWebAudioContext();
+        gameplayAudioContextRef.current = context;
+      }
+      setGameplayHandoffError(null);
+      setAudioActivationNonce(current => current + 1);
+      if (context.state !== "running") {
+        void context.resume().catch(error => {
+          setGameplayHandoffError(
+            error instanceof Error ? error.message : "WebAudio activation failed.",
+          );
+        });
+      }
+      return true;
+    } catch (error) {
+      setGameplayHandoffError(
+        error instanceof Error ? error.message : "WebAudio is unavailable.",
+      );
+      return false;
+    }
   };
 
   useEffect(() => {
