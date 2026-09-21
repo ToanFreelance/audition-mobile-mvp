@@ -522,3 +522,32 @@
   font-weight:900;
   letter-spacing:.08em;
 }
+
+.preloadAudioState{
+  grid-column:1/-1;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px 8px;
+  padding-top:4px;
+}
+.preloadAudioState small{
+  color:rgba(255,255,255,.64);
+  font-size:8px;
+  font-weight:800;
+}
+.preloadAudioButton{
+  min-height:28px;
+  padding:4px 9px;
+  border:1px solid rgba(255,205,99,.58);
+  border-radius:8px;
+  color:#ffe2a0;
+  background:rgba(104,66,17,.55);
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.04em;
+}
+.preloadAudioError{
+  flex-basis:100%;
+  color:#ff9aab!important;
+}
