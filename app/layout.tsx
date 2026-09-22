@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Audition Mobile — Rhythm Prototype",
-  description: "Mobile-first rhythm dance game prototype"
+  title: "Audition Mobile — Club Dance",
+  description: "Mobile-first rhythm dance game inspired by classic Audition gameplay"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
