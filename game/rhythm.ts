@@ -1,19 +1,21 @@
-import type { Chart, GameStats, Judgement, Note } from "./types";
+import type { Chart, DanceTurn, GameStats, Judgement } from "./types";
 
 export const WINDOWS_MS: Record<Judgement, number> = {
   perfect: 45,
   great: 85,
   cool: 130,
   bad: 185,
-  miss: Infinity
+  miss: Infinity,
 };
 
+// Calibrated starting values for the reference result range.
+// Final values should be tuned against more complete result-screen samples.
 export const SCORE: Record<Judgement, number> = {
-  perfect: 1000,
-  great: 700,
-  cool: 400,
-  bad: 100,
-  miss: 0
+  perfect: 3200,
+  great: 2400,
+  cool: 1500,
+  bad: 550,
+  miss: 0,
 };
 
 export class RhythmEngine {
@@ -26,88 +28,57 @@ export class RhythmEngine {
     great: 0,
     cool: 0,
     bad: 0,
-    miss: 0
+    miss: 0,
   };
 
-  private cursor = 0;
-  private judged = new Set<number>();
+  private judgedTurns = new Set<number>();
 
   constructor(chart: Chart) {
     this.chart = chart;
   }
 
-  get nextNote(): Note | undefined {
-    while (this.cursor < this.chart.notes.length && this.judged.has(this.chart.notes[this.cursor].id)) {
-      this.cursor++;
-    }
-    return this.chart.notes[this.cursor];
+  get nextTurn(): DanceTurn | undefined {
+    return this.chart.turns.find((turn) => !this.judgedTurns.has(turn.id));
   }
 
-  get allNotes() {
-    return this.chart.notes;
+  get allTurns() {
+    return this.chart.turns;
   }
 
-  isJudged(noteId: number) {
-    return this.judged.has(noteId);
+  isJudged(turnId: number) {
+    return this.judgedTurns.has(turnId);
   }
 
   get completed() {
-    return this.stats.miss + this.stats.perfect + this.stats.great + this.stats.cool + this.stats.bad >= this.chart.notes.length;
+    return this.judgedTurns.size >= this.chart.turns.length;
   }
 
-  getProgress(currentBeat: number) {
-    if (this.chart.notes.length === 0) return 1;
-    const lastBeat = this.chart.notes[this.chart.notes.length - 1].beat;
-    return Math.min(1, Math.max(0, currentBeat / (lastBeat + 2)));
-  }
+  judgeTurn(turn: DanceTurn, currentBeat: number): Judgement {
+    if (this.judgedTurns.has(turn.id)) {
+      return "miss";
+    }
 
-  judge(direction: Note["direction"], currentBeat: number): Judgement | null {
-    const note = this.findCandidate(direction, currentBeat);
-    if (!note) return null;
-
-    const noteMs = this.beatToMs(note.beat);
-    const currentMs = this.beatToMs(currentBeat);
-    const delta = Math.abs(currentMs - noteMs);
-    const judgement = this.classify(delta);
-
-    if (judgement === "miss") return null;
-    this.apply(note, judgement);
+    const deltaMs = Math.abs(
+      this.beatToMs(currentBeat) - this.beatToMs(turn.spaceBeat)
+    );
+    const judgement = this.classify(deltaMs);
+    this.apply(turn, judgement);
     return judgement;
   }
 
-  update(currentBeat: number) {
-    while (this.cursor < this.chart.notes.length) {
-      const note = this.chart.notes[this.cursor];
-      if (this.judged.has(note.id)) {
-        this.cursor++;
-        continue;
-      }
-
-      const delta = this.beatToMs(currentBeat) - this.beatToMs(note.beat);
-      if (delta > WINDOWS_MS.bad) {
-        this.apply(note, "miss");
-        continue;
-      }
-      break;
-    }
+  autoMiss(turn: DanceTurn) {
+    if (this.judgedTurns.has(turn.id)) return;
+    this.apply(turn, "miss");
   }
 
-  private findCandidate(direction: Note["direction"], currentBeat: number): Note | undefined {
-    const currentMs = this.beatToMs(currentBeat);
-    const searchFrom = Math.max(0, this.cursor - 1);
-    let best: Note | undefined;
-    let bestDelta = Infinity;
+  getTimingDeltaMs(turn: DanceTurn, currentBeat: number) {
+    return this.beatToMs(currentBeat) - this.beatToMs(turn.spaceBeat);
+  }
 
-    for (let i = searchFrom; i < Math.min(this.chart.notes.length, this.cursor + 12); i++) {
-      const note = this.chart.notes[i];
-      if (this.judged.has(note.id) || note.direction !== direction) continue;
-      const delta = Math.abs(currentMs - this.beatToMs(note.beat));
-      if (delta < bestDelta && delta <= WINDOWS_MS.bad) {
-        best = note;
-        bestDelta = delta;
-      }
-    }
-    return best;
+  getTimingRatio(turn: DanceTurn, currentBeat: number) {
+    const delta = this.getTimingDeltaMs(turn, currentBeat);
+    const window = WINDOWS_MS.bad;
+    return Math.max(-1, Math.min(1, delta / window));
   }
 
   private classify(deltaMs: number): Judgement {
@@ -118,9 +89,10 @@ export class RhythmEngine {
     return "miss";
   }
 
-  private apply(note: Note, judgement: Judgement) {
-    if (this.judged.has(note.id)) return;
-    this.judged.add(note.id);
+  private apply(turn: DanceTurn, judgement: Judgement) {
+    if (this.judgedTurns.has(turn.id)) return;
+
+    this.judgedTurns.add(turn.id);
     this.stats[judgement]++;
 
     if (judgement === "miss") {
@@ -130,8 +102,12 @@ export class RhythmEngine {
 
     this.stats.combo++;
     this.stats.maxCombo = Math.max(this.stats.maxCombo, this.stats.combo);
-    const comboMultiplier = 1 + Math.min(2, Math.floor(this.stats.combo / 10) * 0.1);
-    this.stats.score += Math.round(SCORE[judgement] * comboMultiplier);
+
+    const levelMultiplier = 1 + Math.max(0, turn.level - 4) * 0.06;
+    const comboMultiplier = 1 + Math.min(1.5, Math.floor(this.stats.combo / 10) * 0.1);
+    const value = SCORE[judgement] * levelMultiplier * comboMultiplier;
+
+    this.stats.score += Math.round(value);
   }
 
   private beatToMs(beat: number) {

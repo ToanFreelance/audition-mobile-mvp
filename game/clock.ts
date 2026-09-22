@@ -4,13 +4,37 @@ export class BeatClock {
   private pausePerf = 0;
   private elapsedBeforePause = 0;
 
-  constructor(private readonly bpm: number, private readonly offsetMs = 0) {}
+  constructor(
+    private readonly bpm: number,
+    private readonly offsetMs = 0,
+  ) {}
 
   start() {
     this.startPerf = performance.now();
     this.paused = false;
     this.pausePerf = 0;
     this.elapsedBeforePause = 0;
+  }
+
+  reset() {
+    this.startPerf = 0;
+    this.paused = false;
+    this.pausePerf = 0;
+    this.elapsedBeforePause = 0;
+  }
+
+  pause() {
+    if (!this.running) return;
+    this.elapsedBeforePause = performance.now() - this.startPerf;
+    this.pausePerf = performance.now();
+    this.paused = true;
+  }
+
+  resume() {
+    if (!this.paused) return;
+    this.startPerf = performance.now() - this.elapsedBeforePause;
+    this.paused = false;
+    this.pausePerf = 0;
   }
 
   get elapsedMs() {
@@ -24,6 +48,11 @@ export class BeatClock {
     return Math.max(0, adjustedMs / (60000 / this.bpm));
   }
 
-  get running() { return !!this.startPerf && !this.paused; }
-  get ended() { return false; }
+  get running() {
+    return !!this.startPerf && !this.paused;
+  }
+
+  get ended() {
+    return false;
+  }
 }
