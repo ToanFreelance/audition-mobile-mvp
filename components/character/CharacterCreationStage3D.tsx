@@ -42,14 +42,14 @@ const BASE_PREVIEW_FRAMES: Record<CharacterCreatorFocus, PreviewFrame> = {
 
 function normalizePreview(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
-  const initial = new THREE.Box3().setFromObject(model, true);
+  const initial = new THREE.Box3().setFromObject(model);
   const size = initial.getSize(new THREE.Vector3());
   if (!(size.y > 0) || !Number.isFinite(size.y)) throw new Error("Character preview has invalid bounds.");
 
   model.scale.multiplyScalar(NORMALIZED_CHARACTER_HEIGHT / size.y);
   model.updateMatrixWorld(true);
 
-  const bounds = new THREE.Box3().setFromObject(model, true);
+  const bounds = new THREE.Box3().setFromObject(model);
   const center = bounds.getCenter(new THREE.Vector3());
   model.position.set(-center.x, -bounds.min.y, -center.z);
   model.updateMatrixWorld(true);
@@ -71,7 +71,7 @@ function findBone(root: THREE.Object3D, semanticName: string) {
 
 function collectDetailAnchors(model: THREE.Object3D): DetailAnchors | null {
   model.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(model, true);
+  const bounds = new THREE.Box3().setFromObject(model);
   const size = bounds.getSize(new THREE.Vector3());
   const neck = findBone(model, "Neck");
   const leftShoulder = findBone(model, "LeftShoulder");
