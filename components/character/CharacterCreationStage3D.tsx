@@ -8,8 +8,33 @@ import { disposeObjectResources } from "./CharacterActor";
 import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
 import styles from "./CharacterCreationStage3D.module.css";
 
+export type CharacterCreatorFocus = "hair" | "face" | "body" | "outfit" | "accessory" | "shoes";
+
 type Props = {
   yaw: number;
+  focus: CharacterCreatorFocus;
+};
+
+type PreviewFrame = {
+  fov: number;
+  cameraY: number;
+  cameraZ: number;
+  targetY: number;
+};
+
+const PREVIEW_FRAMES: Record<CharacterCreatorFocus, PreviewFrame> = {
+  // Hair shows the head, hairstyle silhouette, neck and shoulders.
+  hair: { fov: 27, cameraY: 2.78, cameraZ: 4.1, targetY: 2.64 },
+  // Face is deliberately the tightest crop for eyes / nose / mouth review.
+  face: { fov: 24, cameraY: 2.78, cameraZ: 3.55, targetY: 2.68 },
+  // Body is the neutral full-character framing used for proportions / skin.
+  body: { fov: 34, cameraY: 2.25, cameraZ: 7.2, targetY: 1.72 },
+  // Outfit should read torso through upper legs without hiding silhouette.
+  outfit: { fov: 30, cameraY: 2.18, cameraZ: 5.05, targetY: 1.88 },
+  // Generic accessory focus stays upper-body until item-specific anchors exist.
+  accessory: { fov: 28, cameraY: 2.42, cameraZ: 4.55, targetY: 2.18 },
+  // Shoes intentionally frame the lower body / feet.
+  shoes: { fov: 28, cameraY: 1.02, cameraZ: 4.45, targetY: 0.72 },
 };
 
 function normalizePreview(model: THREE.Object3D) {
@@ -27,10 +52,15 @@ function normalizePreview(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
 }
 
-export default function CharacterCreationStage3D({ yaw }: Props) {
+function easeOutCubic(value: number) {
+  return 1 - Math.pow(1 - value, 3);
+}
+
+export default function CharacterCreationStage3D({ yaw, focus }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const modelRef = useRef<THREE.Object3D | null>(null);
   const renderRef = useRef<(() => void) | null>(null);
+  const focusRef = useRef<((nextFocus: CharacterCreatorFocus, animate?: boolean) => void) | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "fallback">("loading");
 
   useEffect(() => {
@@ -38,13 +68,15 @@ export default function CharacterCreationStage3D({ yaw }: Props) {
     if (!host) return;
 
     let disposed = false;
+    let focusRaf = 0;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x08091f);
     scene.fog = new THREE.FogExp2(0x08091f, 0.055);
 
-    const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50);
-    camera.position.set(0, 2.25, 7.2);
-    const lookTarget = new THREE.Vector3(0, 1.72, 0);
+    const initialFrame = PREVIEW_FRAMES[focus];
+    const camera = new THREE.PerspectiveCamera(initialFrame.fov, 1, 0.1, 50);
+    camera.position.set(0, initialFrame.cameraY, initialFrame.cameraZ);
+    const lookTarget = new THREE.Vector3(0, initialFrame.targetY, 0);
     camera.lookAt(lookTarget);
 
     const canvas = document.createElement("canvas");
@@ -122,6 +154,46 @@ export default function CharacterCreationStage3D({ yaw }: Props) {
     };
     renderRef.current = render;
 
+    const applyFocus = (nextFocus: CharacterCreatorFocus, animate = true) => {
+      const frame = PREVIEW_FRAMES[nextFocus];
+      cancelAnimationFrame(focusRaf);
+
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (!animate || reducedMotion) {
+        camera.position.y = frame.cameraY;
+        camera.position.z = frame.cameraZ;
+        camera.fov = frame.fov;
+        lookTarget.y = frame.targetY;
+        camera.lookAt(lookTarget);
+        camera.updateProjectionMatrix();
+        render();
+        return;
+      }
+
+      const startPosition = camera.position.clone();
+      const startTargetY = lookTarget.y;
+      const startFov = camera.fov;
+      const startedAt = performance.now();
+      const durationMs = 340;
+
+      const step = (now: number) => {
+        if (disposed) return;
+        const progress = Math.min(1, (now - startedAt) / durationMs);
+        const eased = easeOutCubic(progress);
+        camera.position.y = THREE.MathUtils.lerp(startPosition.y, frame.cameraY, eased);
+        camera.position.z = THREE.MathUtils.lerp(startPosition.z, frame.cameraZ, eased);
+        camera.fov = THREE.MathUtils.lerp(startFov, frame.fov, eased);
+        lookTarget.y = THREE.MathUtils.lerp(startTargetY, frame.targetY, eased);
+        camera.lookAt(lookTarget);
+        camera.updateProjectionMatrix();
+        render();
+        if (progress < 1) focusRaf = requestAnimationFrame(step);
+      };
+
+      focusRaf = requestAnimationFrame(step);
+    };
+    focusRef.current = applyFocus;
+
     const resize = () => {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
@@ -150,7 +222,7 @@ export default function CharacterCreationStage3D({ yaw }: Props) {
         scene.add(gltf.scene);
         host.dataset.characterSource = "c1-casual-grace";
         setState("ready");
-        render();
+        applyFocus(focus, false);
       })
       .catch(error => {
         if (disposed) return;
@@ -160,7 +232,9 @@ export default function CharacterCreationStage3D({ yaw }: Props) {
 
     return () => {
       disposed = true;
+      cancelAnimationFrame(focusRaf);
       observer.disconnect();
+      focusRef.current = null;
       renderRef.current = null;
       modelRef.current = null;
       disposeObjectResources(scene);
@@ -177,8 +251,18 @@ export default function CharacterCreationStage3D({ yaw }: Props) {
     renderRef.current?.();
   }, [yaw]);
 
+  useEffect(() => {
+    focusRef.current?.(focus, true);
+  }, [focus]);
+
   return (
-    <div className={styles.host} data-preview-state={state} ref={hostRef}>
+    <div
+      className={styles.host}
+      data-focus={focus}
+      data-preview-state={state}
+      data-testid="c2-character-stage"
+      ref={hostRef}
+    >
       {state === "loading" && <div className={styles.status}>Đang tải nhân vật…</div>}
       {state === "fallback" && <div className={styles.status}>Không thể mở 3D preview</div>}
     </div>
