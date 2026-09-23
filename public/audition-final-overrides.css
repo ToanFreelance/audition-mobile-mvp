@@ -206,7 +206,7 @@
     --command-gap:clamp(4.8px,1.3vw,5.6px);
     --command-gap-total:clamp(38.4px,10.4vw,44.8px);
     --command-token-size:min(clamp(32px,9.5vw,41px),calc((100% - var(--command-gap-total)) / 9));
-    --command-token-y:clamp(-20px,-4.6vw,-18px);
+    --command-token-y:0px;
     position:relative;
     isolation:isolate;
     align-items:center;
