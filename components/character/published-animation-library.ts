@@ -3,6 +3,7 @@ import { loadRuntimeAnimationBundle } from "./runtime-animation-bundle";
 
 export const PUBLISHED_DANCE_BUNDLE_URL =
   "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
+export const PUBLISHED_DANCE_MANIFEST_URL = PUBLISHED_DANCE_BUNDLE_URL + "?manifest=1";
 
 const PUBLISHED_DANCE_CONNECT_TIMEOUT_MS = 8000;
 
@@ -56,21 +57,50 @@ export async function loadPublishedDanceRelease(forceRefresh = false): Promise<L
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PUBLISHED_DANCE_CONNECT_TIMEOUT_MS);
-  let responseReceived = false;
 
   try {
-    const response = await fetch(PUBLISHED_DANCE_BUNDLE_URL, {
-      method: "GET",
-      cache: "no-store",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
+    let response: Response;
+    let expectedReleaseVersion: number | null = null;
 
-    responseReceived = true;
-    clearTimeout(timeout);
+    try {
+      const manifestResponse = await fetch(PUBLISHED_DANCE_MANIFEST_URL, {
+        method: "GET",
+        cache: "no-cache",
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+      if (!manifestResponse.ok) {
+        throw new Error("published animation manifest endpoint returned " + manifestResponse.status);
+      }
+
+      const manifest = await manifestResponse.json() as Record<string, unknown>;
+      const releaseVersion = Number(manifest.releaseVersion ?? 0);
+      if (!Number.isInteger(releaseVersion) || releaseVersion <= 0) {
+        throw new Error("published animation manifest has no valid releaseVersion");
+      }
+
+      expectedReleaseVersion = releaseVersion;
+      response = await fetch(PUBLISHED_DANCE_BUNDLE_URL + "?release=" + releaseVersion, {
+        method: "GET",
+        cache: "force-cache",
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+    } catch (manifestError) {
+      console.warn(
+        "[character] lightweight animation manifest unavailable; falling back to legacy bundle endpoint",
+        manifestError,
+      );
+      response = await fetch(PUBLISHED_DANCE_BUNDLE_URL, {
+        method: "GET",
+        cache: "default",
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+    }
 
     if (!response.ok) {
-      throw new Error(`published animation endpoint returned ${response.status}`);
+      throw new Error("published animation endpoint returned " + response.status);
     }
 
     const bundle = loadRuntimeAnimationBundle(await response.json());
@@ -80,6 +110,11 @@ export async function loadPublishedDanceRelease(forceRefresh = false): Promise<L
     const releaseVersion = bundle.manifest.releaseVersion;
     if (!releaseVersion) {
       throw new Error("published animation release has no releaseVersion");
+    }
+    if (expectedReleaseVersion !== null && releaseVersion !== expectedReleaseVersion) {
+      throw new Error(
+        "published animation release mismatch: manifest v" + expectedReleaseVersion + ", bundle v" + releaseVersion,
+      );
     }
 
     const normalSourceAssetIds = bundle.manifest.normalIds.filter(id => bundle.clipsByAssetId.has(id));
@@ -95,7 +130,10 @@ export async function loadPublishedDanceRelease(forceRefresh = false): Promise<L
     const sourceAssetIds = [...new Set([...normalSourceAssetIds, ...finalSourceAssetIds, ...idleSourceAssetIds])];
 
     console.info(
-      `[character] published Mixamo release v${releaseVersion} loaded: ${normalSourceAssetIds.length} normal · ${finalSourceAssetIds.length} final · ${idleSourceAssetIds.length} idle`,
+      "[character] published Mixamo release v" + releaseVersion + " loaded: "
+        + normalSourceAssetIds.length + " normal · "
+        + finalSourceAssetIds.length + " final · "
+        + idleSourceAssetIds.length + " idle",
     );
 
     const loaded: LoadedPublishedDanceRelease = {
@@ -120,7 +158,7 @@ export async function loadPublishedDanceRelease(forceRefresh = false): Promise<L
     );
     return null;
   } finally {
-    if (!responseReceived) clearTimeout(timeout);
+    clearTimeout(timeout);
   }
 }
 
