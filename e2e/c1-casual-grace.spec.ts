@@ -31,7 +31,7 @@ test("C1 asset retains real skin and excludes Running/Walking gameplay clips", a
   const gltf = await parseGlb(characterPath);
   const mesh = skinned(gltf.scene);
   expect(mesh.skeleton.bones).toHaveLength(28);
-  expect(mesh.geometry.getAttribute("position").count).toBe(5_051);
+  expect(mesh.geometry.getAttribute("position").count).toBe(12_729);
   expect(mesh.geometry.getAttribute("skinIndex").itemSize).toBe(4);
   expect(mesh.geometry.getAttribute("skinWeight").itemSize).toBe(4);
   expect(gltf.animations).toHaveLength(0);
