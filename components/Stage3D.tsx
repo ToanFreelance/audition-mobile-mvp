@@ -6,6 +6,7 @@ import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 import type { CharacterPresentationEvent } from "./character/character-types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
+import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
@@ -132,7 +133,14 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     createSpeaker(stage, -4.7, 1.7, COLORS.violet, .7);
     createSpeaker(stage, 4.7, 1.7, COLORS.violet, .7);
 
-    const character = new CharacterActor();
+    let selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
+    try {
+      selectedCharacter = loadCharacterCreationDraft(window.localStorage) ?? DEFAULT_CHARACTER_CREATION_PROFILE;
+    } catch {
+      selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
+    }
+
+    const character = CharacterActor.fromAssetId(selectedCharacter.characterAssetId);
     characterRef.current = character;
     character.setGameActive(isPlayingRef.current);
     character.root.position.set(
@@ -141,6 +149,8 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       CHARACTER_STAGE_POSITION.z,
     );
     stage.add(character.root);
+    host.dataset.characterAssetId = selectedCharacter.characterAssetId;
+    host.dataset.characterProfileVersion = String(selectedCharacter.version);
     host.dataset.characterSource = "loading";
     void character.load().then((result) => {
       if (!result || disposed) return;

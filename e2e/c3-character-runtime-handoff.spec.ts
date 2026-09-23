@@ -1,0 +1,39 @@
+import { expect, test } from "@playwright/test";
+
+test("C3.1 Solo stage resolves the saved character profile through the catalog", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify({
+      version: 1,
+      gender: "female",
+      characterAssetId: "c1-casual-grace",
+      hairStyle: "female-bob-01",
+      hairColor: "brown",
+      skinTone: "warm",
+      face: "basic-01",
+      name: "RuntimeQA",
+    }));
+  });
+
+  await page.goto("/?debug=1&seed=123");
+  const stage = page.locator(".stage-3d");
+  await expect(stage).toHaveAttribute("data-character-asset-id", "c1-casual-grace");
+  await expect(stage).toHaveAttribute("data-character-profile-version", "1");
+});
+
+test("C3.1 Solo stage falls back to the default catalog character for invalid saved data", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify({
+      version: 1,
+      gender: "female",
+      characterAssetId: "unknown-character",
+      hairStyle: "unknown",
+      hairColor: "brown",
+      skinTone: "warm",
+      face: "basic-01",
+      name: "Broken",
+    }));
+  });
+
+  await page.goto("/?debug=1&seed=123");
+  await expect(page.locator(".stage-3d")).toHaveAttribute("data-character-asset-id", "c1-casual-grace");
+});
