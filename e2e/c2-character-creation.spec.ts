@@ -25,5 +25,15 @@ test("C2 character creation keeps one real female starter and an interactive 360
   const after = await viewport.getAttribute("data-yaw");
   expect(after).not.toBe(before);
 
+
+  const stage = page.getByTestId("c2-character-stage");
+  await expect(stage).toHaveAttribute("data-focus", "hair");
+  await page.getByRole("button", { name: "Mặt" }).click();
+  await expect(stage).toHaveAttribute("data-focus", "face");
+  await page.getByRole("button", { name: "Tạo hình" }).click();
+  await expect(stage).toHaveAttribute("data-focus", "body");
+  await page.getByRole("button", { name: "Giày" }).click();
+  await expect(stage).toHaveAttribute("data-focus", "shoes");
+
   await page.getByRole("button", { name: "♂ Nam C2.2" }).isDisabled();
 });
