@@ -94,7 +94,9 @@
 
 @media (max-width: 700px) and (orientation: portrait) {
   .judgement {
-    top: 42%;
+    /* Keep judgement art in the visual gap above the dancer's head so
+       Perfect/Great/Cool/Bad/Miss never mask the character choreography. */
+    top: 32.5%;
     max-width: calc(100vw - 32px);
   }
 }
