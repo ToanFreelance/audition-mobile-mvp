@@ -33,6 +33,8 @@ type RestBone = {
   bone: THREE.Bone;
   position: THREE.Vector3;
   quaternion: THREE.Quaternion;
+  localQuaternion: THREE.Quaternion;
+  axis: THREE.Vector3;
 };
 
 function updateWorld(skeleton: THREE.Skeleton) {
@@ -52,9 +54,49 @@ function captureRest(skeleton: THREE.Skeleton) {
       bone,
       position: bone.getWorldPosition(new THREE.Vector3()),
       quaternion: bone.getWorldQuaternion(new THREE.Quaternion()).normalize(),
+      localQuaternion: bone.quaternion.clone().normalize(),
+      axis: bone.children.find((child): child is THREE.Bone => (child as THREE.Bone).isBone)
+        ?.position.clone().normalize() ?? new THREE.Vector3(0, 1, 0),
     });
   }
   return byName;
+}
+
+const ARM_STABILIZATION: Record<string, { blend: number; swing: number; twist: number }> = {
+  LeftShoulder: { blend: 0.7, swing: 55, twist: 35 },
+  RightShoulder: { blend: 0.7, swing: 55, twist: 35 },
+  LeftArm: { blend: 1, swing: 145, twist: 75 },
+  RightArm: { blend: 1, swing: 145, twist: 75 },
+  LeftForeArm: { blend: 0.85, swing: 130, twist: 48 },
+  RightForeArm: { blend: 0.85, swing: 130, twist: 48 },
+  LeftHand: { blend: 0.55, swing: 65, twist: 40 },
+  RightHand: { blend: 0.55, swing: 65, twist: 40 },
+  Neck: { blend: 0.75, swing: 35, twist: 30 },
+  Head: { blend: 0.75, swing: 45, twist: 35 },
+};
+
+// The Mixamo bind pose and the Quaternius bind pose put different amounts of
+// arm roll into adjacent bones. Limit only the target's rest-relative *local*
+// twist/swing, after the world-space solve; leave leg/torso choreography alone.
+function stabilizeLocal(target: RestBone, candidate: THREE.Quaternion): THREE.Quaternion {
+  const boneName = target.bone.name.replace(/^mixamorig[:_]?/, "");
+  const settings = ARM_STABILIZATION[boneName];
+  if (!settings) return candidate;
+  const delta = target.localQuaternion.clone().invert().multiply(candidate).normalize();
+  const blended = new THREE.Quaternion().slerp(delta, settings.blend).normalize();
+  const axis = target.axis.lengthSq() > 0.25 ? target.axis : new THREE.Vector3(0, 1, 0);
+  const projection = blended.x * axis.x + blended.y * axis.y + blended.z * axis.z;
+  const twist = new THREE.Quaternion(axis.x * projection, axis.y * projection, axis.z * projection, blended.w).normalize();
+  const swing = blended.clone().multiply(twist.clone().invert()).normalize();
+  const maxSwing = THREE.MathUtils.degToRad(settings.swing);
+  if (swing.angleTo(new THREE.Quaternion()) > maxSwing) {
+    swing.slerp(new THREE.Quaternion(), 1 - maxSwing / swing.angleTo(new THREE.Quaternion()));
+  }
+  const angle = THREE.MathUtils.euclideanModulo(2 * Math.atan2(projection, blended.w) + Math.PI, 2 * Math.PI) - Math.PI;
+  const half = THREE.MathUtils.clamp(angle, -THREE.MathUtils.degToRad(settings.twist),
+    THREE.MathUtils.degToRad(settings.twist)) * 0.5;
+  const clampedTwist = new THREE.Quaternion(axis.x * Math.sin(half), axis.y * Math.sin(half), axis.z * Math.sin(half), Math.cos(half));
+  return target.localQuaternion.clone().multiply(swing).multiply(clampedTwist).normalize();
 }
 
 function required(rest: Map<string, RestBone>, name: string) {
@@ -141,13 +183,13 @@ export function retargetQuaterniusClipsToMixamo(
             ? desiredWorld.get(parent as THREE.Bone)?.clone()
               ?? required(targetRest, parent.name).quaternion.clone()
             : parent?.getWorldQuaternion(new THREE.Quaternion()).normalize() ?? new THREE.Quaternion();
-          const local = parentWorld.invert().multiply(desired).normalize();
+          const local = stabilizeLocal(target, parentWorld.clone().invert().multiply(desired).normalize());
           if (previous[index] && previous[index].dot(local) < 0) {
             local.set(-local.x, -local.y, -local.z, -local.w);
           }
           previous[index] = local.clone();
           values[index].push(local.x, local.y, local.z, local.w);
-          desiredWorld.set(target.bone, desired);
+          desiredWorld.set(target.bone, parentWorld.multiply(local).normalize());
         });
       }
 

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import sharp from "sharp";
 import { CharacterAnimationController } from "../components/character/CharacterAnimationController";
 import { CharacterActor } from "../components/character/CharacterActor";
 import { retargetQuaterniusClipsToMixamo } from "../components/character/mixamo-character-adapter";
@@ -31,10 +32,31 @@ test("C1 asset retains real skin and excludes Running/Walking gameplay clips", a
   const gltf = await parseGlb(characterPath);
   const mesh = skinned(gltf.scene);
   expect(mesh.skeleton.bones).toHaveLength(28);
-  expect(mesh.geometry.getAttribute("position").count).toBe(12_729);
+  expect(mesh.geometry.getAttribute("position").count).toBe(33_398);
+  expect(mesh.geometry.index?.count).toBe(48_000 * 3);
+  const positions = mesh.geometry.getAttribute("position");
+  const indices = mesh.geometry.index!;
+  let maxEdge = 0;
+  for (let i = 0; i < indices.count; i += 3) for (let side = 0; side < 3; side++) {
+    const a = indices.getX(i + side);
+    const b = indices.getX(i + (side + 1) % 3);
+    maxEdge = Math.max(maxEdge, Math.hypot(positions.getX(a) - positions.getX(b),
+      positions.getY(a) - positions.getY(b), positions.getZ(a) - positions.getZ(b)));
+  }
+  expect(maxEdge).toBeLessThan(0.2);
   expect(mesh.geometry.getAttribute("skinIndex").itemSize).toBe(4);
   expect(mesh.geometry.getAttribute("skinWeight").itemSize).toBe(4);
   expect(gltf.animations).toHaveLength(0);
+  const bytes = readFileSync(characterPath);
+  const jsonLength = bytes.readUInt32LE(12);
+  const document = JSON.parse(bytes.toString("utf8", 20, 20 + jsonLength));
+  const binOffset = 20 + jsonLength + 8;
+  for (const image of document.images as Array<{ bufferView: number }>) {
+    const view = document.bufferViews[image.bufferView];
+    const info = await sharp(bytes.subarray(binOffset + view.byteOffset,
+      binOffset + view.byteOffset + view.byteLength)).metadata();
+    expect([info.width, info.height]).toEqual([1024, 1024]);
+  }
   for (const inverse of mesh.skeleton.boneInverses) {
     expect(inverse.elements.every(Number.isFinite)).toBe(true);
   }
@@ -45,6 +67,73 @@ test("C1 asset retains real skin and excludes Running/Walking gameplay clips", a
     maximumWeightError = Math.max(maximumWeightError, Math.abs(sum - 1));
   }
   expect(maximumWeightError).toBeLessThan(0.01);
+});
+
+test("C1.1 extreme arm motions keep target elbows/wrists bounded without root translation", async () => {
+  const character = await parseGlb(characterPath);
+  const target = skinned(character.scene);
+  const root = new THREE.Group();
+  const bones = new Map<string, THREE.Bone>();
+  const add = (name: string, parent: string | null, x: number, y: number, z = 0) => {
+    const bone = new THREE.Bone(); bone.name = name; bone.position.set(x, y, z);
+    (parent ? bones.get(parent)! : root).add(bone); bones.set(name, bone);
+  };
+  add("pelvis", null, 0, 1);
+  add("spine_01", "pelvis", 0, 0.13); add("spine_02", "spine_01", 0, 0.13);
+  add("spine_03", "spine_02", 0, 0.13); add("neck_01", "spine_03", 0, 0.13);
+  add("Head", "neck_01", 0, 0.15);
+  for (const [side, sign] of [["l", 1], ["r", -1]] as const) {
+    add(`clavicle_${side}`, "spine_03", sign * 0.12, 0.08);
+    add(`upperarm_${side}`, `clavicle_${side}`, sign * 0.14, 0);
+    add(`lowerarm_${side}`, `upperarm_${side}`, sign * 0.20, -0.03);
+    add(`hand_${side}`, `lowerarm_${side}`, sign * 0.19, -0.03);
+    add(`thigh_${side}`, "pelvis", sign * 0.1, -0.12);
+    add(`calf_${side}`, `thigh_${side}`, 0, -0.35);
+    add(`foot_${side}`, `calf_${side}`, 0, -0.31);
+    add(`ball_${side}`, `foot_${side}`, 0, -0.07, 0.1);
+  }
+  root.updateMatrixWorld(true);
+  const source = new THREE.Skeleton([...bones.values()]);
+  const makeClip = (name: string, angle: number) => {
+    const track = (bone: string, axis: THREE.Vector3, multiplier: number) => {
+      const rest = new THREE.Quaternion();
+      const posed = new THREE.Quaternion().setFromAxisAngle(axis, angle * multiplier);
+      return new THREE.QuaternionKeyframeTrack(`${bone}.quaternion`, [0, 0.5, 1],
+        [...rest.toArray(), ...posed.toArray(), ...rest.toArray()]);
+    };
+    return new THREE.AnimationClip(name, 1, [
+      track("upperarm_l", new THREE.Vector3(0, 0, 1), 1),
+      track("upperarm_r", new THREE.Vector3(0, 0, 1), -1),
+      track("lowerarm_l", new THREE.Vector3(1, 0, 0), 1.4),
+      track("lowerarm_r", new THREE.Vector3(1, 0, 0), -1.4),
+      track("hand_l", new THREE.Vector3(1, 0, 0), 1.8),
+      track("hand_r", new THREE.Vector3(1, 0, 0), -1.8),
+      track("Head", new THREE.Vector3(0, 0, 1), 0.6),
+    ]);
+  };
+  const names = ["Idle", "HumanDance01", "HumanMiss", "HumanFinalDance01"];
+  const clips = retargetQuaterniusClipsToMixamo(root, source, target.skeleton,
+    names.map((name, i) => makeClip(name, [0.18, 1.6, 2.1, 2.5][i])));
+  expect(clips.map(clip => clip.name)).toEqual(names);
+  const targetBones = target.skeleton.bones;
+  const mixamo = (name: string) => targetBones.find(bone => bone.name.endsWith(name))!;
+  const initialHips = mixamo("Hips").position.clone();
+  const initialHands = [mixamo("LeftHand"), mixamo("RightHand")].map(bone => bone.quaternion.clone());
+  const mixer = new THREE.AnimationMixer(character.scene);
+  for (const clip of clips) {
+    expect(clip.tracks.every(track => track.name.endsWith(".quaternion"))).toBe(true);
+    const action = mixer.clipAction(clip); action.play(); mixer.setTime(0.5);
+    expect(targetBones.every(bone => bone.quaternion.toArray().every(Number.isFinite))).toBe(true);
+    expect(mixamo("Hips").position.distanceTo(initialHips)).toBeLessThan(1e-5);
+    const bounds = new THREE.Box3().setFromObject(character.scene, true);
+    expect([...bounds.min.toArray(), ...bounds.max.toArray()].every(Number.isFinite)).toBe(true);
+    expect(bounds.getSize(new THREE.Vector3()).length()).toBeLessThan(4);
+    for (const [index, hand] of [mixamo("LeftHand"), mixamo("RightHand")].entries()) {
+      expect(hand.quaternion.angleTo(initialHands[index])).toBeLessThan(THREE.MathUtils.degToRad(85));
+    }
+    action.stop(); target.skeleton.pose();
+  }
+  mixer.stopAllAction();
 });
 
 const externalFixtures = ["C1_QUATERNIUS_GLB", "C1_UAL1_GLB", "C1_PUBLISHED_RELEASE_JSON"].every(key => Boolean(process.env[key]));
