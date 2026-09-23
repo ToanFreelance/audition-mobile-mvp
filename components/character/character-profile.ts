@@ -1,9 +1,18 @@
+import {
+  DEFAULT_CHARACTER_ASSET_ID,
+  getCharacterCatalogEntry,
+  isAvailableCharacterChoice,
+  isCharacterAssetId,
+  type CharacterAssetId,
+  type CharacterGender,
+} from "./character-catalog";
+
 export const CHARACTER_CREATION_DRAFT_KEY = "audition.characterCreationDraft.v1";
 
 export type CharacterCreationProfileV1 = {
   version: 1;
-  gender: "female";
-  characterAssetId: "c1-casual-grace";
+  gender: CharacterGender;
+  characterAssetId: CharacterAssetId;
   hairStyle: string;
   hairColor: string;
   skinTone: string;
@@ -11,14 +20,17 @@ export type CharacterCreationProfileV1 = {
   name: string;
 };
 
+const DEFAULT_CHARACTER = getCharacterCatalogEntry(DEFAULT_CHARACTER_ASSET_ID);
+if (!DEFAULT_CHARACTER) throw new Error("Default character catalog entry is missing.");
+
 export const DEFAULT_CHARACTER_CREATION_PROFILE: CharacterCreationProfileV1 = {
   version: 1,
-  gender: "female",
-  characterAssetId: "c1-casual-grace",
-  hairStyle: "female-bob-01",
-  hairColor: "brown",
-  skinTone: "warm",
-  face: "basic-01",
+  gender: DEFAULT_CHARACTER.gender,
+  characterAssetId: DEFAULT_CHARACTER.id,
+  hairStyle: DEFAULT_CHARACTER.defaultAppearance.hairStyle,
+  hairColor: DEFAULT_CHARACTER.defaultAppearance.hairColor,
+  skinTone: DEFAULT_CHARACTER.defaultAppearance.skinTone,
+  face: DEFAULT_CHARACTER.defaultAppearance.face,
   name: "Luna",
 };
 
@@ -33,21 +45,28 @@ export function parseCharacterCreationDraft(raw: string | null): CharacterCreati
     const value = JSON.parse(raw) as Partial<CharacterCreationProfileV1>;
     if (
       value.version !== 1
-      || value.gender !== "female"
-      || value.characterAssetId !== "c1-casual-grace"
-      || !isNonEmptyString(value.hairStyle)
-      || !isNonEmptyString(value.hairColor)
-      || !isNonEmptyString(value.skinTone)
-      || !isNonEmptyString(value.face)
+      || !isCharacterAssetId(value.characterAssetId)
       || !isNonEmptyString(value.name)
+    ) {
+      return null;
+    }
+
+    const character = getCharacterCatalogEntry(value.characterAssetId);
+    if (!character || value.gender !== character.gender) return null;
+
+    if (
+      !isAvailableCharacterChoice(character.appearance.hairStyles, value.hairStyle)
+      || !isAvailableCharacterChoice(character.appearance.hairColors, value.hairColor)
+      || !isAvailableCharacterChoice(character.appearance.skinTones, value.skinTone)
+      || !isAvailableCharacterChoice(character.appearance.faces, value.face)
     ) {
       return null;
     }
 
     return {
       version: 1,
-      gender: "female",
-      characterAssetId: "c1-casual-grace",
+      gender: character.gender,
+      characterAssetId: character.id,
       hairStyle: value.hairStyle,
       hairColor: value.hairColor,
       skinTone: value.skinTone,

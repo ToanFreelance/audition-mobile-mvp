@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { C1_CASUAL_GRACE_ASSET_URL } from "./mixamo-character-adapter";
+import { resolveCharacterAssetUrl, type CharacterAssetId } from "./character-catalog";
 import { disposeObjectResources } from "./CharacterActor";
 import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
 import styles from "./CharacterCreationStage3D.module.css";
@@ -13,6 +13,7 @@ export type CharacterCreatorFocus = "hair" | "face" | "body" | "outfit" | "acces
 type Props = {
   yaw: number;
   focus: CharacterCreatorFocus;
+  assetId: CharacterAssetId;
 };
 
 type PreviewFrame = {
@@ -23,17 +24,11 @@ type PreviewFrame = {
 };
 
 const PREVIEW_FRAMES: Record<CharacterCreatorFocus, PreviewFrame> = {
-  // Hair shows the head, hairstyle silhouette, neck and shoulders.
   hair: { fov: 26, cameraY: 3.02, cameraZ: 2.25, targetY: 3.02 },
-  // Face is deliberately the tightest crop for eyes / nose / mouth review.
   face: { fov: 24, cameraY: 3.08, cameraZ: 1.78, targetY: 3.08 },
-  // Body is the neutral full-character framing used for proportions / skin.
   body: { fov: 34, cameraY: 2.25, cameraZ: 7.2, targetY: 1.72 },
-  // Outfit should read torso through upper legs without hiding silhouette.
   outfit: { fov: 30, cameraY: 2.18, cameraZ: 5.05, targetY: 1.88 },
-  // Generic accessory focus stays upper-body until item-specific anchors exist.
   accessory: { fov: 28, cameraY: 2.42, cameraZ: 4.55, targetY: 2.18 },
-  // Shoes intentionally frame the lower body / feet.
   shoes: { fov: 28, cameraY: 1.02, cameraZ: 4.45, targetY: 0.72 },
 };
 
@@ -56,7 +51,7 @@ function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
 }
 
-export default function CharacterCreationStage3D({ yaw, focus }: Props) {
+export default function CharacterCreationStage3D({ yaw, focus, assetId }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const modelRef = useRef<THREE.Object3D | null>(null);
   const renderRef = useRef<(() => void) | null>(null);
@@ -69,6 +64,7 @@ export default function CharacterCreationStage3D({ yaw, focus }: Props) {
 
     let disposed = false;
     let focusRaf = 0;
+    setState("loading");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x08091f);
     scene.fog = new THREE.FogExp2(0x08091f, 0.055);
@@ -210,7 +206,9 @@ export default function CharacterCreationStage3D({ yaw, focus }: Props) {
     resize();
 
     const loader = new GLTFLoader();
-    void loader.loadAsync(C1_CASUAL_GRACE_ASSET_URL)
+    const assetUrl = resolveCharacterAssetUrl(assetId);
+    host.dataset.characterAssetId = assetId;
+    void loader.loadAsync(assetUrl)
       .then(gltf => {
         if (disposed) {
           disposeObjectResources(gltf.scene);
@@ -220,13 +218,13 @@ export default function CharacterCreationStage3D({ yaw, focus }: Props) {
         gltf.scene.rotation.y = yaw;
         modelRef.current = gltf.scene;
         scene.add(gltf.scene);
-        host.dataset.characterSource = "c1-casual-grace";
+        host.dataset.characterSource = assetId;
         setState("ready");
         applyFocus(focus, false);
       })
       .catch(error => {
         if (disposed) return;
-        console.warn("[C2] Character creation preview failed", error);
+        console.warn("[C3] Character creation preview failed", error);
         setState("fallback");
       });
 
@@ -242,7 +240,7 @@ export default function CharacterCreationStage3D({ yaw, focus }: Props) {
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, []);
+  }, [assetId]);
 
   useEffect(() => {
     if (!modelRef.current) return;
