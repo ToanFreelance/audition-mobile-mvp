@@ -29,6 +29,7 @@ const TABS: Array<{ id: CreatorTab; icon: string; label: string; locked?: boolea
 
 const CHARACTER_DEFINITION = getCharacterCatalogEntry(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
 if (!CHARACTER_DEFINITION) throw new Error("C3 creator character is missing from catalog.");
+const CREATOR_CHARACTER = CHARACTER_DEFINITION;
 
 function ChoiceCard({
   choice,
@@ -70,8 +71,8 @@ export default function CharacterCreationV1() {
   const valid = normalizedName.length > 0;
   const profile = useMemo<CharacterCreationProfileV1>(() => ({
     version: 1,
-    gender: CHARACTER_DEFINITION.gender,
-    characterAssetId: CHARACTER_DEFINITION.id,
+    gender: CREATOR_CHARACTER.gender,
+    characterAssetId: CREATOR_CHARACTER.id,
     hairStyle,
     hairColor,
     skinTone,
@@ -131,7 +132,7 @@ export default function CharacterCreationV1() {
   return (
     <main
       className={styles.page}
-      data-character-asset={CHARACTER_DEFINITION.id}
+      data-character-asset={CREATOR_CHARACTER.id}
       data-profile-version="1"
       data-testid="c2-character-creation"
     >
@@ -179,9 +180,9 @@ export default function CharacterCreationV1() {
           </div>
 
           <div className={styles.heroBadge}>
-            <span>{CHARACTER_DEFINITION.creatorBadge}</span>
-            <strong>{CHARACTER_DEFINITION.label}</strong>
-            <small>{CHARACTER_DEFINITION.creatorVersionLabel}</small>
+            <span>{CREATOR_CHARACTER.creatorBadge}</span>
+            <strong>{CREATOR_CHARACTER.label}</strong>
+            <small>{CREATOR_CHARACTER.creatorVersionLabel}</small>
           </div>
         </div>
 
@@ -196,7 +197,7 @@ export default function CharacterCreationV1() {
               <div>
                 <label>MÀU TÓC</label>
                 <div className={styles.swatches}>
-                  {CHARACTER_DEFINITION.appearance.hairColors.map(choice => (
+                  {CREATOR_CHARACTER.appearance.hairColors.map(choice => (
                     <button
                       aria-label={choice.label}
                       className={[styles.swatch, styles[`hair_${choice.id}`], hairColor === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
@@ -209,7 +210,7 @@ export default function CharacterCreationV1() {
                 </div>
               </div>
               <div className={styles.choiceGrid}>
-                {CHARACTER_DEFINITION.appearance.hairStyles.map((choice, index) => (
+                {CREATOR_CHARACTER.appearance.hairStyles.map((choice, index) => (
                   <ChoiceCard
                     choice={choice}
                     icon={index === 0 ? "◖" : index === 1 ? "⌒" : "⑂"}
@@ -224,7 +225,7 @@ export default function CharacterCreationV1() {
 
           {tab === "face" && (
             <div className={styles.choiceGrid}>
-              {CHARACTER_DEFINITION.appearance.faces.map((choice, index) => (
+              {CREATOR_CHARACTER.appearance.faces.map((choice, index) => (
                 <ChoiceCard
                   choice={choice}
                   icon={index === 0 ? "◉" : "◎"}
@@ -246,7 +247,7 @@ export default function CharacterCreationV1() {
               <div className={styles.bodyCard}>
                 <label>MÀU DA</label>
                 <div className={styles.swatches}>
-                  {CHARACTER_DEFINITION.appearance.skinTones.map(choice => (
+                  {CREATOR_CHARACTER.appearance.skinTones.map(choice => (
                     <button
                       aria-label={choice.label}
                       className={[styles.swatch, styles[`skin_${choice.id}`], skinTone === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
