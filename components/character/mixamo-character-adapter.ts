@@ -37,6 +37,22 @@ type RestBone = {
   axis: THREE.Vector3;
 };
 
+type ArmChain = {
+  sourceUpper: RestBone;
+  sourceFore: RestBone;
+  sourceHand: RestBone;
+  targetUpper: RestBone;
+  targetFore: RestBone;
+  targetHand: RestBone;
+  targetRestNormal: THREE.Vector3;
+};
+
+type ArmFrame = {
+  upperDirection: THREE.Vector3;
+  foreDirection: THREE.Vector3;
+  bendNormal: THREE.Vector3;
+};
+
 function updateWorld(skeleton: THREE.Skeleton) {
   let top: THREE.Object3D = skeleton.bones[0];
   if (!top) throw new Error("Empty humanoid skeleton");
@@ -62,27 +78,7 @@ function captureRest(skeleton: THREE.Skeleton) {
   return byName;
 }
 
-type ArmDirectionSetting = {
-  sourceChild: string;
-  targetChild: string;
-  blend: number;
-  maxSwingDegrees: number;
-};
-
-// Quaternius and Mixamo use different arm bone roll/rest axes. For the arm
-// chain, transfer *segment direction* (swing) instead of the full world
-// quaternion delta. This deliberately keeps the target rig's own bind-pose
-// roll and avoids corkscrew forearms/wrists.
-const ARM_DIRECTION_SETTINGS: Record<string, ArmDirectionSetting> = {
-  LeftShoulder: { sourceChild: "upperarm_l", targetChild: "LeftArm", blend: 0.35, maxSwingDegrees: 38 },
-  RightShoulder: { sourceChild: "upperarm_r", targetChild: "RightArm", blend: 0.35, maxSwingDegrees: 38 },
-  LeftArm: { sourceChild: "lowerarm_l", targetChild: "LeftForeArm", blend: 0.95, maxSwingDegrees: 135 },
-  RightArm: { sourceChild: "lowerarm_r", targetChild: "RightForeArm", blend: 0.95, maxSwingDegrees: 135 },
-  LeftForeArm: { sourceChild: "hand_l", targetChild: "LeftHand", blend: 0.95, maxSwingDegrees: 145 },
-  RightForeArm: { sourceChild: "hand_r", targetChild: "RightHand", blend: 0.95, maxSwingDegrees: 145 },
-};
-
-const LOCKED_HANDS = new Set(["LeftHand", "RightHand"]);
+const LOCKED_ARM_JOINTS = new Set(["LeftShoulder", "RightShoulder", "LeftHand", "RightHand"]);
 
 const HEAD_STABILIZATION: Record<string, { blend: number; swing: number; twist: number }> = {
   Neck: { blend: 0.75, swing: 35, twist: 30 },
@@ -95,66 +91,111 @@ function semanticMixamoName(value: string) {
 
 function restDirection(from: RestBone, to: RestBone) {
   const direction = to.position.clone().sub(from.position);
-  if (direction.lengthSq() < 1e-8) throw new Error(`C1.2 degenerate rest segment: ${from.bone.name}`);
+  if (direction.lengthSq() < 1e-8) throw new Error(`C1.3 degenerate rest segment: ${from.bone.name}`);
   return direction.normalize();
 }
 
 function animatedDirection(from: RestBone, to: RestBone) {
   const direction = to.bone.getWorldPosition(new THREE.Vector3())
     .sub(from.bone.getWorldPosition(new THREE.Vector3()));
-  if (direction.lengthSq() < 1e-8) throw new Error(`C1.2 degenerate animated segment: ${from.bone.name}`);
+  if (direction.lengthSq() < 1e-8) throw new Error(`C1.3 degenerate animated segment: ${from.bone.name}`);
   return direction.normalize();
 }
 
-function clampSwing(swing: THREE.Quaternion, maxDegrees: number) {
-  const identity = new THREE.Quaternion();
-  const angle = identity.angleTo(swing);
-  const maximum = THREE.MathUtils.degToRad(maxDegrees);
-  if (!(angle > maximum)) return swing;
-  return identity.slerp(swing, maximum / angle).normalize();
+function armPlaneNormal(
+  upperDirection: THREE.Vector3,
+  foreDirection: THREE.Vector3,
+  fallback: THREE.Vector3,
+) {
+  const normal = upperDirection.clone().cross(foreDirection);
+  if (normal.lengthSq() < 1e-6) return fallback.clone().normalize();
+  return normal.normalize();
 }
 
-function solveArmDirectionWorld(
-  source: RestBone,
-  sourceChild: RestBone,
-  target: RestBone,
-  targetChild: RestBone,
-  alignment: THREE.Quaternion,
-  alignmentInverse: THREE.Quaternion,
-  settings: ArmDirectionSetting,
-) {
-  const sourceRestDirection = restDirection(source, sourceChild);
-  const sourceAnimatedDirection = animatedDirection(source, sourceChild);
-
-  // Transfer only the physical swing of the source segment into the target
-  // anatomical world frame. The target's rest quaternion supplies its own
-  // bone roll, so Quaternius roll never leaks into Mixamo.
-  const sourceSwing = new THREE.Quaternion()
-    .setFromUnitVectors(sourceRestDirection, sourceAnimatedDirection)
-    .normalize();
-  const alignedSwing = alignment.clone()
-    .multiply(sourceSwing)
-    .multiply(alignmentInverse)
-    .normalize();
-
-  const targetRestDirection = restDirection(target, targetChild);
-  const targetDesiredDirection = targetRestDirection.clone()
-    .applyQuaternion(alignedSwing)
-    .normalize();
-  let targetSwing = new THREE.Quaternion()
-    .setFromUnitVectors(targetRestDirection, targetDesiredDirection)
-    .normalize();
-
-  if (settings.blend < 1) {
-    targetSwing = new THREE.Quaternion().slerp(targetSwing, settings.blend).normalize();
+function makeFrameQuaternion(primaryInput: THREE.Vector3, normalInput: THREE.Vector3) {
+  const primary = primaryInput.clone().normalize();
+  const normal = normalInput.clone().addScaledVector(primary, -normalInput.dot(primary));
+  if (normal.lengthSq() < 1e-6) {
+    const helper = Math.abs(primary.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
+    normal.copy(primary).cross(helper);
   }
-  targetSwing = clampSwing(targetSwing, settings.maxSwingDegrees);
+  normal.normalize();
+  const secondary = normal.clone().cross(primary).normalize();
+  return new THREE.Quaternion().setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(primary, secondary, normal),
+  ).normalize();
+}
 
-  return targetSwing.multiply(target.quaternion).normalize();
+function solveAbsoluteArmWorld(
+  target: RestBone,
+  targetRestDirection: THREE.Vector3,
+  targetRestNormal: THREE.Vector3,
+  desiredDirection: THREE.Vector3,
+  desiredNormal: THREE.Vector3,
+) {
+  // C1/C1.2 incorrectly transferred a delta on top of Casual Grace's authored
+  // bind arm direction. That bind pose is already bent downward, so even a
+  // correct source delta kept the arm biased toward the Running/Walking bind.
+  // C1.3 maps the ABSOLUTE Quaternius segment direction and elbow plane into
+  // target anatomical space, then applies that world-frame delta to the
+  // target bind quaternion. This removes the bad baseline without changing
+  // skin weights or inverse bind matrices.
+  const restFrame = makeFrameQuaternion(targetRestDirection, targetRestNormal);
+  const desiredFrame = makeFrameQuaternion(desiredDirection, desiredNormal);
+  const frameDelta = desiredFrame.multiply(restFrame.invert()).normalize();
+  return frameDelta.multiply(target.quaternion).normalize();
+}
+
+function buildArmChain(
+  sourceRest: Map<string, RestBone>,
+  targetRest: Map<string, RestBone>,
+  side: "Left" | "Right",
+): ArmChain {
+  const suffix = side === "Left" ? "l" : "r";
+  const sourceUpper = required(sourceRest, `upperarm_${suffix}`);
+  const sourceFore = required(sourceRest, `lowerarm_${suffix}`);
+  const sourceHand = required(sourceRest, `hand_${suffix}`);
+  const targetUpper = requiredMixamo(targetRest, `${side}Arm`);
+  const targetFore = requiredMixamo(targetRest, `${side}ForeArm`);
+  const targetHand = requiredMixamo(targetRest, `${side}Hand`);
+  const targetRestNormal = armPlaneNormal(
+    restDirection(targetUpper, targetFore),
+    restDirection(targetFore, targetHand),
+    new THREE.Vector3(0, 0, side === "Left" ? 1 : -1),
+  );
+  return { sourceUpper, sourceFore, sourceHand, targetUpper, targetFore, targetHand, targetRestNormal };
+}
+
+function animatedArmFrame(
+  chain: ArmChain,
+  alignment: THREE.Quaternion,
+  previousNormal: THREE.Vector3 | null,
+): ArmFrame {
+  // Map ABSOLUTE source directions. Do not derive a source-rest delta and do
+  // not rotate the already-bent Mixamo bind direction by that delta.
+  const upperDirection = animatedDirection(chain.sourceUpper, chain.sourceFore)
+    .applyQuaternion(alignment)
+    .normalize();
+  const foreDirection = animatedDirection(chain.sourceFore, chain.sourceHand)
+    .applyQuaternion(alignment)
+    .normalize();
+
+  let bendNormal = upperDirection.clone().cross(foreDirection);
+  if (bendNormal.lengthSq() < 1e-6) {
+    bendNormal = previousNormal?.clone() ?? chain.targetRestNormal.clone();
+  } else {
+    bendNormal.normalize();
+    // A plane normal and its negation describe the same plane but produce a
+    // 180-degree roll difference. Preserve frame-to-frame sign continuity so
+    // an almost-straight elbow cannot flip the entire arm roll.
+    if (previousNormal && previousNormal.dot(bendNormal) < 0) bendNormal.negate();
+  }
+
+  return { upperDirection, foreDirection, bendNormal: bendNormal.normalize() };
 }
 
 // Face/head quality improved in C1.1, so retain its conservative neck/head
-// limiter. Arms no longer use this quaternion swing/twist clamp.
+// limiter. C1.3 only changes the arm calibration/solve.
 function stabilizeHeadLocal(target: RestBone, candidate: THREE.Quaternion): THREE.Quaternion {
   const settings = HEAD_STABILIZATION[semanticMixamoName(target.bone.name)];
   if (!settings) return candidate;
@@ -231,6 +272,8 @@ export function retargetQuaterniusClipsToMixamo(
   );
   const alignment = targetBasis.clone().multiply(sourceBasis.clone().invert()).normalize();
   const alignmentInverse = alignment.clone().invert();
+  const leftArm = buildArmChain(sourceRest, targetRest, "Left");
+  const rightArm = buildArmChain(sourceRest, targetRest, "Right");
   const mixer = new THREE.AnimationMixer(sourceRoot);
 
   try {
@@ -244,12 +287,20 @@ export function retargetQuaterniusClipsToMixamo(
       const times: number[] = [];
       const values = pairs.map(() => [] as number[]);
       const previous = pairs.map(() => null as THREE.Quaternion | null);
+      let previousLeftNormal: THREE.Vector3 | null = null;
+      let previousRightNormal: THREE.Vector3 | null = null;
 
       for (let frame = 0; frame < frameCount; frame += 1) {
         const time = frame === frameCount - 1 ? clip.duration : Math.min(clip.duration, frame / fps);
         times.push(time);
         mixer.setTime(time);
         sourceRoot.updateMatrixWorld(true);
+
+        const leftFrame = animatedArmFrame(leftArm, alignment, previousLeftNormal);
+        const rightFrame = animatedArmFrame(rightArm, alignment, previousRightNormal);
+        previousLeftNormal = leftFrame.bendNormal.clone();
+        previousRightNormal = rightFrame.bendNormal.clone();
+
         const desiredWorld = new Map<THREE.Bone, THREE.Quaternion>();
 
         pairs.forEach(({ source, target }, index) => {
@@ -262,32 +313,45 @@ export function retargetQuaterniusClipsToMixamo(
           const targetName = semanticMixamoName(target.bone.name);
           let local: THREE.Quaternion;
 
-          if (LOCKED_HANDS.has(targetName)) {
-            // C1.2 Mode A: do not transfer Quaternius wrist roll. Holding the
-            // Mixamo hand at its authored local rest orientation still inherits
-            // all forearm motion and removes the visible palm/wrist inversion.
+          if (LOCKED_ARM_JOINTS.has(targetName)) {
+            // Shoulder motion from the source can shift the upper-arm pivot and
+            // amplify this asset's non-neutral bind pose. Keep shoulders in the
+            // authored target local bind orientation. Hands likewise inherit
+            // the solved forearm and retain the asset's own wrist roll.
             local = target.localQuaternion.clone();
+          } else if (targetName === "LeftArm" || targetName === "RightArm") {
+            const chain = targetName === "LeftArm" ? leftArm : rightArm;
+            const armFrame = targetName === "LeftArm" ? leftFrame : rightFrame;
+            const desired = solveAbsoluteArmWorld(
+              chain.targetUpper,
+              restDirection(chain.targetUpper, chain.targetFore),
+              chain.targetRestNormal,
+              armFrame.upperDirection,
+              armFrame.bendNormal,
+            );
+            local = parentWorld.clone().invert().multiply(desired).normalize();
+          } else if (targetName === "LeftForeArm" || targetName === "RightForeArm") {
+            const chain = targetName === "LeftForeArm" ? leftArm : rightArm;
+            const armFrame = targetName === "LeftForeArm" ? leftFrame : rightFrame;
+            const desired = solveAbsoluteArmWorld(
+              chain.targetFore,
+              restDirection(chain.targetFore, chain.targetHand),
+              chain.targetRestNormal,
+              armFrame.foreDirection,
+              armFrame.bendNormal,
+            );
+            local = parentWorld.clone().invert().multiply(desired).normalize();
           } else {
-            const armSettings = ARM_DIRECTION_SETTINGS[targetName];
-            if (armSettings) {
-              const sourceChild = required(sourceRest, armSettings.sourceChild);
-              const targetChild = requiredMixamo(targetRest, armSettings.targetChild);
-              const desired = solveArmDirectionWorld(
-                source, sourceChild, target, targetChild,
-                alignment, alignmentInverse, armSettings,
-              );
-              local = parentWorld.clone().invert().multiply(desired).normalize();
-            } else {
-              const animated = source.bone.getWorldQuaternion(new THREE.Quaternion()).normalize();
-              const worldDelta = animated.multiply(source.quaternion.clone().invert()).normalize();
-              const alignedDelta = alignment.clone().multiply(worldDelta).multiply(alignmentInverse).normalize();
-              const desired = alignedDelta.multiply(target.quaternion).normalize();
-              local = stabilizeHeadLocal(
-                target,
-                parentWorld.clone().invert().multiply(desired).normalize(),
-              );
-            }
+            const animated = source.bone.getWorldQuaternion(new THREE.Quaternion()).normalize();
+            const worldDelta = animated.multiply(source.quaternion.clone().invert()).normalize();
+            const alignedDelta = alignment.clone().multiply(worldDelta).multiply(alignmentInverse).normalize();
+            const desired = alignedDelta.multiply(target.quaternion).normalize();
+            local = stabilizeHeadLocal(
+              target,
+              parentWorld.clone().invert().multiply(desired).normalize(),
+            );
           }
+
           if (previous[index] && previous[index].dot(local) < 0) {
             local.set(-local.x, -local.y, -local.z, -local.w);
           }
