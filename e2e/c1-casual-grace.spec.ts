@@ -69,7 +69,7 @@ test("C1 asset retains real skin and excludes Running/Walking gameplay clips", a
   expect(maximumWeightError).toBeLessThan(0.01);
 });
 
-test("C1.1 extreme arm motions keep target elbows/wrists bounded without root translation", async () => {
+test("C1.2 direction-based arms keep Mixamo wrists neutral without root translation", async () => {
   const character = await parseGlb(characterPath);
   const target = skinned(character.scene);
   const root = new THREE.Group();
@@ -129,7 +129,7 @@ test("C1.1 extreme arm motions keep target elbows/wrists bounded without root tr
     expect([...bounds.min.toArray(), ...bounds.max.toArray()].every(Number.isFinite)).toBe(true);
     expect(bounds.getSize(new THREE.Vector3()).length()).toBeLessThan(4);
     for (const [index, hand] of [mixamo("LeftHand"), mixamo("RightHand")].entries()) {
-      expect(hand.quaternion.angleTo(initialHands[index])).toBeLessThan(THREE.MathUtils.degToRad(85));
+      expect(hand.quaternion.angleTo(initialHands[index])).toBeLessThan(THREE.MathUtils.degToRad(2));
     }
     action.stop(); target.skeleton.pose();
   }
