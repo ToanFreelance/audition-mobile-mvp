@@ -22,21 +22,18 @@ type PreviewFrame = {
   targetY: number;
 };
 
-type DetailAnchors = {
-  topY: number;
-  neckY: number;
-  shoulderY: number;
-  bodyHeight: number;
-};
-
-// Body / outfit / accessory / shoes were owner-reviewed as acceptable in C2.1.
-// Hair and face are calibrated dynamically from the loaded character below.
-const BASE_PREVIEW_FRAMES: Record<CharacterCreatorFocus, PreviewFrame> = {
-  hair: { fov: 26, cameraY: 3.0, cameraZ: 2.25, targetY: 3.0 },
-  face: { fov: 24, cameraY: 3.05, cameraZ: 1.85, targetY: 3.05 },
+const PREVIEW_FRAMES: Record<CharacterCreatorFocus, PreviewFrame> = {
+  // Hair shows the head, hairstyle silhouette, neck and shoulders.
+  hair: { fov: 26, cameraY: 3.02, cameraZ: 2.25, targetY: 3.02 },
+  // Face is deliberately the tightest crop for eyes / nose / mouth review.
+  face: { fov: 24, cameraY: 3.08, cameraZ: 1.78, targetY: 3.08 },
+  // Body is the neutral full-character framing used for proportions / skin.
   body: { fov: 34, cameraY: 2.25, cameraZ: 7.2, targetY: 1.72 },
+  // Outfit should read torso through upper legs without hiding silhouette.
   outfit: { fov: 30, cameraY: 2.18, cameraZ: 5.05, targetY: 1.88 },
+  // Generic accessory focus stays upper-body until item-specific anchors exist.
   accessory: { fov: 28, cameraY: 2.42, cameraZ: 4.55, targetY: 2.18 },
+  // Shoes intentionally frame the lower body / feet.
   shoes: { fov: 28, cameraY: 1.02, cameraZ: 4.45, targetY: 0.72 },
 };
 
@@ -53,83 +50,6 @@ function normalizePreview(model: THREE.Object3D) {
   const center = bounds.getCenter(new THREE.Vector3());
   model.position.set(-center.x, -bounds.min.y, -center.z);
   model.updateMatrixWorld(true);
-}
-
-function canonicalMixamoName(value: string) {
-  return value.toLowerCase().replace(/^mixamorig[:_]?/, "").replace(/[^a-z0-9]/g, "");
-}
-
-function findBone(root: THREE.Object3D, semanticName: string) {
-  const wanted = canonicalMixamoName(semanticName);
-  let result: THREE.Bone | null = null;
-  root.traverse(object => {
-    if (result || !(object as THREE.Bone).isBone) return;
-    if (canonicalMixamoName(object.name) === wanted) result = object as THREE.Bone;
-  });
-  return result;
-}
-
-function collectDetailAnchors(model: THREE.Object3D): DetailAnchors | null {
-  model.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(model);
-  const size = bounds.getSize(new THREE.Vector3());
-  const neck = findBone(model, "Neck");
-  const leftShoulder = findBone(model, "LeftShoulder");
-  const rightShoulder = findBone(model, "RightShoulder");
-  if (!neck || !leftShoulder || !rightShoulder || !(size.y > 0)) return null;
-
-  const neckY = neck.getWorldPosition(new THREE.Vector3()).y;
-  const leftShoulderY = leftShoulder.getWorldPosition(new THREE.Vector3()).y;
-  const rightShoulderY = rightShoulder.getWorldPosition(new THREE.Vector3()).y;
-
-  return {
-    topY: bounds.max.y,
-    neckY,
-    shoulderY: (leftShoulderY + rightShoulderY) * 0.5,
-    bodyHeight: size.y,
-  };
-}
-
-function distanceForVerticalView(viewHeight: number, verticalFovDegrees: number) {
-  const halfFov = THREE.MathUtils.degToRad(verticalFovDegrees * 0.5);
-  return (viewHeight * 0.5) / Math.tan(halfFov);
-}
-
-function resolvePreviewFrame(focus: CharacterCreatorFocus, anchors: DetailAnchors | null): PreviewFrame {
-  const base = BASE_PREVIEW_FRAMES[focus];
-  if (!anchors || (focus !== "hair" && focus !== "face")) return base;
-
-  const { topY, neckY, shoulderY, bodyHeight } = anchors;
-
-  if (focus === "hair") {
-    // Hair customization should show the complete hairstyle and shoulder line,
-    // not the torso. Keep a small amount below the shoulder bones so the
-    // silhouette remains readable while rotating side/back views.
-    const lowerY = shoulderY - bodyHeight * 0.035;
-    const regionHeight = Math.max(bodyHeight * 0.18, topY - lowerY);
-    const viewHeight = regionHeight / 0.80;
-    const targetY = (topY + lowerY) * 0.5;
-    return {
-      fov: 26,
-      cameraY: targetY,
-      cameraZ: distanceForVerticalView(viewHeight, 26),
-      targetY,
-    };
-  }
-
-  // Face customization intentionally uses a tighter head/neck crop. The mesh
-  // top includes the hairstyle, while the neck bone gives a stable lower
-  // anatomical anchor independent of screen/device aspect ratio.
-  const lowerY = neckY - bodyHeight * 0.012;
-  const regionHeight = Math.max(bodyHeight * 0.14, topY - lowerY);
-  const viewHeight = regionHeight / 0.91;
-  const targetY = (topY + lowerY) * 0.5;
-  return {
-    fov: 24,
-    cameraY: targetY,
-    cameraZ: distanceForVerticalView(viewHeight, 24),
-    targetY,
-  };
 }
 
 function easeOutCubic(value: number) {
@@ -149,12 +69,11 @@ export default function CharacterCreationStage3D({ yaw, focus }: Props) {
 
     let disposed = false;
     let focusRaf = 0;
-    let detailAnchors: DetailAnchors | null = null;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x08091f);
     scene.fog = new THREE.FogExp2(0x08091f, 0.055);
 
-    const initialFrame = BASE_PREVIEW_FRAMES[focus];
+    const initialFrame = PREVIEW_FRAMES[focus];
     const camera = new THREE.PerspectiveCamera(initialFrame.fov, 1, 0.1, 50);
     camera.position.set(0, initialFrame.cameraY, initialFrame.cameraZ);
     const lookTarget = new THREE.Vector3(0, initialFrame.targetY, 0);
@@ -236,12 +155,8 @@ export default function CharacterCreationStage3D({ yaw, focus }: Props) {
     renderRef.current = render;
 
     const applyFocus = (nextFocus: CharacterCreatorFocus, animate = true) => {
-      const frame = resolvePreviewFrame(nextFocus, detailAnchors);
+      const frame = PREVIEW_FRAMES[nextFocus];
       cancelAnimationFrame(focusRaf);
-
-      host.dataset.cameraFocus = nextFocus;
-      host.dataset.cameraTargetY = frame.targetY.toFixed(3);
-      host.dataset.cameraDistance = frame.cameraZ.toFixed(3);
 
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (!animate || reducedMotion) {
@@ -305,9 +220,7 @@ export default function CharacterCreationStage3D({ yaw, focus }: Props) {
         gltf.scene.rotation.y = yaw;
         modelRef.current = gltf.scene;
         scene.add(gltf.scene);
-        detailAnchors = collectDetailAnchors(gltf.scene);
         host.dataset.characterSource = "c1-casual-grace";
-        host.dataset.framingSource = detailAnchors ? "skeleton-bounds" : "fallback-presets";
         setState("ready");
         applyFocus(focus, false);
       })
