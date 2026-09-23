@@ -1,7 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import CharacterCreationStage3D from "./CharacterCreationStage3D";
+import {
+  DEFAULT_CHARACTER_CREATION_PROFILE,
+  loadCharacterCreationDraft,
+  saveCharacterCreationDraft,
+  type CharacterCreationProfileV1,
+} from "./character-profile";
 import styles from "./CharacterCreationV1.module.css";
 
 type CreatorTab = "hair" | "face" | "body" | "outfit" | "accessory" | "shoes";
@@ -77,19 +83,19 @@ function ChoiceCard({
 export default function CharacterCreationV1() {
   const [tab, setTab] = useState<CreatorTab>("hair");
   const [yaw, setYaw] = useState(-0.08);
-  const [name, setName] = useState("Luna");
-  const [hairStyle, setHairStyle] = useState("female-bob-01");
-  const [hairColor, setHairColor] = useState("brown");
-  const [skinTone, setSkinTone] = useState("warm");
-  const [face, setFace] = useState("basic-01");
+  const [name, setName] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.name);
+  const [hairStyle, setHairStyle] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.hairStyle);
+  const [hairColor, setHairColor] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.hairColor);
+  const [skinTone, setSkinTone] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.skinTone);
+  const [face, setFace] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.face);
   const [created, setCreated] = useState(false);
   const dragRef = useRef<{ id: number; x: number; yaw: number } | null>(null);
 
   const normalizedName = name.trim();
   const valid = normalizedName.length > 0;
-  const profile = useMemo(() => ({
+  const profile = useMemo<CharacterCreationProfileV1>(() => ({
     version: 1,
-    gender: "female" as const,
+    gender: "female",
     characterAssetId: "c1-casual-grace",
     hairStyle,
     hairColor,
@@ -97,6 +103,21 @@ export default function CharacterCreationV1() {
     face,
     name: normalizedName,
   }), [face, hairColor, hairStyle, normalizedName, skinTone]);
+
+  useEffect(() => {
+    try {
+      const draft = loadCharacterCreationDraft(window.localStorage);
+      if (!draft) return;
+      setName(draft.name);
+      setHairStyle(draft.hairStyle);
+      setHairColor(draft.hairColor);
+      setSkinTone(draft.skinTone);
+      setFace(draft.face);
+      setCreated(true);
+    } catch {
+      // Local draft restore is optional. Account/profile authority remains Phase 7.
+    }
+  }, []);
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     dragRef.current = { id: event.pointerId, x: event.clientX, yaw };
@@ -125,7 +146,7 @@ export default function CharacterCreationV1() {
   const createCharacter = () => {
     if (!valid) return;
     try {
-      window.localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify(profile));
+      saveCharacterCreationDraft(window.localStorage, profile);
     } catch {
       // Draft persistence is optional. Account/profile authority belongs to Phase 7.
     }
@@ -133,7 +154,7 @@ export default function CharacterCreationV1() {
   };
 
   return (
-    <main className={styles.page} data-testid="c2-character-creation">
+    <main className={styles.page} data-profile-version="1" data-testid="c2-character-creation">
       <section className={styles.phone}>
         <header className={styles.header}>
           <button aria-label="Quay lại" className={styles.headerIcon} type="button">‹</button>

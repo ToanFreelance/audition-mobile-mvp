@@ -36,4 +36,12 @@ test("C2 character creation keeps one real female starter and an interactive 360
   await expect(stage).toHaveAttribute("data-focus", "shoes");
 
   await page.getByRole("button", { name: "♂ Nam C2.2" }).isDisabled();
+
+  await name.fill("MinaQA");
+  await confirm.click();
+  await expect(confirm).toContainText("ĐÃ SẴN SÀNG");
+  await page.reload();
+  await expect(page.getByLabel("Tên nhân vật")).toHaveValue("MinaQA");
+  await expect(page.getByTestId("c2-confirm-character")).toContainText("ĐÃ SẴN SÀNG");
+  await expect(root).toHaveAttribute("data-profile-version", "1");
 });
