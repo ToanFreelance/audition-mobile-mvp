@@ -38,7 +38,8 @@ type LatestBundle = LatestRelease & {
   normalIds: string[];
   finalIds: string[];
   idleIds: string[];
-  clips: RuntimeAnimationBundleClipJson[];
+  bundleSha256?: string;
+  bundleBytes?: number;
 };
 
 type PublishPayload = {
@@ -101,33 +102,32 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    void fetch(PUBLISH_ENDPOINT, { method: "GET", cache: "no-store" })
+    void fetch(PUBLISH_ENDPOINT + "?manifest=1", { method: "GET", cache: "no-cache" })
       .then(async response => {
         if (response.status === 404) return null;
         if (!response.ok) throw new Error(`Latest release check failed (${response.status})`);
-        const bundle = await response.json() as Record<string, unknown>;
-        const processingIds = Array.isArray(bundle.processingIds) ? bundle.processingIds.filter((id): id is string => typeof id === "string") : [];
-        const latestNormal = Array.isArray(bundle.normalIds) ? bundle.normalIds.filter((id): id is string => typeof id === "string") : processingIds;
-        const latestFinal = Array.isArray(bundle.finalIds) ? bundle.finalIds.filter((id): id is string => typeof id === "string") : [];
-        const latestIdle = Array.isArray(bundle.idleIds) ? bundle.idleIds.filter((id): id is string => typeof id === "string") : [];
-        const clips = Array.isArray(bundle.clips)
-          ? bundle.clips.filter((record): record is RuntimeAnimationBundleClipJson => {
-              if (!record || typeof record !== "object") return false;
-              const value = record as Record<string, unknown>;
-              return typeof value.assetId === "string" && typeof value.runtimeClipName === "string";
-            })
+        const manifest = await response.json() as Record<string, unknown>;
+        const latestNormal = Array.isArray(manifest.normalIds)
+          ? manifest.normalIds.filter((id): id is string => typeof id === "string")
+          : [];
+        const latestFinal = Array.isArray(manifest.finalIds)
+          ? manifest.finalIds.filter((id): id is string => typeof id === "string")
+          : [];
+        const latestIdle = Array.isArray(manifest.idleIds)
+          ? manifest.idleIds.filter((id): id is string => typeof id === "string")
           : [];
         return {
-          releaseVersion: Number(bundle.releaseVersion ?? 0),
-          clipCount: Number(bundle.clipCount ?? processingIds.length),
+          releaseVersion: Number(manifest.releaseVersion ?? 0),
+          clipCount: Number(manifest.clipCount ?? [...new Set([...latestNormal, ...latestFinal, ...latestIdle])].length),
           normalCount: latestNormal.length,
           finalCount: latestFinal.length,
           idleCount: latestIdle.length,
-          publishedAt: typeof bundle.publishedAt === "string" ? bundle.publishedAt : undefined,
+          publishedAt: typeof manifest.publishedAt === "string" ? manifest.publishedAt : undefined,
           normalIds: latestNormal,
           finalIds: latestFinal,
           idleIds: latestIdle,
-          clips,
+          bundleSha256: typeof manifest.bundleSha256 === "string" ? manifest.bundleSha256 : undefined,
+          bundleBytes: Number.isFinite(Number(manifest.bundleBytes)) ? Number(manifest.bundleBytes) : undefined,
         } satisfies LatestBundle;
       })
       .then(value => {
@@ -142,7 +142,7 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
           publishedAt: value.publishedAt,
         } : null);
       })
-      .catch(error => { if (!cancelled) console.warn("[asset-lab] latest release check failed", error); });
+      .catch(error => { if (!cancelled) console.warn("[asset-lab] latest release manifest check failed", error); });
     return () => { cancelled = true; };
   }, [state === "published"]);
 
@@ -205,9 +205,21 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
       } else {
         setStatus(`Checking ${publishIds.length} unique Normal/Final/Idle clip(s)…`);
         const cached = await listCachedRuntimeClips(publishIds);
-        const publishedClipById = new Map(
-          (latestBundle?.clips ?? []).map(record => [record.assetId, record] as const),
-        );
+        const publishedClipById = new Map<string, RuntimeAnimationBundleClipJson>();
+        const missingFromLocalCache = publishIds.filter(id => !cached.has(id));
+
+        if (missingFromLocalCache.length > 0 && latestBundle?.releaseVersion) {
+          setStatus(`Loading immutable release v${latestBundle.releaseVersion} only for ${missingFromLocalCache.length} clip(s) missing from the local runtime cache…`);
+          const response = await fetch(PUBLISH_ENDPOINT + "?release=" + latestBundle.releaseVersion, {
+            method: "GET",
+            cache: "force-cache",
+            headers: { Accept: "application/json" },
+          });
+          if (!response.ok) throw new Error(`Published release v${latestBundle.releaseVersion} could not be loaded (${response.status})`);
+          const publishedClips = readPublishedClips(await response.json());
+          for (const record of publishedClips) publishedClipById.set(record.assetId, record);
+        }
+
         const missing = publishIds.filter(id => !cached.has(id) && !publishedClipById.has(id));
         if (missing.length) throw new Error(`${missing.length} selected animation(s) are not runtime READY and are not present in the latest release`);
         const clips = publishIds.map(id => cached.get(id) ?? publishedClipById.get(id)!);
@@ -323,6 +335,17 @@ export default function AssetLabPublisher({ decisions, roles }: Props) {
       </section>
     </>
   );
+}
+
+function readPublishedClips(input: unknown): RuntimeAnimationBundleClipJson[] {
+  if (!input || typeof input !== "object") return [];
+  const bundle = input as Record<string, unknown>;
+  if (!Array.isArray(bundle.clips)) return [];
+  return bundle.clips.filter((record): record is RuntimeAnimationBundleClipJson => {
+    if (!record || typeof record !== "object") return false;
+    const value = record as Record<string, unknown>;
+    return typeof value.assetId === "string" && typeof value.runtimeClipName === "string";
+  });
 }
 
 function badgeStyle(state: PublishState): CSSProperties {
