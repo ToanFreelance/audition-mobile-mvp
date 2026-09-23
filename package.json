@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "predev": "node scripts/analyze-rhythm.mjs",
+    "predev": "node scripts/analyze-rhythm.mjs && node scripts/materialize-c1-character.mjs",
     "build": "next build",
-    "prebuild": "node scripts/analyze-rhythm.mjs",
+    "prebuild": "node scripts/analyze-rhythm.mjs && node scripts/materialize-c1-character.mjs",
     "start": "next start",
     "lint": "next lint",
     "test:qa": "playwright test",

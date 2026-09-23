@@ -6,8 +6,9 @@ import type { CharacterAssetMetrics, CharacterLoadResult, CharacterPresentation,
 import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
 import { HUMAN_CHARACTER_ASSET_URL, loadHumanAnimationLibrary } from "./human-animation-library";
 import { applyPublishedDanceRelease, loadPublishedDanceRelease } from "./published-animation-library";
+import { C1_CASUAL_GRACE_ASSET_URL, retargetQuaterniusClipsToMixamo } from "./mixamo-character-adapter";
 
-export const DEFAULT_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL;
+export const DEFAULT_CHARACTER_ASSET_URL = C1_CASUAL_GRACE_ASSET_URL;
 
 export class CharacterActor implements CharacterPresentation {
   readonly root = new THREE.Group();
@@ -42,14 +43,35 @@ export class CharacterActor implements CharacterPresentation {
       normalizeHumanoid(model);
       const skinnedMesh = findPrimarySkinnedMesh(model);
       const publishedDance = await publishedDancePromise;
-      const baseClips = gltf.animations.length > 0
-        ? gltf.animations
-        : await loadHumanAnimationLibrary(skinnedMesh, {
-          skipLegacyNormalDanceMocap: publishedDance !== null,
-        });
-      const { clips } = publishedDance
-        ? applyPublishedDanceRelease(baseClips, publishedDance)
-        : { clips: baseClips };
+      let clips: THREE.AnimationClip[];
+      if (this.assetUrl === C1_CASUAL_GRACE_ASSET_URL) {
+        // The Mixamo GLB's Running/Walking clips are never gameplay content.
+        // Bake the existing Quaternius content against its own skeleton first,
+        // then transfer rest-relative world rotations to the skinned Mixamo rig.
+        const sourceGltf = await this.loader.loadAsync(HUMAN_CHARACTER_ASSET_URL);
+        try {
+          const sourceMesh = findPrimarySkinnedMesh(sourceGltf.scene);
+          const baseClips = await loadHumanAnimationLibrary(sourceMesh, {
+            skipLegacyNormalDanceMocap: publishedDance !== null,
+            skipLegacyFinishMocap: Boolean(publishedDance?.finalSourceClips.length),
+          });
+          const canonicalClips = publishedDance
+            ? applyPublishedDanceRelease(baseClips, publishedDance).clips
+            : baseClips;
+          clips = retargetQuaterniusClipsToMixamo(
+            sourceGltf.scene, sourceMesh.skeleton, skinnedMesh.skeleton, canonicalClips,
+          );
+        } finally {
+          disposeObjectResources(sourceGltf.scene);
+        }
+      } else {
+        const baseClips = gltf.animations.length > 0
+          ? gltf.animations
+          : await loadHumanAnimationLibrary(skinnedMesh, {
+            skipLegacyNormalDanceMocap: publishedDance !== null,
+          });
+        clips = publishedDance ? applyPublishedDanceRelease(baseClips, publishedDance).clips : baseClips;
+      }
 
       if (this.disposed || version !== this.loadVersion) {
         disposeObjectResources(model);

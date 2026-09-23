@@ -11,3 +11,4 @@ playwright-report
 test-results
 *.tsbuildinfo
 game/generated-rhythm.ts
+public/characters/c1-casual-grace/character.glb

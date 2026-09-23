@@ -34,6 +34,7 @@ export type HumanMotionSpec = {
 
 export type HumanAnimationLibraryOptions = {
   skipLegacyNormalDanceMocap?: boolean;
+  skipLegacyFinishMocap?: boolean;
 };
 
 function cmuMotion(
@@ -172,7 +173,7 @@ export async function loadHumanAnimationLibrary(
     } else {
       console.info("[character] published dance pool available; skipping legacy CMU FancyFootWork load");
     }
-    await tryLoadMocapSet(targetRig, [FINISH_MOTION], resolved);
+    if (!options.skipLegacyFinishMocap) await tryLoadMocapSet(targetRig, [FINISH_MOTION], resolved);
 
     target.skeleton.pose();
     updateSkeletonWorld(target.skeleton);
