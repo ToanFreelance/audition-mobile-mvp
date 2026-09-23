@@ -169,7 +169,7 @@ export default function CharacterCreationV1() {
             onPointerMove={moveDrag}
             onPointerUp={endDrag}
           >
-            <CharacterCreationStage3D yaw={yaw} />
+            <CharacterCreationStage3D focus={tab} yaw={yaw} />
           </div>
 
           <div className={styles.rotateHint} aria-hidden="true">
