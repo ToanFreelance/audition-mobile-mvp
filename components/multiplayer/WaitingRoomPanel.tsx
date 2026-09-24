@@ -442,6 +442,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           displayName: guest.displayName,
           slotIndex: guest.slotIndex,
           characterId: guest.avatar.characterId,
+          characterAssetId: guest.avatar.characterAssetId,
         });
         current = result.snapshot;
         applyCanonicalSnapshot(current);
