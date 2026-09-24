@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import type { StagePresentationCameraPreset } from "./stageCamera";
 
 type RuntimeUrlResponse = {
   stageId: string;
@@ -129,6 +130,8 @@ export class BrightStageV1Environment {
   private readonly beamGroups: THREE.Group[] = [];
   private readonly beamMaterials: THREE.MeshBasicMaterial[] = [];
   private accentLights: THREE.SpotLight[] = [];
+  private readonly frontCameraOccluders: Array<{ object: THREE.Object3D; visible: boolean }> = [];
+  private readonly overheadCameraOccluders: Array<{ object: THREE.Object3D; visible: boolean }> = [];
   private loadedModel: THREE.Object3D | null = null;
   private disposed = false;
 
@@ -155,6 +158,7 @@ export class BrightStageV1Environment {
 
     normalizeEnvironment(gltf.scene);
     this.prepareReactiveMaterials(gltf.scene);
+    this.prepareCameraOccluders(gltf.scene);
     this.loadedModel = gltf.scene;
     this.root.add(gltf.scene);
 
@@ -164,6 +168,18 @@ export class BrightStageV1Environment {
       ...metrics,
       reactiveMaterials: this.reactiveMaterials.length,
     };
+  }
+
+  setPresentationCamera(preset: StagePresentationCameraPreset) {
+    const gameplay = preset === "gameplay_portrait_locked";
+    const topDown = preset === "intro_top_down";
+
+    // Foreground portals are useful framing in gameplay, but they must never
+    // sweep across the dancer during cinematic intro shots. Top-down also
+    // temporarily removes the suspended halo / fixture cluster above the
+    // dance floor so the camera has a clean vertical sight line.
+    for (const state of this.frontCameraOccluders) state.object.visible = gameplay ? state.visible : false;
+    for (const state of this.overheadCameraOccluders) state.object.visible = topDown ? false : state.visible;
   }
 
   update(renderTimeSeconds: number, songTimeMs: number, bpm: number, isPlaying: boolean) {
@@ -203,6 +219,18 @@ export class BrightStageV1Environment {
     this.beamGroups.length = 0;
     this.beamMaterials.length = 0;
     this.accentLights = [];
+    this.frontCameraOccluders.length = 0;
+    this.overheadCameraOccluders.length = 0;
+  }
+
+  private prepareCameraOccluders(root: THREE.Object3D) {
+    const front = /^(Front_Arch_|FrontPylon_)/;
+    const overhead = /^(Overhead_Halo_|Center_Halo_|Ceiling_Light_|Ceiling_Lens_)/;
+
+    root.traverse(object => {
+      if (front.test(object.name)) this.frontCameraOccluders.push({ object, visible: object.visible });
+      if (overhead.test(object.name)) this.overheadCameraOccluders.push({ object, visible: object.visible });
+    });
   }
 
   private prepareReactiveMaterials(root: THREE.Object3D) {
@@ -222,7 +250,8 @@ export class BrightStageV1Environment {
 
         const clone = material.clone();
         if (clone.emissive.getHex() === 0) clone.emissive.copy(clone.color).multiplyScalar(0.48);
-        clone.emissiveIntensity = Math.max(0.22, clone.emissiveIntensity || 0);
+        const isPrimaryScreen = /(led|screen)/i.test(hint);
+        clone.emissiveIntensity = Math.max(isPrimaryScreen ? 0.72 : 0.30, clone.emissiveIntensity || 0);
         this.reactiveMaterials.push({ material: clone, baseIntensity: clone.emissiveIntensity });
         changed = true;
         return clone;
