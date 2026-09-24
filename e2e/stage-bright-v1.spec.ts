@@ -89,6 +89,7 @@ test("portrait control spacing slider pushes only the D-pad toward the edge and 
   // launcher here so this focused presentation test can exercise Settings
   // without starting WebAudio/gameplay.
   await page.getByRole("button", { name: "Mở menu" }).click({ force: true });
+  await page.getByRole("button", { name: "CÀI ĐẶT" }).click();
   const slider = page.getByRole("slider", { name: "Control Spacing" });
   await expect(slider).toHaveValue("0");
   await slider.fill("28");
