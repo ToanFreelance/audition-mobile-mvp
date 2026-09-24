@@ -1064,6 +1064,10 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     if (gameplayScheduleAttemptRef.current === matchStartSessionKey) return;
     gameplayScheduleAttemptRef.current = matchStartSessionKey;
 
+    // IMPORTANT: this scheduling attempt is keyed to the immutable match/start
+    // identity. Realtime room snapshots rebuild matchStartSession objects as
+    // participant/status metadata changes; those object-identity changes must
+    // not cancel an in-flight WebAudio schedule for the same shared epoch.
     let cancelled = false;
     void scheduleMultiplayerAudioGameplay({
       session: matchStartSession,
@@ -1108,12 +1112,13 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
       cancelled = true;
     };
   }, [
-    clockSyncEstimate,
+    clockSyncEstimate?.offsetMs,
     gameplayAudioReadyKey,
     gameplaySchedule?.sessionKey,
-    matchStartSession,
+    matchStartSession?.phase,
+    matchStartSession?.startAtServerMs,
     matchStartSessionKey,
-    syncOptions,
+    syncOptions?.participantId,
   ]);
 
   useEffect(() => {
