@@ -6,6 +6,7 @@ on:
       - work/s1-2r-bright-stage-reset
     paths:
       - components/Stage3D.tsx
+      - components/GameShell.tsx
       - components/AuditionGauge.tsx
       - components/stage/BrightStageV1Environment.ts
       - components/stage/stageCamera.ts
