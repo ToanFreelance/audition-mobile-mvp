@@ -29,12 +29,20 @@ test("S1.2R intro cameras are a pure song-time presentation sequence", () => {
 });
 
 
-test("S1.2R HUD command strip and actual gauge SVG are translucent", async ({ page }) => {
+test("S1.2R HUD command strip is hard-transparent and gauge SVG keeps readable glass contrast", async ({ page }) => {
   await page.goto("/?seed=123");
 
-  const commandBackground = await page.locator(".command-strip").evaluate(element => getComputedStyle(element).backgroundImage);
-  expect(commandBackground).toContain("linear-gradient");
-  expect(commandBackground).toContain("rgba(255, 255, 255, 0.1)");
+  const command = await page.locator(".command-strip").evaluate(element => {
+    const computed = getComputedStyle(element);
+    return {
+      backgroundColor: computed.backgroundColor,
+      backgroundImage: computed.backgroundImage,
+      backdropFilter: computed.backdropFilter,
+    };
+  });
+  expect(command.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(command.backgroundImage).toBe("none");
+  expect(command.backdropFilter).toBe("none");
 
   const gauge = page.locator(".audition-gauge-svg");
   await expect(gauge).toBeVisible();
@@ -52,6 +60,7 @@ test("S1.2R HUD command strip and actual gauge SVG are translucent", async ({ pa
       fillOpacity: node.getAttribute("fill-opacity"),
     }))
   );
-  expect(shellOpacities.some(item => item.opacity === ".055" || item.fillOpacity === ".045")).toBeTruthy();
+  expect(shellOpacities.some(item => item.fill === "#07182f" && item.opacity === ".16")).toBeTruthy();
+  expect(shellOpacities.some(item => item.fill === "#0a203a" && item.fillOpacity === ".14")).toBeTruthy();
 });
 
