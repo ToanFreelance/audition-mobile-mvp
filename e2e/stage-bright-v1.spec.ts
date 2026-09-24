@@ -30,6 +30,7 @@ test("S1.2R intro cameras are a pure song-time presentation sequence", () => {
 
 
 test("S1.2R HUD source match is applied by the winning portrait layer", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?seed=123");
 
   const command = await page.locator(".command-strip").evaluate(element => {
@@ -70,28 +71,39 @@ test("S1.2R HUD source match is applied by the winning portrait layer", async ({
 
 
 
-test("portrait control spacing slider moves controls apart and persists", async ({ page }) => {
+test("portrait control spacing slider pushes only the D-pad toward the edge and persists", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?seed=123");
 
   const controls = page.locator(".mobile-controls");
-  await expect(controls).toHaveAttribute("data-control-spacing", "0");
-  const gapBefore = await controls.evaluate(element => Number.parseFloat(getComputedStyle(element).gap));
+  const space = page.locator(".space-control");
+  const dpad = page.locator(".dpad-control");
 
-  await page.getByRole("button", { name: "Mở menu" }).click();
+  await expect(controls).toHaveAttribute("data-control-spacing", "0");
+  const spaceBefore = await space.boundingBox();
+  const dpadBefore = await dpad.boundingBox();
+  expect(spaceBefore).toBeTruthy();
+  expect(dpadBefore).toBeTruthy();
+
+  // READY intentionally owns pointer events before gameplay. Force the menu
+  // launcher here so this focused presentation test can exercise Settings
+  // without starting WebAudio/gameplay.
+  await page.getByRole("button", { name: "Mở menu" }).click({ force: true });
   const slider = page.getByRole("slider", { name: "Control Spacing" });
   await expect(slider).toHaveValue("0");
+  await slider.fill("28");
 
-  await slider.focus();
-  await slider.press("Home");
-  for (let index = 0; index < 5; index += 1) await slider.press("ArrowRight");
+  await expect(slider).toHaveValue("28");
+  await expect(controls).toHaveAttribute("data-control-spacing", "28");
 
-  await expect(slider).toHaveValue("20");
-  await expect(controls).toHaveAttribute("data-control-spacing", "20");
-  const gapAfter = await controls.evaluate(element => Number.parseFloat(getComputedStyle(element).gap));
-  expect(gapAfter).toBeGreaterThan(gapBefore);
+  const spaceAfter = await space.boundingBox();
+  const dpadAfter = await dpad.boundingBox();
+  expect(spaceAfter).toBeTruthy();
+  expect(dpadAfter).toBeTruthy();
+  expect(Math.abs(spaceAfter!.x - spaceBefore!.x)).toBeLessThan(2);
+  expect(dpadAfter!.x - dpadBefore!.x).toBeGreaterThan(24);
 
   await page.reload();
-  await expect(page.locator(".mobile-controls")).toHaveAttribute("data-control-spacing", "20");
-  expect(await page.evaluate(() => localStorage.getItem("audition.controlSpacing"))).toBe("20");
+  await expect(page.locator(".mobile-controls")).toHaveAttribute("data-control-spacing", "28");
+  expect(await page.evaluate(() => localStorage.getItem("audition.controlSpacing"))).toBe("28");
 });
