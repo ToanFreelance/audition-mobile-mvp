@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 const FUNCTION_URL = "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-stage-runtime-url";
-const ALLOWED_STAGE_IDS = new Set(["performance-stage-v1", "neon-club-v3"]);
+const ALLOWED_STAGE_IDS = new Set(["bright-stage-v1", "performance-stage-v1", "neon-club-v3"]);
 
 export async function GET(request: NextRequest) {
-  const stageId = request.nextUrl.searchParams.get("stageId") ?? "performance-stage-v1";
+  const stageId = request.nextUrl.searchParams.get("stageId") ?? "bright-stage-v1";
   if (!ALLOWED_STAGE_IDS.has(stageId)) {
     return NextResponse.json({ error: "stage_not_allowed" }, { status: 404 });
   }
