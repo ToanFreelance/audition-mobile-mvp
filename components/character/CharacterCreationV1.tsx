@@ -29,8 +29,11 @@ const TABS: Array<{ id: CreatorTab; icon: string; label: string; locked?: boolea
   { id: "shoes", icon: "◜", label: "Giày", locked: true },
 ];
 
-const DEFAULT_CHARACTER_DEFINITION = getCharacterCatalogEntry(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
-if (!DEFAULT_CHARACTER_DEFINITION) throw new Error("Default creator character is missing from catalog.");
+const DEFAULT_CHARACTER_DEFINITION = (() => {
+  const character = getCharacterCatalogEntry(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
+  if (!character) throw new Error("Default creator character is missing from catalog.");
+  return character;
+})();
 
 function ChoiceCard({
   choice,
