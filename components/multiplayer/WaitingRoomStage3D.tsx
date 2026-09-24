@@ -4,8 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
+import {
+  CHARACTER_CATALOG_V1,
+  DEFAULT_CHARACTER_ASSET_ID,
+  getCharacterCatalogEntry,
+  isCharacterAssetId,
+  type CharacterAssetId,
+} from "../character/character-catalog";
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import { loadLobbyIdleLibrary } from "../character/lobby-idle-library";
+import { retargetQuaterniusClipsToMixamo } from "../character/mixamo-character-adapter";
+import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import type { RoomParticipant, RoomSlot } from "../../multiplayer/types";
 import { lobbyStageParticipantIdentity } from "../../multiplayer/lobby-stage-identity";
 import {
@@ -34,7 +43,7 @@ type Props = {
 type StageNode = {
   participant: RoomParticipant;
   index: number;
-  characterId: string;
+  characterAssetId: CharacterAssetId;
   actor: THREE.Object3D;
   ring: THREE.Object3D;
   baseScale: THREE.Vector3;
@@ -51,6 +60,7 @@ type IdleRuntime = {
   participantId: string;
   mixer: THREE.AnimationMixer;
   currentAction: THREE.AnimationAction;
+  clips: readonly THREE.AnimationClip[];
   currentIndex: number;
   transitionOrdinal: number;
   elapsedSeconds: number;
@@ -59,16 +69,32 @@ type IdleRuntime = {
   retiringSeconds: number;
 };
 
-const FEMALE_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL.replace(
-  "UBC_Superhero_Male_FullBody.glb",
-  "UBC_Superhero_Female_FullBody.glb",
-);
 const IDLE_RENDER_FPS = 30;
 const IDLE_CROSSFADE_SECONDS = 0.35;
 const SLOT_ACCENTS = [0x43dfff, 0xff4fcf, 0x69efae, 0xff5fbd, 0xa968ff, 0x56b4ff] as const;
 
 function participantAccent(participant: RoomParticipant) {
   return SLOT_ACCENTS[participant.slotIndex] ?? 0x43dfff;
+}
+
+function participantCharacterAssetId(participant: RoomParticipant): CharacterAssetId {
+  const candidate = avatarCharacterAssetId(participant.avatar);
+  return isCharacterAssetId(candidate) ? candidate : DEFAULT_CHARACTER_ASSET_ID;
+}
+
+function participantUsesFemaleFallback(participant: RoomParticipant) {
+  return getCharacterCatalogEntry(participantCharacterAssetId(participant))?.gender === "female";
+}
+
+function findPrimarySkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh {
+  let target: THREE.SkinnedMesh | null = null;
+  root.traverse(object => {
+    if (!target && (object as THREE.SkinnedMesh).isSkinnedMesh) {
+      target = object as THREE.SkinnedMesh;
+    }
+  });
+  if (!target) throw new Error("Waiting-room character asset has no skinned mesh.");
+  return target;
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -177,16 +203,25 @@ function levelFor(participant: RoomParticipant) {
   return participant.kind === "bot" ? 16 : 12;
 }
 
-function isFemale(participant: RoomParticipant) {
-  return participant.avatar.characterId.toLowerCase().includes("female");
-}
-
 function centerPosition(index: number, total: number, pageSize: number) {
   const pageStart = Math.floor(index / pageSize) * pageSize;
   const localIndex = index - pageStart;
   const localCount = Math.min(pageSize, total - pageStart);
   const centered = localIndex - (localCount - 1) / 2;
   return { x: centered * 2.42, z: Math.abs(centered) * 0.12, rotationY: centered * -0.05 };
+}
+
+const WIDE_SLOT_PLACEMENTS = [
+  { x: 0, z: 0.58, rotationY: 0, scale: 0.88 },
+  { x: -1.65, z: 0.08, rotationY: 0.07, scale: 0.60 },
+  { x: 1.65, z: 0.08, rotationY: -0.07, scale: 0.60 },
+  { x: -2.48, z: -0.42, rotationY: 0.10, scale: 0.49 },
+  { x: 2.48, z: -0.42, rotationY: -0.10, scale: 0.49 },
+  { x: 0, z: -0.82, rotationY: 0, scale: 0.48 },
+] as const;
+
+function wideSlotPlacement(slotIndex: number) {
+  return WIDE_SLOT_PLACEMENTS[slotIndex] ?? WIDE_SLOT_PLACEMENTS[5];
 }
 
 function createParticipantRing(color: number, pulsePhase: number, host: boolean) {
@@ -330,6 +365,8 @@ export default function WaitingRoomStage3D({
     return participants.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
   }, [pageIndex, pageSize, participants, selectedParticipantId, viewMode]);
 
+  const hostParticipant = participants.find(participant => participant.role === "host") ?? null;
+
   useEffect(() => {
     layoutRef.current?.();
   }, [pageIndex, pageSize, selectedParticipantId, slotStateKey, viewMode]);
@@ -349,8 +386,8 @@ export default function WaitingRoomStage3D({
     let accumulatedMs = 0;
     let idleClips: readonly THREE.AnimationClip[] = [];
     let releaseVersion = 0;
-    let maleSource: THREE.Object3D | null = null;
-    let femaleSource: THREE.Object3D | null = null;
+    const actorSources = new Map<CharacterAssetId, THREE.Object3D>();
+    const idleClipsByAssetId = new Map<CharacterAssetId, readonly THREE.AnimationClip[]>();
     let characterAssetsReady = false;
 
     const idleRuntimeByParticipant = new Map<string, IdleRuntime>();
@@ -508,12 +545,18 @@ export default function WaitingRoomStage3D({
 
         if (current.viewMode === "wide") {
           visible = true;
-          const centered = participant.slotIndex - 2.5;
-          x = centered * 0.94;
-          z = Math.abs(centered) * 0.045;
-          rotationY = centered * -0.024;
-          actorScale = 0.62;
-          ringScale = 0.62;
+          const placement = participant.role === "host"
+            ? WIDE_SLOT_PLACEMENTS[0]
+            : wideSlotPlacement(participant.slotIndex);
+          x = placement.x;
+          z = placement.z;
+          rotationY = placement.rotationY;
+          actorScale = placement.scale;
+          ringScale = participant.role === "host" ? 0.92 : placement.scale;
+          if (participant.participantId === current.selectedParticipantId) {
+            actorScale *= 1.04;
+            ringScale *= 1.06;
+          }
         } else if (current.viewMode === "close") {
           visible = participant.participantId === selected;
           actorScale = 0.98;
@@ -540,9 +583,9 @@ export default function WaitingRoomStage3D({
 
       slotPlaceholdersRef.current.forEach(placeholder => {
         const slot = slotsRef.current.find(item => item.slotIndex === placeholder.slotIndex);
-        const centered = placeholder.slotIndex - 2.5;
-        placeholder.group.position.set(centered * 0.94, 0.02, Math.abs(centered) * 0.045);
-        placeholder.group.scale.setScalar(0.68);
+        const placement = wideSlotPlacement(placeholder.slotIndex);
+        placeholder.group.position.set(placement.x, 0.02, placement.z);
+        placeholder.group.scale.setScalar(Math.max(0.48, placement.scale));
         const showPlaceholder = current.viewMode === "wide" && slot?.state !== "occupied";
         placeholder.group.visible = showPlaceholder;
         const closed = slot?.state === "closed";
@@ -576,18 +619,18 @@ export default function WaitingRoomStage3D({
       }
 
       runtime.elapsedSeconds += deltaSeconds;
-      if (idleClips.length <= 1 || runtime.elapsedSeconds < runtime.holdSeconds) return;
+      if (runtime.clips.length <= 1 || runtime.elapsedSeconds < runtime.holdSeconds) return;
 
       const nextOrdinal = runtime.transitionOrdinal + 1;
       const nextIndex = selectParticipantNextIdleIndex(
         runtime.participantId,
-        idleClips.length,
+        runtime.clips.length,
         releaseVersion,
         roomId,
         nextOrdinal,
         runtime.currentIndex,
       );
-      const nextClip = selectParticipantIdleClipByIndex(idleClips, nextIndex);
+      const nextClip = selectParticipantIdleClipByIndex(runtime.clips, nextIndex);
       if (!nextClip) return;
 
       const nextAction = runtime.mixer.clipAction(nextClip);
@@ -708,15 +751,16 @@ export default function WaitingRoomStage3D({
     };
 
     const attachIdleRuntime = (node: StageNode) => {
-      if (idleRuntimeByParticipant.has(node.participant.participantId) || idleClips.length === 0) return;
+      const actorIdleClips = idleClipsByAssetId.get(node.characterAssetId) ?? [];
+      if (idleRuntimeByParticipant.has(node.participant.participantId) || actorIdleClips.length === 0) return;
       const assignments = selectRoomParticipantIdleIndices(
         participantsRef.current,
-        idleClips.length,
+        actorIdleClips.length,
         releaseVersion,
         roomId,
       );
       const idleIndex = assignments.get(node.participant.participantId) ?? -1;
-      const idleClip = selectParticipantIdleClipByIndex(idleClips, idleIndex);
+      const idleClip = selectParticipantIdleClipByIndex(actorIdleClips, idleIndex);
       if (!idleClip) return;
 
       const mixer = new THREE.AnimationMixer(node.actor);
@@ -738,6 +782,7 @@ export default function WaitingRoomStage3D({
         participantId: node.participant.participantId,
         mixer,
         currentAction: action,
+        clips: actorIdleClips,
         currentIndex: idleIndex,
         transitionOrdinal: 0,
         elapsedSeconds: 0,
@@ -766,11 +811,13 @@ export default function WaitingRoomStage3D({
     };
 
     const createStageNode = (participant: RoomParticipant, index: number) => {
-      const source = isFemale(participant) ? femaleSource : maleSource;
-      const actor = source ? cloneSkeleton(source) : fallbackActor(isFemale(participant));
+      const characterAssetId = participantCharacterAssetId(participant);
+      const source = actorSources.get(characterAssetId) ?? null;
+      const actor = source ? cloneSkeleton(source) : fallbackActor(participantUsesFemaleFallback(participant));
       tintActor(actor, participant, index);
-      actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
+      actor.name = `WaitingRoomActor:${participant.participantId}:${characterAssetId}`;
       actor.userData.participantId = participant.participantId;
+      actor.userData.characterAssetId = characterAssetId;
       scene.add(actor);
 
       const ring = createParticipantRing(
@@ -783,7 +830,7 @@ export default function WaitingRoomStage3D({
       const node: StageNode = {
         participant,
         index,
-        characterId: participant.avatar.characterId,
+        characterAssetId,
         actor,
         ring,
         baseScale: actor.scale.clone(),
@@ -812,7 +859,7 @@ export default function WaitingRoomStage3D({
         }
 
         // Avatar identity changes replace only that one actor.
-        if (existing.characterId !== participant.avatar.characterId) {
+        if (existing.characterAssetId !== participantCharacterAssetId(participant)) {
           removeStageNode(participant.participantId);
           createStageNode(participant, index);
           return;
@@ -825,7 +872,7 @@ export default function WaitingRoomStage3D({
       });
 
       const needsFallback = activeParticipants.some(participant => (
-        isFemale(participant) ? !femaleSource : !maleSource
+        !actorSources.has(participantCharacterAssetId(participant))
       ));
       setRenderedActorCount(stageNodesRef.current.size);
       setLoadState(needsFallback ? "fallback" : "ready");
@@ -834,60 +881,85 @@ export default function WaitingRoomStage3D({
     };
     reconcileParticipantsRef.current = reconcileParticipants;
 
-    // Load both reusable character sources once per room. Future joins clone
-    // from memory instead of rebuilding the stage or refetching GLBs.
-    const malePromise = loader.loadAsync(HUMAN_CHARACTER_ASSET_URL).catch(error => {
-      console.warn("[waiting-room] male character asset failed; fallback only for male actors", error);
-      return null;
-    });
-    const femalePromise = loader.loadAsync(FEMALE_CHARACTER_ASSET_URL).catch(error => {
-      console.warn("[waiting-room] female character asset failed; fallback only for female actors", error);
+    // Load the canonical idle source plus every runtime-ready Character Catalog
+    // entry once per room. Actors then clone from memory; roster changes never
+    // refetch GLBs or rebuild the Three.js scene.
+    const canonicalPromise = loader.loadAsync(HUMAN_CHARACTER_ASSET_URL).catch(error => {
+      console.warn("[waiting-room] canonical animation source failed; catalog actors remain static", error);
       return null;
     });
     const idleLibraryPromise = loadLobbyIdleLibrary();
+    const catalogPromises = CHARACTER_CATALOG_V1
+      .filter(entry => entry.runtimeReady)
+      .map(async entry => {
+        try {
+          const gltf = await loader.loadAsync(entry.assetUrl);
+          return { entry, gltf };
+        } catch (error) {
+          console.warn(`[waiting-room] catalog asset ${entry.id} failed; fallback actor will be used`, error);
+          return { entry, gltf: null };
+        }
+      });
 
-    void Promise.all([malePromise, femalePromise])
-      .then(([maleGltf, femaleGltf]) => {
+    void Promise.all([canonicalPromise, idleLibraryPromise, Promise.all(catalogPromises)])
+      .then(([canonicalGltf, idleLibrary, catalogResults]) => {
         if (disposed) {
-          if (maleGltf) disposeObject(maleGltf.scene);
-          if (femaleGltf) disposeObject(femaleGltf.scene);
+          if (canonicalGltf) disposeObject(canonicalGltf.scene);
+          catalogResults.forEach(({ gltf }) => {
+            if (gltf) disposeObject(gltf.scene);
+          });
           return;
         }
 
-        maleSource = maleGltf?.scene ?? null;
-        femaleSource = femaleGltf?.scene ?? null;
-        if (maleSource) {
-          normalizeModel(maleSource);
-          disposableSources.push(maleSource);
-        }
-        if (femaleSource) {
-          normalizeModel(femaleSource);
-          disposableSources.push(femaleSource);
+        idleClips = idleLibrary?.clips ?? [];
+        releaseVersion = idleLibrary?.releaseVersion ?? 0;
+        setIdleSource(idleLibrary?.source ?? "none");
+
+        let canonicalMesh: THREE.SkinnedMesh | null = null;
+        if (canonicalGltf) {
+          try {
+            canonicalMesh = findPrimarySkinnedMesh(canonicalGltf.scene);
+          } catch (error) {
+            console.warn("[waiting-room] canonical source has no compatible skeleton", error);
+          }
         }
 
+        for (const { entry, gltf } of catalogResults) {
+          if (!gltf) continue;
+          const source = gltf.scene;
+          normalizeModel(source);
+          actorSources.set(entry.id, source);
+          disposableSources.push(source);
+
+          if (idleClips.length === 0) continue;
+          if (entry.animationProfile === "mixamo-c1" && canonicalGltf && canonicalMesh) {
+            try {
+              const targetMesh = findPrimarySkinnedMesh(source);
+              idleClipsByAssetId.set(
+                entry.id,
+                retargetQuaterniusClipsToMixamo(
+                  canonicalGltf.scene,
+                  canonicalMesh.skeleton,
+                  targetMesh.skeleton,
+                  idleClips,
+                ),
+              );
+            } catch (error) {
+              console.warn(`[waiting-room] idle retarget failed for ${entry.id}`, error);
+            }
+          } else {
+            idleClipsByAssetId.set(entry.id, idleClips);
+          }
+        }
+
+        if (canonicalGltf) disposeObject(canonicalGltf.scene);
         characterAssetsReady = true;
         reconcileParticipants();
-
-        return idleLibraryPromise;
-      })
-      .then(idleLibrary => {
-        if (disposed) return;
-        if (!idleLibrary) {
-          setIdleSource("none");
-          return;
-        }
-        idleClips = idleLibrary.clips;
-        releaseVersion = idleLibrary.releaseVersion;
-        setIdleSource(idleLibrary.source);
-
-        // Attach animation only to actors that do not already own a mixer.
-        // Existing actor phase is never reset by roster/status updates.
-        stageNodesRef.current.forEach(attachIdleRuntime);
-        startIdleLoop();
       })
       .catch(error => {
         if (disposed) return;
         console.warn("[waiting-room] character initialization failed", error);
+        setIdleSource("none");
         characterAssetsReady = true;
         reconcileParticipants();
       });
@@ -925,6 +997,7 @@ export default function WaitingRoomStage3D({
       data-actor-count={renderedActorCount}
       data-idle-count={idleRuntimeCount}
       data-idle-source={idleSource}
+      data-character-assets={participants.map(participantCharacterAssetId).join(",")}
     >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
@@ -937,37 +1010,55 @@ export default function WaitingRoomStage3D({
       <div className={styles.canvas} ref={mountRef} />
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
       {viewMode === "wide" ? (
-        <div className={styles.wideSlotLabels}>
-          {slots.map(slot => {
-            const participant = slot.state === "occupied"
-              ? participants.find(item => item.participantId === slot.participantId) ?? null
-              : null;
-            return (
-              <button
-                className={`${styles.wideSlotLabel} ${participant?.participantId === selectedParticipantId ? styles.wideSlotSelected : ""}`}
-                disabled={!participant}
-                key={slot.slotIndex}
-                onClick={() => participant && onSelectParticipant?.(participant)}
-                type="button"
-              >
-                <span className={styles.wideSlotNumber}>{slot.slotIndex + 1}</span>
-                {participant ? (
-                  <>
-                    <strong>{participant.displayName}</strong>
-                    <b className={statusClass(participant)}>{statusLabel(participant)}</b>
-                  </>
-                ) : (
-                  <>
-                    <strong>{slot.state === "closed" ? "CLOSED" : "OPEN"}</strong>
-                    <b className={slot.state === "closed" ? styles.wideClosed : styles.wideOpen}>
-                      {slot.state === "closed" ? "×" : "+"}
-                    </b>
-                  </>
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <>
+          {hostParticipant && (
+            <button
+              className={`${styles.hostIdentity} ${hostParticipant.participantId === selectedParticipantId ? styles.hostIdentitySelected : ""}`}
+              data-character-asset-id={participantCharacterAssetId(hostParticipant)}
+              onClick={() => onSelectParticipant?.(hostParticipant)}
+              type="button"
+            >
+              <span className={styles.crown}>♛</span>
+              <strong>{hostParticipant.displayName}</strong>
+              <small>Lv. {levelFor(hostParticipant)}</small>
+              <b className={statusClass(hostParticipant)}>{statusLabel(hostParticipant)}</b>
+            </button>
+          )}
+          <div className={styles.wideSlotLabels}>
+            {slots
+              .filter(slot => slot.slotIndex !== hostParticipant?.slotIndex)
+              .map(slot => {
+                const participant = slot.state === "occupied"
+                  ? participants.find(item => item.participantId === slot.participantId) ?? null
+                  : null;
+                return (
+                  <button
+                    className={`${styles.wideSlotLabel} ${participant?.participantId === selectedParticipantId ? styles.wideSlotSelected : ""}`}
+                    data-character-asset-id={participant ? participantCharacterAssetId(participant) : undefined}
+                    disabled={!participant}
+                    key={slot.slotIndex}
+                    onClick={() => participant && onSelectParticipant?.(participant)}
+                    type="button"
+                  >
+                    <span className={styles.wideSlotNumber}>{slot.slotIndex + 1}</span>
+                    {participant ? (
+                      <>
+                        <strong>{participant.displayName}</strong>
+                        <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+                      </>
+                    ) : (
+                      <>
+                        <strong>{slot.state === "closed" ? "CLOSED" : "OPEN"}</strong>
+                        <b className={slot.state === "closed" ? styles.wideClosed : styles.wideOpen}>
+                          {slot.state === "closed" ? "×" : "+"}
+                        </b>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+          </div>
+        </>
       ) : (
         <div className={`${styles.labels} ${viewMode === "close" ? styles.labelsClose : ""}`}>
           {visibleParticipants.map((participant, visibleIndex) => (
@@ -982,6 +1073,7 @@ export default function WaitingRoomStage3D({
                   : "",
                 viewMode === "close" ? styles.labelSolo : "",
               ].filter(Boolean).join(" ")}
+              data-character-asset-id={participantCharacterAssetId(participant)}
               key={participant.participantId}
               onClick={() => onSelectParticipant?.(participant)}
               type="button"
