@@ -37,6 +37,10 @@ test("C3 creator resolves the real starter through the versioned catalog", async
   await page.getByRole("button", { name: "Giày" }).click();
   await expect(stage).toHaveAttribute("data-focus", "shoes");
 
+  // Gender controls live in the Body panel. Return there before asserting
+  // that the unavailable male starter remains explicitly locked.
+  await page.getByRole("button", { name: "Tạo hình" }).click();
+  await expect(stage).toHaveAttribute("data-focus", "body");
   await expect(page.getByRole("button", { name: /♂ Nam/ })).toBeDisabled();
 
   await name.fill("MinaQA");

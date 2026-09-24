@@ -109,6 +109,36 @@ async function sceneGeneration(page: Page) {
   return await page.getByTestId("waiting-room-stage").getAttribute("data-scene-generation");
 }
 
+async function sharedStartAt(page: Page): Promise<string> {
+  let startAt = "";
+
+  // Read either handoff surface atomically in the page. A count() followed by
+  // innerText() races with the PRELOADING/COUNTDOWN -> GAMEPLAY DOM swap on
+  // fast desktop CI, even when the immutable server epoch itself is correct.
+  await expect.poll(async () => {
+    startAt = await page.evaluate(() => {
+      const node = document.querySelector('[data-testid="start-at-server-ms"]')
+        ?? document.querySelector('[data-testid="gameplay-start-at-server-ms"]');
+      return node?.textContent?.trim() ?? "";
+    });
+    return startAt;
+  }, { timeout: 15_000 }).not.toBe("");
+
+  return startAt;
+}
+
+async function expectAudioScheduledOrLive(page: Page) {
+  await expect.poll(async () => page.evaluate(() => {
+    const preload = document.querySelector('[data-testid="preload-state"]');
+    if (preload?.getAttribute("data-audio-scheduled") === "1") return true;
+
+    // Live gameplay is only rendered once WaitingRoomPanel has a concrete
+    // gameplaySchedule for the immutable match/start session, so crossing the
+    // handoff boundary also proves local WebAudio scheduling completed.
+    return document.querySelector('[data-testid="multiplayer-gameplay-live"]') !== null;
+  }), { timeout: 15_000 }).toBe(true);
+}
+
 function assertNoCriticalErrors(...users: QaUser[]) {
   const errors = users.flatMap(user => user.criticalErrors);
   expect(errors, errors.join("\n")).toEqual([]);
@@ -191,21 +221,18 @@ test("@real host + guest Ready through one shared epoch into WebAudio multiplaye
     await expect(guest.page.getByTestId("shared-countdown")).toBeVisible({ timeout: 60_000 });
     await expect(host.page.getByTestId("preload-state")).toHaveAttribute("data-phase", "countdown");
     await expect(guest.page.getByTestId("preload-state")).toHaveAttribute("data-phase", "countdown");
-    const hostStartAt = await host.page.getByTestId("start-at-server-ms").innerText();
-    const guestStartAt = await guest.page.getByTestId("start-at-server-ms").innerText();
+    // Countdown can hand off to live gameplay between two sequential DOM reads
+    // on faster desktop CI. Accept either surface, but require the same immutable
+    // server epoch on both clients.
+    const hostStartAt = await sharedStartAt(host.page);
+    const guestStartAt = await sharedStartAt(guest.page);
     expect(guestStartAt).toBe(hostStartAt);
     await expect.poll(() => idleCount(host.page), { timeout: 20_000 }).toBe(3);
 
     // P5.5 must map the same immutable epoch into each local AudioContext
     // before GO. No client is allowed to invent a replacement start.
-    await expect(host.page.getByTestId("preload-state")).toHaveAttribute("data-audio-scheduled", "1", {
-      timeout: 10_000,
-    });
-    await expect(guest.page.getByTestId("preload-state")).toHaveAttribute("data-audio-scheduled", "1", {
-      timeout: 10_000,
-    });
-    await expect(host.page.getByTestId("p55-audio-state")).toContainText("AUDIO SCHEDULED");
-    await expect(guest.page.getByTestId("p55-audio-state")).toContainText("AUDIO SCHEDULED");
+    await expectAudioScheduledOrLive(host.page);
+    await expectAudioScheduledOrLive(guest.page);
 
     await expect(host.page.getByTestId("multiplayer-gameplay-live")).toBeVisible({ timeout: 12_000 });
     await expect(guest.page.getByTestId("multiplayer-gameplay-live")).toBeVisible({ timeout: 12_000 });

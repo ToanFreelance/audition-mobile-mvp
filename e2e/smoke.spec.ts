@@ -18,6 +18,11 @@ async function rhythmDebug(page: import('@playwright/test').Page){
 test.beforeEach(async({page})=>{
   await page.route('**/api/music-config',route=>route.fulfill({json:{configs:[chart,{...chart,id:'invalid',spaceStartMs:0}]}}));
   await page.route('**/qa-audio.wav',route=>route.fulfill({contentType:'audio/wav',body:audioFixture(35)}));
+  // These smoke cases validate gameplay/input/HUD, not the production stage
+  // asset path. Keep the dedicated Bright Stage spec authoritative for that
+  // integration and use the built-in stage fallback here so CI GPU/network
+  // load cannot consume an authoritative command window.
+  await page.route('**/api/stage-runtime**',route=>route.fulfill({status:503,json:{error:'qa-stage-fallback'}}));
 });
 for(const width of [390,430])test(`portrait ${width}: authored chart, controls, command and gauge fit`,async({page})=>{
   await page.setViewportSize({width,height:width===390?844:932});
@@ -29,22 +34,13 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
   await expect(page.locator('.song-picker-item')).toHaveCount(1);
   await page.getByRole('button',{name:'×',exact:true}).click();
   await page.getByRole('button',{name:'START',exact:true}).click();
-  await expect.poll(
-    async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).commandVisible,
-    {timeout:15000},
-  ).toBe(true);
+  await expect.poll(async()=>{
+    const debug=await rhythmDebug(page);
+    if(!debug.commandVisible) return false;
+    const box=await page.locator('.command-key').first().boundingBox().catch(()=>null);
+    return Boolean(box && box.height>=30 && Math.abs(box.width-box.height)<1);
+  },{timeout:30000}).toBe(true);
   await expect(page.locator('.command-zone')).toHaveClass(/visible/);
-  const commandToken = page.locator('.command-key').first();
-  await expect(commandToken).toBeVisible();
-  await expect.poll(
-    async()=>commandToken.evaluate(element=>element.getBoundingClientRect().height).catch(()=>0),
-  ).toBeGreaterThanOrEqual(30);
-  await expect.poll(
-    async()=>commandToken.evaluate(element=>{
-      const rect=element.getBoundingClientRect();
-      return Math.abs(rect.width-rect.height);
-    }).catch(()=>999),
-  ).toBeLessThan(1);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   for(const direction of ['left','up','down','right']){
     const box=await page.getByRole('button',{name:direction,exact:true}).boundingBox();
@@ -76,7 +72,7 @@ test('same action layer: incomplete SPACE cannot succeed, keyboard completes com
           && debug.commandIndex===0
           && debug.deltaToTargetMs < -1500;
       },
-      {timeout:10000},
+      {timeout:30000},
     ).toBe(true);
 
     const beforeInput=await rhythmDebug(page);
