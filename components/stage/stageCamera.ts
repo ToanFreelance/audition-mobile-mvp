@@ -52,57 +52,60 @@ export function getStagePresentationCameraPose(
     return gameplay;
   }
 
-  if (songTimeMs < 1100) {
-    const t = songTimeMs / 1100;
+  // Keep every intro shot inside the authored clear camera volume. The first
+  // S1.2R pass placed the rear and oblique cameras outside the venue shell,
+  // so interpolation crossed the LED wall / front arch on iPhone.
+  if (songTimeMs < 1050) {
+    const t = songTimeMs / 1050;
     return {
       preset: "intro_top_down",
-      fov: mix(50, 46, t),
-      x: mix(-2.4, -1.1, t),
-      y: mix(13.5, 11.4, t),
-      z: mix(7.6, 6.3, t),
+      fov: mix(49, 45, t),
+      x: mix(-1.0, 0.55, t),
+      y: mix(11.8, 10.4, t),
+      z: mix(1.8, 1.2, t),
       targetX: 0,
-      targetY: mix(0.45, 0.9, t),
-      targetZ: 0.3,
+      targetY: mix(0.55, 0.82, t),
+      targetZ: 0.25,
     };
   }
 
-  if (songTimeMs < 2100) {
-    const t = (songTimeMs - 1100) / 1000;
+  if (songTimeMs < 2050) {
+    const t = (songTimeMs - 1050) / 1000;
     return {
       preset: "intro_back_to_front",
-      fov: mix(47, 43, t),
-      x: mix(-1.7, 1.0, t),
-      y: mix(4.8, 4.25, t),
-      z: mix(-6.6, -4.1, t),
+      fov: mix(46, 42, t),
+      x: mix(-1.1, 0.9, t),
+      y: mix(3.9, 3.5, t),
+      z: mix(-2.6, -1.8, t),
       targetX: 0,
-      targetY: 1.55,
-      targetZ: mix(1.0, 1.9, t),
+      targetY: mix(1.6, 1.72, t),
+      targetZ: mix(0.45, 1.2, t),
     };
   }
 
-  if (songTimeMs < 3100) {
-    const t = (songTimeMs - 2100) / 1000;
+  if (songTimeMs < 3050) {
+    const t = (songTimeMs - 2050) / 1000;
     return {
       preset: "intro_oblique_wide",
-      fov: mix(45, 41, t),
-      x: mix(8.4, 6.2, t),
-      y: mix(6.2, 5.0, t),
-      z: mix(11.0, 12.8, t),
-      targetX: mix(-0.4, 0, t),
-      targetY: mix(2.0, 1.8, t),
-      targetZ: 0.35,
+      fov: mix(44, 40, t),
+      x: mix(4.2, 3.2, t),
+      y: mix(4.6, 4.0, t),
+      z: mix(8.0, 9.6, t),
+      targetX: mix(-0.25, 0, t),
+      targetY: mix(1.9, 1.78, t),
+      targetZ: 0.25,
     };
   }
 
-  const t = (songTimeMs - 3100) / 900;
+  const t = (songTimeMs - 3050) / 950;
   return {
     preset: "intro_front_push",
-    fov: mix(44, gameplay.fov, t),
-    x: mix(-1.8, gameplay.x, t),
-    y: mix(4.8, gameplay.y, t),
-    z: mix(24.5, gameplay.z, t),
+    fov: mix(43, gameplay.fov, t),
+    x: mix(-1.35, gameplay.x, t),
+    y: mix(4.35, gameplay.y, t),
+    z: mix(22.0, gameplay.z, t),
     targetX: 0,
-    targetY: mix(2.0, gameplay.targetY, t),
-    targetZ: mix(0.3, gameplay.targetZ, t),
+    targetY: mix(1.95, gameplay.targetY, t),
+    targetZ: mix(0.28, gameplay.targetZ, t),
   };
 }
