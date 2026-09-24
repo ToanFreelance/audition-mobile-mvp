@@ -36,6 +36,49 @@ jobs:
         run: |
           sha256sum artifacts/performance-stage-v1/performance-stage-v1.glb
           wc -c artifacts/performance-stage-v1/performance-stage-v1.glb
+      - name: Publish exact verified GLB to private Supabase Storage
+        env:
+          SUPABASE_FUNCTION_URL: https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-stage-performance-v1-ingest
+        run: |
+          python - <<'PY'
+          import base64, json, os, urllib.request
+          from pathlib import Path
+
+          data = Path("artifacts/performance-stage-v1/performance-stage-v1.glb").read_bytes()
+          chunks = [data[i:i+262144] for i in range(0, len(data), 262144)]
+          assert len(data) == 549396
+          assert len(chunks) == 3
+
+          def call(payload):
+              req = urllib.request.Request(
+                  os.environ["SUPABASE_FUNCTION_URL"],
+                  data=json.dumps(payload, separators=(",", ":")).encode(),
+                  headers={"content-type": "application/json"},
+                  method="POST",
+              )
+              with urllib.request.urlopen(req, timeout=60) as response:
+                  body = json.loads(response.read().decode())
+                  print(json.dumps(body, sort_keys=True))
+                  return body
+
+          for index, chunk in enumerate(chunks):
+              result = call({
+                  "op": "chunk",
+                  "index": index,
+                  "total": len(chunks),
+                  "data": base64.b64encode(chunk).decode(),
+              })
+              assert result.get("ok") is True
+
+          final = call({"op": "finalize", "total": len(chunks)})
+          assert final.get("verified") is True
+          assert final.get("bytes") == 549396
+          assert final.get("sha256") == "3307a9553655e2b3d0aa6012f052500211ba3cd3878f78faa9bd6ce1bd896172"
+
+          status = call({"op": "status"})
+          assert status.get("verified") is True
+          assert status.get("sha256") == final.get("sha256")
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: performance-stage-v1
