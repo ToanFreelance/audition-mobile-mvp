@@ -168,17 +168,17 @@ export default function AuditionGauge({
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="18 7 464 56" width="100%" height="100%" preserveAspectRatio="none" style={{ overflow: "visible" }} aria-label="Audition timing gauge">
         <defs>
           <linearGradient id={rimGradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity=".62" />
-            <stop offset="18%" stopColor="#bfeaff" stopOpacity=".36" />
-            <stop offset="52%" stopColor="#4e78a7" stopOpacity=".22" />
-            <stop offset="82%" stopColor="#7c65bd" stopOpacity=".20" />
-            <stop offset="100%" stopColor="#d8f2ff" stopOpacity=".48" />
+            <stop offset="0%" stopColor="#f0f1ed" stopOpacity=".50" />
+            <stop offset="18%" stopColor="#a9aaa5" stopOpacity=".34" />
+            <stop offset="52%" stopColor="#4b4d4c" stopOpacity=".24" />
+            <stop offset="82%" stopColor="#262829" stopOpacity=".30" />
+            <stop offset="100%" stopColor="#b5b7b4" stopOpacity=".42" />
           </linearGradient>
           <linearGradient id={trackFillId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#07162c" stopOpacity=".20" />
-            <stop offset="35%" stopColor="#0b2442" stopOpacity=".22" />
-            <stop offset="72%" stopColor="#0b2949" stopOpacity=".20" />
-            <stop offset="100%" stopColor="#081a31" stopOpacity=".20" />
+            <stop offset="0%" stopColor="#19191a" stopOpacity=".34" />
+            <stop offset="35%" stopColor="#22201f" stopOpacity=".36" />
+            <stop offset="72%" stopColor="#242323" stopOpacity=".34" />
+            <stop offset="100%" stopColor="#171819" stopOpacity=".36" />
           </linearGradient>
           <linearGradient id={zoneGradientId} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#00b9c7" stopOpacity="0" />
@@ -216,12 +216,12 @@ export default function AuditionGauge({
 
         {/* Glass capsule: the stage remains visible through the gauge. Timing,
             score-zone geometry and marker motion are unchanged. */}
-        <rect x="20" y="12" width="460" height="46" rx="23" fill="#07182f" opacity=".16" filter={`url(#${outerShadowId})`} />
-        <rect x="20" y="12" width="460" height="46" rx="23" fill={`url(#${rimGradientId})`} stroke="#d8f3ff" strokeOpacity=".60" strokeWidth="1.35" />
-        <rect x="23" y="15" width="454" height="40" rx="20" fill="#0a203a" fillOpacity=".14" stroke="#ffffff" strokeOpacity=".36" strokeWidth="1" />
-        <rect x="25" y="17" width="450" height="36" rx="18" fill={`url(#${trackFillId})`} stroke="#7edcff" strokeOpacity=".34" strokeWidth="1.25" />
-        <path d="M42 18.5 H458" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" opacity=".24" />
-        <path d="M42 52 H458" stroke="#8ddcff" strokeWidth="1" strokeLinecap="round" opacity=".16" />
+        <rect x="20" y="12" width="460" height="46" rx="23" fill="#171718" opacity=".22" filter={`url(#${outerShadowId})`} />
+        <rect x="20" y="12" width="460" height="46" rx="23" fill={`url(#${rimGradientId})`} stroke="#a7aaa8" strokeOpacity=".58" strokeWidth="1.35" />
+        <rect x="23" y="15" width="454" height="40" rx="20" fill="#242120" fillOpacity=".24" stroke="#c8cbc8" strokeOpacity=".30" strokeWidth="1" />
+        <rect x="25" y="17" width="450" height="36" rx="18" fill={`url(#${trackFillId})`} stroke="#5e6262" strokeOpacity=".48" strokeWidth="1.25" />
+        <path d="M42 18.5 H458" stroke="#e8ebe8" strokeWidth="1" strokeLinecap="round" opacity=".18" />
+        <path d="M42 52 H458" stroke="#7f8280" strokeWidth="1" strokeLinecap="round" opacity=".12" />
 
         <g clipPath={`url(#${trackClipId})`}>
           {/* Very faint idle trace. The reference zone mostly disappears between beats. */}
