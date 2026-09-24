@@ -29,26 +29,29 @@ test("S1.2R intro cameras are a pure song-time presentation sequence", () => {
 });
 
 
-test("S1.2R HUD command and gauge shells declare translucent glass styles", async ({ page }) => {
+test("S1.2R HUD command strip and actual gauge SVG are translucent", async ({ page }) => {
   await page.goto("/?seed=123");
 
-  const css = await page.evaluate(() =>
-    Array.from(document.styleSheets)
-      .flatMap(sheet => {
-        try {
-          return Array.from(sheet.cssRules).map(rule => rule.cssText);
-        } catch {
-          return [];
-        }
-      })
-      .join("\n")
-  );
+  const commandBackground = await page.locator(".command-strip").evaluate(element => getComputedStyle(element).backgroundImage);
+  expect(commandBackground).toContain("linear-gradient");
+  expect(commandBackground).toContain("rgba(255, 255, 255, 0.1)");
 
-  expect(css).toContain(".command-strip");
-  expect(css).toContain(".gauge-track");
-  expect(css).toMatch(/\.command-strip[^}]*rgba\([^)]*,\s*0?\.2\)/);
-  expect(css).toMatch(/\.gauge-track[^}]*rgba\([^)]*,\s*0?\.14\)/);
-  expect(css).toContain("backdrop-filter: blur(6px)");
-  expect(css).toContain("backdrop-filter: blur(5px)");
-  expect(css).toContain("@supports (-webkit-touch-callout: none)");
+  const gauge = page.locator(".audition-gauge-svg");
+  await expect(gauge).toBeVisible();
+
+  const darkOpaque = await gauge.locator('svg rect[fill="#000"], svg rect[fill="#050709"]').count();
+  expect(darkOpaque).toBe(0);
+
+  const shellRects = gauge.locator("svg > rect");
+  expect(await shellRects.count()).toBeGreaterThanOrEqual(4);
+
+  const shellOpacities = await shellRects.evaluateAll(nodes =>
+    nodes.slice(0, 4).map(node => ({
+      fill: node.getAttribute("fill"),
+      opacity: node.getAttribute("opacity"),
+      fillOpacity: node.getAttribute("fill-opacity"),
+    }))
+  );
+  expect(shellOpacities.some(item => item.opacity === ".055" || item.fillOpacity === ".045")).toBeTruthy();
 });
+
