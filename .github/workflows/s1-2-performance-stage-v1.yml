@@ -7,6 +7,12 @@ on:
     paths:
       - scripts/generate-performance-stage-v1.py
       - .github/workflows/s1-2-performance-stage-v1.yml
+  pull_request:
+    branches:
+      - development
+    paths:
+      - scripts/generate-performance-stage-v1.py
+      - .github/workflows/s1-2-performance-stage-v1.yml
   workflow_dispatch:
 
 permissions:
