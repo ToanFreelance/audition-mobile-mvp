@@ -280,7 +280,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stagePage, setStagePage] = useState(0);
-  const [viewMode, setViewMode] = useState<WaitingRoomStageView>("center");
+  const [viewMode, setViewMode] = useState<WaitingRoomStageView>("wide");
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(
     initialSync ? initialParticipantId : room.hostParticipantId,
   );
