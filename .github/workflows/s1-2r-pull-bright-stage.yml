@@ -1,0 +1,30 @@
+name: S1.2R Pull Bright Stage Candidate
+
+on:
+  push:
+    branches:
+      - work/s1-2r-bright-stage-reset
+    paths:
+      - .github/workflows/s1-2r-pull-bright-stage.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pull-candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull fixed 3D Jutsu GLB into private Supabase staging
+        run: |
+          set -euo pipefail
+          curl --fail-with-body -sS \
+            -H 'content-type: application/json' \
+            -d '{"op":"pullCandidate"}' \
+            https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-stage-bright-v1-ingest
+          echo
+          curl --fail-with-body -sS \
+            -H 'content-type: application/json' \
+            -d '{"op":"status"}' \
+            https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-stage-bright-v1-ingest
+          echo
