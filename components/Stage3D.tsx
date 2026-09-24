@@ -138,8 +138,8 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     createSpeaker(stage, -4.7, 1.7, COLORS.violet, .7);
     createSpeaker(stage, 4.7, 1.7, COLORS.violet, .7);
 
-    // Keep the accepted procedural room as a fail-safe only. The recovered
-    // Neon Club V3 replaces this group after its private Storage asset loads.
+    // Keep the accepted procedural room as a fail-safe only. Bright Stage V1
+    // replaces this group after its private Storage asset loads.
     const placeholderEnvironment = new THREE.Group();
     placeholderEnvironment.name = "ProceduralStageFallback";
     while (stage.children.length > 0) placeholderEnvironment.add(stage.children[0]);
