@@ -37,3 +37,24 @@ test("C3.1 Solo stage falls back to the default catalog character for invalid sa
   await page.goto("/?debug=1&seed=123");
   await expect(page.locator(".stage-3d")).toHaveAttribute("data-character-asset-id", "c1-casual-grace");
 });
+
+
+test("C4 male starter persists from creator into the Solo stage", async ({ page }) => {
+  await page.goto("/character/create");
+  await page.getByRole("button", { name: "Tạo hình" }).click();
+  await page.getByRole("button", { name: /♂ Nam/ }).click();
+
+  const creator = page.getByTestId("c2-character-creation");
+  const creatorStage = page.getByTestId("c2-character-stage");
+  await expect(creator).toHaveAttribute("data-character-asset", "c4-casual-boy");
+  await expect(creatorStage).toHaveAttribute("data-character-asset-id", "c4-casual-boy");
+
+  await page.getByLabel("Tên nhân vật").fill("KaiQA");
+  await page.getByTestId("c2-confirm-character").click();
+
+  await page.goto("/?debug=1&seed=123");
+  const stage = page.locator(".stage-3d");
+  await expect(stage).toHaveAttribute("data-character-asset-id", "c4-casual-boy");
+  await expect(stage).toHaveAttribute("data-character-profile-version", "1");
+  await expect(stage).toHaveAttribute("data-character-source", "gltf", { timeout: 20_000 });
+});

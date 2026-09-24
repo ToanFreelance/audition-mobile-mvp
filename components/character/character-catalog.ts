@@ -1,8 +1,11 @@
-import { C1_CASUAL_GRACE_ASSET_URL } from "./mixamo-character-adapter";
+import {
+  C1_CASUAL_GRACE_ASSET_URL,
+  C4_CASUAL_BOY_ASSET_URL,
+} from "./mixamo-character-adapter";
 
 export const CHARACTER_CATALOG_VERSION = 1 as const;
 
-export type CharacterAssetId = "c1-casual-grace";
+export type CharacterAssetId = "c1-casual-grace" | "c4-casual-boy";
 export type CharacterGender = "female" | "male";
 export type CharacterAnimationProfile = "mixamo-c1" | "canonical";
 export type CharacterAppearanceSlot = "hairStyle" | "hairColor" | "skinTone" | "face";
@@ -80,7 +83,46 @@ const CASUAL_GRACE: CharacterCatalogEntry = {
   equipmentSlots: ["outfit", "accessory", "shoes"],
 };
 
-export const CHARACTER_CATALOG_V1: readonly CharacterCatalogEntry[] = [CASUAL_GRACE];
+const CASUAL_BOY: CharacterCatalogEntry = {
+  id: "c4-casual-boy",
+  label: "Casual Boy",
+  gender: "male",
+  assetUrl: C4_CASUAL_BOY_ASSET_URL,
+  animationProfile: "mixamo-c1",
+  runtimeReady: true,
+  creatorBadge: "MALE STARTER",
+  creatorVersionLabel: "C4 · Mixamo playable MVP",
+  appearance: {
+    hairStyles: [
+      { id: "male-short-01", label: "Tóc ngắn", available: true },
+      { id: "male-medium-01", label: "Tóc dài hơn", available: false, note: "Cần asset" },
+      { id: "male-bald-01", label: "Đầu trọc", available: false, note: "Cần asset" },
+    ],
+    hairColors: [
+      { id: "male-default", label: "Mặc định", available: true },
+      { id: "black", label: "Đen", available: false, note: "Cần texture variant" },
+      { id: "brown", label: "Nâu", available: false, note: "Cần texture variant" },
+    ],
+    skinTones: [
+      { id: "male-default", label: "Mặc định", available: true },
+      { id: "light", label: "Sáng", available: false, note: "Cần texture variant" },
+      { id: "tan", label: "Nâu", available: false, note: "Cần texture variant" },
+    ],
+    faces: [
+      { id: "male-basic-01", label: "Cơ bản 01", available: true },
+      { id: "male-basic-02", label: "Cơ bản 02", available: false, note: "Cần face variant" },
+    ],
+  },
+  defaultAppearance: {
+    hairStyle: "male-short-01",
+    hairColor: "male-default",
+    skinTone: "male-default",
+    face: "male-basic-01",
+  },
+  equipmentSlots: ["outfit", "accessory", "shoes"],
+};
+
+export const CHARACTER_CATALOG_V1: readonly CharacterCatalogEntry[] = [CASUAL_GRACE, CASUAL_BOY];
 
 export const DEFAULT_CHARACTER_ASSET_ID: CharacterAssetId = CASUAL_GRACE.id;
 

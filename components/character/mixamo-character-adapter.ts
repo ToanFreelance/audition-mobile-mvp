@@ -28,6 +28,7 @@ const BONE_PAIRS = [
 ] as const;
 
 export const C1_CASUAL_GRACE_ASSET_URL = "/characters/c1-casual-grace/character.glb";
+export const C4_CASUAL_BOY_ASSET_URL = "/characters/c4-casual-boy/character.glb";
 
 type RestBone = {
   bone: THREE.Bone;
