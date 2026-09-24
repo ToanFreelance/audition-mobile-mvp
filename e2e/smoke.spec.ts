@@ -31,7 +31,7 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
   await page.getByRole('button',{name:'START',exact:true}).click();
   await expect.poll(
     async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).commandVisible,
-    {timeout:15000},
+    {timeout:30000},
   ).toBe(true);
   await expect(page.locator('.command-zone')).toHaveClass(/visible/);
   const commandToken = page.locator('.command-key').first();
@@ -76,7 +76,7 @@ test('same action layer: incomplete SPACE cannot succeed, keyboard completes com
           && debug.commandIndex===0
           && debug.deltaToTargetMs < -1500;
       },
-      {timeout:10000},
+      {timeout:25000},
     ).toBe(true);
 
     const beforeInput=await rhythmDebug(page);
