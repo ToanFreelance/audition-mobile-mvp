@@ -5,6 +5,9 @@ export type ConnectionState = "connected" | "disconnected";
 export type BotProfile = "perfect" | "miss" | "mixed" | "passive";
 
 export type AvatarSnapshot = {
+  /** Canonical Character Catalog identity for runtime presentation. */
+  characterAssetId?: string;
+  /** Legacy persisted identity retained during the P5.6 room-snapshot migration. */
   characterId: string;
   outfit: {
     hairId?: string;
