@@ -13,6 +13,8 @@ on:
       - components/stage/stageCamera.ts
       - app/api/stage-runtime/route.ts
       - app/globals.css
+      - public/audition-final-overrides.css
+      - public/audition-touch-overrides.css
       - e2e/stage-bright-v1.spec.ts
       - .github/workflows/s1-2r-bright-stage-qa.yml
   workflow_dispatch:
