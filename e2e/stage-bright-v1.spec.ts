@@ -29,30 +29,30 @@ test("S1.2R intro cameras are a pure song-time presentation sequence", () => {
 });
 
 
-test("S1.2R HUD matches the source charcoal command bar and readable gauge glass", async ({ page }) => {
+test("S1.2R HUD source match is applied by the winning portrait layer", async ({ page }) => {
   await page.goto("/?seed=123");
 
   const command = await page.locator(".command-strip").evaluate(element => {
-    const computed = getComputedStyle(element);
+    const shell = getComputedStyle(element);
+    const before = getComputedStyle(element, "::before");
+    const after = getComputedStyle(element, "::after");
     return {
-      backgroundImage: computed.backgroundImage,
-      backdropFilter: computed.backdropFilter,
-      borderColor: computed.borderColor,
-      outlineColor: computed.outlineColor,
+      shellBackground: shell.backgroundImage,
+      beforeBackground: before.backgroundImage,
+      beforeBorderColor: before.borderColor,
+      afterBorderColor: after.borderColor,
     };
   });
-  expect(command.backgroundImage).toContain("linear-gradient");
-  expect(command.backgroundImage).toContain("rgba(48, 42, 42, 0.34)");
-  expect(command.backgroundImage).toContain("rgba(28, 25, 26, 0.27)");
-  expect(command.backdropFilter).toBe("none");
-  expect(command.borderColor).toContain("rgba(150, 154, 155");
-  expect(command.outlineColor).toContain("rgba(34, 41, 43");
+
+  expect(command.beforeBackground).toContain("rgba(54, 45, 39, 0.38)");
+  expect(command.beforeBackground).toContain("rgba(34, 30, 29, 0.31)");
+  expect(command.beforeBorderColor).toContain("rgba(154, 158, 158");
+  expect(command.afterBorderColor).toContain("rgba(39, 44, 45");
+  expect(command.beforeBackground).not.toContain("0.94");
+  expect(command.beforeBackground).not.toContain("0.92");
 
   const gauge = page.locator(".audition-gauge-svg");
   await expect(gauge).toBeVisible();
-
-  const darkOpaque = await gauge.locator('svg rect[fill="#000"], svg rect[fill="#050709"]').count();
-  expect(darkOpaque).toBe(0);
 
   const shellRects = gauge.locator("svg > rect");
   expect(await shellRects.count()).toBeGreaterThanOrEqual(4);
@@ -64,7 +64,7 @@ test("S1.2R HUD matches the source charcoal command bar and readable gauge glass
       fillOpacity: node.getAttribute("fill-opacity"),
     }))
   );
-  expect(shellOpacities.some(item => item.fill === "#07182f" && item.opacity === ".16")).toBeTruthy();
-  expect(shellOpacities.some(item => item.fill === "#0a203a" && item.fillOpacity === ".14")).toBeTruthy();
+  expect(shellOpacities.some(item => item.fill === "#171718" && item.opacity === ".22")).toBeTruthy();
+  expect(shellOpacities.some(item => item.fill === "#242120" && item.fillOpacity === ".24")).toBeTruthy();
 });
 
