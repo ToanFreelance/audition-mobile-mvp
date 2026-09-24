@@ -27,3 +27,24 @@ test("S1.2R intro cameras are a pure song-time presentation sequence", () => {
   expect(getStagePresentationCameraPose(STAGE_INTRO_DURATION_MS, true, true, "center").preset).toBe("gameplay_portrait_locked");
   expect(getStagePresentationCameraPose(0, false, true, "center").preset).toBe("gameplay_portrait_locked");
 });
+
+
+test("S1.2R HUD command and gauge shells use translucent glass", async ({ page }) => {
+  await page.goto("/?seed=123");
+
+  for (const selector of [".command-strip", ".gauge-track"]) {
+    const style = await page.locator(selector).evaluate(element => {
+      const computed = getComputedStyle(element);
+      return {
+        backgroundColor: computed.backgroundColor,
+        backdropFilter: computed.backdropFilter,
+        webkitBackdropFilter: (computed as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter ?? "",
+      };
+    });
+
+    const alphaMatch = style.backgroundColor.match(/rgba?\([^)]*[,\s]([\d.]+)\)$/);
+    expect(alphaMatch, `${selector} should expose an alpha background`).toBeTruthy();
+    expect(Number(alphaMatch![1]), `${selector} should remain translucent`).toBeLessThan(0.6);
+    expect(`${style.backdropFilter} ${style.webkitBackdropFilter}`).toContain("blur(");
+  }
+});
