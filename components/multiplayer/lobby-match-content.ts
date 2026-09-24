@@ -7,10 +7,14 @@ import {
 } from "../../game/music-config";
 import {
   HUMAN_ANIMATION_LIBRARY_URL,
-  HUMAN_CHARACTER_ASSET_URL,
   HUMAN_FINISH_MOCAP_URL,
 } from "../character/human-animation-library";
+import {
+  CHARACTER_CATALOG_VERSION,
+  resolveCharacterAssetUrl,
+} from "../character/character-catalog";
 import { loadPublishedDanceRelease } from "../character/published-animation-library";
+import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import type { LobbyMatchFreezeInput } from "../../multiplayer/lobby-match-freeze";
 import type { MatchManifest } from "../../multiplayer/types";
 import type { PresentationResourceReadiness } from "../../multiplayer/match-start-protocol";
@@ -117,7 +121,7 @@ export async function prepareLobbyMatchFreezeInput(input: {
     audioHash: await sha256(audioIdentity),
     chartVersion: `chart:${music.id}:${music.updatedAt || "unversioned"}`,
     chartHash: await sha256(chartIdentity),
-    characterRuntimeVersion: `quaternius:${HUMAN_CHARACTER_ASSET_URL}`,
+    characterRuntimeVersion: `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
     animationReleaseVersion: published?.info.releaseVersion ?? 0,
     animationReleaseHash: await sha256(animationIdentity),
     gameplayConfigVersion: GAMEPLAY_CONFIG_VERSION,
@@ -131,11 +135,6 @@ export async function prepareLobbyMatchFreezeInput(input: {
   };
 }
 
-
-const HUMAN_FEMALE_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL.replace(
-  "UBC_Superhero_Male_FullBody.glb",
-  "UBC_Superhero_Female_FullBody.glb",
-);
 
 async function preloadAssetBytes(url: string, label: string) {
   const response = await fetch(url, { cache: "force-cache" });
@@ -181,7 +180,7 @@ async function frozenContentIdentity(
     audioHash: await sha256(audioIdentity),
     chartVersion: `chart:${music.id}:${music.updatedAt || "unversioned"}`,
     chartHash: await sha256(chartIdentity),
-    characterRuntimeVersion: `quaternius:${HUMAN_CHARACTER_ASSET_URL}`,
+    characterRuntimeVersion: `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
     animationReleaseVersion: published?.info.releaseVersion ?? 0,
     animationReleaseHash: await sha256(animationIdentity),
     gameplayConfigVersion: GAMEPLAY_CONFIG_VERSION,
@@ -268,9 +267,7 @@ export async function preloadFrozenLobbyMatch(manifest: MatchManifest): Promise<
 
   const characterUrls = new Set(
     manifest.participants.map(participant => (
-      participant.avatar.characterId.toLowerCase().includes("female")
-        ? HUMAN_FEMALE_CHARACTER_ASSET_URL
-        : HUMAN_CHARACTER_ASSET_URL
+      resolveCharacterAssetUrl(avatarCharacterAssetId(participant.avatar))
     )),
   );
 
