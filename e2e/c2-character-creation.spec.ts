@@ -37,7 +37,8 @@ test("C3 creator resolves the real starter through the versioned catalog", async
   await page.getByRole("button", { name: "Giày" }).click();
   await expect(stage).toHaveAttribute("data-focus", "shoes");
 
-  await expect(page.getByRole("button", { name: /♂ Nam/ })).toBeDisabled();
+  await page.getByRole("button", { name: "Tạo hình" }).click();
+  await expect(page.getByRole("button", { name: /♂ Nam/ })).toBeEnabled();
 
   await name.fill("MinaQA");
   await confirm.click();
