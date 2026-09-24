@@ -1,4 +1,4 @@
-name: S1.2R Pull Bright Stage Candidate
+name: S1.2R Promote Bright Stage
 
 on:
   push:
@@ -12,15 +12,15 @@ permissions:
   contents: read
 
 jobs:
-  pull-candidate:
+  promote:
     runs-on: ubuntu-latest
     steps:
-      - name: Pull fixed 3D Jutsu GLB into private Supabase staging
+      - name: Promote verified Bright Stage V1 to private runtime path
         run: |
           set -euo pipefail
           curl --fail-with-body -sS \
             -H 'content-type: application/json' \
-            -d '{"op":"pullCandidate"}' \
+            -d '{"op":"promote"}' \
             https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-stage-bright-v1-ingest
           echo
           curl --fail-with-body -sS \
