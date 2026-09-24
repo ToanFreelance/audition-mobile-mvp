@@ -1,9 +1,11 @@
-import { C1_CASUAL_GRACE_ASSET_URL } from "./mixamo-character-adapter";
-import { HUMAN_CHARACTER_ASSET_URL } from "./human-animation-library";
+import {
+  C1_CASUAL_GRACE_ASSET_URL,
+  C4_CASUAL_BOY_ASSET_URL,
+} from "./mixamo-character-adapter";
 
 export const CHARACTER_CATALOG_VERSION = 1 as const;
 
-export type CharacterAssetId = "c1-casual-grace" | "c4-superhero-male";
+export type CharacterAssetId = "c1-casual-grace" | "c4-casual-boy";
 export type CharacterGender = "female" | "male";
 export type CharacterAnimationProfile = "mixamo-c1" | "canonical";
 export type CharacterAppearanceSlot = "hairStyle" | "hairColor" | "skinTone" | "face";
@@ -81,15 +83,15 @@ const CASUAL_GRACE: CharacterCatalogEntry = {
   equipmentSlots: ["outfit", "accessory", "shoes"],
 };
 
-const SUPERHERO_MALE: CharacterCatalogEntry = {
-  id: "c4-superhero-male",
-  label: "Superhero Male",
+const CASUAL_BOY: CharacterCatalogEntry = {
+  id: "c4-casual-boy",
+  label: "Casual Boy",
   gender: "male",
-  assetUrl: HUMAN_CHARACTER_ASSET_URL,
-  animationProfile: "canonical",
+  assetUrl: C4_CASUAL_BOY_ASSET_URL,
+  animationProfile: "mixamo-c1",
   runtimeReady: true,
   creatorBadge: "MALE STARTER",
-  creatorVersionLabel: "C4 · canonical starter",
+  creatorVersionLabel: "C4 · Mixamo playable MVP",
   appearance: {
     hairStyles: [
       { id: "male-short-01", label: "Tóc ngắn", available: true },
@@ -120,7 +122,7 @@ const SUPERHERO_MALE: CharacterCatalogEntry = {
   equipmentSlots: ["outfit", "accessory", "shoes"],
 };
 
-export const CHARACTER_CATALOG_V1: readonly CharacterCatalogEntry[] = [CASUAL_GRACE, SUPERHERO_MALE];
+export const CHARACTER_CATALOG_V1: readonly CharacterCatalogEntry[] = [CASUAL_GRACE, CASUAL_BOY];
 
 export const DEFAULT_CHARACTER_ASSET_ID: CharacterAssetId = CASUAL_GRACE.id;
 
