@@ -112,20 +112,16 @@ async function sceneGeneration(page: Page) {
 async function sharedStartAt(page: Page): Promise<string> {
   let startAt = "";
 
+  // Read either handoff surface atomically in the page. A count() followed by
+  // innerText() races with the PRELOADING/COUNTDOWN -> GAMEPLAY DOM swap on
+  // fast desktop CI, even when the immutable server epoch itself is correct.
   await expect.poll(async () => {
-    const preload = page.getByTestId("start-at-server-ms");
-    if (await preload.count()) {
-      startAt = await preload.first().innerText();
-      return startAt;
-    }
-
-    const gameplay = page.getByTestId("gameplay-start-at-server-ms");
-    if (await gameplay.count()) {
-      startAt = await gameplay.first().innerText();
-      return startAt;
-    }
-
-    return "";
+    startAt = await page.evaluate(() => {
+      const node = document.querySelector('[data-testid="start-at-server-ms"]')
+        ?? document.querySelector('[data-testid="gameplay-start-at-server-ms"]');
+      return node?.textContent?.trim() ?? "";
+    });
+    return startAt;
   }, { timeout: 15_000 }).not.toBe("");
 
   return startAt;
