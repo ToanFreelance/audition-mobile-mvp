@@ -85,11 +85,11 @@ test("portrait control spacing slider pushes only the D-pad toward the edge and 
   expect(spaceBefore).toBeTruthy();
   expect(dpadBefore).toBeTruthy();
 
-  // READY intentionally owns pointer events before gameplay. Force the menu
-  // launcher here so this focused presentation test can exercise Settings
-  // without starting WebAudio/gameplay.
-  await page.getByRole("button", { name: "Mở menu" }).click({ force: true });
-  // Settings are the default menu body; "CÀI ĐẶT" is a section title, not a tab.
+  // READY owns the pointer plane before gameplay, so a coordinate-based
+  // Playwright click can hit that overlay even with force:true. Trigger the
+  // actual button DOM click to test the menu state transition deterministically.
+  await page.getByRole("button", { name: "Mở menu" }).evaluate((button: HTMLButtonElement) => button.click());
+  await expect(page.getByRole("dialog", { name: "MENU" })).toBeVisible();
   const slider = page.getByRole("slider", { name: "Control Spacing" });
   await expect(slider).toHaveValue("0");
   await slider.fill("28");
