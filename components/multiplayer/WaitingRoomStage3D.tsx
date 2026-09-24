@@ -998,6 +998,7 @@ export default function WaitingRoomStage3D({
       data-idle-count={idleRuntimeCount}
       data-idle-source={idleSource}
       data-character-assets={participants.map(participantCharacterAssetId).join(",")}
+      data-layout={viewMode === "wide" ? "host-first" : viewMode}
     >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
@@ -1015,6 +1016,7 @@ export default function WaitingRoomStage3D({
             <button
               className={`${styles.hostIdentity} ${hostParticipant.participantId === selectedParticipantId ? styles.hostIdentitySelected : ""}`}
               data-character-asset-id={participantCharacterAssetId(hostParticipant)}
+              data-testid="p56-host-identity"
               onClick={() => onSelectParticipant?.(hostParticipant)}
               type="button"
             >
@@ -1024,7 +1026,7 @@ export default function WaitingRoomStage3D({
               <b className={statusClass(hostParticipant)}>{statusLabel(hostParticipant)}</b>
             </button>
           )}
-          <div className={styles.wideSlotLabels}>
+          <div className={styles.wideSlotLabels} data-testid="p56-participant-deck">
             {slots
               .filter(slot => slot.slotIndex !== hostParticipant?.slotIndex)
               .map(slot => {
