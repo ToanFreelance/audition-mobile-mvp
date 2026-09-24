@@ -65,7 +65,19 @@ function normalizeEnvironment(model: THREE.Object3D) {
   const bounds = new THREE.Box3().setFromObject(model);
   const center = bounds.getCenter(new THREE.Vector3());
   model.position.x -= center.x;
-  model.position.y -= bounds.min.y;
+
+  // The playable dancer owns y≈0. Do not align the environment by its lowest
+  // mesh bound: the floor slab has thickness below the dance surface, and
+  // doing so would lift the slab over the dancer's shoes. Instead align the
+  // highest authored dance-floor accent to y=0 so all playable feet remain
+  // above environment geometry.
+  let floorDatumY = bounds.min.y;
+  model.traverse(object => {
+    if (!/^(DanceFloor_|FloorRay_)/.test(object.name)) return;
+    const objectBounds = new THREE.Box3().setFromObject(object);
+    if (Number.isFinite(objectBounds.max.y)) floorDatumY = Math.max(floorDatumY, objectBounds.max.y);
+  });
+  model.position.y -= floorDatumY;
   model.updateMatrixWorld(true);
 }
 
