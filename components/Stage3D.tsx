@@ -7,6 +7,7 @@ import { CharacterActor, disposeObjectResources } from "./character/CharacterAct
 import type { CharacterPresentationEvent } from "./character/character-types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
+import { StageV3Environment } from "./stage/StageV3Environment";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
@@ -22,17 +23,20 @@ type Stage3DProps = {
   isPlaying?: boolean;
   characterEvent?: CharacterPresentationEvent | null;
   getSongTimeMs?: () => number;
+  bpm?: number;
 };
 
-export default function Stage3D({ cameraPreset = "center", isPlaying = false, characterEvent = null, getSongTimeMs }: Stage3DProps) {
+export default function Stage3D({ cameraPreset = "center", isPlaying = false, characterEvent = null, getSongTimeMs, bpm = 110 }: Stage3DProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
   const isPlayingRef = useRef(isPlaying);
   const getSongTimeMsRef = useRef(getSongTimeMs);
+  const bpmRef = useRef(bpm);
   cameraPresetRef.current = cameraPreset;
   isPlayingRef.current = isPlaying;
   getSongTimeMsRef.current = getSongTimeMs;
+  bpmRef.current = bpm;
 
   useEffect(() => {
     characterRef.current?.setGameActive(isPlaying);
@@ -133,6 +137,33 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     createSpeaker(stage, -4.7, 1.7, COLORS.violet, .7);
     createSpeaker(stage, 4.7, 1.7, COLORS.violet, .7);
 
+    // Keep the accepted procedural room as a fail-safe only. The recovered
+    // Neon Club V3 replaces this group after its private Storage asset loads.
+    const placeholderEnvironment = new THREE.Group();
+    placeholderEnvironment.name = "ProceduralStageFallback";
+    while (stage.children.length > 0) placeholderEnvironment.add(stage.children[0]);
+    stage.add(placeholderEnvironment);
+
+    const stageV3 = new StageV3Environment();
+    stageV3.root.visible = false;
+    stage.add(stageV3.root);
+    host.dataset.stageSource = "placeholder";
+    host.dataset.stageEmbeddedAnimations = "0";
+    void stageV3.load().then(result => {
+      if (disposed) return;
+      stageV3.root.visible = true;
+      placeholderEnvironment.visible = false;
+      accent.visible = false;
+      host.dataset.stageSource = result.stageId;
+      host.dataset.stageEmbeddedAnimations = String(result.embeddedAnimations);
+      host.dataset.stageMetrics = JSON.stringify(result);
+    }).catch(error => {
+      if (disposed) return;
+      host.dataset.stageSource = "placeholder";
+      host.dataset.stageError = error instanceof Error ? error.message : String(error);
+      console.warn("[Stage3D] Neon Club V3 failed; procedural stage remains active:", error);
+    });
+
     let selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
     try {
       selectedCharacter = loadCharacterCreationDraft(window.localStorage) ?? DEFAULT_CHARACTER_CREATION_PROFILE;
@@ -207,9 +238,14 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       cameraLookTarget.z += (target.targetZ - cameraLookTarget.z) * cameraEase;
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
-      character.update(delta, t, getSongTimeMsRef.current?.() ?? 0);
-      const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
-      sign.scale.set(signPulse, signPulse, signPulse);
+      const songTimeMs = getSongTimeMsRef.current?.() ?? 0;
+      character.update(delta, t, songTimeMs);
+      if (stageV3.root.visible) {
+        stageV3.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
+      } else {
+        const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
+        sign.scale.set(signPulse, signPulse, signPulse);
+      }
       renderer.render(scene, camera);
       scheduleFrame();
     };
@@ -230,6 +266,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       observer.disconnect();
       character.dispose();
+      stageV3.dispose();
       if (characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();

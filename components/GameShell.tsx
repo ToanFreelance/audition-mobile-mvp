@@ -360,7 +360,7 @@ export default function GameShell() {
     <main className="audition-page">
       {debugEnabled && <pre data-testid="rhythm-debug" style={{position:"fixed",top:0,left:0,zIndex:9999,maxHeight:"42dvh",overflow:"auto",maxWidth:"100vw",fontSize:10,background:"#000d",color:"#aef",pointerEvents:"none",margin:0}}>{JSON.stringify(runtime.debug, null, 2)}</pre>}
       <section className="audition-stage">
-        <Stage3D cameraPreset={cameraPreset} isPlaying={started} characterEvent={characterEvent} getSongTimeMs={getAuthoritativeSongTimeMs} />
+        <Stage3D cameraPreset={cameraPreset} isPlaying={started} characterEvent={characterEvent} getSongTimeMs={getAuthoritativeSongTimeMs} bpm={activeChart.bpm} />
         <div className="audition-hud">
           <button className="hud-song" onClick={openSongPicker} disabled={started || musicLoading} aria-label="Chọn bài nhạc"><div className="song-cover">♫</div><div className="song-copy"><strong>{selectedMusic.title}</strong><span>BPM <b>{selectedMusic.BPM_exact}</b></span><div className="song-progress"><i style={{ width: `${progress}%` }} /></div><small>{formatTime(songTime)} / {formatTime(selectedMusic.durationMs / 1000)}</small></div></button>
           <div className="battle-score"><div className="score-number red">{stats.score.toLocaleString()}</div><b>VS</b><div className="score-number blue">179,342</div><div className="battle-bar"><i style={{ width: `${Math.min(100, 50 + stats.score / 10000)}%` }} /></div><span>RED</span><span>BLUE</span></div>
