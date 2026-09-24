@@ -22,7 +22,7 @@ test("avatar or slot changes do change 3D actor identity", () => {
 
   expect(lobbyStageParticipantIdentity({
     ...guest,
-    avatar: { ...guest.avatar, characterId: "default-male" },
+    avatar: { ...guest.avatar, characterAssetId: "c4-casual-boy" },
   })).not.toBe(lobbyStageParticipantIdentity(guest));
 
   expect(lobbyStageParticipantIdentity({
