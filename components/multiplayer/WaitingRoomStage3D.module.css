@@ -764,3 +764,159 @@
     max-width:138px;
   }
 }
+
+
+/* P5.6 Waiting Room Visual V2 — host-first portrait lineup */
+.hostIdentity{
+  position:absolute;
+  z-index:8;
+  top:14px;
+  left:50%;
+  transform:translateX(-50%);
+  width:158px;
+  min-height:74px;
+  display:grid;
+  justify-items:center;
+  align-content:start;
+  gap:2px;
+  padding:5px 12px 7px;
+  border:1px solid rgba(255,213,91,.52);
+  border-radius:14px;
+  background:
+    linear-gradient(180deg,rgba(17,21,55,.86),rgba(7,10,31,.34));
+  color:#fff;
+  font-family:inherit;
+  text-align:center;
+  box-shadow:
+    0 10px 26px rgba(0,0,0,.25),
+    0 0 18px rgba(255,185,50,.08),
+    inset 0 1px rgba(255,255,255,.04);
+  backdrop-filter:blur(4px);
+  cursor:pointer;
+}
+.hostIdentitySelected{
+  border-color:#73efff;
+  box-shadow:
+    0 10px 26px rgba(0,0,0,.28),
+    0 0 18px rgba(75,222,255,.3),
+    inset 0 0 15px rgba(74,211,255,.08);
+}
+.hostIdentity .crown{
+  position:static!important;
+  display:block!important;
+  justify-self:center!important;
+  margin:0!important;
+  font-size:27px!important;
+  line-height:.8!important;
+}
+.hostIdentity strong{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:17px;
+  line-height:1.02;
+  font-weight:1000;
+  letter-spacing:-.035em;
+  text-shadow:0 2px 4px #02030b,0 0 7px rgba(0,0,0,.92);
+}
+.hostIdentity small{
+  font-size:9px;
+  line-height:1;
+  font-weight:800;
+  color:#eaf0ff;
+}
+.hostIdentity b{
+  margin-top:3px;
+  padding:3px 9px 4px;
+  border:1px solid currentColor;
+  border-radius:999px;
+  font-size:9px;
+  line-height:1;
+  font-weight:1000;
+  font-style:normal;
+  letter-spacing:.05em;
+}
+
+.stage[data-view="wide"] .wideSlotLabels{
+  top:auto!important;
+  bottom:76px!important;
+  left:10px!important;
+  right:10px!important;
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:5px!important;
+}
+.stage[data-view="wide"] .wideSlotLabel{
+  min-height:50px;
+  align-content:center;
+  gap:2px;
+  padding:4px 2px 5px;
+  border:1px solid rgba(68,94,171,.48);
+  border-radius:10px;
+  background:
+    linear-gradient(180deg,rgba(9,15,42,.86),rgba(4,8,27,.48));
+  box-shadow:
+    0 6px 14px rgba(0,0,0,.18),
+    inset 0 1px rgba(255,255,255,.025);
+  backdrop-filter:blur(3px);
+}
+.stage[data-view="wide"] .wideSlotSelected{
+  border-color:rgba(87,230,255,.72);
+  background:
+    linear-gradient(180deg,rgba(12,49,78,.9),rgba(4,11,34,.5));
+  box-shadow:
+    0 0 15px rgba(61,218,255,.22),
+    inset 0 0 12px rgba(57,208,255,.08);
+}
+.stage[data-view="wide"] .wideSlotNumber{
+  width:20px;
+  height:20px;
+  font-size:8px;
+}
+.stage[data-view="wide"] .wideSlotLabel strong{
+  font-size:7.5px;
+  line-height:1.05;
+}
+.stage[data-view="wide"] .wideSlotLabel b{
+  font-size:6.7px;
+  line-height:1;
+}
+.stage[data-view="wide"] .brand{
+  top:31%;
+  opacity:.36;
+}
+.stage[data-view="wide"] .brand strong{
+  font-size:46px;
+}
+.stage[data-view="wide"] .lightBarLeft,
+.stage[data-view="wide"] .lightBarRight{
+  top:56px;
+  height:160px;
+}
+.stage[data-view="wide"]:after{
+  height:50%;
+}
+@media(max-width:370px){
+  .hostIdentity{
+    top:11px;
+    width:144px;
+    min-height:68px;
+    padding-left:8px;
+    padding-right:8px;
+  }
+  .hostIdentity strong{font-size:15px}
+  .hostIdentity .crown{font-size:24px!important}
+  .stage[data-view="wide"] .wideSlotLabels{
+    left:7px!important;
+    right:7px!important;
+    gap:3px!important;
+    bottom:74px!important;
+  }
+  .stage[data-view="wide"] .wideSlotLabel{
+    min-height:46px;
+    border-radius:8px;
+  }
+  .stage[data-view="wide"] .wideSlotLabel strong{font-size:6.6px}
+  .stage[data-view="wide"] .wideSlotLabel b{font-size:6px}
+}
