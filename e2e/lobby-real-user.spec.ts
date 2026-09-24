@@ -109,20 +109,26 @@ async function sceneGeneration(page: Page) {
   return await page.getByTestId("waiting-room-stage").getAttribute("data-scene-generation");
 }
 
-async function sharedStartAt(page: Page) {
-  return await expect.poll(async () => {
+async function sharedStartAt(page: Page): Promise<string> {
+  let startAt = "";
+
+  await expect.poll(async () => {
     const preload = page.getByTestId("start-at-server-ms");
-    if (await preload.count()) return await preload.first().innerText();
+    if (await preload.count()) {
+      startAt = await preload.first().innerText();
+      return startAt;
+    }
 
     const gameplay = page.getByTestId("gameplay-start-at-server-ms");
-    if (await gameplay.count()) return await gameplay.first().innerText();
+    if (await gameplay.count()) {
+      startAt = await gameplay.first().innerText();
+      return startAt;
+    }
 
     return "";
   }, { timeout: 15_000 }).not.toBe("");
 
-  const preload = page.getByTestId("start-at-server-ms");
-  if (await preload.count()) return await preload.first().innerText();
-  return await page.getByTestId("gameplay-start-at-server-ms").first().innerText();
+  return startAt;
 }
 
 function assertNoCriticalErrors(...users: QaUser[]) {
