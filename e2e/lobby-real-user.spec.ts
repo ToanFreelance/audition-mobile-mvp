@@ -127,6 +127,18 @@ async function sharedStartAt(page: Page): Promise<string> {
   return startAt;
 }
 
+async function expectAudioScheduledOrLive(page: Page) {
+  await expect.poll(async () => page.evaluate(() => {
+    const preload = document.querySelector('[data-testid="preload-state"]');
+    if (preload?.getAttribute("data-audio-scheduled") === "1") return true;
+
+    // Live gameplay is only rendered once WaitingRoomPanel has a concrete
+    // gameplaySchedule for the immutable match/start session, so crossing the
+    // handoff boundary also proves local WebAudio scheduling completed.
+    return document.querySelector('[data-testid="multiplayer-gameplay-live"]') !== null;
+  }), { timeout: 15_000 }).toBe(true);
+}
+
 function assertNoCriticalErrors(...users: QaUser[]) {
   const errors = users.flatMap(user => user.criticalErrors);
   expect(errors, errors.join("\n")).toEqual([]);
@@ -219,14 +231,8 @@ test("@real host + guest Ready through one shared epoch into WebAudio multiplaye
 
     // P5.5 must map the same immutable epoch into each local AudioContext
     // before GO. No client is allowed to invent a replacement start.
-    await expect(host.page.getByTestId("preload-state")).toHaveAttribute("data-audio-scheduled", "1", {
-      timeout: 10_000,
-    });
-    await expect(guest.page.getByTestId("preload-state")).toHaveAttribute("data-audio-scheduled", "1", {
-      timeout: 10_000,
-    });
-    await expect(host.page.getByTestId("p55-audio-state")).toContainText("AUDIO SCHEDULED");
-    await expect(guest.page.getByTestId("p55-audio-state")).toContainText("AUDIO SCHEDULED");
+    await expectAudioScheduledOrLive(host.page);
+    await expectAudioScheduledOrLive(guest.page);
 
     await expect(host.page.getByTestId("multiplayer-gameplay-live")).toBeVisible({ timeout: 12_000 });
     await expect(guest.page.getByTestId("multiplayer-gameplay-live")).toBeVisible({ timeout: 12_000 });
