@@ -7,7 +7,8 @@ import { CharacterActor, disposeObjectResources } from "./character/CharacterAct
 import type { CharacterPresentationEvent } from "./character/character-types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
-import { PerformanceStageV1Environment } from "./stage/PerformanceStageV1Environment";
+import { BrightStageV1Environment } from "./stage/BrightStageV1Environment";
+import { getStagePresentationCameraPose } from "./stage/stageCamera";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
@@ -144,14 +145,14 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     while (stage.children.length > 0) placeholderEnvironment.add(stage.children[0]);
     stage.add(placeholderEnvironment);
 
-    const performanceStage = new PerformanceStageV1Environment();
-    performanceStage.root.visible = false;
-    stage.add(performanceStage.root);
+    const brightStage = new BrightStageV1Environment();
+    brightStage.root.visible = false;
+    stage.add(brightStage.root);
     host.dataset.stageSource = "placeholder";
     host.dataset.stageEmbeddedAnimations = "0";
-    void performanceStage.load().then(result => {
+    void brightStage.load().then(result => {
       if (disposed) return;
-      performanceStage.root.visible = true;
+      brightStage.root.visible = true;
       placeholderEnvironment.visible = false;
       accent.visible = false;
       host.dataset.stageSource = result.stageId;
@@ -161,7 +162,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       if (disposed) return;
       host.dataset.stageSource = "placeholder";
       host.dataset.stageError = error instanceof Error ? error.message : String(error);
-      console.warn("[Stage3D] Performance Stage V1 failed; procedural stage remains active:", error);
+      console.warn("[Stage3D] Bright Stage V1 failed; procedural stage remains active:", error);
     });
 
     let selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
@@ -229,19 +230,29 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       if (document.hidden) return;
       const delta = Math.min(clock.getDelta(), .1);
       const t = clock.elapsedTime;
-      const target = cameraTarget(host.clientHeight > host.clientWidth);
-      const cameraEase = 1 - Math.pow(1 - .14, delta * 60);
-      camera.position.y += (target.y - camera.position.y) * cameraEase;
-      camera.position.z += (target.z - camera.position.z) * cameraEase;
-      camera.fov += (target.fov - camera.fov) * cameraEase;
-      cameraLookTarget.y += (target.targetY - cameraLookTarget.y) * cameraEase;
-      cameraLookTarget.z += (target.targetZ - cameraLookTarget.z) * cameraEase;
+      const songTimeMs = getSongTimeMsRef.current?.() ?? 0;
+      const pose = getStagePresentationCameraPose(
+        songTimeMs,
+        isPlayingRef.current,
+        host.clientHeight > host.clientWidth,
+        cameraPresetRef.current,
+      );
+      host.dataset.presentationCamera = pose.preset;
+      const cameraEase = pose.preset === "gameplay_portrait_locked"
+        ? 1 - Math.pow(1 - .14, delta * 60)
+        : 1 - Math.pow(1 - .22, delta * 60);
+      camera.position.x += (pose.x - camera.position.x) * cameraEase;
+      camera.position.y += (pose.y - camera.position.y) * cameraEase;
+      camera.position.z += (pose.z - camera.position.z) * cameraEase;
+      camera.fov += (pose.fov - camera.fov) * cameraEase;
+      cameraLookTarget.x += (pose.targetX - cameraLookTarget.x) * cameraEase;
+      cameraLookTarget.y += (pose.targetY - cameraLookTarget.y) * cameraEase;
+      cameraLookTarget.z += (pose.targetZ - cameraLookTarget.z) * cameraEase;
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
-      const songTimeMs = getSongTimeMsRef.current?.() ?? 0;
       character.update(delta, t, songTimeMs);
-      if (performanceStage.root.visible) {
-        performanceStage.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
+      if (brightStage.root.visible) {
+        brightStage.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
       } else {
         const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
         sign.scale.set(signPulse, signPulse, signPulse);
@@ -266,7 +277,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       observer.disconnect();
       character.dispose();
-      performanceStage.dispose();
+      brightStage.dispose();
       if (characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();
