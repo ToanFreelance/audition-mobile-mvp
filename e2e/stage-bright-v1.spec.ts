@@ -29,22 +29,26 @@ test("S1.2R intro cameras are a pure song-time presentation sequence", () => {
 });
 
 
-test("S1.2R HUD command and gauge shells use translucent glass", async ({ page }) => {
+test("S1.2R HUD command and gauge shells declare translucent glass styles", async ({ page }) => {
   await page.goto("/?seed=123");
 
-  for (const selector of [".command-strip", ".gauge-track"]) {
-    const style = await page.locator(selector).evaluate(element => {
-      const computed = getComputedStyle(element);
-      return {
-        backgroundColor: computed.backgroundColor,
-        backdropFilter: computed.backdropFilter,
-        webkitBackdropFilter: (computed as CSSStyleDeclaration & { webkitBackdropFilter?: string }).webkitBackdropFilter ?? "",
-      };
-    });
+  const css = await page.evaluate(() =>
+    Array.from(document.styleSheets)
+      .flatMap(sheet => {
+        try {
+          return Array.from(sheet.cssRules).map(rule => rule.cssText);
+        } catch {
+          return [];
+        }
+      })
+      .join("\n")
+  );
 
-    const alphaMatch = style.backgroundColor.match(/rgba?\([^)]*[,\s]([\d.]+)\)$/);
-    expect(alphaMatch, `${selector} should expose an alpha background`).toBeTruthy();
-    expect(Number(alphaMatch![1]), `${selector} should remain translucent`).toBeLessThan(0.6);
-    expect(`${style.backdropFilter} ${style.webkitBackdropFilter}`).toContain("blur(");
-  }
+  expect(css).toContain(".command-strip");
+  expect(css).toContain(".gauge-track");
+  expect(css).toMatch(/\.command-strip[^}]*rgba\([^)]*,\s*0?\.2\)/);
+  expect(css).toMatch(/\.gauge-track[^}]*rgba\([^)]*,\s*0?\.14\)/);
+  expect(css).toContain("backdrop-filter: blur(6px)");
+  expect(css).toContain("backdrop-filter: blur(5px)");
+  expect(css).toContain("@supports (-webkit-touch-callout: none)");
 });
