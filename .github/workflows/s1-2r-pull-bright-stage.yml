@@ -1,4 +1,4 @@
-name: S1.2R Promote Bright Stage
+name: S1.2R Cleanup Bright Stage Staging
 
 on:
   push:
@@ -12,15 +12,15 @@ permissions:
   contents: read
 
 jobs:
-  promote:
+  cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Promote verified Bright Stage V1 to private runtime path
+      - name: Remove verified temporary Bright Stage candidate
         run: |
           set -euo pipefail
           curl --fail-with-body -sS \
             -H 'content-type: application/json' \
-            -d '{"op":"promote"}' \
+            -d '{"op":"cleanup"}' \
             https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-stage-bright-v1-ingest
           echo
           curl --fail-with-body -sS \
