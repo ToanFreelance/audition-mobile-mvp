@@ -1,0 +1,92 @@
+name: S1.2 Build Performance Stage V1
+
+on:
+  pull_request:
+    branches:
+      - development
+    paths:
+      - scripts/generate-performance-stage-v1.py
+      - .github/workflows/s1-2-performance-stage-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-stage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deterministic asset toolchain
+        run: pip install "numpy==2.3.5" "Pillow==12.3.0" "trimesh==4.11.1" "shapely==2.1.2"
+      - name: Generate Performance Stage V1
+        env:
+          STAGE_OUT: artifacts/performance-stage-v1
+        run: python scripts/generate-performance-stage-v1.py
+      - name: Print artifact identity
+        run: |
+          sha256sum artifacts/performance-stage-v1/performance-stage-v1.glb
+          wc -c artifacts/performance-stage-v1/performance-stage-v1.glb
+      - name: Ensure exact verified GLB exists in private Supabase Storage
+        env:
+          SUPABASE_FUNCTION_URL: https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-stage-performance-v1-ingest
+        run: |
+          python - <<'PY'
+          import base64, json, os, urllib.error, urllib.request
+          from pathlib import Path
+
+          expected_sha = "3307a9553655e2b3d0aa6012f052500211ba3cd3878f78faa9bd6ce1bd896172"
+          data = Path("artifacts/performance-stage-v1/performance-stage-v1.glb").read_bytes()
+          chunks = [data[i:i+262144] for i in range(0, len(data), 262144)]
+          assert len(data) == 549396
+          assert len(chunks) == 3
+
+          def call(payload, allow_404=False):
+              req = urllib.request.Request(
+                  os.environ["SUPABASE_FUNCTION_URL"],
+                  data=json.dumps(payload, separators=(",", ":")).encode(),
+                  headers={"content-type": "application/json"},
+                  method="POST",
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as response:
+                      body = json.loads(response.read().decode())
+                      print(json.dumps(body, sort_keys=True))
+                      return response.status, body
+              except urllib.error.HTTPError as error:
+                  body = json.loads(error.read().decode())
+                  print(json.dumps(body, sort_keys=True))
+                  if allow_404 and error.code == 404:
+                      return error.code, body
+                  raise
+
+          status_code, status = call({"op": "status"}, allow_404=True)
+          if status_code == 200 and status.get("verified") is True and status.get("sha256") == expected_sha:
+              print("Performance Stage V1 already verified; upload skipped.")
+          else:
+              for index, chunk in enumerate(chunks):
+                  _, result = call({
+                      "op": "chunk",
+                      "index": index,
+                      "total": len(chunks),
+                      "data": base64.b64encode(chunk).decode(),
+                  })
+                  assert result.get("ok") is True
+
+              _, final = call({"op": "finalize", "total": len(chunks)})
+              assert final.get("verified") is True
+              assert final.get("bytes") == 549396
+              assert final.get("sha256") == expected_sha
+
+              _, status = call({"op": "status"})
+              assert status.get("verified") is True
+              assert status.get("sha256") == expected_sha
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: performance-stage-v1
+          path: artifacts/performance-stage-v1/
+          if-no-files-found: error

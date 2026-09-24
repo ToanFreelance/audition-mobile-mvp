@@ -2,12 +2,19 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { CharacterAnimationController } from "./CharacterAnimationController";
 import { createFallbackCharacter, updateFallbackCharacter, type FallbackCharacter } from "./FallbackCharacter";
+import {
+  DEFAULT_CHARACTER_ASSET_ID,
+  getCharacterCatalogEntryByAssetUrl,
+  resolveCharacterAssetUrl,
+  type CharacterAssetId,
+} from "./character-catalog";
 import type { CharacterAssetMetrics, CharacterLoadResult, CharacterPresentation, CharacterPresentationEvent } from "./character-types";
 import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
 import { HUMAN_CHARACTER_ASSET_URL, loadHumanAnimationLibrary } from "./human-animation-library";
 import { applyPublishedDanceRelease, loadPublishedDanceRelease } from "./published-animation-library";
+import { retargetQuaterniusClipsToMixamo } from "./mixamo-character-adapter";
 
-export const DEFAULT_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL;
+export const DEFAULT_CHARACTER_ASSET_URL = resolveCharacterAssetUrl(DEFAULT_CHARACTER_ASSET_ID);
 
 export class CharacterActor implements CharacterPresentation {
   readonly root = new THREE.Group();
@@ -24,6 +31,10 @@ export class CharacterActor implements CharacterPresentation {
   private loadVersion = 0;
   private disposed = false;
 
+  static fromAssetId(assetId: CharacterAssetId) {
+    return new CharacterActor(resolveCharacterAssetUrl(assetId));
+  }
+
   constructor(private readonly assetUrl = DEFAULT_CHARACTER_ASSET_URL) {
     this.root.name = "CharacterActor";
   }
@@ -33,32 +44,48 @@ export class CharacterActor implements CharacterPresentation {
     this.releaseCurrentCharacter();
 
     try {
-      // Resolve the canonical published pool in parallel with the character GLB.
-      // When available, the human library can skip downloading/parsing/retargeting
-      // the legacy CMU FancyFootWork source that would be replaced immediately.
       const publishedDancePromise = loadPublishedDanceRelease();
       const gltf = await this.loader.loadAsync(this.assetUrl);
       const model = gltf.scene;
       normalizeHumanoid(model);
       const skinnedMesh = findPrimarySkinnedMesh(model);
       const publishedDance = await publishedDancePromise;
-      const baseClips = gltf.animations.length > 0
-        ? gltf.animations
-        : await loadHumanAnimationLibrary(skinnedMesh, {
-          skipLegacyNormalDanceMocap: publishedDance !== null,
-        });
-      const { clips } = publishedDance
-        ? applyPublishedDanceRelease(baseClips, publishedDance)
-        : { clips: baseClips };
+      const catalogEntry = getCharacterCatalogEntryByAssetUrl(this.assetUrl);
+      let clips: THREE.AnimationClip[];
+
+      if (catalogEntry?.animationProfile === "mixamo-c1") {
+        // Mixamo-based starter characters consume the canonical published
+        // Quaternius clip pool through the accepted C1 retarget adapter.
+        const sourceGltf = await this.loader.loadAsync(HUMAN_CHARACTER_ASSET_URL);
+        try {
+          const sourceMesh = findPrimarySkinnedMesh(sourceGltf.scene);
+          const baseClips = await loadHumanAnimationLibrary(sourceMesh, {
+            skipLegacyNormalDanceMocap: publishedDance !== null,
+            skipLegacyFinishMocap: Boolean(publishedDance?.finalSourceClips.length),
+          });
+          const canonicalClips = publishedDance
+            ? applyPublishedDanceRelease(baseClips, publishedDance).clips
+            : baseClips;
+          clips = retargetQuaterniusClipsToMixamo(
+            sourceGltf.scene, sourceMesh.skeleton, skinnedMesh.skeleton, canonicalClips,
+          );
+        } finally {
+          disposeObjectResources(sourceGltf.scene);
+        }
+      } else {
+        const baseClips = gltf.animations.length > 0
+          ? gltf.animations
+          : await loadHumanAnimationLibrary(skinnedMesh, {
+            skipLegacyNormalDanceMocap: publishedDance !== null,
+          });
+        clips = publishedDance ? applyPublishedDanceRelease(baseClips, publishedDance).clips : baseClips;
+      }
 
       if (this.disposed || version !== this.loadVersion) {
         disposeObjectResources(model);
         return null;
       }
 
-      // Direct Quaternius UAL clips and the baked P3.7 runtime clips address
-      // bones by node name. Their mixer root must therefore be the whole
-      // character hierarchy, not an isolated SkinnedMesh.
       const animationRoot: THREE.Object3D = model;
       this.model = model;
       this.animationRoot = animationRoot;

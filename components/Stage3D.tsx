@@ -6,6 +6,9 @@ import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 import type { CharacterPresentationEvent } from "./character/character-types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
+import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
+import { BrightStageV1Environment } from "./stage/BrightStageV1Environment";
+import { getStagePresentationCameraPose } from "./stage/stageCamera";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
@@ -21,17 +24,20 @@ type Stage3DProps = {
   isPlaying?: boolean;
   characterEvent?: CharacterPresentationEvent | null;
   getSongTimeMs?: () => number;
+  bpm?: number;
 };
 
-export default function Stage3D({ cameraPreset = "center", isPlaying = false, characterEvent = null, getSongTimeMs }: Stage3DProps) {
+export default function Stage3D({ cameraPreset = "center", isPlaying = false, characterEvent = null, getSongTimeMs, bpm = 110 }: Stage3DProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
   const isPlayingRef = useRef(isPlaying);
   const getSongTimeMsRef = useRef(getSongTimeMs);
+  const bpmRef = useRef(bpm);
   cameraPresetRef.current = cameraPreset;
   isPlayingRef.current = isPlaying;
   getSongTimeMsRef.current = getSongTimeMs;
+  bpmRef.current = bpm;
 
   useEffect(() => {
     characterRef.current?.setGameActive(isPlaying);
@@ -46,8 +52,8 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     if (!host) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x03040a);
-    scene.fog = new THREE.FogExp2(0x05050e, 0.032);
+    scene.background = new THREE.Color(0x1b2d49);
+    scene.fog = new THREE.FogExp2(0x6b7f9f, 0.01);
 
     const initialCameraFrame = getCharacterCameraFrame("center", false);
     const camera = new THREE.PerspectiveCamera(initialCameraFrame.fov, 16 / 9, 0.1, 100);
@@ -64,17 +70,25 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
     const stage = new THREE.Group();
     scene.add(stage);
-    scene.add(new THREE.HemisphereLight(0xaaa6ff, 0x05040d, 1.55));
+    scene.add(new THREE.HemisphereLight(0xdceeff, 0x737b9c, 2.2));
 
-    const key = new THREE.DirectionalLight(0xffeaff, 2.1);
+    const key = new THREE.DirectionalLight(0xfff3ff, 3.0);
     key.position.set(2, 8, 8);
     scene.add(key);
+
+    const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
+    coolFill.position.set(-4, 5, 7);
+    scene.add(coolFill);
+
+    const warmRim = new THREE.DirectionalLight(0xffb2dd, 0.75);
+    warmRim.position.set(4, 4, -3);
+    scene.add(warmRim);
 
     // One static key accent is enough for the placeholder stage. The cyan and
     // violet accents remain in emissive/basic materials without adding lights
@@ -132,7 +146,41 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     createSpeaker(stage, -4.7, 1.7, COLORS.violet, .7);
     createSpeaker(stage, 4.7, 1.7, COLORS.violet, .7);
 
-    const character = new CharacterActor();
+    // Keep the accepted procedural room as a fail-safe only. Bright Stage V1
+    // replaces this group after its private Storage asset loads.
+    const placeholderEnvironment = new THREE.Group();
+    placeholderEnvironment.name = "ProceduralStageFallback";
+    while (stage.children.length > 0) placeholderEnvironment.add(stage.children[0]);
+    stage.add(placeholderEnvironment);
+
+    const brightStage = new BrightStageV1Environment();
+    brightStage.root.visible = false;
+    stage.add(brightStage.root);
+    host.dataset.stageSource = "placeholder";
+    host.dataset.stageEmbeddedAnimations = "0";
+    void brightStage.load().then(result => {
+      if (disposed) return;
+      brightStage.root.visible = true;
+      placeholderEnvironment.visible = false;
+      accent.visible = false;
+      host.dataset.stageSource = result.stageId;
+      host.dataset.stageEmbeddedAnimations = String(result.embeddedAnimations);
+      host.dataset.stageMetrics = JSON.stringify(result);
+    }).catch(error => {
+      if (disposed) return;
+      host.dataset.stageSource = "placeholder";
+      host.dataset.stageError = error instanceof Error ? error.message : String(error);
+      console.warn("[Stage3D] Bright Stage V1 failed; procedural stage remains active:", error);
+    });
+
+    let selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
+    try {
+      selectedCharacter = loadCharacterCreationDraft(window.localStorage) ?? DEFAULT_CHARACTER_CREATION_PROFILE;
+    } catch {
+      selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
+    }
+
+    const character = CharacterActor.fromAssetId(selectedCharacter.characterAssetId);
     characterRef.current = character;
     character.setGameActive(isPlayingRef.current);
     character.root.position.set(
@@ -141,6 +189,8 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       CHARACTER_STAGE_POSITION.z,
     );
     stage.add(character.root);
+    host.dataset.characterAssetId = selectedCharacter.characterAssetId;
+    host.dataset.characterProfileVersion = String(selectedCharacter.version);
     host.dataset.characterSource = "loading";
     void character.load().then((result) => {
       if (!result || disposed) return;
@@ -176,6 +226,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     resize();
 
     const clock = new THREE.Clock();
+    let lastPresentationCamera = "gameplay_portrait_locked";
     let raf = 0;
     let disposed = false;
     const scheduleFrame = () => {
@@ -188,18 +239,48 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       if (document.hidden) return;
       const delta = Math.min(clock.getDelta(), .1);
       const t = clock.elapsedTime;
-      const target = cameraTarget(host.clientHeight > host.clientWidth);
-      const cameraEase = 1 - Math.pow(1 - .14, delta * 60);
-      camera.position.y += (target.y - camera.position.y) * cameraEase;
-      camera.position.z += (target.z - camera.position.z) * cameraEase;
-      camera.fov += (target.fov - camera.fov) * cameraEase;
-      cameraLookTarget.y += (target.targetY - cameraLookTarget.y) * cameraEase;
-      cameraLookTarget.z += (target.targetZ - cameraLookTarget.z) * cameraEase;
+      const songTimeMs = getSongTimeMsRef.current?.() ?? 0;
+      const pose = getStagePresentationCameraPose(
+        songTimeMs,
+        isPlayingRef.current,
+        host.clientHeight > host.clientWidth,
+        cameraPresetRef.current,
+      );
+      host.dataset.presentationCamera = pose.preset;
+      const shotChanged = pose.preset !== lastPresentationCamera;
+      const cutToIntroShot = shotChanged && pose.preset !== "gameplay_portrait_locked";
+      const cameraEase = pose.preset === "gameplay_portrait_locked"
+        ? 1 - Math.pow(1 - .14, delta * 60)
+        : 1 - Math.pow(1 - .20, delta * 60);
+
+      // Audition-style intro shots are cuts between safe compositions, not one
+      // continuous camera rail through stage geometry. Snap at intro-shot
+      // boundaries, then keep the subtle motion inside each shot. Blend only
+      // when returning to the locked gameplay camera.
+      if (cutToIntroShot) {
+        camera.position.set(pose.x, pose.y, pose.z);
+        camera.fov = pose.fov;
+        cameraLookTarget.set(pose.targetX, pose.targetY, pose.targetZ);
+      } else {
+        camera.position.x += (pose.x - camera.position.x) * cameraEase;
+        camera.position.y += (pose.y - camera.position.y) * cameraEase;
+        camera.position.z += (pose.z - camera.position.z) * cameraEase;
+        camera.fov += (pose.fov - camera.fov) * cameraEase;
+        cameraLookTarget.x += (pose.targetX - cameraLookTarget.x) * cameraEase;
+        cameraLookTarget.y += (pose.targetY - cameraLookTarget.y) * cameraEase;
+        cameraLookTarget.z += (pose.targetZ - cameraLookTarget.z) * cameraEase;
+      }
+      lastPresentationCamera = pose.preset;
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
-      character.update(delta, t, getSongTimeMsRef.current?.() ?? 0);
-      const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
-      sign.scale.set(signPulse, signPulse, signPulse);
+      character.update(delta, t, songTimeMs);
+      if (brightStage.root.visible) {
+        brightStage.setPresentationCamera(pose.preset);
+        brightStage.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
+      } else {
+        const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
+        sign.scale.set(signPulse, signPulse, signPulse);
+      }
       renderer.render(scene, camera);
       scheduleFrame();
     };
@@ -220,6 +301,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       observer.disconnect();
       character.dispose();
+      brightStage.dispose();
       if (characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();
@@ -228,7 +310,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     };
   }, []);
 
-  return <div ref={hostRef} className="stage-3d" data-camera-preset={cameraPreset} aria-label="3D club dance stage" />;
+  return <div ref={hostRef} className="stage-3d" data-camera-preset={cameraPreset} aria-label="3D music performance stage" />;
 }
 
 function createSpeaker(parent: THREE.Group, x: number, y: number, accent: number, scale = 1) {

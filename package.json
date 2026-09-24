@@ -34,6 +34,8 @@
     "@types/react-dom": "19.1.2",
     "@types/three": "0.180.0",
     "@tailwindcss/postcss": "^4.1.13",
+    "meshoptimizer": "0.22.0",
+    "sharp": "0.35.4",
     "tailwindcss": "^4.1.13",
     "typescript": "5.8.3"
   }

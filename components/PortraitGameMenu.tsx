@@ -1,15 +1,19 @@
 export type ControlLayout = "space-left" | "dpad-left";
 export type CameraPreset = "center" | "wide" | "close";
 export type ControlSize = "default" | "large";
+export const CONTROL_SPACING_MAX = 28;
+export const CONTROL_SPACING_STEP = 4;
 
 type Props = {
   controlLayout: ControlLayout;
   cameraPreset: CameraPreset;
   controlSize: ControlSize;
+  controlSpacing: number;
   exitConfirmOpen: boolean;
   onControlLayoutChange: (value: ControlLayout) => void;
   onCameraPresetChange: (value: CameraPreset) => void;
   onControlSizeChange: (value: ControlSize) => void;
+  onControlSpacingChange: (value: number) => void;
   onRequestExit: () => void;
   onCancelExit: () => void;
   onConfirmExit: () => void;
@@ -36,10 +40,12 @@ export default function PortraitGameMenu({
   controlLayout,
   cameraPreset,
   controlSize,
+  controlSpacing,
   exitConfirmOpen,
   onControlLayoutChange,
   onCameraPresetChange,
   onControlSizeChange,
+  onControlSpacingChange,
   onRequestExit,
   onCancelExit,
   onConfirmExit,
@@ -90,6 +96,21 @@ export default function PortraitGameMenu({
                 {sizeOptions.map((option) => (
                   <button key={option.value} type="button" className={controlSize === option.value ? "selected" : ""} aria-pressed={controlSize === option.value} onClick={() => onControlSizeChange(option.value)}>{option.label}</button>
                 ))}
+              </div>
+            </SettingRow>
+            <SettingRow label="Control Spacing">
+              <div className="portrait-range-setting">
+                <input
+                  type="range"
+                  min={0}
+                  max={CONTROL_SPACING_MAX}
+                  step={CONTROL_SPACING_STEP}
+                  value={controlSpacing}
+                  aria-label="Control Spacing"
+                  aria-valuetext={controlSpacing === 0 ? "Default" : `+${controlSpacing}px`}
+                  onChange={(event) => onControlSpacingChange(Number(event.currentTarget.value))}
+                />
+                <span>{controlSpacing === 0 ? "Default" : `+${controlSpacing}px`}</span>
               </div>
             </SettingRow>
             <button className="portrait-menu-action danger" type="button" onClick={onRequestExit}>RỜI MÀN CHƠI</button>
