@@ -150,6 +150,9 @@
 .portrait-settings-title{margin-bottom:8px;color:#ff83e2;font-size:11px;font-weight:900;letter-spacing:.14em}
 .portrait-setting-row{margin-top:8px;padding:10px;border:1px solid rgba(157,139,208,.24);border-radius:12px;background:rgba(5,7,20,.56)}
 .portrait-setting-row>strong{display:block;margin-bottom:7px;font-size:12px}
+.portrait-range-setting{display:grid;grid-template-columns:minmax(0,1fr) 58px;align-items:center;gap:10px;min-height:38px}
+.portrait-range-setting input[type="range"]{width:100%;height:28px;margin:0;accent-color:#9d62ff;touch-action:pan-x}
+.portrait-range-setting span{display:grid;place-items:center;min-height:30px;border:1px solid rgba(141,189,255,.28);border-radius:8px;background:rgba(19,25,52,.76);color:#eef4ff;font-size:10px;font-weight:900;font-variant-numeric:tabular-nums}
 .portrait-segments{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .portrait-segments.three{grid-template-columns:repeat(3,minmax(0,1fr))}
 .portrait-layout-segments{grid-template-columns:1fr}
@@ -185,7 +188,8 @@
   .mobile-controls[data-control-size="large"]{
     --portrait-dpad-size:clamp(140px,37vw,148px);
     --portrait-dpad-height:clamp(129px,34.15vw,137px);
-    gap:clamp(22px,6vw,28px);
+    --portrait-space-width:clamp(160px,44vw,174px);
+    --portrait-control-gap-base:clamp(22px,6vw,28px);
   }
   .mobile-controls[data-control-size="large"] .space-control{
     flex-basis:clamp(160px,44vw,174px);
@@ -488,6 +492,9 @@
     --portrait-controls-gap:clamp(12px,1.8dvh,18px);
     --portrait-dpad-size:clamp(108px,29vw,116px);
     --portrait-dpad-height:clamp(100px,26.75vw,107px);
+    --portrait-space-width:clamp(150px,42vw,164px);
+    --portrait-control-gap-base:clamp(44px,12vw,50px);
+    --portrait-control-gap-extra:0px;
     grid-column:1/-1;
     grid-row:5;
     justify-self:center;
@@ -497,12 +504,15 @@
     padding:var(--portrait-controls-gap) 18px max(8px,env(safe-area-inset-bottom));
     align-items:center;
     justify-content:center;
-    gap:clamp(44px,12vw,50px);
+    gap:min(
+      calc(var(--portrait-control-gap-base) + var(--portrait-control-gap-extra)),
+      max(8px,calc(100% - 36px - var(--portrait-space-width) - var(--portrait-dpad-size)))
+    );
   }
   .space-control{
     position:relative;
-    flex:0 0 clamp(150px,42vw,164px);
-    width:clamp(150px,42vw,164px);
+    flex:0 0 var(--portrait-space-width);
+    width:var(--portrait-space-width);
     height:clamp(66px,18.45vw,72px);
     padding:0;
     overflow:visible;
