@@ -29,7 +29,7 @@ test("S1.2R intro cameras are a pure song-time presentation sequence", () => {
 });
 
 
-test("S1.2R HUD matches the source-inspired smoky command strip and readable gauge glass", async ({ page }) => {
+test("S1.2R HUD matches the source charcoal command bar and readable gauge glass", async ({ page }) => {
   await page.goto("/?seed=123");
 
   const command = await page.locator(".command-strip").evaluate(element => {
@@ -38,13 +38,15 @@ test("S1.2R HUD matches the source-inspired smoky command strip and readable gau
       backgroundImage: computed.backgroundImage,
       backdropFilter: computed.backdropFilter,
       borderColor: computed.borderColor,
+      outlineColor: computed.outlineColor,
     };
   });
-  expect(command.backgroundImage).toContain("radial-gradient");
   expect(command.backgroundImage).toContain("linear-gradient");
-  expect(command.backgroundImage).toContain("rgba(22, 27, 57, 0.64)");
+  expect(command.backgroundImage).toContain("rgba(48, 42, 42, 0.34)");
+  expect(command.backgroundImage).toContain("rgba(28, 25, 26, 0.27)");
   expect(command.backdropFilter).toBe("none");
-  expect(command.borderColor).toContain("rgba(119, 139, 159");
+  expect(command.borderColor).toContain("rgba(150, 154, 155");
+  expect(command.outlineColor).toContain("rgba(34, 41, 43");
 
   const gauge = page.locator(".audition-gauge-svg");
   await expect(gauge).toBeVisible();
