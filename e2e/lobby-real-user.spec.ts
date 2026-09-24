@@ -109,6 +109,22 @@ async function sceneGeneration(page: Page) {
   return await page.getByTestId("waiting-room-stage").getAttribute("data-scene-generation");
 }
 
+async function sharedStartAt(page: Page) {
+  return await expect.poll(async () => {
+    const preload = page.getByTestId("start-at-server-ms");
+    if (await preload.count()) return await preload.first().innerText();
+
+    const gameplay = page.getByTestId("gameplay-start-at-server-ms");
+    if (await gameplay.count()) return await gameplay.first().innerText();
+
+    return "";
+  }, { timeout: 15_000 }).not.toBe("");
+
+  const preload = page.getByTestId("start-at-server-ms");
+  if (await preload.count()) return await preload.first().innerText();
+  return await page.getByTestId("gameplay-start-at-server-ms").first().innerText();
+}
+
 function assertNoCriticalErrors(...users: QaUser[]) {
   const errors = users.flatMap(user => user.criticalErrors);
   expect(errors, errors.join("\n")).toEqual([]);
@@ -191,8 +207,11 @@ test("@real host + guest Ready through one shared epoch into WebAudio multiplaye
     await expect(guest.page.getByTestId("shared-countdown")).toBeVisible({ timeout: 60_000 });
     await expect(host.page.getByTestId("preload-state")).toHaveAttribute("data-phase", "countdown");
     await expect(guest.page.getByTestId("preload-state")).toHaveAttribute("data-phase", "countdown");
-    const hostStartAt = await host.page.getByTestId("start-at-server-ms").innerText();
-    const guestStartAt = await guest.page.getByTestId("start-at-server-ms").innerText();
+    // Countdown can hand off to live gameplay between two sequential DOM reads
+    // on faster desktop CI. Accept either surface, but require the same immutable
+    // server epoch on both clients.
+    const hostStartAt = await sharedStartAt(host.page);
+    const guestStartAt = await sharedStartAt(guest.page);
     expect(guestStartAt).toBe(hostStartAt);
     await expect.poll(() => idleCount(host.page), { timeout: 20_000 }).toBe(3);
 
