@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import CharacterCreationStage3D from "./CharacterCreationStage3D";
 import {
+  CHARACTER_CATALOG_V1,
   getCharacterCatalogEntry,
+  type CharacterAssetId,
   type CharacterCatalogChoice,
 } from "./character-catalog";
 import {
@@ -27,9 +29,8 @@ const TABS: Array<{ id: CreatorTab; icon: string; label: string; locked?: boolea
   { id: "shoes", icon: "◜", label: "Giày", locked: true },
 ];
 
-const CHARACTER_DEFINITION = getCharacterCatalogEntry(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
-if (!CHARACTER_DEFINITION) throw new Error("C3 creator character is missing from catalog.");
-const CREATOR_CHARACTER = CHARACTER_DEFINITION;
+const DEFAULT_CHARACTER_DEFINITION = getCharacterCatalogEntry(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
+if (!DEFAULT_CHARACTER_DEFINITION) throw new Error("Default creator character is missing from catalog.");
 
 function ChoiceCard({
   choice,
@@ -60,6 +61,7 @@ export default function CharacterCreationV1() {
   const [tab, setTab] = useState<CreatorTab>("hair");
   const [yaw, setYaw] = useState(-0.08);
   const [name, setName] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.name);
+  const [characterAssetId, setCharacterAssetId] = useState<CharacterAssetId>(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
   const [hairStyle, setHairStyle] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.hairStyle);
   const [hairColor, setHairColor] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.hairColor);
   const [skinTone, setSkinTone] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.skinTone);
@@ -67,24 +69,26 @@ export default function CharacterCreationV1() {
   const [created, setCreated] = useState(false);
   const dragRef = useRef<{ id: number; x: number; yaw: number } | null>(null);
 
+  const creatorCharacter = getCharacterCatalogEntry(characterAssetId) ?? DEFAULT_CHARACTER_DEFINITION;
   const normalizedName = name.trim();
   const valid = normalizedName.length > 0;
   const profile = useMemo<CharacterCreationProfileV1>(() => ({
     version: 1,
-    gender: CREATOR_CHARACTER.gender,
-    characterAssetId: CREATOR_CHARACTER.id,
+    gender: creatorCharacter.gender,
+    characterAssetId: creatorCharacter.id,
     hairStyle,
     hairColor,
     skinTone,
     face,
     name: normalizedName,
-  }), [face, hairColor, hairStyle, normalizedName, skinTone]);
+  }), [creatorCharacter.gender, creatorCharacter.id, face, hairColor, hairStyle, normalizedName, skinTone]);
 
   useEffect(() => {
     try {
       const draft = loadCharacterCreationDraft(window.localStorage);
       if (!draft) return;
       setName(draft.name);
+      setCharacterAssetId(draft.characterAssetId);
       setHairStyle(draft.hairStyle);
       setHairColor(draft.hairColor);
       setSkinTone(draft.skinTone);
@@ -94,6 +98,20 @@ export default function CharacterCreationV1() {
       // Local draft restore is optional. Account/profile authority remains Phase 7.
     }
   }, []);
+
+  const selectCharacter = (assetId: CharacterAssetId) => {
+    const next = getCharacterCatalogEntry(assetId);
+    if (!next?.runtimeReady || next.id === characterAssetId) return;
+    setCharacterAssetId(next.id);
+    setHairStyle(next.defaultAppearance.hairStyle);
+    setHairColor(next.defaultAppearance.hairColor);
+    setSkinTone(next.defaultAppearance.skinTone);
+    setFace(next.defaultAppearance.face);
+    setCreated(false);
+  };
+
+  const femaleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "female" && entry.runtimeReady) ?? null;
+  const maleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "male" && entry.runtimeReady) ?? null;
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     dragRef.current = { id: event.pointerId, x: event.clientX, yaw };
@@ -132,7 +150,7 @@ export default function CharacterCreationV1() {
   return (
     <main
       className={styles.page}
-      data-character-asset={CREATOR_CHARACTER.id}
+      data-character-asset={creatorCharacter.id}
       data-profile-version="1"
       data-testid="c2-character-creation"
     >
@@ -180,15 +198,15 @@ export default function CharacterCreationV1() {
           </div>
 
           <div className={styles.heroBadge}>
-            <span>{CREATOR_CHARACTER.creatorBadge}</span>
-            <strong>{CREATOR_CHARACTER.label}</strong>
-            <small>{CREATOR_CHARACTER.creatorVersionLabel}</small>
+            <span>{creatorCharacter.creatorBadge}</span>
+            <strong>{creatorCharacter.label}</strong>
+            <small>{creatorCharacter.creatorVersionLabel}</small>
           </div>
         </div>
 
         <div className={styles.dock}>
           <div className={styles.panelTitle}>
-            <div><span>C3 · CHARACTER CATALOG V1</span><strong>{TABS.find(item => item.id === tab)?.label}</strong></div>
+            <div><span>C4 · MALE + FEMALE STARTERS</span><strong>{TABS.find(item => item.id === tab)?.label}</strong></div>
             <small>Asset và capability được resolve từ catalog; không fake variant chưa có.</small>
           </div>
 
@@ -197,7 +215,7 @@ export default function CharacterCreationV1() {
               <div>
                 <label>MÀU TÓC</label>
                 <div className={styles.swatches}>
-                  {CREATOR_CHARACTER.appearance.hairColors.map(choice => (
+                  {creatorCharacter.appearance.hairColors.map(choice => (
                     <button
                       aria-label={choice.label}
                       className={[styles.swatch, styles[`hair_${choice.id}`], hairColor === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
@@ -210,7 +228,7 @@ export default function CharacterCreationV1() {
                 </div>
               </div>
               <div className={styles.choiceGrid}>
-                {CREATOR_CHARACTER.appearance.hairStyles.map((choice, index) => (
+                {creatorCharacter.appearance.hairStyles.map((choice, index) => (
                   <ChoiceCard
                     choice={choice}
                     icon={index === 0 ? "◖" : index === 1 ? "⌒" : "⑂"}
@@ -225,7 +243,7 @@ export default function CharacterCreationV1() {
 
           {tab === "face" && (
             <div className={styles.choiceGrid}>
-              {CREATOR_CHARACTER.appearance.faces.map((choice, index) => (
+              {creatorCharacter.appearance.faces.map((choice, index) => (
                 <ChoiceCard
                   choice={choice}
                   icon={index === 0 ? "◉" : "◎"}
@@ -241,13 +259,27 @@ export default function CharacterCreationV1() {
             <div className={styles.bodyGrid}>
               <div className={styles.bodyCard}>
                 <label>GIỚI TÍNH</label>
-                <button className={styles.bodyActive} type="button">♀ Nữ</button>
-                <button disabled type="button">♂ Nam <small>Cần asset</small></button>
+                <button
+                  className={creatorCharacter.gender === "female" ? styles.bodyActive : ""}
+                  disabled={!femaleStarter}
+                  onClick={() => femaleStarter && selectCharacter(femaleStarter.id)}
+                  type="button"
+                >
+                  ♀ Nữ
+                </button>
+                <button
+                  className={creatorCharacter.gender === "male" ? styles.bodyActive : ""}
+                  disabled={!maleStarter}
+                  onClick={() => maleStarter && selectCharacter(maleStarter.id)}
+                  type="button"
+                >
+                  ♂ Nam
+                </button>
               </div>
               <div className={styles.bodyCard}>
                 <label>MÀU DA</label>
                 <div className={styles.swatches}>
-                  {CREATOR_CHARACTER.appearance.skinTones.map(choice => (
+                  {creatorCharacter.appearance.skinTones.map(choice => (
                     <button
                       aria-label={choice.label}
                       className={[styles.swatch, styles[`skin_${choice.id}`], skinTone === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
