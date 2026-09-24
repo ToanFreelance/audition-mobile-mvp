@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import NextImage from "next/image";
 import { createChartFromMusicConfig } from "../game/chart";
 import { DEFAULT_MUSIC_CONFIG, isPlayableMusicConfig, type MusicConfig } from "../game/music-config";
@@ -11,7 +11,7 @@ import { WebAudioTransport } from "../game/web-audio-transport";
 import Stage3D from "./Stage3D";
 import AuditionGauge from "./AuditionGauge";
 import JudgementLabel, { JUDGEMENT_ARTWORK_SOURCES } from "./JudgementLabel";
-import PortraitGameMenu, { type CameraPreset, type ControlLayout, type ControlSize } from "./PortraitGameMenu";
+import PortraitGameMenu, { CONTROL_SPACING_MAX, CONTROL_SPACING_STEP, type CameraPreset, type ControlLayout, type ControlSize } from "./PortraitGameMenu";
 import { createCharacterPresentationEvent } from "./character/choreography";
 import type { CharacterPresentationEvent } from "./character/character-types";
 
@@ -23,6 +23,7 @@ const SETTING_KEYS = {
   controlLayout: "audition.controlLayout",
   cameraPreset: "audition.cameraPreset",
   controlSize: "audition.controlSize",
+  controlSpacing: "audition.controlSpacing",
 } as const;
 
 type MusicApiResponse = { configs?: MusicConfig[] };
@@ -58,6 +59,7 @@ export default function GameShell() {
   const [controlLayout, setControlLayout] = useState<ControlLayout>("space-left");
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>("center");
   const [controlSize, setControlSize] = useState<ControlSize>("default");
+  const [controlSpacing, setControlSpacing] = useState(0);
   const [characterEvent, setCharacterEvent] = useState<CharacterPresentationEvent | null>(null);
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -70,9 +72,14 @@ export default function GameShell() {
       const savedLayout = window.localStorage.getItem(SETTING_KEYS.controlLayout);
       const savedCamera = window.localStorage.getItem(SETTING_KEYS.cameraPreset);
       const savedSize = window.localStorage.getItem(SETTING_KEYS.controlSize);
+      const savedSpacing = window.localStorage.getItem(SETTING_KEYS.controlSpacing);
       if (savedLayout === "space-left" || savedLayout === "dpad-left") setControlLayout(savedLayout);
       if (savedCamera === "center" || savedCamera === "wide" || savedCamera === "close") setCameraPreset(savedCamera);
       if (savedSize === "default" || savedSize === "large") setControlSize(savedSize);
+      if (savedSpacing !== null) {
+        const parsedSpacing = Number(savedSpacing);
+        if (Number.isFinite(parsedSpacing)) setControlSpacing(Math.min(CONTROL_SPACING_MAX, Math.max(0, parsedSpacing)));
+      }
     } catch {
       // Storage can be unavailable in private/restricted browsing; defaults remain usable.
     }
@@ -288,6 +295,15 @@ export default function GameShell() {
     try { window.localStorage.setItem(SETTING_KEYS.controlSize, value); } catch {}
   }, []);
 
+  const persistControlSpacing = useCallback((value: number) => {
+    const safe = Math.min(
+      CONTROL_SPACING_MAX,
+      Math.max(0, Math.round(value / CONTROL_SPACING_STEP) * CONTROL_SPACING_STEP),
+    );
+    setControlSpacing(safe);
+    try { window.localStorage.setItem(SETTING_KEYS.controlSpacing, String(safe)); } catch {}
+  }, []);
+
   const closeMenu = useCallback(() => {
     setExitConfirmOpen(false);
     setMenuOpen(false);
@@ -388,7 +404,7 @@ export default function GameShell() {
             </div>
           </div>
           <div className="bottom-chat"><small>&lt;Public&gt;</small><span>Welcome to Audition Mobile!</span><span>Show your moves!</span><b>All <i>▶</i></b></div><div className="bottom-mode"><strong>Audition - Club Dance</strong><span>{selectedMusic.BPM_exact} BPM <b>Hard</b></span><div>★★★☆☆</div></div><button className="exit-button">⇥<small>EXIT</small></button>
-          <div className="mobile-controls" data-control-layout={controlLayout} data-control-size={controlSize}>
+          <div className="mobile-controls" data-control-layout={controlLayout} data-control-size={controlSize} data-control-spacing={controlSpacing} style={{ "--portrait-control-gap-extra": `${controlSpacing}px` } as CSSProperties}>
             <button className={`space-control ${spacePressed ? "pressed" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressSpace(); }} aria-label="SPACE">
               <NextImage className="portrait-space-art" src="/ui/controls/portrait-space-from-sketch.png" alt="" width={315} height={150} priority unoptimized draggable={false} aria-hidden="true" />
             </button>
@@ -397,7 +413,7 @@ export default function GameShell() {
               {DIRECTIONS.map(direction => <button key={direction} className={`dpad-${direction} ${activeDirection === direction ? "pressed" : ""} ${arrowCommand[completed]?.requiredDirection === direction ? "target" : ""}`} onPointerDown={(event) => { event.preventDefault(); pressDirection(direction); }} aria-label={direction} />)}
             </div>
           </div>
-          {menuOpen && <PortraitGameMenu controlLayout={controlLayout} cameraPreset={cameraPreset} controlSize={controlSize} exitConfirmOpen={exitConfirmOpen} onControlLayoutChange={persistControlLayout} onCameraPresetChange={persistCameraPreset} onControlSizeChange={persistControlSize} onRequestExit={() => setExitConfirmOpen(true)} onCancelExit={() => setExitConfirmOpen(false)} onConfirmExit={leaveGame} onClose={closeMenu} />}
+          {menuOpen && <PortraitGameMenu controlLayout={controlLayout} cameraPreset={cameraPreset} controlSize={controlSize} controlSpacing={controlSpacing} exitConfirmOpen={exitConfirmOpen} onControlLayoutChange={persistControlLayout} onCameraPresetChange={persistCameraPreset} onControlSizeChange={persistControlSize} onControlSpacingChange={persistControlSpacing} onRequestExit={() => setExitConfirmOpen(true)} onCancelExit={() => setExitConfirmOpen(false)} onConfirmExit={leaveGame} onClose={closeMenu} />}
           {!started && !finished && !audioError && <div className="start-overlay"><div className="ready-card"><span>CLUB AUDITION</span><h1>READY?</h1><p>{!musicLoading && musicLibrary.length === 0 && <strong>No playable saved charts available.<br /></strong>}Song: <b>{selectedMusic.title}</b><br />SPACE #1: <b>{firstPerfectSeconds.toFixed(3)}s</b> · BPM exact: <b>{activeChart.bpm.toFixed(4)}</b><br />Intro → Sẵn sàng → 3 · 2 · 1 → Bắt đầu → first SPACE.</p><button onClick={startGame} disabled={musicLoading || audioState !== "ready" || !musicLibrary.some(item => item.id === selectedMusic.id)}>START</button><button className="song-select-button" onClick={openSongPicker} disabled={musicLoading}>♫ SELECT SONG</button><button className="configure-button" onClick={() => { window.location.href = "/tools/music-config"; }}>⚙ CONFIGURE MUSIC</button><button className="sound-button" onClick={() => { window.location.href = "/tools/audio-timing"; }}>🧪 AUDIO TIMING</button><button className="sound-button" onClick={() => { window.location.href = "/tools/rhythm-benchmark"; }}>📊 RHYTHM BENCHMARK</button><button className="sound-button" onClick={retryAudio} disabled={audioState === "loading"}>TEST SOUND</button></div></div>}
           {finished && <div className="start-overlay"><div className="ready-card results-card"><span>DANCE COMPLETE</span><h1>{stats.score.toLocaleString()}</h1><p>P {stats.perfect} · G {stats.great} · C {stats.cool} · B {stats.bad} · M {stats.miss}</p><button onClick={openSongPicker}>SELECT SONG</button></div></div>}
           {songPickerOpen && <SongPicker songs={musicLibrary} selectedId={selectedMusic.id} onSelect={chooseMusic} onClose={() => setSongPickerOpen(false)} />}
