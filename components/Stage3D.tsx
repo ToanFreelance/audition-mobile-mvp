@@ -52,8 +52,8 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     if (!host) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x03040a);
-    scene.fog = new THREE.FogExp2(0x05050e, 0.032);
+    scene.background = new THREE.Color(0x1b2d49);
+    scene.fog = new THREE.FogExp2(0x6b7f9f, 0.01);
 
     const initialCameraFrame = getCharacterCameraFrame("center", false);
     const camera = new THREE.PerspectiveCamera(initialCameraFrame.fov, 16 / 9, 0.1, 100);
@@ -70,17 +70,25 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
+    renderer.toneMappingExposure = 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
     const stage = new THREE.Group();
     scene.add(stage);
-    scene.add(new THREE.HemisphereLight(0xaaa6ff, 0x05040d, 1.55));
+    scene.add(new THREE.HemisphereLight(0xdceeff, 0x737b9c, 2.2));
 
-    const key = new THREE.DirectionalLight(0xffeaff, 2.1);
+    const key = new THREE.DirectionalLight(0xfff3ff, 3.0);
     key.position.set(2, 8, 8);
     scene.add(key);
+
+    const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
+    coolFill.position.set(-4, 5, 7);
+    scene.add(coolFill);
+
+    const warmRim = new THREE.DirectionalLight(0xffb2dd, 0.75);
+    warmRim.position.set(4, 4, -3);
+    scene.add(warmRim);
 
     // One static key accent is enough for the placeholder stage. The cyan and
     // violet accents remain in emissive/basic materials without adding lights
@@ -218,6 +226,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     resize();
 
     const clock = new THREE.Clock();
+    let lastPresentationCamera = "gameplay_portrait_locked";
     let raf = 0;
     let disposed = false;
     const scheduleFrame = () => {
@@ -238,20 +247,35 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
         cameraPresetRef.current,
       );
       host.dataset.presentationCamera = pose.preset;
+      const shotChanged = pose.preset !== lastPresentationCamera;
+      const cutToIntroShot = shotChanged && pose.preset !== "gameplay_portrait_locked";
       const cameraEase = pose.preset === "gameplay_portrait_locked"
         ? 1 - Math.pow(1 - .14, delta * 60)
-        : 1 - Math.pow(1 - .22, delta * 60);
-      camera.position.x += (pose.x - camera.position.x) * cameraEase;
-      camera.position.y += (pose.y - camera.position.y) * cameraEase;
-      camera.position.z += (pose.z - camera.position.z) * cameraEase;
-      camera.fov += (pose.fov - camera.fov) * cameraEase;
-      cameraLookTarget.x += (pose.targetX - cameraLookTarget.x) * cameraEase;
-      cameraLookTarget.y += (pose.targetY - cameraLookTarget.y) * cameraEase;
-      cameraLookTarget.z += (pose.targetZ - cameraLookTarget.z) * cameraEase;
+        : 1 - Math.pow(1 - .20, delta * 60);
+
+      // Audition-style intro shots are cuts between safe compositions, not one
+      // continuous camera rail through stage geometry. Snap at intro-shot
+      // boundaries, then keep the subtle motion inside each shot. Blend only
+      // when returning to the locked gameplay camera.
+      if (cutToIntroShot) {
+        camera.position.set(pose.x, pose.y, pose.z);
+        camera.fov = pose.fov;
+        cameraLookTarget.set(pose.targetX, pose.targetY, pose.targetZ);
+      } else {
+        camera.position.x += (pose.x - camera.position.x) * cameraEase;
+        camera.position.y += (pose.y - camera.position.y) * cameraEase;
+        camera.position.z += (pose.z - camera.position.z) * cameraEase;
+        camera.fov += (pose.fov - camera.fov) * cameraEase;
+        cameraLookTarget.x += (pose.targetX - cameraLookTarget.x) * cameraEase;
+        cameraLookTarget.y += (pose.targetY - cameraLookTarget.y) * cameraEase;
+        cameraLookTarget.z += (pose.targetZ - cameraLookTarget.z) * cameraEase;
+      }
+      lastPresentationCamera = pose.preset;
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
       character.update(delta, t, songTimeMs);
       if (brightStage.root.visible) {
+        brightStage.setPresentationCamera(pose.preset);
         brightStage.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
       } else {
         const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
