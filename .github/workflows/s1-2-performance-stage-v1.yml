@@ -1,0 +1,37 @@
+name: S1.2 Build Performance Stage V1
+
+on:
+  push:
+    branches:
+      - work/s1-2-performance-stage-v1
+    paths:
+      - scripts/generate-performance-stage-v1.py
+      - .github/workflows/s1-2-performance-stage-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-stage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deterministic asset toolchain
+        run: pip install "numpy==2.3.5" "Pillow==12.3.0" "trimesh==4.11.1" "shapely==2.1.2"
+      - name: Generate Performance Stage V1
+        env:
+          STAGE_OUT: artifacts/performance-stage-v1
+        run: python scripts/generate-performance-stage-v1.py
+      - name: Print artifact identity
+        run: |
+          sha256sum artifacts/performance-stage-v1/performance-stage-v1.glb
+          wc -c artifacts/performance-stage-v1/performance-stage-v1.glb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: performance-stage-v1
+          path: artifacts/performance-stage-v1/
+          if-no-files-found: error
