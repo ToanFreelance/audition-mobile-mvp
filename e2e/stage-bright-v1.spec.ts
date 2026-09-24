@@ -68,3 +68,30 @@ test("S1.2R HUD source match is applied by the winning portrait layer", async ({
   expect(shellOpacities.some(item => item.fill === "#242120" && item.fillOpacity === ".24")).toBeTruthy();
 });
 
+
+
+test("portrait control spacing slider moves controls apart and persists", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?seed=123");
+
+  const controls = page.locator(".mobile-controls");
+  await expect(controls).toHaveAttribute("data-control-spacing", "0");
+  const gapBefore = await controls.evaluate(element => Number.parseFloat(getComputedStyle(element).gap));
+
+  await page.getByRole("button", { name: "Mở menu" }).click();
+  const slider = page.getByRole("slider", { name: "Control Spacing" });
+  await expect(slider).toHaveValue("0");
+
+  await slider.focus();
+  await slider.press("Home");
+  for (let index = 0; index < 5; index += 1) await slider.press("ArrowRight");
+
+  await expect(slider).toHaveValue("20");
+  await expect(controls).toHaveAttribute("data-control-spacing", "20");
+  const gapAfter = await controls.evaluate(element => Number.parseFloat(getComputedStyle(element).gap));
+  expect(gapAfter).toBeGreaterThan(gapBefore);
+
+  await page.reload();
+  await expect(page.locator(".mobile-controls")).toHaveAttribute("data-control-spacing", "20");
+  expect(await page.evaluate(() => localStorage.getItem("audition.controlSpacing"))).toBe("20");
+});
