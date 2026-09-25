@@ -1,3 +1,5 @@
+export const WAITING_ROOM_MAX_PLAYERS = 5 as const;
+
 export type RoomSlotIndex = 0 | 1 | 2 | 3 | 4 | 5;
 export type RoomStatus = "waiting" | "preloading" | "countdown" | "playing" | "results";
 export type LoadState = "idle" | "loading" | "loaded" | "failed";

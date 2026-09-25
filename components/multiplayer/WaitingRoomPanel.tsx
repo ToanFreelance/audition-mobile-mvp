@@ -49,7 +49,7 @@ import {
   createP53QaGuestParticipant,
   createP53SyncedWaitingRoomBase,
 } from "../../multiplayer/waiting-room-qa";
-import type { RoomParticipant, RoomSlotIndex, RoomState } from "../../multiplayer/types";
+import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlotIndex, type RoomState } from "../../multiplayer/types";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
 import WaitingRoomStage3D, { type WaitingRoomStageView } from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
@@ -694,8 +694,14 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     () => new Map(displayRoom.participants.map(item => [item.participantId, item])),
     [displayRoom.participants],
   );
+  const visibleSlots = useMemo(
+    () => displayRoom.slots.filter(slot => slot.slotIndex < WAITING_ROOM_MAX_PLAYERS),
+    [displayRoom.slots],
+  );
   const orderedParticipants = useMemo(
-    () => [...displayRoom.participants].sort((a, b) => a.slotIndex - b.slotIndex),
+    () => [...displayRoom.participants]
+      .filter(item => item.slotIndex < WAITING_ROOM_MAX_PLAYERS)
+      .sort((a, b) => a.slotIndex - b.slotIndex),
     [displayRoom.participants],
   );
   const selectedParticipant = selectedParticipantId
@@ -1366,7 +1372,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   };
 
   const previousStagePage = () => {
-    if (viewMode === "close") {
+    if (viewMode === "close" || viewMode === "wide") {
       const currentIndex = Math.max(0, orderedParticipants.findIndex(item => item.participantId === selectedParticipantId));
       const nextIndex = (currentIndex - 1 + orderedParticipants.length) % orderedParticipants.length;
       setSelectedParticipantId(orderedParticipants[nextIndex]?.participantId ?? null);
@@ -1376,7 +1382,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   };
 
   const nextStagePage = () => {
-    if (viewMode === "close") {
+    if (viewMode === "close" || viewMode === "wide") {
       const currentIndex = Math.max(0, orderedParticipants.findIndex(item => item.participantId === selectedParticipantId));
       const nextIndex = (currentIndex + 1) % orderedParticipants.length;
       setSelectedParticipantId(orderedParticipants[nextIndex]?.participantId ?? null);
@@ -1496,7 +1502,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           <button className={styles.iconButton} type="button" aria-label="Back">‹</button>
           <div className={styles.titleBlock}>
             <strong>{room.roomName}</strong>
-            <span data-testid="room-summary">ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {displayRoom.participants.length}/{room.maxPlayers}</span>
+            <span data-testid="room-summary">ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {orderedParticipants.length}/{Math.min(room.maxPlayers, WAITING_ROOM_MAX_PLAYERS)}</span>
           </div>
           <div className={styles.headerRight}>
             <button className={styles.iconButton} data-testid="room-settings-button" onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
@@ -1575,7 +1581,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           </nav>
           <WaitingRoomStage3D
             participants={orderedParticipants}
-            slots={displayRoom.slots}
+            slots={visibleSlots}
             roomId={room.roomId}
             stageId={room.selectedStageId}
             viewMode={viewMode}
@@ -1586,7 +1592,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           />
 
 
-          {viewMode !== "wide" && orderedParticipants.length > 1 && (
+          {orderedParticipants.length > 1 && (
             <>
               <button className={`${styles.stageArrow} ${styles.stageArrowLeft}`} onClick={previousStagePage} type="button" aria-label="Previous participants">‹</button>
               <button className={`${styles.stageArrow} ${styles.stageArrowRight}`} onClick={nextStagePage} type="button" aria-label="Next participants">›</button>
@@ -1602,7 +1608,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         </section>
 
         <section className={styles.slotDock}>
-          {displayRoom.slots.map(slot => {
+          {visibleSlots.map(slot => {
             const participant = slot.state === "occupied" ? participantById.get(slot.participantId) : null;
             const status = participant ? statusLabel(participant) : slot.state.toUpperCase();
             const selected = participant?.participantId === selectedParticipantId;

@@ -1,4 +1,5 @@
 import { addParticipant, closeSlot, createRoomState } from "./room-state";
+import { WAITING_ROOM_MAX_PLAYERS } from "./types";
 import type { AvatarSnapshot, BotParticipant, HumanGuestParticipant, HumanHostParticipant, RoomState } from "./types";
 
 function avatar(characterId: string, characterAssetId: "c1-casual-grace" | "c4-casual-boy"): AvatarSnapshot {
@@ -48,7 +49,7 @@ export function createP53SyncedWaitingRoomBase(roomId: string): RoomState {
     roomId,
     roomName: "Toan Dance Room",
     host,
-    maxPlayers: 6,
+    maxPlayers: WAITING_ROOM_MAX_PLAYERS,
     modeId: "solo-easy-battle",
     selectedSongId: "aloha",
   });
@@ -97,7 +98,7 @@ export function createP51WaitingRoomFixture(roomId = "10234"): RoomState {
     roomId,
     roomName: "Toan Dance Room",
     host,
-    maxPlayers: 6,
+    maxPlayers: WAITING_ROOM_MAX_PLAYERS,
     modeId: "solo-easy-battle",
     selectedSongId: "aloha",
   });

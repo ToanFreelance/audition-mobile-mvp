@@ -15,7 +15,7 @@ import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library"
 import { loadLobbyIdleLibrary } from "../character/lobby-idle-library";
 import { retargetQuaterniusClipsToMixamo } from "../character/mixamo-character-adapter";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
-import type { RoomParticipant, RoomSlot } from "../../multiplayer/types";
+import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlot } from "../../multiplayer/types";
 import { lobbyStageParticipantIdentity } from "../../multiplayer/lobby-stage-identity";
 import {
   selectParticipantIdleClipByIndex,
@@ -211,17 +211,24 @@ function centerPosition(index: number, total: number, pageSize: number) {
   return { x: centered * 2.42, z: Math.abs(centered) * 0.12, rotationY: centered * -0.05 };
 }
 
-const WIDE_SLOT_PLACEMENTS = [
-  { x: 0, z: 0.58, rotationY: 0, scale: 0.88 },
-  { x: -1.65, z: 0.08, rotationY: 0.07, scale: 0.60 },
-  { x: 1.65, z: 0.08, rotationY: -0.07, scale: 0.60 },
-  { x: -2.48, z: -0.42, rotationY: 0.10, scale: 0.49 },
-  { x: 2.48, z: -0.42, rotationY: -0.10, scale: 0.49 },
-  { x: 0, z: -0.82, rotationY: 0, scale: 0.48 },
-] as const;
+const WIDE_ARC_PLACEMENTS = {
+  center: { x: 0, z: 1.0, rotationY: 0, scale: 0.92 },
+  leftNear: { x: -1.62, z: 0.18, rotationY: 0.07, scale: 0.66 },
+  rightNear: { x: 1.62, z: 0.18, rotationY: -0.07, scale: 0.66 },
+  leftOuter: { x: -2.48, z: -0.38, rotationY: 0.11, scale: 0.53 },
+  rightOuter: { x: 2.48, z: -0.38, rotationY: -0.11, scale: 0.53 },
+} as const;
 
-function wideSlotPlacement(slotIndex: number) {
-  return WIDE_SLOT_PLACEMENTS[slotIndex] ?? WIDE_SLOT_PLACEMENTS[5];
+function wideSlotPlacement(slotIndex: number, focusSlotIndex: number) {
+  const offset = (
+    (slotIndex - focusSlotIndex + 2 + WAITING_ROOM_MAX_PLAYERS)
+    % WAITING_ROOM_MAX_PLAYERS
+  ) - 2;
+  if (offset === 1) return WIDE_ARC_PLACEMENTS.leftNear;
+  if (offset === -1) return WIDE_ARC_PLACEMENTS.rightNear;
+  if (offset === 2) return WIDE_ARC_PLACEMENTS.leftOuter;
+  if (offset === -2) return WIDE_ARC_PLACEMENTS.rightOuter;
+  return WIDE_ARC_PLACEMENTS.center;
 }
 
 function createParticipantRing(color: number, pulsePhase: number, host: boolean) {
@@ -366,6 +373,10 @@ export default function WaitingRoomStage3D({
   }, [pageIndex, pageSize, participants, selectedParticipantId, viewMode]);
 
   const hostParticipant = participants.find(participant => participant.role === "host") ?? null;
+  const focusedParticipant = participants.find(participant => participant.participantId === selectedParticipantId)
+    ?? hostParticipant
+    ?? participants[0]
+    ?? null;
 
   useEffect(() => {
     layoutRef.current?.();
@@ -476,7 +487,7 @@ export default function WaitingRoomStage3D({
     runway.position.set(0, -0.02, 0.42);
     scene.add(runway);
 
-    for (let slotIndex = 0; slotIndex < 6; slotIndex += 1) {
+    for (let slotIndex = 0; slotIndex < WAITING_ROOM_MAX_PLAYERS; slotIndex += 1) {
       const group = new THREE.Group();
       const ringMaterial = new THREE.MeshBasicMaterial({
         color: 0x43dfff,
@@ -529,10 +540,14 @@ export default function WaitingRoomStage3D({
     const applyLayout = () => {
       const current = viewRef.current;
       const activeParticipants = participantsRef.current;
-      const selected = current.selectedParticipantId
-        ?? activeParticipants[current.pageIndex * current.pageSize]?.participantId
-        ?? activeParticipants[0]?.participantId
+      const focusedParticipant = activeParticipants.find(
+        participant => participant.participantId === current.selectedParticipantId,
+      ) ?? activeParticipants.find(participant => participant.role === "host")
+        ?? activeParticipants[current.pageIndex * current.pageSize]
+        ?? activeParticipants[0]
         ?? null;
+      const selected = focusedParticipant?.participantId ?? null;
+      const focusSlotIndex = focusedParticipant?.slotIndex ?? 0;
 
       stageNodesRef.current.forEach(node => {
         const { participant, index } = node;
@@ -545,17 +560,15 @@ export default function WaitingRoomStage3D({
 
         if (current.viewMode === "wide") {
           visible = true;
-          const placement = participant.role === "host"
-            ? WIDE_SLOT_PLACEMENTS[0]
-            : wideSlotPlacement(participant.slotIndex);
+          const placement = wideSlotPlacement(participant.slotIndex, focusSlotIndex);
           x = placement.x;
           z = placement.z;
           rotationY = placement.rotationY;
           actorScale = placement.scale;
-          ringScale = participant.role === "host" ? 0.92 : placement.scale;
-          if (participant.participantId === current.selectedParticipantId) {
-            actorScale *= 1.04;
-            ringScale *= 1.06;
+          ringScale = participant.participantId === selected ? 0.96 : placement.scale;
+          if (participant.participantId === selected) {
+            actorScale *= 1.03;
+            ringScale *= 1.03;
           }
         } else if (current.viewMode === "close") {
           visible = participant.participantId === selected;
@@ -577,16 +590,18 @@ export default function WaitingRoomStage3D({
         node.actor.rotation.y = rotationY;
         node.ring.position.set(x, 0.02, z);
         setScale(node, actorScale, ringScale);
-        const selectedRing = participant.participantId === current.selectedParticipantId;
+        const selectedRing = participant.participantId === selected;
         node.ring.userData.emphasis = selectedRing ? 1 : participant.role === "host" ? 0.55 : 0;
       });
 
       slotPlaceholdersRef.current.forEach(placeholder => {
         const slot = slotsRef.current.find(item => item.slotIndex === placeholder.slotIndex);
-        const placement = wideSlotPlacement(placeholder.slotIndex);
+        const placement = wideSlotPlacement(placeholder.slotIndex, focusSlotIndex);
         placeholder.group.position.set(placement.x, 0.02, placement.z);
         placeholder.group.scale.setScalar(Math.max(0.48, placement.scale));
-        const showPlaceholder = current.viewMode === "wide" && slot?.state !== "occupied";
+        const showPlaceholder = current.viewMode === "wide"
+          && placeholder.slotIndex < WAITING_ROOM_MAX_PLAYERS
+          && slot?.state !== "occupied";
         placeholder.group.visible = showPlaceholder;
         const closed = slot?.state === "closed";
         placeholder.ringMaterial.color.setHex(closed ? 0xff4f7d : 0x43dfff);
@@ -998,7 +1013,9 @@ export default function WaitingRoomStage3D({
       data-idle-count={idleRuntimeCount}
       data-idle-source={idleSource}
       data-character-assets={participants.map(participantCharacterAssetId).join(",")}
+      data-focus-participant-id={focusedParticipant?.participantId ?? ""}
       data-layout={viewMode === "wide" ? "host-first" : viewMode}
+      data-max-players={WAITING_ROOM_MAX_PLAYERS}
     >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
@@ -1012,23 +1029,24 @@ export default function WaitingRoomStage3D({
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
       {viewMode === "wide" ? (
         <>
-          {hostParticipant && (
+          {focusedParticipant && (
             <button
-              className={`${styles.hostIdentity} ${hostParticipant.participantId === selectedParticipantId ? styles.hostIdentitySelected : ""}`}
-              data-character-asset-id={participantCharacterAssetId(hostParticipant)}
-              data-testid="p56-host-identity"
-              onClick={() => onSelectParticipant?.(hostParticipant)}
+              className={`${styles.hostIdentity} ${styles.hostIdentitySelected}`}
+              data-character-asset-id={participantCharacterAssetId(focusedParticipant)}
+              data-focus-role={focusedParticipant.role}
+              data-testid="p56-focused-identity"
+              onClick={() => onSelectParticipant?.(focusedParticipant)}
               type="button"
             >
-              <span className={styles.crown}>♛</span>
-              <strong>{hostParticipant.displayName}</strong>
-              <small>Lv. {levelFor(hostParticipant)}</small>
-              <b className={statusClass(hostParticipant)}>{statusLabel(hostParticipant)}</b>
+              {focusedParticipant.role === "host" ? <span className={styles.crown}>♛</span> : null}
+              <strong>{focusedParticipant.displayName}</strong>
+              <small>Lv. {levelFor(focusedParticipant)}</small>
+              <b className={statusClass(focusedParticipant)}>{statusLabel(focusedParticipant)}</b>
             </button>
           )}
           <div className={styles.wideSlotLabels} data-testid="p56-participant-deck">
             {slots
-              .filter(slot => slot.slotIndex !== hostParticipant?.slotIndex)
+              .filter(slot => slot.slotIndex < WAITING_ROOM_MAX_PLAYERS && slot.slotIndex !== focusedParticipant?.slotIndex)
               .map(slot => {
                 const participant = slot.state === "occupied"
                   ? participants.find(item => item.participantId === slot.participantId) ?? null
