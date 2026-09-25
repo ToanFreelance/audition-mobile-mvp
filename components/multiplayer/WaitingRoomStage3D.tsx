@@ -232,7 +232,7 @@ function centerPosition(index: number, total: number, pageSize: number) {
 }
 
 const WIDE_ARC_PLACEMENTS = {
-  center: { x: -0.0764, y: 0, z: 2.6, rotationY: 0, scale: 0.8942 },
+  center: { x: -0.0764, y: 0, z: 2.6, rotationY: 0, scale: 0.8682 },
   leftNear: { x: -1.7004, y: 0.08, z: 1.9872, rotationY: 0.05, scale: 0.72 },
   rightNear: { x: 1.6599, y: 0.08, z: 1.8558, rotationY: -0.05, scale: 0.72 },
   leftOuter: { x: -3.0365, y: 0.30, z: 0.2648, rotationY: 0.095, scale: 0.52 },
