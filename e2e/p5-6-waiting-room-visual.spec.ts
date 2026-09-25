@@ -120,10 +120,34 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "compressed-neon");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v2");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v3");
+  await expect(stage).toHaveAttribute("data-ring-reflection", "excluded");
+  await expect(stage).toHaveAttribute("data-stage-lighting", "grand");
+  await expect(page.getByTestId("waiting-room-avatar-strip")).toHaveAttribute(
+    "data-visual-order",
+    "stage-left-to-right",
+  );
   await expect(page.locator('[data-visual-preset="sketch"]')).toHaveCount(1);
   await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 30_000 });
 
   await page.goto("/tools/lobby-qa");
   await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-visual-preset", "default");
+});
+
+
+test("P5.6 sketch compare keeps focus and avatar selection on the same participant", async ({ page }) => {
+  await page.goto("/tools/lobby-qa-sketch");
+
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 30_000 });
+
+  await expect(page.getByTestId("slot-0")).toHaveAttribute("data-selected", "1");
+
+  await page.getByRole("button", { name: "Next participants" }).click();
+  await expect(stage).toHaveAttribute("data-focus-participant-id", "p56-minh");
+  await expect(page.getByTestId("slot-4")).toHaveAttribute("data-selected", "1");
+
+  await page.getByRole("button", { name: "Previous participants" }).click();
+  await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
+  await expect(page.getByTestId("slot-0")).toHaveAttribute("data-selected", "1");
 });

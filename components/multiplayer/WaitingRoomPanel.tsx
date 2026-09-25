@@ -723,6 +723,13 @@ export default function WaitingRoomPanel({
       .sort((a, b) => a.slotIndex - b.slotIndex),
     [displayRoom.participants],
   );
+  const sketchVisualSlots = useMemo(() => {
+    if (visualPreset !== "sketch") return visibleSlots;
+    const leftToRightSlotOrder = [2, 1, 0, 4, 3];
+    return leftToRightSlotOrder
+      .map(slotIndex => visibleSlots.find(slot => slot.slotIndex === slotIndex))
+      .filter((slot): slot is (typeof visibleSlots)[number] => Boolean(slot));
+  }, [visibleSlots, visualPreset]);
   const selectedParticipant = selectedParticipantId
     ? displayRoom.participants.find(item => item.participantId === selectedParticipantId) ?? null
     : null;
@@ -1679,8 +1686,12 @@ export default function WaitingRoomPanel({
           )}
         </section>
 
-        <section className={styles.slotDock}>
-          {visibleSlots.map(slot => {
+        <section
+          className={styles.slotDock}
+          data-testid="waiting-room-avatar-strip"
+          data-visual-order={visualPreset === "sketch" ? "stage-left-to-right" : "slot-index"}
+        >
+          {sketchVisualSlots.map((slot, displayIndex) => {
             const participant = slot.state === "occupied" ? participantById.get(slot.participantId) : null;
             const status = participant ? statusLabel(participant) : slot.state.toUpperCase();
             const selected = participant?.participantId === selectedParticipantId;
@@ -1691,10 +1702,13 @@ export default function WaitingRoomPanel({
                 disabled={!participant && !hostView}
                 key={slot.slotIndex}
                 data-testid={`slot-${slot.slotIndex}`}
+                data-selected={selected ? "1" : "0"}
                 onClick={() => participant ? selectParticipant(participant) : toggleSlot(slot.slotIndex)}
                 type="button"
               >
-                <span className={styles.slotNumber}>{slot.slotIndex + 1}</span>
+                <span className={styles.slotNumber}>
+                  {visualPreset === "sketch" ? displayIndex + 1 : slot.slotIndex + 1}
+                </span>
                 <span className={styles.slotAvatar}>
                   {participant && portraitUrl ? (
                     <img

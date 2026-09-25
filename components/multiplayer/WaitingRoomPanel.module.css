@@ -679,3 +679,59 @@
   margin-top:-22px!important;
   background:linear-gradient(180deg,rgba(6,11,31,.64),rgba(4,8,24,.42))!important;
 }
+
+/* P5.6 sketch-match v3 — visual-order avatar strip and sketch navigation controls. */
+.phone[data-visual-preset="sketch"] .slotDock{
+  margin-top:-24px!important;
+  padding:9px 8px 8px!important;
+  gap:6px!important;
+  border-color:rgba(76,123,229,.62)!important;
+  background:linear-gradient(180deg,rgba(5,10,31,.72),rgba(3,7,24,.50))!important;
+  box-shadow:
+    0 -8px 28px rgba(5,8,34,.26),
+    inset 0 0 30px rgba(41,80,180,.10)!important;
+}
+.phone[data-visual-preset="sketch"] .slot{
+  gap:4px;
+  transition:transform .28s ease,filter .28s ease;
+}
+.phone[data-visual-preset="sketch"] .slotNumber{font-size:9px}
+.phone[data-visual-preset="sketch"] .slotAvatar{
+  width:44px;
+  height:44px;
+  border-width:2px;
+}
+.phone[data-visual-preset="sketch"] .slot strong{
+  font-size:8px;
+  letter-spacing:.035em;
+}
+.phone[data-visual-preset="sketch"] .slotSelected{
+  transform:translateY(-2px) scale(1.035);
+  filter:brightness(1.08);
+}
+.phone[data-visual-preset="sketch"] .slotSelected .slotAvatar{
+  box-shadow:
+    0 0 0 2px #dffcff,
+    0 0 0 4px rgba(57,222,255,.52),
+    0 0 22px rgba(63,218,255,.82)!important;
+}
+.phone[data-visual-preset="sketch"] .stageArrow{
+  top:52%;
+  width:44px;
+  height:54px;
+  border:1px solid rgba(77,229,255,.86);
+  border-radius:12px;
+  background:linear-gradient(180deg,rgba(21,75,134,.76),rgba(5,24,69,.72));
+  color:#d5fbff;
+  font-size:48px;
+  line-height:46px;
+  text-shadow:0 0 7px #5aeaff,0 0 17px rgba(80,115,255,.92);
+  box-shadow:
+    0 0 0 1px rgba(90,111,255,.26),
+    0 0 20px rgba(48,203,255,.34),
+    inset 0 0 18px rgba(79,187,255,.18);
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+.phone[data-visual-preset="sketch"] .stageArrowLeft{left:8px}
+.phone[data-visual-preset="sketch"] .stageArrowRight{right:8px!important}
