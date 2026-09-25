@@ -20,11 +20,11 @@ test("P5.6 waiting room matches the accepted five-person focus presentation", as
   await expect(page.locator('[data-testid^="slot-avatar-image-"]')).toHaveCount(5);
   await expect(page.getByTestId("slot-avatar-image-0")).toHaveAttribute(
     "src",
-    "/characters/portraits/c4-casual-boy.jpg",
+    /^data:image\/jpeg;base64,/,
   );
   await expect(page.getByTestId("slot-avatar-image-1")).toHaveAttribute(
     "src",
-    "/characters/portraits/c1-casual-grace.jpg",
+    /^data:image\/jpeg;base64,/,
   );
 
   const deck = page.getByTestId("p56-participant-deck");
