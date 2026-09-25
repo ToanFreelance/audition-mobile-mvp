@@ -47,6 +47,11 @@ type StageNode = {
   actor: THREE.Object3D;
   ring: THREE.Object3D;
   baseScale: THREE.Vector3;
+  targetPosition: THREE.Vector3;
+  targetRotationY: number;
+  targetActorScale: number;
+  targetRingScale: number;
+  layoutReady: boolean;
 };
 
 type SlotPlaceholder = {
@@ -212,11 +217,11 @@ function centerPosition(index: number, total: number, pageSize: number) {
 }
 
 const WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, z: 1.0, rotationY: 0, scale: 0.92 },
-  leftNear: { x: -1.62, z: 0.18, rotationY: 0.07, scale: 0.66 },
-  rightNear: { x: 1.62, z: 0.18, rotationY: -0.07, scale: 0.66 },
-  leftOuter: { x: -2.48, z: -0.38, rotationY: 0.11, scale: 0.53 },
-  rightOuter: { x: 2.48, z: -0.38, rotationY: -0.11, scale: 0.53 },
+  center: { x: 0, y: 0, z: 1.55, rotationY: 0, scale: 0.94 },
+  leftNear: { x: -1.58, y: 0.13, z: 0.12, rotationY: 0.07, scale: 0.65 },
+  rightNear: { x: 1.58, y: 0.13, z: 0.12, rotationY: -0.07, scale: 0.65 },
+  leftOuter: { x: -2.48, y: 0.24, z: -0.82, rotationY: 0.11, scale: 0.51 },
+  rightOuter: { x: 2.48, y: 0.24, z: -0.82, rotationY: -0.11, scale: 0.51 },
 } as const;
 
 function wideSlotPlacement(slotIndex: number, focusSlotIndex: number) {
@@ -333,6 +338,7 @@ export default function WaitingRoomStage3D({
   onSelectParticipant,
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const identityRefs = useRef(new Map<string, HTMLButtonElement>());
   const stageNodesRef = useRef(new Map<string, StageNode>());
   const slotPlaceholdersRef = useRef<SlotPlaceholder[]>([]);
   const slotsRef = useRef(slots);
@@ -527,6 +533,36 @@ export default function WaitingRoomStage3D({
       slotPlaceholdersRef.current.push({ slotIndex, group, ringMaterial, bodyMaterial });
     }
 
+    const projectedHead = new THREE.Vector3();
+    const updateIdentityLabels = () => {
+      if (viewRef.current.viewMode !== "wide") return;
+      const width = Math.max(1, mount.clientWidth);
+      const height = Math.max(1, mount.clientHeight);
+      stageNodesRef.current.forEach(node => {
+        const element = identityRefs.current.get(node.participant.participantId);
+        if (!element) return;
+        if (!node.actor.visible) {
+          element.style.opacity = "0";
+          return;
+        }
+        const scaleMultiplier = node.baseScale.y
+          ? node.actor.scale.y / node.baseScale.y
+          : node.targetActorScale;
+        projectedHead
+          .set(
+            node.actor.position.x,
+            node.actor.position.y + 4.18 * scaleMultiplier,
+            node.actor.position.z,
+          )
+          .project(camera);
+        const x = (projectedHead.x * 0.5 + 0.5) * width;
+        const y = (-projectedHead.y * 0.5 + 0.5) * height;
+        element.style.left = `${x}px`;
+        element.style.top = `${y - 8}px`;
+        element.style.opacity = "1";
+      });
+    };
+
     const render = () => {
       const width = Math.max(1, mount.clientWidth);
       const height = Math.max(1, mount.clientHeight);
@@ -534,6 +570,7 @@ export default function WaitingRoomStage3D({
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.render(scene, camera);
+      updateIdentityLabels();
     };
     renderRef.current = render;
 
@@ -553,6 +590,7 @@ export default function WaitingRoomStage3D({
         const { participant, index } = node;
         let visible = false;
         let x = 0;
+        let y = 0;
         let z = 0;
         let rotationY = 0;
         let actorScale = 0.88;
@@ -562,6 +600,7 @@ export default function WaitingRoomStage3D({
           visible = true;
           const placement = wideSlotPlacement(participant.slotIndex, focusSlotIndex);
           x = placement.x;
+          y = placement.y;
           z = placement.z;
           rotationY = placement.rotationY;
           actorScale = placement.scale;
@@ -585,11 +624,17 @@ export default function WaitingRoomStage3D({
 
         node.actor.visible = visible;
         node.ring.visible = visible;
-        node.actor.position.x = x;
-        node.actor.position.z = z;
-        node.actor.rotation.y = rotationY;
-        node.ring.position.set(x, 0.02, z);
-        setScale(node, actorScale, ringScale);
+        node.targetPosition.set(x, y, z);
+        node.targetRotationY = rotationY;
+        node.targetActorScale = actorScale;
+        node.targetRingScale = ringScale;
+        if (!node.layoutReady || current.viewMode !== "wide") {
+          node.actor.position.copy(node.targetPosition);
+          node.actor.rotation.y = node.targetRotationY;
+          node.ring.position.set(x, y + 0.02, z);
+          setScale(node, actorScale, ringScale);
+          node.layoutReady = true;
+        }
         const selectedRing = participant.participantId === selected;
         node.ring.userData.emphasis = selectedRing ? 1 : participant.role === "host" ? 0.55 : 0;
       });
@@ -597,7 +642,7 @@ export default function WaitingRoomStage3D({
       slotPlaceholdersRef.current.forEach(placeholder => {
         const slot = slotsRef.current.find(item => item.slotIndex === placeholder.slotIndex);
         const placement = wideSlotPlacement(placeholder.slotIndex, focusSlotIndex);
-        placeholder.group.position.set(placement.x, 0.02, placement.z);
+        placeholder.group.position.set(placement.x, placement.y + 0.02, placement.z);
         placeholder.group.scale.setScalar(Math.max(0.48, placement.scale));
         const showPlaceholder = current.viewMode === "wide"
           && placeholder.slotIndex < WAITING_ROOM_MAX_PLAYERS
@@ -611,8 +656,8 @@ export default function WaitingRoomStage3D({
       });
 
       if (current.viewMode === "wide") {
-        camera.position.set(0, 3.12, 12.25);
-        camera.lookAt(0, 1.72, 0);
+        camera.position.set(0, 4.35, 13.15);
+        camera.lookAt(0, 1.28, 0.15);
       } else if (current.viewMode === "close") {
         camera.position.set(0, 3.16, 9.45);
         camera.lookAt(0, 2.08, 0);
@@ -675,7 +720,7 @@ export default function WaitingRoomStage3D({
     };
 
     const startIdleLoop = () => {
-      if (idleRuntimeByParticipant.size === 0 || animationFrame) return;
+      if (animationFrame) return;
       const minFrameMs = 1000 / IDLE_RENDER_FPS;
       const tick = (nowMs: number) => {
         if (disposed) return;
@@ -697,7 +742,46 @@ export default function WaitingRoomStage3D({
         });
 
         const ringTime = nowMs / 1000;
+        const transitionAlpha = 1 - Math.exp(-deltaSeconds * 9);
         stageNodesRef.current.forEach(node => {
+          if (viewRef.current.viewMode === "wide" && node.layoutReady) {
+            node.actor.position.lerp(node.targetPosition, transitionAlpha);
+            node.actor.rotation.y = THREE.MathUtils.lerp(
+              node.actor.rotation.y,
+              node.targetRotationY,
+              transitionAlpha,
+            );
+            node.ring.position.x = THREE.MathUtils.lerp(
+              node.ring.position.x,
+              node.targetPosition.x,
+              transitionAlpha,
+            );
+            node.ring.position.y = THREE.MathUtils.lerp(
+              node.ring.position.y,
+              node.targetPosition.y + 0.02,
+              transitionAlpha,
+            );
+            node.ring.position.z = THREE.MathUtils.lerp(
+              node.ring.position.z,
+              node.targetPosition.z,
+              transitionAlpha,
+            );
+            const actorScale = node.baseScale.x
+              ? node.actor.scale.x / node.baseScale.x
+              : node.targetActorScale;
+            const nextActorScale = THREE.MathUtils.lerp(
+              actorScale,
+              node.targetActorScale,
+              transitionAlpha,
+            );
+            const nextRingScale = THREE.MathUtils.lerp(
+              node.ring.scale.x,
+              node.targetRingScale,
+              transitionAlpha,
+            );
+            setScale(node, nextActorScale, nextRingScale);
+          }
+
           const phase = Number(node.ring.userData.pulsePhase ?? 0);
           const wave = (Math.sin(ringTime * 2.15 + phase) + 1) * 0.5;
           const emphasis = Number(node.ring.userData.emphasis ?? 0);
@@ -849,6 +933,11 @@ export default function WaitingRoomStage3D({
         actor,
         ring,
         baseScale: actor.scale.clone(),
+        targetPosition: new THREE.Vector3(),
+        targetRotationY: 0,
+        targetActorScale: 1,
+        targetRingScale: 1,
+        layoutReady: false,
       };
       stageNodesRef.current.set(participant.participantId, node);
       attachIdleRuntime(node);
@@ -1015,6 +1104,8 @@ export default function WaitingRoomStage3D({
       data-character-assets={participants.map(participantCharacterAssetId).join(",")}
       data-focus-participant-id={focusedParticipant?.participantId ?? ""}
       data-layout={viewMode === "wide" ? "host-first" : viewMode}
+      data-layout-transition={viewMode === "wide" ? "smooth" : "snap"}
+      data-label-layout={viewMode === "wide" ? "head-follow" : "panel"}
       data-max-players={WAITING_ROOM_MAX_PLAYERS}
     >
       <div className={styles.architecture} aria-hidden="true">
@@ -1029,54 +1120,48 @@ export default function WaitingRoomStage3D({
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
       {viewMode === "wide" ? (
         <>
-          {focusedParticipant && (
-            <button
-              className={`${styles.hostIdentity} ${styles.hostIdentitySelected}`}
-              data-character-asset-id={participantCharacterAssetId(focusedParticipant)}
-              data-focus-role={focusedParticipant.role}
-              data-testid="p56-focused-identity"
-              onClick={() => onSelectParticipant?.(focusedParticipant)}
-              type="button"
-            >
-              {focusedParticipant.role === "host" ? <span className={styles.crown}>♛</span> : null}
-              <strong>{focusedParticipant.displayName}</strong>
-              <small>Lv. {levelFor(focusedParticipant)}</small>
-              <b className={statusClass(focusedParticipant)}>{statusLabel(focusedParticipant)}</b>
-            </button>
-          )}
-          <div className={styles.wideSlotLabels} data-testid="p56-participant-deck">
+          <div className={styles.actorIdentities} data-testid="p56-participant-deck">
+            {participants.map(participant => {
+              const focused = participant.participantId === focusedParticipant?.participantId;
+              return (
+                <button
+                  className={`${styles.actorIdentity} ${focused ? styles.actorIdentityFocused : ""}`}
+                  data-character-asset-id={participantCharacterAssetId(participant)}
+                  data-focus-role={participant.role}
+                  data-testid={focused ? "p56-focused-identity" : undefined}
+                  key={participant.participantId}
+                  onClick={() => onSelectParticipant?.(participant)}
+                  ref={element => {
+                    if (element) identityRefs.current.set(participant.participantId, element);
+                    else identityRefs.current.delete(participant.participantId);
+                  }}
+                  type="button"
+                >
+                  {participant.role === "host" ? <span className={styles.crown}>♛</span> : null}
+                  <strong>{participant.displayName}</strong>
+                  <small>Lv. {levelFor(participant)}</small>
+                  <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+                </button>
+              );
+            })}
+          </div>
+          <div className={styles.wideSlotLabels}>
             {slots
-              .filter(slot => slot.slotIndex < WAITING_ROOM_MAX_PLAYERS && slot.slotIndex !== focusedParticipant?.slotIndex)
-              .map(slot => {
-                const participant = slot.state === "occupied"
-                  ? participants.find(item => item.participantId === slot.participantId) ?? null
-                  : null;
-                return (
-                  <button
-                    className={`${styles.wideSlotLabel} ${participant?.participantId === selectedParticipantId ? styles.wideSlotSelected : ""}`}
-                    data-character-asset-id={participant ? participantCharacterAssetId(participant) : undefined}
-                    disabled={!participant}
-                    key={slot.slotIndex}
-                    onClick={() => participant && onSelectParticipant?.(participant)}
-                    type="button"
-                  >
-                    <span className={styles.wideSlotNumber}>{slot.slotIndex + 1}</span>
-                    {participant ? (
-                      <>
-                        <strong>{participant.displayName}</strong>
-                        <b className={statusClass(participant)}>{statusLabel(participant)}</b>
-                      </>
-                    ) : (
-                      <>
-                        <strong>{slot.state === "closed" ? "CLOSED" : "OPEN"}</strong>
-                        <b className={slot.state === "closed" ? styles.wideClosed : styles.wideOpen}>
-                          {slot.state === "closed" ? "×" : "+"}
-                        </b>
-                      </>
-                    )}
-                  </button>
-                );
-              })}
+              .filter(slot => slot.slotIndex < WAITING_ROOM_MAX_PLAYERS && slot.state !== "occupied")
+              .map(slot => (
+                <button
+                  className={styles.wideSlotLabel}
+                  disabled
+                  key={slot.slotIndex}
+                  type="button"
+                >
+                  <span className={styles.wideSlotNumber}>{slot.slotIndex + 1}</span>
+                  <strong>{slot.state === "closed" ? "CLOSED" : "OPEN"}</strong>
+                  <b className={slot.state === "closed" ? styles.wideClosed : styles.wideOpen}>
+                    {slot.state === "closed" ? "×" : "+"}
+                  </b>
+                </button>
+              ))}
           </div>
         </>
       ) : (

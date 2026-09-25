@@ -7,6 +7,8 @@ test("P5.6 waiting room uses a five-slot focus carousel without rebuilding the 3
   await expect(stage).toHaveAttribute("data-view", "wide");
   await expect(stage).toHaveAttribute("data-layout", "host-first");
   await expect(stage).toHaveAttribute("data-max-players", "5");
+  await expect(stage).toHaveAttribute("data-layout-transition", "smooth");
+  await expect(stage).toHaveAttribute("data-label-layout", "head-follow");
   await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
   await expect(stage).toHaveAttribute(
     "data-character-assets",
@@ -15,6 +17,11 @@ test("P5.6 waiting room uses a five-slot focus carousel without rebuilding the 3
 
   await expect(page.getByTestId("room-summary")).toContainText("3/5");
   await expect(page.getByTestId("slot-5")).toHaveCount(0);
+
+  const deck = page.getByTestId("p56-participant-deck");
+  await expect(deck.locator("button")).toHaveCount(3);
+  await expect(deck.getByText("Lv. 25")).toBeVisible();
+  await expect(deck.getByText("Lv. 18")).toBeVisible();
 
   const identity = page.getByTestId("p56-focused-identity");
   await expect(identity).toHaveAttribute("data-character-asset-id", "c4-casual-boy");
@@ -35,7 +42,6 @@ test("P5.6 waiting room uses a five-slot focus carousel without rebuilding the 3
   await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
   await expect(identity).toContainText("HOST");
 
-  const deck = page.getByTestId("p56-participant-deck");
   await expect(deck.locator('[data-character-asset-id="c1-casual-grace"]')).toHaveCount(1);
   await expect(deck.locator('[data-character-asset-id="c4-casual-boy"]')).toHaveCount(1);
 });
