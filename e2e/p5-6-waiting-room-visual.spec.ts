@@ -65,3 +65,21 @@ test("P5.6 waiting room matches the accepted five-person focus presentation", as
   await cameraPresets.getByRole("button", { name: "Center view" }).click();
   await expect(stage).toHaveAttribute("data-view", "center");
 });
+
+
+test("P5.6 QA layout calibrator exposes direct manipulation export without normal carousel arrows", async ({ page }) => {
+  await page.goto("/tools/lobby-qa?calibrate=1");
+
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-calibration", "1");
+  await expect(page.getByTestId("layout-calibration-toolbar")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Previous participants" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Next participants" })).toHaveCount(0);
+
+  await page.getByTestId("layout-calibration-export").click();
+  const exported = page.getByTestId("layout-calibration-json");
+  await expect(exported).toBeVisible();
+  await expect(exported).toContainText('"mode": "waiting-room-wide-calibration"');
+  await expect(exported).toContainText('"displayName": "Toan"');
+  await expect(exported).toContainText('"displayName": "LinhCute"');
+});

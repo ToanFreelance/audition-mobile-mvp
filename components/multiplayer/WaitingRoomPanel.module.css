@@ -563,3 +563,58 @@
 @media(max-width:370px){.stageArrowRight{right:max(6px,env(safe-area-inset-right,0px))!important}}
 .slotAvatar{overflow:hidden}
 .slotAvatar img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 42%;border-radius:inherit}
+
+/* P5.6 QA-only direct-manipulation layout calibrator */
+.calibrationToolbar{
+  position:absolute;
+  z-index:30;
+  top:7px;
+  left:8px;
+  width:min(238px,62vw);
+  padding:7px 8px;
+  border:1px solid rgba(90,219,255,.65);
+  border-radius:10px;
+  background:rgba(4,9,27,.82);
+  box-shadow:0 8px 24px rgba(0,0,0,.36),inset 0 0 18px rgba(56,177,255,.08);
+  backdrop-filter:blur(7px);
+}
+.calibrationToolbar>strong{
+  display:block;
+  color:#7feaff;
+  font-size:8px;
+  letter-spacing:.1em;
+}
+.calibrationToolbar>span{
+  display:block;
+  margin-top:2px;
+  color:#d8e1ff;
+  font-size:7px;
+  line-height:1.25;
+}
+.calibrationToolbar>div{
+  display:flex;
+  gap:5px;
+  margin-top:5px;
+}
+.calibrationToolbar button{
+  min-height:25px;
+  padding:4px 7px;
+  border:1px solid #3f579d;
+  border-radius:7px;
+  background:#101936;
+  color:#eef6ff;
+  font-size:7px;
+  font-weight:900;
+}
+.calibrationToolbar textarea{
+  width:100%;
+  height:88px;
+  margin-top:6px;
+  padding:5px;
+  resize:none;
+  border:1px solid rgba(89,113,189,.55);
+  border-radius:6px;
+  background:#070c20;
+  color:#cfe8ff;
+  font:6.5px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;
+}

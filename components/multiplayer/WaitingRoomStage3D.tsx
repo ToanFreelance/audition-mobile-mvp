@@ -28,6 +28,16 @@ import styles from "./WaitingRoomStage3D.module.css";
 
 export type WaitingRoomStageView = "wide" | "center" | "close";
 
+export type WaitingRoomCalibrationPlacement = {
+  x: number;
+  y: number;
+  z: number;
+  scale: number;
+  rotationY: number;
+};
+
+export type WaitingRoomCalibrationLayout = Record<string, WaitingRoomCalibrationPlacement>;
+
 type Props = {
   participants: readonly RoomParticipant[];
   slots: readonly RoomSlot[];
@@ -37,6 +47,9 @@ type Props = {
   pageIndex: number;
   selectedParticipantId: string | null;
   pageSize?: number;
+  calibrationMode?: boolean;
+  calibrationResetToken?: number;
+  onCalibrationLayoutChange?: (layout: WaitingRoomCalibrationLayout) => void;
   onSelectParticipant?: (participant: RoomParticipant) => void;
 };
 
@@ -337,17 +350,23 @@ export default function WaitingRoomStage3D({
   pageIndex,
   selectedParticipantId,
   pageSize = 2,
+  calibrationMode = false,
+  calibrationResetToken = 0,
+  onCalibrationLayoutChange,
   onSelectParticipant,
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const identityRefs = useRef(new Map<string, HTMLButtonElement>());
   const stageNodesRef = useRef(new Map<string, StageNode>());
+  const calibrationOverridesRef = useRef(new Map<string, WaitingRoomCalibrationPlacement>());
   const slotPlaceholdersRef = useRef<SlotPlaceholder[]>([]);
   const slotsRef = useRef(slots);
   const renderRef = useRef<(() => void) | null>(null);
   const layoutRef = useRef<(() => void) | null>(null);
   const reconcileParticipantsRef = useRef<(() => void) | null>(null);
   const selectCallbackRef = useRef(onSelectParticipant);
+  const calibrationModeRef = useRef(calibrationMode);
+  const calibrationCallbackRef = useRef(onCalibrationLayoutChange);
   const participantsRef = useRef(participants);
   const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId });
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
@@ -357,6 +376,8 @@ export default function WaitingRoomStage3D({
   const [idleSource, setIdleSource] = useState<"loading" | "published" | "builtin" | "none">("loading");
 
   selectCallbackRef.current = onSelectParticipant;
+  calibrationModeRef.current = calibrationMode;
+  calibrationCallbackRef.current = onCalibrationLayoutChange;
   participantsRef.current = participants;
   slotsRef.current = slots;
   viewRef.current = { viewMode, pageIndex, pageSize, selectedParticipantId };
@@ -389,6 +410,12 @@ export default function WaitingRoomStage3D({
   useEffect(() => {
     layoutRef.current?.();
   }, [pageIndex, pageSize, selectedParticipantId, slotStateKey, viewMode]);
+
+  useEffect(() => {
+    if (!calibrationMode) return;
+    calibrationOverridesRef.current.clear();
+    layoutRef.current?.();
+  }, [calibrationMode, calibrationResetToken]);
 
   useEffect(() => {
     reconcileParticipantsRef.current?.();
@@ -576,6 +603,21 @@ export default function WaitingRoomStage3D({
     };
     renderRef.current = render;
 
+    const emitCalibrationLayout = () => {
+      if (!calibrationModeRef.current) return;
+      const snapshot: WaitingRoomCalibrationLayout = {};
+      stageNodesRef.current.forEach(node => {
+        snapshot[node.participant.participantId] = {
+          x: Number(node.targetPosition.x.toFixed(4)),
+          y: Number(node.targetPosition.y.toFixed(4)),
+          z: Number(node.targetPosition.z.toFixed(4)),
+          scale: Number(node.targetActorScale.toFixed(4)),
+          rotationY: Number(node.targetRotationY.toFixed(4)),
+        };
+      });
+      calibrationCallbackRef.current?.(snapshot);
+    };
+
     const applyLayout = () => {
       const current = viewRef.current;
       const activeParticipants = participantsRef.current;
@@ -610,6 +652,17 @@ export default function WaitingRoomStage3D({
           if (participant.participantId === selected) {
             actorScale *= 1.03;
             ringScale *= 1.03;
+          }
+          const calibrationOverride = calibrationModeRef.current
+            ? calibrationOverridesRef.current.get(participant.participantId)
+            : null;
+          if (calibrationOverride) {
+            x = calibrationOverride.x;
+            y = calibrationOverride.y;
+            z = calibrationOverride.z;
+            rotationY = calibrationOverride.rotationY;
+            actorScale = calibrationOverride.scale;
+            ringScale = calibrationOverride.scale;
           }
         } else if (current.viewMode === "close") {
           visible = participant.participantId === selected;
@@ -668,6 +721,7 @@ export default function WaitingRoomStage3D({
         camera.lookAt(0, 2.0, 0);
       }
       render();
+      emitCalibrationLayout();
     };
     layoutRef.current = applyLayout;
 
@@ -805,12 +859,24 @@ export default function WaitingRoomStage3D({
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    const onPointerDown = (event: PointerEvent) => {
+    const activeCalibrationPointers = new Map<number, THREE.Vector2>();
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const dragOffset = new THREE.Vector3();
+    let calibrationParticipantId: string | null = null;
+    let pinchStartDistance = 0;
+    let pinchStartScale = 1;
+
+    const setRayFromScreenPoint = (clientX: number, clientY: number) => {
       const rect = renderer.domElement.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      if (!rect.width || !rect.height) return false;
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
+      return true;
+    };
+
+    const participantAt = (clientX: number, clientY: number) => {
+      if (!setRayFromScreenPoint(clientX, clientY)) return null;
       const intersections = raycaster.intersectObjects(
         [...stageNodesRef.current.values()].filter(node => node.actor.visible).map(node => node.actor),
         true,
@@ -818,13 +884,159 @@ export default function WaitingRoomStage3D({
       const hit = intersections[0]?.object;
       let cursor: THREE.Object3D | null = hit ?? null;
       while (cursor && !cursor.userData.participantId) cursor = cursor.parent;
-      const participantId = cursor?.userData.participantId as string | undefined;
+      return (cursor?.userData.participantId as string | undefined) ?? null;
+    };
+
+    const pointOnNodePlane = (clientX: number, clientY: number, node: StageNode) => {
+      if (!setRayFromScreenPoint(clientX, clientY)) return null;
+      dragPlane.constant = -node.targetPosition.y;
+      return raycaster.ray.intersectPlane(dragPlane, new THREE.Vector3());
+    };
+
+    const currentPointerDistance = () => {
+      const points = [...activeCalibrationPointers.values()];
+      return points.length < 2 ? 0 : points[0].distanceTo(points[1]);
+    };
+
+    const writeCalibrationPlacement = (
+      node: StageNode,
+      placement: WaitingRoomCalibrationPlacement,
+    ) => {
+      calibrationOverridesRef.current.set(node.participant.participantId, placement);
+      node.targetPosition.set(placement.x, placement.y, placement.z);
+      node.targetRotationY = placement.rotationY;
+      node.targetActorScale = placement.scale;
+      node.targetRingScale = placement.scale;
+      node.actor.position.copy(node.targetPosition);
+      node.actor.rotation.y = node.targetRotationY;
+      node.ring.position.set(placement.x, placement.y + 0.02, placement.z);
+      setScale(node, placement.scale, placement.scale);
+      render();
+      emitCalibrationLayout();
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (calibrationModeRef.current && viewRef.current.viewMode === "wide") {
+        event.preventDefault();
+
+        if (activeCalibrationPointers.size === 0) {
+          const hitParticipantId = participantAt(event.clientX, event.clientY);
+          if (!hitParticipantId) return;
+          calibrationParticipantId = hitParticipantId;
+          const node = stageNodesRef.current.get(hitParticipantId);
+          if (!node) return;
+          const point = pointOnNodePlane(event.clientX, event.clientY, node);
+          if (point) {
+            dragOffset.set(
+              node.targetPosition.x - point.x,
+              0,
+              node.targetPosition.z - point.z,
+            );
+          }
+        }
+
+        activeCalibrationPointers.set(
+          event.pointerId,
+          new THREE.Vector2(event.clientX, event.clientY),
+        );
+        try {
+          renderer.domElement.setPointerCapture(event.pointerId);
+        } catch {
+          // iOS/WebKit may reject capture during gesture transitions.
+        }
+
+        if (activeCalibrationPointers.size === 2 && calibrationParticipantId) {
+          const node = stageNodesRef.current.get(calibrationParticipantId);
+          pinchStartDistance = currentPointerDistance();
+          pinchStartScale = node?.targetActorScale ?? 1;
+        }
+        return;
+      }
+
+      const participantId = participantAt(event.clientX, event.clientY);
       const participant = participantId
         ? participantsRef.current.find(item => item.participantId === participantId)
         : null;
       if (participant) selectCallbackRef.current?.(participant);
     };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!calibrationModeRef.current || !activeCalibrationPointers.has(event.pointerId)) return;
+      event.preventDefault();
+      activeCalibrationPointers.set(
+        event.pointerId,
+        new THREE.Vector2(event.clientX, event.clientY),
+      );
+
+      if (!calibrationParticipantId) return;
+      const node = stageNodesRef.current.get(calibrationParticipantId);
+      if (!node) return;
+
+      const current = calibrationOverridesRef.current.get(calibrationParticipantId) ?? {
+        x: node.targetPosition.x,
+        y: node.targetPosition.y,
+        z: node.targetPosition.z,
+        scale: node.targetActorScale,
+        rotationY: node.targetRotationY,
+      };
+
+      if (activeCalibrationPointers.size >= 2) {
+        const distance = currentPointerDistance();
+        if (pinchStartDistance > 0 && distance > 0) {
+          const scale = THREE.MathUtils.clamp(
+            pinchStartScale * (distance / pinchStartDistance),
+            0.36,
+            1.28,
+          );
+          writeCalibrationPlacement(node, { ...current, scale });
+        }
+        return;
+      }
+
+      const point = pointOnNodePlane(event.clientX, event.clientY, node);
+      if (!point) return;
+      writeCalibrationPlacement(node, {
+        ...current,
+        x: THREE.MathUtils.clamp(point.x + dragOffset.x, -3.6, 3.6),
+        z: THREE.MathUtils.clamp(point.z + dragOffset.z, -1.5, 2.6),
+      });
+    };
+
+    const onPointerEnd = (event: PointerEvent) => {
+      if (!activeCalibrationPointers.has(event.pointerId)) return;
+      activeCalibrationPointers.delete(event.pointerId);
+      try {
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      } catch {
+        // Capture may already be released by WebKit.
+      }
+
+      if (activeCalibrationPointers.size === 1 && calibrationParticipantId) {
+        const node = stageNodesRef.current.get(calibrationParticipantId);
+        const remaining = [...activeCalibrationPointers.values()][0];
+        if (node && remaining) {
+          const point = pointOnNodePlane(remaining.x, remaining.y, node);
+          if (point) {
+            dragOffset.set(
+              node.targetPosition.x - point.x,
+              0,
+              node.targetPosition.z - point.z,
+            );
+          }
+        }
+        pinchStartDistance = 0;
+      } else if (activeCalibrationPointers.size === 0) {
+        calibrationParticipantId = null;
+        pinchStartDistance = 0;
+      }
+      emitCalibrationLayout();
+    };
+
+    renderer.domElement.style.touchAction = calibrationModeRef.current ? "none" : "auto";
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerup", onPointerEnd);
+    renderer.domElement.addEventListener("pointercancel", onPointerEnd);
 
     const loader = new GLTFLoader();
     setLoadState("loading");
@@ -1079,6 +1291,9 @@ export default function WaitingRoomStage3D({
       if (animationFrame) cancelAnimationFrame(animationFrame);
       observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerup", onPointerEnd);
+      renderer.domElement.removeEventListener("pointercancel", onPointerEnd);
       idleRuntimeByParticipant.forEach(runtime => runtime.mixer.stopAllAction());
       idleRuntimeByParticipant.clear();
       renderRef.current = null;
@@ -1109,6 +1324,7 @@ export default function WaitingRoomStage3D({
       data-layout-transition={viewMode === "wide" ? "smooth" : "snap"}
       data-label-layout={viewMode === "wide" ? "head-follow" : "panel"}
       data-max-players={WAITING_ROOM_MAX_PLAYERS}
+      data-calibration={calibrationMode ? "1" : "0"}
     >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
@@ -1132,7 +1348,9 @@ export default function WaitingRoomStage3D({
                   data-focus-role={participant.role}
                   data-testid={focused ? "p56-focused-identity" : undefined}
                   key={participant.participantId}
-                  onClick={() => onSelectParticipant?.(participant)}
+                  onClick={() => {
+                    if (!calibrationMode) onSelectParticipant?.(participant);
+                  }}
                   ref={element => {
                     if (element) identityRefs.current.set(participant.participantId, element);
                     else identityRefs.current.delete(participant.participantId);

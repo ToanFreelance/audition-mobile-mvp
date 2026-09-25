@@ -53,7 +53,10 @@ import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlotIndex, typ
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
-import WaitingRoomStage3D, { type WaitingRoomStageView } from "./WaitingRoomStage3D";
+import WaitingRoomStage3D, {
+  type WaitingRoomCalibrationLayout,
+  type WaitingRoomStageView,
+} from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
 
 type PanelKind = "song" | "stage" | "player" | null;
@@ -273,10 +276,14 @@ type WaitingRoomPanelProps = {
     roomId: string;
     role: SyncClientRole;
   } | null;
+  calibrationMode?: boolean;
 };
 
 
-export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPanelProps) {
+export default function WaitingRoomPanel({
+  initialSync = null,
+  calibrationMode = false,
+}: WaitingRoomPanelProps) {
   const initialParticipantId = initialSync?.role === "guest" ? "p51-guest" : "p51-host";
   const [room, setRoom] = useState(() => initialSync
     ? createP53SyncedWaitingRoomBase(initialSync.roomId)
@@ -290,6 +297,9 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(
     initialSync ? initialParticipantId : room.hostParticipantId,
   );
+  const [calibrationLayout, setCalibrationLayout] = useState<WaitingRoomCalibrationLayout>({});
+  const [calibrationResetToken, setCalibrationResetToken] = useState(0);
+  const [calibrationExport, setCalibrationExport] = useState("");
   const [panel, setPanel] = useState<PanelKind>(null);
   const [songDraft, setSongDraft] = useState(room.selectedSongId ?? "aloha");
   const [stageDraft, setStageDraft] = useState(room.selectedStageId);
@@ -713,6 +723,32 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   const selectedParticipant = selectedParticipantId
     ? displayRoom.participants.find(item => item.participantId === selectedParticipantId) ?? null
     : null;
+
+  const exportCalibrationLayout = () => {
+    const payload = {
+      version: 1,
+      mode: "waiting-room-wide-calibration",
+      focusParticipantId: selectedParticipantId,
+      placements: orderedParticipants.map(participant => ({
+        participantId: participant.participantId,
+        displayName: participant.displayName,
+        slotIndex: participant.slotIndex,
+        ...(calibrationLayout[participant.participantId] ?? {}),
+      })),
+    };
+    const text = JSON.stringify(payload, null, 2);
+    setCalibrationExport(text);
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      void navigator.clipboard.writeText(text).catch(() => undefined);
+    }
+  };
+
+  const resetCalibrationLayout = () => {
+    setCalibrationExport("");
+    setCalibrationLayout({});
+    setCalibrationResetToken(token => token + 1);
+  };
+
   const stagePageCount = Math.max(1, Math.ceil(orderedParticipants.length / 2));
   const safeStagePage = Math.min(stagePage, stagePageCount - 1);
   const currentSong = SONGS.find(song => song.id === room.selectedSongId) ?? SONGS[0];
@@ -1586,7 +1622,28 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         )}
 
         <section className={styles.stageWrap}>
+          {calibrationMode && (
+            <aside className={styles.calibrationToolbar} data-testid="layout-calibration-toolbar">
+              <strong>LAYOUT CALIBRATOR</strong>
+              <span>1 ngón: kéo nhân vật · 2 ngón: pinch đổi kích thước</span>
+              <div>
+                <button data-testid="layout-calibration-reset" onClick={resetCalibrationLayout} type="button">Reset</button>
+                <button data-testid="layout-calibration-export" onClick={exportCalibrationLayout} type="button">Export layout</button>
+              </div>
+              {calibrationExport && (
+                <textarea
+                  aria-label="Calibration layout JSON"
+                  data-testid="layout-calibration-json"
+                  readOnly
+                  value={calibrationExport}
+                />
+              )}
+            </aside>
+          )}
           <WaitingRoomStage3D
+            calibrationMode={calibrationMode}
+            calibrationResetToken={calibrationResetToken}
+            onCalibrationLayoutChange={setCalibrationLayout}
             participants={orderedParticipants}
             slots={visibleSlots}
             roomId={room.roomId}
@@ -1599,7 +1656,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           />
 
 
-          {orderedParticipants.length > 1 && (
+          {!calibrationMode && orderedParticipants.length > 1 && (
             <>
               <button className={`${styles.stageArrow} ${styles.stageArrowLeft}`} onClick={previousStagePage} type="button" aria-label="Previous participants">‹</button>
               <button className={`${styles.stageArrow} ${styles.stageArrowRight}`} onClick={nextStagePage} type="button" aria-label="Next participants">›</button>
