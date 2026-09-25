@@ -50,6 +50,8 @@ import {
   createP53SyncedWaitingRoomBase,
 } from "../../multiplayer/waiting-room-qa";
 import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlotIndex, type RoomState } from "../../multiplayer/types";
+import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
+import { getCharacterCatalogEntry } from "../character/character-catalog";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
 import WaitingRoomStage3D, { type WaitingRoomStageView } from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
@@ -236,6 +238,10 @@ const STAGES = [
 
 function initials(name: string) {
   return name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function participantPortraitUrl(participant: RoomParticipant) {
+  return getCharacterCatalogEntry(avatarCharacterAssetId(participant.avatar))?.portraitUrl ?? null;
 }
 
 function statusLabel(participant: RoomParticipant) {
@@ -1613,6 +1619,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
             const participant = slot.state === "occupied" ? participantById.get(slot.participantId) : null;
             const status = participant ? statusLabel(participant) : slot.state.toUpperCase();
             const selected = participant?.participantId === selectedParticipantId;
+            const portraitUrl = participant ? participantPortraitUrl(participant) : null;
             return (
               <button
                 className={`${styles.slot} ${styles[slot.state]} ${participant?.role === "host" ? styles.slotHost : ""} ${selected ? styles.slotSelected : ""}`}
@@ -1623,7 +1630,16 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                 type="button"
               >
                 <span className={styles.slotNumber}>{slot.slotIndex + 1}</span>
-                <span className={styles.slotAvatar}>{participant ? initials(participant.displayName) : slot.state === "open" ? "+" : "×"}</span>
+                <span className={styles.slotAvatar}>
+                  {participant && portraitUrl ? (
+                    <img
+                      alt=""
+                      aria-hidden="true"
+                      data-testid={`slot-avatar-image-${slot.slotIndex}`}
+                      src={portraitUrl}
+                    />
+                  ) : participant ? initials(participant.displayName) : slot.state === "open" ? "+" : "×"}
+                </span>
                 <strong>{status}</strong>
               </button>
             );

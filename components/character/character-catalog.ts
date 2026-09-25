@@ -23,6 +23,7 @@ export type CharacterCatalogEntry = {
   label: string;
   gender: CharacterGender;
   assetUrl: string;
+  portraitUrl: string;
   animationProfile: CharacterAnimationProfile;
   runtimeReady: boolean;
   creatorBadge: string;
@@ -47,6 +48,7 @@ const CASUAL_GRACE: CharacterCatalogEntry = {
   label: "Casual Grace",
   gender: "female",
   assetUrl: C1_CASUAL_GRACE_ASSET_URL,
+  portraitUrl: "/characters/portraits/c1-casual-grace.jpg",
   animationProfile: "mixamo-c1",
   runtimeReady: true,
   creatorBadge: "FEMALE STARTER",
@@ -88,6 +90,7 @@ const CASUAL_BOY: CharacterCatalogEntry = {
   label: "Casual Boy",
   gender: "male",
   assetUrl: C4_CASUAL_BOY_ASSET_URL,
+  portraitUrl: "/characters/portraits/c4-casual-boy.jpg",
   animationProfile: "mixamo-c1",
   runtimeReady: true,
   creatorBadge: "MALE STARTER",

@@ -557,3 +557,9 @@
 .settingsCamera>div{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
 .settingsCameraButton,.settingsCameraActive{border:1px solid #384b8b;border-radius:8px;background:#111833;color:#aeb9da;padding:6px 4px;font-size:8px;font-weight:900}
 .settingsCameraActive{border-color:#55d9ff;background:#17365a;color:#fff;box-shadow:0 0 10px rgba(67,214,255,.18)}
+
+/* P5.6 final owner tune — old camera rail no longer reserves the right edge */
+.stageArrowRight{right:max(6px,env(safe-area-inset-right,0px))!important}
+@media(max-width:370px){.stageArrowRight{right:max(6px,env(safe-area-inset-right,0px))!important}}
+.slotAvatar{overflow:hidden}
+.slotAvatar img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 42%;border-radius:inherit}
