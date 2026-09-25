@@ -1089,19 +1089,3 @@
 .stage[data-calibration="1"] .actorIdentity{
   pointer-events:none!important;
 }
-.stage[data-calibration="1"]:after{
-  content:"DRAG + PINCH";
-  position:absolute;
-  right:8px;
-  bottom:8px;
-  z-index:20;
-  padding:3px 6px;
-  border:1px solid rgba(104,229,255,.5);
-  border-radius:999px;
-  background:rgba(4,9,25,.66);
-  color:#83edff;
-  font-size:6px;
-  font-weight:950;
-  letter-spacing:.08em;
-  pointer-events:none;
-}
