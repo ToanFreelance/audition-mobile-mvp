@@ -1023,3 +1023,59 @@
   .actorIdentity small{font-size:7px}
   .actorIdentity b{font-size:6.5px;padding:2px 5px}
 }
+
+/* P5.6 accepted-sketch pass — text-only head labels */
+.actorIdentity{
+  width:120px;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-end;
+  gap:2px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:none;
+  box-shadow:none;
+  backdrop-filter:none;
+  text-align:center;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.92));
+}
+.actorIdentityFocused{border:0;background:none;box-shadow:none}
+.actorIdentity .crown{
+  font-size:28px!important;
+  line-height:.9!important;
+  color:#ffd84f;
+  filter:drop-shadow(0 0 8px rgba(255,194,48,.72));
+}
+.actorIdentity strong{font-size:14px;line-height:1.05;font-weight:1000;text-align:center}
+.actorIdentity small{font-size:9px;line-height:1;font-weight:850;text-align:center}
+.actorIdentity b{
+  margin:0;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  box-shadow:none!important;
+  font-size:8px;
+  line-height:1;
+  font-weight:1000;
+  text-align:center;
+}
+.actorIdentity .ready,.actorIdentity .notReady,.actorIdentity .hostState{
+  border:0!important;
+  background:none!important;
+  box-shadow:none!important;
+}
+.actorIdentityFocused strong{font-size:15px}
+.actorIdentityFocused .crown{font-size:30px!important}
+@media(max-width:370px){
+  .actorIdentity{width:108px;min-height:0;padding:0}
+  .actorIdentity strong{font-size:12.5px}
+  .actorIdentityFocused strong{font-size:13.5px}
+  .actorIdentity .crown{font-size:25px!important}
+  .actorIdentityFocused .crown{font-size:27px!important}
+  .actorIdentity small{font-size:8px}
+  .actorIdentity b{font-size:7px;padding:0!important}
+}

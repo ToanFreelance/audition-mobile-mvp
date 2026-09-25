@@ -1535,6 +1535,31 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                 ))}
               </div>
             )}
+            <div className={styles.settingsCamera} data-testid="camera-preset-controls">
+              <span>Camera</span>
+              <div>
+                {(["wide", "center", "close"] as WaitingRoomStageView[]).map(mode => {
+                  const label = mode === "wide" ? "Wide" : mode === "center" ? "Center" : "Close";
+                  return (
+                    <button
+                      aria-label={`${label} view`}
+                      aria-pressed={viewMode === mode}
+                      className={viewMode === mode ? styles.settingsCameraActive : styles.settingsCameraButton}
+                      key={mode}
+                      onClick={() => {
+                        setViewMode(mode);
+                        if (mode === "close" && !selectedParticipantId) {
+                          setSelectedParticipantId(orderedParticipants[0]?.participantId ?? null);
+                        }
+                      }}
+                      type="button"
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             {hostView && <button className={styles.settingsAction} onClick={changeModeQa} type="button">Switch mode QA</button>}
             <div className={styles.settingsMeta}>
               <span>Stage · {currentStage.name}</span>
@@ -1555,30 +1580,6 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         )}
 
         <section className={styles.stageWrap}>
-          <nav className={styles.viewModeBar} aria-label="Camera view">
-            {(["wide", "center", "close"] as WaitingRoomStageView[]).map(mode => {
-              const label = mode === "wide" ? "Wide view" : mode === "center" ? "Center view" : "Close view";
-              const symbol = mode === "wide" ? "⠿" : mode === "center" ? "◉◉" : "◎";
-              return (
-                <button
-                  aria-label={label}
-                  aria-pressed={viewMode === mode}
-                  className={viewMode === mode ? styles.viewModeActive : styles.viewModeButton}
-                  key={mode}
-                  onClick={() => {
-                    setViewMode(mode);
-                    if (mode === "close" && !selectedParticipantId) {
-                      setSelectedParticipantId(orderedParticipants[0]?.participantId ?? null);
-                    }
-                  }}
-                  title={label}
-                  type="button"
-                >
-                  <span aria-hidden="true">{symbol}</span>
-                </button>
-              );
-            })}
-          </nav>
           <WaitingRoomStage3D
             participants={orderedParticipants}
             slots={visibleSlots}

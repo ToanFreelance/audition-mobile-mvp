@@ -81,12 +81,36 @@ export function createP51WaitingRoomFixture(roomId = "10234"): RoomState {
     connectionState: "connected",
     avatar: avatar("default-female", "c1-casual-grace"),
   };
-  const bot: BotParticipant = {
+  const shumar: BotParticipant = {
     participantId: "p51-bot",
     displayName: "ShuMar",
     kind: "bot",
     role: "guest",
+    slotIndex: 2,
+    readyState: "ready",
+    loadState: "loaded",
+    connectionState: "connected",
+    botProfile: "mixed",
+    avatar: avatar("default-male", "c4-casual-boy"),
+  };
+  const mai: BotParticipant = {
+    participantId: "p56-mai",
+    displayName: "Mai",
+    kind: "bot",
+    role: "guest",
     slotIndex: 3,
+    readyState: "ready",
+    loadState: "loaded",
+    connectionState: "connected",
+    botProfile: "mixed",
+    avatar: avatar("default-female", "c1-casual-grace"),
+  };
+  const minh: BotParticipant = {
+    participantId: "p56-minh",
+    displayName: "Minh",
+    kind: "bot",
+    role: "guest",
+    slotIndex: 4,
     readyState: "ready",
     loadState: "loaded",
     connectionState: "connected",
@@ -103,7 +127,8 @@ export function createP51WaitingRoomFixture(roomId = "10234"): RoomState {
     selectedSongId: "aloha",
   });
   room = addParticipant(room, guest);
-  room = addParticipant(room, bot);
-  room = closeSlot(room, host.participantId, 4);
+  room = addParticipant(room, shumar);
+  room = addParticipant(room, mai);
+  room = addParticipant(room, minh);
   return room;
 }

@@ -551,3 +551,9 @@
   flex-basis:100%;
   color:#ff9aab!important;
 }
+
+.settingsCamera{display:grid;gap:5px;margin:0 0 9px;padding:8px 0;border-top:1px solid rgba(99,112,161,.28);border-bottom:1px solid rgba(99,112,161,.28)}
+.settingsCamera>span{font-size:8px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#8f9bc1}
+.settingsCamera>div{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.settingsCameraButton,.settingsCameraActive{border:1px solid #384b8b;border-radius:8px;background:#111833;color:#aeb9da;padding:6px 4px;font-size:8px;font-weight:900}
+.settingsCameraActive{border-color:#55d9ff;background:#17365a;color:#fff;box-shadow:0 0 10px rgba(67,214,255,.18)}

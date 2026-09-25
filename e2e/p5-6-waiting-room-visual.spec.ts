@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("P5.6 waiting room uses a five-slot focus carousel without rebuilding the 3D scene", async ({ page }) => {
+test("P5.6 waiting room matches the accepted five-person focus presentation", async ({ page }) => {
   await page.goto("/tools/lobby-qa");
 
   const stage = page.getByTestId("waiting-room-stage");
@@ -12,21 +12,24 @@ test("P5.6 waiting room uses a five-slot focus carousel without rebuilding the 3
   await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
   await expect(stage).toHaveAttribute(
     "data-character-assets",
-    "c4-casual-boy,c1-casual-grace,c4-casual-boy",
+    "c4-casual-boy,c1-casual-grace,c4-casual-boy,c1-casual-grace,c4-casual-boy",
   );
 
-  await expect(page.getByTestId("room-summary")).toContainText("3/5");
+  await expect(page.getByTestId("room-summary")).toContainText("5/5");
   await expect(page.getByTestId("slot-5")).toHaveCount(0);
 
   const deck = page.getByTestId("p56-participant-deck");
-  await expect(deck.locator("button")).toHaveCount(3);
-  await expect(deck.getByText("Lv. 25")).toBeVisible();
-  await expect(deck.getByText("Lv. 18")).toBeVisible();
+  await expect(deck.locator("button")).toHaveCount(5);
+  await expect(deck.getByText("LinhCute")).toBeVisible();
+  await expect(deck.getByText("ShuMar")).toBeVisible();
+  await expect(deck.getByText("Minh")).toBeVisible();
+  await expect(deck.getByText("Mai")).toBeVisible();
 
   const identity = page.getByTestId("p56-focused-identity");
   await expect(identity).toHaveAttribute("data-character-asset-id", "c4-casual-boy");
   await expect(identity).toContainText("Toan");
-  await expect(identity).toContainText("HOST");
+  await expect(identity).not.toContainText("HOST");
+  await expect(identity.locator("span")).toContainText("♛");
 
   await expect(stage).not.toHaveAttribute("data-scene-generation", "0");
   const generation = await stage.getAttribute("data-scene-generation");
@@ -40,8 +43,16 @@ test("P5.6 waiting room uses a five-slot focus carousel without rebuilding the 3
 
   await page.getByRole("button", { name: "Previous participants" }).click();
   await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
-  await expect(identity).toContainText("HOST");
+  await expect(identity).not.toContainText("HOST");
 
-  await expect(deck.locator('[data-character-asset-id="c1-casual-grace"]')).toHaveCount(1);
-  await expect(deck.locator('[data-character-asset-id="c4-casual-boy"]')).toHaveCount(1);
+  await expect(deck.locator('[data-character-asset-id="c1-casual-grace"]')).toHaveCount(2);
+  await expect(deck.locator('[data-character-asset-id="c4-casual-boy"]')).toHaveCount(3);
+
+  await expect(page.getByTestId("camera-preset-controls")).toHaveCount(0);
+  await page.getByTestId("room-settings-button").click();
+  const cameraPresets = page.getByTestId("camera-preset-controls");
+  await expect(cameraPresets).toBeVisible();
+  await expect(cameraPresets.getByRole("button", { name: "Wide view" })).toHaveAttribute("aria-pressed", "true");
+  await cameraPresets.getByRole("button", { name: "Center view" }).click();
+  await expect(stage).toHaveAttribute("data-view", "center");
 });

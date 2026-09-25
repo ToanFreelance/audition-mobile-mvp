@@ -205,6 +205,8 @@ function statusClass(participant: RoomParticipant) {
 function levelFor(participant: RoomParticipant) {
   if (participant.role === "host") return 25;
   if (participant.participantId === "p51-guest") return 18;
+  if (participant.participantId === "p56-minh") return 20;
+  if (participant.participantId === "p56-mai") return 17;
   return participant.kind === "bot" ? 16 : 12;
 }
 
@@ -217,11 +219,11 @@ function centerPosition(index: number, total: number, pageSize: number) {
 }
 
 const WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 1.55, rotationY: 0, scale: 0.94 },
-  leftNear: { x: -1.58, y: 0.13, z: 0.12, rotationY: 0.07, scale: 0.65 },
-  rightNear: { x: 1.58, y: 0.13, z: 0.12, rotationY: -0.07, scale: 0.65 },
-  leftOuter: { x: -2.48, y: 0.24, z: -0.82, rotationY: 0.11, scale: 0.51 },
-  rightOuter: { x: 2.48, y: 0.24, z: -0.82, rotationY: -0.11, scale: 0.51 },
+  center: { x: 0, y: 0, z: 1.58, rotationY: 0, scale: 0.94 },
+  leftNear: { x: -1.52, y: 0.22, z: 0.02, rotationY: 0.065, scale: 0.66 },
+  rightNear: { x: 1.52, y: 0.22, z: 0.02, rotationY: -0.065, scale: 0.66 },
+  leftOuter: { x: -2.44, y: 0.31, z: -0.72, rotationY: 0.105, scale: 0.52 },
+  rightOuter: { x: 2.44, y: 0.31, z: -0.72, rotationY: -0.105, scale: 0.52 },
 } as const;
 
 function wideSlotPlacement(slotIndex: number, focusSlotIndex: number) {
@@ -656,8 +658,8 @@ export default function WaitingRoomStage3D({
       });
 
       if (current.viewMode === "wide") {
-        camera.position.set(0, 4.35, 13.15);
-        camera.lookAt(0, 1.28, 0.15);
+        camera.position.set(0, 4.25, 13.05);
+        camera.lookAt(0, 1.58, 0.18);
       } else if (current.viewMode === "close") {
         camera.position.set(0, 3.16, 9.45);
         camera.lookAt(0, 2.08, 0);
@@ -742,7 +744,7 @@ export default function WaitingRoomStage3D({
         });
 
         const ringTime = nowMs / 1000;
-        const transitionAlpha = 1 - Math.exp(-deltaSeconds * 9);
+        const transitionAlpha = 1 - Math.exp(-deltaSeconds * 4.2);
         stageNodesRef.current.forEach(node => {
           if (viewRef.current.viewMode === "wide" && node.layoutReady) {
             node.actor.position.lerp(node.targetPosition, transitionAlpha);
@@ -1140,28 +1142,12 @@ export default function WaitingRoomStage3D({
                   {participant.role === "host" ? <span className={styles.crown}>♛</span> : null}
                   <strong>{participant.displayName}</strong>
                   <small>Lv. {levelFor(participant)}</small>
-                  <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+                  {participant.role !== "host" ? (
+                    <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+                  ) : null}
                 </button>
               );
             })}
-          </div>
-          <div className={styles.wideSlotLabels}>
-            {slots
-              .filter(slot => slot.slotIndex < WAITING_ROOM_MAX_PLAYERS && slot.state !== "occupied")
-              .map(slot => (
-                <button
-                  className={styles.wideSlotLabel}
-                  disabled
-                  key={slot.slotIndex}
-                  type="button"
-                >
-                  <span className={styles.wideSlotNumber}>{slot.slotIndex + 1}</span>
-                  <strong>{slot.state === "closed" ? "CLOSED" : "OPEN"}</strong>
-                  <b className={slot.state === "closed" ? styles.wideClosed : styles.wideOpen}>
-                    {slot.state === "closed" ? "×" : "+"}
-                  </b>
-                </button>
-              ))}
           </div>
         </>
       ) : (
