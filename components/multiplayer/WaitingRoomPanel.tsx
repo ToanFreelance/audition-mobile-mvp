@@ -1539,7 +1539,7 @@ export default function WaitingRoomPanel({
 
   return (
     <main className={styles.shell} data-testid="lobby-root">
-      <section className={styles.phone}>
+      <section className={styles.phone} data-presentation="full-stage-glass">
         <header className={styles.header}>
           <button className={styles.iconButton} type="button" aria-label="Back">‹</button>
           <div className={styles.titleBlock}>

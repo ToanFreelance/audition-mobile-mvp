@@ -573,8 +573,10 @@ export default function WaitingRoomStage3D({
         if (!element) return;
         if (!node.actor.visible) {
           element.style.opacity = "0";
+          element.style.pointerEvents = "none";
           return;
         }
+        element.style.pointerEvents = calibrationModeRef.current ? "none" : "auto";
         const scaleMultiplier = node.baseScale.y
           ? node.actor.scale.y / node.baseScale.y
           : node.targetActorScale;
@@ -587,8 +589,11 @@ export default function WaitingRoomStage3D({
           .project(camera);
         const x = (projectedHead.x * 0.5 + 0.5) * width;
         const y = (-projectedHead.y * 0.5 + 0.5) * height;
+        const labelAnchorTop = viewRef.current.viewMode === "close"
+          ? Math.max(y - 8, 78)
+          : y - 8;
         element.style.left = `${x}px`;
-        element.style.top = `${y - 8}px`;
+        element.style.top = `${labelAnchorTop}px`;
         element.style.opacity = "1";
       });
     };

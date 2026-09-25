@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 test("P5.6 waiting room matches the accepted five-person focus presentation", async ({ page }) => {
   await page.goto("/tools/lobby-qa");
 
+  await expect(page.locator('[data-presentation="full-stage-glass"]')).toHaveCount(1);
+
   const stage = page.getByTestId("waiting-room-stage");
   await expect(stage).toHaveAttribute("data-view", "wide");
   await expect(stage).toHaveAttribute("data-layout", "host-first");
@@ -72,8 +74,10 @@ test("P5.6 waiting room matches the accepted five-person focus presentation", as
   await cameraPresets.getByRole("button", { name: "Close view" }).click();
   await expect(stage).toHaveAttribute("data-view", "close");
   await expect(stage).toHaveAttribute("data-label-layout", "head-follow");
-  await expect(page.getByTestId("p56-focused-identity")).toContainText("Toan");
-  await expect(page.getByTestId("p56-focused-identity")).toContainText("Lv. 25");
+  const closeIdentity = page.getByTestId("p56-focused-identity");
+  await expect(closeIdentity).toContainText("Toan");
+  await expect(closeIdentity).toContainText("Lv. 25");
+  await expect(closeIdentity).toBeVisible();
 });
 
 

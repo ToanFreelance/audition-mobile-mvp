@@ -618,3 +618,55 @@
   color:#cfe8ff;
   font:6.5px/1.25 ui-monospace,SFMono-Regular,Menlo,monospace;
 }
+
+/* P5.6 full-stage glass HUD — preserve calibrated 3D viewport, continue stage visually behind controls */
+.phone{
+  background:
+    radial-gradient(ellipse at 50% 60%,rgba(188,117,211,.18),transparent 28%),
+    linear-gradient(180deg,#090b23 0 49%,#4f3b69 72%,#684c7c 100%)!important;
+}
+.phone:before{
+  background:
+    radial-gradient(circle at 50% 18%,rgba(90,36,210,.18),transparent 32%),
+    radial-gradient(ellipse at 50% 69%,rgba(229,151,122,.14),transparent 22%),
+    linear-gradient(180deg,transparent 0 48%,rgba(123,88,145,.10) 60%,rgba(139,91,151,.22) 100%)!important;
+}
+.slotDock{
+  margin-top:-18px!important;
+  border-color:rgba(126,160,221,.34)!important;
+  background:linear-gradient(180deg,rgba(13,18,45,.48),rgba(7,11,31,.28))!important;
+  box-shadow:0 7px 22px rgba(3,5,18,.16),inset 0 0 22px rgba(96,75,159,.08)!important;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+.songCard{
+  border-color:rgba(108,143,211,.38)!important;
+  background:linear-gradient(180deg,rgba(14,21,50,.47),rgba(8,13,34,.30))!important;
+  box-shadow:0 7px 22px rgba(3,5,18,.12),inset 0 0 18px rgba(65,93,160,.07)!important;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+.actions{background:transparent!important}
+.leaveButton{
+  background:linear-gradient(180deg,rgba(154,45,86,.72),rgba(91,28,58,.60))!important;
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+.stagePickerButton,.readyButton,.readyButtonActive{
+  background:linear-gradient(180deg,rgba(32,129,197,.74),rgba(22,75,135,.58))!important;
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+.readyButtonActive{
+  background:linear-gradient(180deg,rgba(29,142,102,.72),rgba(20,86,64,.58))!important;
+}
+.startButton{
+  background:linear-gradient(180deg,rgba(38,146,234,.74),rgba(36,87,215,.60))!important;
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+.startButtonDisabled,.hostBadge{
+  background:linear-gradient(180deg,rgba(52,51,52,.58),rgba(31,33,41,.50))!important;
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
