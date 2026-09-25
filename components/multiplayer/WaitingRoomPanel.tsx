@@ -56,6 +56,7 @@ import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
 import WaitingRoomStage3D, {
   type WaitingRoomCalibrationLayout,
   type WaitingRoomStageView,
+  type WaitingRoomVisualPreset,
 } from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
 
@@ -277,12 +278,14 @@ type WaitingRoomPanelProps = {
     role: SyncClientRole;
   } | null;
   calibrationMode?: boolean;
+  visualPreset?: WaitingRoomVisualPreset;
 };
 
 
 export default function WaitingRoomPanel({
   initialSync = null,
   calibrationMode = false,
+  visualPreset = "default",
 }: WaitingRoomPanelProps) {
   const initialParticipantId = initialSync?.role === "guest" ? "p51-guest" : "p51-host";
   const [room, setRoom] = useState(() => initialSync
@@ -1539,7 +1542,11 @@ export default function WaitingRoomPanel({
 
   return (
     <main className={styles.shell} data-testid="lobby-root">
-      <section className={styles.phone} data-presentation="full-stage-glass">
+      <section
+        className={styles.phone}
+        data-presentation="full-stage-glass"
+        data-visual-preset={visualPreset}
+      >
         <header className={styles.header}>
           <button className={styles.iconButton} type="button" aria-label="Back">‹</button>
           <div className={styles.titleBlock}>
@@ -1648,6 +1655,7 @@ export default function WaitingRoomPanel({
             slots={visibleSlots}
             roomId={room.roomId}
             stageId={room.selectedStageId}
+            visualPreset={visualPreset}
             viewMode={viewMode}
             pageIndex={safeStagePage}
             pageSize={2}

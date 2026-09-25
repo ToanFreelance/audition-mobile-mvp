@@ -111,3 +111,18 @@ test("P5.6 accepted owner calibration stays locked", async ({ page }) => {
   await expect(exported).toContainText('"z": 1.9872');
   await expect(exported).toContainText('"x": 3.0732');
 });
+
+
+test("P5.6 sketch compare route is isolated and uses glossy sketch presentation", async ({ page }) => {
+  await page.goto("/tools/lobby-qa-sketch");
+
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
+  await expect(stage).toHaveAttribute("data-floor-style", "glossy-tile");
+  await expect(stage).toHaveAttribute("data-ring-style", "sketch-glow");
+  await expect(page.locator('[data-visual-preset="sketch"]')).toHaveCount(1);
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 30_000 });
+
+  await page.goto("/tools/lobby-qa");
+  await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-visual-preset", "default");
+});

@@ -27,6 +27,7 @@ import {
 import styles from "./WaitingRoomStage3D.module.css";
 
 export type WaitingRoomStageView = "wide" | "center" | "close";
+export type WaitingRoomVisualPreset = "default" | "sketch";
 
 export type WaitingRoomCalibrationPlacement = {
   x: number;
@@ -43,6 +44,7 @@ type Props = {
   slots: readonly RoomSlot[];
   roomId: string;
   stageId: string;
+  visualPreset?: WaitingRoomVisualPreset;
   viewMode: WaitingRoomStageView;
   pageIndex: number;
   selectedParticipantId: string | null;
@@ -239,37 +241,60 @@ const WIDE_ARC_PLACEMENTS = {
   rightOuter: { x: 3.0732, y: 0.30, z: 0.053, rotationY: -0.095, scale: 0.52 },
 } as const;
 
-function wideSlotPlacement(slotIndex: number, focusSlotIndex: number) {
+const SKETCH_WIDE_ARC_PLACEMENTS = {
+  center: { x: 0, y: 0, z: 2.38, rotationY: 0, scale: 0.95 },
+  leftNear: { x: -1.30, y: 0.04, z: 1.58, rotationY: 0.035, scale: 0.76 },
+  rightNear: { x: 1.31, y: 0.04, z: 1.52, rotationY: -0.035, scale: 0.76 },
+  leftOuter: { x: -2.56, y: 0.13, z: 0.62, rotationY: 0.065, scale: 0.62 },
+  rightOuter: { x: 2.58, y: 0.13, z: 0.58, rotationY: -0.065, scale: 0.62 },
+} as const;
+
+function wideSlotPlacement(
+  slotIndex: number,
+  focusSlotIndex: number,
+  visualPreset: WaitingRoomVisualPreset,
+) {
+  const placements = visualPreset === "sketch"
+    ? SKETCH_WIDE_ARC_PLACEMENTS
+    : WIDE_ARC_PLACEMENTS;
   const offset = (
     (slotIndex - focusSlotIndex + 2 + WAITING_ROOM_MAX_PLAYERS)
     % WAITING_ROOM_MAX_PLAYERS
   ) - 2;
-  if (offset === 1) return WIDE_ARC_PLACEMENTS.leftNear;
-  if (offset === -1) return WIDE_ARC_PLACEMENTS.rightNear;
-  if (offset === 2) return WIDE_ARC_PLACEMENTS.leftOuter;
-  if (offset === -2) return WIDE_ARC_PLACEMENTS.rightOuter;
-  return WIDE_ARC_PLACEMENTS.center;
+  if (offset === 1) return placements.leftNear;
+  if (offset === -1) return placements.rightNear;
+  if (offset === 2) return placements.leftOuter;
+  if (offset === -2) return placements.rightOuter;
+  return placements.center;
 }
 
-function createParticipantRing(color: number, pulsePhase: number, host: boolean) {
+function createParticipantRing(
+  color: number,
+  pulsePhase: number,
+  host: boolean,
+  sketchPolish = false,
+) {
   const group = new THREE.Group();
 
   const underglowMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.045,
+    opacity: sketchPolish ? 0.11 : 0.045,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  const underglow = new THREE.Mesh(new THREE.CircleGeometry(1.08, 40), underglowMaterial);
+  const underglow = new THREE.Mesh(
+    new THREE.CircleGeometry(sketchPolish ? 1.18 : 1.08, 40),
+    underglowMaterial,
+  );
   underglow.rotation.x = -Math.PI / 2;
   underglow.position.y = -0.018;
 
   const floorMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.11,
+    opacity: sketchPolish ? 0.20 : 0.11,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -281,7 +306,7 @@ function createParticipantRing(color: number, pulsePhase: number, host: boolean)
   const haloMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.22,
+    opacity: sketchPolish ? 0.38 : 0.22,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -293,7 +318,7 @@ function createParticipantRing(color: number, pulsePhase: number, host: boolean)
   const outerMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.2,
+    opacity: sketchPolish ? 0.34 : 0.2,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -305,7 +330,7 @@ function createParticipantRing(color: number, pulsePhase: number, host: boolean)
   const coreMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.94,
+    opacity: sketchPolish ? 1 : 0.94,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
@@ -316,7 +341,7 @@ function createParticipantRing(color: number, pulsePhase: number, host: boolean)
   const innerMaterial = new THREE.MeshBasicMaterial({
     color: host ? 0xffd454 : color,
     transparent: true,
-    opacity: host ? 0.66 : 0.34,
+    opacity: sketchPolish ? (host ? 0.86 : 0.55) : host ? 0.66 : 0.34,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -325,7 +350,19 @@ function createParticipantRing(color: number, pulsePhase: number, host: boolean)
   inner.rotation.x = -Math.PI / 2;
   inner.position.y = 0.018;
 
-  group.add(underglow, floorGlow, halo, outer, core, inner);
+  const shineMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: sketchPolish ? 0.34 : 0,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const shine = new THREE.Mesh(new THREE.RingGeometry(0.835, 0.86, 56), shineMaterial);
+  shine.rotation.x = -Math.PI / 2;
+  shine.position.y = 0.02;
+
+  group.add(underglow, floorGlow, halo, outer, core, inner, shine);
   group.userData.pulsePhase = pulsePhase;
   group.userData.emphasis = host ? 0.55 : 0;
   group.userData.underglowMaterial = underglowMaterial;
@@ -334,6 +371,58 @@ function createParticipantRing(color: number, pulsePhase: number, host: boolean)
   group.userData.coreMaterial = coreMaterial;
   group.userData.floorMaterial = floorMaterial;
   return group;
+}
+
+function createSketchFloorTexture(maxAnisotropy: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+
+  const base = context.createLinearGradient(0, 0, 0, 512);
+  base.addColorStop(0, "#090d2b");
+  base.addColorStop(0.56, "#151041");
+  base.addColorStop(1, "#090d26");
+  context.fillStyle = base;
+  context.fillRect(0, 0, 512, 512);
+
+  const glow = context.createRadialGradient(256, 330, 16, 256, 330, 270);
+  glow.addColorStop(0, "rgba(119,92,255,.28)");
+  glow.addColorStop(0.42, "rgba(255,66,209,.12)");
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  context.fillStyle = glow;
+  context.fillRect(0, 0, 512, 512);
+
+  for (let index = 0; index <= 8; index += 1) {
+    const coordinate = index * 64;
+    context.strokeStyle = index % 2
+      ? "rgba(255,66,218,.20)"
+      : "rgba(73,203,255,.22)";
+    context.lineWidth = index === 4 ? 2 : 1;
+    context.beginPath();
+    context.moveTo(coordinate, 0);
+    context.lineTo(coordinate, 512);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(0, coordinate);
+    context.lineTo(512, coordinate);
+    context.stroke();
+  }
+
+  for (const x of [110, 256, 402]) {
+    const streak = context.createLinearGradient(x - 30, 0, x + 30, 0);
+    streak.addColorStop(0, "rgba(255,255,255,0)");
+    streak.addColorStop(0.5, "rgba(154,214,255,.10)");
+    streak.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = streak;
+    context.fillRect(x - 30, 0, 60, 512);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = Math.min(4, maxAnisotropy);
+  return texture;
 }
 
 function setScale(node: StageNode, actorMultiplier: number, ringMultiplier = actorMultiplier) {
@@ -346,6 +435,7 @@ export default function WaitingRoomStage3D({
   slots,
   roomId,
   stageId,
+  visualPreset = "default",
   viewMode,
   pageIndex,
   selectedParticipantId,
@@ -366,6 +456,7 @@ export default function WaitingRoomStage3D({
   const reconcileParticipantsRef = useRef<(() => void) | null>(null);
   const selectCallbackRef = useRef(onSelectParticipant);
   const calibrationModeRef = useRef(calibrationMode);
+  const visualPresetRef = useRef<WaitingRoomVisualPreset>(visualPreset);
   const calibrationCallbackRef = useRef(onCalibrationLayoutChange);
   const participantsRef = useRef(participants);
   const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId });
@@ -379,6 +470,7 @@ export default function WaitingRoomStage3D({
 
   selectCallbackRef.current = onSelectParticipant;
   calibrationModeRef.current = calibrationMode;
+  visualPresetRef.current = visualPreset;
   calibrationCallbackRef.current = onCalibrationLayoutChange;
   participantsRef.current = participants;
   slotsRef.current = slots;
@@ -445,6 +537,7 @@ export default function WaitingRoomStage3D({
     setIdleRuntimeCount(0);
     setIdleSource("loading");
 
+    const sketchVisual = visualPreset === "sketch";
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
     const renderer = new THREE.WebGLRenderer({
@@ -484,24 +577,38 @@ export default function WaitingRoomStage3D({
     overhead.target.position.set(0, 1.2, 0);
     scene.add(overhead, overhead.target);
 
+    const sketchFloorTexture = sketchVisual
+      ? createSketchFloorTexture(renderer.capabilities.getMaxAnisotropy())
+      : null;
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(5.75, 64),
-      new THREE.MeshStandardMaterial({
-        color: 0x76567f,
-        emissive: 0x2f183c,
-        emissiveIntensity: 0.34,
-        roughness: 0.42,
-        metalness: 0.18,
-      }),
+      sketchVisual
+        ? new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            map: sketchFloorTexture ?? undefined,
+            emissive: 0x150c38,
+            emissiveIntensity: 0.24,
+            roughness: 0.17,
+            metalness: 0.48,
+            clearcoat: 1,
+            clearcoatRoughness: 0.08,
+          })
+        : new THREE.MeshStandardMaterial({
+            color: 0x76567f,
+            emissive: 0x2f183c,
+            emissiveIntensity: 0.34,
+            roughness: 0.42,
+            metalness: 0.18,
+          }),
     );
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(0, -0.045, 0.18);
     scene.add(floor);
 
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
-      color: 0xb983ff,
+      color: sketchVisual ? 0x46cfff : 0xb983ff,
       transparent: true,
-      opacity: 0.19,
+      opacity: sketchVisual ? 0.27 : 0.19,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -514,9 +621,9 @@ export default function WaitingRoomStage3D({
     const runway = new THREE.Mesh(
       new THREE.PlaneGeometry(5.9, 2.2),
       new THREE.MeshBasicMaterial({
-        color: 0xe39a7c,
+        color: sketchVisual ? 0x8a55ff : 0xe39a7c,
         transparent: true,
-        opacity: 0.12,
+        opacity: sketchVisual ? 0.08 : 0.12,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -650,7 +757,11 @@ export default function WaitingRoomStage3D({
 
         if (current.viewMode === "wide") {
           visible = true;
-          const placement = wideSlotPlacement(participant.slotIndex, focusSlotIndex);
+          const placement = wideSlotPlacement(
+            participant.slotIndex,
+            focusSlotIndex,
+            visualPresetRef.current,
+          );
           x = placement.x;
           y = placement.y;
           z = placement.z;
@@ -704,7 +815,11 @@ export default function WaitingRoomStage3D({
 
       slotPlaceholdersRef.current.forEach(placeholder => {
         const slot = slotsRef.current.find(item => item.slotIndex === placeholder.slotIndex);
-        const placement = wideSlotPlacement(placeholder.slotIndex, focusSlotIndex);
+        const placement = wideSlotPlacement(
+          placeholder.slotIndex,
+          focusSlotIndex,
+          visualPresetRef.current,
+        );
         placeholder.group.position.set(placement.x, placement.y + 0.02, placement.z);
         placeholder.group.scale.setScalar(Math.max(0.48, placement.scale));
         const showPlaceholder = current.viewMode === "wide"
@@ -719,8 +834,13 @@ export default function WaitingRoomStage3D({
       });
 
       if (current.viewMode === "wide") {
-        camera.position.set(0, 4.25, 13.05);
-        camera.lookAt(0, 1.58, 0.18);
+        if (visualPresetRef.current === "sketch") {
+          camera.position.set(0, 3.88, 12.18);
+          camera.lookAt(0, 1.62, 0.46);
+        } else {
+          camera.position.set(0, 4.25, 13.05);
+          camera.lookAt(0, 1.58, 0.18);
+        }
       } else if (current.viewMode === "close") {
         camera.position.set(0, 3.16, 9.45);
         camera.lookAt(0, 2.08, 0);
@@ -1145,6 +1265,7 @@ export default function WaitingRoomStage3D({
         participantAccent(participant),
         index * 1.37,
         participant.role === "host",
+        visualPresetRef.current === "sketch",
       );
       scene.add(ring);
 
@@ -1314,7 +1435,7 @@ export default function WaitingRoomStage3D({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [roomId]);
+  }, [roomId, visualPreset]);
 
   return (
     <div
@@ -1334,6 +1455,9 @@ export default function WaitingRoomStage3D({
       data-max-players={WAITING_ROOM_MAX_PLAYERS}
       data-calibration={calibrationMode ? "1" : "0"}
       data-stage-ready={stagePresentationReady ? "1" : "0"}
+      data-visual-preset={visualPreset}
+      data-floor-style={visualPreset === "sketch" ? "glossy-tile" : "standard"}
+      data-ring-style={visualPreset === "sketch" ? "sketch-glow" : "standard"}
     >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
