@@ -485,9 +485,11 @@ export default function WaitingRoomStage3D({
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(5.75, 64),
       new THREE.MeshStandardMaterial({
-        color: 0x070d27,
-        roughness: 0.24,
-        metalness: 0.58,
+        color: 0x76567f,
+        emissive: 0x2f183c,
+        emissiveIntensity: 0.34,
+        roughness: 0.42,
+        metalness: 0.18,
       }),
     );
     floor.rotation.x = -Math.PI / 2;
@@ -495,9 +497,9 @@ export default function WaitingRoomStage3D({
     scene.add(floor);
 
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
-      color: 0x395dff,
+      color: 0xb983ff,
       transparent: true,
-      opacity: 0.16,
+      opacity: 0.19,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -510,9 +512,9 @@ export default function WaitingRoomStage3D({
     const runway = new THREE.Mesh(
       new THREE.PlaneGeometry(5.9, 2.2),
       new THREE.MeshBasicMaterial({
-        color: 0x4722a8,
+        color: 0xe39a7c,
         transparent: true,
-        opacity: 0.13,
+        opacity: 0.12,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -564,7 +566,6 @@ export default function WaitingRoomStage3D({
 
     const projectedHead = new THREE.Vector3();
     const updateIdentityLabels = () => {
-      if (viewRef.current.viewMode !== "wide") return;
       const width = Math.max(1, mount.clientWidth);
       const height = Math.max(1, mount.clientHeight);
       stageNodesRef.current.forEach(node => {
@@ -1322,7 +1323,7 @@ export default function WaitingRoomStage3D({
       data-focus-participant-id={focusedParticipant?.participantId ?? ""}
       data-layout={viewMode === "wide" ? "host-first" : viewMode}
       data-layout-transition={viewMode === "wide" ? "smooth" : "snap"}
-      data-label-layout={viewMode === "wide" ? "head-follow" : "panel"}
+      data-label-layout="head-follow"
       data-max-players={WAITING_ROOM_MAX_PLAYERS}
       data-calibration={calibrationMode ? "1" : "0"}
     >
@@ -1336,66 +1337,35 @@ export default function WaitingRoomStage3D({
       </div>
       <div className={styles.canvas} ref={mountRef} />
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
-      {viewMode === "wide" ? (
-        <>
-          <div className={styles.actorIdentities} data-testid="p56-participant-deck">
-            {participants.map(participant => {
-              const focused = participant.participantId === focusedParticipant?.participantId;
-              return (
-                <button
-                  className={`${styles.actorIdentity} ${focused ? styles.actorIdentityFocused : ""}`}
-                  data-character-asset-id={participantCharacterAssetId(participant)}
-                  data-focus-role={participant.role}
-                  data-testid={focused ? "p56-focused-identity" : undefined}
-                  key={participant.participantId}
-                  onClick={() => {
-                    if (!calibrationMode) onSelectParticipant?.(participant);
-                  }}
-                  ref={element => {
-                    if (element) identityRefs.current.set(participant.participantId, element);
-                    else identityRefs.current.delete(participant.participantId);
-                  }}
-                  type="button"
-                >
-                  {participant.role === "host" ? <span className={styles.crown}>♛</span> : null}
-                  <strong>{participant.displayName}</strong>
-                  <small>Lv. {levelFor(participant)}</small>
-                  {participant.role !== "host" ? (
-                    <b className={statusClass(participant)}>{statusLabel(participant)}</b>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      ) : (
-        <div className={`${styles.labels} ${viewMode === "close" ? styles.labelsClose : ""}`}>
-          {visibleParticipants.map((participant, visibleIndex) => (
+      <div className={styles.actorIdentities} data-testid="p56-participant-deck">
+        {participants.map(participant => {
+          const focused = participant.participantId === focusedParticipant?.participantId;
+          return (
             <button
-              className={[
-                styles.label,
-                participant.participantId === selectedParticipantId ? styles.labelSelected : "",
-                viewMode === "center"
-                  ? visibleIndex === 0
-                    ? styles.labelLeft
-                    : styles.labelRight
-                  : "",
-                viewMode === "close" ? styles.labelSolo : "",
-              ].filter(Boolean).join(" ")}
+              className={`${styles.actorIdentity} ${focused ? styles.actorIdentityFocused : ""}`}
               data-character-asset-id={participantCharacterAssetId(participant)}
+              data-focus-role={participant.role}
+              data-testid={focused ? "p56-focused-identity" : undefined}
               key={participant.participantId}
-              onClick={() => onSelectParticipant?.(participant)}
+              onClick={() => {
+                if (!calibrationMode) onSelectParticipant?.(participant);
+              }}
+              ref={element => {
+                if (element) identityRefs.current.set(participant.participantId, element);
+                else identityRefs.current.delete(participant.participantId);
+              }}
               type="button"
             >
               {participant.role === "host" ? <span className={styles.crown}>♛</span> : null}
               <strong>{participant.displayName}</strong>
               <small>Lv. {levelFor(participant)}</small>
-              <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+              {participant.role !== "host" ? (
+                <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+              ) : null}
             </button>
-          ))}
-        </div>
-      )}
-      {viewMode === "center" && <p className={styles.note}>Kéo ngang để xem khu vực khác</p>}
+          );
+        })}
+      </div>
     </div>
   );
 }

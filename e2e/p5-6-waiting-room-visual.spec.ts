@@ -64,6 +64,16 @@ test("P5.6 waiting room matches the accepted five-person focus presentation", as
   await expect(cameraPresets.getByRole("button", { name: "Wide view" })).toHaveAttribute("aria-pressed", "true");
   await cameraPresets.getByRole("button", { name: "Center view" }).click();
   await expect(stage).toHaveAttribute("data-view", "center");
+  await expect(stage).toHaveAttribute("data-label-layout", "head-follow");
+  await expect(page.getByTestId("p56-focused-identity")).toContainText("Toan");
+  await expect(page.getByTestId("p56-focused-identity")).toContainText("Lv. 25");
+  await expect(page.getByTestId("p56-focused-identity")).not.toContainText("HOST");
+
+  await cameraPresets.getByRole("button", { name: "Close view" }).click();
+  await expect(stage).toHaveAttribute("data-view", "close");
+  await expect(stage).toHaveAttribute("data-label-layout", "head-follow");
+  await expect(page.getByTestId("p56-focused-identity")).toContainText("Toan");
+  await expect(page.getByTestId("p56-focused-identity")).toContainText("Lv. 25");
 });
 
 
