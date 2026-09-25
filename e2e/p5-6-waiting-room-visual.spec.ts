@@ -6,6 +6,8 @@ test("P5.6 waiting room matches the accepted five-person focus presentation", as
   await expect(page.locator('[data-presentation="full-stage-glass"]')).toHaveCount(1);
 
   const stage = page.getByTestId("waiting-room-stage");
+  await expect(page.getByTestId("waiting-room-stage-loading")).toHaveCount(1);
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 30_000 });
   await expect(stage).toHaveAttribute("data-view", "wide");
   await expect(stage).toHaveAttribute("data-layout", "host-first");
   await expect(stage).toHaveAttribute("data-max-players", "5");
@@ -46,10 +48,10 @@ test("P5.6 waiting room matches the accepted five-person focus presentation", as
   const generation = await stage.getAttribute("data-scene-generation");
   await page.getByRole("button", { name: "Next participants" }).click();
 
-  await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-guest");
-  await expect(identity).toHaveAttribute("data-character-asset-id", "c1-casual-grace");
-  await expect(identity).toContainText("LinhCute");
-  await expect(identity).toContainText("NOT READY");
+  await expect(stage).toHaveAttribute("data-focus-participant-id", "p56-minh");
+  await expect(identity).toHaveAttribute("data-character-asset-id", "c4-casual-boy");
+  await expect(identity).toContainText("Minh");
+  await expect(identity).toContainText("READY");
   await expect(stage).toHaveAttribute("data-scene-generation", generation ?? "1");
 
   await page.getByRole("button", { name: "Previous participants" }).click();

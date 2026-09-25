@@ -1102,3 +1102,68 @@
     0 -5px 34px rgba(159,95,220,.24),
     inset 0 22px 48px rgba(255,170,115,.10)!important;
 }
+
+/* P5.6 stable first paint: never expose a half-loaded 3D stage. */
+.stageLoading{
+  position:absolute;
+  z-index:18;
+  inset:0;
+  display:grid;
+  place-items:center;
+  background:
+    radial-gradient(circle at 50% 38%,rgba(128,71,196,.44),transparent 26%),
+    linear-gradient(180deg,rgba(10,13,42,.985),rgba(65,44,94,.985));
+  opacity:1;
+  visibility:visible;
+  transition:opacity .30s ease,visibility 0s linear .30s;
+  pointer-events:auto;
+}
+.stageLoadingReady{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+.stageLoadingMark{
+  display:grid;
+  justify-items:center;
+  gap:7px;
+  transform:translateY(-10px);
+  color:#fff;
+  filter:drop-shadow(0 3px 10px rgba(0,0,0,.48));
+}
+.stageLoadingMark strong{
+  font-size:28px;
+  font-weight:1000;
+  font-style:italic;
+  letter-spacing:-.07em;
+  color:transparent;
+  -webkit-text-stroke:1px rgba(255,99,227,.82);
+  text-shadow:0 0 18px rgba(128,87,255,.62);
+}
+.stageLoadingMark span{
+  display:flex;
+  gap:5px;
+}
+.stageLoadingMark i{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#7deaff;
+  box-shadow:0 0 9px rgba(85,226,255,.8);
+  animation:p56StageLoadingPulse .9s ease-in-out infinite alternate;
+}
+.stageLoadingMark i:nth-child(2){animation-delay:.16s}
+.stageLoadingMark i:nth-child(3){animation-delay:.32s}
+.stageLoadingMark small{
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.12em;
+  color:#d9e7ff;
+}
+@keyframes p56StageLoadingPulse{
+  from{opacity:.28;transform:translateY(0)}
+  to{opacity:1;transform:translateY(-3px)}
+}
+.stage[data-stage-ready="0"] .actorIdentities{
+  opacity:0;
+}

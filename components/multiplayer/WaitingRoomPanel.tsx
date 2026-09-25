@@ -1416,8 +1416,8 @@ export default function WaitingRoomPanel({
   const previousStagePage = () => {
     if (viewMode === "close" || viewMode === "wide") {
       const currentIndex = Math.max(0, orderedParticipants.findIndex(item => item.participantId === selectedParticipantId));
-      const nextIndex = (currentIndex - 1 + orderedParticipants.length) % orderedParticipants.length;
-      setSelectedParticipantId(orderedParticipants[nextIndex]?.participantId ?? null);
+      const leftIndex = (currentIndex + 1) % orderedParticipants.length;
+      setSelectedParticipantId(orderedParticipants[leftIndex]?.participantId ?? null);
       return;
     }
     setStagePage(current => (current - 1 + stagePageCount) % stagePageCount);
@@ -1426,8 +1426,8 @@ export default function WaitingRoomPanel({
   const nextStagePage = () => {
     if (viewMode === "close" || viewMode === "wide") {
       const currentIndex = Math.max(0, orderedParticipants.findIndex(item => item.participantId === selectedParticipantId));
-      const nextIndex = (currentIndex + 1) % orderedParticipants.length;
-      setSelectedParticipantId(orderedParticipants[nextIndex]?.participantId ?? null);
+      const rightIndex = (currentIndex - 1 + orderedParticipants.length) % orderedParticipants.length;
+      setSelectedParticipantId(orderedParticipants[rightIndex]?.participantId ?? null);
       return;
     }
     setStagePage(current => (current + 1) % stagePageCount);

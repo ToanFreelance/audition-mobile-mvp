@@ -374,6 +374,8 @@ export default function WaitingRoomStage3D({
   const [renderedActorCount, setRenderedActorCount] = useState(0);
   const [idleRuntimeCount, setIdleRuntimeCount] = useState(0);
   const [idleSource, setIdleSource] = useState<"loading" | "published" | "builtin" | "none">("loading");
+  const stagePresentationReady = loadState !== "loading"
+    && renderedActorCount >= participants.length;
 
   selectCallbackRef.current = onSelectParticipant;
   calibrationModeRef.current = calibrationMode;
@@ -590,7 +592,7 @@ export default function WaitingRoomStage3D({
         const x = (projectedHead.x * 0.5 + 0.5) * width;
         const y = (-projectedHead.y * 0.5 + 0.5) * height;
         const labelAnchorTop = viewRef.current.viewMode === "close"
-          ? Math.max(y - 8, 78)
+          ? Math.max(y - 34, 64)
           : y - 8;
         element.style.left = `${x}px`;
         element.style.top = `${labelAnchorTop}px`;
@@ -672,8 +674,8 @@ export default function WaitingRoomStage3D({
           }
         } else if (current.viewMode === "close") {
           visible = participant.participantId === selected;
-          actorScale = 0.98;
-          ringScale = 1.02;
+          actorScale = 0.90;
+          ringScale = 0.96;
         } else {
           const pageStart = current.pageIndex * current.pageSize;
           visible = index >= pageStart && index < pageStart + current.pageSize;
@@ -1331,6 +1333,7 @@ export default function WaitingRoomStage3D({
       data-label-layout="head-follow"
       data-max-players={WAITING_ROOM_MAX_PLAYERS}
       data-calibration={calibrationMode ? "1" : "0"}
+      data-stage-ready={stagePresentationReady ? "1" : "0"}
     >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
@@ -1341,6 +1344,17 @@ export default function WaitingRoomStage3D({
         </div>
       </div>
       <div className={styles.canvas} ref={mountRef} />
+      <div
+        aria-hidden={stagePresentationReady ? "true" : "false"}
+        className={`${styles.stageLoading} ${stagePresentationReady ? styles.stageLoadingReady : ""}`}
+        data-testid="waiting-room-stage-loading"
+      >
+        <div className={styles.stageLoadingMark}>
+          <strong>AUDITION</strong>
+          <span><i /><i /><i /></span>
+          <small>ĐANG TẢI PHÒNG CHỜ</small>
+        </div>
+      </div>
       <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
       <div className={styles.actorIdentities} data-testid="p56-participant-deck">
         {participants.map(participant => {
