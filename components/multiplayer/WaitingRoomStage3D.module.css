@@ -1198,3 +1198,19 @@
 .stage[data-visual-preset="sketch"] .lightBarRight{
   filter:saturate(1.42) brightness(1.20) drop-shadow(0 0 16px currentColor);
 }
+
+/* P5.6 sketch-match v4 — status colors from approved sketch. */
+.stage[data-visual-preset="sketch"] .actorIdentity .ready{
+  color:#35ff9a!important;
+  text-shadow:
+    0 0 5px rgba(53,255,154,.90),
+    0 0 11px rgba(39,232,136,.48),
+    0 1px 2px rgba(0,25,14,.94)!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .notReady{
+  color:#ff4b8f!important;
+  text-shadow:
+    0 0 5px rgba(255,75,143,.92),
+    0 0 11px rgba(255,45,125,.46),
+    0 1px 2px rgba(46,0,18,.94)!important;
+}

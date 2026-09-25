@@ -161,7 +161,12 @@ function normalizeModel(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
 }
 
-function tintActor(actor: THREE.Object3D, participant: RoomParticipant, index: number) {
+function tintActor(
+  actor: THREE.Object3D,
+  participant: RoomParticipant,
+  index: number,
+  sketchPolish = false,
+) {
   const tint = new THREE.Color(
     participant.role === "host"
       ? 0x7eb8ff
@@ -175,7 +180,16 @@ function tintActor(actor: THREE.Object3D, participant: RoomParticipant, index: n
   const cloneMaterial = (material: THREE.Material) => {
     const next = material.clone();
     const colored = next as THREE.Material & { color?: THREE.Color };
-    colored.color?.lerp(tint, 0.12);
+    if (colored.color) {
+      colored.color.lerp(tint, sketchPolish ? 0.055 : 0.12);
+      if (sketchPolish) {
+        colored.color.offsetHSL(0, 0.055, -0.01);
+        colored.color.lerp(new THREE.Color(0xffdfcf), 0.025);
+      }
+    }
+    if (sketchPolish && next instanceof THREE.MeshStandardMaterial) {
+      next.roughness = Math.min(0.82, Math.max(0.28, next.roughness * 0.92));
+    }
     return next;
   };
 
@@ -243,11 +257,11 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 2.34, rotationY: 0, scale: 0.87 },
+  center: { x: 0, y: 0, z: 2.68, rotationY: 0, scale: 0.91 },
   leftNear: { x: -1.20, y: 0.035, z: 1.18, rotationY: 0.028, scale: 0.78 },
   rightNear: { x: 1.22, y: 0.035, z: 1.14, rotationY: -0.028, scale: 0.78 },
-  leftOuter: { x: -2.28, y: 0.08, z: 0.12, rotationY: 0.052, scale: 0.74 },
-  rightOuter: { x: 2.30, y: 0.08, z: 0.08, rotationY: -0.052, scale: 0.74 },
+  leftOuter: { x: -2.28, y: 0.08, z: -0.30, rotationY: 0.052, scale: 0.72 },
+  rightOuter: { x: 2.30, y: 0.08, z: -0.34, rotationY: -0.052, scale: 0.72 },
 } as const;
 
 function wideSlotPlacement(
@@ -610,15 +624,15 @@ export default function WaitingRoomStage3D({
     ));
 
     const key = new THREE.DirectionalLight(
-      sketchVisual ? 0xfff2ff : 0xf8fbff,
-      sketchVisual ? 2.56 : 2.32,
+      sketchVisual ? 0xffe4d2 : 0xf8fbff,
+      sketchVisual ? 2.34 : 2.32,
     );
     key.position.set(1.8, 6.8, 5.9);
     scene.add(key);
 
     const frontFill = new THREE.DirectionalLight(
-      sketchVisual ? 0xa9d8ff : 0xffffff,
-      sketchVisual ? 0.72 : 0.82,
+      sketchVisual ? 0xfff0df : 0xffffff,
+      sketchVisual ? 0.86 : 0.82,
     );
     frontFill.position.set(0, 3.2, 6.8);
     scene.add(frontFill);
@@ -661,7 +675,7 @@ export default function WaitingRoomStage3D({
         640,
         Math.max(320, Math.round(Math.min(window.innerWidth, 640) * 0.82)),
       );
-      sketchReflector = new Reflector(new THREE.CircleGeometry(6.45, 72), {
+      sketchReflector = new Reflector(new THREE.CircleGeometry(7.15, 80), {
         clipBias: 0.0025,
         textureWidth: reflectionSize,
         textureHeight: reflectionSize,
@@ -673,7 +687,7 @@ export default function WaitingRoomStage3D({
     }
 
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(sketchVisual ? 6.45 : 5.75, sketchVisual ? 72 : 64),
+      new THREE.CircleGeometry(sketchVisual ? 7.15 : 5.75, sketchVisual ? 80 : 64),
       sketchVisual
         ? new THREE.MeshPhysicalMaterial({
             color: 0x99b7ff,
@@ -708,13 +722,20 @@ export default function WaitingRoomStage3D({
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
-    const floorHalo = new THREE.Mesh(new THREE.RingGeometry(3.55, 5.35, 64), floorHaloMaterial);
+    const floorHalo = new THREE.Mesh(
+      new THREE.RingGeometry(
+        sketchVisual ? 3.9 : 3.55,
+        sketchVisual ? 6.55 : 5.35,
+        sketchVisual ? 80 : 64,
+      ),
+      floorHaloMaterial,
+    );
     floorHalo.rotation.x = -Math.PI / 2;
     floorHalo.position.set(0, -0.027, 0.18);
     scene.add(floorHalo);
 
     const runway = new THREE.Mesh(
-      new THREE.PlaneGeometry(5.9, 2.2),
+      new THREE.PlaneGeometry(sketchVisual ? 7.5 : 5.9, sketchVisual ? 2.65 : 2.2),
       new THREE.MeshBasicMaterial({
         color: sketchVisual ? 0x8a55ff : 0xe39a7c,
         transparent: true,
@@ -969,16 +990,20 @@ export default function WaitingRoomStage3D({
 
       if (current.viewMode === "wide") {
         if (visualPresetRef.current === "sketch") {
-          camera.position.set(0, 3.66, 12.95);
-          camera.lookAt(0, 1.54, 0.56);
+          camera.fov = 31.5;
+          camera.position.set(0, 3.66, 13.08);
+          camera.lookAt(0, 1.54, 0.52);
         } else {
+          camera.fov = 30;
           camera.position.set(0, 4.25, 13.05);
           camera.lookAt(0, 1.58, 0.18);
         }
       } else if (current.viewMode === "close") {
+        camera.fov = 30;
         camera.position.set(0, 3.16, 9.45);
         camera.lookAt(0, 2.08, 0);
       } else {
+        camera.fov = 30;
         camera.position.set(0, 3.08, 9.65);
         camera.lookAt(0, 2.0, 0);
       }
@@ -1398,7 +1423,12 @@ export default function WaitingRoomStage3D({
       const characterAssetId = participantCharacterAssetId(participant);
       const source = actorSources.get(characterAssetId) ?? null;
       const actor = source ? cloneSkeleton(source) : fallbackActor(participantUsesFemaleFallback(participant));
-      tintActor(actor, participant, index);
+      tintActor(
+        actor,
+        participant,
+        index,
+        visualPresetRef.current === "sketch",
+      );
       actor.name = `WaitingRoomActor:${participant.participantId}:${characterAssetId}`;
       actor.userData.participantId = participant.participantId;
       actor.userData.characterAssetId = characterAssetId;
@@ -1607,9 +1637,11 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "compressed-neon" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v3" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v4" : "off"}
       data-ring-reflection={visualPreset === "sketch" ? "excluded" : "default"}
       data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
+      data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}
+      data-stage-footprint={visualPreset === "sketch" ? "expanded" : "standard"}
     >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />
