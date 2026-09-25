@@ -118,8 +118,9 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
 
   const stage = page.getByTestId("waiting-room-stage");
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
-  await expect(stage).toHaveAttribute("data-floor-style", "glossy-tile");
-  await expect(stage).toHaveAttribute("data-ring-style", "sketch-glow");
+  await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
+  await expect(stage).toHaveAttribute("data-ring-style", "compressed-neon");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v2");
   await expect(page.locator('[data-visual-preset="sketch"]')).toHaveCount(1);
   await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 30_000 });
 

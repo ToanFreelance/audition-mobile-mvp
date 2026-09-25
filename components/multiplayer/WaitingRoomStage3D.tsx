@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import {
   CHARACTER_CATALOG_V1,
@@ -242,11 +243,11 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 2.38, rotationY: 0, scale: 0.95 },
-  leftNear: { x: -1.30, y: 0.04, z: 1.58, rotationY: 0.035, scale: 0.76 },
-  rightNear: { x: 1.31, y: 0.04, z: 1.52, rotationY: -0.035, scale: 0.76 },
-  leftOuter: { x: -2.56, y: 0.13, z: 0.62, rotationY: 0.065, scale: 0.62 },
-  rightOuter: { x: 2.58, y: 0.13, z: 0.58, rotationY: -0.065, scale: 0.62 },
+  center: { x: 0, y: 0, z: 2.04, rotationY: 0, scale: 0.86 },
+  leftNear: { x: -1.34, y: 0.035, z: 1.46, rotationY: 0.03, scale: 0.76 },
+  rightNear: { x: 1.35, y: 0.035, z: 1.42, rotationY: -0.03, scale: 0.76 },
+  leftOuter: { x: -2.58, y: 0.09, z: 0.86, rotationY: 0.055, scale: 0.71 },
+  rightOuter: { x: 2.60, y: 0.09, z: 0.82, rotationY: -0.055, scale: 0.71 },
 } as const;
 
 function wideSlotPlacement(
@@ -285,7 +286,7 @@ function createParticipantRing(
     blending: THREE.AdditiveBlending,
   });
   const underglow = new THREE.Mesh(
-    new THREE.CircleGeometry(sketchPolish ? 1.18 : 1.08, 40),
+    new THREE.CircleGeometry(sketchPolish ? 1.05 : 1.08, 40),
     underglowMaterial,
   );
   underglow.rotation.x = -Math.PI / 2;
@@ -299,7 +300,10 @@ function createParticipantRing(
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  const floorGlow = new THREE.Mesh(new THREE.CircleGeometry(0.76, 40), floorMaterial);
+  const floorGlow = new THREE.Mesh(
+    new THREE.CircleGeometry(sketchPolish ? 0.69 : 0.76, 40),
+    floorMaterial,
+  );
   floorGlow.rotation.x = -Math.PI / 2;
   floorGlow.position.y = -0.006;
 
@@ -311,7 +315,10 @@ function createParticipantRing(
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  const halo = new THREE.Mesh(new THREE.RingGeometry(0.68, 1.0, 48), haloMaterial);
+  const halo = new THREE.Mesh(
+    new THREE.RingGeometry(sketchPolish ? 0.70 : 0.68, sketchPolish ? 0.94 : 1.0, 48),
+    haloMaterial,
+  );
   halo.rotation.x = -Math.PI / 2;
   halo.position.y = 0.002;
 
@@ -323,7 +330,10 @@ function createParticipantRing(
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
-  const outer = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.035, 48), outerMaterial);
+  const outer = new THREE.Mesh(
+    new THREE.RingGeometry(sketchPolish ? 0.90 : 0.95, sketchPolish ? 0.985 : 1.035, 48),
+    outerMaterial,
+  );
   outer.rotation.x = -Math.PI / 2;
   outer.position.y = 0.008;
 
@@ -334,7 +344,10 @@ function createParticipantRing(
     side: THREE.DoubleSide,
     depthWrite: false,
   });
-  const core = new THREE.Mesh(new THREE.RingGeometry(0.79, 0.875, 48), coreMaterial);
+  const core = new THREE.Mesh(
+    new THREE.RingGeometry(sketchPolish ? 0.78 : 0.79, sketchPolish ? 0.855 : 0.875, 48),
+    coreMaterial,
+  );
   core.rotation.x = -Math.PI / 2;
   core.position.y = 0.014;
 
@@ -370,6 +383,8 @@ function createParticipantRing(
   group.userData.outerMaterial = outerMaterial;
   group.userData.coreMaterial = coreMaterial;
   group.userData.floorMaterial = floorMaterial;
+  group.userData.sketchPolish = sketchPolish;
+  group.userData.depthScale = sketchPolish ? 0.72 : 1;
   return group;
 }
 
@@ -381,15 +396,17 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   if (!context) return null;
 
   const base = context.createLinearGradient(0, 0, 0, 512);
-  base.addColorStop(0, "#090d2b");
-  base.addColorStop(0.56, "#151041");
-  base.addColorStop(1, "#090d26");
+  base.addColorStop(0, "#03081f");
+  base.addColorStop(0.48, "#0b0b34");
+  base.addColorStop(0.74, "#160a3c");
+  base.addColorStop(1, "#02071a");
   context.fillStyle = base;
   context.fillRect(0, 0, 512, 512);
 
   const glow = context.createRadialGradient(256, 330, 16, 256, 330, 270);
-  glow.addColorStop(0, "rgba(119,92,255,.28)");
-  glow.addColorStop(0.42, "rgba(255,66,209,.12)");
+  glow.addColorStop(0, "rgba(60,196,255,.34)");
+  glow.addColorStop(0.38, "rgba(144,74,255,.22)");
+  glow.addColorStop(0.62, "rgba(255,42,211,.12)");
   glow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = glow;
   context.fillRect(0, 0, 512, 512);
@@ -397,9 +414,9 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   for (let index = 0; index <= 8; index += 1) {
     const coordinate = index * 64;
     context.strokeStyle = index % 2
-      ? "rgba(255,66,218,.20)"
-      : "rgba(73,203,255,.22)";
-    context.lineWidth = index === 4 ? 2 : 1;
+      ? "rgba(255,38,216,.30)"
+      : "rgba(47,217,255,.32)";
+    context.lineWidth = index === 4 ? 2.4 : 1.25;
     context.beginPath();
     context.moveTo(coordinate, 0);
     context.lineTo(coordinate, 512);
@@ -413,7 +430,7 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   for (const x of [110, 256, 402]) {
     const streak = context.createLinearGradient(x - 30, 0, x + 30, 0);
     streak.addColorStop(0, "rgba(255,255,255,0)");
-    streak.addColorStop(0.5, "rgba(154,214,255,.10)");
+    streak.addColorStop(0.5, "rgba(213,240,255,.26)");
     streak.addColorStop(1, "rgba(255,255,255,0)");
     context.fillStyle = streak;
     context.fillRect(x - 30, 0, 60, 512);
@@ -427,7 +444,8 @@ function createSketchFloorTexture(maxAnisotropy: number) {
 
 function setScale(node: StageNode, actorMultiplier: number, ringMultiplier = actorMultiplier) {
   node.actor.scale.copy(node.baseScale).multiplyScalar(actorMultiplier);
-  node.ring.scale.setScalar(ringMultiplier);
+  const depthScale = Number(node.ring.userData.depthScale ?? 1);
+  node.ring.scale.set(ringMultiplier, ringMultiplier, ringMultiplier * depthScale);
 }
 
 export default function WaitingRoomStage3D({
@@ -548,26 +566,50 @@ export default function WaitingRoomStage3D({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.16;
+    renderer.toneMappingExposure = sketchVisual ? 1.30 : 1.16;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0x9bb4ff, 0x050510, 1.34));
+    scene.add(new THREE.HemisphereLight(
+      sketchVisual ? 0x879cff : 0x9bb4ff,
+      sketchVisual ? 0x020311 : 0x050510,
+      sketchVisual ? 1.16 : 1.34,
+    ));
 
-    const key = new THREE.DirectionalLight(0xf8fbff, 2.32);
+    const key = new THREE.DirectionalLight(
+      sketchVisual ? 0xfff2ff : 0xf8fbff,
+      sketchVisual ? 2.56 : 2.32,
+    );
     key.position.set(1.8, 6.8, 5.9);
     scene.add(key);
 
-    const frontFill = new THREE.DirectionalLight(0xffffff, 0.82);
+    const frontFill = new THREE.DirectionalLight(
+      sketchVisual ? 0xa9d8ff : 0xffffff,
+      sketchVisual ? 0.72 : 0.82,
+    );
     frontFill.position.set(0, 3.2, 6.8);
     scene.add(frontFill);
 
-    const cyanRim = new THREE.SpotLight(0x42dcff, 16, 16, Math.PI / 4.2, 0.72, 1.6);
+    const cyanRim = new THREE.SpotLight(
+      sketchVisual ? 0x20e8ff : 0x42dcff,
+      sketchVisual ? 22 : 16,
+      16,
+      Math.PI / 4.2,
+      0.72,
+      1.6,
+    );
     cyanRim.position.set(4.7, 6.1, 2.8);
     cyanRim.target.position.set(0.7, 1.7, 0);
     scene.add(cyanRim, cyanRim.target);
 
-    const magentaRim = new THREE.SpotLight(0xff43cc, 15, 16, Math.PI / 4.2, 0.72, 1.6);
+    const magentaRim = new THREE.SpotLight(
+      sketchVisual ? 0xff20d5 : 0xff43cc,
+      sketchVisual ? 21 : 15,
+      16,
+      Math.PI / 4.2,
+      0.72,
+      1.6,
+    );
     magentaRim.position.set(-4.7, 5.8, 2.2);
     magentaRim.target.position.set(-0.7, 1.65, 0);
     scene.add(magentaRim, magentaRim.target);
@@ -580,18 +622,38 @@ export default function WaitingRoomStage3D({
     const sketchFloorTexture = sketchVisual
       ? createSketchFloorTexture(renderer.capabilities.getMaxAnisotropy())
       : null;
+    let sketchReflector: Reflector | null = null;
+    if (sketchVisual) {
+      const reflectionSize = Math.min(
+        640,
+        Math.max(320, Math.round(Math.min(window.innerWidth, 640) * 0.82)),
+      );
+      sketchReflector = new Reflector(new THREE.CircleGeometry(5.75, 64), {
+        clipBias: 0.0025,
+        textureWidth: reflectionSize,
+        textureHeight: reflectionSize,
+        color: 0x121a4a,
+      });
+      sketchReflector.rotation.x = -Math.PI / 2;
+      sketchReflector.position.set(0, -0.056, 0.18);
+      scene.add(sketchReflector);
+    }
+
     const floor = new THREE.Mesh(
       new THREE.CircleGeometry(5.75, 64),
       sketchVisual
         ? new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,
+            color: 0x99b7ff,
             map: sketchFloorTexture ?? undefined,
-            emissive: 0x150c38,
-            emissiveIntensity: 0.24,
-            roughness: 0.17,
-            metalness: 0.48,
+            transparent: true,
+            opacity: 0.48,
+            emissive: 0x09062b,
+            emissiveIntensity: 0.18,
+            roughness: 0.11,
+            metalness: 0.42,
             clearcoat: 1,
-            clearcoatRoughness: 0.08,
+            clearcoatRoughness: 0.035,
+            depthWrite: false,
           })
         : new THREE.MeshStandardMaterial({
             color: 0x76567f,
@@ -602,7 +664,7 @@ export default function WaitingRoomStage3D({
           }),
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.set(0, -0.045, 0.18);
+    floor.position.set(0, sketchVisual ? -0.043 : -0.045, 0.18);
     scene.add(floor);
 
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
@@ -767,8 +829,10 @@ export default function WaitingRoomStage3D({
           z = placement.z;
           rotationY = placement.rotationY;
           actorScale = placement.scale;
-          ringScale = participant.participantId === selected ? 0.96 : placement.scale;
-          if (participant.participantId === selected) {
+          ringScale = visualPresetRef.current === "sketch"
+            ? placement.scale
+            : participant.participantId === selected ? 0.96 : placement.scale;
+          if (participant.participantId === selected && visualPresetRef.current !== "sketch") {
             actorScale *= 1.03;
             ringScale *= 1.03;
           }
@@ -835,8 +899,8 @@ export default function WaitingRoomStage3D({
 
       if (current.viewMode === "wide") {
         if (visualPresetRef.current === "sketch") {
-          camera.position.set(0, 3.88, 12.18);
-          camera.lookAt(0, 1.62, 0.46);
+          camera.position.set(0, 3.52, 12.62);
+          camera.lookAt(0, 1.56, 0.54);
         } else {
           camera.position.set(0, 4.25, 13.05);
           camera.lookAt(0, 1.58, 0.18);
@@ -974,11 +1038,20 @@ export default function WaitingRoomStage3D({
           const outerMaterial = node.ring.userData.outerMaterial as THREE.MeshBasicMaterial | undefined;
           const coreMaterial = node.ring.userData.coreMaterial as THREE.MeshBasicMaterial | undefined;
           const floorMaterial = node.ring.userData.floorMaterial as THREE.MeshBasicMaterial | undefined;
-          if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
-          if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
-          if (outerMaterial) outerMaterial.opacity = 0.12 + wave * 0.12 + emphasis * 0.08;
-          if (coreMaterial) coreMaterial.opacity = 0.86 + emphasis * 0.12;
-          if (floorMaterial) floorMaterial.opacity = 0.07 + wave * 0.065 + emphasis * 0.055;
+          const sketchRing = Boolean(node.ring.userData.sketchPolish);
+          if (sketchRing) {
+            if (underglowMaterial) underglowMaterial.opacity = 0.08 + wave * 0.07 + emphasis * 0.04;
+            if (haloMaterial) haloMaterial.opacity = 0.30 + wave * 0.15 + emphasis * 0.07;
+            if (outerMaterial) outerMaterial.opacity = 0.27 + wave * 0.12 + emphasis * 0.07;
+            if (coreMaterial) coreMaterial.opacity = 0.98;
+            if (floorMaterial) floorMaterial.opacity = 0.15 + wave * 0.09 + emphasis * 0.05;
+          } else {
+            if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
+            if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
+            if (outerMaterial) outerMaterial.opacity = 0.12 + wave * 0.12 + emphasis * 0.08;
+            if (coreMaterial) coreMaterial.opacity = 0.86 + emphasis * 0.12;
+            if (floorMaterial) floorMaterial.opacity = 0.07 + wave * 0.065 + emphasis * 0.055;
+          }
         });
         render();
       };
@@ -1261,8 +1334,12 @@ export default function WaitingRoomStage3D({
       actor.userData.characterAssetId = characterAssetId;
       scene.add(actor);
 
+      const sketchAccent = participant.participantId === "p51-host"
+        || participant.participantId === "p56-minh"
+        ? 0x31e7ff
+        : 0xff37d5;
       const ring = createParticipantRing(
-        participantAccent(participant),
+        visualPresetRef.current === "sketch" ? sketchAccent : participantAccent(participant),
         index * 1.37,
         participant.role === "host",
         visualPresetRef.current === "sketch",
@@ -1430,6 +1507,8 @@ export default function WaitingRoomStage3D({
       reconcileParticipantsRef.current = null;
       stageNodesRef.current.clear();
       slotPlaceholdersRef.current = [];
+      sketchReflector?.getRenderTarget().dispose();
+      sketchFloorTexture?.dispose();
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
       renderer.dispose();
@@ -1456,8 +1535,9 @@ export default function WaitingRoomStage3D({
       data-calibration={calibrationMode ? "1" : "0"}
       data-stage-ready={stagePresentationReady ? "1" : "0"}
       data-visual-preset={visualPreset}
-      data-floor-style={visualPreset === "sketch" ? "glossy-tile" : "standard"}
-      data-ring-style={visualPreset === "sketch" ? "sketch-glow" : "standard"}
+      data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
+      data-ring-style={visualPreset === "sketch" ? "compressed-neon" : "standard"}
+      data-sketch-match={visualPreset === "sketch" ? "v2" : "off"}
     >
       <div className={styles.architecture} aria-hidden="true">
         <span className={styles.lightBarLeft} />

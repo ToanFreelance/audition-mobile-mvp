@@ -1167,3 +1167,18 @@
 .stage[data-stage-ready="0"] .actorIdentities{
   opacity:0;
 }
+
+/* P5.6 sketch-match v2: post-grade only the isolated compare preset. */
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.28) contrast(1.12) brightness(1.015);
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  filter:saturate(1.32) contrast(1.14);
+}
+.stage[data-visual-preset="sketch"] .lightBarLeft,
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  filter:saturate(1.3) brightness(1.12) drop-shadow(0 0 12px currentColor);
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  filter:saturate(1.3) contrast(1.15);
+}
