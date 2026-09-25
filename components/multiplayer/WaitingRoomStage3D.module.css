@@ -1089,3 +1089,16 @@
 .stage[data-calibration="1"] .actorIdentity{
   pointer-events:none!important;
 }
+
+/* P5.6 owner-approved floor palette: warm plum with a soft amber center glow */
+.stage:after{
+  background:
+    radial-gradient(ellipse at 50% 6%,rgba(255,186,114,.24) 0 10%,rgba(194,112,184,.16) 22%,transparent 46%),
+    repeating-radial-gradient(ellipse at 50% 0,rgba(117,201,255,.24) 0 2px,transparent 3px 28px),
+    repeating-linear-gradient(90deg,rgba(142,218,255,.055) 0 1px,transparent 1px 13px),
+    linear-gradient(180deg,rgba(101,72,128,.96),rgba(58,40,91,.985))!important;
+  border-top-color:rgba(255,190,144,.34)!important;
+  box-shadow:
+    0 -5px 34px rgba(159,95,220,.24),
+    inset 0 22px 48px rgba(255,170,115,.10)!important;
+}

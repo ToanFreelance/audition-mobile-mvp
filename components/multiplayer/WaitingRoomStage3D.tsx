@@ -232,11 +232,11 @@ function centerPosition(index: number, total: number, pageSize: number) {
 }
 
 const WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 1.60, rotationY: 0, scale: 0.94 },
-  leftNear: { x: -1.42, y: 0.08, z: 1.05, rotationY: 0.05, scale: 0.72 },
-  rightNear: { x: 1.42, y: 0.08, z: 1.05, rotationY: -0.05, scale: 0.72 },
-  leftOuter: { x: -2.90, y: 0.30, z: -0.52, rotationY: 0.095, scale: 0.52 },
-  rightOuter: { x: 2.90, y: 0.30, z: -0.52, rotationY: -0.095, scale: 0.52 },
+  center: { x: -0.0764, y: 0, z: 2.6, rotationY: 0, scale: 0.8942 },
+  leftNear: { x: -1.7004, y: 0.08, z: 1.9872, rotationY: 0.05, scale: 0.72 },
+  rightNear: { x: 1.6599, y: 0.08, z: 1.8558, rotationY: -0.05, scale: 0.72 },
+  leftOuter: { x: -3.0365, y: 0.30, z: 0.2648, rotationY: 0.095, scale: 0.52 },
+  rightOuter: { x: 3.0732, y: 0.30, z: 0.053, rotationY: -0.095, scale: 0.52 },
 } as const;
 
 function wideSlotPlacement(slotIndex: number, focusSlotIndex: number) {

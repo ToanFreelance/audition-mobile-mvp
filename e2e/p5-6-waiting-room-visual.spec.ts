@@ -83,3 +83,15 @@ test("P5.6 QA layout calibrator exposes direct manipulation export without norma
   await expect(exported).toContainText('"displayName": "Toan"');
   await expect(exported).toContainText('"displayName": "LinhCute"');
 });
+
+
+test("P5.6 accepted owner calibration stays locked", async ({ page }) => {
+  await page.goto("/tools/lobby-qa?calibrate=1");
+  await page.getByTestId("layout-calibration-export").click();
+  const exported = page.getByTestId("layout-calibration-json");
+  await expect(exported).toContainText('"x": -0.0764');
+  await expect(exported).toContainText('"z": 2.6');
+  await expect(exported).toContainText('"x": -1.7004');
+  await expect(exported).toContainText('"z": 1.9872');
+  await expect(exported).toContainText('"x": 3.0732');
+});
