@@ -848,3 +848,84 @@
   position:relative;
   z-index:1;
 }
+
+
+/* P5.6 sketch-match v7 — owner iPhone polish: inward arch, refined controls and vivid actions. */
+.phone[data-visual-preset="sketch"] .stageArrow{
+  top:63%!important;
+  width:34px!important;
+  height:43px!important;
+  border-radius:10px!important;
+  border:1px solid rgba(103,235,255,.78)!important;
+  background:
+    linear-gradient(180deg,rgba(18,67,122,.72),rgba(5,27,66,.68))!important;
+  color:#e5fcff!important;
+  font-size:37px!important;
+  line-height:37px!important;
+  text-shadow:
+    0 0 5px rgba(177,250,255,.92),
+    0 0 13px rgba(59,191,255,.62)!important;
+  box-shadow:
+    0 0 0 1px rgba(78,108,217,.16),
+    0 0 12px rgba(49,207,255,.22),
+    inset 0 0 11px rgba(91,191,255,.12)!important;
+  backdrop-filter:blur(3px);
+  -webkit-backdrop-filter:blur(3px);
+}
+.phone[data-visual-preset="sketch"] .stageArrowLeft{left:10px!important}
+.phone[data-visual-preset="sketch"] .stageArrowRight{right:10px!important}
+
+/* Concave/inward roof: the lower half of ellipses centered above the viewport dips toward stage center. */
+.phone[data-visual-preset="sketch"] .stageWrap:before{
+  top:calc(-66px - env(safe-area-inset-top,0px));
+  height:calc(76px + env(safe-area-inset-top,0px));
+  background:
+    radial-gradient(ellipse 76% 118% at 50% -38%,
+      transparent 0 57%,
+      rgba(93,105,214,.76) 58% 60%,
+      rgba(24,33,94,.96) 61% 64%,
+      rgba(91,70,190,.54) 65% 66%,
+      transparent 67%),
+    radial-gradient(ellipse 88% 130% at 50% -48%,
+      transparent 0 61%,
+      rgba(38,57,135,.72) 62% 63%,
+      transparent 64%),
+    radial-gradient(ellipse at 14% 77%,rgba(218,245,255,.92) 0 2px,rgba(35,51,96,.96) 3px 6px,rgba(15,22,55,.96) 7px 9px,transparent 10px),
+    radial-gradient(ellipse at 34% 82%,rgba(204,222,255,.88) 0 2px,rgba(41,42,101,.96) 3px 6px,rgba(17,20,59,.96) 7px 9px,transparent 10px),
+    radial-gradient(ellipse at 66% 82%,rgba(255,215,248,.88) 0 2px,rgba(83,39,105,.96) 3px 6px,rgba(37,18,62,.96) 7px 9px,transparent 10px),
+    radial-gradient(ellipse at 86% 77%,rgba(218,248,255,.92) 0 2px,rgba(33,58,103,.96) 3px 6px,rgba(13,25,59,.96) 7px 9px,transparent 10px),
+    linear-gradient(180deg,rgba(3,6,22,.90),rgba(6,9,34,.44) 72%,rgba(6,9,34,0));
+  filter:drop-shadow(0 0 10px rgba(65,82,194,.22));
+}
+.phone[data-visual-preset="sketch"] .stageWrap:after{
+  top:calc(-39px - env(safe-area-inset-top,0px));
+  height:38px;
+  background:
+    linear-gradient(180deg,rgba(75,91,173,.78),rgba(31,38,88,.92)) 14% 0/2px 22px no-repeat,
+    linear-gradient(180deg,rgba(79,77,177,.72),rgba(34,35,91,.92)) 34% 1px/2px 25px no-repeat,
+    linear-gradient(180deg,rgba(128,66,162,.70),rgba(52,27,83,.92)) 66% 1px/2px 25px no-repeat,
+    linear-gradient(180deg,rgba(59,105,183,.76),rgba(26,49,95,.92)) 86% 0/2px 22px no-repeat;
+  opacity:.82;
+}
+
+/* Vivid sketch action colors from the approved golden reference. */
+.phone[data-visual-preset="sketch"] .leaveButton{
+  border-color:#ff5c99!important;
+  background:
+    linear-gradient(180deg,#f32f78 0%,#c3185c 54%,#86123f 100%)!important;
+  color:#fff7fb!important;
+  box-shadow:
+    0 0 17px rgba(255,39,122,.28),
+    inset 0 1px rgba(255,255,255,.20),
+    inset 0 0 18px rgba(255,93,157,.18)!important;
+}
+.phone[data-visual-preset="sketch"] .stagePickerButton{
+  border-color:#69eaff!important;
+  background:
+    linear-gradient(180deg,#20cffa 0%,#099cde 48%,#0874bd 100%)!important;
+  color:#fff!important;
+  box-shadow:
+    0 0 18px rgba(30,205,255,.30),
+    inset 0 1px rgba(255,255,255,.22),
+    inset 0 0 18px rgba(94,231,255,.18)!important;
+}

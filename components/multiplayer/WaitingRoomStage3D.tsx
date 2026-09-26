@@ -257,11 +257,11 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 2.84, rotationY: 0, scale: 0.945 },
+  center: { x: 0, y: 0, z: 2.91, rotationY: 0, scale: 0.95 },
   leftNear: { x: -1.20, y: 0.035, z: 1.18, rotationY: 0.028, scale: 0.78 },
   rightNear: { x: 1.22, y: 0.035, z: 1.14, rotationY: -0.028, scale: 0.78 },
-  leftOuter: { x: -2.43, y: 0.08, z: -0.44, rotationY: 0.052, scale: 0.70 },
-  rightOuter: { x: 2.45, y: 0.08, z: -0.48, rotationY: -0.052, scale: 0.70 },
+  leftOuter: { x: -2.50, y: 0.08, z: -0.44, rotationY: 0.052, scale: 0.70 },
+  rightOuter: { x: 2.52, y: 0.08, z: -0.48, rotationY: -0.052, scale: 0.70 },
 } as const;
 
 function wideSlotPlacement(
@@ -842,10 +842,13 @@ export default function WaitingRoomStage3D({
         const scaleMultiplier = node.baseScale.y
           ? node.actor.scale.y / node.baseScale.y
           : node.targetActorScale;
+        const sketchWideIdentity = visualPresetRef.current === "sketch"
+          && viewRef.current.viewMode === "wide";
+        const projectedHeadHeight = sketchWideIdentity ? 3.98 : 4.18;
         projectedHead
           .set(
             node.actor.position.x,
-            node.actor.position.y + 4.18 * scaleMultiplier,
+            node.actor.position.y + projectedHeadHeight * scaleMultiplier,
             node.actor.position.z,
           )
           .project(camera);
@@ -853,7 +856,7 @@ export default function WaitingRoomStage3D({
         const y = (-projectedHead.y * 0.5 + 0.5) * height;
         const labelAnchorTop = viewRef.current.viewMode === "close"
           ? Math.max(y - 34, 64)
-          : y - 8;
+          : y + (sketchWideIdentity ? 2 : -8);
         element.style.left = `${x}px`;
         element.style.top = `${labelAnchorTop}px`;
         element.style.opacity = "1";
@@ -1138,11 +1141,11 @@ export default function WaitingRoomStage3D({
           const floorMaterial = node.ring.userData.floorMaterial as THREE.MeshBasicMaterial | undefined;
           const sketchRing = Boolean(node.ring.userData.sketchPolish);
           if (sketchRing) {
-            if (underglowMaterial) underglowMaterial.opacity = 0.08 + wave * 0.07 + emphasis * 0.04;
-            if (haloMaterial) haloMaterial.opacity = 0.30 + wave * 0.15 + emphasis * 0.07;
-            if (outerMaterial) outerMaterial.opacity = 0.27 + wave * 0.12 + emphasis * 0.07;
-            if (coreMaterial) coreMaterial.opacity = 0.98;
-            if (floorMaterial) floorMaterial.opacity = 0.15 + wave * 0.09 + emphasis * 0.05;
+            if (underglowMaterial) underglowMaterial.opacity = 0.12 + wave * 0.09 + emphasis * 0.03;
+            if (haloMaterial) haloMaterial.opacity = 0.42 + wave * 0.18 + emphasis * 0.05;
+            if (outerMaterial) outerMaterial.opacity = 0.38 + wave * 0.15 + emphasis * 0.05;
+            if (coreMaterial) coreMaterial.opacity = 1;
+            if (floorMaterial) floorMaterial.opacity = 0.22 + wave * 0.12 + emphasis * 0.04;
           } else {
             if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
             if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
@@ -1640,7 +1643,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "compressed-neon" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v6" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v7" : "off"}
       data-ring-reflection={visualPreset === "sketch" ? "excluded" : "default"}
       data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
       data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}
