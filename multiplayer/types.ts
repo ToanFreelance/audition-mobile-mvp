@@ -1,3 +1,5 @@
+export const WAITING_ROOM_MAX_PLAYERS = 5 as const;
+
 export type RoomSlotIndex = 0 | 1 | 2 | 3 | 4 | 5;
 export type RoomStatus = "waiting" | "preloading" | "countdown" | "playing" | "results";
 export type LoadState = "idle" | "loading" | "loaded" | "failed";
@@ -5,6 +7,9 @@ export type ConnectionState = "connected" | "disconnected";
 export type BotProfile = "perfect" | "miss" | "mixed" | "passive";
 
 export type AvatarSnapshot = {
+  /** Canonical Character Catalog identity for runtime presentation. */
+  characterAssetId?: string;
+  /** Legacy persisted identity retained during the P5.6 room-snapshot migration. */
   characterId: string;
   outfit: {
     hairId?: string;

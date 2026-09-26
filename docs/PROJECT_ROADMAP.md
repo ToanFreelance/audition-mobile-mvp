@@ -398,6 +398,23 @@ Owner physical iPhone Host test confirmed:
 
 Owner physical P5.5 Host acceptance: **PASS**.
 
+### P5.6 — Waiting Room Visual V2
+
+Current owner-review milestone on `work/p5-6-waiting-room-visual-v2`.
+
+Scope:
+
+- portrait Waiting Room presentation is capped at five visible participants;
+- participant runtime identity resolves through `participant.avatar.characterAssetId → Character Catalog → runtime asset → animation profile`;
+- legacy `default-female/default-male` snapshot mapping remains migration-compatible;
+- default Wide presentation uses a five-person focus carousel with left/right focus rotation;
+- focus rotation is presentation-only and must not change Host authority, RoomState authority, Ready logic, realtime semantics, preload protocol or WebAudio scheduling;
+- actor transforms interpolate without recreating unchanged actors or restarting their AnimationMixer;
+- player identity text follows the actor head; Host is identified by a crown rather than a HOST badge;
+- Wide / Center / Close camera presets live inside Room Settings so stage arrows remain visually unambiguous.
+
+P5.6 remains in owner visual review and must not be merged until explicitly approved.
+
 ### Phase 5 closeout status
 
 Phase 5 implementation is **READY FOR INTEGRATION REVIEW**.
@@ -455,3 +472,28 @@ Current Phase 5 integration path:
 `development → work/lobby → waiting-room/realtime acceptance → development → work/lobby-preload → P5.2 PRELOADING → P5.3 ALL CLIENTS LOADED → P5.4 shared countdown → P5.5 shared WebAudio gameplay handoff → Full QA → owner iPhone Host PASS → pending owner-approved merge to development`
 
 Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 4 work unless owner explicitly requests a later production promotion.
+
+## Phase 14 — Resolution & Visual Fidelity Pass
+
+Status: **DEFERRED until the primary product phases are complete**.
+
+Purpose: improve final mobile visual clarity without destabilizing gameplay or content architecture.
+
+Planned scope:
+
+- audit WebGL canvas internal resolution versus CSS size;
+- calibrate mobile `devicePixelRatio` / renderer pixel-ratio policy with measured iPhone GPU cost;
+- review texture resolution and compression for characters, stages and high-visibility UI assets;
+- reduce unnecessary softness from glow, transparency and post-processing;
+- improve anti-aliasing / edge clarity where supported;
+- add an adaptive visual-quality profile so higher fidelity does not compromise stable mobile frame rate;
+- run physical iPhone visual/performance QA before accepting higher resolution defaults.
+
+Locked non-goals:
+
+- no gameplay timing changes;
+- no WebAudio authority changes;
+- no gauge / Finish rebalance;
+- no architecture rewrite merely for higher resolution.
+
+This phase must not block the current roadmap. It starts only after the main feature phases and hardening/distribution work are complete.

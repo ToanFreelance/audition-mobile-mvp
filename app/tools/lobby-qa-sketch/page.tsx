@@ -1,6 +1,6 @@
 import WaitingRoomPanel from "../../../components/multiplayer/WaitingRoomPanel";
 
-type LobbyQaPageProps = {
+type LobbyQaSketchPageProps = {
   searchParams: Promise<{
     sync?: string;
     client?: string;
@@ -9,7 +9,7 @@ type LobbyQaPageProps = {
   }>;
 };
 
-export default async function LobbyQaPage({ searchParams }: LobbyQaPageProps) {
+export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchPageProps) {
   const params = await searchParams;
   const initialSync = params.sync === "1"
     ? {
@@ -18,5 +18,11 @@ export default async function LobbyQaPage({ searchParams }: LobbyQaPageProps) {
       }
     : null;
 
-  return <WaitingRoomPanel initialSync={initialSync} calibrationMode={params.calibrate === "1"} />;
+  return (
+    <WaitingRoomPanel
+      initialSync={initialSync}
+      calibrationMode={params.calibrate === "1"}
+      visualPreset="sketch"
+    />
+  );
 }

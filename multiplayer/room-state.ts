@@ -1,3 +1,4 @@
+import { WAITING_ROOM_MAX_PLAYERS } from "./types";
 import type {
   BotParticipant,
   HumanGuestParticipant,
@@ -34,7 +35,7 @@ export function createRoomState(input: {
   selectedSongId?: string | null;
   selectedStageId?: string;
 }): RoomState {
-  const maxPlayers = input.maxPlayers ?? 6;
+  const maxPlayers = input.maxPlayers ?? WAITING_ROOM_MAX_PLAYERS;
   if (input.host.slotIndex >= maxPlayers) throw new Error("Host slot must be inside maxPlayers.");
 
   const slots: RoomSlot[] = ALL_SLOT_INDEXES.map(slotIndex => {

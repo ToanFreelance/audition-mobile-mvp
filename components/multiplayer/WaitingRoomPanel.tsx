@@ -49,9 +49,15 @@ import {
   createP53QaGuestParticipant,
   createP53SyncedWaitingRoomBase,
 } from "../../multiplayer/waiting-room-qa";
-import type { RoomParticipant, RoomSlotIndex, RoomState } from "../../multiplayer/types";
+import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlotIndex, type RoomState } from "../../multiplayer/types";
+import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
+import { getCharacterCatalogEntry } from "../character/character-catalog";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
-import WaitingRoomStage3D, { type WaitingRoomStageView } from "./WaitingRoomStage3D";
+import WaitingRoomStage3D, {
+  type WaitingRoomCalibrationLayout,
+  type WaitingRoomStageView,
+  type WaitingRoomVisualPreset,
+} from "./WaitingRoomStage3D";
 import styles from "./WaitingRoomPanel.module.css";
 
 type PanelKind = "song" | "stage" | "player" | null;
@@ -238,6 +244,10 @@ function initials(name: string) {
   return name.split(/\s+/).map(part => part[0]).join("").slice(0, 2).toUpperCase();
 }
 
+function participantPortraitUrl(participant: RoomParticipant) {
+  return getCharacterCatalogEntry(avatarCharacterAssetId(participant.avatar))?.portraitUrl ?? null;
+}
+
 function statusLabel(participant: RoomParticipant) {
   if (participant.role === "host") return "HOST";
   if (participant.kind === "bot") return "READY";
@@ -267,10 +277,16 @@ type WaitingRoomPanelProps = {
     roomId: string;
     role: SyncClientRole;
   } | null;
+  calibrationMode?: boolean;
+  visualPreset?: WaitingRoomVisualPreset;
 };
 
 
-export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPanelProps) {
+export default function WaitingRoomPanel({
+  initialSync = null,
+  calibrationMode = false,
+  visualPreset = "default",
+}: WaitingRoomPanelProps) {
   const initialParticipantId = initialSync?.role === "guest" ? "p51-guest" : "p51-host";
   const [room, setRoom] = useState(() => initialSync
     ? createP53SyncedWaitingRoomBase(initialSync.roomId)
@@ -280,10 +296,13 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stagePage, setStagePage] = useState(0);
-  const [viewMode, setViewMode] = useState<WaitingRoomStageView>("center");
+  const [viewMode, setViewMode] = useState<WaitingRoomStageView>("wide");
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(
     initialSync ? initialParticipantId : room.hostParticipantId,
   );
+  const [calibrationLayout, setCalibrationLayout] = useState<WaitingRoomCalibrationLayout>({});
+  const [calibrationResetToken, setCalibrationResetToken] = useState(0);
+  const [calibrationExport, setCalibrationExport] = useState("");
   const [panel, setPanel] = useState<PanelKind>(null);
   const [songDraft, setSongDraft] = useState(room.selectedSongId ?? "aloha");
   const [stageDraft, setStageDraft] = useState(room.selectedStageId);
@@ -442,6 +461,7 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           displayName: guest.displayName,
           slotIndex: guest.slotIndex,
           characterId: guest.avatar.characterId,
+          characterAssetId: guest.avatar.characterAssetId,
         });
         current = result.snapshot;
         applyCanonicalSnapshot(current);
@@ -693,13 +713,52 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
     () => new Map(displayRoom.participants.map(item => [item.participantId, item])),
     [displayRoom.participants],
   );
+  const visibleSlots = useMemo(
+    () => displayRoom.slots.filter(slot => slot.slotIndex < WAITING_ROOM_MAX_PLAYERS),
+    [displayRoom.slots],
+  );
   const orderedParticipants = useMemo(
-    () => [...displayRoom.participants].sort((a, b) => a.slotIndex - b.slotIndex),
+    () => [...displayRoom.participants]
+      .filter(item => item.slotIndex < WAITING_ROOM_MAX_PLAYERS)
+      .sort((a, b) => a.slotIndex - b.slotIndex),
     [displayRoom.participants],
   );
+  const sketchVisualSlots = useMemo(() => {
+    if (visualPreset !== "sketch") return visibleSlots;
+    const leftToRightSlotOrder = [2, 1, 0, 4, 3];
+    return leftToRightSlotOrder
+      .map(slotIndex => visibleSlots.find(slot => slot.slotIndex === slotIndex))
+      .filter((slot): slot is (typeof visibleSlots)[number] => Boolean(slot));
+  }, [visibleSlots, visualPreset]);
   const selectedParticipant = selectedParticipantId
     ? displayRoom.participants.find(item => item.participantId === selectedParticipantId) ?? null
     : null;
+
+  const exportCalibrationLayout = () => {
+    const payload = {
+      version: 1,
+      mode: "waiting-room-wide-calibration",
+      focusParticipantId: selectedParticipantId,
+      placements: orderedParticipants.map(participant => ({
+        participantId: participant.participantId,
+        displayName: participant.displayName,
+        slotIndex: participant.slotIndex,
+        ...(calibrationLayout[participant.participantId] ?? {}),
+      })),
+    };
+    const text = JSON.stringify(payload, null, 2);
+    setCalibrationExport(text);
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      void navigator.clipboard.writeText(text).catch(() => undefined);
+    }
+  };
+
+  const resetCalibrationLayout = () => {
+    setCalibrationExport("");
+    setCalibrationLayout({});
+    setCalibrationResetToken(token => token + 1);
+  };
+
   const stagePageCount = Math.max(1, Math.ceil(orderedParticipants.length / 2));
   const safeStagePage = Math.min(stagePage, stagePageCount - 1);
   const currentSong = SONGS.find(song => song.id === room.selectedSongId) ?? SONGS[0];
@@ -1365,20 +1424,20 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
   };
 
   const previousStagePage = () => {
-    if (viewMode === "close") {
+    if (viewMode === "close" || viewMode === "wide") {
       const currentIndex = Math.max(0, orderedParticipants.findIndex(item => item.participantId === selectedParticipantId));
-      const nextIndex = (currentIndex - 1 + orderedParticipants.length) % orderedParticipants.length;
-      setSelectedParticipantId(orderedParticipants[nextIndex]?.participantId ?? null);
+      const leftIndex = (currentIndex + 1) % orderedParticipants.length;
+      setSelectedParticipantId(orderedParticipants[leftIndex]?.participantId ?? null);
       return;
     }
     setStagePage(current => (current - 1 + stagePageCount) % stagePageCount);
   };
 
   const nextStagePage = () => {
-    if (viewMode === "close") {
+    if (viewMode === "close" || viewMode === "wide") {
       const currentIndex = Math.max(0, orderedParticipants.findIndex(item => item.participantId === selectedParticipantId));
-      const nextIndex = (currentIndex + 1) % orderedParticipants.length;
-      setSelectedParticipantId(orderedParticipants[nextIndex]?.participantId ?? null);
+      const rightIndex = (currentIndex - 1 + orderedParticipants.length) % orderedParticipants.length;
+      setSelectedParticipantId(orderedParticipants[rightIndex]?.participantId ?? null);
       return;
     }
     setStagePage(current => (current + 1) % stagePageCount);
@@ -1490,12 +1549,16 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
 
   return (
     <main className={styles.shell} data-testid="lobby-root">
-      <section className={styles.phone}>
+      <section
+        className={styles.phone}
+        data-presentation="full-stage-glass"
+        data-visual-preset={visualPreset}
+      >
         <header className={styles.header}>
           <button className={styles.iconButton} type="button" aria-label="Back">‹</button>
           <div className={styles.titleBlock}>
             <strong>{room.roomName}</strong>
-            <span data-testid="room-summary">ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {displayRoom.participants.length}/{room.maxPlayers}</span>
+            <span data-testid="room-summary">ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {orderedParticipants.length}/{Math.min(room.maxPlayers, WAITING_ROOM_MAX_PLAYERS)}</span>
           </div>
           <div className={styles.headerRight}>
             <button className={styles.iconButton} data-testid="room-settings-button" onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
@@ -1528,6 +1591,31 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
                 ))}
               </div>
             )}
+            <div className={styles.settingsCamera} data-testid="camera-preset-controls">
+              <span>Camera</span>
+              <div>
+                {(["wide", "center", "close"] as WaitingRoomStageView[]).map(mode => {
+                  const label = mode === "wide" ? "Wide" : mode === "center" ? "Center" : "Close";
+                  return (
+                    <button
+                      aria-label={`${label} view`}
+                      aria-pressed={viewMode === mode}
+                      className={viewMode === mode ? styles.settingsCameraActive : styles.settingsCameraButton}
+                      key={mode}
+                      onClick={() => {
+                        setViewMode(mode);
+                        if (mode === "close" && !selectedParticipantId) {
+                          setSelectedParticipantId(orderedParticipants[0]?.participantId ?? null);
+                        }
+                      }}
+                      type="button"
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             {hostView && <button className={styles.settingsAction} onClick={changeModeQa} type="button">Switch mode QA</button>}
             <div className={styles.settingsMeta}>
               <span>Stage · {currentStage.name}</span>
@@ -1548,35 +1636,33 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
         )}
 
         <section className={styles.stageWrap}>
-          <nav className={styles.viewModeBar} aria-label="Camera view">
-            {(["wide", "center", "close"] as WaitingRoomStageView[]).map(mode => {
-              const label = mode === "wide" ? "Wide view" : mode === "center" ? "Center view" : "Close view";
-              const symbol = mode === "wide" ? "⠿" : mode === "center" ? "◉◉" : "◎";
-              return (
-                <button
-                  aria-label={label}
-                  aria-pressed={viewMode === mode}
-                  className={viewMode === mode ? styles.viewModeActive : styles.viewModeButton}
-                  key={mode}
-                  onClick={() => {
-                    setViewMode(mode);
-                    if (mode === "close" && !selectedParticipantId) {
-                      setSelectedParticipantId(orderedParticipants[0]?.participantId ?? null);
-                    }
-                  }}
-                  title={label}
-                  type="button"
-                >
-                  <span aria-hidden="true">{symbol}</span>
-                </button>
-              );
-            })}
-          </nav>
+          {calibrationMode && (
+            <aside className={styles.calibrationToolbar} data-testid="layout-calibration-toolbar">
+              <strong>LAYOUT CALIBRATOR</strong>
+              <span>1 ngón: kéo nhân vật · 2 ngón: pinch đổi kích thước</span>
+              <div>
+                <button data-testid="layout-calibration-reset" onClick={resetCalibrationLayout} type="button">Reset</button>
+                <button data-testid="layout-calibration-export" onClick={exportCalibrationLayout} type="button">Export layout</button>
+              </div>
+              {calibrationExport && (
+                <textarea
+                  aria-label="Calibration layout JSON"
+                  data-testid="layout-calibration-json"
+                  readOnly
+                  value={calibrationExport}
+                />
+              )}
+            </aside>
+          )}
           <WaitingRoomStage3D
+            calibrationMode={calibrationMode}
+            calibrationResetToken={calibrationResetToken}
+            onCalibrationLayoutChange={setCalibrationLayout}
             participants={orderedParticipants}
-            slots={displayRoom.slots}
+            slots={visibleSlots}
             roomId={room.roomId}
             stageId={room.selectedStageId}
+            visualPreset={visualPreset}
             viewMode={viewMode}
             pageIndex={safeStagePage}
             pageSize={2}
@@ -1585,10 +1671,10 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           />
 
 
-          {viewMode !== "wide" && orderedParticipants.length > 1 && (
+          {!calibrationMode && orderedParticipants.length > 1 && (
             <>
-              <button className={`${styles.stageArrow} ${styles.stageArrowLeft}`} onClick={previousStagePage} type="button" aria-label="Previous participants">‹</button>
-              <button className={`${styles.stageArrow} ${styles.stageArrowRight}`} onClick={nextStagePage} type="button" aria-label="Next participants">›</button>
+              <button className={`${styles.stageArrow} ${styles.stageArrowLeft}`} onClick={previousStagePage} type="button" aria-label="Previous participants"><span aria-hidden="true" /></button>
+              <button className={`${styles.stageArrow} ${styles.stageArrowRight}`} onClick={nextStagePage} type="button" aria-label="Next participants"><span aria-hidden="true" /></button>
             </>
           )}
           {viewMode === "center" && stagePageCount > 1 && (
@@ -1600,22 +1686,39 @@ export default function WaitingRoomPanel({ initialSync = null }: WaitingRoomPane
           )}
         </section>
 
-        <section className={styles.slotDock}>
-          {displayRoom.slots.map(slot => {
+        <section
+          className={styles.slotDock}
+          data-testid="waiting-room-avatar-strip"
+          data-visual-order={visualPreset === "sketch" ? "stage-left-to-right" : "slot-index"}
+        >
+          {sketchVisualSlots.map((slot, displayIndex) => {
             const participant = slot.state === "occupied" ? participantById.get(slot.participantId) : null;
             const status = participant ? statusLabel(participant) : slot.state.toUpperCase();
             const selected = participant?.participantId === selectedParticipantId;
+            const portraitUrl = participant ? participantPortraitUrl(participant) : null;
             return (
               <button
                 className={`${styles.slot} ${styles[slot.state]} ${participant?.role === "host" ? styles.slotHost : ""} ${selected ? styles.slotSelected : ""}`}
                 disabled={!participant && !hostView}
                 key={slot.slotIndex}
                 data-testid={`slot-${slot.slotIndex}`}
+                data-selected={selected ? "1" : "0"}
                 onClick={() => participant ? selectParticipant(participant) : toggleSlot(slot.slotIndex)}
                 type="button"
               >
-                <span className={styles.slotNumber}>{slot.slotIndex + 1}</span>
-                <span className={styles.slotAvatar}>{participant ? initials(participant.displayName) : slot.state === "open" ? "+" : "×"}</span>
+                <span className={styles.slotNumber}>
+                  {visualPreset === "sketch" ? displayIndex + 1 : slot.slotIndex + 1}
+                </span>
+                <span className={styles.slotAvatar}>
+                  {participant && portraitUrl ? (
+                    <img
+                      alt=""
+                      aria-hidden="true"
+                      data-testid={`slot-avatar-image-${slot.slotIndex}`}
+                      src={portraitUrl}
+                    />
+                  ) : participant ? initials(participant.displayName) : slot.state === "open" ? "+" : "×"}
+                </span>
                 <strong>{status}</strong>
               </button>
             );

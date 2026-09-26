@@ -44,6 +44,7 @@ type RoomMutationBody =
       displayName: string;
       slotIndex: RoomSlotIndex;
       characterId: string;
+      characterAssetId?: string;
     }
   | { action: "ready"; roomId: string; expectedRevision: number; participantId: string; ready: boolean }
   | { action: "leave"; roomId: string; expectedRevision: number; participantId: string }
@@ -250,6 +251,7 @@ function joinHumanGuest(
     connectionState: "connected",
     avatar: {
       characterId: body.characterId.trim() || "default-female",
+      characterAssetId: body.characterAssetId?.trim() || undefined,
       outfit: {},
       accessoryIds: [],
       petId: null,
