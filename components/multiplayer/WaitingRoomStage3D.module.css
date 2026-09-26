@@ -1288,3 +1288,73 @@
   bottom:-14%!important;
   height:56%!important;
 }
+
+
+/* P5.6 sketch-match v9 — golden-sketch atmosphere without changing camera architecture. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse at 50% 39%,rgba(245,40,221,.28) 0%,rgba(174,47,231,.15) 22%,transparent 43%),
+    radial-gradient(ellipse at 13% 42%,rgba(44,213,255,.16) 0%,transparent 30%),
+    radial-gradient(ellipse at 87% 42%,rgba(255,54,211,.17) 0%,transparent 31%),
+    linear-gradient(180deg,#070826 0%,#151044 33%,#0c0c31 65%,#06091d 100%)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:30.5%!important;
+  opacity:.68!important;
+  filter:
+    drop-shadow(0 0 10px rgba(255,52,226,.72))
+    drop-shadow(0 0 26px rgba(123,66,255,.40))!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(50px,9vw,62px)!important;
+  color:#ef45e5!important;
+  -webkit-text-stroke:1px rgba(236,104,255,.42)!important;
+  text-shadow:
+    0 0 5px rgba(255,128,244,.92),
+    0 0 14px rgba(255,48,222,.84),
+    0 0 34px rgba(177,56,255,.58)!important;
+  filter:saturate(1.2) contrast(1.1) brightness(1.08)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#b4b8ff!important;
+  opacity:.82;
+  text-shadow:0 0 9px rgba(117,126,255,.52);
+}
+.stage[data-visual-preset="sketch"] .lightBarLeft,
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  top:58px!important;
+  width:12px!important;
+  height:202px!important;
+  border-radius:8px!important;
+  opacity:.96!important;
+}
+.stage[data-visual-preset="sketch"] .lightBarLeft{
+  left:5.5%!important;
+  background:linear-gradient(180deg,#efffff 0%,#8cf8ff 9%,#39dcff 46%,#3b7cff 100%)!important;
+  box-shadow:
+    0 0 7px rgba(225,255,255,.98),
+    0 0 18px rgba(59,227,255,.96),
+    0 0 42px rgba(43,124,255,.66)!important;
+}
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  right:5.5%!important;
+  background:linear-gradient(180deg,#fff3fc 0%,#ff9ae9 9%,#ff4bd4 48%,#a849ff 100%)!important;
+  box-shadow:
+    0 0 7px rgba(255,238,251,.98),
+    0 0 18px rgba(255,75,211,.94),
+    0 0 42px rgba(181,63,255,.62)!important;
+}
+.stage[data-visual-preset="sketch"]:after{
+  left:-22%!important;
+  right:-22%!important;
+  bottom:-13%!important;
+  height:58%!important;
+  background:
+    radial-gradient(ellipse at 50% 4%,rgba(84,224,255,.28) 0 15%,rgba(174,69,255,.20) 31%,rgba(255,56,209,.08) 45%,transparent 60%),
+    repeating-radial-gradient(ellipse at 50% 0,rgba(94,195,255,.20) 0 2px,transparent 3px 33px),
+    repeating-linear-gradient(90deg,rgba(91,223,255,.050) 0 1px,transparent 1px 16px),
+    linear-gradient(180deg,rgba(64,78,170,.90),rgba(36,35,104,.95))!important;
+  box-shadow:
+    0 -8px 38px rgba(46,173,255,.28),
+    inset 0 24px 55px rgba(148,68,255,.17)!important;
+}

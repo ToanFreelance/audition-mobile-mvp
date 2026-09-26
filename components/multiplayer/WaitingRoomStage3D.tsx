@@ -93,8 +93,8 @@ type IdleRuntime = {
 const IDLE_RENDER_FPS = 30;
 const IDLE_CROSSFADE_SECONDS = 0.35;
 const SLOT_ACCENTS = [0x43dfff, 0xff4fcf, 0x69efae, 0xff5fbd, 0xa968ff, 0x56b4ff] as const;
-const SKETCH_MALE_RING_ACCENT = 0x8beaff;
-const SKETCH_FEMALE_RING_ACCENT = 0xff82dc;
+const SKETCH_MALE_RING_ACCENT = 0x55dcff;
+const SKETCH_FEMALE_RING_ACCENT = 0xff5bcf;
 
 function participantAccent(participant: RoomParticipant) {
   return SLOT_ACCENTS[participant.slotIndex] ?? 0x43dfff;
@@ -265,7 +265,7 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 2.91, rotationY: 0, scale: 0.95 },
+  center: { x: 0, y: 0, z: 2.99, rotationY: 0, scale: 0.98 },
   leftNear: { x: -1.20, y: 0.035, z: 1.18, rotationY: 0.028, scale: 0.78 },
   rightNear: { x: 1.22, y: 0.035, z: 1.14, rotationY: -0.028, scale: 0.78 },
   leftOuter: { x: -2.56, y: 0.08, z: -0.44, rotationY: 0.052, scale: 0.70 },
@@ -365,7 +365,7 @@ function createParticipantRing(
     opacity: sketchPolish ? 0.96 : 0.94,
     side: THREE.DoubleSide,
     depthWrite: false,
-    blending: sketchPolish ? THREE.AdditiveBlending : THREE.NormalBlending,
+    blending: THREE.NormalBlending,
   });
   const core = new THREE.Mesh(
     new THREE.RingGeometry(sketchPolish ? 0.72 : 0.79, sketchPolish ? 0.80 : 0.875, 64),
@@ -377,10 +377,10 @@ function createParticipantRing(
   const innerMaterial = new THREE.MeshBasicMaterial({
     color: sketchPolish ? color : host ? 0xffd454 : color,
     transparent: true,
-    opacity: sketchPolish ? 0.72 : host ? 0.66 : 0.34,
+    opacity: sketchPolish ? 0.78 : host ? 0.66 : 0.34,
     side: THREE.DoubleSide,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    blending: sketchPolish ? THREE.NormalBlending : THREE.AdditiveBlending,
   });
   const inner = new THREE.Mesh(
     new THREE.RingGeometry(sketchPolish ? 0.555 : 0.55, sketchPolish ? 0.58 : 0.59, 56),
@@ -392,7 +392,7 @@ function createParticipantRing(
   const shineMaterial = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
-    opacity: sketchPolish ? 0.22 : 0,
+    opacity: sketchPolish ? 0.08 : 0,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -495,11 +495,11 @@ function createSketchSpotBeam(
   );
 
   const outerBeam = new THREE.Mesh(
-    new THREE.ConeGeometry(radius * 1.16, length, 32, 1, true),
+    new THREE.ConeGeometry(radius * 1.34, length, 36, 1, true),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: opacity * 0.46,
+      opacity: opacity * 0.24,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -507,16 +507,33 @@ function createSketchSpotBeam(
   );
   outerBeam.position.copy(source).add(target).multiplyScalar(0.5);
   outerBeam.quaternion.copy(beamQuaternion);
-  outerBeam.renderOrder = -2;
+  outerBeam.renderOrder = -3;
   group.add(outerBeam);
 
-  const innerTarget = source.clone().add(directionNormal.clone().multiplyScalar(length * 0.80));
-  const innerBeam = new THREE.Mesh(
-    new THREE.ConeGeometry(radius * 0.68, length * 0.80, 32, 1, true),
+  const midTarget = source.clone().add(directionNormal.clone().multiplyScalar(length * 0.92));
+  const midBeam = new THREE.Mesh(
+    new THREE.ConeGeometry(radius * 0.92, length * 0.92, 36, 1, true),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: opacity * 0.88,
+      opacity: opacity * 0.52,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+  midBeam.position.copy(source).add(midTarget).multiplyScalar(0.5);
+  midBeam.quaternion.copy(beamQuaternion);
+  midBeam.renderOrder = -2;
+  group.add(midBeam);
+
+  const innerTarget = source.clone().add(directionNormal.clone().multiplyScalar(length * 0.74));
+  const innerBeam = new THREE.Mesh(
+    new THREE.ConeGeometry(radius * 0.54, length * 0.74, 32, 1, true),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: opacity * 0.86,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -528,13 +545,13 @@ function createSketchSpotBeam(
   group.add(innerBeam);
 
   const housing = new THREE.Mesh(
-    new THREE.CylinderGeometry(radius * 0.12, radius * 0.17, 0.22, 18),
+    new THREE.CylinderGeometry(radius * 0.12, radius * 0.18, 0.24, 18),
     new THREE.MeshStandardMaterial({
       color: 0x11172c,
-      emissive: new THREE.Color(color).multiplyScalar(0.18),
-      emissiveIntensity: 0.42,
-      roughness: 0.34,
-      metalness: 0.52,
+      emissive: new THREE.Color(color).multiplyScalar(0.20),
+      emissiveIntensity: 0.48,
+      roughness: 0.32,
+      metalness: 0.54,
     }),
   );
   housing.position.copy(source);
@@ -542,24 +559,24 @@ function createSketchSpotBeam(
   group.add(housing);
 
   const lens = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.12, 16, 10),
+    new THREE.SphereGeometry(radius * 0.125, 18, 12),
     new THREE.MeshBasicMaterial({
-      color: 0xf5fbff,
+      color: 0xf8fdff,
       transparent: true,
-      opacity: 0.94,
+      opacity: 0.98,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     }),
   );
-  lens.position.copy(source).add(directionNormal.clone().multiplyScalar(0.12));
+  lens.position.copy(source).add(directionNormal.clone().multiplyScalar(0.13));
   group.add(lens);
 
   const sourceGlow = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.23, 16, 10),
+    new THREE.SphereGeometry(radius * 0.30, 18, 12),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: 0.20,
+      opacity: 0.17,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     }),
@@ -757,7 +774,7 @@ export default function WaitingRoomStage3D({
         640,
         Math.max(320, Math.round(Math.min(window.innerWidth, 640) * 0.82)),
       );
-      sketchReflector = new Reflector(new THREE.CircleGeometry(7.45, 80), {
+      sketchReflector = new Reflector(new THREE.CircleGeometry(7.70, 80), {
         clipBias: 0.0025,
         textureWidth: reflectionSize,
         textureHeight: reflectionSize,
@@ -769,7 +786,7 @@ export default function WaitingRoomStage3D({
     }
 
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(sketchVisual ? 7.45 : 5.75, sketchVisual ? 80 : 64),
+      new THREE.CircleGeometry(sketchVisual ? 7.70 : 5.75, sketchVisual ? 80 : 64),
       sketchVisual
         ? new THREE.MeshPhysicalMaterial({
             color: 0x99b7ff,
@@ -806,8 +823,8 @@ export default function WaitingRoomStage3D({
     });
     const floorHalo = new THREE.Mesh(
       new THREE.RingGeometry(
-        sketchVisual ? 4.0 : 3.55,
-        sketchVisual ? 6.9 : 5.35,
+        sketchVisual ? 4.05 : 3.55,
+        sketchVisual ? 7.15 : 5.35,
         sketchVisual ? 80 : 64,
       ),
       floorHaloMaterial,
@@ -817,7 +834,7 @@ export default function WaitingRoomStage3D({
     scene.add(floorHalo);
 
     const runway = new THREE.Mesh(
-      new THREE.PlaneGeometry(sketchVisual ? 8.0 : 5.9, sketchVisual ? 2.85 : 2.2),
+      new THREE.PlaneGeometry(sketchVisual ? 8.25 : 5.9, sketchVisual ? 2.92 : 2.2),
       new THREE.MeshBasicMaterial({
         color: sketchVisual ? 0x8a55ff : 0xe39a7c,
         transparent: true,
@@ -833,11 +850,11 @@ export default function WaitingRoomStage3D({
 
     if (sketchVisual) {
       const beamSpecs = [
-        { x: -2.55, color: 0x35dfff, targetX: -1.75, opacity: 0.048 },
-        { x: -1.30, color: 0x8b58ff, targetX: -0.95, opacity: 0.040 },
-        { x: 0.00, color: 0x5f8cff, targetX: 0.00, opacity: 0.032 },
-        { x: 1.30, color: 0xff39dc, targetX: 0.95, opacity: 0.042 },
-        { x: 2.55, color: 0x3bdcff, targetX: 1.75, opacity: 0.048 },
+        { x: -2.72, color: 0x52e5ff, targetX: -1.86, opacity: 0.052 },
+        { x: -1.36, color: 0x8f6cff, targetX: -0.98, opacity: 0.043 },
+        { x: 0.00, color: 0x7a78ff, targetX: 0.00, opacity: 0.036 },
+        { x: 1.36, color: 0xff55dc, targetX: 0.98, opacity: 0.045 },
+        { x: 2.72, color: 0x55e2ff, targetX: 1.86, opacity: 0.052 },
       ];
       beamSpecs.forEach((spec, index) => {
         const source = new THREE.Vector3(spec.x, 5.18, 0.22);
@@ -1236,7 +1253,7 @@ export default function WaitingRoomStage3D({
             if (outerMaterial) outerMaterial.opacity = 0.82 + wave * 0.10 + depthBoost * 0.07 + emphasis * 0.03;
             if (coreMaterial) coreMaterial.opacity = 0.90 + wave * 0.07 + depthBoost * 0.05 + emphasis * 0.02;
             if (innerMaterial) innerMaterial.opacity = 0.68 + wave * 0.08 + depthBoost * 0.07 + emphasis * 0.02;
-            if (shineMaterial) shineMaterial.opacity = 0.18 + wave * 0.06 + depthBoost * 0.04;
+            if (shineMaterial) shineMaterial.opacity = 0.055 + wave * 0.025 + depthBoost * 0.02;
             if (floorMaterial) floorMaterial.opacity = 0.10 + wave * 0.06 + depthBoost * 0.08 + emphasis * 0.02;
           } else {
             if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
@@ -1733,7 +1750,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "compressed-neon" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v8" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v9" : "off"}
       data-ring-palette={visualPreset === "sketch" ? "catalog-gender" : "slot"}
       data-ring-geometry={visualPreset === "sketch" ? "two-bold-one-thin" : "standard"}
       data-ring-reflection={visualPreset === "sketch" ? "excluded" : "default"}
