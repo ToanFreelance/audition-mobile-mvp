@@ -1051,3 +1051,15 @@
 .phone[data-visual-preset="sketch"] .songCard{
   margin-bottom:5px!important;
 }
+
+
+/* P5.6 sketch-match v13 — lower the complete bottom HUD toward the viewport edge. */
+.phone[data-visual-preset="sketch"] .slotDock,
+.phone[data-visual-preset="sketch"] .songCard,
+.phone[data-visual-preset="sketch"] .actions{
+  position:relative;
+  top:clamp(20px,3dvh,36px);
+}
+.phone[data-visual-preset="sketch"] .actions{
+  padding-bottom:0!important;
+}

@@ -265,11 +265,11 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 3.06, rotationY: 0, scale: 0.99 },
-  leftNear: { x: -1.20, y: 0.045, z: 1.30, rotationY: 0.028, scale: 0.80 },
-  rightNear: { x: 1.22, y: 0.045, z: 1.26, rotationY: -0.028, scale: 0.80 },
-  leftOuter: { x: -2.60, y: 0.12, z: -0.24, rotationY: 0.052, scale: 0.80 },
-  rightOuter: { x: 2.62, y: 0.12, z: -0.28, rotationY: -0.052, scale: 0.80 },
+  center: { x: 0, y: 0, z: 3.06, rotationY: 0, scale: 0.94 },
+  leftNear: { x: -1.20, y: 0.045, z: 1.30, rotationY: 0.028, scale: 0.76 },
+  rightNear: { x: 1.22, y: 0.045, z: 1.26, rotationY: -0.028, scale: 0.76 },
+  leftOuter: { x: -2.60, y: 0.12, z: -0.24, rotationY: 0.052, scale: 0.76 },
+  rightOuter: { x: 2.62, y: 0.12, z: -0.28, rotationY: -0.052, scale: 0.76 },
 } as const;
 
 function wideSlotPlacement(
@@ -1859,9 +1859,9 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "compressed-neon" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v12" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v13" : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
-      data-backdrop-geometry={visualPreset === "sketch" ? "inward-curves" : "standard"}
+      data-backdrop-geometry={visualPreset === "sketch" ? "side-curves-clean-center" : "standard"}
       data-ring-palette={visualPreset === "sketch" ? "catalog-gender" : "slot"}
       data-ring-geometry={visualPreset === "sketch" ? "two-bold-one-thin" : "standard"}
       data-ring-reflection={visualPreset === "sketch" ? "excluded" : "default"}

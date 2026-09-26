@@ -1454,3 +1454,73 @@
     0 0 6px rgba(255,74,226,.54),
     0 0 13px rgba(163,72,255,.32)!important;
 }
+
+
+/* P5.6 sketch-match v13 — golden-sketch side rails with a clean center backdrop. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 48% 36% at 50% 34%,rgba(255,51,220,.34) 0%,rgba(190,49,235,.20) 27%,rgba(96,48,183,.08) 50%,transparent 70%),
+    radial-gradient(ellipse 34% 55% at 7% 43%,rgba(43,224,255,.24) 0%,rgba(40,117,255,.10) 45%,transparent 72%),
+    radial-gradient(ellipse 34% 55% at 93% 43%,rgba(255,69,211,.24) 0%,rgba(168,69,255,.10) 45%,transparent 72%),
+    linear-gradient(180deg,#070826 0%,#171050 30%,#160a48 53%,#0a0d36 76%,#05081d 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 44% 35% at 50% 34%,rgba(255,61,226,.18),transparent 68%),
+    linear-gradient(180deg,rgba(10,10,39,.05),rgba(21,15,67,.13) 28%,rgba(11,12,48,.04) 72%,transparent 100%)!important;
+  filter:saturate(1.36) contrast(1.12)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture:before{
+  left:-5%!important;
+  right:auto!important;
+  top:9%!important;
+  width:44%!important;
+  height:59%!important;
+  opacity:.72!important;
+  transform:none!important;
+  border:0!important;
+  background:
+    repeating-radial-gradient(
+      ellipse 150% 108% at 116% -18%,
+      transparent 0 34px,
+      rgba(66,83,173,.76) 35px 37px,
+      rgba(117,80,217,.20) 38px 39px,
+      transparent 40px 67px
+    ),
+    linear-gradient(90deg,rgba(7,12,45,.64),rgba(12,15,58,.28) 70%,transparent 100%)!important;
+  -webkit-mask-image:linear-gradient(90deg,#000 0 76%,rgba(0,0,0,.62) 88%,transparent 100%);
+  mask-image:linear-gradient(90deg,#000 0 76%,rgba(0,0,0,.62) 88%,transparent 100%);
+  box-shadow:none!important;
+}
+.stage[data-visual-preset="sketch"] .architecture:after{
+  right:-5%!important;
+  left:auto!important;
+  top:9%!important;
+  width:44%!important;
+  height:59%!important;
+  opacity:.72!important;
+  transform:none!important;
+  border:0!important;
+  background:
+    repeating-radial-gradient(
+      ellipse 150% 108% at -16% -18%,
+      transparent 0 34px,
+      rgba(66,83,173,.76) 35px 37px,
+      rgba(117,80,217,.20) 38px 39px,
+      transparent 40px 67px
+    ),
+    linear-gradient(270deg,rgba(7,12,45,.64),rgba(12,15,58,.28) 70%,transparent 100%)!important;
+  -webkit-mask-image:linear-gradient(270deg,#000 0 76%,rgba(0,0,0,.62) 88%,transparent 100%);
+  mask-image:linear-gradient(270deg,#000 0 76%,rgba(0,0,0,.62) 88%,transparent 100%);
+  box-shadow:none!important;
+}
+.stage[data-visual-preset="sketch"] .lightBarLeft{
+  filter:saturate(1.22) brightness(1.16) drop-shadow(0 0 15px rgba(64,230,255,.90))!important;
+}
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  filter:saturate(1.24) brightness(1.17) drop-shadow(0 0 15px rgba(255,72,215,.86))!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:25.2%!important;
+  opacity:.66!important;
+}
