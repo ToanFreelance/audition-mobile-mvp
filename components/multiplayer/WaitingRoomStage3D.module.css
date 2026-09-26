@@ -1382,3 +1382,26 @@
   bottom:-11%!important;
   height:61%!important;
 }
+
+
+/* P5.6 sketch-match v11 — ceiling/truss is authoritative in Three.js. */
+.stage[data-visual-preset="sketch"]{
+  overflow:hidden!important;
+}
+.stage[data-visual-preset="sketch"] .architecture:before,
+.stage[data-visual-preset="sketch"] .architecture:after{
+  top:16%!important;
+  height:58%!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.30) contrast(1.13) brightness(1.00)!important;
+}
+.stage[data-visual-preset="sketch"]:after{
+  background:
+    repeating-radial-gradient(ellipse at 50% 0,rgba(92,194,255,.16) 0 2px,transparent 3px 34px),
+    repeating-linear-gradient(90deg,rgba(91,223,255,.035) 0 1px,transparent 1px 16px),
+    linear-gradient(180deg,rgba(57,68,151,.72),rgba(29,30,88,.88))!important;
+  box-shadow:
+    0 -5px 24px rgba(45,144,255,.16),
+    inset 0 18px 42px rgba(132,65,255,.10)!important;
+}
