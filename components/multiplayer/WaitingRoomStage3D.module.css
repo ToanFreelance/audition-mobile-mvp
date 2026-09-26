@@ -1279,3 +1279,12 @@
 .stage[data-visual-preset="sketch"] .actorIdentityFocused .crown{
   font-size:32px!important;
 }
+
+
+/* P5.6 sketch-match v8 — expand the visible circular stage toward the avatar dock. */
+.stage[data-visual-preset="sketch"]:after{
+  left:-18%!important;
+  right:-18%!important;
+  bottom:-14%!important;
+  height:56%!important;
+}

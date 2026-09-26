@@ -929,3 +929,28 @@
     inset 0 1px rgba(255,255,255,.22),
     inset 0 0 18px rgba(94,231,255,.18)!important;
 }
+
+
+/* P5.6 sketch-match v8 — visible tilted fixtures with soft source bloom. */
+.phone[data-visual-preset="sketch"] .stageWrap:before{
+  background:
+    radial-gradient(ellipse 18% 90% at 15% 92%,rgba(91,209,255,.18) 0%,rgba(66,157,255,.08) 34%,transparent 72%),
+    radial-gradient(ellipse 17% 86% at 35% 96%,rgba(127,112,255,.15) 0%,rgba(99,83,233,.06) 36%,transparent 72%),
+    radial-gradient(ellipse 17% 86% at 65% 96%,rgba(255,89,224,.15) 0%,rgba(214,65,218,.06) 36%,transparent 72%),
+    radial-gradient(ellipse 18% 90% at 85% 92%,rgba(86,220,255,.18) 0%,rgba(55,164,255,.08) 34%,transparent 72%),
+    radial-gradient(ellipse 12px 7px at 15% 76%,rgba(248,253,255,.98) 0 27%,rgba(82,151,221,.94) 29% 48%,rgba(12,18,43,.96) 50% 72%,transparent 74%),
+    radial-gradient(ellipse 11px 7px at 35% 81%,rgba(245,247,255,.96) 0 27%,rgba(101,86,201,.92) 29% 48%,rgba(16,17,49,.96) 50% 72%,transparent 74%),
+    radial-gradient(ellipse 11px 7px at 65% 81%,rgba(255,239,251,.96) 0 27%,rgba(177,70,178,.92) 29% 48%,rgba(48,17,55,.96) 50% 72%,transparent 74%),
+    radial-gradient(ellipse 12px 7px at 85% 76%,rgba(245,253,255,.98) 0 27%,rgba(76,165,224,.94) 29% 48%,rgba(11,23,50,.96) 50% 72%,transparent 74%),
+    radial-gradient(ellipse 76% 118% at 50% -38%,transparent 0 57%,rgba(93,105,214,.76) 58% 60%,rgba(24,33,94,.96) 61% 64%,rgba(91,70,190,.54) 65% 66%,transparent 67%),
+    radial-gradient(ellipse 88% 130% at 50% -48%,transparent 0 61%,rgba(38,57,135,.72) 62% 63%,transparent 64%),
+    linear-gradient(180deg,rgba(3,6,22,.90),rgba(6,9,34,.44) 72%,rgba(6,9,34,0));
+}
+.phone[data-visual-preset="sketch"] .stageWrap:after{
+  background:
+    linear-gradient(166deg,transparent 0 44%,rgba(80,101,185,.74) 45% 50%,transparent 51%) 15% 0/24px 30px no-repeat,
+    linear-gradient(171deg,transparent 0 44%,rgba(84,77,181,.70) 45% 50%,transparent 51%) 35% 1px/23px 31px no-repeat,
+    linear-gradient(189deg,transparent 0 44%,rgba(138,62,159,.68) 45% 50%,transparent 51%) 65% 1px/23px 31px no-repeat,
+    linear-gradient(194deg,transparent 0 44%,rgba(61,113,188,.74) 45% 50%,transparent 51%) 85% 0/24px 30px no-repeat;
+  opacity:.86;
+}
