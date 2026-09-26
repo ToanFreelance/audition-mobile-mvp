@@ -782,3 +782,69 @@
 .phone[data-visual-preset="sketch"] .titleBlock span{
   text-shadow:0 2px 5px rgba(0,0,0,.82),0 0 12px rgba(20,29,88,.32);
 }
+
+
+/* P5.6 sketch-match v6 — keep actor canvas in its calibrated flow; extend only the stage ceiling behind the transparent header. */
+.phone[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse at 50% 53%,rgba(48,59,137,.08),transparent 31%),
+    linear-gradient(180deg,#070a20 0%,#06091c 58%,#050718 100%)!important;
+}
+.phone[data-visual-preset="sketch"]:before{
+  background:
+    radial-gradient(circle at 50% 15%,rgba(87,55,201,.13),transparent 28%),
+    radial-gradient(circle at 18% 55%,rgba(20,161,255,.035),transparent 23%),
+    radial-gradient(circle at 82% 58%,rgba(255,45,196,.030),transparent 22%)!important;
+}
+.phone[data-visual-preset="sketch"] .header{
+  background:
+    linear-gradient(
+      180deg,
+      rgba(2,5,18,.22) 0%,
+      rgba(2,5,18,.08) 64%,
+      rgba(2,5,18,0) 100%
+    )!important;
+  border-bottom-color:transparent!important;
+}
+.phone[data-visual-preset="sketch"] .stageWrap{
+  margin-top:-8px!important;
+  height:clamp(445px,60dvh,550px)!important;
+  overflow:visible!important;
+  isolation:isolate;
+}
+.phone[data-visual-preset="sketch"] .stageWrap:before{
+  content:"";
+  position:absolute;
+  z-index:0;
+  left:0;
+  right:0;
+  top:calc(-64px - env(safe-area-inset-top,0px));
+  height:calc(72px + env(safe-area-inset-top,0px));
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 10% 80%,rgba(235,250,255,.98) 0 3px,rgba(64,181,255,.66) 4px 7px,transparent 8px),
+    radial-gradient(circle at 29% 78%,rgba(225,236,255,.96) 0 2px,rgba(116,98,255,.60) 3px 6px,transparent 7px),
+    radial-gradient(circle at 50% 77%,rgba(244,239,255,.96) 0 2px,rgba(148,97,255,.58) 3px 6px,transparent 7px),
+    radial-gradient(circle at 71% 78%,rgba(255,226,249,.96) 0 2px,rgba(255,82,222,.62) 3px 6px,transparent 7px),
+    radial-gradient(circle at 90% 80%,rgba(235,250,255,.98) 0 3px,rgba(66,207,255,.66) 4px 7px,transparent 8px),
+    radial-gradient(ellipse at 50% 132%,transparent 0 57%,rgba(88,104,211,.78) 58% 60%,rgba(31,40,105,.94) 61% 64%,rgba(84,76,181,.64) 65% 66%,transparent 67%),
+    linear-gradient(180deg,rgba(4,7,25,.88),rgba(8,11,39,.44) 70%,rgba(8,11,39,0));
+  filter:drop-shadow(0 0 12px rgba(69,87,213,.26));
+}
+.phone[data-visual-preset="sketch"] .stageWrap:after{
+  content:"";
+  position:absolute;
+  z-index:0;
+  left:0;
+  right:0;
+  top:calc(-28px - env(safe-area-inset-top,0px));
+  height:42px;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg,transparent 9%,rgba(72,91,194,.64) 9.5% 10%,transparent 10.5% 28%,rgba(82,86,199,.58) 28.5% 29%,transparent 29.5% 49%,rgba(92,91,207,.56) 49.5% 50%,transparent 50.5% 70%,rgba(87,84,195,.58) 70.5% 71%,transparent 71.5% 89%,rgba(65,107,205,.64) 89.5% 90%,transparent 90.5%);
+  opacity:.72;
+}
+.phone[data-visual-preset="sketch"] .stageWrap>[data-testid="waiting-room-stage"]{
+  position:relative;
+  z-index:1;
+}

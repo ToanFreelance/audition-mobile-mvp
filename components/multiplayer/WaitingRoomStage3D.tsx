@@ -257,11 +257,11 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 2.96, rotationY: 0, scale: 0.98 },
+  center: { x: 0, y: 0, z: 2.84, rotationY: 0, scale: 0.945 },
   leftNear: { x: -1.20, y: 0.035, z: 1.18, rotationY: 0.028, scale: 0.78 },
   rightNear: { x: 1.22, y: 0.035, z: 1.14, rotationY: -0.028, scale: 0.78 },
-  leftOuter: { x: -2.56, y: 0.08, z: -0.46, rotationY: 0.052, scale: 0.70 },
-  rightOuter: { x: 2.58, y: 0.08, z: -0.50, rotationY: -0.052, scale: 0.70 },
+  leftOuter: { x: -2.43, y: 0.08, z: -0.44, rotationY: 0.052, scale: 0.70 },
+  rightOuter: { x: 2.45, y: 0.08, z: -0.48, rotationY: -0.052, scale: 0.70 },
 } as const;
 
 function wideSlotPlacement(
@@ -632,7 +632,7 @@ export default function WaitingRoomStage3D({
 
     const frontFill = new THREE.DirectionalLight(
       sketchVisual ? 0xffead8 : 0xffffff,
-      sketchVisual ? 1.02 : 0.82,
+      sketchVisual ? 0.92 : 0.82,
     );
     frontFill.position.set(0, 3.2, 6.8);
     scene.add(frontFill);
@@ -693,13 +693,13 @@ export default function WaitingRoomStage3D({
             color: 0x99b7ff,
             map: sketchFloorTexture ?? undefined,
             transparent: true,
-            opacity: 0.68,
+            opacity: 0.74,
             emissive: 0x0a082c,
-            emissiveIntensity: 0.20,
-            roughness: 0.14,
-            metalness: 0.42,
+            emissiveIntensity: 0.19,
+            roughness: 0.16,
+            metalness: 0.38,
             clearcoat: 1,
-            clearcoatRoughness: 0.05,
+            clearcoatRoughness: 0.06,
             depthWrite: false,
           })
         : new THREE.MeshStandardMaterial({
@@ -921,7 +921,7 @@ export default function WaitingRoomStage3D({
           rotationY = placement.rotationY;
           actorScale = placement.scale;
           ringScale = visualPresetRef.current === "sketch"
-            ? placement.scale * 1.14
+            ? placement.scale * 1.06
             : participant.participantId === selected ? 0.96 : placement.scale;
           if (participant.participantId === selected && visualPresetRef.current !== "sketch") {
             actorScale *= 1.03;
@@ -978,7 +978,7 @@ export default function WaitingRoomStage3D({
         placeholder.group.position.set(placement.x, placement.y + 0.02, placement.z);
         placeholder.group.scale.setScalar(Math.max(
           0.48,
-          placement.scale * (visualPresetRef.current === "sketch" ? 1.12 : 1),
+          placement.scale * (visualPresetRef.current === "sketch" ? 1.05 : 1),
         ));
         const showPlaceholder = current.viewMode === "wide"
           && placeholder.slotIndex < WAITING_ROOM_MAX_PLAYERS
@@ -1640,7 +1640,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "compressed-neon" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v5" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v6" : "off"}
       data-ring-reflection={visualPreset === "sketch" ? "excluded" : "default"}
       data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
       data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}

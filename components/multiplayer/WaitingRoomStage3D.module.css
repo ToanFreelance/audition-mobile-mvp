@@ -1251,3 +1251,31 @@
 .stage[data-visual-preset="sketch"] .actorIdentityFocused .crown{
   font-size:34px!important;
 }
+
+
+/* P5.6 sketch-match v6 — restore sketch proportions after the ceiling-overlay experiment. */
+.stage[data-visual-preset="sketch"] .architecture{
+  background:none!important;
+}
+.stage[data-visual-preset="sketch"]:after{
+  bottom:-17%;
+  height:52%!important;
+  background:
+    radial-gradient(ellipse at 50% 2%,rgba(93,217,255,.25) 0 15%,rgba(122,84,255,.16) 30%,transparent 58%),
+    repeating-radial-gradient(ellipse at 50% 0,rgba(82,184,255,.20) 0 2px,transparent 3px 32px),
+    repeating-linear-gradient(90deg,rgba(87,213,255,.045) 0 1px,transparent 1px 15px),
+    linear-gradient(180deg,rgba(73,79,165,.88),rgba(42,39,111,.92))!important;
+  border-top-color:rgba(117,224,255,.34)!important;
+  box-shadow:
+    0 -6px 32px rgba(50,150,255,.25),
+    inset 0 20px 48px rgba(121,78,255,.14)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.32) contrast(1.14) brightness(1.025);
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .crown{
+  font-size:29px!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentityFocused .crown{
+  font-size:32px!important;
+}
