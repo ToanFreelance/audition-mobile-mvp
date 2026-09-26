@@ -954,3 +954,61 @@
     linear-gradient(194deg,transparent 0 44%,rgba(61,113,188,.74) 45% 50%,transparent 51%) 85% 0/24px 30px no-repeat;
   opacity:.86;
 }
+
+
+/* P5.6 sketch-match v10 — seamless transparent header and optically centered navigation. */
+.phone[data-visual-preset="sketch"] .header{
+  background:transparent!important;
+  border-bottom:0!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.phone[data-visual-preset="sketch"] .stageWrap:before{
+  top:calc(-72px - env(safe-area-inset-top,0px))!important;
+  height:calc(94px + env(safe-area-inset-top,0px))!important;
+  background:
+    radial-gradient(ellipse 20% 90% at 15% 68%,rgba(83,217,255,.17) 0%,rgba(62,155,255,.07) 38%,transparent 74%),
+    radial-gradient(ellipse 19% 86% at 35% 72%,rgba(132,112,255,.14) 0%,rgba(101,84,234,.055) 40%,transparent 74%),
+    radial-gradient(ellipse 19% 86% at 65% 72%,rgba(255,91,224,.14) 0%,rgba(218,66,218,.055) 40%,transparent 74%),
+    radial-gradient(ellipse 20% 90% at 85% 68%,rgba(83,221,255,.17) 0%,rgba(55,165,255,.07) 38%,transparent 74%),
+    radial-gradient(ellipse 13px 8px at 15% 60%,rgba(249,254,255,.98) 0 25%,rgba(75,159,225,.94) 27% 48%,rgba(12,18,43,.96) 50% 72%,transparent 74%),
+    radial-gradient(ellipse 12px 8px at 35% 65%,rgba(247,248,255,.97) 0 25%,rgba(106,91,207,.92) 27% 48%,rgba(16,17,49,.96) 50% 72%,transparent 74%),
+    radial-gradient(ellipse 12px 8px at 65% 65%,rgba(255,240,252,.97) 0 25%,rgba(183,74,184,.92) 27% 48%,rgba(48,17,55,.96) 50% 72%,transparent 74%),
+    radial-gradient(ellipse 13px 8px at 85% 60%,rgba(247,254,255,.98) 0 25%,rgba(74,170,229,.94) 27% 48%,rgba(11,23,50,.96) 50% 72%,transparent 74%),
+    radial-gradient(ellipse 78% 122% at 50% -34%,transparent 0 58%,rgba(89,106,211,.78) 59% 61%,rgba(26,35,96,.96) 62% 65%,rgba(86,74,184,.52) 66% 67%,transparent 68%),
+    radial-gradient(ellipse 90% 132% at 50% -43%,transparent 0 62%,rgba(39,58,137,.64) 63% 64%,transparent 65%)!important;
+  filter:drop-shadow(0 0 10px rgba(65,82,194,.18))!important;
+}
+.phone[data-visual-preset="sketch"] .stageWrap:after{
+  top:calc(-47px - env(safe-area-inset-top,0px))!important;
+  height:52px!important;
+  background:
+    linear-gradient(164deg,transparent 0 45%,rgba(78,100,183,.62) 46% 50%,transparent 51%) 15% 0/28px 38px no-repeat,
+    linear-gradient(170deg,transparent 0 45%,rgba(83,77,179,.58) 46% 50%,transparent 51%) 35% 2px/27px 40px no-repeat,
+    linear-gradient(190deg,transparent 0 45%,rgba(137,63,158,.57) 46% 50%,transparent 51%) 65% 2px/27px 40px no-repeat,
+    linear-gradient(196deg,transparent 0 45%,rgba(60,113,187,.62) 46% 50%,transparent 51%) 85% 0/28px 38px no-repeat!important;
+  opacity:.72!important;
+}
+.phone[data-visual-preset="sketch"] .stageArrow{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0!important;
+  line-height:1!important;
+  font-size:0!important;
+}
+.phone[data-visual-preset="sketch"] .stageArrow>span{
+  display:block;
+  width:13px;
+  height:13px;
+  border-top:4px solid currentColor;
+  border-right:4px solid currentColor;
+  filter:drop-shadow(0 0 4px rgba(115,238,255,.72));
+}
+.phone[data-visual-preset="sketch"] .stageArrowLeft>span{
+  transform:rotate(-135deg);
+}
+.phone[data-visual-preset="sketch"] .stageArrowRight>span{
+  transform:rotate(45deg);
+}

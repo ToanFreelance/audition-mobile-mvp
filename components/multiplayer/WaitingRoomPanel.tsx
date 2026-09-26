@@ -1673,8 +1673,8 @@ export default function WaitingRoomPanel({
 
           {!calibrationMode && orderedParticipants.length > 1 && (
             <>
-              <button className={`${styles.stageArrow} ${styles.stageArrowLeft}`} onClick={previousStagePage} type="button" aria-label="Previous participants">‹</button>
-              <button className={`${styles.stageArrow} ${styles.stageArrowRight}`} onClick={nextStagePage} type="button" aria-label="Next participants">›</button>
+              <button className={`${styles.stageArrow} ${styles.stageArrowLeft}`} onClick={previousStagePage} type="button" aria-label="Previous participants"><span aria-hidden="true" /></button>
+              <button className={`${styles.stageArrow} ${styles.stageArrowRight}`} onClick={nextStagePage} type="button" aria-label="Next participants"><span aria-hidden="true" /></button>
             </>
           )}
           {viewMode === "center" && stagePageCount > 1 && (

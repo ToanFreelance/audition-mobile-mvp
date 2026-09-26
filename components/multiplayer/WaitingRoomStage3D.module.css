@@ -1358,3 +1358,27 @@
     0 -8px 38px rgba(46,173,255,.28),
     inset 0 24px 55px rgba(148,68,255,.17)!important;
 }
+
+
+/* P5.6 sketch-match v10 — wider standing area and crisp neon brand. */
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:30.5%!important;
+  opacity:.60!important;
+  filter:none!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(49px,8.7vw,59px)!important;
+  color:#ef56e6!important;
+  -webkit-text-stroke:.8px rgba(242,129,255,.42)!important;
+  text-shadow:
+    0 0 2px rgba(255,187,248,.70),
+    0 0 7px rgba(255,69,224,.58),
+    0 0 15px rgba(163,72,255,.36)!important;
+  filter:none!important;
+}
+.stage[data-visual-preset="sketch"]:after{
+  left:-27%!important;
+  right:-27%!important;
+  bottom:-11%!important;
+  height:61%!important;
+}
