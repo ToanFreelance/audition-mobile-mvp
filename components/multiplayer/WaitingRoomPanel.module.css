@@ -1038,3 +1038,16 @@
   content:none!important;
   display:none!important;
 }
+
+
+/* P5.6 sketch-match v12 — use the bottom safe area efficiently. */
+.phone[data-visual-preset="sketch"] .actions{
+  padding-bottom:2px!important;
+}
+.phone[data-visual-preset="sketch"] .safeBottom{
+  height:0!important;
+  min-height:0!important;
+}
+.phone[data-visual-preset="sketch"] .songCard{
+  margin-bottom:5px!important;
+}

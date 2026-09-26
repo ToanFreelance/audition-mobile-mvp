@@ -265,11 +265,11 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 3.06, rotationY: 0, scale: 1.02 },
-  leftNear: { x: -1.20, y: 0.045, z: 1.30, rotationY: 0.028, scale: 0.82 },
-  rightNear: { x: 1.22, y: 0.045, z: 1.26, rotationY: -0.028, scale: 0.82 },
-  leftOuter: { x: -2.60, y: 0.12, z: -0.24, rotationY: 0.052, scale: 0.82 },
-  rightOuter: { x: 2.62, y: 0.12, z: -0.28, rotationY: -0.052, scale: 0.82 },
+  center: { x: 0, y: 0, z: 3.06, rotationY: 0, scale: 0.99 },
+  leftNear: { x: -1.20, y: 0.045, z: 1.30, rotationY: 0.028, scale: 0.80 },
+  rightNear: { x: 1.22, y: 0.045, z: 1.26, rotationY: -0.028, scale: 0.80 },
+  leftOuter: { x: -2.60, y: 0.12, z: -0.24, rotationY: 0.052, scale: 0.80 },
+  rightOuter: { x: 2.62, y: 0.12, z: -0.28, rotationY: -0.052, scale: 0.80 },
 } as const;
 
 function wideSlotPlacement(
@@ -522,13 +522,13 @@ function createSketchStageTruss() {
   });
 
   const upperPoints = [
-    new THREE.Vector3(-4.65, 5.12, -0.72),
-    new THREE.Vector3(-3.15, 5.42, -0.72),
-    new THREE.Vector3(-1.55, 5.62, -0.72),
-    new THREE.Vector3(0, 5.70, -0.72),
-    new THREE.Vector3(1.55, 5.62, -0.72),
-    new THREE.Vector3(3.15, 5.42, -0.72),
-    new THREE.Vector3(4.65, 5.12, -0.72),
+    new THREE.Vector3(-4.80, 5.72, -0.72),
+    new THREE.Vector3(-3.20, 5.54, -0.72),
+    new THREE.Vector3(-1.60, 5.34, -0.72),
+    new THREE.Vector3(0, 5.20, -0.72),
+    new THREE.Vector3(1.60, 5.34, -0.72),
+    new THREE.Vector3(3.20, 5.54, -0.72),
+    new THREE.Vector3(4.80, 5.72, -0.72),
   ];
   const lowerPoints = upperPoints.map(point => point.clone().add(new THREE.Vector3(0, -0.24, 0.025)));
   const upperCurve = new THREE.CatmullRomCurve3(upperPoints);
@@ -555,6 +555,25 @@ function createSketchStageTruss() {
   return group;
 }
 
+function createSketchBulbGlowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  const gradient = context.createRadialGradient(32, 32, 2, 32, 32, 31);
+  gradient.addColorStop(0, "rgba(255,255,255,0.96)");
+  gradient.addColorStop(0.18, "rgba(255,255,255,0.68)");
+  gradient.addColorStop(0.46, "rgba(255,255,255,0.18)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 64, 64);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function createSketchSpotBeam(
   source: THREE.Vector3,
   target: THREE.Vector3,
@@ -576,7 +595,7 @@ function createSketchSpotBeam(
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: opacity * 0.24,
+      opacity: opacity * 0.15,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -593,7 +612,7 @@ function createSketchSpotBeam(
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: opacity * 0.52,
+      opacity: opacity * 0.34,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -610,7 +629,7 @@ function createSketchSpotBeam(
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: opacity * 0.86,
+      opacity: opacity * 0.62,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -635,31 +654,40 @@ function createSketchSpotBeam(
   housing.quaternion.copy(beamQuaternion);
   group.add(housing);
 
+  const lensQuaternion = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 0, 1),
+    directionNormal,
+  );
   const lens = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.125, 18, 12),
+    new THREE.CircleGeometry(radius * 0.105, 24),
     new THREE.MeshBasicMaterial({
       color: 0xf8fdff,
       transparent: true,
-      opacity: 0.98,
+      opacity: 0.78,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
+      toneMapped: false,
     }),
   );
-  lens.position.copy(source).add(directionNormal.clone().multiplyScalar(0.13));
+  lens.position.copy(source).add(directionNormal.clone().multiplyScalar(0.14));
+  lens.quaternion.copy(lensQuaternion);
   group.add(lens);
 
-  const sourceGlow = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.30, 18, 12),
-    new THREE.MeshBasicMaterial({
+  const glowTexture = createSketchBulbGlowTexture();
+  if (glowTexture) {
+    const sourceGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTexture,
       color,
       transparent: true,
-      opacity: 0.17,
+      opacity: 0.34,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
-    }),
-  );
-  sourceGlow.position.copy(lens.position);
-  group.add(sourceGlow);
+      toneMapped: false,
+    }));
+    sourceGlow.position.copy(lens.position);
+    sourceGlow.scale.setScalar(radius * 0.72);
+    group.add(sourceGlow);
+  }
 
   return group;
 }
@@ -937,7 +965,7 @@ export default function WaitingRoomStage3D({
       ];
       beamSpecs.forEach((spec, index) => {
         const normalizedX = Math.min(1, Math.abs(spec.x) / 2.72);
-        const sourceY = 5.12 + (1 - normalizedX) * 0.48;
+        const sourceY = 5.22 + normalizedX * 0.48;
         const source = new THREE.Vector3(spec.x, sourceY, -0.46);
         const target = new THREE.Vector3(spec.targetX, 0.12, 1.02 + (index % 2) * 0.28);
         scene.add(createSketchSpotBeam(
@@ -1152,7 +1180,7 @@ export default function WaitingRoomStage3D({
         const selectedRing = participant.participantId === selected;
         node.ring.userData.emphasis = selectedRing ? 1 : participant.role === "host" ? 0.55 : 0;
         node.ring.userData.depthBoost = visualPresetRef.current === "sketch" && Math.abs(x) > 2.3
-          ? 1
+          ? 1.55
           : 0;
       });
 
@@ -1330,10 +1358,10 @@ export default function WaitingRoomStage3D({
           const depthBoost = Number(node.ring.userData.depthBoost ?? 0);
           if (sketchRing) {
             if (underglowMaterial) underglowMaterial.opacity = 0.025 + wave * 0.018 + depthBoost * 0.018 + emphasis * 0.01;
-            if (haloMaterial) haloMaterial.opacity = 0.13 + wave * 0.06 + depthBoost * 0.19 + emphasis * 0.025;
-            if (outerMaterial) outerMaterial.opacity = 0.84 + wave * 0.08 + depthBoost * 0.08 + emphasis * 0.025;
-            if (coreMaterial) coreMaterial.opacity = 0.91 + wave * 0.05 + depthBoost * 0.06 + emphasis * 0.015;
-            if (innerMaterial) innerMaterial.opacity = 0.70 + wave * 0.06 + depthBoost * 0.10 + emphasis * 0.015;
+            if (haloMaterial) haloMaterial.opacity = 0.13 + wave * 0.06 + depthBoost * 0.13 + emphasis * 0.025;
+            if (outerMaterial) outerMaterial.opacity = 0.84 + wave * 0.08 + depthBoost * 0.10 + emphasis * 0.025;
+            if (coreMaterial) coreMaterial.opacity = 0.91 + wave * 0.05 + depthBoost * 0.08 + emphasis * 0.015;
+            if (innerMaterial) innerMaterial.opacity = 0.70 + wave * 0.06 + depthBoost * 0.11 + emphasis * 0.015;
             if (shineMaterial) shineMaterial.opacity = 0.035 + wave * 0.018 + depthBoost * 0.012;
             if (floorMaterial) floorMaterial.opacity = 0.018 + wave * 0.014 + depthBoost * 0.025 + emphasis * 0.008;
           } else {
@@ -1831,8 +1859,9 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "compressed-neon" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v11" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v12" : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
+      data-backdrop-geometry={visualPreset === "sketch" ? "inward-curves" : "standard"}
       data-ring-palette={visualPreset === "sketch" ? "catalog-gender" : "slot"}
       data-ring-geometry={visualPreset === "sketch" ? "two-bold-one-thin" : "standard"}
       data-ring-reflection={visualPreset === "sketch" ? "excluded" : "default"}

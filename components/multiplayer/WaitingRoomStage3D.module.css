@@ -1405,3 +1405,52 @@
     0 -5px 24px rgba(45,144,255,.16),
     inset 0 18px 42px rgba(132,65,255,.10)!important;
 }
+
+
+/* P5.6 sketch-match v12 — inward-curved venue architecture and raised brand. */
+.stage[data-visual-preset="sketch"] .architecture:before{
+  left:-18%!important;
+  right:-18%!important;
+  top:7%!important;
+  width:auto!important;
+  height:61%!important;
+  transform:none!important;
+  opacity:.78!important;
+  background:
+    repeating-radial-gradient(
+      ellipse 78% 68% at 50% -16%,
+      transparent 0 29px,
+      rgba(63,80,166,.74) 30px 32px,
+      rgba(112,74,207,.24) 33px 34px,
+      transparent 35px 58px
+    ),
+    radial-gradient(ellipse at 50% 40%,rgba(54,64,151,.18),transparent 64%)!important;
+  box-shadow:none!important;
+}
+.stage[data-visual-preset="sketch"] .architecture:after{
+  left:-10%!important;
+  right:-10%!important;
+  top:8%!important;
+  width:auto!important;
+  height:59%!important;
+  transform:none!important;
+  opacity:.46!important;
+  background:
+    repeating-radial-gradient(
+      ellipse 92% 76% at 50% -20%,
+      transparent 0 44px,
+      rgba(48,59,133,.42) 45px 46px,
+      transparent 47px 79px
+    )!important;
+  box-shadow:none!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:25.8%!important;
+  opacity:.64!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  text-shadow:
+    0 0 2px rgba(255,190,248,.72),
+    0 0 6px rgba(255,74,226,.54),
+    0 0 13px rgba(163,72,255,.32)!important;
+}
