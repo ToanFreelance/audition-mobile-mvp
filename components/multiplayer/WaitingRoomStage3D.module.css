@@ -1214,3 +1214,40 @@
     0 0 11px rgba(255,45,125,.46),
     0 1px 2px rgba(46,0,18,.94)!important;
 }
+
+
+/* P5.6 sketch-match v5 — taller grand-stage ceiling, softer floor mirror and stronger depth hierarchy. */
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(circle at 12% 52px,rgba(220,248,255,.96) 0 3px,rgba(85,180,255,.58) 4px 7px,transparent 8px),
+    radial-gradient(circle at 29% 52px,rgba(196,228,255,.92) 0 2px,rgba(105,92,255,.52) 3px 6px,transparent 7px),
+    radial-gradient(circle at 50% 52px,rgba(221,225,255,.94) 0 2px,rgba(132,94,255,.46) 3px 6px,transparent 7px),
+    radial-gradient(circle at 71% 52px,rgba(255,209,248,.92) 0 2px,rgba(255,77,218,.50) 3px 6px,transparent 7px),
+    radial-gradient(circle at 88% 52px,rgba(220,248,255,.96) 0 3px,rgba(70,207,255,.56) 4px 7px,transparent 8px),
+    linear-gradient(180deg,rgba(78,91,183,.90),rgba(28,37,101,.94)) 0 42px/100% 5px no-repeat,
+    repeating-linear-gradient(35deg,transparent 0 18px,rgba(87,104,202,.58) 19px 22px,transparent 23px 38px) 0 18px/100% 25px no-repeat,
+    repeating-linear-gradient(-35deg,transparent 0 18px,rgba(87,104,202,.54) 19px 22px,transparent 23px 38px) 0 18px/100% 25px no-repeat,
+    linear-gradient(180deg,rgba(5,8,28,.64),rgba(8,10,35,.14) 68%,transparent) 0 0/100% 70px no-repeat;
+}
+.stage[data-visual-preset="sketch"]:after{
+  bottom:-12%;
+  height:57%!important;
+  background:
+    radial-gradient(ellipse at 50% 4%,rgba(95,214,255,.24) 0 13%,rgba(136,80,255,.18) 28%,transparent 55%),
+    repeating-radial-gradient(ellipse at 50% 0,rgba(86,188,255,.24) 0 2px,transparent 3px 31px),
+    repeating-linear-gradient(90deg,rgba(88,219,255,.055) 0 1px,transparent 1px 15px),
+    linear-gradient(180deg,rgba(67,70,150,.92),rgba(35,32,98,.96))!important;
+  border-top-color:rgba(111,219,255,.38)!important;
+  box-shadow:
+    0 -7px 38px rgba(46,149,255,.32),
+    inset 0 25px 58px rgba(126,74,255,.20)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.34) contrast(1.15) brightness(1.045);
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .crown{
+  font-size:30px!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentityFocused .crown{
+  font-size:34px!important;
+}

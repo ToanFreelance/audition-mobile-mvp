@@ -183,8 +183,8 @@ function tintActor(
     if (colored.color) {
       colored.color.lerp(tint, sketchPolish ? 0.055 : 0.12);
       if (sketchPolish) {
-        colored.color.offsetHSL(0, 0.055, -0.01);
-        colored.color.lerp(new THREE.Color(0xffdfcf), 0.025);
+        colored.color.offsetHSL(0, 0.065, 0.005);
+        colored.color.lerp(new THREE.Color(0xffdcc8), 0.035);
       }
     }
     if (sketchPolish && next instanceof THREE.MeshStandardMaterial) {
@@ -257,11 +257,11 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 2.68, rotationY: 0, scale: 0.91 },
+  center: { x: 0, y: 0, z: 2.96, rotationY: 0, scale: 0.98 },
   leftNear: { x: -1.20, y: 0.035, z: 1.18, rotationY: 0.028, scale: 0.78 },
   rightNear: { x: 1.22, y: 0.035, z: 1.14, rotationY: -0.028, scale: 0.78 },
-  leftOuter: { x: -2.28, y: 0.08, z: -0.30, rotationY: 0.052, scale: 0.72 },
-  rightOuter: { x: 2.30, y: 0.08, z: -0.34, rotationY: -0.052, scale: 0.72 },
+  leftOuter: { x: -2.56, y: 0.08, z: -0.46, rotationY: 0.052, scale: 0.70 },
+  rightOuter: { x: 2.58, y: 0.08, z: -0.50, rotationY: -0.052, scale: 0.70 },
 } as const;
 
 function wideSlotPlacement(
@@ -618,28 +618,28 @@ export default function WaitingRoomStage3D({
     mount.appendChild(renderer.domElement);
 
     scene.add(new THREE.HemisphereLight(
-      sketchVisual ? 0x879cff : 0x9bb4ff,
+      sketchVisual ? 0x929fff : 0x9bb4ff,
       sketchVisual ? 0x020311 : 0x050510,
-      sketchVisual ? 1.16 : 1.34,
+      sketchVisual ? 1.08 : 1.34,
     ));
 
     const key = new THREE.DirectionalLight(
-      sketchVisual ? 0xffe4d2 : 0xf8fbff,
-      sketchVisual ? 2.34 : 2.32,
+      sketchVisual ? 0xffe0cc : 0xf8fbff,
+      sketchVisual ? 2.28 : 2.32,
     );
     key.position.set(1.8, 6.8, 5.9);
     scene.add(key);
 
     const frontFill = new THREE.DirectionalLight(
-      sketchVisual ? 0xfff0df : 0xffffff,
-      sketchVisual ? 0.86 : 0.82,
+      sketchVisual ? 0xffead8 : 0xffffff,
+      sketchVisual ? 1.02 : 0.82,
     );
     frontFill.position.set(0, 3.2, 6.8);
     scene.add(frontFill);
 
     const cyanRim = new THREE.SpotLight(
       sketchVisual ? 0x20e8ff : 0x42dcff,
-      sketchVisual ? 22 : 16,
+      sketchVisual ? 18.5 : 16,
       16,
       Math.PI / 4.2,
       0.72,
@@ -651,7 +651,7 @@ export default function WaitingRoomStage3D({
 
     const magentaRim = new THREE.SpotLight(
       sketchVisual ? 0xff20d5 : 0xff43cc,
-      sketchVisual ? 21 : 15,
+      sketchVisual ? 18.5 : 15,
       16,
       Math.PI / 4.2,
       0.72,
@@ -693,13 +693,13 @@ export default function WaitingRoomStage3D({
             color: 0x99b7ff,
             map: sketchFloorTexture ?? undefined,
             transparent: true,
-            opacity: 0.54,
-            emissive: 0x080527,
-            emissiveIntensity: 0.16,
-            roughness: 0.08,
-            metalness: 0.50,
+            opacity: 0.68,
+            emissive: 0x0a082c,
+            emissiveIntensity: 0.20,
+            roughness: 0.14,
+            metalness: 0.42,
             clearcoat: 1,
-            clearcoatRoughness: 0.025,
+            clearcoatRoughness: 0.05,
             depthWrite: false,
           })
         : new THREE.MeshStandardMaterial({
@@ -717,7 +717,7 @@ export default function WaitingRoomStage3D({
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
       color: sketchVisual ? 0x46cfff : 0xb983ff,
       transparent: true,
-      opacity: sketchVisual ? 0.27 : 0.19,
+      opacity: sketchVisual ? 0.31 : 0.19,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -739,7 +739,7 @@ export default function WaitingRoomStage3D({
       new THREE.MeshBasicMaterial({
         color: sketchVisual ? 0x8a55ff : 0xe39a7c,
         transparent: true,
-        opacity: sketchVisual ? 0.08 : 0.12,
+        opacity: sketchVisual ? 0.12 : 0.12,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -751,11 +751,11 @@ export default function WaitingRoomStage3D({
 
     if (sketchVisual) {
       const beamSpecs = [
-        { x: -2.55, color: 0x35dfff, targetX: -1.75, opacity: 0.060 },
-        { x: -1.30, color: 0x8b58ff, targetX: -0.95, opacity: 0.050 },
-        { x: 0.00, color: 0x5f8cff, targetX: 0.00, opacity: 0.042 },
-        { x: 1.30, color: 0xff39dc, targetX: 0.95, opacity: 0.052 },
-        { x: 2.55, color: 0x3bdcff, targetX: 1.75, opacity: 0.060 },
+        { x: -2.55, color: 0x35dfff, targetX: -1.75, opacity: 0.048 },
+        { x: -1.30, color: 0x8b58ff, targetX: -0.95, opacity: 0.040 },
+        { x: 0.00, color: 0x5f8cff, targetX: 0.00, opacity: 0.032 },
+        { x: 1.30, color: 0xff39dc, targetX: 0.95, opacity: 0.042 },
+        { x: 2.55, color: 0x3bdcff, targetX: 1.75, opacity: 0.048 },
       ];
       beamSpecs.forEach((spec, index) => {
         const source = new THREE.Vector3(spec.x, 5.45, -0.10);
@@ -764,16 +764,16 @@ export default function WaitingRoomStage3D({
           source,
           target,
           spec.color,
-          index === 2 ? 1.04 : 0.82,
+          index === 2 ? 0.84 : 0.68,
           spec.opacity,
         ));
 
         const spot = new THREE.SpotLight(
           spec.color,
-          index === 2 ? 16 : 19,
+          index === 2 ? 15 : 17,
           10.5,
-          Math.PI / 5.4,
-          0.82,
+          Math.PI / 6.0,
+          0.86,
           1.45,
         );
         spot.position.copy(source);
@@ -921,7 +921,7 @@ export default function WaitingRoomStage3D({
           rotationY = placement.rotationY;
           actorScale = placement.scale;
           ringScale = visualPresetRef.current === "sketch"
-            ? placement.scale
+            ? placement.scale * 1.14
             : participant.participantId === selected ? 0.96 : placement.scale;
           if (participant.participantId === selected && visualPresetRef.current !== "sketch") {
             actorScale *= 1.03;
@@ -976,7 +976,10 @@ export default function WaitingRoomStage3D({
           visualPresetRef.current,
         );
         placeholder.group.position.set(placement.x, placement.y + 0.02, placement.z);
-        placeholder.group.scale.setScalar(Math.max(0.48, placement.scale));
+        placeholder.group.scale.setScalar(Math.max(
+          0.48,
+          placement.scale * (visualPresetRef.current === "sketch" ? 1.12 : 1),
+        ));
         const showPlaceholder = current.viewMode === "wide"
           && placeholder.slotIndex < WAITING_ROOM_MAX_PLAYERS
           && slot?.state !== "occupied";
@@ -1637,7 +1640,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "compressed-neon" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v4" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v5" : "off"}
       data-ring-reflection={visualPreset === "sketch" ? "excluded" : "default"}
       data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
       data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}
