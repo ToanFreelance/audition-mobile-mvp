@@ -313,6 +313,27 @@ Preferred workflow:
 
 After an important architecture fix, do not chain many unrelated tasks before review.
 
+
+## Stable Phase Preview Alias Policy
+
+Each product phase / milestone must keep one stable work branch for the lifetime of that phase.
+
+Use Vercel's generated Git Branch URL as the official QA origin for that phase:
+
+`<project>-git-<branch>-<scope>.vercel.app`
+
+Rules:
+
+- do not use deployment-specific hash URLs as the normal owner QA link;
+- every commit within the same phase continues to deploy behind the same Git Branch URL;
+- use a fresh `_vercel_share` token only when deployment protection requires it; changing the query token must not change the hostname;
+- browser Cache Storage is origin-scoped, so keeping the hostname stable allows heavy runtime assets to be reused across commits;
+- when a new phase starts, create its own work branch and record/use its new stable Vercel Git Branch URL as that phase's QA origin;
+- do not rename or replace the phase branch merely for visual iterations;
+- deployment-specific URLs may still be used for debugging an exact historical commit, but not as the default owner test link.
+
+This policy exists to reduce repeated Supabase asset egress during iterative mobile QA.
+
 ## Git / Commit / Report Requirements
 
 Do not merge `development` or `main` automatically.
