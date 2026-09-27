@@ -8,37 +8,37 @@ export function createSketchStageSet() {
   set.name = "SketchStageSet";
 
   const treadMaterial = new THREE.MeshStandardMaterial({
-    color: 0x201451,
-    emissive: 0x221155,
-    emissiveIntensity: 0.35,
+    color: 0x28165e,
+    emissive: 0x32146c,
+    emissiveIntensity: 0.50,
     roughness: 0.25,
     metalness: 0.42,
     side: THREE.DoubleSide,
   });
   const riserMaterial = new THREE.MeshStandardMaterial({
-    color: 0x080c2b,
-    emissive: 0x12123d,
-    emissiveIntensity: 0.28,
+    color: 0x090d31,
+    emissive: 0x17164a,
+    emissiveIntensity: 0.42,
     roughness: 0.36,
     metalness: 0.3,
     side: THREE.DoubleSide,
   });
   const edgeMaterial = new THREE.MeshBasicMaterial({
-    color: 0xa97aff,
+    color: 0xc9a2ff,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
   const edgeGlowMaterial = new THREE.MeshBasicMaterial({
-    color: 0xa457ed,
+    color: 0xb86cff,
     transparent: true,
-    opacity: 0.19,
+    opacity: 0.30,
     depthWrite: false,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
     toneMapped: false,
   });
   const footlightMaterial = new THREE.MeshBasicMaterial({
-    color: 0xf0d2ff,
+    color: 0xf7dcff,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
@@ -47,7 +47,7 @@ export function createSketchStageSet() {
   // becomes visible mainly toward the sides, matching the approved visual.
   const frontZ = (x: number, tier: number) => {
     const normalized = Math.min(1, Math.abs(x) / 7.6);
-    return -1.08 - tier * 0.87 + 2.05 * Math.pow(normalized, 1.82);
+    return -1.04 - tier * 0.92 + 2.48 * Math.pow(normalized, 1.72);
   };
   const ribbon = (
     startX: number,
@@ -75,23 +75,23 @@ export function createSketchStageSet() {
   };
 
   for (let tier = 0; tier < 3; tier += 1) {
-    const top = 0.30 + tier * 0.34;
-    const bottom = tier === 0 ? -0.035 : top - 0.34;
+    const top = 0.30 + tier * 0.41;
+    const bottom = tier === 0 ? -0.035 : top - 0.41;
     const group = new THREE.Group();
     group.name = `SketchRiser:${tier + 1}`;
     group.add(
       ribbon(-7.6, 7.6,
         x => new THREE.Vector3(x, top, frontZ(x, tier)),
-        x => new THREE.Vector3(x, top, -4.6), treadMaterial),
+        x => new THREE.Vector3(x, top, -4.9), treadMaterial),
       ribbon(-7.6, 7.6,
         x => new THREE.Vector3(x, bottom, frontZ(x, tier)),
         x => new THREE.Vector3(x, top, frontZ(x, tier)), riserMaterial),
       ribbon(-7.6, 7.6,
         x => new THREE.Vector3(x, top + 0.004, frontZ(x, tier)),
-        x => new THREE.Vector3(x, top + 0.004, frontZ(x, tier) - 0.028), edgeMaterial),
+        x => new THREE.Vector3(x, top + 0.004, frontZ(x, tier) - 0.038), edgeMaterial),
       ribbon(-7.6, 7.6,
         x => new THREE.Vector3(x, top + 0.006, frontZ(x, tier) + 0.035),
-        x => new THREE.Vector3(x, top + 0.006, frontZ(x, tier) - 0.10), edgeGlowMaterial),
+        x => new THREE.Vector3(x, top + 0.006, frontZ(x, tier) - 0.15), edgeGlowMaterial),
     );
     // Small inset lamps give the front edge a real stage-riser rhythm.
     const lampGeometries: THREE.BufferGeometry[] = [];
@@ -108,18 +108,28 @@ export function createSketchStageSet() {
   }
 
   const railMaterial = new THREE.MeshStandardMaterial({
-    color: 0x292659,
-    emissive: 0x372879,
-    emissiveIntensity: 0.52,
-    metalness: 0.5,
-    roughness: 0.4,
+    color: 0x566bd0,
+    emissive: 0x596bf4,
+    emissiveIntensity: 1.05,
+    metalness: 0.48,
+    roughness: 0.30,
+    toneMapped: false,
+  });
+  const railGlowMaterial = new THREE.MeshBasicMaterial({
+    color: 0x7485ff,
+    transparent: true,
+    opacity: 0.15,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
   });
   const uprightMaterial = new THREE.MeshStandardMaterial({
-    color: 0x151735,
-    emissive: 0x211744,
-    emissiveIntensity: 0.25,
-    roughness: 0.42,
-    metalness: 0.55,
+    color: 0x22295d,
+    emissive: 0x39428f,
+    emissiveIntensity: 0.58,
+    roughness: 0.34,
+    metalness: 0.52,
+    toneMapped: false,
   });
   const tube = (points: THREE.Vector3[], radius: number, material: THREE.Material) => (
     new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), 32, radius, 6, false), material)
@@ -127,14 +137,14 @@ export function createSketchStageSet() {
   const lightColumn = (x: number, z: number, bottom: number, top: number, color: number) => {
     const group = new THREE.Group();
     const height = top - bottom;
-    const housing = new THREE.Mesh(new THREE.BoxGeometry(0.15, height + 0.10, 0.13), uprightMaterial);
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.085, height), new THREE.MeshBasicMaterial({
+    const housing = new THREE.Mesh(new THREE.BoxGeometry(0.17, height + 0.10, 0.14), uprightMaterial);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.11, height), new THREE.MeshBasicMaterial({
       color, toneMapped: false,
     }));
     face.position.z = 0.073;
     group.add(housing, face);
     // Narrow layered halos keep the illuminated column readable without a solid beam.
-    for (const [width, opacity] of [[0.16, 0.16], [0.30, 0.065], [0.50, 0.025]]) {
+    for (const [width, opacity] of [[0.18, 0.28], [0.34, 0.10], [0.56, 0.04]]) {
       const glow = new THREE.Mesh(new THREE.PlaneGeometry(width, height + 0.06), new THREE.MeshBasicMaterial({
         color, transparent: true, opacity, depthWrite: false,
         blending: THREE.AdditiveBlending, toneMapped: false,
@@ -150,29 +160,33 @@ export function createSketchStageSet() {
     const wing = new THREE.Group();
     wing.name = side < 0 ? "SketchWing:left" : "SketchWing:right";
     for (let row = 0; row < 8; row += 1) {
-      const y = 1.10 + row * 0.525;
-      wing.add(tube([
-        new THREE.Vector3(side * 2.46, y, -3.64),
-        new THREE.Vector3(side * 3.18, y, -3.18),
-        new THREE.Vector3(side * 4.12, y, -2.28),
-        new THREE.Vector3(side * 5.52, y, -0.70),
-      ], 0.017, railMaterial));
+      const y = 1.08 + row * 0.535;
+      const points = [
+        new THREE.Vector3(side * 2.55, y, -3.74),
+        new THREE.Vector3(side * 3.20, y + 0.025, -3.34),
+        new THREE.Vector3(side * 4.02, y + 0.075, -2.42),
+        new THREE.Vector3(side * 5.58, y + 0.18, -0.48),
+      ];
+      wing.add(
+        tube(points, 0.024, railMaterial),
+        tube(points, 0.043, railGlowMaterial),
+      );
     }
-    for (const [x, z, height] of [[2.38, -3.62, 4.02], [3.20, -3.10, 4.20], [4.20, -2.08, 4.34]]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.043, height, 0.06), uprightMaterial);
-      post.position.set(side * x, 0.94 + height / 2, z);
+    for (const [x, z, height] of [[2.50, -3.70, 4.18], [3.22, -3.30, 4.36], [4.08, -2.36, 4.54]]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.050, height, 0.07), uprightMaterial);
+      post.position.set(side * x, 0.90 + height / 2, z);
       wing.add(post);
     }
     wing.add(
       lightColumn(
-        side * 4.28,
-        -0.82,
-        0.82,
-        5.02,
+        side * 3.92,
+        -0.92,
+        0.78,
+        5.18,
         side < 0 ? 0x57eaff : 0xff55dc,
       ),
     );
-    for (const material of [railMaterial, uprightMaterial]) {
+    for (const material of [railMaterial, railGlowMaterial, uprightMaterial]) {
       const meshes: THREE.Mesh[] = [];
       wing.updateMatrixWorld(true);
       wing.traverse(object => {

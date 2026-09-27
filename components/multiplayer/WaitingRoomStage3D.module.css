@@ -1561,3 +1561,40 @@
   margin-top:8px!important;
   opacity:.92!important;
 }
+
+
+/* P5.6 sketch-match v19 — restore venue structure and match golden-sketch depth. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 53% 42% at 50% 31%,rgba(208,52,255,.37) 0%,rgba(135,41,225,.23) 32%,rgba(64,35,145,.10) 57%,transparent 74%),
+    radial-gradient(ellipse 36% 66% at 0% 45%,rgba(39,220,255,.25) 0%,rgba(31,114,245,.11) 48%,transparent 75%),
+    radial-gradient(ellipse 36% 66% at 100% 45%,rgba(255,53,219,.25) 0%,rgba(186,50,235,.11) 48%,transparent 75%),
+    linear-gradient(180deg,#03061a 0%,#090b34 23%,#160947 47%,#080d35 77%,#030617 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.36) contrast(1.16) brightness(1.035)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:21.9%!important;
+  width:79%!important;
+  opacity:1!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(55px,9.9vw,69px)!important;
+  letter-spacing:-.065em!important;
+  color:rgba(234,47,234,.11)!important;
+  -webkit-text-stroke:1.65px #ff72f5!important;
+  text-shadow:
+    0 0 3px rgba(255,220,255,.78),
+    0 0 9px rgba(255,77,239,.68),
+    0 0 21px rgba(211,44,244,.47),
+    0 0 38px rgba(108,58,255,.24)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:7px!important;
+  font-size:clamp(8px,1.35vw,10px)!important;
+  color:#aebcff!important;
+  opacity:.98!important;
+  letter-spacing:.31em!important;
+  text-shadow:0 0 5px rgba(112,138,255,.62),0 0 12px rgba(95,81,255,.35)!important;
+}
