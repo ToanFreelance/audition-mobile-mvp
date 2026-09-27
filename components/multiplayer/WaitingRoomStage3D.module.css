@@ -1685,3 +1685,76 @@
     0 0 4px rgba(205,215,255,.62),
     0 0 11px rgba(94,108,255,.40)!important;
 }
+
+
+/* P5.6 V22 precision blueprint — measured reference values, debug guides isolated by query flag. */
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:color-mix(in srgb,var(--sketch-logo-fill) 18%,transparent)!important;
+  -webkit-text-stroke:1.65px var(--sketch-logo-edge)!important;
+  text-shadow:
+    0 0 3px color-mix(in srgb,var(--sketch-logo-edge) 86%,white 14%),
+    0 0 9px color-mix(in srgb,var(--sketch-logo-glow) 72%,transparent),
+    0 0 21px color-mix(in srgb,var(--sketch-logo-glow) 48%,transparent),
+    0 0 38px rgba(108,58,255,.22)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:var(--sketch-logo-subtitle)!important;
+}
+.stage[data-visual-preset="sketch"] .ready{
+  color:var(--sketch-ready)!important;
+}
+.stage[data-visual-preset="sketch"] .notReady{
+  color:var(--sketch-not-ready)!important;
+}
+.stage[data-visual-preset="sketch"] .crown{
+  color:var(--sketch-crown)!important;
+}
+.blueprintGuides{
+  position:absolute;
+  z-index:20;
+  inset:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+.blueprintCenterLine{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:1px;
+  background:rgba(255,255,255,.34);
+}
+.blueprintOpening{
+  position:absolute;
+  top:0;
+  height:100%;
+  border-left:1px dashed rgba(255,229,80,.56);
+  border-right:1px dashed rgba(255,229,80,.56);
+  background:linear-gradient(90deg,rgba(255,229,80,.025),transparent 18%,transparent 82%,rgba(255,229,80,.025));
+}
+.blueprintLogoBox{
+  position:absolute;
+  border:1px solid rgba(255,235,100,.78);
+  box-shadow:0 0 0 1px rgba(0,0,0,.45),0 0 8px rgba(255,230,91,.28);
+}
+.blueprintColumnPoint,.blueprintRingPoint{
+  position:absolute;
+  width:12px;
+  height:12px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 0 8px rgba(255,255,255,.52);
+}
+.blueprintColumnPoint:before,.blueprintRingPoint:before,
+.blueprintColumnPoint:after,.blueprintRingPoint:after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  background:rgba(255,255,255,.75);
+  transform:translate(-50%,-50%);
+}
+.blueprintColumnPoint:before,.blueprintRingPoint:before{width:20px;height:1px}
+.blueprintColumnPoint:after,.blueprintRingPoint:after{width:1px;height:20px}
+.blueprintColumnPoint{border-color:#ffe668}
+.blueprintRingPoint{border-color:#7ff7fe}

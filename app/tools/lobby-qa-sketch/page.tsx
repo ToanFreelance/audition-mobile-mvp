@@ -6,6 +6,7 @@ type LobbyQaSketchPageProps = {
     client?: string;
     room?: string;
     calibrate?: string;
+    blueprint?: string;
   }>;
 };
 
@@ -22,6 +23,7 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
     <WaitingRoomPanel
       initialSync={initialSync}
       calibrationMode={params.calibrate === "1"}
+      blueprintMode={params.blueprint === "1"}
       visualPreset="sketch"
     />
   );

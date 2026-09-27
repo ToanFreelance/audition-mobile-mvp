@@ -120,7 +120,8 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v21");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v22-blueprint");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v1");
   await expect(stage).toHaveAttribute("data-ceiling-source", "threejs");
   await expect(stage).toHaveAttribute("data-stage-risers", "3");
   await expect(stage).toHaveAttribute("data-backdrop-geometry", "target-tiered-stage");
@@ -157,4 +158,16 @@ test("P5.6 sketch compare keeps focus and avatar selection on the same participa
   await page.getByRole("button", { name: "Previous participants" }).click();
   await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
   await expect(page.getByTestId("slot-0")).toHaveAttribute("data-selected", "1");
+});
+
+
+test("P5.6 precision blueprint route exposes measured overlay guides only when requested", async ({ page }) => {
+  await page.goto("/tools/lobby-qa-sketch?blueprint=1");
+
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v1");
+  await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(1);
+
+  await page.goto("/tools/lobby-qa-sketch");
+  await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(0);
 });

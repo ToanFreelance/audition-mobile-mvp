@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
@@ -27,6 +27,13 @@ import {
   selectRoomParticipantIdleIndices,
 } from "./lobby-idle-selection";
 import { createSketchStageSet } from "./waiting-room-sketch-set";
+import {
+  WAITING_ROOM_SKETCH_BLUEPRINT,
+  sketchColorCss,
+  sketchColorRgba,
+  sketchStagePoint,
+  sketchStageRect,
+} from "./waiting-room-sketch-blueprint";
 import styles from "./WaitingRoomStage3D.module.css";
 
 export type WaitingRoomStageView = "wide" | "center" | "close";
@@ -53,6 +60,7 @@ type Props = {
   selectedParticipantId: string | null;
   pageSize?: number;
   calibrationMode?: boolean;
+  blueprintMode?: boolean;
   calibrationResetToken?: number;
   onCalibrationLayoutChange?: (layout: WaitingRoomCalibrationLayout) => void;
   onSelectParticipant?: (participant: RoomParticipant) => void;
@@ -95,8 +103,8 @@ type IdleRuntime = {
 const IDLE_RENDER_FPS = 30;
 const IDLE_CROSSFADE_SECONDS = 0.35;
 const SLOT_ACCENTS = [0x43dfff, 0xff4fcf, 0x69efae, 0xff5fbd, 0xa968ff, 0x56b4ff] as const;
-const SKETCH_CYAN_RING_ACCENT = 0x79e4ff;
-const SKETCH_PINK_RING_ACCENT = 0xff68df;
+const SKETCH_CYAN_RING_ACCENT = WAITING_ROOM_SKETCH_BLUEPRINT.palette.rings.maleCyan;
+const SKETCH_PINK_RING_ACCENT = WAITING_ROOM_SKETCH_BLUEPRINT.palette.rings.femalePink;
 
 function participantAccent(participant: RoomParticipant) {
   return SLOT_ACCENTS[participant.slotIndex] ?? 0x43dfff;
@@ -268,15 +276,7 @@ const WIDE_ARC_PLACEMENTS = {
   rightOuter: { x: 3.0732, y: 0.30, z: 0.053, rotationY: -0.095, scale: 0.52 },
 } as const;
 
-const SKETCH_WIDE_ARC_PLACEMENTS = {
-  // V20 target silhouette: keep the host dominant, pull the near pair inward,
-  // and push the outer pair deeper so the five actors sit inside the venue frame.
-  center: { x: 0, y: 0, z: 3.92, rotationY: 0, scale: 0.87 },
-  leftNear: { x: -1.12, y: 0.045, z: 2.12, rotationY: 0.028, scale: 0.69 },
-  rightNear: { x: 1.14, y: 0.045, z: 2.08, rotationY: -0.028, scale: 0.69 },
-  leftOuter: { x: -2.34, y: 0.12, z: 0.24, rotationY: 0.052, scale: 0.65 },
-  rightOuter: { x: 2.36, y: 0.12, z: 0.20, rotationY: -0.052, scale: 0.65 },
-} as const;
+const SKETCH_WIDE_ARC_PLACEMENTS = WAITING_ROOM_SKETCH_BLUEPRINT.scene.formation;
 
 function wideSlotPlacement(
   slotIndex: number,
@@ -449,29 +449,30 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   const context = canvas.getContext("2d");
   if (!context) return null;
 
+  const palette = WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor;
   const base = context.createLinearGradient(0, 0, 0, 512);
-  base.addColorStop(0, "#06102f");
-  base.addColorStop(0.46, "#0c1547");
-  base.addColorStop(0.73, "#1a0d50");
-  base.addColorStop(1, "#050a28");
+  base.addColorStop(0, sketchColorCss(palette.baseDark));
+  base.addColorStop(0.46, sketchColorCss(palette.baseMid));
+  base.addColorStop(0.73, sketchColorCss(palette.baseViolet));
+  base.addColorStop(1, sketchColorCss(palette.baseDark));
   context.fillStyle = base;
   context.fillRect(0, 0, 512, 512);
 
   const centerGlow = context.createRadialGradient(256, 318, 20, 256, 318, 250);
-  centerGlow.addColorStop(0, "rgba(140,84,255,.31)");
-  centerGlow.addColorStop(0.50, "rgba(113,62,229,.17)");
+  centerGlow.addColorStop(0, sketchColorRgba(palette.violetReflection, 0.31));
+  centerGlow.addColorStop(0.50, sketchColorRgba(palette.violetReflection, 0.17));
   centerGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = centerGlow;
   context.fillRect(0, 0, 512, 512);
 
   const leftGlow = context.createRadialGradient(118, 330, 8, 118, 330, 155);
-  leftGlow.addColorStop(0, "rgba(47,221,255,.28)");
+  leftGlow.addColorStop(0, sketchColorRgba(palette.cyanReflection, 0.28));
   leftGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = leftGlow;
   context.fillRect(0, 0, 512, 512);
 
   const rightGlow = context.createRadialGradient(394, 330, 8, 394, 330, 155);
-  rightGlow.addColorStop(0, "rgba(255,55,214,.27)");
+  rightGlow.addColorStop(0, sketchColorRgba(palette.magentaReflection, 0.27));
   rightGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = rightGlow;
   context.fillRect(0, 0, 512, 512);
@@ -479,8 +480,8 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   for (let index = 0; index <= 8; index += 1) {
     const coordinate = index * 64;
     context.strokeStyle = index % 2
-      ? "rgba(255,62,223,.17)"
-      : "rgba(62,216,255,.17)";
+      ? sketchColorRgba(palette.magentaReflection, 0.17)
+      : sketchColorRgba(palette.cyanReflection, 0.17);
     context.lineWidth = index === 4 ? 1.65 : 0.90;
     context.beginPath();
     context.moveTo(coordinate, 0);
@@ -493,9 +494,9 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   }
 
   for (const [x, tint] of [
-    [116, "rgba(64,224,255,.30)"],
-    [256, "rgba(154,110,255,.22)"],
-    [396, "rgba(255,73,221,.30)"],
+    [116, sketchColorRgba(palette.cyanReflection, 0.30)],
+    [256, sketchColorRgba(palette.violetReflection, 0.22)],
+    [396, sketchColorRgba(palette.magentaReflection, 0.30)],
   ] as const) {
     const streak = context.createLinearGradient(x - 38, 0, x + 38, 0);
     streak.addColorStop(0, "rgba(255,255,255,0)");
@@ -735,6 +736,7 @@ export default function WaitingRoomStage3D({
   selectedParticipantId,
   pageSize = 2,
   calibrationMode = false,
+  blueprintMode = false,
   calibrationResetToken = 0,
   onCalibrationLayoutChange,
   onSelectParticipant,
@@ -848,20 +850,20 @@ export default function WaitingRoomStage3D({
     mount.appendChild(renderer.domElement);
 
     scene.add(new THREE.HemisphereLight(
-      sketchVisual ? 0x929fff : 0x9bb4ff,
-      sketchVisual ? 0x020311 : 0x050510,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.hemisphereSky : 0x9bb4ff,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.hemisphereGround : 0x050510,
       sketchVisual ? 0.98 : 1.34,
     ));
 
     const key = new THREE.DirectionalLight(
-      sketchVisual ? 0xffe0cc : 0xf8fbff,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.key : 0xf8fbff,
       sketchVisual ? 2.14 : 2.32,
     );
     key.position.set(1.8, 6.8, 5.9);
     scene.add(key);
 
     const frontFill = new THREE.DirectionalLight(
-      sketchVisual ? 0xffead8 : 0xffffff,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.fill : 0xffffff,
       sketchVisual ? 0.76 : 0.82,
     );
     frontFill.position.set(0, 3.2, 6.8);
@@ -905,11 +907,11 @@ export default function WaitingRoomStage3D({
         640,
         Math.max(320, Math.round(Math.min(window.innerWidth, 640) * 0.82)),
       );
-      sketchReflector = new Reflector(new THREE.CircleGeometry(9.0, 96), {
+      sketchReflector = new Reflector(new THREE.CircleGeometry(WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius, 96), {
         clipBias: 0.0025,
         textureWidth: reflectionSize,
         textureHeight: reflectionSize,
-        color: 0x121a49,
+        color: WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.reflectorTint,
       });
       sketchReflector.rotation.x = -Math.PI / 2;
       sketchReflector.position.set(0, -0.056, 0.18);
@@ -917,19 +919,22 @@ export default function WaitingRoomStage3D({
     }
 
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(sketchVisual ? 9.0 : 5.75, sketchVisual ? 96 : 64),
+      new THREE.CircleGeometry(
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius : 5.75,
+        sketchVisual ? 96 : 64,
+      ),
       sketchVisual
         ? new THREE.MeshPhysicalMaterial({
-            color: 0x7188c8,
+            color: WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.surface,
             map: sketchFloorTexture ?? undefined,
             transparent: true,
-            opacity: 0.74,
-            emissive: 0x0c0a34,
-            emissiveIntensity: 0.18,
-            roughness: 0.14,
-            metalness: 0.38,
-            clearcoat: 1,
-            clearcoatRoughness: 0.06,
+            opacity: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.opacity,
+            emissive: WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.emissive,
+            emissiveIntensity: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.emissiveIntensity,
+            roughness: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.roughness,
+            metalness: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.metalness,
+            clearcoat: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.clearcoat,
+            clearcoatRoughness: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.clearcoatRoughness,
             depthWrite: false,
           })
         : new THREE.MeshStandardMaterial({
@@ -945,7 +950,7 @@ export default function WaitingRoomStage3D({
     scene.add(floor);
 
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
-      color: sketchVisual ? 0x5f64e8 : 0xb983ff,
+      color: sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.halo : 0xb983ff,
       transparent: true,
       opacity: sketchVisual ? 0.075 : 0.19,
       side: THREE.DoubleSide,
@@ -954,8 +959,8 @@ export default function WaitingRoomStage3D({
     });
     const floorHalo = new THREE.Mesh(
       new THREE.RingGeometry(
-        sketchVisual ? 4.45 : 3.55,
-        sketchVisual ? 8.40 : 5.35,
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.haloInner : 3.55,
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.haloOuter : 5.35,
         sketchVisual ? 80 : 64,
       ),
       floorHaloMaterial,
@@ -965,9 +970,12 @@ export default function WaitingRoomStage3D({
     scene.add(floorHalo);
 
     const runway = new THREE.Mesh(
-      new THREE.PlaneGeometry(sketchVisual ? 9.55 : 5.9, sketchVisual ? 3.35 : 2.2),
+      new THREE.PlaneGeometry(
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.runwayWidth : 5.9,
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.runwayDepth : 2.2,
+      ),
       new THREE.MeshBasicMaterial({
-        color: sketchVisual ? 0x8a55ff : 0xe39a7c,
+        color: sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.runway : 0xe39a7c,
         transparent: true,
         opacity: sketchVisual ? 0.038 : 0.12,
         side: THREE.DoubleSide,
@@ -982,14 +990,7 @@ export default function WaitingRoomStage3D({
     if (sketchVisual) {
       scene.add(createSketchStageSet(), createSketchStageTruss());
 
-      const beamSpecs = [
-        { x: -3.44, y: 5.86, z: -2.34, color: 0x62ddff, targetX: -2.55, opacity: 0.18 },
-        { x: -1.76, y: 5.68, z: -3.08, color: 0x78bfff, targetX: -0.92, opacity: 0.14 },
-        { x: -0.88, y: 5.62, z: -3.24, color: 0xb96dff, targetX: -0.30, opacity: 0.065 },
-        { x: 0.88, y: 5.62, z: -3.24, color: 0xd96bec, targetX: 0.30, opacity: 0.065 },
-        { x: 1.76, y: 5.68, z: -3.08, color: 0xea72e1, targetX: 0.92, opacity: 0.14 },
-        { x: 3.44, y: 5.86, z: -2.34, color: 0xff65dc, targetX: 2.55, opacity: 0.18 },
-      ];
+      const beamSpecs = WAITING_ROOM_SKETCH_BLUEPRINT.scene.beams;
       beamSpecs.forEach(spec => {
         const source = new THREE.Vector3(spec.x, spec.y, spec.z);
         const target = new THREE.Vector3(spec.targetX, 0.48, -1.25);
@@ -1084,7 +1085,9 @@ export default function WaitingRoomStage3D({
         const labelAnchorTop = viewRef.current.viewMode === "close"
           ? Math.max(y - 34, 64)
           : y + (sketchWideIdentity
-            ? node.participant.role === "host" ? -48 : -14
+            ? node.participant.role === "host"
+              ? WAITING_ROOM_SKETCH_BLUEPRINT.ownerOverrides.hostWideLabelOffsetPx
+              : WAITING_ROOM_SKETCH_BLUEPRINT.ownerOverrides.guestWideLabelOffsetPx
             : -8);
         element.style.left = `${x}px`;
         element.style.top = `${labelAnchorTop}px`;
@@ -1246,9 +1249,10 @@ export default function WaitingRoomStage3D({
 
       if (current.viewMode === "wide") {
         if (visualPresetRef.current === "sketch") {
-          camera.fov = 35;
-          camera.position.set(0, 3.84, 12.78);
-          camera.lookAt(0, 1.86, 0.50);
+          const sketchCamera = WAITING_ROOM_SKETCH_BLUEPRINT.scene.camera.wide;
+          camera.fov = sketchCamera.fov;
+          camera.position.set(sketchCamera.position.x, sketchCamera.position.y, sketchCamera.position.z);
+          camera.lookAt(sketchCamera.lookAt.x, sketchCamera.lookAt.y, sketchCamera.lookAt.z);
         } else {
           camera.fov = 30;
           camera.position.set(0, 4.25, 13.05);
@@ -1877,9 +1881,33 @@ export default function WaitingRoomStage3D({
     };
   }, [roomId, visualPreset]);
 
+  const sketchCssVariables = visualPreset === "sketch"
+    ? ({
+        "--sketch-logo-fill": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.fill),
+        "--sketch-logo-edge": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.edge),
+        "--sketch-logo-glow": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.glow),
+        "--sketch-logo-subtitle": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.subtitle),
+        "--sketch-ready": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.status.ready),
+        "--sketch-not-ready": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.status.notReady),
+        "--sketch-crown": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.crown.highlight),
+      } as CSSProperties)
+    : undefined;
+
+  const blueprintLogoRect = sketchStageRect(WAITING_ROOM_SKETCH_BLUEPRINT.screen.logo.bbox);
+  const blueprintLeftColumn = sketchStagePoint(WAITING_ROOM_SKETCH_BLUEPRINT.screen.columns.leftCenter);
+  const blueprintRightColumn = sketchStagePoint(WAITING_ROOM_SKETCH_BLUEPRINT.screen.columns.rightCenter);
+  const blueprintRingPoints = Object.entries(WAITING_ROOM_SKETCH_BLUEPRINT.screen.rings).map(([name, point]) => ({
+    name,
+    point: sketchStagePoint(point),
+  }));
+  const blueprintOpeningLeft = WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.leftX;
+  const blueprintOpeningWidth = WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.rightX
+    - WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.leftX;
+
   return (
     <div
       className={styles.stage}
+      style={sketchCssVariables}
       data-testid="waiting-room-stage"
       data-stage={stageId}
       data-view={viewMode}
@@ -1898,7 +1926,8 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v21" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v22-blueprint" : "off"}
+      data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}
       data-ring-palette={visualPreset === "sketch" ? "catalog-gender" : "slot"}
@@ -1918,6 +1947,45 @@ export default function WaitingRoomStage3D({
         </div>
       </div>
       <div className={styles.canvas} ref={mountRef} />
+      {blueprintMode && visualPreset === "sketch" && (
+        <div className={styles.blueprintGuides} data-testid="sketch-blueprint-guides" aria-hidden="true">
+          <span className={styles.blueprintCenterLine} style={{ left: "50%" }} />
+          <span
+            className={styles.blueprintOpening}
+            style={{
+              left: `${blueprintOpeningLeft * 100}%`,
+              width: `${blueprintOpeningWidth * 100}%`,
+            }}
+          />
+          <span
+            className={styles.blueprintLogoBox}
+            style={{
+              left: `${blueprintLogoRect.x * 100}%`,
+              top: `${blueprintLogoRect.y * 100}%`,
+              width: `${blueprintLogoRect.width * 100}%`,
+              height: `${blueprintLogoRect.height * 100}%`,
+            }}
+          />
+          <span
+            className={styles.blueprintColumnPoint}
+            data-guide="left-column"
+            style={{ left: `${blueprintLeftColumn.x * 100}%`, top: `${blueprintLeftColumn.y * 100}%` }}
+          />
+          <span
+            className={styles.blueprintColumnPoint}
+            data-guide="right-column"
+            style={{ left: `${blueprintRightColumn.x * 100}%`, top: `${blueprintRightColumn.y * 100}%` }}
+          />
+          {blueprintRingPoints.map(({ name, point }) => (
+            <span
+              className={styles.blueprintRingPoint}
+              data-guide={name}
+              key={name}
+              style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }}
+            />
+          ))}
+        </div>
+      )}
       <div
         aria-hidden={stagePresentationReady ? "true" : "false"}
         className={`${styles.stageLoading} ${stagePresentationReady ? styles.stageLoadingReady : ""}`}
