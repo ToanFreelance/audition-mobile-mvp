@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import {
   CHARACTER_CATALOG_V1,
@@ -25,6 +26,7 @@ import {
   selectParticipantNextIdleIndex,
   selectRoomParticipantIdleIndices,
 } from "./lobby-idle-selection";
+import { createSketchStageSet } from "./waiting-room-sketch-set";
 import styles from "./WaitingRoomStage3D.module.css";
 
 export type WaitingRoomStageView = "wide" | "center" | "close";
@@ -93,8 +95,8 @@ type IdleRuntime = {
 const IDLE_RENDER_FPS = 30;
 const IDLE_CROSSFADE_SECONDS = 0.35;
 const SLOT_ACCENTS = [0x43dfff, 0xff4fcf, 0x69efae, 0xff5fbd, 0xa968ff, 0x56b4ff] as const;
-const SKETCH_CYAN_RING_ACCENT = 0x88d8f0;
-const SKETCH_PINK_RING_ACCENT = 0xee7adb;
+const SKETCH_CYAN_RING_ACCENT = 0x87dafa;
+const SKETCH_PINK_RING_ACCENT = 0xf575df;
 
 function participantAccent(participant: RoomParticipant) {
   return SLOT_ACCENTS[participant.slotIndex] ?? 0x43dfff;
@@ -361,7 +363,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const outer = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.922 : 0.95, sketchPolish ? 0.96 : 1.035, 64),
+    new THREE.RingGeometry(sketchPolish ? 0.916 : 0.95, sketchPolish ? 0.96 : 1.035, sketchPolish ? 128 : 64),
     outerMaterial,
   );
   outer.rotation.x = -Math.PI / 2;
@@ -377,7 +379,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const core = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.755 : 0.79, sketchPolish ? 0.80 : 0.875, 64),
+    new THREE.RingGeometry(sketchPolish ? 0.755 : 0.79, sketchPolish ? 0.80 : 0.875, sketchPolish ? 128 : 64),
     coreMaterial,
   );
   core.rotation.x = -Math.PI / 2;
@@ -393,7 +395,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const inner = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.60 : 0.55, sketchPolish ? 0.612 : 0.59, 64),
+    new THREE.RingGeometry(sketchPolish ? 0.60 : 0.55, sketchPolish ? 0.615 : 0.59, sketchPolish ? 128 : 64),
     innerMaterial,
   );
   inner.rotation.x = -Math.PI / 2;
@@ -427,7 +429,7 @@ function createParticipantRing(
   group.userData.shineMaterial = shineMaterial;
   group.userData.floorMaterial = floorMaterial;
   group.userData.sketchPolish = sketchPolish;
-  group.userData.depthScale = sketchPolish ? 0.72 : 1;
+  group.userData.depthScale = sketchPolish ? 0.78 : 1;
   group.userData.accent = color;
   if (sketchPolish) {
     // Keep decals parallel to the floor; compress depth without tilting their plane.
@@ -514,7 +516,7 @@ function createSketchStageTruss() {
   const trussMaterial = new THREE.MeshStandardMaterial({
     color: 0x354783,
     emissive: 0x1f2a68,
-    emissiveIntensity: 0.78,
+    emissiveIntensity: 0.40,
     roughness: 0.38,
     metalness: 0.56,
   });
@@ -527,35 +529,43 @@ function createSketchStageTruss() {
   });
 
   const upperPoints = [
-    new THREE.Vector3(-4.80, 5.72, -0.72),
-    new THREE.Vector3(-3.20, 5.59, -0.72),
-    new THREE.Vector3(-1.60, 5.52, -0.72),
-    new THREE.Vector3(0, 5.50, -0.72),
-    new THREE.Vector3(1.60, 5.52, -0.72),
-    new THREE.Vector3(3.20, 5.59, -0.72),
-    new THREE.Vector3(4.80, 5.72, -0.72),
+    new THREE.Vector3(-6.0, 5.17, -1.30),
+    new THREE.Vector3(-4.0, 5.07, -2.15),
+    new THREE.Vector3(-2.0, 4.96, -3.08),
+    new THREE.Vector3(0, 4.93, -3.35),
+    new THREE.Vector3(2.0, 4.96, -3.08),
+    new THREE.Vector3(4.0, 5.07, -2.15),
+    new THREE.Vector3(6.0, 5.17, -1.30),
   ];
-  const lowerPoints = upperPoints.map(point => point.clone().add(new THREE.Vector3(0, -0.24, 0.025)));
+  const lowerPoints = upperPoints.map(point => point.clone().add(new THREE.Vector3(0, -0.18, 0.025)));
   const upperCurve = new THREE.CatmullRomCurve3(upperPoints);
   const lowerCurve = new THREE.CatmullRomCurve3(lowerPoints);
 
   group.add(
-    new THREE.Mesh(new THREE.TubeGeometry(upperCurve, 64, 0.055, 8, false), trussMaterial),
-    new THREE.Mesh(new THREE.TubeGeometry(lowerCurve, 64, 0.050, 8, false), trussMaterial),
-    new THREE.Mesh(new THREE.TubeGeometry(upperCurve, 64, 0.115, 8, false), glowMaterial),
+    new THREE.Mesh(new THREE.TubeGeometry(upperCurve, 64, 0.026, 8, false), trussMaterial),
+    new THREE.Mesh(new THREE.TubeGeometry(lowerCurve, 64, 0.024, 8, false), trussMaterial),
+    new THREE.Mesh(new THREE.TubeGeometry(upperCurve, 64, 0.050, 8, false), glowMaterial),
   );
 
-  const braceSteps = 12;
+  const braceSteps = 28;
+  const braceGeometries: THREE.BufferGeometry[] = [];
+  const addBrace = (start: THREE.Vector3, end: THREE.Vector3, radius: number) => {
+    const brace = createCylinderBetween(start, end, radius, trussMaterial);
+    brace.updateMatrix();
+    braceGeometries.push(brace.geometry.applyMatrix4(brace.matrix));
+  };
   for (let index = 0; index <= braceSteps; index += 1) {
     const t = index / braceSteps;
     const upper = upperCurve.getPointAt(t);
     const lower = lowerCurve.getPointAt(t);
-    group.add(createCylinderBetween(upper, lower, 0.026, trussMaterial));
+    addBrace(upper, lower, 0.014);
     if (index < braceSteps) {
-      const nextLower = lowerCurve.getPointAt((index + 1) / braceSteps);
-      group.add(createCylinderBetween(upper, nextLower, 0.018, trussMaterial));
+      addBrace(upper, lowerCurve.getPointAt((index + 1) / braceSteps), 0.010);
     }
   }
+  const braces = mergeGeometries(braceGeometries);
+  braceGeometries.forEach(geometry => geometry.dispose());
+  if (braces) group.add(new THREE.Mesh(braces, trussMaterial));
 
   return group;
 }
@@ -595,55 +605,48 @@ function createSketchSpotBeam(
     directionNormal,
   );
 
-  const outerBeam = new THREE.Mesh(
-    new THREE.ConeGeometry(radius * 1.34, length, 36, 1, true),
-    new THREE.MeshBasicMaterial({
-      color,
+  const beam = new THREE.Mesh(
+    new THREE.ConeGeometry(radius, length, 32, 1, true),
+    new THREE.ShaderMaterial({
+      uniforms: {
+        lightColor: { value: new THREE.Color(color) },
+        lightOpacity: { value: opacity },
+      },
+      vertexShader: `
+        varying vec2 beamUv;
+        varying vec3 beamNormal;
+        varying vec3 beamView;
+        void main() {
+          beamUv = uv;
+          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+          beamNormal = normalize(normalMatrix * normal);
+          beamView = -viewPosition.xyz;
+          gl_Position = projectionMatrix * viewPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 lightColor;
+        uniform float lightOpacity;
+        varying vec2 beamUv;
+        varying vec3 beamNormal;
+        varying vec3 beamView;
+        void main() {
+          float feather = pow(abs(dot(normalize(beamNormal), normalize(beamView))), 1.5);
+          float fade = smoothstep(0.0, 0.65, beamUv.y) * (0.3 + 0.7 * beamUv.y);
+          gl_FragColor = vec4(lightColor, lightOpacity * feather * fade);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
       transparent: true,
-      opacity: opacity * 0.15,
-      side: THREE.DoubleSide,
       depthWrite: false,
+      side: THREE.DoubleSide,
       blending: THREE.AdditiveBlending,
     }),
   );
-  outerBeam.position.copy(source).add(target).multiplyScalar(0.5);
-  outerBeam.quaternion.copy(beamQuaternion);
-  outerBeam.renderOrder = -3;
-  group.add(outerBeam);
-
-  const midTarget = source.clone().add(directionNormal.clone().multiplyScalar(length * 0.92));
-  const midBeam = new THREE.Mesh(
-    new THREE.ConeGeometry(radius * 0.92, length * 0.92, 36, 1, true),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: opacity * 0.34,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    }),
-  );
-  midBeam.position.copy(source).add(midTarget).multiplyScalar(0.5);
-  midBeam.quaternion.copy(beamQuaternion);
-  midBeam.renderOrder = -2;
-  group.add(midBeam);
-
-  const innerTarget = source.clone().add(directionNormal.clone().multiplyScalar(length * 0.74));
-  const innerBeam = new THREE.Mesh(
-    new THREE.ConeGeometry(radius * 0.54, length * 0.74, 32, 1, true),
-    new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: opacity * 0.62,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    }),
-  );
-  innerBeam.position.copy(source).add(innerTarget).multiplyScalar(0.5);
-  innerBeam.quaternion.copy(beamQuaternion);
-  innerBeam.renderOrder = -1;
-  group.add(innerBeam);
+  beam.position.copy(source).add(target).multiplyScalar(0.5);
+  beam.quaternion.copy(beamQuaternion);
+  group.add(beam);
 
   const housing = new THREE.Mesh(
     new THREE.CylinderGeometry(radius * 0.12, radius * 0.18, 0.24, 18),
@@ -959,31 +962,24 @@ export default function WaitingRoomStage3D({
     scene.add(runway);
 
     if (sketchVisual) {
-      scene.add(createSketchStageTruss());
+      scene.add(createSketchStageSet(), createSketchStageTruss());
 
       const beamSpecs = [
-        { x: -2.72, color: 0x52e5ff, targetX: -1.86, opacity: 0.052 },
-        { x: -1.36, color: 0x8f6cff, targetX: -0.98, opacity: 0.043 },
-        { x: 0.00, color: 0x7a78ff, targetX: 0.00, opacity: 0.036 },
-        { x: 1.36, color: 0xff55dc, targetX: 0.98, opacity: 0.045 },
-        { x: 2.72, color: 0x55e2ff, targetX: 1.86, opacity: 0.052 },
+        { x: -3.25, y: 4.82, z: -2.35, color: 0x80cfff, targetX: -2.45, opacity: 0.20 },
+        { x: -1.58, y: 4.73, z: -3.08, color: 0x85c7ff, targetX: -0.76, opacity: 0.15 },
+        { x: -0.92, y: 4.72, z: -3.20, color: 0xb05bea, targetX: -0.30, opacity: 0.07 },
+        { x: 0.92, y: 4.72, z: -3.20, color: 0xb05bea, targetX: 0.30, opacity: 0.07 },
+        { x: 1.58, y: 4.73, z: -3.08, color: 0x85c7ff, targetX: 0.76, opacity: 0.15 },
+        { x: 3.25, y: 4.82, z: -2.35, color: 0x80cfff, targetX: 2.45, opacity: 0.20 },
       ];
-      beamSpecs.forEach((spec, index) => {
-        const normalizedX = Math.min(1, Math.abs(spec.x) / 2.72);
-        const sourceY = 5.26 + normalizedX * normalizedX * 0.07;
-        const source = new THREE.Vector3(spec.x, sourceY, -0.46);
-        const target = new THREE.Vector3(spec.targetX, 0.12, 1.02 + (index % 2) * 0.28);
-        scene.add(createSketchSpotBeam(
-          source,
-          target,
-          spec.color,
-          index === 2 ? 0.84 : 0.68,
-          spec.opacity,
-        ));
+      beamSpecs.forEach(spec => {
+        const source = new THREE.Vector3(spec.x, spec.y, spec.z);
+        const target = new THREE.Vector3(spec.targetX, 0.48, -1.25);
+        scene.add(createSketchSpotBeam(source, target, spec.color, 0.66, spec.opacity));
 
         const spot = new THREE.SpotLight(
           spec.color,
-          index === 2 ? 15 : 17,
+          12,
           10.5,
           Math.PI / 6.0,
           0.86,
@@ -1374,9 +1370,9 @@ export default function WaitingRoomStage3D({
           if (sketchRing) {
             // A quiet luminous decal, with bounded alpha even on the distant slots.
             if (underglowMaterial) underglowMaterial.opacity = 0.020 + wave * 0.004 + emphasis * 0.006;
-            if (haloMaterial) haloMaterial.opacity = 0.065 + wave * 0.008 + depthBoost * 0.015 + emphasis * 0.012;
-            if (outerMaterial) outerMaterial.opacity = 0.84 + wave * 0.015 + depthBoost * 0.025 + emphasis * 0.025;
-            if (coreMaterial) coreMaterial.opacity = 0.88 + wave * 0.012 + depthBoost * 0.025 + emphasis * 0.020;
+            if (haloMaterial) haloMaterial.opacity = 0.13 + wave * 0.008 + depthBoost * 0.025 + emphasis * 0.015;
+            if (outerMaterial) outerMaterial.opacity = 0.92 + wave * 0.010 + depthBoost * 0.020 + emphasis * 0.020;
+            if (coreMaterial) coreMaterial.opacity = 0.94 + wave * 0.010 + depthBoost * 0.015 + emphasis * 0.015;
             if (innerMaterial) innerMaterial.opacity = 0.46 + wave * 0.010 + depthBoost * 0.025 + emphasis * 0.020;
             if (shineMaterial) shineMaterial.opacity = 0.018 + wave * 0.004;
             if (floorMaterial) floorMaterial.opacity = 0.015 + wave * 0.003 + emphasis * 0.004;
@@ -1875,11 +1871,12 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v14" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v15" : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
-      data-backdrop-geometry={visualPreset === "sketch" ? "shallow-side-wings" : "standard"}
+      data-backdrop-geometry={visualPreset === "sketch" ? "threejs-tiered-stage" : "standard"}
       data-ring-palette={visualPreset === "sketch" ? "sketch-display-position" : "slot"}
       data-ring-geometry={visualPreset === "sketch" ? "two-medium-one-fine" : "standard"}
+      data-stage-risers={visualPreset === "sketch" ? "3" : "0"}
       data-ring-reflection={visualPreset === "sketch" ? "excluded" : "default"}
       data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
       data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}
