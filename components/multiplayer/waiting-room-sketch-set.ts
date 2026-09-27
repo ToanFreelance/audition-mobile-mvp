@@ -54,21 +54,23 @@ export function createSketchStageSet() {
     side: THREE.DoubleSide,
   });
 
-  const backdropGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(scene.backdrop.width, scene.backdrop.height),
-    new THREE.MeshBasicMaterial({
-      color: palette.logo.glow,
-      transparent: true,
-      opacity: scene.backdrop.glowOpacity,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      toneMapped: false,
-      side: THREE.DoubleSide,
-    }),
-  );
-  backdropGlow.name = "SketchBackdropGlow";
-  backdropGlow.position.set(0, scene.backdrop.y, scene.backdrop.z);
-  set.add(backdropGlow);
+  if (!blueprint.traceArchitecture.enabled) {
+    const backdropGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(scene.backdrop.width, scene.backdrop.height),
+      new THREE.MeshBasicMaterial({
+        color: palette.logo.glow,
+        transparent: true,
+        opacity: scene.backdrop.glowOpacity,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        toneMapped: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    backdropGlow.name = "SketchBackdropGlow";
+    backdropGlow.position.set(0, scene.backdrop.y, scene.backdrop.z);
+    set.add(backdropGlow);
+  }
 
   const frontZ = (x: number, tier: number) => {
     const normalized = Math.min(1, Math.abs(x) / scene.risers.halfWidth);
@@ -101,7 +103,7 @@ export function createSketchStageSet() {
     return new THREE.Mesh(geometry, materialValue);
   };
 
-  for (let tier = 0; tier < scene.risers.count; tier += 1) {
+  if (!blueprint.traceArchitecture.enabled) for (let tier = 0; tier < scene.risers.count; tier += 1) {
     const top = scene.risers.topStart + tier * scene.risers.topStep;
     const bottom = tier === 0 ? -0.035 : top - scene.risers.topStep;
     const group = new THREE.Group();

@@ -855,7 +855,7 @@ export default function WaitingRoomStage3D({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = sketchVisual ? 1.13 : 1.16;
+    renderer.toneMappingExposure = sketchVisual ? 1.15 : 1.16;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
 
@@ -1947,8 +1947,10 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v27-stage-trace" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v28-full-stage-trace" : "off"}
       data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
+      data-riser-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
+      data-floor-grid={visualPreset === "sketch" ? "screen-trace" : "material"}
       data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "screen-trace" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}
@@ -2004,6 +2006,24 @@ export default function WaitingRoomStage3D({
                 <stop offset="0%" stopColor="#f94bfc" stopOpacity=".25" />
                 <stop offset="100%" stopColor="#950cdf" stopOpacity="0" />
               </linearGradient>
+              <linearGradient id="trace-riser-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#4d1a9d" stopOpacity=".34" />
+                <stop offset="48%" stopColor="#20105f" stopOpacity=".46" />
+                <stop offset="100%" stopColor="#080a3d" stopOpacity=".58" />
+              </linearGradient>
+              <linearGradient id="trace-riser-edge" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#596dff" />
+                <stop offset="23%" stopColor="#875cff" />
+                <stop offset="50%" stopColor="#d45cff" />
+                <stop offset="77%" stopColor="#875cff" />
+                <stop offset="100%" stopColor="#596dff" />
+              </linearGradient>
+              <linearGradient id="trace-floor-rim" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#2adfff" />
+                <stop offset="38%" stopColor="#5c76ff" />
+                <stop offset="62%" stopColor="#9a55ff" />
+                <stop offset="100%" stopColor="#f044df" />
+              </linearGradient>
               <filter id="trace-soft-glow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur stdDeviation="4" result="blur" />
                 <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
@@ -2020,6 +2040,31 @@ export default function WaitingRoomStage3D({
             <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.left} fill="url(#trace-reflection-left)" />
             <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.center} fill="url(#trace-reflection-center)" />
             <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.right} fill="url(#trace-reflection-right)" />
+
+            <g className={styles.traceRisers}>
+              {traceArchitecture.risers.map((riser, index) => (
+                <g key={riser.edge}>
+                  <path className={styles.traceRiserSurface} d={riser.surface} fill="url(#trace-riser-fill)" />
+                  <path className={styles.traceRiserGlow} d={riser.edge} />
+                  <path className={styles.traceRiserEdge} d={riser.edge} stroke="url(#trace-riser-edge)" />
+                  <path className={styles.traceRiserLowerEdge} d={riser.lowerEdge} stroke="url(#trace-riser-edge)" />
+                  <path
+                    className={styles.traceFootlights}
+                    d={riser.edge}
+                    strokeDasharray={index === 0 ? "14 36" : index === 1 ? "13 34" : "12 31"}
+                  />
+                </g>
+              ))}
+            </g>
+
+            <g className={styles.traceFloorGrid}>
+              {traceArchitecture.floor.gridVertical.map(path => <path key={`gv-${path}`} d={path} />)}
+              {traceArchitecture.floor.gridHorizontal.map(path => <path key={`gh-${path}`} d={path} />)}
+            </g>
+            <path className={styles.traceFrontRimGlow} d={traceArchitecture.floor.frontRim} />
+            <path className={styles.traceFrontRim} d={traceArchitecture.floor.frontRim} stroke="url(#trace-floor-rim)" />
+            <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideLeft} stroke="#28dfff" />
+            <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideRight} stroke="#f044df" />
 
             <g className={styles.traceRailGlow} filter="url(#trace-soft-glow)">
               {traceArchitecture.railsLeft.map(path => <path key={`lg-${path}`} d={path} stroke="url(#trace-left-rail)" />)}

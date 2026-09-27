@@ -1955,3 +1955,73 @@
 .stage[data-visual-preset="sketch"] .brand strong{
   filter:none!important;
 }
+
+
+/* P5.6 V28 full-stage trace — risers, front floor rim and perspective tile grid from golden reference. */
+.traceRiserSurface{
+  mix-blend-mode:screen;
+}
+.traceRiserEdge,.traceRiserLowerEdge,.traceRiserGlow,.traceFootlights,
+.traceFloorGrid path,.traceFrontRim,.traceFrontRimGlow,.traceFloorSide{
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.traceRiserEdge{
+  stroke-width:2.1;
+  opacity:.92;
+}
+.traceRiserLowerEdge{
+  stroke-width:1.15;
+  opacity:.44;
+}
+.traceRiserGlow{
+  stroke:#c34dff;
+  stroke-width:8;
+  opacity:.12;
+  filter:blur(2px);
+}
+.traceFootlights{
+  stroke:#f5e7ff;
+  stroke-width:2.8;
+  opacity:.90;
+  filter:drop-shadow(0 0 3px rgba(233,204,255,.86));
+}
+.traceFloorGrid path{
+  stroke:#446dff;
+  stroke-width:1.05;
+  opacity:.28;
+  filter:drop-shadow(0 0 2px rgba(41,103,255,.34));
+}
+.traceFrontRim{
+  stroke-width:2.2;
+  opacity:.90;
+}
+.traceFrontRimGlow{
+  stroke:#875cff;
+  stroke-width:10;
+  opacity:.10;
+  filter:blur(3px);
+}
+.traceFloorSide{
+  stroke-width:2.3;
+  opacity:.72;
+  filter:drop-shadow(0 0 5px currentColor);
+}
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 36% 24% at 50% 31%,rgba(172,20,219,.10) 0%,rgba(88,11,153,.035) 48%,transparent 78%),
+    linear-gradient(180deg,#02021c 0%,#06042b 21%,#10043e 45%,#08052e 72%,#02031c 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.22) contrast(1.22) brightness(1.10)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:rgba(193,5,241,.018)!important;
+  -webkit-text-stroke:1.45px #d228f3!important;
+  text-shadow:
+    0 0 2px rgba(255,229,255,.84),
+    0 0 5px rgba(210,40,243,.86),
+    0 0 12px rgba(243,41,245,.56),
+    0 0 23px rgba(121,25,221,.20)!important;
+}

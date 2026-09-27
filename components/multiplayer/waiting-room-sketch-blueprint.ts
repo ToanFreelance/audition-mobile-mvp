@@ -18,7 +18,7 @@ type SketchNeonPalette = {
 };
 
 export const WAITING_ROOM_SKETCH_BLUEPRINT = {
-  id: "golden-864x1536-v6",
+  id: "golden-864x1536-v7",
   source: {
     width: 864,
     height: 1536,
@@ -118,6 +118,42 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       left: "M 0 624 C 62 606 123 616 177 687 C 142 807 105 928 42 1044 L 0 1044 Z",
       center: "M 256 623 C 341 588 520 588 608 625 C 572 790 548 926 518 1044 L 332 1044 C 306 923 286 786 256 623 Z",
       right: "M 864 624 C 802 606 741 616 687 687 C 722 807 759 928 822 1044 L 864 1044 Z"
+    },
+    risers: [
+      {
+        surface: "M 0 501 C 181 493 683 493 864 501 L 864 529 C 680 521 184 521 0 529 Z",
+        edge: "M 0 501 C 181 493 683 493 864 501",
+        lowerEdge: "M 0 529 C 184 521 680 521 864 529"
+      },
+      {
+        surface: "M 0 541 C 190 532 674 532 864 541 L 864 574 C 672 563 192 563 0 574 Z",
+        edge: "M 0 541 C 190 532 674 532 864 541",
+        lowerEdge: "M 0 574 C 192 563 672 563 864 574"
+      },
+      {
+        surface: "M 0 587 C 203 576 661 576 864 587 L 864 630 C 650 613 214 613 0 630 Z",
+        edge: "M 0 587 C 203 576 661 576 864 587",
+        lowerEdge: "M 0 630 C 214 613 650 613 864 630"
+      }
+    ],
+    floor: {
+      frontRim: "M 0 696 C 184 663 299 650 432 648 C 565 650 680 663 864 696",
+      gridVertical: [
+        "M 356 624 L 248 1044",
+        "M 389 620 L 340 1044",
+        "M 432 618 L 432 1044",
+        "M 475 620 L 524 1044",
+        "M 508 624 L 616 1044"
+      ],
+      gridHorizontal: [
+        "M 0 714 C 181 683 683 683 864 714",
+        "M 0 775 C 190 739 674 739 864 775",
+        "M 0 844 C 202 803 662 803 864 844",
+        "M 0 920 C 214 877 650 877 864 920",
+        "M 0 1002 C 229 963 635 963 864 1002"
+      ],
+      sideLeft: "M 0 695 C 62 681 114 670 178 666",
+      sideRight: "M 686 666 C 750 670 802 681 864 695"
     }
   },
   ownerOverrides: {
@@ -175,17 +211,17 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       magenta: 0xff65dc,
     },
     floor: {
-      baseDark: 0x07072a,
-      baseMid: 0x1107af,
-      baseViolet: 0x220a73,
-      surface: 0x5a67b9,
-      emissive: 0x0c0a48,
-      reflectorTint: 0x2d1a6e,
-      halo: 0x5a68ff,
-      runway: 0x9f4eff,
-      cyanReflection: 0x1fcfff,
-      violetReflection: 0x8a47ff,
-      magentaReflection: 0xea38dc,
+      baseDark: 0x08082f,
+      baseMid: 0x1714a8,
+      baseViolet: 0x2b0b80,
+      surface: 0x6f84d2,
+      emissive: 0x11105a,
+      reflectorTint: 0x312078,
+      halo: 0x6478ff,
+      runway: 0xaa5cff,
+      cyanReflection: 0x29ddff,
+      violetReflection: 0x9758ff,
+      magentaReflection: 0xf044df,
     },
     rings: {
       maleCyan: 0x39d7ff,
@@ -203,22 +239,22 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       shadow: 0x8c5a1e,
     },
     actor: {
-      key: 0xffe2d6,
-      fill: 0xfff5ee,
-      hemisphereSky: 0x7887dc,
+      key: 0xffe6dc,
+      fill: 0xfff7f2,
+      hemisphereSky: 0x8390e8,
       hemisphereGround: 0x010108,
     },
   },
   material: {
     floor: {
-      opacity: 0.60,
-      roughness: 0.075,
-      metalness: 0.52,
+      opacity: 0.52,
+      roughness: 0.06,
+      metalness: 0.54,
       clearcoat: 1,
-      clearcoatRoughness: 0.03,
-      emissiveIntensity: 0.27,
-      haloOpacity: 0.09,
-      runwayOpacity: 0.042,
+      clearcoatRoughness: 0.025,
+      emissiveIntensity: 0.31,
+      haloOpacity: 0.095,
+      runwayOpacity: 0.048,
     },
     riser: {
       treadColor: 0x32186f,
@@ -319,15 +355,15 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
     ],
     lighting: {
       // V26: preserve deep wall values while restoring localized neon punch.
-      hemisphereIntensity: 0.68,
-      keyIntensity: 2.16,
-      fillIntensity: 0.72,
-      cyanRimIntensity: 17.2,
-      magentaRimIntensity: 17.2,
-      overheadIntensity: 11.0,
-      beamSpotIntensity: 10.4,
+      hemisphereIntensity: 0.76,
+      keyIntensity: 2.38,
+      fillIntensity: 0.88,
+      cyanRimIntensity: 17.5,
+      magentaRimIntensity: 17.5,
+      overheadIntensity: 10.5,
+      beamSpotIntensity: 10.2,
       upperGlowColor: 0x7c32ff,
-      upperGlowIntensity: 3.6,
+      upperGlowIntensity: 2.8,
     },
     truss: {
       // Golden roof: sides stay near the top edge while the center dips to ~10%
