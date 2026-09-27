@@ -1456,7 +1456,7 @@
 }
 
 
-/* P5.6 sketch-match v13 — golden-sketch side rails with a clean center backdrop. */
+/* P5.6 sketch-match v14 — shallow side wings and an open center backdrop. */
 .stage[data-visual-preset="sketch"]{
   background:
     radial-gradient(ellipse 48% 36% at 50% 34%,rgba(255,51,220,.34) 0%,rgba(190,49,235,.20) 27%,rgba(96,48,183,.08) 50%,transparent 70%),
@@ -1470,49 +1470,28 @@
     linear-gradient(180deg,rgba(10,10,39,.05),rgba(21,15,67,.13) 28%,rgba(11,12,48,.04) 72%,transparent 100%)!important;
   filter:saturate(1.36) contrast(1.12)!important;
 }
-.stage[data-visual-preset="sketch"] .architecture:before{
-  left:-5%!important;
-  right:auto!important;
-  top:9%!important;
-  width:44%!important;
-  height:59%!important;
-  opacity:.72!important;
-  transform:none!important;
+/* The SVG has bounded, shallow curves; each wing occupies only 25% of the stage. */
+.stage[data-visual-preset="sketch"] .architecture:before,
+.stage[data-visual-preset="sketch"] .architecture:after{
+  top:12%!important;
+  width:25%!important;
+  height:49%!important;
+  opacity:.70!important;
   border:0!important;
-  background:
-    repeating-radial-gradient(
-      ellipse 150% 108% at 116% -18%,
-      transparent 0 34px,
-      rgba(66,83,173,.76) 35px 37px,
-      rgba(117,80,217,.20) 38px 39px,
-      transparent 40px 67px
-    ),
-    linear-gradient(90deg,rgba(7,12,45,.64),rgba(12,15,58,.28) 70%,transparent 100%)!important;
-  -webkit-mask-image:linear-gradient(90deg,#000 0 76%,rgba(0,0,0,.62) 88%,transparent 100%);
-  mask-image:linear-gradient(90deg,#000 0 76%,rgba(0,0,0,.62) 88%,transparent 100%);
+  background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20600%22%20preserveAspectRatio%3D%22none%22%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%2346539b%22%20stroke-width%3D%223%22%3E%3Cpath%20d%3D%22M-12%208%20Q90%2042%20240%2042%22%2F%3E%3Cpath%20d%3D%22M-12%2080%20Q90%20109%20240%20109%22%2F%3E%3Cpath%20d%3D%22M-12%20152%20Q90%20176%20240%20176%22%2F%3E%3Cpath%20d%3D%22M-12%20224%20Q90%20243%20240%20243%22%2F%3E%3Cpath%20d%3D%22M-12%20296%20Q90%20310%20240%20310%22%2F%3E%3Cpath%20d%3D%22M-12%20368%20Q90%20378%20240%20378%22%2F%3E%3Cpath%20d%3D%22M-12%20440%20Q90%20446%20240%20446%22%2F%3E%3Cpath%20d%3D%22M-12%20512%20Q90%20515%20240%20515%22%2F%3E%3Cpath%20d%3D%22M-12%20584%20Q90%20584%20240%20584%22%2F%3E%3C%2Fg%3E%3Cpath%20d%3D%22M150%2026V598%22%20fill%3D%22none%22%20stroke%3D%22%233d397d%22%20stroke-width%3D%223%22%20opacity%3D%22.45%22%2F%3E%3C%2Fsvg%3E") 0 0/100% 100% no-repeat!important;
+  -webkit-mask-image:linear-gradient(90deg,#000 0 88%,transparent 100%);
+  mask-image:linear-gradient(90deg,#000 0 88%,transparent 100%);
   box-shadow:none!important;
 }
-.stage[data-visual-preset="sketch"] .architecture:after{
-  right:-5%!important;
-  left:auto!important;
-  top:9%!important;
-  width:44%!important;
-  height:59%!important;
-  opacity:.72!important;
+.stage[data-visual-preset="sketch"] .architecture:before{
+  left:0!important;
+  right:auto!important;
   transform:none!important;
-  border:0!important;
-  background:
-    repeating-radial-gradient(
-      ellipse 150% 108% at -16% -18%,
-      transparent 0 34px,
-      rgba(66,83,173,.76) 35px 37px,
-      rgba(117,80,217,.20) 38px 39px,
-      transparent 40px 67px
-    ),
-    linear-gradient(270deg,rgba(7,12,45,.64),rgba(12,15,58,.28) 70%,transparent 100%)!important;
-  -webkit-mask-image:linear-gradient(270deg,#000 0 76%,rgba(0,0,0,.62) 88%,transparent 100%);
-  mask-image:linear-gradient(270deg,#000 0 76%,rgba(0,0,0,.62) 88%,transparent 100%);
-  box-shadow:none!important;
+}
+.stage[data-visual-preset="sketch"] .architecture:after{
+  right:0!important;
+  left:auto!important;
+  transform:scaleX(-1)!important;
 }
 .stage[data-visual-preset="sketch"] .lightBarLeft{
   filter:saturate(1.22) brightness(1.16) drop-shadow(0 0 15px rgba(64,230,255,.90))!important;

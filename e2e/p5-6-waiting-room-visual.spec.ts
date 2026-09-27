@@ -119,12 +119,12 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   const stage = page.getByTestId("waiting-room-stage");
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
-  await expect(stage).toHaveAttribute("data-ring-style", "compressed-neon");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v13");
+  await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v14");
   await expect(stage).toHaveAttribute("data-ceiling-source", "threejs");
-  await expect(stage).toHaveAttribute("data-backdrop-geometry", "side-curves-clean-center");
-  await expect(stage).toHaveAttribute("data-ring-palette", "catalog-gender");
-  await expect(stage).toHaveAttribute("data-ring-geometry", "two-bold-one-thin");
+  await expect(stage).toHaveAttribute("data-backdrop-geometry", "shallow-side-wings");
+  await expect(stage).toHaveAttribute("data-ring-palette", "sketch-display-position");
+  await expect(stage).toHaveAttribute("data-ring-geometry", "two-medium-one-fine");
   await expect(stage).toHaveAttribute("data-ring-reflection", "excluded");
   await expect(stage).toHaveAttribute("data-stage-lighting", "grand");
   await expect(stage).toHaveAttribute("data-character-grade", "warm-neon");
