@@ -1598,3 +1598,46 @@
   letter-spacing:.31em!important;
   text-shadow:0 0 5px rgba(112,138,255,.62),0 0 12px rgba(95,81,255,.35)!important;
 }
+
+
+/* P5.6 sketch-match v20 — final golden venue architecture pass. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 50% 42% at 50% 31%,rgba(194,57,255,.35) 0%,rgba(124,45,216,.21) 33%,rgba(59,36,137,.09) 58%,transparent 75%),
+    radial-gradient(ellipse 35% 66% at 0% 45%,rgba(38,216,255,.24) 0%,rgba(29,105,229,.09) 48%,transparent 75%),
+    radial-gradient(ellipse 35% 66% at 100% 45%,rgba(255,55,214,.24) 0%,rgba(181,56,226,.09) 48%,transparent 75%),
+    linear-gradient(180deg,#020516 0%,#080a2c 23%,#14083e 48%,#070b2c 77%,#020514 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 43% 31% at 50% 31%,rgba(232,63,255,.13),transparent 70%),
+    linear-gradient(180deg,rgba(7,7,28,.04),rgba(22,12,59,.10) 30%,rgba(7,9,36,.03) 72%,transparent 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.31) contrast(1.12) brightness(1.01)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:22.2%!important;
+  width:74%!important;
+  opacity:.99!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(54px,9.5vw,66px)!important;
+  letter-spacing:-.058em!important;
+  color:rgba(238,48,231,.09)!important;
+  -webkit-text-stroke:1.45px #ff78f4!important;
+  text-shadow:
+    0 0 2px rgba(255,225,255,.82),
+    0 0 8px rgba(255,71,235,.66),
+    0 0 18px rgba(208,47,244,.42),
+    0 0 34px rgba(101,58,255,.20)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:6px!important;
+  font-size:clamp(8.5px,1.42vw,10.5px)!important;
+  font-weight:900!important;
+  color:#bbc6ff!important;
+  opacity:1!important;
+  letter-spacing:.32em!important;
+  text-shadow:0 0 4px rgba(178,190,255,.50),0 0 10px rgba(92,101,255,.32)!important;
+}

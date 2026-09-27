@@ -269,13 +269,13 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  // V19 target silhouette: the lineup owns the front of the stage while the
-  // near/outer rows retain clear depth and leave room for the venue wings.
-  center: { x: 0, y: 0, z: 3.88, rotationY: 0, scale: 0.86 },
-  leftNear: { x: -1.18, y: 0.045, z: 2.12, rotationY: 0.028, scale: 0.69 },
-  rightNear: { x: 1.20, y: 0.045, z: 2.08, rotationY: -0.028, scale: 0.69 },
-  leftOuter: { x: -2.38, y: 0.12, z: 0.46, rotationY: 0.052, scale: 0.67 },
-  rightOuter: { x: 2.40, y: 0.12, z: 0.42, rotationY: -0.052, scale: 0.67 },
+  // V20 target silhouette: keep the host dominant, pull the near pair inward,
+  // and push the outer pair deeper so the five actors sit inside the venue frame.
+  center: { x: 0, y: 0, z: 3.92, rotationY: 0, scale: 0.87 },
+  leftNear: { x: -1.12, y: 0.045, z: 2.12, rotationY: 0.028, scale: 0.69 },
+  rightNear: { x: 1.14, y: 0.045, z: 2.08, rotationY: -0.028, scale: 0.69 },
+  leftOuter: { x: -2.34, y: 0.12, z: 0.24, rotationY: 0.052, scale: 0.65 },
+  rightOuter: { x: 2.36, y: 0.12, z: 0.20, rotationY: -0.052, scale: 0.65 },
 } as const;
 
 function wideSlotPlacement(
@@ -340,7 +340,7 @@ function createParticipantRing(
   const haloMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.16 : 0.22,
+    opacity: sketchPolish ? 0.13 : 0.22,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -356,7 +356,7 @@ function createParticipantRing(
   const outerMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.97 : 0.2,
+    opacity: sketchPolish ? 0.95 : 0.2,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: sketchPolish ? THREE.NormalBlending : THREE.AdditiveBlending,
@@ -372,7 +372,7 @@ function createParticipantRing(
   const coreMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.96 : 0.94,
+    opacity: sketchPolish ? 0.94 : 0.94,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.NormalBlending,
@@ -404,7 +404,7 @@ function createParticipantRing(
   const shineMaterial = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
-    opacity: sketchPolish ? 0.040 : 0,
+    opacity: sketchPolish ? 0.030 : 0,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -450,27 +450,38 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   if (!context) return null;
 
   const base = context.createLinearGradient(0, 0, 0, 512);
-  base.addColorStop(0, "#03081f");
-  base.addColorStop(0.48, "#0b0b34");
-  base.addColorStop(0.74, "#160a3c");
-  base.addColorStop(1, "#02071a");
+  base.addColorStop(0, "#020617");
+  base.addColorStop(0.46, "#070827");
+  base.addColorStop(0.73, "#12072f");
+  base.addColorStop(1, "#020514");
   context.fillStyle = base;
   context.fillRect(0, 0, 512, 512);
 
-  const glow = context.createRadialGradient(256, 330, 16, 256, 330, 270);
-  glow.addColorStop(0, "rgba(60,196,255,.34)");
-  glow.addColorStop(0.38, "rgba(144,74,255,.22)");
-  glow.addColorStop(0.62, "rgba(255,42,211,.12)");
-  glow.addColorStop(1, "rgba(0,0,0,0)");
-  context.fillStyle = glow;
+  const centerGlow = context.createRadialGradient(256, 318, 20, 256, 318, 250);
+  centerGlow.addColorStop(0, "rgba(133,72,255,.24)");
+  centerGlow.addColorStop(0.50, "rgba(110,53,224,.11)");
+  centerGlow.addColorStop(1, "rgba(0,0,0,0)");
+  context.fillStyle = centerGlow;
+  context.fillRect(0, 0, 512, 512);
+
+  const leftGlow = context.createRadialGradient(118, 330, 8, 118, 330, 155);
+  leftGlow.addColorStop(0, "rgba(47,221,255,.23)");
+  leftGlow.addColorStop(1, "rgba(0,0,0,0)");
+  context.fillStyle = leftGlow;
+  context.fillRect(0, 0, 512, 512);
+
+  const rightGlow = context.createRadialGradient(394, 330, 8, 394, 330, 155);
+  rightGlow.addColorStop(0, "rgba(255,55,214,.22)");
+  rightGlow.addColorStop(1, "rgba(0,0,0,0)");
+  context.fillStyle = rightGlow;
   context.fillRect(0, 0, 512, 512);
 
   for (let index = 0; index <= 8; index += 1) {
     const coordinate = index * 64;
     context.strokeStyle = index % 2
-      ? "rgba(255,38,216,.30)"
-      : "rgba(47,217,255,.32)";
-    context.lineWidth = index === 4 ? 2.4 : 1.25;
+      ? "rgba(255,54,221,.20)"
+      : "rgba(53,213,255,.20)";
+    context.lineWidth = index === 4 ? 1.8 : 0.95;
     context.beginPath();
     context.moveTo(coordinate, 0);
     context.lineTo(coordinate, 512);
@@ -481,13 +492,17 @@ function createSketchFloorTexture(maxAnisotropy: number) {
     context.stroke();
   }
 
-  for (const x of [110, 256, 402]) {
-    const streak = context.createLinearGradient(x - 30, 0, x + 30, 0);
+  for (const [x, tint] of [
+    [116, "rgba(64,224,255,.22)"],
+    [256, "rgba(151,101,255,.15)"],
+    [396, "rgba(255,73,221,.22)"],
+  ] as const) {
+    const streak = context.createLinearGradient(x - 38, 0, x + 38, 0);
     streak.addColorStop(0, "rgba(255,255,255,0)");
-    streak.addColorStop(0.5, "rgba(213,240,255,.26)");
+    streak.addColorStop(0.5, tint);
     streak.addColorStop(1, "rgba(255,255,255,0)");
     context.fillStyle = streak;
-    context.fillRect(x - 30, 0, 60, 512);
+    context.fillRect(x - 38, 0, 76, 512);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -495,7 +510,6 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   texture.anisotropy = Math.min(4, maxAnisotropy);
   return texture;
 }
-
 function createCylinderBetween(
   start: THREE.Vector3,
   end: THREE.Vector3,
@@ -520,26 +534,26 @@ function createSketchStageTruss() {
   const trussMaterial = new THREE.MeshStandardMaterial({
     color: 0x354783,
     emissive: 0x1f2a68,
-    emissiveIntensity: 0.62,
+    emissiveIntensity: 0.48,
     roughness: 0.38,
     metalness: 0.56,
   });
   const glowMaterial = new THREE.MeshBasicMaterial({
     color: 0x5f70ff,
     transparent: true,
-    opacity: 0.17,
+    opacity: 0.12,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
   });
 
   const upperPoints = [
-    new THREE.Vector3(-6.35, 5.92, -1.18),
-    new THREE.Vector3(-4.15, 5.70, -2.04),
-    new THREE.Vector3(-2.05, 5.47, -3.00),
-    new THREE.Vector3(0, 5.42, -3.30),
-    new THREE.Vector3(2.05, 5.47, -3.00),
-    new THREE.Vector3(4.15, 5.70, -2.04),
-    new THREE.Vector3(6.35, 5.92, -1.18),
+    new THREE.Vector3(-6.45, 6.28, -1.34),
+    new THREE.Vector3(-4.20, 6.08, -2.18),
+    new THREE.Vector3(-2.08, 5.86, -3.12),
+    new THREE.Vector3(0, 5.80, -3.44),
+    new THREE.Vector3(2.08, 5.86, -3.12),
+    new THREE.Vector3(4.20, 6.08, -2.18),
+    new THREE.Vector3(6.45, 6.28, -1.34),
   ];
   const lowerPoints = upperPoints.map(point => point.clone().add(new THREE.Vector3(0, -0.18, 0.025)));
   const upperCurve = new THREE.CatmullRomCurve3(upperPoints);
@@ -551,7 +565,7 @@ function createSketchStageTruss() {
     new THREE.Mesh(new THREE.TubeGeometry(upperCurve, 64, 0.050, 8, false), glowMaterial),
   );
 
-  const braceSteps = 28;
+  const braceSteps = 22;
   const braceGeometries: THREE.BufferGeometry[] = [];
   const addBrace = (start: THREE.Vector3, end: THREE.Vector3, radius: number) => {
     const brace = createCylinderBetween(start, end, radius, trussMaterial);
@@ -562,9 +576,9 @@ function createSketchStageTruss() {
     const t = index / braceSteps;
     const upper = upperCurve.getPointAt(t);
     const lower = lowerCurve.getPointAt(t);
-    addBrace(upper, lower, 0.014);
+    addBrace(upper, lower, 0.012);
     if (index < braceSteps) {
-      addBrace(upper, lowerCurve.getPointAt((index + 1) / braceSteps), 0.010);
+      addBrace(upper, lowerCurve.getPointAt((index + 1) / braceSteps), 0.008);
     }
   }
   const braces = mergeGeometries(braceGeometries);
@@ -861,8 +875,8 @@ export default function WaitingRoomStage3D({
       0.72,
       1.6,
     );
-    cyanRim.position.set(4.7, 6.1, 2.8);
-    cyanRim.target.position.set(0.7, 1.7, 0);
+    cyanRim.position.set(-4.7, 6.1, 2.8);
+    cyanRim.target.position.set(-0.8, 1.7, 0);
     scene.add(cyanRim, cyanRim.target);
 
     const magentaRim = new THREE.SpotLight(
@@ -873,8 +887,8 @@ export default function WaitingRoomStage3D({
       0.72,
       1.6,
     );
-    magentaRim.position.set(-4.7, 5.8, 2.2);
-    magentaRim.target.position.set(-0.7, 1.65, 0);
+    magentaRim.position.set(4.7, 5.8, 2.2);
+    magentaRim.target.position.set(0.8, 1.65, 0);
     scene.add(magentaRim, magentaRim.target);
 
     const overhead = new THREE.SpotLight(0xc4d4ff, 14, 16, Math.PI / 5, 0.7, 1.7);
@@ -891,11 +905,11 @@ export default function WaitingRoomStage3D({
         640,
         Math.max(320, Math.round(Math.min(window.innerWidth, 640) * 0.82)),
       );
-      sketchReflector = new Reflector(new THREE.CircleGeometry(8.75, 96), {
+      sketchReflector = new Reflector(new THREE.CircleGeometry(9.0, 96), {
         clipBias: 0.0025,
         textureWidth: reflectionSize,
         textureHeight: reflectionSize,
-        color: 0x121a4a,
+        color: 0x080d2d,
       });
       sketchReflector.rotation.x = -Math.PI / 2;
       sketchReflector.position.set(0, -0.056, 0.18);
@@ -903,16 +917,16 @@ export default function WaitingRoomStage3D({
     }
 
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(sketchVisual ? 8.75 : 5.75, sketchVisual ? 96 : 64),
+      new THREE.CircleGeometry(sketchVisual ? 9.0 : 5.75, sketchVisual ? 96 : 64),
       sketchVisual
         ? new THREE.MeshPhysicalMaterial({
-            color: 0x7895e8,
+            color: 0x53659c,
             map: sketchFloorTexture ?? undefined,
             transparent: true,
-            opacity: 0.69,
-            emissive: 0x0a082c,
-            emissiveIntensity: 0.15,
-            roughness: 0.16,
+            opacity: 0.64,
+            emissive: 0x08051f,
+            emissiveIntensity: 0.11,
+            roughness: 0.14,
             metalness: 0.38,
             clearcoat: 1,
             clearcoatRoughness: 0.06,
@@ -931,17 +945,17 @@ export default function WaitingRoomStage3D({
     scene.add(floor);
 
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
-      color: sketchVisual ? 0x46cfff : 0xb983ff,
+      color: sketchVisual ? 0x7656ff : 0xb983ff,
       transparent: true,
-      opacity: sketchVisual ? 0.12 : 0.19,
+      opacity: sketchVisual ? 0.065 : 0.19,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
     const floorHalo = new THREE.Mesh(
       new THREE.RingGeometry(
-        sketchVisual ? 4.25 : 3.55,
-        sketchVisual ? 8.12 : 5.35,
+        sketchVisual ? 4.45 : 3.55,
+        sketchVisual ? 8.40 : 5.35,
         sketchVisual ? 80 : 64,
       ),
       floorHaloMaterial,
@@ -951,11 +965,11 @@ export default function WaitingRoomStage3D({
     scene.add(floorHalo);
 
     const runway = new THREE.Mesh(
-      new THREE.PlaneGeometry(sketchVisual ? 9.20 : 5.9, sketchVisual ? 3.25 : 2.2),
+      new THREE.PlaneGeometry(sketchVisual ? 9.55 : 5.9, sketchVisual ? 3.35 : 2.2),
       new THREE.MeshBasicMaterial({
         color: sketchVisual ? 0x8a55ff : 0xe39a7c,
         transparent: true,
-        opacity: sketchVisual ? 0.045 : 0.12,
+        opacity: sketchVisual ? 0.030 : 0.12,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -969,22 +983,22 @@ export default function WaitingRoomStage3D({
       scene.add(createSketchStageSet(), createSketchStageTruss());
 
       const beamSpecs = [
-        { x: -3.34, y: 5.48, z: -2.25, color: 0x79d8ff, targetX: -2.55, opacity: 0.25 },
-        { x: -1.68, y: 5.30, z: -3.02, color: 0x82cfff, targetX: -0.88, opacity: 0.20 },
-        { x: -0.92, y: 5.26, z: -3.16, color: 0xc06cf6, targetX: -0.30, opacity: 0.11 },
-        { x: 0.92, y: 5.26, z: -3.16, color: 0xc06cf6, targetX: 0.30, opacity: 0.11 },
-        { x: 1.68, y: 5.30, z: -3.02, color: 0x82cfff, targetX: 0.88, opacity: 0.20 },
-        { x: 3.34, y: 5.48, z: -2.25, color: 0x79d8ff, targetX: 2.55, opacity: 0.25 },
+        { x: -3.44, y: 5.86, z: -2.34, color: 0x62ddff, targetX: -2.55, opacity: 0.20 },
+        { x: -1.76, y: 5.68, z: -3.08, color: 0x78bfff, targetX: -0.92, opacity: 0.16 },
+        { x: -0.88, y: 5.62, z: -3.24, color: 0xb96dff, targetX: -0.30, opacity: 0.09 },
+        { x: 0.88, y: 5.62, z: -3.24, color: 0xd96bec, targetX: 0.30, opacity: 0.09 },
+        { x: 1.76, y: 5.68, z: -3.08, color: 0xea72e1, targetX: 0.92, opacity: 0.16 },
+        { x: 3.44, y: 5.86, z: -2.34, color: 0xff65dc, targetX: 2.55, opacity: 0.20 },
       ];
       beamSpecs.forEach(spec => {
         const source = new THREE.Vector3(spec.x, spec.y, spec.z);
         const target = new THREE.Vector3(spec.targetX, 0.48, -1.25);
-        scene.add(createSketchSpotBeam(source, target, spec.color, 0.82, spec.opacity));
+        scene.add(createSketchSpotBeam(source, target, spec.color, 0.96, spec.opacity));
 
         const spot = new THREE.SpotLight(
           spec.color,
-          13.5,
-          11.2,
+          12.0,
+          11.8,
           Math.PI / 6.0,
           0.86,
           1.45,
@@ -1070,7 +1084,7 @@ export default function WaitingRoomStage3D({
         const labelAnchorTop = viewRef.current.viewMode === "close"
           ? Math.max(y - 34, 64)
           : y + (sketchWideIdentity
-            ? node.participant.role === "host" ? -32 : -12
+            ? node.participant.role === "host" ? -48 : -14
             : -8);
         element.style.left = `${x}px`;
         element.style.top = `${labelAnchorTop}px`;
@@ -1139,9 +1153,15 @@ export default function WaitingRoomStage3D({
           rotationY = placement.rotationY;
           actorScale = placement.scale;
           const sketchOuterRing = visualPresetRef.current === "sketch"
-            && Math.abs(placement.x) > 2.3;
+            && Math.abs(placement.x) > 2.2;
           ringScale = visualPresetRef.current === "sketch"
-            ? placement.scale * (sketchOuterRing ? 1.13 : 1.06)
+            ? placement.scale * (
+                sketchOuterRing
+                  ? 1.20
+                  : participant.participantId === selected
+                    ? 1.00
+                    : 1.08
+              )
             : participant.participantId === selected ? 0.96 : placement.scale;
           if (participant.participantId === selected && visualPresetRef.current !== "sketch") {
             actorScale *= 1.03;
@@ -1186,8 +1206,8 @@ export default function WaitingRoomStage3D({
         }
         const selectedRing = participant.participantId === selected;
         node.ring.userData.emphasis = selectedRing ? 1 : participant.role === "host" ? 0.55 : 0;
-        node.ring.userData.depthBoost = visualPresetRef.current === "sketch" && Math.abs(x) > 2.3
-          ? 1.55
+        node.ring.userData.depthBoost = visualPresetRef.current === "sketch" && Math.abs(x) > 2.2
+          ? 1.75
           : 0;
         if (visualPresetRef.current === "sketch") {
           const accent = participantSketchRingAccent(participant);
@@ -1376,13 +1396,13 @@ export default function WaitingRoomStage3D({
           if (sketchRing) {
             // All five slots use the same bright, non-additive core; only the
             // restrained halo receives distance compensation. No central-only boost.
-            if (underglowMaterial) underglowMaterial.opacity = 0.018 + wave * 0.003;
-            if (haloMaterial) haloMaterial.opacity = 0.16 + wave * 0.008 + depthBoost * 0.018;
-            if (outerMaterial) outerMaterial.opacity = 0.99;
-            if (coreMaterial) coreMaterial.opacity = 1.0;
-            if (innerMaterial) innerMaterial.opacity = 0.78;
-            if (shineMaterial) shineMaterial.opacity = 0.045 + wave * 0.004;
-            if (floorMaterial) floorMaterial.opacity = 0.010;
+            if (underglowMaterial) underglowMaterial.opacity = 0.014 + wave * 0.002;
+            if (haloMaterial) haloMaterial.opacity = 0.13 + wave * 0.006 + depthBoost * 0.020;
+            if (outerMaterial) outerMaterial.opacity = 0.95;
+            if (coreMaterial) coreMaterial.opacity = 0.94;
+            if (innerMaterial) innerMaterial.opacity = 0.72;
+            if (shineMaterial) shineMaterial.opacity = 0.030 + wave * 0.003;
+            if (floorMaterial) floorMaterial.opacity = 0.008;
           } else {
             if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
             if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
@@ -1878,7 +1898,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v19" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v20" : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}
       data-ring-palette={visualPreset === "sketch" ? "catalog-gender" : "slot"}
