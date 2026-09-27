@@ -18,7 +18,7 @@ type SketchNeonPalette = {
 };
 
 export const WAITING_ROOM_SKETCH_BLUEPRINT = {
-  id: "golden-864x1536-v3",
+  id: "golden-864x1536-v4",
   source: {
     width: 864,
     height: 1536,
@@ -54,6 +54,29 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       rightNear: { x: 0.707819, y: 0.557707 },
       rightOuter: { x: 0.869565, y: 0.518944 },
     },
+    actorScreenHeight: {
+      // Full visible actor height / golden stage height (1044 px).
+      leftOuter: 0.3266,
+      leftNear: 0.3650,
+      host: 0.5517,
+      rightNear: 0.3726,
+      rightOuter: 0.3209,
+    },
+    controls: {
+      stageArrowCenterY: 0.704,
+    },
+    referenceSamples: {
+      // Median unoccluded RGB samples measured from the accepted golden sketch.
+      upperCenter: 0x10094d,
+      upperLeft: 0x10085d,
+      upperRight: 0x130862,
+      leftWall: 0x151186,
+      rightWall: 0x280889,
+      floorBaseBlue: 0x12108b,
+      floorViolet: 0x220a73,
+      floorCyan: 0x146bf9,
+      logoMagenta: 0xc105f1,
+    },
   },
   ownerOverrides: {
     // The sketch puts the host crown/name too high. Owner explicitly requested
@@ -77,16 +100,16 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       } satisfies SketchNeonPalette,
     },
     logo: {
-      fill: 0x9a08de,
-      edge: 0xe138f4,
-      glow: 0xd44ee2,
-      shadow: 0x3f0993,
-      subtitle: 0x9caeff,
+      fill: 0xc105f1,
+      edge: 0xf329f5,
+      glow: 0xe20cf2,
+      shadow: 0x4a058f,
+      subtitle: 0x8faeff,
     },
     backdrop: {
-      dark: 0x0a0748,
-      mid: 0x17056f,
-      violet: 0x5a0aad,
+      dark: 0x08062f,
+      mid: 0x10094d,
+      violet: 0x3f087e,
     },
     truss: {
       dark: 0x07105c,
@@ -110,17 +133,17 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       magenta: 0xff65dc,
     },
     floor: {
-      baseDark: 0x090b48,
-      baseMid: 0x172487,
-      baseViolet: 0x3a128d,
-      surface: 0x8199dc,
-      emissive: 0x101959,
-      reflectorTint: 0x1b2d73,
-      halo: 0x596cff,
-      runway: 0x9f54ff,
-      cyanReflection: 0x28dfff,
-      violetReflection: 0x8d5cff,
-      magentaReflection: 0xf34bd8,
+      baseDark: 0x08082d,
+      baseMid: 0x12108b,
+      baseViolet: 0x220a73,
+      surface: 0x5261aa,
+      emissive: 0x0d0b4a,
+      reflectorTint: 0x190b46,
+      halo: 0x526cff,
+      runway: 0x8d42f2,
+      cyanReflection: 0x24d8ff,
+      violetReflection: 0x7a3dff,
+      magentaReflection: 0xef34d5,
     },
     rings: {
       maleCyan: 0x66d8ff,
@@ -138,20 +161,20 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       shadow: 0x8c5a1e,
     },
     actor: {
-      key: 0xffe8dd,
-      fill: 0xfff4ea,
-      hemisphereSky: 0x8294ff,
-      hemisphereGround: 0x030313,
+      key: 0xffd8cc,
+      fill: 0xfff0ec,
+      hemisphereSky: 0x7585e8,
+      hemisphereGround: 0x02020d,
     },
   },
   material: {
     floor: {
-      opacity: 0.78,
-      roughness: 0.12,
-      metalness: 0.42,
+      opacity: 0.82,
+      roughness: 0.10,
+      metalness: 0.48,
       clearcoat: 1,
-      clearcoatRoughness: 0.045,
-      emissiveIntensity: 0.24,
+      clearcoatRoughness: 0.04,
+      emissiveIntensity: 0.20,
     },
     riser: {
       treadColor: 0x32186f,
@@ -182,14 +205,14 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       },
     },
     formation: {
-      // Solved from the measured ring targets by inverse-projecting through the
-      // locked wide camera. This preserves the camera and fixes the scene, not
-      // the screenshot with ad-hoc CSS offsets.
-      center: { x: 0.029, y: 0, z: 4.085, rotationY: 0, scale: 0.87 },
-      leftNear: { x: -1.092, y: 0.045, z: 2.648, rotationY: 0.028, scale: 0.69 },
-      rightNear: { x: 1.168, y: 0.045, z: 2.730, rotationY: -0.028, scale: 0.69 },
-      leftOuter: { x: -2.437, y: 0.12, z: 1.222, rotationY: 0.052, scale: 0.65 },
-      rightOuter: { x: 2.260, y: 0.12, z: 1.782, rotationY: -0.052, scale: 0.65 },
+      // Ring centers remain locked to the V23 inverse-projected coordinates.
+      // Actor scale is re-measured independently from visible head-to-shoe height,
+      // so shrinking an actor no longer shrinks the accepted ring footprint.
+      center: { x: 0.029, y: 0, z: 4.085, rotationY: 0, scale: 0.785, ringScale: 0.87 },
+      leftNear: { x: -1.092, y: 0.045, z: 2.648, rotationY: 0.028, scale: 0.605, ringScale: 0.7452 },
+      rightNear: { x: 1.168, y: 0.045, z: 2.730, rotationY: -0.028, scale: 0.607, ringScale: 0.7452 },
+      leftOuter: { x: -2.437, y: 0.12, z: 1.222, rotationY: 0.052, scale: 0.614, ringScale: 0.78 },
+      rightOuter: { x: 2.260, y: 0.12, z: 1.782, rotationY: -0.052, scale: 0.581, ringScale: 0.78 },
     },
     floor: {
       radius: 9,
@@ -251,15 +274,32 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       { x: 3.44, y: 5.86, z: -2.34, color: 0xff55d8, targetX: 2.55, opacity: 0.20 },
     ],
     lighting: {
-      hemisphereIntensity: 1.08,
-      keyIntensity: 2.34,
-      fillIntensity: 0.92,
-      cyanRimIntensity: 20,
-      magentaRimIntensity: 20,
-      overheadIntensity: 15.5,
-      beamSpotIntensity: 11.8,
-      upperGlowColor: 0x7b43ff,
-      upperGlowIntensity: 10.5,
+      // Lower white/ambient energy restores the golden sketch black point and
+      // prevents skin/clothing from washing out; colored beams remain localized.
+      hemisphereIntensity: 0.72,
+      keyIntensity: 1.90,
+      fillIntensity: 0.55,
+      cyanRimIntensity: 17.0,
+      magentaRimIntensity: 17.0,
+      overheadIntensity: 11.5,
+      beamSpotIntensity: 10.8,
+      upperGlowColor: 0x7132ff,
+      upperGlowIntensity: 5.5,
+    },
+    truss: {
+      // Golden roof: sides stay near the top edge while the center dips to ~10%
+      // of stage height. V24's curve was too shallow and visually clipped.
+      upperPoints: [
+        { x: -6.45, y: 6.28, z: -1.34 },
+        { x: -4.20, y: 5.95, z: -2.18 },
+        { x: -2.08, y: 5.55, z: -3.12 },
+        { x: 0, y: 5.25, z: -3.44 },
+        { x: 2.08, y: 5.55, z: -3.12 },
+        { x: 4.20, y: 5.95, z: -2.18 },
+        { x: 6.45, y: 6.28, z: -1.34 },
+      ],
+      lowerOffsetY: -0.18,
+      lowerOffsetZ: 0.025,
     },
   },
 } as const;

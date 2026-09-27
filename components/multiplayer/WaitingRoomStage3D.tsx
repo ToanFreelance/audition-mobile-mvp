@@ -547,16 +547,15 @@ function createSketchStageTruss() {
     blending: THREE.AdditiveBlending,
   });
 
-  const upperPoints = [
-    new THREE.Vector3(-6.45, 6.28, -1.34),
-    new THREE.Vector3(-4.20, 6.08, -2.18),
-    new THREE.Vector3(-2.08, 5.86, -3.12),
-    new THREE.Vector3(0, 5.80, -3.44),
-    new THREE.Vector3(2.08, 5.86, -3.12),
-    new THREE.Vector3(4.20, 6.08, -2.18),
-    new THREE.Vector3(6.45, 6.28, -1.34),
-  ];
-  const lowerPoints = upperPoints.map(point => point.clone().add(new THREE.Vector3(0, -0.18, 0.025)));
+  const trussBlueprint = WAITING_ROOM_SKETCH_BLUEPRINT.scene.truss;
+  const upperPoints = trussBlueprint.upperPoints.map(
+    point => new THREE.Vector3(point.x, point.y, point.z),
+  );
+  const lowerPoints = upperPoints.map(point => point.clone().add(new THREE.Vector3(
+    0,
+    trussBlueprint.lowerOffsetY,
+    trussBlueprint.lowerOffsetZ,
+  )));
   const upperCurve = new THREE.CatmullRomCurve3(upperPoints);
   const lowerCurve = new THREE.CatmullRomCurve3(lowerPoints);
 
@@ -845,7 +844,7 @@ export default function WaitingRoomStage3D({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = sketchVisual ? 1.22 : 1.16;
+    renderer.toneMappingExposure = sketchVisual ? 1.08 : 1.16;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
 
@@ -1167,16 +1166,8 @@ export default function WaitingRoomStage3D({
           z = placement.z;
           rotationY = placement.rotationY;
           actorScale = placement.scale;
-          const sketchOuterRing = visualPresetRef.current === "sketch"
-            && Math.abs(placement.x) > 2.2;
-          ringScale = visualPresetRef.current === "sketch"
-            ? placement.scale * (
-                sketchOuterRing
-                  ? 1.20
-                  : participant.participantId === selected
-                    ? 1.00
-                    : 1.08
-              )
+          ringScale = visualPresetRef.current === "sketch" && "ringScale" in placement
+            ? placement.ringScale
             : participant.participantId === selected ? 0.96 : placement.scale;
           if (participant.participantId === selected && visualPresetRef.current !== "sketch") {
             actorScale *= 1.03;
@@ -1939,7 +1930,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v24-color-match" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v25-measured-reset" : "off"}
       data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}

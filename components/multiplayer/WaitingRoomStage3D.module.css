@@ -1828,3 +1828,36 @@
   color:var(--sketch-crown)!important;
   filter:drop-shadow(0 0 6px rgba(245,219,116,.64))!important;
 }
+
+
+/* P5.6 V25 measured reset — golden black point, chroma and actor-height lock. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 48% 36% at 50% 32%,rgba(166,20,255,.16) 0%,rgba(98,13,192,.10) 34%,rgba(49,15,122,.04) 60%,transparent 76%),
+    radial-gradient(ellipse 34% 66% at 0% 45%,rgba(18,205,255,.21) 0%,rgba(19,73,211,.08) 50%,transparent 76%),
+    radial-gradient(ellipse 34% 66% at 100% 45%,rgba(248,35,213,.21) 0%,rgba(153,27,210,.08) 50%,transparent 76%),
+    linear-gradient(180deg,#040429 0%,#070637 23%,#10094d 48%,#070a32 77%,#020420 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 40% 26% at 50% 31%,rgba(226,25,255,.075),transparent 72%)!important;
+  filter:saturate(1.18) contrast(1.18) brightness(.98)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.18) contrast(1.22) brightness(.985)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:rgba(193,5,241,.035)!important;
+  -webkit-text-stroke:1.5px #f329f5!important;
+  text-shadow:
+    0 0 2px rgba(255,219,255,.78),
+    0 0 6px rgba(243,41,245,.78),
+    0 0 14px rgba(226,12,242,.54),
+    0 0 27px rgba(88,28,219,.25)!important;
+  filter:saturate(1.08) contrast(1.12)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#8faeff!important;
+  opacity:.96!important;
+  text-shadow:0 0 5px rgba(119,153,255,.70),0 0 10px rgba(71,66,220,.36)!important;
+}

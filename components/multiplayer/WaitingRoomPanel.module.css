@@ -1063,3 +1063,9 @@
 .phone[data-visual-preset="sketch"] .actions{
   padding-bottom:0!important;
 }
+
+
+/* P5.6 V25 measured controls — golden arrow center is ~70.4% of stage height. */
+.phone[data-visual-preset="sketch"] .stageArrow{
+  top:70.4%!important;
+}
