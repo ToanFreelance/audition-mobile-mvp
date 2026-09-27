@@ -450,28 +450,28 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   if (!context) return null;
 
   const base = context.createLinearGradient(0, 0, 0, 512);
-  base.addColorStop(0, "#020617");
-  base.addColorStop(0.46, "#070827");
-  base.addColorStop(0.73, "#12072f");
-  base.addColorStop(1, "#020514");
+  base.addColorStop(0, "#06102f");
+  base.addColorStop(0.46, "#0c1547");
+  base.addColorStop(0.73, "#1a0d50");
+  base.addColorStop(1, "#050a28");
   context.fillStyle = base;
   context.fillRect(0, 0, 512, 512);
 
   const centerGlow = context.createRadialGradient(256, 318, 20, 256, 318, 250);
-  centerGlow.addColorStop(0, "rgba(133,72,255,.24)");
-  centerGlow.addColorStop(0.50, "rgba(110,53,224,.11)");
+  centerGlow.addColorStop(0, "rgba(140,84,255,.31)");
+  centerGlow.addColorStop(0.50, "rgba(113,62,229,.17)");
   centerGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = centerGlow;
   context.fillRect(0, 0, 512, 512);
 
   const leftGlow = context.createRadialGradient(118, 330, 8, 118, 330, 155);
-  leftGlow.addColorStop(0, "rgba(47,221,255,.23)");
+  leftGlow.addColorStop(0, "rgba(47,221,255,.28)");
   leftGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = leftGlow;
   context.fillRect(0, 0, 512, 512);
 
   const rightGlow = context.createRadialGradient(394, 330, 8, 394, 330, 155);
-  rightGlow.addColorStop(0, "rgba(255,55,214,.22)");
+  rightGlow.addColorStop(0, "rgba(255,55,214,.27)");
   rightGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = rightGlow;
   context.fillRect(0, 0, 512, 512);
@@ -479,9 +479,9 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   for (let index = 0; index <= 8; index += 1) {
     const coordinate = index * 64;
     context.strokeStyle = index % 2
-      ? "rgba(255,54,221,.20)"
-      : "rgba(53,213,255,.20)";
-    context.lineWidth = index === 4 ? 1.8 : 0.95;
+      ? "rgba(255,62,223,.17)"
+      : "rgba(62,216,255,.17)";
+    context.lineWidth = index === 4 ? 1.65 : 0.90;
     context.beginPath();
     context.moveTo(coordinate, 0);
     context.lineTo(coordinate, 512);
@@ -493,9 +493,9 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   }
 
   for (const [x, tint] of [
-    [116, "rgba(64,224,255,.22)"],
-    [256, "rgba(151,101,255,.15)"],
-    [396, "rgba(255,73,221,.22)"],
+    [116, "rgba(64,224,255,.30)"],
+    [256, "rgba(154,110,255,.22)"],
+    [396, "rgba(255,73,221,.30)"],
   ] as const) {
     const streak = context.createLinearGradient(x - 38, 0, x + 38, 0);
     streak.addColorStop(0, "rgba(255,255,255,0)");
@@ -909,7 +909,7 @@ export default function WaitingRoomStage3D({
         clipBias: 0.0025,
         textureWidth: reflectionSize,
         textureHeight: reflectionSize,
-        color: 0x080d2d,
+        color: 0x121a49,
       });
       sketchReflector.rotation.x = -Math.PI / 2;
       sketchReflector.position.set(0, -0.056, 0.18);
@@ -920,12 +920,12 @@ export default function WaitingRoomStage3D({
       new THREE.CircleGeometry(sketchVisual ? 9.0 : 5.75, sketchVisual ? 96 : 64),
       sketchVisual
         ? new THREE.MeshPhysicalMaterial({
-            color: 0x53659c,
+            color: 0x7188c8,
             map: sketchFloorTexture ?? undefined,
             transparent: true,
-            opacity: 0.64,
-            emissive: 0x08051f,
-            emissiveIntensity: 0.11,
+            opacity: 0.74,
+            emissive: 0x0c0a34,
+            emissiveIntensity: 0.18,
             roughness: 0.14,
             metalness: 0.38,
             clearcoat: 1,
@@ -945,9 +945,9 @@ export default function WaitingRoomStage3D({
     scene.add(floor);
 
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
-      color: sketchVisual ? 0x7656ff : 0xb983ff,
+      color: sketchVisual ? 0x5f64e8 : 0xb983ff,
       transparent: true,
-      opacity: sketchVisual ? 0.065 : 0.19,
+      opacity: sketchVisual ? 0.075 : 0.19,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -969,7 +969,7 @@ export default function WaitingRoomStage3D({
       new THREE.MeshBasicMaterial({
         color: sketchVisual ? 0x8a55ff : 0xe39a7c,
         transparent: true,
-        opacity: sketchVisual ? 0.030 : 0.12,
+        opacity: sketchVisual ? 0.038 : 0.12,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -983,12 +983,12 @@ export default function WaitingRoomStage3D({
       scene.add(createSketchStageSet(), createSketchStageTruss());
 
       const beamSpecs = [
-        { x: -3.44, y: 5.86, z: -2.34, color: 0x62ddff, targetX: -2.55, opacity: 0.20 },
-        { x: -1.76, y: 5.68, z: -3.08, color: 0x78bfff, targetX: -0.92, opacity: 0.16 },
-        { x: -0.88, y: 5.62, z: -3.24, color: 0xb96dff, targetX: -0.30, opacity: 0.09 },
-        { x: 0.88, y: 5.62, z: -3.24, color: 0xd96bec, targetX: 0.30, opacity: 0.09 },
-        { x: 1.76, y: 5.68, z: -3.08, color: 0xea72e1, targetX: 0.92, opacity: 0.16 },
-        { x: 3.44, y: 5.86, z: -2.34, color: 0xff65dc, targetX: 2.55, opacity: 0.20 },
+        { x: -3.44, y: 5.86, z: -2.34, color: 0x62ddff, targetX: -2.55, opacity: 0.18 },
+        { x: -1.76, y: 5.68, z: -3.08, color: 0x78bfff, targetX: -0.92, opacity: 0.14 },
+        { x: -0.88, y: 5.62, z: -3.24, color: 0xb96dff, targetX: -0.30, opacity: 0.065 },
+        { x: 0.88, y: 5.62, z: -3.24, color: 0xd96bec, targetX: 0.30, opacity: 0.065 },
+        { x: 1.76, y: 5.68, z: -3.08, color: 0xea72e1, targetX: 0.92, opacity: 0.14 },
+        { x: 3.44, y: 5.86, z: -2.34, color: 0xff65dc, targetX: 2.55, opacity: 0.18 },
       ];
       beamSpecs.forEach(spec => {
         const source = new THREE.Vector3(spec.x, spec.y, spec.z);
@@ -997,7 +997,7 @@ export default function WaitingRoomStage3D({
 
         const spot = new THREE.SpotLight(
           spec.color,
-          12.0,
+          10.8,
           11.8,
           Math.PI / 6.0,
           0.86,
@@ -1008,8 +1008,8 @@ export default function WaitingRoomStage3D({
         scene.add(spot, spot.target);
       });
 
-      const upperGlow = new THREE.PointLight(0x754cff, 14, 10, 1.8);
-      upperGlow.position.set(0, 4.4, 0.4);
+      const upperGlow = new THREE.PointLight(0x754cff, 8.5, 10, 1.8);
+      upperGlow.position.set(0, 4.55, 0.25);
       scene.add(upperGlow);
     }
 
@@ -1898,7 +1898,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v20" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v21" : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}
       data-ring-palette={visualPreset === "sketch" ? "catalog-gender" : "slot"}

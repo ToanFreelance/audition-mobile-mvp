@@ -1641,3 +1641,47 @@
   letter-spacing:.32em!important;
   text-shadow:0 0 4px rgba(178,190,255,.50),0 0 10px rgba(92,101,255,.32)!important;
 }
+
+
+/* P5.6 sketch-match v21 — soften side architecture and restore stage identity. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 52% 43% at 50% 31%,rgba(194,57,255,.32) 0%,rgba(124,45,216,.19) 34%,rgba(59,36,137,.08) 59%,transparent 76%),
+    radial-gradient(ellipse 35% 66% at 0% 45%,rgba(38,216,255,.22) 0%,rgba(29,105,229,.08) 48%,transparent 75%),
+    radial-gradient(ellipse 35% 66% at 100% 45%,rgba(255,55,214,.22) 0%,rgba(181,56,226,.08) 48%,transparent 75%),
+    linear-gradient(180deg,#03071d 0%,#0a1039 24%,#191052 49%,#0a1240 77%,#040920 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.29) contrast(1.10) brightness(1.035)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 44% 31% at 50% 31%,rgba(232,63,255,.09),transparent 72%)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:22.6%!important;
+  width:80%!important;
+  opacity:1!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(58px,10.4vw,72px)!important;
+  letter-spacing:-.064em!important;
+  color:rgba(239,54,236,.16)!important;
+  -webkit-text-stroke:1.75px #ff77f4!important;
+  text-shadow:
+    0 0 2px rgba(255,235,255,.90),
+    0 0 8px rgba(255,77,238,.78),
+    0 0 20px rgba(220,51,247,.55),
+    0 0 38px rgba(111,60,255,.25)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:7px!important;
+  font-size:clamp(9px,1.48vw,11px)!important;
+  font-weight:900!important;
+  color:#c6d2ff!important;
+  opacity:1!important;
+  letter-spacing:.31em!important;
+  text-shadow:
+    0 0 4px rgba(205,215,255,.62),
+    0 0 11px rgba(94,108,255,.40)!important;
+}

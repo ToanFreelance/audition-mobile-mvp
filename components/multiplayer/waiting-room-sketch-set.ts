@@ -8,25 +8,25 @@ export function createSketchStageSet() {
   set.name = "SketchStageSet";
 
   const treadMaterial = new THREE.MeshStandardMaterial({
-    color: 0x211247,
-    emissive: 0x30145d,
-    emissiveIntensity: 0.56,
+    color: 0x29175a,
+    emissive: 0x35166a,
+    emissiveIntensity: 0.62,
     roughness: 0.22,
     metalness: 0.46,
     side: THREE.DoubleSide,
   });
   const riserMaterial = new THREE.MeshStandardMaterial({
-    color: 0x080b27,
-    emissive: 0x17113d,
-    emissiveIntensity: 0.52,
+    color: 0x0b1035,
+    emissive: 0x1d1851,
+    emissiveIntensity: 0.56,
     roughness: 0.40,
     metalness: 0.32,
     side: THREE.DoubleSide,
   });
   const riserFaceAccentMaterial = new THREE.MeshBasicMaterial({
-    color: 0x5e43a8,
+    color: 0x6750b8,
     transparent: true,
-    opacity: 0.24,
+    opacity: 0.22,
     depthWrite: false,
     side: THREE.DoubleSide,
     toneMapped: false,
@@ -39,7 +39,7 @@ export function createSketchStageSet() {
   const edgeGlowMaterial = new THREE.MeshBasicMaterial({
     color: 0xb25fff,
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.20,
     depthWrite: false,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
@@ -51,35 +51,25 @@ export function createSketchStageSet() {
     side: THREE.DoubleSide,
   });
 
-  const backdrop = new THREE.Group();
-  backdrop.name = "SketchBackdrop";
+  // Keep the CSS AUDITION wordmark visible behind the WebGL actors. V20 added
+  // an opaque physical back panel here, which sat in the canvas above the CSS
+  // signage and visually erased the wordmark on iPhone. Only a translucent glow
+  // remains in 3D so the sign still feels integrated without becoming foreground.
   const backdropGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(6.45, 3.55),
+    new THREE.PlaneGeometry(6.55, 3.65),
     new THREE.MeshBasicMaterial({
-      color: 0x8b2dca,
+      color: 0x8d33d4,
       transparent: true,
-      opacity: 0.10,
+      opacity: 0.055,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       toneMapped: false,
       side: THREE.DoubleSide,
     }),
   );
+  backdropGlow.name = "SketchBackdropGlow";
   backdropGlow.position.set(0, 3.18, -5.28);
-  const backdropPanel = new THREE.Mesh(
-    new THREE.PlaneGeometry(5.78, 2.82),
-    new THREE.MeshStandardMaterial({
-      color: 0x090827,
-      emissive: 0x34105b,
-      emissiveIntensity: 0.78,
-      roughness: 0.44,
-      metalness: 0.18,
-      side: THREE.DoubleSide,
-    }),
-  );
-  backdropPanel.position.set(0, 3.16, -5.22);
-  backdrop.add(backdropGlow, backdropPanel);
-  set.add(backdrop);
+  set.add(backdropGlow);
 
   // Three solid, shallow bowed tiers. Both the tread and the vertical front face
   // stay visible so they read as stage steps instead of floating neon lines.
@@ -150,9 +140,12 @@ export function createSketchStageSet() {
   const uprightMaterial = new THREE.MeshStandardMaterial({
     color: 0x20275b,
     emissive: 0x343d86,
-    emissiveIntensity: 0.52,
-    roughness: 0.34,
-    metalness: 0.52,
+    emissiveIntensity: 0.34,
+    roughness: 0.38,
+    metalness: 0.48,
+    transparent: true,
+    opacity: 0.34,
+    depthWrite: false,
     toneMapped: false,
   });
   const tube = (points: THREE.Vector3[], radius: number, material: THREE.Material) => (
@@ -162,17 +155,17 @@ export function createSketchStageSet() {
     const group = new THREE.Group();
     group.name = color === 0x57eaff ? "SketchNeonColumn:left" : "SketchNeonColumn:right";
     const height = top - bottom;
-    const housing = new THREE.Mesh(new THREE.BoxGeometry(0.19, height + 0.12, 0.16), uprightMaterial);
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.135, height), new THREE.MeshBasicMaterial({
+    const housing = new THREE.Mesh(new THREE.BoxGeometry(0.15, height + 0.10, 0.14), uprightMaterial);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(0.105, height), new THREE.MeshBasicMaterial({
       color,
       toneMapped: false,
       depthWrite: false,
     }));
-    face.position.z = 0.086;
+    face.position.z = 0.076;
     face.renderOrder = 3;
     group.add(housing, face);
-    for (const [width, opacity] of [[0.22, 0.24], [0.40, 0.09], [0.62, 0.035]] as const) {
-      const glow = new THREE.Mesh(new THREE.PlaneGeometry(width, height + 0.08), new THREE.MeshBasicMaterial({
+    for (const [width, opacity] of [[0.18, 0.22], [0.32, 0.075], [0.48, 0.028]] as const) {
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(width, height + 0.06), new THREE.MeshBasicMaterial({
         color,
         transparent: true,
         opacity,
@@ -180,7 +173,7 @@ export function createSketchStageSet() {
         blending: THREE.AdditiveBlending,
         toneMapped: false,
       }));
-      glow.position.z = 0.089;
+      glow.position.z = 0.079;
       glow.renderOrder = 2;
       group.add(glow);
     }
@@ -193,53 +186,58 @@ export function createSketchStageSet() {
     wing.name = side < 0 ? "SketchWing:left" : "SketchWing:right";
 
     const railMaterial = new THREE.MeshStandardMaterial({
-      color: side < 0 ? 0x3d78a9 : 0x754184,
-      emissive: side < 0 ? 0x2b93d7 : 0xb43a9e,
-      emissiveIntensity: 0.82,
-      metalness: 0.46,
-      roughness: 0.30,
+      color: side < 0 ? 0x294b78 : 0x5b315f,
+      emissive: side < 0 ? 0x226895 : 0x7a2b72,
+      emissiveIntensity: 0.48,
+      metalness: 0.42,
+      roughness: 0.34,
+      transparent: true,
+      opacity: 0.62,
+      depthWrite: false,
       toneMapped: false,
     });
     const railGlowMaterial = new THREE.MeshBasicMaterial({
-      color: side < 0 ? 0x61dfff : 0xf064dc,
+      color: side < 0 ? 0x59cfff : 0xe85bd2,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.070,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       toneMapped: false,
     });
 
-    for (let row = 0; row < 8; row += 1) {
-      const y = 1.02 + row * 0.54;
+    // Fewer, wider-spaced rails and much stronger depth curvature remove V20's
+    // "prison bars" reading while retaining the sketch's curved venue walls.
+    for (let row = 0; row < 6; row += 1) {
+      const y = 1.08 + row * 0.68;
       const points = [
-        new THREE.Vector3(side * 2.18, y, -4.18),
-        new THREE.Vector3(side * 2.56, y + 0.018, -3.98),
-        new THREE.Vector3(side * 2.96, y + 0.060, -3.56),
-        new THREE.Vector3(side * 3.34, y + 0.125, -2.92),
-        new THREE.Vector3(side * 3.68, y + 0.205, -2.08),
+        new THREE.Vector3(side * 2.34, y, -4.34),
+        new THREE.Vector3(side * 2.54, y + 0.014, -4.22),
+        new THREE.Vector3(side * 2.86, y + 0.045, -3.92),
+        new THREE.Vector3(side * 3.34, y + 0.105, -3.30),
+        new THREE.Vector3(side * 4.08, y + 0.190, -2.02),
       ];
       wing.add(
-        tube(points, 0.023, railMaterial),
-        tube(points, 0.042, railGlowMaterial),
+        tube(points, 0.020, railMaterial),
+        tube(points, 0.035, railGlowMaterial),
       );
     }
 
+    // Only two subdued structural uprights remain; the hero neon column is the
+    // only vertical element meant to read strongly inside the portrait frame.
     for (const [x, z, height] of [
-      [2.34, -4.02, 4.24],
-      [2.76, -3.74, 4.42],
-      [3.18, -3.18, 4.58],
-      [3.54, -2.42, 4.72],
+      [2.58, -4.18, 4.18],
+      [3.32, -3.28, 4.48],
     ] as const) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.048, height, 0.07), uprightMaterial);
-      post.position.set(side * x, 0.86 + height / 2, z);
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.038, height, 0.055), uprightMaterial);
+      post.position.set(side * x, 0.88 + height / 2, z);
       wing.add(post);
     }
 
     wing.add(lightColumn(
-      side * 3.68,
-      -2.36,
-      0.98,
-      5.34,
+      side * 3.62,
+      -2.52,
+      1.06,
+      5.28,
       side < 0 ? 0x57eaff : 0xff55dc,
     ));
 
