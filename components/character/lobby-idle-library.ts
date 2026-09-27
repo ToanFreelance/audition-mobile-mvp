@@ -135,8 +135,9 @@ async function loadBuiltInIdleFallback(): Promise<LobbyIdleLibrary> {
 /**
  * Waiting-room-only animation loader.
  *
- * The lobby never downloads the full published dance bundle. It first requests
- * the idle-only projection, retries one transient failure, then falls back to
+ * The lobby never downloads the full published dance bundle. It first resolves
+ * the current release, reuses the versioned idle projection from persistent
+ * Cache Storage when available, retries one transient failure, then falls back to
  * the small rig-compatible Quaternius Idle_Loop so a network hiccup cannot
  * leave actors permanently in T-pose.
  */
