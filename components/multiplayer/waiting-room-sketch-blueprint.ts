@@ -18,7 +18,7 @@ type SketchNeonPalette = {
 };
 
 export const WAITING_ROOM_SKETCH_BLUEPRINT = {
-  id: "golden-864x1536-v7",
+  id: "golden-864x1536-v8",
   source: {
     width: 864,
     height: 1536,
@@ -87,18 +87,16 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
     viewBox: { width: 864, height: 1044 },
     wallLeftPath: "M 0 98 C 58 112 132 150 220 222 L 220 548 C 148 531 74 522 0 520 Z",
     railsLeft: [
-      "M 0 148 C 58 159 123 181 196 207",
-      "M 0 207 C 60 222 126 247 198 270",
-      "M 0 269 C 62 286 129 307 201 325",
-      "M 0 326 C 64 340 132 353 204 364",
-      "M 0 379 C 67 390 137 398 208 403",
-      "M 0 430 C 70 438 142 444 212 447",
-      "M 0 477 C 73 483 146 487 215 490",
-      "M 0 521 C 75 525 149 529 218 531"
+      "M 0 150 C 64 160 136 191 214 236",
+      "M 0 214 C 69 230 141 266 216 306",
+      "M 0 282 C 74 301 146 337 218 370",
+      "M 0 350 C 78 372 151 401 220 424",
+      "M 0 417 C 82 438 154 458 222 470",
+      "M 0 480 C 85 498 157 508 224 514"
     ],
     truss: {
-      upperPath: "M 16 10 C 142 55 286 103 432 111 C 578 103 722 55 848 10",
-      lowerPath: "M 25 31 C 153 74 292 119 432 127 C 572 119 711 74 839 31",
+      upperPath: "M 16 12 C 150 38 320 110 432 110 C 544 110 714 38 848 12",
+      lowerPath: "M 24 30 C 152 58 322 128 432 128 C 542 128 712 58 840 30",
       braces: [
         "M 76 31 L 91 55","M 104 41 L 117 66","M 134 51 L 145 76",
         "M 166 61 L 174 87","M 198 71 L 204 96","M 232 82 L 236 105",
@@ -326,13 +324,14 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       railRadius: 0.020,
       railGlowRadius: 0.035,
       railPoints: [
-        // Keep the side-wall rails outside the measured center opening so they
-        // frame the sign instead of reading through the AUDITION wordmark.
-        { x: 2.55, y: 0, z: -4.34 },
-        { x: 2.72, y: 0.014, z: -4.22 },
-        { x: 3.02, y: 0.045, z: -3.92 },
-        { x: 3.48, y: 0.105, z: -3.30 },
-        { x: 4.08, y: 0.190, z: -2.02 },
+        // Hybrid V29: the 3D rail starts deep near the center opening and bows
+        // outward toward the camera, restoring the curved venue depth lost in V28.
+        { x: 2.58, y: 0, z: -4.48 },
+        { x: 2.74, y: 0.020, z: -4.34 },
+        { x: 3.00, y: 0.060, z: -3.98 },
+        { x: 3.38, y: 0.125, z: -3.28 },
+        { x: 3.84, y: 0.205, z: -2.18 },
+        { x: 4.20, y: 0.270, z: -0.92 },
       ],
       uprights: [
         { x: 2.58, z: -4.18, height: 4.18 },

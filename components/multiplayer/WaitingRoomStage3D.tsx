@@ -1947,9 +1947,9 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v28-full-stage-trace" : "off"}
-      data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
-      data-riser-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
+      data-sketch-match={visualPreset === "sketch" ? "v29-hybrid-stage" : "off"}
+      data-architecture-source={visualPreset === "sketch" ? "hybrid-trace-3d" : "threejs"}
+      data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
       data-floor-grid={visualPreset === "sketch" ? "screen-trace" : "material"}
       data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "screen-trace" : "css"}

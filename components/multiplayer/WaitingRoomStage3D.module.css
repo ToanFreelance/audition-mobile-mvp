@@ -2025,3 +2025,39 @@
     0 0 12px rgba(243,41,245,.56),
     0 0 23px rgba(121,25,221,.20)!important;
 }
+
+
+/* P5.6 V29 hybrid stage — keep V28 color, restore 3D volume under traced curves. */
+.traceRails path{
+  stroke-width:1.85;
+  opacity:.82;
+}
+.traceRailGlow path{
+  stroke-width:5.2;
+  opacity:.12;
+}
+.traceTruss path{
+  stroke-width:2.25;
+  opacity:.96;
+  filter:drop-shadow(0 0 3px rgba(83,90,255,.42));
+}
+.traceTruss path:nth-child(n+3){
+  stroke-width:.95;
+  opacity:.54;
+}
+.traceRiserSurface{
+  opacity:.34;
+}
+.traceRiserEdge{
+  stroke-width:1.75;
+  opacity:.72;
+}
+.traceRiserLowerEdge{
+  opacity:.30;
+}
+.traceRiserGlow{
+  opacity:.07;
+}
+.traceFootlights{
+  opacity:.72;
+}

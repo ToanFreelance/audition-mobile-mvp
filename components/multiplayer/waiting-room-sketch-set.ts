@@ -29,20 +29,22 @@ export function createSketchStageSet() {
   const riserFaceAccentMaterial = new THREE.MeshBasicMaterial({
     color: palette.structure.rightBody,
     transparent: true,
-    opacity: 0.22,
+    opacity: blueprint.traceArchitecture.enabled ? 0.12 : 0.22,
     depthWrite: false,
     side: THREE.DoubleSide,
     toneMapped: false,
   });
   const edgeMaterial = new THREE.MeshBasicMaterial({
     color: palette.structure.riserEdge,
+    transparent: blueprint.traceArchitecture.enabled,
+    opacity: blueprint.traceArchitecture.enabled ? 0.34 : 1,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
   const edgeGlowMaterial = new THREE.MeshBasicMaterial({
     color: palette.structure.riserGlow,
     transparent: true,
-    opacity: 0.20,
+    opacity: blueprint.traceArchitecture.enabled ? 0.08 : 0.20,
     depthWrite: false,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
@@ -50,6 +52,8 @@ export function createSketchStageSet() {
   });
   const footlightMaterial = new THREE.MeshBasicMaterial({
     color: 0xf3dcff,
+    transparent: blueprint.traceArchitecture.enabled,
+    opacity: blueprint.traceArchitecture.enabled ? 0.58 : 1,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
@@ -103,7 +107,7 @@ export function createSketchStageSet() {
     return new THREE.Mesh(geometry, materialValue);
   };
 
-  if (!blueprint.traceArchitecture.enabled) for (let tier = 0; tier < scene.risers.count; tier += 1) {
+  for (let tier = 0; tier < scene.risers.count; tier += 1) {
     const top = scene.risers.topStart + tier * scene.risers.topStep;
     const bottom = tier === 0 ? -0.035 : top - scene.risers.topStep;
     const group = new THREE.Group();
@@ -141,11 +145,11 @@ export function createSketchStageSet() {
   const uprightMaterial = new THREE.MeshStandardMaterial({
     color: palette.structure.uprightBody,
     emissive: palette.truss.dark,
-    emissiveIntensity: 0.34,
+    emissiveIntensity: blueprint.traceArchitecture.enabled ? 0.22 : 0.34,
     roughness: 0.38,
     metalness: 0.48,
     transparent: true,
-    opacity: 0.34,
+    opacity: blueprint.traceArchitecture.enabled ? 0.22 : 0.34,
     depthWrite: false,
     toneMapped: false,
   });
@@ -184,25 +188,31 @@ export function createSketchStageSet() {
     return group;
   };
 
-  if (!blueprint.traceArchitecture.enabled) for (const side of [-1, 1] as const) {
+  for (const side of [-1, 1] as const) {
     const wing = new THREE.Group();
     wing.name = side < 0 ? "SketchWing:left" : "SketchWing:right";
 
     const railMaterial = new THREE.MeshStandardMaterial({
       color: side < 0 ? palette.structure.leftBody : palette.structure.rightBody,
       emissive: side < 0 ? palette.columns.leftCyan.lowlight : palette.columns.rightMagenta.lowlight,
-      emissiveIntensity: material.rails.emissiveIntensity,
+      emissiveIntensity: blueprint.traceArchitecture.enabled
+        ? material.rails.emissiveIntensity * 0.58
+        : material.rails.emissiveIntensity,
       metalness: material.rails.metalness,
       roughness: material.rails.roughness,
       transparent: true,
-      opacity: material.rails.opacity,
+      opacity: blueprint.traceArchitecture.enabled
+        ? material.rails.opacity * 0.52
+        : material.rails.opacity,
       depthWrite: false,
       toneMapped: false,
     });
     const railGlowMaterial = new THREE.MeshBasicMaterial({
       color: side < 0 ? palette.columns.leftCyan.glow : palette.columns.rightMagenta.glow,
       transparent: true,
-      opacity: material.rails.glowOpacity,
+      opacity: blueprint.traceArchitecture.enabled
+        ? material.rails.glowOpacity * 0.42
+        : material.rails.glowOpacity,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       toneMapped: false,
@@ -225,13 +235,15 @@ export function createSketchStageSet() {
       wing.add(post);
     }
 
-    wing.add(lightColumn(
-      side * scene.wing.column.x,
-      scene.wing.column.z,
-      scene.wing.column.bottom,
-      scene.wing.column.top,
-      side < 0 ? palette.columns.leftCyan.core : palette.columns.rightMagenta.core,
-    ));
+    if (!blueprint.traceArchitecture.enabled) {
+      wing.add(lightColumn(
+        side * scene.wing.column.x,
+        scene.wing.column.z,
+        scene.wing.column.bottom,
+        scene.wing.column.top,
+        side < 0 ? palette.columns.leftCyan.core : palette.columns.rightMagenta.core,
+      ));
+    }
 
     for (const materialValue of [railMaterial, railGlowMaterial, uprightMaterial]) {
       const meshes: THREE.Mesh[] = [];
