@@ -2,9 +2,11 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { HUMAN_ANIMATION_LIBRARY_URL } from "./human-animation-library";
 import { loadRuntimeAnimationBundle } from "./runtime-animation-bundle";
+import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
 
 export const PUBLISHED_IDLE_BUNDLE_URL =
   "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish-idle";
+export const PUBLISHED_IDLE_MANIFEST_URL = PUBLISHED_IDLE_BUNDLE_URL + "?manifest=1";
 
 const IDLE_FETCH_TIMEOUT_MS = 12_000;
 const IDLE_RETRY_DELAY_MS = 650;
@@ -49,12 +51,41 @@ async function fetchPublishedIdleLibrary() {
   const timeout = window.setTimeout(() => controller.abort(), IDLE_FETCH_TIMEOUT_MS);
 
   try {
-    const response = await fetch(PUBLISHED_IDLE_BUNDLE_URL, {
-      method: "GET",
-      cache: "default",
-      headers: { Accept: "application/json" },
-      signal: controller.signal,
-    });
+    let response: Response;
+    try {
+      const manifestResponse = await fetch(PUBLISHED_IDLE_MANIFEST_URL, {
+        method: "GET",
+        cache: "no-cache",
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+      if (!manifestResponse.ok) {
+        throw new Error(`published idle manifest returned ${manifestResponse.status}`);
+      }
+      const manifest = await manifestResponse.json() as Record<string, unknown>;
+      const releaseVersion = Number(manifest.releaseVersion ?? 0);
+      if (!Number.isInteger(releaseVersion) || releaseVersion <= 0) {
+        throw new Error("published idle manifest has no valid releaseVersion");
+      }
+      response = await fetchPersistentAsset(
+        PUBLISHED_IDLE_BUNDLE_URL + "?release=" + releaseVersion,
+        {
+          cacheKey: "animation-idle-release:" + releaseVersion,
+          request: {
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          },
+        },
+      );
+    } catch (manifestError) {
+      console.warn("[waiting-room] idle manifest unavailable; using legacy endpoint", manifestError);
+      response = await fetch(PUBLISHED_IDLE_BUNDLE_URL, {
+        method: "GET",
+        cache: "default",
+        headers: { Accept: "application/json" },
+        signal: controller.signal,
+      });
+    }
     if (!response.ok) {
       throw new Error(`published idle endpoint returned ${response.status}`);
     }
