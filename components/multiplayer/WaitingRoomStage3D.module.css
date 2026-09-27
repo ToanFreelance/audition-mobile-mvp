@@ -1500,3 +1500,37 @@
   border:0!important;
   box-shadow:none!important;
 }
+
+
+/* P5.6 sketch-match v17 — approved target: wide navy stage, clean center, premium neon frame. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 55% 44% at 50% 36%,rgba(164,55,255,.30) 0%,rgba(101,43,196,.18) 34%,rgba(42,31,115,.08) 56%,transparent 72%),
+    radial-gradient(ellipse 32% 60% at 4% 46%,rgba(42,220,255,.20) 0%,rgba(26,94,218,.08) 48%,transparent 74%),
+    radial-gradient(ellipse 32% 60% at 96% 46%,rgba(255,57,211,.20) 0%,rgba(168,55,217,.08) 48%,transparent 74%),
+    linear-gradient(180deg,#050820 0%,#0d0d39 27%,#140b49 49%,#080d35 76%,#04071b 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.30) contrast(1.13) brightness(1.015)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:25.5%!important;
+  width:78%!important;
+  opacity:.96!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(54px,10vw,70px)!important;
+  letter-spacing:-.07em!important;
+  color:rgba(211,45,225,.08)!important;
+  -webkit-text-stroke:1.45px #f05cf1!important;
+  text-shadow:
+    0 0 4px rgba(255,105,241,.68),
+    0 0 13px rgba(236,56,244,.48),
+    0 0 27px rgba(123,58,255,.28)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#9caeff!important;
+  opacity:.88!important;
+  letter-spacing:.30em!important;
+  text-shadow:0 0 8px rgba(95,115,255,.42)!important;
+}

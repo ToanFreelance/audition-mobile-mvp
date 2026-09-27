@@ -43,9 +43,12 @@ export function createSketchStageSet() {
     side: THREE.DoubleSide,
   });
 
-  // A broader bow brings the side ends toward the audience. Recess the center
-  // slightly to retain clearance behind the complete outer-slot floor decals.
-  const frontZ = (x: number, tier: number) => -1.18 - tier * 0.88 + 0.10 * x * x;
+  // Target stage: a broad shallow bow. The center remains calm and the curvature
+  // becomes visible mainly toward the sides, matching the approved visual.
+  const frontZ = (x: number, tier: number) => {
+    const normalized = Math.min(1, Math.abs(x) / 7.6);
+    return -1.06 - tier * 0.86 + 1.72 * Math.pow(normalized, 1.85);
+  };
   const ribbon = (
     startX: number,
     endX: number,
@@ -147,23 +150,28 @@ export function createSketchStageSet() {
     const wing = new THREE.Group();
     wing.name = side < 0 ? "SketchWing:left" : "SketchWing:right";
     for (let row = 0; row < 8; row += 1) {
-      const y = 1.12 + row * 0.535;
-      const sideLift = 0.02 + row * 0.055;
+      const y = 1.10 + row * 0.525;
+      const sideLift = 0.010 + row * 0.018;
       wing.add(tube([
-        new THREE.Vector3(side * 2.14, y, -3.58),
-        new THREE.Vector3(side * 3.05, y + sideLift * 0.60, -3.04),
-        new THREE.Vector3(side * 4.15, y + sideLift, -1.85),
-        new THREE.Vector3(side * 5.60, y + sideLift * 1.45, -0.30),
-      ], 0.018, railMaterial));
+        new THREE.Vector3(side * 2.38, y, -3.62),
+        new THREE.Vector3(side * 3.20, y + sideLift * 0.35, -3.10),
+        new THREE.Vector3(side * 4.20, y + sideLift * 0.70, -2.08),
+        new THREE.Vector3(side * 5.72, y + sideLift, -0.62),
+      ], 0.017, railMaterial));
     }
-    for (const [x, z, height] of [[2.14, -3.58, 4.06], [3.05, -3.04, 4.28], [4.15, -1.85, 4.47]]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.045, height, 0.06), uprightMaterial);
-      post.position.set(side * x, 0.98 + height / 2, z);
+    for (const [x, z, height] of [[2.38, -3.62, 4.02], [3.20, -3.10, 4.20], [4.20, -2.08, 4.34]]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.043, height, 0.06), uprightMaterial);
+      post.position.set(side * x, 0.94 + height / 2, z);
       wing.add(post);
     }
     wing.add(
-      lightColumn(side * 2.14, -3.48, 0.98, 4.99, 0xcd57ef),
-      lightColumn(side * 3.30, -1.50, 0.72, 4.30, 0x78e5f2),
+      lightColumn(
+        side * 4.92,
+        -0.95,
+        0.78,
+        4.92,
+        side < 0 ? 0x57eaff : 0xff55dc,
+      ),
     );
     for (const material of [railMaterial, uprightMaterial]) {
       const meshes: THREE.Mesh[] = [];

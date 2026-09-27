@@ -120,11 +120,11 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v16");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v17");
   await expect(stage).toHaveAttribute("data-ceiling-source", "threejs");
   await expect(stage).toHaveAttribute("data-stage-risers", "3");
-  await expect(stage).toHaveAttribute("data-backdrop-geometry", "threejs-tiered-stage");
-  await expect(stage).toHaveAttribute("data-ring-palette", "sketch-display-position");
+  await expect(stage).toHaveAttribute("data-backdrop-geometry", "target-tiered-stage");
+  await expect(stage).toHaveAttribute("data-ring-palette", "catalog-gender");
   await expect(stage).toHaveAttribute("data-ring-geometry", "two-medium-one-fine");
   await expect(stage).toHaveAttribute("data-ring-reflection", "excluded");
   await expect(stage).toHaveAttribute("data-stage-lighting", "grand");

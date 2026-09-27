@@ -95,21 +95,19 @@ type IdleRuntime = {
 const IDLE_RENDER_FPS = 30;
 const IDLE_CROSSFADE_SECONDS = 0.35;
 const SLOT_ACCENTS = [0x43dfff, 0xff4fcf, 0x69efae, 0xff5fbd, 0xa968ff, 0x56b4ff] as const;
-const SKETCH_CYAN_RING_ACCENT = 0xa1e9ff;
-const SKETCH_PINK_RING_ACCENT = 0xff94eb;
+const SKETCH_CYAN_RING_ACCENT = 0x79e4ff;
+const SKETCH_PINK_RING_ACCENT = 0xff68df;
 
 function participantAccent(participant: RoomParticipant) {
   return SLOT_ACCENTS[participant.slotIndex] ?? 0x43dfff;
 }
 
-// Presentation palette follows the golden sketch's five display positions,
-// independently of actor identity, gender, READY state or participant names.
-function participantSketchRingAccent(slotIndex: number, focusSlotIndex: number) {
-  const offset = (slotIndex - focusSlotIndex + WAITING_ROOM_MAX_PLAYERS)
-    % WAITING_ROOM_MAX_PLAYERS;
-  return offset === 0 || offset === WAITING_ROOM_MAX_PLAYERS - 1
-    ? SKETCH_CYAN_RING_ACCENT
-    : SKETCH_PINK_RING_ACCENT;
+// Golden-sketch ring color is presentation-only, but its identity source is the
+// Character Catalog. Never infer it from names, slot positions or READY state.
+function participantSketchRingAccent(participant: RoomParticipant) {
+  return getCharacterCatalogEntry(participantCharacterAssetId(participant))?.gender === "female"
+    ? SKETCH_PINK_RING_ACCENT
+    : SKETCH_CYAN_RING_ACCENT;
 }
 
 function participantCharacterAssetId(participant: RoomParticipant): CharacterAssetId {
@@ -271,13 +269,13 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  // One 0.52-unit step toward the front, with the established depth gaps intact.
-  // Inset only the outer pair so their complete decals remain inside mobile framing.
-  center: { x: 0, y: 0, z: 3.58, rotationY: 0, scale: 0.94 },
-  leftNear: { x: -1.20, y: 0.045, z: 1.82, rotationY: 0.028, scale: 0.76 },
-  rightNear: { x: 1.22, y: 0.045, z: 1.78, rotationY: -0.028, scale: 0.76 },
-  leftOuter: { x: -2.36, y: 0.12, z: 0.28, rotationY: 0.052, scale: 0.76 },
-  rightOuter: { x: 2.38, y: 0.12, z: 0.24, rotationY: -0.052, scale: 0.76 },
+  // Target-approved framing: the complete lineup sits close to the front edge
+  // while the two outer actors remain clearly behind the near row.
+  center: { x: 0, y: 0, z: 3.86, rotationY: 0, scale: 0.92 },
+  leftNear: { x: -1.24, y: 0.045, z: 2.10, rotationY: 0.028, scale: 0.74 },
+  rightNear: { x: 1.26, y: 0.045, z: 2.06, rotationY: -0.028, scale: 0.74 },
+  leftOuter: { x: -2.54, y: 0.12, z: 0.56, rotationY: 0.052, scale: 0.74 },
+  rightOuter: { x: 2.56, y: 0.12, z: 0.52, rotationY: -0.052, scale: 0.74 },
 } as const;
 
 function wideSlotPlacement(
@@ -310,7 +308,7 @@ function createParticipantRing(
   const underglowMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.035 : 0.045,
+    opacity: sketchPolish ? 0.018 : 0.045,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -326,7 +324,7 @@ function createParticipantRing(
   const floorMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.025 : 0.11,
+    opacity: sketchPolish ? 0.010 : 0.11,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -342,14 +340,14 @@ function createParticipantRing(
   const haloMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.20 : 0.22,
+    opacity: sketchPolish ? 0.15 : 0.22,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     toneMapped: !sketchPolish,
   });
   const halo = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.87 : 0.68, 1.0, 64),
+    new THREE.RingGeometry(sketchPolish ? 0.875 : 0.68, 1.01, 96),
     haloMaterial,
   );
   halo.rotation.x = -Math.PI / 2;
@@ -365,7 +363,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const outer = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.888 : 0.95, sketchPolish ? 0.96 : 1.035, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.892 : 0.95, sketchPolish ? 0.972 : 1.035, sketchPolish ? 128 : 64),
     outerMaterial,
   );
   outer.rotation.x = -Math.PI / 2;
@@ -381,7 +379,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const core = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.728 : 0.79, sketchPolish ? 0.80 : 0.875, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.720 : 0.79, sketchPolish ? 0.792 : 0.875, sketchPolish ? 128 : 64),
     coreMaterial,
   );
   core.rotation.x = -Math.PI / 2;
@@ -397,7 +395,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const inner = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.590 : 0.55, sketchPolish ? 0.616 : 0.59, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.580 : 0.55, sketchPolish ? 0.592 : 0.59, sketchPolish ? 128 : 64),
     innerMaterial,
   );
   inner.rotation.x = -Math.PI / 2;
@@ -406,7 +404,7 @@ function createParticipantRing(
   const shineMaterial = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
-    opacity: sketchPolish ? 0.065 : 0,
+    opacity: sketchPolish ? 0.040 : 0,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -431,7 +429,7 @@ function createParticipantRing(
   group.userData.shineMaterial = shineMaterial;
   group.userData.floorMaterial = floorMaterial;
   group.userData.sketchPolish = sketchPolish;
-  group.userData.depthScale = sketchPolish ? 0.78 : 1;
+  group.userData.depthScale = sketchPolish ? 0.66 : 1;
   group.userData.accent = color;
   if (sketchPolish) {
     // Keep decals parallel to the floor; compress depth without tilting their plane.
@@ -1190,7 +1188,7 @@ export default function WaitingRoomStage3D({
           ? 1.55
           : 0;
         if (visualPresetRef.current === "sketch") {
-          const accent = participantSketchRingAccent(participant.slotIndex, focusSlotIndex);
+          const accent = participantSketchRingAccent(participant);
           if (node.ring.userData.accent !== accent) {
             // Recolor only the existing decal materials; actors and mixers stay untouched.
             for (const key of ["underglowMaterial", "haloMaterial", "outerMaterial", "coreMaterial", "innerMaterial", "floorMaterial"]) {
@@ -1376,13 +1374,13 @@ export default function WaitingRoomStage3D({
           if (sketchRing) {
             // All five slots use the same bright, non-additive core; only the
             // restrained halo receives distance compensation. No central-only boost.
-            if (underglowMaterial) underglowMaterial.opacity = 0.030 + wave * 0.004;
-            if (haloMaterial) haloMaterial.opacity = 0.20 + wave * 0.010 + depthBoost * 0.012;
-            if (outerMaterial) outerMaterial.opacity = 0.97;
-            if (coreMaterial) coreMaterial.opacity = 0.98;
-            if (innerMaterial) innerMaterial.opacity = 0.76;
-            if (shineMaterial) shineMaterial.opacity = 0.065 + wave * 0.005;
-            if (floorMaterial) floorMaterial.opacity = 0.022;
+            if (underglowMaterial) underglowMaterial.opacity = 0.018 + wave * 0.003;
+            if (haloMaterial) haloMaterial.opacity = 0.15 + wave * 0.008 + depthBoost * 0.014;
+            if (outerMaterial) outerMaterial.opacity = 0.96;
+            if (coreMaterial) coreMaterial.opacity = 0.97;
+            if (innerMaterial) innerMaterial.opacity = 0.72;
+            if (shineMaterial) shineMaterial.opacity = 0.040 + wave * 0.004;
+            if (floorMaterial) floorMaterial.opacity = 0.010;
           } else {
             if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
             if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
@@ -1679,7 +1677,7 @@ export default function WaitingRoomStage3D({
 
       const ring = createParticipantRing(
         visualPresetRef.current === "sketch"
-          ? participantSketchRingAccent(participant.slotIndex, 0)
+          ? participantSketchRingAccent(participant)
           : participantAccent(participant),
         index * 1.37,
         participant.role === "host",
@@ -1878,10 +1876,10 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v16" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v17" : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
-      data-backdrop-geometry={visualPreset === "sketch" ? "threejs-tiered-stage" : "standard"}
-      data-ring-palette={visualPreset === "sketch" ? "sketch-display-position" : "slot"}
+      data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}
+      data-ring-palette={visualPreset === "sketch" ? "catalog-gender" : "slot"}
       data-ring-geometry={visualPreset === "sketch" ? "two-medium-one-fine" : "standard"}
       data-stage-risers={visualPreset === "sketch" ? "3" : "0"}
       data-ring-reflection={visualPreset === "sketch" ? "excluded" : "default"}
