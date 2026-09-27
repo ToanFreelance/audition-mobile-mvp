@@ -18,7 +18,7 @@ type SketchNeonPalette = {
 };
 
 export const WAITING_ROOM_SKETCH_BLUEPRINT = {
-  id: "golden-864x1536-v1",
+  id: "golden-864x1536-v2",
   source: {
     width: 864,
     height: 1536,
@@ -41,22 +41,24 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       rightX: 0.7870,
     },
     logo: {
-      bbox: { x: 0.2303, y: 0.0964, width: 0.5428, height: 0.1458 },
-      center: { x: 0.5, y: 0.2005 },
-      subtitleCenter: { x: 0.5023, y: 0.2695 },
+      // Re-measured from the bright magenta letter envelope in the accepted sketch.
+      bbox: { x: 0.247685, y: 0.177734, width: 0.506944, height: 0.054688 },
+      center: { x: 0.501157, y: 0.205078 },
+      subtitleCenter: { x: 0.497106, y: 0.242839 },
     },
     rings: {
-      leftOuter: { x: 0.1273, y: 0.5716 },
-      leftNear: { x: 0.3021, y: 0.5892 },
-      host: { x: 0.5, y: 0.6230 },
-      rightNear: { x: 0.6968, y: 0.5905 },
-      rightOuter: { x: 0.8750, y: 0.5723 },
+      // Ellipse-fit centers from the accepted 864x1536 golden reference.
+      leftOuter: { x: 0.119970, y: 0.502685 },
+      leftNear: { x: 0.307286, y: 0.554724 },
+      host: { x: 0.505919, y: 0.619772 },
+      rightNear: { x: 0.707819, y: 0.557707 },
+      rightOuter: { x: 0.869565, y: 0.518944 },
     },
   },
   ownerOverrides: {
     // The sketch puts the host crown/name too high. Owner explicitly requested
     // the runtime label to follow the same head-relative offset as other actors.
-    hostWideLabelOffsetPx: -14,
+    hostWideLabelOffsetPx: 8,
     guestWideLabelOffsetPx: -14,
   },
   palette: {
@@ -173,11 +175,14 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       },
     },
     formation: {
-      center: { x: 0, y: 0, z: 3.92, rotationY: 0, scale: 0.87 },
-      leftNear: { x: -1.12, y: 0.045, z: 2.12, rotationY: 0.028, scale: 0.69 },
-      rightNear: { x: 1.14, y: 0.045, z: 2.08, rotationY: -0.028, scale: 0.69 },
-      leftOuter: { x: -2.34, y: 0.12, z: 0.24, rotationY: 0.052, scale: 0.65 },
-      rightOuter: { x: 2.36, y: 0.12, z: 0.20, rotationY: -0.052, scale: 0.65 },
+      // Solved from the measured ring targets by inverse-projecting through the
+      // locked wide camera. This preserves the camera and fixes the scene, not
+      // the screenshot with ad-hoc CSS offsets.
+      center: { x: 0.029, y: 0, z: 4.085, rotationY: 0, scale: 0.87 },
+      leftNear: { x: -1.092, y: 0.045, z: 2.648, rotationY: 0.028, scale: 0.69 },
+      rightNear: { x: 1.168, y: 0.045, z: 2.730, rotationY: -0.028, scale: 0.69 },
+      leftOuter: { x: -2.437, y: 0.12, z: 1.222, rotationY: 0.052, scale: 0.65 },
+      rightOuter: { x: 2.260, y: 0.12, z: 1.782, rotationY: -0.052, scale: 0.65 },
     },
     floor: {
       radius: 9,
@@ -211,10 +216,12 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       railRadius: 0.020,
       railGlowRadius: 0.035,
       railPoints: [
-        { x: 2.34, y: 0, z: -4.34 },
-        { x: 2.54, y: 0.014, z: -4.22 },
-        { x: 2.86, y: 0.045, z: -3.92 },
-        { x: 3.34, y: 0.105, z: -3.30 },
+        // Keep the side-wall rails outside the measured center opening so they
+        // frame the sign instead of reading through the AUDITION wordmark.
+        { x: 2.55, y: 0, z: -4.34 },
+        { x: 2.72, y: 0.014, z: -4.22 },
+        { x: 3.02, y: 0.045, z: -3.92 },
+        { x: 3.48, y: 0.105, z: -3.30 },
         { x: 4.08, y: 0.190, z: -2.02 },
       ],
       uprights: [

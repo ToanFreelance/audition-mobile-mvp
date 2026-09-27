@@ -1758,3 +1758,29 @@
 .blueprintColumnPoint:after,.blueprintRingPoint:after{width:1px;height:20px}
 .blueprintColumnPoint{border-color:#ffe668}
 .blueprintRingPoint{border-color:#7ff7fe}
+
+
+/* P5.6 V23 precision geometry — apply the corrected measured blueprint. */
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:var(--sketch-logo-top)!important;
+  width:var(--sketch-logo-width)!important;
+  transform:translateX(-50%)!important;
+  opacity:1!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(50px,8.6vw,62px)!important;
+  line-height:.90!important;
+  letter-spacing:-.058em!important;
+  color:color-mix(in srgb,var(--sketch-logo-fill) 12%,transparent)!important;
+  -webkit-text-stroke:1.45px var(--sketch-logo-edge)!important;
+  text-shadow:
+    0 0 2px color-mix(in srgb,var(--sketch-logo-edge) 84%,white 16%),
+    0 0 7px color-mix(in srgb,var(--sketch-logo-glow) 66%,transparent),
+    0 0 17px color-mix(in srgb,var(--sketch-logo-glow) 43%,transparent),
+    0 0 30px rgba(108,58,255,.18)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:8px!important;
+  font-size:clamp(8.5px,1.40vw,10.5px)!important;
+  letter-spacing:.31em!important;
+}

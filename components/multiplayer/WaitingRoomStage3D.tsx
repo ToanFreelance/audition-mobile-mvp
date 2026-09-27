@@ -1881,19 +1881,20 @@ export default function WaitingRoomStage3D({
     };
   }, [roomId, visualPreset]);
 
+  const blueprintLogoRect = sketchStageRect(WAITING_ROOM_SKETCH_BLUEPRINT.screen.logo.bbox);
   const sketchCssVariables = visualPreset === "sketch"
     ? ({
         "--sketch-logo-fill": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.fill),
         "--sketch-logo-edge": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.edge),
         "--sketch-logo-glow": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.glow),
         "--sketch-logo-subtitle": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.subtitle),
+        "--sketch-logo-top": `${blueprintLogoRect.y * 100}%`,
+        "--sketch-logo-width": `${blueprintLogoRect.width * 100}%`,
         "--sketch-ready": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.status.ready),
         "--sketch-not-ready": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.status.notReady),
         "--sketch-crown": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.crown.highlight),
       } as CSSProperties)
     : undefined;
-
-  const blueprintLogoRect = sketchStageRect(WAITING_ROOM_SKETCH_BLUEPRINT.screen.logo.bbox);
   const blueprintLeftColumn = sketchStagePoint(WAITING_ROOM_SKETCH_BLUEPRINT.screen.columns.leftCenter);
   const blueprintRightColumn = sketchStagePoint(WAITING_ROOM_SKETCH_BLUEPRINT.screen.columns.rightCenter);
   const blueprintRingPoints = Object.entries(WAITING_ROOM_SKETCH_BLUEPRINT.screen.rings).map(([name, point]) => ({
@@ -1926,7 +1927,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v22-blueprint" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v23-precision" : "off"}
       data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}
