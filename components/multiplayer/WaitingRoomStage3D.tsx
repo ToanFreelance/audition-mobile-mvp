@@ -852,26 +852,26 @@ export default function WaitingRoomStage3D({
     scene.add(new THREE.HemisphereLight(
       sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.hemisphereSky : 0x9bb4ff,
       sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.hemisphereGround : 0x050510,
-      sketchVisual ? 0.98 : 1.34,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.hemisphereIntensity : 1.34,
     ));
 
     const key = new THREE.DirectionalLight(
       sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.key : 0xf8fbff,
-      sketchVisual ? 2.14 : 2.32,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.keyIntensity : 2.32,
     );
     key.position.set(1.8, 6.8, 5.9);
     scene.add(key);
 
     const frontFill = new THREE.DirectionalLight(
       sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.fill : 0xffffff,
-      sketchVisual ? 0.76 : 0.82,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.fillIntensity : 0.82,
     );
     frontFill.position.set(0, 3.2, 6.8);
     scene.add(frontFill);
 
     const cyanRim = new THREE.SpotLight(
       sketchVisual ? 0x20e8ff : 0x42dcff,
-      sketchVisual ? 18.5 : 16,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.cyanRimIntensity : 16,
       16,
       Math.PI / 4.2,
       0.72,
@@ -883,7 +883,7 @@ export default function WaitingRoomStage3D({
 
     const magentaRim = new THREE.SpotLight(
       sketchVisual ? 0xff20d5 : 0xff43cc,
-      sketchVisual ? 18.5 : 15,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.magentaRimIntensity : 15,
       16,
       Math.PI / 4.2,
       0.72,
@@ -893,7 +893,14 @@ export default function WaitingRoomStage3D({
     magentaRim.target.position.set(0.8, 1.65, 0);
     scene.add(magentaRim, magentaRim.target);
 
-    const overhead = new THREE.SpotLight(0xc4d4ff, 14, 16, Math.PI / 5, 0.7, 1.7);
+    const overhead = new THREE.SpotLight(
+      0xcad8ff,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.overheadIntensity : 14,
+      16,
+      Math.PI / 5,
+      0.7,
+      1.7,
+    );
     overhead.position.set(0, 7.5, 1.1);
     overhead.target.position.set(0, 1.2, 0);
     scene.add(overhead, overhead.target);
@@ -998,7 +1005,7 @@ export default function WaitingRoomStage3D({
 
         const spot = new THREE.SpotLight(
           spec.color,
-          10.8,
+          WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.beamSpotIntensity,
           11.8,
           Math.PI / 6.0,
           0.86,
@@ -1009,7 +1016,12 @@ export default function WaitingRoomStage3D({
         scene.add(spot, spot.target);
       });
 
-      const upperGlow = new THREE.PointLight(0x754cff, 8.5, 10, 1.8);
+      const upperGlow = new THREE.PointLight(
+        WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.upperGlowColor,
+        WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.upperGlowIntensity,
+        10,
+        1.8,
+      );
       upperGlow.position.set(0, 4.55, 0.25);
       scene.add(upperGlow);
     }
@@ -1400,13 +1412,13 @@ export default function WaitingRoomStage3D({
           if (sketchRing) {
             // All five slots use the same bright, non-additive core; only the
             // restrained halo receives distance compensation. No central-only boost.
-            if (underglowMaterial) underglowMaterial.opacity = 0.014 + wave * 0.002;
-            if (haloMaterial) haloMaterial.opacity = 0.13 + wave * 0.006 + depthBoost * 0.020;
-            if (outerMaterial) outerMaterial.opacity = 0.95;
-            if (coreMaterial) coreMaterial.opacity = 0.94;
-            if (innerMaterial) innerMaterial.opacity = 0.72;
-            if (shineMaterial) shineMaterial.opacity = 0.030 + wave * 0.003;
-            if (floorMaterial) floorMaterial.opacity = 0.008;
+            if (underglowMaterial) underglowMaterial.opacity = 0.020 + wave * 0.003;
+            if (haloMaterial) haloMaterial.opacity = 0.16 + wave * 0.008 + depthBoost * 0.022;
+            if (outerMaterial) outerMaterial.opacity = 0.88;
+            if (coreMaterial) coreMaterial.opacity = 0.90;
+            if (innerMaterial) innerMaterial.opacity = 0.66;
+            if (shineMaterial) shineMaterial.opacity = 0.025 + wave * 0.002;
+            if (floorMaterial) floorMaterial.opacity = 0.014;
           } else {
             if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
             if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
@@ -1927,7 +1939,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v23-precision" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v24-color-match" : "off"}
       data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}

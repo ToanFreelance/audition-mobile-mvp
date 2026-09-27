@@ -27,7 +27,7 @@ export function createSketchStageSet() {
     side: THREE.DoubleSide,
   });
   const riserFaceAccentMaterial = new THREE.MeshBasicMaterial({
-    color: 0x6750b8,
+    color: palette.structure.rightBody,
     transparent: true,
     opacity: 0.22,
     depthWrite: false,
@@ -35,12 +35,12 @@ export function createSketchStageSet() {
     toneMapped: false,
   });
   const edgeMaterial = new THREE.MeshBasicMaterial({
-    color: 0xd7b4ff,
+    color: palette.structure.riserEdge,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
   const edgeGlowMaterial = new THREE.MeshBasicMaterial({
-    color: 0xb25fff,
+    color: palette.structure.riserGlow,
     transparent: true,
     opacity: 0.20,
     depthWrite: false,
@@ -137,7 +137,7 @@ export function createSketchStageSet() {
   }
 
   const uprightMaterial = new THREE.MeshStandardMaterial({
-    color: 0x20275b,
+    color: palette.structure.uprightBody,
     emissive: palette.truss.dark,
     emissiveIntensity: 0.34,
     roughness: 0.38,
@@ -187,7 +187,7 @@ export function createSketchStageSet() {
     wing.name = side < 0 ? "SketchWing:left" : "SketchWing:right";
 
     const railMaterial = new THREE.MeshStandardMaterial({
-      color: side < 0 ? 0x294b78 : 0x5b315f,
+      color: side < 0 ? palette.structure.leftBody : palette.structure.rightBody,
       emissive: side < 0 ? palette.columns.leftCyan.lowlight : palette.columns.rightMagenta.lowlight,
       emissiveIntensity: material.rails.emissiveIntensity,
       metalness: material.rails.metalness,

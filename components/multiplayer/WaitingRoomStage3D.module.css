@@ -1784,3 +1784,47 @@
   font-size:clamp(8.5px,1.40vw,10.5px)!important;
   letter-spacing:.31em!important;
 }
+
+
+/* P5.6 V24 — full-scene golden-sketch color match + head-relative host identity. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 52% 42% at 50% 31%,rgba(188,32,255,.44) 0%,rgba(119,18,221,.28) 34%,rgba(54,20,142,.13) 60%,transparent 76%),
+    radial-gradient(ellipse 35% 67% at 0% 45%,rgba(28,216,255,.30) 0%,rgba(25,86,229,.14) 49%,transparent 75%),
+    radial-gradient(ellipse 35% 67% at 100% 45%,rgba(255,49,218,.30) 0%,rgba(165,40,226,.14) 49%,transparent 75%),
+    linear-gradient(180deg,#05052d 0%,#09083f 22%,#160568 47%,#090d48 77%,#030629 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 45% 34% at 50% 30%,rgba(231,48,255,.13),transparent 70%),
+    linear-gradient(180deg,rgba(8,7,44,.06),rgba(30,9,83,.11) 32%,transparent 76%)!important;
+  filter:saturate(1.32) contrast(1.10) brightness(1.05)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.40) contrast(1.10) brightness(1.07)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:color-mix(in srgb,var(--sketch-logo-fill) 10%,transparent)!important;
+  -webkit-text-stroke:1.35px var(--sketch-logo-edge)!important;
+  text-shadow:
+    0 0 2px rgba(255,232,255,.74),
+    0 0 7px color-mix(in srgb,var(--sketch-logo-edge) 70%,transparent),
+    0 0 17px color-mix(in srgb,var(--sketch-logo-glow) 48%,transparent),
+    0 0 30px rgba(119,49,255,.18)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#aebdff!important;
+  text-shadow:0 0 5px rgba(147,168,255,.66),0 0 11px rgba(91,75,255,.34)!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .ready{
+  color:var(--sketch-ready)!important;
+  text-shadow:0 0 6px rgba(88,240,216,.72),0 1px 2px rgba(0,35,27,.92)!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .notReady{
+  color:var(--sketch-not-ready)!important;
+  text-shadow:0 0 6px rgba(248,120,248,.72),0 1px 2px rgba(44,0,38,.92)!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .crown{
+  color:var(--sketch-crown)!important;
+  filter:drop-shadow(0 0 6px rgba(245,219,116,.64))!important;
+}
