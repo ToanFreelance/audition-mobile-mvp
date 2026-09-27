@@ -2061,3 +2061,42 @@
 .traceFootlights{
   opacity:.72;
 }
+
+
+/* P5.6 V30 clean structure — keep V28 color + V29 risers, remove broken wing overlap. */
+.traceRails path{
+  stroke-width:1.95;
+  opacity:.88;
+}
+.traceRailGlow path{
+  stroke-width:5.4;
+  opacity:.11;
+}
+.traceTruss path{
+  stroke-width:2.05;
+  opacity:.94;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  filter:drop-shadow(0 0 2px rgba(83,90,255,.30));
+}
+.traceTrussBrace{
+  stroke-width:.72!important;
+  opacity:.24!important;
+  filter:none!important;
+}
+.traceRiserSurface{
+  opacity:.34;
+}
+.traceRiserEdge{
+  stroke-width:1.75;
+  opacity:.72;
+}
+.traceRiserLowerEdge{
+  opacity:.30;
+}
+.traceRiserGlow{
+  opacity:.07;
+}
+.traceFootlights{
+  opacity:.72;
+}

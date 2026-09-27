@@ -1947,8 +1947,8 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v29-hybrid-stage" : "off"}
-      data-architecture-source={visualPreset === "sketch" ? "hybrid-trace-3d" : "threejs"}
+      data-sketch-match={visualPreset === "sketch" ? "v30-clean-structure" : "off"}
+      data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
       data-floor-grid={visualPreset === "sketch" ? "screen-trace" : "material"}
       data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
@@ -2078,7 +2078,9 @@ export default function WaitingRoomStage3D({
             <g className={styles.traceTruss} stroke="url(#trace-roof)">
               <path d={traceArchitecture.truss.upperPath} />
               <path d={traceArchitecture.truss.lowerPath} />
-              {traceArchitecture.truss.braces.map(path => <path key={path} d={path} />)}
+              {traceArchitecture.truss.braces
+                .filter((_, index) => index % 2 === 0)
+                .map(path => <path className={styles.traceTrussBrace} key={path} d={path} />)}
             </g>
 
             <g className={styles.traceColumns} filter="url(#trace-column-glow)">
