@@ -18,7 +18,7 @@ type SketchNeonPalette = {
 };
 
 export const WAITING_ROOM_SKETCH_BLUEPRINT = {
-  id: "golden-864x1536-v5",
+  id: "golden-864x1536-v6",
   source: {
     width: 864,
     height: 1536,
@@ -82,6 +82,44 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       pinkRing: 0x950cdf,
     },
   },
+  traceArchitecture: {
+    enabled: true,
+    viewBox: { width: 864, height: 1044 },
+    wallLeftPath: "M 0 98 C 58 112 132 150 220 222 L 220 548 C 148 531 74 522 0 520 Z",
+    railsLeft: [
+      "M 0 148 C 58 159 123 181 196 207",
+      "M 0 207 C 60 222 126 247 198 270",
+      "M 0 269 C 62 286 129 307 201 325",
+      "M 0 326 C 64 340 132 353 204 364",
+      "M 0 379 C 67 390 137 398 208 403",
+      "M 0 430 C 70 438 142 444 212 447",
+      "M 0 477 C 73 483 146 487 215 490",
+      "M 0 521 C 75 525 149 529 218 531"
+    ],
+    truss: {
+      upperPath: "M 16 10 C 142 55 286 103 432 111 C 578 103 722 55 848 10",
+      lowerPath: "M 25 31 C 153 74 292 119 432 127 C 572 119 711 74 839 31",
+      braces: [
+        "M 76 31 L 91 55","M 104 41 L 117 66","M 134 51 L 145 76",
+        "M 166 61 L 174 87","M 198 71 L 204 96","M 232 82 L 236 105",
+        "M 268 91 L 270 113","M 304 99 L 305 119","M 341 105 L 342 123",
+        "M 378 109 L 379 126","M 416 111 L 416 127",
+        "M 448 127 L 449 111","M 485 124 L 486 107","M 522 121 L 524 102",
+        "M 558 116 L 562 95","M 594 109 L 600 86","M 628 101 L 636 77",
+        "M 660 92 L 671 66","M 691 82 L 704 56","M 720 71 L 735 47",
+        "M 748 61 L 766 37"
+      ]
+    },
+    columns: {
+      left: { x: 31, y: 135, width: 23, height: 372 },
+      right: { x: 810, y: 135, width: 23, height: 372 }
+    },
+    reflections: {
+      left: "M 0 624 C 62 606 123 616 177 687 C 142 807 105 928 42 1044 L 0 1044 Z",
+      center: "M 256 623 C 341 588 520 588 608 625 C 572 790 548 926 518 1044 L 332 1044 C 306 923 286 786 256 623 Z",
+      right: "M 864 624 C 802 606 741 616 687 687 C 722 807 759 928 822 1044 L 864 1044 Z"
+    }
+  },
   ownerOverrides: {
     // The sketch puts the host crown/name too high. Owner explicitly requested
     // the runtime label to follow the same head-relative offset as other actors.
@@ -111,9 +149,9 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       subtitle: 0x90aaff,
     },
     backdrop: {
-      dark: 0x07052d,
-      mid: 0x16074e,
-      violet: 0x5b1e52,
+      dark: 0x050327,
+      mid: 0x120541,
+      violet: 0x49105f,
     },
     truss: {
       dark: 0x07105c,
@@ -165,22 +203,22 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       shadow: 0x8c5a1e,
     },
     actor: {
-      key: 0xffd8cc,
-      fill: 0xfff0ec,
-      hemisphereSky: 0x7585e8,
-      hemisphereGround: 0x02020d,
+      key: 0xffe2d6,
+      fill: 0xfff5ee,
+      hemisphereSky: 0x7887dc,
+      hemisphereGround: 0x010108,
     },
   },
   material: {
     floor: {
-      opacity: 0.70,
-      roughness: 0.08,
-      metalness: 0.50,
+      opacity: 0.60,
+      roughness: 0.075,
+      metalness: 0.52,
       clearcoat: 1,
-      clearcoatRoughness: 0.035,
-      emissiveIntensity: 0.22,
-      haloOpacity: 0.105,
-      runwayOpacity: 0.055,
+      clearcoatRoughness: 0.03,
+      emissiveIntensity: 0.27,
+      haloOpacity: 0.09,
+      runwayOpacity: 0.042,
     },
     riser: {
       treadColor: 0x32186f,
@@ -281,15 +319,15 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
     ],
     lighting: {
       // V26: preserve deep wall values while restoring localized neon punch.
-      hemisphereIntensity: 0.70,
-      keyIntensity: 1.98,
-      fillIntensity: 0.58,
-      cyanRimIntensity: 18.2,
-      magentaRimIntensity: 18.2,
-      overheadIntensity: 12.0,
-      beamSpotIntensity: 11.2,
+      hemisphereIntensity: 0.68,
+      keyIntensity: 2.16,
+      fillIntensity: 0.72,
+      cyanRimIntensity: 17.2,
+      magentaRimIntensity: 17.2,
+      overheadIntensity: 11.0,
+      beamSpotIntensity: 10.4,
       upperGlowColor: 0x7c32ff,
-      upperGlowIntensity: 6.4,
+      upperGlowIntensity: 3.6,
     },
     truss: {
       // Golden roof: sides stay near the top edge while the center dips to ~10%

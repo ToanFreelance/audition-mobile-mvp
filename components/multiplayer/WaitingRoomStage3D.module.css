@@ -1894,3 +1894,64 @@
     0 0 4px rgba(160,183,255,.74),
     0 0 10px rgba(91,95,244,.42)!important;
 }
+
+
+/* P5.6 V27 stage trace lock — screen-space venue silhouette traced from golden sketch. */
+.stage[data-visual-preset="sketch"] .architecture:before,
+.stage[data-visual-preset="sketch"] .architecture:after,
+.stage[data-visual-preset="sketch"] .lightBarLeft,
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  display:none!important;
+}
+.stageTrace{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  overflow:visible;
+}
+.traceWall{
+  fill:rgba(5,7,40,.74);
+  stroke:rgba(75,88,177,.18);
+  stroke-width:1.2;
+}
+.traceRails path,.traceRailGlow path,.traceTruss path{
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.traceRails path{
+  stroke-width:2.35;
+  opacity:.94;
+}
+.traceRailGlow path{
+  stroke-width:6.5;
+  opacity:.18;
+}
+.traceTruss path{
+  stroke-width:2.0;
+  opacity:.92;
+  filter:drop-shadow(0 0 4px rgba(83,90,255,.48));
+}
+.traceTruss path:nth-child(n+3){
+  stroke-width:1.05;
+  opacity:.62;
+}
+.traceColumns{opacity:.88}
+.traceColumnCores{opacity:.86}
+.traceFloorReflection{mix-blend-mode:screen}
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 40% 28% at 50% 31%,rgba(167,18,220,.13) 0%,rgba(93,12,162,.06) 43%,transparent 76%),
+    linear-gradient(180deg,#030323 0%,#07052f 21%,#120541 45%,#080630 72%,#030420 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:none!important;
+  filter:none!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.24) contrast(1.24) brightness(1.08)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  filter:none!important;
+}

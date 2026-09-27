@@ -855,7 +855,7 @@ export default function WaitingRoomStage3D({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = sketchVisual ? 1.11 : 1.16;
+    renderer.toneMappingExposure = sketchVisual ? 1.13 : 1.16;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
 
@@ -1005,7 +1005,7 @@ export default function WaitingRoomStage3D({
     scene.add(runway);
 
     if (sketchVisual) {
-      scene.add(createSketchStageSet(), createSketchStageTruss());
+      scene.add(createSketchStageSet());
 
       const beamSpecs = WAITING_ROOM_SKETCH_BLUEPRINT.scene.beams;
       beamSpecs.forEach(spec => {
@@ -1907,6 +1907,10 @@ export default function WaitingRoomStage3D({
         "--sketch-ready": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.status.ready),
         "--sketch-not-ready": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.status.notReady),
         "--sketch-crown": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.crown.highlight),
+        "--sketch-trace-cyan": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.columns.leftCyan.core),
+        "--sketch-trace-magenta": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.columns.rightMagenta.core),
+        "--sketch-trace-blue": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.truss.bright),
+        "--sketch-trace-violet": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.truss.glow),
       } as CSSProperties)
     : undefined;
   const blueprintLeftColumn = sketchStagePoint(WAITING_ROOM_SKETCH_BLUEPRINT.screen.columns.leftCenter);
@@ -1918,6 +1922,8 @@ export default function WaitingRoomStage3D({
   const blueprintOpeningLeft = WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.leftX;
   const blueprintOpeningWidth = WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.rightX
     - WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.leftX;
+  const traceArchitecture = WAITING_ROOM_SKETCH_BLUEPRINT.traceArchitecture;
+  const traceViewBox = `0 0 ${traceArchitecture.viewBox.width} ${traceArchitecture.viewBox.height}`;
 
   return (
     <div
@@ -1941,7 +1947,8 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v26-vivid-depth" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v27-stage-trace" : "off"}
+      data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}
@@ -1954,6 +1961,119 @@ export default function WaitingRoomStage3D({
       data-stage-footprint={visualPreset === "sketch" ? "expanded" : "standard"}
     >
       <div className={styles.architecture} aria-hidden="true">
+        {visualPreset === "sketch" && traceArchitecture.enabled && (
+          <svg
+            className={styles.stageTrace}
+            viewBox={traceViewBox}
+            preserveAspectRatio="none"
+            data-testid="sketch-stage-trace"
+          >
+            <defs>
+              <linearGradient id="trace-left-rail" x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="var(--sketch-trace-cyan)" />
+                <stop offset="100%" stopColor="var(--sketch-trace-violet)" />
+              </linearGradient>
+              <linearGradient id="trace-right-rail" x1="644" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="var(--sketch-trace-violet)" />
+                <stop offset="100%" stopColor="var(--sketch-trace-magenta)" />
+              </linearGradient>
+              <linearGradient id="trace-roof" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="var(--sketch-trace-blue)" />
+                <stop offset="48%" stopColor="var(--sketch-trace-violet)" />
+                <stop offset="100%" stopColor="var(--sketch-trace-magenta)" />
+              </linearGradient>
+              <linearGradient id="trace-left-column" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#99f7ff" />
+                <stop offset="38%" stopColor="var(--sketch-trace-cyan)" />
+                <stop offset="100%" stopColor="#1975ff" />
+              </linearGradient>
+              <linearGradient id="trace-right-column" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#7934ff" />
+                <stop offset="58%" stopColor="var(--sketch-trace-magenta)" />
+                <stop offset="100%" stopColor="#ffd2ff" />
+              </linearGradient>
+              <linearGradient id="trace-reflection-left" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#22c7fd" stopOpacity=".30" />
+                <stop offset="100%" stopColor="#146bf9" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="trace-reflection-center" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#783cff" stopOpacity=".20" />
+                <stop offset="100%" stopColor="#1106af" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="trace-reflection-right" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f94bfc" stopOpacity=".25" />
+                <stop offset="100%" stopColor="#950cdf" stopOpacity="0" />
+              </linearGradient>
+              <filter id="trace-soft-glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+              <filter id="trace-column-glow" x="-100%" y="-20%" width="300%" height="140%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+
+            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} />
+            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} transform="translate(864 0) scale(-1 1)" />
+
+            <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.left} fill="url(#trace-reflection-left)" />
+            <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.center} fill="url(#trace-reflection-center)" />
+            <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.right} fill="url(#trace-reflection-right)" />
+
+            <g className={styles.traceRailGlow} filter="url(#trace-soft-glow)">
+              {traceArchitecture.railsLeft.map(path => <path key={`lg-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
+              {traceArchitecture.railsLeft.map(path => <path key={`rg-${path}`} d={path} transform="translate(864 0) scale(-1 1)" stroke="url(#trace-right-rail)" />)}
+            </g>
+            <g className={styles.traceRails}>
+              {traceArchitecture.railsLeft.map(path => <path key={`lc-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
+              {traceArchitecture.railsLeft.map(path => <path key={`rc-${path}`} d={path} transform="translate(864 0) scale(-1 1)" stroke="url(#trace-right-rail)" />)}
+            </g>
+
+            <g className={styles.traceTruss} stroke="url(#trace-roof)">
+              <path d={traceArchitecture.truss.upperPath} />
+              <path d={traceArchitecture.truss.lowerPath} />
+              {traceArchitecture.truss.braces.map(path => <path key={path} d={path} />)}
+            </g>
+
+            <g className={styles.traceColumns} filter="url(#trace-column-glow)">
+              <rect
+                x={traceArchitecture.columns.left.x}
+                y={traceArchitecture.columns.left.y}
+                width={traceArchitecture.columns.left.width}
+                height={traceArchitecture.columns.left.height}
+                rx="2"
+                fill="url(#trace-left-column)"
+              />
+              <rect
+                x={traceArchitecture.columns.right.x}
+                y={traceArchitecture.columns.right.y}
+                width={traceArchitecture.columns.right.width}
+                height={traceArchitecture.columns.right.height}
+                rx="2"
+                fill="url(#trace-right-column)"
+              />
+            </g>
+            <g className={styles.traceColumnCores}>
+              <rect
+                x={traceArchitecture.columns.left.x + 6}
+                y={traceArchitecture.columns.left.y}
+                width={traceArchitecture.columns.left.width - 12}
+                height={traceArchitecture.columns.left.height}
+                rx="1"
+                fill="#bffaff"
+              />
+              <rect
+                x={traceArchitecture.columns.right.x + 6}
+                y={traceArchitecture.columns.right.y}
+                width={traceArchitecture.columns.right.width - 12}
+                height={traceArchitecture.columns.right.height}
+                rx="1"
+                fill="#ffd0ff"
+              />
+            </g>
+          </svg>
+        )}
         <span className={styles.lightBarLeft} />
         <span className={styles.lightBarRight} />
         <div className={styles.brand}>

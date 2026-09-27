@@ -182,7 +182,7 @@ export function createSketchStageSet() {
     return group;
   };
 
-  for (const side of [-1, 1] as const) {
+  if (!blueprint.traceArchitecture.enabled) for (const side of [-1, 1] as const) {
     const wing = new THREE.Group();
     wing.name = side < 0 ? "SketchWing:left" : "SketchWing:right";
 
