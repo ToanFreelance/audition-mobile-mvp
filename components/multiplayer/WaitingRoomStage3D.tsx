@@ -95,8 +95,8 @@ type IdleRuntime = {
 const IDLE_RENDER_FPS = 30;
 const IDLE_CROSSFADE_SECONDS = 0.35;
 const SLOT_ACCENTS = [0x43dfff, 0xff4fcf, 0x69efae, 0xff5fbd, 0xa968ff, 0x56b4ff] as const;
-const SKETCH_CYAN_RING_ACCENT = 0x87dafa;
-const SKETCH_PINK_RING_ACCENT = 0xf575df;
+const SKETCH_CYAN_RING_ACCENT = 0xa1e9ff;
+const SKETCH_PINK_RING_ACCENT = 0xff94eb;
 
 function participantAccent(participant: RoomParticipant) {
   return SLOT_ACCENTS[participant.slotIndex] ?? 0x43dfff;
@@ -271,11 +271,13 @@ const WIDE_ARC_PLACEMENTS = {
 } as const;
 
 const SKETCH_WIDE_ARC_PLACEMENTS = {
-  center: { x: 0, y: 0, z: 3.06, rotationY: 0, scale: 0.94 },
-  leftNear: { x: -1.20, y: 0.045, z: 1.30, rotationY: 0.028, scale: 0.76 },
-  rightNear: { x: 1.22, y: 0.045, z: 1.26, rotationY: -0.028, scale: 0.76 },
-  leftOuter: { x: -2.60, y: 0.12, z: -0.24, rotationY: 0.052, scale: 0.76 },
-  rightOuter: { x: 2.62, y: 0.12, z: -0.28, rotationY: -0.052, scale: 0.76 },
+  // One 0.52-unit step toward the front, with the established depth gaps intact.
+  // Inset only the outer pair so their complete decals remain inside mobile framing.
+  center: { x: 0, y: 0, z: 3.58, rotationY: 0, scale: 0.94 },
+  leftNear: { x: -1.20, y: 0.045, z: 1.82, rotationY: 0.028, scale: 0.76 },
+  rightNear: { x: 1.22, y: 0.045, z: 1.78, rotationY: -0.028, scale: 0.76 },
+  leftOuter: { x: -2.36, y: 0.12, z: 0.28, rotationY: 0.052, scale: 0.76 },
+  rightOuter: { x: 2.38, y: 0.12, z: 0.24, rotationY: -0.052, scale: 0.76 },
 } as const;
 
 function wideSlotPlacement(
@@ -340,7 +342,7 @@ function createParticipantRing(
   const haloMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.075 : 0.22,
+    opacity: sketchPolish ? 0.20 : 0.22,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -356,14 +358,14 @@ function createParticipantRing(
   const outerMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.88 : 0.2,
+    opacity: sketchPolish ? 0.97 : 0.2,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: sketchPolish ? THREE.NormalBlending : THREE.AdditiveBlending,
     toneMapped: !sketchPolish,
   });
   const outer = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.916 : 0.95, sketchPolish ? 0.96 : 1.035, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.888 : 0.95, sketchPolish ? 0.96 : 1.035, sketchPolish ? 128 : 64),
     outerMaterial,
   );
   outer.rotation.x = -Math.PI / 2;
@@ -379,7 +381,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const core = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.755 : 0.79, sketchPolish ? 0.80 : 0.875, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.728 : 0.79, sketchPolish ? 0.80 : 0.875, sketchPolish ? 128 : 64),
     coreMaterial,
   );
   core.rotation.x = -Math.PI / 2;
@@ -395,7 +397,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const inner = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.60 : 0.55, sketchPolish ? 0.615 : 0.59, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.590 : 0.55, sketchPolish ? 0.616 : 0.59, sketchPolish ? 128 : 64),
     innerMaterial,
   );
   inner.rotation.x = -Math.PI / 2;
@@ -404,7 +406,7 @@ function createParticipantRing(
   const shineMaterial = new THREE.MeshBasicMaterial({
     color: 0xffffff,
     transparent: true,
-    opacity: sketchPolish ? 0.08 : 0,
+    opacity: sketchPolish ? 0.065 : 0,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -433,6 +435,10 @@ function createParticipantRing(
   group.userData.accent = color;
   if (sketchPolish) {
     // Keep decals parallel to the floor; compress depth without tilting their plane.
+    // Transparent floor sorting otherwise paints over the distant rings. Render
+    // decals after floor overlays, but retain depthTest against actors and risers.
+    group.renderOrder = 2;
+    group.children.forEach((object, index) => { object.renderOrder = index; });
     group.traverse(object => object.layers.set(1));
   }
   return group;
@@ -529,13 +535,13 @@ function createSketchStageTruss() {
   });
 
   const upperPoints = [
-    new THREE.Vector3(-6.0, 5.17, -1.30),
-    new THREE.Vector3(-4.0, 5.07, -2.15),
-    new THREE.Vector3(-2.0, 4.96, -3.08),
-    new THREE.Vector3(0, 4.93, -3.35),
-    new THREE.Vector3(2.0, 4.96, -3.08),
-    new THREE.Vector3(4.0, 5.07, -2.15),
-    new THREE.Vector3(6.0, 5.17, -1.30),
+    new THREE.Vector3(-6.0, 5.68, -1.30),
+    new THREE.Vector3(-4.0, 5.47, -2.15),
+    new THREE.Vector3(-2.0, 5.22, -3.08),
+    new THREE.Vector3(0, 5.18, -3.35),
+    new THREE.Vector3(2.0, 5.22, -3.08),
+    new THREE.Vector3(4.0, 5.47, -2.15),
+    new THREE.Vector3(6.0, 5.68, -1.30),
   ];
   const lowerPoints = upperPoints.map(point => point.clone().add(new THREE.Vector3(0, -0.18, 0.025)));
   const upperCurve = new THREE.CatmullRomCurve3(upperPoints);
@@ -965,12 +971,12 @@ export default function WaitingRoomStage3D({
       scene.add(createSketchStageSet(), createSketchStageTruss());
 
       const beamSpecs = [
-        { x: -3.25, y: 4.82, z: -2.35, color: 0x80cfff, targetX: -2.45, opacity: 0.20 },
-        { x: -1.58, y: 4.73, z: -3.08, color: 0x85c7ff, targetX: -0.76, opacity: 0.15 },
-        { x: -0.92, y: 4.72, z: -3.20, color: 0xb05bea, targetX: -0.30, opacity: 0.07 },
-        { x: 0.92, y: 4.72, z: -3.20, color: 0xb05bea, targetX: 0.30, opacity: 0.07 },
-        { x: 1.58, y: 4.73, z: -3.08, color: 0x85c7ff, targetX: 0.76, opacity: 0.15 },
-        { x: 3.25, y: 4.82, z: -2.35, color: 0x80cfff, targetX: 2.45, opacity: 0.20 },
+        { x: -3.25, y: 5.18, z: -2.35, color: 0x80cfff, targetX: -2.45, opacity: 0.20 },
+        { x: -1.58, y: 4.99, z: -3.08, color: 0x85c7ff, targetX: -0.76, opacity: 0.15 },
+        { x: -0.92, y: 4.98, z: -3.20, color: 0xb05bea, targetX: -0.30, opacity: 0.07 },
+        { x: 0.92, y: 4.98, z: -3.20, color: 0xb05bea, targetX: 0.30, opacity: 0.07 },
+        { x: 1.58, y: 4.99, z: -3.08, color: 0x85c7ff, targetX: 0.76, opacity: 0.15 },
+        { x: 3.25, y: 5.18, z: -2.35, color: 0x80cfff, targetX: 2.45, opacity: 0.20 },
       ];
       beamSpecs.forEach(spec => {
         const source = new THREE.Vector3(spec.x, spec.y, spec.z);
@@ -1368,14 +1374,15 @@ export default function WaitingRoomStage3D({
           const sketchRing = Boolean(node.ring.userData.sketchPolish);
           const depthBoost = Number(node.ring.userData.depthBoost ?? 0);
           if (sketchRing) {
-            // A quiet luminous decal, with bounded alpha even on the distant slots.
-            if (underglowMaterial) underglowMaterial.opacity = 0.020 + wave * 0.004 + emphasis * 0.006;
-            if (haloMaterial) haloMaterial.opacity = 0.13 + wave * 0.008 + depthBoost * 0.025 + emphasis * 0.015;
-            if (outerMaterial) outerMaterial.opacity = 0.92 + wave * 0.010 + depthBoost * 0.020 + emphasis * 0.020;
-            if (coreMaterial) coreMaterial.opacity = 0.94 + wave * 0.010 + depthBoost * 0.015 + emphasis * 0.015;
-            if (innerMaterial) innerMaterial.opacity = 0.46 + wave * 0.010 + depthBoost * 0.025 + emphasis * 0.020;
-            if (shineMaterial) shineMaterial.opacity = 0.018 + wave * 0.004;
-            if (floorMaterial) floorMaterial.opacity = 0.015 + wave * 0.003 + emphasis * 0.004;
+            // All five slots use the same bright, non-additive core; only the
+            // restrained halo receives distance compensation. No central-only boost.
+            if (underglowMaterial) underglowMaterial.opacity = 0.030 + wave * 0.004;
+            if (haloMaterial) haloMaterial.opacity = 0.20 + wave * 0.010 + depthBoost * 0.012;
+            if (outerMaterial) outerMaterial.opacity = 0.97;
+            if (coreMaterial) coreMaterial.opacity = 0.98;
+            if (innerMaterial) innerMaterial.opacity = 0.76;
+            if (shineMaterial) shineMaterial.opacity = 0.065 + wave * 0.005;
+            if (floorMaterial) floorMaterial.opacity = 0.022;
           } else {
             if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
             if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
@@ -1871,7 +1878,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v15" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v16" : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "threejs" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "threejs-tiered-stage" : "standard"}
       data-ring-palette={visualPreset === "sketch" ? "sketch-display-position" : "slot"}
