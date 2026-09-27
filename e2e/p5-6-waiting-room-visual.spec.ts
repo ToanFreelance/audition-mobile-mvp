@@ -122,7 +122,7 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
   await expect(stage).toHaveAttribute("data-sketch-match", "v27-stage-trace");
   await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v6");
-  await expect(stage).toHaveAttribute("data-ceiling-source", "threejs");
+  await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
   await expect(page.getByTestId("sketch-stage-trace")).toHaveCount(1);
   await expect(stage).toHaveAttribute("data-stage-risers", "3");
