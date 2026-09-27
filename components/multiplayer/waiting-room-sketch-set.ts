@@ -24,21 +24,21 @@ export function createSketchStageSet() {
     side: THREE.DoubleSide,
   });
   const edgeMaterial = new THREE.MeshBasicMaterial({
-    color: 0x9467f0,
+    color: 0xa97aff,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
   const edgeGlowMaterial = new THREE.MeshBasicMaterial({
     color: 0xa457ed,
     transparent: true,
-    opacity: 0.14,
+    opacity: 0.19,
     depthWrite: false,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
     toneMapped: false,
   });
   const footlightMaterial = new THREE.MeshBasicMaterial({
-    color: 0xe4bbff,
+    color: 0xf0d2ff,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
@@ -47,7 +47,7 @@ export function createSketchStageSet() {
   // becomes visible mainly toward the sides, matching the approved visual.
   const frontZ = (x: number, tier: number) => {
     const normalized = Math.min(1, Math.abs(x) / 7.6);
-    return -1.06 - tier * 0.86 + 1.72 * Math.pow(normalized, 1.85);
+    return -1.08 - tier * 0.87 + 2.05 * Math.pow(normalized, 1.82);
   };
   const ribbon = (
     startX: number,
@@ -151,12 +151,11 @@ export function createSketchStageSet() {
     wing.name = side < 0 ? "SketchWing:left" : "SketchWing:right";
     for (let row = 0; row < 8; row += 1) {
       const y = 1.10 + row * 0.525;
-      const sideLift = 0.010 + row * 0.018;
       wing.add(tube([
-        new THREE.Vector3(side * 2.38, y, -3.62),
-        new THREE.Vector3(side * 3.20, y + sideLift * 0.35, -3.10),
-        new THREE.Vector3(side * 4.20, y + sideLift * 0.70, -2.08),
-        new THREE.Vector3(side * 5.72, y + sideLift, -0.62),
+        new THREE.Vector3(side * 2.46, y, -3.64),
+        new THREE.Vector3(side * 3.18, y, -3.18),
+        new THREE.Vector3(side * 4.12, y, -2.28),
+        new THREE.Vector3(side * 5.52, y, -0.70),
       ], 0.017, railMaterial));
     }
     for (const [x, z, height] of [[2.38, -3.62, 4.02], [3.20, -3.10, 4.20], [4.20, -2.08, 4.34]]) {
@@ -166,10 +165,10 @@ export function createSketchStageSet() {
     }
     wing.add(
       lightColumn(
-        side * 4.92,
-        -0.95,
-        0.78,
-        4.92,
+        side * 4.28,
+        -0.82,
+        0.82,
+        5.02,
         side < 0 ? 0x57eaff : 0xff55dc,
       ),
     );

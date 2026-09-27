@@ -1534,3 +1534,30 @@
   letter-spacing:.30em!important;
   text-shadow:0 0 8px rgba(95,115,255,.42)!important;
 }
+
+
+/* P5.6 sketch-match v18 — final target polish: taller light volume, visible neon frame, curved risers. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 58% 48% at 50% 32%,rgba(177,55,255,.34) 0%,rgba(112,45,211,.20) 34%,rgba(45,31,118,.08) 58%,transparent 73%),
+    radial-gradient(ellipse 34% 61% at 3% 45%,rgba(43,224,255,.22) 0%,rgba(25,102,232,.09) 48%,transparent 74%),
+    radial-gradient(ellipse 34% 61% at 97% 45%,rgba(255,62,215,.22) 0%,rgba(176,57,230,.09) 48%,transparent 74%),
+    linear-gradient(180deg,#04071d 0%,#0c0c36 25%,#160a4b 48%,#080d35 77%,#04071b 100%)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:22.8%!important;
+  width:82%!important;
+  opacity:.98!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(58px,10.6vw,74px)!important;
+  -webkit-text-stroke:1.5px #f46af4!important;
+  text-shadow:
+    0 0 4px rgba(255,128,244,.72),
+    0 0 14px rgba(238,58,246,.52),
+    0 0 30px rgba(129,61,255,.30)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:8px!important;
+  opacity:.92!important;
+}
