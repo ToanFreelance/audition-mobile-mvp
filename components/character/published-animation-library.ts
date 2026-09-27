@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { loadRuntimeAnimationBundle } from "./runtime-animation-bundle";
+import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
 
 export const PUBLISHED_DANCE_BUNDLE_URL =
   "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
@@ -80,12 +81,17 @@ export async function loadPublishedDanceRelease(forceRefresh = false): Promise<L
       }
 
       expectedReleaseVersion = releaseVersion;
-      response = await fetch(PUBLISHED_DANCE_BUNDLE_URL + "?release=" + releaseVersion, {
-        method: "GET",
-        cache: "force-cache",
-        headers: { Accept: "application/json" },
-        signal: controller.signal,
-      });
+      response = await fetchPersistentAsset(
+        PUBLISHED_DANCE_BUNDLE_URL + "?release=" + releaseVersion,
+        {
+          cacheKey: "animation-full-release:" + releaseVersion,
+          forceRefresh,
+          request: {
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          },
+        },
+      );
     } catch (manifestError) {
       console.warn(
         "[character] lightweight animation manifest unavailable; falling back to legacy bundle endpoint",

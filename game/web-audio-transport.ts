@@ -1,3 +1,5 @@
+import { fetchPersistentAsset } from "../lib/persistent-asset-cache";
+
 type AudioSessionLike = { type: string };
 
 type RunState = {
@@ -76,7 +78,11 @@ export class WebAudioTransport {
     if (this.preparing) return this.preparing;
     this.preparing = (async () => {
       const context = this.ensureContext();
-      const response = await fetch(this.url, { cache: this.fetchCache });
+      const response = await fetchPersistentAsset(this.url, {
+        cacheKey: "audio:" + this.url,
+        forceRefresh: this.fetchCache === "reload" || this.fetchCache === "no-cache",
+        request: { cache: this.fetchCache },
+      });
       if (!response.ok) throw new Error(`Audio HTTP ${response.status}`);
       const bytes = await response.arrayBuffer();
       const decoded = await context.decodeAudioData(bytes.slice(0));
