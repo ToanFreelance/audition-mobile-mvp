@@ -1861,3 +1861,36 @@
   opacity:.96!important;
   text-shadow:0 0 5px rgba(119,153,255,.70),0 0 10px rgba(71,66,220,.36)!important;
 }
+
+
+/* P5.6 V26 — measured vividness/depth pass from latest owner iPhone + golden pair. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 46% 34% at 50% 30%,rgba(180,25,228,.24) 0%,rgba(101,14,183,.13) 38%,rgba(65,12,126,.05) 63%,transparent 78%),
+    radial-gradient(ellipse 31% 61% at 0% 45%,rgba(20,205,255,.17) 0%,rgba(9,58,172,.055) 55%,transparent 78%),
+    radial-gradient(ellipse 31% 61% at 100% 45%,rgba(247,47,226,.17) 0%,rgba(109,19,160,.055) 55%,transparent 78%),
+    linear-gradient(180deg,#05042f 0%,#090535 21%,#16074e 45%,#0a0838 72%,#040526 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 42% 27% at 50% 31%,rgba(230,25,251,.095),transparent 71%)!important;
+  filter:saturate(1.22) contrast(1.20) brightness(1.00)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.28) contrast(1.26) brightness(1.03)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:rgba(193,5,241,.025)!important;
+  -webkit-text-stroke:1.55px #d228f3!important;
+  text-shadow:
+    0 0 2px rgba(255,227,255,.86),
+    0 0 6px rgba(210,40,243,.90),
+    0 0 15px rgba(243,41,245,.64),
+    0 0 29px rgba(121,25,221,.27)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#90aaff!important;
+  text-shadow:
+    0 0 4px rgba(160,183,255,.74),
+    0 0 10px rgba(91,95,244,.42)!important;
+}
