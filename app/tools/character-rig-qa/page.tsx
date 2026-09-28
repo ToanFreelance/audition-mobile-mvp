@@ -165,7 +165,7 @@ export default function CharacterRigQaPage() {
         action.setEffectiveTimeScale(speedRef.current);
       }
       mixerRef.current?.update(delta);
-      helperRef.current?.update();
+      helperRef.current?.updateMatrixWorld(true);
       controls.update();
       renderer.render(scene, camera);
     };
