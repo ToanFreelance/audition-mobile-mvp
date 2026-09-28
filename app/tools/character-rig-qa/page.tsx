@@ -152,7 +152,9 @@ export default function CharacterRigQaPage() {
       const height = Math.max(1, host.clientHeight);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      renderer.setSize(width, height, false);\n      renderer.domElement.style.width = width + "px";\n      renderer.domElement.style.height = height + "px";
+      renderer.setSize(width, height, false);
+      renderer.domElement.style.width = width + "px";
+      renderer.domElement.style.height = height + "px";
     };
     const observer = new ResizeObserver(resize);
     observer.observe(host);
