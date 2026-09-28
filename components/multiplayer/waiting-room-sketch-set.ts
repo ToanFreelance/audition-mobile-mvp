@@ -30,7 +30,7 @@ export function createSketchStageSet() {
     roughness: material.riser.treadRoughness,
     metalness: material.riser.treadMetalness,
     clearcoat: 1,
-    clearcoatRoughness: 0.04,
+    clearcoatRoughness: 0.025,
     side: THREE.DoubleSide,
   });
   const riserMaterial = new THREE.MeshPhysicalMaterial({
@@ -39,8 +39,8 @@ export function createSketchStageSet() {
     emissiveIntensity: material.riser.faceEmissiveIntensity,
     roughness: material.riser.faceRoughness,
     metalness: material.riser.faceMetalness,
-    clearcoat: 0.85,
-    clearcoatRoughness: 0.08,
+    clearcoat: 0.92,
+    clearcoatRoughness: 0.055,
     side: THREE.DoubleSide,
   });
   const riserFaceAccentMaterial = new THREE.MeshBasicMaterial({
@@ -54,14 +54,14 @@ export function createSketchStageSet() {
   const edgeMaterial = new THREE.MeshBasicMaterial({
     color: palette.structure.riserEdge,
     transparent: blueprint.traceArchitecture.enabled,
-    opacity: blueprint.traceArchitecture.enabled ? 0.72 : 1,
+    opacity: blueprint.traceArchitecture.enabled ? 0.78 : 1,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
   const edgeGlowMaterial = new THREE.MeshBasicMaterial({
     color: palette.structure.riserGlow,
     transparent: true,
-    opacity: blueprint.traceArchitecture.enabled ? 0.14 : 0.20,
+    opacity: blueprint.traceArchitecture.enabled ? 0.17 : 0.20,
     depthWrite: false,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
@@ -70,7 +70,7 @@ export function createSketchStageSet() {
   const footlightMaterial = new THREE.MeshBasicMaterial({
     color: 0xf3dcff,
     transparent: blueprint.traceArchitecture.enabled,
-    opacity: blueprint.traceArchitecture.enabled ? 0.90 : 1,
+    opacity: blueprint.traceArchitecture.enabled ? 0.96 : 1,
     toneMapped: false,
     side: THREE.DoubleSide,
   });

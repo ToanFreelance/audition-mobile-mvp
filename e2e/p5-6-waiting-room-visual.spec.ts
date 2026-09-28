@@ -56,6 +56,9 @@ test("V38 keeps the clean owner-guided architecture and adds missing structural 
   expect(blueprint.traceArchitecture.truss.rimLowerPath.match(/C/g)).toHaveLength(1);
   expect(blueprint.traceArchitecture.floor.gridHorizontal).toHaveLength(5);
   expect(blueprint.traceArchitecture.floor.gridVertical).toHaveLength(5);
+  expect(blueprint.scene.uplights).toHaveLength(2);
+  expect(blueprint.scene.beams.every(beam => Math.abs(beam.targetX) <= 0.72)).toBe(true);
+  expect(blueprint.scene.uplights.every(light => Math.abs(light.targetX) <= 0.16)).toBe(true);
 });
 
 test("V37 redraw stays anti-circular and keeps the V34 scene architecture", () => {
@@ -221,6 +224,9 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
   await expect(stage).toHaveAttribute("data-sketch-match", "v38-v34-owner-guided-structure");
+  await expect(stage).toHaveAttribute("data-visual-polish", "v39-light-material-finish");
+  await expect(stage).toHaveAttribute("data-stage-uplights", "2");
+  await expect(stage).toHaveAttribute("data-light-aperture", "frustum-lens");
   await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v12");
   await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");

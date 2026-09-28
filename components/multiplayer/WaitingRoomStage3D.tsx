@@ -337,7 +337,7 @@ function createParticipantRing(
   const haloMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.13 : 0.22,
+    opacity: sketchPolish ? 0.16 : 0.22,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -364,14 +364,14 @@ function createParticipantRing(
   const outerMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: sketchPolish ? 0.95 : 0.2,
+    opacity: sketchPolish ? 0.99 : 0.2,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: sketchPolish ? THREE.NormalBlending : THREE.AdditiveBlending,
     toneMapped: !sketchPolish,
   });
   const outer = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.892 : 0.95, sketchPolish ? 0.982 : 1.035, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.878 : 0.95, sketchPolish ? 0.992 : 1.035, sketchPolish ? 128 : 64),
     outerMaterial,
   );
   outer.rotation.x = -Math.PI / 2;
@@ -380,14 +380,14 @@ function createParticipantRing(
   const coreMaterial = new THREE.MeshBasicMaterial({
     color: sketchPolish ? new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.24) : color,
     transparent: true,
-    opacity: sketchPolish ? 0.94 : 0.94,
+    opacity: sketchPolish ? 0.98 : 0.94,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.NormalBlending,
     toneMapped: !sketchPolish,
   });
   const core = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.718 : 0.79, sketchPolish ? 0.804 : 0.875, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.704 : 0.79, sketchPolish ? 0.816 : 0.875, sketchPolish ? 128 : 64),
     coreMaterial,
   );
   core.rotation.x = -Math.PI / 2;
@@ -396,14 +396,14 @@ function createParticipantRing(
   const innerMaterial = new THREE.MeshBasicMaterial({
     color: sketchPolish ? color : host ? 0xffd454 : color,
     transparent: true,
-    opacity: sketchPolish ? 0.78 : host ? 0.66 : 0.34,
+    opacity: sketchPolish ? 0.84 : host ? 0.66 : 0.34,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: sketchPolish ? THREE.NormalBlending : THREE.AdditiveBlending,
     toneMapped: !sketchPolish,
   });
   const inner = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.580 : 0.55, sketchPolish ? 0.593 : 0.59, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.573 : 0.55, sketchPolish ? 0.598 : 0.59, sketchPolish ? 128 : 64),
     innerMaterial,
   );
   inner.rotation.x = -Math.PI / 2;
@@ -412,14 +412,14 @@ function createParticipantRing(
   const shineMaterial = new THREE.MeshBasicMaterial({
     color: sketchPolish ? new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.32) : 0xffffff,
     transparent: true,
-    opacity: sketchPolish ? 0.24 : 0,
+    opacity: sketchPolish ? 0.31 : 0,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     toneMapped: !sketchPolish,
   });
   const shine = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.933 : 0.835, sketchPolish ? 0.944 : 0.86, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.927 : 0.835, sketchPolish ? 0.950 : 0.86, sketchPolish ? 128 : 64),
     shineMaterial,
   );
   shine.rotation.x = -Math.PI / 2;
@@ -600,8 +600,12 @@ function createSketchSpotBeam(
     directionNormal,
   );
 
+  // Keep a real luminous aperture at the fixture: the beam starts as a
+  // frustum instead of collapsing to a pin-point cone tip.
+  const apertureRadius = radius * 0.145;
+  const beamNearRadius = apertureRadius * 1.08;
   const beam = new THREE.Mesh(
-    new THREE.ConeGeometry(radius, length, 32, 1, true),
+    new THREE.CylinderGeometry(beamNearRadius, radius, length, 32, 1, true),
     new THREE.ShaderMaterial({
       uniforms: {
         lightColor: { value: new THREE.Color(color) },
@@ -662,11 +666,11 @@ function createSketchSpotBeam(
     directionNormal,
   );
   const lens = new THREE.Mesh(
-    new THREE.CircleGeometry(radius * 0.105, 24),
+    new THREE.CircleGeometry(apertureRadius, 28),
     new THREE.MeshBasicMaterial({
       color: 0xf8fdff,
       transparent: true,
-      opacity: 0.78,
+      opacity: 0.86,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       toneMapped: false,
@@ -689,7 +693,7 @@ function createSketchSpotBeam(
       toneMapped: false,
     }));
     sourceGlow.position.copy(lens.position);
-    sourceGlow.scale.setScalar(radius * 0.72);
+    sourceGlow.scale.setScalar(radius * 0.82);
     group.add(sourceGlow);
   }
 
@@ -871,7 +875,7 @@ export default function WaitingRoomStage3D({
       1.6,
     );
     cyanRim.position.set(-4.7, 6.1, 2.8);
-    cyanRim.target.position.set(-0.8, 1.7, 0);
+    cyanRim.target.position.set(-0.32, 1.72, -0.82);
     scene.add(cyanRim, cyanRim.target);
 
     const magentaRim = new THREE.SpotLight(
@@ -883,7 +887,7 @@ export default function WaitingRoomStage3D({
       1.6,
     );
     magentaRim.position.set(4.7, 5.8, 2.2);
-    magentaRim.target.position.set(0.8, 1.65, 0);
+    magentaRim.target.position.set(0.32, 1.72, -0.82);
     scene.add(magentaRim, magentaRim.target);
 
     const overhead = new THREE.SpotLight(
@@ -895,7 +899,7 @@ export default function WaitingRoomStage3D({
       1.7,
     );
     overhead.position.set(0, 7.5, 1.1);
-    overhead.target.position.set(0, 1.2, 0);
+    overhead.target.position.set(0, 1.52, -0.88);
     scene.add(overhead, overhead.target);
 
     const sketchFloorTexture = sketchVisual
@@ -954,7 +958,7 @@ export default function WaitingRoomStage3D({
         const lightDecal = new THREE.Mesh(
           new THREE.CircleGeometry(WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius, 96),
           new THREE.MeshBasicMaterial({
-            map: lightMap, transparent: true, opacity: 0.82,
+            map: lightMap, transparent: true, opacity: 0.90,
             blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
           }),
         );
@@ -1028,6 +1032,27 @@ export default function WaitingRoomStage3D({
         scene.add(spot, spot.target);
         sketchFixtures.push({ beam, spot, source, target, t: [0.12, 0.26, 0.36, 0.64, 0.74, 0.88][index] });
       });
+
+      for (const [index, spec] of WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.entries()) {
+        const source = new THREE.Vector3(spec.x, spec.y, spec.z);
+        const target = new THREE.Vector3(spec.targetX, spec.targetY, spec.targetZ);
+        const beam = createSketchSpotBeam(source, target, spec.color, spec.radius, spec.opacity);
+        beam.name = `SketchUplightBeam:${index}`;
+        scene.add(beam);
+
+        const spot = new THREE.SpotLight(
+          spec.color,
+          spec.intensity,
+          8.8,
+          Math.PI / 7.2,
+          0.88,
+          1.55,
+        );
+        spot.name = `SketchUplight:${index}`;
+        spot.position.copy(source);
+        spot.target.position.copy(target);
+        scene.add(spot, spot.target);
+      }
 
       const upperGlow = new THREE.PointLight(
         WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.upperGlowColor,
@@ -1967,6 +1992,9 @@ export default function WaitingRoomStage3D({
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
       data-sketch-match={visualPreset === "sketch" ? "v38-v34-owner-guided-structure" : "off"}
+      data-visual-polish={visualPreset === "sketch" ? "v39-light-material-finish" : "off"}
+      data-stage-uplights={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.length : 0}
+      data-light-aperture={visualPreset === "sketch" ? "frustum-lens" : "standard"}
       data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
       data-floor-grid={visualPreset === "sketch" ? "floor-plane" : "material"}
@@ -2004,18 +2032,22 @@ export default function WaitingRoomStage3D({
                 <stop offset="68%" stopColor="#22066e" stopOpacity=".48" />
                 <stop offset="100%" stopColor="#0f073d" stopOpacity="0" />
               </linearGradient>
-              <linearGradient id="trace-left-rail" x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="var(--sketch-trace-cyan)" />
-                <stop offset="100%" stopColor="var(--sketch-trace-violet)" stopOpacity=".45" />
+              <linearGradient id="trace-left-rail" x1="0" y1="0" x2="198" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#2be4ff" />
+                <stop offset="42%" stopColor="#328dff" />
+                <stop offset="68%" stopColor="#805cff" />
+                <stop offset="100%" stopColor="#3bd7ff" />
               </linearGradient>
-              <linearGradient id="trace-right-rail" x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="var(--sketch-trace-magenta)" />
-                <stop offset="100%" stopColor="var(--sketch-trace-violet)" stopOpacity=".45" />
+              <linearGradient id="trace-right-rail" x1="668" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#3bd7ff" />
+                <stop offset="34%" stopColor="#805cff" />
+                <stop offset="62%" stopColor="#328dff" />
+                <stop offset="100%" stopColor="#2be4ff" />
               </linearGradient>
               <linearGradient id="trace-roof" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="var(--sketch-trace-blue)" />
-                <stop offset="48%" stopColor="var(--sketch-trace-violet)" />
-                <stop offset="100%" stopColor="var(--sketch-trace-magenta)" />
+                <stop offset="0%" stopColor="#182a68" />
+                <stop offset="48%" stopColor="#27306d" />
+                <stop offset="100%" stopColor="#35245f" />
               </linearGradient>
               <linearGradient id="trace-left-column" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor="#99f7ff" />

@@ -2356,3 +2356,58 @@
   stroke-linejoin:round;
   opacity:.62;
 }
+
+
+/* P5.6 V39 — presentation-only finish pass on locked V38 geometry. */
+.stage[data-visual-preset="sketch"] .traceTrussBody{
+  stroke:#091238;
+  opacity:.88;
+}
+.stage[data-visual-preset="sketch"] .traceTrussEdge{
+  stroke-width:1.8;
+  opacity:.62;
+  filter:drop-shadow(0 0 2px rgba(72,88,210,.26));
+}
+.stage[data-visual-preset="sketch"] .traceTruss .traceTrussBrace{
+  stroke-width:1.8;
+  opacity:.34;
+}
+.stage[data-visual-preset="sketch"] .traceRoofRim path{
+  stroke:#172351;
+  stroke-width:1.55;
+  opacity:.48;
+}
+.stage[data-visual-preset="sketch"] .traceRailBody{
+  stroke:#0a164d;
+  opacity:.80;
+}
+.stage[data-visual-preset="sketch"] .traceRails path{
+  stroke-width:3.15;
+  opacity:.98;
+}
+.stage[data-visual-preset="sketch"] .traceRailGlow path{
+  stroke-width:7.4;
+  opacity:.17;
+}
+.stage[data-visual-preset="sketch"] .traceRiserSurface{
+  opacity:.40;
+}
+.stage[data-visual-preset="sketch"] .traceRiserEdge{
+  stroke-width:2.35;
+  opacity:.97;
+}
+.stage[data-visual-preset="sketch"] .traceRiserLowerEdge{
+  stroke-width:1.55;
+  opacity:.58;
+}
+.stage[data-visual-preset="sketch"] .traceRiserGlow{
+  opacity:.16;
+}
+.stage[data-visual-preset="sketch"] .traceFootlights{
+  stroke-width:3.2;
+  opacity:.96;
+}
+.stage[data-visual-preset="sketch"] .traceFloorGrid path{
+  stroke:rgba(132,164,235,.34);
+  opacity:.70;
+}
