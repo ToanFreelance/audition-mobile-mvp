@@ -47,15 +47,7 @@
   stroke-width:1.8px;
 }
 
-.ownerTraceAlphaMask{
-  mask-type:alpha;
-}
-.ownerGeometryMaskSource{
+.ownerGeometryImage{
   pointer-events:none;
   image-rendering:auto;
-}
-.ownerGeometryInk{
-  fill:#ffe75b;
-  opacity:.92;
-  pointer-events:none;
 }
