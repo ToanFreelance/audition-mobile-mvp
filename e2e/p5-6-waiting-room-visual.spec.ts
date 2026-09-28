@@ -44,8 +44,8 @@ test("V38 keeps the clean owner-guided architecture and adds missing structural 
   expect(blueprint.traceArchitecture.railsRight).toHaveLength(7);
   expect(blueprint.scene.wing.railRows).toBe(7);
   expect(blueprint.traceArchitecture.railsLeft.slice(0, 2)).toEqual([
-    "M 0 190 C 64.4 205 129.9 222 195.75 242",
-    "M 0 228 C 64.8 242 130 258 195.75 277",
+    "M 0 190 C 64.4 210.5 129.9 228 195.75 242",
+    "M 0 228 C 64.8 247 130 264 195.75 277",
   ]);
   expect(blueprint.traceArchitecture.railsRight[0]).not.toBe(blueprint.traceArchitecture.railsLeft[0]);
   for (const path of [...blueprint.traceArchitecture.railsLeft, ...blueprint.traceArchitecture.railsRight]) {
@@ -229,7 +229,7 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
   await expect(stage).toHaveAttribute("data-sketch-match", "v38-v34-owner-guided-structure");
-  await expect(stage).toHaveAttribute("data-visual-polish", "v42-seven-rail-balance");
+  await expect(stage).toHaveAttribute("data-visual-polish", "v43-seven-rail-stage-hug");
   await expect(stage).toHaveAttribute("data-beam-falloff", "mid-stage");
   await expect(stage).toHaveAttribute("data-stage-uplights", "2");
   await expect(stage).toHaveAttribute("data-uplight-fixture", "visible-floor-head");
