@@ -1911,14 +1911,22 @@
   overflow:visible;
 }
 .traceWall{
-  fill:rgba(5,7,40,.74);
-  stroke:rgba(75,88,177,.18);
-  stroke-width:1.2;
+  stroke:none;
 }
-.traceRails path,.traceRailGlow path,.traceTruss path{
+.traceRails path,.traceRailGlow path,.traceTruss,.traceRailBody,.traceUprights{
   fill:none;
   stroke-linecap:round;
   stroke-linejoin:round;
+}
+.traceUprights{
+  stroke:#182358;
+  stroke-width:4;
+  opacity:.65;
+}
+.traceRailBody{
+  stroke:#111b52;
+  stroke-width:6;
+  opacity:.72;
 }
 .traceRails path{
   stroke-width:2.6;
@@ -1928,14 +1936,20 @@
   stroke-width:5.4;
   opacity:.11;
 }
-.traceTruss path{
-  stroke-width:3.4;
-  opacity:.90;
-  filter:drop-shadow(0 0 2px rgba(83,90,255,.30));
+.traceTrussBody{
+  stroke:#253179;
+  stroke-width:6.5;
+  filter:drop-shadow(0 2px 1px rgba(1,3,19,.8));
+}
+.traceTrussEdge{
+  stroke-width:1.7;
+  opacity:.70;
+  transform:translateY(-1.8px);
+  filter:drop-shadow(0 0 3px rgba(63,69,230,.42));
 }
 .traceTruss .traceTrussBrace{
-  stroke-width:1.8;
-  opacity:.68;
+  stroke-width:2.3;
+  opacity:.62;
   filter:none;
 }
 .traceColumns{opacity:.88}
@@ -1964,7 +1978,7 @@
   mix-blend-mode:screen;
 }
 .traceRiserEdge,.traceRiserLowerEdge,.traceRiserGlow,.traceFootlights,
-.traceFloorGrid path,.traceFrontRim,.traceFrontRimGlow,.traceFloorSide{
+.traceFrontRim,.traceFrontRimGlow,.traceFloorSide{
   fill:none;
   stroke-linecap:round;
   stroke-linejoin:round;
@@ -1989,12 +2003,6 @@
   opacity:.72;
   filter:drop-shadow(0 0 3px rgba(233,204,255,.86));
 }
-.traceFloorGrid path{
-  stroke:#446dff;
-  stroke-width:1.05;
-  opacity:.28;
-  filter:drop-shadow(0 0 2px rgba(41,103,255,.34));
-}
 .traceFrontRim{
   stroke-width:2.2;
   opacity:.90;
@@ -2016,13 +2024,13 @@
     linear-gradient(180deg,#02021c 0%,#06042b 21%,#10043e 45%,#08052e 72%,#02031c 100%)!important;
 }
 .stage[data-visual-preset="sketch"] .canvas{
-  filter:saturate(1.22) contrast(1.22) brightness(1.10)!important;
+  filter:saturate(1.22) contrast(1.12) brightness(1.03)!important;
 }
 .stage[data-visual-preset="sketch"] .brand strong{
   /* A transparent glyph with text-shadow still fills with the shadow's glyph.
      Drop-shadow follows the actual neon outline instead of a solid text mask. */
-  color:transparent!important;
-  -webkit-text-stroke:1.15px #d228f3!important;
+  color:rgba(193,5,241,.055)!important;
+  -webkit-text-stroke:1.35px #ed50f3!important;
   text-shadow:none!important;
-  filter:drop-shadow(0 0 3px rgba(210,40,243,.50)) drop-shadow(0 0 7px rgba(193,5,241,.18))!important;
+  filter:drop-shadow(0 0 3px rgba(224,49,245,.72)) drop-shadow(0 0 9px rgba(193,5,241,.36))!important;
 }

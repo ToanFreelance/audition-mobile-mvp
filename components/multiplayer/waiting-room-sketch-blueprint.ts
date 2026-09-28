@@ -227,7 +227,7 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       baseViolet: 0x2b0b80,
       surface: 0x6f84d2,
       emissive: 0x11105a,
-      reflectorTint: 0x312078,
+      reflectorTint: 0x56566c,
       halo: 0x6478ff,
       runway: 0xaa5cff,
       cyanReflection: 0x29ddff,
@@ -369,7 +369,7 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       // V26: preserve deep wall values while restoring localized neon punch.
       hemisphereIntensity: 0.68,
       keyIntensity: 1.86,
-      fillIntensity: 0.48,
+      fillIntensity: 0.62,
       cyanRimIntensity: 17.5,
       magentaRimIntensity: 17.5,
       overheadIntensity: 10.5,

@@ -25,14 +25,13 @@ import {
   selectParticipantNextIdleIndex,
   selectRoomParticipantIdleIndices,
 } from "./lobby-idle-selection";
-import { createSketchStageSet } from "./waiting-room-sketch-set";
+import { createSketchStageSet, sketchFixtureLayoutKey, sketchFixtureSource } from "./waiting-room-sketch-set";
 import {
   WAITING_ROOM_SKETCH_BLUEPRINT,
   sketchColorCss,
   sketchColorRgba,
   sketchStagePoint,
   sketchStageRect,
-  sketchRoofPoint,
 } from "./waiting-room-sketch-blueprint";
 import styles from "./WaitingRoomStage3D.module.css";
 
@@ -372,7 +371,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const outer = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.912 : 0.95, sketchPolish ? 0.964 : 1.035, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.900 : 0.95, sketchPolish ? 0.972 : 1.035, sketchPolish ? 128 : 64),
     outerMaterial,
   );
   outer.rotation.x = -Math.PI / 2;
@@ -388,7 +387,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const core = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.744 : 0.79, sketchPolish ? 0.787 : 0.875, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.736 : 0.79, sketchPolish ? 0.794 : 0.875, sketchPolish ? 128 : 64),
     coreMaterial,
   );
   core.rotation.x = -Math.PI / 2;
@@ -447,19 +446,8 @@ function createParticipantRing(
     group.renderOrder = 2;
     group.children.forEach((object, index) => { object.renderOrder = index; });
     group.traverse(object => object.layers.set(1));
-    // Low-energy copies are visible only to the EXISTING mirror camera.
-    // Full-bright decals remain excluded, preventing double/electric rings.
-    for (const source of [outer, core]) {
-      const echo = new THREE.Mesh(source.geometry.clone(), new THREE.MeshBasicMaterial({
-        color, transparent: true, opacity: 0.22, depthWrite: false,
-        side: THREE.DoubleSide, toneMapped: false,
-      }));
-      echo.name = "SketchRingMirrorEcho";
-      echo.position.copy(source.position);
-      echo.rotation.copy(source.rotation);
-      echo.layers.set(2);
-      group.add(echo);
-    }
+    // No mirror copies: the raised outer slots otherwise produce detached
+    // ellipses. The radial halo supplies contact light on the floor itself.
   }
   return group;
 }
@@ -531,6 +519,49 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = Math.min(4, maxAnisotropy);
+  return texture;
+}
+
+function createSketchFloorLightTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 512;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  // CircleGeometry UVs span the full 18-world-unit floor, not just the viewport.
+  const px = (world: number) => 256 + world / WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius * 256;
+  context.fillStyle = "#000";
+  context.fillRect(0, 0, 512, 512);
+  for (const [worldX, color] of [[-2.8, "41,221,255"], [0.1, "151,88,255"], [2.8, "240,68,223"]] as const) {
+    const x = px(worldX);
+    const across = context.createLinearGradient(x - 12, 0, x + 12, 0);
+    across.addColorStop(0, `rgba(${color},0)`);
+    across.addColorStop(0.38, `rgba(${color},0.16)`);
+    across.addColorStop(0.50, `rgba(${color},0.85)`);
+    across.addColorStop(0.62, `rgba(${color},0.16)`);
+    across.addColorStop(1, `rgba(${color},0)`);
+    context.fillStyle = across;
+    context.fillRect(x - 12, 128, 24, 244);
+  }
+  // Real floor-plane grid; it remains visible above the opaque mirror surface.
+  context.strokeStyle = "rgba(80,109,214,.32)";
+  context.lineWidth = 0.65;
+  for (let world = -8; world <= 8; world += 0.9) {
+    const coordinate = px(world);
+    context.beginPath();
+    context.moveTo(coordinate, 0); context.lineTo(coordinate, 512);
+    context.moveTo(0, coordinate); context.lineTo(512, coordinate);
+    context.stroke();
+  }
+  const fade = context.createLinearGradient(0, 112, 0, 398);
+  fade.addColorStop(0, "rgba(0,0,0,0)");
+  fade.addColorStop(0.2, "rgba(0,0,0,.85)");
+  fade.addColorStop(0.65, "rgba(0,0,0,.65)");
+  fade.addColorStop(1, "rgba(0,0,0,0)");
+  context.globalCompositeOperation = "destination-in";
+  context.fillStyle = fade;
+  context.fillRect(0, 0, 512, 512);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
 
@@ -645,9 +676,10 @@ function createSketchSpotBeam(
   lens.quaternion.copy(lensQuaternion);
   group.add(lens);
 
+  let sourceGlow: THREE.Sprite | null = null;
   const glowTexture = createSketchBulbGlowTexture();
   if (glowTexture) {
-    const sourceGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    sourceGlow = new THREE.Sprite(new THREE.SpriteMaterial({
       map: glowTexture,
       color,
       transparent: true,
@@ -661,7 +693,23 @@ function createSketchSpotBeam(
     group.add(sourceGlow);
   }
 
-  return group;
+  // Re-aim the existing meshes at the fixed stage target; translating a whole
+  // cone would move its pool as well and disconnect the visual beam from light.
+  const setEndpoints = (nextSource: THREE.Vector3, nextTarget: THREE.Vector3) => {
+    const nextDirection = nextTarget.clone().sub(nextSource);
+    const nextLength = nextDirection.length();
+    const normal = nextDirection.normalize();
+    const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), normal);
+    beam.position.copy(nextSource).add(nextTarget).multiplyScalar(0.5);
+    beam.scale.y = nextLength / length;
+    beam.quaternion.copy(rotation);
+    housing.position.copy(nextSource);
+    housing.quaternion.copy(rotation);
+    lens.position.copy(nextSource).addScaledVector(normal, 0.14);
+    lens.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+    sourceGlow?.position.copy(lens.position);
+  };
+  return Object.assign(group, { setEndpoints });
 }
 
 function setScale(node: StageNode, actorMultiplier: number, ringMultiplier = actorMultiplier) {
@@ -804,7 +852,7 @@ export default function WaitingRoomStage3D({
       sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.key : 0xf8fbff,
       sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.keyIntensity : 2.32,
     );
-    key.position.set(1.8, 6.8, 5.9);
+    key.position.set(sketchVisual ? -2.4 : 1.8, sketchVisual ? 4.8 : 6.8, 5.9);
     scene.add(key);
 
     const frontFill = new THREE.DirectionalLight(
@@ -867,7 +915,6 @@ export default function WaitingRoomStage3D({
       });
       sketchReflector.rotation.x = -Math.PI / 2;
       sketchReflector.position.set(0, -0.056, 0.18);
-      sketchReflector.camera.layers.enable(2);
       scene.add(sketchReflector);
     }
 
@@ -901,6 +948,23 @@ export default function WaitingRoomStage3D({
     floor.rotation.x = -Math.PI / 2;
     floor.position.set(0, sketchVisual ? -0.043 : -0.045, 0.18);
     scene.add(floor);
+    if (sketchVisual) {
+      const lightMap = createSketchFloorLightTexture();
+      if (lightMap) {
+        const lightDecal = new THREE.Mesh(
+          new THREE.CircleGeometry(WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius, 96),
+          new THREE.MeshBasicMaterial({
+            map: lightMap, transparent: true, opacity: 0.52,
+            blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+          }),
+        );
+        lightDecal.name = "SketchFloorLocalReflections";
+        lightDecal.rotation.x = -Math.PI / 2;
+        lightDecal.position.set(0, -0.032, 0.18);
+        lightDecal.renderOrder = 1;
+        scene.add(lightDecal);
+      }
+    }
 
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
       color: sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.halo : 0xb983ff,
@@ -940,7 +1004,7 @@ export default function WaitingRoomStage3D({
     runway.position.set(0, -0.02, 0.42);
     scene.add(runway);
 
-    const sketchFixtures: { beam: THREE.Group; spot: THREE.SpotLight; source: THREE.Vector3; t: number }[] = [];
+    const sketchFixtures: { beam: ReturnType<typeof createSketchSpotBeam>; spot: THREE.SpotLight; source: THREE.Vector3; target: THREE.Vector3; t: number }[] = [];
     if (sketchVisual) {
       scene.add(createSketchStageSet());
 
@@ -962,7 +1026,7 @@ export default function WaitingRoomStage3D({
         spot.position.copy(source);
         spot.target.position.copy(target);
         scene.add(spot, spot.target);
-        sketchFixtures.push({ beam, spot, source, t: [0.12, 0.26, 0.36, 0.64, 0.74, 0.88][index] });
+        sketchFixtures.push({ beam, spot, source, target, t: [0.12, 0.26, 0.36, 0.64, 0.74, 0.88][index] });
       });
 
       const upperGlow = new THREE.PointLight(
@@ -1063,20 +1127,15 @@ export default function WaitingRoomStage3D({
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      const nextFixtureLayout = `${width}:${height}:${viewRef.current.viewMode}`;
+      const nextFixtureLayout = sketchFixtureLayoutKey(camera, width, height);
       if (sketchVisual && fixtureLayout !== nextFixtureLayout) {
         // Attach 3D housings to the SVG chord after resize/preset changes. Only
         // fixture transforms move: geometry, actors and mixers are untouched.
         camera.updateMatrixWorld(true);
         for (const fixture of sketchFixtures) {
-          const anchor = sketchRoofPoint(fixture.t, true);
-          const depth = fixture.source.clone().project(camera).z;
-          const position = new THREE.Vector3(
-            anchor.x / 864 * 2 - 1,
-            1 - (anchor.y + 16) / 1044 * 2,
-            depth,
-          ).unproject(camera);
-          fixture.beam.position.copy(position).sub(fixture.source);
+          const position = sketchFixtureSource(camera, fixture.t, fixture.source.z);
+          if (!position) continue;
+          fixture.beam.setEndpoints(position, fixture.target);
           fixture.spot.position.copy(position);
         }
         fixtureLayout = nextFixtureLayout;
@@ -1193,11 +1252,6 @@ export default function WaitingRoomStage3D({
             }
             (node.ring.userData.shineMaterial as THREE.MeshBasicMaterial).color
               .setHex(accent).lerp(new THREE.Color(0xffffff), 0.32);
-            node.ring.children.forEach(child => {
-              if (child.name === "SketchRingMirrorEcho") {
-                ((child as THREE.Mesh).material as THREE.MeshBasicMaterial).color.setHex(accent);
-              }
-            });
             node.ring.userData.accent = accent;
           }
         }
@@ -1912,17 +1966,17 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v31-structure-recovery" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v32-lighting-depth" : "off"}
       data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
-      data-floor-grid={visualPreset === "sketch" ? "screen-trace" : "material"}
+      data-floor-grid={visualPreset === "sketch" ? "floor-plane" : "material"}
       data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
       data-ceiling-source={visualPreset === "sketch" ? "screen-trace" : "css"}
       data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}
       data-ring-palette={visualPreset === "sketch" ? "catalog-gender" : "slot"}
       data-ring-geometry={visualPreset === "sketch" ? "two-medium-one-fine" : "standard"}
       data-stage-risers={visualPreset === "sketch" ? "3" : "0"}
-      data-ring-reflection={visualPreset === "sketch" ? "attenuated-mirror-layer" : "default"}
+      data-ring-reflection={visualPreset === "sketch" ? "contact-glow-only" : "default"}
       data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
       data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}
       data-stage-footprint={visualPreset === "sketch" ? "expanded" : "standard"}
@@ -1936,13 +1990,22 @@ export default function WaitingRoomStage3D({
             data-testid="sketch-stage-trace"
           >
             <defs>
+              <g id="trace-roof-chords">
+                <path d={traceArchitecture.truss.upperPath} />
+                <path d={traceArchitecture.truss.lowerPath} />
+              </g>
+              <linearGradient id="trace-wing-shade" x1="0" y1="0" x2="224" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#07133d" stopOpacity=".65" />
+                <stop offset="65%" stopColor="#080d31" stopOpacity=".42" />
+                <stop offset="100%" stopColor="#080d31" stopOpacity="0" />
+              </linearGradient>
               <linearGradient id="trace-left-rail" x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="var(--sketch-trace-cyan)" />
-                <stop offset="100%" stopColor="var(--sketch-trace-violet)" />
+                <stop offset="100%" stopColor="var(--sketch-trace-violet)" stopOpacity=".45" />
               </linearGradient>
               <linearGradient id="trace-right-rail" x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="var(--sketch-trace-magenta)" />
-                <stop offset="100%" stopColor="var(--sketch-trace-violet)" />
+                <stop offset="100%" stopColor="var(--sketch-trace-violet)" stopOpacity=".45" />
               </linearGradient>
               <linearGradient id="trace-roof" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="var(--sketch-trace-blue)" />
@@ -1999,8 +2062,8 @@ export default function WaitingRoomStage3D({
               </filter>
             </defs>
 
-            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} />
-            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} transform="translate(864 0) scale(-1 1)" />
+            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} fill="url(#trace-wing-shade)" />
+            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} fill="url(#trace-wing-shade)" transform="translate(864 0) scale(-1 1)" />
 
             <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.left} fill="url(#trace-reflection-left)" />
             <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.center} fill="url(#trace-reflection-center)" />
@@ -2022,15 +2085,19 @@ export default function WaitingRoomStage3D({
               ))}
             </g>
 
-            <g className={styles.traceFloorGrid}>
-              {traceArchitecture.floor.gridVertical.map(path => <path key={`gv-${path}`} d={path} />)}
-              {traceArchitecture.floor.gridHorizontal.map(path => <path key={`gh-${path}`} d={path} />)}
-            </g>
             <path className={styles.traceFrontRimGlow} d={traceArchitecture.floor.frontRim} />
             <path className={styles.traceFrontRim} d={traceArchitecture.floor.frontRim} stroke="url(#trace-floor-rim)" />
             <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideLeft} stroke="#28dfff" />
             <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideRight} stroke="#f044df" />
 
+            <g className={styles.traceUprights}>
+              <path d="M 85 72 L 85 528 M 172 95 L 172 540" />
+              <path d="M 85 72 L 85 528 M 172 95 L 172 540" transform="translate(864 0) scale(-1 1)" />
+            </g>
+            <g className={styles.traceRailBody}>
+              {traceArchitecture.railsLeft.map(path => <path key={`lb-${path}`} d={path} />)}
+              {traceArchitecture.railsLeft.map(path => <path key={`rb-${path}`} d={path} transform="translate(864 0) scale(-1 1)" />)}
+            </g>
             <g className={styles.traceRailGlow} filter="url(#trace-soft-glow)">
               {traceArchitecture.railsLeft.map(path => <path key={`lg-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
               {traceArchitecture.railsLeft.map(path => <path key={`rg-${path}`} d={path} transform="translate(864 0) scale(-1 1)" stroke="url(#trace-right-rail)" />)}
@@ -2041,11 +2108,11 @@ export default function WaitingRoomStage3D({
             </g>
 
             <g className={styles.traceTruss} stroke="url(#trace-roof)">
-              <path d={traceArchitecture.truss.upperPath} />
-              <path d={traceArchitecture.truss.lowerPath} />
+              <use href="#trace-roof-chords" className={styles.traceTrussBody} />
               {traceArchitecture.truss.braces.map(path => (
                 <path className={styles.traceTrussBrace} key={path} d={path} />
               ))}
+              <use href="#trace-roof-chords" className={styles.traceTrussEdge} />
             </g>
 
             <g className={styles.traceColumns} filter="url(#trace-column-glow)">

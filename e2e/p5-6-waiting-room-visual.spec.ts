@@ -1,7 +1,37 @@
 import { expect, test } from "@playwright/test";
 import * as THREE from "three";
 import { WAITING_ROOM_SKETCH_BLUEPRINT as blueprint, sketchRoofPoint } from "../components/multiplayer/waiting-room-sketch-blueprint";
-import { createSketchStageSet } from "../components/multiplayer/waiting-room-sketch-set";
+import { createSketchStageSet, sketchFixtureLayoutKey, sketchFixtureSource } from "../components/multiplayer/waiting-room-sketch-set";
+
+test("V32 fixtures re-anchor when the real camera replaces the initial camera at the same viewport", () => {
+  const camera = new THREE.PerspectiveCamera(30, 390 / 472, 0.1, 100);
+  const initialKey = sketchFixtureLayoutKey(camera, 390, 472);
+  const wide = blueprint.scene.camera.wide;
+  camera.fov = wide.fov;
+  camera.position.set(wide.position.x, wide.position.y, wide.position.z);
+  camera.lookAt(wide.lookAt.x, wide.lookAt.y, wide.lookAt.z);
+  camera.updateProjectionMatrix();
+  const wideKey = sketchFixtureLayoutKey(camera, 390, 472);
+  expect(wideKey).not.toBe(initialKey);
+  expect(sketchFixtureLayoutKey(camera, 390, 472)).toBe(wideKey);
+  for (const [width, height] of [[390, 472], [430, 521], [768, 700]]) {
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    sketchFixtureLayoutKey(camera, width, height);
+    for (const t of [0.12, 0.26, 0.36, 0.64, 0.74, 0.88]) {
+      const source = sketchFixtureSource(camera, t, -3.08)!;
+      const projected = source.clone().project(camera);
+      const anchor = sketchRoofPoint(t, true);
+      expect(projected.x).toBeCloseTo(t * 2 - 1, 6);
+      expect(projected.y).toBeCloseTo(1 - (anchor.y + 16) / 1044 * 2, 6);
+      expect(projected.z).toBeGreaterThan(-1);
+      expect(projected.z).toBeLessThan(1);
+    }
+  }
+  camera.position.set(0, 3.16, 9.45);
+  camera.lookAt(0, 2.08, 0);
+  expect(sketchFixtureLayoutKey(camera, 390, 472)).not.toBe(wideKey);
+});
 
 // V31's small geometry checks are deliberately browser/network/asset free.
 test("V31 roof is a single symmetric quadratic with no center kink", () => {
@@ -178,18 +208,18 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v31-structure-recovery");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v32-lighting-depth");
   await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v10");
   await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-riser-source", "hybrid-threejs-trace");
-  await expect(stage).toHaveAttribute("data-floor-grid", "screen-trace");
+  await expect(stage).toHaveAttribute("data-floor-grid", "floor-plane");
   await expect(page.getByTestId("sketch-stage-trace")).toHaveCount(1);
   await expect(stage).toHaveAttribute("data-stage-risers", "3");
   await expect(stage).toHaveAttribute("data-backdrop-geometry", "target-tiered-stage");
   await expect(stage).toHaveAttribute("data-ring-palette", "catalog-gender");
   await expect(stage).toHaveAttribute("data-ring-geometry", "two-medium-one-fine");
-  await expect(stage).toHaveAttribute("data-ring-reflection", "attenuated-mirror-layer");
+  await expect(stage).toHaveAttribute("data-ring-reflection", "contact-glow-only");
   await expect(stage).toHaveAttribute("data-stage-lighting", "grand");
   await expect(stage).toHaveAttribute("data-character-grade", "warm-neon");
   await expect(stage).toHaveAttribute("data-stage-footprint", "expanded");

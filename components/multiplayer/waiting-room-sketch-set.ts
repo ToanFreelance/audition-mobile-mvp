@@ -1,6 +1,19 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { WAITING_ROOM_SKETCH_BLUEPRINT } from "./waiting-room-sketch-blueprint";
+import { WAITING_ROOM_SKETCH_BLUEPRINT, sketchRoofPoint } from "./waiting-room-sketch-blueprint";
+
+// Include the actual camera pose: the initial render can precede applyLayout.
+export function sketchFixtureLayoutKey(camera: THREE.PerspectiveCamera, width: number, height: number) {
+  camera.updateMatrixWorld(true);
+  return `${width}:${height}:${camera.fov}:${camera.matrixWorld.elements.join(",")}`;
+}
+
+export function sketchFixtureSource(camera: THREE.PerspectiveCamera, t: number, stageDepth: number) {
+  const anchor = sketchRoofPoint(t, true);
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2(anchor.x / 864 * 2 - 1, 1 - (anchor.y + 16) / 1044 * 2), camera);
+  return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), -stageDepth), new THREE.Vector3());
+}
 
 // Presentation-only golden-sketch venue. It is created once with the scene and
 // never reads room state, actor state, animation state, or gameplay timing.
@@ -41,14 +54,14 @@ export function createSketchStageSet() {
   const edgeMaterial = new THREE.MeshBasicMaterial({
     color: palette.structure.riserEdge,
     transparent: blueprint.traceArchitecture.enabled,
-    opacity: blueprint.traceArchitecture.enabled ? 0.34 : 1,
+    opacity: blueprint.traceArchitecture.enabled ? 0.72 : 1,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
   const edgeGlowMaterial = new THREE.MeshBasicMaterial({
     color: palette.structure.riserGlow,
     transparent: true,
-    opacity: blueprint.traceArchitecture.enabled ? 0.08 : 0.20,
+    opacity: blueprint.traceArchitecture.enabled ? 0.14 : 0.20,
     depthWrite: false,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
@@ -57,7 +70,7 @@ export function createSketchStageSet() {
   const footlightMaterial = new THREE.MeshBasicMaterial({
     color: 0xf3dcff,
     transparent: blueprint.traceArchitecture.enabled,
-    opacity: blueprint.traceArchitecture.enabled ? 0.58 : 1,
+    opacity: blueprint.traceArchitecture.enabled ? 0.90 : 1,
     toneMapped: false,
     side: THREE.DoubleSide,
   });
@@ -115,7 +128,7 @@ export function createSketchStageSet() {
   // Baked vertex falloff shares one draw call; no extra reflection render targets.
   const reflectedLightGeometries: THREE.BufferGeometry[] = [];
   const reflectedLightMaterial = new THREE.MeshBasicMaterial({
-    vertexColors: true, transparent: true, opacity: 0.32,
+    vertexColors: true, transparent: true, opacity: 0.48,
     depthWrite: false, blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide, toneMapped: false,
   });
@@ -146,7 +159,7 @@ export function createSketchStageSet() {
     for (let x = -7.1; x < 7.2; x += 0.72) {
       lampGeometries.push(ribbon(x, x + 0.18,
         px => new THREE.Vector3(px, top + 0.010, frontZ(px, tier) - 0.004),
-        px => new THREE.Vector3(px, top + 0.010, frontZ(px, tier) - 0.038), footlightMaterial, 2).geometry);
+        px => new THREE.Vector3(px, top + 0.010, frontZ(px, tier) - 0.070), footlightMaterial, 2).geometry);
     }
     const lamps = mergeGeometries(lampGeometries);
     lampGeometries.forEach(geometry => geometry.dispose());
