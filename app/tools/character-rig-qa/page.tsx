@@ -78,6 +78,10 @@ export default function CharacterRigQaPage() {
 
   const handleLocalFile = useCallback(async (id: ModelId, file: File | undefined) => {
     if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".glb")) {
+      setStatus("Please choose a .glb file.");
+      return;
+    }
     setStatus("Reading " + file.name + "…");
     try {
       localFilesRef.current[id] = await file.arrayBuffer();
@@ -305,7 +309,7 @@ export default function CharacterRigQaPage() {
               <label key={id} style={fileLabelStyle(Boolean(loadedFiles[id]))}>
                 <strong>{id === "male" ? "♂ Nam" : "♀ Nữ"}</strong>
                 <span style={styles.fileName}>{loadedFiles[id] ?? "Choose rigged .glb"}</span>
-                <input type="file" accept=".glb,model/gltf-binary" style={{ display: "none" }} onChange={event => void handleLocalFile(id, event.target.files?.[0])} />
+                <input type="file" style={{ display: "none" }} onChange={event => void handleLocalFile(id, event.target.files?.[0])} />
               </label>
             ))}
           </div>
