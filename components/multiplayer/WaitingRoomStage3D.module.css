@@ -2354,3 +2354,35 @@
   stroke-linejoin:round;
   opacity:.72;
 }
+
+
+/* P5.6 V35 QA compare cleanup.
+   The owner trace is the authority layer. During golden-trace QA the runtime
+   screen-trace stays visible only as a faint registration guide, so two nearly
+   identical neon line systems do not visually combine into a scribbled result. */
+.stage[data-trace-comparison="1"] .stageTrace{
+  opacity:.20!important;
+}
+.stage[data-trace-comparison="1"] .traceRailGlow,
+.stage[data-trace-comparison="1"] .traceRiserGlow,
+.stage[data-trace-comparison="1"] .traceFrontRimGlow,
+.stage[data-trace-comparison="1"] .traceFloorReflection{
+  display:none!important;
+}
+.stage[data-trace-comparison="1"] .traceWall,
+.stage[data-trace-comparison="1"] .traceRiserSurface{
+  opacity:.05!important;
+}
+.stage[data-trace-comparison="1"] .traceTrussBody,
+.stage[data-trace-comparison="1"] .traceTrussEdge,
+.stage[data-trace-comparison="1"] .traceTruss .traceTrussBrace,
+.stage[data-trace-comparison="1"] .traceRails path,
+.stage[data-trace-comparison="1"] .traceRailBody,
+.stage[data-trace-comparison="1"] .traceRiserEdge,
+.stage[data-trace-comparison="1"] .traceRiserLowerEdge,
+.stage[data-trace-comparison="1"] .traceFrontRim,
+.stage[data-trace-comparison="1"] .traceFloorSide,
+.stage[data-trace-comparison="1"] .traceFloorGrid path,
+.stage[data-trace-comparison="1"] .traceRoofRim path{
+  filter:none!important;
+}
