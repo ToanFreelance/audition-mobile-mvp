@@ -373,14 +373,14 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const outer = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.900 : 0.95, sketchPolish ? 0.972 : 1.035, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.892 : 0.95, sketchPolish ? 0.982 : 1.035, sketchPolish ? 128 : 64),
     outerMaterial,
   );
   outer.rotation.x = -Math.PI / 2;
   outer.position.y = 0.008;
 
   const coreMaterial = new THREE.MeshBasicMaterial({
-    color,
+    color: sketchPolish ? new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.24) : color,
     transparent: true,
     opacity: sketchPolish ? 0.94 : 0.94,
     side: THREE.DoubleSide,
@@ -389,7 +389,7 @@ function createParticipantRing(
     toneMapped: !sketchPolish,
   });
   const core = new THREE.Mesh(
-    new THREE.RingGeometry(sketchPolish ? 0.736 : 0.79, sketchPolish ? 0.794 : 0.875, sketchPolish ? 128 : 64),
+    new THREE.RingGeometry(sketchPolish ? 0.718 : 0.79, sketchPolish ? 0.804 : 0.875, sketchPolish ? 128 : 64),
     coreMaterial,
   );
   core.rotation.x = -Math.PI / 2;
@@ -471,20 +471,20 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   context.fillRect(0, 0, 512, 512);
 
   const centerGlow = context.createRadialGradient(256, 318, 20, 256, 318, 250);
-  centerGlow.addColorStop(0, sketchColorRgba(palette.violetReflection, 0.42));
-  centerGlow.addColorStop(0.50, sketchColorRgba(palette.violetReflection, 0.24));
+  centerGlow.addColorStop(0, sketchColorRgba(palette.violetReflection, 0.52));
+  centerGlow.addColorStop(0.50, sketchColorRgba(palette.violetReflection, 0.30));
   centerGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = centerGlow;
   context.fillRect(0, 0, 512, 512);
 
   const leftGlow = context.createRadialGradient(118, 330, 8, 118, 330, 155);
-  leftGlow.addColorStop(0, sketchColorRgba(palette.cyanReflection, 0.40));
+  leftGlow.addColorStop(0, sketchColorRgba(palette.cyanReflection, 0.50));
   leftGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = leftGlow;
   context.fillRect(0, 0, 512, 512);
 
   const rightGlow = context.createRadialGradient(394, 330, 8, 394, 330, 155);
-  rightGlow.addColorStop(0, sketchColorRgba(palette.magentaReflection, 0.39));
+  rightGlow.addColorStop(0, sketchColorRgba(palette.magentaReflection, 0.49));
   rightGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = rightGlow;
   context.fillRect(0, 0, 512, 512);
@@ -492,8 +492,8 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   for (let index = 0; index <= 8; index += 1) {
     const coordinate = index * 64;
     context.strokeStyle = index % 2
-      ? sketchColorRgba(palette.magentaReflection, 0.22)
-      : sketchColorRgba(palette.cyanReflection, 0.22);
+      ? sketchColorRgba(palette.magentaReflection, 0.28)
+      : sketchColorRgba(palette.cyanReflection, 0.28);
     context.lineWidth = index === 4 ? 1.65 : 0.90;
     context.beginPath();
     context.moveTo(coordinate, 0);
@@ -506,9 +506,9 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   }
 
   for (const [x, tint] of [
-    [116, sketchColorRgba(palette.cyanReflection, 0.44)],
-    [256, sketchColorRgba(palette.violetReflection, 0.34)],
-    [396, sketchColorRgba(palette.magentaReflection, 0.44)],
+    [116, sketchColorRgba(palette.cyanReflection, 0.54)],
+    [256, sketchColorRgba(palette.violetReflection, 0.42)],
+    [396, sketchColorRgba(palette.magentaReflection, 0.54)],
   ] as const) {
     const streak = context.createLinearGradient(x - 38, 0, x + 38, 0);
     streak.addColorStop(0, "rgba(255,255,255,0)");
@@ -533,20 +533,20 @@ function createSketchFloorLightTexture() {
   const px = (world: number) => 256 + world / WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius * 256;
   context.fillStyle = "#000";
   context.fillRect(0, 0, 512, 512);
-  for (const [worldX, color] of [[-2.8, "41,221,255"], [0.1, "151,88,255"], [2.8, "240,68,223"]] as const) {
+  for (const [worldX, color] of [[-2.8, "50,229,255"], [0.1, "164,108,255"], [2.8, "244,90,231"]] as const) {
     const x = px(worldX);
-    const across = context.createLinearGradient(x - 12, 0, x + 12, 0);
+    const across = context.createLinearGradient(x - 18, 0, x + 18, 0);
     across.addColorStop(0, `rgba(${color},0)`);
-    across.addColorStop(0.38, `rgba(${color},0.16)`);
-    across.addColorStop(0.50, `rgba(${color},0.85)`);
-    across.addColorStop(0.62, `rgba(${color},0.16)`);
+    across.addColorStop(0.34, `rgba(${color},0.20)`);
+    across.addColorStop(0.50, `rgba(${color},0.95)`);
+    across.addColorStop(0.66, `rgba(${color},0.20)`);
     across.addColorStop(1, `rgba(${color},0)`);
     context.fillStyle = across;
-    context.fillRect(x - 12, 128, 24, 244);
+    context.fillRect(x - 18, 122, 36, 260);
   }
-  // Real floor-plane grid; it remains visible above the opaque mirror surface.
-  context.strokeStyle = "rgba(80,109,214,.32)";
-  context.lineWidth = 0.65;
+  // Real floor-plane grid; perspective is supplied by the floor plane.
+  context.strokeStyle = "rgba(96,126,235,.42)";
+  context.lineWidth = 0.78;
   for (let world = -8; world <= 8; world += 0.9) {
     const coordinate = px(world);
     context.beginPath();
@@ -957,7 +957,7 @@ export default function WaitingRoomStage3D({
         const lightDecal = new THREE.Mesh(
           new THREE.CircleGeometry(WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius, 96),
           new THREE.MeshBasicMaterial({
-            map: lightMap, transparent: true, opacity: 0.52,
+            map: lightMap, transparent: true, opacity: 0.70,
             blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
           }),
         );
@@ -1436,13 +1436,13 @@ export default function WaitingRoomStage3D({
           if (sketchRing) {
             // All five slots use the same bright, non-additive core; only the
             // restrained halo receives distance compensation. No central-only boost.
-            if (underglowMaterial) underglowMaterial.opacity = 0.024 + wave * 0.004;
-            if (haloMaterial) haloMaterial.opacity = 0.10 + wave * 0.006 + depthBoost * 0.016;
-            if (outerMaterial) outerMaterial.opacity = 0.93;
-            if (coreMaterial) coreMaterial.opacity = 0.95;
-            if (innerMaterial) innerMaterial.opacity = 0.72;
-            if (shineMaterial) shineMaterial.opacity = 0.24 + wave * 0.006;
-            if (floorMaterial) floorMaterial.opacity = 0.018;
+            if (underglowMaterial) underglowMaterial.opacity = 0.032 + wave * 0.005;
+            if (haloMaterial) haloMaterial.opacity = 0.15 + wave * 0.008 + depthBoost * 0.018;
+            if (outerMaterial) outerMaterial.opacity = 0.96;
+            if (coreMaterial) coreMaterial.opacity = 0.98;
+            if (innerMaterial) innerMaterial.opacity = 0.76;
+            if (shineMaterial) shineMaterial.opacity = 0.31 + wave * 0.008;
+            if (floorMaterial) floorMaterial.opacity = 0.026;
           } else {
             if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
             if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
@@ -1973,7 +1973,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v32-lighting-depth" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v33-golden-convergence" : "off"}
       data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
       data-floor-grid={visualPreset === "sketch" ? "floor-plane" : "material"}
@@ -2001,10 +2001,15 @@ export default function WaitingRoomStage3D({
                 <path d={traceArchitecture.truss.upperPath} />
                 <path d={traceArchitecture.truss.lowerPath} />
               </g>
-              <linearGradient id="trace-wing-shade" x1="0" y1="0" x2="224" y2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#07133d" stopOpacity=".65" />
-                <stop offset="65%" stopColor="#080d31" stopOpacity=".42" />
-                <stop offset="100%" stopColor="#080d31" stopOpacity="0" />
+              <linearGradient id="trace-wing-shade-left" x1="0" y1="0" x2="194" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#161c9a" stopOpacity=".58" />
+                <stop offset="68%" stopColor="#111475" stopOpacity=".40" />
+                <stop offset="100%" stopColor="#0a0b45" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="trace-wing-shade-right" x1="0" y1="0" x2="194" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#231098" stopOpacity=".58" />
+                <stop offset="68%" stopColor="#1b0d72" stopOpacity=".40" />
+                <stop offset="100%" stopColor="#100842" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="trace-left-rail" x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="var(--sketch-trace-cyan)" />
@@ -2030,16 +2035,16 @@ export default function WaitingRoomStage3D({
                 <stop offset="100%" stopColor="#ffd2ff" />
               </linearGradient>
               <linearGradient id="trace-reflection-left" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#22c7fd" stopOpacity=".30" />
+                <stop offset="0%" stopColor="#32e5ff" stopOpacity=".46" />
                 <stop offset="100%" stopColor="#146bf9" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="trace-reflection-center" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#783cff" stopOpacity=".20" />
-                <stop offset="100%" stopColor="#1106af" stopOpacity="0" />
+                <stop offset="0%" stopColor="#a46cff" stopOpacity=".34" />
+                <stop offset="100%" stopColor="#2219bd" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="trace-reflection-right" x1="1" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f94bfc" stopOpacity=".25" />
-                <stop offset="100%" stopColor="#950cdf" stopOpacity="0" />
+                <stop offset="0%" stopColor="#f45ae7" stopOpacity=".42" />
+                <stop offset="100%" stopColor="#a20de2" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="trace-riser-fill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#4d1a9d" stopOpacity=".34" />
@@ -2069,8 +2074,8 @@ export default function WaitingRoomStage3D({
               </filter>
             </defs>
 
-            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} fill="url(#trace-wing-shade)" />
-            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} fill="url(#trace-wing-shade)" transform="translate(864 0) scale(-1 1)" />
+            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} fill="url(#trace-wing-shade-left)" />
+            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} fill="url(#trace-wing-shade-right)" transform="translate(864 0) scale(-1 1)" />
 
             <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.left} fill="url(#trace-reflection-left)" />
             <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.center} fill="url(#trace-reflection-center)" />

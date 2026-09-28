@@ -209,8 +209,8 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v32-lighting-depth");
-  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v10");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v33-golden-convergence");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v11");
   await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-riser-source", "hybrid-threejs-trace");
@@ -258,7 +258,7 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
   await page.goto("/tools/lobby-qa-sketch?blueprint=1");
 
   const stage = page.getByTestId("waiting-room-stage");
-  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v10");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v11");
   await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(1);
 
   await page.goto("/tools/lobby-qa-sketch");
