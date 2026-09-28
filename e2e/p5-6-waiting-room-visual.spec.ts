@@ -40,13 +40,12 @@ test("V32 fixtures re-anchor when the real camera replaces the initial camera at
 test("V38 keeps the clean owner-guided architecture and adds missing structural arcs", () => {
   expect(blueprint.traceArchitecture.source).toBe("v38-owner-guided-structure");
   expect(blueprint.traceArchitecture.viewBox).toEqual({ width: 864, height: 1044 });
-  expect(blueprint.traceArchitecture.railsLeft).toHaveLength(8);
-  expect(blueprint.traceArchitecture.railsRight).toHaveLength(8);
-  expect(blueprint.scene.wing.railRows).toBe(8);
-  expect(blueprint.traceArchitecture.railsLeft.slice(0, 3)).toEqual([
-    "M 0 176 C 64.5 195.5 130 216.5 195.75 233",
-    "M 0 208 C 64.5 226 130 244 195.75 260",
-    "M 0 240 C 64.5 257 130 273 195.75 286",
+  expect(blueprint.traceArchitecture.railsLeft).toHaveLength(7);
+  expect(blueprint.traceArchitecture.railsRight).toHaveLength(7);
+  expect(blueprint.scene.wing.railRows).toBe(7);
+  expect(blueprint.traceArchitecture.railsLeft.slice(0, 2)).toEqual([
+    "M 0 190 C 64.4 205 129.9 222 195.75 242",
+    "M 0 228 C 64.8 242 130 258 195.75 277",
   ]);
   expect(blueprint.traceArchitecture.railsRight[0]).not.toBe(blueprint.traceArchitecture.railsLeft[0]);
   for (const path of [...blueprint.traceArchitecture.railsLeft, ...blueprint.traceArchitecture.railsRight]) {
@@ -230,11 +229,11 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
   await expect(stage).toHaveAttribute("data-sketch-match", "v38-v34-owner-guided-structure");
-  await expect(stage).toHaveAttribute("data-visual-polish", "v41-beam-falloff-rail-spacing");
+  await expect(stage).toHaveAttribute("data-visual-polish", "v42-seven-rail-balance");
   await expect(stage).toHaveAttribute("data-beam-falloff", "mid-stage");
   await expect(stage).toHaveAttribute("data-stage-uplights", "2");
   await expect(stage).toHaveAttribute("data-uplight-fixture", "visible-floor-head");
-  await expect(stage).toHaveAttribute("data-stage-rail-rows", "8");
+  await expect(stage).toHaveAttribute("data-stage-rail-rows", "7");
   await expect(stage).toHaveAttribute("data-light-aperture", "frustum-lens");
   await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v12");
   await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");

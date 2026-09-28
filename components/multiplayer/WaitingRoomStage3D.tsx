@@ -2018,7 +2018,7 @@ export default function WaitingRoomStage3D({
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
       data-sketch-match={visualPreset === "sketch" ? "v38-v34-owner-guided-structure" : "off"}
-      data-visual-polish={visualPreset === "sketch" ? "v41-beam-falloff-rail-spacing" : "off"}
+      data-visual-polish={visualPreset === "sketch" ? "v42-seven-rail-balance" : "off"}
       data-beam-falloff={visualPreset === "sketch" ? "mid-stage" : "standard"}
       data-stage-uplights={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.length : 0}
       data-uplight-fixture={visualPreset === "sketch" ? "visible-floor-head" : "off"}
