@@ -128,7 +128,7 @@ export function createSketchStageSet() {
   // Baked vertex falloff shares one draw call; no extra reflection render targets.
   const reflectedLightGeometries: THREE.BufferGeometry[] = [];
   const reflectedLightMaterial = new THREE.MeshBasicMaterial({
-    vertexColors: true, transparent: true, opacity: 0.60,
+    vertexColors: true, transparent: true, opacity: 0.68,
     depthWrite: false, blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide, toneMapped: false,
   });

@@ -2268,3 +2268,66 @@
   text-shadow:none!important;
   filter:drop-shadow(0 0 3px rgba(238,67,245,.76)) drop-shadow(0 0 10px rgba(193,5,241,.42))!important;
 }
+
+
+/* P5.6 V34 — regional tone/material correction from owner V33 iPhone + golden pixels.
+   Keep V33 geometry; lower-stage luminance rises while upper/wings retain deep saturated values. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 30% 54% at 0% 43%,rgba(11,20,168,.24) 0%,rgba(7,15,95,.07) 58%,transparent 80%),
+    radial-gradient(ellipse 30% 54% at 100% 43%,rgba(57,9,170,.25) 0%,rgba(28,6,92,.07) 58%,transparent 80%),
+    radial-gradient(ellipse 36% 24% at 50% 33%,rgba(157,21,215,.09) 0%,rgba(77,10,145,.03) 52%,transparent 80%),
+    linear-gradient(180deg,#03021f 0%,#07042a 22%,#120643 46%,#0d0b49 72%,#0a0a45 100%)!important;
+}
+.traceTrussBody{
+  stroke:#14256b;
+  stroke-width:10.4;
+  opacity:.98;
+}
+.traceTrussEdge{
+  stroke-width:2.5;
+  opacity:.98;
+  filter:drop-shadow(0 0 5px rgba(94,108,255,.60));
+}
+.traceTruss .traceTrussBrace{
+  stroke-width:2.2;
+  opacity:.68;
+}
+.traceRailBody{
+  stroke:#0d1558;
+  stroke-width:7.6;
+  opacity:.82;
+}
+.traceRails path{
+  stroke-width:3.0;
+  opacity:.98;
+}
+.traceRailGlow path{
+  stroke-width:7.2;
+  opacity:.18;
+}
+.traceRiserSurface{
+  opacity:.34;
+}
+.traceRiserEdge{
+  stroke-width:2.2;
+  opacity:.94;
+}
+.traceRiserLowerEdge{
+  stroke-width:1.35;
+  opacity:.48;
+}
+.traceRiserGlow{
+  opacity:.14;
+}
+.traceFootlights{
+  opacity:.90;
+}
+.traceFloorReflection{
+  opacity:1;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:rgba(193,5,241,.14)!important;
+  -webkit-text-stroke:1.55px #e94cf6!important;
+  filter:drop-shadow(0 0 3px rgba(241,75,247,.80)) drop-shadow(0 0 10px rgba(200,19,242,.46))!important;
+}

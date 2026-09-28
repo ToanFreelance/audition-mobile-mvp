@@ -471,20 +471,20 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   context.fillRect(0, 0, 512, 512);
 
   const centerGlow = context.createRadialGradient(256, 318, 20, 256, 318, 250);
-  centerGlow.addColorStop(0, sketchColorRgba(palette.violetReflection, 0.52));
-  centerGlow.addColorStop(0.50, sketchColorRgba(palette.violetReflection, 0.30));
+  centerGlow.addColorStop(0, sketchColorRgba(palette.violetReflection, 0.64));
+  centerGlow.addColorStop(0.50, sketchColorRgba(palette.violetReflection, 0.38));
   centerGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = centerGlow;
   context.fillRect(0, 0, 512, 512);
 
   const leftGlow = context.createRadialGradient(118, 330, 8, 118, 330, 155);
-  leftGlow.addColorStop(0, sketchColorRgba(palette.cyanReflection, 0.50));
+  leftGlow.addColorStop(0, sketchColorRgba(palette.cyanReflection, 0.61));
   leftGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = leftGlow;
   context.fillRect(0, 0, 512, 512);
 
   const rightGlow = context.createRadialGradient(394, 330, 8, 394, 330, 155);
-  rightGlow.addColorStop(0, sketchColorRgba(palette.magentaReflection, 0.49));
+  rightGlow.addColorStop(0, sketchColorRgba(palette.magentaReflection, 0.60));
   rightGlow.addColorStop(1, "rgba(0,0,0,0)");
   context.fillStyle = rightGlow;
   context.fillRect(0, 0, 512, 512);
@@ -492,8 +492,8 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   for (let index = 0; index <= 8; index += 1) {
     const coordinate = index * 64;
     context.strokeStyle = index % 2
-      ? sketchColorRgba(palette.magentaReflection, 0.28)
-      : sketchColorRgba(palette.cyanReflection, 0.28);
+      ? sketchColorRgba(palette.magentaReflection, 0.33)
+      : sketchColorRgba(palette.cyanReflection, 0.33);
     context.lineWidth = index === 4 ? 1.65 : 0.90;
     context.beginPath();
     context.moveTo(coordinate, 0);
@@ -506,9 +506,9 @@ function createSketchFloorTexture(maxAnisotropy: number) {
   }
 
   for (const [x, tint] of [
-    [116, sketchColorRgba(palette.cyanReflection, 0.54)],
-    [256, sketchColorRgba(palette.violetReflection, 0.42)],
-    [396, sketchColorRgba(palette.magentaReflection, 0.54)],
+    [116, sketchColorRgba(palette.cyanReflection, 0.64)],
+    [256, sketchColorRgba(palette.violetReflection, 0.52)],
+    [396, sketchColorRgba(palette.magentaReflection, 0.64)],
   ] as const) {
     const streak = context.createLinearGradient(x - 38, 0, x + 38, 0);
     streak.addColorStop(0, "rgba(255,255,255,0)");
@@ -537,16 +537,16 @@ function createSketchFloorLightTexture() {
     const x = px(worldX);
     const across = context.createLinearGradient(x - 18, 0, x + 18, 0);
     across.addColorStop(0, `rgba(${color},0)`);
-    across.addColorStop(0.34, `rgba(${color},0.20)`);
-    across.addColorStop(0.50, `rgba(${color},0.95)`);
-    across.addColorStop(0.66, `rgba(${color},0.20)`);
+    across.addColorStop(0.34, `rgba(${color},0.26)`);
+    across.addColorStop(0.50, `rgba(${color},1)`);
+    across.addColorStop(0.66, `rgba(${color},0.26)`);
     across.addColorStop(1, `rgba(${color},0)`);
     context.fillStyle = across;
     context.fillRect(x - 18, 122, 36, 260);
   }
   // Real floor-plane grid; perspective is supplied by the floor plane.
-  context.strokeStyle = "rgba(96,126,235,.42)";
-  context.lineWidth = 0.78;
+  context.strokeStyle = "rgba(112,143,246,.48)";
+  context.lineWidth = 0.82;
   for (let world = -8; world <= 8; world += 0.9) {
     const coordinate = px(world);
     context.beginPath();
@@ -957,7 +957,7 @@ export default function WaitingRoomStage3D({
         const lightDecal = new THREE.Mesh(
           new THREE.CircleGeometry(WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius, 96),
           new THREE.MeshBasicMaterial({
-            map: lightMap, transparent: true, opacity: 0.70,
+            map: lightMap, transparent: true, opacity: 0.82,
             blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
           }),
         );
@@ -1973,7 +1973,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v33-golden-convergence" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v34-regional-tone-depth" : "off"}
       data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
       data-floor-grid={visualPreset === "sketch" ? "floor-plane" : "material"}
@@ -2002,14 +2002,14 @@ export default function WaitingRoomStage3D({
                 <path d={traceArchitecture.truss.lowerPath} />
               </g>
               <linearGradient id="trace-wing-shade-left" x1="0" y1="0" x2="194" y2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#161c9a" stopOpacity=".58" />
-                <stop offset="68%" stopColor="#111475" stopOpacity=".40" />
-                <stop offset="100%" stopColor="#0a0b45" stopOpacity="0" />
+                <stop offset="0%" stopColor="#0b14a8" stopOpacity=".72" />
+                <stop offset="68%" stopColor="#090d72" stopOpacity=".48" />
+                <stop offset="100%" stopColor="#07083f" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="trace-wing-shade-right" x1="0" y1="0" x2="194" y2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#231098" stopOpacity=".58" />
-                <stop offset="68%" stopColor="#1b0d72" stopOpacity=".40" />
-                <stop offset="100%" stopColor="#100842" stopOpacity="0" />
+                <stop offset="0%" stopColor="#3909aa" stopOpacity=".70" />
+                <stop offset="68%" stopColor="#22066e" stopOpacity=".48" />
+                <stop offset="100%" stopColor="#0f073d" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="trace-left-rail" x1="0" y1="0" x2="220" y2="0" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="var(--sketch-trace-cyan)" />
@@ -2218,7 +2218,7 @@ export default function WaitingRoomStage3D({
           <div className={styles.fixMapLegend}>
             <strong>GOLDEN REF · OWNER SKETCH</strong>
             <span>dashed = sketch target</span>
-            <span>solid = V32 runtime underneath</span>
+            <span>solid = current runtime underneath</span>
           </div>
           <svg
             className={styles.fixMapSvg}

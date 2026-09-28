@@ -209,8 +209,8 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v33-golden-convergence");
-  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v11");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v34-regional-tone-depth");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v12");
   await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-riser-source", "hybrid-threejs-trace");
@@ -258,7 +258,7 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
   await page.goto("/tools/lobby-qa-sketch?blueprint=1");
 
   const stage = page.getByTestId("waiting-room-stage");
-  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v11");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v12");
   await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(1);
 
   await page.goto("/tools/lobby-qa-sketch");
@@ -267,7 +267,7 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
 
 
 test("P5.6 fix-map route uses the independent owner-sketch reference only when requested", async ({ page }) => {
-  expect(goldenReference.id).toBe("owner-golden-864x1536-v1");
+  expect(goldenReference.id).toBe("owner-golden-864x1536-v2");
   expect(goldenReference.logo.bbox.y).toBeGreaterThan(250);
   expect(goldenReference.logo.bbox.y).not.toBeCloseTo(blueprint.screen.logo.bbox.y * 1044, 0);
   expect(goldenReference.rings.host.cy).toBeGreaterThan(900);
@@ -275,7 +275,7 @@ test("P5.6 fix-map route uses the independent owner-sketch reference only when r
   await page.goto("/tools/lobby-qa-sketch?fixmap=1");
   const stage = page.getByTestId("waiting-room-stage");
   await expect(stage).toHaveAttribute("data-fix-map", "1");
-  await expect(stage).toHaveAttribute("data-fix-map-source", "owner-golden-864x1536-v1");
+  await expect(stage).toHaveAttribute("data-fix-map-source", "owner-golden-864x1536-v2");
   await expect(page.getByTestId("sketch-fix-map")).toHaveCount(1);
   await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(0);
 

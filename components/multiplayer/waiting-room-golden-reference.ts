@@ -3,7 +3,7 @@
 // This file MUST NOT be imported by runtime scene-generation/material code.
 // It exists only for QA overlays, screenshot comparison and visual delta analysis.
 export const WAITING_ROOM_GOLDEN_REFERENCE = {
-  id: "owner-golden-864x1536-v1",
+  id: "owner-golden-864x1536-v2",
   source: {
     width: 864,
     height: 1536,
@@ -93,12 +93,14 @@ export const WAITING_ROOM_GOLDEN_REFERENCE = {
     rightOuter: { cx: 757, cy: 799, rx: 94, ry: 21 },
   },
   colorZones: [
-    { key: "upper", label: "UPPER", x: 320, y: 130, width: 224, height: 60, target: "#140953", luma: 16.5 },
-    { key: "leftWing", label: "L-WING", x: 60, y: 250, width: 115, height: 105, target: "#161c9a", luma: 36.4 },
-    { key: "rightWing", label: "R-WING", x: 689, y: 250, width: 115, height: 105, target: "#231098", luma: 31.7 },
-    { key: "floorLeft", label: "F-L", x: 20, y: 850, width: 170, height: 185, target: "#121889", luma: 33.4 },
-    { key: "floorCenter", label: "F-C", x: 205, y: 900, width: 455, height: 135, target: "#322499", luma: 48.5 },
-    { key: "floorRight", label: "F-R", x: 675, y: 850, width: 175, height: 185, target: "#3f1391", luma: 38.9 },
+    // Exact regional means sampled from the owner sketch. These values are QA
+    // targets only; runtime code must not import this module for rendering.
+    { key: "upper", label: "UPPER", x: 320, y: 130, width: 224, height: 60, target: "#1a0b5c", luma: 8.0 },
+    { key: "leftWing", label: "L-WING", x: 60, y: 250, width: 115, height: 105, target: "#1c1ea0", luma: 15.4 },
+    { key: "rightWing", label: "R-WING", x: 689, y: 250, width: 115, height: 105, target: "#2c139e", luma: 13.6 },
+    { key: "floorLeft", label: "F-L", x: 20, y: 850, width: 170, height: 185, target: "#1e2f95", luma: 19.8 },
+    { key: "floorCenter", label: "F-C", x: 205, y: 900, width: 455, height: 135, target: "#4458bf", luma: 35.7 },
+    { key: "floorRight", label: "F-R", x: 675, y: 850, width: 175, height: 185, target: "#4a2495", luma: 20.3 },
   ],
 } as const;
 
