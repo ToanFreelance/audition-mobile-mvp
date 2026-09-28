@@ -60,6 +60,7 @@ type Props = {
   pageSize?: number;
   calibrationMode?: boolean;
   blueprintMode?: boolean;
+  traceComparisonMode?: boolean;
   calibrationResetToken?: number;
   onCalibrationLayoutChange?: (layout: WaitingRoomCalibrationLayout) => void;
   onSelectParticipant?: (participant: RoomParticipant) => void;
@@ -730,6 +731,7 @@ export default function WaitingRoomStage3D({
   pageSize = 2,
   calibrationMode = false,
   blueprintMode = false,
+  traceComparisonMode = false,
   calibrationResetToken = 0,
   onCalibrationLayoutChange,
   onSelectParticipant,
@@ -1976,6 +1978,7 @@ export default function WaitingRoomStage3D({
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
       data-sketch-match={visualPreset === "sketch" ? "v35-owner-trace-runtime" : "off"}
+      data-trace-comparison={traceComparisonMode ? "1" : "0"}
       data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
       data-floor-grid={visualPreset === "sketch" ? "floor-plane" : "material"}
