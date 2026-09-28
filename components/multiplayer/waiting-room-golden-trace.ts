@@ -1,5 +1,7 @@
 // QA-ONLY GOLDEN TRACE.
-// Derived directly from the owner-approved 864x1536 sketch attached on 2026-09-28.
+// Geometry authority is the owner-authored line trace supplied on 2026-09-28.
+// The owner trace is normalized uniformly from 768x928 stage pixels to 864x1044 (scale 1.125).
+// Legacy vector measurements remain only as non-authoritative diagnostic metadata.
 // Do not use as runtime scene-generation input.
 // Do not import waiting-room-sketch-blueprint or WaitingRoomStage3D from this module.
 
@@ -113,13 +115,29 @@ const RISER_3_LOWER_SEGMENTS = [
 ] as const;
 
 export const WAITING_ROOM_GOLDEN_TRACE = {
-  "id": "owner-sketch-direct-trace-v2",
+  "id": "owner-authored-trace-raster-v1",
   "source": {
     "width": 864,
     "height": 1536,
     "stageHeight": 1044,
     "originalSha256": "590903d3505de2c0c8d737c23a07df999e5e48341318db2aff9effcddf17098f",
     "capturedAt": "2026-09-28"
+  },
+  "geometryAuthority": {
+    "kind": "owner-authored-raster",
+    "asset": "/qa/waiting-room-owner-trace-stage-v1.png",
+    "sourceWidth": 768,
+    "sourceHeight": 1364,
+    "stageCrop": { "x": 0, "y": 0, "width": 768, "height": 928 },
+    "normalization": {
+      "scale": 1.125,
+      "width": 864,
+      "height": 1044,
+      "distortion": "none"
+    },
+    "ownerTraceSha256": "59615be18d091205f0d65f8b772d7fd1db0c8b70e65f4dcd2f8b32dde722b7fb",
+    "normalizedAssetSha256": "6be0d403869874805e1adc0c42b460fa6d92f72c4a92df8f7e19e68aeadc7d07",
+    "lineExtraction": "owner-trace-nonwhite-mask-threshold-45"
   },
   "roof": {
     "upper": [

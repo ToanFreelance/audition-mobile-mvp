@@ -46,3 +46,8 @@
   stroke:rgba(0,0,0,.85);
   stroke-width:1.8px;
 }
+
+.ownerGeometryImage{
+  pointer-events:none;
+  image-rendering:auto;
+}

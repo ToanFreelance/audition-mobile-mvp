@@ -268,23 +268,19 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
 });
 
 
-test("P5.6 exact golden trace stays direct, asymmetric and QA-only", async ({ page }) => {
-  expect(goldenTrace.id).toBe("owner-sketch-direct-trace-v2");
+test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only", async ({ page }) => {
+  expect(goldenTrace.id).toBe("owner-authored-trace-raster-v1");
   expect(goldenTrace.source.width).toBe(864);
   expect(goldenTrace.source.height).toBe(1536);
-  expect(goldenTrace.wings.left.rails).toHaveLength(7);
-  expect(goldenTrace.wings.right.rails).toHaveLength(7);
-  expect(goldenTrace.wings.right.rails[0].points).not.toEqual(goldenTrace.wings.left.rails[0].points);
-  expect(goldenTrace.rings.host.ellipses).toHaveLength(3);
-
-  const firstRiser = goldenTrace.risers[0];
-  expect(firstRiser.topSegments.filter(segment => segment.accuracy === "pixel-traced")).toHaveLength(6);
-  expect(firstRiser.topSegments.filter(segment => segment.accuracy === "approximate-occluded")).toHaveLength(5);
-  const leftVisibleTop = firstRiser.topSegments[0].points.at(-1)!;
-  const centerVisibleTop = firstRiser.topSegments[6].points[0];
-  expect(centerVisibleTop[1] - leftVisibleTop[1]).toBeGreaterThanOrEqual(12);
-  expect(goldenTrace.risers[2].lowerEdgeIsFloorRim).toBe(true);
-  expect(goldenTrace.floor.frontRimSegments).toBe(goldenTrace.risers[2].lowerSegments);
+  expect(goldenTrace.geometryAuthority.kind).toBe("owner-authored-raster");
+  expect(goldenTrace.geometryAuthority.asset).toBe("/qa/waiting-room-owner-trace-stage-v1.png");
+  expect(goldenTrace.geometryAuthority.stageCrop).toEqual({ x: 0, y: 0, width: 768, height: 928 });
+  expect(goldenTrace.geometryAuthority.normalization).toEqual({
+    scale: 1.125,
+    width: 864,
+    height: 1044,
+    distortion: "none",
+  });
 
   const traceSource = readFileSync(
     join(process.cwd(), "components/multiplayer/waiting-room-golden-trace.ts"),
@@ -302,9 +298,9 @@ test("P5.6 exact golden trace stays direct, asymmetric and QA-only", async ({ pa
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceOpacity=0.55&traceMode=geometry");
   const overlay = page.getByTestId("waiting-room-golden-trace");
   await expect(overlay).toHaveCount(1);
-  await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-sketch-direct-trace-v2");
-  await expect(overlay.locator('[data-trace-id^="left-rail-"]')).toHaveCount(7);
-  await expect(overlay.locator('[data-trace-id^="right-rail-"]')).toHaveCount(7);
+  await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-authored-trace-raster-v1");
+  await expect(overlay.locator('[data-trace-authority="owner-authored-raster"]')).toHaveCount(1);
+  await expect(overlay.locator('image[href="/qa/waiting-room-owner-trace-stage-v1.png"]')).toHaveCount(1);
   await expect(overlay.locator('[data-trace-layer="color"]')).toHaveCount(0);
 
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceMode=color");
@@ -314,7 +310,7 @@ test("P5.6 exact golden trace stays direct, asymmetric and QA-only", async ({ pa
   await page.goto("/tools/lobby-qa-sketch?fixmap=1");
   await expect(page.getByTestId("waiting-room-golden-trace")).toHaveAttribute(
     "data-golden-trace-source",
-    "owner-sketch-direct-trace-v2",
+    "owner-authored-trace-raster-v1",
   );
 
   await page.goto("/tools/lobby-qa-sketch");
