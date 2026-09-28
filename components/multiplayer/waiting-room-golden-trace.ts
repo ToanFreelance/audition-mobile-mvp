@@ -11,8 +11,109 @@ export type GoldenTracePolyline = {
   readonly accuracy: GoldenTraceAccuracy;
 };
 
+
+const exactSegment = (id: string, points: readonly GoldenTracePoint[]) => ({
+  id,
+  points,
+  accuracy: "pixel-traced" as const,
+});
+
+const occludedSegment = (id: string, points: readonly GoldenTracePoint[]) => ({
+  id,
+  points,
+  accuracy: "approximate-occluded" as const,
+});
+
+// Riser recovery V2:
+// - visible colored segments are traced directly from owner-sketch pixels;
+// - hidden spans are explicit occluded continuations, never presented as exact;
+// - points preserve the observed downward bow instead of flattening the step edges.
+const RISER_1_TOP_SEGMENTS = [
+  exactSegment("riser-1-top-visible-1", [[0,512],[20,512],[24,510],[55,510]]),
+  occludedSegment("riser-1-top-occluded-1", [[55,510],[79,511],[143,520],[168,521]]),
+  exactSegment("riser-1-top-visible-2", [[168,521],[184,521],[188,522],[198,522]]),
+  occludedSegment("riser-1-top-occluded-2", [[198,522],[318,523]]),
+  exactSegment("riser-1-top-visible-3", [[318,523],[334,523]]),
+  occludedSegment("riser-1-top-occluded-3", [[334,523],[526,523]]),
+  exactSegment("riser-1-top-visible-4", [[526,523],[548,523]]),
+  occludedSegment("riser-1-top-occluded-4", [[548,523],[628,524],[666,522]]),
+  exactSegment("riser-1-top-visible-5", [[666,522],[674,522],[678,521],[698,520]]),
+  occludedSegment("riser-1-top-occluded-5", [[698,520],[778,512],[810,510],[824,510]]),
+  exactSegment("riser-1-top-visible-6", [[824,510],[836,510],[840,512],[852,512],[856,511],[863,511]]),
+] as const;
+
+const RISER_1_LOWER_SEGMENTS = [
+  exactSegment("riser-1-lower-visible-1", [[0,541],[32,541],[36,543],[40,544],[55,544]]),
+  occludedSegment("riser-1-lower-occluded-1", [[55,544],[168,544]]),
+  exactSegment("riser-1-lower-visible-2", [[168,544],[192,544],[198,543]]),
+  occludedSegment("riser-1-lower-occluded-2", [[198,543],[222,541],[238,541],[302,545],[318,545]]),
+  exactSegment("riser-1-lower-visible-3", [[318,545],[334,545]]),
+  occludedSegment("riser-1-lower-occluded-3", [[334,545],[526,545]]),
+  exactSegment("riser-1-lower-visible-4", [[526,545],[548,545]]),
+  occludedSegment("riser-1-lower-occluded-4", [[548,545],[666,544]]),
+  exactSegment("riser-1-lower-visible-5", [[666,544],[698,544]]),
+  occludedSegment("riser-1-lower-occluded-5", [[698,544],[730,544],[762,542],[824,541]]),
+  exactSegment("riser-1-lower-visible-6", [[824,541],[863,541]]),
+] as const;
+
+const RISER_2_TOP_SEGMENTS = [
+  exactSegment("riser-2-top-visible-1", [[0,573],[24,573],[28,572],[55,572]]),
+  occludedSegment("riser-2-top-occluded-1", [[55,572],[168,570]]),
+  exactSegment("riser-2-top-visible-2", [[168,570],[184,570],[188,572],[198,572]]),
+  occludedSegment("riser-2-top-occluded-2", [[198,572],[318,569]]),
+  exactSegment("riser-2-top-visible-3", [[318,569],[334,569]]),
+  occludedSegment("riser-2-top-occluded-3", [[334,569],[526,569]]),
+  exactSegment("riser-2-top-visible-4", [[526,569],[538,569],[542,568],[548,568]]),
+  occludedSegment("riser-2-top-occluded-4", [[548,568],[556,567],[580,567],[644,572],[666,571]]),
+  exactSegment("riser-2-top-visible-5", [[666,571],[674,571],[678,570],[698,570]]),
+  occludedSegment("riser-2-top-occluded-5", [[698,570],[738,570],[746,571],[778,571],[786,572],[824,572]]),
+  exactSegment("riser-2-top-visible-6", [[824,572],[848,572],[852,573],[863,573]]),
+] as const;
+
+const RISER_2_LOWER_SEGMENTS = [
+  exactSegment("riser-2-lower-visible-1", [[0,603],[16,603],[24,601],[28,601],[32,599],[36,599],[40,598],[55,598]]),
+  occludedSegment("riser-2-lower-occluded-1", [[55,598],[111,599],[143,601],[168,601]]),
+  exactSegment("riser-2-lower-visible-2", [[168,601],[198,601]]),
+  occludedSegment("riser-2-lower-occluded-2", [[198,601],[318,598]]),
+  exactSegment("riser-2-lower-visible-3", [[318,598],[334,598]]),
+  occludedSegment("riser-2-lower-occluded-3", [[334,598],[526,598]]),
+  exactSegment("riser-2-lower-visible-4", [[526,598],[548,598]]),
+  occludedSegment("riser-2-lower-occluded-4", [[548,598],[604,599],[636,601],[666,601]]),
+  exactSegment("riser-2-lower-visible-5", [[666,601],[698,601]]),
+  occludedSegment("riser-2-lower-occluded-5", [[698,601],[714,601],[778,596],[810,597],[824,599]]),
+  exactSegment("riser-2-lower-visible-6", [[824,599],[828,599],[836,601],[840,601],[844,602],[848,604],[863,604]]),
+] as const;
+
+const RISER_3_TOP_SEGMENTS = [
+  exactSegment("riser-3-top-visible-1", [[0,640],[24,640],[36,637],[55,637]]),
+  occludedSegment("riser-3-top-occluded-1", [[55,637],[168,638]]),
+  exactSegment("riser-3-top-visible-2", [[168,638],[184,638],[188,637],[198,637]]),
+  occludedSegment("riser-3-top-occluded-2", [[198,637],[222,637],[270,634],[318,633]]),
+  exactSegment("riser-3-top-visible-3", [[318,633],[334,633]]),
+  occludedSegment("riser-3-top-occluded-3", [[334,633],[526,632]]),
+  exactSegment("riser-3-top-visible-4", [[526,632],[538,632],[542,633],[548,633]]),
+  occludedSegment("riser-3-top-occluded-4", [[548,633],[612,637],[666,637]]),
+  exactSegment("riser-3-top-visible-5", [[666,637],[682,637],[686,638],[698,638]]),
+  occludedSegment("riser-3-top-occluded-5", [[698,638],[714,638],[770,633],[794,633],[824,637]]),
+  exactSegment("riser-3-top-visible-6", [[824,637],[832,637],[836,640],[863,640]]),
+] as const;
+
+const RISER_3_LOWER_SEGMENTS = [
+  exactSegment("riser-3-lower-visible-1", [[0,651],[4,651],[8,650],[24,650],[28,651],[55,651]]),
+  occludedSegment("riser-3-lower-occluded-1", [[55,651],[95,650],[127,647],[168,646]]),
+  exactSegment("riser-3-lower-visible-2", [[168,646],[198,646]]),
+  occludedSegment("riser-3-lower-occluded-2", [[198,646],[318,647]]),
+  exactSegment("riser-3-lower-visible-3", [[318,647],[334,647]]),
+  occludedSegment("riser-3-lower-occluded-3", [[334,647],[526,648]]),
+  exactSegment("riser-3-lower-visible-4", [[526,648],[548,648]]),
+  occludedSegment("riser-3-lower-occluded-4", [[548,648],[580,648],[588,647],[620,647],[628,646],[666,646]]),
+  exactSegment("riser-3-lower-visible-5", [[666,646],[698,646]]),
+  occludedSegment("riser-3-lower-occluded-5", [[698,646],[714,646],[786,653],[802,653],[824,651]]),
+  exactSegment("riser-3-lower-visible-6", [[824,651],[832,651],[836,649],[840,650],[863,650]]),
+] as const;
+
 export const WAITING_ROOM_GOLDEN_TRACE = {
-  "id": "owner-sketch-direct-trace-v1",
+  "id": "owner-sketch-direct-trace-v2",
   "source": {
     "width": 864,
     "height": 1536,
@@ -1692,368 +1793,25 @@ export const WAITING_ROOM_GOLDEN_TRACE = {
   "risers": [
     {
       "id": "riser-1",
-      "topEdge": {
-        "id": "riser-1-top",
-        "points": [
-          [
-            0,
-            510
-          ],
-          [
-            80,
-            509
-          ],
-          [
-            160,
-            510
-          ],
-          [
-            240,
-            509
-          ],
-          [
-            320,
-            508
-          ],
-          [
-            432,
-            507
-          ],
-          [
-            544,
-            508
-          ],
-          [
-            624,
-            509
-          ],
-          [
-            704,
-            509
-          ],
-          [
-            784,
-            510
-          ],
-          [
-            864,
-            511
-          ]
-        ],
-        "accuracy": "pixel-traced"
-      },
-      "lowerEdge": {
-        "id": "riser-1-lower",
-        "points": [
-          [
-            0,
-            532
-          ],
-          [
-            80,
-            531
-          ],
-          [
-            160,
-            531
-          ],
-          [
-            240,
-            531
-          ],
-          [
-            320,
-            530
-          ],
-          [
-            432,
-            529
-          ],
-          [
-            544,
-            530
-          ],
-          [
-            624,
-            531
-          ],
-          [
-            704,
-            531
-          ],
-          [
-            784,
-            532
-          ],
-          [
-            864,
-            533
-          ]
-        ],
-        "accuracy": "approximate-occluded"
-      },
-      "faceHeightPx": 22
+      "topSegments": RISER_1_TOP_SEGMENTS,
+      "lowerSegments": RISER_1_LOWER_SEGMENTS,
+      "lowerEdgeIsFloorRim": false
     },
     {
       "id": "riser-2",
-      "topEdge": {
-        "id": "riser-2-top",
-        "points": [
-          [
-            0,
-            550
-          ],
-          [
-            80,
-            550
-          ],
-          [
-            160,
-            549
-          ],
-          [
-            240,
-            548
-          ],
-          [
-            320,
-            547
-          ],
-          [
-            432,
-            546
-          ],
-          [
-            544,
-            547
-          ],
-          [
-            624,
-            548
-          ],
-          [
-            704,
-            549
-          ],
-          [
-            784,
-            550
-          ],
-          [
-            864,
-            551
-          ]
-        ],
-        "accuracy": "pixel-traced"
-      },
-      "lowerEdge": {
-        "id": "riser-2-lower",
-        "points": [
-          [
-            0,
-            575
-          ],
-          [
-            80,
-            574
-          ],
-          [
-            160,
-            573
-          ],
-          [
-            240,
-            572
-          ],
-          [
-            320,
-            571
-          ],
-          [
-            432,
-            570
-          ],
-          [
-            544,
-            571
-          ],
-          [
-            624,
-            572
-          ],
-          [
-            704,
-            573
-          ],
-          [
-            784,
-            574
-          ],
-          [
-            864,
-            576
-          ]
-        ],
-        "accuracy": "approximate-occluded"
-      },
-      "faceHeightPx": 25
+      "topSegments": RISER_2_TOP_SEGMENTS,
+      "lowerSegments": RISER_2_LOWER_SEGMENTS,
+      "lowerEdgeIsFloorRim": false
     },
     {
       "id": "riser-3",
-      "topEdge": {
-        "id": "riser-3-top",
-        "points": [
-          [
-            0,
-            596
-          ],
-          [
-            80,
-            595
-          ],
-          [
-            160,
-            594
-          ],
-          [
-            240,
-            592
-          ],
-          [
-            320,
-            591
-          ],
-          [
-            432,
-            589
-          ],
-          [
-            544,
-            591
-          ],
-          [
-            624,
-            592
-          ],
-          [
-            704,
-            594
-          ],
-          [
-            784,
-            595
-          ],
-          [
-            864,
-            597
-          ]
-        ],
-        "accuracy": "pixel-traced"
-      },
-      "lowerEdge": {
-        "id": "riser-3-lower",
-        "points": [
-          [
-            0,
-            625
-          ],
-          [
-            80,
-            623
-          ],
-          [
-            160,
-            622
-          ],
-          [
-            240,
-            620
-          ],
-          [
-            320,
-            618
-          ],
-          [
-            432,
-            616
-          ],
-          [
-            544,
-            618
-          ],
-          [
-            624,
-            620
-          ],
-          [
-            704,
-            622
-          ],
-          [
-            784,
-            624
-          ],
-          [
-            864,
-            626
-          ]
-        ],
-        "accuracy": "approximate-occluded"
-      },
-      "faceHeightPx": 29
+      "topSegments": RISER_3_TOP_SEGMENTS,
+      "lowerSegments": RISER_3_LOWER_SEGMENTS,
+      "lowerEdgeIsFloorRim": true
     }
   ],
   "floor": {
-    "frontRim": {
-      "id": "floor-front-rim",
-      "points": [
-        [
-          0,
-          648
-        ],
-        [
-          80,
-          646
-        ],
-        [
-          160,
-          643
-        ],
-        [
-          240,
-          640
-        ],
-        [
-          320,
-          638
-        ],
-        [
-          432,
-          636
-        ],
-        [
-          544,
-          638
-        ],
-        [
-          624,
-          640
-        ],
-        [
-          704,
-          643
-        ],
-        [
-          784,
-          646
-        ],
-        [
-          864,
-          649
-        ]
-      ],
-      "accuracy": "pixel-traced"
-    },
+    "frontRimSegments": RISER_3_LOWER_SEGMENTS,
     "gridVertical": [
       {
         "id": "floor-v-1",

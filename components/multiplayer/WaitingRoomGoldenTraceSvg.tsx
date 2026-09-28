@@ -94,14 +94,20 @@ export default function WaitingRoomGoldenTraceSvg({
           <g className={styles.risers}>
             {trace.risers.map(riser => (
               <g key={riser.id}>
-                <TracePolyline className={styles.riserTop} line={riser.topEdge} />
-                <TracePolyline className={styles.riserLower} line={riser.lowerEdge} />
+                {riser.topSegments.map(segment => (
+                  <TracePolyline className={styles.riserTop} key={segment.id} line={segment} />
+                ))}
+                {!riser.lowerEdgeIsFloorRim && riser.lowerSegments.map(segment => (
+                  <TracePolyline className={styles.riserLower} key={segment.id} line={segment} />
+                ))}
               </g>
             ))}
           </g>
 
           <g className={styles.floor}>
-            <TracePolyline className={styles.floorRim} line={trace.floor.frontRim} />
+            {trace.floor.frontRimSegments.map(segment => (
+              <TracePolyline className={styles.floorRim} key={segment.id} line={segment} />
+            ))}
             {trace.floor.gridVertical.map(item => <TracePolyline className={styles.floorGrid} key={item.id} line={item} />)}
             {trace.floor.gridHorizontal.map(item => <TracePolyline className={styles.floorGrid} key={item.id} line={item} />)}
             {trace.floor.reflectionLanes.map(lane => (
