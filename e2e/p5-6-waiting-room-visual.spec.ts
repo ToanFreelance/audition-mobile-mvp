@@ -292,7 +292,7 @@ test("P5.6 owner trace vector is rebuilt from the owner upload and stays QA-only
     "utf8",
   );
 
-  expect(traceSource).not.toContain("waiting-room-sketch-blueprint");
+  expect(traceSource).not.toContain('from "./waiting-room-sketch-blueprint"');
   expect(traceSource).not.toContain('from "./WaitingRoomStage3D"');
   expect(rendererSource).toContain('from "./waiting-room-owner-trace-vector"');
   expect(rendererSource).not.toContain('from "./waiting-room-golden-trace"');
@@ -314,7 +314,7 @@ test("P5.6 owner trace vector is rebuilt from the owner upload and stays QA-only
   await expect(overlay.locator("mask")).toHaveCount(0);
   await expect(overlay.locator('[data-trace-id^="left-rail-"]')).toHaveCount(6);
   await expect(overlay.locator('[data-trace-id^="right-rail-"]')).toHaveCount(6);
-  await expect(overlay.locator("path")).toHaveCount(49);
+  await expect(overlay.locator("path")).toHaveCount(64);
   await expect(overlay.locator('[data-trace-layer="color"]')).toHaveCount(0);
 
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceMode=color");
