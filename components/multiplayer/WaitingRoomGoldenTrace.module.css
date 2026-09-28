@@ -6,8 +6,8 @@
   pointer-events:none;
   opacity:var(--golden-trace-opacity,.72);
 }
-.geometry polyline,.geometry rect,.geometry ellipse,.geometry polygon{vector-effect:non-scaling-stroke}
-.geometry polyline{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.geometry polyline,.geometry path,.geometry rect,.geometry ellipse,.geometry polygon{vector-effect:non-scaling-stroke}
+.geometry polyline,.geometry path{fill:none;stroke-linecap:round;stroke-linejoin:round}
 .exact{stroke-dasharray:7 4}
 .approximate{stroke-dasharray:2.5 6;opacity:.48}
 .roofLine{stroke:#ffe75b;stroke-width:1.75}
@@ -15,7 +15,7 @@
 .wingOutline{stroke:#ff8b78;stroke-width:1.25}
 .leftRail{stroke:#5af1ff;stroke-width:1.6}
 .rightRail{stroke:#ff68e5;stroke-width:1.6}
-.columns rect{fill:none;stroke:#78ffc4;stroke-width:1.5;stroke-dasharray:7 4}
+.columns rect,.columns polygon{fill:none;stroke:#78ffc4;stroke-width:1.5;stroke-dasharray:7 4}
 .centerPanel{fill:none;stroke:#bd8dff;stroke-width:1.15;stroke-dasharray:5 5;opacity:.58}
 .logoBox{fill:none;stroke:#ffe75b;stroke-width:1.45;stroke-dasharray:7 4}
 .subtitleBox{fill:none;stroke:#b9ceff;stroke-width:1;stroke-dasharray:5 4}
@@ -47,8 +47,3 @@
   stroke-width:1.8px;
 }
 
-.ownerGeometryImage{
-  pointer-events:none;
-  image-rendering:auto;
-  opacity:.96;
-}

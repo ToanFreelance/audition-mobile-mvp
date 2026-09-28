@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as THREE from "three";
 import { WAITING_ROOM_SKETCH_BLUEPRINT as blueprint, sketchRoofPoint } from "../components/multiplayer/waiting-room-sketch-blueprint";
-import { WAITING_ROOM_GOLDEN_TRACE as goldenTrace } from "../components/multiplayer/waiting-room-golden-trace";
+import { WAITING_ROOM_OWNER_TRACE_VECTOR as goldenTrace } from "../components/multiplayer/waiting-room-owner-trace-vector";
 import { createSketchStageSet, sketchFixtureLayoutKey, sketchFixtureSource } from "../components/multiplayer/waiting-room-sketch-set";
 
 test("V32 fixtures re-anchor when the real camera replaces the initial camera at the same viewport", () => {
@@ -268,32 +268,36 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
 });
 
 
-test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only", async ({ page }) => {
-  expect(goldenTrace.id).toBe("owner-trace-guided-vector-v3");
-  expect(goldenTrace.source.width).toBe(864);
-  expect(goldenTrace.source.height).toBe(1536);
-  expect(goldenTrace.geometryAuthority.kind).toBe("owner-trace-guided-vector");
-  expect(goldenTrace.geometryAuthority.asset).toBe("/qa/waiting-room-owner-trace-stage-v3-line.png");
-  expect(goldenTrace.geometryAuthority.stageCrop).toEqual({ x: 0, y: 0, width: 768, height: 928 });
-  expect(goldenTrace.geometryAuthority.normalization).toEqual({
-    scale: 1.125,
-    width: 864,
-    height: 1044,
-    distortion: "none",
-  });
+test("P5.6 owner trace vector is rebuilt from the owner upload and stays QA-only", async ({ page }) => {
+  expect(goldenTrace.id).toBe("owner-authored-vector-trace-v4");
+  expect(goldenTrace.source.width).toBe(768);
+  expect(goldenTrace.source.height).toBe(1364);
+  expect(goldenTrace.source.stageHeight).toBe(928);
+  expect(goldenTrace.source.stageCrop).toEqual({ x: 0, y: 0, width: 768, height: 928 });
+  expect(goldenTrace.source.sha256).toBe("59615be18d091205f0d65f8b772d7fd1db0c8b70e65f4dcd2f8b32dde722b7fb");
+  expect(goldenTrace.geometryAuthority.kind).toBe("owner-authored-vector-trace");
+  expect(goldenTrace.geometryAuthority.method).toBe("direct-pixel-sampling");
+  expect(goldenTrace.geometryAuthority.rasterRuntimeDependency).toBe(false);
 
   const traceSource = readFileSync(
-    join(process.cwd(), "components/multiplayer/waiting-room-golden-trace.ts"),
+    join(process.cwd(), "components/multiplayer/waiting-room-owner-trace-vector.ts"),
+    "utf8",
+  );
+  const rendererSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/WaitingRoomGoldenTraceSvg.tsx"),
     "utf8",
   );
   const runtimeStageSource = readFileSync(
     join(process.cwd(), "components/multiplayer/WaitingRoomStage3D.tsx"),
     "utf8",
   );
-  expect(traceSource).not.toContain('from "./waiting-room-sketch-blueprint"');
+
+  expect(traceSource).not.toContain("waiting-room-sketch-blueprint");
   expect(traceSource).not.toContain('from "./WaitingRoomStage3D"');
+  expect(rendererSource).toContain('from "./waiting-room-owner-trace-vector"');
+  expect(rendererSource).not.toContain('from "./waiting-room-golden-trace"');
+  expect(runtimeStageSource).not.toContain("waiting-room-owner-trace-vector");
   expect(runtimeStageSource).not.toContain("waiting-room-golden-trace");
-  expect(runtimeStageSource).not.toContain("waiting-room-golden-reference");
 
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1");
   await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="geometry"]')).toHaveCount(1);
@@ -302,14 +306,15 @@ test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only",
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceOpacity=0.55&traceMode=geometry");
   const overlay = page.getByTestId("waiting-room-golden-trace");
   await expect(overlay).toHaveCount(1);
-  await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-trace-guided-vector-v3");
-  await expect(overlay.locator('[data-trace-authority="owner-trace-guided-vector"]')).toHaveCount(1);
+  await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-authored-vector-trace-v4");
+  await expect(overlay.locator('[data-trace-authority="owner-authored-vector-trace"]')).toHaveCount(1);
   await expect(overlay.locator('[data-trace-renderer="inline-svg-vector"]')).toHaveCount(1);
   await expect(overlay.locator("image")).toHaveCount(0);
   await expect(overlay.locator("defs filter")).toHaveCount(0);
   await expect(overlay.locator("mask")).toHaveCount(0);
-  await expect(overlay.locator('[data-trace-id^="left-rail-"]')).toHaveCount(7);
-  await expect(overlay.locator('[data-trace-id^="right-rail-"]')).toHaveCount(7);
+  await expect(overlay.locator('[data-trace-id^="left-rail-"]')).toHaveCount(6);
+  await expect(overlay.locator('[data-trace-id^="right-rail-"]')).toHaveCount(6);
+  await expect(overlay.locator("path")).toHaveCount(49);
   await expect(overlay.locator('[data-trace-layer="color"]')).toHaveCount(0);
 
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceMode=color");
@@ -319,7 +324,7 @@ test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only",
   await page.goto("/tools/lobby-qa-sketch?fixmap=1");
   await expect(page.getByTestId("waiting-room-golden-trace")).toHaveAttribute(
     "data-golden-trace-source",
-    "owner-trace-guided-vector-v3",
+    "owner-authored-vector-trace-v4",
   );
 
   await page.goto("/tools/lobby-qa-sketch");

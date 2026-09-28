@@ -1685,8 +1685,8 @@ export default function WaitingRoomPanel({
           {(goldenTrace?.enabled || fixMapMode) && (
             <div className={styles.goldenTraceRuntimeOverlay} aria-hidden="true">
               <div className={styles.goldenTraceLegend}>
-                <strong>OWNER TRACE · EXACT CURVE RASTER</strong>
-                <span>yellow = owner-authored geometry</span>
+                <strong>OWNER TRACE · DIRECT VECTOR</strong>
+                <span>vector = owner-authored trace geometry</span>
                 <span>runtime remains unchanged underneath</span>
               </div>
               <WaitingRoomGoldenTraceSvg

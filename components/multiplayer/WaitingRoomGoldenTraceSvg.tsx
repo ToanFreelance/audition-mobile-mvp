@@ -1,8 +1,9 @@
 import type { CSSProperties } from "react";
 import {
-  WAITING_ROOM_GOLDEN_TRACE,
-  type GoldenTracePolyline,
-} from "./waiting-room-golden-trace";
+  WAITING_ROOM_OWNER_TRACE_VECTOR,
+  type OwnerTracePath,
+  type OwnerTracePoint,
+} from "./waiting-room-owner-trace-vector";
 import styles from "./WaitingRoomGoldenTrace.module.css";
 
 export type WaitingRoomGoldenTraceMode = "all" | "geometry" | "color";
@@ -14,19 +15,46 @@ type Props = {
   testId?: string;
 };
 
-function points(polyline: GoldenTracePolyline) {
-  return polyline.points.map(([x, y]) => String(x) + "," + String(y)).join(" ");
+function point([x, y]: OwnerTracePoint) {
+  return String(x) + " " + String(y);
 }
 
-function TracePolyline({ line, className }: { line: GoldenTracePolyline; className?: string }) {
+function pathD(line: OwnerTracePath) {
+  const pts = line.points;
+  if (pts.length === 0) return "";
+  if (pts.length === 1) return "M " + point(pts[0]);
+  if (pts.length === 2) return "M " + point(pts[0]) + " L " + point(pts[1]);
+
+  let d = "M " + point(pts[0]);
+  for (let index = 0; index < pts.length - 1; index += 1) {
+    const p0 = pts[index - 1] ?? pts[index];
+    const p1 = pts[index];
+    const p2 = pts[index + 1];
+    const p3 = pts[index + 2] ?? p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += " C " + c1x.toFixed(2) + " " + c1y.toFixed(2)
+      + " " + c2x.toFixed(2) + " " + c2y.toFixed(2)
+      + " " + point(p2);
+  }
+  return d;
+}
+
+function TracePath({ line, className }: { line: OwnerTracePath; className?: string }) {
   return (
-    <polyline
+    <path
       className={[className ?? "", line.accuracy === "pixel-traced" ? styles.exact : styles.approximate].join(" ")}
+      d={pathD(line)}
       data-trace-accuracy={line.accuracy}
       data-trace-id={line.id}
-      points={points(line)}
     />
   );
+}
+
+function polygonPoints(points: readonly OwnerTracePoint[]) {
+  return points.map(([x, y]) => String(x) + "," + String(y)).join(" ");
 }
 
 export default function WaitingRoomGoldenTraceSvg({
@@ -35,7 +63,7 @@ export default function WaitingRoomGoldenTraceSvg({
   className,
   testId = "waiting-room-golden-trace-svg",
 }: Props) {
-  const trace = WAITING_ROOM_GOLDEN_TRACE;
+  const trace = WAITING_ROOM_OWNER_TRACE_VECTOR;
   const showGeometry = mode !== "color";
   const showColor = mode !== "geometry";
   const style = { "--golden-trace-opacity": opacity } as CSSProperties;
@@ -53,76 +81,82 @@ export default function WaitingRoomGoldenTraceSvg({
       {showGeometry && (
         <g
           className={styles.geometry}
-          data-trace-authority="owner-trace-guided-vector"
+          data-trace-authority={trace.geometryAuthority.kind}
           data-trace-layer="geometry"
           data-trace-renderer="inline-svg-vector"
         >
           <g className={styles.roof}>
-            {trace.roof.upper.map(item => <TracePolyline className={styles.roofLine} key={item.id} line={item} />)}
-            {trace.roof.lower.map(item => <TracePolyline className={styles.roofLine} key={item.id} line={item} />)}
-            {trace.roof.braces.map(item => <TracePolyline className={styles.roofBrace} key={item.id} line={item} />)}
+            {trace.roof.continuations.map(item => <TracePath className={styles.roofLine} key={item.id} line={item} />)}
+            {trace.roof.chords.map(item => <TracePath className={styles.roofLine} key={item.id} line={item} />)}
+            {trace.roof.rim.map(item => <TracePath className={styles.roofLine} key={item.id} line={item} />)}
+            {trace.roof.braces.map(item => <TracePath className={styles.roofBrace} key={item.id} line={item} />)}
           </g>
 
           <g className={styles.wings}>
-            <TracePolyline className={styles.wingOutline} line={trace.wings.left.outerTop} />
-            <TracePolyline className={styles.wingOutline} line={trace.wings.left.innerOpening} />
-            <TracePolyline className={styles.wingOutline} line={trace.wings.left.bottom} />
-            <TracePolyline className={styles.wingOutline} line={trace.wings.right.outerTop} />
-            <TracePolyline className={styles.wingOutline} line={trace.wings.right.innerOpening} />
-            <TracePolyline className={styles.wingOutline} line={trace.wings.right.bottom} />
-            {trace.wings.left.rails.map(item => <TracePolyline className={styles.leftRail} key={item.id} line={item} />)}
-            {trace.wings.right.rails.map(item => <TracePolyline className={styles.rightRail} key={item.id} line={item} />)}
+            {trace.wings.left.outline.map(item => <TracePath className={styles.wingOutline} key={item.id} line={item} />)}
+            {trace.wings.left.innerBoundaries.map(item => <TracePath className={styles.wingOutline} key={item.id} line={item} />)}
+            {trace.wings.right.outline.map(item => <TracePath className={styles.wingOutline} key={item.id} line={item} />)}
+            {trace.wings.right.innerBoundaries.map(item => <TracePath className={styles.wingOutline} key={item.id} line={item} />)}
+            {trace.wings.left.rails.map(item => <TracePath className={styles.leftRail} key={item.id} line={item} />)}
+            {trace.wings.right.rails.map(item => <TracePath className={styles.rightRail} key={item.id} line={item} />)}
           </g>
 
           <g className={styles.columns}>
-            <rect height={trace.columns.left.height} width={trace.columns.left.width} x={trace.columns.left.x} y={trace.columns.left.y} />
-            <rect height={trace.columns.right.height} width={trace.columns.right.width} x={trace.columns.right.x} y={trace.columns.right.y} />
+            <polygon
+              className={trace.columns.left.accuracy === "pixel-traced" ? styles.exact : styles.approximate}
+              data-trace-accuracy={trace.columns.left.accuracy}
+              data-trace-id={trace.columns.left.id}
+              points={polygonPoints(trace.columns.left.points)}
+            />
+            <polygon
+              className={trace.columns.right.accuracy === "pixel-traced" ? styles.exact : styles.approximate}
+              data-trace-accuracy={trace.columns.right.accuracy}
+              data-trace-id={trace.columns.right.id}
+              points={polygonPoints(trace.columns.right.points)}
+            />
           </g>
 
           <g className={styles.envelopes}>
-            <rect className={styles.centerPanel} height={trace.centerPanel.height} width={trace.centerPanel.width} x={trace.centerPanel.x} y={trace.centerPanel.y} />
-            <rect className={styles.logoBox} height={trace.logo.bbox.height} width={trace.logo.bbox.width} x={trace.logo.bbox.x} y={trace.logo.bbox.y} />
-            <rect className={styles.subtitleBox} height={trace.logo.subtitleBox.height} width={trace.logo.subtitleBox.width} x={trace.logo.subtitleBox.x} y={trace.logo.subtitleBox.y} />
-          </g>
-
-          <g className={styles.spotlights}>
-            {trace.spotlights.map(spot => (
-              <g data-tone={spot.tone} key={spot.id}>
-                <ellipse cx={spot.cx} cy={spot.cy} rx={spot.rx} ry={spot.ry} />
-                <TracePolyline className={styles.beamBoundary} line={spot.beamLeft} />
-                <TracePolyline className={styles.beamBoundary} line={spot.beamRight} />
-                <ellipse className={styles.fallZone} cx={spot.fallZone.cx} cy={spot.fallZone.cy} rx={spot.fallZone.rx} ry={spot.fallZone.ry} />
-              </g>
-            ))}
+            <rect
+              className={styles.centerPanel}
+              data-trace-accuracy={trace.centerPanel.accuracy}
+              height={trace.centerPanel.height}
+              width={trace.centerPanel.width}
+              x={trace.centerPanel.x}
+              y={trace.centerPanel.y}
+            />
+            <rect
+              className={styles.logoBox}
+              data-trace-accuracy={trace.logo.bbox.accuracy}
+              height={trace.logo.bbox.height}
+              width={trace.logo.bbox.width}
+              x={trace.logo.bbox.x}
+              y={trace.logo.bbox.y}
+            />
+            <rect
+              className={styles.subtitleBox}
+              data-trace-accuracy={trace.logo.subtitleBox.accuracy}
+              height={trace.logo.subtitleBox.height}
+              width={trace.logo.subtitleBox.width}
+              x={trace.logo.subtitleBox.x}
+              y={trace.logo.subtitleBox.y}
+            />
           </g>
 
           <g className={styles.risers}>
             {trace.risers.map(riser => (
               <g key={riser.id}>
-                {riser.topSegments.map(segment => (
-                  <TracePolyline className={styles.riserTop} key={segment.id} line={segment} />
-                ))}
-                {!riser.lowerEdgeIsFloorRim && riser.lowerSegments.map(segment => (
-                  <TracePolyline className={styles.riserLower} key={segment.id} line={segment} />
-                ))}
+                <TracePath className={styles.riserTop} line={riser.top} />
+                <TracePath className={styles.riserLower} line={riser.lower} />
               </g>
             ))}
           </g>
 
           <g className={styles.floor}>
-            {trace.floor.frontRimSegments.map(segment => (
-              <TracePolyline className={styles.floorRim} key={segment.id} line={segment} />
-            ))}
-            {trace.floor.gridVertical.map(item => <TracePolyline className={styles.floorGrid} key={item.id} line={item} />)}
-            {trace.floor.gridHorizontal.map(item => <TracePolyline className={styles.floorGrid} key={item.id} line={item} />)}
-            {trace.floor.reflectionLanes.map(lane => (
-              <polygon
-                className={[styles.reflectionLane, styles["reflection_" + lane.tone]].join(" ")}
-                data-trace-accuracy={lane.accuracy}
-                key={lane.id}
-                points={lane.points.map(([x, y]) => String(x) + "," + String(y)).join(" ")}
-              />
-            ))}
+            <TracePath className={styles.floorRim} line={trace.floor.frontRim} />
+            {trace.floor.gridHorizontal.map(item => <TracePath className={styles.floorGrid} key={item.id} line={item} />)}
+            {trace.floor.gridVertical.map(item => <TracePath className={styles.floorGrid} key={item.id} line={item} />)}
+            <TracePath className={styles.floorRim} line={trace.floor.bottomBoundary} />
           </g>
 
           <g className={styles.rings}>
@@ -132,7 +166,7 @@ export default function WaitingRoomGoldenTraceSvg({
                 cy={ring.cy}
                 data-ring={name}
                 data-trace-accuracy={ring.accuracy}
-                key={name + "-" + index}
+                key={name + "-" + String(index)}
                 rx={ellipse.rx}
                 ry={ellipse.ry}
               />
@@ -141,22 +175,7 @@ export default function WaitingRoomGoldenTraceSvg({
         </g>
       )}
 
-      {showColor && (
-        <g className={styles.colorZones} data-trace-layer="color">
-          {trace.colorZones.map(zone => (
-            <g key={zone.key}>
-              <rect
-                height={zone.height}
-                style={{ "--golden-zone-color": zone.target } as CSSProperties}
-                width={zone.width}
-                x={zone.x}
-                y={zone.y}
-              />
-              <text x={zone.x + 5} y={zone.y + 11}>{zone.label}</text>
-            </g>
-          ))}
-        </g>
-      )}
+      {showColor && <g className={styles.colorZones} data-trace-layer="color" />}
     </svg>
   );
 }
