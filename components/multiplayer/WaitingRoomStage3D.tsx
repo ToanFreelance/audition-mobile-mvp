@@ -1197,6 +1197,9 @@ export default function WaitingRoomStage3D({
           ringScale = visualPresetRef.current === "sketch" && "ringScale" in placement
             ? placement.ringScale
             : participant.participantId === selected ? 0.96 : placement.scale;
+          if (visualPresetRef.current === "sketch" && "ringDepthScale" in placement) {
+            node.ring.userData.depthScale = placement.ringDepthScale;
+          }
           if (participant.participantId === selected && visualPresetRef.current !== "sketch") {
             actorScale *= 1.03;
             ringScale *= 1.03;
@@ -1228,13 +1231,19 @@ export default function WaitingRoomStage3D({
         node.actor.visible = visible;
         node.ring.visible = visible;
         node.targetPosition.set(x, y, z);
+        const sketchFloorRingY = visualPresetRef.current === "sketch"
+          && current.viewMode === "wide"
+          && !calibrationModeRef.current
+          ? -0.008
+          : y + 0.02;
+        node.ring.userData.targetY = sketchFloorRingY;
         node.targetRotationY = rotationY;
         node.targetActorScale = actorScale;
         node.targetRingScale = ringScale;
         if (!node.layoutReady || current.viewMode !== "wide") {
           node.actor.position.copy(node.targetPosition);
           node.actor.rotation.y = node.targetRotationY;
-          node.ring.position.set(x, y + 0.02, z);
+          node.ring.position.set(x, sketchFloorRingY, z);
           setScale(node, actorScale, ringScale);
           node.layoutReady = true;
         }
@@ -1394,7 +1403,7 @@ export default function WaitingRoomStage3D({
             );
             node.ring.position.y = THREE.MathUtils.lerp(
               node.ring.position.y,
-              node.targetPosition.y + 0.02,
+              Number(node.ring.userData.targetY ?? node.targetPosition.y + 0.02),
               transitionAlpha,
             );
             node.ring.position.z = THREE.MathUtils.lerp(
@@ -1966,7 +1975,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v34-regional-tone-depth" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v35-owner-trace-runtime" : "off"}
       data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
       data-floor-grid={visualPreset === "sketch" ? "floor-plane" : "material"}
@@ -1986,7 +1995,8 @@ export default function WaitingRoomStage3D({
           <svg
             className={styles.stageTrace}
             viewBox={traceViewBox}
-            preserveAspectRatio="none"
+            preserveAspectRatio="xMidYMin meet"
+            data-runtime-trace-source={traceArchitecture.source}
             data-testid="sketch-stage-trace"
           >
             <defs>
@@ -2068,11 +2078,7 @@ export default function WaitingRoomStage3D({
             </defs>
 
             <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} fill="url(#trace-wing-shade-left)" />
-            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} fill="url(#trace-wing-shade-right)" transform="translate(864 0) scale(-1 1)" />
-
-            <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.left} fill="url(#trace-reflection-left)" />
-            <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.center} fill="url(#trace-reflection-center)" />
-            <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.right} fill="url(#trace-reflection-right)" />
+            <path className={styles.traceWall} d={traceArchitecture.wallRightPath} fill="url(#trace-wing-shade-right)" />
 
             <g className={styles.traceRisers}>
               {traceArchitecture.risers.map((riser, index) => (
@@ -2094,6 +2100,11 @@ export default function WaitingRoomStage3D({
             <path className={styles.traceFrontRim} d={traceArchitecture.floor.frontRim} stroke="url(#trace-floor-rim)" />
             <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideLeft} stroke="#28dfff" />
             <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideRight} stroke="#f044df" />
+            <g className={styles.traceFloorGrid}>
+              {traceArchitecture.floor.gridHorizontal.map(path => <path key={`gh-${path}`} d={path} />)}
+              {traceArchitecture.floor.gridVertical.map(path => <path key={`gv-${path}`} d={path} />)}
+              <path d={traceArchitecture.floor.bottomBoundary} />
+            </g>
 
             <g className={styles.traceUprights}>
               <path d="M 85 72 L 85 528 M 172 95 L 172 540" />
@@ -2101,42 +2112,35 @@ export default function WaitingRoomStage3D({
             </g>
             <g className={styles.traceRailBody}>
               {traceArchitecture.railsLeft.map(path => <path key={`lb-${path}`} d={path} />)}
-              {traceArchitecture.railsLeft.map(path => <path key={`rb-${path}`} d={path} transform="translate(864 0) scale(-1 1)" />)}
+              {traceArchitecture.railsRight.map(path => <path key={`rb-${path}`} d={path} />)}
             </g>
             <g className={styles.traceRailGlow} filter="url(#trace-soft-glow)">
               {traceArchitecture.railsLeft.map(path => <path key={`lg-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
-              {traceArchitecture.railsLeft.map(path => <path key={`rg-${path}`} d={path} transform="translate(864 0) scale(-1 1)" stroke="url(#trace-right-rail)" />)}
+              {traceArchitecture.railsRight.map(path => <path key={`rg-${path}`} d={path} stroke="url(#trace-right-rail)" />)}
             </g>
             <g className={styles.traceRails}>
               {traceArchitecture.railsLeft.map(path => <path key={`lc-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
-              {traceArchitecture.railsLeft.map(path => <path key={`rc-${path}`} d={path} transform="translate(864 0) scale(-1 1)" stroke="url(#trace-right-rail)" />)}
+              {traceArchitecture.railsRight.map(path => <path key={`rc-${path}`} d={path} stroke="url(#trace-right-rail)" />)}
             </g>
 
             <g className={styles.traceTruss} stroke="url(#trace-roof)">
+              {traceArchitecture.truss.continuations.map(path => (
+                <path className={styles.traceTrussBody} key={`continuation-${path}`} d={path} />
+              ))}
               <use href="#trace-roof-chords" className={styles.traceTrussBody} />
               {traceArchitecture.truss.braces.map(path => (
                 <path className={styles.traceTrussBrace} key={path} d={path} />
               ))}
               <use href="#trace-roof-chords" className={styles.traceTrussEdge} />
             </g>
+            <g className={styles.traceRoofRim}>
+              <path d={traceArchitecture.truss.rimUpperPath} />
+              <path d={traceArchitecture.truss.rimLowerPath} />
+            </g>
 
             <g className={styles.traceColumns} filter="url(#trace-column-glow)">
-              <rect
-                x={traceArchitecture.columns.left.x}
-                y={traceArchitecture.columns.left.y}
-                width={traceArchitecture.columns.left.width}
-                height={traceArchitecture.columns.left.height}
-                rx="2"
-                fill="url(#trace-left-column)"
-              />
-              <rect
-                x={traceArchitecture.columns.right.x}
-                y={traceArchitecture.columns.right.y}
-                width={traceArchitecture.columns.right.width}
-                height={traceArchitecture.columns.right.height}
-                rx="2"
-                fill="url(#trace-right-column)"
-              />
+              <polygon points={traceArchitecture.columns.left.polygon} fill="url(#trace-left-column)" />
+              <polygon points={traceArchitecture.columns.right.polygon} fill="url(#trace-right-column)" />
             </g>
             <g className={styles.traceColumnCores}>
               <rect

@@ -73,8 +73,9 @@ export default function WaitingRoomGoldenTraceSvg({
       aria-hidden="true"
       className={[styles.svg, className ?? ""].join(" ")}
       data-golden-trace-source={trace.id}
+      data-trace-projection="owner-source-aspect-preserved"
       data-testid={testId}
-      preserveAspectRatio="none"
+      preserveAspectRatio="xMidYMin meet"
       style={style}
       viewBox={"0 0 " + trace.source.width + " " + trace.source.stageHeight}
     >

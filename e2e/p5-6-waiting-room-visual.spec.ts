@@ -36,36 +36,40 @@ test("V32 fixtures re-anchor when the real camera replaces the initial camera at
   expect(sketchFixtureLayoutKey(camera, 390, 472)).not.toBe(wideKey);
 });
 
-// V31's small geometry checks are deliberately browser/network/asset free.
-test("V31 roof is a single symmetric quadratic with no center kink", () => {
-  for (const [lower, path] of [[false, blueprint.traceArchitecture.truss.upperPath], [true, blueprint.traceArchitecture.truss.lowerPath]] as const) {
-    expect(path.match(/[MQCL]/g)).toEqual(["M", "Q"]);
-    const numbers = path.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
-    for (let i = 0; i <= 100; i += 1) {
-      const t = i / 100;
-      const point = sketchRoofPoint(t, lower);
-      expect(point.y).toBeCloseTo((1 - t) ** 2 * numbers[1] + 2 * (1 - t) * t * numbers[3] + t ** 2 * numbers[5], 6);
-      expect(point.y).toBeCloseTo(sketchRoofPoint(1 - t, lower).y, 6);
-      expect(sketchRoofPoint(t, true).y - sketchRoofPoint(t).y).toBeGreaterThanOrEqual(22);
-    }
-    const left = sketchRoofPoint(0.5 - 0.0001, lower);
-    const right = sketchRoofPoint(0.5 + 0.0001, lower);
-    expect(Math.abs((right.y - left.y) / (right.x - left.x))).toBeLessThan(0.0001);
-  }
+// V35 focused owner-trace/runtime checks are browser/network/asset free.
+test("V35 runtime trace is an independent owner-verified copy with curved asymmetric rails", () => {
+  expect(blueprint.traceArchitecture.source).toBe("owner-verified-copy-v35");
+  expect(blueprint.traceArchitecture.viewBox).toEqual({ width: 864, height: 1044 });
+  expect(blueprint.traceArchitecture.railsLeft).toHaveLength(6);
+  expect(blueprint.traceArchitecture.railsRight).toHaveLength(6);
+  expect(blueprint.traceArchitecture.railsRight[0]).not.toBe(blueprint.traceArchitecture.railsLeft[0]);
+  expect(blueprint.traceArchitecture.truss.upperPath.match(/C/g)?.length ?? 0).toBeGreaterThan(10);
+  expect(blueprint.traceArchitecture.truss.lowerPath.match(/C/g)?.length ?? 0).toBeGreaterThan(10);
+  expect(blueprint.traceArchitecture.risers).toHaveLength(3);
+  blueprint.traceArchitecture.risers.forEach(riser => {
+    expect(riser.edge.match(/C/g)?.length ?? 0).toBeGreaterThan(8);
+    expect(riser.lowerEdge.match(/C/g)?.length ?? 0).toBeGreaterThan(8);
+  });
 });
 
-test("V31 every truss brace terminates on the authoritative roof chords", () => {
-  expect(blueprint.traceArchitecture.truss.braces).toHaveLength(35);
-  for (const path of blueprint.traceArchitecture.truss.braces) {
-    const [x1, y1, x2, y2] = path.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
-    for (const [x, y] of [[x1, y1], [x2, y2]]) {
-      const error = Math.min(...[false, true].map(lower => Math.abs(sketchRoofPoint(x / 864, lower).y - y)));
-      expect(error).toBeLessThan(0.001);
-    }
-  }
+test("V35 runtime trace stays anti-circular and preserves the owner source aspect", () => {
+  const runtimeBlueprintSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/waiting-room-sketch-blueprint.ts"),
+    "utf8",
+  );
+  const runtimeStageSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/WaitingRoomStage3D.tsx"),
+    "utf8",
+  );
+  expect(runtimeBlueprintSource).not.toContain('from "./waiting-room-owner-trace-vector"');
+  expect(runtimeStageSource).not.toContain("waiting-room-owner-trace-vector");
+  expect(runtimeStageSource).toContain('preserveAspectRatio="xMidYMin meet"');
+
+  const aspect = blueprint.traceArchitecture.viewBox.width / blueprint.traceArchitecture.viewBox.height;
+  expect(aspect).toBeCloseTo(goldenTrace.source.width / goldenTrace.source.stageHeight, 8);
 });
 
-test("V31 keeps three solid glossy risers without duplicate 3D wings or extra mirrors", () => {
+test("V35 keeps three solid glossy risers without duplicate 3D wings or extra mirrors", () => {
   const set = createSketchStageSet();
   expect(set.children.filter(child => child.name.startsWith("SketchRiser:"))).toHaveLength(3);
   expect(set.children.some(child => child.name.startsWith("SketchWing:"))).toBe(false);
@@ -211,13 +215,15 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v34-regional-tone-depth");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v35-owner-trace-runtime");
   await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v12");
   await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-riser-source", "hybrid-threejs-trace");
   await expect(stage).toHaveAttribute("data-floor-grid", "floor-plane");
   await expect(page.getByTestId("sketch-stage-trace")).toHaveCount(1);
+  await expect(page.getByTestId("sketch-stage-trace")).toHaveAttribute("preserveAspectRatio", "xMidYMin meet");
+  await expect(page.getByTestId("sketch-stage-trace")).toHaveAttribute("data-runtime-trace-source", "owner-verified-copy-v35");
   await expect(stage).toHaveAttribute("data-stage-risers", "3");
   await expect(stage).toHaveAttribute("data-backdrop-geometry", "target-tiered-stage");
   await expect(stage).toHaveAttribute("data-ring-palette", "catalog-gender");
@@ -307,6 +313,8 @@ test("P5.6 owner trace vector is rebuilt from the owner upload and stays QA-only
   const overlay = page.getByTestId("waiting-room-golden-trace");
   await expect(overlay).toHaveCount(1);
   await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-authored-vector-trace-v4");
+  await expect(overlay).toHaveAttribute("data-trace-projection", "owner-source-aspect-preserved");
+  await expect(overlay).toHaveAttribute("preserveAspectRatio", "xMidYMin meet");
   await expect(overlay.locator('[data-trace-authority="owner-authored-vector-trace"]')).toHaveCount(1);
   await expect(overlay.locator('[data-trace-renderer="inline-svg-vector"]')).toHaveCount(1);
   await expect(overlay.locator("image")).toHaveCount(0);

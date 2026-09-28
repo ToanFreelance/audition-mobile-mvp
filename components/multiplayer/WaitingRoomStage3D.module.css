@@ -2331,3 +2331,26 @@
   -webkit-text-stroke:1.55px #e94cf6!important;
   filter:drop-shadow(0 0 3px rgba(241,75,247,.80)) drop-shadow(0 0 10px rgba(200,19,242,.46))!important;
 }
+
+/* V35 owner-trace runtime alignment: screen-space structural reference only. */
+.traceRoofRim,.traceFloorGrid{
+  fill:none;
+  pointer-events:none;
+}
+.traceRoofRim path{
+  fill:none;
+  stroke:#304d9d;
+  stroke-width:2.15;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.78;
+  filter:drop-shadow(0 0 3px rgba(82,108,255,.28));
+}
+.traceFloorGrid path{
+  fill:none;
+  stroke:rgba(122,154,235,.46);
+  stroke-width:1.15;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.72;
+}

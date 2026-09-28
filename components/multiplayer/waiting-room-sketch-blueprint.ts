@@ -17,50 +17,2209 @@ type SketchNeonPalette = {
   lowlight: number;
 };
 
-// V33: piecewise cubic copied from the independent owner-sketch trace.
-// Runtime consumes a copied measurement; the QA golden-reference module remains
-// independent and is never imported here or by stage-generation code.
-export function sketchRoofPoint(t: number, lower = false) {
+// V35 OWNER TRACE RUNTIME COPY.
+// This is a runtime-owned COPY of the owner-approved QA geometry.
+// It intentionally does NOT import waiting-room-owner-trace-vector.
+// Runtime presentation can consume these copied measurements, while the QA
+// authority remains independent and anti-circular.
+type RuntimeTracePoint = readonly [number, number];
+const OWNER_TRACE_RUNTIME_SCALE = 1.125;
+
+const OWNER_TRACE_RUNTIME_POINTS = {
+  "roofUpper": [
+    [
+      90,
+      60
+    ],
+    [
+      122,
+      65
+    ],
+    [
+      154,
+      66
+    ],
+    [
+      186,
+      80
+    ],
+    [
+      218,
+      80
+    ],
+    [
+      250,
+      85
+    ],
+    [
+      282,
+      86
+    ],
+    [
+      314,
+      88
+    ],
+    [
+      346,
+      90
+    ],
+    [
+      378,
+      90
+    ],
+    [
+      410,
+      90
+    ],
+    [
+      442,
+      91
+    ],
+    [
+      474,
+      89
+    ],
+    [
+      506,
+      85
+    ],
+    [
+      538,
+      81
+    ],
+    [
+      570,
+      81
+    ],
+    [
+      602,
+      73
+    ],
+    [
+      634,
+      67
+    ],
+    [
+      666,
+      57
+    ],
+    [
+      678,
+      58
+    ]
+  ],
+  "roofLower": [
+    [
+      90,
+      73
+    ],
+    [
+      122,
+      82
+    ],
+    [
+      154,
+      86
+    ],
+    [
+      186,
+      93
+    ],
+    [
+      218,
+      99
+    ],
+    [
+      250,
+      104
+    ],
+    [
+      282,
+      107
+    ],
+    [
+      314,
+      109
+    ],
+    [
+      346,
+      111
+    ],
+    [
+      378,
+      111
+    ],
+    [
+      410,
+      111
+    ],
+    [
+      442,
+      110
+    ],
+    [
+      474,
+      107
+    ],
+    [
+      506,
+      104
+    ],
+    [
+      538,
+      99
+    ],
+    [
+      570,
+      94
+    ],
+    [
+      602,
+      87
+    ],
+    [
+      634,
+      84
+    ],
+    [
+      666,
+      74
+    ],
+    [
+      678,
+      72
+    ]
+  ],
+  "roofRimUpper": [
+    [
+      0,
+      91
+    ],
+    [
+      48,
+      114
+    ],
+    [
+      96,
+      132
+    ],
+    [
+      144,
+      145
+    ],
+    [
+      192,
+      156
+    ],
+    [
+      240,
+      163
+    ],
+    [
+      288,
+      168
+    ],
+    [
+      336,
+      170
+    ],
+    [
+      384,
+      171
+    ],
+    [
+      432,
+      170
+    ],
+    [
+      480,
+      168
+    ],
+    [
+      528,
+      162
+    ],
+    [
+      576,
+      155
+    ],
+    [
+      624,
+      145
+    ],
+    [
+      672,
+      131
+    ],
+    [
+      720,
+      113
+    ],
+    [
+      767,
+      91
+    ]
+  ],
+  "roofRimLower": [
+    [
+      0,
+      96
+    ],
+    [
+      48,
+      114
+    ],
+    [
+      96,
+      132
+    ],
+    [
+      144,
+      145
+    ],
+    [
+      192,
+      156
+    ],
+    [
+      240,
+      167
+    ],
+    [
+      288,
+      172
+    ],
+    [
+      336,
+      175
+    ],
+    [
+      384,
+      176
+    ],
+    [
+      432,
+      175
+    ],
+    [
+      480,
+      172
+    ],
+    [
+      528,
+      166
+    ],
+    [
+      576,
+      155
+    ],
+    [
+      624,
+      145
+    ],
+    [
+      672,
+      131
+    ],
+    [
+      720,
+      114
+    ],
+    [
+      767,
+      96
+    ]
+  ],
+  "roofContinuations": [
+    [
+      [
+        0,
+        24
+      ],
+      [
+        28,
+        38
+      ],
+      [
+        58,
+        50
+      ],
+      [
+        90,
+        60
+      ]
+    ],
+    [
+      [
+        678,
+        58
+      ],
+      [
+        708,
+        49
+      ],
+      [
+        739,
+        36
+      ],
+      [
+        767,
+        22
+      ]
+    ]
+  ],
+  "roofBraces": [
+    [
+      [
+        100,
+        60
+      ],
+      [
+        128,
+        80
+      ]
+    ],
+    [
+      [
+        128,
+        80
+      ],
+      [
+        156,
+        66
+      ]
+    ],
+    [
+      [
+        156,
+        66
+      ],
+      [
+        184,
+        93
+      ]
+    ],
+    [
+      [
+        184,
+        93
+      ],
+      [
+        212,
+        79
+      ]
+    ],
+    [
+      [
+        212,
+        79
+      ],
+      [
+        240,
+        102
+      ]
+    ],
+    [
+      [
+        240,
+        102
+      ],
+      [
+        268,
+        87
+      ]
+    ],
+    [
+      [
+        268,
+        87
+      ],
+      [
+        296,
+        108
+      ]
+    ],
+    [
+      [
+        296,
+        108
+      ],
+      [
+        324,
+        89
+      ]
+    ],
+    [
+      [
+        324,
+        89
+      ],
+      [
+        352,
+        111
+      ]
+    ],
+    [
+      [
+        352,
+        111
+      ],
+      [
+        380,
+        90
+      ]
+    ],
+    [
+      [
+        380,
+        90
+      ],
+      [
+        408,
+        111
+      ]
+    ],
+    [
+      [
+        408,
+        111
+      ],
+      [
+        436,
+        88
+      ]
+    ],
+    [
+      [
+        436,
+        88
+      ],
+      [
+        464,
+        108
+      ]
+    ],
+    [
+      [
+        464,
+        108
+      ],
+      [
+        492,
+        87
+      ]
+    ],
+    [
+      [
+        492,
+        87
+      ],
+      [
+        520,
+        102
+      ]
+    ],
+    [
+      [
+        520,
+        102
+      ],
+      [
+        548,
+        79
+      ]
+    ],
+    [
+      [
+        548,
+        79
+      ],
+      [
+        576,
+        93
+      ]
+    ],
+    [
+      [
+        576,
+        93
+      ],
+      [
+        604,
+        73
+      ]
+    ],
+    [
+      [
+        604,
+        73
+      ],
+      [
+        632,
+        84
+      ]
+    ],
+    [
+      [
+        632,
+        84
+      ],
+      [
+        660,
+        62
+      ]
+    ]
+  ],
+  "leftTop": [
+    [
+      0,
+      135
+    ],
+    [
+      24,
+      145
+    ],
+    [
+      48,
+      153
+    ],
+    [
+      72,
+      162
+    ],
+    [
+      96,
+      170
+    ],
+    [
+      120,
+      177
+    ],
+    [
+      144,
+      183
+    ],
+    [
+      168,
+      189
+    ],
+    [
+      176,
+      191
+    ]
+  ],
+  "leftBottom": [
+    [
+      0,
+      433
+    ],
+    [
+      24,
+      435
+    ],
+    [
+      48,
+      436
+    ],
+    [
+      72,
+      438
+    ],
+    [
+      96,
+      439
+    ],
+    [
+      120,
+      440
+    ],
+    [
+      144,
+      441
+    ],
+    [
+      168,
+      442
+    ],
+    [
+      174,
+      442
+    ]
+  ],
+  "rightTop": [
+    [
+      592,
+      191
+    ],
+    [
+      616,
+      185
+    ],
+    [
+      640,
+      179
+    ],
+    [
+      664,
+      172
+    ],
+    [
+      688,
+      164
+    ],
+    [
+      712,
+      157
+    ],
+    [
+      736,
+      146
+    ],
+    [
+      760,
+      138
+    ],
+    [
+      767,
+      135
+    ]
+  ],
+  "rightBottom": [
+    [
+      594,
+      442
+    ],
+    [
+      618,
+      441
+    ],
+    [
+      642,
+      440
+    ],
+    [
+      666,
+      439
+    ],
+    [
+      690,
+      438
+    ],
+    [
+      714,
+      436
+    ],
+    [
+      738,
+      437
+    ],
+    [
+      762,
+      433
+    ],
+    [
+      767,
+      433
+    ]
+  ],
+  "leftRails": [
+    [
+      [
+        0,
+        187
+      ],
+      [
+        24,
+        195
+      ],
+      [
+        48,
+        202
+      ],
+      [
+        72,
+        207
+      ],
+      [
+        96,
+        215
+      ],
+      [
+        120,
+        221
+      ],
+      [
+        144,
+        227
+      ],
+      [
+        168,
+        233
+      ],
+      [
+        174,
+        234
+      ]
+    ],
+    [
+      [
+        0,
+        240
+      ],
+      [
+        24,
+        246
+      ],
+      [
+        48,
+        249
+      ],
+      [
+        72,
+        255
+      ],
+      [
+        96,
+        260
+      ],
+      [
+        120,
+        265
+      ],
+      [
+        144,
+        270
+      ],
+      [
+        168,
+        274
+      ],
+      [
+        174,
+        275
+      ]
+    ],
+    [
+      [
+        0,
+        287
+      ],
+      [
+        24,
+        292
+      ],
+      [
+        48,
+        297
+      ],
+      [
+        72,
+        301
+      ],
+      [
+        96,
+        305
+      ],
+      [
+        120,
+        309
+      ],
+      [
+        144,
+        313
+      ],
+      [
+        168,
+        316
+      ],
+      [
+        174,
+        316
+      ]
+    ],
+    [
+      [
+        0,
+        340
+      ],
+      [
+        24,
+        344
+      ],
+      [
+        48,
+        344
+      ],
+      [
+        72,
+        350
+      ],
+      [
+        96,
+        350
+      ],
+      [
+        120,
+        353
+      ],
+      [
+        144,
+        355
+      ],
+      [
+        168,
+        357
+      ],
+      [
+        174,
+        358
+      ]
+    ],
+    [
+      [
+        0,
+        384
+      ],
+      [
+        24,
+        387
+      ],
+      [
+        48,
+        390
+      ],
+      [
+        72,
+        392
+      ],
+      [
+        96,
+        394
+      ],
+      [
+        120,
+        396
+      ],
+      [
+        144,
+        398
+      ],
+      [
+        168,
+        400
+      ],
+      [
+        174,
+        400
+      ]
+    ],
+    [
+      [
+        0,
+        433
+      ],
+      [
+        24,
+        435
+      ],
+      [
+        48,
+        436
+      ],
+      [
+        72,
+        438
+      ],
+      [
+        96,
+        439
+      ],
+      [
+        120,
+        440
+      ],
+      [
+        144,
+        441
+      ],
+      [
+        168,
+        442
+      ],
+      [
+        174,
+        442
+      ]
+    ]
+  ],
+  "rightRails": [
+    [
+      [
+        594,
+        234
+      ],
+      [
+        618,
+        229
+      ],
+      [
+        642,
+        223
+      ],
+      [
+        666,
+        216
+      ],
+      [
+        690,
+        210
+      ],
+      [
+        714,
+        204
+      ],
+      [
+        738,
+        198
+      ],
+      [
+        762,
+        193
+      ],
+      [
+        767,
+        191
+      ]
+    ],
+    [
+      [
+        594,
+        275
+      ],
+      [
+        618,
+        271
+      ],
+      [
+        642,
+        266
+      ],
+      [
+        666,
+        261
+      ],
+      [
+        690,
+        256
+      ],
+      [
+        714,
+        251
+      ],
+      [
+        738,
+        245
+      ],
+      [
+        762,
+        241
+      ],
+      [
+        767,
+        240
+      ]
+    ],
+    [
+      [
+        594,
+        318
+      ],
+      [
+        618,
+        316
+      ],
+      [
+        642,
+        310
+      ],
+      [
+        666,
+        306
+      ],
+      [
+        690,
+        302
+      ],
+      [
+        714,
+        298
+      ],
+      [
+        738,
+        294
+      ],
+      [
+        762,
+        288
+      ],
+      [
+        767,
+        287
+      ]
+    ],
+    [
+      [
+        594,
+        357
+      ],
+      [
+        618,
+        355
+      ],
+      [
+        642,
+        353
+      ],
+      [
+        666,
+        350
+      ],
+      [
+        690,
+        348
+      ],
+      [
+        714,
+        345
+      ],
+      [
+        738,
+        342
+      ],
+      [
+        762,
+        341
+      ],
+      [
+        767,
+        340
+      ]
+    ],
+    [
+      [
+        594,
+        400
+      ],
+      [
+        618,
+        398
+      ],
+      [
+        642,
+        397
+      ],
+      [
+        666,
+        395
+      ],
+      [
+        690,
+        392
+      ],
+      [
+        714,
+        390
+      ],
+      [
+        738,
+        389
+      ],
+      [
+        762,
+        385
+      ],
+      [
+        767,
+        384
+      ]
+    ],
+    [
+      [
+        594,
+        442
+      ],
+      [
+        618,
+        441
+      ],
+      [
+        642,
+        440
+      ],
+      [
+        666,
+        439
+      ],
+      [
+        690,
+        438
+      ],
+      [
+        714,
+        436
+      ],
+      [
+        738,
+        437
+      ],
+      [
+        762,
+        433
+      ],
+      [
+        767,
+        433
+      ]
+    ]
+  ],
+  "leftColumn": [
+    [
+      31,
+      119
+    ],
+    [
+      49,
+      124
+    ],
+    [
+      48,
+      452
+    ],
+    [
+      29,
+      450
+    ]
+  ],
+  "rightColumn": [
+    [
+      719,
+      124
+    ],
+    [
+      738,
+      119
+    ],
+    [
+      740,
+      450
+    ],
+    [
+      721,
+      452
+    ]
+  ],
+  "risers": [
+    {
+      "top": [
+        [
+          0,
+          457
+        ],
+        [
+          48,
+          459
+        ],
+        [
+          96,
+          461
+        ],
+        [
+          144,
+          463
+        ],
+        [
+          192,
+          465
+        ],
+        [
+          240,
+          466
+        ],
+        [
+          288,
+          467
+        ],
+        [
+          336,
+          468
+        ],
+        [
+          384,
+          468
+        ],
+        [
+          432,
+          468
+        ],
+        [
+          480,
+          467
+        ],
+        [
+          528,
+          466
+        ],
+        [
+          576,
+          465
+        ],
+        [
+          624,
+          463
+        ],
+        [
+          672,
+          461
+        ],
+        [
+          720,
+          459
+        ],
+        [
+          767,
+          457
+        ]
+      ],
+      "lower": [
+        [
+          0,
+          481
+        ],
+        [
+          48,
+          481
+        ],
+        [
+          96,
+          481
+        ],
+        [
+          144,
+          482
+        ],
+        [
+          192,
+          483
+        ],
+        [
+          240,
+          483
+        ],
+        [
+          288,
+          483
+        ],
+        [
+          336,
+          483
+        ],
+        [
+          384,
+          483
+        ],
+        [
+          432,
+          483
+        ],
+        [
+          480,
+          483
+        ],
+        [
+          528,
+          483
+        ],
+        [
+          576,
+          484
+        ],
+        [
+          624,
+          482
+        ],
+        [
+          672,
+          481
+        ],
+        [
+          720,
+          481
+        ],
+        [
+          767,
+          481
+        ]
+      ]
+    },
+    {
+      "top": [
+        [
+          0,
+          507
+        ],
+        [
+          48,
+          508
+        ],
+        [
+          96,
+          508
+        ],
+        [
+          144,
+          508
+        ],
+        [
+          192,
+          505
+        ],
+        [
+          240,
+          505
+        ],
+        [
+          288,
+          505
+        ],
+        [
+          336,
+          505
+        ],
+        [
+          384,
+          505
+        ],
+        [
+          432,
+          505
+        ],
+        [
+          480,
+          505
+        ],
+        [
+          528,
+          505
+        ],
+        [
+          576,
+          505
+        ],
+        [
+          624,
+          508
+        ],
+        [
+          672,
+          508
+        ],
+        [
+          720,
+          509
+        ],
+        [
+          767,
+          511
+        ]
+      ],
+      "lower": [
+        [
+          0,
+          534
+        ],
+        [
+          48,
+          531
+        ],
+        [
+          96,
+          530
+        ],
+        [
+          144,
+          529
+        ],
+        [
+          192,
+          528
+        ],
+        [
+          240,
+          528
+        ],
+        [
+          288,
+          527
+        ],
+        [
+          336,
+          527
+        ],
+        [
+          384,
+          527
+        ],
+        [
+          432,
+          527
+        ],
+        [
+          480,
+          527
+        ],
+        [
+          528,
+          527
+        ],
+        [
+          576,
+          528
+        ],
+        [
+          624,
+          529
+        ],
+        [
+          672,
+          529
+        ],
+        [
+          720,
+          531
+        ],
+        [
+          767,
+          534
+        ]
+      ]
+    },
+    {
+      "top": [
+        [
+          0,
+          576
+        ],
+        [
+          48,
+          565
+        ],
+        [
+          96,
+          562
+        ],
+        [
+          144,
+          559
+        ],
+        [
+          192,
+          557
+        ],
+        [
+          240,
+          556
+        ],
+        [
+          288,
+          555
+        ],
+        [
+          336,
+          554
+        ],
+        [
+          384,
+          554
+        ],
+        [
+          432,
+          554
+        ],
+        [
+          480,
+          555
+        ],
+        [
+          528,
+          556
+        ],
+        [
+          576,
+          557
+        ],
+        [
+          624,
+          559
+        ],
+        [
+          672,
+          561
+        ],
+        [
+          720,
+          565
+        ],
+        [
+          767,
+          576
+        ]
+      ],
+      "lower": [
+        [
+          0,
+          613
+        ],
+        [
+          48,
+          609
+        ],
+        [
+          96,
+          604
+        ],
+        [
+          144,
+          601
+        ],
+        [
+          192,
+          592
+        ],
+        [
+          240,
+          590
+        ],
+        [
+          288,
+          589
+        ],
+        [
+          336,
+          589
+        ],
+        [
+          384,
+          589
+        ],
+        [
+          432,
+          589
+        ],
+        [
+          480,
+          589
+        ],
+        [
+          528,
+          590
+        ],
+        [
+          576,
+          592
+        ],
+        [
+          624,
+          601
+        ],
+        [
+          672,
+          604
+        ],
+        [
+          720,
+          609
+        ],
+        [
+          767,
+          613
+        ]
+      ]
+    }
+  ],
+  "floorFrontRim": [
+    [
+      0,
+      668
+    ],
+    [
+      48,
+      662
+    ],
+    [
+      96,
+      655
+    ],
+    [
+      144,
+      644
+    ],
+    [
+      192,
+      641
+    ],
+    [
+      240,
+      639
+    ],
+    [
+      288,
+      638
+    ],
+    [
+      336,
+      638
+    ],
+    [
+      384,
+      637
+    ],
+    [
+      432,
+      638
+    ],
+    [
+      480,
+      638
+    ],
+    [
+      528,
+      640
+    ],
+    [
+      576,
+      642
+    ],
+    [
+      624,
+      644
+    ],
+    [
+      672,
+      656
+    ],
+    [
+      720,
+      663
+    ],
+    [
+      767,
+      668
+    ]
+  ],
+  "floorHorizontal": [
+    [
+      [
+        0,
+        700
+      ],
+      [
+        48,
+        695
+      ],
+      [
+        96,
+        689
+      ],
+      [
+        144,
+        687
+      ],
+      [
+        192,
+        680
+      ],
+      [
+        240,
+        678
+      ],
+      [
+        288,
+        676
+      ],
+      [
+        336,
+        675
+      ],
+      [
+        384,
+        675
+      ],
+      [
+        432,
+        676
+      ],
+      [
+        480,
+        677
+      ],
+      [
+        528,
+        679
+      ],
+      [
+        576,
+        682
+      ],
+      [
+        624,
+        685
+      ],
+      [
+        672,
+        690
+      ],
+      [
+        720,
+        696
+      ],
+      [
+        767,
+        701
+      ]
+    ],
+    [
+      [
+        0,
+        729
+      ],
+      [
+        48,
+        722
+      ],
+      [
+        96,
+        719
+      ],
+      [
+        144,
+        715
+      ],
+      [
+        192,
+        711
+      ],
+      [
+        240,
+        708
+      ],
+      [
+        288,
+        706
+      ],
+      [
+        336,
+        705
+      ],
+      [
+        384,
+        704
+      ],
+      [
+        432,
+        705
+      ],
+      [
+        480,
+        707
+      ],
+      [
+        528,
+        710
+      ],
+      [
+        576,
+        713
+      ],
+      [
+        624,
+        714
+      ],
+      [
+        672,
+        719
+      ],
+      [
+        720,
+        724
+      ],
+      [
+        767,
+        730
+      ]
+    ],
+    [
+      [
+        0,
+        749
+      ],
+      [
+        48,
+        741
+      ],
+      [
+        96,
+        737
+      ],
+      [
+        144,
+        734
+      ],
+      [
+        192,
+        730
+      ],
+      [
+        240,
+        728
+      ],
+      [
+        288,
+        726
+      ],
+      [
+        336,
+        724
+      ],
+      [
+        384,
+        724
+      ],
+      [
+        432,
+        725
+      ],
+      [
+        480,
+        726
+      ],
+      [
+        528,
+        728
+      ],
+      [
+        576,
+        730
+      ],
+      [
+        624,
+        733
+      ],
+      [
+        672,
+        737
+      ],
+      [
+        720,
+        741
+      ],
+      [
+        767,
+        749
+      ]
+    ],
+    [
+      [
+        0,
+        777
+      ],
+      [
+        48,
+        767
+      ],
+      [
+        96,
+        759
+      ],
+      [
+        144,
+        754
+      ],
+      [
+        192,
+        751
+      ],
+      [
+        240,
+        747
+      ],
+      [
+        288,
+        744
+      ],
+      [
+        336,
+        743
+      ],
+      [
+        384,
+        741
+      ],
+      [
+        432,
+        743
+      ],
+      [
+        480,
+        746
+      ],
+      [
+        528,
+        743
+      ],
+      [
+        576,
+        749
+      ],
+      [
+        624,
+        757
+      ],
+      [
+        672,
+        759
+      ],
+      [
+        720,
+        772
+      ],
+      [
+        767,
+        780
+      ]
+    ],
+    [
+      [
+        0,
+        808
+      ],
+      [
+        48,
+        804
+      ],
+      [
+        96,
+        806
+      ],
+      [
+        144,
+        803
+      ],
+      [
+        192,
+        799
+      ],
+      [
+        240,
+        796
+      ],
+      [
+        288,
+        794
+      ],
+      [
+        336,
+        793
+      ],
+      [
+        384,
+        793
+      ],
+      [
+        432,
+        794
+      ],
+      [
+        480,
+        796
+      ],
+      [
+        528,
+        797
+      ],
+      [
+        576,
+        800
+      ],
+      [
+        624,
+        803
+      ],
+      [
+        672,
+        802
+      ],
+      [
+        720,
+        805
+      ],
+      [
+        767,
+        807
+      ]
+    ]
+  ],
+  "floorVertical": [
+    [
+      [
+        269,
+        677
+      ],
+      [
+        154,
+        926
+      ]
+    ],
+    [
+      [
+        384,
+        676
+      ],
+      [
+        385,
+        926
+      ]
+    ],
+    [
+      [
+        499,
+        677
+      ],
+      [
+        636,
+        926
+      ]
+    ],
+    [
+      [
+        0,
+        901
+      ],
+      [
+        111,
+        926
+      ]
+    ],
+    [
+      [
+        767,
+        901
+      ],
+      [
+        657,
+        926
+      ]
+    ]
+  ],
+  "floorBottomBoundary": [
+    [
+      10,
+      926
+    ],
+    [
+      384,
+      926
+    ],
+    [
+      758,
+      926
+    ]
+  ]
+} as const;
+
+function scaleRuntimeTracePoint([x, y]: RuntimeTracePoint): RuntimeTracePoint {
+  return [x * OWNER_TRACE_RUNTIME_SCALE, y * OWNER_TRACE_RUNTIME_SCALE];
+}
+
+function scaledRuntimeTracePoints(points: readonly RuntimeTracePoint[]) {
+  return points.map(scaleRuntimeTracePoint);
+}
+
+function runtimeCurveCommands(points: readonly RuntimeTracePoint[]) {
+  if (points.length < 2) return "";
+  let commands = "";
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const p0 = points[index - 1] ?? points[index];
+    const p1 = points[index];
+    const p2 = points[index + 1];
+    const p3 = points[index + 2] ?? p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    commands += ` C ${c1x.toFixed(3)} ${c1y.toFixed(3)} ${c2x.toFixed(3)} ${c2y.toFixed(3)} ${p2[0].toFixed(3)} ${p2[1].toFixed(3)}`;
+  }
+  return commands;
+}
+
+function runtimeTracePath(sourcePoints: readonly RuntimeTracePoint[]) {
+  const points = scaledRuntimeTracePoints(sourcePoints);
+  if (points.length === 0) return "";
+  return `M ${points[0][0].toFixed(3)} ${points[0][1].toFixed(3)}${runtimeCurveCommands(points)}`;
+}
+
+function runtimeTraceRibbonPath(
+  topSource: readonly RuntimeTracePoint[],
+  lowerSource: readonly RuntimeTracePoint[],
+) {
+  const top = scaledRuntimeTracePoints(topSource);
+  const lower = scaledRuntimeTracePoints(lowerSource).reverse();
+  return `M ${top[0][0].toFixed(3)} ${top[0][1].toFixed(3)}${runtimeCurveCommands(top)} L ${lower[0][0].toFixed(3)} ${lower[0][1].toFixed(3)}${runtimeCurveCommands(lower)} Z`;
+}
+
+function runtimeTracePolygon(sourcePoints: readonly RuntimeTracePoint[]) {
+  return scaledRuntimeTracePoints(sourcePoints)
+    .map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`)
+    .join(" ");
+}
+
+function sampleRuntimeTraceCurve(sourcePoints: readonly RuntimeTracePoint[], t: number) {
+  const points = scaledRuntimeTracePoints(sourcePoints);
   const clamped = Math.max(0, Math.min(1, t));
-  const cubic = (
-    p0: { x: number; y: number },
-    p1: { x: number; y: number },
-    p2: { x: number; y: number },
-    p3: { x: number; y: number },
-    u: number,
-  ) => {
-    const v = 1 - u;
-    return {
-      x: v * v * v * p0.x + 3 * v * v * u * p1.x + 3 * v * u * u * p2.x + u * u * u * p3.x,
-      y: v * v * v * p0.y + 3 * v * v * u * p1.y + 3 * v * u * u * p2.y + u * u * u * p3.y,
-    };
+  if (points.length === 1) return { x: points[0][0], y: points[0][1] };
+  const scaledIndex = clamped * (points.length - 1);
+  const index = Math.min(points.length - 2, Math.floor(scaledIndex));
+  const u = scaledIndex - index;
+  const p0 = points[index - 1] ?? points[index];
+  const p1 = points[index];
+  const p2 = points[index + 1];
+  const p3 = points[index + 2] ?? p2;
+  const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6] as const;
+  const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6] as const;
+  const v = 1 - u;
+  return {
+    x: v * v * v * p1[0] + 3 * v * v * u * c1[0] + 3 * v * u * u * c2[0] + u * u * u * p2[0],
+    y: v * v * v * p1[1] + 3 * v * v * u * c1[1] + 3 * v * u * u * c2[1] + u * u * u * p2[1],
   };
-  const upperLeft = [{ x: 43, y: 65 }, { x: 180, y: 96 }, { x: 302, y: 118 }, { x: 432, y: 121 }] as const;
-  const upperRight = [{ x: 432, y: 121 }, { x: 562, y: 118 }, { x: 685, y: 96 }, { x: 821, y: 65 }] as const;
-  const lowerLeft = [{ x: 48, y: 84 }, { x: 184, y: 112 }, { x: 306, y: 132 }, { x: 432, y: 135 }] as const;
-  const lowerRight = [{ x: 432, y: 135 }, { x: 558, y: 132 }, { x: 680, y: 112 }, { x: 816, y: 84 }] as const;
-  const pair = lower
-    ? (clamped <= 0.5 ? lowerLeft : lowerRight)
-    : (clamped <= 0.5 ? upperLeft : upperRight);
-  const u = clamped <= 0.5 ? clamped * 2 : (clamped - 0.5) * 2;
-  return cubic(pair[0], pair[1], pair[2], pair[3], u);
+}
+
+export function sketchRoofPoint(t: number, lower = false) {
+  return sampleRuntimeTraceCurve(
+    lower ? OWNER_TRACE_RUNTIME_POINTS.roofLower : OWNER_TRACE_RUNTIME_POINTS.roofUpper,
+    t,
+  );
 }
 
 function createSketchRoof() {
-  const point = (t: number, lower = false) => {
-    const p = sketchRoofPoint(t, lower);
-    return `${p.x.toFixed(3)} ${p.y.toFixed(3)}`;
-  };
-  const braces = Array.from({ length: 22 }, (_, i) => (
-    `M ${point(i / 22, i % 2 === 1)} L ${point((i + 1) / 22, i % 2 === 0)}`
-  ));
-  for (let i = 2; i < 22; i += 2) {
-    braces.push(`M ${point(i / 22)} L ${point(i / 22, true)}`);
-  }
   return {
-    upperPath: "M 43 65 C 180 96 302 118 432 121 C 562 118 685 96 821 65",
-    lowerPath: "M 48 84 C 184 112 306 132 432 135 C 558 132 680 112 816 84",
-    braces,
+    upperPath: runtimeTracePath(OWNER_TRACE_RUNTIME_POINTS.roofUpper),
+    lowerPath: runtimeTracePath(OWNER_TRACE_RUNTIME_POINTS.roofLower),
+    rimUpperPath: runtimeTracePath(OWNER_TRACE_RUNTIME_POINTS.roofRimUpper),
+    rimLowerPath: runtimeTracePath(OWNER_TRACE_RUNTIME_POINTS.roofRimLower),
+    continuations: OWNER_TRACE_RUNTIME_POINTS.roofContinuations.map(runtimeTracePath),
+    braces: OWNER_TRACE_RUNTIME_POINTS.roofBraces.map(points => {
+      const [start, end] = scaledRuntimeTracePoints(points);
+      return `M ${start[0].toFixed(3)} ${start[1].toFixed(3)} L ${end[0].toFixed(3)} ${end[1].toFixed(3)}`;
+    }),
   };
 }
 
@@ -75,31 +2234,31 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
   screen: {
     centerLineX: 0.5,
     truss: {
-      apex: { x: 0.5, y: 0.0547 },
-      leftEnd: { x: 0.0706, y: 0.0762 },
-      rightEnd: { x: 0.9294, y: 0.0762 },
+      apex: { x: 0.506510, y: 0.066650 },
+      leftEnd: { x: 0.117188, y: 0.043945 },
+      rightEnd: { x: 0.882813, y: 0.042480 },
     },
     columns: {
-      leftCenter: { x: 0.0486, y: 0.2051 },
-      rightCenter: { x: 0.9514, y: 0.2044 },
+      leftCenter: { x: 0.050781, y: 0.209106 },
+      rightCenter: { x: 0.949870, y: 0.209106 },
     },
     centerOpening: {
-      leftX: 0.2153,
-      rightX: 0.7870,
+      leftX: 0.229167,
+      rightX: 0.770833,
     },
     logo: {
-      // Re-measured from the bright magenta letter envelope in the accepted sketch.
-      bbox: { x: 0.247685, y: 0.177734, width: 0.506944, height: 0.054688 },
-      center: { x: 0.501157, y: 0.205078 },
-      subtitleCenter: { x: 0.497106, y: 0.242839 },
+      // Owner-trace V35 envelope copied after QA-vector approval.
+      bbox: { x: 0.247396, y: 0.177246, width: 0.509115, height: 0.057129 },
+      center: { x: 0.501953, y: 0.205811 },
+      subtitleCenter: { x: 0.499349, y: 0.244263 },
     },
     rings: {
-      // Ellipse-fit centers from the accepted 864x1536 golden reference.
-      leftOuter: { x: 0.119970, y: 0.502685 },
-      leftNear: { x: 0.307286, y: 0.554724 },
-      host: { x: 0.505919, y: 0.619772 },
-      rightNear: { x: 0.707819, y: 0.557707 },
-      rightOuter: { x: 0.869565, y: 0.518944 },
+      // Owner-trace V35 ring centers, normalized against the 864x1536 runtime reference.
+      leftOuter: { x: 0.136068, y: 0.513062 },
+      leftNear: { x: 0.317708, y: 0.554443 },
+      host: { x: 0.506510, y: 0.622559 },
+      rightNear: { x: 0.689453, y: 0.555542 },
+      rightOuter: { x: 0.871094, y: 0.520020 },
     },
     actorScreenHeight: {
       // Full visible actor height / golden stage height (1044 px).
@@ -131,64 +2290,48 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
   },
   traceArchitecture: {
     enabled: true,
+    source: "owner-verified-copy-v35",
     viewBox: { width: 864, height: 1044 },
-    wallLeftPath: "M 0 126 C 56 145 123 171 194 201 L 194 506 C 128 500 65 496 0 493 Z",
-    railsLeft: [
-      "M 0 156 C 60 165 126 181 194 199",
-      "M 0 205 C 62 216 129 232 194 247",
-      "M 0 254 C 63 266 131 281 194 296",
-      "M 0 304 C 64 317 132 331 194 344",
-      "M 0 354 C 66 367 134 380 194 391",
-      "M 0 404 C 68 416 136 428 194 438"
-    ],
+    wallLeftPath: runtimeTraceRibbonPath(
+      OWNER_TRACE_RUNTIME_POINTS.leftTop,
+      OWNER_TRACE_RUNTIME_POINTS.leftBottom,
+    ),
+    wallRightPath: runtimeTraceRibbonPath(
+      OWNER_TRACE_RUNTIME_POINTS.rightTop,
+      OWNER_TRACE_RUNTIME_POINTS.rightBottom,
+    ),
+    railsLeft: OWNER_TRACE_RUNTIME_POINTS.leftRails.map(runtimeTracePath),
+    railsRight: OWNER_TRACE_RUNTIME_POINTS.rightRails.map(runtimeTracePath),
     truss: createSketchRoof(),
     columns: {
-      left: { x: 33, y: 134, width: 20, height: 373 },
-      right: { x: 811, y: 134, width: 20, height: 373 }
-    },
-    reflections: {
-      left: "M 0 662 C 70 676 116 760 135 1044 L 28 1044 C 58 910 50 760 0 662 Z",
-      center: "M 330 634 C 374 625 490 625 534 634 L 592 1044 L 274 1044 Z",
-      right: "M 864 662 C 794 676 748 760 729 1044 L 836 1044 C 806 910 814 760 864 662 Z"
-    },
-    risers: [
-      {
-        surface: "M 0 510 C 190 500 674 500 864 510 L 864 535 C 672 524 192 524 0 535 Z",
-        edge: "M 0 510 C 190 500 674 500 864 510",
-        lowerEdge: "M 0 535 C 192 524 672 524 864 535"
+      left: {
+        x: 32.625,
+        y: 133.875,
+        width: 22.500,
+        height: 374.625,
+        polygon: runtimeTracePolygon(OWNER_TRACE_RUNTIME_POINTS.leftColumn),
       },
-      {
-        surface: "M 0 555 C 195 543 669 543 864 555 L 864 583 C 666 570 198 570 0 583 Z",
-        edge: "M 0 555 C 195 543 669 543 864 555",
-        lowerEdge: "M 0 583 C 198 570 666 570 864 583"
+      right: {
+        x: 808.875,
+        y: 133.875,
+        width: 23.625,
+        height: 374.625,
+        polygon: runtimeTracePolygon(OWNER_TRACE_RUNTIME_POINTS.rightColumn),
       },
-      {
-        surface: "M 0 602 C 203 588 661 588 864 602 L 864 633 C 656 618 208 618 0 633 Z",
-        edge: "M 0 602 C 203 588 661 588 864 602",
-        lowerEdge: "M 0 633 C 208 618 656 618 864 633"
-      }
-    ],
+    },
+    risers: OWNER_TRACE_RUNTIME_POINTS.risers.map(riser => ({
+      surface: runtimeTraceRibbonPath(riser.top, riser.lower),
+      edge: runtimeTracePath(riser.top),
+      lowerEdge: runtimeTracePath(riser.lower),
+    })),
     floor: {
-      frontRim: "M 0 656 C 184 638 680 638 864 656",
-      gridVertical: [
-        "M 181 641 L 157 1044",
-        "M 263 630 L 241 1044",
-        "M 344 622 L 333 1044",
-        "M 432 618 L 432 1044",
-        "M 520 622 L 531 1044",
-        "M 601 630 L 623 1044",
-        "M 683 641 L 707 1044"
-      ],
-      gridHorizontal: [
-        "M 0 702 C 183 689 681 689 864 702",
-        "M 0 755 C 188 740 676 740 864 755",
-        "M 0 815 C 193 798 671 798 864 815",
-        "M 0 883 C 202 865 662 865 864 883",
-        "M 0 960 C 215 942 649 942 864 960"
-      ],
-      sideLeft: "M 0 656 C 68 648 128 643 194 642",
-      sideRight: "M 670 642 C 736 643 796 648 864 656"
-    }
+      frontRim: runtimeTracePath(OWNER_TRACE_RUNTIME_POINTS.floorFrontRim),
+      gridVertical: OWNER_TRACE_RUNTIME_POINTS.floorVertical.map(runtimeTracePath),
+      gridHorizontal: OWNER_TRACE_RUNTIME_POINTS.floorHorizontal.map(runtimeTracePath),
+      bottomBoundary: runtimeTracePath(OWNER_TRACE_RUNTIME_POINTS.floorBottomBoundary),
+      sideLeft: runtimeTracePath(OWNER_TRACE_RUNTIME_POINTS.floorFrontRim.slice(0, 5)),
+      sideRight: runtimeTracePath(OWNER_TRACE_RUNTIME_POINTS.floorFrontRim.slice(-5)),
+    },
   },
   ownerOverrides: {
     // The sketch puts the host crown/name too high. Owner explicitly requested
@@ -319,14 +2462,28 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       },
     },
     formation: {
-      // Ring centers remain locked to the V23 inverse-projected coordinates.
-      // Actor scale is re-measured independently from visible head-to-shoe height,
-      // so shrinking an actor no longer shrinks the accepted ring footprint.
-      center: { x: 0.029, y: 0, z: 4.085, rotationY: 0, scale: 0.785, ringScale: 0.87 },
-      leftNear: { x: -1.092, y: 0.045, z: 2.648, rotationY: 0.028, scale: 0.645, ringScale: 0.7452 },
-      rightNear: { x: 1.168, y: 0.045, z: 2.730, rotationY: -0.028, scale: 0.647, ringScale: 0.7452 },
-      leftOuter: { x: -2.437, y: 0.12, z: 1.222, rotationY: 0.052, scale: 0.664, ringScale: 0.78 },
-      rightOuter: { x: 2.260, y: 0.12, z: 1.782, rotationY: -0.052, scale: 0.637, ringScale: 0.78 },
+      // V35: x/z are inverse-projected from the verified owner ring centers.
+      // Actor y/scale hierarchy stays locked; ring footprint is calibrated independently.
+      center: {
+        x: 0.0312, y: 0, z: 4.0969, rotationY: 0, scale: 0.785,
+        ringScale: 0.9850, ringDepthScale: 0.7222,
+      },
+      leftNear: {
+        x: -1.0269, y: 0.045, z: 2.4654, rotationY: 0.028, scale: 0.645,
+        ringScale: 0.7544, ringDepthScale: 0.7498,
+      },
+      rightNear: {
+        x: 1.0642, y: 0.045, z: 2.4963, rotationY: -0.028, scale: 0.647,
+        ringScale: 0.7709, ringDepthScale: 0.7702,
+      },
+      leftOuter: {
+        x: -2.2946, y: 0.12, z: 1.1616, rotationY: 0.052, scale: 0.664,
+        ringScale: 0.7232, ringDepthScale: 0.7442,
+      },
+      rightOuter: {
+        x: 2.2938, y: 0.12, z: 1.4021, rotationY: -0.052, scale: 0.637,
+        ringScale: 0.6966, ringDepthScale: 0.7605,
+      },
     },
     floor: {
       radius: 9,

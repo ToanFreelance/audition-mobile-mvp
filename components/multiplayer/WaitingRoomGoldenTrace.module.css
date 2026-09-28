@@ -8,7 +8,7 @@
 }
 .geometry polyline,.geometry path,.geometry rect,.geometry ellipse,.geometry polygon{vector-effect:non-scaling-stroke}
 .geometry polyline,.geometry path{fill:none;stroke-linecap:round;stroke-linejoin:round}
-.exact{stroke-dasharray:7 4}
+.exact{stroke-dasharray:none}
 .approximate{stroke-dasharray:2.5 6;opacity:.48}
 .roofLine{stroke:#ffe75b;stroke-width:1.75}
 .roofBrace{stroke:#ffd665;stroke-width:1.05;opacity:.72}
