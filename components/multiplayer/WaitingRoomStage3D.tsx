@@ -590,6 +590,7 @@ function createSketchSpotBeam(
   color: number,
   radius: number,
   opacity: number,
+  fixtureStyle: "pendant" | "uplight" = "pendant",
 ) {
   const group = new THREE.Group();
   const direction = target.clone().sub(source);
@@ -602,8 +603,8 @@ function createSketchSpotBeam(
 
   // Keep a real luminous aperture at the fixture: the beam starts as a
   // frustum instead of collapsing to a pin-point cone tip.
-  const apertureRadius = radius * 0.145;
-  const beamNearRadius = apertureRadius * 1.08;
+  const apertureRadius = radius * (fixtureStyle === "uplight" ? 0.16 : 0.10);
+  const beamNearRadius = apertureRadius * 0.96;
   const beam = new THREE.Mesh(
     new THREE.CylinderGeometry(beamNearRadius, radius, length, 32, 1, true),
     new THREE.ShaderMaterial({
@@ -630,9 +631,10 @@ function createSketchSpotBeam(
         varying vec3 beamNormal;
         varying vec3 beamView;
         void main() {
-          float feather = pow(abs(dot(normalize(beamNormal), normalize(beamView))), 1.5);
-          float fade = smoothstep(0.0, 0.65, beamUv.y) * (0.3 + 0.7 * beamUv.y);
-          gl_FragColor = vec4(lightColor, lightOpacity * feather * fade);
+          float feather = pow(abs(dot(normalize(beamNormal), normalize(beamView))), 1.85);
+          float axial = 0.72 + 0.28 * smoothstep(0.0, 0.72, beamUv.y);
+          float breakup = 0.96 + 0.04 * cos((beamUv.x + beamUv.y * 0.18) * 12.56637);
+          gl_FragColor = vec4(lightColor, lightOpacity * 0.86 * feather * axial * breakup);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }
@@ -647,36 +649,58 @@ function createSketchSpotBeam(
   beam.quaternion.copy(beamQuaternion);
   group.add(beam);
 
+  const housingMaterial = new THREE.MeshStandardMaterial({
+    color: 0x050812,
+    emissive: new THREE.Color(color).multiplyScalar(0.08),
+    emissiveIntensity: fixtureStyle === "uplight" ? 0.20 : 0.12,
+    roughness: 0.52,
+    metalness: 0.46,
+  });
   const housing = new THREE.Mesh(
-    new THREE.CylinderGeometry(radius * 0.12, radius * 0.18, 0.24, 18),
-    new THREE.MeshStandardMaterial({
-      color: 0x11172c,
-      emissive: new THREE.Color(color).multiplyScalar(0.20),
-      emissiveIntensity: 0.48,
-      roughness: 0.32,
-      metalness: 0.54,
-    }),
+    new THREE.CylinderGeometry(
+      apertureRadius * 0.72,
+      apertureRadius * 1.02,
+      fixtureStyle === "uplight" ? 0.14 : 0.16,
+      18,
+    ),
+    housingMaterial,
   );
   housing.position.copy(source);
   housing.quaternion.copy(beamQuaternion);
   group.add(housing);
+
+  const mountOffset = fixtureStyle === "uplight"
+    ? new THREE.Vector3(0, -0.105, 0)
+    : new THREE.Vector3(0, 0.125, 0);
+  const mount = fixtureStyle === "uplight"
+    ? new THREE.Mesh(
+        new THREE.BoxGeometry(apertureRadius * 2.8, 0.055, apertureRadius * 2.0),
+        housingMaterial,
+      )
+    : new THREE.Mesh(
+        new THREE.CylinderGeometry(0.016, 0.016, 0.20, 8),
+        housingMaterial,
+      );
+  mount.position.copy(source).add(mountOffset);
+  group.add(mount);
 
   const lensQuaternion = new THREE.Quaternion().setFromUnitVectors(
     new THREE.Vector3(0, 0, 1),
     directionNormal,
   );
   const lens = new THREE.Mesh(
-    new THREE.CircleGeometry(apertureRadius, 28),
+    new THREE.CircleGeometry(apertureRadius * 0.82, 28),
     new THREE.MeshBasicMaterial({
       color: 0xf8fdff,
       transparent: true,
-      opacity: 0.86,
+      opacity: fixtureStyle === "uplight" ? 0.82 : 0.70,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       toneMapped: false,
     }),
   );
-  lens.position.copy(source).add(directionNormal.clone().multiplyScalar(0.14));
+  const lensOffset = fixtureStyle === "uplight" ? 0.09 : 0.105;
+  lens.position.copy(source).add(directionNormal.clone().multiplyScalar(lensOffset));
   lens.quaternion.copy(lensQuaternion);
   group.add(lens);
 
@@ -687,13 +711,13 @@ function createSketchSpotBeam(
       map: glowTexture,
       color,
       transparent: true,
-      opacity: 0.34,
+      opacity: fixtureStyle === "uplight" ? 0.26 : 0.18,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       toneMapped: false,
     }));
     sourceGlow.position.copy(lens.position);
-    sourceGlow.scale.setScalar(radius * 0.82);
+    sourceGlow.scale.setScalar(radius * (fixtureStyle === "uplight" ? 0.52 : 0.46));
     group.add(sourceGlow);
   }
 
@@ -709,7 +733,8 @@ function createSketchSpotBeam(
     beam.quaternion.copy(rotation);
     housing.position.copy(nextSource);
     housing.quaternion.copy(rotation);
-    lens.position.copy(nextSource).addScaledVector(normal, 0.14);
+    mount.position.copy(nextSource).add(mountOffset);
+    lens.position.copy(nextSource).addScaledVector(normal, lensOffset);
     lens.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
     sourceGlow?.position.copy(lens.position);
   };
@@ -1036,7 +1061,7 @@ export default function WaitingRoomStage3D({
       for (const [index, spec] of WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.entries()) {
         const source = new THREE.Vector3(spec.x, spec.y, spec.z);
         const target = new THREE.Vector3(spec.targetX, spec.targetY, spec.targetZ);
-        const beam = createSketchSpotBeam(source, target, spec.color, spec.radius, spec.opacity);
+        const beam = createSketchSpotBeam(source, target, spec.color, spec.radius, spec.opacity, "uplight");
         beam.name = `SketchUplightBeam:${index}`;
         scene.add(beam);
 
@@ -1992,8 +2017,10 @@ export default function WaitingRoomStage3D({
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
       data-sketch-match={visualPreset === "sketch" ? "v38-v34-owner-guided-structure" : "off"}
-      data-visual-polish={visualPreset === "sketch" ? "v39-light-material-finish" : "off"}
+      data-visual-polish={visualPreset === "sketch" ? "v40-fixture-rail-riser-depth" : "off"}
       data-stage-uplights={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.length : 0}
+      data-uplight-fixture={visualPreset === "sketch" ? "visible-floor-head" : "off"}
+      data-stage-rail-rows={visualPreset === "sketch" ? traceArchitecture.railsLeft.length : 0}
       data-light-aperture={visualPreset === "sketch" ? "frustum-lens" : "standard"}
       data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
@@ -2033,16 +2060,16 @@ export default function WaitingRoomStage3D({
                 <stop offset="100%" stopColor="#0f073d" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="trace-left-rail" x1="0" y1="0" x2="198" y2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#2be4ff" />
-                <stop offset="42%" stopColor="#328dff" />
-                <stop offset="68%" stopColor="#805cff" />
-                <stop offset="100%" stopColor="#3bd7ff" />
+                <stop offset="0%" stopColor="#20b9df" />
+                <stop offset="42%" stopColor="#2a65bd" />
+                <stop offset="68%" stopColor="#6740bd" />
+                <stop offset="100%" stopColor="#268eae" />
               </linearGradient>
               <linearGradient id="trace-right-rail" x1="668" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
-                <stop offset="0%" stopColor="#3bd7ff" />
-                <stop offset="34%" stopColor="#805cff" />
-                <stop offset="62%" stopColor="#328dff" />
-                <stop offset="100%" stopColor="#2be4ff" />
+                <stop offset="0%" stopColor="#268eae" />
+                <stop offset="34%" stopColor="#6740bd" />
+                <stop offset="62%" stopColor="#2a65bd" />
+                <stop offset="100%" stopColor="#20b9df" />
               </linearGradient>
               <linearGradient id="trace-roof" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#182a68" />
@@ -2075,6 +2102,12 @@ export default function WaitingRoomStage3D({
                 <stop offset="0%" stopColor="#4d1a9d" stopOpacity=".34" />
                 <stop offset="48%" stopColor="#20105f" stopOpacity=".46" />
                 <stop offset="100%" stopColor="#080a3d" stopOpacity=".58" />
+              </linearGradient>
+              <linearGradient id="trace-riser-sheen" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#d8ecff" stopOpacity=".22" />
+                <stop offset="18%" stopColor="#9daeff" stopOpacity=".10" />
+                <stop offset="46%" stopColor="#6b58d8" stopOpacity=".035" />
+                <stop offset="100%" stopColor="#140b54" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="trace-riser-edge" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
                 <stop offset="0%" stopColor="#596dff" />
@@ -2110,6 +2143,7 @@ export default function WaitingRoomStage3D({
               {traceArchitecture.risers.map((riser, index) => (
                 <g key={riser.edge}>
                   <path className={styles.traceRiserSurface} d={riser.surface} fill="url(#trace-riser-fill)" />
+                  <path className={styles.traceRiserSheen} d={riser.surface} fill="url(#trace-riser-sheen)" />
                   <path className={styles.traceRiserGlow} d={riser.edge} />
                   <path className={styles.traceRiserEdge} d={riser.edge} stroke="url(#trace-riser-edge)" />
                   <path className={styles.traceRiserLowerEdge} d={riser.lowerEdge} stroke="url(#trace-riser-edge)" />
@@ -2136,16 +2170,16 @@ export default function WaitingRoomStage3D({
               <path d="M 784 178 L 784 494 M 666 215 L 666 501" />
             </g>
             <g className={styles.traceRailBody}>
-              {traceArchitecture.railsLeft.map(path => <path key={`lb-${path}`} d={path} />)}
-              {traceArchitecture.railsRight.map(path => <path key={`rb-${path}`} d={path} />)}
+              {traceArchitecture.railsLeft.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`lb-${path}`} d={path} />)}
+              {traceArchitecture.railsRight.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`rb-${path}`} d={path} />)}
             </g>
             <g className={styles.traceRailGlow} filter="url(#trace-soft-glow)">
-              {traceArchitecture.railsLeft.map(path => <path key={`lg-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
-              {traceArchitecture.railsRight.map(path => <path key={`rg-${path}`} d={path} stroke="url(#trace-right-rail)" />)}
+              {traceArchitecture.railsLeft.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`lg-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
+              {traceArchitecture.railsRight.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`rg-${path}`} d={path} stroke="url(#trace-right-rail)" />)}
             </g>
             <g className={styles.traceRails}>
-              {traceArchitecture.railsLeft.map(path => <path key={`lc-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
-              {traceArchitecture.railsRight.map(path => <path key={`rc-${path}`} d={path} stroke="url(#trace-right-rail)" />)}
+              {traceArchitecture.railsLeft.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`lc-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
+              {traceArchitecture.railsRight.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`rc-${path}`} d={path} stroke="url(#trace-right-rail)" />)}
             </g>
 
             <g className={styles.traceTruss} stroke="url(#trace-roof)">

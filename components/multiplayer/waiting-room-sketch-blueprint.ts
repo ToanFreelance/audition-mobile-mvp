@@ -136,6 +136,8 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
     wallLeftPath: "M 0 151.88 C 64.09 178.33 130.26 199.81 198 214.88 L 195.75 497.25 C 130.43 495.32 65.14 492.21 0 487.13 Z",
     wallRightPath: "M 666 214.88 C 733.55 199.97 798.96 177.67 862.88 151.88 L 862.88 487.13 C 798.56 493.9 733.16 493.41 668.25 497.25 Z",
     railsLeft: [
+      "M 0 170 C 64.5 189.5 130 211 195.75 228",
+      "M 0 191 C 64.5 210.8 130 228.6 195.75 246.5",
       "M 0 210.38 C 64.45 230.81 129.88 247.88 195.75 263.25",
       "M 0 270 C 65.21 282.72 130.01 298.55 195.75 309.38",
       "M 0 322.88 C 64.74 336.2 130 348.98 195.75 355.5",
@@ -144,6 +146,8 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       "M 0 487.13 C 65.14 492.21 130.43 495.32 195.75 497.25"
 ],
     railsRight: [
+      "M 668.25 228 C 733.61 211 798.3 189.5 862.88 170",
+      "M 668.25 246.5 C 733.61 228.6 798.3 210.8 862.88 191",
       "M 668.25 263.25 C 733.61 249.29 797.74 229.4 862.88 214.88",
       "M 668.25 309.38 C 733.68 299.08 797.73 281.55 862.88 270",
       "M 668.25 357.75 C 733.17 348.01 798.59 337.14 862.88 322.88",
@@ -305,14 +309,14 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
     riser: {
       treadColor: 0x4b22a7,
       treadEmissive: 0x6d26c2,
-      treadEmissiveIntensity: 0.56,
-      treadRoughness: 0.038,
-      treadMetalness: 0.68,
+      treadEmissiveIntensity: 0.57,
+      treadRoughness: 0.028,
+      treadMetalness: 0.72,
       faceColor: 0x0c154b,
       faceEmissive: 0x251366,
-      faceEmissiveIntensity: 0.34,
-      faceRoughness: 0.13,
-      faceMetalness: 0.46,
+      faceEmissiveIntensity: 0.35,
+      faceRoughness: 0.085,
+      faceMetalness: 0.54,
     },
     rails: {
       opacity: 0.60,
@@ -366,9 +370,9 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       backZ: -5.08,
     },
     wing: {
-      railRows: 6,
-      railYStart: 1.08,
-      railYStep: 0.68,
+      railRows: 8,
+      railYStart: 0.72,
+      railYStep: 0.56,
       railRadius: 0.020,
       railGlowRadius: 0.035,
       railPoints: [
@@ -402,14 +406,14 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
     ],
     uplights: [
       {
-        x: -1.42, y: 0.52, z: -3.62,
-        targetX: -0.16, targetY: 3.36, targetZ: -5.05,
-        color: 0x4bcfff, radius: 0.60, opacity: 0.105, intensity: 7.2,
+        x: -1.58, y: 1.22, z: -3.18,
+        targetX: -0.16, targetY: 3.34, targetZ: -5.02,
+        color: 0x4bcfff, radius: 0.48, opacity: 0.078, intensity: 6.4,
       },
       {
-        x: 1.42, y: 0.52, z: -3.62,
-        targetX: 0.16, targetY: 3.36, targetZ: -5.05,
-        color: 0xc85cff, radius: 0.60, opacity: 0.105, intensity: 7.2,
+        x: 1.58, y: 1.22, z: -3.18,
+        targetX: 0.16, targetY: 3.34, targetZ: -5.02,
+        color: 0xc85cff, radius: 0.48, opacity: 0.078, intensity: 6.4,
       },
     ],
     lighting: {

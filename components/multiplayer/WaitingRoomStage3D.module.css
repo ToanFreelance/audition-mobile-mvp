@@ -2411,3 +2411,34 @@
   stroke:rgba(132,164,235,.34);
   opacity:.70;
 }
+
+
+/* P5.6 V40 — fixture silhouette, rail depth variation, and riser sheen. */
+.stage[data-visual-preset="sketch"] .traceRailBody{
+  stroke:#08123f;
+  opacity:.66;
+}
+.stage[data-visual-preset="sketch"] .traceRails path{
+  stroke-width:2.75;
+  opacity:.72;
+}
+.stage[data-visual-preset="sketch"] .traceRailGlow path{
+  stroke-width:6.4;
+  opacity:.09;
+}
+.stage[data-visual-preset="sketch"] .traceRails .traceRailBright{opacity:.82}
+.stage[data-visual-preset="sketch"] .traceRails .traceRailMid{opacity:.54}
+.stage[data-visual-preset="sketch"] .traceRails .traceRailDim{opacity:.31}
+.stage[data-visual-preset="sketch"] .traceRailGlow .traceRailBright{opacity:.13}
+.stage[data-visual-preset="sketch"] .traceRailGlow .traceRailMid{opacity:.065}
+.stage[data-visual-preset="sketch"] .traceRailGlow .traceRailDim{opacity:.022}
+.stage[data-visual-preset="sketch"] .traceRailBody .traceRailBright{opacity:.78}
+.stage[data-visual-preset="sketch"] .traceRailBody .traceRailMid{opacity:.60}
+.stage[data-visual-preset="sketch"] .traceRailBody .traceRailDim{opacity:.48}
+.stage[data-visual-preset="sketch"] .traceRiserSheen{
+  opacity:.82;
+  mix-blend-mode:screen;
+}
+.stage[data-visual-preset="sketch"] .traceRiserSurface{
+  opacity:.42;
+}

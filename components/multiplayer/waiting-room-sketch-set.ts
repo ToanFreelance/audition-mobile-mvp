@@ -30,7 +30,7 @@ export function createSketchStageSet() {
     roughness: material.riser.treadRoughness,
     metalness: material.riser.treadMetalness,
     clearcoat: 1,
-    clearcoatRoughness: 0.025,
+    clearcoatRoughness: 0.018,
     side: THREE.DoubleSide,
   });
   const riserMaterial = new THREE.MeshPhysicalMaterial({
@@ -39,8 +39,8 @@ export function createSketchStageSet() {
     emissiveIntensity: material.riser.faceEmissiveIntensity,
     roughness: material.riser.faceRoughness,
     metalness: material.riser.faceMetalness,
-    clearcoat: 0.92,
-    clearcoatRoughness: 0.055,
+    clearcoat: 0.96,
+    clearcoatRoughness: 0.035,
     side: THREE.DoubleSide,
   });
   const riserFaceAccentMaterial = new THREE.MeshBasicMaterial({
@@ -128,7 +128,7 @@ export function createSketchStageSet() {
   // Baked vertex falloff shares one draw call; no extra reflection render targets.
   const reflectedLightGeometries: THREE.BufferGeometry[] = [];
   const reflectedLightMaterial = new THREE.MeshBasicMaterial({
-    vertexColors: true, transparent: true, opacity: 0.68,
+    vertexColors: true, transparent: true, opacity: 0.82,
     depthWrite: false, blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide, toneMapped: false,
   });
@@ -171,7 +171,7 @@ export function createSketchStageSet() {
       [1.4, palette.floor.violetReflection],
       [3.5, palette.floor.magentaReflection],
     ] as const) {
-      const width = 0.32;
+      const width = 0.38;
       const streak = ribbon(centerX - width, centerX + width,
         x => new THREE.Vector3(x, top + 0.012, frontZ(x, tier) - 0.05),
         x => new THREE.Vector3(x, top + 0.012, Math.max(scene.risers.backZ, frontZ(x, tier) - 1.4)),
