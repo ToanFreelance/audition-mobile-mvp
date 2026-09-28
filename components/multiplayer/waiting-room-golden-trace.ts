@@ -115,7 +115,7 @@ const RISER_3_LOWER_SEGMENTS = [
 ] as const;
 
 export const WAITING_ROOM_GOLDEN_TRACE = {
-  "id": "owner-authored-trace-raster-v1",
+  "id": "owner-trace-guided-vector-v3",
   "source": {
     "width": 864,
     "height": 1536,

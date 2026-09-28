@@ -269,10 +269,10 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
 
 
 test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only", async ({ page }) => {
-  expect(goldenTrace.id).toBe("owner-authored-trace-raster-v1");
+  expect(goldenTrace.id).toBe("owner-trace-guided-vector-v3");
   expect(goldenTrace.source.width).toBe(864);
   expect(goldenTrace.source.height).toBe(1536);
-  expect(goldenTrace.geometryAuthority.kind).toBe("owner-authored-raster");
+  expect(goldenTrace.geometryAuthority.kind).toBe("owner-trace-guided-vector");
   expect(goldenTrace.geometryAuthority.asset).toBe("/qa/waiting-room-owner-trace-stage-v3-line.png");
   expect(goldenTrace.geometryAuthority.stageCrop).toEqual({ x: 0, y: 0, width: 768, height: 928 });
   expect(goldenTrace.geometryAuthority.normalization).toEqual({
@@ -302,12 +302,14 @@ test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only",
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceOpacity=0.55&traceMode=geometry");
   const overlay = page.getByTestId("waiting-room-golden-trace");
   await expect(overlay).toHaveCount(1);
-  await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-authored-trace-raster-v1");
-  await expect(overlay.locator('[data-trace-authority="owner-authored-raster"]')).toHaveCount(1);
-  await expect(overlay.locator('[data-trace-renderer="direct-line-only-raster"]')).toHaveCount(1);
-  await expect(overlay.locator('image[href="/qa/waiting-room-owner-trace-stage-v3-line.png"]')).toHaveCount(1);
+  await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-trace-guided-vector-v3");
+  await expect(overlay.locator('[data-trace-authority="owner-trace-guided-vector"]')).toHaveCount(1);
+  await expect(overlay.locator('[data-trace-renderer="inline-svg-vector"]')).toHaveCount(1);
+  await expect(overlay.locator("image")).toHaveCount(0);
   await expect(overlay.locator("defs filter")).toHaveCount(0);
   await expect(overlay.locator("mask")).toHaveCount(0);
+  await expect(overlay.locator('[data-trace-id^="left-rail-"]')).toHaveCount(7);
+  await expect(overlay.locator('[data-trace-id^="right-rail-"]')).toHaveCount(7);
   await expect(overlay.locator('[data-trace-layer="color"]')).toHaveCount(0);
 
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceMode=color");
@@ -317,7 +319,7 @@ test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only",
   await page.goto("/tools/lobby-qa-sketch?fixmap=1");
   await expect(page.getByTestId("waiting-room-golden-trace")).toHaveAttribute(
     "data-golden-trace-source",
-    "owner-authored-trace-raster-v1",
+    "owner-trace-guided-vector-v3",
   );
 
   await page.goto("/tools/lobby-qa-sketch");
