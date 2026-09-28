@@ -273,7 +273,7 @@ test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only",
   expect(goldenTrace.source.width).toBe(864);
   expect(goldenTrace.source.height).toBe(1536);
   expect(goldenTrace.geometryAuthority.kind).toBe("owner-authored-raster");
-  expect(goldenTrace.geometryAuthority.asset).toBe("/qa/waiting-room-owner-trace-stage-v1.png");
+  expect(goldenTrace.geometryAuthority.asset).toBe("/qa/waiting-room-owner-trace-stage-v3-line.png");
   expect(goldenTrace.geometryAuthority.stageCrop).toEqual({ x: 0, y: 0, width: 768, height: 928 });
   expect(goldenTrace.geometryAuthority.normalization).toEqual({
     scale: 1.125,
@@ -304,9 +304,10 @@ test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only",
   await expect(overlay).toHaveCount(1);
   await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-authored-trace-raster-v1");
   await expect(overlay.locator('[data-trace-authority="owner-authored-raster"]')).toHaveCount(1);
-  await expect(overlay.locator('[data-trace-renderer="svg-hard-alpha"]')).toHaveCount(1);
-  await expect(overlay.locator('image[filter="url(#waiting-room-owner-trace-hard-alpha)"]')).toHaveCount(1);
-  await expect(overlay.locator('filter#waiting-room-owner-trace-hard-alpha feFuncA[slope="255"][intercept="-254"]')).toHaveCount(1);
+  await expect(overlay.locator('[data-trace-renderer="direct-line-only-raster"]')).toHaveCount(1);
+  await expect(overlay.locator('image[href="/qa/waiting-room-owner-trace-stage-v3-line.png"]')).toHaveCount(1);
+  await expect(overlay.locator("defs filter")).toHaveCount(0);
+  await expect(overlay.locator("mask")).toHaveCount(0);
   await expect(overlay.locator('[data-trace-layer="color"]')).toHaveCount(0);
 
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceMode=color");

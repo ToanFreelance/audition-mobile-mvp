@@ -50,4 +50,5 @@
 .ownerGeometryImage{
   pointer-events:none;
   image-rendering:auto;
+  opacity:.96;
 }

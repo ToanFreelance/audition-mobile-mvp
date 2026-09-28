@@ -33,41 +33,22 @@ export default function WaitingRoomGoldenTraceSvg({
       viewBox={"0 0 " + trace.source.width + " " + trace.source.stageHeight}
     >
       {showGeometry && (
-        <>
-          <defs>
-            <filter
-              colorInterpolationFilters="sRGB"
-              height="104%"
-              id="waiting-room-owner-trace-hard-alpha"
-              width="104%"
-              x="-2%"
-              y="-2%"
-            >
-              <feComponentTransfer in="SourceAlpha" result="hardAlpha">
-                <feFuncA intercept="-254" slope="255" type="linear" />
-              </feComponentTransfer>
-              <feFlood floodColor="#ffe75b" floodOpacity="0.92" result="traceColor" />
-              <feComposite in="traceColor" in2="hardAlpha" operator="in" result="traceInk" />
-            </filter>
-          </defs>
-          <g
-            className={styles.geometry}
-            data-trace-authority={trace.geometryAuthority.kind}
-            data-trace-layer="geometry"
-            data-trace-renderer="svg-hard-alpha"
-          >
-            <image
-              className={styles.ownerGeometryImage}
-              filter="url(#waiting-room-owner-trace-hard-alpha)"
-              height={trace.geometryAuthority.normalization.height}
-              href={trace.geometryAuthority.asset}
-              preserveAspectRatio="none"
-              width={trace.geometryAuthority.normalization.width}
-              x="0"
-              y="0"
-            />
-          </g>
-        </>
+        <g
+          className={styles.geometry}
+          data-trace-authority={trace.geometryAuthority.kind}
+          data-trace-layer="geometry"
+          data-trace-renderer="direct-line-only-raster"
+        >
+          <image
+            className={styles.ownerGeometryImage}
+            height={trace.geometryAuthority.normalization.height}
+            href={trace.geometryAuthority.asset}
+            preserveAspectRatio="none"
+            width={trace.geometryAuthority.normalization.width}
+            x="0"
+            y="0"
+          />
+        </g>
       )}
 
       {showColor && (

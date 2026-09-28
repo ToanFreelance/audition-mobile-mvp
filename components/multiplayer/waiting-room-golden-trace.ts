@@ -125,7 +125,7 @@ export const WAITING_ROOM_GOLDEN_TRACE = {
   },
   "geometryAuthority": {
     "kind": "owner-authored-raster",
-    "asset": "/qa/waiting-room-owner-trace-stage-v1.png",
+    "asset": "/qa/waiting-room-owner-trace-stage-v3-line.png",
     "sourceWidth": 768,
     "sourceHeight": 1364,
     "stageCrop": { "x": 0, "y": 0, "width": 768, "height": 928 },
@@ -136,8 +136,8 @@ export const WAITING_ROOM_GOLDEN_TRACE = {
       "distortion": "none"
     },
     "ownerTraceSha256": "59615be18d091205f0d65f8b772d7fd1db0c8b70e65f4dcd2f8b32dde722b7fb",
-    "normalizedAssetSha256": "6be0d403869874805e1adc0c42b460fa6d92f72c4a92df8f7e19e68aeadc7d07",
-    "lineExtraction": "owner-trace-nonwhite-mask-threshold-45"
+    "normalizedAssetSha256": "11619bd155880027b58f500613f16c66517a7e527fb718c8a838de7251b84c05",
+    "lineExtraction": "preprocessed-line-only-transparent-png-threshold-45"
   },
   "roof": {
     "upper": [
