@@ -33,21 +33,44 @@ export default function WaitingRoomGoldenTraceSvg({
       viewBox={"0 0 " + trace.source.width + " " + trace.source.stageHeight}
     >
       {showGeometry && (
-        <g
-          className={styles.geometry}
-          data-trace-authority={trace.geometryAuthority.kind}
-          data-trace-layer="geometry"
-        >
-          <image
-            className={styles.ownerGeometryImage}
-            height={trace.geometryAuthority.normalization.height}
-            href={trace.geometryAuthority.asset}
-            preserveAspectRatio="none"
-            width={trace.geometryAuthority.normalization.width}
-            x="0"
-            y="0"
-          />
-        </g>
+        <>
+          <defs>
+            <mask
+              className={styles.ownerTraceAlphaMask}
+              height={trace.geometryAuthority.normalization.height}
+              id="waiting-room-owner-trace-alpha-mask"
+              maskUnits="userSpaceOnUse"
+              width={trace.geometryAuthority.normalization.width}
+              x="0"
+              y="0"
+            >
+              <image
+                className={styles.ownerGeometryMaskSource}
+                height={trace.geometryAuthority.normalization.height}
+                href={trace.geometryAuthority.asset}
+                preserveAspectRatio="none"
+                width={trace.geometryAuthority.normalization.width}
+                x="0"
+                y="0"
+              />
+            </mask>
+          </defs>
+          <g
+            className={styles.geometry}
+            data-trace-authority={trace.geometryAuthority.kind}
+            data-trace-layer="geometry"
+            data-trace-renderer="svg-alpha-mask"
+          >
+            <rect
+              className={styles.ownerGeometryInk}
+              height={trace.geometryAuthority.normalization.height}
+              mask="url(#waiting-room-owner-trace-alpha-mask)"
+              width={trace.geometryAuthority.normalization.width}
+              x="0"
+              y="0"
+            />
+          </g>
+        </>
       )}
 
       {showColor && (

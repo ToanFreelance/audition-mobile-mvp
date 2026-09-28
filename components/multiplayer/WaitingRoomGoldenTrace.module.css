@@ -47,24 +47,15 @@
   stroke-width:1.8px;
 }
 
-.ownerGeometryImage{
+.ownerTraceAlphaMask{
+  mask-type:alpha;
+}
+.ownerGeometryMaskSource{
   pointer-events:none;
   image-rendering:auto;
-  /*
-   * Preserve the owner's exact raster geometry, but recolor its existing alpha mask
-   * to one high-contrast QA hue. This changes presentation only; no curve/path is
-   * regenerated or approximated.
-   */
-  opacity:.55;
-  filter:
-    brightness(0)
-    saturate(100%)
-    invert(91%)
-    sepia(93%)
-    saturate(1086%)
-    hue-rotate(352deg)
-    brightness(106%)
-    contrast(106%)
-    drop-shadow(0 0 .7px rgba(0,0,0,.98))
-    drop-shadow(0 0 1.2px rgba(255,236,92,.72));
+}
+.ownerGeometryInk{
+  fill:#ffe75b;
+  opacity:.92;
+  pointer-events:none;
 }
