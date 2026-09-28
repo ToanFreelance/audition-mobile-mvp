@@ -26,7 +26,6 @@ import {
   selectRoomParticipantIdleIndices,
 } from "./lobby-idle-selection";
 import { createSketchStageSet, sketchFixtureLayoutKey, sketchFixtureSource } from "./waiting-room-sketch-set";
-import { WAITING_ROOM_GOLDEN_REFERENCE } from "./waiting-room-golden-reference";
 import {
   WAITING_ROOM_SKETCH_BLUEPRINT,
   sketchColorCss,
@@ -61,7 +60,6 @@ type Props = {
   pageSize?: number;
   calibrationMode?: boolean;
   blueprintMode?: boolean;
-  fixMapMode?: boolean;
   calibrationResetToken?: number;
   onCalibrationLayoutChange?: (layout: WaitingRoomCalibrationLayout) => void;
   onSelectParticipant?: (participant: RoomParticipant) => void;
@@ -732,7 +730,6 @@ export default function WaitingRoomStage3D({
   pageSize = 2,
   calibrationMode = false,
   blueprintMode = false,
-  fixMapMode = false,
   calibrationResetToken = 0,
   onCalibrationLayoutChange,
   onSelectParticipant,
@@ -1946,8 +1943,6 @@ export default function WaitingRoomStage3D({
     - WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.leftX;
   const traceArchitecture = WAITING_ROOM_SKETCH_BLUEPRINT.traceArchitecture;
   const traceViewBox = `0 0 ${traceArchitecture.viewBox.width} ${traceArchitecture.viewBox.height}`;
-  const goldenReference = WAITING_ROOM_GOLDEN_REFERENCE;
-  const goldenViewBox = `0 0 ${goldenReference.source.width} ${goldenReference.source.stageViewportHeight}`;
 
   return (
     <div
@@ -1967,8 +1962,6 @@ export default function WaitingRoomStage3D({
       data-label-layout="head-follow"
       data-max-players={WAITING_ROOM_MAX_PLAYERS}
       data-calibration={calibrationMode ? "1" : "0"}
-      data-fix-map={fixMapMode ? "1" : "0"}
-      data-fix-map-source={fixMapMode ? goldenReference.id : "off"}
       data-stage-ready={stagePresentationReady ? "1" : "0"}
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
@@ -2210,153 +2203,6 @@ export default function WaitingRoomStage3D({
               style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }}
             />
           ))}
-        </div>
-      )}
-
-      {fixMapMode && visualPreset === "sketch" && (
-        <div className={styles.fixMapOverlay} data-testid="sketch-fix-map" aria-hidden="true">
-          <div className={styles.fixMapLegend}>
-            <strong>GOLDEN REF · OWNER SKETCH</strong>
-            <span>dashed = sketch target</span>
-            <span>solid = current runtime underneath</span>
-          </div>
-          <svg
-            className={styles.fixMapSvg}
-            viewBox={goldenViewBox}
-            preserveAspectRatio="none"
-          >
-            <defs>
-              <filter id="fix-map-soft-glow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="2.2" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-            </defs>
-
-            <g className={styles.goldenReferenceZones}>
-              <rect
-                x={goldenReference.centerPanel.x}
-                y={goldenReference.centerPanel.y}
-                width={goldenReference.centerPanel.width}
-                height={goldenReference.centerPanel.height}
-                rx="8"
-              />
-              <rect
-                className={styles.goldenLogoZone}
-                x={goldenReference.logo.bbox.x}
-                y={goldenReference.logo.bbox.y}
-                width={goldenReference.logo.bbox.width}
-                height={goldenReference.logo.bbox.height}
-                rx="6"
-              />
-              <rect
-                className={styles.goldenSubtitleZone}
-                x={goldenReference.logo.subtitleBox.x}
-                y={goldenReference.logo.subtitleBox.y}
-                width={goldenReference.logo.subtitleBox.width}
-                height={goldenReference.logo.subtitleBox.height}
-                rx="4"
-              />
-            </g>
-
-            <g className={styles.fixTargetRoof} filter="url(#fix-map-soft-glow)">
-              <path d={goldenReference.roof.upperPath} />
-              <path d={goldenReference.roof.lowerPath} />
-            </g>
-
-            <g className={styles.goldenWingOutline}>
-              <path d={goldenReference.wings.leftWallPath} />
-              <path d={goldenReference.wings.leftWallPath} transform="translate(864 0) scale(-1 1)" />
-            </g>
-
-            <g className={styles.fixTargetRailsLeft}>
-              {goldenReference.wings.railsLeft.map(path => <path key={`golden-l-${path}`} d={path} />)}
-            </g>
-            <g className={styles.fixTargetRailsRight}>
-              {goldenReference.wings.railsLeft.map(path => (
-                <path key={`golden-r-${path}`} d={path} transform="translate(864 0) scale(-1 1)" />
-              ))}
-            </g>
-
-            <g className={styles.goldenColumns}>
-              <rect
-                x={goldenReference.columns.left.x}
-                y={goldenReference.columns.left.y}
-                width={goldenReference.columns.left.width}
-                height={goldenReference.columns.left.height}
-                rx="3"
-              />
-              <rect
-                x={goldenReference.columns.right.x}
-                y={goldenReference.columns.right.y}
-                width={goldenReference.columns.right.width}
-                height={goldenReference.columns.right.height}
-                rx="3"
-              />
-            </g>
-
-            <g className={styles.fixTargetBeams}>
-              {goldenReference.spotlights.map((spot, index) => (
-                <g key={`golden-spot-${index}`}>
-                  <circle cx={spot.x} cy={spot.y} r="6" />
-                  <path d={`M ${spot.x} ${spot.y + 8} L ${spot.targetX} ${spot.targetY}`} />
-                </g>
-              ))}
-            </g>
-
-            <g className={styles.fixTargetRisers}>
-              {goldenReference.risers.map((riser, index) => (
-                <g key={`golden-riser-${index}`}>
-                  <path d={riser.edge} />
-                  <path className={styles.goldenRiserLower} d={riser.lowerEdge} />
-                </g>
-              ))}
-            </g>
-
-            <g className={styles.fixTargetFloor}>
-              <path d={goldenReference.floor.frontRim} />
-              {goldenReference.floor.gridVertical.map(path => <path key={`golden-gv-${path}`} d={path} />)}
-              {goldenReference.floor.gridHorizontal.map(path => <path key={`golden-gh-${path}`} d={path} />)}
-            </g>
-
-            <g className={styles.goldenReflectionLanes}>
-              <path d={goldenReference.floor.reflectionLanes.left} />
-              <path d={goldenReference.floor.reflectionLanes.center} />
-              <path d={goldenReference.floor.reflectionLanes.right} />
-            </g>
-
-            <g className={styles.fixTargetRings}>
-              {Object.entries(goldenReference.rings).map(([name, ring]) => (
-                <ellipse
-                  key={`golden-ring-${name}`}
-                  cx={ring.cx}
-                  cy={ring.cy}
-                  rx={ring.rx}
-                  ry={ring.ry}
-                />
-              ))}
-            </g>
-
-            <g className={styles.goldenColorZones}>
-              {goldenReference.colorZones.map(zone => (
-                <g key={zone.key}>
-                  <rect
-                    x={zone.x}
-                    y={zone.y}
-                    width={zone.width}
-                    height={zone.height}
-                    rx="6"
-                    style={{ "--golden-zone-color": zone.target } as CSSProperties}
-                  />
-                  <text x={zone.x + 7} y={zone.y + 14}>{zone.label} · {zone.target} · L{zone.luma}</text>
-                </g>
-              ))}
-            </g>
-          </svg>
-          <div className={styles.fixMapFooter}>
-            <span>owner sketch 864×1536</span>
-            <span>roof</span><span>rails</span><span>lights</span><span>risers</span>
-            <span>floor/grid</span><span>rings</span><span>color zones</span>
-          </div>
         </div>
       )}
 

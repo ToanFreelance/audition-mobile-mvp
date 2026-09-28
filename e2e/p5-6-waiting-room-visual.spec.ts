@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import * as THREE from "three";
 import { WAITING_ROOM_SKETCH_BLUEPRINT as blueprint, sketchRoofPoint } from "../components/multiplayer/waiting-room-sketch-blueprint";
-import { WAITING_ROOM_GOLDEN_REFERENCE as goldenReference } from "../components/multiplayer/waiting-room-golden-reference";
+import { WAITING_ROOM_GOLDEN_TRACE as goldenTrace } from "../components/multiplayer/waiting-room-golden-trace";
 import { createSketchStageSet, sketchFixtureLayoutKey, sketchFixtureSource } from "../components/multiplayer/waiting-room-sketch-set";
 
 test("V32 fixtures re-anchor when the real camera replaces the initial camera at the same viewport", () => {
@@ -266,25 +268,46 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
 });
 
 
-test("P5.6 fix-map route uses the independent owner-sketch reference only when requested", async ({ page }) => {
-  expect(goldenReference.id).toBe("owner-golden-864x1536-v2");
-  expect(goldenReference.logo.bbox.y).toBeGreaterThan(250);
-  expect(goldenReference.logo.bbox.y).not.toBeCloseTo(blueprint.screen.logo.bbox.y * 1044, 0);
-  expect(goldenReference.rings.host.cy).toBeGreaterThan(900);
+test("P5.6 exact golden trace stays direct, asymmetric and QA-only", async ({ page }) => {
+  expect(goldenTrace.id).toBe("owner-sketch-direct-trace-v1");
+  expect(goldenTrace.source.width).toBe(864);
+  expect(goldenTrace.source.height).toBe(1536);
+  expect(goldenTrace.wings.left.rails).toHaveLength(7);
+  expect(goldenTrace.wings.right.rails).toHaveLength(7);
+  expect(goldenTrace.wings.right.rails[0].points).not.toEqual(goldenTrace.wings.left.rails[0].points);
+  expect(goldenTrace.rings.host.ellipses).toHaveLength(3);
+
+  const traceSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/waiting-room-golden-trace.ts"),
+    "utf8",
+  );
+  const runtimeStageSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/WaitingRoomStage3D.tsx"),
+    "utf8",
+  );
+  expect(traceSource).not.toContain('from "./waiting-room-sketch-blueprint"');
+  expect(traceSource).not.toContain('from "./WaitingRoomStage3D"');
+  expect(runtimeStageSource).not.toContain("waiting-room-golden-trace");
+  expect(runtimeStageSource).not.toContain("waiting-room-golden-reference");
+
+  await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceOpacity=0.55&traceMode=geometry");
+  const overlay = page.getByTestId("waiting-room-golden-trace");
+  await expect(overlay).toHaveCount(1);
+  await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-sketch-direct-trace-v1");
+  await expect(overlay.locator('[data-trace-id^="left-rail-"]')).toHaveCount(7);
+  await expect(overlay.locator('[data-trace-id^="right-rail-"]')).toHaveCount(7);
+  await expect(overlay.locator('[data-trace-layer="color"]')).toHaveCount(0);
+
+  await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceMode=color");
+  await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="geometry"]')).toHaveCount(0);
+  await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="color"]')).toHaveCount(1);
 
   await page.goto("/tools/lobby-qa-sketch?fixmap=1");
-  const stage = page.getByTestId("waiting-room-stage");
-  await expect(stage).toHaveAttribute("data-fix-map", "1");
-  await expect(stage).toHaveAttribute("data-fix-map-source", "owner-golden-864x1536-v2");
-  await expect(page.getByTestId("sketch-fix-map")).toHaveCount(1);
-  await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(0);
-
-  await page.goto("/tools/lobby-qa-sketch?blueprint=1&fixmap=1");
-  await expect(page.getByTestId("sketch-fix-map")).toHaveCount(1);
-  await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(1);
+  await expect(page.getByTestId("waiting-room-golden-trace")).toHaveAttribute(
+    "data-golden-trace-source",
+    "owner-sketch-direct-trace-v1",
+  );
 
   await page.goto("/tools/lobby-qa-sketch");
-  await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-fix-map", "0");
-  await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-fix-map-source", "off");
-  await expect(page.getByTestId("sketch-fix-map")).toHaveCount(0);
+  await expect(page.getByTestId("waiting-room-golden-trace")).toHaveCount(0);
 });

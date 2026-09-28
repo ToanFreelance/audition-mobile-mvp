@@ -58,6 +58,7 @@ import WaitingRoomStage3D, {
   type WaitingRoomStageView,
   type WaitingRoomVisualPreset,
 } from "./WaitingRoomStage3D";
+import WaitingRoomGoldenTraceSvg, { type WaitingRoomGoldenTraceMode } from "./WaitingRoomGoldenTraceSvg";
 import styles from "./WaitingRoomPanel.module.css";
 
 type PanelKind = "song" | "stage" | "player" | null;
@@ -280,6 +281,11 @@ type WaitingRoomPanelProps = {
   calibrationMode?: boolean;
   blueprintMode?: boolean;
   fixMapMode?: boolean;
+  goldenTrace?: {
+    enabled: boolean;
+    opacity: number;
+    mode: WaitingRoomGoldenTraceMode;
+  } | null;
   visualPreset?: WaitingRoomVisualPreset;
 };
 
@@ -289,6 +295,7 @@ export default function WaitingRoomPanel({
   calibrationMode = false,
   blueprintMode = false,
   fixMapMode = false,
+  goldenTrace = null,
   visualPreset = "default",
 }: WaitingRoomPanelProps) {
   const initialParticipantId = initialSync?.role === "guest" ? "p51-guest" : "p51-host";
@@ -1661,7 +1668,6 @@ export default function WaitingRoomPanel({
           <WaitingRoomStage3D
             calibrationMode={calibrationMode}
             blueprintMode={blueprintMode}
-            fixMapMode={fixMapMode}
             calibrationResetToken={calibrationResetToken}
             onCalibrationLayoutChange={setCalibrationLayout}
             participants={orderedParticipants}
@@ -1676,6 +1682,20 @@ export default function WaitingRoomPanel({
             onSelectParticipant={selectParticipant}
           />
 
+          {(goldenTrace?.enabled || fixMapMode) && (
+            <div className={styles.goldenTraceRuntimeOverlay} aria-hidden="true">
+              <div className={styles.goldenTraceLegend}>
+                <strong>OWNER SKETCH · DIRECT TRACE</strong>
+                <span>dashed = pixel trace</span>
+                <span>dotted = occluded / diffuse approximation</span>
+              </div>
+              <WaitingRoomGoldenTraceSvg
+                mode={goldenTrace?.mode ?? "all"}
+                opacity={goldenTrace?.opacity ?? 0.72}
+                testId="waiting-room-golden-trace"
+              />
+            </div>
+          )}
 
           {!calibrationMode && orderedParticipants.length > 1 && (
             <>
