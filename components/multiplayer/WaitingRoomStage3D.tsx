@@ -632,9 +632,10 @@ function createSketchSpotBeam(
         varying vec3 beamView;
         void main() {
           float feather = pow(abs(dot(normalize(beamNormal), normalize(beamView))), 1.85);
-          float axial = 0.72 + 0.28 * smoothstep(0.0, 0.72, beamUv.y);
+          float axial = 0.76 + 0.24 * smoothstep(0.28, 0.86, beamUv.y);
+          float farFade = smoothstep(0.10, 0.52, beamUv.y);
           float breakup = 0.96 + 0.04 * cos((beamUv.x + beamUv.y * 0.18) * 12.56637);
-          gl_FragColor = vec4(lightColor, lightOpacity * 0.86 * feather * axial * breakup);
+          gl_FragColor = vec4(lightColor, lightOpacity * 0.86 * feather * axial * farFade * breakup);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
         }
@@ -2017,7 +2018,8 @@ export default function WaitingRoomStage3D({
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
       data-sketch-match={visualPreset === "sketch" ? "v38-v34-owner-guided-structure" : "off"}
-      data-visual-polish={visualPreset === "sketch" ? "v40-fixture-rail-riser-depth" : "off"}
+      data-visual-polish={visualPreset === "sketch" ? "v41-beam-falloff-rail-spacing" : "off"}
+      data-beam-falloff={visualPreset === "sketch" ? "mid-stage" : "standard"}
       data-stage-uplights={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.length : 0}
       data-uplight-fixture={visualPreset === "sketch" ? "visible-floor-head" : "off"}
       data-stage-rail-rows={visualPreset === "sketch" ? traceArchitecture.railsLeft.length : 0}
