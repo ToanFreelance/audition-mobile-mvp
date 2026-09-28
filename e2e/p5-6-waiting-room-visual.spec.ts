@@ -36,21 +36,25 @@ test("V32 fixtures re-anchor when the real camera replaces the initial camera at
   expect(sketchFixtureLayoutKey(camera, 390, 472)).not.toBe(wideKey);
 });
 
-// V36 exact-owner snapshot checks are browser/network/asset free.
-test("V36 runtime architecture uses the exact owner-approved SVG snapshot", () => {
-  expect(blueprint.traceArchitecture.source).toBe("owner-verified-exact-svg-v36");
-  expect(blueprint.traceArchitecture.viewBox).toEqual({ width: 768, height: 928 });
+// V37: stable V34 runtime base + clean owner-guided redraw.
+test("V37 uses smooth owner-guided architecture without V35/V36 resampling", () => {
+  expect(blueprint.traceArchitecture.source).toBe("v37-owner-guided-clean");
+  expect(blueprint.traceArchitecture.viewBox).toEqual({ width: 864, height: 1044 });
   expect(blueprint.traceArchitecture.railsLeft).toHaveLength(6);
   expect(blueprint.traceArchitecture.railsRight).toHaveLength(6);
   expect(blueprint.traceArchitecture.railsRight[0]).not.toBe(blueprint.traceArchitecture.railsLeft[0]);
-  expect(blueprint.traceArchitecture.truss.continuations).toHaveLength(2);
-  expect(blueprint.traceArchitecture.truss.rim).toHaveLength(2);
-  expect(blueprint.traceArchitecture.risers).toHaveLength(3);
-  expect(blueprint.traceArchitecture.floor.gridHorizontal).toHaveLength(5);
-  expect(blueprint.traceArchitecture.floor.gridVertical).toHaveLength(5);
+  for (const path of [...blueprint.traceArchitecture.railsLeft, ...blueprint.traceArchitecture.railsRight]) {
+    expect(path.match(/C/g)).toHaveLength(1);
+  }
+  for (const riser of blueprint.traceArchitecture.risers) {
+    expect(riser.edge.match(/C/g)).toHaveLength(1);
+    expect(riser.lowerEdge.match(/C/g)).toHaveLength(1);
+  }
+  expect(blueprint.traceArchitecture.truss.upperPath.match(/C/g)).toHaveLength(2);
+  expect(blueprint.traceArchitecture.truss.lowerPath.match(/C/g)).toHaveLength(2);
 });
 
-test("V36 runtime exact snapshot remains anti-circular", () => {
+test("V37 redraw stays anti-circular and keeps the V34 scene architecture", () => {
   const runtimeBlueprintSource = readFileSync(
     join(process.cwd(), "components/multiplayer/waiting-room-sketch-blueprint.ts"),
     "utf8",
@@ -61,11 +65,12 @@ test("V36 runtime exact snapshot remains anti-circular", () => {
   );
   expect(runtimeBlueprintSource).not.toContain('from "./waiting-room-owner-trace-vector"');
   expect(runtimeStageSource).not.toContain("waiting-room-owner-trace-vector");
-  expect(runtimeStageSource).toContain('preserveAspectRatio="xMidYMin meet"');
+  expect(runtimeStageSource).not.toContain("OWNER_TRACE_RUNTIME_POINTS");
+  expect(runtimeStageSource).not.toContain("sketchFloorRingY");
   expect(runtimeStageSource).toContain("traceArchitecture.railsRight.map");
 });
 
-test("V36 keeps three solid glossy risers without duplicate 3D wings or extra mirrors", () => {
+test("V37 keeps three solid glossy risers without duplicate 3D wings or extra mirrors", () => {
   const set = createSketchStageSet();
   expect(set.children.filter(child => child.name.startsWith("SketchRiser:"))).toHaveLength(3);
   expect(set.children.some(child => child.name.startsWith("SketchWing:"))).toBe(false);
@@ -211,15 +216,13 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v36-owner-exact-svg");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v37-v34-owner-guided-clean");
   await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v12");
   await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-riser-source", "hybrid-threejs-trace");
   await expect(stage).toHaveAttribute("data-floor-grid", "floor-plane");
   await expect(page.getByTestId("sketch-stage-trace")).toHaveCount(1);
-  await expect(page.getByTestId("sketch-stage-trace")).toHaveAttribute("preserveAspectRatio", "xMidYMin meet");
-  await expect(page.getByTestId("sketch-stage-trace")).toHaveAttribute("data-runtime-trace-source", "owner-verified-exact-svg-v36");
   await expect(stage).toHaveAttribute("data-stage-risers", "3");
   await expect(stage).toHaveAttribute("data-backdrop-geometry", "target-tiered-stage");
   await expect(stage).toHaveAttribute("data-ring-palette", "catalog-gender");
