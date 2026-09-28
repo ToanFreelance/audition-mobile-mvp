@@ -2332,57 +2332,32 @@
   filter:drop-shadow(0 0 3px rgba(241,75,247,.80)) drop-shadow(0 0 10px rgba(200,19,242,.46))!important;
 }
 
-/* V35 owner-trace runtime alignment: screen-space structural reference only. */
-.traceRoofRim,.traceFloorGrid{
+/* V36 exact owner-trace screen geometry.
+   Paths are copied verbatim from the owner-approved A SVG; no runtime re-fit. */
+.traceWallOutline,.traceFloorGrid,.traceRoofRim{
   fill:none;
   pointer-events:none;
 }
-.traceRoofRim path{
+.traceWallOutline path{
   fill:none;
-  stroke:#304d9d;
-  stroke-width:2.15;
+  stroke:#182a66;
+  stroke-width:2.3;
   stroke-linecap:round;
   stroke-linejoin:round;
-  opacity:.78;
-  filter:drop-shadow(0 0 3px rgba(82,108,255,.28));
+  opacity:.74;
 }
 .traceFloorGrid path{
   fill:none;
-  stroke:rgba(122,154,235,.46);
-  stroke-width:1.15;
+  stroke:rgba(105,139,224,.42);
+  stroke-width:1.05;
   stroke-linecap:round;
   stroke-linejoin:round;
-  opacity:.72;
 }
-
-
-/* P5.6 V35 QA compare cleanup.
-   The owner trace is the authority layer. During golden-trace QA the runtime
-   screen-trace stays visible only as a faint registration guide, so two nearly
-   identical neon line systems do not visually combine into a scribbled result. */
-.stage[data-trace-comparison="1"] .stageTrace{
-  opacity:.20!important;
-}
-.stage[data-trace-comparison="1"] .traceRailGlow,
-.stage[data-trace-comparison="1"] .traceRiserGlow,
-.stage[data-trace-comparison="1"] .traceFrontRimGlow,
-.stage[data-trace-comparison="1"] .traceFloorReflection{
-  display:none!important;
-}
-.stage[data-trace-comparison="1"] .traceWall,
-.stage[data-trace-comparison="1"] .traceRiserSurface{
-  opacity:.05!important;
-}
-.stage[data-trace-comparison="1"] .traceTrussBody,
-.stage[data-trace-comparison="1"] .traceTrussEdge,
-.stage[data-trace-comparison="1"] .traceTruss .traceTrussBrace,
-.stage[data-trace-comparison="1"] .traceRails path,
-.stage[data-trace-comparison="1"] .traceRailBody,
-.stage[data-trace-comparison="1"] .traceRiserEdge,
-.stage[data-trace-comparison="1"] .traceRiserLowerEdge,
-.stage[data-trace-comparison="1"] .traceFrontRim,
-.stage[data-trace-comparison="1"] .traceFloorSide,
-.stage[data-trace-comparison="1"] .traceFloorGrid path,
-.stage[data-trace-comparison="1"] .traceRoofRim path{
-  filter:none!important;
+.traceRoofRim path{
+  fill:none;
+  stroke:#263d86;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.76;
 }

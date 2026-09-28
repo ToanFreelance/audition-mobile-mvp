@@ -1668,7 +1668,6 @@ export default function WaitingRoomPanel({
           <WaitingRoomStage3D
             calibrationMode={calibrationMode}
             blueprintMode={blueprintMode}
-            traceComparisonMode={Boolean(goldenTrace?.enabled || fixMapMode)}
             calibrationResetToken={calibrationResetToken}
             onCalibrationLayoutChange={setCalibrationLayout}
             participants={orderedParticipants}
@@ -1688,7 +1687,7 @@ export default function WaitingRoomPanel({
               <div className={styles.goldenTraceLegend}>
                 <strong>OWNER TRACE · DIRECT VECTOR</strong>
                 <span>vector = owner-authored trace geometry</span>
-                <span>runtime guide dimmed underneath for clean comparison</span>
+                <span>runtime remains unchanged underneath</span>
               </div>
               <WaitingRoomGoldenTraceSvg
                 mode={goldenTrace?.mode ?? "all"}
