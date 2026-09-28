@@ -279,6 +279,7 @@ type WaitingRoomPanelProps = {
   } | null;
   calibrationMode?: boolean;
   blueprintMode?: boolean;
+  fixMapMode?: boolean;
   visualPreset?: WaitingRoomVisualPreset;
 };
 
@@ -287,6 +288,7 @@ export default function WaitingRoomPanel({
   initialSync = null,
   calibrationMode = false,
   blueprintMode = false,
+  fixMapMode = false,
   visualPreset = "default",
 }: WaitingRoomPanelProps) {
   const initialParticipantId = initialSync?.role === "guest" ? "p51-guest" : "p51-host";
@@ -1659,6 +1661,7 @@ export default function WaitingRoomPanel({
           <WaitingRoomStage3D
             calibrationMode={calibrationMode}
             blueprintMode={blueprintMode}
+            fixMapMode={fixMapMode}
             calibrationResetToken={calibrationResetToken}
             onCalibrationLayoutChange={setCalibrationLayout}
             participants={orderedParticipants}

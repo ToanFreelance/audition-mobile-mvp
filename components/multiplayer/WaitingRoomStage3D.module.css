@@ -2034,3 +2034,158 @@
   text-shadow:none!important;
   filter:drop-shadow(0 0 3px rgba(224,49,245,.72)) drop-shadow(0 0 9px rgba(193,5,241,.36))!important;
 }
+
+
+/* P5.6 CHUAN-1 live diagnostic fix-map. Query-only; does not alter normal rendering. */
+.fixMapOverlay{
+  position:absolute;
+  z-index:28;
+  inset:0;
+  pointer-events:none;
+  overflow:hidden;
+  font-family:inherit;
+}
+.fixMapSvg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+}
+.fixMapLegend{
+  position:absolute;
+  z-index:2;
+  left:8px;
+  top:8px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px 7px;
+  align-items:center;
+  max-width:calc(100% - 16px);
+  padding:5px 7px;
+  border:1px solid rgba(151,172,255,.68);
+  border-radius:9px;
+  background:rgba(4,7,20,.82);
+  box-shadow:0 5px 14px rgba(0,0,0,.30);
+  color:#eaf0ff;
+  font-size:7px;
+  line-height:1;
+}
+.fixMapLegend strong{
+  color:#fff;
+  font-size:7.5px;
+  letter-spacing:.06em;
+}
+.fixMapLegend span{
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+}
+.fixMapLegend i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  display:inline-block;
+}
+.fixMajorDot{background:#ff6464}
+.fixMediumDot{background:#ffd45e}
+.fixGoodDot{background:#72f4a4}
+.fixMajorZones path{
+  fill:rgba(255,56,74,.055);
+  stroke:rgba(255,82,96,.58);
+  stroke-width:2;
+  stroke-dasharray:11 8;
+}
+.fixMediumZones rect,.fixMediumZones path,.fixMediumZones ellipse{
+  fill:rgba(255,210,70,.035);
+  stroke:rgba(255,220,91,.58);
+  stroke-width:1.6;
+  stroke-dasharray:9 7;
+}
+.fixGoodZones rect{
+  fill:rgba(72,245,151,.025);
+  stroke:rgba(94,255,161,.68);
+  stroke-width:1.5;
+  stroke-dasharray:8 6;
+}
+.fixTargetRoof path{
+  fill:none;
+  stroke:#ffd85e;
+  stroke-width:3.2;
+  stroke-dasharray:12 6;
+  stroke-linecap:round;
+  opacity:.95;
+}
+.fixTargetRailsLeft path,.fixTargetRailsRight path{
+  fill:none;
+  stroke-width:3;
+  stroke-dasharray:10 6;
+  stroke-linecap:round;
+  opacity:.90;
+}
+.fixTargetRailsLeft path{stroke:#5ee8ff}
+.fixTargetRailsRight path{stroke:#ff6edc}
+.fixTargetRisers path{
+  fill:none;
+  stroke:#f8f6ff;
+  stroke-width:2.4;
+  stroke-dasharray:9 6;
+  opacity:.86;
+}
+.fixTargetFloor path{
+  fill:none;
+  stroke:#75ffb3;
+  stroke-width:1.6;
+  stroke-dasharray:8 7;
+  opacity:.52;
+}
+.fixTargetFloor path:first-child{
+  stroke-width:2.7;
+  opacity:.88;
+}
+.fixTargetBeams path{
+  fill:none;
+  stroke:#b6dfff;
+  stroke-width:2;
+  stroke-dasharray:7 7;
+  opacity:.58;
+}
+.fixTargetRings ellipse{
+  fill:none;
+  stroke:#9ff7ff;
+  stroke-width:2.4;
+  stroke-dasharray:7 5;
+  opacity:.86;
+}
+.fixMapNumbers circle{
+  fill:rgba(91,13,24,.88);
+  stroke:#ff6977;
+  stroke-width:2;
+}
+.fixMapNumbers .fixMediumNumber{
+  fill:rgba(87,67,8,.88);
+  stroke:#ffd45e;
+}
+.fixMapNumbers text{
+  fill:#fff;
+  font-size:18px;
+  font-weight:1000;
+  text-anchor:middle;
+}
+.fixMapFooter{
+  position:absolute;
+  z-index:2;
+  left:8px;
+  right:8px;
+  bottom:8px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:3px 7px;
+  justify-content:center;
+  padding:5px 6px;
+  border:1px solid rgba(109,133,218,.52);
+  border-radius:8px;
+  background:rgba(4,7,20,.80);
+  color:#dce6ff;
+  font-size:6.5px;
+  line-height:1;
+}

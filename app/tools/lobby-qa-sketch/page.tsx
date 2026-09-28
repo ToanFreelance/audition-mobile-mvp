@@ -7,6 +7,7 @@ type LobbyQaSketchPageProps = {
     room?: string;
     calibrate?: string;
     blueprint?: string;
+    fixmap?: string;
   }>;
 };
 
@@ -24,6 +25,7 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       initialSync={initialSync}
       calibrationMode={params.calibrate === "1"}
       blueprintMode={params.blueprint === "1"}
+      fixMapMode={params.fixmap === "1"}
       visualPreset="sketch"
     />
   );

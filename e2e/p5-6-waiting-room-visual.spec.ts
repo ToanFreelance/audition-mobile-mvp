@@ -263,3 +263,20 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
   await page.goto("/tools/lobby-qa-sketch");
   await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(0);
 });
+
+
+test("P5.6 fix-map route overlays CHUAN-1 targets only when requested", async ({ page }) => {
+  await page.goto("/tools/lobby-qa-sketch?fixmap=1");
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-fix-map", "1");
+  await expect(page.getByTestId("sketch-fix-map")).toHaveCount(1);
+  await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(0);
+
+  await page.goto("/tools/lobby-qa-sketch?blueprint=1&fixmap=1");
+  await expect(page.getByTestId("sketch-fix-map")).toHaveCount(1);
+  await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(1);
+
+  await page.goto("/tools/lobby-qa-sketch");
+  await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-fix-map", "0");
+  await expect(page.getByTestId("sketch-fix-map")).toHaveCount(0);
+});
