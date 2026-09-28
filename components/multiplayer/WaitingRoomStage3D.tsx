@@ -2129,7 +2129,6 @@ export default function WaitingRoomStage3D({
               <polygon points={traceArchitecture.columns.leftPolygon} fill="url(#trace-left-column)" />
               <polygon points={traceArchitecture.columns.rightPolygon} fill="url(#trace-right-column)" />
             </g>
-            </g>
           </svg>
         )}
         <span className={styles.lightBarLeft} />
