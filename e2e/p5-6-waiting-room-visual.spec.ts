@@ -37,8 +37,8 @@ test("V32 fixtures re-anchor when the real camera replaces the initial camera at
 });
 
 // V37: stable V34 runtime base + clean owner-guided redraw.
-test("V37 uses smooth owner-guided architecture without V35/V36 resampling", () => {
-  expect(blueprint.traceArchitecture.source).toBe("v37-owner-guided-clean");
+test("V38 keeps the clean owner-guided architecture and adds missing structural arcs", () => {
+  expect(blueprint.traceArchitecture.source).toBe("v38-owner-guided-structure");
   expect(blueprint.traceArchitecture.viewBox).toEqual({ width: 864, height: 1044 });
   expect(blueprint.traceArchitecture.railsLeft).toHaveLength(6);
   expect(blueprint.traceArchitecture.railsRight).toHaveLength(6);
@@ -52,6 +52,10 @@ test("V37 uses smooth owner-guided architecture without V35/V36 resampling", () 
   }
   expect(blueprint.traceArchitecture.truss.upperPath.match(/C/g)).toHaveLength(2);
   expect(blueprint.traceArchitecture.truss.lowerPath.match(/C/g)).toHaveLength(2);
+  expect(blueprint.traceArchitecture.truss.rimUpperPath.match(/C/g)).toHaveLength(1);
+  expect(blueprint.traceArchitecture.truss.rimLowerPath.match(/C/g)).toHaveLength(1);
+  expect(blueprint.traceArchitecture.floor.gridHorizontal).toHaveLength(5);
+  expect(blueprint.traceArchitecture.floor.gridVertical).toHaveLength(5);
 });
 
 test("V37 redraw stays anti-circular and keeps the V34 scene architecture", () => {
@@ -216,7 +220,7 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v37-v34-owner-guided-clean");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v38-v34-owner-guided-structure");
   await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v12");
   await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");

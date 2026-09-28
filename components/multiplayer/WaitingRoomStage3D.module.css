@@ -2331,3 +2331,28 @@
   -webkit-text-stroke:1.55px #e94cf6!important;
   filter:drop-shadow(0 0 3px rgba(241,75,247,.80)) drop-shadow(0 0 10px rgba(200,19,242,.46))!important;
 }
+
+
+/* V38 owner-guided structural cues.
+   Keep the clean V34/V37 geometry; only expose the two missing owner-trace
+   structural systems: the lower roof rim and the perspective floor arcs. */
+.traceRoofRim,.traceFloorGrid{
+  fill:none;
+  pointer-events:none;
+}
+.traceRoofRim path{
+  fill:none;
+  stroke:#263979;
+  stroke-width:1.75;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.68;
+}
+.traceFloorGrid path{
+  fill:none;
+  stroke:rgba(111,145,222,.30);
+  stroke-width:1.05;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.62;
+}

@@ -1966,7 +1966,7 @@ export default function WaitingRoomStage3D({
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
-      data-sketch-match={visualPreset === "sketch" ? "v37-v34-owner-guided-clean" : "off"}
+      data-sketch-match={visualPreset === "sketch" ? "v38-v34-owner-guided-structure" : "off"}
       data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
       data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
       data-floor-grid={visualPreset === "sketch" ? "floor-plane" : "material"}
@@ -2094,6 +2094,10 @@ export default function WaitingRoomStage3D({
             <path className={styles.traceFrontRim} d={traceArchitecture.floor.frontRim} stroke="url(#trace-floor-rim)" />
             <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideLeft} stroke="#28dfff" />
             <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideRight} stroke="#f044df" />
+            <g className={styles.traceFloorGrid}>
+              {traceArchitecture.floor.gridHorizontal.map(path => <path key={`gh-${path}`} d={path} />)}
+              {traceArchitecture.floor.gridVertical.map(path => <path key={`gv-${path}`} d={path} />)}
+            </g>
 
             <g className={styles.traceUprights}>
               <path d="M 80 178 L 80 494 M 198 215 L 198 501" />
@@ -2118,6 +2122,10 @@ export default function WaitingRoomStage3D({
                 <path className={styles.traceTrussBrace} key={path} d={path} />
               ))}
               <use href="#trace-roof-chords" className={styles.traceTrussEdge} />
+            </g>
+            <g className={styles.traceRoofRim}>
+              <path d={traceArchitecture.truss.rimUpperPath} />
+              <path d={traceArchitecture.truss.rimLowerPath} />
             </g>
 
             <g className={styles.traceColumns} filter="url(#trace-column-glow)">

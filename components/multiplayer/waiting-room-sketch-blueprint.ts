@@ -129,7 +129,7 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
   },
   traceArchitecture: {
     enabled: true,
-    source: "v37-owner-guided-clean",
+    source: "v38-owner-guided-structure",
     viewBox: { width: 864, height: 1044 },
     // Runtime-owned clean redraw from the owner trace. One broad cubic per rail
     // and per riser edge prevents the child-like wobble seen in V35/V36.
@@ -151,7 +151,11 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       "M 668.25 450 C 733.19 444.92 798.53 441.74 862.88 432",
       "M 668.25 497.25 C 733.16 493.41 798.56 493.9 862.88 487.13"
 ],
-    truss: createSketchRoof(),
+    truss: {
+      ...createSketchRoof(),
+      rimUpperPath: "M 0 102.38 C 266.41 227.16 596.12 225.37 862.88 102.38",
+      rimLowerPath: "M 0 108 C 271.7 228.69 590.95 227.35 862.88 108",
+    },
     columns: {
       left: {"x":32.63,"y":133.88,"width":22.5,"height":374.63},
       right: {"x":808.88,"y":133.88,"width":23.63,"height":374.63}
