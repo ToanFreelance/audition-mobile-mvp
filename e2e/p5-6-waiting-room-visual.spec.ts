@@ -306,6 +306,7 @@ test("P5.6 owner trace vector is rebuilt from the owner upload and stays QA-only
   expect(runtimeStageSource).not.toContain("waiting-room-golden-trace");
 
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1");
+  await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-trace-comparison", "1");
   await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="geometry"]')).toHaveCount(1);
   await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="color"]')).toHaveCount(0);
 
@@ -336,5 +337,6 @@ test("P5.6 owner trace vector is rebuilt from the owner upload and stays QA-only
   );
 
   await page.goto("/tools/lobby-qa-sketch");
+  await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-trace-comparison", "0");
   await expect(page.getByTestId("waiting-room-golden-trace")).toHaveCount(0);
 });
