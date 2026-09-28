@@ -10,20 +10,24 @@ export function createSketchStageSet() {
   const set = new THREE.Group();
   set.name = "SketchStageSet";
 
-  const treadMaterial = new THREE.MeshStandardMaterial({
+  const treadMaterial = new THREE.MeshPhysicalMaterial({
     color: material.riser.treadColor,
     emissive: material.riser.treadEmissive,
     emissiveIntensity: material.riser.treadEmissiveIntensity,
     roughness: material.riser.treadRoughness,
     metalness: material.riser.treadMetalness,
+    clearcoat: 1,
+    clearcoatRoughness: 0.04,
     side: THREE.DoubleSide,
   });
-  const riserMaterial = new THREE.MeshStandardMaterial({
+  const riserMaterial = new THREE.MeshPhysicalMaterial({
     color: material.riser.faceColor,
     emissive: material.riser.faceEmissive,
     emissiveIntensity: material.riser.faceEmissiveIntensity,
     roughness: material.riser.faceRoughness,
     metalness: material.riser.faceMetalness,
+    clearcoat: 0.85,
+    clearcoatRoughness: 0.08,
     side: THREE.DoubleSide,
   });
   const riserFaceAccentMaterial = new THREE.MeshBasicMaterial({
@@ -107,6 +111,14 @@ export function createSketchStageSet() {
     return new THREE.Mesh(geometry, materialValue);
   };
 
+  // Local column-light reflection streaks, not an emissive wash over every step.
+  // Baked vertex falloff shares one draw call; no extra reflection render targets.
+  const reflectedLightGeometries: THREE.BufferGeometry[] = [];
+  const reflectedLightMaterial = new THREE.MeshBasicMaterial({
+    vertexColors: true, transparent: true, opacity: 0.32,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide, toneMapped: false,
+  });
   for (let tier = 0; tier < scene.risers.count; tier += 1) {
     const top = scene.risers.topStart + tier * scene.risers.topStep;
     const bottom = tier === 0 ? -0.035 : top - scene.risers.topStep;
@@ -139,7 +151,43 @@ export function createSketchStageSet() {
     const lamps = mergeGeometries(lampGeometries);
     lampGeometries.forEach(geometry => geometry.dispose());
     if (lamps) group.add(new THREE.Mesh(lamps, footlightMaterial));
+
+    for (const [centerX, color] of [
+      [-3.5, palette.floor.cyanReflection],
+      [-1.4, palette.floor.violetReflection],
+      [1.4, palette.floor.violetReflection],
+      [3.5, palette.floor.magentaReflection],
+    ] as const) {
+      const width = 0.32;
+      const streak = ribbon(centerX - width, centerX + width,
+        x => new THREE.Vector3(x, top + 0.012, frontZ(x, tier) - 0.05),
+        x => new THREE.Vector3(x, top + 0.012, Math.max(scene.risers.backZ, frontZ(x, tier) - 1.4)),
+        reflectedLightMaterial, 12).geometry;
+      const faceStreak = ribbon(centerX - width, centerX + width,
+        x => new THREE.Vector3(x, top - 0.02, frontZ(x, tier) + 0.012),
+        x => new THREE.Vector3(x, bottom + 0.02, frontZ(x, tier) + 0.012),
+        reflectedLightMaterial, 12).geometry;
+      for (const geometry of [streak, faceStreak]) {
+        const positions = geometry.getAttribute("position");
+        const colors: number[] = [];
+        const hue = new THREE.Color(color);
+        for (let vertex = 0; vertex < positions.count; vertex += 1) {
+          const across = (positions.getX(vertex) - centerX) / width;
+          const fade = Math.pow(Math.max(0, 1 - across * across), 2) * (vertex % 2 ? 0.035 : 1);
+          colors.push(hue.r * fade, hue.g * fade, hue.b * fade);
+        }
+        geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+        reflectedLightGeometries.push(geometry);
+      }
+    }
     set.add(group);
+  }
+  const reflectedLights = mergeGeometries(reflectedLightGeometries);
+  reflectedLightGeometries.forEach(geometry => geometry.dispose());
+  if (reflectedLights) {
+    const reflections = new THREE.Mesh(reflectedLights, reflectedLightMaterial);
+    reflections.name = "SketchRiserLightReflections";
+    set.add(reflections);
   }
 
   const uprightMaterial = new THREE.MeshStandardMaterial({

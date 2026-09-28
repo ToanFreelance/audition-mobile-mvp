@@ -1,4 +1,62 @@
 import { expect, test } from "@playwright/test";
+import * as THREE from "three";
+import { WAITING_ROOM_SKETCH_BLUEPRINT as blueprint, sketchRoofPoint } from "../components/multiplayer/waiting-room-sketch-blueprint";
+import { createSketchStageSet } from "../components/multiplayer/waiting-room-sketch-set";
+
+// V31's small geometry checks are deliberately browser/network/asset free.
+test("V31 roof is a single symmetric quadratic with no center kink", () => {
+  for (const [lower, path] of [[false, blueprint.traceArchitecture.truss.upperPath], [true, blueprint.traceArchitecture.truss.lowerPath]] as const) {
+    expect(path.match(/[MQCL]/g)).toEqual(["M", "Q"]);
+    const numbers = path.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+    for (let i = 0; i <= 100; i += 1) {
+      const t = i / 100;
+      const point = sketchRoofPoint(t, lower);
+      expect(point.y).toBeCloseTo((1 - t) ** 2 * numbers[1] + 2 * (1 - t) * t * numbers[3] + t ** 2 * numbers[5], 6);
+      expect(point.y).toBeCloseTo(sketchRoofPoint(1 - t, lower).y, 6);
+      expect(sketchRoofPoint(t, true).y - sketchRoofPoint(t).y).toBeGreaterThanOrEqual(22);
+    }
+    const left = sketchRoofPoint(0.5 - 0.0001, lower);
+    const right = sketchRoofPoint(0.5 + 0.0001, lower);
+    expect(Math.abs((right.y - left.y) / (right.x - left.x))).toBeLessThan(0.0001);
+  }
+});
+
+test("V31 every truss brace terminates on the authoritative roof chords", () => {
+  expect(blueprint.traceArchitecture.truss.braces).toHaveLength(35);
+  for (const path of blueprint.traceArchitecture.truss.braces) {
+    const [x1, y1, x2, y2] = path.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+    for (const [x, y] of [[x1, y1], [x2, y2]]) {
+      const error = Math.min(...[false, true].map(lower => Math.abs(sketchRoofPoint(x / 864, lower).y - y)));
+      expect(error).toBeLessThan(0.001);
+    }
+  }
+});
+
+test("V31 keeps three solid glossy risers without duplicate 3D wings or extra mirrors", () => {
+  const set = createSketchStageSet();
+  expect(set.children.filter(child => child.name.startsWith("SketchRiser:"))).toHaveLength(3);
+  expect(set.children.some(child => child.name.startsWith("SketchWing:"))).toBe(false);
+  const reflections = set.getObjectByName("SketchRiserLightReflections") as THREE.Mesh;
+  expect(reflections).toBeDefined();
+  expect(reflections.geometry.getAttribute("color").count).toBeGreaterThan(0);
+  const materials = new Set<THREE.Material>();
+  set.traverse(object => {
+    expect(object.type).not.toBe("Reflector");
+    if (!(object instanceof THREE.Mesh)) return;
+    expect([...object.geometry.getAttribute("position").array].every(Number.isFinite)).toBe(true);
+    const meshMaterials = Array.isArray(object.material) ? object.material : [object.material];
+    meshMaterials.forEach(material => materials.add(material));
+    object.geometry.dispose();
+  });
+  const polished = [...materials].filter((material): material is THREE.MeshPhysicalMaterial => material instanceof THREE.MeshPhysicalMaterial);
+  expect(polished).toHaveLength(2);
+  polished.forEach(material => {
+    expect(material.clearcoat).toBeGreaterThanOrEqual(0.85);
+    expect(material.roughness).toBeLessThanOrEqual(0.22);
+    expect(material.emissiveIntensity).toBeLessThanOrEqual(0.32);
+  });
+  materials.forEach(material => material.dispose());
+});
 
 test("P5.6 waiting room matches the accepted five-person focus presentation", async ({ page }) => {
   await page.goto("/tools/lobby-qa");
@@ -120,8 +178,8 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
-  await expect(stage).toHaveAttribute("data-sketch-match", "v30-clean-structure");
-  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v9");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v31-structure-recovery");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v10");
   await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-riser-source", "hybrid-threejs-trace");
@@ -131,7 +189,7 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-backdrop-geometry", "target-tiered-stage");
   await expect(stage).toHaveAttribute("data-ring-palette", "catalog-gender");
   await expect(stage).toHaveAttribute("data-ring-geometry", "two-medium-one-fine");
-  await expect(stage).toHaveAttribute("data-ring-reflection", "excluded");
+  await expect(stage).toHaveAttribute("data-ring-reflection", "attenuated-mirror-layer");
   await expect(stage).toHaveAttribute("data-stage-lighting", "grand");
   await expect(stage).toHaveAttribute("data-character-grade", "warm-neon");
   await expect(stage).toHaveAttribute("data-stage-footprint", "expanded");
@@ -169,7 +227,7 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
   await page.goto("/tools/lobby-qa-sketch?blueprint=1");
 
   const stage = page.getByTestId("waiting-room-stage");
-  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v9");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v10");
   await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(1);
 
   await page.goto("/tools/lobby-qa-sketch");

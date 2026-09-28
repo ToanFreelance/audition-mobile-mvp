@@ -1896,7 +1896,7 @@
 }
 
 
-/* P5.6 V27 stage trace lock — screen-space venue silhouette traced from golden sketch. */
+/* V31: one SVG architecture authority. No independently traced braces or 3D roof. */
 .stage[data-visual-preset="sketch"] .architecture:before,
 .stage[data-visual-preset="sketch"] .architecture:after,
 .stage[data-visual-preset="sketch"] .lightBarLeft,
@@ -1921,21 +1921,22 @@
   stroke-linejoin:round;
 }
 .traceRails path{
-  stroke-width:2.35;
-  opacity:.94;
+  stroke-width:2.6;
+  opacity:.84;
 }
 .traceRailGlow path{
-  stroke-width:6.5;
-  opacity:.18;
+  stroke-width:5.4;
+  opacity:.11;
 }
 .traceTruss path{
-  stroke-width:2.0;
-  opacity:.92;
-  filter:drop-shadow(0 0 4px rgba(83,90,255,.48));
+  stroke-width:3.4;
+  opacity:.90;
+  filter:drop-shadow(0 0 2px rgba(83,90,255,.30));
 }
-.traceTruss path:nth-child(n+3){
-  stroke-width:1.05;
-  opacity:.62;
+.traceTruss .traceTrussBrace{
+  stroke-width:1.8;
+  opacity:.68;
+  filter:none;
 }
 .traceColumns{opacity:.88}
 .traceColumnCores{opacity:.86}
@@ -1959,6 +1960,7 @@
 
 /* P5.6 V28 full-stage trace — risers, front floor rim and perspective tile grid from golden reference. */
 .traceRiserSurface{
+  opacity:.18;
   mix-blend-mode:screen;
 }
 .traceRiserEdge,.traceRiserLowerEdge,.traceRiserGlow,.traceFootlights,
@@ -1968,23 +1970,23 @@
   stroke-linejoin:round;
 }
 .traceRiserEdge{
-  stroke-width:2.1;
-  opacity:.92;
+  stroke-width:1.75;
+  opacity:.72;
 }
 .traceRiserLowerEdge{
   stroke-width:1.15;
-  opacity:.44;
+  opacity:.30;
 }
 .traceRiserGlow{
   stroke:#c34dff;
   stroke-width:8;
-  opacity:.12;
+  opacity:.07;
   filter:blur(2px);
 }
 .traceFootlights{
   stroke:#f5e7ff;
   stroke-width:2.8;
-  opacity:.90;
+  opacity:.72;
   filter:drop-shadow(0 0 3px rgba(233,204,255,.86));
 }
 .traceFloorGrid path{
@@ -2017,86 +2019,10 @@
   filter:saturate(1.22) contrast(1.22) brightness(1.10)!important;
 }
 .stage[data-visual-preset="sketch"] .brand strong{
-  color:rgba(193,5,241,.018)!important;
-  -webkit-text-stroke:1.45px #d228f3!important;
-  text-shadow:
-    0 0 2px rgba(255,229,255,.84),
-    0 0 5px rgba(210,40,243,.86),
-    0 0 12px rgba(243,41,245,.56),
-    0 0 23px rgba(121,25,221,.20)!important;
-}
-
-
-/* P5.6 V29 hybrid stage — keep V28 color, restore 3D volume under traced curves. */
-.traceRails path{
-  stroke-width:1.85;
-  opacity:.82;
-}
-.traceRailGlow path{
-  stroke-width:5.2;
-  opacity:.12;
-}
-.traceTruss path{
-  stroke-width:2.25;
-  opacity:.96;
-  filter:drop-shadow(0 0 3px rgba(83,90,255,.42));
-}
-.traceTruss path:nth-child(n+3){
-  stroke-width:.95;
-  opacity:.54;
-}
-.traceRiserSurface{
-  opacity:.34;
-}
-.traceRiserEdge{
-  stroke-width:1.75;
-  opacity:.72;
-}
-.traceRiserLowerEdge{
-  opacity:.30;
-}
-.traceRiserGlow{
-  opacity:.07;
-}
-.traceFootlights{
-  opacity:.72;
-}
-
-
-/* P5.6 V30 clean structure — keep V28 color + V29 risers, remove broken wing overlap. */
-.traceRails path{
-  stroke-width:1.95;
-  opacity:.88;
-}
-.traceRailGlow path{
-  stroke-width:5.4;
-  opacity:.11;
-}
-.traceTruss path{
-  stroke-width:2.05;
-  opacity:.94;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-  filter:drop-shadow(0 0 2px rgba(83,90,255,.30));
-}
-.traceTrussBrace{
-  stroke-width:.72!important;
-  opacity:.24!important;
-  filter:none!important;
-}
-.traceRiserSurface{
-  opacity:.34;
-}
-.traceRiserEdge{
-  stroke-width:1.75;
-  opacity:.72;
-}
-.traceRiserLowerEdge{
-  opacity:.30;
-}
-.traceRiserGlow{
-  opacity:.07;
-}
-.traceFootlights{
-  opacity:.72;
+  /* A transparent glyph with text-shadow still fills with the shadow's glyph.
+     Drop-shadow follows the actual neon outline instead of a solid text mask. */
+  color:transparent!important;
+  -webkit-text-stroke:1.15px #d228f3!important;
+  text-shadow:none!important;
+  filter:drop-shadow(0 0 3px rgba(210,40,243,.50)) drop-shadow(0 0 7px rgba(193,5,241,.18))!important;
 }

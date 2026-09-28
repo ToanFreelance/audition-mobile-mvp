@@ -17,8 +17,32 @@ type SketchNeonPalette = {
   lowlight: number;
 };
 
+// One quadratic per chord: a horizontal tangent at the center, with no seam.
+// Braces use the exact same curve, never independently hand-traced endpoints.
+export function sketchRoofPoint(t: number, lower = false) {
+  return { x: 864 * t, y: (lower ? 30 : 8) + (lower ? 408 : 400) * t * (1 - t) };
+}
+
+function createSketchRoof() {
+  const point = (t: number, lower = false) => {
+    const p = sketchRoofPoint(t, lower);
+    return `${p.x.toFixed(3)} ${p.y.toFixed(3)}`;
+  };
+  const braces = Array.from({ length: 24 }, (_, i) => (
+    `M ${point(i / 24, i % 2 === 1)} L ${point((i + 1) / 24, i % 2 === 0)}`
+  ));
+  for (let i = 2; i < 24; i += 2) {
+    braces.push(`M ${point(i / 24)} L ${point(i / 24, true)}`);
+  }
+  return {
+    upperPath: "M 0 8 Q 432 208 864 8",
+    lowerPath: "M 0 30 Q 432 234 864 30",
+    braces,
+  };
+}
+
 export const WAITING_ROOM_SKETCH_BLUEPRINT = {
-  id: "golden-864x1536-v9",
+  id: "golden-864x1536-v10",
   source: {
     width: 864,
     height: 1536,
@@ -85,34 +109,18 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
   traceArchitecture: {
     enabled: true,
     viewBox: { width: 864, height: 1044 },
-    wallLeftPath: "M 0 98 C 58 112 132 150 220 222 L 220 548 C 148 531 74 522 0 520 Z",
+    wallLeftPath: "M 0 98 C 62 141 143 177 224 188 L 224 548 C 148 531 74 522 0 520 Z",
     railsLeft: [
-      // V30: continuous screen-space rails only; no 3D rail underlay in sketch mode.
-      // These curves keep the venue bow without the segmented overlap seen in V29.
-      "M 0 151 C 62 162 132 184 206 216",
-      "M 0 213 C 64 227 135 251 209 279",
-      "M 0 276 C 66 292 138 316 212 340",
-      "M 0 340 C 69 357 141 377 215 396",
-      "M 0 404 C 72 420 145 436 218 449",
-      "M 0 466 C 75 479 149 491 221 500",
-      "M 0 522 C 78 531 152 538 224 541"
+      // Bow into the wings, then flatten into depth before the open center.
+      "M 0 140 C 58 179 145 207 220 211",
+      "M 0 204 C 60 242 146 267 220 271",
+      "M 0 268 C 62 304 148 327 220 331",
+      "M 0 332 C 64 364 150 386 220 391",
+      "M 0 396 C 67 424 153 443 220 449",
+      "M 0 459 C 70 483 156 497 220 503",
+      "M 0 519 C 73 535 160 542 224 545"
     ],
-    truss: {
-      // V30: revert to the smoother golden silhouette. The previous V29
-      // control points exaggerated the center joint and read as a kink on-device.
-      upperPath: "M 16 10 C 142 55 286 103 432 111 C 578 103 722 55 848 10",
-      lowerPath: "M 25 31 C 153 74 292 119 432 127 C 572 119 711 74 839 31",
-      braces: [
-        "M 76 31 L 91 55","M 104 41 L 117 66","M 134 51 L 145 76",
-        "M 166 61 L 174 87","M 198 71 L 204 96","M 232 82 L 236 105",
-        "M 268 91 L 270 113","M 304 99 L 305 119","M 341 105 L 342 123",
-        "M 378 109 L 379 126","M 416 111 L 416 127",
-        "M 448 127 L 449 111","M 485 124 L 486 107","M 522 121 L 524 102",
-        "M 558 116 L 562 95","M 594 109 L 600 86","M 628 101 L 636 77",
-        "M 660 92 L 671 66","M 691 82 L 704 56","M 720 71 L 735 47",
-        "M 748 61 L 766 37"
-      ]
-    },
+    truss: createSketchRoof(),
     columns: {
       left: { x: 31, y: 135, width: 23, height: 372 },
       right: { x: 810, y: 135, width: 23, height: 372 }
@@ -242,33 +250,33 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       shadow: 0x8c5a1e,
     },
     actor: {
-      key: 0xffe6dc,
-      fill: 0xfff7f2,
+      key: 0xffe9e6,
+      fill: 0xdce6ff,
       hemisphereSky: 0x8390e8,
       hemisphereGround: 0x010108,
     },
   },
   material: {
     floor: {
-      opacity: 0.52,
+      opacity: 0.38,
       roughness: 0.06,
       metalness: 0.54,
       clearcoat: 1,
       clearcoatRoughness: 0.025,
-      emissiveIntensity: 0.31,
+      emissiveIntensity: 0.18,
       haloOpacity: 0.095,
       runwayOpacity: 0.048,
     },
     riser: {
       treadColor: 0x32186f,
       treadEmissive: 0x4a1688,
-      treadEmissiveIntensity: 0.70,
-      treadRoughness: 0.20,
+      treadEmissiveIntensity: 0.32,
+      treadRoughness: 0.12,
       treadMetalness: 0.48,
       faceColor: 0x0d1241,
       faceEmissive: 0x26145f,
-      faceEmissiveIntensity: 0.62,
-      faceRoughness: 0.4,
+      faceEmissiveIntensity: 0.30,
+      faceRoughness: 0.22,
       faceMetalness: 0.32,
     },
     rails: {
@@ -359,9 +367,9 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
     ],
     lighting: {
       // V26: preserve deep wall values while restoring localized neon punch.
-      hemisphereIntensity: 0.76,
-      keyIntensity: 2.38,
-      fillIntensity: 0.88,
+      hemisphereIntensity: 0.68,
+      keyIntensity: 1.86,
+      fillIntensity: 0.48,
       cyanRimIntensity: 17.5,
       magentaRimIntensity: 17.5,
       overheadIntensity: 10.5,
