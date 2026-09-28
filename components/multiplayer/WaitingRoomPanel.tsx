@@ -1686,7 +1686,7 @@ export default function WaitingRoomPanel({
             <div className={styles.goldenTraceRuntimeOverlay} aria-hidden="true">
               <div className={styles.goldenTraceLegend}>
                 <strong>OWNER TRACE · EXACT CURVE RASTER</strong>
-                <span>linework = owner-authored geometry</span>
+                <span>yellow = owner-authored geometry</span>
                 <span>runtime remains unchanged underneath</span>
               </div>
               <WaitingRoomGoldenTraceSvg

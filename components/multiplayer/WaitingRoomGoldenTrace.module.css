@@ -51,10 +51,20 @@
   pointer-events:none;
   image-rendering:auto;
   /*
-   * The authority image preserves the owner's exact curves, but the source line-art
-   * contains anti-aliased/glow pixels around nearly every stroke. Keep those pixels
-   * geometrically intact while lowering only their presentation alpha so the QA
-   * overlay reads as linework instead of a translucent white/cyan veil.
+   * Preserve the owner's exact raster geometry, but recolor its existing alpha mask
+   * to one high-contrast QA hue. This changes presentation only; no curve/path is
+   * regenerated or approximated.
    */
-  opacity:.3;
+  opacity:.55;
+  filter:
+    brightness(0)
+    saturate(100%)
+    invert(91%)
+    sepia(93%)
+    saturate(1086%)
+    hue-rotate(352deg)
+    brightness(106%)
+    contrast(106%)
+    drop-shadow(0 0 .7px rgba(0,0,0,.98))
+    drop-shadow(0 0 1.2px rgba(255,236,92,.72));
 }

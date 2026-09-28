@@ -22,8 +22,8 @@ function traceOpacity(value: string | undefined) {
 }
 
 function traceMode(value: string | undefined): WaitingRoomGoldenTraceMode {
-  if (value === "geometry" || value === "color") return value;
-  return "all";
+  if (value === "color" || value === "all") return value;
+  return "geometry";
 }
 
 export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchPageProps) {

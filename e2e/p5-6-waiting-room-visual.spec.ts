@@ -295,6 +295,10 @@ test("P5.6 exact golden trace uses the owner-authored raster and stays QA-only",
   expect(runtimeStageSource).not.toContain("waiting-room-golden-trace");
   expect(runtimeStageSource).not.toContain("waiting-room-golden-reference");
 
+  await page.goto("/tools/lobby-qa-sketch?goldenTrace=1");
+  await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="geometry"]')).toHaveCount(1);
+  await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="color"]')).toHaveCount(0);
+
   await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceOpacity=0.55&traceMode=geometry");
   const overlay = page.getByTestId("waiting-room-golden-trace");
   await expect(overlay).toHaveCount(1);
