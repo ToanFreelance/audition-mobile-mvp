@@ -26,6 +26,7 @@ import {
   selectRoomParticipantIdleIndices,
 } from "./lobby-idle-selection";
 import { createSketchStageSet, sketchFixtureLayoutKey, sketchFixtureSource } from "./waiting-room-sketch-set";
+import { WAITING_ROOM_GOLDEN_REFERENCE } from "./waiting-room-golden-reference";
 import {
   WAITING_ROOM_SKETCH_BLUEPRINT,
   sketchColorCss,
@@ -1945,6 +1946,8 @@ export default function WaitingRoomStage3D({
     - WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.leftX;
   const traceArchitecture = WAITING_ROOM_SKETCH_BLUEPRINT.traceArchitecture;
   const traceViewBox = `0 0 ${traceArchitecture.viewBox.width} ${traceArchitecture.viewBox.height}`;
+  const goldenReference = WAITING_ROOM_GOLDEN_REFERENCE;
+  const goldenViewBox = `0 0 ${goldenReference.source.width} ${goldenReference.source.stageViewportHeight}`;
 
   return (
     <div
@@ -1965,6 +1968,7 @@ export default function WaitingRoomStage3D({
       data-max-players={WAITING_ROOM_MAX_PLAYERS}
       data-calibration={calibrationMode ? "1" : "0"}
       data-fix-map={fixMapMode ? "1" : "0"}
+      data-fix-map-source={fixMapMode ? goldenReference.id : "off"}
       data-stage-ready={stagePresentationReady ? "1" : "0"}
       data-visual-preset={visualPreset}
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
@@ -2207,125 +2211,146 @@ export default function WaitingRoomStage3D({
       {fixMapMode && visualPreset === "sketch" && (
         <div className={styles.fixMapOverlay} data-testid="sketch-fix-map" aria-hidden="true">
           <div className={styles.fixMapLegend}>
-            <strong>CHUẨN-1 · FIX MAP</strong>
-            <span><i className={styles.fixMajorDot} /> lệch nhiều</span>
-            <span><i className={styles.fixMediumDot} /> lệch vừa</span>
-            <span><i className={styles.fixGoodDot} /> tạm ổn</span>
+            <strong>GOLDEN REF · OWNER SKETCH</strong>
+            <span>dashed = sketch target</span>
+            <span>solid = V32 runtime underneath</span>
           </div>
           <svg
             className={styles.fixMapSvg}
-            viewBox={traceViewBox}
+            viewBox={goldenViewBox}
             preserveAspectRatio="none"
           >
             <defs>
               <filter id="fix-map-soft-glow" x="-30%" y="-30%" width="160%" height="160%">
-                <feGaussianBlur stdDeviation="2.4" result="blur" />
+                <feGaussianBlur stdDeviation="2.2" result="blur" />
                 <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
             </defs>
 
-            <g className={styles.fixMajorZones}>
-              <path d="M 0 88 L 864 88 L 864 242 L 0 242 Z" />
-              <path d={traceArchitecture.wallLeftPath} />
-              <path d={traceArchitecture.wallLeftPath} transform="translate(864 0) scale(-1 1)" />
-              <path d="M 54 470 C 190 448 674 448 810 470 L 810 638 C 668 620 196 620 54 638 Z" />
-            </g>
-
-            <g className={styles.fixMediumZones}>
+            <g className={styles.goldenReferenceZones}>
               <rect
-                x={WAITING_ROOM_SKETCH_BLUEPRINT.screen.logo.bbox.x * 864}
-                y={WAITING_ROOM_SKETCH_BLUEPRINT.screen.logo.bbox.y * 1044 - 18}
-                width={WAITING_ROOM_SKETCH_BLUEPRINT.screen.logo.bbox.width * 864}
-                height={WAITING_ROOM_SKETCH_BLUEPRINT.screen.logo.bbox.height * 1044 + 54}
-                rx="12"
-              />
-              <path d="M 20 610 C 170 570 694 570 844 610 L 844 1030 L 20 1030 Z" />
-              <ellipse cx="432" cy="510" rx="300" ry="250" />
-            </g>
-
-            <g className={styles.fixGoodZones}>
-              <rect
-                x={traceArchitecture.columns.left.x - 8}
-                y={traceArchitecture.columns.left.y - 8}
-                width={traceArchitecture.columns.left.width + 16}
-                height={traceArchitecture.columns.left.height + 16}
-                rx="7"
+                x={goldenReference.centerPanel.x}
+                y={goldenReference.centerPanel.y}
+                width={goldenReference.centerPanel.width}
+                height={goldenReference.centerPanel.height}
+                rx="8"
               />
               <rect
-                x={traceArchitecture.columns.right.x - 8}
-                y={traceArchitecture.columns.right.y - 8}
-                width={traceArchitecture.columns.right.width + 16}
-                height={traceArchitecture.columns.right.height + 16}
-                rx="7"
+                className={styles.goldenLogoZone}
+                x={goldenReference.logo.bbox.x}
+                y={goldenReference.logo.bbox.y}
+                width={goldenReference.logo.bbox.width}
+                height={goldenReference.logo.bbox.height}
+                rx="6"
+              />
+              <rect
+                className={styles.goldenSubtitleZone}
+                x={goldenReference.logo.subtitleBox.x}
+                y={goldenReference.logo.subtitleBox.y}
+                width={goldenReference.logo.subtitleBox.width}
+                height={goldenReference.logo.subtitleBox.height}
+                rx="4"
               />
             </g>
 
             <g className={styles.fixTargetRoof} filter="url(#fix-map-soft-glow)">
-              <path d={traceArchitecture.truss.upperPath} />
-              <path d={traceArchitecture.truss.lowerPath} />
+              <path d={goldenReference.roof.upperPath} />
+              <path d={goldenReference.roof.lowerPath} />
+            </g>
+
+            <g className={styles.goldenWingOutline}>
+              <path d={goldenReference.wings.leftWallPath} />
+              <path d={goldenReference.wings.leftWallPath} transform="translate(864 0) scale(-1 1)" />
             </g>
 
             <g className={styles.fixTargetRailsLeft}>
-              {traceArchitecture.railsLeft.map(path => <path key={`fix-l-${path}`} d={path} />)}
+              {goldenReference.wings.railsLeft.map(path => <path key={`golden-l-${path}`} d={path} />)}
             </g>
             <g className={styles.fixTargetRailsRight}>
-              {traceArchitecture.railsLeft.map(path => (
-                <path key={`fix-r-${path}`} d={path} transform="translate(864 0) scale(-1 1)" />
+              {goldenReference.wings.railsLeft.map(path => (
+                <path key={`golden-r-${path}`} d={path} transform="translate(864 0) scale(-1 1)" />
+              ))}
+            </g>
+
+            <g className={styles.goldenColumns}>
+              <rect
+                x={goldenReference.columns.left.x}
+                y={goldenReference.columns.left.y}
+                width={goldenReference.columns.left.width}
+                height={goldenReference.columns.left.height}
+                rx="3"
+              />
+              <rect
+                x={goldenReference.columns.right.x}
+                y={goldenReference.columns.right.y}
+                width={goldenReference.columns.right.width}
+                height={goldenReference.columns.right.height}
+                rx="3"
+              />
+            </g>
+
+            <g className={styles.fixTargetBeams}>
+              {goldenReference.spotlights.map((spot, index) => (
+                <g key={`golden-spot-${index}`}>
+                  <circle cx={spot.x} cy={spot.y} r="6" />
+                  <path d={`M ${spot.x} ${spot.y + 8} L ${spot.targetX} ${spot.targetY}`} />
+                </g>
               ))}
             </g>
 
             <g className={styles.fixTargetRisers}>
-              {traceArchitecture.risers.map(riser => <path key={`fix-riser-${riser.edge}`} d={riser.edge} />)}
+              {goldenReference.risers.map((riser, index) => (
+                <g key={`golden-riser-${index}`}>
+                  <path d={riser.edge} />
+                  <path className={styles.goldenRiserLower} d={riser.lowerEdge} />
+                </g>
+              ))}
             </g>
 
             <g className={styles.fixTargetFloor}>
-              <path d={traceArchitecture.floor.frontRim} />
-              {traceArchitecture.floor.gridVertical.map(path => <path key={`fix-gv-${path}`} d={path} />)}
-              {traceArchitecture.floor.gridHorizontal.map(path => <path key={`fix-gh-${path}`} d={path} />)}
+              <path d={goldenReference.floor.frontRim} />
+              {goldenReference.floor.gridVertical.map(path => <path key={`golden-gv-${path}`} d={path} />)}
+              {goldenReference.floor.gridHorizontal.map(path => <path key={`golden-gh-${path}`} d={path} />)}
             </g>
 
-            <g className={styles.fixTargetBeams}>
-              {[0.12, 0.26, 0.36, 0.64, 0.74, 0.88].map((t, index) => {
-                const sourceX = 864 * t;
-                const sourceY = 30 + 408 * t * (1 - t);
-                const targetX = 432 + (sourceX - 432) * 0.42;
-                const targetY = 430 + Math.abs(t - 0.5) * 95;
-                return <path key={`fix-beam-${index}`} d={`M ${sourceX} ${sourceY + 14} L ${targetX} ${targetY}`} />;
-              })}
+            <g className={styles.goldenReflectionLanes}>
+              <path d={goldenReference.floor.reflectionLanes.left} />
+              <path d={goldenReference.floor.reflectionLanes.center} />
+              <path d={goldenReference.floor.reflectionLanes.right} />
             </g>
 
             <g className={styles.fixTargetRings}>
-              {blueprintRingPoints.map(({ name, point }) => {
-                const host = name === "host";
-                const near = name.toLowerCase().includes("near");
-                const rx = host ? 76 : near ? 58 : 49;
-                const ry = host ? 24 : near ? 18 : 15;
-                return (
-                  <ellipse
-                    key={`fix-ring-${name}`}
-                    cx={point.x * 864}
-                    cy={point.y * 1044}
-                    rx={rx}
-                    ry={ry}
-                  />
-                );
-              })}
+              {Object.entries(goldenReference.rings).map(([name, ring]) => (
+                <ellipse
+                  key={`golden-ring-${name}`}
+                  cx={ring.cx}
+                  cy={ring.cy}
+                  rx={ring.rx}
+                  ry={ring.ry}
+                />
+              ))}
             </g>
 
-            <g className={styles.fixMapNumbers}>
-              <g transform="translate(430 72)"><circle r="18" /><text y="6">1</text></g>
-              <g transform="translate(112 306)"><circle r="18" /><text y="6">2</text></g>
-              <g transform="translate(752 306)"><circle r="18" /><text y="6">3</text></g>
-              <g transform="translate(432 548)"><circle r="18" /><text y="6">4</text></g>
-              <g transform="translate(432 210)"><circle className={styles.fixMediumNumber} r="18" /><text y="6">5</text></g>
-              <g transform="translate(432 824)"><circle className={styles.fixMediumNumber} r="18" /><text y="6">6</text></g>
-              <g transform="translate(432 650)"><circle className={styles.fixMediumNumber} r="18" /><text y="6">7</text></g>
-              <g transform="translate(535 400)"><circle className={styles.fixMediumNumber} r="18" /><text y="6">8</text></g>
+            <g className={styles.goldenColorZones}>
+              {goldenReference.colorZones.map(zone => (
+                <g key={zone.key}>
+                  <rect
+                    x={zone.x}
+                    y={zone.y}
+                    width={zone.width}
+                    height={zone.height}
+                    rx="6"
+                    style={{ "--golden-zone-color": zone.target } as CSSProperties}
+                  />
+                  <text x={zone.x + 7} y={zone.y + 14}>{zone.label} · {zone.target} · L{zone.luma}</text>
+                </g>
+              ))}
             </g>
           </svg>
           <div className={styles.fixMapFooter}>
-            <span>1 mái/truss</span><span>2–3 rails</span><span>4 bậc/back wall</span>
-            <span>5 logo</span><span>6 floor</span><span>7 rings</span><span>8 skin/light</span>
+            <span>owner sketch 864×1536</span>
+            <span>roof</span><span>rails</span><span>lights</span><span>risers</span>
+            <span>floor/grid</span><span>rings</span><span>color zones</span>
           </div>
         </div>
       )}

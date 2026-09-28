@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import * as THREE from "three";
 import { WAITING_ROOM_SKETCH_BLUEPRINT as blueprint, sketchRoofPoint } from "../components/multiplayer/waiting-room-sketch-blueprint";
+import { WAITING_ROOM_GOLDEN_REFERENCE as goldenReference } from "../components/multiplayer/waiting-room-golden-reference";
 import { createSketchStageSet, sketchFixtureLayoutKey, sketchFixtureSource } from "../components/multiplayer/waiting-room-sketch-set";
 
 test("V32 fixtures re-anchor when the real camera replaces the initial camera at the same viewport", () => {
@@ -265,10 +266,16 @@ test("P5.6 precision blueprint route exposes measured overlay guides only when r
 });
 
 
-test("P5.6 fix-map route overlays CHUAN-1 targets only when requested", async ({ page }) => {
+test("P5.6 fix-map route uses the independent owner-sketch reference only when requested", async ({ page }) => {
+  expect(goldenReference.id).toBe("owner-golden-864x1536-v1");
+  expect(goldenReference.logo.bbox.y).toBeGreaterThan(250);
+  expect(goldenReference.logo.bbox.y).not.toBeCloseTo(blueprint.screen.logo.bbox.y * 1044, 0);
+  expect(goldenReference.rings.host.cy).toBeGreaterThan(900);
+
   await page.goto("/tools/lobby-qa-sketch?fixmap=1");
   const stage = page.getByTestId("waiting-room-stage");
   await expect(stage).toHaveAttribute("data-fix-map", "1");
+  await expect(stage).toHaveAttribute("data-fix-map-source", "owner-golden-864x1536-v1");
   await expect(page.getByTestId("sketch-fix-map")).toHaveCount(1);
   await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(0);
 
@@ -278,5 +285,6 @@ test("P5.6 fix-map route overlays CHUAN-1 targets only when requested", async ({
 
   await page.goto("/tools/lobby-qa-sketch");
   await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-fix-map", "0");
+  await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-fix-map-source", "off");
   await expect(page.getByTestId("sketch-fix-map")).toHaveCount(0);
 });

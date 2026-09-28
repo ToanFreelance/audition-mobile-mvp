@@ -2036,7 +2036,8 @@
 }
 
 
-/* P5.6 CHUAN-1 live diagnostic fix-map. Query-only; does not alter normal rendering. */
+/* P5.6 golden-reference diagnostic overlay.
+   Independent owner-sketch pixel trace; query-only and never used by runtime scene rendering. */
 .fixMapOverlay{
   position:absolute;
   z-index:28;
@@ -2058,118 +2059,128 @@
   top:8px;
   display:flex;
   flex-wrap:wrap;
-  gap:4px 7px;
+  gap:4px 8px;
   align-items:center;
   max-width:calc(100% - 16px);
   padding:5px 7px;
-  border:1px solid rgba(151,172,255,.68);
+  border:1px solid rgba(255,222,91,.76);
   border-radius:9px;
-  background:rgba(4,7,20,.82);
+  background:rgba(4,7,20,.84);
   box-shadow:0 5px 14px rgba(0,0,0,.30);
   color:#eaf0ff;
   font-size:7px;
   line-height:1;
 }
 .fixMapLegend strong{
-  color:#fff;
+  color:#ffe56f;
   font-size:7.5px;
-  letter-spacing:.06em;
+  letter-spacing:.05em;
 }
-.fixMapLegend span{
-  display:inline-flex;
-  align-items:center;
-  gap:3px;
-}
-.fixMapLegend i{
-  width:7px;
-  height:7px;
-  border-radius:50%;
-  display:inline-block;
-}
-.fixMajorDot{background:#ff6464}
-.fixMediumDot{background:#ffd45e}
-.fixGoodDot{background:#72f4a4}
-.fixMajorZones path{
-  fill:rgba(255,56,74,.055);
-  stroke:rgba(255,82,96,.58);
-  stroke-width:2;
-  stroke-dasharray:11 8;
-}
-.fixMediumZones rect,.fixMediumZones path,.fixMediumZones ellipse{
-  fill:rgba(255,210,70,.035);
-  stroke:rgba(255,220,91,.58);
-  stroke-width:1.6;
-  stroke-dasharray:9 7;
-}
-.fixGoodZones rect{
-  fill:rgba(72,245,151,.025);
-  stroke:rgba(94,255,161,.68);
+.goldenReferenceZones rect{
+  fill:none;
+  stroke:rgba(198,159,255,.66);
   stroke-width:1.5;
-  stroke-dasharray:8 6;
+  stroke-dasharray:9 6;
+}
+.goldenReferenceZones .goldenLogoZone{
+  stroke:#ffe56f;
+  stroke-width:2;
+}
+.goldenReferenceZones .goldenSubtitleZone{
+  stroke:#b9c8ff;
+  stroke-width:1.4;
 }
 .fixTargetRoof path{
   fill:none;
-  stroke:#ffd85e;
+  stroke:#ffe56f;
   stroke-width:3.2;
   stroke-dasharray:12 6;
   stroke-linecap:round;
-  opacity:.95;
+  opacity:.96;
+}
+.goldenWingOutline path{
+  fill:none;
+  stroke:rgba(255,112,124,.72);
+  stroke-width:1.8;
+  stroke-dasharray:10 7;
 }
 .fixTargetRailsLeft path,.fixTargetRailsRight path{
   fill:none;
   stroke-width:3;
   stroke-dasharray:10 6;
   stroke-linecap:round;
-  opacity:.90;
+  opacity:.94;
 }
 .fixTargetRailsLeft path{stroke:#5ee8ff}
-.fixTargetRailsRight path{stroke:#ff6edc}
-.fixTargetRisers path{
+.fixTargetRailsRight path{stroke:#ff70db}
+.goldenColumns rect{
   fill:none;
-  stroke:#f8f6ff;
-  stroke-width:2.4;
+  stroke:#78ffc1;
+  stroke-width:2;
   stroke-dasharray:9 6;
-  opacity:.86;
 }
-.fixTargetFloor path{
-  fill:none;
-  stroke:#75ffb3;
-  stroke-width:1.6;
-  stroke-dasharray:8 7;
-  opacity:.52;
-}
-.fixTargetFloor path:first-child{
-  stroke-width:2.7;
-  opacity:.88;
+.fixTargetBeams circle{
+  fill:rgba(255,246,177,.2);
+  stroke:#fff2a9;
+  stroke-width:2;
 }
 .fixTargetBeams path{
   fill:none;
-  stroke:#b6dfff;
+  stroke:#c3e4ff;
   stroke-width:2;
   stroke-dasharray:7 7;
-  opacity:.58;
+  opacity:.72;
+}
+.fixTargetRisers path{
+  fill:none;
+  stroke:#fff;
+  stroke-width:2.4;
+  stroke-dasharray:9 6;
+  opacity:.88;
+}
+.fixTargetRisers .goldenRiserLower{
+  stroke:#c6a4ff;
+  stroke-width:1.6;
+  opacity:.62;
+}
+.fixTargetFloor path{
+  fill:none;
+  stroke:#76ffb4;
+  stroke-width:1.45;
+  stroke-dasharray:8 7;
+  opacity:.56;
+}
+.fixTargetFloor path:first-child{
+  stroke-width:2.7;
+  opacity:.92;
+}
+.goldenReflectionLanes path{
+  fill:rgba(84,132,255,.035);
+  stroke:rgba(142,126,255,.58);
+  stroke-width:1.5;
+  stroke-dasharray:10 8;
 }
 .fixTargetRings ellipse{
   fill:none;
   stroke:#9ff7ff;
-  stroke-width:2.4;
+  stroke-width:2.5;
   stroke-dasharray:7 5;
-  opacity:.86;
+  opacity:.94;
 }
-.fixMapNumbers circle{
-  fill:rgba(91,13,24,.88);
-  stroke:#ff6977;
-  stroke-width:2;
+.goldenColorZones rect{
+  fill:color-mix(in srgb,var(--golden-zone-color) 16%,transparent);
+  stroke:var(--golden-zone-color);
+  stroke-width:1.4;
+  stroke-dasharray:6 5;
+  opacity:.82;
 }
-.fixMapNumbers .fixMediumNumber{
-  fill:rgba(87,67,8,.88);
-  stroke:#ffd45e;
-}
-.fixMapNumbers text{
-  fill:#fff;
-  font-size:18px;
-  font-weight:1000;
-  text-anchor:middle;
+.goldenColorZones text{
+  fill:#f2f5ff;
+  font-size:8px;
+  font-weight:900;
+  paint-order:stroke;
+  stroke:rgba(0,0,0,.82);
+  stroke-width:2px;
 }
 .fixMapFooter{
   position:absolute;
@@ -2184,7 +2195,7 @@
   padding:5px 6px;
   border:1px solid rgba(109,133,218,.52);
   border-radius:8px;
-  background:rgba(4,7,20,.80);
+  background:rgba(4,7,20,.82);
   color:#dce6ff;
   font-size:6.5px;
   line-height:1;
