@@ -2024,12 +2024,14 @@ export default function WaitingRoomStage3D({
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
       data-sketch-match={visualPreset === "sketch" ? "v38-v34-owner-guided-structure" : "off"}
-      data-visual-polish={visualPreset === "sketch" ? "v44-even-fixtures-vivid-violet" : "off"}
+      data-visual-polish={visualPreset === "sketch" ? "v45-rear-uplights-deep-violet" : "off"}
       data-beam-falloff={visualPreset === "sketch" ? "mid-stage" : "standard"}
       data-stage-uplights={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.length : 0}
       data-roof-fixture-spacing={visualPreset === "sketch" ? "even-wide" : "standard"}
-      data-uplight-placement={visualPreset === "sketch" ? "center-gaps" : "standard"}
-      data-violet-lighting={visualPreset === "sketch" ? "vivid-purple" : "standard"}
+      data-uplight-placement={visualPreset === "sketch" ? "rear-riser-outward" : "standard"}
+      data-uplight-direction={visualPreset === "sketch" ? "back-to-front-up" : "standard"}
+      data-uplight-beam={visualPreset === "sketch" ? "broad-short-lavender-white" : "standard"}
+      data-violet-lighting={visualPreset === "sketch" ? "deep-vivid-purple" : "standard"}
       data-uplight-fixture={visualPreset === "sketch" ? "visible-floor-head" : "off"}
       data-stage-rail-rows={visualPreset === "sketch" ? traceArchitecture.railsLeft.length : 0}
       data-light-aperture={visualPreset === "sketch" ? "frustum-lens" : "standard"}

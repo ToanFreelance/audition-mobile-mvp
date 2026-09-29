@@ -398,21 +398,21 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
     beams: [
       { x: -3.86, y: 5.92, z: -2.18, color: 0x57ddff, targetX: -0.82, opacity: 0.20 },
       { x: -2.30, y: 5.74, z: -2.92, color: 0x758cff, targetX: -0.44, opacity: 0.16 },
-      { x: -0.78, y: 5.58, z: -3.22, color: 0x8d46ff, targetX: -0.12, opacity: 0.082 },
-      { x: 0.78, y: 5.58, z: -3.22, color: 0x8d46ff, targetX: 0.12, opacity: 0.082 },
-      { x: 2.30, y: 5.74, z: -2.92, color: 0x8d46ff, targetX: 0.44, opacity: 0.16 },
+      { x: -0.78, y: 5.58, z: -3.22, color: 0x7430ff, targetX: -0.12, opacity: 0.11 },
+      { x: 0.78, y: 5.58, z: -3.22, color: 0x7430ff, targetX: 0.12, opacity: 0.11 },
+      { x: 2.30, y: 5.74, z: -2.92, color: 0x7430ff, targetX: 0.44, opacity: 0.18 },
       { x: 3.86, y: 5.92, z: -2.18, color: 0x57ddff, targetX: 0.82, opacity: 0.20 },
     ],
     uplights: [
       {
-        x: -0.78, y: 1.22, z: -3.18,
-        targetX: -0.08, targetY: 3.34, targetZ: -5.02,
-        color: 0x8d46ff, radius: 0.48, opacity: 0.082, intensity: 6.8,
+        x: -1.18, y: 1.22, z: -4.58,
+        targetX: -0.42, targetY: 2.92, targetZ: -3.28,
+        color: 0xf0e4ff, radius: 0.82, opacity: 0.12, intensity: 7.8,
       },
       {
-        x: 0.78, y: 1.22, z: -3.18,
-        targetX: 0.08, targetY: 3.34, targetZ: -5.02,
-        color: 0x8d46ff, radius: 0.48, opacity: 0.082, intensity: 6.8,
+        x: 1.18, y: 1.22, z: -4.58,
+        targetX: 0.42, targetY: 2.92, targetZ: -3.28,
+        color: 0xf0e4ff, radius: 0.82, opacity: 0.12, intensity: 7.8,
       },
     ],
     lighting: {
@@ -423,9 +423,9 @@ export const WAITING_ROOM_SKETCH_BLUEPRINT = {
       cyanRimIntensity: 17.5,
       magentaRimIntensity: 17.5,
       overheadIntensity: 9.8,
-      beamSpotIntensity: 10.2,
-      upperGlowColor: 0x7c32ff,
-      upperGlowIntensity: 2.8,
+      beamSpotIntensity: 10.8,
+      upperGlowColor: 0x7430ff,
+      upperGlowIntensity: 3.4,
     },
     truss: {
       // Golden roof: sides stay near the top edge while the center dips to ~10%
