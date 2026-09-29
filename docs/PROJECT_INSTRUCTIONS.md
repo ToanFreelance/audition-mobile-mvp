@@ -53,11 +53,15 @@ Never develop directly on `main` or `development`.
 
 Current roadmap work branch:
 
-`work/s2-stage-catalog`
+`work/s2-5a-neon-stage-v1`
 
-Current draft PR:
+Parent roadmap PR:
 
 `#16 — S2 Stage Catalog`
+
+Current milestone:
+
+`S2.5A — Neon Stage V1`
 
 P5.6 Waiting Room Visual V2 was owner-accepted and merged into `development` via PR #15 at merge commit `d27168929f9923b1de561133b941977d039d56a1`.
 
@@ -87,16 +91,18 @@ Phase 14 is deferred until the primary product phases are complete.
 
 Current active roadmap work:
 
-**S2 — Stage Catalog**
+**S2.5A — Neon Stage V1**
 
 P5.6 is accepted and integrated into `development`.
 
-After S2 is accepted:
+S2 Stage Catalog is implemented on PR #16 and remains unmerged unless the owner explicitly approves it. S2.5A is stacked on the S2 branch so Neon Stage work can proceed without bypassing the integration rules.
 
-- S2.5 — Environment / Venue Pack V1
-- S3 — Host Stage Selector
+After S2.5A visual/runtime acceptance:
 
-S2.5 creates multiple runnable environments before S3 exposes selection UI. Do not begin S3 until the initial S2.5 environment pack is accepted or the owner explicitly asks to proceed.
+- continue the remaining S2.5 Environment / Venue Pack V1 entries;
+- then S3 — Host Stage Selector.
+
+Do not begin S3 until the initial S2.5 environment pack is accepted or the owner explicitly asks to proceed.
 
 ## Two-Lane Work Policy
 
@@ -288,7 +294,11 @@ Reserved S2.5 environment IDs:
 - `classroom-v1` — planned classroom venue;
 - `cafe-v1` — planned cafe venue.
 
-S2.5A Neon Stage V1 uses the accepted Waiting Room stage composition as its visual source. Higgsfield may be used to redraw / animate the visual source, but runtime presentation remains a consumer of authoritative song time and must never own gameplay timing.
+S2.5A Neon Stage V1 uses the accepted Waiting Room stage composition as its visual source.
+
+The owner-approved Neon Stage concept image `neon_audition_dance_arena.png` is the visual source of truth for S2.5A. Preserve its core composition: curved overhead truss, cyan/violet lighting, large LED backdrop, curved multi-tier risers, glossy reflective dance floor, and central circular dance mark.
+
+Higgsfield 3D / animation tooling may be used for blockout, redraw and motion-source exploration. The final gameplay runtime remains owned by Stage3D and consumes authoritative song time; generated media must never own gameplay timing.
 
 Host stage-selection UI belongs to S3 and must not be started early.
 
@@ -403,9 +413,11 @@ Never let an assumption override an explicit owner decision.
 
 ## Current Priority
 
-Complete and review S2 Stage Catalog on `work/s2-stage-catalog` while preserving the accepted P5.6 Waiting Room baseline in `development`.
+Execute S2.5A Neon Stage V1 on `work/s2-5a-neon-stage-v1`, using `neon_audition_dance_arena.png` as the approved visual source of truth and preserving the accepted S2 Stage Catalog architecture.
 
-Then execute S2.5 Environment / Venue Pack V1, starting with `neon-stage-v1` derived from the accepted Waiting Room stage. Additional planned venues include football field, classroom and cafe.
+First review the editable 3D blockout and presentation direction, then integrate the accepted runtime asset/profile into `neon-stage-v1`.
+
+Additional planned venues remain football field, classroom and cafe.
 
 Do not start S3 Host Stage Selector until the initial S2.5 environment pack is accepted.
 
