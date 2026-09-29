@@ -1056,7 +1056,13 @@ export default function WaitingRoomStage3D({
         spot.position.copy(source);
         spot.target.position.copy(target);
         scene.add(spot, spot.target);
-        sketchFixtures.push({ beam, spot, source, target, t: [0.12, 0.26, 0.36, 0.64, 0.74, 0.88][index] });
+        sketchFixtures.push({
+          beam,
+          spot,
+          source,
+          target,
+          t: WAITING_ROOM_SKETCH_BLUEPRINT.scene.fixtureRoofT[index],
+        });
       });
 
       for (const [index, spec] of WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.entries()) {
@@ -2018,9 +2024,12 @@ export default function WaitingRoomStage3D({
       data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
       data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
       data-sketch-match={visualPreset === "sketch" ? "v38-v34-owner-guided-structure" : "off"}
-      data-visual-polish={visualPreset === "sketch" ? "v43-seven-rail-stage-hug" : "off"}
+      data-visual-polish={visualPreset === "sketch" ? "v44-even-fixtures-vivid-violet" : "off"}
       data-beam-falloff={visualPreset === "sketch" ? "mid-stage" : "standard"}
       data-stage-uplights={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.length : 0}
+      data-roof-fixture-spacing={visualPreset === "sketch" ? "even-wide" : "standard"}
+      data-uplight-placement={visualPreset === "sketch" ? "center-gaps" : "standard"}
+      data-violet-lighting={visualPreset === "sketch" ? "vivid-purple" : "standard"}
       data-uplight-fixture={visualPreset === "sketch" ? "visible-floor-head" : "off"}
       data-stage-rail-rows={visualPreset === "sketch" ? traceArchitecture.railsLeft.length : 0}
       data-light-aperture={visualPreset === "sketch" ? "frustum-lens" : "standard"}

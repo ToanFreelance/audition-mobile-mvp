@@ -61,9 +61,13 @@ test("V38 keeps the clean owner-guided architecture and adds missing structural 
   expect(blueprint.traceArchitecture.truss.rimLowerPath.match(/C/g)).toHaveLength(1);
   expect(blueprint.traceArchitecture.floor.gridHorizontal).toHaveLength(5);
   expect(blueprint.traceArchitecture.floor.gridVertical).toHaveLength(5);
+  expect(blueprint.scene.fixtureRoofT).toEqual([0.08, 0.25, 0.42, 0.58, 0.75, 0.92]);
   expect(blueprint.scene.uplights).toHaveLength(2);
-  expect(blueprint.scene.beams.every(beam => Math.abs(beam.targetX) <= 0.72)).toBe(true);
-  expect(blueprint.scene.uplights.every(light => Math.abs(light.targetX) <= 0.16)).toBe(true);
+  expect(blueprint.scene.beams.every(beam => Math.abs(beam.targetX) <= 0.82)).toBe(true);
+  expect(blueprint.scene.uplights.map(light => light.x)).toEqual([-0.78, 0.78]);
+  expect(blueprint.scene.uplights.every(light => Math.abs(light.targetX) <= 0.08)).toBe(true);
+  expect(blueprint.scene.uplights.every(light => light.color === 0x8d46ff)).toBe(true);
+  expect(blueprint.scene.beams.slice(2, 5).every(light => light.color === 0x8d46ff)).toBe(true);
 });
 
 test("V37 redraw stays anti-circular and keeps the V34 scene architecture", () => {
@@ -229,7 +233,10 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
   await expect(stage).toHaveAttribute("data-sketch-match", "v38-v34-owner-guided-structure");
-  await expect(stage).toHaveAttribute("data-visual-polish", "v43-seven-rail-stage-hug");
+  await expect(stage).toHaveAttribute("data-visual-polish", "v44-even-fixtures-vivid-violet");
+  await expect(stage).toHaveAttribute("data-roof-fixture-spacing", "even-wide");
+  await expect(stage).toHaveAttribute("data-uplight-placement", "center-gaps");
+  await expect(stage).toHaveAttribute("data-violet-lighting", "vivid-purple");
   await expect(stage).toHaveAttribute("data-beam-falloff", "mid-stage");
   await expect(stage).toHaveAttribute("data-stage-uplights", "2");
   await expect(stage).toHaveAttribute("data-uplight-fixture", "visible-floor-head");
