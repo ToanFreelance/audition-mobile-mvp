@@ -1,3 +1,4 @@
+import { avatarCharacterAssetId } from "./avatar-character";
 import type { RoomParticipant } from "./types";
 
 /**
@@ -8,5 +9,5 @@ import type { RoomParticipant } from "./types";
  * labels, but they must never restart the participant's 3D actor/AnimationMixer.
  */
 export function lobbyStageParticipantIdentity(participant: RoomParticipant) {
-  return `${participant.participantId}:${participant.avatar.characterId}:${participant.slotIndex}`;
+  return `${participant.participantId}:${avatarCharacterAssetId(participant.avatar)}:${participant.slotIndex}`;
 }

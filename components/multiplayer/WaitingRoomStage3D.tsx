@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
+import {
+  CHARACTER_CATALOG_V1,
+  DEFAULT_CHARACTER_ASSET_ID,
+  getCharacterCatalogEntry,
+  isCharacterAssetId,
+  type CharacterAssetId,
+} from "../character/character-catalog";
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import { loadLobbyIdleLibrary } from "../character/lobby-idle-library";
-import type { RoomParticipant, RoomSlot } from "../../multiplayer/types";
+import { retargetQuaterniusClipsToMixamo } from "../character/mixamo-character-adapter";
+import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
+import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlot } from "../../multiplayer/types";
 import { lobbyStageParticipantIdentity } from "../../multiplayer/lobby-stage-identity";
 import {
   selectParticipantIdleClipByIndex,
@@ -15,29 +25,58 @@ import {
   selectParticipantNextIdleIndex,
   selectRoomParticipantIdleIndices,
 } from "./lobby-idle-selection";
+import { createSketchStageSet, sketchFixtureLayoutKey, sketchFixtureSource } from "./waiting-room-sketch-set";
+import {
+  WAITING_ROOM_SKETCH_BLUEPRINT,
+  sketchColorCss,
+  sketchColorRgba,
+  sketchStagePoint,
+  sketchStageRect,
+} from "./waiting-room-sketch-blueprint";
 import styles from "./WaitingRoomStage3D.module.css";
 
 export type WaitingRoomStageView = "wide" | "center" | "close";
+export type WaitingRoomVisualPreset = "default" | "sketch";
+
+export type WaitingRoomCalibrationPlacement = {
+  x: number;
+  y: number;
+  z: number;
+  scale: number;
+  rotationY: number;
+};
+
+export type WaitingRoomCalibrationLayout = Record<string, WaitingRoomCalibrationPlacement>;
 
 type Props = {
   participants: readonly RoomParticipant[];
   slots: readonly RoomSlot[];
   roomId: string;
   stageId: string;
+  visualPreset?: WaitingRoomVisualPreset;
   viewMode: WaitingRoomStageView;
   pageIndex: number;
   selectedParticipantId: string | null;
   pageSize?: number;
+  calibrationMode?: boolean;
+  blueprintMode?: boolean;
+  calibrationResetToken?: number;
+  onCalibrationLayoutChange?: (layout: WaitingRoomCalibrationLayout) => void;
   onSelectParticipant?: (participant: RoomParticipant) => void;
 };
 
 type StageNode = {
   participant: RoomParticipant;
   index: number;
-  characterId: string;
+  characterAssetId: CharacterAssetId;
   actor: THREE.Object3D;
   ring: THREE.Object3D;
   baseScale: THREE.Vector3;
+  targetPosition: THREE.Vector3;
+  targetRotationY: number;
+  targetActorScale: number;
+  targetRingScale: number;
+  layoutReady: boolean;
 };
 
 type SlotPlaceholder = {
@@ -51,6 +90,7 @@ type IdleRuntime = {
   participantId: string;
   mixer: THREE.AnimationMixer;
   currentAction: THREE.AnimationAction;
+  clips: readonly THREE.AnimationClip[];
   currentIndex: number;
   transitionOrdinal: number;
   elapsedSeconds: number;
@@ -59,16 +99,42 @@ type IdleRuntime = {
   retiringSeconds: number;
 };
 
-const FEMALE_CHARACTER_ASSET_URL = HUMAN_CHARACTER_ASSET_URL.replace(
-  "UBC_Superhero_Male_FullBody.glb",
-  "UBC_Superhero_Female_FullBody.glb",
-);
 const IDLE_RENDER_FPS = 30;
 const IDLE_CROSSFADE_SECONDS = 0.35;
 const SLOT_ACCENTS = [0x43dfff, 0xff4fcf, 0x69efae, 0xff5fbd, 0xa968ff, 0x56b4ff] as const;
+const SKETCH_CYAN_RING_ACCENT = WAITING_ROOM_SKETCH_BLUEPRINT.palette.rings.maleCyan;
+const SKETCH_PINK_RING_ACCENT = WAITING_ROOM_SKETCH_BLUEPRINT.palette.rings.femalePink;
 
 function participantAccent(participant: RoomParticipant) {
   return SLOT_ACCENTS[participant.slotIndex] ?? 0x43dfff;
+}
+
+// Golden-sketch ring color is presentation-only, but its identity source is the
+// Character Catalog. Never infer it from names, slot positions or READY state.
+function participantSketchRingAccent(participant: RoomParticipant) {
+  return getCharacterCatalogEntry(participantCharacterAssetId(participant))?.gender === "female"
+    ? SKETCH_PINK_RING_ACCENT
+    : SKETCH_CYAN_RING_ACCENT;
+}
+
+function participantCharacterAssetId(participant: RoomParticipant): CharacterAssetId {
+  const candidate = avatarCharacterAssetId(participant.avatar);
+  return isCharacterAssetId(candidate) ? candidate : DEFAULT_CHARACTER_ASSET_ID;
+}
+
+function participantUsesFemaleFallback(participant: RoomParticipant) {
+  return getCharacterCatalogEntry(participantCharacterAssetId(participant))?.gender === "female";
+}
+
+function findPrimarySkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh {
+  let target: THREE.SkinnedMesh | null = null;
+  root.traverse(object => {
+    if (!target && (object as THREE.SkinnedMesh).isSkinnedMesh) {
+      target = object as THREE.SkinnedMesh;
+    }
+  });
+  if (!target) throw new Error("Waiting-room character asset has no skinned mesh.");
+  return target;
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -114,7 +180,12 @@ function normalizeModel(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
 }
 
-function tintActor(actor: THREE.Object3D, participant: RoomParticipant, index: number) {
+function tintActor(
+  actor: THREE.Object3D,
+  participant: RoomParticipant,
+  index: number,
+  sketchPolish = false,
+) {
   const tint = new THREE.Color(
     participant.role === "host"
       ? 0x7eb8ff
@@ -128,7 +199,14 @@ function tintActor(actor: THREE.Object3D, participant: RoomParticipant, index: n
   const cloneMaterial = (material: THREE.Material) => {
     const next = material.clone();
     const colored = next as THREE.Material & { color?: THREE.Color };
-    colored.color?.lerp(tint, 0.12);
+    if (colored.color && !sketchPolish) {
+      // Sketch skin/clothes retain catalog albedo; key/fill/rim provide the grade.
+      // A role tint plus a yellow tint on every material washed out skin detail.
+      colored.color.lerp(tint, 0.12);
+    }
+    if (sketchPolish && next instanceof THREE.MeshStandardMaterial) {
+      next.roughness = Math.min(0.82, Math.max(0.28, next.roughness * 0.92));
+    }
     return next;
   };
 
@@ -174,11 +252,9 @@ function statusClass(participant: RoomParticipant) {
 function levelFor(participant: RoomParticipant) {
   if (participant.role === "host") return 25;
   if (participant.participantId === "p51-guest") return 18;
+  if (participant.participantId === "p56-minh") return 20;
+  if (participant.participantId === "p56-mai") return 17;
   return participant.kind === "bot" ? 16 : 12;
-}
-
-function isFemale(participant: RoomParticipant) {
-  return participant.avatar.characterId.toLowerCase().includes("female");
 }
 
 function centerPosition(index: number, total: number, pageSize: number) {
@@ -189,94 +265,487 @@ function centerPosition(index: number, total: number, pageSize: number) {
   return { x: centered * 2.42, z: Math.abs(centered) * 0.12, rotationY: centered * -0.05 };
 }
 
-function createParticipantRing(color: number, pulsePhase: number, host: boolean) {
+const WIDE_ARC_PLACEMENTS = {
+  center: { x: -0.0764, y: 0, z: 2.6, rotationY: 0, scale: 0.8682 },
+  leftNear: { x: -1.7004, y: 0.08, z: 1.9872, rotationY: 0.05, scale: 0.72 },
+  rightNear: { x: 1.6599, y: 0.08, z: 1.8558, rotationY: -0.05, scale: 0.72 },
+  leftOuter: { x: -3.0365, y: 0.30, z: 0.2648, rotationY: 0.095, scale: 0.52 },
+  rightOuter: { x: 3.0732, y: 0.30, z: 0.053, rotationY: -0.095, scale: 0.52 },
+} as const;
+
+const SKETCH_WIDE_ARC_PLACEMENTS = WAITING_ROOM_SKETCH_BLUEPRINT.scene.formation;
+
+function wideSlotPlacement(
+  slotIndex: number,
+  focusSlotIndex: number,
+  visualPreset: WaitingRoomVisualPreset,
+) {
+  const placements = visualPreset === "sketch"
+    ? SKETCH_WIDE_ARC_PLACEMENTS
+    : WIDE_ARC_PLACEMENTS;
+  const offset = (
+    (slotIndex - focusSlotIndex + 2 + WAITING_ROOM_MAX_PLAYERS)
+    % WAITING_ROOM_MAX_PLAYERS
+  ) - 2;
+  if (offset === 1) return placements.leftNear;
+  if (offset === -1) return placements.rightNear;
+  if (offset === 2) return placements.leftOuter;
+  if (offset === -2) return placements.rightOuter;
+  return placements.center;
+}
+
+function createParticipantRing(
+  color: number,
+  pulsePhase: number,
+  host: boolean,
+  sketchPolish = false,
+) {
   const group = new THREE.Group();
 
   const underglowMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.045,
+    opacity: sketchPolish ? 0.018 : 0.045,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
+    toneMapped: !sketchPolish,
   });
-  const underglow = new THREE.Mesh(new THREE.CircleGeometry(1.08, 40), underglowMaterial);
+  const underglow = new THREE.Mesh(
+    new THREE.CircleGeometry(sketchPolish ? 1.03 : 1.08, 48),
+    underglowMaterial,
+  );
   underglow.rotation.x = -Math.PI / 2;
   underglow.position.y = -0.018;
 
   const floorMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.11,
+    opacity: sketchPolish ? 0.010 : 0.11,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
+    toneMapped: !sketchPolish,
   });
-  const floorGlow = new THREE.Mesh(new THREE.CircleGeometry(0.76, 40), floorMaterial);
+  const floorGlow = new THREE.Mesh(
+    new THREE.CircleGeometry(sketchPolish ? 0.72 : 0.76, 48),
+    floorMaterial,
+  );
   floorGlow.rotation.x = -Math.PI / 2;
   floorGlow.position.y = -0.006;
 
   const haloMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.22,
+    opacity: sketchPolish ? 0.16 : 0.22,
     side: THREE.DoubleSide,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
+    toneMapped: !sketchPolish,
   });
-  const halo = new THREE.Mesh(new THREE.RingGeometry(0.68, 1.0, 48), haloMaterial);
+  const halo = new THREE.Mesh(
+    new THREE.RingGeometry(sketchPolish ? 0.878 : 0.68, 1.008, sketchPolish ? 128 : 96, sketchPolish ? 8 : 1),
+    haloMaterial,
+  );
   halo.rotation.x = -Math.PI / 2;
   halo.position.y = 0.002;
+  if (sketchPolish) {
+    const positions = halo.geometry.getAttribute("position");
+    const falloff: number[] = [];
+    for (let i = 0; i < positions.count; i += 1) {
+      const radius = Math.hypot(positions.getX(i), positions.getY(i));
+      const strength = Math.exp(-Math.pow((radius - 0.94) / 0.035, 2));
+      falloff.push(strength, strength, strength);
+    }
+    halo.geometry.setAttribute("color", new THREE.Float32BufferAttribute(falloff, 3));
+    haloMaterial.vertexColors = true;
+  }
 
   const outerMaterial = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.2,
+    opacity: sketchPolish ? 0.99 : 0.2,
     side: THREE.DoubleSide,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    blending: sketchPolish ? THREE.NormalBlending : THREE.AdditiveBlending,
+    toneMapped: !sketchPolish,
   });
-  const outer = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.035, 48), outerMaterial);
+  const outer = new THREE.Mesh(
+    new THREE.RingGeometry(sketchPolish ? 0.878 : 0.95, sketchPolish ? 0.992 : 1.035, sketchPolish ? 128 : 64),
+    outerMaterial,
+  );
   outer.rotation.x = -Math.PI / 2;
   outer.position.y = 0.008;
 
   const coreMaterial = new THREE.MeshBasicMaterial({
-    color,
+    color: sketchPolish ? new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.24) : color,
     transparent: true,
-    opacity: 0.94,
+    opacity: sketchPolish ? 0.98 : 0.94,
     side: THREE.DoubleSide,
     depthWrite: false,
+    blending: THREE.NormalBlending,
+    toneMapped: !sketchPolish,
   });
-  const core = new THREE.Mesh(new THREE.RingGeometry(0.79, 0.875, 48), coreMaterial);
+  const core = new THREE.Mesh(
+    new THREE.RingGeometry(sketchPolish ? 0.704 : 0.79, sketchPolish ? 0.816 : 0.875, sketchPolish ? 128 : 64),
+    coreMaterial,
+  );
   core.rotation.x = -Math.PI / 2;
   core.position.y = 0.014;
 
   const innerMaterial = new THREE.MeshBasicMaterial({
-    color: host ? 0xffd454 : color,
+    color: sketchPolish ? color : host ? 0xffd454 : color,
     transparent: true,
-    opacity: host ? 0.66 : 0.34,
+    opacity: sketchPolish ? 0.84 : host ? 0.66 : 0.34,
     side: THREE.DoubleSide,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    blending: sketchPolish ? THREE.NormalBlending : THREE.AdditiveBlending,
+    toneMapped: !sketchPolish,
   });
-  const inner = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.59, 40), innerMaterial);
+  const inner = new THREE.Mesh(
+    new THREE.RingGeometry(sketchPolish ? 0.573 : 0.55, sketchPolish ? 0.598 : 0.59, sketchPolish ? 128 : 64),
+    innerMaterial,
+  );
   inner.rotation.x = -Math.PI / 2;
   inner.position.y = 0.018;
 
-  group.add(underglow, floorGlow, halo, outer, core, inner);
+  const shineMaterial = new THREE.MeshBasicMaterial({
+    color: sketchPolish ? new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.32) : 0xffffff,
+    transparent: true,
+    opacity: sketchPolish ? 0.31 : 0,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    toneMapped: !sketchPolish,
+  });
+  const shine = new THREE.Mesh(
+    new THREE.RingGeometry(sketchPolish ? 0.927 : 0.835, sketchPolish ? 0.950 : 0.86, sketchPolish ? 128 : 64),
+    shineMaterial,
+  );
+  shine.rotation.x = -Math.PI / 2;
+  shine.position.y = 0.02;
+
+  group.add(underglow, floorGlow, halo, outer, core, inner, shine);
   group.userData.pulsePhase = pulsePhase;
   group.userData.emphasis = host ? 0.55 : 0;
+  group.userData.depthBoost = 0;
   group.userData.underglowMaterial = underglowMaterial;
   group.userData.haloMaterial = haloMaterial;
   group.userData.outerMaterial = outerMaterial;
   group.userData.coreMaterial = coreMaterial;
+  group.userData.innerMaterial = innerMaterial;
+  group.userData.shineMaterial = shineMaterial;
   group.userData.floorMaterial = floorMaterial;
+  group.userData.sketchPolish = sketchPolish;
+  group.userData.depthScale = sketchPolish ? 0.70 : 1;
+  group.userData.accent = color;
+  if (sketchPolish) {
+    // Keep decals parallel to the floor; compress depth without tilting their plane.
+    // Transparent floor sorting otherwise paints over the distant rings. Render
+    // decals after floor overlays, but retain depthTest against actors and risers.
+    group.renderOrder = 2;
+    group.children.forEach((object, index) => { object.renderOrder = index; });
+    group.traverse(object => object.layers.set(1));
+    // No mirror copies: the raised outer slots otherwise produce detached
+    // ellipses. The radial halo supplies contact light on the floor itself.
+  }
   return group;
+}
+
+function createSketchFloorTexture(maxAnisotropy: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+
+  const palette = WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor;
+  const base = context.createLinearGradient(0, 0, 0, 512);
+  base.addColorStop(0, sketchColorCss(palette.baseDark));
+  base.addColorStop(0.46, sketchColorCss(palette.baseMid));
+  base.addColorStop(0.73, sketchColorCss(palette.baseViolet));
+  base.addColorStop(1, sketchColorCss(palette.baseDark));
+  context.fillStyle = base;
+  context.fillRect(0, 0, 512, 512);
+
+  const centerGlow = context.createRadialGradient(256, 318, 20, 256, 318, 250);
+  centerGlow.addColorStop(0, sketchColorRgba(palette.violetReflection, 0.64));
+  centerGlow.addColorStop(0.50, sketchColorRgba(palette.violetReflection, 0.38));
+  centerGlow.addColorStop(1, "rgba(0,0,0,0)");
+  context.fillStyle = centerGlow;
+  context.fillRect(0, 0, 512, 512);
+
+  const leftGlow = context.createRadialGradient(118, 330, 8, 118, 330, 155);
+  leftGlow.addColorStop(0, sketchColorRgba(palette.cyanReflection, 0.61));
+  leftGlow.addColorStop(1, "rgba(0,0,0,0)");
+  context.fillStyle = leftGlow;
+  context.fillRect(0, 0, 512, 512);
+
+  const rightGlow = context.createRadialGradient(394, 330, 8, 394, 330, 155);
+  rightGlow.addColorStop(0, sketchColorRgba(palette.magentaReflection, 0.60));
+  rightGlow.addColorStop(1, "rgba(0,0,0,0)");
+  context.fillStyle = rightGlow;
+  context.fillRect(0, 0, 512, 512);
+
+  for (let index = 0; index <= 8; index += 1) {
+    const coordinate = index * 64;
+    context.strokeStyle = index % 2
+      ? sketchColorRgba(palette.magentaReflection, 0.33)
+      : sketchColorRgba(palette.cyanReflection, 0.33);
+    context.lineWidth = index === 4 ? 1.65 : 0.90;
+    context.beginPath();
+    context.moveTo(coordinate, 0);
+    context.lineTo(coordinate, 512);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(0, coordinate);
+    context.lineTo(512, coordinate);
+    context.stroke();
+  }
+
+  for (const [x, tint] of [
+    [116, sketchColorRgba(palette.cyanReflection, 0.64)],
+    [256, sketchColorRgba(palette.violetReflection, 0.52)],
+    [396, sketchColorRgba(palette.magentaReflection, 0.64)],
+  ] as const) {
+    const streak = context.createLinearGradient(x - 38, 0, x + 38, 0);
+    streak.addColorStop(0, "rgba(255,255,255,0)");
+    streak.addColorStop(0.5, tint);
+    streak.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = streak;
+    context.fillRect(x - 38, 0, 76, 512);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = Math.min(4, maxAnisotropy);
+  return texture;
+}
+
+function createSketchFloorLightTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 512;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  // CircleGeometry UVs span the full 18-world-unit floor, not just the viewport.
+  const px = (world: number) => 256 + world / WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius * 256;
+  context.fillStyle = "#000";
+  context.fillRect(0, 0, 512, 512);
+  for (const [worldX, color] of [[-2.8, "50,229,255"], [0.1, "164,108,255"], [2.8, "244,90,231"]] as const) {
+    const x = px(worldX);
+    const across = context.createLinearGradient(x - 18, 0, x + 18, 0);
+    across.addColorStop(0, `rgba(${color},0)`);
+    across.addColorStop(0.34, `rgba(${color},0.26)`);
+    across.addColorStop(0.50, `rgba(${color},1)`);
+    across.addColorStop(0.66, `rgba(${color},0.26)`);
+    across.addColorStop(1, `rgba(${color},0)`);
+    context.fillStyle = across;
+    context.fillRect(x - 18, 122, 36, 260);
+  }
+  // Real floor-plane grid; perspective is supplied by the floor plane.
+  context.strokeStyle = "rgba(112,143,246,.48)";
+  context.lineWidth = 0.82;
+  for (let world = -8; world <= 8; world += 0.9) {
+    const coordinate = px(world);
+    context.beginPath();
+    context.moveTo(coordinate, 0); context.lineTo(coordinate, 512);
+    context.moveTo(0, coordinate); context.lineTo(512, coordinate);
+    context.stroke();
+  }
+  const fade = context.createLinearGradient(0, 112, 0, 398);
+  fade.addColorStop(0, "rgba(0,0,0,0)");
+  fade.addColorStop(0.2, "rgba(0,0,0,.85)");
+  fade.addColorStop(0.65, "rgba(0,0,0,.65)");
+  fade.addColorStop(1, "rgba(0,0,0,0)");
+  context.globalCompositeOperation = "destination-in";
+  context.fillStyle = fade;
+  context.fillRect(0, 0, 512, 512);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+function createSketchBulbGlowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  const gradient = context.createRadialGradient(32, 32, 2, 32, 32, 31);
+  gradient.addColorStop(0, "rgba(255,255,255,0.96)");
+  gradient.addColorStop(0.18, "rgba(255,255,255,0.68)");
+  gradient.addColorStop(0.46, "rgba(255,255,255,0.18)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 64, 64);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createSketchSpotBeam(
+  source: THREE.Vector3,
+  target: THREE.Vector3,
+  color: number,
+  radius: number,
+  opacity: number,
+  fixtureStyle: "pendant" | "uplight" = "pendant",
+) {
+  const group = new THREE.Group();
+  const direction = target.clone().sub(source);
+  const length = direction.length();
+  const directionNormal = direction.clone().normalize();
+  const beamQuaternion = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, -1, 0),
+    directionNormal,
+  );
+
+  // Keep a real luminous aperture at the fixture: the beam starts as a
+  // frustum instead of collapsing to a pin-point cone tip.
+  const apertureRadius = radius * (fixtureStyle === "uplight" ? 0.16 : 0.10);
+  const beamNearRadius = apertureRadius * 0.96;
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(beamNearRadius, radius, length, 32, 1, true),
+    new THREE.ShaderMaterial({
+      uniforms: {
+        lightColor: { value: new THREE.Color(color) },
+        lightOpacity: { value: opacity },
+      },
+      vertexShader: `
+        varying vec2 beamUv;
+        varying vec3 beamNormal;
+        varying vec3 beamView;
+        void main() {
+          beamUv = uv;
+          vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+          beamNormal = normalize(normalMatrix * normal);
+          beamView = -viewPosition.xyz;
+          gl_Position = projectionMatrix * viewPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 lightColor;
+        uniform float lightOpacity;
+        varying vec2 beamUv;
+        varying vec3 beamNormal;
+        varying vec3 beamView;
+        void main() {
+          float feather = pow(abs(dot(normalize(beamNormal), normalize(beamView))), 1.85);
+          float axial = 0.76 + 0.24 * smoothstep(0.28, 0.86, beamUv.y);
+          float farFade = smoothstep(0.10, 0.52, beamUv.y);
+          float breakup = 0.96 + 0.04 * cos((beamUv.x + beamUv.y * 0.18) * 12.56637);
+          gl_FragColor = vec4(lightColor, lightOpacity * 0.86 * feather * axial * farFade * breakup);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    }),
+  );
+  beam.position.copy(source).add(target).multiplyScalar(0.5);
+  beam.quaternion.copy(beamQuaternion);
+  group.add(beam);
+
+  const housingMaterial = new THREE.MeshStandardMaterial({
+    color: 0x050812,
+    emissive: new THREE.Color(color).multiplyScalar(0.08),
+    emissiveIntensity: fixtureStyle === "uplight" ? 0.20 : 0.12,
+    roughness: 0.52,
+    metalness: 0.46,
+  });
+  const housing = new THREE.Mesh(
+    new THREE.CylinderGeometry(
+      apertureRadius * 0.72,
+      apertureRadius * 1.02,
+      fixtureStyle === "uplight" ? 0.14 : 0.16,
+      18,
+    ),
+    housingMaterial,
+  );
+  housing.position.copy(source);
+  housing.quaternion.copy(beamQuaternion);
+  group.add(housing);
+
+  const mountOffset = fixtureStyle === "uplight"
+    ? new THREE.Vector3(0, -0.105, 0)
+    : new THREE.Vector3(0, 0.125, 0);
+  const mount = fixtureStyle === "uplight"
+    ? new THREE.Mesh(
+        new THREE.BoxGeometry(apertureRadius * 2.8, 0.055, apertureRadius * 2.0),
+        housingMaterial,
+      )
+    : new THREE.Mesh(
+        new THREE.CylinderGeometry(0.016, 0.016, 0.20, 8),
+        housingMaterial,
+      );
+  mount.position.copy(source).add(mountOffset);
+  group.add(mount);
+
+  const lensQuaternion = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 0, 1),
+    directionNormal,
+  );
+  const lens = new THREE.Mesh(
+    new THREE.CircleGeometry(apertureRadius * 0.82, 28),
+    new THREE.MeshBasicMaterial({
+      color: 0xf8fdff,
+      transparent: true,
+      opacity: fixtureStyle === "uplight" ? 0.82 : 0.70,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    }),
+  );
+  const lensOffset = fixtureStyle === "uplight" ? 0.09 : 0.105;
+  lens.position.copy(source).add(directionNormal.clone().multiplyScalar(lensOffset));
+  lens.quaternion.copy(lensQuaternion);
+  group.add(lens);
+
+  let sourceGlow: THREE.Sprite | null = null;
+  const glowTexture = createSketchBulbGlowTexture();
+  if (glowTexture) {
+    sourceGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTexture,
+      color,
+      transparent: true,
+      opacity: fixtureStyle === "uplight" ? 0.26 : 0.18,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    }));
+    sourceGlow.position.copy(lens.position);
+    sourceGlow.scale.setScalar(radius * (fixtureStyle === "uplight" ? 0.52 : 0.46));
+    group.add(sourceGlow);
+  }
+
+  // Re-aim the existing meshes at the fixed stage target; translating a whole
+  // cone would move its pool as well and disconnect the visual beam from light.
+  const setEndpoints = (nextSource: THREE.Vector3, nextTarget: THREE.Vector3) => {
+    const nextDirection = nextTarget.clone().sub(nextSource);
+    const nextLength = nextDirection.length();
+    const normal = nextDirection.normalize();
+    const rotation = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), normal);
+    beam.position.copy(nextSource).add(nextTarget).multiplyScalar(0.5);
+    beam.scale.y = nextLength / length;
+    beam.quaternion.copy(rotation);
+    housing.position.copy(nextSource);
+    housing.quaternion.copy(rotation);
+    mount.position.copy(nextSource).add(mountOffset);
+    lens.position.copy(nextSource).addScaledVector(normal, lensOffset);
+    lens.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+    sourceGlow?.position.copy(lens.position);
+  };
+  return Object.assign(group, { setEndpoints });
 }
 
 function setScale(node: StageNode, actorMultiplier: number, ringMultiplier = actorMultiplier) {
   node.actor.scale.copy(node.baseScale).multiplyScalar(actorMultiplier);
-  node.ring.scale.setScalar(ringMultiplier);
+  const depthScale = Number(node.ring.userData.depthScale ?? 1);
+  node.ring.scale.set(ringMultiplier, ringMultiplier, ringMultiplier * depthScale);
 }
 
 export default function WaitingRoomStage3D({
@@ -284,20 +753,30 @@ export default function WaitingRoomStage3D({
   slots,
   roomId,
   stageId,
+  visualPreset = "default",
   viewMode,
   pageIndex,
   selectedParticipantId,
   pageSize = 2,
+  calibrationMode = false,
+  blueprintMode = false,
+  calibrationResetToken = 0,
+  onCalibrationLayoutChange,
   onSelectParticipant,
 }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const identityRefs = useRef(new Map<string, HTMLButtonElement>());
   const stageNodesRef = useRef(new Map<string, StageNode>());
+  const calibrationOverridesRef = useRef(new Map<string, WaitingRoomCalibrationPlacement>());
   const slotPlaceholdersRef = useRef<SlotPlaceholder[]>([]);
   const slotsRef = useRef(slots);
   const renderRef = useRef<(() => void) | null>(null);
   const layoutRef = useRef<(() => void) | null>(null);
   const reconcileParticipantsRef = useRef<(() => void) | null>(null);
   const selectCallbackRef = useRef(onSelectParticipant);
+  const calibrationModeRef = useRef(calibrationMode);
+  const visualPresetRef = useRef<WaitingRoomVisualPreset>(visualPreset);
+  const calibrationCallbackRef = useRef(onCalibrationLayoutChange);
   const participantsRef = useRef(participants);
   const viewRef = useRef({ viewMode, pageIndex, pageSize, selectedParticipantId });
   const [loadState, setLoadState] = useState<"loading" | "ready" | "fallback">("loading");
@@ -305,8 +784,13 @@ export default function WaitingRoomStage3D({
   const [renderedActorCount, setRenderedActorCount] = useState(0);
   const [idleRuntimeCount, setIdleRuntimeCount] = useState(0);
   const [idleSource, setIdleSource] = useState<"loading" | "published" | "builtin" | "none">("loading");
+  const stagePresentationReady = loadState !== "loading"
+    && renderedActorCount >= participants.length;
 
   selectCallbackRef.current = onSelectParticipant;
+  calibrationModeRef.current = calibrationMode;
+  visualPresetRef.current = visualPreset;
+  calibrationCallbackRef.current = onCalibrationLayoutChange;
   participantsRef.current = participants;
   slotsRef.current = slots;
   viewRef.current = { viewMode, pageIndex, pageSize, selectedParticipantId };
@@ -330,9 +814,21 @@ export default function WaitingRoomStage3D({
     return participants.slice(pageIndex * pageSize, pageIndex * pageSize + pageSize);
   }, [pageIndex, pageSize, participants, selectedParticipantId, viewMode]);
 
+  const hostParticipant = participants.find(participant => participant.role === "host") ?? null;
+  const focusedParticipant = participants.find(participant => participant.participantId === selectedParticipantId)
+    ?? hostParticipant
+    ?? participants[0]
+    ?? null;
+
   useEffect(() => {
     layoutRef.current?.();
   }, [pageIndex, pageSize, selectedParticipantId, slotStateKey, viewMode]);
+
+  useEffect(() => {
+    if (!calibrationMode) return;
+    calibrationOverridesRef.current.clear();
+    layoutRef.current?.();
+  }, [calibrationMode, calibrationResetToken]);
 
   useEffect(() => {
     reconcileParticipantsRef.current?.();
@@ -349,8 +845,8 @@ export default function WaitingRoomStage3D({
     let accumulatedMs = 0;
     let idleClips: readonly THREE.AnimationClip[] = [];
     let releaseVersion = 0;
-    let maleSource: THREE.Object3D | null = null;
-    let femaleSource: THREE.Object3D | null = null;
+    const actorSources = new Map<CharacterAssetId, THREE.Object3D>();
+    const idleClipsByAssetId = new Map<CharacterAssetId, readonly THREE.AnimationClip[]>();
     let characterAssetsReady = false;
 
     const idleRuntimeByParticipant = new Map<string, IdleRuntime>();
@@ -360,8 +856,10 @@ export default function WaitingRoomStage3D({
     setIdleRuntimeCount(0);
     setIdleSource("loading");
 
+    const sketchVisual = visualPreset === "sketch";
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+    if (sketchVisual) camera.layers.enable(1);
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -370,66 +868,163 @@ export default function WaitingRoomStage3D({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.16;
+    renderer.toneMappingExposure = sketchVisual ? 1.15 : 1.16;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0x9bb4ff, 0x050510, 1.34));
+    scene.add(new THREE.HemisphereLight(
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.hemisphereSky : 0x9bb4ff,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.hemisphereGround : 0x050510,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.hemisphereIntensity : 1.34,
+    ));
 
-    const key = new THREE.DirectionalLight(0xf8fbff, 2.32);
-    key.position.set(1.8, 6.8, 5.9);
+    const key = new THREE.DirectionalLight(
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.key : 0xf8fbff,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.keyIntensity : 2.32,
+    );
+    key.position.set(sketchVisual ? -2.4 : 1.8, sketchVisual ? 4.8 : 6.8, 5.9);
     scene.add(key);
 
-    const frontFill = new THREE.DirectionalLight(0xffffff, 0.82);
+    const frontFill = new THREE.DirectionalLight(
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.fill : 0xffffff,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.fillIntensity : 0.82,
+    );
     frontFill.position.set(0, 3.2, 6.8);
     scene.add(frontFill);
 
-    const cyanRim = new THREE.SpotLight(0x42dcff, 16, 16, Math.PI / 4.2, 0.72, 1.6);
-    cyanRim.position.set(4.7, 6.1, 2.8);
-    cyanRim.target.position.set(0.7, 1.7, 0);
+    const cyanRim = new THREE.SpotLight(
+      sketchVisual ? 0x20e8ff : 0x42dcff,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.cyanRimIntensity : 16,
+      16,
+      Math.PI / 4.2,
+      0.72,
+      1.6,
+    );
+    cyanRim.position.set(-4.7, 6.1, 2.8);
+    cyanRim.target.position.set(-0.32, 1.72, -0.82);
     scene.add(cyanRim, cyanRim.target);
 
-    const magentaRim = new THREE.SpotLight(0xff43cc, 15, 16, Math.PI / 4.2, 0.72, 1.6);
-    magentaRim.position.set(-4.7, 5.8, 2.2);
-    magentaRim.target.position.set(-0.7, 1.65, 0);
+    const magentaRim = new THREE.SpotLight(
+      sketchVisual ? 0xff20d5 : 0xff43cc,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.magentaRimIntensity : 15,
+      16,
+      Math.PI / 4.2,
+      0.72,
+      1.6,
+    );
+    magentaRim.position.set(4.7, 5.8, 2.2);
+    magentaRim.target.position.set(0.32, 1.72, -0.82);
     scene.add(magentaRim, magentaRim.target);
 
-    const overhead = new THREE.SpotLight(0xc4d4ff, 14, 16, Math.PI / 5, 0.7, 1.7);
+    const overhead = new THREE.SpotLight(
+      0xcad8ff,
+      sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.overheadIntensity : 14,
+      16,
+      Math.PI / 5,
+      0.7,
+      1.7,
+    );
     overhead.position.set(0, 7.5, 1.1);
-    overhead.target.position.set(0, 1.2, 0);
+    overhead.target.position.set(0, 1.52, -0.88);
     scene.add(overhead, overhead.target);
 
+    const sketchFloorTexture = sketchVisual
+      ? createSketchFloorTexture(renderer.capabilities.getMaxAnisotropy())
+      : null;
+    let sketchReflector: Reflector | null = null;
+    if (sketchVisual) {
+      const reflectionSize = Math.min(
+        640,
+        Math.max(320, Math.round(Math.min(window.innerWidth, 640) * 0.82)),
+      );
+      sketchReflector = new Reflector(new THREE.CircleGeometry(WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius, 96), {
+        clipBias: 0.0025,
+        textureWidth: reflectionSize,
+        textureHeight: reflectionSize,
+        color: WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.reflectorTint,
+      });
+      sketchReflector.rotation.x = -Math.PI / 2;
+      sketchReflector.position.set(0, -0.056, 0.18);
+      scene.add(sketchReflector);
+    }
+
     const floor = new THREE.Mesh(
-      new THREE.CircleGeometry(5.75, 64),
-      new THREE.MeshStandardMaterial({
-        color: 0x070d27,
-        roughness: 0.24,
-        metalness: 0.58,
-      }),
+      new THREE.CircleGeometry(
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius : 5.75,
+        sketchVisual ? 96 : 64,
+      ),
+      sketchVisual
+        ? new THREE.MeshPhysicalMaterial({
+            color: WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.surface,
+            map: sketchFloorTexture ?? undefined,
+            transparent: true,
+            opacity: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.opacity,
+            emissive: WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.emissive,
+            emissiveIntensity: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.emissiveIntensity,
+            roughness: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.roughness,
+            metalness: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.metalness,
+            clearcoat: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.clearcoat,
+            clearcoatRoughness: WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.clearcoatRoughness,
+            depthWrite: false,
+          })
+        : new THREE.MeshStandardMaterial({
+            color: 0x76567f,
+            emissive: 0x2f183c,
+            emissiveIntensity: 0.34,
+            roughness: 0.42,
+            metalness: 0.18,
+          }),
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.set(0, -0.045, 0.18);
+    floor.position.set(0, sketchVisual ? -0.043 : -0.045, 0.18);
     scene.add(floor);
+    if (sketchVisual) {
+      const lightMap = createSketchFloorLightTexture();
+      if (lightMap) {
+        const lightDecal = new THREE.Mesh(
+          new THREE.CircleGeometry(WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.radius, 96),
+          new THREE.MeshBasicMaterial({
+            map: lightMap, transparent: true, opacity: 0.90,
+            blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+          }),
+        );
+        lightDecal.name = "SketchFloorLocalReflections";
+        lightDecal.rotation.x = -Math.PI / 2;
+        lightDecal.position.set(0, -0.032, 0.18);
+        lightDecal.renderOrder = 1;
+        scene.add(lightDecal);
+      }
+    }
 
     const floorHaloMaterial = new THREE.MeshBasicMaterial({
-      color: 0x395dff,
+      color: sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.halo : 0xb983ff,
       transparent: true,
-      opacity: 0.16,
+      opacity: sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.haloOpacity : 0.19,
       side: THREE.DoubleSide,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     });
-    const floorHalo = new THREE.Mesh(new THREE.RingGeometry(3.55, 5.35, 64), floorHaloMaterial);
+    const floorHalo = new THREE.Mesh(
+      new THREE.RingGeometry(
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.haloInner : 3.55,
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.haloOuter : 5.35,
+        sketchVisual ? 80 : 64,
+      ),
+      floorHaloMaterial,
+    );
     floorHalo.rotation.x = -Math.PI / 2;
     floorHalo.position.set(0, -0.027, 0.18);
     scene.add(floorHalo);
 
     const runway = new THREE.Mesh(
-      new THREE.PlaneGeometry(5.9, 2.2),
+      new THREE.PlaneGeometry(
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.runwayWidth : 5.9,
+        sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.floor.runwayDepth : 2.2,
+      ),
       new THREE.MeshBasicMaterial({
-        color: 0x4722a8,
+        color: sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.floor.runway : 0xe39a7c,
         transparent: true,
-        opacity: 0.13,
+        opacity: sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.material.floor.runwayOpacity : 0.12,
         side: THREE.DoubleSide,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -439,7 +1034,69 @@ export default function WaitingRoomStage3D({
     runway.position.set(0, -0.02, 0.42);
     scene.add(runway);
 
-    for (let slotIndex = 0; slotIndex < 6; slotIndex += 1) {
+    const sketchFixtures: { beam: ReturnType<typeof createSketchSpotBeam>; spot: THREE.SpotLight; source: THREE.Vector3; target: THREE.Vector3; t: number }[] = [];
+    if (sketchVisual) {
+      scene.add(createSketchStageSet());
+
+      const beamSpecs = WAITING_ROOM_SKETCH_BLUEPRINT.scene.beams;
+      beamSpecs.forEach((spec, index) => {
+        const source = new THREE.Vector3(spec.x, spec.y, spec.z);
+        const target = new THREE.Vector3(spec.targetX, 0.48, -1.25);
+        const beam = createSketchSpotBeam(source, target, spec.color, 0.96, spec.opacity);
+        scene.add(beam);
+
+        const spot = new THREE.SpotLight(
+          spec.color,
+          WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.beamSpotIntensity,
+          11.8,
+          Math.PI / 6.0,
+          0.86,
+          1.45,
+        );
+        spot.position.copy(source);
+        spot.target.position.copy(target);
+        scene.add(spot, spot.target);
+        sketchFixtures.push({
+          beam,
+          spot,
+          source,
+          target,
+          t: WAITING_ROOM_SKETCH_BLUEPRINT.scene.fixtureRoofT[index],
+        });
+      });
+
+      for (const [index, spec] of WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.entries()) {
+        const source = new THREE.Vector3(spec.x, spec.y, spec.z);
+        const target = new THREE.Vector3(spec.targetX, spec.targetY, spec.targetZ);
+        const beam = createSketchSpotBeam(source, target, spec.color, spec.radius, spec.opacity, "uplight");
+        beam.name = `SketchUplightBeam:${index}`;
+        scene.add(beam);
+
+        const spot = new THREE.SpotLight(
+          spec.color,
+          spec.intensity,
+          8.8,
+          Math.PI / 7.2,
+          0.88,
+          1.55,
+        );
+        spot.name = `SketchUplight:${index}`;
+        spot.position.copy(source);
+        spot.target.position.copy(target);
+        scene.add(spot, spot.target);
+      }
+
+      const upperGlow = new THREE.PointLight(
+        WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.upperGlowColor,
+        WAITING_ROOM_SKETCH_BLUEPRINT.scene.lighting.upperGlowIntensity,
+        10,
+        1.8,
+      );
+      upperGlow.position.set(0, 4.55, 0.25);
+      scene.add(upperGlow);
+    }
+
+    for (let slotIndex = 0; slotIndex < WAITING_ROOM_MAX_PLAYERS; slotIndex += 1) {
       const group = new THREE.Group();
       const ringMaterial = new THREE.MeshBasicMaterial({
         color: 0x43dfff,
@@ -479,28 +1136,104 @@ export default function WaitingRoomStage3D({
       slotPlaceholdersRef.current.push({ slotIndex, group, ringMaterial, bodyMaterial });
     }
 
+    const projectedHead = new THREE.Vector3();
+    const updateIdentityLabels = () => {
+      const width = Math.max(1, mount.clientWidth);
+      const height = Math.max(1, mount.clientHeight);
+      stageNodesRef.current.forEach(node => {
+        const element = identityRefs.current.get(node.participant.participantId);
+        if (!element) return;
+        if (!node.actor.visible) {
+          element.style.opacity = "0";
+          element.style.pointerEvents = "none";
+          return;
+        }
+        element.style.pointerEvents = calibrationModeRef.current ? "none" : "auto";
+        const scaleMultiplier = node.baseScale.y
+          ? node.actor.scale.y / node.baseScale.y
+          : node.targetActorScale;
+        const sketchWideIdentity = visualPresetRef.current === "sketch"
+          && viewRef.current.viewMode === "wide";
+        const projectedHeadHeight = sketchWideIdentity ? 4.06 : 4.18;
+        projectedHead
+          .set(
+            node.actor.position.x,
+            node.actor.position.y + projectedHeadHeight * scaleMultiplier,
+            node.actor.position.z,
+          )
+          .project(camera);
+        const x = (projectedHead.x * 0.5 + 0.5) * width;
+        const y = (-projectedHead.y * 0.5 + 0.5) * height;
+        const labelAnchorTop = viewRef.current.viewMode === "close"
+          ? Math.max(y - 34, 64)
+          : y + (sketchWideIdentity
+            ? node.participant.role === "host"
+              ? WAITING_ROOM_SKETCH_BLUEPRINT.ownerOverrides.hostWideLabelOffsetPx
+              : WAITING_ROOM_SKETCH_BLUEPRINT.ownerOverrides.guestWideLabelOffsetPx
+            : -8);
+        element.style.left = `${x}px`;
+        element.style.top = `${labelAnchorTop}px`;
+        element.style.opacity = "1";
+      });
+    };
+
+    let fixtureLayout = "";
     const render = () => {
       const width = Math.max(1, mount.clientWidth);
       const height = Math.max(1, mount.clientHeight);
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      const nextFixtureLayout = sketchFixtureLayoutKey(camera, width, height);
+      if (sketchVisual && fixtureLayout !== nextFixtureLayout) {
+        // Attach 3D housings to the SVG chord after resize/preset changes. Only
+        // fixture transforms move: geometry, actors and mixers are untouched.
+        camera.updateMatrixWorld(true);
+        for (const fixture of sketchFixtures) {
+          const position = sketchFixtureSource(camera, fixture.t, fixture.source.z);
+          if (!position) continue;
+          fixture.beam.setEndpoints(position, fixture.target);
+          fixture.spot.position.copy(position);
+        }
+        fixtureLayout = nextFixtureLayout;
+      }
       renderer.render(scene, camera);
+      updateIdentityLabels();
     };
     renderRef.current = render;
+
+    const emitCalibrationLayout = () => {
+      if (!calibrationModeRef.current) return;
+      const snapshot: WaitingRoomCalibrationLayout = {};
+      stageNodesRef.current.forEach(node => {
+        snapshot[node.participant.participantId] = {
+          x: Number(node.targetPosition.x.toFixed(4)),
+          y: Number(node.targetPosition.y.toFixed(4)),
+          z: Number(node.targetPosition.z.toFixed(4)),
+          scale: Number(node.targetActorScale.toFixed(4)),
+          rotationY: Number(node.targetRotationY.toFixed(4)),
+        };
+      });
+      calibrationCallbackRef.current?.(snapshot);
+    };
 
     const applyLayout = () => {
       const current = viewRef.current;
       const activeParticipants = participantsRef.current;
-      const selected = current.selectedParticipantId
-        ?? activeParticipants[current.pageIndex * current.pageSize]?.participantId
-        ?? activeParticipants[0]?.participantId
+      const focusedParticipant = activeParticipants.find(
+        participant => participant.participantId === current.selectedParticipantId,
+      ) ?? activeParticipants.find(participant => participant.role === "host")
+        ?? activeParticipants[current.pageIndex * current.pageSize]
+        ?? activeParticipants[0]
         ?? null;
+      const selected = focusedParticipant?.participantId ?? null;
+      const focusSlotIndex = focusedParticipant?.slotIndex ?? 0;
 
       stageNodesRef.current.forEach(node => {
         const { participant, index } = node;
         let visible = false;
         let x = 0;
+        let y = 0;
         let z = 0;
         let rotationY = 0;
         let actorScale = 0.88;
@@ -508,16 +1241,38 @@ export default function WaitingRoomStage3D({
 
         if (current.viewMode === "wide") {
           visible = true;
-          const centered = participant.slotIndex - 2.5;
-          x = centered * 0.94;
-          z = Math.abs(centered) * 0.045;
-          rotationY = centered * -0.024;
-          actorScale = 0.62;
-          ringScale = 0.62;
+          const placement = wideSlotPlacement(
+            participant.slotIndex,
+            focusSlotIndex,
+            visualPresetRef.current,
+          );
+          x = placement.x;
+          y = placement.y;
+          z = placement.z;
+          rotationY = placement.rotationY;
+          actorScale = placement.scale;
+          ringScale = visualPresetRef.current === "sketch" && "ringScale" in placement
+            ? placement.ringScale
+            : participant.participantId === selected ? 0.96 : placement.scale;
+          if (participant.participantId === selected && visualPresetRef.current !== "sketch") {
+            actorScale *= 1.03;
+            ringScale *= 1.03;
+          }
+          const calibrationOverride = calibrationModeRef.current
+            ? calibrationOverridesRef.current.get(participant.participantId)
+            : null;
+          if (calibrationOverride) {
+            x = calibrationOverride.x;
+            y = calibrationOverride.y;
+            z = calibrationOverride.z;
+            rotationY = calibrationOverride.rotationY;
+            actorScale = calibrationOverride.scale;
+            ringScale = calibrationOverride.scale;
+          }
         } else if (current.viewMode === "close") {
           visible = participant.participantId === selected;
-          actorScale = 0.98;
-          ringScale = 1.02;
+          actorScale = 0.90;
+          ringScale = 0.96;
         } else {
           const pageStart = current.pageIndex * current.pageSize;
           visible = index >= pageStart && index < pageStart + current.pageSize;
@@ -529,21 +1284,51 @@ export default function WaitingRoomStage3D({
 
         node.actor.visible = visible;
         node.ring.visible = visible;
-        node.actor.position.x = x;
-        node.actor.position.z = z;
-        node.actor.rotation.y = rotationY;
-        node.ring.position.set(x, 0.02, z);
-        setScale(node, actorScale, ringScale);
-        const selectedRing = participant.participantId === current.selectedParticipantId;
+        node.targetPosition.set(x, y, z);
+        node.targetRotationY = rotationY;
+        node.targetActorScale = actorScale;
+        node.targetRingScale = ringScale;
+        if (!node.layoutReady || current.viewMode !== "wide") {
+          node.actor.position.copy(node.targetPosition);
+          node.actor.rotation.y = node.targetRotationY;
+          node.ring.position.set(x, y + 0.02, z);
+          setScale(node, actorScale, ringScale);
+          node.layoutReady = true;
+        }
+        const selectedRing = participant.participantId === selected;
         node.ring.userData.emphasis = selectedRing ? 1 : participant.role === "host" ? 0.55 : 0;
+        node.ring.userData.depthBoost = visualPresetRef.current === "sketch" && Math.abs(x) > 2.2
+          ? 1.75
+          : 0;
+        if (visualPresetRef.current === "sketch") {
+          const accent = participantSketchRingAccent(participant);
+          if (node.ring.userData.accent !== accent) {
+            // Recolor only the existing decal materials; actors and mixers stay untouched.
+            for (const key of ["underglowMaterial", "haloMaterial", "outerMaterial", "coreMaterial", "innerMaterial", "floorMaterial"]) {
+              (node.ring.userData[key] as THREE.MeshBasicMaterial).color.setHex(accent);
+            }
+            (node.ring.userData.shineMaterial as THREE.MeshBasicMaterial).color
+              .setHex(accent).lerp(new THREE.Color(0xffffff), 0.32);
+            node.ring.userData.accent = accent;
+          }
+        }
       });
 
       slotPlaceholdersRef.current.forEach(placeholder => {
         const slot = slotsRef.current.find(item => item.slotIndex === placeholder.slotIndex);
-        const centered = placeholder.slotIndex - 2.5;
-        placeholder.group.position.set(centered * 0.94, 0.02, Math.abs(centered) * 0.045);
-        placeholder.group.scale.setScalar(0.68);
-        const showPlaceholder = current.viewMode === "wide" && slot?.state !== "occupied";
+        const placement = wideSlotPlacement(
+          placeholder.slotIndex,
+          focusSlotIndex,
+          visualPresetRef.current,
+        );
+        placeholder.group.position.set(placement.x, placement.y + 0.02, placement.z);
+        placeholder.group.scale.setScalar(Math.max(
+          0.48,
+          placement.scale * (visualPresetRef.current === "sketch" ? 1.05 : 1),
+        ));
+        const showPlaceholder = current.viewMode === "wide"
+          && placeholder.slotIndex < WAITING_ROOM_MAX_PLAYERS
+          && slot?.state !== "occupied";
         placeholder.group.visible = showPlaceholder;
         const closed = slot?.state === "closed";
         placeholder.ringMaterial.color.setHex(closed ? 0xff4f7d : 0x43dfff);
@@ -553,16 +1338,27 @@ export default function WaitingRoomStage3D({
       });
 
       if (current.viewMode === "wide") {
-        camera.position.set(0, 3.12, 12.25);
-        camera.lookAt(0, 1.72, 0);
+        if (visualPresetRef.current === "sketch") {
+          const sketchCamera = WAITING_ROOM_SKETCH_BLUEPRINT.scene.camera.wide;
+          camera.fov = sketchCamera.fov;
+          camera.position.set(sketchCamera.position.x, sketchCamera.position.y, sketchCamera.position.z);
+          camera.lookAt(sketchCamera.lookAt.x, sketchCamera.lookAt.y, sketchCamera.lookAt.z);
+        } else {
+          camera.fov = 30;
+          camera.position.set(0, 4.25, 13.05);
+          camera.lookAt(0, 1.58, 0.18);
+        }
       } else if (current.viewMode === "close") {
+        camera.fov = 30;
         camera.position.set(0, 3.16, 9.45);
         camera.lookAt(0, 2.08, 0);
       } else {
+        camera.fov = 30;
         camera.position.set(0, 3.08, 9.65);
         camera.lookAt(0, 2.0, 0);
       }
       render();
+      emitCalibrationLayout();
     };
     layoutRef.current = applyLayout;
 
@@ -576,18 +1372,18 @@ export default function WaitingRoomStage3D({
       }
 
       runtime.elapsedSeconds += deltaSeconds;
-      if (idleClips.length <= 1 || runtime.elapsedSeconds < runtime.holdSeconds) return;
+      if (runtime.clips.length <= 1 || runtime.elapsedSeconds < runtime.holdSeconds) return;
 
       const nextOrdinal = runtime.transitionOrdinal + 1;
       const nextIndex = selectParticipantNextIdleIndex(
         runtime.participantId,
-        idleClips.length,
+        runtime.clips.length,
         releaseVersion,
         roomId,
         nextOrdinal,
         runtime.currentIndex,
       );
-      const nextClip = selectParticipantIdleClipByIndex(idleClips, nextIndex);
+      const nextClip = selectParticipantIdleClipByIndex(runtime.clips, nextIndex);
       if (!nextClip) return;
 
       const nextAction = runtime.mixer.clipAction(nextClip);
@@ -617,7 +1413,7 @@ export default function WaitingRoomStage3D({
     };
 
     const startIdleLoop = () => {
-      if (idleRuntimeByParticipant.size === 0 || animationFrame) return;
+      if (animationFrame) return;
       const minFrameMs = 1000 / IDLE_RENDER_FPS;
       const tick = (nowMs: number) => {
         if (disposed) return;
@@ -639,7 +1435,46 @@ export default function WaitingRoomStage3D({
         });
 
         const ringTime = nowMs / 1000;
+        const transitionAlpha = 1 - Math.exp(-deltaSeconds * 4.2);
         stageNodesRef.current.forEach(node => {
+          if (viewRef.current.viewMode === "wide" && node.layoutReady) {
+            node.actor.position.lerp(node.targetPosition, transitionAlpha);
+            node.actor.rotation.y = THREE.MathUtils.lerp(
+              node.actor.rotation.y,
+              node.targetRotationY,
+              transitionAlpha,
+            );
+            node.ring.position.x = THREE.MathUtils.lerp(
+              node.ring.position.x,
+              node.targetPosition.x,
+              transitionAlpha,
+            );
+            node.ring.position.y = THREE.MathUtils.lerp(
+              node.ring.position.y,
+              node.targetPosition.y + 0.02,
+              transitionAlpha,
+            );
+            node.ring.position.z = THREE.MathUtils.lerp(
+              node.ring.position.z,
+              node.targetPosition.z,
+              transitionAlpha,
+            );
+            const actorScale = node.baseScale.x
+              ? node.actor.scale.x / node.baseScale.x
+              : node.targetActorScale;
+            const nextActorScale = THREE.MathUtils.lerp(
+              actorScale,
+              node.targetActorScale,
+              transitionAlpha,
+            );
+            const nextRingScale = THREE.MathUtils.lerp(
+              node.ring.scale.x,
+              node.targetRingScale,
+              transitionAlpha,
+            );
+            setScale(node, nextActorScale, nextRingScale);
+          }
+
           const phase = Number(node.ring.userData.pulsePhase ?? 0);
           const wave = (Math.sin(ringTime * 2.15 + phase) + 1) * 0.5;
           const emphasis = Number(node.ring.userData.emphasis ?? 0);
@@ -647,12 +1482,28 @@ export default function WaitingRoomStage3D({
           const haloMaterial = node.ring.userData.haloMaterial as THREE.MeshBasicMaterial | undefined;
           const outerMaterial = node.ring.userData.outerMaterial as THREE.MeshBasicMaterial | undefined;
           const coreMaterial = node.ring.userData.coreMaterial as THREE.MeshBasicMaterial | undefined;
+          const innerMaterial = node.ring.userData.innerMaterial as THREE.MeshBasicMaterial | undefined;
+          const shineMaterial = node.ring.userData.shineMaterial as THREE.MeshBasicMaterial | undefined;
           const floorMaterial = node.ring.userData.floorMaterial as THREE.MeshBasicMaterial | undefined;
-          if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
-          if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
-          if (outerMaterial) outerMaterial.opacity = 0.12 + wave * 0.12 + emphasis * 0.08;
-          if (coreMaterial) coreMaterial.opacity = 0.86 + emphasis * 0.12;
-          if (floorMaterial) floorMaterial.opacity = 0.07 + wave * 0.065 + emphasis * 0.055;
+          const sketchRing = Boolean(node.ring.userData.sketchPolish);
+          const depthBoost = Number(node.ring.userData.depthBoost ?? 0);
+          if (sketchRing) {
+            // All five slots use the same bright, non-additive core; only the
+            // restrained halo receives distance compensation. No central-only boost.
+            if (underglowMaterial) underglowMaterial.opacity = 0.032 + wave * 0.005;
+            if (haloMaterial) haloMaterial.opacity = 0.15 + wave * 0.008 + depthBoost * 0.018;
+            if (outerMaterial) outerMaterial.opacity = 0.96;
+            if (coreMaterial) coreMaterial.opacity = 0.98;
+            if (innerMaterial) innerMaterial.opacity = 0.76;
+            if (shineMaterial) shineMaterial.opacity = 0.31 + wave * 0.008;
+            if (floorMaterial) floorMaterial.opacity = 0.026;
+          } else {
+            if (underglowMaterial) underglowMaterial.opacity = 0.035 + wave * 0.035 + emphasis * 0.035;
+            if (haloMaterial) haloMaterial.opacity = 0.17 + wave * 0.15 + emphasis * 0.09;
+            if (outerMaterial) outerMaterial.opacity = 0.12 + wave * 0.12 + emphasis * 0.08;
+            if (coreMaterial) coreMaterial.opacity = 0.86 + emphasis * 0.12;
+            if (floorMaterial) floorMaterial.opacity = 0.07 + wave * 0.065 + emphasis * 0.055;
+          }
         });
         render();
       };
@@ -661,12 +1512,24 @@ export default function WaitingRoomStage3D({
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    const onPointerDown = (event: PointerEvent) => {
+    const activeCalibrationPointers = new Map<number, THREE.Vector2>();
+    const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const dragOffset = new THREE.Vector3();
+    let calibrationParticipantId: string | null = null;
+    let pinchStartDistance = 0;
+    let pinchStartScale = 1;
+
+    const setRayFromScreenPoint = (clientX: number, clientY: number) => {
       const rect = renderer.domElement.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      if (!rect.width || !rect.height) return false;
+      pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
+      return true;
+    };
+
+    const participantAt = (clientX: number, clientY: number) => {
+      if (!setRayFromScreenPoint(clientX, clientY)) return null;
       const intersections = raycaster.intersectObjects(
         [...stageNodesRef.current.values()].filter(node => node.actor.visible).map(node => node.actor),
         true,
@@ -674,13 +1537,159 @@ export default function WaitingRoomStage3D({
       const hit = intersections[0]?.object;
       let cursor: THREE.Object3D | null = hit ?? null;
       while (cursor && !cursor.userData.participantId) cursor = cursor.parent;
-      const participantId = cursor?.userData.participantId as string | undefined;
+      return (cursor?.userData.participantId as string | undefined) ?? null;
+    };
+
+    const pointOnNodePlane = (clientX: number, clientY: number, node: StageNode) => {
+      if (!setRayFromScreenPoint(clientX, clientY)) return null;
+      dragPlane.constant = -node.targetPosition.y;
+      return raycaster.ray.intersectPlane(dragPlane, new THREE.Vector3());
+    };
+
+    const currentPointerDistance = () => {
+      const points = [...activeCalibrationPointers.values()];
+      return points.length < 2 ? 0 : points[0].distanceTo(points[1]);
+    };
+
+    const writeCalibrationPlacement = (
+      node: StageNode,
+      placement: WaitingRoomCalibrationPlacement,
+    ) => {
+      calibrationOverridesRef.current.set(node.participant.participantId, placement);
+      node.targetPosition.set(placement.x, placement.y, placement.z);
+      node.targetRotationY = placement.rotationY;
+      node.targetActorScale = placement.scale;
+      node.targetRingScale = placement.scale;
+      node.actor.position.copy(node.targetPosition);
+      node.actor.rotation.y = node.targetRotationY;
+      node.ring.position.set(placement.x, placement.y + 0.02, placement.z);
+      setScale(node, placement.scale, placement.scale);
+      render();
+      emitCalibrationLayout();
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (calibrationModeRef.current && viewRef.current.viewMode === "wide") {
+        event.preventDefault();
+
+        if (activeCalibrationPointers.size === 0) {
+          const hitParticipantId = participantAt(event.clientX, event.clientY);
+          if (!hitParticipantId) return;
+          calibrationParticipantId = hitParticipantId;
+          const node = stageNodesRef.current.get(hitParticipantId);
+          if (!node) return;
+          const point = pointOnNodePlane(event.clientX, event.clientY, node);
+          if (point) {
+            dragOffset.set(
+              node.targetPosition.x - point.x,
+              0,
+              node.targetPosition.z - point.z,
+            );
+          }
+        }
+
+        activeCalibrationPointers.set(
+          event.pointerId,
+          new THREE.Vector2(event.clientX, event.clientY),
+        );
+        try {
+          renderer.domElement.setPointerCapture(event.pointerId);
+        } catch {
+          // iOS/WebKit may reject capture during gesture transitions.
+        }
+
+        if (activeCalibrationPointers.size === 2 && calibrationParticipantId) {
+          const node = stageNodesRef.current.get(calibrationParticipantId);
+          pinchStartDistance = currentPointerDistance();
+          pinchStartScale = node?.targetActorScale ?? 1;
+        }
+        return;
+      }
+
+      const participantId = participantAt(event.clientX, event.clientY);
       const participant = participantId
         ? participantsRef.current.find(item => item.participantId === participantId)
         : null;
       if (participant) selectCallbackRef.current?.(participant);
     };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!calibrationModeRef.current || !activeCalibrationPointers.has(event.pointerId)) return;
+      event.preventDefault();
+      activeCalibrationPointers.set(
+        event.pointerId,
+        new THREE.Vector2(event.clientX, event.clientY),
+      );
+
+      if (!calibrationParticipantId) return;
+      const node = stageNodesRef.current.get(calibrationParticipantId);
+      if (!node) return;
+
+      const current = calibrationOverridesRef.current.get(calibrationParticipantId) ?? {
+        x: node.targetPosition.x,
+        y: node.targetPosition.y,
+        z: node.targetPosition.z,
+        scale: node.targetActorScale,
+        rotationY: node.targetRotationY,
+      };
+
+      if (activeCalibrationPointers.size >= 2) {
+        const distance = currentPointerDistance();
+        if (pinchStartDistance > 0 && distance > 0) {
+          const scale = THREE.MathUtils.clamp(
+            pinchStartScale * (distance / pinchStartDistance),
+            0.36,
+            1.28,
+          );
+          writeCalibrationPlacement(node, { ...current, scale });
+        }
+        return;
+      }
+
+      const point = pointOnNodePlane(event.clientX, event.clientY, node);
+      if (!point) return;
+      writeCalibrationPlacement(node, {
+        ...current,
+        x: THREE.MathUtils.clamp(point.x + dragOffset.x, -3.6, 3.6),
+        z: THREE.MathUtils.clamp(point.z + dragOffset.z, -1.5, 2.6),
+      });
+    };
+
+    const onPointerEnd = (event: PointerEvent) => {
+      if (!activeCalibrationPointers.has(event.pointerId)) return;
+      activeCalibrationPointers.delete(event.pointerId);
+      try {
+        renderer.domElement.releasePointerCapture(event.pointerId);
+      } catch {
+        // Capture may already be released by WebKit.
+      }
+
+      if (activeCalibrationPointers.size === 1 && calibrationParticipantId) {
+        const node = stageNodesRef.current.get(calibrationParticipantId);
+        const remaining = [...activeCalibrationPointers.values()][0];
+        if (node && remaining) {
+          const point = pointOnNodePlane(remaining.x, remaining.y, node);
+          if (point) {
+            dragOffset.set(
+              node.targetPosition.x - point.x,
+              0,
+              node.targetPosition.z - point.z,
+            );
+          }
+        }
+        pinchStartDistance = 0;
+      } else if (activeCalibrationPointers.size === 0) {
+        calibrationParticipantId = null;
+        pinchStartDistance = 0;
+      }
+      emitCalibrationLayout();
+    };
+
+    renderer.domElement.style.touchAction = calibrationModeRef.current ? "none" : "auto";
     renderer.domElement.addEventListener("pointerdown", onPointerDown);
+    renderer.domElement.addEventListener("pointermove", onPointerMove);
+    renderer.domElement.addEventListener("pointerup", onPointerEnd);
+    renderer.domElement.addEventListener("pointercancel", onPointerEnd);
 
     const loader = new GLTFLoader();
     setLoadState("loading");
@@ -708,15 +1717,16 @@ export default function WaitingRoomStage3D({
     };
 
     const attachIdleRuntime = (node: StageNode) => {
-      if (idleRuntimeByParticipant.has(node.participant.participantId) || idleClips.length === 0) return;
+      const actorIdleClips = idleClipsByAssetId.get(node.characterAssetId) ?? [];
+      if (idleRuntimeByParticipant.has(node.participant.participantId) || actorIdleClips.length === 0) return;
       const assignments = selectRoomParticipantIdleIndices(
         participantsRef.current,
-        idleClips.length,
+        actorIdleClips.length,
         releaseVersion,
         roomId,
       );
       const idleIndex = assignments.get(node.participant.participantId) ?? -1;
-      const idleClip = selectParticipantIdleClipByIndex(idleClips, idleIndex);
+      const idleClip = selectParticipantIdleClipByIndex(actorIdleClips, idleIndex);
       if (!idleClip) return;
 
       const mixer = new THREE.AnimationMixer(node.actor);
@@ -738,6 +1748,7 @@ export default function WaitingRoomStage3D({
         participantId: node.participant.participantId,
         mixer,
         currentAction: action,
+        clips: actorIdleClips,
         currentIndex: idleIndex,
         transitionOrdinal: 0,
         elapsedSeconds: 0,
@@ -766,27 +1777,42 @@ export default function WaitingRoomStage3D({
     };
 
     const createStageNode = (participant: RoomParticipant, index: number) => {
-      const source = isFemale(participant) ? femaleSource : maleSource;
-      const actor = source ? cloneSkeleton(source) : fallbackActor(isFemale(participant));
-      tintActor(actor, participant, index);
-      actor.name = `WaitingRoomActor:${participant.participantId}:${participant.avatar.characterId}`;
+      const characterAssetId = participantCharacterAssetId(participant);
+      const source = actorSources.get(characterAssetId) ?? null;
+      const actor = source ? cloneSkeleton(source) : fallbackActor(participantUsesFemaleFallback(participant));
+      tintActor(
+        actor,
+        participant,
+        index,
+        visualPresetRef.current === "sketch",
+      );
+      actor.name = `WaitingRoomActor:${participant.participantId}:${characterAssetId}`;
       actor.userData.participantId = participant.participantId;
+      actor.userData.characterAssetId = characterAssetId;
       scene.add(actor);
 
       const ring = createParticipantRing(
-        participantAccent(participant),
+        visualPresetRef.current === "sketch"
+          ? participantSketchRingAccent(participant)
+          : participantAccent(participant),
         index * 1.37,
         participant.role === "host",
+        visualPresetRef.current === "sketch",
       );
       scene.add(ring);
 
       const node: StageNode = {
         participant,
         index,
-        characterId: participant.avatar.characterId,
+        characterAssetId,
         actor,
         ring,
         baseScale: actor.scale.clone(),
+        targetPosition: new THREE.Vector3(),
+        targetRotationY: 0,
+        targetActorScale: 1,
+        targetRingScale: 1,
+        layoutReady: false,
       };
       stageNodesRef.current.set(participant.participantId, node);
       attachIdleRuntime(node);
@@ -812,7 +1838,7 @@ export default function WaitingRoomStage3D({
         }
 
         // Avatar identity changes replace only that one actor.
-        if (existing.characterId !== participant.avatar.characterId) {
+        if (existing.characterAssetId !== participantCharacterAssetId(participant)) {
           removeStageNode(participant.participantId);
           createStageNode(participant, index);
           return;
@@ -825,7 +1851,7 @@ export default function WaitingRoomStage3D({
       });
 
       const needsFallback = activeParticipants.some(participant => (
-        isFemale(participant) ? !femaleSource : !maleSource
+        !actorSources.has(participantCharacterAssetId(participant))
       ));
       setRenderedActorCount(stageNodesRef.current.size);
       setLoadState(needsFallback ? "fallback" : "ready");
@@ -834,60 +1860,85 @@ export default function WaitingRoomStage3D({
     };
     reconcileParticipantsRef.current = reconcileParticipants;
 
-    // Load both reusable character sources once per room. Future joins clone
-    // from memory instead of rebuilding the stage or refetching GLBs.
-    const malePromise = loader.loadAsync(HUMAN_CHARACTER_ASSET_URL).catch(error => {
-      console.warn("[waiting-room] male character asset failed; fallback only for male actors", error);
-      return null;
-    });
-    const femalePromise = loader.loadAsync(FEMALE_CHARACTER_ASSET_URL).catch(error => {
-      console.warn("[waiting-room] female character asset failed; fallback only for female actors", error);
+    // Load the canonical idle source plus every runtime-ready Character Catalog
+    // entry once per room. Actors then clone from memory; roster changes never
+    // refetch GLBs or rebuild the Three.js scene.
+    const canonicalPromise = loader.loadAsync(HUMAN_CHARACTER_ASSET_URL).catch(error => {
+      console.warn("[waiting-room] canonical animation source failed; catalog actors remain static", error);
       return null;
     });
     const idleLibraryPromise = loadLobbyIdleLibrary();
+    const catalogPromises = CHARACTER_CATALOG_V1
+      .filter(entry => entry.runtimeReady)
+      .map(async entry => {
+        try {
+          const gltf = await loader.loadAsync(entry.assetUrl);
+          return { entry, gltf };
+        } catch (error) {
+          console.warn(`[waiting-room] catalog asset ${entry.id} failed; fallback actor will be used`, error);
+          return { entry, gltf: null };
+        }
+      });
 
-    void Promise.all([malePromise, femalePromise])
-      .then(([maleGltf, femaleGltf]) => {
+    void Promise.all([canonicalPromise, idleLibraryPromise, Promise.all(catalogPromises)])
+      .then(([canonicalGltf, idleLibrary, catalogResults]) => {
         if (disposed) {
-          if (maleGltf) disposeObject(maleGltf.scene);
-          if (femaleGltf) disposeObject(femaleGltf.scene);
+          if (canonicalGltf) disposeObject(canonicalGltf.scene);
+          catalogResults.forEach(({ gltf }) => {
+            if (gltf) disposeObject(gltf.scene);
+          });
           return;
         }
 
-        maleSource = maleGltf?.scene ?? null;
-        femaleSource = femaleGltf?.scene ?? null;
-        if (maleSource) {
-          normalizeModel(maleSource);
-          disposableSources.push(maleSource);
-        }
-        if (femaleSource) {
-          normalizeModel(femaleSource);
-          disposableSources.push(femaleSource);
+        idleClips = idleLibrary?.clips ?? [];
+        releaseVersion = idleLibrary?.releaseVersion ?? 0;
+        setIdleSource(idleLibrary?.source ?? "none");
+
+        let canonicalMesh: THREE.SkinnedMesh | null = null;
+        if (canonicalGltf) {
+          try {
+            canonicalMesh = findPrimarySkinnedMesh(canonicalGltf.scene);
+          } catch (error) {
+            console.warn("[waiting-room] canonical source has no compatible skeleton", error);
+          }
         }
 
+        for (const { entry, gltf } of catalogResults) {
+          if (!gltf) continue;
+          const source = gltf.scene;
+          normalizeModel(source);
+          actorSources.set(entry.id, source);
+          disposableSources.push(source);
+
+          if (idleClips.length === 0) continue;
+          if (entry.animationProfile === "mixamo-c1" && canonicalGltf && canonicalMesh) {
+            try {
+              const targetMesh = findPrimarySkinnedMesh(source);
+              idleClipsByAssetId.set(
+                entry.id,
+                retargetQuaterniusClipsToMixamo(
+                  canonicalGltf.scene,
+                  canonicalMesh.skeleton,
+                  targetMesh.skeleton,
+                  idleClips,
+                ),
+              );
+            } catch (error) {
+              console.warn(`[waiting-room] idle retarget failed for ${entry.id}`, error);
+            }
+          } else {
+            idleClipsByAssetId.set(entry.id, idleClips);
+          }
+        }
+
+        if (canonicalGltf) disposeObject(canonicalGltf.scene);
         characterAssetsReady = true;
         reconcileParticipants();
-
-        return idleLibraryPromise;
-      })
-      .then(idleLibrary => {
-        if (disposed) return;
-        if (!idleLibrary) {
-          setIdleSource("none");
-          return;
-        }
-        idleClips = idleLibrary.clips;
-        releaseVersion = idleLibrary.releaseVersion;
-        setIdleSource(idleLibrary.source);
-
-        // Attach animation only to actors that do not already own a mixer.
-        // Existing actor phase is never reset by roster/status updates.
-        stageNodesRef.current.forEach(attachIdleRuntime);
-        startIdleLoop();
       })
       .catch(error => {
         if (disposed) return;
         console.warn("[waiting-room] character initialization failed", error);
+        setIdleSource("none");
         characterAssetsReady = true;
         reconcileParticipants();
       });
@@ -901,6 +1952,9 @@ export default function WaitingRoomStage3D({
       if (animationFrame) cancelAnimationFrame(animationFrame);
       observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onPointerMove);
+      renderer.domElement.removeEventListener("pointerup", onPointerEnd);
+      renderer.domElement.removeEventListener("pointercancel", onPointerEnd);
       idleRuntimeByParticipant.forEach(runtime => runtime.mixer.stopAllAction());
       idleRuntimeByParticipant.clear();
       renderRef.current = null;
@@ -908,16 +1962,49 @@ export default function WaitingRoomStage3D({
       reconcileParticipantsRef.current = null;
       stageNodesRef.current.clear();
       slotPlaceholdersRef.current = [];
+      sketchReflector?.getRenderTarget().dispose();
+      sketchFloorTexture?.dispose();
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [roomId]);
+  }, [roomId, visualPreset]);
+
+  const blueprintLogoRect = sketchStageRect(WAITING_ROOM_SKETCH_BLUEPRINT.screen.logo.bbox);
+  const sketchCssVariables = visualPreset === "sketch"
+    ? ({
+        "--sketch-logo-fill": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.fill),
+        "--sketch-logo-edge": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.edge),
+        "--sketch-logo-glow": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.glow),
+        "--sketch-logo-subtitle": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.logo.subtitle),
+        "--sketch-logo-top": `${blueprintLogoRect.y * 100}%`,
+        "--sketch-logo-width": `${blueprintLogoRect.width * 100}%`,
+        "--sketch-ready": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.status.ready),
+        "--sketch-not-ready": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.status.notReady),
+        "--sketch-crown": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.crown.highlight),
+        "--sketch-trace-cyan": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.columns.leftCyan.core),
+        "--sketch-trace-magenta": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.columns.rightMagenta.core),
+        "--sketch-trace-blue": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.truss.bright),
+        "--sketch-trace-violet": sketchColorCss(WAITING_ROOM_SKETCH_BLUEPRINT.palette.truss.glow),
+      } as CSSProperties)
+    : undefined;
+  const blueprintLeftColumn = sketchStagePoint(WAITING_ROOM_SKETCH_BLUEPRINT.screen.columns.leftCenter);
+  const blueprintRightColumn = sketchStagePoint(WAITING_ROOM_SKETCH_BLUEPRINT.screen.columns.rightCenter);
+  const blueprintRingPoints = Object.entries(WAITING_ROOM_SKETCH_BLUEPRINT.screen.rings).map(([name, point]) => ({
+    name,
+    point: sketchStagePoint(point),
+  }));
+  const blueprintOpeningLeft = WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.leftX;
+  const blueprintOpeningWidth = WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.rightX
+    - WAITING_ROOM_SKETCH_BLUEPRINT.screen.centerOpening.leftX;
+  const traceArchitecture = WAITING_ROOM_SKETCH_BLUEPRINT.traceArchitecture;
+  const traceViewBox = `0 0 ${traceArchitecture.viewBox.width} ${traceArchitecture.viewBox.height}`;
 
   return (
     <div
       className={styles.stage}
+      style={sketchCssVariables}
       data-testid="waiting-room-stage"
       data-stage={stageId}
       data-view={viewMode}
@@ -925,8 +2012,239 @@ export default function WaitingRoomStage3D({
       data-actor-count={renderedActorCount}
       data-idle-count={idleRuntimeCount}
       data-idle-source={idleSource}
+      data-character-assets={participants.map(participantCharacterAssetId).join(",")}
+      data-focus-participant-id={focusedParticipant?.participantId ?? ""}
+      data-layout={viewMode === "wide" ? "host-first" : viewMode}
+      data-layout-transition={viewMode === "wide" ? "smooth" : "snap"}
+      data-label-layout="head-follow"
+      data-max-players={WAITING_ROOM_MAX_PLAYERS}
+      data-calibration={calibrationMode ? "1" : "0"}
+      data-stage-ready={stagePresentationReady ? "1" : "0"}
+      data-visual-preset={visualPreset}
+      data-floor-style={visualPreset === "sketch" ? "reflective-tile" : "standard"}
+      data-ring-style={visualPreset === "sketch" ? "flat-luminous-decals" : "standard"}
+      data-sketch-match={visualPreset === "sketch" ? "v38-v34-owner-guided-structure" : "off"}
+      data-visual-polish={visualPreset === "sketch" ? "v45-rear-uplights-deep-violet" : "off"}
+      data-beam-falloff={visualPreset === "sketch" ? "mid-stage" : "standard"}
+      data-stage-uplights={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.scene.uplights.length : 0}
+      data-roof-fixture-spacing={visualPreset === "sketch" ? "even-wide" : "standard"}
+      data-uplight-placement={visualPreset === "sketch" ? "rear-riser-outward" : "standard"}
+      data-uplight-direction={visualPreset === "sketch" ? "back-to-front-up" : "standard"}
+      data-uplight-beam={visualPreset === "sketch" ? "broad-short-lavender-white" : "standard"}
+      data-violet-lighting={visualPreset === "sketch" ? "deep-vivid-purple" : "standard"}
+      data-uplight-fixture={visualPreset === "sketch" ? "visible-floor-head" : "off"}
+      data-stage-rail-rows={visualPreset === "sketch" ? traceArchitecture.railsLeft.length : 0}
+      data-light-aperture={visualPreset === "sketch" ? "frustum-lens" : "standard"}
+      data-architecture-source={visualPreset === "sketch" ? "screen-trace" : "threejs"}
+      data-riser-source={visualPreset === "sketch" ? "hybrid-threejs-trace" : "threejs"}
+      data-floor-grid={visualPreset === "sketch" ? "floor-plane" : "material"}
+      data-sketch-blueprint={visualPreset === "sketch" ? WAITING_ROOM_SKETCH_BLUEPRINT.id : "off"}
+      data-ceiling-source={visualPreset === "sketch" ? "screen-trace" : "css"}
+      data-backdrop-geometry={visualPreset === "sketch" ? "target-tiered-stage" : "standard"}
+      data-ring-palette={visualPreset === "sketch" ? "catalog-gender" : "slot"}
+      data-ring-geometry={visualPreset === "sketch" ? "two-medium-one-fine" : "standard"}
+      data-stage-risers={visualPreset === "sketch" ? "3" : "0"}
+      data-ring-reflection={visualPreset === "sketch" ? "contact-glow-only" : "default"}
+      data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
+      data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}
+      data-stage-footprint={visualPreset === "sketch" ? "expanded" : "standard"}
     >
       <div className={styles.architecture} aria-hidden="true">
+        {visualPreset === "sketch" && traceArchitecture.enabled && (
+          <svg
+            className={styles.stageTrace}
+            viewBox={traceViewBox}
+            preserveAspectRatio="none"
+            data-testid="sketch-stage-trace"
+          >
+            <defs>
+              <g id="trace-roof-chords">
+                <path d={traceArchitecture.truss.upperPath} />
+                <path d={traceArchitecture.truss.lowerPath} />
+              </g>
+              <linearGradient id="trace-wing-shade-left" x1="0" y1="0" x2="194" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#0b14a8" stopOpacity=".72" />
+                <stop offset="68%" stopColor="#090d72" stopOpacity=".48" />
+                <stop offset="100%" stopColor="#07083f" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="trace-wing-shade-right" x1="0" y1="0" x2="194" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#3909aa" stopOpacity=".70" />
+                <stop offset="68%" stopColor="#22066e" stopOpacity=".48" />
+                <stop offset="100%" stopColor="#0f073d" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="trace-left-rail" x1="0" y1="0" x2="198" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#20b9df" />
+                <stop offset="42%" stopColor="#2a65bd" />
+                <stop offset="68%" stopColor="#6740bd" />
+                <stop offset="100%" stopColor="#268eae" />
+              </linearGradient>
+              <linearGradient id="trace-right-rail" x1="668" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#268eae" />
+                <stop offset="34%" stopColor="#6740bd" />
+                <stop offset="62%" stopColor="#2a65bd" />
+                <stop offset="100%" stopColor="#20b9df" />
+              </linearGradient>
+              <linearGradient id="trace-roof" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#182a68" />
+                <stop offset="48%" stopColor="#27306d" />
+                <stop offset="100%" stopColor="#35245f" />
+              </linearGradient>
+              <linearGradient id="trace-left-column" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#99f7ff" />
+                <stop offset="38%" stopColor="var(--sketch-trace-cyan)" />
+                <stop offset="100%" stopColor="#1975ff" />
+              </linearGradient>
+              <linearGradient id="trace-right-column" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#7934ff" />
+                <stop offset="58%" stopColor="var(--sketch-trace-magenta)" />
+                <stop offset="100%" stopColor="#ffd2ff" />
+              </linearGradient>
+              <linearGradient id="trace-reflection-left" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#32e5ff" stopOpacity=".46" />
+                <stop offset="100%" stopColor="#146bf9" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="trace-reflection-center" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#a46cff" stopOpacity=".34" />
+                <stop offset="100%" stopColor="#2219bd" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="trace-reflection-right" x1="1" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f45ae7" stopOpacity=".42" />
+                <stop offset="100%" stopColor="#a20de2" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="trace-riser-fill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#4d1a9d" stopOpacity=".34" />
+                <stop offset="48%" stopColor="#20105f" stopOpacity=".46" />
+                <stop offset="100%" stopColor="#080a3d" stopOpacity=".58" />
+              </linearGradient>
+              <linearGradient id="trace-riser-sheen" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#d8ecff" stopOpacity=".22" />
+                <stop offset="18%" stopColor="#9daeff" stopOpacity=".10" />
+                <stop offset="46%" stopColor="#6b58d8" stopOpacity=".035" />
+                <stop offset="100%" stopColor="#140b54" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="trace-riser-edge" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#596dff" />
+                <stop offset="23%" stopColor="#875cff" />
+                <stop offset="50%" stopColor="#d45cff" />
+                <stop offset="77%" stopColor="#875cff" />
+                <stop offset="100%" stopColor="#596dff" />
+              </linearGradient>
+              <linearGradient id="trace-floor-rim" x1="0" y1="0" x2="864" y2="0" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#2adfff" />
+                <stop offset="38%" stopColor="#5c76ff" />
+                <stop offset="62%" stopColor="#9a55ff" />
+                <stop offset="100%" stopColor="#f044df" />
+              </linearGradient>
+              <filter id="trace-soft-glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+              <filter id="trace-column-glow" x="-100%" y="-20%" width="300%" height="140%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+
+            <path className={styles.traceWall} d={traceArchitecture.wallLeftPath} fill="url(#trace-wing-shade-left)" />
+            <path className={styles.traceWall} d={traceArchitecture.wallRightPath} fill="url(#trace-wing-shade-right)" />
+
+            <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.left} fill="url(#trace-reflection-left)" />
+            <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.center} fill="url(#trace-reflection-center)" />
+            <path className={styles.traceFloorReflection} d={traceArchitecture.reflections.right} fill="url(#trace-reflection-right)" />
+
+            <g className={styles.traceRisers}>
+              {traceArchitecture.risers.map((riser, index) => (
+                <g key={riser.edge}>
+                  <path className={styles.traceRiserSurface} d={riser.surface} fill="url(#trace-riser-fill)" />
+                  <path className={styles.traceRiserSheen} d={riser.surface} fill="url(#trace-riser-sheen)" />
+                  <path className={styles.traceRiserGlow} d={riser.edge} />
+                  <path className={styles.traceRiserEdge} d={riser.edge} stroke="url(#trace-riser-edge)" />
+                  <path className={styles.traceRiserLowerEdge} d={riser.lowerEdge} stroke="url(#trace-riser-edge)" />
+                  <path
+                    className={styles.traceFootlights}
+                    d={riser.edge}
+                    strokeDasharray={index === 0 ? "14 36" : index === 1 ? "13 34" : "12 31"}
+                  />
+                </g>
+              ))}
+            </g>
+
+            <path className={styles.traceFrontRimGlow} d={traceArchitecture.floor.frontRim} />
+            <path className={styles.traceFrontRim} d={traceArchitecture.floor.frontRim} stroke="url(#trace-floor-rim)" />
+            <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideLeft} stroke="#28dfff" />
+            <path className={styles.traceFloorSide} d={traceArchitecture.floor.sideRight} stroke="#f044df" />
+            <g className={styles.traceFloorGrid}>
+              {traceArchitecture.floor.gridHorizontal.map(path => <path key={`gh-${path}`} d={path} />)}
+              {traceArchitecture.floor.gridVertical.map(path => <path key={`gv-${path}`} d={path} />)}
+            </g>
+
+            <g className={styles.traceUprights}>
+              <path d="M 80 178 L 80 494 M 198 215 L 198 501" />
+              <path d="M 784 178 L 784 494 M 666 215 L 666 501" />
+            </g>
+            <g className={styles.traceRailBody}>
+              {traceArchitecture.railsLeft.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`lb-${path}`} d={path} />)}
+              {traceArchitecture.railsRight.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`rb-${path}`} d={path} />)}
+            </g>
+            <g className={styles.traceRailGlow} filter="url(#trace-soft-glow)">
+              {traceArchitecture.railsLeft.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`lg-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
+              {traceArchitecture.railsRight.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`rg-${path}`} d={path} stroke="url(#trace-right-rail)" />)}
+            </g>
+            <g className={styles.traceRails}>
+              {traceArchitecture.railsLeft.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`lc-${path}`} d={path} stroke="url(#trace-left-rail)" />)}
+              {traceArchitecture.railsRight.map((path, index) => <path className={index % 3 === 1 ? styles.traceRailDim : index % 3 === 2 ? styles.traceRailMid : styles.traceRailBright} key={`rc-${path}`} d={path} stroke="url(#trace-right-rail)" />)}
+            </g>
+
+            <g className={styles.traceTruss} stroke="url(#trace-roof)">
+              <use href="#trace-roof-chords" className={styles.traceTrussBody} />
+              {traceArchitecture.truss.braces.map(path => (
+                <path className={styles.traceTrussBrace} key={path} d={path} />
+              ))}
+              <use href="#trace-roof-chords" className={styles.traceTrussEdge} />
+            </g>
+            <g className={styles.traceRoofRim}>
+              <path d={traceArchitecture.truss.rimUpperPath} />
+              <path d={traceArchitecture.truss.rimLowerPath} />
+            </g>
+
+            <g className={styles.traceColumns} filter="url(#trace-column-glow)">
+              <rect
+                x={traceArchitecture.columns.left.x}
+                y={traceArchitecture.columns.left.y}
+                width={traceArchitecture.columns.left.width}
+                height={traceArchitecture.columns.left.height}
+                rx="2"
+                fill="url(#trace-left-column)"
+              />
+              <rect
+                x={traceArchitecture.columns.right.x}
+                y={traceArchitecture.columns.right.y}
+                width={traceArchitecture.columns.right.width}
+                height={traceArchitecture.columns.right.height}
+                rx="2"
+                fill="url(#trace-right-column)"
+              />
+            </g>
+            <g className={styles.traceColumnCores}>
+              <rect
+                x={traceArchitecture.columns.left.x + 6}
+                y={traceArchitecture.columns.left.y}
+                width={traceArchitecture.columns.left.width - 12}
+                height={traceArchitecture.columns.left.height}
+                rx="1"
+                fill="#bffaff"
+              />
+              <rect
+                x={traceArchitecture.columns.right.x + 6}
+                y={traceArchitecture.columns.right.y}
+                width={traceArchitecture.columns.right.width - 12}
+                height={traceArchitecture.columns.right.height}
+                rx="1"
+                fill="#ffd0ff"
+              />
+            </g>
+          </svg>
+        )}
         <span className={styles.lightBarLeft} />
         <span className={styles.lightBarRight} />
         <div className={styles.brand}>
@@ -935,66 +2253,87 @@ export default function WaitingRoomStage3D({
         </div>
       </div>
       <div className={styles.canvas} ref={mountRef} />
-      <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
-      {viewMode === "wide" ? (
-        <div className={styles.wideSlotLabels}>
-          {slots.map(slot => {
-            const participant = slot.state === "occupied"
-              ? participants.find(item => item.participantId === slot.participantId) ?? null
-              : null;
-            return (
-              <button
-                className={`${styles.wideSlotLabel} ${participant?.participantId === selectedParticipantId ? styles.wideSlotSelected : ""}`}
-                disabled={!participant}
-                key={slot.slotIndex}
-                onClick={() => participant && onSelectParticipant?.(participant)}
-                type="button"
-              >
-                <span className={styles.wideSlotNumber}>{slot.slotIndex + 1}</span>
-                {participant ? (
-                  <>
-                    <strong>{participant.displayName}</strong>
-                    <b className={statusClass(participant)}>{statusLabel(participant)}</b>
-                  </>
-                ) : (
-                  <>
-                    <strong>{slot.state === "closed" ? "CLOSED" : "OPEN"}</strong>
-                    <b className={slot.state === "closed" ? styles.wideClosed : styles.wideOpen}>
-                      {slot.state === "closed" ? "×" : "+"}
-                    </b>
-                  </>
-                )}
-              </button>
-            );
-          })}
+      {blueprintMode && visualPreset === "sketch" && (
+        <div className={styles.blueprintGuides} data-testid="sketch-blueprint-guides" aria-hidden="true">
+          <span className={styles.blueprintCenterLine} style={{ left: "50%" }} />
+          <span
+            className={styles.blueprintOpening}
+            style={{
+              left: `${blueprintOpeningLeft * 100}%`,
+              width: `${blueprintOpeningWidth * 100}%`,
+            }}
+          />
+          <span
+            className={styles.blueprintLogoBox}
+            style={{
+              left: `${blueprintLogoRect.x * 100}%`,
+              top: `${blueprintLogoRect.y * 100}%`,
+              width: `${blueprintLogoRect.width * 100}%`,
+              height: `${blueprintLogoRect.height * 100}%`,
+            }}
+          />
+          <span
+            className={styles.blueprintColumnPoint}
+            data-guide="left-column"
+            style={{ left: `${blueprintLeftColumn.x * 100}%`, top: `${blueprintLeftColumn.y * 100}%` }}
+          />
+          <span
+            className={styles.blueprintColumnPoint}
+            data-guide="right-column"
+            style={{ left: `${blueprintRightColumn.x * 100}%`, top: `${blueprintRightColumn.y * 100}%` }}
+          />
+          {blueprintRingPoints.map(({ name, point }) => (
+            <span
+              className={styles.blueprintRingPoint}
+              data-guide={name}
+              key={name}
+              style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%` }}
+            />
+          ))}
         </div>
-      ) : (
-        <div className={`${styles.labels} ${viewMode === "close" ? styles.labelsClose : ""}`}>
-          {visibleParticipants.map((participant, visibleIndex) => (
+      )}
+
+      <div
+        aria-hidden={stagePresentationReady ? "true" : "false"}
+        className={`${styles.stageLoading} ${stagePresentationReady ? styles.stageLoadingReady : ""}`}
+        data-testid="waiting-room-stage-loading"
+      >
+        <div className={styles.stageLoadingMark}>
+          <strong>AUDITION</strong>
+          <span><i /><i /><i /></span>
+          <small>ĐANG TẢI PHÒNG CHỜ</small>
+        </div>
+      </div>
+      <div className={styles.badge}>{loadState === "ready" ? "3D READY" : loadState === "fallback" ? "3D FALLBACK" : "LOADING 3D"}</div>
+      <div className={styles.actorIdentities} data-testid="p56-participant-deck">
+        {participants.map(participant => {
+          const focused = participant.participantId === focusedParticipant?.participantId;
+          return (
             <button
-              className={[
-                styles.label,
-                participant.participantId === selectedParticipantId ? styles.labelSelected : "",
-                viewMode === "center"
-                  ? visibleIndex === 0
-                    ? styles.labelLeft
-                    : styles.labelRight
-                  : "",
-                viewMode === "close" ? styles.labelSolo : "",
-              ].filter(Boolean).join(" ")}
+              className={`${styles.actorIdentity} ${focused ? styles.actorIdentityFocused : ""}`}
+              data-character-asset-id={participantCharacterAssetId(participant)}
+              data-focus-role={participant.role}
+              data-testid={focused ? "p56-focused-identity" : undefined}
               key={participant.participantId}
-              onClick={() => onSelectParticipant?.(participant)}
+              onClick={() => {
+                if (!calibrationMode) onSelectParticipant?.(participant);
+              }}
+              ref={element => {
+                if (element) identityRefs.current.set(participant.participantId, element);
+                else identityRefs.current.delete(participant.participantId);
+              }}
               type="button"
             >
               {participant.role === "host" ? <span className={styles.crown}>♛</span> : null}
               <strong>{participant.displayName}</strong>
               <small>Lv. {levelFor(participant)}</small>
-              <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+              {participant.role !== "host" ? (
+                <b className={statusClass(participant)}>{statusLabel(participant)}</b>
+              ) : null}
             </button>
-          ))}
-        </div>
-      )}
-      {viewMode === "center" && <p className={styles.note}>Kéo ngang để xem khu vực khác</p>}
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -764,3 +764,1681 @@
     max-width:138px;
   }
 }
+
+
+/* P5.6 Waiting Room Visual V2 — host-first portrait lineup */
+.hostIdentity{
+  position:absolute;
+  z-index:8;
+  top:14px;
+  left:50%;
+  transform:translateX(-50%);
+  width:158px;
+  min-height:74px;
+  display:grid;
+  justify-items:center;
+  align-content:start;
+  gap:2px;
+  padding:5px 12px 7px;
+  border:1px solid rgba(255,213,91,.52);
+  border-radius:14px;
+  background:
+    linear-gradient(180deg,rgba(17,21,55,.86),rgba(7,10,31,.34));
+  color:#fff;
+  font-family:inherit;
+  text-align:center;
+  box-shadow:
+    0 10px 26px rgba(0,0,0,.25),
+    0 0 18px rgba(255,185,50,.08),
+    inset 0 1px rgba(255,255,255,.04);
+  backdrop-filter:blur(4px);
+  cursor:pointer;
+}
+.hostIdentitySelected{
+  border-color:#73efff;
+  box-shadow:
+    0 10px 26px rgba(0,0,0,.28),
+    0 0 18px rgba(75,222,255,.3),
+    inset 0 0 15px rgba(74,211,255,.08);
+}
+.hostIdentity .crown{
+  position:static!important;
+  display:block!important;
+  justify-self:center!important;
+  margin:0!important;
+  font-size:27px!important;
+  line-height:.8!important;
+}
+.hostIdentity strong{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:17px;
+  line-height:1.02;
+  font-weight:1000;
+  letter-spacing:-.035em;
+  text-shadow:0 2px 4px #02030b,0 0 7px rgba(0,0,0,.92);
+}
+.hostIdentity small{
+  font-size:9px;
+  line-height:1;
+  font-weight:800;
+  color:#eaf0ff;
+}
+.hostIdentity b{
+  margin-top:3px;
+  padding:3px 9px 4px;
+  border:1px solid currentColor;
+  border-radius:999px;
+  font-size:9px;
+  line-height:1;
+  font-weight:1000;
+  font-style:normal;
+  letter-spacing:.05em;
+}
+
+.stage[data-view="wide"] .wideSlotLabels{
+  top:auto!important;
+  bottom:76px!important;
+  left:10px!important;
+  right:10px!important;
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:5px!important;
+}
+.stage[data-view="wide"] .wideSlotLabel{
+  min-height:50px;
+  align-content:center;
+  gap:2px;
+  padding:4px 2px 5px;
+  border:1px solid rgba(68,94,171,.48);
+  border-radius:10px;
+  background:
+    linear-gradient(180deg,rgba(9,15,42,.86),rgba(4,8,27,.48));
+  box-shadow:
+    0 6px 14px rgba(0,0,0,.18),
+    inset 0 1px rgba(255,255,255,.025);
+  backdrop-filter:blur(3px);
+}
+.stage[data-view="wide"] .wideSlotSelected{
+  border-color:rgba(87,230,255,.72);
+  background:
+    linear-gradient(180deg,rgba(12,49,78,.9),rgba(4,11,34,.5));
+  box-shadow:
+    0 0 15px rgba(61,218,255,.22),
+    inset 0 0 12px rgba(57,208,255,.08);
+}
+.stage[data-view="wide"] .wideSlotNumber{
+  width:20px;
+  height:20px;
+  font-size:8px;
+}
+.stage[data-view="wide"] .wideSlotLabel strong{
+  font-size:7.5px;
+  line-height:1.05;
+}
+.stage[data-view="wide"] .wideSlotLabel b{
+  font-size:6.7px;
+  line-height:1;
+}
+.stage[data-view="wide"] .brand{
+  top:31%;
+  opacity:.36;
+}
+.stage[data-view="wide"] .brand strong{
+  font-size:46px;
+}
+.stage[data-view="wide"] .lightBarLeft,
+.stage[data-view="wide"] .lightBarRight{
+  top:56px;
+  height:160px;
+}
+.stage[data-view="wide"]:after{
+  height:50%;
+}
+@media(max-width:370px){
+  .hostIdentity{
+    top:11px;
+    width:144px;
+    min-height:68px;
+    padding-left:8px;
+    padding-right:8px;
+  }
+  .hostIdentity strong{font-size:15px}
+  .hostIdentity .crown{font-size:24px!important}
+  .stage[data-view="wide"] .wideSlotLabels{
+    left:7px!important;
+    right:7px!important;
+    gap:3px!important;
+    bottom:74px!important;
+  }
+  .stage[data-view="wide"] .wideSlotLabel{
+    min-height:46px;
+    border-radius:8px;
+  }
+  .stage[data-view="wide"] .wideSlotLabel strong{font-size:6.6px}
+  .stage[data-view="wide"] .wideSlotLabel b{font-size:6px}
+}
+
+
+/* P5.6 owner pass — head-follow identity labels + deeper portrait arc */
+.actorIdentities{
+  position:absolute;
+  inset:0;
+  z-index:9;
+  pointer-events:none;
+}
+.actorIdentity{
+  position:absolute;
+  left:50%;
+  top:20%;
+  transform:translate(-50%,-100%);
+  width:112px;
+  min-height:46px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  grid-template-areas:
+    "crown name"
+    "level state";
+  align-items:center;
+  column-gap:5px;
+  row-gap:2px;
+  padding:5px 7px;
+  border:1px solid rgba(86,118,202,.62);
+  border-radius:10px;
+  background:linear-gradient(180deg,rgba(10,15,42,.88),rgba(5,8,26,.72));
+  box-shadow:0 5px 15px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.04);
+  color:#fff;
+  font-family:inherit;
+  text-align:left;
+  pointer-events:auto;
+  opacity:0;
+  backdrop-filter:blur(3px);
+  will-change:left,top,opacity;
+}
+.actorIdentityFocused{
+  border-color:#6cecff;
+  box-shadow:0 6px 18px rgba(0,0,0,.3),0 0 16px rgba(70,222,255,.24),inset 0 0 12px rgba(74,211,255,.06);
+}
+.actorIdentity .crown{
+  grid-area:crown;
+  position:static!important;
+  display:block!important;
+  margin:0!important;
+  font-size:18px!important;
+  line-height:1!important;
+}
+.actorIdentity strong{
+  grid-area:name;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:12px;
+  line-height:1;
+  font-weight:950;
+  text-shadow:0 2px 4px rgba(0,0,0,.9);
+}
+.actorIdentity small{
+  grid-area:level;
+  font-size:8px;
+  line-height:1;
+  font-weight:800;
+  color:#dfe8ff;
+}
+.actorIdentity b{
+  grid-area:state;
+  justify-self:start;
+  margin:0;
+  padding:2px 6px 3px;
+  border:1px solid currentColor;
+  border-radius:999px;
+  font-size:7px;
+  line-height:1;
+  font-weight:1000;
+  letter-spacing:.035em;
+}
+.stage[data-view="wide"] .wideSlotLabels{
+  bottom:68px!important;
+  display:flex!important;
+  justify-content:center;
+  gap:8px!important;
+  pointer-events:none;
+}
+.stage[data-view="wide"] .wideSlotLabel{
+  width:76px;
+  min-height:39px;
+  padding:3px 4px 4px;
+  opacity:.72;
+}
+@media(max-width:370px){
+  .actorIdentity{
+    width:102px;
+    min-height:42px;
+    padding:4px 6px;
+  }
+  .actorIdentity strong{font-size:11px}
+  .actorIdentity .crown{font-size:16px!important}
+  .actorIdentity small{font-size:7px}
+  .actorIdentity b{font-size:6.5px;padding:2px 5px}
+}
+
+/* P5.6 accepted-sketch pass — text-only head labels */
+.actorIdentity{
+  width:120px;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-end;
+  gap:2px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:none;
+  box-shadow:none;
+  backdrop-filter:none;
+  text-align:center;
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.92));
+}
+.actorIdentityFocused{border:0;background:none;box-shadow:none}
+.actorIdentity .crown{
+  font-size:28px!important;
+  line-height:.9!important;
+  color:#ffd84f;
+  filter:drop-shadow(0 0 8px rgba(255,194,48,.72));
+}
+.actorIdentity strong{font-size:14px;line-height:1.05;font-weight:1000;text-align:center}
+.actorIdentity small{font-size:9px;line-height:1;font-weight:850;text-align:center}
+.actorIdentity b{
+  margin:0;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:none!important;
+  box-shadow:none!important;
+  font-size:8px;
+  line-height:1;
+  font-weight:1000;
+  text-align:center;
+}
+.actorIdentity .ready,.actorIdentity .notReady,.actorIdentity .hostState{
+  border:0!important;
+  background:none!important;
+  box-shadow:none!important;
+}
+.actorIdentityFocused strong{font-size:15px}
+.actorIdentityFocused .crown{font-size:30px!important}
+@media(max-width:370px){
+  .actorIdentity{width:108px;min-height:0;padding:0}
+  .actorIdentity strong{font-size:12.5px}
+  .actorIdentityFocused strong{font-size:13.5px}
+  .actorIdentity .crown{font-size:25px!important}
+  .actorIdentityFocused .crown{font-size:27px!important}
+  .actorIdentity small{font-size:8px}
+  .actorIdentity b{font-size:7px;padding:0!important}
+}
+
+/* P5.6 QA-only direct manipulation. Production waiting room remains unchanged. */
+.stage[data-calibration="1"] .canvas canvas{
+  touch-action:none!important;
+  overscroll-behavior:contain;
+  cursor:grab;
+}
+.stage[data-calibration="1"] .actorIdentity{
+  pointer-events:none!important;
+}
+
+/* P5.6 owner-approved floor palette: warm plum with a soft amber center glow */
+.stage:after{
+  background:
+    radial-gradient(ellipse at 50% 6%,rgba(255,186,114,.24) 0 10%,rgba(194,112,184,.16) 22%,transparent 46%),
+    repeating-radial-gradient(ellipse at 50% 0,rgba(117,201,255,.24) 0 2px,transparent 3px 28px),
+    repeating-linear-gradient(90deg,rgba(142,218,255,.055) 0 1px,transparent 1px 13px),
+    linear-gradient(180deg,rgba(101,72,128,.96),rgba(58,40,91,.985))!important;
+  border-top-color:rgba(255,190,144,.34)!important;
+  box-shadow:
+    0 -5px 34px rgba(159,95,220,.24),
+    inset 0 22px 48px rgba(255,170,115,.10)!important;
+}
+
+/* P5.6 stable first paint: never expose a half-loaded 3D stage. */
+.stageLoading{
+  position:absolute;
+  z-index:18;
+  inset:0;
+  display:grid;
+  place-items:center;
+  background:
+    radial-gradient(circle at 50% 38%,rgba(128,71,196,.44),transparent 26%),
+    linear-gradient(180deg,rgba(10,13,42,.985),rgba(65,44,94,.985));
+  opacity:1;
+  visibility:visible;
+  transition:opacity .30s ease,visibility 0s linear .30s;
+  pointer-events:auto;
+}
+.stageLoadingReady{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+.stageLoadingMark{
+  display:grid;
+  justify-items:center;
+  gap:7px;
+  transform:translateY(-10px);
+  color:#fff;
+  filter:drop-shadow(0 3px 10px rgba(0,0,0,.48));
+}
+.stageLoadingMark strong{
+  font-size:28px;
+  font-weight:1000;
+  font-style:italic;
+  letter-spacing:-.07em;
+  color:transparent;
+  -webkit-text-stroke:1px rgba(255,99,227,.82);
+  text-shadow:0 0 18px rgba(128,87,255,.62);
+}
+.stageLoadingMark span{
+  display:flex;
+  gap:5px;
+}
+.stageLoadingMark i{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#7deaff;
+  box-shadow:0 0 9px rgba(85,226,255,.8);
+  animation:p56StageLoadingPulse .9s ease-in-out infinite alternate;
+}
+.stageLoadingMark i:nth-child(2){animation-delay:.16s}
+.stageLoadingMark i:nth-child(3){animation-delay:.32s}
+.stageLoadingMark small{
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.12em;
+  color:#d9e7ff;
+}
+@keyframes p56StageLoadingPulse{
+  from{opacity:.28;transform:translateY(0)}
+  to{opacity:1;transform:translateY(-3px)}
+}
+.stage[data-stage-ready="0"] .actorIdentities{
+  opacity:0;
+}
+
+/* P5.6 sketch-match v2: post-grade only the isolated compare preset. */
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.28) contrast(1.12) brightness(1.015);
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  filter:saturate(1.32) contrast(1.14);
+}
+.stage[data-visual-preset="sketch"] .lightBarLeft,
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  filter:saturate(1.3) brightness(1.12) drop-shadow(0 0 12px currentColor);
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  filter:saturate(1.3) contrast(1.15);
+}
+
+/* P5.6 sketch-match v3 — approved sketch contrast / saturation. */
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.36) contrast(1.17) brightness(1.035);
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  filter:saturate(1.42) contrast(1.18) brightness(1.04);
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  filter:saturate(1.38) contrast(1.20) brightness(1.08);
+  text-shadow:0 0 10px rgba(255,46,220,.58),0 0 28px rgba(103,75,255,.44);
+}
+.stage[data-visual-preset="sketch"] .lightBarLeft,
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  filter:saturate(1.42) brightness(1.20) drop-shadow(0 0 16px currentColor);
+}
+
+/* P5.6 sketch-match v4 — status colors from approved sketch. */
+.stage[data-visual-preset="sketch"] .actorIdentity .ready{
+  color:#35ff9a!important;
+  text-shadow:
+    0 0 5px rgba(53,255,154,.90),
+    0 0 11px rgba(39,232,136,.48),
+    0 1px 2px rgba(0,25,14,.94)!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .notReady{
+  color:#ff4b8f!important;
+  text-shadow:
+    0 0 5px rgba(255,75,143,.92),
+    0 0 11px rgba(255,45,125,.46),
+    0 1px 2px rgba(46,0,18,.94)!important;
+}
+
+
+/* P5.6 sketch-match v5 — taller grand-stage ceiling, softer floor mirror and stronger depth hierarchy. */
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(circle at 12% 52px,rgba(220,248,255,.96) 0 3px,rgba(85,180,255,.58) 4px 7px,transparent 8px),
+    radial-gradient(circle at 29% 52px,rgba(196,228,255,.92) 0 2px,rgba(105,92,255,.52) 3px 6px,transparent 7px),
+    radial-gradient(circle at 50% 52px,rgba(221,225,255,.94) 0 2px,rgba(132,94,255,.46) 3px 6px,transparent 7px),
+    radial-gradient(circle at 71% 52px,rgba(255,209,248,.92) 0 2px,rgba(255,77,218,.50) 3px 6px,transparent 7px),
+    radial-gradient(circle at 88% 52px,rgba(220,248,255,.96) 0 3px,rgba(70,207,255,.56) 4px 7px,transparent 8px),
+    linear-gradient(180deg,rgba(78,91,183,.90),rgba(28,37,101,.94)) 0 42px/100% 5px no-repeat,
+    repeating-linear-gradient(35deg,transparent 0 18px,rgba(87,104,202,.58) 19px 22px,transparent 23px 38px) 0 18px/100% 25px no-repeat,
+    repeating-linear-gradient(-35deg,transparent 0 18px,rgba(87,104,202,.54) 19px 22px,transparent 23px 38px) 0 18px/100% 25px no-repeat,
+    linear-gradient(180deg,rgba(5,8,28,.64),rgba(8,10,35,.14) 68%,transparent) 0 0/100% 70px no-repeat;
+}
+.stage[data-visual-preset="sketch"]:after{
+  bottom:-12%;
+  height:57%!important;
+  background:
+    radial-gradient(ellipse at 50% 4%,rgba(95,214,255,.24) 0 13%,rgba(136,80,255,.18) 28%,transparent 55%),
+    repeating-radial-gradient(ellipse at 50% 0,rgba(86,188,255,.24) 0 2px,transparent 3px 31px),
+    repeating-linear-gradient(90deg,rgba(88,219,255,.055) 0 1px,transparent 1px 15px),
+    linear-gradient(180deg,rgba(67,70,150,.92),rgba(35,32,98,.96))!important;
+  border-top-color:rgba(111,219,255,.38)!important;
+  box-shadow:
+    0 -7px 38px rgba(46,149,255,.32),
+    inset 0 25px 58px rgba(126,74,255,.20)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.34) contrast(1.15) brightness(1.045);
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .crown{
+  font-size:30px!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentityFocused .crown{
+  font-size:34px!important;
+}
+
+
+/* P5.6 sketch-match v6 — restore sketch proportions after the ceiling-overlay experiment. */
+.stage[data-visual-preset="sketch"] .architecture{
+  background:none!important;
+}
+.stage[data-visual-preset="sketch"]:after{
+  bottom:-17%;
+  height:52%!important;
+  background:
+    radial-gradient(ellipse at 50% 2%,rgba(93,217,255,.25) 0 15%,rgba(122,84,255,.16) 30%,transparent 58%),
+    repeating-radial-gradient(ellipse at 50% 0,rgba(82,184,255,.20) 0 2px,transparent 3px 32px),
+    repeating-linear-gradient(90deg,rgba(87,213,255,.045) 0 1px,transparent 1px 15px),
+    linear-gradient(180deg,rgba(73,79,165,.88),rgba(42,39,111,.92))!important;
+  border-top-color:rgba(117,224,255,.34)!important;
+  box-shadow:
+    0 -6px 32px rgba(50,150,255,.25),
+    inset 0 20px 48px rgba(121,78,255,.14)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.32) contrast(1.14) brightness(1.025);
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .crown{
+  font-size:29px!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentityFocused .crown{
+  font-size:32px!important;
+}
+
+
+/* P5.6 sketch-match v8 — expand the visible circular stage toward the avatar dock. */
+.stage[data-visual-preset="sketch"]:after{
+  left:-18%!important;
+  right:-18%!important;
+  bottom:-14%!important;
+  height:56%!important;
+}
+
+
+/* P5.6 sketch-match v9 — golden-sketch atmosphere without changing camera architecture. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse at 50% 39%,rgba(245,40,221,.28) 0%,rgba(174,47,231,.15) 22%,transparent 43%),
+    radial-gradient(ellipse at 13% 42%,rgba(44,213,255,.16) 0%,transparent 30%),
+    radial-gradient(ellipse at 87% 42%,rgba(255,54,211,.17) 0%,transparent 31%),
+    linear-gradient(180deg,#070826 0%,#151044 33%,#0c0c31 65%,#06091d 100%)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:30.5%!important;
+  opacity:.68!important;
+  filter:
+    drop-shadow(0 0 10px rgba(255,52,226,.72))
+    drop-shadow(0 0 26px rgba(123,66,255,.40))!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(50px,9vw,62px)!important;
+  color:#ef45e5!important;
+  -webkit-text-stroke:1px rgba(236,104,255,.42)!important;
+  text-shadow:
+    0 0 5px rgba(255,128,244,.92),
+    0 0 14px rgba(255,48,222,.84),
+    0 0 34px rgba(177,56,255,.58)!important;
+  filter:saturate(1.2) contrast(1.1) brightness(1.08)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#b4b8ff!important;
+  opacity:.82;
+  text-shadow:0 0 9px rgba(117,126,255,.52);
+}
+.stage[data-visual-preset="sketch"] .lightBarLeft,
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  top:58px!important;
+  width:12px!important;
+  height:202px!important;
+  border-radius:8px!important;
+  opacity:.96!important;
+}
+.stage[data-visual-preset="sketch"] .lightBarLeft{
+  left:5.5%!important;
+  background:linear-gradient(180deg,#efffff 0%,#8cf8ff 9%,#39dcff 46%,#3b7cff 100%)!important;
+  box-shadow:
+    0 0 7px rgba(225,255,255,.98),
+    0 0 18px rgba(59,227,255,.96),
+    0 0 42px rgba(43,124,255,.66)!important;
+}
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  right:5.5%!important;
+  background:linear-gradient(180deg,#fff3fc 0%,#ff9ae9 9%,#ff4bd4 48%,#a849ff 100%)!important;
+  box-shadow:
+    0 0 7px rgba(255,238,251,.98),
+    0 0 18px rgba(255,75,211,.94),
+    0 0 42px rgba(181,63,255,.62)!important;
+}
+.stage[data-visual-preset="sketch"]:after{
+  left:-22%!important;
+  right:-22%!important;
+  bottom:-13%!important;
+  height:58%!important;
+  background:
+    radial-gradient(ellipse at 50% 4%,rgba(84,224,255,.28) 0 15%,rgba(174,69,255,.20) 31%,rgba(255,56,209,.08) 45%,transparent 60%),
+    repeating-radial-gradient(ellipse at 50% 0,rgba(94,195,255,.20) 0 2px,transparent 3px 33px),
+    repeating-linear-gradient(90deg,rgba(91,223,255,.050) 0 1px,transparent 1px 16px),
+    linear-gradient(180deg,rgba(64,78,170,.90),rgba(36,35,104,.95))!important;
+  box-shadow:
+    0 -8px 38px rgba(46,173,255,.28),
+    inset 0 24px 55px rgba(148,68,255,.17)!important;
+}
+
+
+/* P5.6 sketch-match v10 — wider standing area and crisp neon brand. */
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:30.5%!important;
+  opacity:.60!important;
+  filter:none!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(49px,8.7vw,59px)!important;
+  color:#ef56e6!important;
+  -webkit-text-stroke:.8px rgba(242,129,255,.42)!important;
+  text-shadow:
+    0 0 2px rgba(255,187,248,.70),
+    0 0 7px rgba(255,69,224,.58),
+    0 0 15px rgba(163,72,255,.36)!important;
+  filter:none!important;
+}
+.stage[data-visual-preset="sketch"]:after{
+  left:-27%!important;
+  right:-27%!important;
+  bottom:-11%!important;
+  height:61%!important;
+}
+
+
+/* P5.6 sketch-match v11 — ceiling/truss is authoritative in Three.js. */
+.stage[data-visual-preset="sketch"]{
+  overflow:hidden!important;
+}
+.stage[data-visual-preset="sketch"] .architecture:before,
+.stage[data-visual-preset="sketch"] .architecture:after{
+  top:16%!important;
+  height:58%!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.30) contrast(1.13) brightness(1.00)!important;
+}
+.stage[data-visual-preset="sketch"]:after{
+  background:
+    repeating-radial-gradient(ellipse at 50% 0,rgba(92,194,255,.16) 0 2px,transparent 3px 34px),
+    repeating-linear-gradient(90deg,rgba(91,223,255,.035) 0 1px,transparent 1px 16px),
+    linear-gradient(180deg,rgba(57,68,151,.72),rgba(29,30,88,.88))!important;
+  box-shadow:
+    0 -5px 24px rgba(45,144,255,.16),
+    inset 0 18px 42px rgba(132,65,255,.10)!important;
+}
+
+
+/* P5.6 sketch-match v12 — inward-curved venue architecture and raised brand. */
+.stage[data-visual-preset="sketch"] .architecture:before{
+  left:-18%!important;
+  right:-18%!important;
+  top:7%!important;
+  width:auto!important;
+  height:61%!important;
+  transform:none!important;
+  opacity:.78!important;
+  background:
+    repeating-radial-gradient(
+      ellipse 78% 68% at 50% -16%,
+      transparent 0 29px,
+      rgba(63,80,166,.74) 30px 32px,
+      rgba(112,74,207,.24) 33px 34px,
+      transparent 35px 58px
+    ),
+    radial-gradient(ellipse at 50% 40%,rgba(54,64,151,.18),transparent 64%)!important;
+  box-shadow:none!important;
+}
+.stage[data-visual-preset="sketch"] .architecture:after{
+  left:-10%!important;
+  right:-10%!important;
+  top:8%!important;
+  width:auto!important;
+  height:59%!important;
+  transform:none!important;
+  opacity:.46!important;
+  background:
+    repeating-radial-gradient(
+      ellipse 92% 76% at 50% -20%,
+      transparent 0 44px,
+      rgba(48,59,133,.42) 45px 46px,
+      transparent 47px 79px
+    )!important;
+  box-shadow:none!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:25.8%!important;
+  opacity:.64!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  text-shadow:
+    0 0 2px rgba(255,190,248,.72),
+    0 0 6px rgba(255,74,226,.54),
+    0 0 13px rgba(163,72,255,.32)!important;
+}
+
+
+/* P5.6 sketch-match v15 — integrated stage wings and three background risers. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 48% 36% at 50% 34%,rgba(255,51,220,.34) 0%,rgba(190,49,235,.20) 27%,rgba(96,48,183,.08) 50%,transparent 70%),
+    radial-gradient(ellipse 34% 55% at 7% 43%,rgba(43,224,255,.24) 0%,rgba(40,117,255,.10) 45%,transparent 72%),
+    radial-gradient(ellipse 34% 55% at 93% 43%,rgba(255,69,211,.24) 0%,rgba(168,69,255,.10) 45%,transparent 72%),
+    linear-gradient(180deg,#070826 0%,#171050 30%,#160a48 53%,#0a0d36 76%,#05081d 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 44% 35% at 50% 34%,rgba(255,61,226,.18),transparent 68%),
+    linear-gradient(180deg,rgba(10,10,39,.05),rgba(21,15,67,.13) 28%,rgba(11,12,48,.04) 72%,transparent 100%)!important;
+  filter:saturate(1.36) contrast(1.12)!important;
+}
+/* The sketch set owns the side rails, upright lights and risers in 3D. */
+.stage[data-visual-preset="sketch"] .architecture:before,
+.stage[data-visual-preset="sketch"] .architecture:after,
+.stage[data-visual-preset="sketch"] .lightBarLeft,
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  display:none!important;
+}
+/* An outlined sign keeps the counter-shapes readable behind the host. */
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:27.5%!important;
+  width:72%;
+  opacity:.94!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(49px,9.5vw,65px)!important;
+  letter-spacing:-.075em;
+  color:rgba(161,39,190,.16)!important;
+  -webkit-text-stroke:1.2px #e760f3!important;
+  text-shadow:0 0 5px rgba(228,65,248,.54),0 0 18px rgba(169,35,233,.36)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#979ade!important;
+  letter-spacing:.34em;
+}
+/* The mesh floor and real tiers supply the perspective; no concentric CSS floor. */
+.stage[data-visual-preset="sketch"]:after{
+  background:linear-gradient(180deg,#11123b,#090d27)!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+
+
+/* P5.6 sketch-match v17 — approved target: wide navy stage, clean center, premium neon frame. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 55% 44% at 50% 36%,rgba(164,55,255,.30) 0%,rgba(101,43,196,.18) 34%,rgba(42,31,115,.08) 56%,transparent 72%),
+    radial-gradient(ellipse 32% 60% at 4% 46%,rgba(42,220,255,.20) 0%,rgba(26,94,218,.08) 48%,transparent 74%),
+    radial-gradient(ellipse 32% 60% at 96% 46%,rgba(255,57,211,.20) 0%,rgba(168,55,217,.08) 48%,transparent 74%),
+    linear-gradient(180deg,#050820 0%,#0d0d39 27%,#140b49 49%,#080d35 76%,#04071b 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.30) contrast(1.13) brightness(1.015)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:25.5%!important;
+  width:78%!important;
+  opacity:.96!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(54px,10vw,70px)!important;
+  letter-spacing:-.07em!important;
+  color:rgba(211,45,225,.08)!important;
+  -webkit-text-stroke:1.45px #f05cf1!important;
+  text-shadow:
+    0 0 4px rgba(255,105,241,.68),
+    0 0 13px rgba(236,56,244,.48),
+    0 0 27px rgba(123,58,255,.28)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#9caeff!important;
+  opacity:.88!important;
+  letter-spacing:.30em!important;
+  text-shadow:0 0 8px rgba(95,115,255,.42)!important;
+}
+
+
+/* P5.6 sketch-match v18 — final target polish: taller light volume, visible neon frame, curved risers. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 58% 48% at 50% 32%,rgba(177,55,255,.34) 0%,rgba(112,45,211,.20) 34%,rgba(45,31,118,.08) 58%,transparent 73%),
+    radial-gradient(ellipse 34% 61% at 3% 45%,rgba(43,224,255,.22) 0%,rgba(25,102,232,.09) 48%,transparent 74%),
+    radial-gradient(ellipse 34% 61% at 97% 45%,rgba(255,62,215,.22) 0%,rgba(176,57,230,.09) 48%,transparent 74%),
+    linear-gradient(180deg,#04071d 0%,#0c0c36 25%,#160a4b 48%,#080d35 77%,#04071b 100%)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:22.8%!important;
+  width:82%!important;
+  opacity:.98!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(58px,10.6vw,74px)!important;
+  -webkit-text-stroke:1.5px #f46af4!important;
+  text-shadow:
+    0 0 4px rgba(255,128,244,.72),
+    0 0 14px rgba(238,58,246,.52),
+    0 0 30px rgba(129,61,255,.30)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:8px!important;
+  opacity:.92!important;
+}
+
+
+/* P5.6 sketch-match v19 — restore venue structure and match golden-sketch depth. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 53% 42% at 50% 31%,rgba(208,52,255,.37) 0%,rgba(135,41,225,.23) 32%,rgba(64,35,145,.10) 57%,transparent 74%),
+    radial-gradient(ellipse 36% 66% at 0% 45%,rgba(39,220,255,.25) 0%,rgba(31,114,245,.11) 48%,transparent 75%),
+    radial-gradient(ellipse 36% 66% at 100% 45%,rgba(255,53,219,.25) 0%,rgba(186,50,235,.11) 48%,transparent 75%),
+    linear-gradient(180deg,#03061a 0%,#090b34 23%,#160947 47%,#080d35 77%,#030617 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.36) contrast(1.16) brightness(1.035)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:21.9%!important;
+  width:79%!important;
+  opacity:1!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(55px,9.9vw,69px)!important;
+  letter-spacing:-.065em!important;
+  color:rgba(234,47,234,.11)!important;
+  -webkit-text-stroke:1.65px #ff72f5!important;
+  text-shadow:
+    0 0 3px rgba(255,220,255,.78),
+    0 0 9px rgba(255,77,239,.68),
+    0 0 21px rgba(211,44,244,.47),
+    0 0 38px rgba(108,58,255,.24)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:7px!important;
+  font-size:clamp(8px,1.35vw,10px)!important;
+  color:#aebcff!important;
+  opacity:.98!important;
+  letter-spacing:.31em!important;
+  text-shadow:0 0 5px rgba(112,138,255,.62),0 0 12px rgba(95,81,255,.35)!important;
+}
+
+
+/* P5.6 sketch-match v20 — final golden venue architecture pass. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 50% 42% at 50% 31%,rgba(194,57,255,.35) 0%,rgba(124,45,216,.21) 33%,rgba(59,36,137,.09) 58%,transparent 75%),
+    radial-gradient(ellipse 35% 66% at 0% 45%,rgba(38,216,255,.24) 0%,rgba(29,105,229,.09) 48%,transparent 75%),
+    radial-gradient(ellipse 35% 66% at 100% 45%,rgba(255,55,214,.24) 0%,rgba(181,56,226,.09) 48%,transparent 75%),
+    linear-gradient(180deg,#020516 0%,#080a2c 23%,#14083e 48%,#070b2c 77%,#020514 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 43% 31% at 50% 31%,rgba(232,63,255,.13),transparent 70%),
+    linear-gradient(180deg,rgba(7,7,28,.04),rgba(22,12,59,.10) 30%,rgba(7,9,36,.03) 72%,transparent 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.31) contrast(1.12) brightness(1.01)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:22.2%!important;
+  width:74%!important;
+  opacity:.99!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(54px,9.5vw,66px)!important;
+  letter-spacing:-.058em!important;
+  color:rgba(238,48,231,.09)!important;
+  -webkit-text-stroke:1.45px #ff78f4!important;
+  text-shadow:
+    0 0 2px rgba(255,225,255,.82),
+    0 0 8px rgba(255,71,235,.66),
+    0 0 18px rgba(208,47,244,.42),
+    0 0 34px rgba(101,58,255,.20)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:6px!important;
+  font-size:clamp(8.5px,1.42vw,10.5px)!important;
+  font-weight:900!important;
+  color:#bbc6ff!important;
+  opacity:1!important;
+  letter-spacing:.32em!important;
+  text-shadow:0 0 4px rgba(178,190,255,.50),0 0 10px rgba(92,101,255,.32)!important;
+}
+
+
+/* P5.6 sketch-match v21 — soften side architecture and restore stage identity. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 52% 43% at 50% 31%,rgba(194,57,255,.32) 0%,rgba(124,45,216,.19) 34%,rgba(59,36,137,.08) 59%,transparent 76%),
+    radial-gradient(ellipse 35% 66% at 0% 45%,rgba(38,216,255,.22) 0%,rgba(29,105,229,.08) 48%,transparent 75%),
+    radial-gradient(ellipse 35% 66% at 100% 45%,rgba(255,55,214,.22) 0%,rgba(181,56,226,.08) 48%,transparent 75%),
+    linear-gradient(180deg,#03071d 0%,#0a1039 24%,#191052 49%,#0a1240 77%,#040920 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.29) contrast(1.10) brightness(1.035)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 44% 31% at 50% 31%,rgba(232,63,255,.09),transparent 72%)!important;
+}
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:22.6%!important;
+  width:80%!important;
+  opacity:1!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(58px,10.4vw,72px)!important;
+  letter-spacing:-.064em!important;
+  color:rgba(239,54,236,.16)!important;
+  -webkit-text-stroke:1.75px #ff77f4!important;
+  text-shadow:
+    0 0 2px rgba(255,235,255,.90),
+    0 0 8px rgba(255,77,238,.78),
+    0 0 20px rgba(220,51,247,.55),
+    0 0 38px rgba(111,60,255,.25)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:7px!important;
+  font-size:clamp(9px,1.48vw,11px)!important;
+  font-weight:900!important;
+  color:#c6d2ff!important;
+  opacity:1!important;
+  letter-spacing:.31em!important;
+  text-shadow:
+    0 0 4px rgba(205,215,255,.62),
+    0 0 11px rgba(94,108,255,.40)!important;
+}
+
+
+/* P5.6 V22 precision blueprint — measured reference values, debug guides isolated by query flag. */
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:color-mix(in srgb,var(--sketch-logo-fill) 18%,transparent)!important;
+  -webkit-text-stroke:1.65px var(--sketch-logo-edge)!important;
+  text-shadow:
+    0 0 3px color-mix(in srgb,var(--sketch-logo-edge) 86%,white 14%),
+    0 0 9px color-mix(in srgb,var(--sketch-logo-glow) 72%,transparent),
+    0 0 21px color-mix(in srgb,var(--sketch-logo-glow) 48%,transparent),
+    0 0 38px rgba(108,58,255,.22)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:var(--sketch-logo-subtitle)!important;
+}
+.stage[data-visual-preset="sketch"] .ready{
+  color:var(--sketch-ready)!important;
+}
+.stage[data-visual-preset="sketch"] .notReady{
+  color:var(--sketch-not-ready)!important;
+}
+.stage[data-visual-preset="sketch"] .crown{
+  color:var(--sketch-crown)!important;
+}
+.blueprintGuides{
+  position:absolute;
+  z-index:20;
+  inset:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+.blueprintCenterLine{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:1px;
+  background:rgba(255,255,255,.34);
+}
+.blueprintOpening{
+  position:absolute;
+  top:0;
+  height:100%;
+  border-left:1px dashed rgba(255,229,80,.56);
+  border-right:1px dashed rgba(255,229,80,.56);
+  background:linear-gradient(90deg,rgba(255,229,80,.025),transparent 18%,transparent 82%,rgba(255,229,80,.025));
+}
+.blueprintLogoBox{
+  position:absolute;
+  border:1px solid rgba(255,235,100,.78);
+  box-shadow:0 0 0 1px rgba(0,0,0,.45),0 0 8px rgba(255,230,91,.28);
+}
+.blueprintColumnPoint,.blueprintRingPoint{
+  position:absolute;
+  width:12px;
+  height:12px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.92);
+  box-shadow:0 0 8px rgba(255,255,255,.52);
+}
+.blueprintColumnPoint:before,.blueprintRingPoint:before,
+.blueprintColumnPoint:after,.blueprintRingPoint:after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  background:rgba(255,255,255,.75);
+  transform:translate(-50%,-50%);
+}
+.blueprintColumnPoint:before,.blueprintRingPoint:before{width:20px;height:1px}
+.blueprintColumnPoint:after,.blueprintRingPoint:after{width:1px;height:20px}
+.blueprintColumnPoint{border-color:#ffe668}
+.blueprintRingPoint{border-color:#7ff7fe}
+
+
+/* P5.6 V23 precision geometry — apply the corrected measured blueprint. */
+.stage[data-visual-preset="sketch"][data-view="wide"] .brand{
+  top:var(--sketch-logo-top)!important;
+  width:var(--sketch-logo-width)!important;
+  transform:translateX(-50%)!important;
+  opacity:1!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  font-size:clamp(50px,8.6vw,62px)!important;
+  line-height:.90!important;
+  letter-spacing:-.058em!important;
+  color:color-mix(in srgb,var(--sketch-logo-fill) 12%,transparent)!important;
+  -webkit-text-stroke:1.45px var(--sketch-logo-edge)!important;
+  text-shadow:
+    0 0 2px color-mix(in srgb,var(--sketch-logo-edge) 84%,white 16%),
+    0 0 7px color-mix(in srgb,var(--sketch-logo-glow) 66%,transparent),
+    0 0 17px color-mix(in srgb,var(--sketch-logo-glow) 43%,transparent),
+    0 0 30px rgba(108,58,255,.18)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  margin-top:8px!important;
+  font-size:clamp(8.5px,1.40vw,10.5px)!important;
+  letter-spacing:.31em!important;
+}
+
+
+/* P5.6 V24 — full-scene golden-sketch color match + head-relative host identity. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 52% 42% at 50% 31%,rgba(188,32,255,.44) 0%,rgba(119,18,221,.28) 34%,rgba(54,20,142,.13) 60%,transparent 76%),
+    radial-gradient(ellipse 35% 67% at 0% 45%,rgba(28,216,255,.30) 0%,rgba(25,86,229,.14) 49%,transparent 75%),
+    radial-gradient(ellipse 35% 67% at 100% 45%,rgba(255,49,218,.30) 0%,rgba(165,40,226,.14) 49%,transparent 75%),
+    linear-gradient(180deg,#05052d 0%,#09083f 22%,#160568 47%,#090d48 77%,#030629 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 45% 34% at 50% 30%,rgba(231,48,255,.13),transparent 70%),
+    linear-gradient(180deg,rgba(8,7,44,.06),rgba(30,9,83,.11) 32%,transparent 76%)!important;
+  filter:saturate(1.32) contrast(1.10) brightness(1.05)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.40) contrast(1.10) brightness(1.07)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:color-mix(in srgb,var(--sketch-logo-fill) 10%,transparent)!important;
+  -webkit-text-stroke:1.35px var(--sketch-logo-edge)!important;
+  text-shadow:
+    0 0 2px rgba(255,232,255,.74),
+    0 0 7px color-mix(in srgb,var(--sketch-logo-edge) 70%,transparent),
+    0 0 17px color-mix(in srgb,var(--sketch-logo-glow) 48%,transparent),
+    0 0 30px rgba(119,49,255,.18)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#aebdff!important;
+  text-shadow:0 0 5px rgba(147,168,255,.66),0 0 11px rgba(91,75,255,.34)!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .ready{
+  color:var(--sketch-ready)!important;
+  text-shadow:0 0 6px rgba(88,240,216,.72),0 1px 2px rgba(0,35,27,.92)!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .notReady{
+  color:var(--sketch-not-ready)!important;
+  text-shadow:0 0 6px rgba(248,120,248,.72),0 1px 2px rgba(44,0,38,.92)!important;
+}
+.stage[data-visual-preset="sketch"] .actorIdentity .crown{
+  color:var(--sketch-crown)!important;
+  filter:drop-shadow(0 0 6px rgba(245,219,116,.64))!important;
+}
+
+
+/* P5.6 V25 measured reset — golden black point, chroma and actor-height lock. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 48% 36% at 50% 32%,rgba(166,20,255,.16) 0%,rgba(98,13,192,.10) 34%,rgba(49,15,122,.04) 60%,transparent 76%),
+    radial-gradient(ellipse 34% 66% at 0% 45%,rgba(18,205,255,.21) 0%,rgba(19,73,211,.08) 50%,transparent 76%),
+    radial-gradient(ellipse 34% 66% at 100% 45%,rgba(248,35,213,.21) 0%,rgba(153,27,210,.08) 50%,transparent 76%),
+    linear-gradient(180deg,#040429 0%,#070637 23%,#10094d 48%,#070a32 77%,#020420 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 40% 26% at 50% 31%,rgba(226,25,255,.075),transparent 72%)!important;
+  filter:saturate(1.18) contrast(1.18) brightness(.98)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.18) contrast(1.22) brightness(.985)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:rgba(193,5,241,.035)!important;
+  -webkit-text-stroke:1.5px #f329f5!important;
+  text-shadow:
+    0 0 2px rgba(255,219,255,.78),
+    0 0 6px rgba(243,41,245,.78),
+    0 0 14px rgba(226,12,242,.54),
+    0 0 27px rgba(88,28,219,.25)!important;
+  filter:saturate(1.08) contrast(1.12)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#8faeff!important;
+  opacity:.96!important;
+  text-shadow:0 0 5px rgba(119,153,255,.70),0 0 10px rgba(71,66,220,.36)!important;
+}
+
+
+/* P5.6 V26 — measured vividness/depth pass from latest owner iPhone + golden pair. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 46% 34% at 50% 30%,rgba(180,25,228,.24) 0%,rgba(101,14,183,.13) 38%,rgba(65,12,126,.05) 63%,transparent 78%),
+    radial-gradient(ellipse 31% 61% at 0% 45%,rgba(20,205,255,.17) 0%,rgba(9,58,172,.055) 55%,transparent 78%),
+    radial-gradient(ellipse 31% 61% at 100% 45%,rgba(247,47,226,.17) 0%,rgba(109,19,160,.055) 55%,transparent 78%),
+    linear-gradient(180deg,#05042f 0%,#090535 21%,#16074e 45%,#0a0838 72%,#040526 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:
+    radial-gradient(ellipse 42% 27% at 50% 31%,rgba(230,25,251,.095),transparent 71%)!important;
+  filter:saturate(1.22) contrast(1.20) brightness(1.00)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.28) contrast(1.26) brightness(1.03)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:rgba(193,5,241,.025)!important;
+  -webkit-text-stroke:1.55px #d228f3!important;
+  text-shadow:
+    0 0 2px rgba(255,227,255,.86),
+    0 0 6px rgba(210,40,243,.90),
+    0 0 15px rgba(243,41,245,.64),
+    0 0 29px rgba(121,25,221,.27)!important;
+}
+.stage[data-visual-preset="sketch"] .brand small{
+  color:#90aaff!important;
+  text-shadow:
+    0 0 4px rgba(160,183,255,.74),
+    0 0 10px rgba(91,95,244,.42)!important;
+}
+
+
+/* V31: one SVG architecture authority. No independently traced braces or 3D roof. */
+.stage[data-visual-preset="sketch"] .architecture:before,
+.stage[data-visual-preset="sketch"] .architecture:after,
+.stage[data-visual-preset="sketch"] .lightBarLeft,
+.stage[data-visual-preset="sketch"] .lightBarRight{
+  display:none!important;
+}
+.stageTrace{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  overflow:visible;
+}
+.traceWall{
+  stroke:none;
+}
+.traceRails path,.traceRailGlow path,.traceTruss,.traceRailBody,.traceUprights{
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.traceUprights{
+  stroke:#182358;
+  stroke-width:4;
+  opacity:.65;
+}
+.traceRailBody{
+  stroke:#111b52;
+  stroke-width:6;
+  opacity:.72;
+}
+.traceRails path{
+  stroke-width:2.6;
+  opacity:.84;
+}
+.traceRailGlow path{
+  stroke-width:5.4;
+  opacity:.11;
+}
+.traceTrussBody{
+  stroke:#253179;
+  stroke-width:6.5;
+  filter:drop-shadow(0 2px 1px rgba(1,3,19,.8));
+}
+.traceTrussEdge{
+  stroke-width:1.7;
+  opacity:.70;
+  transform:translateY(-1.8px);
+  filter:drop-shadow(0 0 3px rgba(63,69,230,.42));
+}
+.traceTruss .traceTrussBrace{
+  stroke-width:2.3;
+  opacity:.62;
+  filter:none;
+}
+.traceColumns{opacity:.88}
+.traceColumnCores{opacity:.86}
+.traceFloorReflection{mix-blend-mode:screen}
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 40% 28% at 50% 31%,rgba(167,18,220,.13) 0%,rgba(93,12,162,.06) 43%,transparent 76%),
+    linear-gradient(180deg,#030323 0%,#07052f 21%,#120541 45%,#080630 72%,#030420 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .architecture{
+  background:none!important;
+  filter:none!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.24) contrast(1.24) brightness(1.08)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  filter:none!important;
+}
+
+
+/* P5.6 V28 full-stage trace — risers, front floor rim and perspective tile grid from golden reference. */
+.traceRiserSurface{
+  opacity:.18;
+  mix-blend-mode:screen;
+}
+.traceRiserEdge,.traceRiserLowerEdge,.traceRiserGlow,.traceFootlights,
+.traceFrontRim,.traceFrontRimGlow,.traceFloorSide{
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.traceRiserEdge{
+  stroke-width:1.75;
+  opacity:.72;
+}
+.traceRiserLowerEdge{
+  stroke-width:1.15;
+  opacity:.30;
+}
+.traceRiserGlow{
+  stroke:#c34dff;
+  stroke-width:8;
+  opacity:.07;
+  filter:blur(2px);
+}
+.traceFootlights{
+  stroke:#f5e7ff;
+  stroke-width:2.8;
+  opacity:.72;
+  filter:drop-shadow(0 0 3px rgba(233,204,255,.86));
+}
+.traceFrontRim{
+  stroke-width:2.2;
+  opacity:.90;
+}
+.traceFrontRimGlow{
+  stroke:#875cff;
+  stroke-width:10;
+  opacity:.10;
+  filter:blur(3px);
+}
+.traceFloorSide{
+  stroke-width:2.3;
+  opacity:.72;
+  filter:drop-shadow(0 0 5px currentColor);
+}
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 36% 24% at 50% 31%,rgba(172,20,219,.10) 0%,rgba(88,11,153,.035) 48%,transparent 78%),
+    linear-gradient(180deg,#02021c 0%,#06042b 21%,#10043e 45%,#08052e 72%,#02031c 100%)!important;
+}
+.stage[data-visual-preset="sketch"] .canvas{
+  filter:saturate(1.22) contrast(1.12) brightness(1.03)!important;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  /* A transparent glyph with text-shadow still fills with the shadow's glyph.
+     Drop-shadow follows the actual neon outline instead of a solid text mask. */
+  color:rgba(193,5,241,.055)!important;
+  -webkit-text-stroke:1.35px #ed50f3!important;
+  text-shadow:none!important;
+  filter:drop-shadow(0 0 3px rgba(224,49,245,.72)) drop-shadow(0 0 9px rgba(193,5,241,.36))!important;
+}
+
+
+/* P5.6 golden-reference diagnostic overlay.
+   Independent owner-sketch pixel trace; query-only and never used by runtime scene rendering. */
+.fixMapOverlay{
+  position:absolute;
+  z-index:28;
+  inset:0;
+  pointer-events:none;
+  overflow:hidden;
+  font-family:inherit;
+}
+.fixMapSvg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+}
+.fixMapLegend{
+  position:absolute;
+  z-index:2;
+  left:8px;
+  top:8px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px 8px;
+  align-items:center;
+  max-width:calc(100% - 16px);
+  padding:5px 7px;
+  border:1px solid rgba(255,222,91,.76);
+  border-radius:9px;
+  background:rgba(4,7,20,.84);
+  box-shadow:0 5px 14px rgba(0,0,0,.30);
+  color:#eaf0ff;
+  font-size:7px;
+  line-height:1;
+}
+.fixMapLegend strong{
+  color:#ffe56f;
+  font-size:7.5px;
+  letter-spacing:.05em;
+}
+.goldenReferenceZones rect{
+  fill:none;
+  stroke:rgba(198,159,255,.66);
+  stroke-width:1.5;
+  stroke-dasharray:9 6;
+}
+.goldenReferenceZones .goldenLogoZone{
+  stroke:#ffe56f;
+  stroke-width:2;
+}
+.goldenReferenceZones .goldenSubtitleZone{
+  stroke:#b9c8ff;
+  stroke-width:1.4;
+}
+.fixTargetRoof path{
+  fill:none;
+  stroke:#ffe56f;
+  stroke-width:3.2;
+  stroke-dasharray:12 6;
+  stroke-linecap:round;
+  opacity:.96;
+}
+.goldenWingOutline path{
+  fill:none;
+  stroke:rgba(255,112,124,.72);
+  stroke-width:1.8;
+  stroke-dasharray:10 7;
+}
+.fixTargetRailsLeft path,.fixTargetRailsRight path{
+  fill:none;
+  stroke-width:3;
+  stroke-dasharray:10 6;
+  stroke-linecap:round;
+  opacity:.94;
+}
+.fixTargetRailsLeft path{stroke:#5ee8ff}
+.fixTargetRailsRight path{stroke:#ff70db}
+.goldenColumns rect{
+  fill:none;
+  stroke:#78ffc1;
+  stroke-width:2;
+  stroke-dasharray:9 6;
+}
+.fixTargetBeams circle{
+  fill:rgba(255,246,177,.2);
+  stroke:#fff2a9;
+  stroke-width:2;
+}
+.fixTargetBeams path{
+  fill:none;
+  stroke:#c3e4ff;
+  stroke-width:2;
+  stroke-dasharray:7 7;
+  opacity:.72;
+}
+.fixTargetRisers path{
+  fill:none;
+  stroke:#fff;
+  stroke-width:2.4;
+  stroke-dasharray:9 6;
+  opacity:.88;
+}
+.fixTargetRisers .goldenRiserLower{
+  stroke:#c6a4ff;
+  stroke-width:1.6;
+  opacity:.62;
+}
+.fixTargetFloor path{
+  fill:none;
+  stroke:#76ffb4;
+  stroke-width:1.45;
+  stroke-dasharray:8 7;
+  opacity:.56;
+}
+.fixTargetFloor path:first-child{
+  stroke-width:2.7;
+  opacity:.92;
+}
+.goldenReflectionLanes path{
+  fill:rgba(84,132,255,.035);
+  stroke:rgba(142,126,255,.58);
+  stroke-width:1.5;
+  stroke-dasharray:10 8;
+}
+.fixTargetRings ellipse{
+  fill:none;
+  stroke:#9ff7ff;
+  stroke-width:2.5;
+  stroke-dasharray:7 5;
+  opacity:.94;
+}
+.goldenColorZones rect{
+  fill:color-mix(in srgb,var(--golden-zone-color) 16%,transparent);
+  stroke:var(--golden-zone-color);
+  stroke-width:1.4;
+  stroke-dasharray:6 5;
+  opacity:.82;
+}
+.goldenColorZones text{
+  fill:#f2f5ff;
+  font-size:8px;
+  font-weight:900;
+  paint-order:stroke;
+  stroke:rgba(0,0,0,.82);
+  stroke-width:2px;
+}
+.fixMapFooter{
+  position:absolute;
+  z-index:2;
+  left:8px;
+  right:8px;
+  bottom:8px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:3px 7px;
+  justify-content:center;
+  padding:5px 6px;
+  border:1px solid rgba(109,133,218,.52);
+  border-radius:8px;
+  background:rgba(4,7,20,.82);
+  color:#dce6ff;
+  font-size:6.5px;
+  line-height:1;
+}
+
+
+/* P5.6 V33 — converge runtime toward independent owner-sketch trace.
+   Geometry is copied from the golden QA reference; formation/camera/HUD stay locked. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 29% 53% at 0% 43%,rgba(22,28,154,.18) 0%,rgba(10,19,86,.055) 58%,transparent 80%),
+    radial-gradient(ellipse 29% 53% at 100% 43%,rgba(35,16,152,.19) 0%,rgba(21,10,91,.055) 58%,transparent 80%),
+    radial-gradient(ellipse 37% 25% at 50% 32%,rgba(174,29,230,.115) 0%,rgba(94,16,159,.04) 50%,transparent 79%),
+    linear-gradient(180deg,#05032a 0%,#090534 22%,#15074b 46%,#0d0a43 72%,#070735 100%)!important;
+}
+.traceRailBody{
+  stroke:#111c62;
+  stroke-width:7.2;
+  opacity:.78;
+}
+.traceRails path{
+  stroke-width:2.9;
+  opacity:.96;
+}
+.traceRailGlow path{
+  stroke-width:6.8;
+  opacity:.15;
+}
+.traceTrussBody{
+  stroke:#1a2a73;
+  stroke-width:8.8;
+  opacity:.96;
+  filter:drop-shadow(0 2px 1px rgba(1,3,19,.78));
+}
+.traceTrussEdge{
+  stroke-width:2.15;
+  opacity:.94;
+  transform:none;
+  filter:drop-shadow(0 0 4px rgba(87,99,255,.52));
+}
+.traceTruss .traceTrussBrace{
+  stroke-width:2.05;
+  opacity:.54;
+}
+.traceRiserSurface{
+  opacity:.29;
+}
+.traceRiserEdge{
+  stroke-width:2.05;
+  opacity:.88;
+}
+.traceRiserLowerEdge{
+  stroke-width:1.3;
+  opacity:.42;
+}
+.traceRiserGlow{
+  stroke-width:9;
+  opacity:.12;
+}
+.traceFootlights{
+  stroke-width:2.9;
+  opacity:.84;
+}
+.traceFloorReflection{
+  opacity:.94;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:rgba(193,5,241,.105)!important;
+  -webkit-text-stroke:1.5px #e343f4!important;
+  text-shadow:none!important;
+  filter:drop-shadow(0 0 3px rgba(238,67,245,.76)) drop-shadow(0 0 10px rgba(193,5,241,.42))!important;
+}
+
+
+/* P5.6 V34 — regional tone/material correction from owner V33 iPhone + golden pixels.
+   Keep V33 geometry; lower-stage luminance rises while upper/wings retain deep saturated values. */
+.stage[data-visual-preset="sketch"]{
+  background:
+    radial-gradient(ellipse 30% 54% at 0% 43%,rgba(11,20,168,.24) 0%,rgba(7,15,95,.07) 58%,transparent 80%),
+    radial-gradient(ellipse 30% 54% at 100% 43%,rgba(57,9,170,.25) 0%,rgba(28,6,92,.07) 58%,transparent 80%),
+    radial-gradient(ellipse 36% 24% at 50% 33%,rgba(157,21,215,.09) 0%,rgba(77,10,145,.03) 52%,transparent 80%),
+    linear-gradient(180deg,#03021f 0%,#07042a 22%,#120643 46%,#0d0b49 72%,#0a0a45 100%)!important;
+}
+.traceTrussBody{
+  stroke:#14256b;
+  stroke-width:10.4;
+  opacity:.98;
+}
+.traceTrussEdge{
+  stroke-width:2.5;
+  opacity:.98;
+  filter:drop-shadow(0 0 5px rgba(94,108,255,.60));
+}
+.traceTruss .traceTrussBrace{
+  stroke-width:2.2;
+  opacity:.68;
+}
+.traceRailBody{
+  stroke:#0d1558;
+  stroke-width:7.6;
+  opacity:.82;
+}
+.traceRails path{
+  stroke-width:3.0;
+  opacity:.98;
+}
+.traceRailGlow path{
+  stroke-width:7.2;
+  opacity:.18;
+}
+.traceRiserSurface{
+  opacity:.34;
+}
+.traceRiserEdge{
+  stroke-width:2.2;
+  opacity:.94;
+}
+.traceRiserLowerEdge{
+  stroke-width:1.35;
+  opacity:.48;
+}
+.traceRiserGlow{
+  opacity:.14;
+}
+.traceFootlights{
+  opacity:.90;
+}
+.traceFloorReflection{
+  opacity:1;
+}
+.stage[data-visual-preset="sketch"] .brand strong{
+  color:rgba(193,5,241,.14)!important;
+  -webkit-text-stroke:1.55px #e94cf6!important;
+  filter:drop-shadow(0 0 3px rgba(241,75,247,.80)) drop-shadow(0 0 10px rgba(200,19,242,.46))!important;
+}
+
+
+/* V38 owner-guided structural cues.
+   Keep the clean V34/V37 geometry; only expose the two missing owner-trace
+   structural systems: the lower roof rim and the perspective floor arcs. */
+.traceRoofRim,.traceFloorGrid{
+  fill:none;
+  pointer-events:none;
+}
+.traceRoofRim path{
+  fill:none;
+  stroke:#263979;
+  stroke-width:1.75;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.68;
+}
+.traceFloorGrid path{
+  fill:none;
+  stroke:rgba(111,145,222,.30);
+  stroke-width:1.05;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.62;
+}
+
+
+/* P5.6 V39 — presentation-only finish pass on locked V38 geometry. */
+.stage[data-visual-preset="sketch"] .traceTrussBody{
+  stroke:#091238;
+  opacity:.88;
+}
+.stage[data-visual-preset="sketch"] .traceTrussEdge{
+  stroke-width:1.8;
+  opacity:.62;
+  filter:drop-shadow(0 0 2px rgba(72,88,210,.26));
+}
+.stage[data-visual-preset="sketch"] .traceTruss .traceTrussBrace{
+  stroke-width:1.8;
+  opacity:.34;
+}
+.stage[data-visual-preset="sketch"] .traceRoofRim path{
+  stroke:#172351;
+  stroke-width:1.55;
+  opacity:.48;
+}
+.stage[data-visual-preset="sketch"] .traceRailBody{
+  stroke:#0a164d;
+  opacity:.80;
+}
+.stage[data-visual-preset="sketch"] .traceRails path{
+  stroke-width:3.15;
+  opacity:.98;
+}
+.stage[data-visual-preset="sketch"] .traceRailGlow path{
+  stroke-width:7.4;
+  opacity:.17;
+}
+.stage[data-visual-preset="sketch"] .traceRiserSurface{
+  opacity:.40;
+}
+.stage[data-visual-preset="sketch"] .traceRiserEdge{
+  stroke-width:2.35;
+  opacity:.97;
+}
+.stage[data-visual-preset="sketch"] .traceRiserLowerEdge{
+  stroke-width:1.55;
+  opacity:.58;
+}
+.stage[data-visual-preset="sketch"] .traceRiserGlow{
+  opacity:.16;
+}
+.stage[data-visual-preset="sketch"] .traceFootlights{
+  stroke-width:3.2;
+  opacity:.96;
+}
+.stage[data-visual-preset="sketch"] .traceFloorGrid path{
+  stroke:rgba(132,164,235,.34);
+  opacity:.70;
+}
+
+
+/* P5.6 V40 — fixture silhouette, rail depth variation, and riser sheen. */
+.stage[data-visual-preset="sketch"] .traceRailBody{
+  stroke:#08123f;
+  opacity:.66;
+}
+.stage[data-visual-preset="sketch"] .traceRails path{
+  stroke-width:2.75;
+  opacity:.72;
+}
+.stage[data-visual-preset="sketch"] .traceRailGlow path{
+  stroke-width:6.4;
+  opacity:.09;
+}
+.stage[data-visual-preset="sketch"] .traceRails .traceRailBright{opacity:.82}
+.stage[data-visual-preset="sketch"] .traceRails .traceRailMid{opacity:.54}
+.stage[data-visual-preset="sketch"] .traceRails .traceRailDim{opacity:.31}
+.stage[data-visual-preset="sketch"] .traceRailGlow .traceRailBright{opacity:.13}
+.stage[data-visual-preset="sketch"] .traceRailGlow .traceRailMid{opacity:.065}
+.stage[data-visual-preset="sketch"] .traceRailGlow .traceRailDim{opacity:.022}
+.stage[data-visual-preset="sketch"] .traceRailBody .traceRailBright{opacity:.78}
+.stage[data-visual-preset="sketch"] .traceRailBody .traceRailMid{opacity:.60}
+.stage[data-visual-preset="sketch"] .traceRailBody .traceRailDim{opacity:.48}
+.stage[data-visual-preset="sketch"] .traceRiserSheen{
+  opacity:.82;
+  mix-blend-mode:screen;
+}
+.stage[data-visual-preset="sketch"] .traceRiserSurface{
+  opacity:.42;
+}

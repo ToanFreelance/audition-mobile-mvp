@@ -1,0 +1,49 @@
+.svg{
+  display:block;
+  width:100%;
+  height:100%;
+  overflow:visible;
+  pointer-events:none;
+  opacity:var(--golden-trace-opacity,.72);
+}
+.geometry polyline,.geometry path,.geometry rect,.geometry ellipse,.geometry polygon{vector-effect:non-scaling-stroke}
+.geometry polyline,.geometry path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.exact{stroke-dasharray:none}
+.approximate{stroke-dasharray:2.5 6;opacity:.48}
+.roofLine{stroke:#ffe75b;stroke-width:1.75}
+.roofBrace{stroke:#ffd665;stroke-width:1.05;opacity:.72}
+.wingOutline{stroke:#ff8b78;stroke-width:1.25}
+.leftRail{stroke:#5af1ff;stroke-width:1.6}
+.rightRail{stroke:#ff68e5;stroke-width:1.6}
+.columns rect,.columns polygon{fill:none;stroke:#78ffc4;stroke-width:1.5;stroke-dasharray:7 4}
+.centerPanel{fill:none;stroke:#bd8dff;stroke-width:1.15;stroke-dasharray:5 5;opacity:.58}
+.logoBox{fill:none;stroke:#ffe75b;stroke-width:1.45;stroke-dasharray:7 4}
+.subtitleBox{fill:none;stroke:#b9ceff;stroke-width:1;stroke-dasharray:5 4}
+.spotlights ellipse{fill:none;stroke:#fff1a6;stroke-width:1.35;stroke-dasharray:5 3}
+.beamBoundary{stroke:#c7ebff;stroke-width:.9}
+.spotlights .fallZone{stroke:#d8f5ff;stroke-width:.85;opacity:.45;stroke-dasharray:3 5}
+.riserTop{stroke:#fff;stroke-width:1.45}
+.riserLower{stroke:#c8a4ff;stroke-width:1.05}
+.floorRim{stroke:#79ffc1;stroke-width:1.55}
+.floorGrid{stroke:#70ffb6;stroke-width:.75;opacity:.58}
+.reflectionLane{fill:rgba(110,117,255,.035);stroke-width:.9;stroke-dasharray:6 5;opacity:.62}
+.reflection_cyan{stroke:#5ceeff}
+.reflection_violet{stroke:#b77cff}
+.reflection_magenta{stroke:#ff69df}
+.rings ellipse{fill:none;stroke:#fff262;stroke-width:1.45;stroke-dasharray:6 3}
+.colorZones rect{
+  fill:color-mix(in srgb,var(--golden-zone-color) 14%,transparent);
+  stroke:var(--golden-zone-color);
+  stroke-width:1;
+  stroke-dasharray:5 4;
+  vector-effect:non-scaling-stroke;
+}
+.colorZones text{
+  fill:#f8fbff;
+  font-size:7px;
+  font-weight:800;
+  paint-order:stroke;
+  stroke:rgba(0,0,0,.85);
+  stroke-width:1.8px;
+}
+

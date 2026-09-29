@@ -4,22 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - "work/lobby*"
-    paths:
-      - "components/multiplayer/**"
-      - "components/character/**"
-      - "multiplayer/**"
-      - "game/**"
-      - "app/api/multiplayer/**"
-      - "app/api/music-config/**"
-      - "app/tools/lobby-qa/**"
-      - "e2e/**"
-      - "playwright.config.ts"
-      - "package*.json"
-      - ".github/workflows/lobby-qa.yml"
-  pull_request:
-    branches:
+      - "work/**"
       - development
+      - main
     paths:
       - "components/multiplayer/**"
       - "components/character/**"
@@ -32,7 +19,6 @@ on:
       - "playwright.config.ts"
       - "package*.json"
       - ".github/workflows/lobby-qa.yml"
-
 concurrency:
   group: lobby-qa-qc-${{ github.ref }}
   cancel-in-progress: true
@@ -50,7 +36,7 @@ env:
 jobs:
   fast-lobby-qa:
     name: fast-lobby-qa
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/work/') }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
 
@@ -75,7 +61,7 @@ jobs:
 
   static-build:
     name: static-build
-    if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[full-qa]') }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
 
@@ -100,7 +86,7 @@ jobs:
 
   core-regression:
     name: core-regression
-    if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[full-qa]') }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 18
 
@@ -141,7 +127,7 @@ jobs:
 
   real-browser-e2e:
     name: real-host-guest-e2e
-    if: ${{ github.event_name != 'push' || contains(github.event.head_commit.message, '[full-qa]') }}
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 

@@ -5,6 +5,7 @@ type LobbyQaPageProps = {
     sync?: string;
     client?: string;
     room?: string;
+    calibrate?: string;
   }>;
 };
 
@@ -17,5 +18,5 @@ export default async function LobbyQaPage({ searchParams }: LobbyQaPageProps) {
       }
     : null;
 
-  return <WaitingRoomPanel initialSync={initialSync} />;
+  return <WaitingRoomPanel initialSync={initialSync} calibrationMode={params.calibrate === "1"} />;
 }

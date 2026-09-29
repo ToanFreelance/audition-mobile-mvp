@@ -1,0 +1,368 @@
+import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import * as THREE from "three";
+import { WAITING_ROOM_SKETCH_BLUEPRINT as blueprint, sketchRoofPoint } from "../components/multiplayer/waiting-room-sketch-blueprint";
+import { WAITING_ROOM_OWNER_TRACE_VECTOR as goldenTrace } from "../components/multiplayer/waiting-room-owner-trace-vector";
+import { createSketchStageSet, sketchFixtureLayoutKey, sketchFixtureSource } from "../components/multiplayer/waiting-room-sketch-set";
+
+test("V32 fixtures re-anchor when the real camera replaces the initial camera at the same viewport", () => {
+  const camera = new THREE.PerspectiveCamera(30, 390 / 472, 0.1, 100);
+  const initialKey = sketchFixtureLayoutKey(camera, 390, 472);
+  const wide = blueprint.scene.camera.wide;
+  camera.fov = wide.fov;
+  camera.position.set(wide.position.x, wide.position.y, wide.position.z);
+  camera.lookAt(wide.lookAt.x, wide.lookAt.y, wide.lookAt.z);
+  camera.updateProjectionMatrix();
+  const wideKey = sketchFixtureLayoutKey(camera, 390, 472);
+  expect(wideKey).not.toBe(initialKey);
+  expect(sketchFixtureLayoutKey(camera, 390, 472)).toBe(wideKey);
+  for (const [width, height] of [[390, 472], [430, 521], [768, 700]]) {
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    sketchFixtureLayoutKey(camera, width, height);
+    for (const t of [0.12, 0.26, 0.36, 0.64, 0.74, 0.88]) {
+      const source = sketchFixtureSource(camera, t, -3.08)!;
+      const projected = source.clone().project(camera);
+      const anchor = sketchRoofPoint(t, true);
+      expect(projected.x).toBeCloseTo(t * 2 - 1, 6);
+      expect(projected.y).toBeCloseTo(1 - (anchor.y + 16) / 1044 * 2, 6);
+      expect(projected.z).toBeGreaterThan(-1);
+      expect(projected.z).toBeLessThan(1);
+    }
+  }
+  camera.position.set(0, 3.16, 9.45);
+  camera.lookAt(0, 2.08, 0);
+  expect(sketchFixtureLayoutKey(camera, 390, 472)).not.toBe(wideKey);
+});
+
+// V37: stable V34 runtime base + clean owner-guided redraw.
+test("V38 keeps the clean owner-guided architecture and adds missing structural arcs", () => {
+  expect(blueprint.traceArchitecture.source).toBe("v38-owner-guided-structure");
+  expect(blueprint.traceArchitecture.viewBox).toEqual({ width: 864, height: 1044 });
+  expect(blueprint.traceArchitecture.railsLeft).toHaveLength(7);
+  expect(blueprint.traceArchitecture.railsRight).toHaveLength(7);
+  expect(blueprint.scene.wing.railRows).toBe(7);
+  expect(blueprint.traceArchitecture.railsLeft.slice(0, 2)).toEqual([
+    "M 0 190 C 64.4 210.5 129.9 228 195.75 242",
+    "M 0 228 C 64.8 247 130 264 195.75 277",
+  ]);
+  expect(blueprint.traceArchitecture.railsRight[0]).not.toBe(blueprint.traceArchitecture.railsLeft[0]);
+  for (const path of [...blueprint.traceArchitecture.railsLeft, ...blueprint.traceArchitecture.railsRight]) {
+    expect(path.match(/C/g)).toHaveLength(1);
+  }
+  for (const riser of blueprint.traceArchitecture.risers) {
+    expect(riser.edge.match(/C/g)).toHaveLength(1);
+    expect(riser.lowerEdge.match(/C/g)).toHaveLength(1);
+  }
+  expect(blueprint.traceArchitecture.truss.upperPath.match(/C/g)).toHaveLength(2);
+  expect(blueprint.traceArchitecture.truss.lowerPath.match(/C/g)).toHaveLength(2);
+  expect(blueprint.traceArchitecture.truss.rimUpperPath.match(/C/g)).toHaveLength(1);
+  expect(blueprint.traceArchitecture.truss.rimLowerPath.match(/C/g)).toHaveLength(1);
+  expect(blueprint.traceArchitecture.floor.gridHorizontal).toHaveLength(5);
+  expect(blueprint.traceArchitecture.floor.gridVertical).toHaveLength(5);
+  expect(blueprint.scene.fixtureRoofT).toEqual([0.08, 0.25, 0.42, 0.58, 0.75, 0.92]);
+  expect(blueprint.scene.uplights).toHaveLength(2);
+  expect(blueprint.scene.beams.every(beam => Math.abs(beam.targetX) <= 0.82)).toBe(true);
+  expect(blueprint.scene.uplights.map(light => light.x)).toEqual([-1.18, 1.18]);
+  expect(blueprint.scene.uplights.every(light => light.z <= -4.5)).toBe(true);
+  expect(blueprint.scene.uplights.every(light => light.targetZ > light.z)).toBe(true);
+  expect(blueprint.scene.uplights.every(light => light.targetY > light.y)).toBe(true);
+  expect(blueprint.scene.uplights.every(light => light.color === 0xf0e4ff)).toBe(true);
+  expect(blueprint.scene.uplights.every(light => light.radius >= 0.8)).toBe(true);
+  expect(blueprint.scene.beams.slice(2, 5).every(light => light.color === 0x7430ff)).toBe(true);
+  expect(blueprint.scene.lighting.upperGlowColor).toBe(0x7430ff);
+});
+
+test("V37 redraw stays anti-circular and keeps the V34 scene architecture", () => {
+  const runtimeBlueprintSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/waiting-room-sketch-blueprint.ts"),
+    "utf8",
+  );
+  const runtimeStageSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/WaitingRoomStage3D.tsx"),
+    "utf8",
+  );
+  expect(runtimeBlueprintSource).not.toContain('from "./waiting-room-owner-trace-vector"');
+  expect(runtimeStageSource).not.toContain("waiting-room-owner-trace-vector");
+  expect(runtimeStageSource).not.toContain("OWNER_TRACE_RUNTIME_POINTS");
+  expect(runtimeStageSource).not.toContain("sketchFloorRingY");
+  expect(runtimeStageSource).toContain("traceArchitecture.railsRight.map");
+});
+
+test("V37 keeps three solid glossy risers without duplicate 3D wings or extra mirrors", () => {
+  const set = createSketchStageSet();
+  expect(set.children.filter(child => child.name.startsWith("SketchRiser:"))).toHaveLength(3);
+  expect(set.children.some(child => child.name.startsWith("SketchWing:"))).toBe(false);
+  const reflections = set.getObjectByName("SketchRiserLightReflections") as THREE.Mesh;
+  expect(reflections).toBeDefined();
+  expect(reflections.geometry.getAttribute("color").count).toBeGreaterThan(0);
+  const materials = new Set<THREE.Material>();
+  set.traverse(object => {
+    expect(object.type).not.toBe("Reflector");
+    if (!(object instanceof THREE.Mesh)) return;
+    expect([...object.geometry.getAttribute("position").array].every(Number.isFinite)).toBe(true);
+    const meshMaterials = Array.isArray(object.material) ? object.material : [object.material];
+    meshMaterials.forEach(material => materials.add(material));
+    object.geometry.dispose();
+  });
+  const polished = [...materials].filter((material): material is THREE.MeshPhysicalMaterial => material instanceof THREE.MeshPhysicalMaterial);
+  expect(polished).toHaveLength(2);
+  polished.forEach(material => {
+    expect(material.clearcoat).toBeGreaterThanOrEqual(0.85);
+    expect(material.roughness).toBeLessThanOrEqual(0.22);
+    expect(material.emissiveIntensity).toBeLessThanOrEqual(0.32);
+  });
+  materials.forEach(material => material.dispose());
+});
+
+test("P5.6 waiting room matches the accepted five-person focus presentation", async ({ page }) => {
+  await page.goto("/tools/lobby-qa");
+
+  await expect(page.locator('[data-presentation="full-stage-glass"]')).toHaveCount(1);
+
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(page.getByTestId("waiting-room-stage-loading")).toHaveCount(1);
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 30_000 });
+  await expect(stage).toHaveAttribute("data-view", "wide");
+  await expect(stage).toHaveAttribute("data-layout", "host-first");
+  await expect(stage).toHaveAttribute("data-max-players", "5");
+  await expect(stage).toHaveAttribute("data-layout-transition", "smooth");
+  await expect(stage).toHaveAttribute("data-label-layout", "head-follow");
+  await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
+  await expect(stage).toHaveAttribute(
+    "data-character-assets",
+    "c4-casual-boy,c1-casual-grace,c4-casual-boy,c1-casual-grace,c4-casual-boy",
+  );
+
+  await expect(page.getByTestId("room-summary")).toContainText("5/5");
+  await expect(page.getByTestId("slot-5")).toHaveCount(0);
+  await expect(page.locator('[data-testid^="slot-avatar-image-"]')).toHaveCount(5);
+  await expect(page.getByTestId("slot-avatar-image-0")).toHaveAttribute(
+    "src",
+    /^data:image\/jpeg;base64,/,
+  );
+  await expect(page.getByTestId("slot-avatar-image-1")).toHaveAttribute(
+    "src",
+    /^data:image\/jpeg;base64,/,
+  );
+
+  const deck = page.getByTestId("p56-participant-deck");
+  await expect(deck.locator("button")).toHaveCount(5);
+  await expect(deck.getByText("LinhCute")).toBeVisible();
+  await expect(deck.getByText("ShuMar")).toBeVisible();
+  await expect(deck.getByText("Minh")).toBeVisible();
+  await expect(deck.getByText("Mai")).toBeVisible();
+
+  const identity = page.getByTestId("p56-focused-identity");
+  await expect(identity).toHaveAttribute("data-character-asset-id", "c4-casual-boy");
+  await expect(identity).toContainText("Toan");
+  await expect(identity).not.toContainText("HOST");
+  await expect(identity.locator("span")).toContainText("♛");
+
+  await expect(stage).not.toHaveAttribute("data-scene-generation", "0");
+  const generation = await stage.getAttribute("data-scene-generation");
+  await page.getByRole("button", { name: "Next participants" }).click();
+
+  await expect(stage).toHaveAttribute("data-focus-participant-id", "p56-minh");
+  await expect(identity).toHaveAttribute("data-character-asset-id", "c4-casual-boy");
+  await expect(identity).toContainText("Minh");
+  await expect(identity).toContainText("READY");
+  await expect(stage).toHaveAttribute("data-scene-generation", generation ?? "1");
+
+  await page.getByRole("button", { name: "Previous participants" }).click();
+  await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
+  await expect(identity).not.toContainText("HOST");
+
+  await expect(deck.locator('[data-character-asset-id="c1-casual-grace"]')).toHaveCount(2);
+  await expect(deck.locator('[data-character-asset-id="c4-casual-boy"]')).toHaveCount(3);
+
+  await expect(page.getByTestId("camera-preset-controls")).toHaveCount(0);
+  await page.getByTestId("room-settings-button").click();
+  const cameraPresets = page.getByTestId("camera-preset-controls");
+  await expect(cameraPresets).toBeVisible();
+  await expect(cameraPresets.getByRole("button", { name: "Wide view" })).toHaveAttribute("aria-pressed", "true");
+  await cameraPresets.getByRole("button", { name: "Center view" }).click();
+  await expect(stage).toHaveAttribute("data-view", "center");
+  await expect(stage).toHaveAttribute("data-label-layout", "head-follow");
+  await expect(page.getByTestId("p56-focused-identity")).toContainText("Toan");
+  await expect(page.getByTestId("p56-focused-identity")).toContainText("Lv. 25");
+  await expect(page.getByTestId("p56-focused-identity")).not.toContainText("HOST");
+
+  await cameraPresets.getByRole("button", { name: "Close view" }).click();
+  await expect(stage).toHaveAttribute("data-view", "close");
+  await expect(stage).toHaveAttribute("data-label-layout", "head-follow");
+  const closeIdentity = page.getByTestId("p56-focused-identity");
+  await expect(closeIdentity).toContainText("Toan");
+  await expect(closeIdentity).toContainText("Lv. 25");
+  await expect(closeIdentity).toBeVisible();
+});
+
+
+test("P5.6 QA layout calibrator exposes direct manipulation export without normal carousel arrows", async ({ page }) => {
+  await page.goto("/tools/lobby-qa?calibrate=1");
+
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-calibration", "1");
+  await expect(page.getByTestId("layout-calibration-toolbar")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Previous participants" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Next participants" })).toHaveCount(0);
+
+  await page.getByTestId("layout-calibration-export").click();
+  const exported = page.getByTestId("layout-calibration-json");
+  await expect(exported).toBeVisible();
+  await expect(exported).toContainText('"mode": "waiting-room-wide-calibration"');
+  await expect(exported).toContainText('"displayName": "Toan"');
+  await expect(exported).toContainText('"displayName": "LinhCute"');
+});
+
+
+test("P5.6 accepted owner calibration stays locked", async ({ page }) => {
+  await page.goto("/tools/lobby-qa?calibrate=1");
+  await page.getByTestId("layout-calibration-export").click();
+  const exported = page.getByTestId("layout-calibration-json");
+  await expect(exported).toContainText('"x": -0.0764');
+  await expect(exported).toContainText('"z": 2.6');
+  await expect(exported).toContainText('"x": -1.7004');
+  await expect(exported).toContainText('"z": 1.9872');
+  await expect(exported).toContainText('"x": 3.0732');
+});
+
+
+test("P5.6 sketch compare route is isolated and uses glossy sketch presentation", async ({ page }) => {
+  await page.goto("/tools/lobby-qa-sketch");
+
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-visual-preset", "sketch");
+  await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
+  await expect(stage).toHaveAttribute("data-ring-style", "flat-luminous-decals");
+  await expect(stage).toHaveAttribute("data-sketch-match", "v38-v34-owner-guided-structure");
+  await expect(stage).toHaveAttribute("data-visual-polish", "v45-rear-uplights-deep-violet");
+  await expect(stage).toHaveAttribute("data-roof-fixture-spacing", "even-wide");
+  await expect(stage).toHaveAttribute("data-uplight-placement", "rear-riser-outward");
+  await expect(stage).toHaveAttribute("data-uplight-direction", "back-to-front-up");
+  await expect(stage).toHaveAttribute("data-uplight-beam", "broad-short-lavender-white");
+  await expect(stage).toHaveAttribute("data-violet-lighting", "deep-vivid-purple");
+  await expect(stage).toHaveAttribute("data-beam-falloff", "mid-stage");
+  await expect(stage).toHaveAttribute("data-stage-uplights", "2");
+  await expect(stage).toHaveAttribute("data-uplight-fixture", "visible-floor-head");
+  await expect(stage).toHaveAttribute("data-stage-rail-rows", "7");
+  await expect(stage).toHaveAttribute("data-light-aperture", "frustum-lens");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v12");
+  await expect(stage).toHaveAttribute("data-ceiling-source", "screen-trace");
+  await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
+  await expect(stage).toHaveAttribute("data-riser-source", "hybrid-threejs-trace");
+  await expect(stage).toHaveAttribute("data-floor-grid", "floor-plane");
+  await expect(page.getByTestId("sketch-stage-trace")).toHaveCount(1);
+  await expect(stage).toHaveAttribute("data-stage-risers", "3");
+  await expect(stage).toHaveAttribute("data-backdrop-geometry", "target-tiered-stage");
+  await expect(stage).toHaveAttribute("data-ring-palette", "catalog-gender");
+  await expect(stage).toHaveAttribute("data-ring-geometry", "two-medium-one-fine");
+  await expect(stage).toHaveAttribute("data-ring-reflection", "contact-glow-only");
+  await expect(stage).toHaveAttribute("data-stage-lighting", "grand");
+  await expect(stage).toHaveAttribute("data-character-grade", "warm-neon");
+  await expect(stage).toHaveAttribute("data-stage-footprint", "expanded");
+  await expect(page.getByTestId("waiting-room-avatar-strip")).toHaveAttribute(
+    "data-visual-order",
+    "stage-left-to-right",
+  );
+  await expect(page.locator('[data-visual-preset="sketch"]')).toHaveCount(1);
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 30_000 });
+
+  await page.goto("/tools/lobby-qa");
+  await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-visual-preset", "default");
+});
+
+
+test("P5.6 sketch compare keeps focus and avatar selection on the same participant", async ({ page }) => {
+  await page.goto("/tools/lobby-qa-sketch");
+
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 30_000 });
+
+  await expect(page.getByTestId("slot-0")).toHaveAttribute("data-selected", "1");
+
+  await page.getByRole("button", { name: "Next participants" }).click();
+  await expect(stage).toHaveAttribute("data-focus-participant-id", "p56-minh");
+  await expect(page.getByTestId("slot-4")).toHaveAttribute("data-selected", "1");
+
+  await page.getByRole("button", { name: "Previous participants" }).click();
+  await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
+  await expect(page.getByTestId("slot-0")).toHaveAttribute("data-selected", "1");
+});
+
+
+test("P5.6 precision blueprint route exposes measured overlay guides only when requested", async ({ page }) => {
+  await page.goto("/tools/lobby-qa-sketch?blueprint=1");
+
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-sketch-blueprint", "golden-864x1536-v12");
+  await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(1);
+
+  await page.goto("/tools/lobby-qa-sketch");
+  await expect(page.getByTestId("sketch-blueprint-guides")).toHaveCount(0);
+});
+
+
+test("P5.6 owner trace vector is rebuilt from the owner upload and stays QA-only", async ({ page }) => {
+  expect(goldenTrace.id).toBe("owner-authored-vector-trace-v4");
+  expect(goldenTrace.source.width).toBe(768);
+  expect(goldenTrace.source.height).toBe(1364);
+  expect(goldenTrace.source.stageHeight).toBe(928);
+  expect(goldenTrace.source.stageCrop).toEqual({ x: 0, y: 0, width: 768, height: 928 });
+  expect(goldenTrace.source.sha256).toBe("59615be18d091205f0d65f8b772d7fd1db0c8b70e65f4dcd2f8b32dde722b7fb");
+  expect(goldenTrace.geometryAuthority.kind).toBe("owner-authored-vector-trace");
+  expect(goldenTrace.geometryAuthority.method).toBe("direct-pixel-sampling");
+  expect(goldenTrace.geometryAuthority.rasterRuntimeDependency).toBe(false);
+
+  const traceSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/waiting-room-owner-trace-vector.ts"),
+    "utf8",
+  );
+  const rendererSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/WaitingRoomGoldenTraceSvg.tsx"),
+    "utf8",
+  );
+  const runtimeStageSource = readFileSync(
+    join(process.cwd(), "components/multiplayer/WaitingRoomStage3D.tsx"),
+    "utf8",
+  );
+
+  expect(traceSource).not.toContain('from "./waiting-room-sketch-blueprint"');
+  expect(traceSource).not.toContain('from "./WaitingRoomStage3D"');
+  expect(rendererSource).toContain('from "./waiting-room-owner-trace-vector"');
+  expect(rendererSource).not.toContain('from "./waiting-room-golden-trace"');
+  expect(runtimeStageSource).not.toContain("waiting-room-owner-trace-vector");
+  expect(runtimeStageSource).not.toContain("waiting-room-golden-trace");
+
+  await page.goto("/tools/lobby-qa-sketch?goldenTrace=1");
+  await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="geometry"]')).toHaveCount(1);
+  await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="color"]')).toHaveCount(0);
+
+  await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceOpacity=0.55&traceMode=geometry");
+  const overlay = page.getByTestId("waiting-room-golden-trace");
+  await expect(overlay).toHaveCount(1);
+  await expect(overlay).toHaveAttribute("data-golden-trace-source", "owner-authored-vector-trace-v4");
+  await expect(overlay.locator('[data-trace-authority="owner-authored-vector-trace"]')).toHaveCount(1);
+  await expect(overlay.locator('[data-trace-renderer="inline-svg-vector"]')).toHaveCount(1);
+  await expect(overlay.locator("image")).toHaveCount(0);
+  await expect(overlay.locator("defs filter")).toHaveCount(0);
+  await expect(overlay.locator("mask")).toHaveCount(0);
+  await expect(overlay.locator('[data-trace-id^="left-rail-"]')).toHaveCount(6);
+  await expect(overlay.locator('[data-trace-id^="right-rail-"]')).toHaveCount(6);
+  await expect(overlay.locator("path")).toHaveCount(64);
+  await expect(overlay.locator('[data-trace-layer="color"]')).toHaveCount(0);
+
+  await page.goto("/tools/lobby-qa-sketch?goldenTrace=1&traceMode=color");
+  await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="geometry"]')).toHaveCount(0);
+  await expect(page.getByTestId("waiting-room-golden-trace").locator('[data-trace-layer="color"]')).toHaveCount(1);
+
+  await page.goto("/tools/lobby-qa-sketch?fixmap=1");
+  await expect(page.getByTestId("waiting-room-golden-trace")).toHaveAttribute(
+    "data-golden-trace-source",
+    "owner-authored-vector-trace-v4",
+  );
+
+  await page.goto("/tools/lobby-qa-sketch");
+  await expect(page.getByTestId("waiting-room-golden-trace")).toHaveCount(0);
+});

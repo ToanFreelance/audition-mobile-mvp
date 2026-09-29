@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { StagePresentationCameraPreset } from "./stageCamera";
+import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
 
 type RuntimeUrlResponse = {
   stageId: string;
@@ -150,7 +151,19 @@ export class BrightStageV1Environment {
       throw new Error("Bright Stage V1 runtime URL response is invalid.");
     }
 
-    const gltf = await this.loader.loadAsync(runtime.url);
+    const stageResponse = await fetchPersistentAsset(runtime.url, {
+      cacheKey: "stage:" + runtime.stageId + ":" + runtime.sha256,
+      request: { headers: { Accept: "model/gltf-binary,application/octet-stream,*/*" } },
+    });
+    if (!stageResponse.ok) throw new Error(`Bright Stage V1 asset HTTP ${stageResponse.status}`);
+    const stageBlob = await stageResponse.blob();
+    const localStageUrl = URL.createObjectURL(stageBlob);
+    let gltf;
+    try {
+      gltf = await this.loader.loadAsync(localStageUrl);
+    } finally {
+      URL.revokeObjectURL(localStageUrl);
+    }
     if (this.disposed) {
       disposeObject(gltf.scene);
       throw new Error("Bright Stage V1 was disposed before load completed.");
