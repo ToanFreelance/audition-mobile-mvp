@@ -11,7 +11,6 @@ const MODELS = {
 } as const;
 
 type ModelId = keyof typeof MODELS;
-const EXPECTED_ANIMATIONS = ["QA_Idle", "QA_NormalDance", "QA_Miss", "QA_Finish"] as const;
 
 export default function CharacterRigQaPage() {
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -316,8 +315,8 @@ export default function CharacterRigQaPage() {
         <header style={styles.header}>
           <div>
             <p style={styles.eyebrow}>CHARACTER · RIG QA</p>
-            <h1 style={styles.title}>Nam / Nữ deformation test</h1>
-            <p style={styles.lead}>Load the two rigged QA GLBs generated from your models, then inspect Idle / NormalDance / Miss / Finish. This route is isolated and does not change Character Catalog or gameplay.</p>
+            <h1 style={styles.title}>Nam / Nữ Meshy rig test</h1>
+            <p style={styles.lead}>Load any rigged GLB, inspect the rest pose and every embedded animation clip, and verify skin deformation + restored materials before Character Catalog integration. This route remains isolated from gameplay.</p>
           </div>
           <span style={styles.badge}>QA ONLY</span>
         </header>
@@ -423,7 +422,8 @@ const styles: Record<string, CSSProperties> = {
   segmented: { display: "flex", gap: 8 },
   canvasHost: { width: "100%", height: "min(62vh, 560px)", minHeight: 390, overflow: "hidden", borderRadius: 12, background: "#0a0d14", touchAction: "none" },
   statusRow: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", padding: "2px 4px 3px", color: "#8f9aab", fontSize: 10 },
-  clipGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 },\n  emptyClip: { gridColumn: "1 / -1", color: "#7f899a", fontSize: 11, padding: "8px 4px" },
+  clipGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 },
+  emptyClip: { gridColumn: "1 / -1", color: "#7f899a", fontSize: 11, padding: "8px 4px" },
   controls: { display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" },
   controlButton: { border: "1px solid #3a4352", background: "#1a202a", color: "#d8deea", borderRadius: 10, padding: "10px 11px", fontWeight: 850 },
   controlActive: { border: "1px solid #9a7ee4", background: "#2b2242", color: "#f0e9ff", borderRadius: 10, padding: "10px 11px", fontWeight: 850 },
