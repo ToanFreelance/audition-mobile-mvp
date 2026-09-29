@@ -263,7 +263,8 @@ export default function CharacterRigQaPage() {
       const initial = clipMap.has(selectedClip) ? selectedClip : "QA_Idle";
       setSelectedClip(initial);
       setRigStats(skinnedCount + " skinned mesh · " + boneCount + " bones · " + gltf.animations.length + " clips");
-      setStatus((loadedFiles[modelId] ?? MODELS[modelId].label) + " ready · QA auto-weights");
+      const qaFlavor = (loadedFiles[modelId] ?? "").toLowerCase().includes("retopo") ? "retopo rig" : "QA auto-weights";
+      setStatus((loadedFiles[modelId] ?? MODELS[modelId].label) + " ready · " + qaFlavor);
       playClip(initial);
     }).catch(error => {
       if (!cancelled) setStatus("Load failed: " + (error instanceof Error ? error.message : "unknown error"));
