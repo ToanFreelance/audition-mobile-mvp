@@ -93,9 +93,10 @@ P5.6 is accepted and integrated into `development`.
 
 After S2 is accepted:
 
+- S2.5 — Environment / Venue Pack V1
 - S3 — Host Stage Selector
 
-Do not begin S3 until the owner accepts S2 or explicitly asks to proceed.
+S2.5 creates multiple runnable environments before S3 exposes selection UI. Do not begin S3 until the initial S2.5 environment pack is accepted or the owner explicitly asks to proceed.
 
 ## Two-Lane Work Policy
 
@@ -275,7 +276,21 @@ Locked stage-resolution direction:
 
 `selectedStageId → Stage Catalog → runtime asset → presentation profile → Stage3D`
 
-S2 owns the catalog/runtime-resolution boundary only. Host stage-selection UI belongs to S3 and must not be started early.
+S2 owns the catalog/runtime-resolution boundary only.
+
+The technical name remains Stage Catalog, but a catalog entry may represent a broader play environment / venue, not only a concert stage.
+
+Reserved S2.5 environment IDs:
+
+- `bright-stage-v1` — accepted existing default;
+- `neon-stage-v1` — planned Neon Stage derived from the accepted P5.6 Waiting Room visual language;
+- `football-field-v1` — planned sports venue;
+- `classroom-v1` — planned classroom venue;
+- `cafe-v1` — planned cafe venue.
+
+S2.5A Neon Stage V1 uses the accepted Waiting Room stage composition as its visual source. Higgsfield may be used to redraw / animate the visual source, but runtime presentation remains a consumer of authoritative song time and must never own gameplay timing.
+
+Host stage-selection UI belongs to S3 and must not be started early.
 
 ## Work Scope Policy
 
@@ -390,6 +405,8 @@ Never let an assumption override an explicit owner decision.
 
 Complete and review S2 Stage Catalog on `work/s2-stage-catalog` while preserving the accepted P5.6 Waiting Room baseline in `development`.
 
-Do not start S3 Host Stage Selector until S2 is owner-accepted.
+Then execute S2.5 Environment / Venue Pack V1, starting with `neon-stage-v1` derived from the accepted Waiting Room stage. Additional planned venues include football field, classroom and cafe.
+
+Do not start S3 Host Stage Selector until the initial S2.5 environment pack is accepted.
 
 Keep gameplay, RoomState, WebAudio, character runtime, and the accepted Waiting Room visual baseline unchanged while Stage Catalog work proceeds.

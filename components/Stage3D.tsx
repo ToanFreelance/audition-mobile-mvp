@@ -9,6 +9,7 @@ import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/f
 import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
 import {
   DEFAULT_STAGE_ID,
+  resolveRuntimeStageCatalogEntry,
   resolveStageCatalogEntry,
 } from "./stage/stage-catalog";
 import { createStageEnvironment } from "./stage/stage-runtime";
@@ -40,7 +41,8 @@ export default function Stage3D({
   bpm = 110,
   selectedStageId = DEFAULT_STAGE_ID,
 }: Stage3DProps) {
-  const stageEntry = resolveStageCatalogEntry(selectedStageId);
+  const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
+  const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
@@ -329,11 +331,14 @@ export default function Stage3D({
       className="stage-3d"
       data-camera-preset={cameraPreset}
       data-selected-stage-id={selectedStageId ?? DEFAULT_STAGE_ID}
-      data-stage-catalog-id={stageEntry.id}
+      data-stage-catalog-id={selectedStageEntry.id}
+      data-stage-environment-kind={selectedStageEntry.kind}
+      data-stage-catalog-status={selectedStageEntry.status}
+      data-stage-selectable={String(selectedStageEntry.selectable)}
+      data-stage-runtime-fallback={String(selectedStageEntry.id !== stageEntry.id)}
+      data-stage-runtime-catalog-id={stageEntry.id}
       data-stage-runtime-asset-id={stageEntry.runtimeAssetId}
       data-stage-presentation-profile={stageEntry.presentationProfileId}
-      data-stage-catalog-status={stageEntry.status}
-      data-stage-selectable={String(stageEntry.selectable)}
       aria-label="3D music performance stage"
     />
   );

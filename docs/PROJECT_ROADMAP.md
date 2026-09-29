@@ -421,7 +421,7 @@ Phase 5 implementation is **INTEGRATED**.
 
 The accepted Waiting Room baseline is now part of `development`. Further stage work must not regress Waiting Room authority, actor lifetime behavior, or the accepted mobile visual composition.
 
-### Stage roadmap — S2 / S3
+### Stage roadmap — S2 / S2.5 / S3
 
 Current milestone:
 
@@ -431,7 +431,23 @@ Locked resolution path:
 
 `selectedStageId → Stage Catalog → runtime asset → presentation profile → Stage3D`
 
-S2 scope is catalog/runtime resolution only. S3 Host Stage Selector remains separate and must not start until S2 is owner-accepted.
+S2 scope is catalog/runtime resolution only. The technical Stage Catalog represents general play environments / venues, not only literal concert stages.
+
+After S2:
+
+**S2.5 — Environment / Venue Pack V1**
+
+Planned catalog/content sequence:
+
+- `bright-stage-v1` — existing accepted Bright Stage;
+- `neon-stage-v1` — first new environment; based on the accepted P5.6 Waiting Room stage visual, redrawn/animated for gameplay presentation;
+- `football-field-v1` — planned sports environment;
+- `classroom-v1` — planned classroom environment;
+- `cafe-v1` — planned cafe environment.
+
+S2.5A Neon Stage V1 should reuse the Waiting Room's accepted neon composition/language rather than revive the rejected `neon-club-v3` direction. Higgsfield-generated/redrawn animation may be used as visual source material, while Stage3D/WebAudio architecture remains unchanged.
+
+**S3 — Host Stage Selector** follows after the initial environment pack is accepted, so the selector exposes real runnable choices rather than placeholder entries.
 
 ## Phase 1 architecture invariants
 
@@ -483,7 +499,7 @@ Completed Phase 5 integration path:
 
 Current stage-roadmap path:
 
-`development → work/s2-stage-catalog → Stage Catalog review → owner acceptance → S3 Host Stage Selector`
+`development → work/s2-stage-catalog → Stage Catalog review → owner acceptance → S2.5 Environment / Venue Pack V1 → Neon Stage + additional venues → owner acceptance → S3 Host Stage Selector`
 
 Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 4 work unless owner explicitly requests a later production promotion.
 

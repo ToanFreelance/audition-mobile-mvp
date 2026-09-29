@@ -2,7 +2,7 @@ import type { Group } from "three";
 import { BrightStageV1Environment } from "./BrightStageV1Environment";
 import { PerformanceStageV1Environment } from "./PerformanceStageV1Environment";
 import { StageV3Environment } from "./StageV3Environment";
-import type { StageCatalogEntry } from "./stage-catalog";
+import type { RunnableStageCatalogEntry } from "./stage-catalog";
 import type { StagePresentationCameraPreset } from "./stageCamera";
 
 export type StageEnvironmentLoadResult = {
@@ -24,7 +24,7 @@ export type StageEnvironmentRuntime = {
 };
 
 async function verifyCatalogRuntime(
-  entry: StageCatalogEntry,
+  entry: RunnableStageCatalogEntry,
   load: () => Promise<StageEnvironmentLoadResult>,
 ) {
   const result = await load();
@@ -36,7 +36,7 @@ async function verifyCatalogRuntime(
   return result;
 }
 
-export function createStageEnvironment(entry: StageCatalogEntry): StageEnvironmentRuntime {
+export function createStageEnvironment(entry: RunnableStageCatalogEntry): StageEnvironmentRuntime {
   switch (entry.presentationProfileId) {
     case "bright-stage-v1": {
       const environment = new BrightStageV1Environment();
