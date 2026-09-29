@@ -29,7 +29,7 @@ export default function CharacterRigQaPage() {
   const [modelId, setModelId] = useState<ModelId>("male");
   const [loadedFiles, setLoadedFiles] = useState<Record<ModelId, string | null>>({ male: null, female: null });
   const [loadNonce, setLoadNonce] = useState(0);
-  const [selectedClip, setSelectedClip] = useState("QA_Idle");
+  const [selectedClip, setSelectedClip] = useState("");
   const [availableClips, setAvailableClips] = useState<string[]>([]);
   const [status, setStatus] = useState("Choose the rigged QA GLB files below.");
   const [rigStats, setRigStats] = useState("—");
@@ -62,7 +62,7 @@ export default function CharacterRigQaPage() {
     const clip = clipsRef.current.get(name);
     if (!mixer || !clip) return false;
     actionRef.current?.stop();
-    const oneShot = name === "QA_Miss" || name === "QA_Finish";
+    const oneShot = /miss|finish|reaction/i.test(name);
     const action = mixer.clipAction(clip);
     action.reset();
     action.enabled = true;
@@ -74,6 +74,20 @@ export default function CharacterRigQaPage() {
     action.paused = !playingRef.current;
     actionRef.current = action;
     return true;
+  }, []);
+
+  const showRestPose = useCallback(() => {
+    actionRef.current?.stop();
+    actionRef.current = null;
+    mixerRef.current?.stopAllAction();
+    modelRef.current?.traverse(object => {
+      const mesh = object as THREE.SkinnedMesh;
+      if (mesh.isSkinnedMesh && mesh.skeleton) mesh.skeleton.pose();
+    });
+    modelRef.current?.updateMatrixWorld(true);
+    setSelectedClip("");
+    setPlaying(false);
+    playingRef.current = false;
   }, []);
 
   const handleLocalFile = useCallback(async (id: ModelId, file: File | undefined) => {
@@ -233,8 +247,6 @@ export default function CharacterRigQaPage() {
       if (!skinnedCount || !boneCount) throw new Error("QA model has no usable skin/skeleton");
 
       const clipMap = new Map(gltf.animations.map(clip => [clip.name, clip] as const));
-      const missing = EXPECTED_ANIMATIONS.filter(name => !clipMap.has(name));
-      if (missing.length) throw new Error("missing embedded animation(s): " + missing.join(", "));
 
       const mixer = new THREE.AnimationMixer(model);
       modelRef.current = model;
@@ -259,18 +271,24 @@ export default function CharacterRigQaPage() {
         controls.update();
       }
 
-      setAvailableClips(gltf.animations.map(clip => clip.name));
-      const initial = clipMap.has(selectedClip) ? selectedClip : "QA_Idle";
+      const clipNames = gltf.animations.map(clip => clip.name);
+      setAvailableClips(clipNames);
+      const initial = selectedClip && clipMap.has(selectedClip) ? selectedClip : (clipNames[0] ?? "");
       setSelectedClip(initial);
       setRigStats(skinnedCount + " skinned mesh · " + boneCount + " bones · " + gltf.animations.length + " clips");
-      setStatus((loadedFiles[modelId] ?? MODELS[modelId].label) + " ready · QA auto-weights");
-      playClip(initial);
+      const fileName = loadedFiles[modelId] ?? MODELS[modelId].label;
+      const flavor = fileName.includes("MESHY_TEXTURED_RIG")
+        ? "Meshy auto-rig · original PBR restored"
+        : "rigged GLB";
+      setStatus(fileName + " ready · " + flavor);
+      if (initial) playClip(initial);
+      else showRestPose();
     }).catch(error => {
       if (!cancelled) setStatus("Load failed: " + (error instanceof Error ? error.message : "unknown error"));
     });
 
     return () => { cancelled = true; };
-  }, [modelId, loadNonce, playClip, stopCurrentModel]);
+  }, [modelId, loadNonce, playClip, showRestPose, stopCurrentModel]);
 
   useEffect(() => {
     if (helperRef.current) helperRef.current.visible = showBones;
@@ -332,11 +350,15 @@ export default function CharacterRigQaPage() {
         <section style={styles.card}>
           <p style={styles.sectionLabel}>ANIMATION</p>
           <div style={styles.clipGrid}>
-            {EXPECTED_ANIMATIONS.map(name => (
-              <button key={name} type="button" disabled={!availableClips.includes(name)} onClick={() => chooseClip(name)} style={clipButtonStyle(selectedClip === name)}>
-                {name.replace("QA_", "")}
+            <button type="button" onClick={showRestPose} style={clipButtonStyle(selectedClip === "")}>
+              Rest Pose
+            </button>
+            {availableClips.map(name => (
+              <button key={name} type="button" onClick={() => chooseClip(name)} style={clipButtonStyle(selectedClip === name)}>
+                {name}
               </button>
             ))}
+            {availableClips.length === 0 ? <span style={styles.emptyClip}>No embedded animation clips</span> : null}
           </div>
           <div style={styles.controls}>
             <button type="button" onClick={() => setPlaying(value => !value)} style={styles.controlButton}>{playing ? "Ⅱ Pause" : "▶ Play"}</button>
@@ -352,7 +374,7 @@ export default function CharacterRigQaPage() {
 
         <section style={styles.notes}>
           <strong>Inspect</strong>
-          <p style={styles.noteText}>Shoulders/armpits · elbows · wrists · neck/head · hips/crotch · knees · ankles. Rotate with one finger/mouse; pinch/scroll to zoom. Finish is intentionally the deformation stress test.</p>
+          <p style={styles.noteText}>Check shoulders/armpits · elbows · wrists · neck/head · hips/crotch · knees · ankles, then compare Rest Pose against each embedded clip. The current Meshy files embed Running (Nam) / Walking (Nữ); Audition dance clips will be added only after motion extraction is validated.</p>
         </section>
       </div>
     </main>
@@ -401,7 +423,7 @@ const styles: Record<string, CSSProperties> = {
   segmented: { display: "flex", gap: 8 },
   canvasHost: { width: "100%", height: "min(62vh, 560px)", minHeight: 390, overflow: "hidden", borderRadius: 12, background: "#0a0d14", touchAction: "none" },
   statusRow: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", padding: "2px 4px 3px", color: "#8f9aab", fontSize: 10 },
-  clipGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 },
+  clipGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 },\n  emptyClip: { gridColumn: "1 / -1", color: "#7f899a", fontSize: 11, padding: "8px 4px" },
   controls: { display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" },
   controlButton: { border: "1px solid #3a4352", background: "#1a202a", color: "#d8deea", borderRadius: 10, padding: "10px 11px", fontWeight: 850 },
   controlActive: { border: "1px solid #9a7ee4", background: "#2b2242", color: "#f0e9ff", borderRadius: 10, padding: "10px 11px", fontWeight: 850 },
