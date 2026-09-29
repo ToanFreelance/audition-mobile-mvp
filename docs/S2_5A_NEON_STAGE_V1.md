@@ -4,6 +4,8 @@
 
 Active visual/runtime milestone on `work/s2-5a-neon-stage-v1`.
 
+Current implementation direction: real Three.js Stage3D runtime, art-directed directly against the owner-approved concept. The earlier Higgsfield R1–R6 scene-builder blockouts are reference/debug experiments only and are not the final Neon Stage asset.
+
 Parent architecture milestone: S2 Stage Catalog / PR #16.
 
 ## Source of truth

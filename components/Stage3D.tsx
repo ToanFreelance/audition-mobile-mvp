@@ -43,6 +43,7 @@ export default function Stage3D({
 }: Stage3DProps) {
   const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
+  const neonPresentation = stageEntry.presentationProfileId === "neon-stage-v1";
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
@@ -67,8 +68,8 @@ export default function Stage3D({
     if (!host) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1b2d49);
-    scene.fog = new THREE.FogExp2(0x6b7f9f, 0.01);
+    scene.background = new THREE.Color(neonPresentation ? 0x020517 : 0x1b2d49);
+    scene.fog = new THREE.FogExp2(neonPresentation ? 0x06102f : 0x6b7f9f, neonPresentation ? 0.006 : 0.01);
 
     const initialCameraFrame = getCharacterCameraFrame("center", false);
     const camera = new THREE.PerspectiveCamera(initialCameraFrame.fov, 16 / 9, 0.1, 100);
@@ -85,23 +86,27 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.08 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
     const stage = new THREE.Group();
     scene.add(stage);
-    scene.add(new THREE.HemisphereLight(0xdceeff, 0x737b9c, 2.2));
+    scene.add(new THREE.HemisphereLight(
+      neonPresentation ? 0x5e78c8 : 0xdceeff,
+      neonPresentation ? 0x060617 : 0x737b9c,
+      neonPresentation ? 0.82 : 2.2,
+    ));
 
-    const key = new THREE.DirectionalLight(0xfff3ff, 3.0);
+    const key = new THREE.DirectionalLight(0xfff3ff, neonPresentation ? 1.05 : 3.0);
     key.position.set(2, 8, 8);
     scene.add(key);
 
-    const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
+    const coolFill = new THREE.DirectionalLight(0x91dcff, neonPresentation ? 0.62 : 1.25);
     coolFill.position.set(-4, 5, 7);
     scene.add(coolFill);
 
-    const warmRim = new THREE.DirectionalLight(0xffb2dd, 0.75);
+    const warmRim = new THREE.DirectionalLight(0xffb2dd, neonPresentation ? 0.38 : 0.75);
     warmRim.position.set(4, 4, -3);
     scene.add(warmRim);
 
@@ -323,7 +328,7 @@ export default function Stage3D({
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry]);
+  }, [stageEntry, neonPresentation]);
 
   return (
     <div
