@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  DEFAULT_STAGE_ID,
+  isStageRuntimeAssetId,
+} from "../../../components/stage/stage-catalog";
 
 export const dynamic = "force-dynamic";
 
 const FUNCTION_URL = "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-stage-runtime-url";
-const ALLOWED_STAGE_IDS = new Set(["bright-stage-v1", "performance-stage-v1", "neon-club-v3"]);
 
 export async function GET(request: NextRequest) {
-  const stageId = request.nextUrl.searchParams.get("stageId") ?? "bright-stage-v1";
-  if (!ALLOWED_STAGE_IDS.has(stageId)) {
+  const stageId = request.nextUrl.searchParams.get("stageId") ?? DEFAULT_STAGE_ID;
+  if (!isStageRuntimeAssetId(stageId)) {
     return NextResponse.json({ error: "stage_not_allowed" }, { status: 404 });
   }
 

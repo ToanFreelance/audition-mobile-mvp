@@ -7,7 +7,11 @@ import { CharacterActor, disposeObjectResources } from "./character/CharacterAct
 import type { CharacterPresentationEvent } from "./character/character-types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
-import { BrightStageV1Environment } from "./stage/BrightStageV1Environment";
+import {
+  DEFAULT_STAGE_ID,
+  resolveStageCatalogEntry,
+} from "./stage/stage-catalog";
+import { createStageEnvironment } from "./stage/stage-runtime";
 import { getStagePresentationCameraPose } from "./stage/stageCamera";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
@@ -25,9 +29,18 @@ type Stage3DProps = {
   characterEvent?: CharacterPresentationEvent | null;
   getSongTimeMs?: () => number;
   bpm?: number;
+  selectedStageId?: string | null;
 };
 
-export default function Stage3D({ cameraPreset = "center", isPlaying = false, characterEvent = null, getSongTimeMs, bpm = 110 }: Stage3DProps) {
+export default function Stage3D({
+  cameraPreset = "center",
+  isPlaying = false,
+  characterEvent = null,
+  getSongTimeMs,
+  bpm = 110,
+  selectedStageId = DEFAULT_STAGE_ID,
+}: Stage3DProps) {
+  const stageEntry = resolveStageCatalogEntry(selectedStageId);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
@@ -146,21 +159,21 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
     createSpeaker(stage, -4.7, 1.7, COLORS.violet, .7);
     createSpeaker(stage, 4.7, 1.7, COLORS.violet, .7);
 
-    // Keep the accepted procedural room as a fail-safe only. Bright Stage V1
-    // replaces this group after its private Storage asset loads.
+    // Keep the accepted procedural room as a fail-safe only. The Stage Catalog
+    // decides which runtime asset and presentation profile replaces this group.
     const placeholderEnvironment = new THREE.Group();
     placeholderEnvironment.name = "ProceduralStageFallback";
     while (stage.children.length > 0) placeholderEnvironment.add(stage.children[0]);
     stage.add(placeholderEnvironment);
 
-    const brightStage = new BrightStageV1Environment();
-    brightStage.root.visible = false;
-    stage.add(brightStage.root);
+    const stageEnvironment = createStageEnvironment(stageEntry);
+    stageEnvironment.root.visible = false;
+    stage.add(stageEnvironment.root);
     host.dataset.stageSource = "placeholder";
     host.dataset.stageEmbeddedAnimations = "0";
-    void brightStage.load().then(result => {
+    void stageEnvironment.load().then(result => {
       if (disposed) return;
-      brightStage.root.visible = true;
+      stageEnvironment.root.visible = true;
       placeholderEnvironment.visible = false;
       accent.visible = false;
       host.dataset.stageSource = result.stageId;
@@ -170,7 +183,7 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       if (disposed) return;
       host.dataset.stageSource = "placeholder";
       host.dataset.stageError = error instanceof Error ? error.message : String(error);
-      console.warn("[Stage3D] Bright Stage V1 failed; procedural stage remains active:", error);
+      console.warn(`[Stage3D] ${stageEntry.displayName} failed; procedural stage remains active:`, error);
     });
 
     let selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
@@ -274,9 +287,9 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
       character.update(delta, t, songTimeMs);
-      if (brightStage.root.visible) {
-        brightStage.setPresentationCamera(pose.preset);
-        brightStage.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
+      if (stageEnvironment.root.visible) {
+        stageEnvironment.setPresentationCamera(pose.preset);
+        stageEnvironment.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
       } else {
         const signPulse = 1 + Math.max(0, Math.sin(t * Math.PI * 4.266)) * .008;
         sign.scale.set(signPulse, signPulse, signPulse);
@@ -301,16 +314,29 @@ export default function Stage3D({ cameraPreset = "center", isPlaying = false, ch
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       observer.disconnect();
       character.dispose();
-      brightStage.dispose();
+      stageEnvironment.dispose();
       if (characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, []);
+  }, [stageEntry]);
 
-  return <div ref={hostRef} className="stage-3d" data-camera-preset={cameraPreset} aria-label="3D music performance stage" />;
+  return (
+    <div
+      ref={hostRef}
+      className="stage-3d"
+      data-camera-preset={cameraPreset}
+      data-selected-stage-id={selectedStageId ?? DEFAULT_STAGE_ID}
+      data-stage-catalog-id={stageEntry.id}
+      data-stage-runtime-asset-id={stageEntry.runtimeAssetId}
+      data-stage-presentation-profile={stageEntry.presentationProfileId}
+      data-stage-catalog-status={stageEntry.status}
+      data-stage-selectable={String(stageEntry.selectable)}
+      aria-label="3D music performance stage"
+    />
+  );
 }
 
 function createSpeaker(parent: THREE.Group, x: number, y: number, accent: number, scale = 1) {
