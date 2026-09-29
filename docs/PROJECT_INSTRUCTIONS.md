@@ -53,13 +53,15 @@ Never develop directly on `main` or `development`.
 
 Current roadmap work branch:
 
-`work/p5-6-waiting-room-visual-v2`
+`work/s2-stage-catalog`
 
 Current draft PR:
 
-`#15 — P5.6 Waiting Room Visual V2`
+`#16 — S2 Stage Catalog`
 
-Do NOT merge PR #15, `development`, or `main` without explicit owner approval.
+P5.6 Waiting Room Visual V2 was owner-accepted and merged into `development` via PR #15 at merge commit `d27168929f9923b1de561133b941977d039d56a1`.
+
+Do NOT merge PR #16, `development`, or `main` without explicit owner approval.
 
 ## Roadmap
 
@@ -85,14 +87,15 @@ Phase 14 is deferred until the primary product phases are complete.
 
 Current active roadmap work:
 
-**P5.6 — Waiting Room Visual V2 / Golden Sketch Alignment**
+**S2 — Stage Catalog**
 
-After P5.6 is accepted:
+P5.6 is accepted and integrated into `development`.
 
-- S2 — Stage Catalog
+After S2 is accepted:
+
 - S3 — Host Stage Selector
 
-Do not begin those milestones until the owner accepts or explicitly asks to proceed.
+Do not begin S3 until the owner accepts S2 or explicitly asks to proceed.
 
 ## Two-Lane Work Policy
 
@@ -240,9 +243,9 @@ Actor replacement should occur only when identity requiring a new actor changes,
 
 Do not rebuild or refetch the whole 3D scene for ordinary roster metadata updates.
 
-## P5.6 Current Direction
+## P5.6 Accepted Baseline
 
-P5.6 is a portrait/mobile-first Waiting Room visual milestone.
+P5.6 is the accepted portrait/mobile-first Waiting Room visual baseline and is integrated into `development`.
 
 Current goals include:
 
@@ -266,13 +269,13 @@ Visual work must remain presentation-only and must not alter multiplayer or game
 
 Bright Stage V1 is already accepted.
 
-Do NOT mix Stage Catalog implementation into P5.6.
+S2 Stage Catalog is the current milestone.
 
-Future direction:
+Locked stage-resolution direction:
 
 `selectedStageId → Stage Catalog → runtime asset → presentation profile → Stage3D`
 
-but Stage Catalog is a later milestone.
+S2 owns the catalog/runtime-resolution boundary only. Host stage-selection UI belongs to S3 and must not be started early.
 
 ## Work Scope Policy
 
@@ -385,8 +388,8 @@ Never let an assumption override an explicit owner decision.
 
 ## Current Priority
 
-Stabilize and visually accept P5.6 Waiting Room Visual V2 before moving to Stage Catalog.
+Complete and review S2 Stage Catalog on `work/s2-stage-catalog` while preserving the accepted P5.6 Waiting Room baseline in `development`.
 
-Keep the main Waiting Room stable while visual experiments are isolated and compared against the approved sketch.
+Do not start S3 Host Stage Selector until S2 is owner-accepted.
 
-After owner acceptance, proceed deliberately through integration and the next roadmap milestone.
+Keep gameplay, RoomState, WebAudio, character runtime, and the accepted Waiting Room visual baseline unchanged while Stage Catalog work proceeds.
