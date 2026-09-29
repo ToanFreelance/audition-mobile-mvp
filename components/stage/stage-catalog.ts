@@ -10,12 +10,14 @@ export const STAGE_CATALOG_IDS = [
 
 export const STAGE_RUNTIME_ASSET_IDS = [
   "bright-stage-v1",
+  "neon-stage-v1",
   "performance-stage-v1",
   "neon-club-v3",
 ] as const;
 
 export const STAGE_PRESENTATION_PROFILE_IDS = [
   "bright-stage-v1",
+  "neon-stage-v1",
   "performance-stage-v1",
   "neon-club-v3",
 ] as const;
@@ -57,8 +59,8 @@ export const STAGE_CATALOG: Readonly<Record<StageCatalogId, StageCatalogEntry>> 
     id: "neon-stage-v1",
     displayName: "Neon Stage",
     kind: "stage",
-    runtimeAssetId: null,
-    presentationProfileId: null,
+    runtimeAssetId: "neon-stage-v1",
+    presentationProfileId: "neon-stage-v1",
     selectable: false,
     status: "planned",
   },

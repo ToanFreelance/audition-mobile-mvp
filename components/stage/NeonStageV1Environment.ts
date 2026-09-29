@@ -1,0 +1,667 @@
+import * as THREE from "three";
+import type { StagePresentationCameraPreset } from "./stageCamera";
+
+export type NeonStageV1LoadResult = {
+  stageId: "neon-stage-v1";
+  meshes: number;
+  materials: number;
+  textures: number;
+  triangles: number;
+  embeddedAnimations: number;
+  reactiveMaterials: number;
+};
+
+type PulseMaterial = {
+  material: THREE.MeshBasicMaterial;
+  baseOpacity: number;
+};
+
+type BeamState = {
+  group: THREE.Group;
+  material: THREE.MeshBasicMaterial;
+  baseQuaternion: THREE.Quaternion;
+  phase: number;
+};
+
+const COLORS = {
+  navy: 0x05081f,
+  navy2: 0x0a1035,
+  cyan: 0x16d9ff,
+  cyanSoft: 0x67e7ff,
+  blue: 0x2358ff,
+  violet: 0x7b36ff,
+  magenta: 0xff27df,
+  magentaSoft: 0xff73e9,
+  white: 0xeaf7ff,
+  gold: 0xffc43d,
+};
+
+const FLOOR_Y = -0.03;
+const REAR_Z = -5.65;
+
+function disposeObject(root: THREE.Object3D) {
+  const geometries = new Set<THREE.BufferGeometry>();
+  const materials = new Set<THREE.Material>();
+  const textures = new Set<THREE.Texture>();
+
+  root.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    if (mesh.geometry) geometries.add(mesh.geometry);
+    const meshMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const material of meshMaterials) {
+      if (!material) continue;
+      materials.add(material);
+      for (const value of Object.values(material)) {
+        if (value instanceof THREE.Texture) textures.add(value);
+      }
+    }
+  });
+
+  textures.forEach(texture => texture.dispose());
+  materials.forEach(material => material.dispose());
+  geometries.forEach(geometry => geometry.dispose());
+}
+
+function makeGlowTexture(color: string, vertical = true) {
+  const canvas = document.createElement("canvas");
+  canvas.width = vertical ? 32 : 256;
+  canvas.height = vertical ? 256 : 32;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Neon Stage V1 glow canvas unavailable.");
+  const gradient = vertical
+    ? ctx.createLinearGradient(0, 0, 0, canvas.height)
+    : ctx.createLinearGradient(0, 0, canvas.width, 0);
+  gradient.addColorStop(0, "rgba(0,0,0,0)");
+  gradient.addColorStop(0.18, color.replace("1)", "0.08)"));
+  gradient.addColorStop(0.50, color);
+  gradient.addColorStop(0.82, color.replace("1)", "0.08)"));
+  gradient.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createLedTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1280;
+  canvas.height = 560;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Neon Stage V1 LED canvas unavailable.");
+
+  const bg = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  bg.addColorStop(0, "#071c58");
+  bg.addColorStop(0.48, "#171060");
+  bg.addColorStop(1, "#3a0759");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.globalAlpha = 0.28;
+  for (let y = 8; y < canvas.height; y += 12) {
+    for (let x = 8; x < canvas.width; x += 12) {
+      ctx.fillStyle = (x + y) % 48 === 0 ? "#54e8ff" : "#9d48ff";
+      ctx.fillRect(x, y, 2, 2);
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  const rays = [
+    { x1: 80, x2: 320, c: "#ff29d9" },
+    { x1: 180, x2: 410, c: "#56e8ff" },
+    { x1: 310, x2: 500, c: "#8b43ff" },
+    { x1: 1200, x2: 960, c: "#ff29d9" },
+    { x1: 1100, x2: 870, c: "#56e8ff" },
+    { x1: 970, x2: 780, c: "#8b43ff" },
+  ];
+  ctx.lineWidth = 12;
+  ctx.shadowBlur = 24;
+  for (const ray of rays) {
+    ctx.strokeStyle = ray.c;
+    ctx.shadowColor = ray.c;
+    ctx.beginPath();
+    ctx.moveTo(ray.x1, 70);
+    ctx.lineTo(ray.x2, 490);
+    ctx.stroke();
+  }
+
+  ctx.shadowBlur = 26;
+  ctx.strokeStyle = "#ff39df";
+  ctx.fillStyle = "#5b125f";
+  ctx.lineWidth = 9;
+  ctx.font = "italic 900 150px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.strokeText("AUDITION", canvas.width / 2, 285);
+  ctx.fillText("AUDITION", canvas.width / 2, 285);
+
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = "#eefbff";
+  ctx.font = "700 34px Arial";
+  ctx.letterSpacing = "10px";
+  ctx.fillText("D A N C E   T O G E T H E R", canvas.width / 2, 385);
+
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = "#ffc63c";
+  ctx.font = "900 78px Arial";
+  ctx.fillText("♛", canvas.width / 2, 132);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function createRiserGeometry(
+  width: number,
+  zFront: number,
+  depth: number,
+  yBottom: number,
+  height: number,
+  curveDepth: number,
+  segments = 64,
+) {
+  const vertices: number[] = [];
+  const indices: number[] = [];
+  const half = width / 2;
+
+  for (let i = 0; i <= segments; i += 1) {
+    const x = -half + width * (i / segments);
+    const t = x / half;
+    const frontZ = zFront + curveDepth * t * t;
+    const backZ = frontZ - depth;
+    vertices.push(
+      x, yBottom, frontZ,
+      x, yBottom + height, frontZ,
+      x, yBottom, backZ,
+      x, yBottom + height, backZ,
+    );
+  }
+
+  for (let i = 0; i < segments; i += 1) {
+    const a = i * 4;
+    const b = (i + 1) * 4;
+    indices.push(
+      a, b, a + 1, b, b + 1, a + 1,
+      a + 1, b + 1, a + 3, b + 1, b + 3, a + 3,
+      a + 2, a + 3, b + 2, b + 2, a + 3, b + 3,
+    );
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createCurveTube(points: THREE.Vector3[], radius: number, material: THREE.Material) {
+  const curve = new THREE.CatmullRomCurve3(points);
+  return new THREE.Mesh(new THREE.TubeGeometry(curve, 56, radius, 8, false), material);
+}
+
+function makeArcPoints(
+  width: number,
+  zFront: number,
+  y: number,
+  curveDepth: number,
+  segments = 24,
+) {
+  const half = width / 2;
+  return Array.from({ length: segments + 1 }, (_, index) => {
+    const x = -half + width * (index / segments);
+    const t = x / half;
+    return new THREE.Vector3(x, y, zFront + curveDepth * t * t);
+  });
+}
+
+function alignYToDirection(object: THREE.Object3D, source: THREE.Vector3, target: THREE.Vector3) {
+  const direction = target.clone().sub(source);
+  object.position.copy(source).add(target).multiplyScalar(0.5);
+  object.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+  return direction.length();
+}
+
+function inspectEnvironment(root: THREE.Object3D) {
+  const materials = new Set<THREE.Material>();
+  const textures = new Set<THREE.Texture>();
+  let meshes = 0;
+  let triangles = 0;
+  root.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.geometry) return;
+    meshes += 1;
+    const position = mesh.geometry.getAttribute("position");
+    const elements = mesh.geometry.index?.count ?? position?.count ?? 0;
+    triangles += Math.floor(elements / 3);
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    list.forEach(material => {
+      materials.add(material);
+      for (const value of Object.values(material)) if (value instanceof THREE.Texture) textures.add(value);
+    });
+  });
+  return { meshes, materials: materials.size, textures: textures.size, triangles };
+}
+
+function beatEnvelope(songTimeMs: number, bpm: number, active: boolean) {
+  if (!active || !(bpm > 0) || !Number.isFinite(songTimeMs)) return 0;
+  const beat = Math.max(0, songTimeMs) * bpm / 60000;
+  const phase = beat - Math.floor(beat);
+  return Math.exp(-phase * 7.2);
+}
+
+export class NeonStageV1Environment {
+  readonly root = new THREE.Group();
+
+  private readonly animatedRoot = new THREE.Group();
+  private readonly pulseMaterials: PulseMaterial[] = [];
+  private readonly beamStates: BeamState[] = [];
+  private readonly spotLights: THREE.SpotLight[] = [];
+  private readonly textures: THREE.Texture[] = [];
+  private disposed = false;
+
+  constructor() {
+    this.root.name = "NeonStageV1Environment";
+    this.animatedRoot.name = "NeonStageV1PresentationFX";
+    this.root.add(this.animatedRoot);
+    this.build();
+  }
+
+  async load(): Promise<NeonStageV1LoadResult> {
+    const metrics = inspectEnvironment(this.root);
+    return {
+      stageId: "neon-stage-v1",
+      ...metrics,
+      embeddedAnimations: 0,
+      reactiveMaterials: this.pulseMaterials.length + this.beamStates.length,
+    };
+  }
+
+  setPresentationCamera(preset: StagePresentationCameraPreset) {
+    const front = preset === "gameplay_portrait_locked" || preset === "intro_front_push";
+    const frontLip = this.root.getObjectByName("NeonFrontLip");
+    if (frontLip) frontLip.visible = true;
+    const truss = this.root.getObjectByName("NeonOverheadTruss");
+    if (truss) truss.visible = preset !== "intro_top_down";
+    const frontGlow = this.root.getObjectByName("NeonFrontGlow");
+    if (frontGlow) frontGlow.visible = front;
+  }
+
+  update(renderTimeSeconds: number, songTimeMs: number, bpm: number, isPlaying: boolean) {
+    const beat = beatEnvelope(songTimeMs, bpm, isPlaying);
+    const ambient = 0.5 + 0.5 * Math.sin(renderTimeSeconds * 0.72);
+
+    this.pulseMaterials.forEach((state, index) => {
+      const wave = 0.92 + 0.08 * Math.sin(renderTimeSeconds * (0.68 + index * 0.018) + index * 0.7);
+      state.material.opacity = Math.min(1, state.baseOpacity * wave + beat * 0.12);
+    });
+
+    this.beamStates.forEach((state, index) => {
+      const sweep = Math.sin(renderTimeSeconds * 0.34 + state.phase) * 0.075;
+      const tilt = Math.sin(renderTimeSeconds * 0.23 + index * 0.8) * 0.035;
+      state.group.quaternion.copy(state.baseQuaternion);
+      state.group.rotateZ(sweep);
+      state.group.rotateX(tilt);
+      state.material.opacity = 0.042 + ambient * 0.022 + beat * 0.07;
+    });
+
+    this.spotLights.forEach((light, index) => {
+      const wave = 0.82 + 0.18 * Math.sin(renderTimeSeconds * 0.54 + index * 0.72);
+      light.intensity = 13 + wave * 7 + beat * 15;
+    });
+  }
+
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.root.removeFromParent();
+    disposeObject(this.root);
+    this.textures.forEach(texture => texture.dispose());
+    this.textures.length = 0;
+    this.pulseMaterials.length = 0;
+    this.beamStates.length = 0;
+    this.spotLights.length = 0;
+    this.root.clear();
+  }
+
+  private makeNeonMaterial(color: number, opacity = 1) {
+    const material = new THREE.MeshBasicMaterial({
+      color,
+      transparent: opacity < 1,
+      opacity,
+      depthWrite: opacity >= 1,
+      blending: opacity < 1 ? THREE.AdditiveBlending : THREE.NormalBlending,
+      toneMapped: false,
+    });
+    if (opacity < 1) this.pulseMaterials.push({ material, baseOpacity: opacity });
+    return material;
+  }
+
+  private addNeonBox(
+    parent: THREE.Object3D,
+    name: string,
+    size: THREE.Vector3,
+    position: THREE.Vector3,
+    color: number,
+    glowScale = 1.5,
+  ) {
+    const core = new THREE.Mesh(
+      new THREE.BoxGeometry(size.x, size.y, size.z),
+      this.makeNeonMaterial(color),
+    );
+    core.name = name;
+    core.position.copy(position);
+    parent.add(core);
+
+    const glow = new THREE.Mesh(
+      new THREE.BoxGeometry(size.x * glowScale, size.y * glowScale, Math.max(size.z * 1.4, 0.035)),
+      this.makeNeonMaterial(color, 0.11),
+    );
+    glow.name = name + "Glow";
+    glow.position.copy(position);
+    parent.add(glow);
+    return core;
+  }
+
+  private build() {
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+      color: COLORS.navy,
+      metalness: 0.58,
+      roughness: 0.24,
+    });
+    const body2Material = new THREE.MeshStandardMaterial({
+      color: COLORS.navy2,
+      metalness: 0.66,
+      roughness: 0.18,
+    });
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x070d30,
+      metalness: 0.84,
+      roughness: 0.13,
+    });
+
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(19.8, 14.2), floorMaterial);
+    floor.name = "NeonDanceFloor";
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(0, FLOOR_Y, 0.25);
+    this.root.add(floor);
+
+    const gridRoot = new THREE.Group();
+    gridRoot.name = "NeonFloorGrid";
+    this.root.add(gridRoot);
+    for (let x = -9; x <= 9; x += 1.5) {
+      const color = Math.round(x / 1.5) % 4 === 0 ? COLORS.cyan : COLORS.violet;
+      this.addNeonBox(gridRoot, "FloorGridX", new THREE.Vector3(0.018, 0.012, 13.5), new THREE.Vector3(x, 0.012, 0.2), color, 1.6);
+    }
+    for (let z = -5.6; z <= 6.2; z += 1.45) {
+      const color = Math.round(z / 1.45) % 4 === 0 ? COLORS.magenta : COLORS.blue;
+      this.addNeonBox(gridRoot, "FloorGridZ", new THREE.Vector3(18.8, 0.012, 0.018), new THREE.Vector3(0, 0.013, z), color, 1.6);
+    }
+
+    const reflectionTextureCyan = makeGlowTexture("rgba(22,217,255,1)", true);
+    const reflectionTextureMagenta = makeGlowTexture("rgba(255,39,223,1)", true);
+    this.textures.push(reflectionTextureCyan, reflectionTextureMagenta);
+    [
+      { x: -6.0, map: reflectionTextureCyan, opacity: 0.24 },
+      { x: -3.5, map: reflectionTextureMagenta, opacity: 0.19 },
+      { x: -1.1, map: reflectionTextureCyan, opacity: 0.13 },
+      { x: 1.1, map: reflectionTextureMagenta, opacity: 0.13 },
+      { x: 3.5, map: reflectionTextureCyan, opacity: 0.19 },
+      { x: 6.0, map: reflectionTextureMagenta, opacity: 0.24 },
+    ].forEach((spec, index) => {
+      const material = new THREE.MeshBasicMaterial({
+        map: spec.map,
+        transparent: true,
+        opacity: spec.opacity,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      const reflection = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 10.5), material);
+      reflection.name = "FloorReflection" + index;
+      reflection.rotation.x = -Math.PI / 2;
+      reflection.position.set(spec.x, 0.02, 0.4);
+      this.root.add(reflection);
+    });
+
+    [
+      { radius: 1.85, color: COLORS.magenta, tube: 0.055 },
+      { radius: 1.52, color: COLORS.cyan, tube: 0.05 },
+      { radius: 1.22, color: COLORS.blue, tube: 0.042 },
+    ].forEach((ring, index) => {
+      const mesh = new THREE.Mesh(
+        new THREE.TorusGeometry(ring.radius, ring.tube, 10, 96),
+        this.makeNeonMaterial(ring.color),
+      );
+      mesh.name = "NeonDanceRing" + index;
+      mesh.rotation.x = Math.PI / 2;
+      mesh.position.set(0, 0.055 + index * 0.002, 0.15);
+      this.root.add(mesh);
+    });
+
+    const risers = [
+      { width: 18.4, z: -3.28, depth: 0.78, bottom: 0.02, height: 0.44, curve: 0.86, color: COLORS.magenta },
+      { width: 17.0, z: -3.92, depth: 0.74, bottom: 0.43, height: 0.42, curve: 0.74, color: COLORS.cyan },
+      { width: 15.7, z: -4.49, depth: 0.70, bottom: 0.83, height: 0.40, curve: 0.62, color: COLORS.violet },
+      { width: 14.4, z: -5.01, depth: 0.66, bottom: 1.21, height: 0.36, curve: 0.52, color: COLORS.magentaSoft },
+    ];
+    risers.forEach((spec, index) => {
+      const riser = new THREE.Mesh(
+        createRiserGeometry(spec.width, spec.z, spec.depth, spec.bottom, spec.height, spec.curve),
+        body2Material,
+      );
+      riser.name = "NeonRiser" + index;
+      this.root.add(riser);
+      const edge = createCurveTube(
+        makeArcPoints(spec.width, spec.z - 0.018, spec.bottom + spec.height + 0.022, spec.curve),
+        0.035,
+        this.makeNeonMaterial(spec.color),
+      );
+      edge.name = "NeonRiserEdge" + index;
+      this.root.add(edge);
+      const glow = createCurveTube(
+        makeArcPoints(spec.width, spec.z - 0.026, spec.bottom + spec.height + 0.026, spec.curve),
+        0.085,
+        this.makeNeonMaterial(spec.color, 0.09),
+      );
+      glow.name = "NeonRiserEdgeGlow" + index;
+      this.root.add(glow);
+    });
+
+    const frontLip = new THREE.Mesh(new THREE.BoxGeometry(18.8, 0.62, 0.92), body2Material);
+    frontLip.name = "NeonFrontLip";
+    frontLip.position.set(0, 0.27, 5.95);
+    this.root.add(frontLip);
+    this.addNeonBox(this.root, "NeonFrontGlow", new THREE.Vector3(12.6, 0.075, 0.055), new THREE.Vector3(0, 0.6, 5.48), COLORS.magenta, 2.1);
+
+    [-1, 1].forEach(side => {
+      const wedge = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.72, 1.65), bodyMaterial);
+      wedge.name = side < 0 ? "FrontWedgeLeft" : "FrontWedgeRight";
+      wedge.position.set(side * 7.55, 0.36, 5.0);
+      wedge.rotation.y = side * 0.11;
+      this.root.add(wedge);
+      this.addNeonBox(
+        this.root,
+        side < 0 ? "FrontWedgeCyan" : "FrontWedgeMagenta",
+        new THREE.Vector3(1.75, 0.07, 0.07),
+        new THREE.Vector3(side * 7.18, 0.67, 4.34),
+        side < 0 ? COLORS.cyan : COLORS.magenta,
+        2.2,
+      );
+    });
+
+    const ledTexture = createLedTexture();
+    this.textures.push(ledTexture);
+    const ledMaterial = new THREE.MeshBasicMaterial({ map: ledTexture, toneMapped: false });
+    const ledWall = new THREE.Mesh(new THREE.PlaneGeometry(12.5, 5.25), ledMaterial);
+    ledWall.name = "NeonLedWall";
+    ledWall.position.set(0, 4.55, REAR_Z);
+    this.root.add(ledWall);
+
+    const screenGlow = new THREE.PointLight(COLORS.violet, 16, 11, 1.6);
+    screenGlow.position.set(0, 4.6, -4.8);
+    this.root.add(screenGlow);
+
+    [-1, 1].forEach(side => {
+      const tower = new THREE.Mesh(new THREE.BoxGeometry(2.05, 6.9, 1.0), bodyMaterial);
+      tower.name = side < 0 ? "NeonTowerLeft" : "NeonTowerRight";
+      tower.position.set(side * 8.25, 3.55, -4.82);
+      tower.rotation.y = side * 0.055;
+      this.root.add(tower);
+
+      for (let row = 0; row < 7; row += 1) {
+        this.addNeonBox(
+          this.root,
+          "NeonSideRail",
+          new THREE.Vector3(1.75, 0.055, 0.055),
+          new THREE.Vector3(side * 8.25, 1.25 + row * 0.83, -4.22),
+          side < 0 ? COLORS.cyan : COLORS.magenta,
+          2.0,
+        );
+      }
+
+      this.addNeonBox(
+        this.root,
+        side < 0 ? "NeonOuterPillarCyan" : "NeonOuterPillarMagenta",
+        new THREE.Vector3(0.22, 6.45, 0.12),
+        new THREE.Vector3(side * 9.1, 3.7, -4.25),
+        side < 0 ? COLORS.cyan : COLORS.magenta,
+        2.7,
+      );
+      this.addNeonBox(
+        this.root,
+        side < 0 ? "NeonInnerPillarCyan" : "NeonInnerPillarMagenta",
+        new THREE.Vector3(0.20, 6.0, 0.10),
+        new THREE.Vector3(side * 6.62, 3.85, -5.28),
+        side < 0 ? COLORS.cyan : COLORS.magenta,
+        2.6,
+      );
+      this.addNeonBox(
+        this.root,
+        side < 0 ? "NeonInnerPillarCyan2" : "NeonInnerPillarMagenta2",
+        new THREE.Vector3(0.16, 5.65, 0.09),
+        new THREE.Vector3(side * 6.18, 3.82, -5.20),
+        side < 0 ? COLORS.cyanSoft : COLORS.magentaSoft,
+        2.2,
+      );
+    });
+
+    const trussRoot = new THREE.Group();
+    trussRoot.name = "NeonOverheadTruss";
+    this.root.add(trussRoot);
+    const trussMaterial = new THREE.MeshStandardMaterial({ color: 0x15205b, metalness: 0.88, roughness: 0.22 });
+    const trussGlow = this.makeNeonMaterial(COLORS.blue, 0.13);
+    const trussXs = Array.from({ length: 33 }, (_, index) => -9.55 + index * (19.1 / 32));
+    const trussY = (x: number) => 7.55 + 0.88 * (1 - (x / 9.55) ** 2);
+    [-2.15, -2.65, -3.15].forEach((z, index) => {
+      const points = trussXs.map(x => new THREE.Vector3(x, trussY(x) + (index === 1 ? 0.14 : 0), z));
+      trussRoot.add(createCurveTube(points, 0.07, trussMaterial));
+      if (index === 1) trussRoot.add(createCurveTube(points, 0.095, trussGlow));
+    });
+    for (let index = 0; index < 19; index += 1) {
+      const x = -8.85 + index * (17.7 / 18);
+      const y = trussY(x);
+      const brace = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.02, 6), trussMaterial);
+      const source = new THREE.Vector3(x, y, -2.15);
+      const target = new THREE.Vector3(x + (index % 2 === 0 ? 0.38 : -0.38), y + 0.12, -3.15);
+      const length = alignYToDirection(brace, source, target);
+      brace.scale.y = length / 1.02;
+      trussRoot.add(brace);
+    }
+
+    const fixtureXs = [-8.35, -6.85, -5.35, -3.85, -2.35, -0.8, 0.8, 2.35, 3.85, 5.35, 6.85, 8.35];
+    fixtureXs.forEach((x, index) => {
+      const source = new THREE.Vector3(x, trussY(x) - 0.25, -2.45);
+      const target = new THREE.Vector3(
+        x * 0.43,
+        0.42 + (index % 3) * 0.18,
+        -0.2 + (index % 2 ? -0.45 : 0.3),
+      );
+      const color = index % 4 === 0 || index % 4 === 3 ? COLORS.cyan : COLORS.violet;
+      this.createFixture(trussRoot, source, target, color, index);
+    });
+
+    const innerXs = [-4.8, -3.2, -1.6, 0, 1.6, 3.2, 4.8];
+    innerXs.forEach((x, index) => {
+      const source = new THREE.Vector3(x, 6.96 + 0.22 * (1 - (x / 4.8) ** 2), -3.65);
+      const target = new THREE.Vector3(x * 0.38, 0.35, -0.5);
+      this.createFixture(this.root, source, target, index % 2 === 0 ? COLORS.violet : COLORS.cyan, index + 30, 0.82);
+    });
+
+    const lowerXs = [-8.4, -7.1, -5.8, -4.5, -3.1, -1.7, 1.7, 3.1, 4.5, 5.8, 7.1, 8.4];
+    lowerXs.forEach((x, index) => {
+      const color = index % 3 === 0 ? COLORS.cyan : COLORS.magenta;
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.20, 0.42), bodyMaterial);
+      base.position.set(x, 1.68, -4.68);
+      base.name = "NeonLowerFixture";
+      this.root.add(base);
+      const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.065, 20), this.makeNeonMaterial(color));
+      lens.rotation.x = Math.PI / 2;
+      lens.position.set(x, 1.78, -4.41);
+      this.root.add(lens);
+    });
+
+    const cyanFill = new THREE.PointLight(COLORS.cyan, 22, 13, 1.7);
+    cyanFill.position.set(-6.2, 4.0, -1.5);
+    const magentaFill = new THREE.PointLight(COLORS.magenta, 22, 13, 1.7);
+    magentaFill.position.set(6.2, 4.0, -1.5);
+    const topViolet = new THREE.PointLight(COLORS.violet, 15, 12, 1.7);
+    topViolet.position.set(0, 7.0, -2.6);
+    this.root.add(cyanFill, magentaFill, topViolet);
+  }
+
+  private createFixture(
+    parent: THREE.Object3D,
+    source: THREE.Vector3,
+    target: THREE.Vector3,
+    color: number,
+    index: number,
+    beamRadius = 0.72,
+  ) {
+    const fixture = new THREE.Group();
+    fixture.name = "NeonFixture" + index;
+    fixture.position.copy(source);
+    parent.add(fixture);
+
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.34, 0.38, 0.32),
+      new THREE.MeshStandardMaterial({ color: 0x080a16, metalness: 0.72, roughness: 0.28 }),
+    );
+    body.position.y = -0.18;
+    fixture.add(body);
+
+    const lens = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.13, 0.13, 0.055, 20),
+      this.makeNeonMaterial(color),
+    );
+    lens.rotation.x = Math.PI / 2;
+    lens.position.set(0, -0.22, 0.18);
+    fixture.add(lens);
+
+    const beamGroup = new THREE.Group();
+    beamGroup.position.copy(source);
+    const beamMaterial = this.makeNeonMaterial(color, 0.052);
+    beamMaterial.side = THREE.DoubleSide;
+    beamMaterial.depthWrite = false;
+    const length = source.distanceTo(target);
+    const beam = new THREE.Mesh(new THREE.ConeGeometry(beamRadius, length, 18, 1, true), beamMaterial);
+    beam.position.y = -length / 2;
+    beamGroup.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, -1, 0),
+      target.clone().sub(source).normalize(),
+    );
+    const baseQuaternion = beamGroup.quaternion.clone();
+    beamGroup.add(beam);
+    this.animatedRoot.add(beamGroup);
+    this.beamStates.push({ group: beamGroup, material: beamMaterial, baseQuaternion, phase: index * 0.58 });
+
+    const spot = new THREE.SpotLight(color, 19, length + 5, Math.PI / 10, 0.70, 1.25);
+    spot.position.copy(source);
+    spot.target.position.copy(target);
+    this.root.add(spot, spot.target);
+    this.spotLights.push(spot);
+  }
+}
