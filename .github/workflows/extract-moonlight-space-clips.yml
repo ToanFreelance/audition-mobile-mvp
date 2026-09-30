@@ -1,0 +1,60 @@
+name: Extract Moonlight Space Clips
+
+on:
+  push:
+    branches:
+      - work/character-rig-animation-v1
+    paths:
+      - ".github/workflows/extract-moonlight-space-clips.yml"
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Install tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ffmpeg
+          python3 -m pip install --upgrade yt-dlp
+
+      - name: Download source section
+        shell: bash
+        run: |
+          set -euxo pipefail
+          URL="https://www.youtube.com/watch?v=aKq04-9_oT0"
+          yt-dlp \
+            --no-playlist \
+            --download-sections "*183.9-190.2" \
+            --force-keyframes-at-cuts \
+            --extractor-args "youtube:player_client=android,web" \
+            -f "bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720][ext=mp4]/b" \
+            --merge-output-format mp4 \
+            -o "moonlight_source.%(ext)s" \
+            "$URL"
+          ls -lh
+
+      - name: Create Space-turn clips
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SRC="$(ls moonlight_source*.mp4 | head -1)"
+          mkdir -p output
+          # Section starts at source 183.9s, so these are relative offsets.
+          ffmpeg -y -ss 0.55 -i "$SRC" -t 1.80 -an -vf "fps=30" -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -movflags +faststart output/moonlight_space_01.mp4
+          ffmpeg -y -ss 2.25 -i "$SRC" -t 1.80 -an -vf "fps=30" -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -movflags +faststart output/moonlight_space_02.mp4
+          ffmpeg -y -ss 3.95 -i "$SRC" -t 1.80 -an -vf "fps=30" -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -movflags +faststart output/moonlight_space_03.mp4
+
+          # Contact sheet for fast visual verification.
+          ffmpeg -y -i "$SRC" -vf "fps=1/0.85,scale=480:-2,tile=4x2" -frames:v 1 output/moonlight_contact_sheet.jpg
+
+          ffprobe -v error -show_entries stream=width,height,r_frame_rate -show_entries format=duration -of json output/moonlight_space_01.mp4
+          ls -lh output
+
+      - name: Upload clips
+        uses: actions/upload-artifact@v4
+        with:
+          name: moonlight-space-clips-v1
+          path: output/
+          if-no-files-found: error
+          retention-days: 7
