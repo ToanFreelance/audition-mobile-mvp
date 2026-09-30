@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "source": {
+    "id": "moonlight-spain-001",
+    "youtubeId": "aKq04-9_oT0",
+    "fileName": "YTDown.com_YouTube_Media_aKq04-9_oT0_Audition-Spain-Moonlight-1-5-M-Score-Union-Battle-Party-Lost-to-NPC-Audition-TH_001_720p.mp4",
+    "role": "primary-space-turn-source",
+    "localReferenceFps": 60,
+    "estimatedTempoBpm": 144,
+    "expectedFourBeatSeconds": 1.666667
+  },
+  "policy": {
+    "oneSpacePressEqualsOneAnimationCandidate": true,
+    "doNotTreatLongContinuousGameplayAsOneAnimation": true,
+    "gameplaySemanticContractUnchanged": [
+      "dance-01",
+      "dance-02",
+      "dance-03",
+      "dance-04",
+      "dance-05",
+      "dance-06",
+      "dance-07",
+      "dance-08",
+      "finish-special"
+    ],
+    "webAudioRemainsAuthoritative": true
+  },
+  "timingStatus": "candidate-boundaries-from-initial-source-analysis; refine to exact source frames before publication",
+  "guardSeconds": 0.033333,
+  "turns": [
+    {
+      "id": "moonlight-space-001",
+      "spaceStartSec": 184.5,
+      "nextSpaceSec": 186.2,
+      "durationSec": 1.7,
+      "confidence": "high",
+      "classification": "pending"
+    },
+    {
+      "id": "moonlight-space-002",
+      "spaceStartSec": 186.2,
+      "nextSpaceSec": 187.9,
+      "durationSec": 1.7,
+      "confidence": "high",
+      "classification": "pending"
+    },
+    {
+      "id": "moonlight-space-003",
+      "spaceStartSec": 187.9,
+      "nextSpaceSec": 189.6,
+      "durationSec": 1.7,
+      "confidence": "high",
+      "classification": "pending"
+    },
+    {
+      "id": "moonlight-space-004",
+      "spaceStartSec": 189.6,
+      "nextSpaceSec": 191.3,
+      "durationSec": 1.7,
+      "confidence": "high",
+      "classification": "pending"
+    },
+    {
+      "id": "moonlight-space-005",
+      "spaceStartSec": 191.3,
+      "nextSpaceSec": 193,
+      "durationSec": 1.7,
+      "confidence": "high",
+      "classification": "pending"
+    },
+    {
+      "id": "moonlight-space-006",
+      "spaceStartSec": 193,
+      "nextSpaceSec": 194.7,
+      "durationSec": 1.7,
+      "confidence": "high",
+      "classification": "pending"
+    }
+  ],
+  "additionalCandidateBoundariesSec": [
+    165.9,
+    167.5,
+    169.3,
+    170.7,
+    172.7
+  ],
+  "secondarySource": {
+    "youtubeId": "XZvLqpfM1eo",
+    "fileName": "YTDown.com_YouTube_Media_XZvLqpfM1eo_AUDITION-GAME-NHẢY-AUDITION-ĐẤU-BOSS-NHÓM-4K-8K-FAM-SLOW-DOWN-GAME-AUDITION-TUỔI_002_720p.mp4",
+    "status": "catalog-after-primary-pipeline-passes"
+  }
+}
