@@ -16,11 +16,22 @@ type PulseMaterial = {
   baseOpacity: number;
 };
 
+type BreathMaterial = {
+  material: THREE.MeshBasicMaterial;
+  baseOpacity: number;
+  phaseOffsetSeconds: number;
+};
+
 type BeamState = {
   group: THREE.Group;
   material: THREE.MeshBasicMaterial;
   baseQuaternion: THREE.Quaternion;
   phase: number;
+  panAmplitude: number;
+  tiltAmplitude: number;
+  speed: number;
+  light: THREE.SpotLight;
+  distance: number;
 };
 
 const COLORS = {
@@ -245,11 +256,14 @@ function inspectEnvironment(root: THREE.Object3D) {
   return { meshes, materials: materials.size, textures: textures.size, triangles };
 }
 
-function beatEnvelope(songTimeMs: number, bpm: number, active: boolean) {
-  if (!active || !(bpm > 0) || !Number.isFinite(songTimeMs)) return 0;
-  const beat = Math.max(0, songTimeMs) * bpm / 60000;
-  const phase = beat - Math.floor(beat);
-  return Math.exp(-phase * 7.2);
+function architecturalBreathMultiplier(renderTimeSeconds: number, phaseOffsetSeconds = 0) {
+  const pulseSeconds = 1.08;
+  const position = Math.max(0, renderTimeSeconds + phaseOffsetSeconds) / pulseSeconds;
+  const pulseIndex = Math.floor(position) % 4;
+  const localPhase = position - Math.floor(position);
+  const softEnvelope = Math.sin(Math.PI * localPhase) ** 2;
+  const amplitude = pulseIndex === 3 ? 0.72 : 0.24;
+  return 1 + amplitude * softEnvelope;
 }
 
 export class NeonStageV1Environment {
@@ -257,6 +271,7 @@ export class NeonStageV1Environment {
 
   private readonly animatedRoot = new THREE.Group();
   private readonly pulseMaterials: PulseMaterial[] = [];
+  private readonly breathMaterials: BreathMaterial[] = [];
   private readonly beamStates: BeamState[] = [];
   private readonly spotLights: THREE.SpotLight[] = [];
   private readonly textures: THREE.Texture[] = [];
@@ -290,26 +305,48 @@ export class NeonStageV1Environment {
   }
 
   update(renderTimeSeconds: number, songTimeMs: number, bpm: number, isPlaying: boolean) {
-    const beat = beatEnvelope(songTimeMs, bpm, isPlaying);
-    const ambient = 0.5 + 0.5 * Math.sin(renderTimeSeconds * 0.72);
+    // Neon Stage motion is presentation-only and intentionally independent of the
+    // gameplay/audio clock. Keep the runtime contract unchanged, but do not make
+    // beauty lighting or architectural breathing depend on beat state.
+    void songTimeMs;
+    void bpm;
+    void isPlaying;
 
-    this.pulseMaterials.forEach((state, index) => {
-      const wave = 0.92 + 0.08 * Math.sin(renderTimeSeconds * (0.68 + index * 0.018) + index * 0.7);
-      state.material.opacity = Math.min(1, state.baseOpacity * wave + beat * 0.12);
+    this.pulseMaterials.forEach(state => {
+      state.material.opacity = state.baseOpacity;
     });
 
-    this.beamStates.forEach((state, index) => {
-      const sweep = Math.sin(renderTimeSeconds * 0.34 + state.phase) * 0.075;
-      const tilt = Math.sin(renderTimeSeconds * 0.23 + index * 0.8) * 0.035;
+    this.breathMaterials.forEach(state => {
+      state.material.opacity = Math.min(
+        1,
+        state.baseOpacity * architecturalBreathMultiplier(renderTimeSeconds, state.phaseOffsetSeconds),
+      );
+    });
+
+    const localDown = new THREE.Vector3(0, -1, 0);
+    this.beamStates.forEach(state => {
+      const theta = renderTimeSeconds * state.speed + state.phase;
+      const sweep = state.panAmplitude * (
+        0.82 * Math.sin(theta)
+        + 0.18 * Math.sin(theta * 2 + 0.35)
+      );
+      const tilt = state.tiltAmplitude * (
+        0.78 * Math.sin(theta + 1.05)
+        + 0.22 * Math.sin(theta * 2 - state.phase * 0.25)
+      );
+      const beamGlow = 0.5 + 0.5 * Math.sin(theta * 0.72 + 0.6);
+
       state.group.quaternion.copy(state.baseQuaternion);
       state.group.rotateZ(sweep);
       state.group.rotateX(tilt);
-      state.material.opacity = 0.042 + ambient * 0.022 + beat * 0.07;
-    });
+      state.material.opacity = 0.062 + beamGlow * 0.028;
 
-    this.spotLights.forEach((light, index) => {
-      const wave = 0.82 + 0.18 * Math.sin(renderTimeSeconds * 0.54 + index * 0.72);
-      light.intensity = 13 + wave * 7 + beat * 15;
+      const direction = localDown.clone().applyQuaternion(state.group.quaternion).normalize();
+      state.light.target.position
+        .copy(state.light.position)
+        .addScaledVector(direction, state.distance);
+      state.light.target.updateMatrixWorld();
+      state.light.intensity = 20 + beamGlow * 5;
     });
   }
 
@@ -321,6 +358,7 @@ export class NeonStageV1Environment {
     this.textures.forEach(texture => texture.dispose());
     this.textures.length = 0;
     this.pulseMaterials.length = 0;
+    this.breathMaterials.length = 0;
     this.beamStates.length = 0;
     this.spotLights.length = 0;
     this.root.clear();
@@ -346,6 +384,7 @@ export class NeonStageV1Environment {
     position: THREE.Vector3,
     color: number,
     glowScale = 1.5,
+    breathPhaseSeconds: number | null = null,
   ) {
     const core = new THREE.Mesh(
       new THREE.BoxGeometry(size.x, size.y, size.z),
@@ -355,9 +394,17 @@ export class NeonStageV1Environment {
     core.position.copy(position);
     parent.add(core);
 
+    const glowMaterial = this.makeNeonMaterial(color, 0.11);
+    if (breathPhaseSeconds !== null) {
+      this.breathMaterials.push({
+        material: glowMaterial,
+        baseOpacity: 0.11,
+        phaseOffsetSeconds: breathPhaseSeconds,
+      });
+    }
     const glow = new THREE.Mesh(
       new THREE.BoxGeometry(size.x * glowScale, size.y * glowScale, Math.max(size.z * 1.4, 0.035)),
-      this.makeNeonMaterial(color, 0.11),
+      glowMaterial,
     );
     glow.name = name + "Glow";
     glow.position.copy(position);
@@ -475,7 +522,15 @@ export class NeonStageV1Environment {
     frontLip.name = "NeonFrontLip";
     frontLip.position.set(0, 0.27, 5.95);
     this.root.add(frontLip);
-    this.addNeonBox(this.root, "NeonFrontGlow", new THREE.Vector3(12.6, 0.075, 0.055), new THREE.Vector3(0, 0.6, 5.48), COLORS.magenta, 2.1);
+    this.addNeonBox(
+      this.root,
+      "NeonFrontGlow",
+      new THREE.Vector3(12.6, 0.075, 0.055),
+      new THREE.Vector3(0, 0.6, 5.48),
+      COLORS.magenta,
+      2.1,
+      0.05,
+    );
 
     [-1, 1].forEach(side => {
       const wedge = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.72, 1.65), bodyMaterial);
@@ -490,6 +545,7 @@ export class NeonStageV1Environment {
         new THREE.Vector3(side * 7.18, 0.67, 4.34),
         side < 0 ? COLORS.cyan : COLORS.magenta,
         2.2,
+        side < 0 ? 0 : 0.10,
       );
     });
 
@@ -520,6 +576,7 @@ export class NeonStageV1Environment {
           new THREE.Vector3(side * 8.25, 1.25 + row * 0.83, -4.22),
           side < 0 ? COLORS.cyan : COLORS.magenta,
           2.0,
+          side < 0 ? 0 : 0.10,
         );
       }
 
@@ -530,6 +587,7 @@ export class NeonStageV1Environment {
         new THREE.Vector3(side * 9.1, 3.7, -4.25),
         side < 0 ? COLORS.cyan : COLORS.magenta,
         2.7,
+        side < 0 ? 0 : 0.10,
       );
       this.addNeonBox(
         this.root,
@@ -538,6 +596,7 @@ export class NeonStageV1Environment {
         new THREE.Vector3(side * 6.62, 3.85, -5.28),
         side < 0 ? COLORS.cyan : COLORS.magenta,
         2.6,
+        side < 0 ? 0 : 0.10,
       );
       this.addNeonBox(
         this.root,
@@ -546,6 +605,7 @@ export class NeonStageV1Environment {
         new THREE.Vector3(side * 6.18, 3.82, -5.20),
         side < 0 ? COLORS.cyanSoft : COLORS.magentaSoft,
         2.2,
+        side < 0 ? 0 : 0.10,
       );
     });
 
@@ -610,7 +670,27 @@ export class NeonStageV1Environment {
     magentaFill.position.set(6.2, 4.0, -1.5);
     const topViolet = new THREE.PointLight(COLORS.violet, 15, 12, 1.7);
     topViolet.position.set(0, 7.0, -2.6);
-    this.root.add(cyanFill, magentaFill, topViolet);
+
+    // Constant beauty lighting keeps the accepted stage body readable while
+    // moving beams run as an additive presentation layer.
+    const beautyHemisphere = new THREE.HemisphereLight(0x6177ff, 0x190426, 1.35);
+    beautyHemisphere.name = "NeonBeautyHemisphere";
+    const beautyKey = new THREE.DirectionalLight(0xaec0ff, 1.28);
+    beautyKey.name = "NeonBeautyKey";
+    beautyKey.position.set(0, 9.5, 8.0);
+    beautyKey.target.position.set(0, 1.6, -2.3);
+    const beautyFill = new THREE.PointLight(0x6b55ff, 10, 19, 1.55);
+    beautyFill.name = "NeonBeautyFloorFill";
+    beautyFill.position.set(0, 3.8, 4.4);
+    this.root.add(
+      cyanFill,
+      magentaFill,
+      topViolet,
+      beautyHemisphere,
+      beautyKey,
+      beautyKey.target,
+      beautyFill,
+    );
   }
 
   private createFixture(
@@ -656,12 +736,24 @@ export class NeonStageV1Environment {
     const baseQuaternion = beamGroup.quaternion.clone();
     beamGroup.add(beam);
     this.animatedRoot.add(beamGroup);
-    this.beamStates.push({ group: beamGroup, material: beamMaterial, baseQuaternion, phase: index * 0.58 });
 
-    const spot = new THREE.SpotLight(color, 19, length + 5, Math.PI / 10, 0.70, 1.25);
+    const spot = new THREE.SpotLight(color, 22, length + 5, Math.PI / 9, 0.72, 1.25);
     spot.position.copy(source);
     spot.target.position.copy(target);
     this.root.add(spot, spot.target);
     this.spotLights.push(spot);
+
+    const innerFixture = index >= 30;
+    this.beamStates.push({
+      group: beamGroup,
+      material: beamMaterial,
+      baseQuaternion,
+      phase: index * 0.42,
+      panAmplitude: THREE.MathUtils.degToRad(innerFixture ? 18 : 24),
+      tiltAmplitude: THREE.MathUtils.degToRad(innerFixture ? 9 : 12),
+      speed: innerFixture ? 0.68 : 0.90,
+      light: spot,
+      distance: length,
+    });
   }
 }
