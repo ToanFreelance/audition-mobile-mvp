@@ -64,6 +64,7 @@ type AcceptedMovingHead = {
   beamMaterial: THREE.ShaderMaterial | null;
   spillLight: THREE.SpotLight | null;
   spillTarget: THREE.Object3D | null;
+  spillBaseIntensity: number;
 };
 
 const COLORS = {
@@ -645,13 +646,13 @@ export class NeonStageV1Environment {
             name: `${key}_RuntimeBeam`,
             transparent: true,
             depthWrite: false,
-            side: THREE.FrontSide,
+            side: THREE.DoubleSide,
             blending: THREE.AdditiveBlending,
             toneMapped: false,
             uniforms: {
               uColor: { value: optical.color.clone() },
               uLength: { value: group.length },
-              uOpacity: { value: group.prefix === "MainFixture" ? 0.16 : 0.12 },
+              uOpacity: { value: group.prefix === "MainFixture" ? 0.20 : 0.15 },
             },
             vertexShader: `
               varying float vDistance;
@@ -689,10 +690,11 @@ export class NeonStageV1Environment {
 
         let spillLight: THREE.SpotLight | null = null;
         let spillTarget: THREE.Object3D | null = null;
+        const spillBaseIntensity = group.prefix === "MainFixture" ? 24000 : 12000;
         if (activeSpillKeys.has(key)) {
           spillLight = new THREE.SpotLight(
             optical.color.clone(),
-            group.prefix === "MainFixture" ? 78 : 62,
+            spillBaseIntensity,
             group.length + 8,
             Math.PI / 7,
             0.78,
@@ -719,6 +721,7 @@ export class NeonStageV1Environment {
           beamMaterial,
           spillLight,
           spillTarget,
+          spillBaseIntensity,
         });
       }
     });
@@ -765,7 +768,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.125 + glow * 0.055;
+        state.beamMaterial.uniforms.uOpacity.value = 0.15 + glow * 0.07;
       }
 
       if (state.spillLight && state.spillTarget) {
@@ -777,7 +780,7 @@ export class NeonStageV1Environment {
         state.spillLight.position.copy(worldPosition);
         state.spillTarget.position.copy(worldPosition).addScaledVector(worldDirection, 12);
         state.spillLight.color.copy(state.optical.color);
-        state.spillLight.intensity = 72 + glow * 24;
+        state.spillLight.intensity = state.spillBaseIntensity * (0.84 + glow * 0.16);
         state.spillLight.updateMatrixWorld();
         state.spillTarget.updateMatrixWorld();
       }
