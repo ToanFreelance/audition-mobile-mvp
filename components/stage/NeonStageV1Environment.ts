@@ -1,5 +1,16 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { StagePresentationCameraPreset } from "./stageCamera";
+import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
+
+type RuntimeUrlResponse = {
+  stageId: string;
+  url: string;
+  expiresInSeconds: number;
+  bytes: number;
+  sha256: string;
+  embeddedAnimations: number;
+};
 
 export type NeonStageV1LoadResult = {
   stageId: "neon-stage-v1";
@@ -34,6 +45,24 @@ type BeamState = {
   distance: number;
 };
 
+type AcceptedBreathMaterial = {
+  material: THREE.MeshStandardMaterial;
+  baseEmissiveIntensity: number;
+  phaseOffsetSeconds: number;
+};
+
+type AcceptedMovingHead = {
+  panPivot: THREE.Object3D;
+  tiltPivot: THREE.Object3D;
+  basePanQuaternion: THREE.Quaternion;
+  baseTiltQuaternion: THREE.Quaternion;
+  phase: number;
+  panAmplitude: number;
+  tiltAmplitude: number;
+  speed: number;
+  beamMaterial: THREE.ShaderMaterial;
+};
+
 const COLORS = {
   navy: 0x05081f,
   navy2: 0x0a1035,
@@ -49,6 +78,8 @@ const COLORS = {
 
 const FLOOR_Y = -0.03;
 const REAR_Z = -5.65;
+const ACCEPTED_R15_FLOOR_WIDTH = 19.8;
+const ACCEPTED_R15_DANCE_RING_Z = 0.25;
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -266,35 +297,132 @@ function architecturalBreathMultiplier(renderTimeSeconds: number, phaseOffsetSec
   return 1 + amplitude * softEnvelope;
 }
 
+function acceptedBreathMultiplier(renderTimeSeconds: number, phaseOffsetSeconds = 0) {
+  const pulseSeconds = 1.08;
+  const position = Math.max(0, renderTimeSeconds + phaseOffsetSeconds) / pulseSeconds;
+  const pulseIndex = Math.floor(position) % 4;
+  const localPhase = position - Math.floor(position);
+  const softEnvelope = Math.sin(Math.PI * localPhase) ** 2;
+  const amplitude = pulseIndex === 3 ? 0.30 : 0.09;
+  return 1 + amplitude * softEnvelope;
+}
+
+function normalizeAcceptedR15Model(model: THREE.Object3D) {
+  model.updateMatrixWorld(true);
+  const floor = model.getObjectByName("PolishedDanceFloor");
+  if (!floor) throw new Error("R15.1 runtime is missing PolishedDanceFloor.");
+
+  const initialFloorBounds = new THREE.Box3().setFromObject(floor);
+  const initialFloorSize = initialFloorBounds.getSize(new THREE.Vector3());
+  if (!(initialFloorSize.x > 0) || !Number.isFinite(initialFloorSize.x)) {
+    throw new Error("R15.1 runtime has invalid floor bounds.");
+  }
+
+  model.scale.multiplyScalar(ACCEPTED_R15_FLOOR_WIDTH / initialFloorSize.x);
+  model.updateMatrixWorld(true);
+
+  const floorBounds = new THREE.Box3().setFromObject(floor);
+  const floorCenter = floorBounds.getCenter(new THREE.Vector3());
+  model.position.x -= floorCenter.x;
+  model.position.y -= floorBounds.max.y;
+  model.updateMatrixWorld(true);
+
+  const ring = model.getObjectByName("R15 Dance Ring Outer");
+  if (ring) {
+    const ringCenter = new THREE.Box3().setFromObject(ring).getCenter(new THREE.Vector3());
+    model.position.z += ACCEPTED_R15_DANCE_RING_Z - ringCenter.z;
+  }
+
+  model.updateMatrixWorld(true);
+}
+
 export class NeonStageV1Environment {
   readonly root = new THREE.Group();
 
+  private readonly loader = new GLTFLoader();
   private readonly animatedRoot = new THREE.Group();
+  private readonly acceptedFxRoot = new THREE.Group();
   private readonly pulseMaterials: PulseMaterial[] = [];
   private readonly breathMaterials: BreathMaterial[] = [];
   private readonly beamStates: BeamState[] = [];
   private readonly spotLights: THREE.SpotLight[] = [];
+  private readonly acceptedBreathMaterials: AcceptedBreathMaterial[] = [];
+  private readonly acceptedMovingHeads: AcceptedMovingHead[] = [];
   private readonly textures: THREE.Texture[] = [];
+  private readonly fallbackChildren: THREE.Object3D[] = [];
+  private loadedModel: THREE.Object3D | null = null;
   private disposed = false;
 
   constructor() {
     this.root.name = "NeonStageV1Environment";
     this.animatedRoot.name = "NeonStageV1PresentationFX";
+    this.acceptedFxRoot.name = "NeonStageV1AcceptedR15RuntimeFX";
     this.root.add(this.animatedRoot);
     this.build();
+    this.fallbackChildren.push(...this.root.children);
   }
 
   async load(): Promise<NeonStageV1LoadResult> {
-    const metrics = inspectEnvironment(this.root);
-    return {
-      stageId: "neon-stage-v1",
-      ...metrics,
-      embeddedAnimations: 0,
-      reactiveMaterials: this.pulseMaterials.length + this.beamStates.length,
-    };
+    try {
+      const response = await fetch("/api/stage-runtime?stageId=neon-stage-v1", { cache: "no-store" });
+      if (!response.ok) throw new Error(`Neon Stage V1 URL HTTP ${response.status}`);
+      const runtime = await response.json() as RuntimeUrlResponse;
+      if (!runtime.url || runtime.stageId !== "neon-stage-v1") {
+        throw new Error("Neon Stage V1 runtime URL response is invalid.");
+      }
+
+      const stageResponse = await fetchPersistentAsset(runtime.url, {
+        cacheKey: "stage:" + runtime.stageId + ":" + runtime.sha256,
+        request: { headers: { Accept: "model/gltf-binary,application/octet-stream,*/*" } },
+      });
+      if (!stageResponse.ok) throw new Error(`Neon Stage V1 asset HTTP ${stageResponse.status}`);
+      const stageBlob = await stageResponse.blob();
+      const localStageUrl = URL.createObjectURL(stageBlob);
+      let gltf;
+      try {
+        gltf = await this.loader.loadAsync(localStageUrl);
+      } finally {
+        URL.revokeObjectURL(localStageUrl);
+      }
+      if (this.disposed) {
+        disposeObject(gltf.scene);
+        throw new Error("Neon Stage V1 was disposed before load completed.");
+      }
+
+      normalizeAcceptedR15Model(gltf.scene);
+      this.prepareAcceptedR15Runtime(gltf.scene);
+      this.loadedModel = gltf.scene;
+      this.fallbackChildren.forEach(child => {
+        child.visible = false;
+      });
+      this.root.add(gltf.scene, this.acceptedFxRoot);
+
+      const metrics = inspectEnvironment(gltf.scene);
+      return {
+        stageId: "neon-stage-v1",
+        ...metrics,
+        embeddedAnimations: gltf.animations.length,
+        reactiveMaterials: this.acceptedBreathMaterials.length + this.acceptedMovingHeads.length,
+      };
+    } catch (error) {
+      console.warn("[NeonStageV1] R15.1 asset load failed; procedural fallback remains active:", error);
+      const metrics = inspectEnvironment(this.root);
+      return {
+        stageId: "neon-stage-v1",
+        ...metrics,
+        embeddedAnimations: 0,
+        reactiveMaterials: this.pulseMaterials.length + this.beamStates.length,
+      };
+    }
   }
 
   setPresentationCamera(preset: StagePresentationCameraPreset) {
+    if (this.loadedModel) {
+      const ceiling = this.loadedModel.getObjectByName("CeilingNavy");
+      if (ceiling) ceiling.visible = preset !== "intro_top_down";
+      return;
+    }
+
     const front = preset === "gameplay_portrait_locked" || preset === "intro_front_push";
     const frontLip = this.root.getObjectByName("NeonFrontLip");
     if (frontLip) frontLip.visible = true;
@@ -306,11 +434,15 @@ export class NeonStageV1Environment {
 
   update(renderTimeSeconds: number, songTimeMs: number, bpm: number, isPlaying: boolean) {
     // Neon Stage motion is presentation-only and intentionally independent of the
-    // gameplay/audio clock. Keep the runtime contract unchanged, but do not make
-    // beauty lighting or architectural breathing depend on beat state.
+    // gameplay/audio clock. Keep the Stage3D contract unchanged.
     void songTimeMs;
     void bpm;
     void isPlaying;
+
+    if (this.loadedModel) {
+      this.updateAcceptedR15Runtime(renderTimeSeconds);
+      return;
+    }
 
     this.pulseMaterials.forEach(state => {
       state.material.opacity = state.baseOpacity;
@@ -361,7 +493,205 @@ export class NeonStageV1Environment {
     this.breathMaterials.length = 0;
     this.beamStates.length = 0;
     this.spotLights.length = 0;
+    this.acceptedBreathMaterials.length = 0;
+    this.acceptedMovingHeads.length = 0;
+    this.fallbackChildren.length = 0;
+    this.loadedModel = null;
     this.root.clear();
+  }
+
+
+  private prepareAcceptedR15Runtime(model: THREE.Object3D) {
+    const reviewAtmosphere = model.getObjectByName("R15 Review Atmosphere");
+    if (reviewAtmosphere) reviewAtmosphere.visible = false;
+
+    model.traverse(object => {
+      if (object instanceof THREE.Light) {
+        object.castShadow = false;
+        object.intensity = 0;
+      }
+    });
+
+    this.prepareAcceptedR15Breathing(model);
+    this.prepareAcceptedR15MovingHeads(model);
+    this.createAcceptedR15BeautyLighting();
+  }
+
+  private prepareAcceptedR15Breathing(model: THREE.Object3D) {
+    const shared = new Map<string, THREE.MeshStandardMaterial>();
+
+    model.traverse(object => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
+
+      const phase = (() => {
+        if (/^(RailCore|RailAccent)_L_/.test(mesh.name)) return 0;
+        if (/^(RailCore|RailAccent)_R_/.test(mesh.name)) return 0.10;
+        if (/^FrontApron_CyanLip$/.test(mesh.name)) return 0.05;
+        if (/^Riser[0-3]_(Cyan|Magenta)Lip$/.test(mesh.name)) return 0.05;
+        return null;
+      })();
+      if (phase === null) return;
+
+      const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      const next = sources.map(source => {
+        if (!(source instanceof THREE.MeshStandardMaterial)) return source;
+        const key = source.uuid + ":" + phase.toFixed(2);
+        const cached = shared.get(key);
+        if (cached) return cached;
+
+        const material = source.clone();
+        material.name = source.name + " R15.1 Breath " + phase.toFixed(2);
+        shared.set(key, material);
+        this.acceptedBreathMaterials.push({
+          material,
+          baseEmissiveIntensity: material.emissiveIntensity,
+          phaseOffsetSeconds: phase,
+        });
+        return material;
+      });
+
+      mesh.material = Array.isArray(mesh.material) ? next : next[0];
+    });
+  }
+
+  private prepareAcceptedR15MovingHeads(model: THREE.Object3D) {
+    const localDown = new THREE.Vector3(0, -1, 0);
+    const localForward = new THREE.Vector3(0, 0, -1);
+    const beamRotation = new THREE.Quaternion().setFromUnitVectors(localDown, localForward);
+
+    const groups = [
+      { prefix: "MainFixture", count: 11, pan: 24, tilt: 12, speed: 0.90, phase: 0.00, length: 9.5, radius: 0.76 },
+      { prefix: "RearFixture", count: 5, pan: 18, tilt: 9, speed: 0.68, phase: 0.80, length: 7.2, radius: 0.58 },
+      { prefix: "DeckUplight", count: 6, pan: 12, tilt: 7, speed: 0.58, phase: 1.45, length: 5.4, radius: 0.46 },
+      { prefix: "FloorUplight", count: 2, pan: 15, tilt: 9, speed: 0.55, phase: 2.15, length: 5.4, radius: 0.48 },
+    ] as const;
+
+    groups.forEach(group => {
+      const center = (group.count - 1) / 2;
+      for (let index = 0; index < group.count; index += 1) {
+        const suffix = String(index).padStart(2, "0");
+        const panPivot = model.getObjectByName(`${group.prefix}_${suffix}_PanPivot`);
+        const tiltPivot = model.getObjectByName(`${group.prefix}_${suffix}_TiltPivot`);
+        const optical = model.getObjectByName(`${group.prefix}_${suffix}_OpticalBeam`);
+        if (!panPivot || !tiltPivot || !(optical instanceof THREE.SpotLight)) continue;
+
+        optical.intensity = 0;
+        optical.castShadow = false;
+
+        const beamMaterial = new THREE.ShaderMaterial({
+          name: `${group.prefix}_${suffix}_RuntimeBeam`,
+          transparent: true,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending,
+          toneMapped: false,
+          uniforms: {
+            uColor: { value: optical.color.clone() },
+            uLength: { value: group.length },
+            uOpacity: { value: group.prefix === "MainFixture" ? 0.12 : 0.09 },
+          },
+          vertexShader: `
+            varying float vDistance;
+            uniform float uLength;
+            void main() {
+              vDistance = clamp((-position.y) / uLength, 0.0, 1.0);
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            varying float vDistance;
+            uniform vec3 uColor;
+            uniform float uOpacity;
+            void main() {
+              float distanceFade = pow(1.0 - vDistance, 0.58);
+              float alpha = uOpacity * (0.20 + 0.80 * distanceFade);
+              gl_FragColor = vec4(uColor, alpha);
+            }
+          `,
+        });
+
+        const beam = new THREE.Mesh(
+          new THREE.ConeGeometry(group.radius, group.length, 22, 1, true),
+          beamMaterial,
+        );
+        beam.name = `${group.prefix}_${suffix}_RuntimeBeamCone`;
+        beam.geometry.translate(0, -group.length / 2, 0);
+
+        const beamRoot = new THREE.Group();
+        beamRoot.name = `${group.prefix}_${suffix}_RuntimeBeamRoot`;
+        beamRoot.quaternion.copy(beamRotation);
+        beamRoot.add(beam);
+        optical.add(beamRoot);
+
+        const side = (index - center) / Math.max(1, center);
+        this.acceptedMovingHeads.push({
+          panPivot,
+          tiltPivot,
+          basePanQuaternion: panPivot.quaternion.clone(),
+          baseTiltQuaternion: tiltPivot.quaternion.clone(),
+          phase: group.phase + side * 0.52,
+          panAmplitude: THREE.MathUtils.degToRad(group.pan),
+          tiltAmplitude: THREE.MathUtils.degToRad(group.tilt),
+          speed: group.speed,
+          beamMaterial,
+        });
+      }
+    });
+  }
+
+  private createAcceptedR15BeautyLighting() {
+    const hemisphere = new THREE.HemisphereLight(0x6278ff, 0x170424, 1.15);
+    hemisphere.name = "R15RuntimeBeautyHemisphere";
+
+    const key = new THREE.DirectionalLight(0xc5ccff, 1.20);
+    key.name = "R15RuntimeBeautyKey";
+    key.position.set(0, 9.5, 8.5);
+    key.target.position.set(0, 2.0, -3.2);
+
+    const blueFill = new THREE.PointLight(0x365cff, 6.5, 18, 1.6);
+    blueFill.name = "R15RuntimeBlueFill";
+    blueFill.position.set(-5.6, 4.0, 1.8);
+
+    const magentaFill = new THREE.PointLight(0xff2fca, 6.5, 18, 1.6);
+    magentaFill.name = "R15RuntimeMagentaFill";
+    magentaFill.position.set(5.6, 4.0, 1.8);
+
+    this.acceptedFxRoot.add(hemisphere, key, key.target, blueFill, magentaFill);
+  }
+
+  private updateAcceptedR15Runtime(renderTimeSeconds: number) {
+    this.acceptedBreathMaterials.forEach(state => {
+      state.material.emissiveIntensity =
+        state.baseEmissiveIntensity
+        * acceptedBreathMultiplier(renderTimeSeconds, state.phaseOffsetSeconds);
+    });
+
+    const panAxis = new THREE.Vector3(0, 1, 0);
+    const tiltAxis = new THREE.Vector3(1, 0, 0);
+    const deltaQuaternion = new THREE.Quaternion();
+
+    this.acceptedMovingHeads.forEach(state => {
+      const theta = renderTimeSeconds * state.speed + state.phase;
+      const sweep = state.panAmplitude * (
+        0.82 * Math.sin(theta)
+        + 0.18 * Math.sin(theta * 2 + 0.35)
+      );
+      const tilt = state.tiltAmplitude * (
+        0.78 * Math.sin(theta + 1.05)
+        + 0.22 * Math.sin(theta * 2 - state.phase * 0.25)
+      );
+      const glow = 0.5 + 0.5 * Math.sin(theta * 0.72 + 0.6);
+
+      state.panPivot.quaternion
+        .copy(state.basePanQuaternion)
+        .multiply(deltaQuaternion.setFromAxisAngle(panAxis, sweep));
+      state.tiltPivot.quaternion
+        .copy(state.baseTiltQuaternion)
+        .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
+
+      state.beamMaterial.uniforms.uOpacity.value = 0.085 + glow * 0.045;
+    });
   }
 
   private makeNeonMaterial(color: number, opacity = 1) {
