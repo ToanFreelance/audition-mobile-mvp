@@ -54,13 +54,16 @@ type AcceptedBreathMaterial = {
 type AcceptedMovingHead = {
   panPivot: THREE.Object3D;
   tiltPivot: THREE.Object3D;
+  optical: THREE.SpotLight;
   basePanQuaternion: THREE.Quaternion;
   baseTiltQuaternion: THREE.Quaternion;
   phase: number;
   panAmplitude: number;
   tiltAmplitude: number;
   speed: number;
-  beamMaterial: THREE.ShaderMaterial;
+  beamMaterial: THREE.ShaderMaterial | null;
+  spillLight: THREE.SpotLight | null;
+  spillTarget: THREE.Object3D | null;
 };
 
 const COLORS = {
@@ -512,6 +515,7 @@ export class NeonStageV1Environment {
       }
     });
 
+    this.tuneAcceptedR15Materials(model);
     this.prepareAcceptedR15Breathing(model);
     this.prepareAcceptedR15MovingHeads(model);
     this.createAcceptedR15BeautyLighting();
@@ -555,10 +559,65 @@ export class NeonStageV1Environment {
     });
   }
 
+  private tuneAcceptedR15Materials(model: THREE.Object3D) {
+    const visited = new Set<THREE.Material>();
+
+    model.traverse(object => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+      materials.forEach(material => {
+        if (!material || visited.has(material)) return;
+        visited.add(material);
+        if (!(material instanceof THREE.MeshStandardMaterial)) return;
+
+        const name = material.name.toLowerCase();
+        if (name.includes("aperture cyan")) {
+          material.emissive.setHex(0x31c7ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.5);
+        } else if (name.includes("aperture violet")) {
+          material.emissive.setHex(0xff34d2);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.2);
+        } else if (name.includes("neon cyan")) {
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 2.8);
+        } else if (name.includes("neon magenta")) {
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.4);
+        } else if (name.includes("neon violet")) {
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.0);
+        } else if (name.includes("led matrix")) {
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 1.45);
+        }
+
+        if (name.includes("porcelain tile") || name.includes("polished tile")) {
+          material.roughness = Math.min(material.roughness, 0.12);
+          material.metalness = Math.max(material.metalness, 0.08);
+        } else if (name.includes("riser polished top")) {
+          material.roughness = Math.min(material.roughness, 0.16);
+          material.metalness = Math.max(material.metalness, 0.06);
+        }
+      });
+    });
+  }
+
   private prepareAcceptedR15MovingHeads(model: THREE.Object3D) {
     const localDown = new THREE.Vector3(0, -1, 0);
     const localForward = new THREE.Vector3(0, 0, -1);
     const beamRotation = new THREE.Quaternion().setFromUnitVectors(localDown, localForward);
+    const activeBeamKeys = new Set([
+      "MainFixture_00",
+      "MainFixture_02",
+      "MainFixture_05",
+      "MainFixture_08",
+      "MainFixture_10",
+      "RearFixture_02",
+    ]);
+    const activeSpillKeys = new Set([
+      "MainFixture_02",
+      "MainFixture_05",
+      "MainFixture_08",
+      "RearFixture_02",
+    ]);
 
     const groups = [
       { prefix: "MainFixture", count: 11, pan: 24, tilt: 12, speed: 0.90, phase: 0.00, length: 9.5, radius: 0.76 },
@@ -571,63 +630,86 @@ export class NeonStageV1Environment {
       const center = (group.count - 1) / 2;
       for (let index = 0; index < group.count; index += 1) {
         const suffix = String(index).padStart(2, "0");
-        const panPivot = model.getObjectByName(`${group.prefix}_${suffix}_PanPivot`);
-        const tiltPivot = model.getObjectByName(`${group.prefix}_${suffix}_TiltPivot`);
-        const optical = model.getObjectByName(`${group.prefix}_${suffix}_OpticalBeam`);
+        const key = `${group.prefix}_${suffix}`;
+        const panPivot = model.getObjectByName(`${key}_PanPivot`);
+        const tiltPivot = model.getObjectByName(`${key}_TiltPivot`);
+        const optical = model.getObjectByName(`${key}_OpticalBeam`);
         if (!panPivot || !tiltPivot || !(optical instanceof THREE.SpotLight)) continue;
 
         optical.intensity = 0;
         optical.castShadow = false;
 
-        const beamMaterial = new THREE.ShaderMaterial({
-          name: `${group.prefix}_${suffix}_RuntimeBeam`,
-          transparent: true,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-          blending: THREE.AdditiveBlending,
-          toneMapped: false,
-          uniforms: {
-            uColor: { value: optical.color.clone() },
-            uLength: { value: group.length },
-            uOpacity: { value: group.prefix === "MainFixture" ? 0.12 : 0.09 },
-          },
-          vertexShader: `
-            varying float vDistance;
-            uniform float uLength;
-            void main() {
-              vDistance = clamp((-position.y) / uLength, 0.0, 1.0);
-              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-          `,
-          fragmentShader: `
-            varying float vDistance;
-            uniform vec3 uColor;
-            uniform float uOpacity;
-            void main() {
-              float distanceFade = pow(1.0 - vDistance, 0.58);
-              float alpha = uOpacity * (0.20 + 0.80 * distanceFade);
-              gl_FragColor = vec4(uColor, alpha);
-            }
-          `,
-        });
+        let beamMaterial: THREE.ShaderMaterial | null = null;
+        if (activeBeamKeys.has(key)) {
+          beamMaterial = new THREE.ShaderMaterial({
+            name: `${key}_RuntimeBeam`,
+            transparent: true,
+            depthWrite: false,
+            side: THREE.FrontSide,
+            blending: THREE.AdditiveBlending,
+            toneMapped: false,
+            uniforms: {
+              uColor: { value: optical.color.clone() },
+              uLength: { value: group.length },
+              uOpacity: { value: group.prefix === "MainFixture" ? 0.16 : 0.12 },
+            },
+            vertexShader: `
+              varying float vDistance;
+              uniform float uLength;
+              void main() {
+                vDistance = clamp((-position.y) / uLength, 0.0, 1.0);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `,
+            fragmentShader: `
+              varying float vDistance;
+              uniform vec3 uColor;
+              uniform float uOpacity;
+              void main() {
+                float distanceFade = pow(1.0 - vDistance, 0.62);
+                float alpha = uOpacity * (0.16 + 0.84 * distanceFade);
+                gl_FragColor = vec4(uColor, alpha);
+              }
+            `,
+          });
 
-        const beam = new THREE.Mesh(
-          new THREE.ConeGeometry(group.radius, group.length, 22, 1, true),
-          beamMaterial,
-        );
-        beam.name = `${group.prefix}_${suffix}_RuntimeBeamCone`;
-        beam.geometry.translate(0, -group.length / 2, 0);
+          const beam = new THREE.Mesh(
+            new THREE.ConeGeometry(group.radius, group.length, 12, 1, true),
+            beamMaterial,
+          );
+          beam.name = `${key}_RuntimeBeamCone`;
+          beam.geometry.translate(0, -group.length / 2, 0);
 
-        const beamRoot = new THREE.Group();
-        beamRoot.name = `${group.prefix}_${suffix}_RuntimeBeamRoot`;
-        beamRoot.quaternion.copy(beamRotation);
-        beamRoot.add(beam);
-        optical.add(beamRoot);
+          const beamRoot = new THREE.Group();
+          beamRoot.name = `${key}_RuntimeBeamRoot`;
+          beamRoot.quaternion.copy(beamRotation);
+          beamRoot.add(beam);
+          optical.add(beamRoot);
+        }
+
+        let spillLight: THREE.SpotLight | null = null;
+        let spillTarget: THREE.Object3D | null = null;
+        if (activeSpillKeys.has(key)) {
+          spillLight = new THREE.SpotLight(
+            optical.color.clone(),
+            group.prefix === "MainFixture" ? 78 : 62,
+            group.length + 8,
+            Math.PI / 7,
+            0.78,
+            1.25,
+          );
+          spillLight.name = `${key}_RuntimeSpill`;
+          spillLight.castShadow = false;
+          spillTarget = spillLight.target;
+          spillTarget.name = `${key}_RuntimeSpillTarget`;
+          this.acceptedFxRoot.add(spillLight, spillTarget);
+        }
 
         const side = (index - center) / Math.max(1, center);
         this.acceptedMovingHeads.push({
           panPivot,
           tiltPivot,
+          optical,
           basePanQuaternion: panPivot.quaternion.clone(),
           baseTiltQuaternion: tiltPivot.quaternion.clone(),
           phase: group.phase + side * 0.52,
@@ -635,29 +717,17 @@ export class NeonStageV1Environment {
           tiltAmplitude: THREE.MathUtils.degToRad(group.tilt),
           speed: group.speed,
           beamMaterial,
+          spillLight,
+          spillTarget,
         });
       }
     });
   }
 
   private createAcceptedR15BeautyLighting() {
-    const hemisphere = new THREE.HemisphereLight(0x6278ff, 0x170424, 1.15);
-    hemisphere.name = "R15RuntimeBeautyHemisphere";
-
-    const key = new THREE.DirectionalLight(0xc5ccff, 1.20);
-    key.name = "R15RuntimeBeautyKey";
-    key.position.set(0, 9.5, 8.5);
-    key.target.position.set(0, 2.0, -3.2);
-
-    const blueFill = new THREE.PointLight(0x365cff, 6.5, 18, 1.6);
-    blueFill.name = "R15RuntimeBlueFill";
-    blueFill.position.set(-5.6, 4.0, 1.8);
-
-    const magentaFill = new THREE.PointLight(0xff2fca, 6.5, 18, 1.6);
-    magentaFill.name = "R15RuntimeMagentaFill";
-    magentaFill.position.set(5.6, 4.0, 1.8);
-
-    this.acceptedFxRoot.add(hemisphere, key, key.target, blueFill, magentaFill);
+    const ambient = new THREE.AmbientLight(0x4b2f70, 0.42);
+    ambient.name = "R15RuntimeBeautyAmbient";
+    this.acceptedFxRoot.add(ambient);
   }
 
   private updateAcceptedR15Runtime(renderTimeSeconds: number) {
@@ -669,6 +739,10 @@ export class NeonStageV1Environment {
 
     const panAxis = new THREE.Vector3(0, 1, 0);
     const tiltAxis = new THREE.Vector3(1, 0, 0);
+    const opticalForward = new THREE.Vector3(0, 0, -1);
+    const worldPosition = new THREE.Vector3();
+    const worldQuaternion = new THREE.Quaternion();
+    const worldDirection = new THREE.Vector3();
     const deltaQuaternion = new THREE.Quaternion();
 
     this.acceptedMovingHeads.forEach(state => {
@@ -690,7 +764,23 @@ export class NeonStageV1Environment {
         .copy(state.baseTiltQuaternion)
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
-      state.beamMaterial.uniforms.uOpacity.value = 0.085 + glow * 0.045;
+      if (state.beamMaterial) {
+        state.beamMaterial.uniforms.uOpacity.value = 0.125 + glow * 0.055;
+      }
+
+      if (state.spillLight && state.spillTarget) {
+        state.optical.updateWorldMatrix(true, false);
+        state.optical.getWorldPosition(worldPosition);
+        state.optical.getWorldQuaternion(worldQuaternion);
+        worldDirection.copy(opticalForward).applyQuaternion(worldQuaternion).normalize();
+
+        state.spillLight.position.copy(worldPosition);
+        state.spillTarget.position.copy(worldPosition).addScaledVector(worldDirection, 12);
+        state.spillLight.color.copy(state.optical.color);
+        state.spillLight.intensity = 72 + glow * 24;
+        state.spillLight.updateMatrixWorld();
+        state.spillTarget.updateMatrixWorld();
+      }
     });
   }
 

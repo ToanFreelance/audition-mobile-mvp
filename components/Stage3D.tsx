@@ -86,29 +86,31 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.08 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.22 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
     const stage = new THREE.Group();
     scene.add(stage);
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x5e78c8 : 0xdceeff,
-      neonPresentation ? 0x060617 : 0x737b9c,
-      neonPresentation ? 0.82 : 2.2,
+      neonPresentation ? 0x718aff : 0xdceeff,
+      neonPresentation ? 0x10051f : 0x737b9c,
+      neonPresentation ? 1.22 : 2.2,
     ));
 
-    const key = new THREE.DirectionalLight(0xfff3ff, neonPresentation ? 1.05 : 3.0);
+    const key = new THREE.DirectionalLight(0xfff3ff, neonPresentation ? 1.48 : 3.0);
     key.position.set(2, 8, 8);
     scene.add(key);
 
-    const coolFill = new THREE.DirectionalLight(0x91dcff, neonPresentation ? 0.62 : 1.25);
-    coolFill.position.set(-4, 5, 7);
-    scene.add(coolFill);
+    if (!neonPresentation) {
+      const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
+      coolFill.position.set(-4, 5, 7);
+      scene.add(coolFill);
 
-    const warmRim = new THREE.DirectionalLight(0xffb2dd, neonPresentation ? 0.38 : 0.75);
-    warmRim.position.set(4, 4, -3);
-    scene.add(warmRim);
+      const warmRim = new THREE.DirectionalLight(0xffb2dd, 0.75);
+      warmRim.position.set(4, 4, -3);
+      scene.add(warmRim);
+    }
 
     // One static key accent is enough for the placeholder stage. The cyan and
     // violet accents remain in emissive/basic materials without adding lights
