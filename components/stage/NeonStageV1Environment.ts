@@ -517,6 +517,7 @@ export class NeonStageV1Environment {
     });
 
     this.tuneAcceptedR15Materials(model);
+    this.optimizeAcceptedR15ForMobile(model);
     this.prepareAcceptedR15Breathing(model);
     this.prepareAcceptedR15MovingHeads(model);
     this.createAcceptedR15BeautyLighting();
@@ -601,6 +602,15 @@ export class NeonStageV1Environment {
     });
   }
 
+  private optimizeAcceptedR15ForMobile(model: THREE.Object3D) {
+    // The three cooling-fin strips on every moving head are invisible at
+    // portrait gameplay distance but cost one draw call each. Keep the fixture
+    // silhouette/pivots/aperture intact and drop only this micro-detail.
+    model.traverse(object => {
+      if (object.name.includes("_CoolingFin")) object.visible = false;
+    });
+  }
+
   private prepareAcceptedR15MovingHeads(model: THREE.Object3D) {
     const localDown = new THREE.Vector3(0, -1, 0);
     const localForward = new THREE.Vector3(0, 0, -1);
@@ -616,7 +626,6 @@ export class NeonStageV1Environment {
     const activeSpillKeys = new Set([
       "MainFixture_02",
       "MainFixture_05",
-      "MainFixture_08",
       "RearFixture_02",
     ]);
 
@@ -690,7 +699,7 @@ export class NeonStageV1Environment {
 
         let spillLight: THREE.SpotLight | null = null;
         let spillTarget: THREE.Object3D | null = null;
-        const spillBaseIntensity = group.prefix === "MainFixture" ? 24000 : 12000;
+        const spillBaseIntensity = group.prefix === "MainFixture" ? 7000 : 3500;
         if (activeSpillKeys.has(key)) {
           spillLight = new THREE.SpotLight(
             optical.color.clone(),
@@ -768,7 +777,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.15 + glow * 0.07;
+        state.beamMaterial.uniforms.uOpacity.value = 0.14 + glow * 0.06;
       }
 
       if (state.spillLight && state.spillTarget) {
@@ -780,7 +789,7 @@ export class NeonStageV1Environment {
         state.spillLight.position.copy(worldPosition);
         state.spillTarget.position.copy(worldPosition).addScaledVector(worldDirection, 12);
         state.spillLight.color.copy(state.optical.color);
-        state.spillLight.intensity = state.spillBaseIntensity * (0.84 + glow * 0.16);
+        state.spillLight.intensity = state.spillBaseIntensity * (0.88 + glow * 0.12);
         state.spillLight.updateMatrixWorld();
         state.spillTarget.updateMatrixWorld();
       }
