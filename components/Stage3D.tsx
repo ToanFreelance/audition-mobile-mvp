@@ -134,12 +134,10 @@ export default function Stage3D({
       scene.add(warmRim);
     }
 
-    if (!neonPresentation) {
-      const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
-      accent.position.set(0, 8, 4.5);
-      accent.target.position.set(0, 1.8, 0);
-      scene.add(accent, accent.target);
-    }
+    const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
+    accent.position.set(0, 8, 4.5);
+    accent.target.position.set(0, 1.8, 0);
+    if (!neonPresentation) scene.add(accent, accent.target);
 
     const wall = new THREE.Mesh(new THREE.BoxGeometry(19, 8.5, 0.6), new THREE.MeshStandardMaterial({ color: 0x0c0b1c, roughness: .88, metalness: .15 }));
     wall.position.set(0, 4.2, -3.2);
