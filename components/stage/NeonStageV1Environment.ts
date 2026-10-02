@@ -550,6 +550,11 @@ export class NeonStageV1Environment {
       if (!mesh.isMesh) return;
 
       const phase = (() => {
+        if (/^Mobile_Rails_L_(Neon|Pixel)/.test(mesh.name)) return 0;
+        if (/^Mobile_Rails_R_(Neon|Pixel)/.test(mesh.name)) return 0.10;
+        if (/^Mobile_Risers_Neon_/.test(mesh.name)) return 0.05;
+
+        // Backward-compatible names for the unoptimized R15.1 source.
         if (/^(RailCore|RailAccent)_L_/.test(mesh.name)) return 0;
         if (/^(RailCore|RailAccent)_R_/.test(mesh.name)) return 0.10;
         if (/^FrontApron_CyanLip$/.test(mesh.name)) return 0.05;
@@ -595,13 +600,11 @@ export class NeonStageV1Environment {
 
         const name = material.name.toLowerCase();
         if (name.includes("architecture navy") || name.includes("architecture indigo")) {
-          material.emissive.copy(material.color).multiplyScalar(0.55);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.28);
-          material.envMapIntensity = Math.max(material.envMapIntensity, 0.70);
+          material.emissive.copy(material.color).multiplyScalar(0.72);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.42);
         } else if (name.includes("riser polished top")) {
-          material.emissive.copy(material.color).multiplyScalar(0.30);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.18);
-          material.envMapIntensity = Math.max(material.envMapIntensity, 1.0);
+          material.emissive.copy(material.color).multiplyScalar(0.48);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.30);
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x31c7ff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.5);
@@ -619,13 +622,13 @@ export class NeonStageV1Environment {
         }
 
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
-          material.roughness = Math.min(material.roughness, 0.10);
-          material.metalness = Math.max(material.metalness, 0.06);
-          material.envMapIntensity = Math.max(material.envMapIntensity, 1.35);
-        } else if (name.includes("riser polished top")) {
-          material.roughness = Math.min(material.roughness, 0.15);
+          material.roughness = Math.min(material.roughness, 0.12);
           material.metalness = Math.max(material.metalness, 0.04);
-          material.envMapIntensity = Math.max(material.envMapIntensity, 1.05);
+          material.emissive.copy(material.color).multiplyScalar(0.24);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.18);
+        } else if (name.includes("riser polished top")) {
+          material.roughness = Math.min(material.roughness, 0.16);
+          material.metalness = Math.max(material.metalness, 0.03);
         }
       });
     });
@@ -776,9 +779,37 @@ export class NeonStageV1Environment {
   }
 
   private createAcceptedR15BeautyLighting() {
-    const ambient = new THREE.AmbientLight(0x4a245f, 0.30);
+    const ambient = new THREE.AmbientLight(0x35124d, 0.18);
     ambient.name = "R15RuntimeBeautyAmbient";
     this.acceptedFxRoot.add(ambient);
+
+    // Cheap static color pools preserve the accepted cyan/magenta glossy-floor
+    // language without realtime reflections or extra punctual lights.
+    const poolTexture = makeAcceptedLightPoolTexture();
+    this.textures.push(poolTexture);
+    const pools = [
+      { name: "R15StaticFloorGlowCyan", color: 0x29c9ff, x: -4.7, z: 0.8, opacity: 0.16, sx: 1.18 },
+      { name: "R15StaticFloorGlowViolet", color: 0x744cff, x: 0, z: 1.25, opacity: 0.12, sx: 1.05 },
+      { name: "R15StaticFloorGlowMagenta", color: 0xff2fc9, x: 4.7, z: 0.8, opacity: 0.17, sx: 1.18 },
+    ] as const;
+
+    pools.forEach(pool => {
+      const material = new THREE.MeshBasicMaterial({
+        map: poolTexture,
+        color: pool.color,
+        transparent: true,
+        opacity: pool.opacity,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(5.4 * pool.sx, 8.2), material);
+      glow.name = pool.name;
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.set(pool.x, 0.035, pool.z);
+      this.acceptedFxRoot.add(glow);
+    });
   }
 
   private updateAcceptedR15Runtime(renderTimeSeconds: number) {

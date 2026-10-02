@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 import type { CharacterPresentationEvent } from "./character/character-types";
@@ -101,34 +100,31 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.20 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.14 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
     const stage = new THREE.Group();
     scene.add(stage);
 
-    let environmentTarget: THREE.WebGLRenderTarget | null = null;
-    if (neonPresentation) {
-      const pmremGenerator = new THREE.PMREMGenerator(renderer);
-      const roomEnvironment = new RoomEnvironment();
-      environmentTarget = pmremGenerator.fromScene(roomEnvironment, 0.04);
-      scene.environment = environmentTarget.texture;
-      scene.environmentIntensity = 0.42;
-      pmremGenerator.dispose();
-    }
-
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x596bd1 : 0xdceeff,
-      neonPresentation ? 0x10031c : 0x737b9c,
-      neonPresentation ? 1.04 : 2.2,
+      neonPresentation ? 0x3d4f9f : 0xdceeff,
+      neonPresentation ? 0x0c0218 : 0x737b9c,
+      neonPresentation ? 0.72 : 2.2,
     ));
 
-    const key = new THREE.DirectionalLight(0xffe7ff, neonPresentation ? 1.32 : 3.0);
-    key.position.set(2, 8, 8);
+    const key = new THREE.DirectionalLight(
+      neonPresentation ? 0x7469ff : 0xfff3ff,
+      neonPresentation ? 0.78 : 3.0,
+    );
+    key.position.set(-2.5, 8, 8);
     scene.add(key);
 
-    if (!neonPresentation) {
+    if (neonPresentation) {
+      const magentaRim = new THREE.DirectionalLight(0xff36c8, 0.42);
+      magentaRim.position.set(5, 5, -2);
+      scene.add(magentaRim);
+    } else {
       const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
       coolFill.position.set(-4, 5, 7);
       scene.add(coolFill);
@@ -352,7 +348,6 @@ export default function Stage3D({
       stageEnvironment.dispose();
       if (characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
-      environmentTarget?.dispose();
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
