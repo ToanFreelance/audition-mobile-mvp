@@ -13,7 +13,7 @@ import {
   resolveStageCatalogEntry,
 } from "./stage/stage-catalog";
 import { createStageEnvironment } from "./stage/stage-runtime";
-import { getStagePresentationCameraPose } from "./stage/stageCamera";
+import { getStagePresentationCameraPose, type StageCameraPose } from "./stage/stageCamera";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
@@ -30,6 +30,32 @@ function getStagePixelRatio(neonPresentation: boolean) {
     ? (neonPresentation ? MOBILE_NEON_DPR_CAP : MOBILE_DPR_CAP)
     : DESKTOP_DPR_CAP;
   return Math.min(window.devicePixelRatio || 1, cap);
+}
+
+function getNeonGameplayCameraFrame(frame: ReturnType<typeof getCharacterCameraFrame>, portrait: boolean) {
+  if (!portrait) return frame;
+  return {
+    ...frame,
+    fov: Math.max(42, frame.fov + 3),
+    y: frame.y + 0.70,
+    z: frame.z + 7.0,
+    targetY: frame.targetY - 0.20,
+  };
+}
+
+function getNeonPresentationPose(
+  pose: StageCameraPose,
+  neonPresentation: boolean,
+  portrait: boolean,
+): StageCameraPose {
+  if (!neonPresentation || !portrait || pose.preset !== "gameplay_portrait_locked") return pose;
+  return {
+    ...pose,
+    fov: Math.max(42, pose.fov + 3),
+    y: pose.y + 0.70,
+    z: pose.z + 7.0,
+    targetY: pose.targetY - 0.20,
+  };
 }
 
 function applyNeonCharacterFill(root: THREE.Object3D) {
@@ -52,7 +78,7 @@ function applyNeonCharacterFill(root: THREE.Object3D) {
         // clothes keep their authored colors instead of receiving white emissive.
         material.emissive.setHex(0xffffff);
         material.emissiveMap = material.map;
-        material.emissiveIntensity = 0.145;
+        material.emissiveIntensity = 0.17;
       } else {
         material.emissive.copy(material.color);
         material.emissiveIntensity = Math.min(
@@ -137,7 +163,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.23 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.27 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
@@ -145,20 +171,20 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x6d63ad : 0xdceeff,
-      neonPresentation ? 0x22052e : 0x737b9c,
-      neonPresentation ? 0.90 : 2.2,
+      neonPresentation ? 0x7568b8 : 0xdceeff,
+      neonPresentation ? 0x260632 : 0x737b9c,
+      neonPresentation ? 0.96 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      neonPresentation ? 0xd4c8ff : 0xfff3ff,
-      neonPresentation ? 1.12 : 3.0,
+      neonPresentation ? 0xddd0ff : 0xfff3ff,
+      neonPresentation ? 1.18 : 3.0,
     );
     key.position.set(-2.5, 8, 8);
     scene.add(key);
 
     if (neonPresentation) {
-      const magentaRim = new THREE.DirectionalLight(0xff31c4, 0.84);
+      const magentaRim = new THREE.DirectionalLight(0xff31c4, 0.90);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
     } else {
@@ -279,7 +305,10 @@ export default function Stage3D({
       if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
     });
 
-    const cameraTarget = (portrait: boolean) => getCharacterCameraFrame(cameraPresetRef.current, portrait);
+    const cameraTarget = (portrait: boolean) => {
+      const frame = getCharacterCameraFrame(cameraPresetRef.current, portrait);
+      return neonPresentation ? getNeonGameplayCameraFrame(frame, portrait) : frame;
+    };
 
     let hasSized = false;
     const resize = () => {
@@ -319,12 +348,14 @@ export default function Stage3D({
       const delta = Math.min(clock.getDelta(), .1);
       const t = clock.elapsedTime;
       const songTimeMs = getSongTimeMsRef.current?.() ?? 0;
-      const pose = getStagePresentationCameraPose(
+      const portrait = host.clientHeight > host.clientWidth;
+      const basePose = getStagePresentationCameraPose(
         songTimeMs,
         isPlayingRef.current,
-        host.clientHeight > host.clientWidth,
+        portrait,
         cameraPresetRef.current,
       );
+      const pose = getNeonPresentationPose(basePose, neonPresentation, portrait);
       host.dataset.presentationCamera = pose.preset;
       const shotChanged = pose.preset !== lastPresentationCamera;
       const cutToIntroShot = shotChanged && pose.preset !== "gameplay_portrait_locked";

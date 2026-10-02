@@ -728,39 +728,58 @@ export class NeonStageV1Environment {
             uniforms: {
               uColor: { value: optical.color.clone() },
               uLength: { value: group.length },
-              uOpacity: { value: group.prefix === "MainFixture" ? 0.18 : 0.13 },
+              uOpacity: { value: group.prefix === "MainFixture" ? 0.15 : 0.11 },
             },
             vertexShader: `
+              varying vec2 vUv;
               varying float vDistance;
               uniform float uLength;
               void main() {
-                vDistance = clamp((-position.y) / uLength, 0.0, 1.0);
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                vUv = uv;
+                vec3 p = position;
+                vDistance = clamp((-p.y) / uLength, 0.0, 1.0);
+                p.x *= mix(0.08, 1.0, vDistance);
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
               }
             `,
             fragmentShader: `
+              varying vec2 vUv;
               varying float vDistance;
               uniform vec3 uColor;
               uniform float uOpacity;
               void main() {
-                float distanceFade = pow(1.0 - vDistance, 0.62);
-                float alpha = uOpacity * (0.16 + 0.84 * distanceFade);
-                gl_FragColor = vec4(uColor, alpha);
+                float radial = abs(vUv.x * 2.0 - 1.0);
+                float edgeFade = 1.0 - smoothstep(0.38, 1.0, radial);
+                float core = exp(-radial * radial * 7.5);
+                float longitudinal = 0.12 + 0.88 * pow(max(0.0, 1.0 - vDistance), 0.52);
+                float sourceGlow = pow(max(0.0, 1.0 - vDistance), 2.2) * core;
+                vec3 color = mix(uColor, vec3(1.0), sourceGlow * 0.50);
+                float alpha = uOpacity * edgeFade * (0.30 + 0.70 * core) * longitudinal;
+                if (alpha < 0.004) discard;
+                gl_FragColor = vec4(color, alpha);
               }
             `,
           });
 
-          const beam = new THREE.Mesh(
-            new THREE.ConeGeometry(group.radius, group.length, 10, 1, true),
-            beamMaterial,
-          );
-          beam.name = `${key}_RuntimeBeamCone`;
-          beam.geometry.translate(0, -group.length / 2, 0);
-
           const beamRoot = new THREE.Group();
           beamRoot.name = `${key}_RuntimeBeamRoot`;
           beamRoot.quaternion.copy(beamRotation);
-          beamRoot.add(beam);
+
+          const makeBeamPlane = (rotationY: number) => {
+            const beam = new THREE.Mesh(
+              new THREE.PlaneGeometry(group.radius * 2.15, group.length, 1, 1),
+              beamMaterial!,
+            );
+            beam.geometry.translate(0, -group.length / 2, 0);
+            beam.rotation.y = rotationY;
+            return beam;
+          };
+
+          const beamA = makeBeamPlane(0);
+          beamA.name = `${key}_RuntimeBeamSoftA`;
+          const beamB = makeBeamPlane(Math.PI / 2);
+          beamB.name = `${key}_RuntimeBeamSoftB`;
+          beamRoot.add(beamA, beamB);
           optical.add(beamRoot);
         }
 
@@ -811,9 +830,9 @@ export class NeonStageV1Environment {
     this.textures.push(poolTexture);
 
     const floorPools = [
-      { name: "R15StaticFloorGlowCyan", color: 0x26cfff, x: -4.9, z: 0.45, opacity: 0.17, sx: 1.18 },
-      { name: "R15StaticFloorGlowViolet", color: 0x9a3dff, x: -0.2, z: 0.95, opacity: 0.30, sx: 1.28 },
-      { name: "R15StaticFloorGlowMagenta", color: 0xff25c8, x: 4.4, z: 0.45, opacity: 0.31, sx: 1.30 },
+      { name: "R15StaticFloorGlowCyan", color: 0x2ad7ff, x: -4.9, z: 0.45, opacity: 0.20, sx: 1.20 },
+      { name: "R15StaticFloorGlowViolet", color: 0xa142ff, x: -0.2, z: 0.95, opacity: 0.35, sx: 1.30 },
+      { name: "R15StaticFloorGlowMagenta", color: 0xff29cb, x: 4.4, z: 0.45, opacity: 0.36, sx: 1.32 },
     ] as const;
 
     floorPools.forEach(pool => {
@@ -835,9 +854,9 @@ export class NeonStageV1Environment {
     });
 
     const backdropWashes = [
-      { name: "R15BackdropWashCyan", color: 0x18c2ff, x: -4.8, opacity: 0.08 },
-      { name: "R15BackdropWashViolet", color: 0x9838ff, x: -0.2, opacity: 0.20 },
-      { name: "R15BackdropWashMagenta", color: 0xff25ca, x: 4.5, opacity: 0.23 },
+      { name: "R15BackdropWashCyan", color: 0x1bcaff, x: -4.8, opacity: 0.10 },
+      { name: "R15BackdropWashViolet", color: 0xa33cff, x: -0.2, opacity: 0.24 },
+      { name: "R15BackdropWashMagenta", color: 0xff29cc, x: 4.5, opacity: 0.27 },
     ] as const;
 
     backdropWashes.forEach(wash => {
@@ -926,7 +945,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.13 + glow * 0.055;
+        state.beamMaterial.uniforms.uOpacity.value = 0.115 + glow * 0.035;
       }
 
       if (state.spillMesh) {
