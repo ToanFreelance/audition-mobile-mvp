@@ -33,7 +33,7 @@ def inspect(original, animated):
     checks['valid_weights']=weight_finite and weight_error<1e-5 and joint_indices
     animations=[];all_angles=[]
     for anim in d.get('animations',[]):
-        if not anim.get('name','').startswith('audition-space-'):continue
+        if not anim.get('name','').startswith(('audition-space-','moonlight-space-')):continue
         finite=True;norm_error=0.;valid_nodes=True;no_scale=True;strict_times=True;durations=[];fps=[];angles=[]
         root_values=None;sample_rot={};sample_tr={};count=0;worst=dict(degrees=0)
         for ch in anim['channels']:

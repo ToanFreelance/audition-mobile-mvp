@@ -5,6 +5,7 @@ No source skeleton, source bone rotations, geometry edits, or scale animation.
 import argparse
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 from scipy.spatial.transform import Rotation as R
@@ -66,9 +67,8 @@ def transported_normal(primary,measured,previous,initial):
     return R.from_rotvec(primary*angle).apply(base)
 
 
-def main():
-    ap=argparse.ArgumentParser();ap.add_argument('--rig',required=True);ap.add_argument('--targets',required=True)
-    ap.add_argument('--manifest',required=True);ap.add_argument('--out',required=True);args=ap.parse_args()
+def solve(rig, targets, manifest, out, v2=False):
+    args=SimpleNamespace(rig=rig,targets=targets,manifest=manifest,out=out)
     g=GLB(args.rig); rest=g.fk(); nodes=g.doc['nodes']; nframes=0
     data=np.load(args.targets); p=data['points']; uv=data['image'];fps=float(data['fps']);nframes=len(p)
     manifest=json.loads(Path(args.manifest).read_text())
@@ -105,6 +105,7 @@ def main():
     pixheight=np.median((np.max(uv[:,[27,28],1],axis=1)-uv[:,0,1])*235)
     pelvis_image=uv[:,[23,24],0].mean(axis=1)*190
     rootx=(pelvis_image-np.median(pelvis_image))*height/max(pixheight,100)
+    if v2:rootx=data['rootxy'][:,0]*height/1.5
     rootx=gaussian_filter1d(rootx,1.5)
     root=np.tile(pos('Hips'),(nframes,1));root[:,0]+=rootx;root[:,2]=pos('Hips')[2]
     # Ground height from target ankle bind height; no source scale imposed on target bones.
@@ -115,12 +116,16 @@ def main():
         rel_feet[:,s]=np.einsum('nij,j->ni',hf@rest_hip.T,h_offset)+ch['l1']*ch['u']+ch['l2']*ch['v']
     root[:,1]=np.max(np.array([ground_ankle['Left'],ground_ankle['Right']])[None,:]-rel_feet[:,:,1],axis=1)
     root[:,1]=gaussian_filter1d(root[:,1],1)
+    if v2:root[:,1]+=data['airborne_height']*height/1.5
     foot_targets=root[:,None,:]+rel_feet
     contacts=np.zeros((nframes,2),dtype=bool)
     for s,side in enumerate(['Left','Right']):
         floor=ground_ankle[side]
         speed=np.linalg.norm(np.gradient(foot_targets[:,s][:,[0,2]],axis=0)*fps,axis=1)
         contact=(foot_targets[:,s,1] < floor+.035)&(speed<.65)
+        if v2:
+            j=27+s;pixel_speed=np.linalg.norm(np.gradient(uv[:,j]*[480,360],axis=0),axis=1)
+            contact &= (data['confidence'][:,j]>.35)&(pixel_speed<2.5)&(data['airborne_height']<.012)
         # Require >=3 observed contact frames; retain run boundaries for QA.
         edges=np.diff(np.r_[False,contact,False].astype(int));starts=np.where(edges==1)[0];ends=np.where(edges==-1)[0]
         for a,b in zip(starts,ends):
@@ -158,8 +163,19 @@ def main():
         relative=R.from_matrix(hd.T@td).as_rotvec()
         for name,w in [('Spine',.33),('Spine1',.66),('Spine2',1.),('Neck',1.),('Head',1.)]:
             set_world(name,hd@R.from_rotvec(relative*w).as_matrix()@rot(name))
+        if v2:
+            across=p[f,2]-p[f,5];up=p[f,0]-shoulders[f]
+            if np.linalg.norm(across)>.025 and np.linalg.norm(up)>.05 and min(data['confidence'][f,[2,5]])>.35:
+                delta=R.from_matrix(tf[f].T@body_frame(across,up)).as_rotvec()
+                delta*=min(1,np.deg2rad(12)/max(np.linalg.norm(delta),1e-8))
+                for name,w in [('Neck',.3),('Head',.7)]:set_world(name,td@R.from_rotvec(w*delta).as_matrix()@rot(name))
         for ci,ch in enumerate(chains):
-            side=ch['side'];a,b,c=ch['names'];anchor=world[idx(a)][:3,3]
+            side=ch['side'];a,b,c=ch['names']
+            if v2 and not ch['leg'] and 'mixamorig:'+side+'Shoulder' in g.names:
+                elevation=np.clip((ch['u'][f,1]+.7)*.13,0,.19)
+                axis=td@np.array([0,0,1 if side=='Left' else -1.])
+                set_world(side+'Shoulder',R.from_rotvec(axis*elevation).as_matrix()@td@rot(side+'Shoulder'))
+            anchor=world[idx(a)][:3,3]
             pole=anchor+ch['l1']*ch['u'][f]
             end=foot_targets[f,ci-2] if ch['leg'] else pole+ch['l2']*ch['v'][f]
             middle,end=ik2(anchor,end,pole,ch['l1'],ch['l2'])
@@ -174,6 +190,14 @@ def main():
                 j=27 if side=='Left' else 28;toe=j+4
                 delta=p[f,toe]-p[f,j]
                 desired_yaw=np.arctan2(delta[0],delta[2])
+                pitch=0.
+                if v2:
+                    forward=hd@np.array([0,0,1.]);base_yaw=np.arctan2(forward[0],forward[2])
+                    offset=np.arcsin(np.clip(delta[0]/.16,-.7,.7)) if min(data['confidence'][f,[j,toe]])>.4 else 0.
+                    desired_yaw=base_yaw+.5*offset
+                    heel=j+2
+                    if min(data['confidence'][f,[heel,toe]])>.45:pitch=np.clip(-np.arctan2(p[f,toe,1]-p[f,heel,1],.16),-.4,.4)
+                    if contacts[f,ci-2]:pitch*=.25
                 previous=foot_yaw[side]
                 if previous is not None:
                     dy=(desired_yaw-previous+np.pi)%(2*np.pi)-np.pi
@@ -181,22 +205,63 @@ def main():
                 foot_yaw[side]=desired_yaw
                 rest_d=pos(side+'ToeBase')-pos(side+'Foot')
                 yaw=desired_yaw-np.arctan2(rest_d[0],rest_d[2])
-                set_world(c,R.from_euler('y',yaw).as_matrix()@rot(c))
+                set_world(c,R.from_euler('yx',[yaw,pitch]).as_matrix()@rot(c))
+            elif v2:
+                # Always key the hand: sparse conditional channels are invalid.
+                set_world(c,world[idx(c)][:3,:3].copy())
+                wrist=15 if side=='Left' else 16;tips=[17,19] if side=='Left' else [18,20]
+                measured=p[f,tips].mean(axis=0)-p[f,wrist]
+                finger=next((n for n in [side+'HandMiddle1',side+'HandMiddle4'] if 'mixamorig:'+n in g.names),None)
+                if finger and np.linalg.norm(measured)>.025 and min(data['confidence'][f,tips])>.6:
+                    aim=unit(world[idx(finger)][:3,3]-world[idx(c)][:3,3]);desired=unit(measured);axis=np.cross(aim,desired)
+                    if np.linalg.norm(axis)>1e-6:
+                        angle=min(.4*np.arccos(np.clip(np.dot(aim,desired),-1,1)),np.deg2rad(22))
+                        set_world(c,R.from_rotvec(unit(axis)*angle).as_matrix()@world[idx(c)][:3,:3])
             # Hand and fingers retain bind-local transforms relative to solved forearm.
         for node,q in qs.items():rotations.setdefault(node,[]).append(q)
         bone_positions.append([world[j][:3,3] for j in g.doc['skins'][0]['joints']])
         solved_feet.append([world[idx(side+'Foot')][:3,3] for side in ['Left','Right']])
     rotations={i:np.array(q) for i,q in rotations.items()}
+    limited=0;post_correction=np.zeros_like(root)
+    if v2:
+        for i,q in rotations.items():
+            assert len(q)==nframes
+            mats=smooth_rot(R.from_quat(q).as_matrix(),1.)
+            for order in [range(1,nframes),range(nframes-2,-1,-1)]:
+                backward=order.step<0
+                for f in order:
+                    prev=f+1 if backward else f-1;delta=R.from_matrix(mats[prev].T@mats[f]).as_rotvec();angle=np.linalg.norm(delta)
+                    if angle>np.deg2rad(18):mats[f]=mats[prev]@R.from_rotvec(delta*np.deg2rad(18)/angle).as_matrix();limited+=1
+            rotations[i]=R.from_matrix(mats).as_quat()
+        bone_positions=[];solved_feet=[]
+        for f in range(nframes):
+            world=g.fk({i:q[f] for i,q in rotations.items()},{idx('Hips'):root[f]})
+            bone_positions.append([world[j][:3,3] for j in g.doc['skins'][0]['joints']])
+            solved_feet.append([world[idx(side+'Foot')][:3,3] for side in ['Left','Right']])
+        # Filtering rotations changes FK contacts. Correct the actual baked feet,
+        # without changing target bone lengths or integrating root displacement.
+        baked=np.array(solved_feet)
+        for f in range(nframes):
+            planted=contacts[f]
+            if planted.any():
+                delta=(foot_targets[f,planted]-baked[f,planted]).mean(axis=0)
+                post_correction[f,[0,2]]=np.clip(delta[[0,2]],-.04,.04)
+        post_correction[:,[0,2]]=gaussian_filter1d(post_correction[:,[0,2]],.8,axis=0)
+        floors=np.array([ground_ankle['Left'],ground_ankle['Right']])
+        lift=np.maximum(0,np.max(floors[None,:]-.005-baked[:,:,1],axis=1))
+        post_correction[:,1]=np.maximum(lift,gaussian_filter1d(lift,1))
+        root+=post_correction;bone_positions=np.array(bone_positions)+post_correction[:,None,:];solved_feet=baked+post_correction[:,None,:]
     for motion in manifest['motions']:
         a,b=motion['source_frame_range'];sel=np.r_[np.arange(a,b),b-1]
         g.append_animation(motion['id'],np.arange(b-a+1)/fps,{i:q[sel] for i,q in rotations.items()},idx('Hips'),root[sel],
-                           {'poc':True,'source_frames_half_open':[a,b],'source_fps':fps,'complete':motion['complete'],
+                           {'poc':True,'source_frames_half_open':motion.get('original_source_frame_range',[a,b]),'source_fps':fps,'complete':motion['complete'],
+                            'source_clip':motion.get('source_clip'),'owner_visual_acceptance':'PENDING','v2':v2,
                             'warning':None if motion['complete'] else 'INCOMPLETE: source ends after 8 frames; not a usable third motion',
                             'solver':'target two-bone IK + bind-axis frame constraints; no source bone rotations'})
     g.write(args.out)
     out=Path(args.out)
     np.savez_compressed(out.with_suffix('.solve.npz'),root=root,contacts=contacts,foot_targets=foot_targets,
-                        solved_feet=np.array(solved_feet),joint_positions=np.array(bone_positions),fps=fps)
+                        solved_feet=np.array(solved_feet),joint_positions=np.array(bone_positions),fps=fps,post_filter_root_correction=post_correction)
     report=dict(target=Path(args.rig).name,joints=len(g.doc['skins'][0]['joints']),fps=fps,
                 new_clips=[m['id'] for m in manifest['motions']],root_xyz_range=np.ptp(root,axis=0).tolist(),
                 preserved='Original nodes, meshes, UV, materials, images, skins, inverse binds, animations, BIN prefix',
@@ -207,7 +272,18 @@ def main():
                 limitations=['Feet contacts inferred, no ground truth','Root height keeps one foot near floor: aerial bounce may be suppressed',
                              'Neck/head follow torso; fingers stay in original local rest pose','Third clip incomplete'])
     out.with_suffix('.solve.json').write_text(json.dumps(report,indent=2)+'\n')
+    if v2:
+        report.update(angular_filter_limited_updates=limited,post_filter_root_correction_max=np.max(np.abs(post_correction),axis=0).tolist(),
+          limitations=['Contacts inferred, not independently measured ground truth.','Monocular elbow/wrist depth approximate.','Head delta bounded to 12 degrees; palm correction bounded to 22 degrees; fingers remain bind-local.','18 degree/frame angular filter may soften accents and alter contact; actual baked feet corrected afterwards.'])
+        out.with_suffix('.solve.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report),flush=True)
+    return report
+
+
+def main():
+    ap=argparse.ArgumentParser()
+    for name in ['rig','targets','manifest','out']:ap.add_argument('--'+name,required=True)
+    ap.add_argument('--v2',action='store_true');solve(**vars(ap.parse_args()))
 
 
 if __name__=='__main__':main()
