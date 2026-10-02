@@ -17,7 +17,8 @@ import { getStagePresentationCameraPose, type StageCameraPose } from "./stage/st
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
-const MOBILE_NEON_DPR_CAP = 0.9;
+const MOBILE_NEON_DPR_CAP = 1.0;
+const NEON_CHARACTER_STAGE_Z_OFFSET = 1.1;
 const DESKTOP_DPR_CAP = 1.6;
 
 function isMobileStageProfile() {
@@ -78,7 +79,7 @@ function applyNeonCharacterFill(root: THREE.Object3D) {
         // clothes keep their authored colors instead of receiving white emissive.
         material.emissive.setHex(0xffffff);
         material.emissiveMap = material.map;
-        material.emissiveIntensity = 0.17;
+        material.emissiveIntensity = 0.185;
       } else {
         material.emissive.copy(material.color);
         material.emissiveIntensity = Math.min(
@@ -290,7 +291,7 @@ export default function Stage3D({
     character.root.position.set(
       CHARACTER_STAGE_POSITION.x,
       CHARACTER_STAGE_POSITION.y,
-      CHARACTER_STAGE_POSITION.z,
+      CHARACTER_STAGE_POSITION.z + (neonPresentation ? NEON_CHARACTER_STAGE_Z_OFFSET : 0),
     );
     stage.add(character.root);
     host.dataset.characterAssetId = selectedCharacter.characterAssetId;
