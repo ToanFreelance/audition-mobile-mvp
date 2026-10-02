@@ -607,14 +607,14 @@ export class NeonStageV1Environment {
 
         const name = material.name.toLowerCase();
         if (name.includes("architecture navy")) {
-          material.emissive.setHex(0x120b42);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.52);
-        } else if (name.includes("architecture indigo")) {
-          material.emissive.setHex(0x2a0d5f);
+          material.emissive.setHex(0x1a0a43);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.58);
+        } else if (name.includes("architecture indigo")) {
+          material.emissive.setHex(0x43106f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.76);
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x34105f);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.50);
+          material.emissive.setHex(0x4b126e);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.64);
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x20cfff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.0);
@@ -622,31 +622,36 @@ export class NeonStageV1Environment {
           material.emissive.setHex(0xff2ed0);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.0);
         } else if (name.includes("neon cyan")) {
-          material.emissive.setHex(0x00c8ff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 4.8);
-        } else if (name.includes("neon magenta")) {
-          material.emissive.setHex(0xff16c9);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.0);
-        } else if (name.includes("neon violet")) {
-          material.emissive.setHex(0x7935ff);
+          material.emissive.setHex(0x12cfff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.2);
+          material.toneMapped = false;
+        } else if (name.includes("neon magenta")) {
+          material.emissive.setHex(0xff20c8);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.8);
+          material.toneMapped = false;
+        } else if (name.includes("neon violet")) {
+          material.emissive.setHex(0x9d43ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.0);
+          material.toneMapped = false;
         } else if (name.includes("neon white")) {
-          material.emissive.setHex(0xaecbff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.2);
+          material.emissive.setHex(0xd7d9ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.6);
+          material.toneMapped = false;
         } else if (name.includes("led matrix")) {
-          material.emissive.setHex(0x6336ff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 2.25);
+          material.emissive.setHex(0x8a32ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.0);
         } else if (name.includes("pixel magenta")) {
-          material.emissive.setHex(0xff2dce);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 4.2);
+          material.emissive.setHex(0xff35d1);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 4.8);
+          material.toneMapped = false;
         }
 
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
-          material.roughness = Math.min(material.roughness, 0.11);
-          material.metalness = Math.max(material.metalness, 0.04);
-          material.color.multiplyScalar(1.12);
-          material.emissive.setHex(0x0b0d35);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.24);
+          material.roughness = Math.min(material.roughness, 0.085);
+          material.metalness = Math.max(material.metalness, 0.05);
+          material.color.multiplyScalar(1.10);
+          material.emissive.setHex(0x170b3b);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.30);
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.16);
           material.metalness = Math.max(material.metalness, 0.03);
@@ -798,7 +803,7 @@ export class NeonStageV1Environment {
   }
 
   private createAcceptedR15BeautyLighting() {
-    const ambient = new THREE.AmbientLight(0x3a164f, 0.22);
+    const ambient = new THREE.AmbientLight(0x4b155e, 0.25);
     ambient.name = "R15RuntimeBeautyAmbient";
     this.acceptedFxRoot.add(ambient);
 
@@ -806,9 +811,9 @@ export class NeonStageV1Environment {
     this.textures.push(poolTexture);
 
     const floorPools = [
-      { name: "R15StaticFloorGlowCyan", color: 0x23c9ff, x: -4.7, z: 0.65, opacity: 0.18, sx: 1.22 },
-      { name: "R15StaticFloorGlowViolet", color: 0x8b3dff, x: 0, z: 1.15, opacity: 0.22, sx: 1.14 },
-      { name: "R15StaticFloorGlowMagenta", color: 0xff20c7, x: 4.7, z: 0.65, opacity: 0.25, sx: 1.24 },
+      { name: "R15StaticFloorGlowCyan", color: 0x26cfff, x: -4.9, z: 0.45, opacity: 0.17, sx: 1.18 },
+      { name: "R15StaticFloorGlowViolet", color: 0x9a3dff, x: -0.2, z: 0.95, opacity: 0.30, sx: 1.28 },
+      { name: "R15StaticFloorGlowMagenta", color: 0xff25c8, x: 4.4, z: 0.45, opacity: 0.31, sx: 1.30 },
     ] as const;
 
     floorPools.forEach(pool => {
@@ -830,9 +835,9 @@ export class NeonStageV1Environment {
     });
 
     const backdropWashes = [
-      { name: "R15BackdropWashCyan", color: 0x16b8ff, x: -4.6, opacity: 0.09 },
-      { name: "R15BackdropWashViolet", color: 0x8b35ff, x: 0, opacity: 0.14 },
-      { name: "R15BackdropWashMagenta", color: 0xff24c8, x: 4.6, opacity: 0.17 },
+      { name: "R15BackdropWashCyan", color: 0x18c2ff, x: -4.8, opacity: 0.08 },
+      { name: "R15BackdropWashViolet", color: 0x9838ff, x: -0.2, opacity: 0.20 },
+      { name: "R15BackdropWashMagenta", color: 0xff25ca, x: 4.5, opacity: 0.23 },
     ] as const;
 
     backdropWashes.forEach(wash => {
@@ -850,6 +855,35 @@ export class NeonStageV1Environment {
       glow.name = wash.name;
       glow.position.set(wash.x, 4.1, -5.25);
       this.acceptedFxRoot.add(glow);
+    });
+
+    const reflectionStreaks = [
+      { name: "R15FloorReflectionCyanL", color: 0x24d4ff, x: -3.6, z: -0.1, width: 0.42, length: 5.6, opacity: 0.22 },
+      { name: "R15FloorReflectionVioletL", color: 0x8c42ff, x: -1.4, z: 0.35, width: 0.52, length: 6.4, opacity: 0.20 },
+      { name: "R15FloorReflectionMagentaC", color: 0xff27cb, x: 0.45, z: 0.55, width: 0.58, length: 6.8, opacity: 0.24 },
+      { name: "R15FloorReflectionVioletR", color: 0x9a42ff, x: 2.3, z: 0.15, width: 0.48, length: 5.9, opacity: 0.20 },
+      { name: "R15FloorReflectionMagentaR", color: 0xff2acb, x: 4.2, z: -0.05, width: 0.40, length: 5.2, opacity: 0.22 },
+    ] as const;
+
+    reflectionStreaks.forEach(streak => {
+      const material = new THREE.MeshBasicMaterial({
+        map: poolTexture,
+        color: streak.color,
+        transparent: true,
+        opacity: streak.opacity,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      const reflection = new THREE.Mesh(
+        new THREE.PlaneGeometry(streak.width, streak.length),
+        material,
+      );
+      reflection.name = streak.name;
+      reflection.rotation.x = -Math.PI / 2;
+      reflection.position.set(streak.x, 0.047, streak.z);
+      this.acceptedFxRoot.add(reflection);
     });
   }
 
