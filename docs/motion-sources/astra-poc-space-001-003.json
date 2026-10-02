@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "source_filename": "Video-test(20261001-000233).mp4",
+  "source_sha256": "2053019b214366a12f9c507e2ee2157c267db3ce7d693796f89e37a7b592568b",
+  "fps": 30,
+  "frames": 281,
+  "width": 910,
+  "height": 512,
+  "usable_video_duration": 9.366666666666667,
+  "crop_xywh": [
+    155,
+    170,
+    190,
+    235
+  ],
+  "lane_inventory": {
+    "reference_frame": 12,
+    "player_lane_x_approx": [250, 350, 450, 550, 650],
+    "selected_lane": 1,
+    "foreground_actor_x_approx": 385,
+    "notes": "Five player lanes plus one foreground actor overlapping lanes 2/3; coordinates are visually estimated."
+  },
+  "judgement_roi_xywh": [
+    204,
+    187,
+    99,
+    31
+  ],
+  "onset_frames": [
+    4,
+    138,
+    273
+  ],
+  "source_context": "Basketball court; NOT Spain Moonlight beach source",
+  "full_source_offset_seconds": null,
+  "full_source_status": "XZvLqpfM1eo unavailable: repeated transfer HTTP 502",
+  "hud_bpm": 107,
+  "observed_spacing_beats_at_hud_bpm": [
+    7.9655555555555555,
+    8.025
+  ],
+  "timing_note": "About 8 HUD beats; playback speed unverified. Do not force 4-beat trim or alter runtime.",
+  "boundary_note": "Judgement onset is observed; animation event latency is not directly observable.",
+  "production_complete": false,
+  "motions": [
+    {
+      "id": "audition-space-001",
+      "source_frame_range": [
+        4,
+        138
+      ],
+      "production_seconds": [
+        0.13333333333333333,
+        4.6
+      ],
+      "working_frame_range": [
+        0,
+        144
+      ],
+      "working_seconds": [
+        0,
+        4.8
+      ],
+      "production_relative_to_working_seconds": [
+        0.13333333333333333,
+        4.6
+      ],
+      "observed_duration": 4.466666666666667,
+      "complete": true,
+      "end_boundary_status": "next_judgement",
+      "confidence": {
+        "judgement_frame": "high",
+        "animation_activation": "medium",
+        "depth": "low"
+      },
+      "start_pose_evidence": "audition-space-001-boundary.jpg",
+      "selected_dancer": "far-left striped brown top",
+      "occlusions": "Self-occlusion during turns; judgement near head; no guaranteed palm/finger depth."
+    },
+    {
+      "id": "audition-space-002",
+      "source_frame_range": [
+        138,
+        273
+      ],
+      "production_seconds": [
+        4.6,
+        9.1
+      ],
+      "working_frame_range": [
+        132,
+        279
+      ],
+      "working_seconds": [
+        4.4,
+        9.3
+      ],
+      "production_relative_to_working_seconds": [
+        0.2,
+        4.7
+      ],
+      "observed_duration": 4.5,
+      "complete": true,
+      "end_boundary_status": "next_judgement",
+      "confidence": {
+        "judgement_frame": "high",
+        "animation_activation": "medium",
+        "depth": "low"
+      },
+      "start_pose_evidence": "audition-space-002-boundary.jpg",
+      "selected_dancer": "far-left striped brown top",
+      "occlusions": "Self-occlusion during turns; judgement near head; no guaranteed palm/finger depth."
+    },
+    {
+      "id": "audition-space-003",
+      "source_frame_range": [
+        273,
+        281
+      ],
+      "production_seconds": [
+        9.1,
+        9.366666666666667
+      ],
+      "working_frame_range": [
+        267,
+        281
+      ],
+      "working_seconds": [
+        8.9,
+        9.366666666666667
+      ],
+      "production_relative_to_working_seconds": [
+        0.2,
+        0.4666666666666667
+      ],
+      "observed_duration": 0.26666666666666666,
+      "complete": false,
+      "end_boundary_status": "EOF_not_semantic_end",
+      "confidence": {
+        "judgement_frame": "high",
+        "animation_activation": "medium",
+        "depth": "low"
+      },
+      "start_pose_evidence": "audition-space-003-boundary.jpg",
+      "selected_dancer": "far-left striped brown top",
+      "occlusions": "Self-occlusion during turns; judgement near head; no guaranteed palm/finger depth."
+    }
+  ],
+  "repo_base_commit": "f64334a1632e4e8be6febb93b75f1f53e9567992",
+  "result_status": "POC_FAIL_SOURCE_INCOMPLETE_AND_VISUAL_FIDELITY_UNACCEPTED"
+}
