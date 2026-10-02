@@ -776,7 +776,7 @@ export class NeonStageV1Environment {
   }
 
   private createAcceptedR15BeautyLighting() {
-    const ambient = new THREE.AmbientLight(0x5b3f82, 0.58);
+    const ambient = new THREE.AmbientLight(0x4a245f, 0.30);
     ambient.name = "R15RuntimeBeautyAmbient";
     this.acceptedFxRoot.add(ambient);
   }
