@@ -529,9 +529,14 @@ export class NeonStageV1Environment {
     if (reviewAtmosphere) reviewAtmosphere.visible = false;
 
     model.traverse(object => {
-      if (object instanceof THREE.Light) {
-        object.castShadow = false;
-        object.intensity = 0;
+      if (!(object instanceof THREE.Light)) return;
+      object.castShadow = false;
+      object.intensity = 0;
+
+      if (object.name.endsWith("_OpticalBeam")) {
+        object.layers.set(31);
+      } else {
+        object.visible = false;
       }
     });
 
