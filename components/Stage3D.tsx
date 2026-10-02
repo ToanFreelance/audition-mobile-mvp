@@ -164,7 +164,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.34 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.40 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
@@ -172,20 +172,20 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x7f70c8 : 0xdceeff,
-      neonPresentation ? 0x2b0739 : 0x737b9c,
-      neonPresentation ? 1.05 : 2.2,
+      neonPresentation ? 0x8977d6 : 0xdceeff,
+      neonPresentation ? 0x310740 : 0x737b9c,
+      neonPresentation ? 1.14 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      neonPresentation ? 0xe4d9ff : 0xfff3ff,
-      neonPresentation ? 1.28 : 3.0,
+      neonPresentation ? 0xeadfff : 0xfff3ff,
+      neonPresentation ? 1.36 : 3.0,
     );
     key.position.set(-2.5, 8, 8);
     scene.add(key);
 
     if (neonPresentation) {
-      const magentaRim = new THREE.DirectionalLight(0xff34c7, 0.98);
+      const magentaRim = new THREE.DirectionalLight(0xff38cc, 1.08);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
     } else {
