@@ -62,9 +62,7 @@ type AcceptedMovingHead = {
   tiltAmplitude: number;
   speed: number;
   beamMaterial: THREE.ShaderMaterial | null;
-  spillLight: THREE.SpotLight | null;
-  spillTarget: THREE.Object3D | null;
-  spillBaseIntensity: number;
+  spillMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null;
 };
 
 const COLORS = {
@@ -277,7 +275,7 @@ function inspectEnvironment(root: THREE.Object3D) {
   let triangles = 0;
   root.traverse(object => {
     const mesh = object as THREE.Mesh;
-    if (!mesh.isMesh || !mesh.geometry) return;
+    if (!mesh.isMesh || !mesh.geometry || !mesh.visible) return;
     meshes += 1;
     const position = mesh.geometry.getAttribute("position");
     const elements = mesh.geometry.index?.count ?? position?.count ?? 0;
@@ -309,6 +307,27 @@ function acceptedBreathMultiplier(renderTimeSeconds: number, phaseOffsetSeconds 
   const softEnvelope = Math.sin(Math.PI * localPhase) ** 2;
   const amplitude = pulseIndex === 3 ? 0.30 : 0.09;
   return 1 + amplitude * softEnvelope;
+}
+
+function makeAcceptedLightPoolTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("R15.1 light-pool canvas unavailable.");
+
+  const gradient = ctx.createRadialGradient(64, 128, 0, 64, 128, 116);
+  gradient.addColorStop(0, "rgba(255,255,255,0.88)");
+  gradient.addColorStop(0.18, "rgba(255,255,255,0.52)");
+  gradient.addColorStop(0.52, "rgba(255,255,255,0.18)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 function normalizeAcceptedR15Model(model: THREE.Object3D) {
@@ -575,7 +594,15 @@ export class NeonStageV1Environment {
         if (!(material instanceof THREE.MeshStandardMaterial)) return;
 
         const name = material.name.toLowerCase();
-        if (name.includes("aperture cyan")) {
+        if (name.includes("architecture navy") || name.includes("architecture indigo")) {
+          material.emissive.copy(material.color).multiplyScalar(0.55);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.28);
+          material.envMapIntensity = Math.max(material.envMapIntensity, 0.70);
+        } else if (name.includes("riser polished top")) {
+          material.emissive.copy(material.color).multiplyScalar(0.30);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.18);
+          material.envMapIntensity = Math.max(material.envMapIntensity, 1.0);
+        } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x31c7ff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.5);
         } else if (name.includes("aperture violet")) {
@@ -592,22 +619,33 @@ export class NeonStageV1Environment {
         }
 
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
-          material.roughness = Math.min(material.roughness, 0.12);
-          material.metalness = Math.max(material.metalness, 0.08);
-        } else if (name.includes("riser polished top")) {
-          material.roughness = Math.min(material.roughness, 0.16);
+          material.roughness = Math.min(material.roughness, 0.10);
           material.metalness = Math.max(material.metalness, 0.06);
+          material.envMapIntensity = Math.max(material.envMapIntensity, 1.35);
+        } else if (name.includes("riser polished top")) {
+          material.roughness = Math.min(material.roughness, 0.15);
+          material.metalness = Math.max(material.metalness, 0.04);
+          material.envMapIntensity = Math.max(material.envMapIntensity, 1.05);
         }
       });
     });
   }
 
   private optimizeAcceptedR15ForMobile(model: THREE.Object3D) {
-    // The three cooling-fin strips on every moving head are invisible at
-    // portrait gameplay distance but cost one draw call each. Keep the fixture
-    // silhouette/pivots/aperture intact and drop only this micro-detail.
+    // Portrait gameplay cannot resolve the fixture micro-detail, but every tiny
+    // child mesh still costs a draw call on Safari/WebGL. Preserve the aperture,
+    // barrel and the main/rear fixture silhouette; drop only invisible detail.
     model.traverse(object => {
-      if (object.name.includes("_CoolingFin")) object.visible = false;
+      const name = object.name;
+      if (name.includes("_CoolingFin") || name.includes("_RearCap")) {
+        object.visible = false;
+        return;
+      }
+
+      if (/^(DeckUplight|FloorUplight)_/.test(name)
+        && (name.includes("_Base_") || name.includes("_Yoke") || name.includes("_LensBezel"))) {
+        object.visible = false;
+      }
     });
   }
 
@@ -626,8 +664,10 @@ export class NeonStageV1Environment {
     const activeSpillKeys = new Set([
       "MainFixture_02",
       "MainFixture_05",
-      "RearFixture_02",
+      "MainFixture_08",
     ]);
+    const lightPoolTexture = makeAcceptedLightPoolTexture();
+    this.textures.push(lightPoolTexture);
 
     const groups = [
       { prefix: "MainFixture", count: 11, pan: 24, tilt: 12, speed: 0.90, phase: 0.00, length: 9.5, radius: 0.76 },
@@ -661,7 +701,7 @@ export class NeonStageV1Environment {
             uniforms: {
               uColor: { value: optical.color.clone() },
               uLength: { value: group.length },
-              uOpacity: { value: group.prefix === "MainFixture" ? 0.20 : 0.15 },
+              uOpacity: { value: group.prefix === "MainFixture" ? 0.18 : 0.13 },
             },
             vertexShader: `
               varying float vDistance;
@@ -684,7 +724,7 @@ export class NeonStageV1Environment {
           });
 
           const beam = new THREE.Mesh(
-            new THREE.ConeGeometry(group.radius, group.length, 12, 1, true),
+            new THREE.ConeGeometry(group.radius, group.length, 10, 1, true),
             beamMaterial,
           );
           beam.name = `${key}_RuntimeBeamCone`;
@@ -697,23 +737,24 @@ export class NeonStageV1Environment {
           optical.add(beamRoot);
         }
 
-        let spillLight: THREE.SpotLight | null = null;
-        let spillTarget: THREE.Object3D | null = null;
-        const spillBaseIntensity = group.prefix === "MainFixture" ? 7000 : 3500;
+        let spillMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
         if (activeSpillKeys.has(key)) {
-          spillLight = new THREE.SpotLight(
-            optical.color.clone(),
-            spillBaseIntensity,
-            group.length + 8,
-            Math.PI / 7,
-            0.78,
-            1.25,
-          );
-          spillLight.name = `${key}_RuntimeSpill`;
-          spillLight.castShadow = false;
-          spillTarget = spillLight.target;
-          spillTarget.name = `${key}_RuntimeSpillTarget`;
-          this.acceptedFxRoot.add(spillLight, spillTarget);
+          const poolMaterial = new THREE.MeshBasicMaterial({
+            name: `${key}_RuntimeLightPool`,
+            map: lightPoolTexture,
+            color: optical.color.clone(),
+            transparent: true,
+            opacity: 0.24,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide,
+            toneMapped: false,
+          });
+          spillMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 6.4), poolMaterial);
+          spillMesh.name = `${key}_RuntimeLightPoolMesh`;
+          spillMesh.rotation.x = -Math.PI / 2;
+          spillMesh.position.y = 0.045;
+          this.acceptedFxRoot.add(spillMesh);
         }
 
         const side = (index - center) / Math.max(1, center);
@@ -728,16 +769,14 @@ export class NeonStageV1Environment {
           tiltAmplitude: THREE.MathUtils.degToRad(group.tilt),
           speed: group.speed,
           beamMaterial,
-          spillLight,
-          spillTarget,
-          spillBaseIntensity,
+          spillMesh,
         });
       }
     });
   }
 
   private createAcceptedR15BeautyLighting() {
-    const ambient = new THREE.AmbientLight(0x4b2f70, 0.42);
+    const ambient = new THREE.AmbientLight(0x5b3f82, 0.58);
     ambient.name = "R15RuntimeBeautyAmbient";
     this.acceptedFxRoot.add(ambient);
   }
@@ -755,6 +794,7 @@ export class NeonStageV1Environment {
     const worldPosition = new THREE.Vector3();
     const worldQuaternion = new THREE.Quaternion();
     const worldDirection = new THREE.Vector3();
+    const worldHit = new THREE.Vector3();
     const deltaQuaternion = new THREE.Quaternion();
 
     this.acceptedMovingHeads.forEach(state => {
@@ -777,21 +817,33 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.14 + glow * 0.06;
+        state.beamMaterial.uniforms.uOpacity.value = 0.13 + glow * 0.055;
       }
 
-      if (state.spillLight && state.spillTarget) {
+      if (state.spillMesh) {
         state.optical.updateWorldMatrix(true, false);
         state.optical.getWorldPosition(worldPosition);
         state.optical.getWorldQuaternion(worldQuaternion);
         worldDirection.copy(opticalForward).applyQuaternion(worldQuaternion).normalize();
 
-        state.spillLight.position.copy(worldPosition);
-        state.spillTarget.position.copy(worldPosition).addScaledVector(worldDirection, 12);
-        state.spillLight.color.copy(state.optical.color);
-        state.spillLight.intensity = state.spillBaseIntensity * (0.88 + glow * 0.12);
-        state.spillLight.updateMatrixWorld();
-        state.spillTarget.updateMatrixWorld();
+        if (worldDirection.y < -0.08) {
+          const distance = (0.045 - worldPosition.y) / worldDirection.y;
+          if (distance > 0 && distance < 28) {
+            worldHit.copy(worldPosition).addScaledVector(worldDirection, distance);
+            this.root.worldToLocal(worldHit);
+            state.spillMesh.position.set(
+              THREE.MathUtils.clamp(worldHit.x, -8.2, 8.2),
+              0.045,
+              THREE.MathUtils.clamp(worldHit.z, -5.3, 6.4),
+            );
+            state.spillMesh.material.opacity = 0.18 + glow * 0.08;
+            state.spillMesh.visible = true;
+          } else {
+            state.spillMesh.visible = false;
+          }
+        } else {
+          state.spillMesh.visible = false;
+        }
       }
     });
   }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 import type { CharacterPresentationEvent } from "./character/character-types";
@@ -17,11 +18,19 @@ import { getStagePresentationCameraPose } from "./stage/stageCamera";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
+const MOBILE_NEON_DPR_CAP = 1.0;
 const DESKTOP_DPR_CAP = 1.6;
 
-function getStagePixelRatio() {
-  const mobileProfile = window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
-  return Math.min(window.devicePixelRatio || 1, mobileProfile ? MOBILE_DPR_CAP : DESKTOP_DPR_CAP);
+function isMobileStageProfile() {
+  return window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
+}
+
+function getStagePixelRatio(neonPresentation: boolean) {
+  const mobileProfile = isMobileStageProfile();
+  const cap = mobileProfile
+    ? (neonPresentation ? MOBILE_NEON_DPR_CAP : MOBILE_DPR_CAP)
+    : DESKTOP_DPR_CAP;
+  return Math.min(window.devicePixelRatio || 1, cap);
 }
 
 type Stage3DProps = {
@@ -69,7 +78,7 @@ export default function Stage3D({
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(neonPresentation ? 0x020517 : 0x1b2d49);
-    scene.fog = new THREE.FogExp2(neonPresentation ? 0x06102f : 0x6b7f9f, neonPresentation ? 0.006 : 0.01);
+    scene.fog = neonPresentation ? null : new THREE.FogExp2(0x6b7f9f, 0.01);
 
     const initialCameraFrame = getCharacterCameraFrame("center", false);
     const camera = new THREE.PerspectiveCamera(initialCameraFrame.fov, 16 / 9, 0.1, 100);
@@ -81,24 +90,40 @@ export default function Stage3D({
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2");
     if (!context) return;
-    const renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(getStagePixelRatio());
+    const mobileRenderProfile = isMobileStageProfile();
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      context,
+      antialias: !(neonPresentation && mobileRenderProfile),
+      powerPreference: "high-performance",
+    });
+    renderer.setPixelRatio(getStagePixelRatio(neonPresentation));
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.22 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.30 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
     const stage = new THREE.Group();
     scene.add(stage);
+
+    let environmentTarget: THREE.WebGLRenderTarget | null = null;
+    if (neonPresentation) {
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      const roomEnvironment = new RoomEnvironment();
+      environmentTarget = pmremGenerator.fromScene(roomEnvironment, 0.04);
+      scene.environment = environmentTarget.texture;
+      pmremGenerator.dispose();
+    }
+
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x718aff : 0xdceeff,
-      neonPresentation ? 0x10051f : 0x737b9c,
-      neonPresentation ? 1.22 : 2.2,
+      neonPresentation ? 0x7a8dff : 0xdceeff,
+      neonPresentation ? 0x180726 : 0x737b9c,
+      neonPresentation ? 1.34 : 2.2,
     ));
 
-    const key = new THREE.DirectionalLight(0xfff3ff, neonPresentation ? 1.48 : 3.0);
+    const key = new THREE.DirectionalLight(0xfff3ff, neonPresentation ? 1.56 : 3.0);
     key.position.set(2, 8, 8);
     scene.add(key);
 
@@ -239,7 +264,7 @@ export default function Stage3D({
       }
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      renderer.setPixelRatio(getStagePixelRatio());
+      renderer.setPixelRatio(getStagePixelRatio(neonPresentation));
       renderer.setSize(width, height, false);
     };
 
@@ -326,6 +351,7 @@ export default function Stage3D({
       stageEnvironment.dispose();
       if (characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
+      environmentTarget?.dispose();
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
