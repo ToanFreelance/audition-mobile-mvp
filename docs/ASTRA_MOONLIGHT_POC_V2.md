@@ -1,4 +1,4 @@
-# Astra Moonlight POC V2 — work in progress
+# Astra Moonlight POC V2 — offline visual QA in progress
 
 Offline continuation of V1 commit `6c84f1e6b154b9a4248d274b7258cc10d88729f2`,
 on `work/character-rig-animation-v1`. No runtime integration or branch merge.
@@ -49,5 +49,24 @@ not establish improved mocap accuracy.
 Original geometry, skin, UV, PBR textures, hierarchy, inverse binds and embedded
 Running/Walking clips must pass preservation QA. Owner visual acceptance is
 pending; structural PASS will not be called visual PASS.
+
+## Render-discovered deformation fix
+
+Actual-mesh key-pose renders revealed a severe waist pinch in motion 003 that
+structural checks did not detect. The spine differential was only about 18–22°;
+the hip-to-thigh axial orientation had accumulated approximately 170–180°.
+Temporal normal transport alone allowed roll drift in nearly straight chains.
+Vertices blended between pelvis and thigh transforms then collapsed inward.
+
+V2 now bounds the second-axis bend normal against each target's own bind plane
+in the current body frame: 35° for legs, 75° for arms. Positional two-bone IK
+and the measured pole remain active. This is not source-quaternion copying or
+swing-only retargeting. Same-frame before/after renders confirm the waist pinch
+is removed on male and female; the original meshes and weights are unchanged.
+
+Six focused tests pass: the four existing V1 tests, complete source interval
+checks, and the anatomical roll regression. Both corrected GLBs pass structural
+QA with eight 30 Hz source-complete clips and preserved original asset data.
+Full-frame visual review remains in progress.
 
 Sources: https://github.com/Tau-J/rtmlib ; https://github.com/open-mmlab/mmpose/tree/main/projects/rtmw ; https://github.com/Walter0807/MotionBERT

@@ -67,6 +67,19 @@ def transported_normal(primary,measured,previous,initial):
     return R.from_rotvec(primary*angle).apply(base)
 
 
+def bounded_normal(primary, normal, anatomical_reference, limit_degrees):
+    """Bound axial roll against the target bind plane in the current body frame.
+
+    Temporal continuity alone can accumulate a half-turn on nearly straight
+    chains, collapsing vertices weighted across hip/thigh. Keep a second-axis
+    anatomical constraint as well as positional IK; this is not swing-only.
+    """
+    ref=anatomical_reference-primary*np.dot(anatomical_reference,primary)
+    if np.linalg.norm(ref)<.05:return normal
+    ref=unit(ref);angle=np.arctan2(np.dot(np.cross(ref,normal),primary),np.dot(ref,normal))
+    return R.from_rotvec(primary*np.clip(angle,-np.deg2rad(limit_degrees),np.deg2rad(limit_degrees))).apply(ref)
+
+
 def solve(rig, targets, manifest, out, v2=False):
     args=SimpleNamespace(rig=rig,targets=targets,manifest=manifest,out=out)
     g=GLB(args.rig); rest=g.fk(); nodes=g.doc['nodes']; nframes=0
@@ -102,10 +115,11 @@ def solve(rig, targets, manifest, out, v2=False):
                            bind_bases=[frame(unit(b-a),rn),frame(unit(c-b),rn)],rest_normal=rn,
                            previous=[None,None]))
     height=pos('HeadTop_End')[1]
-    pixheight=np.median((np.max(uv[:,[27,28],1],axis=1)-uv[:,0,1])*235)
-    pelvis_image=uv[:,[23,24],0].mean(axis=1)*190
-    rootx=(pelvis_image-np.median(pelvis_image))*height/max(pixheight,100)
     if v2:rootx=data['rootxy'][:,0]*height/1.5
+    else:
+        pixheight=np.median((np.max(uv[:,[27,28],1],axis=1)-uv[:,0,1])*235)
+        pelvis_image=uv[:,[23,24],0].mean(axis=1)*190
+        rootx=(pelvis_image-np.median(pelvis_image))*height/max(pixheight,100)
     rootx=gaussian_filter1d(rootx,1.5)
     root=np.tile(pos('Hips'),(nframes,1));root[:,0]+=rootx;root[:,2]=pos('Hips')[2]
     # Ground height from target ankle bind height; no source scale imposed on target bones.
@@ -183,6 +197,7 @@ def solve(rig, targets, manifest, out, v2=False):
             normal=np.cross(directions[0],directions[1])
             for k,name in enumerate([a,b]):
                 n=transported_normal(directions[k],normal,ch['previous'][k],td@ch['rest_normal'])
+                if v2:n=bounded_normal(directions[k],n,(hd if ch['leg'] else td)@ch['rest_normal'],35 if ch['leg'] else 75)
                 ch['previous'][k]=n
                 desired=frame(directions[k],n)@ch['bind_bases'][k].T@rot(name)
                 set_world(name,desired)
@@ -274,6 +289,7 @@ def solve(rig, targets, manifest, out, v2=False):
     out.with_suffix('.solve.json').write_text(json.dumps(report,indent=2)+'\n')
     if v2:
         report.update(angular_filter_limited_updates=limited,post_filter_root_correction_max=np.max(np.abs(post_correction),axis=0).tolist(),
+          anatomical_roll_limits_degrees=dict(leg=35,arm=75),
           limitations=['Contacts inferred, not independently measured ground truth.','Monocular elbow/wrist depth approximate.','Head delta bounded to 12 degrees; palm correction bounded to 22 degrees; fingers remain bind-local.','18 degree/frame angular filter may soften accents and alter contact; actual baked feet corrected afterwards.'])
         out.with_suffix('.solve.json').write_text(json.dumps(report,indent=2)+'\n')
     print(json.dumps(report),flush=True)
