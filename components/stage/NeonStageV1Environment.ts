@@ -374,6 +374,7 @@ export class NeonStageV1Environment {
   private readonly textures: THREE.Texture[] = [];
   private readonly fallbackChildren: THREE.Object3D[] = [];
   private loadedModel: THREE.Object3D | null = null;
+  private lastAcceptedBreathUpdateSeconds = Number.NEGATIVE_INFINITY;
   private disposed = false;
 
   constructor() {
@@ -520,6 +521,7 @@ export class NeonStageV1Environment {
     this.acceptedMovingHeads.length = 0;
     this.fallbackChildren.length = 0;
     this.loadedModel = null;
+    this.lastAcceptedBreathUpdateSeconds = Number.NEGATIVE_INFINITY;
     this.root.clear();
   }
 
@@ -604,33 +606,47 @@ export class NeonStageV1Environment {
         if (!(material instanceof THREE.MeshStandardMaterial)) return;
 
         const name = material.name.toLowerCase();
-        if (name.includes("architecture navy") || name.includes("architecture indigo")) {
-          material.emissive.copy(material.color).multiplyScalar(0.72);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.42);
+        if (name.includes("architecture navy")) {
+          material.emissive.setHex(0x11134f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.62);
+        } else if (name.includes("architecture indigo")) {
+          material.emissive.setHex(0x23116f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.68);
         } else if (name.includes("riser polished top")) {
-          material.emissive.copy(material.color).multiplyScalar(0.48);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.30);
+          material.emissive.setHex(0x1a1469);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.52);
         } else if (name.includes("aperture cyan")) {
-          material.emissive.setHex(0x31c7ff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.5);
+          material.emissive.setHex(0x20cfff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.0);
         } else if (name.includes("aperture violet")) {
-          material.emissive.setHex(0xff34d2);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.2);
+          material.emissive.setHex(0xff2ed0);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.0);
         } else if (name.includes("neon cyan")) {
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 2.8);
+          material.emissive.setHex(0x00c8ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 4.8);
         } else if (name.includes("neon magenta")) {
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.4);
+          material.emissive.setHex(0xff16c9);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.0);
         } else if (name.includes("neon violet")) {
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.0);
+          material.emissive.setHex(0x7935ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.2);
+        } else if (name.includes("neon white")) {
+          material.emissive.setHex(0xaecbff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.2);
         } else if (name.includes("led matrix")) {
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 1.45);
+          material.emissive.setHex(0x6336ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 2.25);
+        } else if (name.includes("pixel magenta")) {
+          material.emissive.setHex(0xff2dce);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 4.2);
         }
 
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
-          material.roughness = Math.min(material.roughness, 0.12);
+          material.roughness = Math.min(material.roughness, 0.11);
           material.metalness = Math.max(material.metalness, 0.04);
-          material.emissive.copy(material.color).multiplyScalar(0.24);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.18);
+          material.color.multiplyScalar(1.12);
+          material.emissive.setHex(0x0b1048);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.34);
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.16);
           material.metalness = Math.max(material.metalness, 0.03);
@@ -782,21 +798,20 @@ export class NeonStageV1Environment {
   }
 
   private createAcceptedR15BeautyLighting() {
-    const ambient = new THREE.AmbientLight(0x35124d, 0.18);
+    const ambient = new THREE.AmbientLight(0x321047, 0.20);
     ambient.name = "R15RuntimeBeautyAmbient";
     this.acceptedFxRoot.add(ambient);
 
-    // Cheap static color pools preserve the accepted cyan/magenta glossy-floor
-    // language without realtime reflections or extra punctual lights.
     const poolTexture = makeAcceptedLightPoolTexture();
     this.textures.push(poolTexture);
-    const pools = [
-      { name: "R15StaticFloorGlowCyan", color: 0x29c9ff, x: -4.7, z: 0.8, opacity: 0.16, sx: 1.18 },
-      { name: "R15StaticFloorGlowViolet", color: 0x744cff, x: 0, z: 1.25, opacity: 0.12, sx: 1.05 },
-      { name: "R15StaticFloorGlowMagenta", color: 0xff2fc9, x: 4.7, z: 0.8, opacity: 0.17, sx: 1.18 },
+
+    const floorPools = [
+      { name: "R15StaticFloorGlowCyan", color: 0x19cfff, x: -4.7, z: 0.65, opacity: 0.25, sx: 1.26 },
+      { name: "R15StaticFloorGlowViolet", color: 0x7138ff, x: 0, z: 1.15, opacity: 0.18, sx: 1.12 },
+      { name: "R15StaticFloorGlowMagenta", color: 0xff20c7, x: 4.7, z: 0.65, opacity: 0.26, sx: 1.26 },
     ] as const;
 
-    pools.forEach(pool => {
+    floorPools.forEach(pool => {
       const material = new THREE.MeshBasicMaterial({
         map: poolTexture,
         color: pool.color,
@@ -807,20 +822,46 @@ export class NeonStageV1Environment {
         side: THREE.DoubleSide,
         toneMapped: false,
       });
-      const glow = new THREE.Mesh(new THREE.PlaneGeometry(5.4 * pool.sx, 8.2), material);
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(5.8 * pool.sx, 8.6), material);
       glow.name = pool.name;
       glow.rotation.x = -Math.PI / 2;
-      glow.position.set(pool.x, 0.035, pool.z);
+      glow.position.set(pool.x, 0.04, pool.z);
+      this.acceptedFxRoot.add(glow);
+    });
+
+    const backdropWashes = [
+      { name: "R15BackdropWashCyan", color: 0x12bfff, x: -4.6, opacity: 0.13 },
+      { name: "R15BackdropWashViolet", color: 0x6a35ff, x: 0, opacity: 0.10 },
+      { name: "R15BackdropWashMagenta", color: 0xff24c8, x: 4.6, opacity: 0.14 },
+    ] as const;
+
+    backdropWashes.forEach(wash => {
+      const material = new THREE.MeshBasicMaterial({
+        map: poolTexture,
+        color: wash.color,
+        transparent: true,
+        opacity: wash.opacity,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 8.2), material);
+      glow.name = wash.name;
+      glow.position.set(wash.x, 4.1, -5.25);
       this.acceptedFxRoot.add(glow);
     });
   }
 
   private updateAcceptedR15Runtime(renderTimeSeconds: number) {
-    this.acceptedBreathMaterials.forEach(state => {
-      state.material.emissiveIntensity =
-        state.baseEmissiveIntensity
-        * acceptedBreathMultiplier(renderTimeSeconds, state.phaseOffsetSeconds);
-    });
+    if (renderTimeSeconds - this.lastAcceptedBreathUpdateSeconds >= 1 / 30) {
+      this.acceptedBreathMaterials.forEach(state => {
+        state.material.emissiveIntensity =
+          state.baseEmissiveIntensity
+          * acceptedBreathMultiplier(renderTimeSeconds, state.phaseOffsetSeconds);
+      });
+      this.lastAcceptedBreathUpdateSeconds = renderTimeSeconds;
+    }
 
     const panAxis = new THREE.Vector3(0, 1, 0);
     const tiltAxis = new THREE.Vector3(1, 0, 0);
