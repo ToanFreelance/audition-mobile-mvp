@@ -607,14 +607,14 @@ export class NeonStageV1Environment {
 
         const name = material.name.toLowerCase();
         if (name.includes("architecture navy")) {
-          material.emissive.setHex(0x171b68);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.82);
+          material.emissive.setHex(0x120b42);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.52);
         } else if (name.includes("architecture indigo")) {
-          material.emissive.setHex(0x2d1688);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.90);
+          material.emissive.setHex(0x2a0d5f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.58);
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x241b86);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.72);
+          material.emissive.setHex(0x34105f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.50);
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x20cfff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.0);
@@ -645,8 +645,8 @@ export class NeonStageV1Environment {
           material.roughness = Math.min(material.roughness, 0.11);
           material.metalness = Math.max(material.metalness, 0.04);
           material.color.multiplyScalar(1.12);
-          material.emissive.setHex(0x101963);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.46);
+          material.emissive.setHex(0x0b0d35);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.24);
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.16);
           material.metalness = Math.max(material.metalness, 0.03);
@@ -798,7 +798,7 @@ export class NeonStageV1Environment {
   }
 
   private createAcceptedR15BeautyLighting() {
-    const ambient = new THREE.AmbientLight(0x6672b8, 0.34);
+    const ambient = new THREE.AmbientLight(0x3a164f, 0.22);
     ambient.name = "R15RuntimeBeautyAmbient";
     this.acceptedFxRoot.add(ambient);
 
@@ -806,9 +806,9 @@ export class NeonStageV1Environment {
     this.textures.push(poolTexture);
 
     const floorPools = [
-      { name: "R15StaticFloorGlowCyan", color: 0x19cfff, x: -4.7, z: 0.65, opacity: 0.25, sx: 1.26 },
-      { name: "R15StaticFloorGlowViolet", color: 0x7138ff, x: 0, z: 1.15, opacity: 0.18, sx: 1.12 },
-      { name: "R15StaticFloorGlowMagenta", color: 0xff20c7, x: 4.7, z: 0.65, opacity: 0.26, sx: 1.26 },
+      { name: "R15StaticFloorGlowCyan", color: 0x23c9ff, x: -4.7, z: 0.65, opacity: 0.18, sx: 1.22 },
+      { name: "R15StaticFloorGlowViolet", color: 0x8b3dff, x: 0, z: 1.15, opacity: 0.22, sx: 1.14 },
+      { name: "R15StaticFloorGlowMagenta", color: 0xff20c7, x: 4.7, z: 0.65, opacity: 0.25, sx: 1.24 },
     ] as const;
 
     floorPools.forEach(pool => {
@@ -830,9 +830,9 @@ export class NeonStageV1Environment {
     });
 
     const backdropWashes = [
-      { name: "R15BackdropWashCyan", color: 0x12bfff, x: -4.6, opacity: 0.13 },
-      { name: "R15BackdropWashViolet", color: 0x6a35ff, x: 0, opacity: 0.10 },
-      { name: "R15BackdropWashMagenta", color: 0xff24c8, x: 4.6, opacity: 0.14 },
+      { name: "R15BackdropWashCyan", color: 0x16b8ff, x: -4.6, opacity: 0.09 },
+      { name: "R15BackdropWashViolet", color: 0x8b35ff, x: 0, opacity: 0.14 },
+      { name: "R15BackdropWashMagenta", color: 0xff24c8, x: 4.6, opacity: 0.17 },
     ] as const;
 
     backdropWashes.forEach(wash => {
