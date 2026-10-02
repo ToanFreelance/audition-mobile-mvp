@@ -17,7 +17,7 @@ import { getStagePresentationCameraPose } from "./stage/stageCamera";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
-const MOBILE_NEON_DPR_CAP = 0.9;
+const MOBILE_NEON_DPR_CAP = 1.0;
 const DESKTOP_DPR_CAP = 1.6;
 
 function isMobileStageProfile() {
@@ -134,12 +134,13 @@ export default function Stage3D({
       scene.add(warmRim);
     }
 
-    if (!neonPresentation) {
-      const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
-      accent.position.set(0, 8, 4.5);
-      accent.target.position.set(0, 1.8, 0);
-      scene.add(accent, accent.target);
-    }
+    // One static key accent is enough for the placeholder stage. The cyan and
+    // violet accents remain in emissive/basic materials without adding lights
+    // to every MeshStandardMaterial shader or mutating intensities per frame.
+    const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
+    accent.position.set(0, 8, 4.5);
+    accent.target.position.set(0, 1.8, 0);
+    scene.add(accent, accent.target);
 
     const wall = new THREE.Mesh(new THREE.BoxGeometry(19, 8.5, 0.6), new THREE.MeshStandardMaterial({ color: 0x0c0b1c, roughness: .88, metalness: .15 }));
     wall.position.set(0, 4.2, -3.2);
