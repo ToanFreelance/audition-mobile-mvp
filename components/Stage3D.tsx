@@ -17,7 +17,7 @@ import { getStagePresentationCameraPose } from "./stage/stageCamera";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
-const MOBILE_NEON_DPR_CAP = 1.0;
+const MOBILE_NEON_DPR_CAP = 0.9;
 const DESKTOP_DPR_CAP = 1.6;
 
 function isMobileStageProfile() {
@@ -100,7 +100,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.14 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.24 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
@@ -108,20 +108,20 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x3d4f9f : 0xdceeff,
-      neonPresentation ? 0x0c0218 : 0x737b9c,
-      neonPresentation ? 0.72 : 2.2,
+      neonPresentation ? 0x4d56be : 0xdceeff,
+      neonPresentation ? 0x12001f : 0x737b9c,
+      neonPresentation ? 0.82 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      neonPresentation ? 0x7469ff : 0xfff3ff,
-      neonPresentation ? 0.78 : 3.0,
+      neonPresentation ? 0x7462ff : 0xfff3ff,
+      neonPresentation ? 0.90 : 3.0,
     );
     key.position.set(-2.5, 8, 8);
     scene.add(key);
 
     if (neonPresentation) {
-      const magentaRim = new THREE.DirectionalLight(0xff36c8, 0.42);
+      const magentaRim = new THREE.DirectionalLight(0xff28bd, 0.58);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
     } else {
@@ -134,13 +134,14 @@ export default function Stage3D({
       scene.add(warmRim);
     }
 
-    // One static key accent is enough for the placeholder stage. The cyan and
-    // violet accents remain in emissive/basic materials without adding lights
-    // to every MeshStandardMaterial shader or mutating intensities per frame.
-    const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
-    accent.position.set(0, 8, 4.5);
-    accent.target.position.set(0, 1.8, 0);
-    scene.add(accent, accent.target);
+    if (!neonPresentation) {
+      // Bright Stage keeps one static placeholder accent. Neon Stage uses only
+      // its saturated fixed lights + emissive presentation layers.
+      const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
+      accent.position.set(0, 8, 4.5);
+      accent.target.position.set(0, 1.8, 0);
+      scene.add(accent, accent.target);
+    }
 
     const wall = new THREE.Mesh(new THREE.BoxGeometry(19, 8.5, 0.6), new THREE.MeshStandardMaterial({ color: 0x0c0b1c, roughness: .88, metalness: .15 }));
     wall.position.set(0, 4.2, -3.2);
