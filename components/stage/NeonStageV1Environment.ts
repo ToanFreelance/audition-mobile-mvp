@@ -680,8 +680,6 @@ export class NeonStageV1Environment {
     const groups = [
       { prefix: "MainFixture", count: 11, pan: 24, tilt: 12, speed: 0.90, phase: 0.00, length: 9.5, radius: 0.76 },
       { prefix: "RearFixture", count: 5, pan: 18, tilt: 9, speed: 0.68, phase: 0.80, length: 7.2, radius: 0.58 },
-      { prefix: "DeckUplight", count: 6, pan: 12, tilt: 7, speed: 0.58, phase: 1.45, length: 5.4, radius: 0.46 },
-      { prefix: "FloorUplight", count: 2, pan: 15, tilt: 9, speed: 0.55, phase: 2.15, length: 5.4, radius: 0.48 },
     ] as const;
 
     groups.forEach(group => {
