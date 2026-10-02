@@ -32,6 +32,34 @@ function getStagePixelRatio(neonPresentation: boolean) {
   return Math.min(window.devicePixelRatio || 1, cap);
 }
 
+function applyNeonCharacterFill(root: THREE.Object3D) {
+  const cloned = new Map<string, THREE.MeshStandardMaterial>();
+  const lift = new THREE.Color(0xdde7ff);
+
+  root.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+
+    const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const next = sources.map(source => {
+      if (!(source instanceof THREE.MeshStandardMaterial)) return source;
+
+      const cached = cloned.get(source.uuid);
+      if (cached) return cached;
+
+      const material = source.clone();
+      const base = material.color.clone();
+      material.emissive.copy(base.lerp(lift, 0.38));
+      material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.18);
+      material.needsUpdate = true;
+      cloned.set(source.uuid, material);
+      return material;
+    });
+
+    mesh.material = Array.isArray(mesh.material) ? next : next[0];
+  });
+}
+
 type Stage3DProps = {
   cameraPreset?: CameraPreset;
   isPlaying?: boolean;
@@ -100,7 +128,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.22 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.30 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
@@ -108,20 +136,20 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x4d56be : 0xdceeff,
-      neonPresentation ? 0x12001f : 0x737b9c,
-      neonPresentation ? 0.82 : 2.2,
+      neonPresentation ? 0x7487d8 : 0xdceeff,
+      neonPresentation ? 0x211136 : 0x737b9c,
+      neonPresentation ? 1.00 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      neonPresentation ? 0x7462ff : 0xfff3ff,
-      neonPresentation ? 0.90 : 3.0,
+      neonPresentation ? 0xd7dcff : 0xfff3ff,
+      neonPresentation ? 1.24 : 3.0,
     );
     key.position.set(-2.5, 8, 8);
     scene.add(key);
 
     if (neonPresentation) {
-      const magentaRim = new THREE.DirectionalLight(0xff28bd, 0.56);
+      const magentaRim = new THREE.DirectionalLight(0xff32c4, 0.66);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
     } else {
@@ -235,6 +263,7 @@ export default function Stage3D({
     host.dataset.characterSource = "loading";
     void character.load().then((result) => {
       if (!result || disposed) return;
+      if (neonPresentation) applyNeonCharacterFill(character.root);
       host.dataset.characterSource = result.source;
       host.dataset.characterIdle = result.idleClip ?? "static";
       host.dataset.characterMetrics = JSON.stringify(result.metrics);
