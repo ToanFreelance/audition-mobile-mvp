@@ -52,12 +52,12 @@ function applyNeonCharacterFill(root: THREE.Object3D) {
         // clothes keep their authored colors instead of receiving white emissive.
         material.emissive.setHex(0xffffff);
         material.emissiveMap = material.map;
-        material.emissiveIntensity = 0.085;
+        material.emissiveIntensity = 0.145;
       } else {
         material.emissive.copy(material.color);
         material.emissiveIntensity = Math.min(
-          0.07,
-          Math.max(material.emissiveIntensity, 0.045),
+          0.10,
+          Math.max(material.emissiveIntensity, 0.065),
         );
       }
       material.needsUpdate = true;
@@ -137,7 +137,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.20 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.23 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
@@ -145,20 +145,20 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x5d62a8 : 0xdceeff,
-      neonPresentation ? 0x17051f : 0x737b9c,
-      neonPresentation ? 0.86 : 2.2,
+      neonPresentation ? 0x6d63ad : 0xdceeff,
+      neonPresentation ? 0x22052e : 0x737b9c,
+      neonPresentation ? 0.90 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      neonPresentation ? 0xbeb7ff : 0xfff3ff,
-      neonPresentation ? 1.02 : 3.0,
+      neonPresentation ? 0xd4c8ff : 0xfff3ff,
+      neonPresentation ? 1.12 : 3.0,
     );
     key.position.set(-2.5, 8, 8);
     scene.add(key);
 
     if (neonPresentation) {
-      const magentaRim = new THREE.DirectionalLight(0xff2fbd, 0.72);
+      const magentaRim = new THREE.DirectionalLight(0xff31c4, 0.84);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
     } else {
