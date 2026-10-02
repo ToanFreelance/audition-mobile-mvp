@@ -607,14 +607,14 @@ export class NeonStageV1Environment {
 
         const name = material.name.toLowerCase();
         if (name.includes("architecture navy")) {
-          material.emissive.setHex(0x11134f);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.62);
+          material.emissive.setHex(0x171b68);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.82);
         } else if (name.includes("architecture indigo")) {
-          material.emissive.setHex(0x23116f);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.68);
+          material.emissive.setHex(0x2d1688);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.90);
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x1a1469);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.52);
+          material.emissive.setHex(0x241b86);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.72);
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x20cfff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.0);
@@ -645,8 +645,8 @@ export class NeonStageV1Environment {
           material.roughness = Math.min(material.roughness, 0.11);
           material.metalness = Math.max(material.metalness, 0.04);
           material.color.multiplyScalar(1.12);
-          material.emissive.setHex(0x0b1048);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.34);
+          material.emissive.setHex(0x101963);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.46);
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.16);
           material.metalness = Math.max(material.metalness, 0.03);
@@ -798,7 +798,7 @@ export class NeonStageV1Environment {
   }
 
   private createAcceptedR15BeautyLighting() {
-    const ambient = new THREE.AmbientLight(0x321047, 0.20);
+    const ambient = new THREE.AmbientLight(0x6672b8, 0.34);
     ambient.name = "R15RuntimeBeautyAmbient";
     this.acceptedFxRoot.add(ambient);
 
