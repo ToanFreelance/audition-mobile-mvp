@@ -928,7 +928,7 @@ export class NeonStageV1Environment {
       const backdropMaterial = new THREE.MeshBasicMaterial({
         map: backdropTexture,
         transparent: true,
-        opacity: 0.82,
+        opacity: 0.96,
         depthWrite: false,
         depthTest: true,
         blending: THREE.AdditiveBlending,
@@ -945,9 +945,9 @@ export class NeonStageV1Environment {
     }
 
     const floorPools = [
-      { name: "R15StaticFloorGlowCyan", color: 0x2ad7ff, x: -4.9, z: 0.45, opacity: 0.20, sx: 1.20 },
-      { name: "R15StaticFloorGlowViolet", color: 0xa142ff, x: -0.2, z: 0.95, opacity: 0.35, sx: 1.30 },
-      { name: "R15StaticFloorGlowMagenta", color: 0xff29cb, x: 4.4, z: 0.45, opacity: 0.36, sx: 1.32 },
+      { name: "R15StaticFloorGlowCyan", color: 0x32ddff, x: -4.9, z: 0.45, opacity: 0.28, sx: 1.24 },
+      { name: "R15StaticFloorGlowViolet", color: 0xaa49ff, x: -0.2, z: 0.95, opacity: 0.46, sx: 1.34 },
+      { name: "R15StaticFloorGlowMagenta", color: 0xff31cf, x: 4.4, z: 0.45, opacity: 0.48, sx: 1.36 },
     ] as const;
 
     floorPools.forEach(pool => {
@@ -969,9 +969,9 @@ export class NeonStageV1Environment {
     });
 
     const backdropWashes = [
-      { name: "R15BackdropWashCyan", color: 0x1bcaff, x: -4.8, opacity: 0.10 },
-      { name: "R15BackdropWashViolet", color: 0xa33cff, x: -0.2, opacity: 0.24 },
-      { name: "R15BackdropWashMagenta", color: 0xff29cc, x: 4.5, opacity: 0.27 },
+      { name: "R15BackdropWashCyan", color: 0x24d4ff, x: -4.8, opacity: 0.14 },
+      { name: "R15BackdropWashViolet", color: 0xad45ff, x: -0.2, opacity: 0.33 },
+      { name: "R15BackdropWashMagenta", color: 0xff34d1, x: 4.5, opacity: 0.36 },
     ] as const;
 
     backdropWashes.forEach(wash => {
@@ -992,11 +992,11 @@ export class NeonStageV1Environment {
     });
 
     const reflectionStreaks = [
-      { name: "R15FloorReflectionCyanL", color: 0x24d4ff, x: -3.6, z: -0.1, width: 0.42, length: 5.6, opacity: 0.22 },
-      { name: "R15FloorReflectionVioletL", color: 0x8c42ff, x: -1.4, z: 0.35, width: 0.52, length: 6.4, opacity: 0.20 },
-      { name: "R15FloorReflectionMagentaC", color: 0xff27cb, x: 0.45, z: 0.55, width: 0.58, length: 6.8, opacity: 0.24 },
-      { name: "R15FloorReflectionVioletR", color: 0x9a42ff, x: 2.3, z: 0.15, width: 0.48, length: 5.9, opacity: 0.20 },
-      { name: "R15FloorReflectionMagentaR", color: 0xff2acb, x: 4.2, z: -0.05, width: 0.40, length: 5.2, opacity: 0.22 },
+      { name: "R15FloorReflectionCyanL", color: 0x2bdcff, x: -3.6, z: -0.1, width: 0.48, length: 6.2, opacity: 0.34 },
+      { name: "R15FloorReflectionVioletL", color: 0x9c4aff, x: -1.4, z: 0.35, width: 0.60, length: 7.0, opacity: 0.31 },
+      { name: "R15FloorReflectionMagentaC", color: 0xff32d0, x: 0.45, z: 0.55, width: 0.66, length: 7.4, opacity: 0.39 },
+      { name: "R15FloorReflectionVioletR", color: 0xaa4dff, x: 2.3, z: 0.15, width: 0.56, length: 6.6, opacity: 0.31 },
+      { name: "R15FloorReflectionMagentaR", color: 0xff35d1, x: 4.2, z: -0.05, width: 0.48, length: 5.9, opacity: 0.35 },
     ] as const;
 
     reflectionStreaks.forEach(streak => {
@@ -1019,6 +1019,25 @@ export class NeonStageV1Environment {
       reflection.position.set(streak.x, 0.047, streak.z);
       this.acceptedFxRoot.add(reflection);
     });
+
+    const floorSheenMaterial = new THREE.MeshBasicMaterial({
+      map: poolTexture,
+      color: 0x8a39ff,
+      transparent: true,
+      opacity: 0.16,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    const floorSheen = new THREE.Mesh(
+      new THREE.PlaneGeometry(14.8, 9.2),
+      floorSheenMaterial,
+    );
+    floorSheen.name = "R15AcceptedBroadFloorSheen";
+    floorSheen.rotation.x = -Math.PI / 2;
+    floorSheen.position.set(0, 0.041, 0.55);
+    this.acceptedFxRoot.add(floorSheen);
   }
 
   private updateAcceptedR15Runtime(renderTimeSeconds: number) {

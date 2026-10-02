@@ -18,7 +18,7 @@ import { getStagePresentationCameraPose, type StageCameraPose } from "./stage/st
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
 const MOBILE_NEON_DPR_CAP = 1.0;
-const NEON_CHARACTER_STAGE_Z_OFFSET = 1.1;
+const NEON_CHARACTER_STAGE_Z_OFFSET = 2.0;
 const DESKTOP_DPR_CAP = 1.6;
 
 function isMobileStageProfile() {
@@ -157,14 +157,14 @@ export default function Stage3D({
     const renderer = new THREE.WebGLRenderer({
       canvas,
       context,
-      antialias: !(neonPresentation && mobileRenderProfile),
+      antialias: true,
       powerPreference: "high-performance",
     });
     renderer.setPixelRatio(getStagePixelRatio(neonPresentation));
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.27 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.34 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
@@ -172,20 +172,20 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x7568b8 : 0xdceeff,
-      neonPresentation ? 0x260632 : 0x737b9c,
-      neonPresentation ? 0.96 : 2.2,
+      neonPresentation ? 0x7f70c8 : 0xdceeff,
+      neonPresentation ? 0x2b0739 : 0x737b9c,
+      neonPresentation ? 1.05 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      neonPresentation ? 0xddd0ff : 0xfff3ff,
-      neonPresentation ? 1.18 : 3.0,
+      neonPresentation ? 0xe4d9ff : 0xfff3ff,
+      neonPresentation ? 1.28 : 3.0,
     );
     key.position.set(-2.5, 8, 8);
     scene.add(key);
 
     if (neonPresentation) {
-      const magentaRim = new THREE.DirectionalLight(0xff31c4, 0.90);
+      const magentaRim = new THREE.DirectionalLight(0xff34c7, 0.98);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
     } else {
