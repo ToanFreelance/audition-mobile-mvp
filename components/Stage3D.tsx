@@ -34,7 +34,6 @@ function getStagePixelRatio(neonPresentation: boolean) {
 
 function applyNeonCharacterFill(root: THREE.Object3D) {
   const cloned = new Map<string, THREE.MeshStandardMaterial>();
-  const lift = new THREE.Color(0xdde7ff);
 
   root.traverse(object => {
     const mesh = object as THREE.Mesh;
@@ -48,9 +47,19 @@ function applyNeonCharacterFill(root: THREE.Object3D) {
       if (cached) return cached;
 
       const material = source.clone();
-      const base = material.color.clone();
-      material.emissive.copy(base.lerp(lift, 0.38));
-      material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.18);
+      if (material.map) {
+        // Reuse the albedo texture as a very soft self-fill so skin, hair and
+        // clothes keep their authored colors instead of receiving white emissive.
+        material.emissive.setHex(0xffffff);
+        material.emissiveMap = material.map;
+        material.emissiveIntensity = 0.085;
+      } else {
+        material.emissive.copy(material.color);
+        material.emissiveIntensity = Math.min(
+          0.07,
+          Math.max(material.emissiveIntensity, 0.045),
+        );
+      }
       material.needsUpdate = true;
       cloned.set(source.uuid, material);
       return material;
@@ -128,7 +137,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.30 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.20 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
@@ -136,20 +145,20 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x7487d8 : 0xdceeff,
-      neonPresentation ? 0x211136 : 0x737b9c,
-      neonPresentation ? 1.00 : 2.2,
+      neonPresentation ? 0x5d62a8 : 0xdceeff,
+      neonPresentation ? 0x17051f : 0x737b9c,
+      neonPresentation ? 0.86 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      neonPresentation ? 0xd7dcff : 0xfff3ff,
-      neonPresentation ? 1.24 : 3.0,
+      neonPresentation ? 0xbeb7ff : 0xfff3ff,
+      neonPresentation ? 1.02 : 3.0,
     );
     key.position.set(-2.5, 8, 8);
     scene.add(key);
 
     if (neonPresentation) {
-      const magentaRim = new THREE.DirectionalLight(0xff32c4, 0.66);
+      const magentaRim = new THREE.DirectionalLight(0xff2fbd, 0.72);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
     } else {
