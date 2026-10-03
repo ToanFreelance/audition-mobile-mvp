@@ -152,6 +152,20 @@ not visually passed; 008's source kneeling ending is only an approximate lunge.
 003 shows the clearest improved hands-near-head key gesture. All eight remain
 owner-review candidates, not production-accepted animations.
 
+## Delivery recovery
+
+The workspace reset again during final packaging. The final GLB hashes and six
+already-published comparison MP4 hashes were recovered and verified unchanged.
+Only 007/008 require re-rendering from the same GLBs; no new pose or solve.
+`render_moonlight_batch.py --motions ...` limits that recovery work.
+`moonlight_delivery.py combine` assembles complete saved comparisons, and the
+packager accepts missing raw PNGs only with explicit model/video SHA256 archive
+provenance plus validated frame counts. Risk images identify when their mesh
+panels were decoded from archived videos rather than fresh PNGs.
+Diagnostic rendering from saved tracks no longer imports inference backends.
+The supplied per-motion videos remain the primary visual evidence; transient
+before/after PNGs may not survive a workspace reset.
+
 The minimum next solver change is contact optimization on the final deformed
 feet/soles, plus confidence-aware depth refinement for occluded wrists/elbows.
 Ingest, boundaries, pose contract, target-owned IK, append-only GLB export and

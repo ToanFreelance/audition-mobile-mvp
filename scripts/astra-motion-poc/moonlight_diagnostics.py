@@ -3,9 +3,12 @@ import argparse,json
 from pathlib import Path
 import cv2,numpy as np
 from moonlight_source import decode
-from moonlight_pose import EDGES
-from moonlight_reconstruct import HEDGES
 from moonlight_qa import writer
+
+# Diagnostic topology only: do not import heavyweight inference backends when
+# reviewing saved NPZ tracks after a workspace/dependency reset.
+EDGES=[(5,6),(5,7),(7,9),(6,8),(8,10),(5,11),(6,12),(11,12),(11,13),(13,15),(12,14),(14,16),(0,5),(0,6),(15,17),(16,20)]
+HEDGES=[(0,1),(1,2),(2,3),(0,4),(4,5),(5,6),(0,7),(7,8),(8,9),(9,10),(8,11),(11,12),(12,13),(8,14),(14,15),(15,16)]
 
 def crop_panel(frame,crop,xy=None,confidence=None,mp=False):
     x,y,w,h=crop;im=cv2.resize(frame[y:y+h,x:x+w],(384,576));scale=np.array([384/w,576/h])

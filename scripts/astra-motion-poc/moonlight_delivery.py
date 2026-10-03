@@ -5,7 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from moonlight_qa import comparison_frame
+from moonlight_qa import comparison_frame, writer
 from moonlight_source import decode
 
 
@@ -37,9 +37,15 @@ def evidence(root, sources, renders, before=None):
     for i, motion in enumerate(man['motions']):
         mid = motion['id']
         a, b = motion['source_frame_range']
-        if not all((Path(renders) / sex / mid / f'{b-a-1:04}.png').exists()
-                   for sex in ['Nam', 'Nu']):
-            continue
+        fresh = all((Path(renders) / sex / mid / f'{b-a-1:04}.png').exists()
+                    for sex in ['Nam', 'Nu'])
+        archive = root / 'qa' / (mid + '-source-male-female.mp4')
+        recovered = None
+        if not fresh:
+            if not archive.exists():continue
+            recovered, fps = decode(archive)
+            assert len(recovered) == b-a and fps == 30
+            assert recovered.shape[1:] == (648, 2304, 3)
         target = np.load(root / 'targets' / (mid + '-targets.npz'))
         pa, pb = target['production_slice']
         low = {}
@@ -56,14 +62,16 @@ def evidence(root, sources, renders, before=None):
         x, y, w, h = motion['crop_region']
         rows = []
         for f in selected:
-            images = [cv2.imread(str(Path(renders) / sex / mid / f'{f-a:04}.png'))
-                      for sex in ['Nam', 'Nu']]
+            images = ([cv2.imread(str(Path(renders) / sex / mid / f'{f-a:04}.png'))
+                       for sex in ['Nam', 'Nu']] if fresh else
+                      [recovered[f-a,40:616,768:1536], recovered[f-a,40:616,1536:2304]])
             if any(im is None for im in images):
                 raise ValueError(f'Incomplete actual render for {mid}:{f}')
             rows.append(comparison_frame(frames[motion['source_key']][f, y:y+h, x:x+w],
                                          *images, motion, f-a))
         cv2.imwrite(str(root / 'qa' / (mid + '-risk-review.jpg')), np.vstack(rows))
         report.append(dict(id=mid, risk_review_source_frames=selected,
+                           render_evidence_kind='actual_glb_pngs' if fresh else 'archived_glb_comparison_video',
                            risk_selection='maximum root step' if i in [3, 4, 7] else 'maximum male angular step',
                            maximum_root_step_source_pair=[root_step, root_step+1],
                            worst_angular_steps_nam_nu=angles,
@@ -87,6 +95,26 @@ def evidence(root, sources, renders, before=None):
         cv2.imwrite(str(root / 'qa/Moonlight_V2_Waist_Before_After.jpg'), np.vstack(rows))
 
 
+def combine(root):
+    """Rebuild overview from complete archived comparisons, without re-solving."""
+    man = read(root / 'motion-source/source-manifest.json')
+    output = writer(root / 'qa/Moonlight_V2_Combined_Review.mp4', 2304, 648)
+    overview = []
+    try:
+        for m in man['motions']:
+            frames, fps = decode(root / 'qa' / (m['id'] + '-source-male-female.mp4'))
+            assert fps == 30 and len(frames) == m['source_frame_range'][1]-m['source_frame_range'][0]
+            assert frames.shape[1:] == (648, 2304, 3)
+            for frame in frames:output.stdin.write(frame.tobytes())
+            selected = frames[np.linspace(0, len(frames)-1, 5, dtype=int)]
+            cv2.imwrite(str(root / 'qa' / (m['id'] + '-keyposes.jpg')), np.vstack(selected))
+            overview.append(selected[2])
+    finally:
+        output.stdin.close()
+        assert output.wait() == 0
+    cv2.imwrite(str(root / 'qa/Moonlight_V2_Overview.jpg'), np.vstack(overview))
+
+
 def package(root, out, repo, renders):
     man = read(root / 'motion-source/source-manifest.json')
     qa = read(root / 'qa/technical-qa.json')
@@ -104,6 +132,8 @@ def package(root, out, repo, renders):
             assert int(by_video[prefix + m['id'] + suffix]['nb_frames']) == count
     assert int(by_video['qa/Moonlight_V2_Combined_Review.mp4']['nb_frames']) == 811
     render_reports = []
+    archive_path = root / 'qa/render-archive-provenance.json'
+    archives = read(archive_path) if archive_path.exists() else None
     for m in qa['models']:
         path = root / 'models' / m['file']
         assert hashlib.sha256(path.read_bytes()).hexdigest() == m['sha256']
@@ -113,7 +143,17 @@ def package(root, out, repo, renders):
         reports = []
         for motion in man['motions']:
             a, b = motion['source_frame_range']
-            record = read(Path(renders) / sex / ('render-' + motion['id'] + '.json'))
+            record_path = Path(renders) / sex / ('render-' + motion['id'] + '.json')
+            if not record_path.exists():
+                assert archives is not None, 'Missing raw render and archive provenance'
+                record = archives['motions'][motion['id']]
+                assert archives['model_sha256'][sex] == m['sha256']
+                video = root / 'qa' / (motion['id'] + '-source-male-female.mp4')
+                assert hashlib.sha256(video.read_bytes()).hexdigest() == record['video_sha256']
+                assert record['frames'] == b-a
+                reports.append(dict(kind='recovered_published_glb_comparison_video', **record))
+                continue
+            record = read(record_path)
             assert record['identity'] == identity and record['fps'] == 30
             assert record['clips'][motion['id']]['local_frames'] == list(range(b-a))
             assert record['clips'][motion['id']]['source_frames'] == list(range(a,b))
@@ -153,7 +193,7 @@ def package(root, out, repo, renders):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('mode', choices=['evidence', 'package'])
+    ap.add_argument('mode', choices=['evidence', 'package', 'combine'])
     ap.add_argument('--artifacts', required=True)
     ap.add_argument('--sources')
     ap.add_argument('--renders')
@@ -164,5 +204,7 @@ if __name__ == '__main__':
     root = Path(args.artifacts)
     if args.mode == 'evidence':
         evidence(root, args.sources, args.renders, args.before)
+    elif args.mode == 'combine':
+        combine(root)
     else:
         package(root, args.out, args.repo, args.renders)
