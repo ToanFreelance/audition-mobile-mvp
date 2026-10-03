@@ -431,19 +431,31 @@ function makeAcceptedBackdropGlowTexture() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const sideGlows = [
-    { x: 80, color: "rgba(28,213,255,0.55)" },
-    { x: 250, color: "rgba(132,66,255,0.46)" },
-    { x: 774, color: "rgba(255,45,205,0.50)" },
-    { x: 944, color: "rgba(53,192,255,0.45)" },
+    { x: 72, color: "rgba(31,222,255,0.92)", hot: "rgba(210,250,255,0.98)" },
+    { x: 238, color: "rgba(142,74,255,0.88)", hot: "rgba(229,211,255,0.98)" },
+    { x: 786, color: "rgba(255,52,211,0.92)", hot: "rgba(255,224,247,0.98)" },
+    { x: 952, color: "rgba(57,208,255,0.88)", hot: "rgba(214,249,255,0.98)" },
   ];
-  ctx.lineWidth = 20;
-  ctx.shadowBlur = 28;
   for (const ray of sideGlows) {
+    const endX = ray.x + (ray.x < 512 ? 164 : -164);
+
+    ctx.lineCap = "round";
+    ctx.lineWidth = 34;
+    ctx.shadowBlur = 48;
     ctx.strokeStyle = ray.color;
     ctx.shadowColor = ray.color;
     ctx.beginPath();
-    ctx.moveTo(ray.x, 24);
-    ctx.lineTo(ray.x + (ray.x < 512 ? 150 : -150), 488);
+    ctx.moveTo(ray.x, 18);
+    ctx.lineTo(endX, 494);
+    ctx.stroke();
+
+    ctx.lineWidth = 11;
+    ctx.shadowBlur = 22;
+    ctx.strokeStyle = ray.hot;
+    ctx.shadowColor = ray.color;
+    ctx.beginPath();
+    ctx.moveTo(ray.x, 18);
+    ctx.lineTo(endX, 494);
     ctx.stroke();
   }
   ctx.shadowBlur = 0;
@@ -855,7 +867,7 @@ export class NeonStageV1Environment {
             uniforms: {
               uColor: { value: optical.color.clone() },
               uLength: { value: group.length },
-              uOpacity: { value: group.prefix === "MainFixture" ? 0.20 : 0.15 },
+              uOpacity: { value: group.prefix === "MainFixture" ? 0.24 : 0.18 },
             },
             vertexShader: `
               varying vec2 vUv;
@@ -876,12 +888,12 @@ export class NeonStageV1Environment {
               uniform float uOpacity;
               void main() {
                 float radial = abs(vUv.x * 2.0 - 1.0);
-                float edgeFade = 1.0 - smoothstep(0.28, 1.0, radial);
-                float core = exp(-radial * radial * 6.2);
-                float longitudinal = 0.18 + 0.82 * pow(max(0.0, 1.0 - vDistance), 0.42);
-                float sourceGlow = pow(max(0.0, 1.0 - vDistance), 1.8) * core;
-                vec3 color = mix(uColor, vec3(1.0), sourceGlow * 0.62);
-                float alpha = uOpacity * edgeFade * (0.24 + 0.76 * core) * longitudinal;
+                float edgeFade = 1.0 - smoothstep(0.20, 1.0, radial);
+                float core = exp(-radial * radial * 5.2);
+                float longitudinal = 0.24 + 0.76 * pow(max(0.0, 1.0 - vDistance), 0.34);
+                float sourceGlow = pow(max(0.0, 1.0 - vDistance), 1.45) * core;
+                vec3 color = mix(uColor, vec3(1.0), sourceGlow * 0.72);
+                float alpha = uOpacity * edgeFade * (0.22 + 0.78 * core) * longitudinal;
                 if (alpha < 0.004) discard;
                 gl_FragColor = vec4(color, alpha);
               }
@@ -911,17 +923,45 @@ export class NeonStageV1Environment {
 
           const sourceMaterial = new THREE.SpriteMaterial({
             map: beamSourceTexture,
-            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.55),
+            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.72),
             transparent: true,
-            opacity: 0.96,
+            opacity: 1.0,
             depthWrite: false,
+            depthTest: true,
             blending: THREE.AdditiveBlending,
             toneMapped: false,
           });
           const sourceHalo = new THREE.Sprite(sourceMaterial);
           sourceHalo.name = `${key}_RuntimeSourceHalo`;
-          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 0.88 : 0.70);
+          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 1.18 : 0.92);
           optical.add(sourceHalo);
+
+          const sourceBloomMaterial = sourceMaterial.clone();
+          sourceBloomMaterial.opacity = group.prefix === "MainFixture" ? 0.48 : 0.36;
+          const sourceBloom = new THREE.Sprite(sourceBloomMaterial);
+          sourceBloom.name = `${key}_RuntimeSourceBloom`;
+          sourceBloom.scale.setScalar(group.prefix === "MainFixture" ? 1.85 : 1.42);
+          sourceBloom.position.z = -0.04;
+          optical.add(sourceBloom);
+
+          const plumeMaterial = new THREE.MeshBasicMaterial({
+            map: lightPoolTexture,
+            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.48),
+            transparent: true,
+            opacity: group.prefix === "MainFixture" ? 0.34 : 0.25,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending,
+            toneMapped: false,
+          });
+          const plume = new THREE.Mesh(
+            new THREE.PlaneGeometry(group.radius * 2.8, group.prefix === "MainFixture" ? 2.6 : 2.0),
+            plumeMaterial,
+          );
+          plume.name = `${key}_RuntimeSourcePlume`;
+          plume.geometry.translate(0, -(group.prefix === "MainFixture" ? 1.30 : 1.0), 0);
+          plume.rotation.y = Math.PI / 4;
+          optical.add(plume);
         }
 
         let spillMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
@@ -1046,11 +1086,11 @@ export class NeonStageV1Environment {
     });
 
     const reflectionStreaks = [
-      { name: "R15FloorReflectionCyanL", color: 0x2bdcff, x: -3.6, z: -0.1, width: 0.48, length: 6.2, opacity: 0.34 },
-      { name: "R15FloorReflectionVioletL", color: 0x9c4aff, x: -1.4, z: 0.35, width: 0.60, length: 7.0, opacity: 0.31 },
-      { name: "R15FloorReflectionMagentaC", color: 0xff32d0, x: 0.45, z: 0.55, width: 0.66, length: 7.4, opacity: 0.39 },
-      { name: "R15FloorReflectionVioletR", color: 0xaa4dff, x: 2.3, z: 0.15, width: 0.56, length: 6.6, opacity: 0.31 },
-      { name: "R15FloorReflectionMagentaR", color: 0xff35d1, x: 4.2, z: -0.05, width: 0.48, length: 5.9, opacity: 0.35 },
+      { name: "R15FloorReflectionCyanL", color: 0x32e1ff, x: -3.6, z: 3.4, width: 0.56, length: 13.4, opacity: 0.42 },
+      { name: "R15FloorReflectionVioletL", color: 0xa34fff, x: -1.4, z: 3.6, width: 0.72, length: 14.2, opacity: 0.38 },
+      { name: "R15FloorReflectionMagentaC", color: 0xff39d4, x: 0.45, z: 3.8, width: 0.80, length: 14.8, opacity: 0.46 },
+      { name: "R15FloorReflectionVioletR", color: 0xb252ff, x: 2.3, z: 3.5, width: 0.68, length: 13.8, opacity: 0.38 },
+      { name: "R15FloorReflectionMagentaR", color: 0xff3ad5, x: 4.2, z: 3.2, width: 0.58, length: 13.0, opacity: 0.42 },
     ] as const;
 
     reflectionStreaks.forEach(streak => {
@@ -1077,38 +1117,38 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.90,
+      opacity: 1.0,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
       toneMapped: false,
     });
     const reflectionField = new THREE.Mesh(
-      new THREE.PlaneGeometry(16.2, 10.4),
+      new THREE.PlaneGeometry(17.8, 18.8),
       reflectionMaterial,
     );
     reflectionField.name = "R15AcceptedFloorReflectionField";
     reflectionField.rotation.x = -Math.PI / 2;
-    reflectionField.position.set(0, 0.044, 0.35);
+    reflectionField.position.set(0, 0.044, 4.25);
     this.acceptedFxRoot.add(reflectionField);
 
     const floorSheenMaterial = new THREE.MeshBasicMaterial({
       map: poolTexture,
       color: 0x8a39ff,
       transparent: true,
-      opacity: 0.16,
+      opacity: 0.24,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
       toneMapped: false,
     });
     const floorSheen = new THREE.Mesh(
-      new THREE.PlaneGeometry(14.8, 9.2),
+      new THREE.PlaneGeometry(17.2, 17.6),
       floorSheenMaterial,
     );
     floorSheen.name = "R15AcceptedBroadFloorSheen";
     floorSheen.rotation.x = -Math.PI / 2;
-    floorSheen.position.set(0, 0.041, 0.55);
+    floorSheen.position.set(0, 0.041, 4.0);
     this.acceptedFxRoot.add(floorSheen);
   }
 
@@ -1151,7 +1191,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.17 + glow * 0.05;
+        state.beamMaterial.uniforms.uOpacity.value = 0.21 + glow * 0.055;
       }
 
       if (state.spillMesh) {
