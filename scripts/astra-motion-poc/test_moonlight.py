@@ -3,8 +3,13 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 from solve_target import bounded_normal,frame
 from moonlight_source import EVENTS,RANGES
+from moonlight_delivery import runs
 
 class MoonlightTests(unittest.TestCase):
+    def test_low_confidence_half_open_ranges(self):
+        self.assertEqual(runs([]), [])
+        self.assertEqual(runs([76,77,79,80,81,176]), [[76,78],[79,82],[176,177]])
+
     def test_complete_distinct_intervals(self):
         self.assertEqual(len(set(RANGES)),8)
         for key,a,b in RANGES:

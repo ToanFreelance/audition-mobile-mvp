@@ -1,11 +1,12 @@
-# Astra Moonlight POC V2 — offline visual QA in progress
+# Astra Moonlight POC V2 — offline extraction and QA
 
 Offline continuation of V1 commit `6c84f1e6b154b9a4248d274b7258cc10d88729f2`,
 on `work/character-rig-animation-v1`. No runtime integration or branch merge.
 
-The transient workspace was lost during continuation. Sources and original rigs
-were recovered and inspected again. This checkpoint preserves the V2 tooling;
-final validation and visual acceptance are not claimed by this checkpoint.
+Result: eight complete-source motion candidates on both real Meshy rigs.
+Structural QA passes; high-fidelity/production visual acceptance does not.
+The transient workspace was recovered during continuation; sources and original
+rigs were re-inspected, and durable checkpoints preserve the reproducible tools.
 
 Confirmed source: `Moonlight_POC_V2_A.mp4` and `Moonlight_POC_V2_B.mp4`, each
 480×360, 30 fps, 750 frames. Tropical boardwalk, three matching blonde NPCs,
@@ -64,10 +65,10 @@ and the measured pole remain active. This is not source-quaternion copying or
 swing-only retargeting. Same-frame before/after renders confirm the waist pinch
 is removed on male and female; the original meshes and weights are unchanged.
 
-Six focused tests pass: the four existing V1 tests, complete source interval
-checks, and the anatomical roll regression. Both corrected GLBs pass structural
-QA with eight 30 Hz source-complete clips and preserved original asset data.
-Full-frame visual review remains in progress.
+Seven focused tests pass: four existing V1 tests, complete source interval
+checks, anatomical roll regression and low-confidence interval encoding.
+Both corrected GLBs pass structural QA with eight 30 Hz source-complete clips
+and preserved original asset data. This is not owner visual acceptance.
 
 ## Identity-tracking correction
 
@@ -97,6 +98,59 @@ These are unresolved heel/toe/foot-contact defects, not structural failures.
 Source 005 has roughly 31% low-confidence whole-body body-joint observations,
 and 008 roughly 21%; fingers are unanimated and head/depth remain approximate.
 No production quality or all-motion visual PASS is claimed.
+
+## Reproduction and delivery
+
+`requirements-moonlight.txt` pins the primary CPU environment. The independent
+MediaPipe environment uses 0.10.21 and NumPy <2. Model URLs/checksums, exact
+package versions and Blender 4.5.3 are in the artifact dependency manifest.
+
+`run_moonlight.py` orchestrates the reused stages. It requires explicit paths
+to the two extracted Moonlight videos, original textured male/female GLBs,
+RTMW ONNX model, official MotionBERT checkout/checkpoint and Blender executable.
+The original source hash gate refuses different footage rather than applying
+these reviewed frame boundaries to another clip. Boundary review is specific
+to these videos; it is not an unverified universal Space detector.
+
+```bash
+python scripts/astra-motion-poc/run_moonlight.py \
+  --sources /path/to/moonlight-videos \
+  --male /path/to/Nam_co_ban_MESHY_TEXTURED_RIG_v1.glb \
+  --female /path/to/Nu_co_ban_MESHY_TEXTURED_RIG_v1.glb \
+  --pose-model /path/to/rtmw.onnx \
+  --motionbert-repo /path/to/MotionBERT \
+  --motionbert-checkpoint /path/to/motionbert.bin \
+  --blender /path/to/blender \
+  --secondary-python /path/to/mediapipe-env/bin/python \
+  --secondary-model /path/to/pose_landmarker_heavy.task \
+  --out /path/to/offline-artifacts
+```
+
+`moonlight_delivery.py evidence` produces exact low-confidence source intervals
+and consecutive risk-frame comparisons from the actual mesh renders.
+`moonlight_delivery.py package` requires completed human-readable review notes,
+eight source clips and eight corresponding full-frame QA videos, verifies GLB
+hashes/video counts and writes consolidated QA, per-file SHA256 and a CRC-tested
+ZIP. It refuses to imply visual acceptance from structural metrics.
+
+Final named outputs are `Nam_Astra_Moonlight_POC_V2.glb`,
+`Nu_Astra_Moonlight_POC_V2.glb`, `Moonlight_V2_Combined_Review.mp4`,
+`Moonlight_V2_Final_QA.json` and `Astra_Moonlight_POC_V2.zip`.
+Generated binaries remain separate downloadable artifacts, not repository data.
+
+Manual visual review is keypose/contact sheets plus consecutive high-risk
+frames; the owner receives full 30 fps videos, not a sparse-frame slideshow.
+The review does not claim independent human scrutiny of every rendered frame.
+Both target meshes retain recognizable gesture/step elements, but head/palms,
+some elbow depth, ground penetration and contact remain defective. V1 uses a
+different source, so there is no valid same-choreography accuracy benchmark.
+
+Delivery validation: 811 actual rendered frames per rig (1,622 total), eight
+2304×648 / 30 fps comparisons and a 27.033333 s combined review. All 28 artifact
+MP4s passed full ffmpeg decode. Motions 004/005/008 are explicitly high-risk,
+not visually passed; 008's source kneeling ending is only an approximate lunge.
+003 shows the clearest improved hands-near-head key gesture. All eight remain
+owner-review candidates, not production-accepted animations.
 
 The minimum next solver change is contact optimization on the final deformed
 feet/soles, plus confidence-aware depth refinement for occluded wrists/elbows.
