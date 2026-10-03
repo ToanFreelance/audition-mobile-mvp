@@ -44,11 +44,11 @@ def main():
     camera=bpy.data.cameras.new('QA_Camera');obj=bpy.data.objects.new('QA_Camera',camera);scene.collection.objects.link(obj)
     obj.location=(0,-4.8,2.0);obj.rotation_euler=(Vector((0,0,.9))-obj.location).to_track_quat('-Z','Y').to_euler()
     camera.type='ORTHO';camera.ortho_scale=2.3;scene.camera=obj
-    if args.v2:camera.ortho_scale=2.55
+    if args.v2:camera.ortho_scale=3.4  # landscape: 3.4 horizontal = 2.55 vertical
     manifest=json.loads(Path(args.manifest).read_text());motions=manifest['motions']
     if args.v2:
         # Prevent stale frame reuse after a rebake or changed render settings.
-        identity=dict(glb_sha256=hashlib.sha256(Path(args.glb).read_bytes()).hexdigest(),samples=args.samples,width=768,height=576,exposure=-.75,blender=bpy.app.version_string,camera='static per-clip root-range center; ortho 2.55')
+        identity=dict(glb_sha256=hashlib.sha256(Path(args.glb).read_bytes()).hexdigest(),samples=args.samples,width=768,height=576,exposure=-.75,blender=bpy.app.version_string,camera='static per-clip root-range center; vertical span 2.55; horizontal span 3.4')
         stamp=out/'render-input.json'
         if stamp.exists() and json.loads(stamp.read_text())!=identity:raise ValueError('Render input changed: choose a new output directory.')
         stamp.write_text(json.dumps(identity,indent=2)+'\n');rendered={}

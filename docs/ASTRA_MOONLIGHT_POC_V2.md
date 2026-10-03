@@ -80,8 +80,27 @@ Rejected frames remain explicit. Motion 008 retains its separately reviewed
 first-lane tracker: head flow is less reliable during its deep crouch.
 
 Source crops 004/005 are widened/repositioned after this identity correction.
-The renderer uses 768×576 panels with unchanged ortho scale 2.55 and a static
+The renderer uses 768×576 panels with vertical view span 2.55 and a static
 per-clip camera center. It does not follow the actor frame-by-frame or hide root
 travel. The original 512-wide panel clipped large, genuinely observed steps.
+
+## Measured quality limits, not hidden by structural PASS
+
+Final same-source MediaPipe Heavy baseline detects 237/811 production frames
+with the final crops (the earlier 205 figure used narrower crops). RTMW retains
+the A360–365 hands-near-head gesture where this baseline misses the person.
+Presence counts and heuristic keypoint weights are not accuracy ground truth.
+
+The final geometry-sampled QA finds shoe penetration of about 3–5 cm in some
+frames. Male 004 has an inferred-stance ankle-speed p95 of about 0.75 m/s.
+These are unresolved heel/toe/foot-contact defects, not structural failures.
+Source 005 has roughly 31% low-confidence whole-body body-joint observations,
+and 008 roughly 21%; fingers are unanimated and head/depth remain approximate.
+No production quality or all-motion visual PASS is claimed.
+
+The minimum next solver change is contact optimization on the final deformed
+feet/soles, plus confidence-aware depth refinement for occluded wrists/elbows.
+Ingest, boundaries, pose contract, target-owned IK, append-only GLB export and
+QA packaging remain automated. No manual DeepMotion substitution is required.
 
 Sources: https://github.com/Tau-J/rtmlib ; https://github.com/open-mmlab/mmpose/tree/main/projects/rtmw ; https://github.com/Walter0807/MotionBERT

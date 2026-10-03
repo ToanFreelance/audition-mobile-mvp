@@ -1,0 +1,10 @@
+# CPU torch 2.6.0+cpu is installed separately from https://download.pytorch.org/whl/cpu
+# Secondary MediaPipe 0.10.21 needs its own numpy<2 environment.
+numpy==2.5.3
+scipy==1.18.1
+onnxruntime==1.23.2
+opencv-python-headless==5.0.0.93
+rtmlib==0.0.13
+pillow==12.3.0
+requests==2.34.2
+tqdm==4.70.1

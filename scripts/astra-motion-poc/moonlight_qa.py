@@ -6,7 +6,7 @@ from validate_glb import inspect
 from moonlight_source import decode
 
 def writer(path,width,height):
-    return subprocess.Popen(['ffmpeg','-v','error','-y','-f','rawvideo','-pix_fmt','bgr24','-s',f'{width}x{height}','-r','30','-i','-','-an','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart',str(path)],stdin=subprocess.PIPE)
+    return subprocess.Popen(['ffmpeg','-v','error','-y','-f','rawvideo','-pix_fmt','bgr24','-s',f'{width}x{height}','-r','30','-i','-','-an','-c:v','libx264','-threads','2','-preset','fast','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart',str(path)],stdin=subprocess.PIPE)
 
 def panel(im):
     h,w=im.shape[:2];scale=min(768/w,576/h);nw,nh=round(w*scale),round(h*scale)
@@ -18,11 +18,12 @@ def comparison_frame(source,male,female,m,local):
     txt=f"{m['id']} | {m['source_key']} frame {m['source_frame_range'][0]+local} | {local/30:.3f}s | 30 fps | POC / owner review pending"
     cv2.putText(out,txt,(16,638),0,.59,(220,220,220),1,cv2.LINE_AA);return out
 
-def visual(sources,artifacts,renders):
+def visual(sources,artifacts,renders,only=None):
     root=Path(artifacts);out=root/'qa';out.mkdir(exist_ok=True);man=json.loads((root/'motion-source/source-manifest.json').read_text());src={k:decode(Path(sources)/v['file'])[0] for k,v in man['sources'].items()}
-    combined=writer(out/'Moonlight_V2_Combined_Review.mp4',2304,648);overview=[];reports=[]
+    combined=None if only else writer(out/'Moonlight_V2_Combined_Review.mp4',2304,648);overview=[];reports=[]
     try:
         for m in man['motions']:
+            if only and m['id']!=only:continue
             a,b=m['source_frame_range'];x,y,w,h=m['crop_region'];dest=out/(m['id']+'-source-male-female.mp4');proc=writer(dest,2304,648);tiles=[];key=set(np.linspace(0,b-a-1,5,dtype=int).tolist())
             try:
                 for f in range(b-a):
@@ -32,14 +33,16 @@ def visual(sources,artifacts,renders):
                         if im is None or im.shape!=(576,768,3):raise ValueError(f'Missing/wrong actual render: {path}')
                         ims.append(im)
                     row=comparison_frame(src[m['source_key']][a+f,y:y+h,x:x+w],*ims,m,f)
-                    proc.stdin.write(row.tobytes());combined.stdin.write(row.tobytes())
+                    proc.stdin.write(row.tobytes())
+                    if combined:combined.stdin.write(row.tobytes())
                     if f in key:tiles.append(row)
             finally:
                 proc.stdin.close();assert proc.wait()==0
             cv2.imwrite(str(out/(m['id']+'-keyposes.jpg')),np.vstack(tiles));overview.append(tiles[2]);reports.append(dict(id=m['id'],frames=b-a,fps=30,width=2304,height=648,file=dest.name))
     finally:
-        combined.stdin.close();assert combined.wait()==0
-    cv2.imwrite(str(out/'Moonlight_V2_Overview.jpg'),np.vstack(overview));(out/'render-video-manifest.json').write_text(json.dumps(reports,indent=2)+'\n')
+        if combined:combined.stdin.close();assert combined.wait()==0
+    if not only:cv2.imwrite(str(out/'Moonlight_V2_Overview.jpg'),np.vstack(overview))
+    (out/('render-video-'+(only or 'manifest')+'.json')).write_text(json.dumps(reports,indent=2)+'\n')
 
 def technical(artifacts,male_source,female_source):
     root=Path(artifacts);man=json.loads((root/'motion-source/source-manifest.json').read_text());models=[]
@@ -64,7 +67,7 @@ def videos(artifacts):
     (root/'qa/video-qa.json').write_text(json.dumps(reports,indent=2)+'\n');print('decoded',len(reports),'videos')
 
 if __name__=='__main__':
-    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['visual','technical','videos']);ap.add_argument('--artifacts',required=True);ap.add_argument('--sources');ap.add_argument('--renders');ap.add_argument('--male-source');ap.add_argument('--female-source');a=ap.parse_args()
-    if a.mode=='visual':visual(a.sources,a.artifacts,a.renders)
+    ap=argparse.ArgumentParser();ap.add_argument('mode',choices=['visual','technical','videos']);ap.add_argument('--artifacts',required=True);ap.add_argument('--sources');ap.add_argument('--renders');ap.add_argument('--male-source');ap.add_argument('--female-source');ap.add_argument('--motion');a=ap.parse_args()
+    if a.mode=='visual':visual(a.sources,a.artifacts,a.renders,a.motion)
     elif a.mode=='technical':technical(a.artifacts,a.male_source,a.female_source)
     else:videos(a.artifacts)

@@ -75,8 +75,12 @@ def inspect(original, animated):
                     quaternion_max_norm_error=norm_error,no_scale_animation=no_scale,
                     root_xyz_range=None if root_values is None else np.ptp(root_values,axis=0).tolist(),
                     angular_step_degrees_max=max(angles),angular_step_degrees_p99=float(np.percentile(angles,99)),
-                    angular_warning=max(angles)>35,worst_angular_step=worst,sampled_skinning_finite=deform_finite,
+                    angular_warning=max(angles)>(15 if anim['name'].startswith('moonlight-') else 35),
+                    angular_warning_threshold_degrees=15 if anim['name'].startswith('moonlight-') else 35,
+                    worst_angular_step=worst,sampled_skinning_finite=deform_finite,
                     sampled_skinning_max_extent_m=max_extent,complete=anim.get('extras',{}).get('complete'))
+        report['sampled_skinning_min_y_m']=min(v[0][1] for v in bounds)
+        report['sampled_ground_penetration_warning']=report['sampled_skinning_min_y_m']<-.03
         report['structural_pass']=finite and valid_nodes and strict_times and norm_error<1e-5 and no_scale and deform_finite
         animations.append(report);all_angles.extend(angles)
     solve_path=Path(animated).with_suffix('.solve.npz');metrics={}
