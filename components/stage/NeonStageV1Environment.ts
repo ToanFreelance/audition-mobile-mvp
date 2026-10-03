@@ -61,6 +61,7 @@ type AcceptedMovingHead = {
   panAmplitude: number;
   tiltAmplitude: number;
   speed: number;
+  beamRoot: THREE.Group | null;
   beamMaterial: THREE.ShaderMaterial | null;
   spillMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null;
   reflectionMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null;
@@ -399,34 +400,52 @@ function makeAcceptedFloorReflectionTexture() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // One very low-energy violet bed prevents the glossy stage from collapsing to
+  // navy/black on mobile. The visible language still comes from the discrete
+  // fixture-correlated streaks below rather than a broad painted wash.
+  const energyBed = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  energyBed.addColorStop(0, "rgba(154,50,255,0.20)");
+  energyBed.addColorStop(0.28, "rgba(220,47,231,0.14)");
+  energyBed.addColorStop(0.62, "rgba(95,50,224,0.10)");
+  energyBed.addColorStop(1, "rgba(50,35,160,0.045)");
+  ctx.fillStyle = energyBed;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   const shafts = [
-    { x: 58, color: "rgba(32,215,255,0.56)", hot: "rgba(220,252,255,0.78)", w: 18 },
-    { x: 132, color: "rgba(111,70,255,0.52)", hot: "rgba(232,219,255,0.76)", w: 22 },
-    { x: 210, color: "rgba(255,54,218,0.58)", hot: "rgba(255,225,248,0.82)", w: 23 },
-    { x: 296, color: "rgba(157,76,255,0.52)", hot: "rgba(237,222,255,0.78)", w: 22 },
-    { x: 380, color: "rgba(255,48,205,0.58)", hot: "rgba(255,226,248,0.82)", w: 21 },
-    { x: 454, color: "rgba(34,207,255,0.52)", hot: "rgba(221,251,255,0.76)", w: 18 },
+    { x: 36,  color: "rgba(31,218,255,0.68)", hot: "rgba(220,253,255,0.94)", w: 14 },
+    { x: 96,  color: "rgba(255,48,214,0.70)", hot: "rgba(255,226,249,0.96)", w: 18 },
+    { x: 158, color: "rgba(143,67,255,0.72)", hot: "rgba(235,220,255,0.95)", w: 20 },
+    { x: 220, color: "rgba(255,49,211,0.76)", hot: "rgba(255,230,250,0.98)", w: 19 },
+    { x: 286, color: "rgba(115,72,255,0.72)", hot: "rgba(231,224,255,0.95)", w: 20 },
+    { x: 350, color: "rgba(255,48,206,0.76)", hot: "rgba(255,228,249,0.98)", w: 19 },
+    { x: 414, color: "rgba(112,78,255,0.68)", hot: "rgba(230,226,255,0.94)", w: 18 },
+    { x: 476, color: "rgba(35,211,255,0.68)", hot: "rgba(221,252,255,0.94)", w: 14 },
   ];
 
   for (const shaft of shafts) {
     const g = ctx.createLinearGradient(shaft.x - shaft.w, 0, shaft.x + shaft.w, 0);
     g.addColorStop(0, "rgba(255,255,255,0)");
-    g.addColorStop(0.32, shaft.color);
+    g.addColorStop(0.26, "rgba(255,255,255,0.02)");
+    g.addColorStop(0.38, shaft.color);
     g.addColorStop(0.48, shaft.hot);
     g.addColorStop(0.52, shaft.hot);
-    g.addColorStop(0.68, shaft.color);
+    g.addColorStop(0.62, shaft.color);
+    g.addColorStop(0.74, "rgba(255,255,255,0.02)");
     g.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = g;
     ctx.fillRect(shaft.x - shaft.w, 0, shaft.w * 2, canvas.height);
   }
 
+  // Make each streak read hottest near the stage/source side and stretch softly
+  // toward the camera instead of ending like a flat colored rectangle.
   ctx.globalCompositeOperation = "destination-in";
   const falloff = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  falloff.addColorStop(0, "rgba(255,255,255,0.92)");
-  falloff.addColorStop(0.16, "rgba(255,255,255,0.86)");
-  falloff.addColorStop(0.46, "rgba(255,255,255,0.58)");
-  falloff.addColorStop(0.76, "rgba(255,255,255,0.26)");
-  falloff.addColorStop(1, "rgba(255,255,255,0.03)");
+  falloff.addColorStop(0, "rgba(255,255,255,0.98)");
+  falloff.addColorStop(0.12, "rgba(255,255,255,0.96)");
+  falloff.addColorStop(0.36, "rgba(255,255,255,0.82)");
+  falloff.addColorStop(0.64, "rgba(255,255,255,0.54)");
+  falloff.addColorStop(0.84, "rgba(255,255,255,0.30)");
+  falloff.addColorStop(1, "rgba(255,255,255,0.10)");
   ctx.fillStyle = falloff;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.globalCompositeOperation = "source-over";
@@ -450,10 +469,10 @@ function makeAcceptedLogoOverlayTexture() {
 
   ctx.font = "italic 900 124px Arial";
   ctx.lineJoin = "round";
-  ctx.lineWidth = 14;
+  ctx.lineWidth = 12;
   ctx.strokeStyle = "rgba(255,46,214,0.98)";
   ctx.shadowColor = "rgba(255,35,207,0.98)";
-  ctx.shadowBlur = 34;
+  ctx.shadowBlur = 24;
   ctx.strokeText("AUDITION", canvas.width / 2, 270);
 
   ctx.shadowBlur = 12;
@@ -818,14 +837,14 @@ export class NeonStageV1Environment {
 
         const name = material.name.toLowerCase();
         if (name.includes("architecture navy")) {
-          material.emissive.setHex(0x1a0a43);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.58);
+          material.emissive.setHex(0x25105f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.68);
         } else if (name.includes("architecture indigo")) {
-          material.emissive.setHex(0x43106f);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.76);
+          material.emissive.setHex(0x5a148f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 1.02);
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x4b126e);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.64);
+          material.emissive.setHex(0x65158f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.88);
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x20cfff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.0);
@@ -860,9 +879,9 @@ export class NeonStageV1Environment {
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
           material.roughness = Math.min(material.roughness, 0.085);
           material.metalness = Math.max(material.metalness, 0.05);
-          material.color.multiplyScalar(1.10);
-          material.emissive.setHex(0x170b3b);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.30);
+          material.color.multiplyScalar(1.12);
+          material.emissive.setHex(0x24105b);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.40);
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.16);
           material.metalness = Math.max(material.metalness, 0.03);
@@ -890,9 +909,6 @@ export class NeonStageV1Environment {
   }
 
   private prepareAcceptedR15MovingHeads(model: THREE.Object3D) {
-    const localDown = new THREE.Vector3(0, -1, 0);
-    const localForward = new THREE.Vector3(0, 0, -1);
-    const beamRotation = new THREE.Quaternion().setFromUnitVectors(localDown, localForward);
     const activeBeamKeys = new Set([
       "MainFixture_00",
       "MainFixture_02",
@@ -931,6 +947,7 @@ export class NeonStageV1Environment {
         optical.intensity = 0;
         optical.castShadow = false;
 
+        let beamRoot: THREE.Group | null = null;
         let beamMaterial: THREE.ShaderMaterial | null = null;
         if (activeBeamKeys.has(key)) {
           beamMaterial = new THREE.ShaderMaterial({
@@ -943,7 +960,7 @@ export class NeonStageV1Environment {
             uniforms: {
               uColor: { value: optical.color.clone() },
               uLength: { value: group.length },
-              uOpacity: { value: group.prefix === "MainFixture" ? 0.24 : 0.18 },
+              uOpacity: { value: group.prefix === "MainFixture" ? 0.34 : 0.25 },
             },
             vertexShader: `
               varying vec2 vUv;
@@ -964,24 +981,24 @@ export class NeonStageV1Environment {
               uniform float uOpacity;
               void main() {
                 float radial = abs(vUv.x * 2.0 - 1.0);
-                float edgeFade = 1.0 - smoothstep(0.16, 0.98, radial);
-                float core = exp(-radial * radial * 6.4);
-                float haze = exp(-radial * radial * 2.4);
+                float edgeFade = 1.0 - smoothstep(0.12, 0.98, radial);
+                float core = exp(-radial * radial * 7.0);
+                float haze = exp(-radial * radial * 2.2);
                 float travel = max(0.0, 1.0 - vDistance);
-                float longitudinal = 0.10 + 0.90 * pow(travel, 0.44);
-                float sourceGlow = exp(-vDistance * 5.8) * core;
-                vec3 color = mix(uColor, vec3(1.0), min(0.84, sourceGlow * 0.92));
-                float alpha = uOpacity * edgeFade * (0.30 * haze + 0.70 * core) * longitudinal;
-                alpha *= 1.0 - smoothstep(0.82, 1.0, vDistance);
-                if (alpha < 0.004) discard;
+                float longitudinal = 0.16 + 0.84 * pow(travel, 0.34);
+                float sourceGlow = exp(-vDistance * 4.4) * core;
+                vec3 color = mix(uColor, vec3(1.0), min(0.88, sourceGlow));
+                float alpha = uOpacity * edgeFade * (0.22 * haze + 0.78 * core) * longitudinal;
+                alpha *= 1.0 - smoothstep(0.90, 1.0, vDistance);
+                if (alpha < 0.003) discard;
                 gl_FragColor = vec4(color, alpha);
               }
             `,
           });
 
-          const beamRoot = new THREE.Group();
+          beamRoot = new THREE.Group();
           beamRoot.name = `${key}_RuntimeBeamRoot`;
-          beamRoot.quaternion.copy(beamRotation);
+          beamRoot.visible = false;
 
           const makeBeamPlane = (rotationY: number) => {
             const beam = new THREE.Mesh(
@@ -998,11 +1015,11 @@ export class NeonStageV1Environment {
           const beamB = makeBeamPlane(Math.PI / 2);
           beamB.name = `${key}_RuntimeBeamSoftB`;
           beamRoot.add(beamA, beamB);
-          optical.add(beamRoot);
+          this.acceptedFxRoot.add(beamRoot);
 
           const sourceMaterial = new THREE.SpriteMaterial({
             map: beamSourceTexture,
-            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.78),
+            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.36),
             transparent: true,
             opacity: 1.0,
             depthWrite: false,
@@ -1012,7 +1029,7 @@ export class NeonStageV1Environment {
           });
           const sourceHalo = new THREE.Sprite(sourceMaterial);
           sourceHalo.name = `${key}_RuntimeSourceHalo`;
-          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 1.34 : 1.04);
+          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 1.48 : 1.12);
           optical.add(sourceHalo);
 
           const hotCoreMaterial = sourceMaterial.clone();
@@ -1025,7 +1042,7 @@ export class NeonStageV1Environment {
           optical.add(hotCore);
 
           const sourceBloomMaterial = sourceMaterial.clone();
-          sourceBloomMaterial.opacity = group.prefix === "MainFixture" ? 0.62 : 0.46;
+          sourceBloomMaterial.opacity = group.prefix === "MainFixture" ? 0.56 : 0.42;
           const sourceBloom = new THREE.Sprite(sourceBloomMaterial);
           sourceBloom.name = `${key}_RuntimeSourceBloom`;
           sourceBloom.scale.setScalar(group.prefix === "MainFixture" ? 2.25 : 1.72);
@@ -1034,9 +1051,9 @@ export class NeonStageV1Environment {
 
           const plumeMaterial = new THREE.MeshBasicMaterial({
             map: lightPoolTexture,
-            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.58),
+            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.24),
             transparent: true,
-            opacity: group.prefix === "MainFixture" ? 0.42 : 0.31,
+            opacity: group.prefix === "MainFixture" ? 0.50 : 0.36,
             depthWrite: false,
             depthTest: false,
             side: THREE.DoubleSide,
@@ -1044,13 +1061,13 @@ export class NeonStageV1Environment {
             toneMapped: false,
           });
           const plume = new THREE.Mesh(
-            new THREE.PlaneGeometry(group.radius * 2.8, group.prefix === "MainFixture" ? 2.6 : 2.0),
+            new THREE.PlaneGeometry(group.radius * 2.65, group.prefix === "MainFixture" ? 2.7 : 2.1),
             plumeMaterial,
           );
           plume.name = `${key}_RuntimeSourcePlume`;
-          plume.geometry.translate(0, -(group.prefix === "MainFixture" ? 1.30 : 1.0), 0);
+          plume.geometry.translate(0, -(group.prefix === "MainFixture" ? 1.35 : 1.05), 0);
           plume.rotation.y = Math.PI / 4;
-          optical.add(plume);
+          beamRoot.add(plume);
         }
 
         let spillMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
@@ -1102,6 +1119,7 @@ export class NeonStageV1Environment {
           panAmplitude: THREE.MathUtils.degToRad(group.pan),
           tiltAmplitude: THREE.MathUtils.degToRad(group.tilt),
           speed: group.speed,
+          beamRoot,
           beamMaterial,
           spillMesh,
           reflectionMesh,
@@ -1171,9 +1189,9 @@ export class NeonStageV1Environment {
     }
 
     const backdropWashes = [
-      { name: "R15BackdropWashCyan", color: 0x24d4ff, x: -4.8, opacity: 0.14 },
-      { name: "R15BackdropWashViolet", color: 0xad45ff, x: -0.2, opacity: 0.33 },
-      { name: "R15BackdropWashMagenta", color: 0xff34d1, x: 4.5, opacity: 0.36 },
+      { name: "R15BackdropWashCyan", color: 0x24d4ff, x: -4.8, opacity: 0.16 },
+      { name: "R15BackdropWashViolet", color: 0xb743ff, x: -0.2, opacity: 0.42 },
+      { name: "R15BackdropWashMagenta", color: 0xff34d1, x: 4.5, opacity: 0.44 },
     ] as const;
 
     backdropWashes.forEach(wash => {
@@ -1196,7 +1214,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.48,
+      opacity: 0.82,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -1225,11 +1243,14 @@ export class NeonStageV1Environment {
 
     const panAxis = new THREE.Vector3(0, 1, 0);
     const tiltAxis = new THREE.Vector3(1, 0, 0);
-    const opticalForward = new THREE.Vector3(0, 0, -1);
+    const localDown = new THREE.Vector3(0, -1, 0);
     const worldPosition = new THREE.Vector3();
-    const worldQuaternion = new THREE.Quaternion();
+    const worldTarget = new THREE.Vector3();
     const worldDirection = new THREE.Vector3();
     const worldHit = new THREE.Vector3();
+    const localSource = new THREE.Vector3();
+    const localTarget = new THREE.Vector3();
+    const localDirection = new THREE.Vector3();
     const deltaQuaternion = new THREE.Quaternion();
 
     this.acceptedMovingHeads.forEach(state => {
@@ -1252,50 +1273,75 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.21 + glow * 0.055;
+        state.beamMaterial.uniforms.uOpacity.value = 0.31 + glow * 0.085;
       }
 
-      if (state.spillMesh) {
-        state.optical.updateWorldMatrix(true, false);
-        state.optical.getWorldPosition(worldPosition);
-        state.optical.getWorldQuaternion(worldQuaternion);
-        worldDirection.copy(opticalForward).applyQuaternion(worldQuaternion).normalize();
+      if (!state.beamRoot && !state.spillMesh) return;
 
-        if (worldDirection.y < -0.08) {
-          const distance = (0.045 - worldPosition.y) / worldDirection.y;
-          if (distance > 0 && distance < 28) {
-            worldHit.copy(worldPosition).addScaledVector(worldDirection, distance);
-            this.root.worldToLocal(worldHit);
-            const hitX = THREE.MathUtils.clamp(worldHit.x, -8.2, 8.2);
-            const hitZ = THREE.MathUtils.clamp(worldHit.z, -5.3, 6.4);
-            state.spillMesh.position.set(hitX, 0.045, hitZ);
-            state.spillMesh.material.opacity = 0.25 + glow * 0.09;
-            state.spillMesh.visible = true;
+      // SpotLight.target is authoritative for the imported fixture's optical
+      // direction. Using it avoids guessing that the light points down local -Z.
+      state.optical.updateWorldMatrix(true, false);
+      state.optical.target.updateWorldMatrix(true, false);
+      state.optical.getWorldPosition(worldPosition);
+      state.optical.target.getWorldPosition(worldTarget);
+      worldDirection.subVectors(worldTarget, worldPosition);
+      if (worldDirection.lengthSq() < 1e-6) {
+        if (state.beamRoot) state.beamRoot.visible = false;
+        if (state.spillMesh) state.spillMesh.visible = false;
+        if (state.reflectionMesh) state.reflectionMesh.visible = false;
+        return;
+      }
+      worldDirection.normalize();
 
-            if (state.reflectionMesh) {
-              const foregroundZ = 13.2;
-              const reflectionLength = THREE.MathUtils.clamp(foregroundZ - hitZ, 7.2, 17.0);
-              state.reflectionMesh.position.set(
-                hitX,
-                0.049,
-                hitZ + reflectionLength * 0.5,
-              );
-              state.reflectionMesh.scale.set(
-                0.84 + glow * 0.16,
-                reflectionLength / 12.0,
-                1,
-              );
-              state.reflectionMesh.material.opacity = 0.22 + glow * 0.14;
-              state.reflectionMesh.visible = true;
-            }
-          } else {
-            state.spillMesh.visible = false;
-            if (state.reflectionMesh) state.reflectionMesh.visible = false;
+      if (state.beamRoot) {
+        localSource.copy(worldPosition);
+        localTarget.copy(worldTarget);
+        this.root.worldToLocal(localSource);
+        this.root.worldToLocal(localTarget);
+        localDirection.subVectors(localTarget, localSource).normalize();
+
+        state.beamRoot.position.copy(localSource);
+        state.beamRoot.quaternion.setFromUnitVectors(localDown, localDirection);
+        state.beamRoot.visible = true;
+      }
+
+      if (!state.spillMesh) return;
+
+      if (worldDirection.y < -0.08) {
+        const distance = (0.045 - worldPosition.y) / worldDirection.y;
+        if (distance > 0 && distance < 28) {
+          worldHit.copy(worldPosition).addScaledVector(worldDirection, distance);
+          this.root.worldToLocal(worldHit);
+          const hitX = THREE.MathUtils.clamp(worldHit.x, -8.2, 8.2);
+          const hitZ = THREE.MathUtils.clamp(worldHit.z, -5.3, 6.4);
+
+          state.spillMesh.position.set(hitX, 0.045, hitZ);
+          state.spillMesh.material.opacity = 0.29 + glow * 0.11;
+          state.spillMesh.visible = true;
+
+          if (state.reflectionMesh) {
+            const foregroundZ = 13.6;
+            const reflectionLength = THREE.MathUtils.clamp(foregroundZ - hitZ, 7.8, 17.8);
+            state.reflectionMesh.position.set(
+              hitX,
+              0.049,
+              hitZ + reflectionLength * 0.5,
+            );
+            state.reflectionMesh.scale.set(
+              0.90 + glow * 0.18,
+              reflectionLength / 12.0,
+              1,
+            );
+            state.reflectionMesh.material.opacity = 0.28 + glow * 0.16;
+            state.reflectionMesh.visible = true;
           }
         } else {
           state.spillMesh.visible = false;
           if (state.reflectionMesh) state.reflectionMesh.visible = false;
         }
+      } else {
+        state.spillMesh.visible = false;
+        if (state.reflectionMesh) state.reflectionMesh.visible = false;
       }
     });
   }
