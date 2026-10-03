@@ -9,34 +9,34 @@ def writer(path,width,height):
     return subprocess.Popen(['ffmpeg','-v','error','-y','-f','rawvideo','-pix_fmt','bgr24','-s',f'{width}x{height}','-r','30','-i','-','-an','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart',str(path)],stdin=subprocess.PIPE)
 
 def panel(im):
-    h,w=im.shape[:2];scale=min(512/w,576/h);nw,nh=round(w*scale),round(h*scale)
-    canvas=np.full((576,512,3),24,np.uint8);x=(512-nw)//2;y=(576-nh)//2;canvas[y:y+nh,x:x+nw]=cv2.resize(im,(nw,nh),interpolation=cv2.INTER_CUBIC);return canvas
+    h,w=im.shape[:2];scale=min(768/w,576/h);nw,nh=round(w*scale),round(h*scale)
+    canvas=np.full((576,768,3),24,np.uint8);x=(768-nw)//2;y=(576-nh)//2;canvas[y:y+nh,x:x+nw]=cv2.resize(im,(nw,nh),interpolation=cv2.INTER_CUBIC);return canvas
 
 def comparison_frame(source,male,female,m,local):
-    out=np.full((648,1536,3),24,np.uint8);out[40:616]=np.hstack([panel(source),male,female])
-    for i,label in enumerate(['SOURCE - '+m['selected_dancer'].split(',')[0],'NAM MESHY','NU MESHY']):cv2.putText(out,label,(i*512+16,27),0,.65,(240,240,240),1,cv2.LINE_AA)
+    out=np.full((648,2304,3),24,np.uint8);out[40:616]=np.hstack([panel(source),male,female])
+    for i,label in enumerate(['SOURCE - '+m['selected_dancer'].split(',')[0],'NAM MESHY','NU MESHY']):cv2.putText(out,label,(i*768+16,27),0,.65,(240,240,240),1,cv2.LINE_AA)
     txt=f"{m['id']} | {m['source_key']} frame {m['source_frame_range'][0]+local} | {local/30:.3f}s | 30 fps | POC / owner review pending"
     cv2.putText(out,txt,(16,638),0,.59,(220,220,220),1,cv2.LINE_AA);return out
 
 def visual(sources,artifacts,renders):
     root=Path(artifacts);out=root/'qa';out.mkdir(exist_ok=True);man=json.loads((root/'motion-source/source-manifest.json').read_text());src={k:decode(Path(sources)/v['file'])[0] for k,v in man['sources'].items()}
-    combined=writer(out/'Moonlight_V2_Combined_Review.mp4',1536,648);overview=[];reports=[]
+    combined=writer(out/'Moonlight_V2_Combined_Review.mp4',2304,648);overview=[];reports=[]
     try:
         for m in man['motions']:
-            a,b=m['source_frame_range'];x,y,w,h=m['crop_region'];dest=out/(m['id']+'-source-male-female.mp4');proc=writer(dest,1536,648);tiles=[];key=set(np.linspace(0,b-a-1,5,dtype=int).tolist());edge_counts={s:0 for s in ['Nam','Nu']}
+            a,b=m['source_frame_range'];x,y,w,h=m['crop_region'];dest=out/(m['id']+'-source-male-female.mp4');proc=writer(dest,2304,648);tiles=[];key=set(np.linspace(0,b-a-1,5,dtype=int).tolist())
             try:
                 for f in range(b-a):
                     ims=[]
                     for sex in ['Nam','Nu']:
                         path=Path(renders)/sex/m['id']/f'{f:04}.png';im=cv2.imread(str(path))
-                        if im is None or im.shape!=(576,512,3):raise ValueError(f'Missing/wrong actual render: {path}')
+                        if im is None or im.shape!=(576,768,3):raise ValueError(f'Missing/wrong actual render: {path}')
                         ims.append(im)
                     row=comparison_frame(src[m['source_key']][a+f,y:y+h,x:x+w],*ims,m,f)
                     proc.stdin.write(row.tobytes());combined.stdin.write(row.tobytes())
                     if f in key:tiles.append(row)
             finally:
                 proc.stdin.close();assert proc.wait()==0
-            cv2.imwrite(str(out/(m['id']+'-keyposes.jpg')),np.vstack(tiles));overview.append(tiles[2]);reports.append(dict(id=m['id'],frames=b-a,fps=30,width=1536,height=648,file=dest.name))
+            cv2.imwrite(str(out/(m['id']+'-keyposes.jpg')),np.vstack(tiles));overview.append(tiles[2]);reports.append(dict(id=m['id'],frames=b-a,fps=30,width=2304,height=648,file=dest.name))
     finally:
         combined.stdin.close();assert combined.wait()==0
     cv2.imwrite(str(out/'Moonlight_V2_Overview.jpg'),np.vstack(overview));(out/'render-video-manifest.json').write_text(json.dumps(reports,indent=2)+'\n')

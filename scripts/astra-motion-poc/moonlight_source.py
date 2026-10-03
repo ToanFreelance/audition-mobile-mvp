@@ -9,6 +9,8 @@ import cv2
 import numpy as np
 
 EVENTS = {'A': [86,188,290,391,492,746], 'B': [76,177,431,532,634,735]}
+SOURCE_SHA256={'A':'e42a08c2d96501b1fd7a1d5494405fdd9ffd26736f9555bfbf870e0108f2c381',
+               'B':'e9cc3f44c1375cfab9438893289fb1acc8dc3ba566f3efff94b3e94d2e754397'}
 RANGES = [('A',86,188),('A',188,290),('A',290,391),('A',391,492),
           ('B',76,177),('B',431,532),('B',532,634),('B',634,735)]
 
@@ -41,7 +43,9 @@ def cut(source,out,a,b,crop=None):
 def package(sources,out):
     out=Path(out);out.mkdir(parents=True,exist_ok=True);src=Path(sources);cache={};sources_meta={}
     for key in EVENTS:
-        path=src/f'Moonlight_POC_V2_{key}.mp4';frames,fps=decode(path);cache[key]=frames
+        path=src/f'Moonlight_POC_V2_{key}.mp4'
+        if hashlib.sha256(path.read_bytes()).hexdigest()!=SOURCE_SHA256[key]:raise ValueError('SOURCE_IDENTITY_UNVERIFIED: hash differs from the visually reviewed Moonlight package')
+        frames,fps=decode(path);cache[key]=frames
         assert len(frames)==750 and frames.shape[1:3]==(360,480) and abs(fps-30)<1e-6
         sources_meta[key]=dict(file=path.name,sha256=hashlib.sha256(path.read_bytes()).hexdigest(),frames=len(frames),fps=fps,width=480,height=360,usable_seconds=len(frames)/fps,full_source_offset_seconds=None)
         rows=[];prev=None
@@ -58,6 +62,8 @@ def package(sources,out):
     motions=[]
     for i,(key,a,b) in enumerate(RANGES,1):
         mid=f'moonlight-space-{i:03}';first=i==8;crop=[24,96,138,194] if first else [112,96,150,194];lo=max(0,a-18);hi=min(750,b+18)
+        if i==4:crop=[120,96,184,194]
+        if i==5:crop=[144,96,146,194]
         m=dict(id=mid,source_clip=sources_meta[key]['file'],source_key=key,source_frame_range=[a,b],source_timestamp_range=[a/30,b/30],duration_seconds=(b-a)/30,
                working_frame_range=[lo,hi],working_timestamp_range=[lo/30,hi/30],production_within_working_frames=[a-lo,b-lo],complete=True,both_boundaries_observed=True,
                boundary_confidence='high; observed judgement + command reset',boundary_uncertainty_frames=1,judgement_evidence=[f'{key}-boundary-{a:03}.jpg',f'{key}-boundary-{b:03}.jpg'],

@@ -6,6 +6,7 @@ import math
 import sys
 from pathlib import Path
 import bpy
+import numpy as np
 from mathutils import Vector
 
 
@@ -13,6 +14,7 @@ def main():
     ap=argparse.ArgumentParser();ap.add_argument('--glb',required=True);ap.add_argument('--manifest',required=True)
     ap.add_argument('--out',required=True);ap.add_argument('--frames',default='');ap.add_argument('--step',type=int,default=1)
     ap.add_argument('--v2',action='store_true');ap.add_argument('--motion',default='');ap.add_argument('--samples',type=int,default=4)
+    ap.add_argument('--threads',type=int,default=2)
     args=ap.parse_args(sys.argv[sys.argv.index('--')+1:]);out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.context.scene.render.fps=30  # glTF importer converts seconds to scene frames here
@@ -27,7 +29,7 @@ def main():
     scene.world.node_tree.nodes['Background'].inputs[1].default_value=.6
     scene.view_settings.view_transform='Standard'
     if args.v2:
-        scene.render.resolution_x=512;scene.render.resolution_y=576;scene.render.threads=4
+        scene.render.resolution_x=768;scene.render.resolution_y=576;scene.render.threads=args.threads
         scene.cycles.samples=args.samples;scene.cycles.denoising_quality='FAST';scene.view_settings.exposure=-.75
     arm=next(o for o in scene.objects if o.type=='ARMATURE')
     arm.animation_data_create()
@@ -46,7 +48,7 @@ def main():
     manifest=json.loads(Path(args.manifest).read_text());motions=manifest['motions']
     if args.v2:
         # Prevent stale frame reuse after a rebake or changed render settings.
-        identity=dict(glb_sha256=hashlib.sha256(Path(args.glb).read_bytes()).hexdigest(),samples=args.samples,width=512,height=576,exposure=-.75,blender=bpy.app.version_string)
+        identity=dict(glb_sha256=hashlib.sha256(Path(args.glb).read_bytes()).hexdigest(),samples=args.samples,width=768,height=576,exposure=-.75,blender=bpy.app.version_string,camera='static per-clip root-range center; ortho 2.55')
         stamp=out/'render-input.json'
         if stamp.exists() and json.loads(stamp.read_text())!=identity:raise ValueError('Render input changed: choose a new output directory.')
         stamp.write_text(json.dumps(identity,indent=2)+'\n');rendered={}
@@ -54,6 +56,9 @@ def main():
             if args.motion and m['id']!=args.motion:continue
             action=next(a for a in bpy.data.actions if m['id'] in a.name);arm.animation_data.action=action
             if hasattr(action,'slots') and len(action.slots):arm.animation_data.action_slot=action.slots[0]
+            diag=Path(args.glb).parent/(Path(args.glb).stem+'-diagnostics')/(m['id']+'.solve.npz')
+            roots=np.load(diag)['root'];a,b=m['production_within_working_frames'];center=float((roots[a:b,0].min()+roots[a:b,0].max())/2)
+            obj.location=(center,-4.8,2.0);obj.rotation_euler=(Vector((center,0,.9))-obj.location).to_track_quat('-Z','Y').to_euler()
             n=m['source_frame_range'][1]-m['source_frame_range'][0]
             wanted=[int(f) for f in args.frames.split(',')] if args.frames else list(range(0,n,args.step))
             dest=out/m['id'];dest.mkdir(exist_ok=True)

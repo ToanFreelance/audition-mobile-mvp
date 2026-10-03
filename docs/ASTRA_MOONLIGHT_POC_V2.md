@@ -69,4 +69,19 @@ checks, and the anatomical roll regression. Both corrected GLBs pass structural
 QA with eight 30 Hz source-complete clips and preserved original asset data.
 Full-frame visual review remains in progress.
 
+## Identity-tracking correction
+
+Frame-by-frame checks found the initial slow bbox follower captured the middle
+NPC instead of the selected third NPC (e.g. A461–464 and B101). These are
+measurement failures, not intentional root travel. The third-lane tracker now
+predicts head displacement with local optical flow, centers the top-down crop
+on that prediction, and zero-weights head-identity jumps over 18 pixels.
+Rejected frames remain explicit. Motion 008 retains its separately reviewed
+first-lane tracker: head flow is less reliable during its deep crouch.
+
+Source crops 004/005 are widened/repositioned after this identity correction.
+The renderer uses 768×576 panels with unchanged ortho scale 2.55 and a static
+per-clip camera center. It does not follow the actor frame-by-frame or hide root
+travel. The original 512-wide panel clipped large, genuinely observed steps.
+
 Sources: https://github.com/Tau-J/rtmlib ; https://github.com/open-mmlab/mmpose/tree/main/projects/rtmw ; https://github.com/Walter0807/MotionBERT
