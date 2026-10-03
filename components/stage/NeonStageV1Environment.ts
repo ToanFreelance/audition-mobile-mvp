@@ -431,10 +431,12 @@ function makeAcceptedBackdropGlowTexture() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const sideGlows = [
-    { x: 72, color: "rgba(31,222,255,0.92)", hot: "rgba(210,250,255,0.98)" },
-    { x: 238, color: "rgba(142,74,255,0.88)", hot: "rgba(229,211,255,0.98)" },
-    { x: 786, color: "rgba(255,52,211,0.92)", hot: "rgba(255,224,247,0.98)" },
-    { x: 952, color: "rgba(57,208,255,0.88)", hot: "rgba(214,249,255,0.98)" },
+    { x: 64, color: "rgba(31,222,255,0.94)", hot: "rgba(218,252,255,1)" },
+    { x: 224, color: "rgba(142,74,255,0.90)", hot: "rgba(233,216,255,1)" },
+    { x: 360, color: "rgba(37,217,255,0.92)", hot: "rgba(221,252,255,1)" },
+    { x: 664, color: "rgba(255,58,215,0.94)", hot: "rgba(255,226,249,1)" },
+    { x: 800, color: "rgba(255,52,211,0.94)", hot: "rgba(255,226,249,1)" },
+    { x: 960, color: "rgba(57,208,255,0.90)", hot: "rgba(220,250,255,1)" },
   ];
   for (const ray of sideGlows) {
     const endX = ray.x + (ray.x < 512 ? 164 : -164);
@@ -758,24 +760,24 @@ export class NeonStageV1Environment {
           material.emissive.setHex(0xff2ed0);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.0);
         } else if (name.includes("neon cyan")) {
-          material.emissive.setHex(0x12cfff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.2);
+          material.emissive.setHex(0x18d8ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.4);
           material.toneMapped = false;
         } else if (name.includes("neon magenta")) {
-          material.emissive.setHex(0xff20c8);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.8);
+          material.emissive.setHex(0xff25ce);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.2);
           material.toneMapped = false;
         } else if (name.includes("neon violet")) {
-          material.emissive.setHex(0x9d43ff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.0);
+          material.emissive.setHex(0xad4cff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.3);
           material.toneMapped = false;
         } else if (name.includes("neon white")) {
-          material.emissive.setHex(0xd7d9ff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.6);
+          material.emissive.setHex(0xe6e7ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 4.2);
           material.toneMapped = false;
         } else if (name.includes("led matrix")) {
-          material.emissive.setHex(0x8a32ff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.0);
+          material.emissive.setHex(0x9f3cff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 3.7);
         } else if (name.includes("pixel magenta")) {
           material.emissive.setHex(0xff35d1);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 4.8);
@@ -923,33 +925,34 @@ export class NeonStageV1Environment {
 
           const sourceMaterial = new THREE.SpriteMaterial({
             map: beamSourceTexture,
-            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.72),
+            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.78),
             transparent: true,
             opacity: 1.0,
             depthWrite: false,
-            depthTest: true,
+            depthTest: false,
             blending: THREE.AdditiveBlending,
             toneMapped: false,
           });
           const sourceHalo = new THREE.Sprite(sourceMaterial);
           sourceHalo.name = `${key}_RuntimeSourceHalo`;
-          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 1.18 : 0.92);
+          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 1.34 : 1.04);
           optical.add(sourceHalo);
 
           const sourceBloomMaterial = sourceMaterial.clone();
-          sourceBloomMaterial.opacity = group.prefix === "MainFixture" ? 0.48 : 0.36;
+          sourceBloomMaterial.opacity = group.prefix === "MainFixture" ? 0.62 : 0.46;
           const sourceBloom = new THREE.Sprite(sourceBloomMaterial);
           sourceBloom.name = `${key}_RuntimeSourceBloom`;
-          sourceBloom.scale.setScalar(group.prefix === "MainFixture" ? 1.85 : 1.42);
+          sourceBloom.scale.setScalar(group.prefix === "MainFixture" ? 2.25 : 1.72);
           sourceBloom.position.z = -0.04;
           optical.add(sourceBloom);
 
           const plumeMaterial = new THREE.MeshBasicMaterial({
             map: lightPoolTexture,
-            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.48),
+            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.58),
             transparent: true,
-            opacity: group.prefix === "MainFixture" ? 0.34 : 0.25,
+            opacity: group.prefix === "MainFixture" ? 0.42 : 0.31,
             depthWrite: false,
+            depthTest: false,
             side: THREE.DoubleSide,
             blending: THREE.AdditiveBlending,
             toneMapped: false,
@@ -1086,11 +1089,11 @@ export class NeonStageV1Environment {
     });
 
     const reflectionStreaks = [
-      { name: "R15FloorReflectionCyanL", color: 0x32e1ff, x: -3.6, z: 3.4, width: 0.56, length: 13.4, opacity: 0.42 },
-      { name: "R15FloorReflectionVioletL", color: 0xa34fff, x: -1.4, z: 3.6, width: 0.72, length: 14.2, opacity: 0.38 },
-      { name: "R15FloorReflectionMagentaC", color: 0xff39d4, x: 0.45, z: 3.8, width: 0.80, length: 14.8, opacity: 0.46 },
-      { name: "R15FloorReflectionVioletR", color: 0xb252ff, x: 2.3, z: 3.5, width: 0.68, length: 13.8, opacity: 0.38 },
-      { name: "R15FloorReflectionMagentaR", color: 0xff3ad5, x: 4.2, z: 3.2, width: 0.58, length: 13.0, opacity: 0.42 },
+      { name: "R15FloorReflectionCyanL", color: 0x38e6ff, x: -3.6, z: 7.6, width: 0.62, length: 22.2, opacity: 0.46 },
+      { name: "R15FloorReflectionVioletL", color: 0xae55ff, x: -1.4, z: 7.9, width: 0.80, length: 23.0, opacity: 0.43 },
+      { name: "R15FloorReflectionMagentaC", color: 0xff42da, x: 0.45, z: 8.1, width: 0.90, length: 23.8, opacity: 0.52 },
+      { name: "R15FloorReflectionVioletR", color: 0xbc59ff, x: 2.3, z: 7.8, width: 0.76, length: 22.8, opacity: 0.43 },
+      { name: "R15FloorReflectionMagentaR", color: 0xff43da, x: 4.2, z: 7.5, width: 0.66, length: 21.8, opacity: 0.47 },
     ] as const;
 
     reflectionStreaks.forEach(streak => {
@@ -1124,12 +1127,12 @@ export class NeonStageV1Environment {
       toneMapped: false,
     });
     const reflectionField = new THREE.Mesh(
-      new THREE.PlaneGeometry(17.8, 18.8),
+      new THREE.PlaneGeometry(18.4, 28.0),
       reflectionMaterial,
     );
     reflectionField.name = "R15AcceptedFloorReflectionField";
     reflectionField.rotation.x = -Math.PI / 2;
-    reflectionField.position.set(0, 0.044, 4.25);
+    reflectionField.position.set(0, 0.044, 8.6);
     this.acceptedFxRoot.add(reflectionField);
 
     const floorSheenMaterial = new THREE.MeshBasicMaterial({
@@ -1143,12 +1146,12 @@ export class NeonStageV1Environment {
       toneMapped: false,
     });
     const floorSheen = new THREE.Mesh(
-      new THREE.PlaneGeometry(17.2, 17.6),
+      new THREE.PlaneGeometry(18.0, 26.8),
       floorSheenMaterial,
     );
     floorSheen.name = "R15AcceptedBroadFloorSheen";
     floorSheen.rotation.x = -Math.PI / 2;
-    floorSheen.position.set(0, 0.041, 4.0);
+    floorSheen.position.set(0, 0.041, 8.2);
     this.acceptedFxRoot.add(floorSheen);
   }
 
