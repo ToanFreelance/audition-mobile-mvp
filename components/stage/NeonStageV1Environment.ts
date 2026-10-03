@@ -1118,13 +1118,11 @@ export class NeonStageV1Environment {
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
     const floorReflectionTexture = makeAcceptedFloorReflectionTexture();
-    const reflectionStreakTexture = makeAcceptedReflectionStreakTexture();
     const logoTexture = makeAcceptedLogoOverlayTexture();
     this.textures.push(
       poolTexture,
       backdropTexture,
       floorReflectionTexture,
-      reflectionStreakTexture,
       logoTexture,
     );
 
@@ -1193,36 +1191,6 @@ export class NeonStageV1Environment {
       glow.name = wash.name;
       glow.position.set(wash.x, 4.1, -5.25);
       this.acceptedFxRoot.add(glow);
-    });
-
-    const reflectionStreaks = [
-      { name: "R15FloorReflectionCyanOuterL", color: 0x35e2ff, x: -5.9, z: 7.0, width: 0.44, length: 20.4, opacity: 0.26 },
-      { name: "R15FloorReflectionVioletL", color: 0x9b4cff, x: -3.6, z: 7.6, width: 0.50, length: 21.8, opacity: 0.28 },
-      { name: "R15FloorReflectionMagentaL", color: 0xff39d2, x: -1.35, z: 8.0, width: 0.56, length: 23.0, opacity: 0.31 },
-      { name: "R15FloorReflectionVioletR", color: 0xb052ff, x: 1.20, z: 8.0, width: 0.54, length: 23.0, opacity: 0.30 },
-      { name: "R15FloorReflectionMagentaR", color: 0xff3bd2, x: 3.65, z: 7.6, width: 0.52, length: 21.8, opacity: 0.30 },
-      { name: "R15FloorReflectionCyanOuterR", color: 0x39dcff, x: 5.95, z: 7.0, width: 0.44, length: 20.4, opacity: 0.25 },
-    ] as const;
-
-    reflectionStreaks.forEach(streak => {
-      const material = new THREE.MeshBasicMaterial({
-        map: reflectionStreakTexture,
-        color: streak.color,
-        transparent: true,
-        opacity: streak.opacity,
-        depthWrite: false,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      });
-      const reflection = new THREE.Mesh(
-        new THREE.PlaneGeometry(streak.width, streak.length),
-        material,
-      );
-      reflection.name = streak.name;
-      reflection.rotation.x = -Math.PI / 2;
-      reflection.position.set(streak.x, 0.047, streak.z);
-      this.acceptedFxRoot.add(reflection);
     });
 
     const reflectionMaterial = new THREE.MeshBasicMaterial({
