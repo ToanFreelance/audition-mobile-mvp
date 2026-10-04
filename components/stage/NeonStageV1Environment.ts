@@ -976,6 +976,33 @@ export class NeonStageV1Environment {
       });
     });
 
+    // CentralLED ships with the P15 image baked into both baseColor and
+    // emissive texture. Leaving it active causes the old AUDITION wordmark and
+    // backdrop to show through underneath the runtime fidelity overlays.
+    // Neutralize only this screen so the accepted runtime backdrop/logo layers
+    // are authoritative without changing the rest of the R15.1 asset.
+    const centralLed = model.getObjectByName("CentralLED") as THREE.Mesh | undefined;
+    if (centralLed?.isMesh) {
+      const sources = Array.isArray(centralLed.material)
+        ? centralLed.material
+        : [centralLed.material];
+      const next = sources.map(source => {
+        if (!(source instanceof THREE.MeshStandardMaterial)) return source;
+        const material = source.clone();
+        material.name = source.name + " RuntimeNeutralized";
+        material.map = null;
+        material.emissiveMap = null;
+        material.color.setHex(0x120625);
+        material.emissive.setHex(0x2a0b55);
+        material.emissiveIntensity = 0.48;
+        material.roughness = 0.34;
+        material.metalness = 0.02;
+        material.needsUpdate = true;
+        return material;
+      });
+      centralLed.material = Array.isArray(centralLed.material) ? next : next[0];
+    }
+
     model.traverse(object => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh) return;
