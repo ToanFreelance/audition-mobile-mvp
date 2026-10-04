@@ -550,6 +550,7 @@ function makeAcceptedLogoOverlayTexture() {
   if (!ctx) throw new Error("R15.1 logo-overlay canvas unavailable.");
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const logicalWidth = canvas.width / 2;
   ctx.scale(2, 2);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -566,26 +567,26 @@ function makeAcceptedLogoOverlayTexture() {
   ctx.strokeStyle = "rgba(255,38,211,0.90)";
   ctx.shadowColor = "rgba(255,35,207,0.82)";
   ctx.shadowBlur = 9;
-  ctx.strokeText("AUDITION", canvas.width / 2, 270);
+  ctx.strokeText("AUDITION", logicalWidth / 2, 270);
 
   // Saturated transition edge.
   ctx.lineWidth = 5.4;
   ctx.strokeStyle = "rgba(255,112,231,0.99)";
   ctx.shadowColor = "rgba(255,69,219,0.56)";
   ctx.shadowBlur = 4;
-  ctx.strokeText("AUDITION", canvas.width / 2, 270);
+  ctx.strokeText("AUDITION", logicalWidth / 2, 270);
 
   // Hot white/pink inner neon edge.
   ctx.lineWidth = 3.15;
   ctx.strokeStyle = "rgba(255,255,255,1)";
   ctx.shadowColor = "rgba(255,229,252,0.54)";
   ctx.shadowBlur = 1.15;
-  ctx.strokeText("AUDITION", canvas.width / 2, 270);
+  ctx.strokeText("AUDITION", logicalWidth / 2, 270);
 
   ctx.shadowBlur = 2.5;
   ctx.fillStyle = "rgba(255,255,255,0.99)";
   ctx.font = "700 26px Arial";
-  ctx.fillText("D A N C E   T O G E T H E R", canvas.width / 2, 354);
+  ctx.fillText("D A N C E   T O G E T H E R", logicalWidth / 2, 354);
   ctx.shadowBlur = 0;
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -1478,8 +1479,9 @@ export class NeonStageV1Environment {
         });
         const sprite = new THREE.Sprite(material);
         sprite.name = key + "_RuntimeApertureGlow";
-        sprite.position.set(center.x, center.y + size.y * 0.10, center.z + 0.06);
-        const diameter = THREE.MathUtils.clamp(Math.max(size.x, size.y) * 1.55, 0.48, 0.82);
+        sprite.position.set(center.x, center.y + size.y * 0.12, bounds.max.z + 0.055);
+        sprite.renderOrder = 18;
+        const diameter = THREE.MathUtils.clamp(Math.max(size.x, size.y) * 1.72, 0.54, 0.92);
         sprite.scale.set(diameter, diameter, 1);
         this.acceptedFxRoot.add(sprite);
       });
