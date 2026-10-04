@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { StagePresentationCameraPreset } from "./stageCamera";
 import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
+import { AUDITION_LOGO_CONCEPT_DATA_URL } from "./auditionLogoConceptData";
 
 type RuntimeUrlResponse = {
   stageId: string;
@@ -617,6 +618,52 @@ function makeAcceptedFloorCompositeTexture() {
   return texture;
 }
 
+function makeAcceptedForegroundReflectionTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("R15.1 foreground-reflection canvas unavailable.");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const sources = [
+    { x: 78, rgb: "255,45,210", width: 42, alpha: 0.58 },
+    { x: 154, rgb: "44,219,255", width: 38, alpha: 0.56 },
+    { x: 228, rgb: "255,48,213", width: 40, alpha: 0.62 },
+    { x: 300, rgb: "43,218,255", width: 40, alpha: 0.60 },
+    { x: 372, rgb: "255,47,211", width: 42, alpha: 0.58 },
+    { x: 444, rgb: "43,216,255", width: 38, alpha: 0.52 },
+  ] as const;
+
+  for (const source of sources) {
+    const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    g.addColorStop(0, `rgba(${source.rgb},0.78)`);
+    g.addColorStop(0.18, `rgba(${source.rgb},${source.alpha})`);
+    g.addColorStop(0.56, `rgba(${source.rgb},0.28)`);
+    g.addColorStop(0.86, `rgba(${source.rgb},0.11)`);
+    g.addColorStop(1, `rgba(${source.rgb},0.035)`);
+
+    ctx.save();
+    ctx.filter = "blur(12px)";
+    ctx.fillStyle = g;
+    ctx.fillRect(source.x - source.width / 2, 0, source.width, canvas.height);
+    ctx.restore();
+
+    const hot = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    hot.addColorStop(0, "rgba(255,255,255,0.72)");
+    hot.addColorStop(0.16, `rgba(${source.rgb},0.44)`);
+    hot.addColorStop(0.52, `rgba(${source.rgb},0.14)`);
+    hot.addColorStop(1, `rgba(${source.rgb},0)`);
+    ctx.fillStyle = hot;
+    ctx.fillRect(source.x - 5, 0, 10, canvas.height);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function makeAcceptedBackdropGlowTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
@@ -1043,63 +1090,9 @@ export class NeonStageV1Environment {
     const auditionInset = model.getObjectByName("R15 AUDITION Inset");
     if (auditionInset) auditionInset.removeFromParent();
 
-    const auditionBrand = model.getObjectByName("AUDITION_Brand") as THREE.Mesh | undefined;
-    if (auditionBrand?.isMesh) {
-      auditionBrand.visible = true;
-
-      // The source wordmark is a beveled/extruded outline. In portrait view the
-      // extrusion reads as a second dark word behind the intended neon line.
-      // Keep the authored x/z silhouette but collapse local-Y depth so it reads
-      // like the flat concept artwork.
-      auditionBrand.scale.y *= 0.075;
-
-      const brandMaterial = new THREE.ShaderMaterial({
-        name: "AUDITION Runtime Concept Brand",
-        uniforms: {
-          uFaceColor: { value: new THREE.Color(0xfff3fc) },
-          uBevelColor: { value: new THREE.Color(0xff45d8) },
-        },
-        vertexShader: `
-          varying float vFrontFace;
-          void main() {
-            vFrontFace = abs(normal.y);
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          varying float vFrontFace;
-          uniform vec3 uFaceColor;
-          uniform vec3 uBevelColor;
-          void main() {
-            // Treat most bevel normals as part of the luminous face. Nothing in
-            // this material is allowed to become navy/black.
-            float frontMix = smoothstep(0.20, 0.72, vFrontFace);
-            vec3 color = mix(uBevelColor, uFaceColor, frontMix);
-            gl_FragColor = vec4(color, 1.0);
-          }
-        `,
-        side: THREE.DoubleSide,
-        depthTest: true,
-        depthWrite: true,
-        transparent: false,
-        toneMapped: false,
-      });
-      auditionBrand.material = brandMaterial;
-      auditionBrand.renderOrder = 12;
-    }
-
-    const danceTogether = model.getObjectByName("DanceTogether") as THREE.Mesh | undefined;
-    if (danceTogether?.isMesh) {
-      danceTogether.material = new THREE.MeshBasicMaterial({
-        name: "DanceTogether Runtime Concept Brand",
-        color: 0xffffff,
-        side: THREE.DoubleSide,
-        depthTest: true,
-        depthWrite: true,
-        toneMapped: false,
-      });
-      danceTogether.renderOrder = 12;
-    }
+    // AUDITION_Brand and DanceTogether remain just long enough for
+    // createAcceptedR15BeautyLighting() to read their authored bounds. They are
+    // then removed and replaced by the exact owner-approved 2D wordmark.
 
     const ringPalette: Array<[string, number]> = [
       ["R15 Dance Ring Outer", 0xff42d3],
@@ -1438,10 +1431,19 @@ export class NeonStageV1Environment {
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
     const floorCompositeTexture = makeAcceptedFloorCompositeTexture();
+    const foregroundReflectionTexture = makeAcceptedForegroundReflectionTexture();
+    const logoTexture = new THREE.TextureLoader().load(AUDITION_LOGO_CONCEPT_DATA_URL);
+    logoTexture.colorSpace = THREE.SRGBColorSpace;
+    logoTexture.anisotropy = 4;
+    logoTexture.magFilter = THREE.LinearFilter;
+    logoTexture.minFilter = THREE.LinearFilter;
+    logoTexture.needsUpdate = true;
     this.textures.push(
       poolTexture,
       backdropTexture,
       floorCompositeTexture,
+      foregroundReflectionTexture,
+      logoTexture,
     );
 
     const centralLed = model.getObjectByName("CentralLED");
@@ -1469,6 +1471,57 @@ export class NeonStageV1Environment {
       backdrop.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.028);
       this.acceptedFxRoot.add(backdrop);
 
+      const nativeBrand = model.getObjectByName("AUDITION_Brand");
+      const nativeSubtitle = model.getObjectByName("DanceTogether");
+      const logoBounds = new THREE.Box3();
+      let hasLogoBounds = false;
+      [nativeBrand, nativeSubtitle].forEach(node => {
+        if (!node) return;
+        node.updateWorldMatrix(true, false);
+        const bounds = new THREE.Box3().setFromObject(node);
+        if (bounds.isEmpty()) return;
+        if (!hasLogoBounds) {
+          logoBounds.copy(bounds);
+          hasLogoBounds = true;
+        } else {
+          logoBounds.union(bounds);
+        }
+      });
+
+      if (hasLogoBounds) {
+        const logoCenter = logoBounds.getCenter(new THREE.Vector3());
+        const nativeSize = logoBounds.getSize(new THREE.Vector3());
+        const textureAspect = 520 / 114;
+        const logoWidth = nativeSize.x * 1.045;
+        const logoHeight = logoWidth / textureAspect;
+
+        const logoMaterial = new THREE.MeshBasicMaterial({
+          map: logoTexture,
+          transparent: true,
+          opacity: 1,
+          alphaTest: 0.015,
+          depthWrite: false,
+          depthTest: true,
+          blending: THREE.NormalBlending,
+          side: THREE.DoubleSide,
+          toneMapped: false,
+        });
+        const logoPlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(logoWidth, logoHeight),
+          logoMaterial,
+        );
+        logoPlane.name = "R15ExactConceptAuditionWordmark";
+        logoPlane.position.set(
+          logoCenter.x,
+          logoCenter.y + nativeSize.y * 0.02,
+          ledBounds.max.z + 0.060,
+        );
+        logoPlane.renderOrder = 30;
+        this.acceptedFxRoot.add(logoPlane);
+      }
+
+      nativeBrand?.removeFromParent();
+      nativeSubtitle?.removeFromParent();
     }
 
     const backdropWashes = [
@@ -1512,6 +1565,26 @@ export class NeonStageV1Environment {
     floorComposite.rotation.x = -Math.PI / 2;
     floorComposite.position.set(0, 0.004, 8.6);
     this.acceptedFxRoot.add(floorComposite);
+
+    const foregroundReflectionMaterial = new THREE.MeshBasicMaterial({
+      map: foregroundReflectionTexture,
+      transparent: true,
+      opacity: 0.72,
+      depthWrite: false,
+      depthTest: true,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    const foregroundReflection = new THREE.Mesh(
+      new THREE.PlaneGeometry(17.6, 20.0),
+      foregroundReflectionMaterial,
+    );
+    foregroundReflection.name = "R15AcceptedForegroundReflections";
+    foregroundReflection.rotation.x = -Math.PI / 2;
+    foregroundReflection.position.set(0, 0.006, 11.2);
+    foregroundReflection.renderOrder = 4;
+    this.acceptedFxRoot.add(foregroundReflection);
 
   }
 
