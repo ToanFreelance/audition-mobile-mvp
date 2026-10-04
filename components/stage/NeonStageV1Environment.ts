@@ -454,6 +454,18 @@ function acceptedFixturePresentationColor(key: string, fallback: THREE.Color) {
   return authored[key] === undefined ? fallback.clone() : new THREE.Color(authored[key]);
 }
 
+function acceptedFixtureFloorAim(key: string) {
+  const authored: Record<string, [number, number, number]> = {
+    MainFixture_01: [-3.85, 0.045, 0.78],
+    MainFixture_02: [-1.95, 0.045, 0.40],
+    MainFixture_05: [0.00, 0.045, 0.18],
+    MainFixture_08: [1.95, 0.045, 0.40],
+    MainFixture_09: [3.85, 0.045, 0.78],
+  };
+  const aim = authored[key];
+  return aim ? new THREE.Vector3(...aim) : null;
+}
+
 function makeAcceptedFloorReflectionTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -543,12 +555,12 @@ function makeAcceptedLogoOverlayTexture() {
   ctx.font = "italic 900 132px Arial";
 
   ctx.shadowBlur = 0;
-  ctx.lineWidth = 22;
-  ctx.strokeStyle = "rgba(32,6,66,0.90)";
+  ctx.lineWidth = 16;
+  ctx.strokeStyle = "rgba(32,6,66,0.68)";
   ctx.strokeText("AUDITION", canvas.width / 2, 268);
 
-  ctx.lineWidth = 10;
-  ctx.strokeStyle = "rgba(255,42,211,1)";
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = "rgba(255,42,211,0.98)";
   ctx.shadowColor = "rgba(255,31,207,0.98)";
   ctx.shadowBlur = 22;
   ctx.strokeText("AUDITION", canvas.width / 2, 268);
@@ -962,9 +974,9 @@ export class NeonStageV1Environment {
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
           material.roughness = Math.min(material.roughness, 0.085);
           material.metalness = Math.max(material.metalness, 0.05);
-          material.color.multiplyScalar(1.14);
-          material.emissive.setHex(0x2d126a);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.52);
+          material.color.multiplyScalar(1.12);
+          material.emissive.setHex(0x29105f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.46);
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.16);
           material.metalness = Math.max(material.metalness, 0.03);
@@ -1070,13 +1082,13 @@ export class NeonStageV1Environment {
                 float core = exp(-radial * radial * 7.0);
                 float haze = exp(-radial * radial * 2.2);
                 float travel = max(0.0, 1.0 - vDistance);
-                float longitudinal = 0.12 + 0.88 * pow(travel, 0.38);
-                float nearHaze = 1.0 + 1.60 * exp(-vDistance * 8.4);
-                float hotSource = exp(-vDistance * 10.0);
-                float sourceGlow = exp(-vDistance * 4.8) * core;
-                vec3 color = mix(uColor, vec3(1.0), min(0.90, sourceGlow + hotSource * 0.26));
-                float alpha = uOpacity * edgeFade * (0.34 * haze + 0.66 * core) * longitudinal * nearHaze;
-                alpha *= 1.0 - smoothstep(0.90, 1.0, vDistance);
+                float longitudinal = 0.08 + 0.92 * pow(travel, 0.46);
+                float nearHaze = 1.0 + 1.95 * exp(-vDistance * 9.4);
+                float hotSource = exp(-vDistance * 11.5);
+                float sourceGlow = exp(-vDistance * 5.2) * core;
+                vec3 color = mix(uColor, vec3(1.0), min(0.92, sourceGlow + hotSource * 0.30));
+                float alpha = uOpacity * edgeFade * (0.38 * haze + 0.62 * core) * longitudinal * nearHaze;
+                alpha *= 1.0 - smoothstep(0.82, 1.0, vDistance);
                 if (alpha < 0.003) discard;
                 gl_FragColor = vec4(color, alpha);
               }
@@ -1143,7 +1155,7 @@ export class NeonStageV1Environment {
             map: lightPoolTexture,
             color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.20),
             transparent: true,
-            opacity: group.prefix === "MainFixture" ? 0.58 : 0.38,
+            opacity: group.prefix === "MainFixture" ? 0.66 : 0.40,
             depthWrite: false,
             depthTest: false,
             side: THREE.DoubleSide,
@@ -1152,11 +1164,11 @@ export class NeonStageV1Environment {
           });
           const makePlume = (rotationY: number, suffix: string) => {
             const plume = new THREE.Mesh(
-              new THREE.PlaneGeometry(group.radius * 2.8, group.prefix === "MainFixture" ? 2.9 : 2.1),
+              new THREE.PlaneGeometry(group.radius * 2.9, group.prefix === "MainFixture" ? 2.45 : 1.95),
               plumeMaterial,
             );
             plume.name = `${key}_RuntimeSourcePlume${suffix}`;
-            plume.geometry.translate(0, -(group.prefix === "MainFixture" ? 1.45 : 1.05), 0);
+            plume.geometry.translate(0, -(group.prefix === "MainFixture" ? 1.225 : 0.975), 0);
             plume.rotation.y = rotationY;
             return plume;
           };
@@ -1226,11 +1238,7 @@ export class NeonStageV1Environment {
         const floorAimBase = activeBeamKeys.has(key)
           ? (
             group.prefix === "MainFixture"
-              ? new THREE.Vector3(
-                side * 5.35,
-                0.045,
-                0.15 + Math.abs(side) * 0.78,
-              )
+              ? acceptedFixtureFloorAim(key)
               : new THREE.Vector3(0, 0.045, -1.25)
           )
           : null;
@@ -1400,7 +1408,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.39 + glow * 0.10;
+        state.beamMaterial.uniforms.uOpacity.value = 0.36 + glow * 0.085;
       }
 
       if (!state.floorAimBase || (!state.beamRoot && !state.spillMesh)) return;
@@ -1411,8 +1419,8 @@ export class NeonStageV1Environment {
       this.root.worldToLocal(localSource);
 
       localTarget.copy(state.floorAimBase);
-      localTarget.x += Math.sin(theta * 0.82 + state.phase) * 0.42;
-      localTarget.z += Math.sin(theta * 0.64 + state.phase * 0.7) * 0.34;
+      localTarget.x += Math.sin(theta * 0.82 + state.phase) * 0.27;
+      localTarget.z += Math.sin(theta * 0.64 + state.phase * 0.7) * 0.24;
 
       localDirection.subVectors(localTarget, localSource);
       if (localDirection.lengthSq() < 1e-6) {
@@ -1462,19 +1470,19 @@ export class NeonStageV1Environment {
       }
 
       if (state.reflectionMesh) {
-        const foregroundZ = 15.2;
-        const reflectionLength = THREE.MathUtils.clamp(foregroundZ - hitZ, 9.4, 19.2);
+        const foregroundZ = 16.0;
+        const reflectionLength = THREE.MathUtils.clamp(foregroundZ - hitZ, 9.8, 20.0);
         state.reflectionMesh.position.set(
           hitX,
           0.049,
           hitZ + reflectionLength * 0.5,
         );
         state.reflectionMesh.scale.set(
-          0.82 + glow * 0.11,
+          0.76 + glow * 0.10,
           reflectionLength / 12.0,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.22 + glow * 0.085;
+        state.reflectionMesh.material.opacity = 0.25 + glow * 0.09;
         state.reflectionMesh.visible = true;
       }
     });
