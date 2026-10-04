@@ -542,12 +542,9 @@ function makeAcceptedLogoOverlayTexture() {
   ctx.lineCap = "round";
   ctx.font = "italic 900 124px Arial";
 
-  // One wordmark only. A very low-alpha pearl/pink interior prevents the
-  // transparent center from reading as a second navy/black word on the dark
-  // LED wall, while still preserving the outlined concept treatment.
+  // Outline-only wordmark. Never paint the glyph interior here; the localized
+  // magenta bed in the backdrop supplies the concept's luminous inner field.
   ctx.shadowBlur = 0;
-  ctx.fillStyle = "rgba(255,224,249,0.13)";
-  ctx.fillText("AUDITION", canvas.width / 2, 270);
 
   // Soft magenta bloom.
   ctx.lineWidth = 15;
@@ -613,6 +610,20 @@ function makeAcceptedBackdropGlowTexture() {
   center.addColorStop(1, "rgba(48,13,137,0)");
   ctx.fillStyle = center;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(canvas.width * 0.50, canvas.height * 0.515);
+  ctx.scale(2.65, 0.72);
+  const logoBed = ctx.createRadialGradient(0, 0, 0, 0, 0, 126);
+  logoBed.addColorStop(0, "rgba(255,54,216,0.48)");
+  logoBed.addColorStop(0.42, "rgba(190,39,230,0.30)");
+  logoBed.addColorStop(0.76, "rgba(112,27,202,0.12)");
+  logoBed.addColorStop(1, "rgba(65,16,156,0)");
+  ctx.fillStyle = logoBed;
+  ctx.beginPath();
+  ctx.arc(0, 0, 126, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 
   const drawNeonPath = (
     points: ReadonlyArray<readonly [number, number]>,
@@ -912,9 +923,18 @@ export class NeonStageV1Environment {
       }
     });
 
-    ["R15 AUDITION Inset", "AUDITION_Brand", "DanceTogether"].forEach(name => {
-      model.getObjectByName(name)?.removeFromParent();
+    const rejectedLogoNodes: THREE.Object3D[] = [];
+    model.traverse(object => {
+      const normalized = object.name.toLowerCase().replace(/[\s_.-]+/g, "");
+      if (
+        normalized.includes("r15auditioninset")
+        || normalized.includes("auditionbrand")
+        || normalized.includes("dancetogether")
+      ) {
+        rejectedLogoNodes.push(object);
+      }
     });
+    rejectedLogoNodes.forEach(object => object.removeFromParent());
 
     const centralLed = model.getObjectByName("CentralLED") as THREE.Mesh | undefined;
     if (centralLed?.isMesh) {
@@ -1415,7 +1435,7 @@ export class NeonStageV1Environment {
         opacity: 1.0,
         depthWrite: false,
         depthTest: true,
-        blending: THREE.NormalBlending,
+        blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         toneMapped: false,
       });
