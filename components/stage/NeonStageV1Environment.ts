@@ -501,6 +501,20 @@ function makeAcceptedFloorReflectionTexture() {
     ctx.restore();
 
     ctx.save();
+    ctx.translate(cx, source.y + 18);
+    ctx.scale(source.w * 0.24, source.len * 1.08);
+    const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 58);
+    core.addColorStop(0, source.hot);
+    core.addColorStop(0.12, source.color.replace(/0\.[0-9]+\)$/, "0.56)"));
+    core.addColorStop(0.48, source.color.replace(/0\.[0-9]+\)$/, "0.18)"));
+    core.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(0, 0, 58, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
     ctx.translate(cx, 92);
     ctx.scale(source.w * 0.48, 0.72);
     const impact = ctx.createRadialGradient(0, 0, 0, 0, 0, 58);
@@ -540,7 +554,7 @@ function makeAcceptedLogoOverlayTexture() {
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.font = "italic 900 124px Arial";
+  ctx.font = "italic 900 133px Arial";
 
   // Outline-only wordmark. Never paint the glyph interior here; the localized
   // magenta bed in the backdrop supplies the concept's luminous inner field.
@@ -561,15 +575,15 @@ function makeAcceptedLogoOverlayTexture() {
   ctx.strokeText("AUDITION", canvas.width / 2, 270);
 
   // Hot white/pink inner neon edge.
-  ctx.lineWidth = 2.25;
+  ctx.lineWidth = 3.15;
   ctx.strokeStyle = "rgba(255,255,255,1)";
-  ctx.shadowColor = "rgba(255,229,252,0.62)";
-  ctx.shadowBlur = 1.5;
+  ctx.shadowColor = "rgba(255,229,252,0.54)";
+  ctx.shadowBlur = 1.15;
   ctx.strokeText("AUDITION", canvas.width / 2, 270);
 
   ctx.shadowBlur = 2.5;
   ctx.fillStyle = "rgba(255,255,255,0.99)";
-  ctx.font = "700 25px Arial";
+  ctx.font = "700 26px Arial";
   ctx.fillText("D A N C E   T O G E T H E R", canvas.width / 2, 354);
   ctx.shadowBlur = 0;
 
@@ -607,9 +621,9 @@ function makeAcceptedBackdropGlowTexture() {
     canvas.width * 0.50, canvas.height * 0.50, 8,
     canvas.width * 0.50, canvas.height * 0.50, canvas.width * 0.235,
   );
-  center.addColorStop(0, "rgba(247,41,215,0.44)");
-  center.addColorStop(0.34, "rgba(159,41,235,0.25)");
-  center.addColorStop(0.72, "rgba(87,22,190,0.065)");
+  center.addColorStop(0, "rgba(247,41,215,0.52)");
+  center.addColorStop(0.34, "rgba(159,41,235,0.31)");
+  center.addColorStop(0.72, "rgba(87,22,190,0.085)");
   center.addColorStop(1, "rgba(48,13,137,0)");
   ctx.fillStyle = center;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -618,9 +632,9 @@ function makeAcceptedBackdropGlowTexture() {
   ctx.translate(canvas.width * 0.50, canvas.height * 0.515);
   ctx.scale(2.35, 0.58);
   const logoBed = ctx.createRadialGradient(0, 0, 0, 0, 0, 126);
-  logoBed.addColorStop(0, "rgba(255,54,216,0.32)");
-  logoBed.addColorStop(0.42, "rgba(190,39,230,0.18)");
-  logoBed.addColorStop(0.76, "rgba(112,27,202,0.055)");
+  logoBed.addColorStop(0, "rgba(255,54,216,0.38)");
+  logoBed.addColorStop(0.42, "rgba(190,39,230,0.22)");
+  logoBed.addColorStop(0.76, "rgba(112,27,202,0.072)");
   logoBed.addColorStop(1, "rgba(65,16,156,0)");
   ctx.fillStyle = logoBed;
   ctx.beginPath();
@@ -669,19 +683,19 @@ function makeAcceptedBackdropGlowTexture() {
   // Left rails point toward the center: ">".
   drawNeonPath(
     [[62, 58], [172, 256], [62, 454]],
-    "rgba(255,48,211,0.93)",
+    "rgba(255,48,211,0.98)",
     "rgba(255,224,248,1)",
     19, 5.2, 16, 5,
   );
   drawNeonPath(
     [[150, 52], [280, 256], [150, 460]],
-    "rgba(43,219,255,0.94)",
+    "rgba(43,219,255,0.99)",
     "rgba(222,253,255,1)",
     20, 5.5, 17, 5.5,
   );
   drawNeonPath(
     [[252, 76], [352, 256], [252, 436]],
-    "rgba(178,77,255,0.78)",
+    "rgba(178,77,255,0.88)",
     "rgba(239,220,255,0.98)",
     15, 4.3, 13, 4,
   );
@@ -689,19 +703,19 @@ function makeAcceptedBackdropGlowTexture() {
   // Right rails mirror the left: "<".
   drawNeonPath(
     [[962, 58], [852, 256], [962, 454]],
-    "rgba(255,48,211,0.93)",
+    "rgba(255,48,211,0.98)",
     "rgba(255,224,248,1)",
     19, 5.2, 16, 5,
   );
   drawNeonPath(
     [[874, 52], [744, 256], [874, 460]],
-    "rgba(43,219,255,0.94)",
+    "rgba(43,219,255,0.99)",
     "rgba(222,253,255,1)",
     20, 5.5, 17, 5.5,
   );
   drawNeonPath(
     [[772, 76], [672, 256], [772, 436]],
-    "rgba(178,77,255,0.78)",
+    "rgba(178,77,255,0.88)",
     "rgba(239,220,255,0.98)",
     15, 4.3, 13, 4,
   );
@@ -1118,10 +1132,8 @@ export class NeonStageV1Environment {
         return;
       }
 
-      if (/^(DeckUplight|FloorUplight)_/.test(name)
-        && (name.includes("_Base_") || name.includes("_Yoke") || name.includes("_LensBezel"))) {
-        object.visible = false;
-      }
+      // Base / Yoke / LensBezel are part of the visible portrait silhouette of
+      // the lower stage uplights. Keep them; only micro-detail above is culled.
     });
   }
 
@@ -1253,7 +1265,7 @@ export class NeonStageV1Environment {
           });
           const sourceHalo = new THREE.Sprite(sourceMaterial);
           sourceHalo.name = `${key}_RuntimeSourceHalo`;
-          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 1.30 : 1.02);
+          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 1.38 : 1.08);
           sourceFxRoot.add(sourceHalo);
 
           const hotCoreMaterial = sourceMaterial.clone();
@@ -1261,7 +1273,7 @@ export class NeonStageV1Environment {
           hotCoreMaterial.opacity = 1.0;
           const hotCore = new THREE.Sprite(hotCoreMaterial);
           hotCore.name = `${key}_RuntimeSourceHotCore`;
-          hotCore.scale.setScalar(group.prefix === "MainFixture" ? 0.24 : 0.20);
+          hotCore.scale.setScalar(group.prefix === "MainFixture" ? 0.31 : 0.24);
           sourceFxRoot.add(hotCore);
 
           const sourceBloomMaterial = sourceMaterial.clone();
@@ -1360,7 +1372,7 @@ export class NeonStageV1Environment {
           ? (
             group.prefix === "MainFixture"
               ? new THREE.Vector3(
-                side * 5.35,
+                side * 4.55,
                 0.045,
                 0.15 + Math.abs(side) * 0.78,
               )
@@ -1478,7 +1490,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.86,
+      opacity: 0.92,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -1534,7 +1546,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.38 + glow * 0.10;
+        state.beamMaterial.uniforms.uOpacity.value = 0.42 + glow * 0.11;
       }
 
       if (!state.floorAimBase || (!state.beamRoot && !state.spillMesh)) return;
@@ -1545,8 +1557,8 @@ export class NeonStageV1Environment {
       this.root.worldToLocal(localSource);
 
       localTarget.copy(state.floorAimBase);
-      localTarget.x += Math.sin(theta * 0.82 + state.phase) * 0.42;
-      localTarget.z += Math.sin(theta * 0.64 + state.phase * 0.7) * 0.34;
+      localTarget.x += Math.sin(theta * 0.82 + state.phase) * 0.28;
+      localTarget.z += Math.sin(theta * 0.64 + state.phase * 0.7) * 0.24;
 
       localDirection.subVectors(localTarget, localSource);
       if (localDirection.lengthSq() < 1e-6) {
