@@ -4,7 +4,7 @@ Phase 1 — Solo Easy Core Gameplay, Phase 2 — Portrait HUD / iPhone UX, and P
 
 Current integration checkpoint:
 
-**Phase 5 is integrated into `development`, including owner-accepted P5.6 Waiting Room Visual V2. PR #15 merged at `d27168929f9923b1de561133b941977d039d56a1`. Current roadmap work is S2 — Stage Catalog on `work/s2-stage-catalog` / draft PR #16. S3 Host Stage Selector has not started.**
+**Phase 5 is integrated into `development`, including owner-accepted P5.6 Waiting Room Visual V2. PR #15 merged at `d27168929f9923b1de561133b941977d039d56a1`. S2 Stage Catalog is implemented on PR #16. Current roadmap work is S2.5A — Neon Stage V1 on `work/s2-5a-neon-stage-v1`, stacked on S2. S3 Host Stage Selector has not started.**
 
 Phase 3 functional owner QA passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, Finish continuation, and the shared Finish Miss cadence. Phase 3 was merged into `development` at `e1d7a814b95144b3947cfb39503b998564b2bc29`, and owner iPhone staging QA passed. Rapid iPhone heating / battery drain remains explicit performance debt; thermal and battery profiling are not being misrepresented as complete.
 
@@ -445,7 +445,11 @@ Planned catalog/content sequence:
 - `classroom-v1` — planned classroom environment;
 - `cafe-v1` — planned cafe environment.
 
-S2.5A Neon Stage V1 should reuse the Waiting Room's accepted neon composition/language rather than revive the rejected `neon-club-v3` direction. Higgsfield-generated/redrawn animation may be used as visual source material, while Stage3D/WebAudio architecture remains unchanged.
+S2.5A Neon Stage V1 should reuse the Waiting Room's accepted neon composition/language rather than revive the rejected `neon-club-v3` direction.
+
+The owner-approved concept `neon_audition_dance_arena.png` is the S2.5A visual source of truth. Required visual anchors are the curved overhead truss, cyan/violet fixture palette, large LED backdrop, curved multi-tier risers, glossy reflective floor, and central circular dance mark.
+
+Higgsfield 3D / animation generation may be used for editable blockout and motion-source exploration. Runtime Stage3D/WebAudio authority remains unchanged.
 
 **S3 — Host Stage Selector** follows after the initial environment pack is accepted, so the selector exposes real runnable choices rather than placeholder entries.
 

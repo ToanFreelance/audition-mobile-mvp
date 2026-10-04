@@ -36,7 +36,12 @@ test("S2 Stage Catalog reserves the S2.5 environment pack without exposing unfin
     "neon-club-v3",
   ]);
 
-  for (const id of ["neon-stage-v1", "football-field-v1", "classroom-v1", "cafe-v1"] as const) {
+  expect(STAGE_CATALOG["neon-stage-v1"].status).toBe("planned");
+  expect(STAGE_CATALOG["neon-stage-v1"].selectable).toBe(false);
+  expect(STAGE_CATALOG["neon-stage-v1"].runtimeAssetId).toBe("neon-stage-v1");
+  expect(STAGE_CATALOG["neon-stage-v1"].presentationProfileId).toBe("neon-stage-v1");
+
+  for (const id of ["football-field-v1", "classroom-v1", "cafe-v1"] as const) {
     expect(STAGE_CATALOG[id].status).toBe("planned");
     expect(STAGE_CATALOG[id].selectable).toBe(false);
     expect(STAGE_CATALOG[id].runtimeAssetId).toBeNull();
@@ -52,6 +57,7 @@ test("S2 Stage Catalog reserves the S2.5 environment pack without exposing unfin
 test("S2 Stage Catalog preserves legacy runtime assets without making them selectable", () => {
   expect(STAGE_RUNTIME_ASSET_IDS).toEqual([
     "bright-stage-v1",
+    "neon-stage-v1",
     "performance-stage-v1",
     "neon-club-v3",
   ]);
@@ -67,7 +73,7 @@ test("S2 Stage Catalog separates requested identity from runnable fallback", () 
   expect(resolveStageCatalogEntry("unknown-stage").id).toBe("bright-stage-v1");
 
   expect(resolveStageCatalogEntry("neon-stage-v1").id).toBe("neon-stage-v1");
-  expect(resolveRuntimeStageCatalogEntry("neon-stage-v1").id).toBe("bright-stage-v1");
+  expect(resolveRuntimeStageCatalogEntry("neon-stage-v1").id).toBe("neon-stage-v1");
 
   expect(resolveRuntimeStageCatalogEntry("performance-stage-v1").runtimeAssetId)
     .toBe("performance-stage-v1");
