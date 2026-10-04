@@ -473,8 +473,6 @@ function makeAcceptedFloorCompositeTexture() {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("R15.1 floor-composite canvas unavailable.");
 
-  // Authoritative glossy floor: dark tile base + seams + persistent reflected
-  // color from backdrop/stairs/fixtures in one normal-blended layer.
   const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
   base.addColorStop(0, "#17072f");
   base.addColorStop(0.30, "#13062a");
@@ -483,7 +481,6 @@ function makeAcceptedFloorCompositeTexture() {
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Soft violet atmosphere near the stage, deliberately not uniform.
   const stageBed = ctx.createRadialGradient(512, 140, 0, 512, 140, 610);
   stageBed.addColorStop(0, "rgba(138,35,222,0.34)");
   stageBed.addColorStop(0.34, "rgba(88,30,178,0.19)");
@@ -494,7 +491,6 @@ function makeAcceptedFloorCompositeTexture() {
 
   const xToCanvas = (worldX: number) => ((worldX + 9.9) / 19.8) * canvas.width;
 
-  // Backdrop color spill: wide, low-frequency reflections with clear dark gaps.
   const spills = [
     { x: -6.7, rgb: "255,49,207", hot: "255,198,241", sx: 1.00, sy: 5.4, y: 224 },
     { x: -4.3, rgb: "42,217,255", hot: "213,251,255", sx: 0.90, sy: 5.8, y: 236 },
@@ -522,8 +518,6 @@ function makeAcceptedFloorCompositeTexture() {
     ctx.restore();
   }
 
-  // Stair lip reflection bands. These establish horizontal stage depth and
-  // remain visible when moving heads sweep away.
   const bands = [
     { y: 120, color: "rgba(255,49,210,0.48)", blur: 20, width: 4.0 },
     { y: 156, color: "rgba(44,217,255,0.34)", blur: 18, width: 3.0 },
@@ -543,7 +537,6 @@ function makeAcceptedFloorCompositeTexture() {
   }
   ctx.shadowBlur = 0;
 
-  // Narrow source-correlated streaks extending toward the gameplay foreground.
   const streaks = [
     { x: -6.0, rgb: "255,54,211", hot: "255,232,249", w: 0.92, len: 4.4, y: 248 },
     { x: -4.5, rgb: "49,216,255", hot: "226,253,255", w: 0.82, len: 4.8, y: 260 },
@@ -571,8 +564,6 @@ function makeAcceptedFloorCompositeTexture() {
     ctx.restore();
   }
 
-  // Tile seams are drawn last so the glossy floor still reads as tiled under
-  // bright reflections.
   for (let x = 0; x <= canvas.width; x += 128) {
     ctx.strokeStyle = "rgba(3,2,14,0.68)";
     ctx.lineWidth = 3;
@@ -604,7 +595,6 @@ function makeAcceptedFloorCompositeTexture() {
     ctx.stroke();
   }
 
-  // Sparse specular catches mimic the concept's glossy tile highlights.
   const catches = [
     [170, 340, "rgba(255,69,221,0.32)"],
     [344, 398, "rgba(60,220,255,0.30)"],
@@ -1352,7 +1342,121 @@ export class NeonStageV1Environment {
           reflectionCoreMesh.position.y = 0.051;
           this.acceptedFxRoot.add(reflectionCoreMesh);
 
-          const floorCompositeMaterial = new THREE.MeshBasicMaterial({
+          const reflectionMaterial = new THREE.MeshBasicMaterial({
+            name: `${key}_RuntimeReflectionStreak`,
+            map: reflectionStreakTexture,
+            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.10),
+            transparent: true,
+            opacity: 0.24,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide,
+            toneMapped: false,
+          });
+          reflectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.26, 12.0), reflectionMaterial);
+          reflectionMesh.name = `${key}_RuntimeReflectionStreakMesh`;
+          reflectionMesh.rotation.x = -Math.PI / 2;
+          reflectionMesh.position.y = 0.049;
+          this.acceptedFxRoot.add(reflectionMesh);
+        }
+
+        const side = (index - center) / Math.max(1, center);
+        const floorAimBase = activeBeamKeys.has(key)
+          ? (
+            group.prefix === "MainFixture"
+              ? acceptedFixtureFloorAim(key)
+              : new THREE.Vector3(0, 0.045, -1.25)
+          )
+          : null;
+
+        this.acceptedMovingHeads.push({
+          panPivot,
+          tiltPivot,
+          optical,
+          basePanQuaternion: panPivot.quaternion.clone(),
+          baseTiltQuaternion: tiltPivot.quaternion.clone(),
+          phase: group.phase + side * 0.52,
+          panAmplitude: THREE.MathUtils.degToRad(group.pan),
+          tiltAmplitude: THREE.MathUtils.degToRad(group.tilt),
+          speed: group.speed,
+          sourceAnchor,
+          sourceFxRoot,
+          floorAimBase,
+          beamRoot,
+          beamMaterial,
+          spillMesh,
+          reflectionCoreMesh,
+          reflectionMesh,
+        });
+      }
+    });
+  }
+
+  private createAcceptedR15BeautyLighting(model: THREE.Object3D) {
+    const ambient = new THREE.AmbientLight(0x321044, 0.16);
+    ambient.name = "R15RuntimeBeautyAmbient";
+    this.acceptedFxRoot.add(ambient);
+
+    const poolTexture = makeAcceptedLightPoolTexture();
+    const backdropTexture = makeAcceptedBackdropGlowTexture();
+    const floorCompositeTexture = makeAcceptedFloorCompositeTexture();
+    this.textures.push(
+      poolTexture,
+      backdropTexture,
+      floorCompositeTexture,
+    );
+
+    const centralLed = model.getObjectByName("CentralLED");
+    if (centralLed) {
+      centralLed.updateWorldMatrix(true, false);
+      const ledBounds = new THREE.Box3().setFromObject(centralLed);
+      const ledSize = ledBounds.getSize(new THREE.Vector3());
+      const ledCenter = ledBounds.getCenter(new THREE.Vector3());
+
+      const backdropMaterial = new THREE.MeshBasicMaterial({
+        map: backdropTexture,
+        transparent: true,
+        opacity: 0.92,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.NormalBlending,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      const backdrop = new THREE.Mesh(
+        new THREE.PlaneGeometry(ledSize.x * 0.985, ledSize.y * 0.97),
+        backdropMaterial,
+      );
+      backdrop.name = "R15AcceptedLedGlowOverlay";
+      backdrop.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.028);
+      this.acceptedFxRoot.add(backdrop);
+
+    }
+
+    const backdropWashes = [
+      { name: "R15BackdropWashCyan", color: 0x24d4ff, x: -4.8, opacity: 0.08 },
+      { name: "R15BackdropWashViolet", color: 0xa737ff, x: -0.2, opacity: 0.15 },
+      { name: "R15BackdropWashMagenta", color: 0xff2fc8, x: 4.5, opacity: 0.17 },
+    ] as const;
+
+    backdropWashes.forEach(wash => {
+      const material = new THREE.MeshBasicMaterial({
+        map: poolTexture,
+        color: wash.color,
+        transparent: true,
+        opacity: wash.opacity,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 8.2), material);
+      glow.name = wash.name;
+      glow.position.set(wash.x, 4.1, -5.25);
+      this.acceptedFxRoot.add(glow);
+    });
+
+    const floorCompositeMaterial = new THREE.MeshBasicMaterial({
       map: floorCompositeTexture,
       transparent: false,
       opacity: 1.0,
