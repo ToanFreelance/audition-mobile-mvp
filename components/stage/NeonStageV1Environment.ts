@@ -444,12 +444,11 @@ function createAcceptedFixtureSourceAnchor(
 
 function acceptedFixturePresentationColor(key: string, fallback: THREE.Color) {
   const authored: Record<string, number> = {
-    MainFixture_00: 0x30dcff,
-    MainFixture_02: 0xff36d3,
-    MainFixture_05: 0xb84dff,
-    MainFixture_08: 0x34d7ff,
-    MainFixture_10: 0xff3bcf,
-    RearFixture_02: 0xb94fff,
+    MainFixture_01: 0xff3bd3,
+    MainFixture_02: 0x30dcff,
+    MainFixture_05: 0xff39cf,
+    MainFixture_08: 0x34d9ff,
+    MainFixture_09: 0xff3bd3,
   };
   return authored[key] === undefined ? fallback.clone() : new THREE.Color(authored[key]);
 }
@@ -463,21 +462,64 @@ function makeAcceptedFloorReflectionTexture() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Glossy violet base only. Directional streaks now come exclusively from
-  // moving-head impact/reflection FX, so the floor no longer reads as painted lanes.
   const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  base.addColorStop(0, "rgba(184,48,255,0.17)");
-  base.addColorStop(0.26, "rgba(236,49,222,0.11)");
-  base.addColorStop(0.58, "rgba(99,53,235,0.075)");
-  base.addColorStop(1, "rgba(42,28,132,0.025)");
+  base.addColorStop(0, "rgba(168,43,255,0.12)");
+  base.addColorStop(0.30, "rgba(227,43,219,0.075)");
+  base.addColorStop(0.62, "rgba(86,48,214,0.045)");
+  base.addColorStop(1, "rgba(28,20,105,0.018)");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const rearBloom = ctx.createRadialGradient(256, 70, 0, 256, 70, 270);
-  rearBloom.addColorStop(0, "rgba(255,72,224,0.12)");
-  rearBloom.addColorStop(0.36, "rgba(149,66,255,0.085)");
-  rearBloom.addColorStop(1, "rgba(80,42,190,0)");
-  ctx.fillStyle = rearBloom;
+  const xToCanvas = (worldX: number) => ((worldX + 9.9) / 19.8) * canvas.width;
+  const sources = [
+    { x: -9.0, color: "rgba(45,218,255,0.38)", hot: "rgba(225,253,255,0.72)", w: 0.82, len: 1.95, y: 210 },
+    { x: -6.0, color: "rgba(255,55,211,0.48)", hot: "rgba(255,231,249,0.86)", w: 0.88, len: 2.35, y: 175 },
+    { x: -4.6, color: "rgba(49,216,255,0.50)", hot: "rgba(226,253,255,0.86)", w: 0.78, len: 2.55, y: 188 },
+    { x: -2.6, color: "rgba(255,53,207,0.54)", hot: "rgba(255,232,249,0.90)", w: 0.84, len: 2.70, y: 195 },
+    { x:  2.6, color: "rgba(48,214,255,0.52)", hot: "rgba(225,252,255,0.88)", w: 0.82, len: 2.65, y: 190 },
+    { x:  4.6, color: "rgba(255,52,207,0.52)", hot: "rgba(255,231,249,0.88)", w: 0.86, len: 2.48, y: 180 },
+    { x:  6.0, color: "rgba(47,214,255,0.46)", hot: "rgba(225,252,255,0.82)", w: 0.76, len: 2.25, y: 170 },
+    { x:  9.0, color: "rgba(255,57,210,0.36)", hot: "rgba(255,232,249,0.70)", w: 0.78, len: 1.90, y: 205 },
+  ] as const;
+
+  for (const source of sources) {
+    const cx = xToCanvas(source.x);
+
+    ctx.save();
+    ctx.translate(cx, source.y);
+    ctx.scale(source.w, source.len);
+    const tail = ctx.createRadialGradient(0, 0, 0, 0, 0, 72);
+    tail.addColorStop(0, source.hot);
+    tail.addColorStop(0.13, source.color);
+    tail.addColorStop(0.42, source.color.replace(/0\.[0-9]+\)$/, "0.20)"));
+    tail.addColorStop(0.72, source.color.replace(/0\.[0-9]+\)$/, "0.07)"));
+    tail.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = tail;
+    ctx.beginPath();
+    ctx.arc(0, 0, 72, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(cx, 92);
+    ctx.scale(source.w * 0.48, 0.72);
+    const impact = ctx.createRadialGradient(0, 0, 0, 0, 0, 58);
+    impact.addColorStop(0, source.hot);
+    impact.addColorStop(0.18, source.color);
+    impact.addColorStop(0.62, source.color.replace(/0\.[0-9]+\)$/, "0.10)"));
+    impact.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = impact;
+    ctx.beginPath();
+    ctx.arc(0, 0, 58, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  const centerBloom = ctx.createRadialGradient(256, 118, 0, 256, 118, 160);
+  centerBloom.addColorStop(0, "rgba(255,61,219,0.20)");
+  centerBloom.addColorStop(0.34, "rgba(172,68,255,0.11)");
+  centerBloom.addColorStop(1, "rgba(88,45,190,0)");
+  ctx.fillStyle = centerBloom;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -876,11 +918,13 @@ export class NeonStageV1Environment {
           material.emissive.setHex(0x65158f);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.88);
         } else if (name.includes("aperture cyan")) {
-          material.emissive.setHex(0x20cfff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.0);
+          material.emissive.setHex(0x20d9ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.8);
+          material.toneMapped = false;
         } else if (name.includes("aperture violet")) {
           material.emissive.setHex(0xff2ed0);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.0);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.8);
+          material.toneMapped = false;
         } else if (name.includes("neon cyan")) {
           material.emissive.setHex(0x18d8ff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 6.4);
@@ -940,19 +984,18 @@ export class NeonStageV1Environment {
 
   private prepareAcceptedR15MovingHeads(model: THREE.Object3D) {
     const activeBeamKeys = new Set([
-      "MainFixture_00",
+      "MainFixture_01",
       "MainFixture_02",
       "MainFixture_05",
       "MainFixture_08",
-      "MainFixture_10",
-      "RearFixture_02",
+      "MainFixture_09",
     ]);
     const activeSpillKeys = new Set([
-      "MainFixture_00",
+      "MainFixture_01",
       "MainFixture_02",
       "MainFixture_05",
       "MainFixture_08",
-      "MainFixture_10",
+      "MainFixture_09",
     ]);
     const lightPoolTexture = makeAcceptedLightPoolTexture();
     const beamSourceTexture = makeAcceptedBeamSourceTexture();
@@ -960,7 +1003,7 @@ export class NeonStageV1Environment {
     this.textures.push(lightPoolTexture, beamSourceTexture, reflectionStreakTexture);
 
     const groups = [
-      { prefix: "MainFixture", count: 11, pan: 14, tilt: 8, speed: 0.72, phase: 0.00, length: 9.5, radius: 0.82 },
+      { prefix: "MainFixture", count: 11, pan: 14, tilt: 8, speed: 0.72, phase: 0.00, length: 9.5, radius: 1.04 },
       { prefix: "RearFixture", count: 5, pan: 10, tilt: 6, speed: 0.58, phase: 0.80, length: 7.2, radius: 0.64 },
     ] as const;
 
@@ -1067,7 +1110,7 @@ export class NeonStageV1Environment {
           });
           const sourceHalo = new THREE.Sprite(sourceMaterial);
           sourceHalo.name = `${key}_RuntimeSourceHalo`;
-          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 1.34 : 1.02);
+          sourceHalo.scale.setScalar(group.prefix === "MainFixture" ? 1.16 : 0.92);
           sourceFxRoot.add(sourceHalo);
 
           const hotCoreMaterial = sourceMaterial.clone();
@@ -1075,7 +1118,7 @@ export class NeonStageV1Environment {
           hotCoreMaterial.opacity = 1.0;
           const hotCore = new THREE.Sprite(hotCoreMaterial);
           hotCore.name = `${key}_RuntimeSourceHotCore`;
-          hotCore.scale.setScalar(group.prefix === "MainFixture" ? 0.30 : 0.24);
+          hotCore.scale.setScalar(group.prefix === "MainFixture" ? 0.24 : 0.20);
           sourceFxRoot.add(hotCore);
 
           const sourceBloomMaterial = sourceMaterial.clone();
@@ -1083,7 +1126,7 @@ export class NeonStageV1Environment {
           sourceBloomMaterial.opacity = group.prefix === "MainFixture" ? 0.46 : 0.34;
           const sourceBloom = new THREE.Sprite(sourceBloomMaterial);
           sourceBloom.name = `${key}_RuntimeSourceBloom`;
-          sourceBloom.scale.setScalar(group.prefix === "MainFixture" ? 2.05 : 1.58);
+          sourceBloom.scale.setScalar(group.prefix === "MainFixture" ? 1.72 : 1.38);
           sourceFxRoot.add(sourceBloom);
 
           const plumeMaterial = new THREE.MeshBasicMaterial({
@@ -1097,14 +1140,20 @@ export class NeonStageV1Environment {
             blending: THREE.AdditiveBlending,
             toneMapped: false,
           });
-          const plume = new THREE.Mesh(
-            new THREE.PlaneGeometry(group.radius * 2.65, group.prefix === "MainFixture" ? 2.7 : 2.1),
-            plumeMaterial,
+          const makePlume = (rotationY: number, suffix: string) => {
+            const plume = new THREE.Mesh(
+              new THREE.PlaneGeometry(group.radius * 2.8, group.prefix === "MainFixture" ? 2.9 : 2.1),
+              plumeMaterial,
+            );
+            plume.name = `${key}_RuntimeSourcePlume${suffix}`;
+            plume.geometry.translate(0, -(group.prefix === "MainFixture" ? 1.45 : 1.05), 0);
+            plume.rotation.y = rotationY;
+            return plume;
+          };
+          beamRoot.add(
+            makePlume(Math.PI / 4, "A"),
+            makePlume(-Math.PI / 4, "B"),
           );
-          plume.name = `${key}_RuntimeSourcePlume`;
-          plume.geometry.translate(0, -(group.prefix === "MainFixture" ? 1.35 : 1.05), 0);
-          plume.rotation.y = Math.PI / 4;
-          beamRoot.add(plume);
         }
 
         let spillMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
@@ -1122,7 +1171,7 @@ export class NeonStageV1Environment {
             side: THREE.DoubleSide,
             toneMapped: false,
           });
-          spillMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.35, 3.25), poolMaterial);
+          spillMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.90, 2.65), poolMaterial);
           spillMesh.name = `${key}_RuntimeLightPoolMesh`;
           spillMesh.rotation.x = -Math.PI / 2;
           spillMesh.position.y = 0.045;
@@ -1285,7 +1334,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.46,
+      opacity: 0.78,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -1341,7 +1390,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.30 + glow * 0.085;
+        state.beamMaterial.uniforms.uOpacity.value = 0.42 + glow * 0.12;
       }
 
       if (!state.floorAimBase || (!state.beamRoot && !state.spillMesh)) return;
@@ -1383,7 +1432,7 @@ export class NeonStageV1Environment {
       const hitZ = THREE.MathUtils.clamp(localTarget.z, -5.3, 6.4);
 
       state.spillMesh.position.set(hitX, 0.045, hitZ);
-      state.spillMesh.material.opacity = 0.40 + glow * 0.14;
+      state.spillMesh.material.opacity = 0.52 + glow * 0.15;
       state.spillMesh.visible = true;
 
       if (state.reflectionCoreMesh) {
@@ -1398,7 +1447,7 @@ export class NeonStageV1Environment {
           coreLength / 4.8,
           1,
         );
-        state.reflectionCoreMesh.material.opacity = 0.36 + glow * 0.16;
+        state.reflectionCoreMesh.material.opacity = 0.52 + glow * 0.18;
         state.reflectionCoreMesh.visible = true;
       }
 
@@ -1415,7 +1464,7 @@ export class NeonStageV1Environment {
           reflectionLength / 12.0,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.14 + glow * 0.10;
+        state.reflectionMesh.material.opacity = 0.19 + glow * 0.10;
         state.reflectionMesh.visible = true;
       }
     });
