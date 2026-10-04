@@ -539,30 +539,38 @@ function makeAcceptedLogoOverlayTexture() {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.lineJoin = "round";
+  ctx.lineCap = "round";
   ctx.font = "italic 900 124px Arial";
 
-  // Outer magenta bloom — glow only, never a dark shadow.
+  // One wordmark only. A very low-alpha pearl/pink interior prevents the
+  // transparent center from reading as a second navy/black word on the dark
+  // LED wall, while still preserving the outlined concept treatment.
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "rgba(255,224,249,0.13)";
+  ctx.fillText("AUDITION", canvas.width / 2, 270);
+
+  // Soft magenta bloom.
   ctx.lineWidth = 15;
-  ctx.strokeStyle = "rgba(255,37,211,0.96)";
-  ctx.shadowColor = "rgba(255,35,207,0.92)";
-  ctx.shadowBlur = 18;
+  ctx.strokeStyle = "rgba(255,38,211,0.96)";
+  ctx.shadowColor = "rgba(255,35,207,0.94)";
+  ctx.shadowBlur = 19;
   ctx.strokeText("AUDITION", canvas.width / 2, 270);
 
-  // Pink transition ring.
+  // Saturated transition edge.
   ctx.lineWidth = 8;
-  ctx.strokeStyle = "rgba(255,103,226,0.98)";
-  ctx.shadowColor = "rgba(255,72,218,0.70)";
+  ctx.strokeStyle = "rgba(255,105,228,0.99)";
+  ctx.shadowColor = "rgba(255,69,219,0.76)";
   ctx.shadowBlur = 9;
   ctx.strokeText("AUDITION", canvas.width / 2, 270);
 
-  // Hot white/pink inner edge. No fill: backdrop remains visible inside.
+  // Hot white/pink inner neon edge.
   ctx.lineWidth = 3.4;
-  ctx.strokeStyle = "rgba(255,247,255,1)";
-  ctx.shadowColor = "rgba(255,214,250,0.92)";
+  ctx.strokeStyle = "rgba(255,249,255,1)";
+  ctx.shadowColor = "rgba(255,218,251,0.94)";
   ctx.shadowBlur = 4;
   ctx.strokeText("AUDITION", canvas.width / 2, 270);
 
-  ctx.shadowBlur = 8;
+  ctx.shadowBlur = 7;
   ctx.fillStyle = "rgba(255,255,255,0.98)";
   ctx.font = "700 25px Arial";
   ctx.fillText("D A N C E   T O G E T H E R", canvas.width / 2, 354);
@@ -583,54 +591,107 @@ function makeAcceptedBackdropGlowTexture() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Dark premium violet base. Keep enough depth that the neon rails read as
+  // separate architectural elements instead of becoming a flat pastel wash.
   const base = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  base.addColorStop(0, "rgba(58,14,185,0.48)");
-  base.addColorStop(0.34, "rgba(126,24,232,0.60)");
-  base.addColorStop(0.66, "rgba(222,24,194,0.58)");
-  base.addColorStop(1, "rgba(53,31,193,0.44)");
+  base.addColorStop(0, "rgba(43,10,142,0.43)");
+  base.addColorStop(0.34, "rgba(105,18,210,0.54)");
+  base.addColorStop(0.66, "rgba(203,18,180,0.52)");
+  base.addColorStop(1, "rgba(47,25,169,0.40)");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Localized magenta energy behind the wordmark. This keeps the logo interior
+  // violet/magenta instead of navy/black without lifting the entire LED wall.
   const center = ctx.createRadialGradient(
-    canvas.width * 0.52, canvas.height * 0.52, 12,
-    canvas.width * 0.52, canvas.height * 0.52, canvas.width * 0.38,
+    canvas.width * 0.50, canvas.height * 0.50, 8,
+    canvas.width * 0.50, canvas.height * 0.50, canvas.width * 0.29,
   );
-  center.addColorStop(0, "rgba(245,46,216,0.46)");
-  center.addColorStop(0.35, "rgba(151,47,238,0.32)");
-  center.addColorStop(1, "rgba(53,22,151,0)");
+  center.addColorStop(0, "rgba(247,41,215,0.58)");
+  center.addColorStop(0.34, "rgba(159,41,235,0.36)");
+  center.addColorStop(0.72, "rgba(87,22,190,0.10)");
+  center.addColorStop(1, "rgba(48,13,137,0)");
   ctx.fillStyle = center;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const sideGlows = [
-    { x: 64, color: "rgba(31,222,255,0.94)", hot: "rgba(218,252,255,1)" },
-    { x: 224, color: "rgba(142,74,255,0.90)", hot: "rgba(233,216,255,1)" },
-    { x: 360, color: "rgba(37,217,255,0.92)", hot: "rgba(221,252,255,1)" },
-    { x: 664, color: "rgba(255,58,215,0.94)", hot: "rgba(255,226,249,1)" },
-    { x: 800, color: "rgba(255,52,211,0.94)", hot: "rgba(255,226,249,1)" },
-    { x: 960, color: "rgba(57,208,255,0.90)", hot: "rgba(220,250,255,1)" },
-  ];
-  for (const ray of sideGlows) {
-    const endX = ray.x + (ray.x < 512 ? 164 : -164);
-
+  const drawNeonPath = (
+    points: ReadonlyArray<readonly [number, number]>,
+    color: string,
+    hot: string,
+    outerWidth: number,
+    innerWidth: number,
+    outerBlur: number,
+    innerBlur: number,
+  ) => {
+    ctx.save();
     ctx.lineCap = "round";
-    ctx.lineWidth = 26;
-    ctx.shadowBlur = 30;
-    ctx.strokeStyle = ray.color;
-    ctx.shadowColor = ray.color;
+    ctx.lineJoin = "round";
+
     ctx.beginPath();
-    ctx.moveTo(ray.x, 18);
-    ctx.lineTo(endX, 494);
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i += 1) {
+      ctx.lineTo(points[i][0], points[i][1]);
+    }
+    ctx.lineWidth = outerWidth;
+    ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = outerBlur;
     ctx.stroke();
 
-    ctx.lineWidth = 7;
-    ctx.shadowBlur = 12;
-    ctx.strokeStyle = ray.hot;
-    ctx.shadowColor = ray.color;
     ctx.beginPath();
-    ctx.moveTo(ray.x, 18);
-    ctx.lineTo(endX, 494);
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i += 1) {
+      ctx.lineTo(points[i][0], points[i][1]);
+    }
+    ctx.lineWidth = innerWidth;
+    ctx.strokeStyle = hot;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = innerBlur;
     ctx.stroke();
-  }
+
+    ctx.restore();
+  };
+
+  // Left rails point toward the center: ">".
+  drawNeonPath(
+    [[62, 58], [172, 256], [62, 454]],
+    "rgba(255,48,211,0.93)",
+    "rgba(255,224,248,1)",
+    24, 6.5, 25, 10,
+  );
+  drawNeonPath(
+    [[150, 52], [280, 256], [150, 460]],
+    "rgba(43,219,255,0.94)",
+    "rgba(222,253,255,1)",
+    25, 7, 27, 11,
+  );
+  drawNeonPath(
+    [[252, 76], [352, 256], [252, 436]],
+    "rgba(178,77,255,0.78)",
+    "rgba(239,220,255,0.98)",
+    18, 5, 18, 8,
+  );
+
+  // Right rails mirror the left: "<".
+  drawNeonPath(
+    [[962, 58], [852, 256], [962, 454]],
+    "rgba(255,48,211,0.93)",
+    "rgba(255,224,248,1)",
+    24, 6.5, 25, 10,
+  );
+  drawNeonPath(
+    [[874, 52], [744, 256], [874, 460]],
+    "rgba(43,219,255,0.94)",
+    "rgba(222,253,255,1)",
+    25, 7, 27, 11,
+  );
+  drawNeonPath(
+    [[772, 76], [672, 256], [772, 436]],
+    "rgba(178,77,255,0.78)",
+    "rgba(239,220,255,0.98)",
+    18, 5, 18, 8,
+  );
+
   ctx.shadowBlur = 0;
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -1364,6 +1425,7 @@ export class NeonStageV1Environment {
       );
       logoOverlay.name = "R15AcceptedAuditionLogoOverlay";
       logoOverlay.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.046);
+      logoOverlay.renderOrder = 30;
       this.acceptedFxRoot.add(logoOverlay);
     }
 
