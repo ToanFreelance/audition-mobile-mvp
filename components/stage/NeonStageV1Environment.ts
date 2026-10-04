@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { StagePresentationCameraPreset } from "./stageCamera";
 import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
+import { NEON_STAGE_CONCEPT_LED_DATA_URL } from "./neonConceptLedData";
 
 type RuntimeUrlResponse = {
   stageId: string;
@@ -603,94 +604,36 @@ function makeAcceptedBackdropGlowTexture() {
   canvas.width = 1024;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("R15.1 backdrop-glow canvas unavailable.");
+  if (!ctx) throw new Error("R15.1 backdrop-base canvas unavailable.");
 
-  // Authoritative concept plate: dark glossy violet with localized magenta
-  // energy and crisp cyan/magenta chevrons. This intentionally replaces the
-  // previous additive wash stack, which flattened contrast on mobile.
   const base = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  base.addColorStop(0, "#130529");
-  base.addColorStop(0.28, "#240852");
-  base.addColorStop(0.52, "#4a0a78");
-  base.addColorStop(0.72, "#6e0c75");
-  base.addColorStop(1, "#180638");
+  base.addColorStop(0, "#16052f");
+  base.addColorStop(0.28, "#250755");
+  base.addColorStop(0.52, "#4c0b7d");
+  base.addColorStop(0.72, "#5d0c78");
+  base.addColorStop(1, "#170634");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const center = ctx.createRadialGradient(
-    canvas.width * 0.50, canvas.height * 0.49, 8,
-    canvas.width * 0.50, canvas.height * 0.49, canvas.width * 0.31,
+    canvas.width * 0.5, canvas.height * 0.50, 12,
+    canvas.width * 0.5, canvas.height * 0.50, canvas.width * 0.36,
   );
-  center.addColorStop(0, "rgba(255,43,213,0.58)");
-  center.addColorStop(0.26, "rgba(187,37,235,0.39)");
-  center.addColorStop(0.60, "rgba(104,21,192,0.18)");
-  center.addColorStop(1, "rgba(37,9,100,0)");
+  center.addColorStop(0, "rgba(207,37,221,0.30)");
+  center.addColorStop(0.42, "rgba(111,29,206,0.16)");
+  center.addColorStop(1, "rgba(24,6,76,0)");
   ctx.fillStyle = center;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Dark edge vignette keeps the concept's premium contrast and lets the neon
-  // rails read as architecture instead of a flat purple poster.
   const vignette = ctx.createRadialGradient(
-    canvas.width * 0.5, canvas.height * 0.50, canvas.width * 0.20,
-    canvas.width * 0.5, canvas.height * 0.50, canvas.width * 0.72,
+    canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.22,
+    canvas.width * 0.5, canvas.height * 0.5, canvas.width * 0.74,
   );
   vignette.addColorStop(0, "rgba(0,0,0,0)");
-  vignette.addColorStop(0.72, "rgba(4,2,22,0.10)");
-  vignette.addColorStop(1, "rgba(3,1,17,0.46)");
+  vignette.addColorStop(0.76, "rgba(2,1,14,0.08)");
+  vignette.addColorStop(1, "rgba(2,1,14,0.38)");
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const drawNeonPath = (
-    points: ReadonlyArray<readonly [number, number]>,
-    color: string,
-    hot: string,
-    outerWidth: number,
-    innerWidth: number,
-  ) => {
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
-    ctx.lineWidth = outerWidth;
-    ctx.strokeStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 15;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
-    ctx.lineWidth = innerWidth;
-    ctx.strokeStyle = hot;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 4;
-    ctx.stroke();
-
-    ctx.restore();
-  };
-
-  // The concept uses mirrored nested chevrons with magenta as the dominant
-  // architectural rail and cyan as a narrower accent.
-  drawNeonPath([[54, 42], [165, 256], [54, 470]], "rgba(255,39,210,0.98)", "rgba(255,221,247,1)", 20, 5.2);
-  drawNeonPath([[132, 42], [252, 256], [132, 470]], "rgba(35,218,255,0.99)", "rgba(226,254,255,1)", 18, 4.8);
-  drawNeonPath([[228, 72], [326, 256], [228, 440]], "rgba(189,65,255,0.92)", "rgba(245,225,255,1)", 13, 3.8);
-
-  drawNeonPath([[970, 42], [859, 256], [970, 470]], "rgba(255,39,210,0.98)", "rgba(255,221,247,1)", 20, 5.2);
-  drawNeonPath([[892, 42], [772, 256], [892, 470]], "rgba(35,218,255,0.99)", "rgba(226,254,255,1)", 18, 4.8);
-  drawNeonPath([[796, 72], [698, 256], [796, 440]], "rgba(189,65,255,0.92)", "rgba(245,225,255,1)", 13, 3.8);
-
-  // A thin magenta horizon line anchors the wall to the stairs like the concept.
-  const horizon = ctx.createLinearGradient(0, 0, canvas.width, 0);
-  horizon.addColorStop(0, "rgba(255,45,210,0)");
-  horizon.addColorStop(0.16, "rgba(255,45,210,0.76)");
-  horizon.addColorStop(0.50, "rgba(255,119,231,0.96)");
-  horizon.addColorStop(0.84, "rgba(255,45,210,0.76)");
-  horizon.addColorStop(1, "rgba(255,45,210,0)");
-  ctx.fillStyle = horizon;
-  ctx.fillRect(0, 442, canvas.width, 4);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -958,15 +901,7 @@ export class NeonStageV1Environment {
       centralLed.material = Array.isArray(centralLed.material) ? next : next[0];
     }
 
-    const crown = model.getObjectByName("Crown_Center") as THREE.Mesh | undefined;
-    if (crown?.isMesh) {
-      crown.material = new THREE.MeshBasicMaterial({
-        name: "Crown Runtime Concept Gold",
-        color: 0xffd85a,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      });
-    }
+    model.getObjectByName("Crown_Center")?.removeFromParent();
 
     this.tuneAcceptedR15Materials(model);
     this.optimizeAcceptedR15ForMobile(model);
@@ -1387,13 +1322,18 @@ export class NeonStageV1Environment {
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
     const floorReflectionTexture = makeAcceptedFloorReflectionTexture();
-    const logoTexture = makeAcceptedLogoOverlayTexture();
+    const conceptLedTexture = new THREE.TextureLoader().load(NEON_STAGE_CONCEPT_LED_DATA_URL);
+    conceptLedTexture.colorSpace = THREE.SRGBColorSpace;
+    conceptLedTexture.generateMipmaps = false;
+    conceptLedTexture.minFilter = THREE.LinearFilter;
+    conceptLedTexture.magFilter = THREE.LinearFilter;
+    conceptLedTexture.needsUpdate = true;
     const lowerFixtureGlowTexture = makeAcceptedBeamSourceTexture();
     this.textures.push(
       poolTexture,
       backdropTexture,
       floorReflectionTexture,
-      logoTexture,
+      conceptLedTexture,
       lowerFixtureGlowTexture,
     );
 
@@ -1422,9 +1362,9 @@ export class NeonStageV1Environment {
       backdrop.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.028);
       this.acceptedFxRoot.add(backdrop);
 
-      const logoMaterial = new THREE.MeshBasicMaterial({
-        map: logoTexture,
-        transparent: true,
+      const conceptLedMaterial = new THREE.MeshBasicMaterial({
+        map: conceptLedTexture,
+        transparent: false,
         opacity: 1.0,
         depthWrite: false,
         depthTest: true,
@@ -1432,14 +1372,21 @@ export class NeonStageV1Environment {
         side: THREE.DoubleSide,
         toneMapped: false,
       });
-      const logoOverlay = new THREE.Mesh(
-        new THREE.PlaneGeometry(ledSize.x * 0.985, ledSize.y * 0.97),
-        logoMaterial,
+      const conceptAspect = 655 / 170;
+      const conceptWidth = ledSize.x * 0.965;
+      const conceptHeight = conceptWidth / conceptAspect;
+      const conceptLed = new THREE.Mesh(
+        new THREE.PlaneGeometry(conceptWidth, conceptHeight),
+        conceptLedMaterial,
       );
-      logoOverlay.name = "R15AcceptedAuditionLogoOverlay";
-      logoOverlay.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.046);
-      logoOverlay.renderOrder = 30;
-      this.acceptedFxRoot.add(logoOverlay);
+      conceptLed.name = "R15OwnerApprovedConceptLedPlate";
+      conceptLed.position.set(
+        ledCenter.x,
+        ledCenter.y + ledSize.y * 0.045,
+        ledBounds.max.z + 0.052,
+      );
+      conceptLed.renderOrder = 30;
+      this.acceptedFxRoot.add(conceptLed);
     }
 
     // No broad backdrop wash planes: the authored LED plate is the single source
