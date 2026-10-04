@@ -474,10 +474,10 @@ function makeAcceptedFloorCompositeTexture() {
   if (!ctx) throw new Error("R15.1 floor-composite canvas unavailable.");
 
   const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  base.addColorStop(0, "#26084f");
-  base.addColorStop(0.30, "#1b073f");
-  base.addColorStop(0.66, "#10062f");
-  base.addColorStop(1, "#0b0426");
+  base.addColorStop(0, "#2d075e");
+  base.addColorStop(0.30, "#20064a");
+  base.addColorStop(0.66, "#120533");
+  base.addColorStop(1, "#0a0322");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -538,12 +538,12 @@ function makeAcceptedFloorCompositeTexture() {
   ctx.shadowBlur = 0;
 
   const streaks = [
-    { x: -6.0, rgb: "255,54,211", hot: "255,232,249", w: 0.96, len: 5.15, y: 238 },
-    { x: -4.5, rgb: "49,216,255", hot: "226,253,255", w: 0.88, len: 5.55, y: 250 },
-    { x: -2.5, rgb: "255,53,207", hot: "255,232,249", w: 0.92, len: 5.85, y: 258 },
-    { x:  2.5, rgb: "48,214,255", hot: "225,252,255", w: 0.90, len: 5.75, y: 254 },
-    { x:  4.5, rgb: "255,52,207", hot: "255,231,249", w: 0.94, len: 5.40, y: 244 },
-    { x:  6.0, rgb: "47,214,255", hot: "225,252,255", w: 0.86, len: 5.00, y: 232 },
+    { x: -6.0, rgb: "255,54,211", hot: "255,236,250", w: 1.08, len: 6.25, y: 270 },
+    { x: -4.5, rgb: "42,221,255", hot: "232,254,255", w: 0.98, len: 6.75, y: 286 },
+    { x: -2.4, rgb: "255,48,213", hot: "255,238,251", w: 1.02, len: 7.05, y: 298 },
+    { x:  2.4, rgb: "40,220,255", hot: "232,254,255", w: 1.00, len: 6.95, y: 294 },
+    { x:  4.5, rgb: "255,48,211", hot: "255,236,250", w: 1.04, len: 6.55, y: 280 },
+    { x:  6.0, rgb: "42,218,255", hot: "231,254,255", w: 0.96, len: 6.10, y: 264 },
   ] as const;
 
   for (const streak of streaks) {
@@ -552,11 +552,11 @@ function makeAcceptedFloorCompositeTexture() {
     ctx.translate(cx, streak.y);
     ctx.scale(streak.w, streak.len);
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 96);
-    g.addColorStop(0, `rgba(${streak.hot},0.92)`);
-    g.addColorStop(0.10, `rgba(${streak.rgb},0.78)`);
-    g.addColorStop(0.40, `rgba(${streak.rgb},0.40)`);
-    g.addColorStop(0.76, `rgba(${streak.rgb},0.15)`);
-    g.addColorStop(1, `rgba(${streak.rgb},0)`);
+    g.addColorStop(0, `rgba(${streak.hot},0.98)`);
+    g.addColorStop(0.10, `rgba(${streak.rgb},0.92)`);
+    g.addColorStop(0.40, `rgba(${streak.rgb},0.58)`);
+    g.addColorStop(0.76, `rgba(${streak.rgb},0.26)`);
+    g.addColorStop(1, `rgba(${streak.rgb},0.035)`);
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(0, 0, 96, 0, Math.PI * 2);
@@ -565,8 +565,8 @@ function makeAcceptedFloorCompositeTexture() {
   }
 
   for (let x = 0; x <= canvas.width; x += 128) {
-    ctx.strokeStyle = "rgba(3,2,14,0.68)";
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(3,2,14,0.50)";
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, canvas.height);
@@ -580,8 +580,8 @@ function makeAcceptedFloorCompositeTexture() {
     ctx.stroke();
   }
   for (let y = 0; y <= canvas.height; y += 128) {
-    ctx.strokeStyle = "rgba(3,2,14,0.72)";
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(3,2,14,0.54)";
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(canvas.width, y);
@@ -627,10 +627,10 @@ function makeAcceptedBackdropGlowTexture() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const base = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  base.addColorStop(0, "rgba(29,8,105,0.94)");
-  base.addColorStop(0.34, "rgba(94,17,185,0.92)");
-  base.addColorStop(0.66, "rgba(181,20,163,0.90)");
-  base.addColorStop(1, "rgba(33,23,132,0.90)");
+  base.addColorStop(0, "rgba(34,4,122,1)");
+  base.addColorStop(0.34, "rgba(105,10,213,1)");
+  base.addColorStop(0.66, "rgba(211,12,187,1)");
+  base.addColorStop(1, "rgba(39,15,153,1)");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -638,9 +638,9 @@ function makeAcceptedBackdropGlowTexture() {
     canvas.width * 0.52, canvas.height * 0.52, 12,
     canvas.width * 0.52, canvas.height * 0.52, canvas.width * 0.38,
   );
-  center.addColorStop(0, "rgba(206,35,190,0.28)");
-  center.addColorStop(0.35, "rgba(123,36,207,0.24)");
-  center.addColorStop(1, "rgba(35,11,102,0)");
+  center.addColorStop(0, "rgba(240,27,213,0.48)");
+  center.addColorStop(0.35, "rgba(151,22,238,0.34)");
+  center.addColorStop(1, "rgba(35,8,118,0)");
   ctx.fillStyle = center;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -656,8 +656,8 @@ function makeAcceptedBackdropGlowTexture() {
     const endX = ray.x + (ray.x < 512 ? 164 : -164);
 
     ctx.lineCap = "round";
-    ctx.lineWidth = 22;
-    ctx.shadowBlur = 22;
+    ctx.lineWidth = 19;
+    ctx.shadowBlur = 15;
     ctx.strokeStyle = ray.color;
     ctx.shadowColor = ray.color;
     ctx.beginPath();
@@ -665,8 +665,8 @@ function makeAcceptedBackdropGlowTexture() {
     ctx.lineTo(endX, 494);
     ctx.stroke();
 
-    ctx.lineWidth = 6;
-    ctx.shadowBlur = 8;
+    ctx.lineWidth = 5;
+    ctx.shadowBlur = 5;
     ctx.strokeStyle = ray.hot;
     ctx.shadowColor = ray.color;
     ctx.beginPath();
@@ -1041,16 +1041,23 @@ export class NeonStageV1Environment {
     }
 
     const auditionInset = model.getObjectByName("R15 AUDITION Inset");
-    if (auditionInset) auditionInset.visible = false;
+    if (auditionInset) auditionInset.removeFromParent();
 
     const auditionBrand = model.getObjectByName("AUDITION_Brand") as THREE.Mesh | undefined;
     if (auditionBrand?.isMesh) {
       auditionBrand.visible = true;
+
+      // The source wordmark is a beveled/extruded outline. In portrait view the
+      // extrusion reads as a second dark word behind the intended neon line.
+      // Keep the authored x/z silhouette but collapse local-Y depth so it reads
+      // like the flat concept artwork.
+      auditionBrand.scale.y *= 0.075;
+
       const brandMaterial = new THREE.ShaderMaterial({
         name: "AUDITION Runtime Concept Brand",
         uniforms: {
-          uFaceColor: { value: new THREE.Color(0xffe6f8) },
-          uSideColor: { value: new THREE.Color(0xff32cf) },
+          uFaceColor: { value: new THREE.Color(0xfff3fc) },
+          uBevelColor: { value: new THREE.Color(0xff45d8) },
         },
         vertexShader: `
           varying float vFrontFace;
@@ -1062,10 +1069,12 @@ export class NeonStageV1Environment {
         fragmentShader: `
           varying float vFrontFace;
           uniform vec3 uFaceColor;
-          uniform vec3 uSideColor;
+          uniform vec3 uBevelColor;
           void main() {
-            float frontMix = smoothstep(0.62, 0.94, vFrontFace);
-            vec3 color = mix(uSideColor, uFaceColor, frontMix);
+            // Treat most bevel normals as part of the luminous face. Nothing in
+            // this material is allowed to become navy/black.
+            float frontMix = smoothstep(0.20, 0.72, vFrontFace);
+            vec3 color = mix(uBevelColor, uFaceColor, frontMix);
             gl_FragColor = vec4(color, 1.0);
           }
         `,
@@ -1445,7 +1454,7 @@ export class NeonStageV1Environment {
       const backdropMaterial = new THREE.MeshBasicMaterial({
         map: backdropTexture,
         transparent: true,
-        opacity: 0.92,
+        opacity: 1.0,
         depthWrite: false,
         depthTest: true,
         blending: THREE.NormalBlending,
@@ -1463,9 +1472,9 @@ export class NeonStageV1Environment {
     }
 
     const backdropWashes = [
-      { name: "R15BackdropWashCyan", color: 0x24d4ff, x: -4.8, opacity: 0.08 },
-      { name: "R15BackdropWashViolet", color: 0xa737ff, x: -0.2, opacity: 0.15 },
-      { name: "R15BackdropWashMagenta", color: 0xff2fc8, x: 4.5, opacity: 0.17 },
+      { name: "R15BackdropWashCyan", color: 0x24d4ff, x: -4.8, opacity: 0.035 },
+      { name: "R15BackdropWashViolet", color: 0xa737ff, x: -0.2, opacity: 0.065 },
+      { name: "R15BackdropWashMagenta", color: 0xff2fc8, x: 4.5, opacity: 0.075 },
     ] as const;
 
     backdropWashes.forEach(wash => {
@@ -1602,7 +1611,7 @@ export class NeonStageV1Environment {
           coreLength / 4.8,
           1,
         );
-        state.reflectionCoreMesh.material.opacity = 0.60 + glow * 0.16;
+        state.reflectionCoreMesh.material.opacity = 0.72 + glow * 0.18;
         state.reflectionCoreMesh.visible = true;
       }
 
@@ -1619,7 +1628,7 @@ export class NeonStageV1Environment {
           reflectionLength / 12.0,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.47 + glow * 0.11;
+        state.reflectionMesh.material.opacity = 0.56 + glow * 0.12;
         state.reflectionMesh.visible = true;
       }
     });
