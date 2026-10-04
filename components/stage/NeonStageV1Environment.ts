@@ -961,6 +961,12 @@ export class NeonStageV1Environment {
         if (!(material instanceof THREE.MeshStandardMaterial)) return;
 
         const name = material.name.toLowerCase();
+
+        // CentralLED is intentionally neutralized after the baked P15 texture
+        // is removed. Do not let generic LED Matrix tuning re-boost it or the
+        // additive backdrop will clip to white/pastel on mobile.
+        if (name.includes("runtimeneutralled")) return;
+
         if (name.includes("architecture navy")) {
           material.emissive.setHex(0x25105f);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.68);
@@ -1327,7 +1333,7 @@ export class NeonStageV1Environment {
       const backdropMaterial = new THREE.MeshBasicMaterial({
         map: backdropTexture,
         transparent: true,
-        opacity: 0.94,
+        opacity: 0.72,
         depthWrite: false,
         depthTest: true,
         blending: THREE.AdditiveBlending,
