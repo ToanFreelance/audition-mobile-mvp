@@ -474,17 +474,17 @@ function makeAcceptedFloorCompositeTexture() {
   if (!ctx) throw new Error("R15.1 floor-composite canvas unavailable.");
 
   const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  base.addColorStop(0, "#17072f");
-  base.addColorStop(0.30, "#13062a");
-  base.addColorStop(0.66, "#0d061f");
-  base.addColorStop(1, "#090414");
+  base.addColorStop(0, "#26084f");
+  base.addColorStop(0.30, "#1b073f");
+  base.addColorStop(0.66, "#10062f");
+  base.addColorStop(1, "#0b0426");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const stageBed = ctx.createRadialGradient(512, 140, 0, 512, 140, 610);
-  stageBed.addColorStop(0, "rgba(138,35,222,0.34)");
-  stageBed.addColorStop(0.34, "rgba(88,30,178,0.19)");
-  stageBed.addColorStop(0.72, "rgba(47,20,112,0.07)");
+  stageBed.addColorStop(0, "rgba(165,38,242,0.48)");
+  stageBed.addColorStop(0.34, "rgba(102,34,205,0.27)");
+  stageBed.addColorStop(0.72, "rgba(55,22,137,0.10)");
   stageBed.addColorStop(1, "rgba(20,8,55,0)");
   ctx.fillStyle = stageBed;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -506,10 +506,10 @@ function makeAcceptedFloorCompositeTexture() {
     ctx.translate(cx, spill.y);
     ctx.scale(spill.sx, spill.sy);
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 104);
-    g.addColorStop(0, `rgba(${spill.hot},0.68)`);
-    g.addColorStop(0.10, `rgba(${spill.rgb},0.48)`);
-    g.addColorStop(0.36, `rgba(${spill.rgb},0.25)`);
-    g.addColorStop(0.72, `rgba(${spill.rgb},0.075)`);
+    g.addColorStop(0, `rgba(${spill.hot},0.78)`);
+    g.addColorStop(0.10, `rgba(${spill.rgb},0.60)`);
+    g.addColorStop(0.36, `rgba(${spill.rgb},0.34)`);
+    g.addColorStop(0.72, `rgba(${spill.rgb},0.12)`);
     g.addColorStop(1, `rgba(${spill.rgb},0)`);
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -538,12 +538,12 @@ function makeAcceptedFloorCompositeTexture() {
   ctx.shadowBlur = 0;
 
   const streaks = [
-    { x: -6.0, rgb: "255,54,211", hot: "255,232,249", w: 0.92, len: 4.4, y: 248 },
-    { x: -4.5, rgb: "49,216,255", hot: "226,253,255", w: 0.82, len: 4.8, y: 260 },
-    { x: -2.5, rgb: "255,53,207", hot: "255,232,249", w: 0.88, len: 5.0, y: 270 },
-    { x:  2.5, rgb: "48,214,255", hot: "225,252,255", w: 0.86, len: 4.9, y: 264 },
-    { x:  4.5, rgb: "255,52,207", hot: "255,231,249", w: 0.90, len: 4.6, y: 254 },
-    { x:  6.0, rgb: "47,214,255", hot: "225,252,255", w: 0.80, len: 4.2, y: 242 },
+    { x: -6.0, rgb: "255,54,211", hot: "255,232,249", w: 0.96, len: 5.15, y: 238 },
+    { x: -4.5, rgb: "49,216,255", hot: "226,253,255", w: 0.88, len: 5.55, y: 250 },
+    { x: -2.5, rgb: "255,53,207", hot: "255,232,249", w: 0.92, len: 5.85, y: 258 },
+    { x:  2.5, rgb: "48,214,255", hot: "225,252,255", w: 0.90, len: 5.75, y: 254 },
+    { x:  4.5, rgb: "255,52,207", hot: "255,231,249", w: 0.94, len: 5.40, y: 244 },
+    { x:  6.0, rgb: "47,214,255", hot: "225,252,255", w: 0.86, len: 5.00, y: 232 },
   ] as const;
 
   for (const streak of streaks) {
@@ -552,10 +552,10 @@ function makeAcceptedFloorCompositeTexture() {
     ctx.translate(cx, streak.y);
     ctx.scale(streak.w, streak.len);
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 96);
-    g.addColorStop(0, `rgba(${streak.hot},0.82)`);
-    g.addColorStop(0.10, `rgba(${streak.rgb},0.62)`);
-    g.addColorStop(0.40, `rgba(${streak.rgb},0.28)`);
-    g.addColorStop(0.76, `rgba(${streak.rgb},0.09)`);
+    g.addColorStop(0, `rgba(${streak.hot},0.92)`);
+    g.addColorStop(0.10, `rgba(${streak.rgb},0.78)`);
+    g.addColorStop(0.40, `rgba(${streak.rgb},0.40)`);
+    g.addColorStop(0.76, `rgba(${streak.rgb},0.15)`);
     g.addColorStop(1, `rgba(${streak.rgb},0)`);
     ctx.fillStyle = g;
     ctx.beginPath();
@@ -1046,43 +1046,72 @@ export class NeonStageV1Environment {
     const auditionBrand = model.getObjectByName("AUDITION_Brand") as THREE.Mesh | undefined;
     if (auditionBrand?.isMesh) {
       auditionBrand.visible = true;
-      const sources = Array.isArray(auditionBrand.material)
-        ? auditionBrand.material
-        : [auditionBrand.material];
-      const next = sources.map(source => {
-        if (!(source instanceof THREE.MeshStandardMaterial)) return source;
-        const material = source.clone();
-        material.name = source.name + " RuntimeBrandAuthority";
-        material.color.setHex(0xffd7f4);
-        material.emissive.setHex(0xff3fd2);
-        material.emissiveIntensity = 7.0;
-        material.roughness = 0.22;
-        material.metalness = 0.0;
-        material.toneMapped = false;
-        material.needsUpdate = true;
-        return material;
+      const brandMaterial = new THREE.ShaderMaterial({
+        name: "AUDITION Runtime Concept Brand",
+        uniforms: {
+          uFaceColor: { value: new THREE.Color(0xffe6f8) },
+          uSideColor: { value: new THREE.Color(0xff32cf) },
+        },
+        vertexShader: `
+          varying float vFrontFace;
+          void main() {
+            vFrontFace = abs(normal.y);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          varying float vFrontFace;
+          uniform vec3 uFaceColor;
+          uniform vec3 uSideColor;
+          void main() {
+            float frontMix = smoothstep(0.62, 0.94, vFrontFace);
+            vec3 color = mix(uSideColor, uFaceColor, frontMix);
+            gl_FragColor = vec4(color, 1.0);
+          }
+        `,
+        side: THREE.DoubleSide,
+        depthTest: true,
+        depthWrite: true,
+        transparent: false,
+        toneMapped: false,
       });
-      auditionBrand.material = Array.isArray(auditionBrand.material) ? next : next[0];
+      auditionBrand.material = brandMaterial;
+      auditionBrand.renderOrder = 12;
     }
 
     const danceTogether = model.getObjectByName("DanceTogether") as THREE.Mesh | undefined;
     if (danceTogether?.isMesh) {
-      const sources = Array.isArray(danceTogether.material)
-        ? danceTogether.material
-        : [danceTogether.material];
-      const next = sources.map(source => {
-        if (!(source instanceof THREE.MeshStandardMaterial)) return source;
-        const material = source.clone();
-        material.name = source.name + " RuntimeBrandAuthority";
-        material.color.setHex(0xffffff);
-        material.emissive.setHex(0xf1ecff);
-        material.emissiveIntensity = 4.8;
-        material.toneMapped = false;
-        material.needsUpdate = true;
-        return material;
+      danceTogether.material = new THREE.MeshBasicMaterial({
+        name: "DanceTogether Runtime Concept Brand",
+        color: 0xffffff,
+        side: THREE.DoubleSide,
+        depthTest: true,
+        depthWrite: true,
+        toneMapped: false,
       });
-      danceTogether.material = Array.isArray(danceTogether.material) ? next : next[0];
+      danceTogether.renderOrder = 12;
     }
+
+    const ringPalette: Array<[string, number]> = [
+      ["R15 Dance Ring Outer", 0xff42d3],
+      ["R15 Dance Ring Cyan", 0x38ddff],
+      ["R15 Dance Ring Inner", 0x38ddff],
+      ["R15 Dance Ring Fine", 0xffe8fb],
+    ];
+    ringPalette.forEach(([name, color]) => {
+      const ringMesh = model.getObjectByName(name) as THREE.Mesh | undefined;
+      if (!ringMesh?.isMesh) return;
+      ringMesh.visible = true;
+      ringMesh.material = new THREE.MeshBasicMaterial({
+        name: name + " RuntimeConceptRing",
+        color,
+        side: THREE.DoubleSide,
+        depthTest: true,
+        depthWrite: true,
+        toneMapped: false,
+      });
+      ringMesh.renderOrder = 20;
+    });
 
     model.traverse(object => {
       const mesh = object as THREE.Mesh;
@@ -1472,7 +1501,7 @@ export class NeonStageV1Environment {
     );
     floorComposite.name = "R15AcceptedFloorComposite";
     floorComposite.rotation.x = -Math.PI / 2;
-    floorComposite.position.set(0, 0.054, 8.6);
+    floorComposite.position.set(0, 0.004, 8.6);
     this.acceptedFxRoot.add(floorComposite);
 
   }
@@ -1590,7 +1619,7 @@ export class NeonStageV1Environment {
           reflectionLength / 12.0,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.40 + glow * 0.10;
+        state.reflectionMesh.material.opacity = 0.47 + glow * 0.11;
         state.reflectionMesh.visible = true;
       }
     });
