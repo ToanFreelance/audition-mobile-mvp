@@ -399,28 +399,27 @@ function createAcceptedFixtureSourceAnchor(
   tiltPivot: THREE.Object3D,
   fallback: THREE.Object3D,
 ) {
-  let materialMatch: THREE.Mesh | null = null;
-  let nameMatch: THREE.Mesh | null = null;
+  const materialMatches: THREE.Mesh[] = [];
+  const nameMatches: THREE.Mesh[] = [];
 
   tiltPivot.updateWorldMatrix(true, true);
   tiltPivot.traverse(object => {
-    if (materialMatch) return;
     const mesh = object as THREE.Mesh;
     if (!mesh.isMesh) return;
 
     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     if (materials.some(material => material?.name.toLowerCase().includes("aperture"))) {
-      materialMatch = mesh;
+      materialMatches.push(mesh);
       return;
     }
 
     const nodeName = mesh.name.toLowerCase();
-    if (!nameMatch && (nodeName.includes("aperture") || nodeName.includes("lens"))) {
-      nameMatch = mesh;
+    if (nodeName.includes("aperture") || nodeName.includes("lens")) {
+      nameMatches.push(mesh);
     }
   });
 
-  const candidate = materialMatch ?? nameMatch;
+  const candidate = materialMatches[0] ?? nameMatches[0] ?? null;
   const worldCenter = new THREE.Vector3();
 
   if (candidate) {
