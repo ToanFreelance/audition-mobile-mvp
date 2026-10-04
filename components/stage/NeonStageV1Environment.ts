@@ -2,7 +2,6 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { StagePresentationCameraPreset } from "./stageCamera";
 import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
-import { AUDITION_LOGO_CONCEPT_DATA_URL } from "./auditionLogoConceptData";
 
 type RuntimeUrlResponse = {
   stageId: string;
@@ -383,10 +382,9 @@ function makeAcceptedReflectionStreakTexture() {
   const longitudinal = ctx.createLinearGradient(0, 0, 0, canvas.height);
   longitudinal.addColorStop(0, "rgba(255,255,255,0.96)");
   longitudinal.addColorStop(0.12, "rgba(255,255,255,0.90)");
-  longitudinal.addColorStop(0.42, "rgba(255,255,255,0.62)");
-  longitudinal.addColorStop(0.68, "rgba(255,255,255,0.38)");
-  longitudinal.addColorStop(0.86, "rgba(255,255,255,0.26)");
-  longitudinal.addColorStop(1, "rgba(255,255,255,0.14)");
+  longitudinal.addColorStop(0.42, "rgba(255,255,255,0.58)");
+  longitudinal.addColorStop(0.74, "rgba(255,255,255,0.24)");
+  longitudinal.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = longitudinal;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.globalCompositeOperation = "source-over";
@@ -455,162 +453,74 @@ function acceptedFixturePresentationColor(key: string, fallback: THREE.Color) {
   return authored[key] === undefined ? fallback.clone() : new THREE.Color(authored[key]);
 }
 
-function acceptedFixtureFloorAim(key: string) {
-  const authored: Record<string, [number, number, number]> = {
-    MainFixture_01: [-2.95, 0.045, 0.64],
-    MainFixture_02: [-1.55, 0.045, 0.32],
-    MainFixture_05: [0.00, 0.045, 0.08],
-    MainFixture_08: [1.55, 0.045, 0.32],
-    MainFixture_09: [2.95, 0.045, 0.64],
-  };
-  const aim = authored[key];
-  return aim ? new THREE.Vector3(...aim) : null;
-}
-
-function makeAcceptedFloorCompositeTexture() {
+function makeAcceptedFloorReflectionTexture() {
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 1024;
+  canvas.width = 512;
+  canvas.height = 512;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("R15.1 floor-composite canvas unavailable.");
+  if (!ctx) throw new Error("R15.1 floor-reflection canvas unavailable.");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  base.addColorStop(0, "#2d075e");
-  base.addColorStop(0.30, "#20064a");
-  base.addColorStop(0.66, "#120533");
-  base.addColorStop(1, "#0a0322");
+  base.addColorStop(0, "rgba(168,43,255,0.12)");
+  base.addColorStop(0.30, "rgba(227,43,219,0.075)");
+  base.addColorStop(0.62, "rgba(86,48,214,0.045)");
+  base.addColorStop(1, "rgba(28,20,105,0.018)");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const stageBed = ctx.createRadialGradient(512, 140, 0, 512, 140, 610);
-  stageBed.addColorStop(0, "rgba(165,38,242,0.48)");
-  stageBed.addColorStop(0.34, "rgba(102,34,205,0.27)");
-  stageBed.addColorStop(0.72, "rgba(55,22,137,0.10)");
-  stageBed.addColorStop(1, "rgba(20,8,55,0)");
-  ctx.fillStyle = stageBed;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
   const xToCanvas = (worldX: number) => ((worldX + 9.9) / 19.8) * canvas.width;
-
-  const spills = [
-    { x: -6.7, rgb: "255,49,207", hot: "255,198,241", sx: 1.00, sy: 5.4, y: 224 },
-    { x: -4.3, rgb: "42,217,255", hot: "213,251,255", sx: 0.90, sy: 5.8, y: 236 },
-    { x: -1.8, rgb: "149,65,255", hot: "226,214,255", sx: 0.86, sy: 4.9, y: 250 },
-    { x:  1.9, rgb: "255,49,210", hot: "255,205,243", sx: 0.90, sy: 5.2, y: 242 },
-    { x:  4.4, rgb: "43,216,255", hot: "214,251,255", sx: 0.90, sy: 5.7, y: 232 },
-    { x:  6.8, rgb: "255,48,208", hot: "255,200,241", sx: 0.98, sy: 5.1, y: 218 },
+  const sources = [
+    { x: -9.0, color: "rgba(45,218,255,0.38)", hot: "rgba(225,253,255,0.72)", w: 0.82, len: 2.20, y: 220 },
+    { x: -6.0, color: "rgba(255,55,211,0.48)", hot: "rgba(255,231,249,0.86)", w: 0.88, len: 2.75, y: 190 },
+    { x: -4.6, color: "rgba(49,216,255,0.50)", hot: "rgba(226,253,255,0.86)", w: 0.78, len: 2.95, y: 202 },
+    { x: -2.6, color: "rgba(255,53,207,0.54)", hot: "rgba(255,232,249,0.90)", w: 0.84, len: 3.10, y: 210 },
+    { x:  2.6, color: "rgba(48,214,255,0.52)", hot: "rgba(225,252,255,0.88)", w: 0.82, len: 3.05, y: 205 },
+    { x:  4.6, color: "rgba(255,52,207,0.52)", hot: "rgba(255,231,249,0.88)", w: 0.86, len: 2.88, y: 195 },
+    { x:  6.0, color: "rgba(47,214,255,0.46)", hot: "rgba(225,252,255,0.82)", w: 0.76, len: 2.62, y: 185 },
+    { x:  9.0, color: "rgba(255,57,210,0.36)", hot: "rgba(255,232,249,0.70)", w: 0.78, len: 2.15, y: 215 },
   ] as const;
 
-  for (const spill of spills) {
-    const cx = xToCanvas(spill.x);
+  for (const source of sources) {
+    const cx = xToCanvas(source.x);
+
     ctx.save();
-    ctx.translate(cx, spill.y);
-    ctx.scale(spill.sx, spill.sy);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 104);
-    g.addColorStop(0, `rgba(${spill.hot},0.78)`);
-    g.addColorStop(0.10, `rgba(${spill.rgb},0.60)`);
-    g.addColorStop(0.36, `rgba(${spill.rgb},0.34)`);
-    g.addColorStop(0.72, `rgba(${spill.rgb},0.12)`);
-    g.addColorStop(1, `rgba(${spill.rgb},0)`);
-    ctx.fillStyle = g;
+    ctx.translate(cx, source.y);
+    ctx.scale(source.w, source.len);
+    const tail = ctx.createRadialGradient(0, 0, 0, 0, 0, 72);
+    tail.addColorStop(0, source.hot);
+    tail.addColorStop(0.13, source.color);
+    tail.addColorStop(0.42, source.color.replace(/0\.[0-9]+\)$/, "0.20)"));
+    tail.addColorStop(0.72, source.color.replace(/0\.[0-9]+\)$/, "0.07)"));
+    tail.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = tail;
     ctx.beginPath();
-    ctx.arc(0, 0, 104, 0, Math.PI * 2);
+    ctx.arc(0, 0, 72, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(cx, 92);
+    ctx.scale(source.w * 0.48, 0.72);
+    const impact = ctx.createRadialGradient(0, 0, 0, 0, 0, 58);
+    impact.addColorStop(0, source.hot);
+    impact.addColorStop(0.18, source.color);
+    impact.addColorStop(0.62, source.color.replace(/0\.[0-9]+\)$/, "0.10)"));
+    impact.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = impact;
+    ctx.beginPath();
+    ctx.arc(0, 0, 58, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
-  const bands = [
-    { y: 120, color: "rgba(255,49,210,0.48)", blur: 20, width: 4.0 },
-    { y: 156, color: "rgba(44,217,255,0.34)", blur: 18, width: 3.0 },
-    { y: 194, color: "rgba(255,50,211,0.38)", blur: 19, width: 3.4 },
-    { y: 234, color: "rgba(45,214,255,0.25)", blur: 16, width: 2.6 },
-  ] as const;
-  ctx.lineCap = "round";
-  for (const band of bands) {
-    ctx.shadowColor = band.color;
-    ctx.shadowBlur = band.blur;
-    ctx.strokeStyle = band.color;
-    ctx.lineWidth = band.width;
-    ctx.beginPath();
-    ctx.moveTo(80, band.y);
-    ctx.lineTo(944, band.y);
-    ctx.stroke();
-  }
-  ctx.shadowBlur = 0;
-
-  const streaks = [
-    { x: -6.0, rgb: "255,54,211", hot: "255,236,250", w: 1.08, len: 6.25, y: 270 },
-    { x: -4.5, rgb: "42,221,255", hot: "232,254,255", w: 0.98, len: 6.75, y: 286 },
-    { x: -2.4, rgb: "255,48,213", hot: "255,238,251", w: 1.02, len: 7.05, y: 298 },
-    { x:  2.4, rgb: "40,220,255", hot: "232,254,255", w: 1.00, len: 6.95, y: 294 },
-    { x:  4.5, rgb: "255,48,211", hot: "255,236,250", w: 1.04, len: 6.55, y: 280 },
-    { x:  6.0, rgb: "42,218,255", hot: "231,254,255", w: 0.96, len: 6.10, y: 264 },
-  ] as const;
-
-  for (const streak of streaks) {
-    const cx = xToCanvas(streak.x);
-    ctx.save();
-    ctx.translate(cx, streak.y);
-    ctx.scale(streak.w, streak.len);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 96);
-    g.addColorStop(0, `rgba(${streak.hot},0.98)`);
-    g.addColorStop(0.10, `rgba(${streak.rgb},0.92)`);
-    g.addColorStop(0.40, `rgba(${streak.rgb},0.58)`);
-    g.addColorStop(0.76, `rgba(${streak.rgb},0.26)`);
-    g.addColorStop(1, `rgba(${streak.rgb},0.035)`);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, 96, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  for (let x = 0; x <= canvas.width; x += 128) {
-    ctx.strokeStyle = "rgba(3,2,14,0.50)";
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
-    ctx.stroke();
-
-    ctx.strokeStyle = "rgba(94,91,190,0.10)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x + 2, 0);
-    ctx.lineTo(x + 2, canvas.height);
-    ctx.stroke();
-  }
-  for (let y = 0; y <= canvas.height; y += 128) {
-    ctx.strokeStyle = "rgba(3,2,14,0.54)";
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
-    ctx.stroke();
-
-    ctx.strokeStyle = "rgba(103,96,198,0.10)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, y + 2);
-    ctx.lineTo(canvas.width, y + 2);
-    ctx.stroke();
-  }
-
-  const catches = [
-    [170, 340, "rgba(255,69,221,0.32)"],
-    [344, 398, "rgba(60,220,255,0.30)"],
-    [520, 352, "rgba(255,80,225,0.30)"],
-    [698, 410, "rgba(58,218,255,0.28)"],
-    [856, 360, "rgba(255,69,218,0.30)"],
-  ] as const;
-  for (const [x, y, color] of catches) {
-    const g = ctx.createRadialGradient(x, y, 0, x, y, 62);
-    g.addColorStop(0, color);
-    g.addColorStop(0.22, color.replace(/0\.[0-9]+\)$/, "0.16)"));
-    g.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = g;
-    ctx.fillRect(x - 70, y - 40, 140, 180);
-  }
+  const centerBloom = ctx.createRadialGradient(256, 118, 0, 256, 118, 160);
+  centerBloom.addColorStop(0, "rgba(255,61,219,0.20)");
+  centerBloom.addColorStop(0.34, "rgba(172,68,255,0.11)");
+  centerBloom.addColorStop(1, "rgba(88,45,190,0)");
+  ctx.fillStyle = centerBloom;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -618,45 +528,45 @@ function makeAcceptedFloorCompositeTexture() {
   return texture;
 }
 
-function makeAcceptedForegroundReflectionTexture() {
+function makeAcceptedLogoOverlayTexture() {
   const canvas = document.createElement("canvas");
-  canvas.width = 512;
+  canvas.width = 1024;
   canvas.height = 512;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("R15.1 foreground-reflection canvas unavailable.");
+  if (!ctx) throw new Error("R15.1 logo-overlay canvas unavailable.");
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.font = "italic 900 124px Arial";
 
-  const sources = [
-    { x: 78, rgb: "255,45,210", width: 42, alpha: 0.58 },
-    { x: 154, rgb: "44,219,255", width: 38, alpha: 0.56 },
-    { x: 228, rgb: "255,48,213", width: 40, alpha: 0.62 },
-    { x: 300, rgb: "43,218,255", width: 40, alpha: 0.60 },
-    { x: 372, rgb: "255,47,211", width: 42, alpha: 0.58 },
-    { x: 444, rgb: "43,216,255", width: 38, alpha: 0.52 },
-  ] as const;
+  // Outer magenta bloom — glow only, never a dark shadow.
+  ctx.lineWidth = 15;
+  ctx.strokeStyle = "rgba(255,37,211,0.96)";
+  ctx.shadowColor = "rgba(255,35,207,0.92)";
+  ctx.shadowBlur = 18;
+  ctx.strokeText("AUDITION", canvas.width / 2, 270);
 
-  for (const source of sources) {
-    const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    g.addColorStop(0, `rgba(${source.rgb},0.78)`);
-    g.addColorStop(0.18, `rgba(${source.rgb},${source.alpha})`);
-    g.addColorStop(0.56, `rgba(${source.rgb},0.28)`);
-    g.addColorStop(0.86, `rgba(${source.rgb},0.11)`);
-    g.addColorStop(1, `rgba(${source.rgb},0.035)`);
+  // Pink transition ring.
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = "rgba(255,103,226,0.98)";
+  ctx.shadowColor = "rgba(255,72,218,0.70)";
+  ctx.shadowBlur = 9;
+  ctx.strokeText("AUDITION", canvas.width / 2, 270);
 
-    ctx.save();
-    ctx.filter = "blur(12px)";
-    ctx.fillStyle = g;
-    ctx.fillRect(source.x - source.width / 2, 0, source.width, canvas.height);
-    ctx.restore();
+  // Hot white/pink inner edge. No fill: backdrop remains visible inside.
+  ctx.lineWidth = 3.4;
+  ctx.strokeStyle = "rgba(255,247,255,1)";
+  ctx.shadowColor = "rgba(255,214,250,0.92)";
+  ctx.shadowBlur = 4;
+  ctx.strokeText("AUDITION", canvas.width / 2, 270);
 
-    const hot = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    hot.addColorStop(0, "rgba(255,255,255,0.72)");
-    hot.addColorStop(0.16, `rgba(${source.rgb},0.44)`);
-    hot.addColorStop(0.52, `rgba(${source.rgb},0.14)`);
-    hot.addColorStop(1, `rgba(${source.rgb},0)`);
-    ctx.fillStyle = hot;
-    ctx.fillRect(source.x - 5, 0, 10, canvas.height);
-  }
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = "rgba(255,255,255,0.98)";
+  ctx.font = "700 25px Arial";
+  ctx.fillText("D A N C E   T O G E T H E R", canvas.width / 2, 354);
+  ctx.shadowBlur = 0;
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -674,10 +584,10 @@ function makeAcceptedBackdropGlowTexture() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const base = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  base.addColorStop(0, "rgba(34,4,122,1)");
-  base.addColorStop(0.34, "rgba(105,10,213,1)");
-  base.addColorStop(0.66, "rgba(211,12,187,1)");
-  base.addColorStop(1, "rgba(39,15,153,1)");
+  base.addColorStop(0, "rgba(58,14,185,0.48)");
+  base.addColorStop(0.34, "rgba(126,24,232,0.60)");
+  base.addColorStop(0.66, "rgba(222,24,194,0.58)");
+  base.addColorStop(1, "rgba(53,31,193,0.44)");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -685,9 +595,9 @@ function makeAcceptedBackdropGlowTexture() {
     canvas.width * 0.52, canvas.height * 0.52, 12,
     canvas.width * 0.52, canvas.height * 0.52, canvas.width * 0.38,
   );
-  center.addColorStop(0, "rgba(240,27,213,0.48)");
-  center.addColorStop(0.35, "rgba(151,22,238,0.34)");
-  center.addColorStop(1, "rgba(35,8,118,0)");
+  center.addColorStop(0, "rgba(245,46,216,0.46)");
+  center.addColorStop(0.35, "rgba(151,47,238,0.32)");
+  center.addColorStop(1, "rgba(53,22,151,0)");
   ctx.fillStyle = center;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -703,8 +613,8 @@ function makeAcceptedBackdropGlowTexture() {
     const endX = ray.x + (ray.x < 512 ? 164 : -164);
 
     ctx.lineCap = "round";
-    ctx.lineWidth = 19;
-    ctx.shadowBlur = 15;
+    ctx.lineWidth = 26;
+    ctx.shadowBlur = 30;
     ctx.strokeStyle = ray.color;
     ctx.shadowColor = ray.color;
     ctx.beginPath();
@@ -712,8 +622,8 @@ function makeAcceptedBackdropGlowTexture() {
     ctx.lineTo(endX, 494);
     ctx.stroke();
 
-    ctx.lineWidth = 5;
-    ctx.shadowBlur = 5;
+    ctx.lineWidth = 7;
+    ctx.shadowBlur = 12;
     ctx.strokeStyle = ray.hot;
     ctx.shadowColor = ray.color;
     ctx.beginPath();
@@ -941,6 +851,52 @@ export class NeonStageV1Environment {
       }
     });
 
+    ["R15 AUDITION Inset", "AUDITION_Brand", "DanceTogether"].forEach(name => {
+      model.getObjectByName(name)?.removeFromParent();
+    });
+
+    const centralLed = model.getObjectByName("CentralLED") as THREE.Mesh | undefined;
+    if (centralLed?.isMesh) {
+      const sources = Array.isArray(centralLed.material)
+        ? centralLed.material
+        : [centralLed.material];
+      const next = sources.map(source => {
+        if (source instanceof THREE.MeshStandardMaterial) {
+          const material = source.clone();
+          material.name = source.name + " RuntimeNeutralLED";
+          material.map = null;
+          material.emissiveMap = null;
+          material.color.setHex(0x14052f);
+          material.emissive.setHex(0x2c0758);
+          material.emissiveIntensity = 0.34;
+          material.roughness = 0.44;
+          material.metalness = 0.0;
+          material.needsUpdate = true;
+          return material;
+        }
+        if (source instanceof THREE.MeshBasicMaterial) {
+          const material = source.clone();
+          material.name = source.name + " RuntimeNeutralLED";
+          material.map = null;
+          material.color.setHex(0x18063b);
+          material.needsUpdate = true;
+          return material;
+        }
+        return source;
+      });
+      centralLed.material = Array.isArray(centralLed.material) ? next : next[0];
+    }
+
+    const crown = model.getObjectByName("Crown_Center") as THREE.Mesh | undefined;
+    if (crown?.isMesh) {
+      crown.material = new THREE.MeshBasicMaterial({
+        name: "Crown Runtime Concept Gold",
+        color: 0xffd85a,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+    }
+
     this.tuneAcceptedR15Materials(model);
     this.optimizeAcceptedR15ForMobile(model);
     this.prepareAcceptedR15Breathing(model);
@@ -1006,14 +962,14 @@ export class NeonStageV1Environment {
 
         const name = material.name.toLowerCase();
         if (name.includes("architecture navy")) {
-          material.emissive.setHex(0x13062f);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.40);
+          material.emissive.setHex(0x25105f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.68);
         } else if (name.includes("architecture indigo")) {
-          material.emissive.setHex(0x390a61);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.66);
-        } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x71179b);
+          material.emissive.setHex(0x5a148f);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 1.02);
+        } else if (name.includes("riser polished top")) {
+          material.emissive.setHex(0x65158f);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.88);
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x20d9ff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.8);
@@ -1048,97 +1004,16 @@ export class NeonStageV1Environment {
         }
 
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
-          material.roughness = Math.min(material.roughness, 0.055);
-          material.metalness = Math.max(material.metalness, 0.10);
-          material.color.multiplyScalar(0.96);
-          material.emissive.setHex(0x11072f);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.12);
+          material.roughness = Math.min(material.roughness, 0.085);
+          material.metalness = Math.max(material.metalness, 0.05);
+          material.color.multiplyScalar(1.12);
+          material.emissive.setHex(0x24105b);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.40);
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.16);
           material.metalness = Math.max(material.metalness, 0.03);
         }
       });
-    });
-
-    // CentralLED ships with the P15 image baked into both baseColor and
-    // emissive texture. Leaving it active causes the old AUDITION wordmark and
-    // backdrop to show through underneath the runtime fidelity overlays.
-    // Neutralize only this screen so the accepted runtime backdrop/logo layers
-    // are authoritative without changing the rest of the R15.1 asset.
-    const centralLed = model.getObjectByName("CentralLED") as THREE.Mesh | undefined;
-    if (centralLed?.isMesh) {
-      const sources = Array.isArray(centralLed.material)
-        ? centralLed.material
-        : [centralLed.material];
-      const next = sources.map(source => {
-        if (!(source instanceof THREE.MeshStandardMaterial)) return source;
-        const material = source.clone();
-        material.name = source.name + " RuntimeNeutralized";
-        material.map = null;
-        material.emissiveMap = null;
-        material.color.setHex(0x120625);
-        material.emissive.setHex(0x2a0b55);
-        material.emissiveIntensity = 0.48;
-        material.roughness = 0.34;
-        material.metalness = 0.02;
-        material.needsUpdate = true;
-        return material;
-      });
-      centralLed.material = Array.isArray(centralLed.material) ? next : next[0];
-    }
-
-    const auditionInset = model.getObjectByName("R15 AUDITION Inset");
-    if (auditionInset) auditionInset.removeFromParent();
-
-    // AUDITION_Brand and DanceTogether remain just long enough for
-    // createAcceptedR15BeautyLighting() to read their authored bounds. They are
-    // then removed and replaced by the exact owner-approved 2D wordmark.
-
-    const ringPalette: Array<[string, number]> = [
-      ["R15 Dance Ring Outer", 0xff42d3],
-      ["R15 Dance Ring Cyan", 0x38ddff],
-      ["R15 Dance Ring Inner", 0x38ddff],
-      ["R15 Dance Ring Fine", 0xffe8fb],
-    ];
-    ringPalette.forEach(([name, color]) => {
-      const ringMesh = model.getObjectByName(name) as THREE.Mesh | undefined;
-      if (!ringMesh?.isMesh) return;
-      ringMesh.visible = true;
-      ringMesh.material = new THREE.MeshBasicMaterial({
-        name: name + " RuntimeConceptRing",
-        color,
-        side: THREE.DoubleSide,
-        depthTest: true,
-        depthWrite: true,
-        toneMapped: false,
-      });
-      ringMesh.renderOrder = 20;
-    });
-
-    model.traverse(object => {
-      const mesh = object as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      const isRiserNeon =
-        /^Mobile_Risers_Neon_/.test(mesh.name)
-        || /^Riser[0-3]_(Cyan|Magenta)Lip$/.test(mesh.name);
-      if (!isRiserNeon) return;
-
-      const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      const next = sources.map(source => {
-        if (!(source instanceof THREE.MeshStandardMaterial)) return source;
-        const material = source.clone();
-        const label = (mesh.name + " " + material.name).toLowerCase();
-        if (label.includes("magenta")) {
-          material.emissive.setHex(0xff39d6);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 10.2);
-        } else {
-          material.emissive.setHex(0x29dcff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.4);
-        }
-        material.toneMapped = false;
-        return material;
-      });
-      mesh.material = Array.isArray(mesh.material) ? next : next[0];
     });
   }
 
@@ -1181,7 +1056,7 @@ export class NeonStageV1Environment {
     this.textures.push(lightPoolTexture, beamSourceTexture, reflectionStreakTexture);
 
     const groups = [
-      { prefix: "MainFixture", count: 11, pan: 14, tilt: 8, speed: 0.72, phase: 0.00, length: 9.5, radius: 1.12 },
+      { prefix: "MainFixture", count: 11, pan: 14, tilt: 8, speed: 0.72, phase: 0.00, length: 9.5, radius: 1.04 },
       { prefix: "RearFixture", count: 5, pan: 10, tilt: 6, speed: 0.58, phase: 0.80, length: 7.2, radius: 0.64 },
     ] as const;
 
@@ -1224,7 +1099,7 @@ export class NeonStageV1Environment {
                 vUv = uv;
                 vec3 p = position;
                 vDistance = clamp((-p.y) / uLength, 0.0, 1.0);
-                p.x *= mix(0.72, 1.0, vDistance);
+                p.x *= mix(0.58, 1.0, vDistance);
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
               }
             `,
@@ -1236,16 +1111,15 @@ export class NeonStageV1Environment {
               void main() {
                 float radial = abs(vUv.x * 2.0 - 1.0);
                 float edgeFade = 1.0 - smoothstep(0.12, 0.98, radial);
-                float core = exp(-radial * radial * 5.2);
-                float haze = exp(-radial * radial * 1.35);
+                float core = exp(-radial * radial * 7.0);
+                float haze = exp(-radial * radial * 2.2);
                 float travel = max(0.0, 1.0 - vDistance);
-                float longitudinal = 0.08 + 0.92 * pow(travel, 0.58);
-                float nearHaze = 1.0 + 2.85 * exp(-vDistance * 7.9);
-                float hotSource = exp(-vDistance * 9.6);
-                float sourceGlow = exp(-vDistance * 4.2) * core;
-                vec3 color = mix(uColor, vec3(1.0), min(0.40, sourceGlow + hotSource * 0.11));
-                float alpha = uOpacity * edgeFade * (0.72 * haze + 0.28 * core) * longitudinal * nearHaze;
-                alpha *= 1.0 - smoothstep(0.70, 1.0, vDistance);
+                float longitudinal = 0.18 + 0.82 * pow(travel, 0.32);
+                float nearHaze = 1.0 + 1.15 * exp(-vDistance * 7.0);
+                float sourceGlow = exp(-vDistance * 4.0) * core;
+                vec3 color = mix(uColor, vec3(1.0), min(0.84, sourceGlow));
+                float alpha = uOpacity * edgeFade * (0.28 * haze + 0.72 * core) * longitudinal * nearHaze;
+                alpha *= 1.0 - smoothstep(0.92, 1.0, vDistance);
                 if (alpha < 0.003) discard;
                 gl_FragColor = vec4(color, alpha);
               }
@@ -1279,9 +1153,9 @@ export class NeonStageV1Environment {
 
           const sourceMaterial = new THREE.SpriteMaterial({
             map: beamSourceTexture,
-            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.08),
+            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.20),
             transparent: true,
-            opacity: 0.78,
+            opacity: 0.92,
             depthWrite: false,
             depthTest: false,
             blending: THREE.AdditiveBlending,
@@ -1294,15 +1168,15 @@ export class NeonStageV1Environment {
 
           const hotCoreMaterial = sourceMaterial.clone();
           hotCoreMaterial.color = new THREE.Color(0xffffff);
-          hotCoreMaterial.opacity = 0.84;
+          hotCoreMaterial.opacity = 1.0;
           const hotCore = new THREE.Sprite(hotCoreMaterial);
           hotCore.name = `${key}_RuntimeSourceHotCore`;
-          hotCore.scale.setScalar(group.prefix === "MainFixture" ? 0.20 : 0.17);
+          hotCore.scale.setScalar(group.prefix === "MainFixture" ? 0.24 : 0.20);
           sourceFxRoot.add(hotCore);
 
           const sourceBloomMaterial = sourceMaterial.clone();
           sourceBloomMaterial.color = presentationColor.clone();
-          sourceBloomMaterial.opacity = group.prefix === "MainFixture" ? 0.34 : 0.26;
+          sourceBloomMaterial.opacity = group.prefix === "MainFixture" ? 0.46 : 0.34;
           const sourceBloom = new THREE.Sprite(sourceBloomMaterial);
           sourceBloom.name = `${key}_RuntimeSourceBloom`;
           sourceBloom.scale.setScalar(group.prefix === "MainFixture" ? 1.72 : 1.38);
@@ -1310,9 +1184,9 @@ export class NeonStageV1Environment {
 
           const plumeMaterial = new THREE.MeshBasicMaterial({
             map: lightPoolTexture,
-            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.06),
+            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.20),
             transparent: true,
-            opacity: group.prefix === "MainFixture" ? 0.62 : 0.38,
+            opacity: group.prefix === "MainFixture" ? 0.50 : 0.36,
             depthWrite: false,
             depthTest: false,
             side: THREE.DoubleSide,
@@ -1321,11 +1195,11 @@ export class NeonStageV1Environment {
           });
           const makePlume = (rotationY: number, suffix: string) => {
             const plume = new THREE.Mesh(
-              new THREE.PlaneGeometry(group.radius * 4.15, group.prefix === "MainFixture" ? 3.65 : 2.45),
+              new THREE.PlaneGeometry(group.radius * 3.25, group.prefix === "MainFixture" ? 3.15 : 2.25),
               plumeMaterial,
             );
             plume.name = `${key}_RuntimeSourcePlume${suffix}`;
-            plume.geometry.translate(0, -(group.prefix === "MainFixture" ? 1.725 : 1.175), 0);
+            plume.geometry.translate(0, -(group.prefix === "MainFixture" ? 1.45 : 1.05), 0);
             plume.rotation.y = rotationY;
             return plume;
           };
@@ -1395,7 +1269,11 @@ export class NeonStageV1Environment {
         const floorAimBase = activeBeamKeys.has(key)
           ? (
             group.prefix === "MainFixture"
-              ? acceptedFixtureFloorAim(key)
+              ? new THREE.Vector3(
+                side * 5.35,
+                0.045,
+                0.15 + Math.abs(side) * 0.78,
+              )
               : new THREE.Vector3(0, 0.045, -1.25)
           )
           : null;
@@ -1424,25 +1302,18 @@ export class NeonStageV1Environment {
   }
 
   private createAcceptedR15BeautyLighting(model: THREE.Object3D) {
-    const ambient = new THREE.AmbientLight(0x321044, 0.16);
+    const ambient = new THREE.AmbientLight(0x4b155e, 0.25);
     ambient.name = "R15RuntimeBeautyAmbient";
     this.acceptedFxRoot.add(ambient);
 
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
-    const floorCompositeTexture = makeAcceptedFloorCompositeTexture();
-    const foregroundReflectionTexture = makeAcceptedForegroundReflectionTexture();
-    const logoTexture = new THREE.TextureLoader().load(AUDITION_LOGO_CONCEPT_DATA_URL);
-    logoTexture.colorSpace = THREE.SRGBColorSpace;
-    logoTexture.anisotropy = 4;
-    logoTexture.magFilter = THREE.LinearFilter;
-    logoTexture.minFilter = THREE.LinearFilter;
-    logoTexture.needsUpdate = true;
+    const floorReflectionTexture = makeAcceptedFloorReflectionTexture();
+    const logoTexture = makeAcceptedLogoOverlayTexture();
     this.textures.push(
       poolTexture,
       backdropTexture,
-      floorCompositeTexture,
-      foregroundReflectionTexture,
+      floorReflectionTexture,
       logoTexture,
     );
 
@@ -1456,10 +1327,10 @@ export class NeonStageV1Environment {
       const backdropMaterial = new THREE.MeshBasicMaterial({
         map: backdropTexture,
         transparent: true,
-        opacity: 1.0,
+        opacity: 0.94,
         depthWrite: false,
         depthTest: true,
-        blending: THREE.NormalBlending,
+        blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
         toneMapped: false,
       });
@@ -1471,63 +1342,29 @@ export class NeonStageV1Environment {
       backdrop.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.028);
       this.acceptedFxRoot.add(backdrop);
 
-      const nativeBrand = model.getObjectByName("AUDITION_Brand");
-      const nativeSubtitle = model.getObjectByName("DanceTogether");
-      const logoBounds = new THREE.Box3();
-      let hasLogoBounds = false;
-      [nativeBrand, nativeSubtitle].forEach(node => {
-        if (!node) return;
-        node.updateWorldMatrix(true, false);
-        const bounds = new THREE.Box3().setFromObject(node);
-        if (bounds.isEmpty()) return;
-        if (!hasLogoBounds) {
-          logoBounds.copy(bounds);
-          hasLogoBounds = true;
-        } else {
-          logoBounds.union(bounds);
-        }
+      const logoMaterial = new THREE.MeshBasicMaterial({
+        map: logoTexture,
+        transparent: true,
+        opacity: 1.0,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.NormalBlending,
+        side: THREE.DoubleSide,
+        toneMapped: false,
       });
-
-      if (hasLogoBounds) {
-        const logoCenter = logoBounds.getCenter(new THREE.Vector3());
-        const nativeSize = logoBounds.getSize(new THREE.Vector3());
-        const textureAspect = 520 / 114;
-        const logoWidth = nativeSize.x * 1.045;
-        const logoHeight = logoWidth / textureAspect;
-
-        const logoMaterial = new THREE.MeshBasicMaterial({
-          map: logoTexture,
-          transparent: true,
-          opacity: 1,
-          alphaTest: 0.015,
-          depthWrite: false,
-          depthTest: true,
-          blending: THREE.NormalBlending,
-          side: THREE.DoubleSide,
-          toneMapped: false,
-        });
-        const logoPlane = new THREE.Mesh(
-          new THREE.PlaneGeometry(logoWidth, logoHeight),
-          logoMaterial,
-        );
-        logoPlane.name = "R15ExactConceptAuditionWordmark";
-        logoPlane.position.set(
-          logoCenter.x,
-          logoCenter.y + nativeSize.y * 0.02,
-          ledBounds.max.z + 0.060,
-        );
-        logoPlane.renderOrder = 30;
-        this.acceptedFxRoot.add(logoPlane);
-      }
-
-      nativeBrand?.removeFromParent();
-      nativeSubtitle?.removeFromParent();
+      const logoOverlay = new THREE.Mesh(
+        new THREE.PlaneGeometry(ledSize.x * 0.985, ledSize.y * 0.97),
+        logoMaterial,
+      );
+      logoOverlay.name = "R15AcceptedAuditionLogoOverlay";
+      logoOverlay.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.046);
+      this.acceptedFxRoot.add(logoOverlay);
     }
 
     const backdropWashes = [
-      { name: "R15BackdropWashCyan", color: 0x24d4ff, x: -4.8, opacity: 0.035 },
-      { name: "R15BackdropWashViolet", color: 0xa737ff, x: -0.2, opacity: 0.065 },
-      { name: "R15BackdropWashMagenta", color: 0xff2fc8, x: 4.5, opacity: 0.075 },
+      { name: "R15BackdropWashCyan", color: 0x24d4ff, x: -4.8, opacity: 0.08 },
+      { name: "R15BackdropWashViolet", color: 0xb743ff, x: -0.2, opacity: 0.18 },
+      { name: "R15BackdropWashMagenta", color: 0xff34d1, x: 4.5, opacity: 0.20 },
     ] as const;
 
     backdropWashes.forEach(wash => {
@@ -1547,44 +1384,23 @@ export class NeonStageV1Environment {
       this.acceptedFxRoot.add(glow);
     });
 
-    const floorCompositeMaterial = new THREE.MeshBasicMaterial({
-      map: floorCompositeTexture,
-      transparent: false,
-      opacity: 1.0,
-      depthWrite: false,
-      depthTest: true,
-      blending: THREE.NormalBlending,
-      side: THREE.DoubleSide,
-      toneMapped: false,
-    });
-    const floorComposite = new THREE.Mesh(
-      new THREE.PlaneGeometry(18.4, 28.0),
-      floorCompositeMaterial,
-    );
-    floorComposite.name = "R15AcceptedFloorComposite";
-    floorComposite.rotation.x = -Math.PI / 2;
-    floorComposite.position.set(0, 0.004, 8.6);
-    this.acceptedFxRoot.add(floorComposite);
-
-    const foregroundReflectionMaterial = new THREE.MeshBasicMaterial({
-      map: foregroundReflectionTexture,
+    const reflectionMaterial = new THREE.MeshBasicMaterial({
+      map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.86,
       depthWrite: false,
-      depthTest: true,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
       toneMapped: false,
     });
-    const foregroundReflection = new THREE.Mesh(
-      new THREE.PlaneGeometry(17.6, 20.0),
-      foregroundReflectionMaterial,
+    const reflectionField = new THREE.Mesh(
+      new THREE.PlaneGeometry(18.4, 28.0),
+      reflectionMaterial,
     );
-    foregroundReflection.name = "R15AcceptedForegroundReflections";
-    foregroundReflection.rotation.x = -Math.PI / 2;
-    foregroundReflection.position.set(0, 0.006, 11.2);
-    foregroundReflection.renderOrder = 4;
-    this.acceptedFxRoot.add(foregroundReflection);
+    reflectionField.name = "R15AcceptedFloorReflectionField";
+    reflectionField.rotation.x = -Math.PI / 2;
+    reflectionField.position.set(0, 0.044, 8.6);
+    this.acceptedFxRoot.add(reflectionField);
 
   }
 
@@ -1627,7 +1443,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.25 + glow * 0.055;
+        state.beamMaterial.uniforms.uOpacity.value = 0.42 + glow * 0.12;
       }
 
       if (!state.floorAimBase || (!state.beamRoot && !state.spillMesh)) return;
@@ -1638,8 +1454,8 @@ export class NeonStageV1Environment {
       this.root.worldToLocal(localSource);
 
       localTarget.copy(state.floorAimBase);
-      localTarget.x += Math.sin(theta * 0.82 + state.phase) * 0.16;
-      localTarget.z += Math.sin(theta * 0.64 + state.phase * 0.7) * 0.14;
+      localTarget.x += Math.sin(theta * 0.82 + state.phase) * 0.42;
+      localTarget.z += Math.sin(theta * 0.64 + state.phase * 0.7) * 0.34;
 
       localDirection.subVectors(localTarget, localSource);
       if (localDirection.lengthSq() < 1e-6) {
@@ -1669,7 +1485,7 @@ export class NeonStageV1Environment {
       const hitZ = THREE.MathUtils.clamp(localTarget.z, -5.3, 6.4);
 
       state.spillMesh.position.set(hitX, 0.045, hitZ);
-      state.spillMesh.material.opacity = 0.58 + glow * 0.15;
+      state.spillMesh.material.opacity = 0.52 + glow * 0.15;
       state.spillMesh.visible = true;
 
       if (state.reflectionCoreMesh) {
@@ -1684,24 +1500,24 @@ export class NeonStageV1Environment {
           coreLength / 4.8,
           1,
         );
-        state.reflectionCoreMesh.material.opacity = 0.72 + glow * 0.18;
+        state.reflectionCoreMesh.material.opacity = 0.52 + glow * 0.18;
         state.reflectionCoreMesh.visible = true;
       }
 
       if (state.reflectionMesh) {
-        const foregroundZ = 18.2;
-        const reflectionLength = THREE.MathUtils.clamp(foregroundZ - hitZ, 11.2, 23.4);
+        const foregroundZ = 15.2;
+        const reflectionLength = THREE.MathUtils.clamp(foregroundZ - hitZ, 9.2, 19.0);
         state.reflectionMesh.position.set(
           hitX,
           0.049,
           hitZ + reflectionLength * 0.5,
         );
         state.reflectionMesh.scale.set(
-          0.96 + glow * 0.14,
+          0.84 + glow * 0.12,
           reflectionLength / 12.0,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.56 + glow * 0.12;
+        state.reflectionMesh.material.opacity = 0.27 + glow * 0.11;
         state.reflectionMesh.visible = true;
       }
     });
