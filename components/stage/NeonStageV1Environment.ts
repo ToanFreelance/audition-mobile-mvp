@@ -67,6 +67,7 @@ type AcceptedMovingHead = {
   beamRoot: THREE.Group | null;
   beamMaterial: THREE.ShaderMaterial | null;
   spillMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null;
+  reflectionCoreMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null;
   reflectionMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null;
 };
 
@@ -394,13 +395,14 @@ function makeAcceptedReflectionStreakTexture() {
   return texture;
 }
 
-function resolveAcceptedFixtureAperture(
+function createAcceptedFixtureSourceAnchor(
   tiltPivot: THREE.Object3D,
   fallback: THREE.Object3D,
 ) {
-  let materialMatch: THREE.Object3D | null = null;
-  let nameMatch: THREE.Object3D | null = null;
+  let materialMatch: THREE.Mesh | null = null;
+  let nameMatch: THREE.Mesh | null = null;
 
+  tiltPivot.updateWorldMatrix(true, true);
   tiltPivot.traverse(object => {
     if (materialMatch) return;
     const mesh = object as THREE.Mesh;
@@ -418,7 +420,39 @@ function resolveAcceptedFixtureAperture(
     }
   });
 
-  return materialMatch ?? nameMatch ?? fallback;
+  const candidate = materialMatch ?? nameMatch;
+  const worldCenter = new THREE.Vector3();
+
+  if (candidate) {
+    candidate.updateWorldMatrix(true, false);
+    const bounds = new THREE.Box3().setFromObject(candidate);
+    if (!bounds.isEmpty()) {
+      bounds.getCenter(worldCenter);
+    } else {
+      candidate.getWorldPosition(worldCenter);
+    }
+  } else {
+    fallback.updateWorldMatrix(true, false);
+    fallback.getWorldPosition(worldCenter);
+  }
+
+  const anchor = new THREE.Object3D();
+  anchor.name = tiltPivot.name + "_RuntimeApertureAnchor";
+  anchor.position.copy(tiltPivot.worldToLocal(worldCenter.clone()));
+  tiltPivot.add(anchor);
+  return anchor;
+}
+
+function acceptedFixturePresentationColor(key: string, fallback: THREE.Color) {
+  const authored: Record<string, number> = {
+    MainFixture_00: 0x30dcff,
+    MainFixture_02: 0xff36d3,
+    MainFixture_05: 0xb84dff,
+    MainFixture_08: 0x34d7ff,
+    MainFixture_10: 0xff3bcf,
+    RearFixture_02: 0xb94fff,
+  };
+  return authored[key] === undefined ? fallback.clone() : new THREE.Color(authored[key]);
 }
 
 function makeAcceptedFloorReflectionTexture() {
@@ -430,55 +464,22 @@ function makeAcceptedFloorReflectionTexture() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // One very low-energy violet bed prevents the glossy stage from collapsing to
-  // navy/black on mobile. The visible language still comes from the discrete
-  // fixture-correlated streaks below rather than a broad painted wash.
-  const energyBed = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  energyBed.addColorStop(0, "rgba(154,50,255,0.13)");
-  energyBed.addColorStop(0.28, "rgba(220,47,231,0.09)");
-  energyBed.addColorStop(0.62, "rgba(95,50,224,0.065)");
-  energyBed.addColorStop(1, "rgba(50,35,160,0.028)");
-  ctx.fillStyle = energyBed;
+  // Glossy violet base only. Directional streaks now come exclusively from
+  // moving-head impact/reflection FX, so the floor no longer reads as painted lanes.
+  const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  base.addColorStop(0, "rgba(184,48,255,0.17)");
+  base.addColorStop(0.26, "rgba(236,49,222,0.11)");
+  base.addColorStop(0.58, "rgba(99,53,235,0.075)");
+  base.addColorStop(1, "rgba(42,28,132,0.025)");
+  ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  const shafts = [
-    { x: 36,  color: "rgba(31,218,255,0.44)", hot: "rgba(220,253,255,0.72)", w: 11 },
-    { x: 96,  color: "rgba(255,48,214,0.46)", hot: "rgba(255,226,249,0.74)", w: 14 },
-    { x: 158, color: "rgba(143,67,255,0.48)", hot: "rgba(235,220,255,0.72)", w: 15 },
-    { x: 220, color: "rgba(255,49,211,0.50)", hot: "rgba(255,230,250,0.76)", w: 14 },
-    { x: 286, color: "rgba(115,72,255,0.48)", hot: "rgba(231,224,255,0.72)", w: 15 },
-    { x: 350, color: "rgba(255,48,206,0.50)", hot: "rgba(255,228,249,0.76)", w: 14 },
-    { x: 414, color: "rgba(112,78,255,0.46)", hot: "rgba(230,226,255,0.72)", w: 14 },
-    { x: 476, color: "rgba(35,211,255,0.44)", hot: "rgba(221,252,255,0.72)", w: 11 },
-  ];
-
-  for (const shaft of shafts) {
-    const g = ctx.createLinearGradient(shaft.x - shaft.w, 0, shaft.x + shaft.w, 0);
-    g.addColorStop(0, "rgba(255,255,255,0)");
-    g.addColorStop(0.26, "rgba(255,255,255,0.02)");
-    g.addColorStop(0.38, shaft.color);
-    g.addColorStop(0.48, shaft.hot);
-    g.addColorStop(0.52, shaft.hot);
-    g.addColorStop(0.62, shaft.color);
-    g.addColorStop(0.74, "rgba(255,255,255,0.02)");
-    g.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = g;
-    ctx.fillRect(shaft.x - shaft.w, 0, shaft.w * 2, canvas.height);
-  }
-
-  // Make each streak read hottest near the stage/source side and stretch softly
-  // toward the camera instead of ending like a flat colored rectangle.
-  ctx.globalCompositeOperation = "destination-in";
-  const falloff = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  falloff.addColorStop(0, "rgba(255,255,255,0.98)");
-  falloff.addColorStop(0.12, "rgba(255,255,255,0.96)");
-  falloff.addColorStop(0.36, "rgba(255,255,255,0.82)");
-  falloff.addColorStop(0.64, "rgba(255,255,255,0.54)");
-  falloff.addColorStop(0.84, "rgba(255,255,255,0.30)");
-  falloff.addColorStop(1, "rgba(255,255,255,0.10)");
-  ctx.fillStyle = falloff;
+  const rearBloom = ctx.createRadialGradient(256, 70, 0, 256, 70, 270);
+  rearBloom.addColorStop(0, "rgba(255,72,224,0.12)");
+  rearBloom.addColorStop(0.36, "rgba(149,66,255,0.085)");
+  rearBloom.addColorStop(1, "rgba(80,42,190,0)");
+  ctx.fillStyle = rearBloom;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.globalCompositeOperation = "source-over";
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -977,7 +978,8 @@ export class NeonStageV1Environment {
         optical.intensity = 0;
         optical.castShadow = false;
 
-        const sourceAnchor = resolveAcceptedFixtureAperture(tiltPivot, optical);
+        const sourceAnchor = createAcceptedFixtureSourceAnchor(tiltPivot, optical);
+        const presentationColor = acceptedFixturePresentationColor(key, optical.color);
         let sourceFxRoot: THREE.Group | null = null;
         let beamRoot: THREE.Group | null = null;
         let beamMaterial: THREE.ShaderMaterial | null = null;
@@ -990,7 +992,7 @@ export class NeonStageV1Environment {
             blending: THREE.AdditiveBlending,
             toneMapped: false,
             uniforms: {
-              uColor: { value: optical.color.clone() },
+              uColor: { value: presentationColor.clone() },
               uLength: { value: group.length },
               uOpacity: { value: group.prefix === "MainFixture" ? 0.34 : 0.25 },
             },
@@ -1002,7 +1004,7 @@ export class NeonStageV1Environment {
                 vUv = uv;
                 vec3 p = position;
                 vDistance = clamp((-p.y) / uLength, 0.0, 1.0);
-                p.x *= mix(0.08, 1.0, vDistance);
+                p.x *= mix(0.18, 1.0, vDistance);
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
               }
             `,
@@ -1017,11 +1019,12 @@ export class NeonStageV1Environment {
                 float core = exp(-radial * radial * 7.0);
                 float haze = exp(-radial * radial * 2.2);
                 float travel = max(0.0, 1.0 - vDistance);
-                float longitudinal = 0.16 + 0.84 * pow(travel, 0.34);
-                float sourceGlow = exp(-vDistance * 4.4) * core;
-                vec3 color = mix(uColor, vec3(1.0), min(0.88, sourceGlow));
-                float alpha = uOpacity * edgeFade * (0.22 * haze + 0.78 * core) * longitudinal;
-                alpha *= 1.0 - smoothstep(0.90, 1.0, vDistance);
+                float longitudinal = 0.18 + 0.82 * pow(travel, 0.32);
+                float nearHaze = 1.0 + 1.15 * exp(-vDistance * 7.0);
+                float sourceGlow = exp(-vDistance * 4.0) * core;
+                vec3 color = mix(uColor, vec3(1.0), min(0.84, sourceGlow));
+                float alpha = uOpacity * edgeFade * (0.28 * haze + 0.72 * core) * longitudinal * nearHaze;
+                alpha *= 1.0 - smoothstep(0.92, 1.0, vDistance);
                 if (alpha < 0.003) discard;
                 gl_FragColor = vec4(color, alpha);
               }
@@ -1055,7 +1058,7 @@ export class NeonStageV1Environment {
 
           const sourceMaterial = new THREE.SpriteMaterial({
             map: beamSourceTexture,
-            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.22),
+            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.20),
             transparent: true,
             opacity: 0.92,
             depthWrite: false,
@@ -1077,7 +1080,7 @@ export class NeonStageV1Environment {
           sourceFxRoot.add(hotCore);
 
           const sourceBloomMaterial = sourceMaterial.clone();
-          sourceBloomMaterial.color = optical.color.clone();
+          sourceBloomMaterial.color = presentationColor.clone();
           sourceBloomMaterial.opacity = group.prefix === "MainFixture" ? 0.46 : 0.34;
           const sourceBloom = new THREE.Sprite(sourceBloomMaterial);
           sourceBloom.name = `${key}_RuntimeSourceBloom`;
@@ -1086,7 +1089,7 @@ export class NeonStageV1Environment {
 
           const plumeMaterial = new THREE.MeshBasicMaterial({
             map: lightPoolTexture,
-            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.24),
+            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.20),
             transparent: true,
             opacity: group.prefix === "MainFixture" ? 0.50 : 0.36,
             depthWrite: false,
@@ -1106,14 +1109,15 @@ export class NeonStageV1Environment {
         }
 
         let spillMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
+        let reflectionCoreMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
         let reflectionMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
         if (activeSpillKeys.has(key)) {
           const poolMaterial = new THREE.MeshBasicMaterial({
             name: `${key}_RuntimeLightPool`,
             map: lightPoolTexture,
-            color: optical.color.clone(),
+            color: presentationColor.clone(),
             transparent: true,
-            opacity: 0.36,
+            opacity: 0.40,
             depthWrite: false,
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
@@ -1125,18 +1129,35 @@ export class NeonStageV1Environment {
           spillMesh.position.y = 0.045;
           this.acceptedFxRoot.add(spillMesh);
 
-          const reflectionMaterial = new THREE.MeshBasicMaterial({
-            name: `${key}_RuntimeReflectionStreak`,
+          const reflectionCoreMaterial = new THREE.MeshBasicMaterial({
+            name: `${key}_RuntimeReflectionCore`,
             map: reflectionStreakTexture,
-            color: optical.color.clone().lerp(new THREE.Color(0xffffff), 0.16),
+            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.36),
             transparent: true,
-            opacity: 0.30,
+            opacity: 0.48,
             depthWrite: false,
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
             toneMapped: false,
           });
-          reflectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.16, 12.0), reflectionMaterial);
+          reflectionCoreMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.58, 4.8), reflectionCoreMaterial);
+          reflectionCoreMesh.name = `${key}_RuntimeReflectionCoreMesh`;
+          reflectionCoreMesh.rotation.x = -Math.PI / 2;
+          reflectionCoreMesh.position.y = 0.051;
+          this.acceptedFxRoot.add(reflectionCoreMesh);
+
+          const reflectionMaterial = new THREE.MeshBasicMaterial({
+            name: `${key}_RuntimeReflectionStreak`,
+            map: reflectionStreakTexture,
+            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.10),
+            transparent: true,
+            opacity: 0.24,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide,
+            toneMapped: false,
+          });
+          reflectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.26, 12.0), reflectionMaterial);
           reflectionMesh.name = `${key}_RuntimeReflectionStreakMesh`;
           reflectionMesh.rotation.x = -Math.PI / 2;
           reflectionMesh.position.y = 0.049;
@@ -1172,6 +1193,7 @@ export class NeonStageV1Environment {
           beamRoot,
           beamMaterial,
           spillMesh,
+          reflectionCoreMesh,
           reflectionMesh,
         });
       }
@@ -1264,7 +1286,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.56,
+      opacity: 0.46,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -1339,6 +1361,7 @@ export class NeonStageV1Environment {
         if (state.sourceFxRoot) state.sourceFxRoot.visible = false;
         if (state.beamRoot) state.beamRoot.visible = false;
         if (state.spillMesh) state.spillMesh.visible = false;
+        if (state.reflectionCoreMesh) state.reflectionCoreMesh.visible = false;
         if (state.reflectionMesh) state.reflectionMesh.visible = false;
         return;
       }
@@ -1361,8 +1384,24 @@ export class NeonStageV1Environment {
       const hitZ = THREE.MathUtils.clamp(localTarget.z, -5.3, 6.4);
 
       state.spillMesh.position.set(hitX, 0.045, hitZ);
-      state.spillMesh.material.opacity = 0.34 + glow * 0.12;
+      state.spillMesh.material.opacity = 0.40 + glow * 0.14;
       state.spillMesh.visible = true;
+
+      if (state.reflectionCoreMesh) {
+        const coreLength = 4.0 + glow * 0.9;
+        state.reflectionCoreMesh.position.set(
+          hitX,
+          0.051,
+          hitZ + coreLength * 0.46,
+        );
+        state.reflectionCoreMesh.scale.set(
+          0.88 + glow * 0.10,
+          coreLength / 4.8,
+          1,
+        );
+        state.reflectionCoreMesh.material.opacity = 0.36 + glow * 0.16;
+        state.reflectionCoreMesh.visible = true;
+      }
 
       if (state.reflectionMesh) {
         const foregroundZ = 13.4;
@@ -1373,11 +1412,11 @@ export class NeonStageV1Environment {
           hitZ + reflectionLength * 0.5,
         );
         state.reflectionMesh.scale.set(
-          0.72 + glow * 0.14,
+          0.84 + glow * 0.12,
           reflectionLength / 12.0,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.20 + glow * 0.12;
+        state.reflectionMesh.material.opacity = 0.14 + glow * 0.10;
         state.reflectionMesh.visible = true;
       }
     });
