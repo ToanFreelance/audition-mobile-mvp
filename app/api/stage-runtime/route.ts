@@ -47,12 +47,12 @@ export async function GET(request: NextRequest) {
       .replace(/\u0000+$/g, "");
     const gltf = JSON.parse(jsonText) as {
       nodes?: Array<{ name?: string; mesh?: number; translation?: number[]; scale?: number[]; children?: number[] }>;
-      meshes?: Array<{ name?: string; primitives?: Array<{ material?: number; attributes?: { POSITION?: number } }> }>;
-      materials?: Array<{ name?: string }>;
+      meshes?: Array<{ name?: string; primitives?: Array<{ material?: number; attributes?: Record<string, number> }> }>;
+      materials?: Array<{ name?: string; doubleSided?: boolean; alphaMode?: string; emissiveFactor?: number[]; pbrMetallicRoughness?: { baseColorFactor?: number[] } }>;
       accessors?: Array<{ min?: number[]; max?: number[] }>;
     };
     const hits = (gltf.nodes ?? []).flatMap((node, nodeIndex) => {
-      if (!/(ring|circle|halo)/i.test(node.name ?? "")) return [];
+      if (!/(ring|circle|halo|AUDITION_Brand)/i.test(node.name ?? "")) return [];
       const mesh = node.mesh === undefined ? undefined : gltf.meshes?.[node.mesh];
       return [{
         nodeIndex,
@@ -64,9 +64,15 @@ export async function GET(request: NextRequest) {
           const mi = primitive.material;
           const ai = primitive.attributes?.POSITION;
           const accessor = ai === undefined ? undefined : gltf.accessors?.[ai];
+          const material = mi === undefined ? undefined : gltf.materials?.[mi];
           return {
             materialIndex: mi,
-            materialName: mi === undefined ? undefined : gltf.materials?.[mi]?.name,
+            materialName: material?.name,
+            attributes: primitive.attributes,
+            baseColorFactor: material?.pbrMetallicRoughness?.baseColorFactor,
+            emissiveFactor: material?.emissiveFactor,
+            alphaMode: material?.alphaMode,
+            doubleSided: material?.doubleSided,
             min: accessor?.min,
             max: accessor?.max,
           };
