@@ -1,5 +1,20 @@
 # S2.5A — Neon Stage Golden Visual Diff Harness
 
+## Accepted golden plate
+
+Owner-approved stage-only concept:
+
+- canonical dimensions: **941 × 1672**
+- aspect ratio: **941:1672**
+- source SHA-256: `f03a302766906ed14ab1d225f4aaec7b623d28786670f618412d5d3d0c24c26d`
+- no HUD
+- no character
+- no gauge / D-pad / SPACE / command arrows
+- stage branding is part of the golden: crown, AUDITION, DANCE TOGETHER
+
+The compare route must preserve this exact aspect ratio. At a smaller browser viewport it may letterbox, but it must never stretch or independently crop width/height.
+
+
 ## Goal
 
 Stop subjective visual tuning. Every visual pass must be measured against the owner-approved Neon Stage concept before calling it an improvement.
