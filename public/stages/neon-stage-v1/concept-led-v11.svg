@@ -1,0 +1,115 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="844" viewBox="0 0 2048 844">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#09051f"/>
+    <stop offset=".19" stop-color="#17063d"/>
+    <stop offset=".50" stop-color="#40066e"/>
+    <stop offset=".72" stop-color="#59065e"/>
+    <stop offset="1" stop-color="#0b0627"/>
+  </linearGradient>
+  <radialGradient id="center" cx="50%" cy="48%" r="48%">
+    <stop offset="0" stop-color="#d713c2" stop-opacity=".61"/>
+    <stop offset=".20" stop-color="#9b0fc9" stop-opacity=".40"/>
+    <stop offset=".48" stop-color="#5d0aa5" stop-opacity=".22"/>
+    <stop offset=".78" stop-color="#25105e" stop-opacity=".10"/>
+    <stop offset="1" stop-color="#07051d" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="topGlow" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#512ac9" stop-opacity=".36"/>
+    <stop offset=".50" stop-color="#7022c0" stop-opacity=".10"/>
+    <stop offset="1" stop-color="#000" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="vignette" cx="50%" cy="50%" r="76%">
+    <stop offset=".42" stop-color="#000" stop-opacity="0"/>
+    <stop offset=".78" stop-color="#02000d" stop-opacity=".10"/>
+    <stop offset="1" stop-color="#010008" stop-opacity=".56"/>
+  </radialGradient>
+  <pattern id="pixels" width="22" height="22" patternUnits="userSpaceOnUse">
+    <circle cx="4" cy="4" r="1.2" fill="#b349ff" opacity=".23"/>
+  </pattern>
+  <filter id="glowPink" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="13" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="glowCyan" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="11" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="logoGlow" x="-40%" y="-80%" width="180%" height="260%">
+    <feGaussianBlur stdDeviation="10" result="b"/>
+    <feFlood flood-color="#ff2bd5" flood-opacity=".90" result="c"/>
+    <feComposite in="c" in2="b" operator="in" result="g"/>
+    <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="crownGold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffe990"/>
+    <stop offset=".34" stop-color="#ffd044"/>
+    <stop offset=".72" stop-color="#f3a915"/>
+    <stop offset="1" stop-color="#cf7608"/>
+  </linearGradient>
+  <filter id="crownGlow" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="6" result="blur"/>
+    <feFlood flood-color="#ffc72e" flood-opacity=".30" result="gold"/>
+    <feComposite in="gold" in2="blur" operator="in" result="glow"/>
+    <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+</defs>
+
+<rect width="2048" height="844" fill="url(#bg)"/>
+<rect width="2048" height="844" fill="url(#topGlow)"/>
+<rect width="2048" height="844" fill="url(#center)"/>
+<rect width="2048" height="844" fill="url(#pixels)" opacity=".24"/>
+
+<!-- mirrored concept rails: narrow neon architecture with dark gaps -->
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="74,80 250,422 74,764" stroke="#ff27d2" stroke-width="34" opacity=".72" filter="url(#glowPink)"/>
+  <polyline points="74,80 250,422 74,764" stroke="#ff58e1" stroke-width="12"/>
+  <polyline points="175,78 354,422 175,766" stroke="#ff35d9" stroke-width="25" opacity=".84" filter="url(#glowPink)"/>
+  <polyline points="175,78 354,422 175,766" stroke="#ffb4ee" stroke-width="6"/>
+  <polyline points="302,66 474,422 302,778" stroke="#25dcff" stroke-width="28" opacity=".88" filter="url(#glowCyan)"/>
+  <polyline points="302,66 474,422 302,778" stroke="#9cf4ff" stroke-width="6"/>
+  <polyline points="443,102 590,422 443,742" stroke="#a748ff" stroke-width="19" opacity=".84" filter="url(#glowPink)"/>
+  <polyline points="443,102 590,422 443,742" stroke="#d7adff" stroke-width="4"/>
+
+  <polyline points="1974,80 1798,422 1974,764" stroke="#ff27d2" stroke-width="34" opacity=".72" filter="url(#glowPink)"/>
+  <polyline points="1974,80 1798,422 1974,764" stroke="#ff58e1" stroke-width="12"/>
+  <polyline points="1873,78 1694,422 1873,766" stroke="#ff35d9" stroke-width="25" opacity=".84" filter="url(#glowPink)"/>
+  <polyline points="1873,78 1694,422 1873,766" stroke="#ffb4ee" stroke-width="6"/>
+  <polyline points="1746,66 1574,422 1746,778" stroke="#25dcff" stroke-width="28" opacity=".88" filter="url(#glowCyan)"/>
+  <polyline points="1746,66 1574,422 1746,778" stroke="#9cf4ff" stroke-width="6"/>
+  <polyline points="1605,102 1458,422 1605,742" stroke="#a748ff" stroke-width="19" opacity=".84" filter="url(#glowPink)"/>
+  <polyline points="1605,102 1458,422 1605,742" stroke="#d7adff" stroke-width="4"/>
+</g>
+
+<!-- concept-locked premium crown: single authored source -->
+<g transform="translate(1024 158)" filter="url(#crownGlow)">
+  <path
+    d="M-108 48 L-126 -26 L-79 7 L-55 -50 L-24 -5 L0 -88 L25 -5 L56 -50 L80 7 L127 -26 L108 48 Z"
+    fill="url(#crownGold)"
+    stroke="#ffe88a"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+  <circle cx="-126" cy="-26" r="5.5" fill="#ffe47c"/>
+  <circle cx="-55" cy="-50" r="5.5" fill="#ffe47c"/>
+  <circle cx="0" cy="-88" r="6.5" fill="#fff0a4"/>
+  <circle cx="56" cy="-50" r="5.5" fill="#ffe47c"/>
+  <circle cx="127" cy="-26" r="5.5" fill="#ffe47c"/>
+  <rect x="-106" y="55" width="212" height="15" rx="4" fill="#f5b71f"/>
+  <rect x="-95" y="58" width="190" height="4" rx="2" fill="#ffe889" opacity=".72"/>
+</g>
+
+<!-- AUDITION: outline-only, concept-like hot white/pink inner line -->
+<g transform="translate(1024 0) scale(1.075 1.0) translate(-1024 0)" font-family="Arial Black,Arial,Helvetica,sans-serif" font-style="italic" font-weight="900" text-anchor="middle">
+  <text x="1024" y="472" font-size="242" fill="none" stroke="#ff24d0" stroke-width="27" opacity=".56" filter="url(#logoGlow)">AUDITION</text>
+  <text x="1024" y="472" font-size="242" fill="none" stroke="#ff4add" stroke-width="13">AUDITION</text>
+  <text x="1024" y="472" font-size="242" fill="none" stroke="#fff7ff" stroke-width="5.5">AUDITION</text>
+</g>
+
+<text x="1024" y="596" text-anchor="middle"
+      font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="700"
+      letter-spacing="18" fill="#fffaff">DANCE TOGETHER</text>
+
+<rect x="165" y="736" width="1718" height="6" rx="3" fill="#ff3bd9" opacity=".78" filter="url(#glowPink)"/>
+<rect width="2048" height="844" fill="url(#vignette)"/>
+</svg>
