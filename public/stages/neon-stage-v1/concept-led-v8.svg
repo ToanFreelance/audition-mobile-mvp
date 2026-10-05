@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="844" viewBox="0 0 2048 844">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#0b0628"/>
+    <stop offset=".19" stop-color="#210852"/>
+    <stop offset=".50" stop-color="#64108f"/>
+    <stop offset=".72" stop-color="#811073"/>
+    <stop offset="1" stop-color="#100733"/>
+  </linearGradient>
+  <radialGradient id="center" cx="50%" cy="48%" r="48%">
+    <stop offset="0" stop-color="#ff35dc" stop-opacity=".92"/>
+    <stop offset=".20" stop-color="#c322e9" stop-opacity=".69"/>
+    <stop offset=".48" stop-color="#831ccf" stop-opacity=".39"/>
+    <stop offset=".78" stop-color="#25105e" stop-opacity=".10"/>
+    <stop offset="1" stop-color="#07051d" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="topGlow" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#6b43ed" stop-opacity=".52"/>
+    <stop offset=".50" stop-color="#8c35dc" stop-opacity=".18"/>
+    <stop offset="1" stop-color="#000" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="vignette" cx="50%" cy="50%" r="76%">
+    <stop offset=".42" stop-color="#000" stop-opacity="0"/>
+    <stop offset=".78" stop-color="#02000d" stop-opacity=".10"/>
+    <stop offset="1" stop-color="#010008" stop-opacity=".56"/>
+  </radialGradient>
+  <pattern id="pixels" width="22" height="22" patternUnits="userSpaceOnUse">
+    <circle cx="4" cy="4" r="1.2" fill="#b349ff" opacity=".23"/>
+  </pattern>
+  <filter id="glowPink" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="13" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="glowCyan" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="11" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="logoGlow" x="-40%" y="-80%" width="180%" height="260%">
+    <feGaussianBlur stdDeviation="10" result="b"/>
+    <feFlood flood-color="#ff2bd5" flood-opacity=".90" result="c"/>
+    <feComposite in="c" in2="b" operator="in" result="g"/>
+    <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="crownGold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#fff5a8"/>
+    <stop offset=".34" stop-color="#ffd95a"/>
+    <stop offset=".72" stop-color="#ffbf2f"/>
+    <stop offset="1" stop-color="#f49a12"/>
+  </linearGradient>
+  <filter id="crownGlow" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="9" result="blur"/>
+    <feFlood flood-color="#ffd34a" flood-opacity=".48" result="gold"/>
+    <feComposite in="gold" in2="blur" operator="in" result="glow"/>
+    <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+</defs>
+
+<rect width="2048" height="844" fill="url(#bg)"/>
+<rect width="2048" height="844" fill="url(#topGlow)"/>
+<rect width="2048" height="844" fill="url(#center)"/>
+<rect width="2048" height="844" fill="url(#pixels)" opacity=".24"/>
+
+<!-- concept-locked premium crown: single authored source -->
+<g transform="translate(1024 154)" filter="url(#crownGlow)">
+  <path
+    d="M-102 48 L-126 -42 L-67 0 L-30 -72 L0 -16 L32 -72 L70 0 L128 -42 L103 48 Z"
+    fill="url(#crownGold)"
+    stroke="#fff0a0"
+    stroke-width="4"
+    stroke-linejoin="round"
+  />
+  <rect x="-103" y="55" width="206" height="18" rx="5" fill="#ffca37"/>
+  <rect x="-94" y="59" width="188" height="5" rx="2.5" fill="#fff4ae" opacity=".82"/>
+</g>
+
+<!-- AUDITION: outline-only, concept-like hot white/pink inner line -->
+<g transform="translate(1024 0) scale(1.12 1.03) translate(-1024 0)" font-family="Arial Black,Arial,Helvetica,sans-serif" font-style="italic" font-weight="900" text-anchor="middle">
+  <text x="1024" y="477" font-size="270" fill="none" stroke="#ff24d0" stroke-width="27" opacity=".56" filter="url(#logoGlow)">AUDITION</text>
+  <text x="1024" y="477" font-size="270" fill="none" stroke="#ff4add" stroke-width="13">AUDITION</text>
+  <text x="1024" y="477" font-size="270" fill="none" stroke="#fff7ff" stroke-width="5.5">AUDITION</text>
+</g>
+
+<text x="1024" y="612" text-anchor="middle"
+      font-family="Arial,Helvetica,sans-serif" font-size="51" font-weight="700"
+      letter-spacing="20" fill="#fffaff">DANCE TOGETHER</text>
+
+<rect x="165" y="736" width="1718" height="6" rx="3" fill="#ff3bd9" opacity=".78" filter="url(#glowPink)"/>
+<rect width="2048" height="844" fill="url(#vignette)"/>
+</svg>
