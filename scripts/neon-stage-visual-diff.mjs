@@ -474,7 +474,7 @@ for (let i = 0; i < overlay.length; i += 3) {
 
 await sharp(overlay, { raw: { width, height, channels: 3 } })
   .png()
-  .toFile(path.join(outDir, "registered-overlay.png"));
+  .toFile(path.join(outDir, "canonical-overlay.png"));
 await sharp(diff, { raw: { width, height, channels: 3 } })
   .linear(2.2, 0)
   .png()
