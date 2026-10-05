@@ -88,7 +88,7 @@ const FLOOR_Y = -0.03;
 const REAR_Z = -5.65;
 const ACCEPTED_R15_FLOOR_WIDTH = 19.8;
 const ACCEPTED_R15_DANCE_RING_Z = 0.25;
-const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v3.svg";
+const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v4.svg";
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -530,6 +530,20 @@ function makeAcceptedFloorReflectionTexture() {
     ctx.arc(0, 0, 58, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+
+    ctx.save();
+    ctx.translate(cx, source.y + 168);
+    ctx.scale(source.w * 0.52, source.len * 1.28);
+    const foregroundTail = ctx.createRadialGradient(0, 0, 0, 0, 0, 86);
+    foregroundTail.addColorStop(0, source.color.replace(/0\.[0-9]+\)$/, "0.22)"));
+    foregroundTail.addColorStop(0.30, source.color.replace(/0\.[0-9]+\)$/, "0.12)"));
+    foregroundTail.addColorStop(0.68, source.color.replace(/0\.[0-9]+\)$/, "0.045)"));
+    foregroundTail.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = foregroundTail;
+    ctx.beginPath();
+    ctx.arc(0, 0, 86, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   const centerBloom = ctx.createRadialGradient(256, 118, 0, 256, 118, 160);
@@ -813,11 +827,25 @@ export class NeonStageV1Environment {
       centralLed.material = Array.isArray(centralLed.material) ? next : next[0];
     }
 
-    const crown = model.getObjectByName("Crown_Center");
-    if (crown) {
-      // The concept-locked LED surface owns the single visible crown.
-      crown.visible = false;
-    }
+    const importedCrownNodes: THREE.Object3D[] = [];
+    model.traverse(object => {
+      const normalizedNodeName = object.name.toLowerCase().replace(/[\s_.-]+/g, "");
+      const mesh = object as THREE.Mesh;
+      const materialNames = mesh.isMesh
+        ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material])
+          .filter(Boolean)
+          .map(material => material.name.toLowerCase().replace(/[\s_.-]+/g, ""))
+        : [];
+      if (
+        normalizedNodeName.includes("crown")
+        || materialNames.some(name => name.includes("crown"))
+      ) {
+        importedCrownNodes.push(object);
+      }
+    });
+    importedCrownNodes.forEach(object => {
+      object.visible = false;
+    });
 
     this.tuneAcceptedR15Materials(model);
     this.optimizeAcceptedR15ForMobile(model);
@@ -941,8 +969,8 @@ export class NeonStageV1Environment {
           material.emissive.setHex(0x080119);
           material.emissiveIntensity = 0.06;
         } else if (name.includes("riser polished top")) {
-          material.roughness = Math.min(material.roughness, 0.09);
-          material.metalness = Math.max(material.metalness, 0.03);
+          material.roughness = Math.min(material.roughness, 0.075);
+          material.metalness = Math.max(material.metalness, 0.05);
         }
       });
     });
@@ -968,14 +996,12 @@ export class NeonStageV1Environment {
     const activeBeamKeys = new Set([
       "MainFixture_01",
       "MainFixture_02",
-      "MainFixture_05",
       "MainFixture_08",
       "MainFixture_09",
     ]);
     const activeSpillKeys = new Set([
       "MainFixture_01",
       "MainFixture_02",
-      "MainFixture_05",
       "MainFixture_08",
       "MainFixture_09",
     ]);
@@ -1216,7 +1242,7 @@ export class NeonStageV1Environment {
             side: THREE.DoubleSide,
             toneMapped: false,
           });
-          reflectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.26, 12.0), reflectionMaterial);
+          reflectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.32, 15.5), reflectionMaterial);
           reflectionMesh.name = `${key}_RuntimeReflectionStreakMesh`;
           reflectionMesh.rotation.x = -Math.PI / 2;
           reflectionMesh.position.y = 0.049;
@@ -1265,9 +1291,9 @@ export class NeonStageV1Environment {
 
     // Local fills replace a global purple wash: reveal structure without
     // flattening the dark gaps that make the concept look premium.
-    const trussFill = new THREE.PointLight(0x694cff, 7.0, 13.0, 1.9);
+    const trussFill = new THREE.PointLight(0x6f5cff, 10.5, 13.5, 1.85);
     trussFill.name = "R15RuntimeTrussFill";
-    trussFill.position.set(0, 7.4, -1.9);
+    trussFill.position.set(0, 7.15, -1.55);
 
     const leftArchitectureFill = new THREE.PointLight(0x29dfff, 4.8, 11.5, 2.0);
     leftArchitectureFill.name = "R15RuntimeLeftArchitectureFill";
@@ -1277,11 +1303,16 @@ export class NeonStageV1Environment {
     rightArchitectureFill.name = "R15RuntimeRightArchitectureFill";
     rightArchitectureFill.position.set(6.2, 4.2, -2.1);
 
+    const riserFill = new THREE.PointLight(0x873cff, 6.4, 9.8, 2.15);
+    riserFill.name = "R15RuntimeRiserFill";
+    riserFill.position.set(0, 2.25, -3.05);
+
     this.acceptedFxRoot.add(
       ambient,
       trussFill,
       leftArchitectureFill,
       rightArchitectureFill,
+      riserFill,
     );
 
     const poolTexture = makeAcceptedLightPoolTexture();
@@ -1376,12 +1407,12 @@ export class NeonStageV1Environment {
       toneMapped: false,
     });
     const reflectionField = new THREE.Mesh(
-      new THREE.PlaneGeometry(18.4, 28.0),
+      new THREE.PlaneGeometry(19.2, 34.0),
       reflectionMaterial,
     );
     reflectionField.name = "R15AcceptedFloorReflectionField";
     reflectionField.rotation.x = -Math.PI / 2;
-    reflectionField.position.set(0, 0.044, 8.6);
+    reflectionField.position.set(0, 0.044, 11.2);
     this.acceptedFxRoot.add(reflectionField);
 
   }
@@ -1487,8 +1518,8 @@ export class NeonStageV1Environment {
       }
 
       if (state.reflectionMesh) {
-        const foregroundZ = 15.2;
-        const reflectionLength = THREE.MathUtils.clamp(foregroundZ - hitZ, 9.2, 19.0);
+        const foregroundZ = 19.2;
+        const reflectionLength = THREE.MathUtils.clamp(foregroundZ - hitZ, 12.0, 23.0);
         state.reflectionMesh.position.set(
           hitX,
           0.049,
@@ -1496,7 +1527,7 @@ export class NeonStageV1Environment {
         );
         state.reflectionMesh.scale.set(
           0.84 + glow * 0.12,
-          reflectionLength / 12.0,
+          reflectionLength / 15.5,
           1,
         );
         state.reflectionMesh.material.opacity = 0.38 + glow * 0.14;
