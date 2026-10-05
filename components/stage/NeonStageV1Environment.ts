@@ -492,7 +492,7 @@ function makeAcceptedFloorReflectionTexture() {
 
     ctx.save();
     ctx.translate(cx, source.y);
-    ctx.scale(source.w, source.len);
+    ctx.scale(source.w * 0.68, source.len);
     const tail = ctx.createRadialGradient(0, 0, 0, 0, 0, 72);
     tail.addColorStop(0, source.hot);
     tail.addColorStop(0.13, source.color);
@@ -507,7 +507,7 @@ function makeAcceptedFloorReflectionTexture() {
 
     ctx.save();
     ctx.translate(cx, source.y + 18);
-    ctx.scale(source.w * 0.24, source.len * 1.08);
+    ctx.scale(source.w * 0.18, source.len * 1.08);
     const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 58);
     core.addColorStop(0, source.hot);
     core.addColorStop(0.12, source.color.replace(/0\.[0-9]+\)$/, "0.56)"));
@@ -535,11 +535,11 @@ function makeAcceptedFloorReflectionTexture() {
 
     ctx.save();
     ctx.translate(cx, source.y + 168);
-    ctx.scale(source.w * 0.52, source.len * 1.28);
+    ctx.scale(source.w * 0.32, source.len * 1.28);
     const foregroundTail = ctx.createRadialGradient(0, 0, 0, 0, 0, 86);
-    foregroundTail.addColorStop(0, source.color.replace(/0\.[0-9]+\)$/, "0.22)"));
-    foregroundTail.addColorStop(0.30, source.color.replace(/0\.[0-9]+\)$/, "0.12)"));
-    foregroundTail.addColorStop(0.68, source.color.replace(/0\.[0-9]+\)$/, "0.045)"));
+    foregroundTail.addColorStop(0, source.color.replace(/0\.[0-9]+\)$/, "0.17)"));
+    foregroundTail.addColorStop(0.30, source.color.replace(/0\.[0-9]+\)$/, "0.085)"));
+    foregroundTail.addColorStop(0.68, source.color.replace(/0\.[0-9]+\)$/, "0.028)"));
     foregroundTail.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = foregroundTail;
     ctx.beginPath();
@@ -557,6 +557,48 @@ function makeAcceptedFloorReflectionTexture() {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function makeAcceptedFloorGridTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("R15.1 floor-grid canvas unavailable.");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.lineWidth = 1;
+
+  // Floor tile seams from the accepted golden plate. The floor mesh applies
+  // perspective; this texture only supplies the regular architectural grid.
+  for (let index = 1; index < 10; index += 1) {
+    const x = (index / 10) * canvas.width;
+    ctx.strokeStyle = index % 2 === 0
+      ? "rgba(46,186,255,0.22)"
+      : "rgba(138,70,255,0.18)";
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+
+  for (let index = 1; index < 13; index += 1) {
+    const y = (index / 13) * canvas.height;
+    ctx.strokeStyle = index % 3 === 0
+      ? "rgba(255,46,205,0.19)"
+      : "rgba(93,82,206,0.16)";
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.needsUpdate = true;
   return texture;
 }
@@ -849,6 +891,35 @@ export class NeonStageV1Environment {
       object.visible = false;
     });
 
+    // Lock the dance-ring palette to the accepted golden plate. The imported
+    // ring materials were too white/desaturated on iPhone.
+    model.traverse(object => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || !object.name.toLowerCase().includes("dance ring")) return;
+
+      const normalized = object.name.toLowerCase();
+      const color = normalized.includes("outer")
+        ? 0xff2fcf
+        : normalized.includes("mid") || normalized.includes("middle")
+          ? 0x25dcff
+          : 0xc64dff;
+      const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      const next = sources.map(source => {
+        if (!(source instanceof THREE.MeshStandardMaterial)) return source;
+        const material = source.clone();
+        material.name = source.name + " GoldenRing";
+        material.color.setHex(color);
+        material.emissive.setHex(color);
+        material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.6);
+        material.roughness = Math.min(material.roughness, 0.08);
+        material.metalness = Math.max(material.metalness, 0.08);
+        material.toneMapped = false;
+        material.needsUpdate = true;
+        return material;
+      });
+      mesh.material = Array.isArray(mesh.material) ? next : next[0];
+    });
+
     this.tuneAcceptedR15Materials(model);
     this.optimizeAcceptedR15ForMobile(model);
     this.prepareAcceptedR15Breathing(model);
@@ -930,15 +1001,15 @@ export class NeonStageV1Environment {
           material.emissive.setHex(0x47136f);
           material.emissiveIntensity = 0.46;
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x65129a);
-          material.emissiveIntensity = 0.62;
+          material.emissive.setHex(0x7118ad);
+          material.emissiveIntensity = 0.82;
         } else if (name.includes("aperture cyan")) {
-          material.emissive.setHex(0x20d9ff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.8);
+          material.emissive.setHex(0x16ddff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 9.2);
           material.toneMapped = false;
         } else if (name.includes("aperture violet")) {
-          material.emissive.setHex(0xff2ed0);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.8);
+          material.emissive.setHex(0xff1fd0);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 10.2);
           material.toneMapped = false;
         } else if (name.includes("neon cyan")) {
           material.emissive.setHex(0x18dcff);
@@ -1317,7 +1388,7 @@ export class NeonStageV1Environment {
     rightArchitectureFill.name = "R15RuntimeRightArchitectureFill";
     rightArchitectureFill.position.set(6.2, 4.2, -2.0);
 
-    const riserFill = new THREE.PointLight(0x8f33f2, 9.2, 10.5, 2.0);
+    const riserFill = new THREE.PointLight(0x9537f6, 12.4, 10.8, 1.95);
     riserFill.name = "R15RuntimeRiserFill";
     riserFill.position.set(0, 2.15, -2.8);
 
@@ -1344,11 +1415,13 @@ export class NeonStageV1Environment {
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
     const floorReflectionTexture = makeAcceptedFloorReflectionTexture();
+    const floorGridTexture = makeAcceptedFloorGridTexture();
     const lowerFixtureGlowTexture = makeAcceptedBeamSourceTexture();
     this.textures.push(
       poolTexture,
       backdropTexture,
       floorReflectionTexture,
+      floorGridTexture,
       lowerFixtureGlowTexture,
     );
 
@@ -1440,6 +1513,26 @@ export class NeonStageV1Environment {
     reflectionField.rotation.x = -Math.PI / 2;
     reflectionField.position.set(0, 0.044, 11.2);
     this.acceptedFxRoot.add(reflectionField);
+
+    const floorGridMaterial = new THREE.MeshBasicMaterial({
+      map: floorGridTexture,
+      transparent: true,
+      opacity: 0.58,
+      depthWrite: false,
+      depthTest: true,
+      blending: THREE.NormalBlending,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    const floorGrid = new THREE.Mesh(
+      new THREE.PlaneGeometry(19.2, 34.0),
+      floorGridMaterial,
+    );
+    floorGrid.name = "R15AcceptedFloorTileGrid";
+    floorGrid.rotation.x = -Math.PI / 2;
+    floorGrid.position.set(0, 0.047, 11.2);
+    floorGrid.renderOrder = 4;
+    this.acceptedFxRoot.add(floorGrid);
 
   }
 
