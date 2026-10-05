@@ -88,7 +88,7 @@ const FLOOR_Y = -0.03;
 const REAR_Z = -5.65;
 const ACCEPTED_R15_FLOOR_WIDTH = 19.8;
 const ACCEPTED_R15_DANCE_RING_Z = 0.25;
-const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v2.svg";
+const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v3.svg";
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -473,14 +473,16 @@ function makeAcceptedFloorReflectionTexture() {
 
   const xToCanvas = (worldX: number) => ((worldX + 9.9) / 19.8) * canvas.width;
   const sources = [
-    { x: -9.0, color: "rgba(45,218,255,0.38)", hot: "rgba(225,253,255,0.72)", w: 0.82, len: 2.20, y: 220 },
-    { x: -6.0, color: "rgba(255,55,211,0.48)", hot: "rgba(255,231,249,0.86)", w: 0.88, len: 2.75, y: 190 },
-    { x: -4.6, color: "rgba(49,216,255,0.50)", hot: "rgba(226,253,255,0.86)", w: 0.78, len: 2.95, y: 202 },
-    { x: -2.6, color: "rgba(255,53,207,0.54)", hot: "rgba(255,232,249,0.90)", w: 0.84, len: 3.10, y: 210 },
-    { x:  2.6, color: "rgba(48,214,255,0.52)", hot: "rgba(225,252,255,0.88)", w: 0.82, len: 3.05, y: 205 },
-    { x:  4.6, color: "rgba(255,52,207,0.52)", hot: "rgba(255,231,249,0.88)", w: 0.86, len: 2.88, y: 195 },
-    { x:  6.0, color: "rgba(47,214,255,0.46)", hot: "rgba(225,252,255,0.82)", w: 0.76, len: 2.62, y: 185 },
-    { x:  9.0, color: "rgba(255,57,210,0.36)", hot: "rgba(255,232,249,0.70)", w: 0.78, len: 2.15, y: 215 },
+    { x: -9.0, color: "rgba(45,218,255,0.54)", hot: "rgba(230,254,255,0.84)", w: 0.78, len: 2.70, y: 205 },
+    { x: -6.8, color: "rgba(255,55,211,0.70)", hot: "rgba(255,238,251,0.94)", w: 0.86, len: 3.25, y: 180 },
+    { x: -5.0, color: "rgba(49,216,255,0.72)", hot: "rgba(232,254,255,0.94)", w: 0.76, len: 3.55, y: 190 },
+    { x: -3.0, color: "rgba(255,53,207,0.76)", hot: "rgba(255,238,251,0.96)", w: 0.82, len: 3.80, y: 195 },
+    { x: -1.2, color: "rgba(76,208,255,0.58)", hot: "rgba(238,254,255,0.88)", w: 0.62, len: 3.40, y: 188 },
+    { x:  1.2, color: "rgba(255,61,219,0.60)", hot: "rgba(255,240,252,0.90)", w: 0.64, len: 3.45, y: 190 },
+    { x:  3.0, color: "rgba(50,216,255,0.74)", hot: "rgba(232,254,255,0.95)", w: 0.80, len: 3.80, y: 192 },
+    { x:  5.0, color: "rgba(255,54,208,0.72)", hot: "rgba(255,238,251,0.94)", w: 0.84, len: 3.55, y: 184 },
+    { x:  6.8, color: "rgba(47,214,255,0.68)", hot: "rgba(230,254,255,0.92)", w: 0.76, len: 3.20, y: 178 },
+    { x:  9.0, color: "rgba(255,57,210,0.52)", hot: "rgba(255,238,251,0.82)", w: 0.76, len: 2.65, y: 205 },
   ] as const;
 
   for (const source of sources) {
@@ -531,8 +533,8 @@ function makeAcceptedFloorReflectionTexture() {
   }
 
   const centerBloom = ctx.createRadialGradient(256, 118, 0, 256, 118, 160);
-  centerBloom.addColorStop(0, "rgba(255,61,219,0.095)");
-  centerBloom.addColorStop(0.34, "rgba(172,68,255,0.055)");
+  centerBloom.addColorStop(0, "rgba(255,61,219,0.17)");
+  centerBloom.addColorStop(0.34, "rgba(172,68,255,0.09)");
   centerBloom.addColorStop(1, "rgba(88,45,190,0)");
   ctx.fillStyle = centerBloom;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -892,14 +894,14 @@ export class NeonStageV1Environment {
         if (name.includes("runtimeneutralled")) return;
 
         if (name.includes("architecture navy")) {
-          material.emissive.setHex(0x09031f);
-          material.emissiveIntensity = 0.10;
+          material.emissive.setHex(0x10042b);
+          material.emissiveIntensity = 0.16;
         } else if (name.includes("architecture indigo")) {
-          material.emissive.setHex(0x22053d);
-          material.emissiveIntensity = 0.18;
+          material.emissive.setHex(0x32105a);
+          material.emissiveIntensity = 0.30;
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x2a0646);
-          material.emissiveIntensity = 0.22;
+          material.emissive.setHex(0x48106c);
+          material.emissiveIntensity = 0.42;
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x20d9ff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.8);
@@ -1134,6 +1136,35 @@ export class NeonStageV1Environment {
             makePlume(Math.PI / 4, "A"),
             makePlume(-Math.PI / 4, "B"),
           );
+        } else if (group.prefix === "MainFixture") {
+          // Concept hierarchy: every overhead head reads as a hot source,
+          // while only selected heads emit volumetric shafts.
+          sourceFxRoot = new THREE.Group();
+          sourceFxRoot.name = `${key}_RuntimeSourceFxRoot`;
+          this.acceptedFxRoot.add(sourceFxRoot);
+
+          const sourceMaterial = new THREE.SpriteMaterial({
+            map: beamSourceTexture,
+            color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.12),
+            transparent: true,
+            opacity: 0.62,
+            depthWrite: false,
+            depthTest: false,
+            blending: THREE.AdditiveBlending,
+            toneMapped: false,
+          });
+          const sourceHalo = new THREE.Sprite(sourceMaterial);
+          sourceHalo.name = `${key}_RuntimeSourceHalo`;
+          sourceHalo.scale.setScalar(0.82);
+          sourceFxRoot.add(sourceHalo);
+
+          const hotCoreMaterial = sourceMaterial.clone();
+          hotCoreMaterial.color = new THREE.Color(0xffffff);
+          hotCoreMaterial.opacity = 0.92;
+          const hotCore = new THREE.Sprite(hotCoreMaterial);
+          hotCore.name = `${key}_RuntimeSourceHotCore`;
+          hotCore.scale.setScalar(0.23);
+          sourceFxRoot.add(hotCore);
         }
 
         let spillMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial> | null = null;
@@ -1145,7 +1176,7 @@ export class NeonStageV1Environment {
             map: lightPoolTexture,
             color: presentationColor.clone(),
             transparent: true,
-            opacity: 0.40,
+            opacity: 0.48,
             depthWrite: false,
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
@@ -1229,9 +1260,29 @@ export class NeonStageV1Environment {
   }
 
   private createAcceptedR15BeautyLighting(model: THREE.Object3D) {
-    const ambient = new THREE.AmbientLight(0x2d0a3e, 0.07);
+    const ambient = new THREE.AmbientLight(0x2d0a3e, 0.11);
     ambient.name = "R15RuntimeBeautyAmbient";
-    this.acceptedFxRoot.add(ambient);
+
+    // Local fills replace a global purple wash: reveal structure without
+    // flattening the dark gaps that make the concept look premium.
+    const trussFill = new THREE.PointLight(0x694cff, 7.0, 13.0, 1.9);
+    trussFill.name = "R15RuntimeTrussFill";
+    trussFill.position.set(0, 7.4, -1.9);
+
+    const leftArchitectureFill = new THREE.PointLight(0x29dfff, 4.8, 11.5, 2.0);
+    leftArchitectureFill.name = "R15RuntimeLeftArchitectureFill";
+    leftArchitectureFill.position.set(-6.2, 4.2, -2.1);
+
+    const rightArchitectureFill = new THREE.PointLight(0xff35d1, 4.8, 11.5, 2.0);
+    rightArchitectureFill.name = "R15RuntimeRightArchitectureFill";
+    rightArchitectureFill.position.set(6.2, 4.2, -2.1);
+
+    this.acceptedFxRoot.add(
+      ambient,
+      trussFill,
+      leftArchitectureFill,
+      rightArchitectureFill,
+    );
 
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
@@ -1318,7 +1369,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.76,
+      opacity: 0.96,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -1377,12 +1428,17 @@ export class NeonStageV1Environment {
         state.beamMaterial.uniforms.uOpacity.value = 0.18 + glow * 0.08;
       }
 
-      if (!state.floorAimBase || (!state.beamRoot && !state.spillMesh)) return;
-
       state.sourceAnchor.updateWorldMatrix(true, false);
       state.sourceAnchor.getWorldPosition(worldSource);
       localSource.copy(worldSource);
       this.root.worldToLocal(localSource);
+
+      if (state.sourceFxRoot) {
+        state.sourceFxRoot.position.copy(localSource);
+        state.sourceFxRoot.visible = true;
+      }
+
+      if (!state.floorAimBase || (!state.beamRoot && !state.spillMesh)) return;
 
       localTarget.copy(state.floorAimBase);
       localTarget.x += Math.sin(theta * 0.82 + state.phase) * 0.28;
@@ -1399,11 +1455,6 @@ export class NeonStageV1Environment {
       }
       localDirection.normalize();
 
-      if (state.sourceFxRoot) {
-        state.sourceFxRoot.position.copy(localSource);
-        state.sourceFxRoot.visible = true;
-      }
-
       if (state.beamRoot) {
         state.beamRoot.position.copy(localSource);
         state.beamRoot.quaternion.setFromUnitVectors(localDown, localDirection);
@@ -1416,7 +1467,7 @@ export class NeonStageV1Environment {
       const hitZ = THREE.MathUtils.clamp(localTarget.z, -5.3, 6.4);
 
       state.spillMesh.position.set(hitX, 0.045, hitZ);
-      state.spillMesh.material.opacity = 0.52 + glow * 0.15;
+      state.spillMesh.material.opacity = 0.64 + glow * 0.18;
       state.spillMesh.visible = true;
 
       if (state.reflectionCoreMesh) {
@@ -1431,7 +1482,7 @@ export class NeonStageV1Environment {
           coreLength / 4.8,
           1,
         );
-        state.reflectionCoreMesh.material.opacity = 0.52 + glow * 0.18;
+        state.reflectionCoreMesh.material.opacity = 0.66 + glow * 0.20;
         state.reflectionCoreMesh.visible = true;
       }
 
@@ -1448,7 +1499,7 @@ export class NeonStageV1Environment {
           reflectionLength / 12.0,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.27 + glow * 0.11;
+        state.reflectionMesh.material.opacity = 0.38 + glow * 0.14;
         state.reflectionMesh.visible = true;
       }
     });
