@@ -37,10 +37,10 @@ function getNeonGameplayCameraFrame(frame: ReturnType<typeof getCharacterCameraF
   if (!portrait) return frame;
   return {
     ...frame,
-    fov: Math.max(41, frame.fov + 2),
-    y: frame.y + 0.65,
-    z: frame.z + 6.0,
-    targetY: frame.targetY + 0.05,
+    fov: Math.max(42, frame.fov + 4),
+    y: frame.y + 0.72,
+    z: frame.z + 9.4,
+    targetY: frame.targetY + 0.08,
   };
 }
 
@@ -52,10 +52,10 @@ function getNeonPresentationPose(
   if (!neonPresentation || !portrait || pose.preset !== "gameplay_portrait_locked") return pose;
   return {
     ...pose,
-    fov: Math.max(41, pose.fov + 2),
-    y: pose.y + 0.65,
-    z: pose.z + 6.0,
-    targetY: pose.targetY + 0.05,
+    fov: Math.max(42, pose.fov + 4),
+    y: pose.y + 0.72,
+    z: pose.z + 9.4,
+    targetY: pose.targetY + 0.08,
   };
 }
 
