@@ -21,6 +21,9 @@ const MOBILE_NEON_DPR_CAP = 1.25;
 const NEON_CHARACTER_STAGE_Z_OFFSET = 2.0;
 const DESKTOP_DPR_CAP = 1.6;
 const STAGE_VISUAL_COMPARE_SONG_TIME_MS = 12_000;
+const NEON_GOLDEN_COMPARE_WIDTH = 941;
+const NEON_GOLDEN_COMPARE_HEIGHT = 1672;
+const NEON_GOLDEN_COMPARE_HORIZONTAL_FOV_SCALE = 1.145;
 
 function isMobileStageProfile() {
   return window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
@@ -57,6 +60,17 @@ function getNeonPresentationPose(
     y: pose.y + 0.68,
     z: pose.z + 6.8,
     targetY: pose.targetY + 0.20,
+  };
+}
+
+function getNeonGoldenComparePose(pose: StageCameraPose): StageCameraPose {
+  if (pose.preset !== "gameplay_portrait_locked") return pose;
+  return {
+    ...pose,
+    // Calibrated from the owner-approved 941×1672 golden plate. The compare
+    // camera is presentation-only and must not change gameplay framing.
+    z: 24.8,
+    targetY: 2.22,
   };
 }
 
@@ -167,7 +181,7 @@ export default function Stage3D({
       antialias: true,
       powerPreference: "high-performance",
     });
-    renderer.setPixelRatio(getStagePixelRatio(neonPresentation));
+    renderer.setPixelRatio(visualCompareMode ? 1 : getStagePixelRatio(neonPresentation));
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -337,10 +351,18 @@ export default function Stage3D({
         camera.lookAt(cameraLookTarget);
         hasSized = true;
       }
-      camera.aspect = width / height;
+      const renderedAspect = width / height;
+      camera.aspect = visualCompareMode && neonPresentation
+        ? renderedAspect * NEON_GOLDEN_COMPARE_HORIZONTAL_FOV_SCALE
+        : renderedAspect;
       camera.updateProjectionMatrix();
-      renderer.setPixelRatio(getStagePixelRatio(neonPresentation));
+      renderer.setPixelRatio(visualCompareMode ? 1 : getStagePixelRatio(neonPresentation));
       renderer.setSize(width, height, false);
+      if (visualCompareMode) {
+        host.dataset.visualCompareCanonicalWidth = String(NEON_GOLDEN_COMPARE_WIDTH);
+        host.dataset.visualCompareCanonicalHeight = String(NEON_GOLDEN_COMPARE_HEIGHT);
+        host.dataset.visualCompareAspect = String(NEON_GOLDEN_COMPARE_WIDTH / NEON_GOLDEN_COMPARE_HEIGHT);
+      }
     };
 
     const observer = new ResizeObserver(resize);
@@ -374,7 +396,10 @@ export default function Stage3D({
         portrait,
         cameraPresetRef.current,
       );
-      const pose = getNeonPresentationPose(basePose, neonPresentation, portrait);
+      const neonPose = getNeonPresentationPose(basePose, neonPresentation, portrait);
+      const pose = visualCompareMode && neonPresentation
+        ? getNeonGoldenComparePose(neonPose)
+        : neonPose;
       host.dataset.presentationCamera = pose.preset;
       const shotChanged = pose.preset !== lastPresentationCamera;
       const cutToIntroShot = shotChanged && pose.preset !== "gameplay_portrait_locked";
@@ -386,7 +411,9 @@ export default function Stage3D({
       // continuous camera rail through stage geometry. Snap at intro-shot
       // boundaries, then keep the subtle motion inside each shot. Blend only
       // when returning to the locked gameplay camera.
-      if (cutToIntroShot) {
+      if (visualCompareMode || cutToIntroShot) {
+        // Visual comparison must be bit-stable: never depend on how many RAFs
+        // elapsed before the screenshot was taken.
         camera.position.set(pose.x, pose.y, pose.z);
         camera.fov = pose.fov;
         cameraLookTarget.set(pose.targetX, pose.targetY, pose.targetZ);
