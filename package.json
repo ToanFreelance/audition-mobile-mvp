@@ -9,6 +9,8 @@
     "prebuild": "node scripts/analyze-rhythm.mjs",
     "start": "next start",
     "lint": "next lint",
+    "lint:motion": "eslint -c eslint.motion.config.mjs app/tools/motion-extractor app/api/motion-extraction lib/motion-extraction",
+    "typecheck": "tsc --noEmit",
     "test:qa": "playwright test",
     "test:qa:ui": "playwright test --ui",
     "test:qa:report": "playwright show-report",
@@ -29,14 +31,17 @@
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
+    "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "22.15.21",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
     "@types/three": "0.180.0",
-    "@tailwindcss/postcss": "^4.1.13",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "meshoptimizer": "0.22.0",
     "sharp": "0.35.4",
     "tailwindcss": "^4.1.13",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "typescript-eslint": "^8.46.2"
   }
 }

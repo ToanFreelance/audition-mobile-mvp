@@ -1,0 +1,9 @@
+# CPU worker, alongside ffmpeg/ffprobe and Blender 4.5.3.
+# Install torch==2.6.0 from https://download.pytorch.org/whl/cpu for fresh inference.
+numpy==2.3.5
+scipy==1.17.0
+opencv-python-headless==4.11.0.86
+onnxruntime==1.23.2
+rtmlib==0.0.13
+requests==2.34.2
+tqdm==4.70.1

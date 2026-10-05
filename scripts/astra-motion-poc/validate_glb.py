@@ -13,6 +13,9 @@ def inspect(original, animated):
     checks={key:d.get(key)==src.doc.get(key) for key in ['nodes','skins','meshes','materials','textures','images','samplers','scenes','scene']}
     checks['original_bin_prefix_identical']=g.bin[:len(src.bin)]==src.bin
     checks['old_clips_identical']=d.get('animations',[])[:len(src.doc.get('animations',[]))]==src.doc.get('animations',[])
+    for key in ['accessors','bufferViews']:
+        checks['original_'+key+'_identical']=d[key][:len(src.doc[key])]==src.doc[key]
+    checks['has_new_clips']=len(d.get('animations',[]))>len(src.doc.get('animations',[]))
     skin_reports=[]
     for si,skin in enumerate(d['skins']):
         joints=skin['joints'];ibm=g.accessor(skin['inverseBindMatrices']).reshape(-1,4,4).transpose(0,2,1)
@@ -32,8 +35,7 @@ def inspect(original, animated):
             joint_indices &= bool(j.max()<len(d['skins'][0]['joints']))
     checks['valid_weights']=weight_finite and weight_error<1e-5 and joint_indices
     animations=[];all_angles=[]
-    for anim in d.get('animations',[]):
-        if not anim.get('name','').startswith(('audition-space-','moonlight-space-')):continue
+    for anim in d.get('animations',[])[len(src.doc.get('animations',[])):]:
         finite=True;norm_error=0.;valid_nodes=True;no_scale=True;strict_times=True;durations=[];fps=[];angles=[]
         root_values=None;sample_rot={};sample_tr={};count=0;worst=dict(degrees=0)
         for ch in anim['channels']:
@@ -75,8 +77,8 @@ def inspect(original, animated):
                     quaternion_max_norm_error=norm_error,no_scale_animation=no_scale,
                     root_xyz_range=None if root_values is None else np.ptp(root_values,axis=0).tolist(),
                     angular_step_degrees_max=max(angles),angular_step_degrees_p99=float(np.percentile(angles,99)),
-                    angular_warning=max(angles)>(15 if anim['name'].startswith('moonlight-') else 35),
-                    angular_warning_threshold_degrees=15 if anim['name'].startswith('moonlight-') else 35,
+                    angular_warning=max(angles)>15,
+                    angular_warning_threshold_degrees=15,
                     worst_angular_step=worst,sampled_skinning_finite=deform_finite,
                     sampled_skinning_max_extent_m=max_extent,complete=anim.get('extras',{}).get('complete'))
         report['sampled_skinning_min_y_m']=min(v[0][1] for v in bounds)

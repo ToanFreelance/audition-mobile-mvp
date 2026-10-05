@@ -33,11 +33,11 @@ def smooth_rot(matrices,sigma=1.5):
     return R.from_quat(unit(gaussian_filter1d(q,sigma,axis=0,mode='nearest'))).as_matrix()
 
 
-def ik2(anchor,end,pole,l1,l2):
+def ik2(anchor,end,pole,l1,l2,max_flex=155):
     delta=end-anchor; dist=np.linalg.norm(delta)
     direction=unit(delta)
     # Explicit hinge limits 3..155 degrees of flexion.
-    low=np.sqrt(l1*l1+l2*l2+2*l1*l2*np.cos(np.deg2rad(155)))
+    low=np.sqrt(l1*l1+l2*l2+2*l1*l2*np.cos(np.deg2rad(max_flex)))
     high=np.sqrt(l1*l1+l2*l2+2*l1*l2*np.cos(np.deg2rad(3)))
     d=np.clip(dist,low,high)
     along=(l1*l1-l2*l2+d*d)/(2*d)
@@ -80,7 +80,15 @@ def bounded_normal(primary, normal, anatomical_reference, limit_degrees):
     return R.from_rotvec(primary*np.clip(angle,-np.deg2rad(limit_degrees),np.deg2rad(limit_degrees))).apply(ref)
 
 
-def solve(rig, targets, manifest, out, v2=False):
+def bind_normal_at_direction(bind_primary,primary,normal):
+    axis=np.cross(bind_primary,primary);angle=np.arccos(np.clip(np.dot(bind_primary,primary),-1,1))
+    if np.linalg.norm(axis)<1e-7:
+        axis=normal if angle>1 else np.array([1.,0,0])
+    return R.from_rotvec(unit(axis)*angle).apply(normal)
+
+
+def solve(rig, targets, manifest, out, v2=False, v21=False):
+    v2=v2 or v21
     args=SimpleNamespace(rig=rig,targets=targets,manifest=manifest,out=out)
     g=GLB(args.rig); rest=g.fk(); nodes=g.doc['nodes']; nframes=0
     data=np.load(args.targets); p=data['points']; uv=data['image'];fps=float(data['fps']);nframes=len(p)
@@ -107,8 +115,8 @@ def solve(rig, targets, manifest, out, v2=False):
     for side,leg,joints in specs:
         names=[side+x for x in (['UpLeg','Leg','Foot'] if leg else ['Arm','ForeArm','Hand'])]
         a,b,c=[pos(n) for n in names];l1=np.linalg.norm(b-a);l2=np.linalg.norm(c-b)
-        u=unit(gaussian_filter1d(unit(p[:,joints[1]]-p[:,joints[0]]),1.5,axis=0))
-        v=unit(gaussian_filter1d(unit(p[:,joints[2]]-p[:,joints[1]]),1.5,axis=0))
+        u=unit(gaussian_filter1d(unit(p[:,joints[1]]-p[:,joints[0]]),.7 if v21 else 1.5,axis=0))
+        v=unit(gaussian_filter1d(unit(p[:,joints[2]]-p[:,joints[1]]),.7 if v21 else 1.5,axis=0))
         rn=unit(np.cross(unit(b-a),unit(c-b)))
         if np.linalg.norm(rn)<.5:rn=np.array([0,0,1.])
         chains.append(dict(side=side,leg=leg,joints=joints,names=names,l1=l1,l2=l2,u=u,v=v,
@@ -124,6 +132,10 @@ def solve(rig, targets, manifest, out, v2=False):
     root=np.tile(pos('Hips'),(nframes,1));root[:,0]+=rootx;root[:,2]=pos('Hips')[2]
     # Ground height from target ankle bind height; no source scale imposed on target bones.
     ground_ankle={side:pos(side+'Foot')[1] for side in ['Left','Right']}
+    sole=None
+    if v21:
+        from sole_constraints import SoleGeometry
+        sole=SoleGeometry(g);ground_ankle=sole.floors
     rel_feet=np.zeros((nframes,2,3));foot_targets=np.zeros_like(rel_feet)
     for s,ch in enumerate(chains[2:]):
         h_offset=pos(ch['side']+'UpLeg')-pos('Hips')
@@ -150,6 +162,13 @@ def solve(rig, targets, manifest, out, v2=False):
                 w=1. if a<=f<b else max(0,1-min(abs(f-a),abs(f-(b-1)))/4)
                 foot_targets[f,s]=(1-w)*foot_targets[f,s]+w*anchor
         foot_targets[:,s,1]=np.maximum(foot_targets[:,s,1],floor-.005)
+    kneeling_support=np.zeros(nframes)
+    if v21:
+        floor_uv=np.percentile(uv[:,[27,28],1],80)
+        for knee,ankle in [(25,27),(26,28)]:
+            observed=(uv[:,knee,1]>floor_uv-.028)&(uv[:,knee,1]>uv[:,ankle,1]-.008)&(data['confidence'][:,knee]>.65)
+            kneeling_support=np.maximum(kneeling_support,gaussian_filter1d(observed.astype(float),1))
+        root[:,1]-=.25*kneeling_support
     # Reach-aware pelvis correction before solving knees.
     for f in range(nframes):
         lower=0.
@@ -192,12 +211,14 @@ def solve(rig, targets, manifest, out, v2=False):
             anchor=world[idx(a)][:3,3]
             pole=anchor+ch['l1']*ch['u'][f]
             end=foot_targets[f,ci-2] if ch['leg'] else pole+ch['l2']*ch['v'][f]
-            middle,end=ik2(anchor,end,pole,ch['l1'],ch['l2'])
+            middle,end=ik2(anchor,end,pole,ch['l1'],ch['l2'],170 if v21 and ch['leg'] else 155)
             directions=[unit(middle-anchor),unit(end-middle)]
             normal=np.cross(directions[0],directions[1])
             for k,name in enumerate([a,b]):
                 n=transported_normal(directions[k],normal,ch['previous'][k],td@ch['rest_normal'])
-                if v2:n=bounded_normal(directions[k],n,(hd if ch['leg'] else td)@ch['rest_normal'],35 if ch['leg'] else 75)
+                reference=(hd if ch['leg'] else td)@ch['rest_normal']
+                if v21:reference=bind_normal_at_direction((hd if ch['leg'] else td)@ch['bind_bases'][k][:,1],directions[k],reference)
+                if v2:n=bounded_normal(directions[k],n,reference,35 if ch['leg'] else 75)
                 ch['previous'][k]=n
                 desired=frame(directions[k],n)@ch['bind_bases'][k].T@rot(name)
                 set_world(name,desired)
@@ -212,7 +233,7 @@ def solve(rig, targets, manifest, out, v2=False):
                     desired_yaw=base_yaw+.5*offset
                     heel=j+2
                     if min(data['confidence'][f,[heel,toe]])>.45:pitch=np.clip(-np.arctan2(p[f,toe,1]-p[f,heel,1],.16),-.4,.4)
-                    if contacts[f,ci-2]:pitch*=.25
+                    if contacts[f,ci-2]:pitch*=.65 if v21 else .25
                 previous=foot_yaw[side]
                 if previous is not None:
                     dy=(desired_yaw-previous+np.pi)%(2*np.pi)-np.pi
@@ -241,7 +262,7 @@ def solve(rig, targets, manifest, out, v2=False):
     if v2:
         for i,q in rotations.items():
             assert len(q)==nframes
-            mats=smooth_rot(R.from_quat(q).as_matrix(),1.)
+            mats=smooth_rot(R.from_quat(q).as_matrix(),.85 if v21 else 1.)
             for order in [range(1,nframes),range(nframes-2,-1,-1)]:
                 backward=order.step<0
                 for f in order:
@@ -266,17 +287,29 @@ def solve(rig, targets, manifest, out, v2=False):
         lift=np.maximum(0,np.max(floors[None,:]-.005-baked[:,:,1],axis=1))
         post_correction[:,1]=np.maximum(lift,gaussian_filter1d(lift,1))
         root+=post_correction;bone_positions=np.array(bone_positions)+post_correction[:,None,:];solved_feet=baked+post_correction[:,None,:]
+    sole_min_y_before=np.zeros(nframes);sole_lift=np.zeros(nframes)
+    if v21:
+        for f in range(nframes):
+            world=g.fk({i:q[f] for i,q in rotations.items()},{idx('Hips'):root[f]})
+            sole_min_y_before[f]=sole.minimum(world)
+        needed=np.maximum(.002-sole_min_y_before,0)
+        sole_lift=np.maximum(needed,gaussian_filter1d(needed,1))
+        root[:,1]+=sole_lift;post_correction[:,1]+=sole_lift
+        bone_positions=np.array(bone_positions);solved_feet=np.array(solved_feet)
+        bone_positions[:,:,1]+=sole_lift[:,None];solved_feet[:,:,1]+=sole_lift[:,None]
     for motion in manifest['motions']:
         a,b=motion['source_frame_range'];sel=np.r_[np.arange(a,b),b-1]
         g.append_animation(motion['id'],np.arange(b-a+1)/fps,{i:q[sel] for i,q in rotations.items()},idx('Hips'),root[sel],
                            {'poc':True,'source_frames_half_open':motion.get('original_source_frame_range',[a,b]),'source_fps':fps,'complete':motion['complete'],
-                            'source_clip':motion.get('source_clip'),'owner_visual_acceptance':'PENDING','v2':v2,
+                            'source_clip':motion.get('source_clip'),'owner_visual_acceptance':'PENDING','v2':v2,'v21':v21,
+                            'motion_type':motion.get('type','normal'),'sourceMotionId':motion.get('sourceMotionId',motion['id']),
                             'warning':None if motion['complete'] else 'INCOMPLETE: source ends after 8 frames; not a usable third motion',
                             'solver':'target two-bone IK + bind-axis frame constraints; no source bone rotations'})
     g.write(args.out)
     out=Path(args.out)
     np.savez_compressed(out.with_suffix('.solve.npz'),root=root,contacts=contacts,foot_targets=foot_targets,
-                        solved_feet=np.array(solved_feet),joint_positions=np.array(bone_positions),fps=fps,post_filter_root_correction=post_correction)
+                        solved_feet=np.array(solved_feet),joint_positions=np.array(bone_positions),fps=fps,post_filter_root_correction=post_correction,
+                        sole_min_y_before=sole_min_y_before,sole_lift=sole_lift,kneeling_support=kneeling_support)
     report=dict(target=Path(args.rig).name,joints=len(g.doc['skins'][0]['joints']),fps=fps,
                 new_clips=[m['id'] for m in manifest['motions']],root_xyz_range=np.ptp(root,axis=0).tolist(),
                 preserved='Original nodes, meshes, UV, materials, images, skins, inverse binds, animations, BIN prefix',
@@ -289,6 +322,7 @@ def solve(rig, targets, manifest, out, v2=False):
     out.with_suffix('.solve.json').write_text(json.dumps(report,indent=2)+'\n')
     if v2:
         report.update(angular_filter_limited_updates=limited,post_filter_root_correction_max=np.max(np.abs(post_correction),axis=0).tolist(),
+          v21=v21,sole_lift_max=float(sole_lift.max()),sole_min_y_after=float((sole_min_y_before+sole_lift).min()) if v21 else None,
           anatomical_roll_limits_degrees=dict(leg=35,arm=75),
           limitations=['Contacts inferred, not independently measured ground truth.','Monocular elbow/wrist depth approximate.','Head delta bounded to 12 degrees; palm correction bounded to 22 degrees; fingers remain bind-local.','18 degree/frame angular filter may soften accents and alter contact; actual baked feet corrected afterwards.'])
         out.with_suffix('.solve.json').write_text(json.dumps(report,indent=2)+'\n')
@@ -299,7 +333,7 @@ def solve(rig, targets, manifest, out, v2=False):
 def main():
     ap=argparse.ArgumentParser()
     for name in ['rig','targets','manifest','out']:ap.add_argument('--'+name,required=True)
-    ap.add_argument('--v2',action='store_true');solve(**vars(ap.parse_args()))
+    ap.add_argument('--v2',action='store_true');ap.add_argument('--v21',action='store_true');solve(**vars(ap.parse_args()))
 
 
 if __name__=='__main__':main()
