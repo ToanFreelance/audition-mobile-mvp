@@ -88,7 +88,7 @@ const FLOOR_Y = -0.03;
 const REAR_Z = -5.65;
 const ACCEPTED_R15_FLOOR_WIDTH = 19.8;
 const ACCEPTED_R15_DANCE_RING_Z = 0.25;
-const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v12.svg";
+const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v13.svg";
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
