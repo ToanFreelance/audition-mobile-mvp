@@ -617,6 +617,88 @@ function makeAcceptedBackdropGlowTexture() {
   return texture;
 }
 
+function offsetObjectWorldY(object: THREE.Object3D, deltaY: number) {
+  const parent = object.parent;
+  if (!parent) {
+    object.position.y += deltaY;
+    return;
+  }
+
+  object.updateWorldMatrix(true, false);
+  parent.updateWorldMatrix(true, false);
+  const worldPosition = object.getWorldPosition(new THREE.Vector3());
+  worldPosition.y += deltaY;
+  object.position.copy(parent.worldToLocal(worldPosition));
+}
+
+function offsetMatchingRootsWorldY(
+  model: THREE.Object3D,
+  matches: (object: THREE.Object3D) => boolean,
+  deltaY: number,
+) {
+  const matching = new Set<THREE.Object3D>();
+  model.traverse(object => {
+    if (matches(object)) matching.add(object);
+  });
+
+  [...matching].forEach(object => {
+    let ancestor = object.parent;
+    while (ancestor && ancestor !== model) {
+      if (matching.has(ancestor)) return;
+      ancestor = ancestor.parent;
+    }
+    offsetObjectWorldY(object, deltaY);
+  });
+
+  model.updateMatrixWorld(true);
+}
+
+function applyGoldenVerticalRegistration(model: THREE.Object3D) {
+  // Registered from the owner's 22:16 compare capture at canonical portrait
+  // size. Horizontal-edge correlation showed three independent residuals:
+  // truss ≈ 51 px too low, golden LED ≈ 35 px too low, risers ≈ 50 px too high.
+  // Convert those screen deltas to rear-stage world units instead of trying to
+  // solve incompatible anchors with another global camera adjustment.
+  const trussWorldYOffset = 0.72;
+  const ledWorldYOffset = 0.50;
+  const riserWorldYOffset = -0.68;
+
+  offsetMatchingRootsWorldY(
+    model,
+    object => {
+      const name = object.name;
+      return /truss/i.test(name) || /^MainFixture_\d+/.test(name);
+    },
+    trussWorldYOffset,
+  );
+
+  const centralLed = model.getObjectByName("CentralLED");
+  if (centralLed) {
+    offsetObjectWorldY(centralLed, ledWorldYOffset);
+    model.updateMatrixWorld(true);
+  }
+
+  offsetMatchingRootsWorldY(
+    model,
+    object => {
+      const name = object.name;
+      const mesh = object as THREE.Mesh;
+      const materialNames = mesh.isMesh
+        ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material])
+          .filter(Boolean)
+          .map(material => material.name.toLowerCase())
+        : [];
+      return (
+        /^Mobile_Risers_/.test(name)
+        || /^Riser[0-3](?:_|$)/.test(name)
+        || /^(DeckUplight|FloorUplight)_\d+/.test(name)
+        || materialNames.some(materialName => materialName.includes("riser polished top"))
+      );
+    },
+    riserWorldYOffset,
+  );
+}
+
 function normalizeAcceptedR15Model(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
   const floor = model.getObjectByName("PolishedDanceFloor");
@@ -814,6 +896,8 @@ export class NeonStageV1Environment {
 
 
   private prepareAcceptedR15Runtime(model: THREE.Object3D) {
+    applyGoldenVerticalRegistration(model);
+
     const reviewAtmosphere = model.getObjectByName("R15 Review Atmosphere");
     if (reviewAtmosphere) reviewAtmosphere.visible = false;
 
@@ -1378,15 +1462,15 @@ export class NeonStageV1Environment {
     // flattening the dark gaps that make the concept look premium.
     const trussFill = new THREE.PointLight(0x5d35ff, 21.5, 14.5, 1.82);
     trussFill.name = "R15RuntimeTrussFill";
-    trussFill.position.set(0, 7.05, -1.35);
+    trussFill.position.set(0, 7.77, -1.35);
 
     const trussLeftFill = new THREE.PointLight(0x00dfff, 12.8, 9.2, 1.92);
     trussLeftFill.name = "R15RuntimeTrussLeftFill";
-    trussLeftFill.position.set(-5.3, 6.8, -1.5);
+    trussLeftFill.position.set(-5.3, 7.52, -1.5);
 
     const trussRightFill = new THREE.PointLight(0xff00b8, 12.8, 9.2, 1.92);
     trussRightFill.name = "R15RuntimeTrussRightFill";
-    trussRightFill.position.set(5.3, 6.8, -1.5);
+    trussRightFill.position.set(5.3, 7.52, -1.5);
 
     const leftArchitectureFill = new THREE.PointLight(0x29dfff, 7.2, 12.5, 1.95);
     leftArchitectureFill.name = "R15RuntimeLeftArchitectureFill";
@@ -1398,7 +1482,7 @@ export class NeonStageV1Environment {
 
     const riserFill = new THREE.PointLight(0xaa35ff, 19.0, 11.4, 1.88);
     riserFill.name = "R15RuntimeRiserFill";
-    riserFill.position.set(0, 2.15, -2.8);
+    riserFill.position.set(0, 1.47, -2.8);
 
     const floorCyanFill = new THREE.PointLight(0x08dcff, 3.4, 9.6, 2.15);
     floorCyanFill.name = "R15RuntimeFloorCyanFill";
