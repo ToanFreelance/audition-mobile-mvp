@@ -18,6 +18,12 @@ export default function NeonStageComparePage() {
         background: "#02030a",
       }}
     >
+      <style>{`
+        body:has([data-testid="neon-stage-visual-compare"]) button,
+        body:has([data-testid="neon-stage-visual-compare"]) [role="button"] {
+          display: none !important;
+        }
+      `}</style>
       <div
         data-testid="neon-stage-golden-frame"
         style={{
