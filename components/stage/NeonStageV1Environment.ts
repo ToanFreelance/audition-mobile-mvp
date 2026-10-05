@@ -88,7 +88,7 @@ const FLOOR_Y = -0.03;
 const REAR_Z = -5.65;
 const ACCEPTED_R15_FLOOR_WIDTH = 19.8;
 const ACCEPTED_R15_DANCE_RING_Z = 0.25;
-const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v10.svg";
+const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v11.svg";
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -930,8 +930,8 @@ export class NeonStageV1Environment {
           material.emissive.setHex(0x47136f);
           material.emissiveIntensity = 0.46;
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x5a0e86);
-          material.emissiveIntensity = 0.52;
+          material.emissive.setHex(0x65129a);
+          material.emissiveIntensity = 0.62;
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x20d9ff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.8);
@@ -953,8 +953,8 @@ export class NeonStageV1Environment {
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.2);
           material.toneMapped = false;
         } else if (name.includes("neon white")) {
-          material.emissive.setHex(0xd9ddff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 2.8);
+          material.emissive.setHex(0xcdd5ff);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 2.15);
           material.toneMapped = false;
         } else if (name.includes("led matrix")) {
           material.emissive.setHex(0x7b22c7);
@@ -1128,11 +1128,11 @@ export class NeonStageV1Environment {
           sourceFxRoot.add(sourceHalo);
 
           const hotCoreMaterial = sourceMaterial.clone();
-          hotCoreMaterial.color = new THREE.Color(0xffffff);
-          hotCoreMaterial.opacity = 1.0;
+          hotCoreMaterial.color = presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.56);
+          hotCoreMaterial.opacity = 0.94;
           const hotCore = new THREE.Sprite(hotCoreMaterial);
           hotCore.name = `${key}_RuntimeSourceHotCore`;
-          hotCore.scale.setScalar(group.prefix === "MainFixture" ? 0.36 : 0.27);
+          hotCore.scale.setScalar(group.prefix === "MainFixture" ? 0.32 : 0.25);
           sourceFxRoot.add(hotCore);
 
           const sourceBloomMaterial = sourceMaterial.clone();
@@ -1191,11 +1191,11 @@ export class NeonStageV1Environment {
           sourceFxRoot.add(sourceHalo);
 
           const hotCoreMaterial = sourceMaterial.clone();
-          hotCoreMaterial.color = new THREE.Color(0xffffff);
-          hotCoreMaterial.opacity = 1.0;
+          hotCoreMaterial.color = presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.58);
+          hotCoreMaterial.opacity = 0.90;
           const hotCore = new THREE.Sprite(hotCoreMaterial);
           hotCore.name = `${key}_RuntimeSourceHotCore`;
-          hotCore.scale.setScalar(0.23);
+          hotCore.scale.setScalar(0.21);
           sourceFxRoot.add(hotCore);
         }
 
@@ -1297,15 +1297,15 @@ export class NeonStageV1Environment {
 
     // Local fills replace a global purple wash: reveal structure without
     // flattening the dark gaps that make the concept look premium.
-    const trussFill = new THREE.PointLight(0x725dff, 22.0, 15.0, 1.78);
+    const trussFill = new THREE.PointLight(0x684fff, 17.5, 15.0, 1.78);
     trussFill.name = "R15RuntimeTrussFill";
     trussFill.position.set(0, 7.05, -1.35);
 
-    const trussLeftFill = new THREE.PointLight(0x20d9ff, 9.0, 9.5, 1.9);
+    const trussLeftFill = new THREE.PointLight(0x10d9ff, 10.2, 9.5, 1.9);
     trussLeftFill.name = "R15RuntimeTrussLeftFill";
     trussLeftFill.position.set(-5.3, 6.8, -1.5);
 
-    const trussRightFill = new THREE.PointLight(0xff28c9, 9.0, 9.5, 1.9);
+    const trussRightFill = new THREE.PointLight(0xff16c4, 10.2, 9.5, 1.9);
     trussRightFill.name = "R15RuntimeTrussRightFill";
     trussRightFill.position.set(5.3, 6.8, -1.5);
 
@@ -1317,15 +1317,15 @@ export class NeonStageV1Environment {
     rightArchitectureFill.name = "R15RuntimeRightArchitectureFill";
     rightArchitectureFill.position.set(6.2, 4.2, -2.0);
 
-    const riserFill = new THREE.PointLight(0x8d35ee, 7.5, 10.5, 2.0);
+    const riserFill = new THREE.PointLight(0x8f33f2, 9.2, 10.5, 2.0);
     riserFill.name = "R15RuntimeRiserFill";
     riserFill.position.set(0, 2.15, -2.8);
 
-    const floorCyanFill = new THREE.PointLight(0x20d9ff, 2.8, 9.0, 2.2);
+    const floorCyanFill = new THREE.PointLight(0x16d7ff, 2.2, 9.0, 2.2);
     floorCyanFill.name = "R15RuntimeFloorCyanFill";
     floorCyanFill.position.set(-4.2, 0.72, 4.8);
 
-    const floorMagentaFill = new THREE.PointLight(0xff28c9, 2.8, 9.0, 2.2);
+    const floorMagentaFill = new THREE.PointLight(0xff1fc6, 2.2, 9.0, 2.2);
     floorMagentaFill.name = "R15RuntimeFloorMagentaFill";
     floorMagentaFill.position.set(4.2, 0.72, 4.8);
 
@@ -1426,7 +1426,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 1.0,
+      opacity: 0.58,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
