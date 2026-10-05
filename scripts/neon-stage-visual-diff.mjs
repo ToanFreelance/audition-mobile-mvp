@@ -14,12 +14,12 @@ const args = Object.fromEntries(
 const currentPath = args.current;
 const goldenPath = args.golden;
 const outDir = args.out ?? "test-results/neon-stage-visual-diff";
-const width = Number(args.width ?? 720);
-const height = Number(args.height ?? 1280);
+const width = Number(args.width ?? 941);
+const height = Number(args.height ?? 1672);
 
 if (!currentPath || !goldenPath) {
   console.error(
-    "Usage: node scripts/neon-stage-visual-diff.mjs --current <png/jpeg> --golden <png/jpeg> [--out <dir>] [--current-crop x,y,w,h] [--golden-crop x,y,w,h]",
+    "Usage: node scripts/neon-stage-visual-diff.mjs --current <png/jpeg> --golden <png/jpeg> [--out <dir>] [--width 941] [--height 1672] [--current-crop x,y,w,h] [--golden-crop x,y,w,h]",
   );
   process.exit(2);
 }
