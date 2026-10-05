@@ -38,6 +38,16 @@ const REGIONS = [
   ["K_FOREGROUND_FLOOR", 0.02, 0.79, 0.96, 0.20],
 ];
 
+const DEFAULT_IGNORE_MASKS = [
+  ["HUD_SONG", 0.02, 0.01, 0.42, 0.18],
+  ["HUD_LEVEL_MISSION", 0.01, 0.14, 0.39, 0.25],
+  ["HUD_LEADERBOARD", 0.66, 0.13, 0.33, 0.31],
+  ["HUD_COMBO", 0.84, 0.42, 0.16, 0.16],
+  ["CHARACTER", 0.43, 0.44, 0.14, 0.27],
+  ["COMMAND_GAUGE", 0.01, 0.63, 0.98, 0.16],
+  ["LOWER_CONTROLS", 0.10, 0.79, 0.80, 0.20],
+];
+
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const round = (value, digits = 3) => Number(value.toFixed(digits));
 
@@ -179,6 +189,24 @@ function pixelIndex(x, y) {
   return (y * width + x) * 3;
 }
 
+const useDefaultMasks = args["mask-hud"] !== "0";
+const ignoreMask = new Uint8Array(width * height);
+if (useDefaultMasks) {
+  for (const [, nx, ny, nw, nh] of DEFAULT_IGNORE_MASKS) {
+    const x0 = clamp(Math.floor(nx * width), 0, width - 1);
+    const y0 = clamp(Math.floor(ny * height), 0, height - 1);
+    const x1 = clamp(Math.ceil((nx + nw) * width), x0 + 1, width);
+    const y1 = clamp(Math.ceil((ny + nh) * height), y0 + 1, height);
+    for (let y = y0; y < y1; y += 1) {
+      ignoreMask.fill(1, y * width + x0, y * width + x1);
+    }
+  }
+}
+
+function isIgnored(x, y) {
+  return ignoreMask[y * width + x] === 1;
+}
+
 function regionBounds(region) {
   const [, nx, ny, nw, nh] = region;
   const x0 = clamp(Math.floor(nx * width), 0, width - 1);
@@ -193,8 +221,12 @@ function makeEdgeMap(data, bounds) {
   const gray = new Float32Array(rw * rh);
   for (let y = 0; y < rh; y += 1) {
     for (let x = 0; x < rw; x += 1) {
-      const idx = pixelIndex(x0 + x, y0 + y);
-      gray[y * rw + x] = luma(data[idx], data[idx + 1], data[idx + 2]);
+      const px = x0 + x;
+      const py = y0 + y;
+      const idx = pixelIndex(px, py);
+      gray[y * rw + x] = isIgnored(px, py)
+        ? Number.NaN
+        : luma(data[idx], data[idx + 1], data[idx + 2]);
     }
   }
 
@@ -211,13 +243,19 @@ function makeEdgeMap(data, bounds) {
   const at = (x, y) => gray[y * rw + x];
   for (let y = 1; y < rh - 1; y += 1) {
     for (let x = 1; x < rw - 1; x += 1) {
+      const neighbors = [
+        at(x - 1, y - 1), at(x, y - 1), at(x + 1, y - 1),
+        at(x - 1, y), at(x + 1, y),
+        at(x - 1, y + 1), at(x, y + 1), at(x + 1, y + 1),
+      ];
+      if (neighbors.some(value => !Number.isFinite(value))) continue;
       const gx =
-        -at(x - 1, y - 1) + at(x + 1, y - 1)
-        - 2 * at(x - 1, y) + 2 * at(x + 1, y)
-        - at(x - 1, y + 1) + at(x + 1, y + 1);
+        -neighbors[0] + neighbors[2]
+        - 2 * neighbors[3] + 2 * neighbors[4]
+        - neighbors[5] + neighbors[7];
       const gy =
-        -at(x - 1, y - 1) - 2 * at(x, y - 1) - at(x + 1, y - 1)
-        + at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1);
+        -neighbors[0] - 2 * neighbors[1] - neighbors[2]
+        + neighbors[5] + 2 * neighbors[6] + neighbors[7];
       if (Math.hypot(gx, gy) >= threshold) {
         edges[y * rw + x] = 1;
         count += 1;
@@ -300,6 +338,7 @@ function statsForRegion(current, golden, region) {
 
   for (let y = y0; y < y1; y += 1) {
     for (let x = x0; x < x1; x += 1) {
+      if (isIgnored(x, y)) continue;
       const idx = pixelIndex(x, y);
       const ar = current[idx];
       const ag = current[idx + 1];
@@ -473,6 +512,7 @@ const result = {
   generatedAt: new Date().toISOString(),
   current: { path: currentPath, crop: currentCrop, source: current.metadata, extract: current.extract },
   golden: { path: goldenPath, crop: goldenCrop, source: golden.metadata, extract: golden.extract },
+  ignoreMasks: useDefaultMasks ? DEFAULT_IGNORE_MASKS : [],
   canonical: { width, height },
   categoryScores,
   acceptance,
