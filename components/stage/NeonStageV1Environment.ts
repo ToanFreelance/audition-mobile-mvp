@@ -88,7 +88,7 @@ const FLOOR_Y = -0.03;
 const REAR_Z = -5.65;
 const ACCEPTED_R15_FLOOR_WIDTH = 19.8;
 const ACCEPTED_R15_DANCE_RING_Z = 0.25;
-const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v8.svg";
+const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v9.svg";
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -447,7 +447,9 @@ function acceptedFixturePresentationColor(key: string, fallback: THREE.Color) {
   const authored: Record<string, number> = {
     MainFixture_01: 0xff3bd3,
     MainFixture_02: 0x30dcff,
+    MainFixture_04: 0x34d9ff,
     MainFixture_05: 0xff39cf,
+    MainFixture_06: 0xff39cf,
     MainFixture_08: 0x34d9ff,
     MainFixture_09: 0xff3bd3,
   };
@@ -1368,7 +1370,7 @@ export class NeonStageV1Environment {
         toneMapped: false,
       });
       const backdrop = new THREE.Mesh(
-        new THREE.PlaneGeometry(ledSize.x * 0.985, ledSize.y * 0.97),
+        new THREE.PlaneGeometry(ledSize.x * 0.995, ledSize.y * 0.985),
         backdropMaterial,
       );
       backdrop.name = "R15AcceptedLedGlowOverlay";
@@ -1424,7 +1426,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.96,
+      opacity: 1.0,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
