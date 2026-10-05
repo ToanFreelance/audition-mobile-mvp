@@ -475,16 +475,16 @@ function makeAcceptedFloorReflectionTexture() {
 
   const xToCanvas = (worldX: number) => ((worldX + 9.9) / 19.8) * canvas.width;
   const sources = [
-    { x: -9.0, color: "rgba(45,218,255,0.54)", hot: "rgba(176,246,255,0.64)", w: 0.78, len: 2.70, y: 205 },
-    { x: -6.8, color: "rgba(255,55,211,0.70)", hot: "rgba(255,188,239,0.70)", w: 0.86, len: 3.25, y: 180 },
-    { x: -5.0, color: "rgba(49,216,255,0.72)", hot: "rgba(182,248,255,0.70)", w: 0.76, len: 3.55, y: 190 },
-    { x: -3.0, color: "rgba(255,53,207,0.76)", hot: "rgba(255,184,238,0.72)", w: 0.82, len: 3.80, y: 195 },
-    { x: -1.2, color: "rgba(76,208,255,0.58)", hot: "rgba(192,249,255,0.66)", w: 0.62, len: 3.40, y: 188 },
-    { x:  1.2, color: "rgba(255,61,219,0.60)", hot: "rgba(255,194,241,0.68)", w: 0.64, len: 3.45, y: 190 },
-    { x:  3.0, color: "rgba(50,216,255,0.74)", hot: "rgba(184,248,255,0.71)", w: 0.80, len: 3.80, y: 192 },
-    { x:  5.0, color: "rgba(255,54,208,0.72)", hot: "rgba(255,188,239,0.70)", w: 0.84, len: 3.55, y: 184 },
-    { x:  6.8, color: "rgba(47,214,255,0.68)", hot: "rgba(178,247,255,0.68)", w: 0.76, len: 3.20, y: 178 },
-    { x:  9.0, color: "rgba(255,57,210,0.52)", hot: "rgba(255,190,239,0.62)", w: 0.76, len: 2.65, y: 205 },
+    { x: -9.0, color: "rgba(45,218,255,0.54)", hot: "rgba(58,222,255,0.66)", w: 0.78, len: 2.70, y: 205 },
+    { x: -6.8, color: "rgba(255,55,211,0.70)", hot: "rgba(255,52,211,0.72)", w: 0.86, len: 3.25, y: 180 },
+    { x: -5.0, color: "rgba(49,216,255,0.72)", hot: "rgba(62,226,255,0.72)", w: 0.76, len: 3.55, y: 190 },
+    { x: -3.0, color: "rgba(255,53,207,0.76)", hot: "rgba(255,48,207,0.74)", w: 0.82, len: 3.80, y: 195 },
+    { x: -1.2, color: "rgba(76,208,255,0.58)", hot: "rgba(72,224,255,0.68)", w: 0.62, len: 3.40, y: 188 },
+    { x:  1.2, color: "rgba(255,61,219,0.60)", hot: "rgba(255,62,217,0.70)", w: 0.64, len: 3.45, y: 190 },
+    { x:  3.0, color: "rgba(50,216,255,0.74)", hot: "rgba(62,226,255,0.73)", w: 0.80, len: 3.80, y: 192 },
+    { x:  5.0, color: "rgba(255,54,208,0.72)", hot: "rgba(255,52,211,0.72)", w: 0.84, len: 3.55, y: 184 },
+    { x:  6.8, color: "rgba(47,214,255,0.68)", hot: "rgba(58,222,255,0.70)", w: 0.76, len: 3.20, y: 178 },
+    { x:  9.0, color: "rgba(255,57,210,0.52)", hot: "rgba(255,55,213,0.64)", w: 0.76, len: 2.65, y: 205 },
   ] as const;
 
   for (const source of sources) {
@@ -537,8 +537,8 @@ function makeAcceptedFloorReflectionTexture() {
     ctx.translate(cx, source.y + 168);
     ctx.scale(source.w * 0.32, source.len * 1.28);
     const foregroundTail = ctx.createRadialGradient(0, 0, 0, 0, 0, 86);
-    foregroundTail.addColorStop(0, source.color.replace(/0\.[0-9]+\)$/, "0.17)"));
-    foregroundTail.addColorStop(0.30, source.color.replace(/0\.[0-9]+\)$/, "0.085)"));
+    foregroundTail.addColorStop(0, source.color.replace(/0\.[0-9]+\)$/, "0.20)"));
+    foregroundTail.addColorStop(0.30, source.color.replace(/0\.[0-9]+\)$/, "0.105)"));
     foregroundTail.addColorStop(0.68, source.color.replace(/0\.[0-9]+\)$/, "0.028)"));
     foregroundTail.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = foregroundTail;
@@ -910,7 +910,7 @@ export class NeonStageV1Environment {
         material.name = source.name + " GoldenRing";
         material.color.setHex(color);
         material.emissive.setHex(color);
-        material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.6);
+        material.emissiveIntensity = Math.max(material.emissiveIntensity, 8.6);
         material.roughness = Math.min(material.roughness, 0.08);
         material.metalness = Math.max(material.metalness, 0.08);
         material.toneMapped = false;
@@ -958,7 +958,7 @@ export class NeonStageV1Environment {
         const material = source.clone();
         material.name = source.name + " R15.1 Breath " + phase.toFixed(2);
         if (/^(Mobile_Risers_Neon_|Riser[0-3]_(Cyan|Magenta)Lip$)/.test(mesh.name)) {
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 9.0);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 12.0);
           material.toneMapped = false;
         }
         shared.set(key, material);
@@ -988,6 +988,10 @@ export class NeonStageV1Environment {
         if (!(material instanceof THREE.MeshStandardMaterial)) return;
 
         const name = material.name.toLowerCase();
+
+        // Golden ring materials are calibrated separately against the accepted
+        // concept. Do not let generic neon-white tuning desaturate them.
+        if (name.includes("goldenring")) return;
 
         // CentralLED is intentionally neutralized after the baked P15 texture
         // is removed. Do not let generic LED Matrix tuning re-boost it or the
@@ -1039,8 +1043,8 @@ export class NeonStageV1Environment {
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
           material.roughness = Math.min(material.roughness, 0.025);
           material.metalness = Math.max(material.metalness, 0.18);
-          material.emissive.setHex(0x110428);
-          material.emissiveIntensity = 0.11;
+          material.emissive.setHex(0x16004a);
+          material.emissiveIntensity = 0.18;
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.075);
           material.metalness = Math.max(material.metalness, 0.05);
@@ -1250,7 +1254,7 @@ export class NeonStageV1Environment {
             map: beamSourceTexture,
             color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.12),
             transparent: true,
-            opacity: 0.78,
+            opacity: 0.88,
             depthWrite: false,
             depthTest: false,
             blending: THREE.AdditiveBlending,
@@ -1263,10 +1267,10 @@ export class NeonStageV1Environment {
 
           const hotCoreMaterial = sourceMaterial.clone();
           hotCoreMaterial.color = presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.58);
-          hotCoreMaterial.opacity = 0.90;
+          hotCoreMaterial.opacity = 1.0;
           const hotCore = new THREE.Sprite(hotCoreMaterial);
           hotCore.name = `${key}_RuntimeSourceHotCore`;
-          hotCore.scale.setScalar(0.21);
+          hotCore.scale.setScalar(0.24);
           sourceFxRoot.add(hotCore);
         }
 
@@ -1368,15 +1372,15 @@ export class NeonStageV1Environment {
 
     // Local fills replace a global purple wash: reveal structure without
     // flattening the dark gaps that make the concept look premium.
-    const trussFill = new THREE.PointLight(0x684fff, 17.5, 15.0, 1.78);
+    const trussFill = new THREE.PointLight(0x5f49ff, 20.5, 14.0, 1.82);
     trussFill.name = "R15RuntimeTrussFill";
     trussFill.position.set(0, 7.05, -1.35);
 
-    const trussLeftFill = new THREE.PointLight(0x10d9ff, 10.2, 9.5, 1.9);
+    const trussLeftFill = new THREE.PointLight(0x00d8ff, 11.8, 9.0, 1.95);
     trussLeftFill.name = "R15RuntimeTrussLeftFill";
     trussLeftFill.position.set(-5.3, 6.8, -1.5);
 
-    const trussRightFill = new THREE.PointLight(0xff16c4, 10.2, 9.5, 1.9);
+    const trussRightFill = new THREE.PointLight(0xff08bd, 11.8, 9.0, 1.95);
     trussRightFill.name = "R15RuntimeTrussRightFill";
     trussRightFill.position.set(5.3, 6.8, -1.5);
 
@@ -1388,7 +1392,7 @@ export class NeonStageV1Environment {
     rightArchitectureFill.name = "R15RuntimeRightArchitectureFill";
     rightArchitectureFill.position.set(6.2, 4.2, -2.0);
 
-    const riserFill = new THREE.PointLight(0x9537f6, 12.4, 10.8, 1.95);
+    const riserFill = new THREE.PointLight(0x9f3dff, 15.5, 11.0, 1.92);
     riserFill.name = "R15RuntimeRiserFill";
     riserFill.position.set(0, 2.15, -2.8);
 
@@ -1499,7 +1503,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.58,
+      opacity: 0.64,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
