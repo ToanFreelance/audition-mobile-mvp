@@ -1,6 +1,7 @@
 """Render evaluated FBX joints or actual exported textured GLB in Blender."""
 import bpy,sys,argparse,json,hashlib
 import numpy as np
+from PIL import Image
 from pathlib import Path
 from mathutils import Vector
 ap=argparse.ArgumentParser();ap.add_argument('--input');ap.add_argument('--out');ap.add_argument('--frames',default='');ap.add_argument('--size',type=int,default=640);ap.add_argument('--samples',type=int,default=4)
@@ -35,7 +36,12 @@ stamp.write_text(json.dumps(identity,indent=2))
 frames=[int(f) for f in a.frames.split(',')] if a.frames else list(range(n))
 for f in frames:
     path=out/f'{f:04d}.png'
-    if path.exists():continue
+    if path.exists():
+        try:
+            with Image.open(path) as image:image.verify()
+            continue
+        except (OSError, SyntaxError):
+            path.rename(path.with_suffix('.incomplete.png.bak'))
     if source:
         for j,p,ob,r in rods:
             v=Vector(world[f,j,:3,3]);u=Vector(world[f,p,:3,3]);d=v-u;ob.location=(u+v)/2;ob.scale=(r,r,max(.005,d.length/2));ob.rotation_euler=d.to_track_quat('Z','Y').to_euler()

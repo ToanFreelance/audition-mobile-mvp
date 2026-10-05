@@ -10,7 +10,13 @@ def run(cmd):subprocess.run(cmd,check=True)
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def encode(folder,name,count,label):
     paths=sorted((out/folder).glob('*.png'));assert [p.name for p in paths]==[f'{i:04}.png' for i in range(count)],(folder,len(paths),count)
-    assert (out/folder/'render-complete.json').exists()
+    for path in paths:
+        with Image.open(path) as image:image.verify()
+    complete=json.loads((out/folder/'render-complete.json').read_text())
+    assert complete['frames']==list(range(count))
+    actual={'swipes-render':'swipes.npz','flair-render':'flair.npz','composite-render':'composite.npz','male-render':'Nam_Mixamo_Finish_MVP_v1.glb','female-render':'Nu_Mixamo_Finish_MVP_v1.glb'}[folder]
+    assert complete['identity']['input_sha256']==sha(out/actual),'Stale render input'
+    qa.setdefault('render_provenance',{})[folder]=complete['identity']
     vf=f"pad=iw:ih+48:0:48:color=0x141820,drawtext=fontfile={font}:text='{label}':fontcolor=white:fontsize=23:x=16:y=12"
     run(['ffmpeg','-v','error','-y','-framerate','30','-i',str(out/folder/'%04d.png'),'-vf',vf,'-c:v','libx264','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart',str(out/name)])
 for folder,name,count,label in [('swipes-render','Mixamo_Swipes_Source.mp4',91,'SWIPES - imported skeleton - 30 fps'),('flair-render','Mixamo_Flair_Source.mp4',31,'FLAIR - imported skeleton - 30 fps'),('composite-render','Mixamo_Composite_Source.mp4',n,'COMPOSITE SOURCE - skeleton'),('male-render','Nam_Mixamo_Finish_QA.mp4',n,'MALE - real textured Meshy'),('female-render','Nu_Mixamo_Finish_QA.mp4',n,'FEMALE - real textured Meshy')]:encode(folder,name,count,label)
@@ -22,11 +28,15 @@ for row,f in enumerate(frames):
 sheet.save(out/'Finish_Mixamo_contact_sheet.jpg',quality=94)
 qa['source_inspection']=json.loads((out/'source-inspection.json').read_text())
 for source in qa['source_inspection']:source['sha256']=sha(root/'upload'/source['file'])
-qa['runtime_input_sha256']={sex:sha(root/'mixamo-inputs/rigs'/f'{sex}_co_ban_MESHY_TEXTURED_RIG_v1.glb') for sex in ['Nam','Nu']}
+if (root/'mixamo-inputs/rigs').exists():
+    qa['runtime_input_sha256']={sex:sha(root/'mixamo-inputs/rigs'/f'{sex}_co_ban_MESHY_TEXTURED_RIG_v1.glb') for sex in ['Nam','Nu']}
+else:
+    qa['runtime_preservation_evidence']='Original append-only comparisons retained from bake checkpoint; original inputs not rehashed during render-only recovery.'
 qa['source_skeletons_identical']=True;qa['visual_status']='WARNING_CANDIDATE_OWNER_REVIEW_REQUIRED'
 qa['warnings']=['No upright recovery exists in supplied Flair; ends on floor.','Eight-frame transition interpolates differing support patterns; weight transfer/contact need owner review.','Palm/finger contact and horizontal support locking remain approximate; no claim of zero skating.','Large angular steps remain. Structural PASS is not production acceptance.','Source previews show original FBX joints; no source mesh was supplied.']
 qa['visual_review_scope']='Keyposes and dense transition frames; full MP4 supplied for owner playback acceptance.'
 qa['validation']=dict(blender_source_import=True,blender_final_glb_render_all_frames=True,runtime_modified=False,normal_clips_modified=False,browser_e2e='NOT_RUN_OFFLINE_ASSET_TASK')
+qa['render_environment']={'backend':'Blender Python module 4.2.0','male_exit_code':139,'female_exit_code':139,'error_phase':'Interpreter teardown after all 111 frames and completion manifests','clean_process_shutdown':False,'output_integrity':'PNG integrity, input hashes and full MP4 decode checked independently by this packaging run'}
 for sex,m in zip(['Nam','Nu'],qa['models']):
     g=GLB(out/f'{sex}_Mixamo_Finish_MVP_v1.glb');anim=g.doc['animations'][-1];rotations={};translations={};angles=[]
     for ch in anim['channels']:
@@ -41,7 +51,7 @@ for sex,m in zip(['Nam','Nu'],qa['models']):
     np.savez_compressed(out/(sex+'-solve.npz'),root=rr,final_hand_positions=np.stack(hands,axis=1),sample_rate=30)
 videos=[]
 for p in sorted(out.glob('*.mp4')):
-    run(['ffmpeg','-v','error','-i',str(p),'-f','null','-']);info=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-of','json',str(p)]))['streams'][0]
+    run(['ffmpeg','-v','error','-xerror','-i',str(p),'-f','null','-']);info=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-of','json',str(p)]))['streams'][0]
     videos.append(dict(file=p.name,frames=int(info['nb_frames']),width=info['width'],height=info['height'],fps=info['avg_frame_rate'],duration=info['duration'],full_decode_pass=True))
 qa['videos']=videos;(out/'Finish_Mixamo_QA.json').write_text(json.dumps(qa,indent=2))
 files=[p for p in out.iterdir() if p.suffix in ['.glb','.mp4','.json','.jpg','.npz'] and p.name!='SHA256SUMS.json']

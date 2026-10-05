@@ -54,10 +54,22 @@ First pass measured max angular steps Nam 63.87° → 44.85° and Nu 51.46° →
 38.60° after cleanup; p99 28.58° → 24.56° / 24.51° → 19.76°. Read the delivered
 QA JSON for the actual final reconstruction's metrics and verification.
 
-The scratch workspace disappeared before first-pass packaging. Scripts and
-measured parameters were restored without rerunning Normal motion extraction.
-Source and final-GLB renders must complete again before delivery. Render-input
-hashes and completion manifests prevent stale-frame reuse.
+The scratch workspace disappeared before first-pass delivery. The persisted
+checkpoint restored both GLBs byte-identically; no rebake or Normal processing
+was performed. Recovery used Blender Python 4.2.0 and completed all source
+frames plus 111 frames per final textured target. Both target render processes
+exited 139 at interpreter teardown after completion manifests were written.
+Clean process shutdown is NOT claimed. Packaging independently checks all PNGs,
+input hashes, full MP4 decoding and ZIP CRC; it fails on any integrity error.
+The recovery integrity scan found four truncated PNGs (Swipes 82, Flair 23,
+male 20, female 14). Only those frames were re-rendered; the corrupt copies
+were quarantined. Resume now verifies cached PNGs rather than trusting names.
+
+Fresh original-vs-final structural comparisons passed for both rigs; seven
+focused tests (four core plus three Mixamo) passed during recovery. The combined
+review is 1920 x 688 at 30 fps. Keypose review shows floor entry, inversion and
+leg sweep, but support transfer around frames 80-87 remains abrupt and hands
+can float above the floor. This is a WARNING candidate, not visual acceptance.
 
 ## Reproduction
 
