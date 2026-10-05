@@ -88,7 +88,7 @@ const FLOOR_Y = -0.03;
 const REAR_Z = -5.65;
 const ACCEPTED_R15_FLOOR_WIDTH = 19.8;
 const ACCEPTED_R15_DANCE_RING_Z = 0.25;
-const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v6.svg";
+const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v7.svg";
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -1173,7 +1173,7 @@ export class NeonStageV1Environment {
             map: beamSourceTexture,
             color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.12),
             transparent: true,
-            opacity: 0.62,
+            opacity: 0.78,
             depthWrite: false,
             depthTest: false,
             blending: THREE.AdditiveBlending,
@@ -1181,12 +1181,12 @@ export class NeonStageV1Environment {
           });
           const sourceHalo = new THREE.Sprite(sourceMaterial);
           sourceHalo.name = `${key}_RuntimeSourceHalo`;
-          sourceHalo.scale.setScalar(0.82);
+          sourceHalo.scale.setScalar(0.96);
           sourceFxRoot.add(sourceHalo);
 
           const hotCoreMaterial = sourceMaterial.clone();
           hotCoreMaterial.color = new THREE.Color(0xffffff);
-          hotCoreMaterial.opacity = 0.92;
+          hotCoreMaterial.opacity = 1.0;
           const hotCore = new THREE.Sprite(hotCoreMaterial);
           hotCore.name = `${key}_RuntimeSourceHotCore`;
           hotCore.scale.setScalar(0.23);
@@ -1291,9 +1291,9 @@ export class NeonStageV1Environment {
 
     // Local fills replace a global purple wash: reveal structure without
     // flattening the dark gaps that make the concept look premium.
-    const trussFill = new THREE.PointLight(0x6f5cff, 10.5, 13.5, 1.85);
+    const trussFill = new THREE.PointLight(0x7664ff, 15.0, 14.0, 1.82);
     trussFill.name = "R15RuntimeTrussFill";
-    trussFill.position.set(0, 7.15, -1.55);
+    trussFill.position.set(0, 7.05, -1.40);
 
     const leftArchitectureFill = new THREE.PointLight(0x29dfff, 4.8, 11.5, 2.0);
     leftArchitectureFill.name = "R15RuntimeLeftArchitectureFill";
