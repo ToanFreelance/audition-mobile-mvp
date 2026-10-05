@@ -400,8 +400,14 @@ function statsForRegion(current, golden, region) {
   const goldenDark = darkB / count;
   const ssim = globalSsim(lumasA, lumasB);
 
-  const compositionScore = clamp(100 - (centroidDelta * 180 + bboxDelta * 120), 0, 100);
-  const shapeScore = clamp(edgeIou * 72 + (1 - Math.min(1, edgeDensityDelta * 6)) * 28, 0, 100);
+  const visibleFraction = count / Math.max(1, rw * rh);
+  const geometryReliable = visibleFraction >= 0.35;
+  const compositionScore = geometryReliable
+    ? clamp(100 - (centroidDelta * 180 + bboxDelta * 120), 0, 100)
+    : null;
+  const shapeScore = geometryReliable
+    ? clamp(edgeIou * 72 + (1 - Math.min(1, edgeDensityDelta * 6)) * 28, 0, 100)
+    : null;
   const colorScore = clamp(100 - deltaE * 3.0, 0, 100);
   const lightingPenalty =
     Math.abs(currentLum - goldenLum) * 0.55
@@ -413,16 +419,23 @@ function statsForRegion(current, golden, region) {
     0,
     100,
   );
-  const weightedScore =
-    compositionScore * 0.20
-    + shapeScore * 0.15
-    + colorScore * 0.20
-    + lightingScore * 0.25
-    + perceptualScore * 0.20;
+  const weightedParts = [
+    [compositionScore, 0.20],
+    [shapeScore, 0.15],
+    [colorScore, 0.20],
+    [lightingScore, 0.25],
+    [perceptualScore, 0.20],
+  ].filter(([score]) => Number.isFinite(score));
+  const weightedScore = weightedParts.reduce(
+    (sum, [score, weight]) => sum + score * weight,
+    0,
+  ) / weightedParts.reduce((sum, [, weight]) => sum + weight, 0);
 
   return {
     region: name,
     pixels: count,
+    visibleFraction: round(visibleFraction, 4),
+    geometryReliable,
     rgbMae: round(rgbMae),
     deltaE00: round(deltaE),
     ssim: round(ssim, 4),
@@ -445,8 +458,8 @@ function statsForRegion(current, golden, region) {
     edgeCentroidDeltaPct: round(centroidDelta * 100),
     edgeBBoxDeltaPct: round(bboxDelta * 100),
     scores: {
-      composition: round(compositionScore, 2),
-      shape: round(shapeScore, 2),
+      composition: compositionScore === null ? null : round(compositionScore, 2),
+      shape: shapeScore === null ? null : round(shapeScore, 2),
       color: round(colorScore, 2),
       lighting: round(lightingScore, 2),
       perceptual: round(perceptualScore, 2),
@@ -489,10 +502,15 @@ await sharp(golden.data, { raw: { width, height, channels: 3 } })
 const regions = REGIONS.map(region => statsForRegion(current.data, golden.data, region));
 const categories = ["composition", "shape", "color", "lighting", "perceptual"];
 const categoryScores = Object.fromEntries(
-  categories.map(category => [
-    category,
-    round(regions.reduce((sum, region) => sum + region.scores[category], 0) / regions.length, 2),
-  ]),
+  categories.map(category => {
+    const values = regions
+      .map(region => region.scores[category])
+      .filter(value => Number.isFinite(value));
+    return [
+      category,
+      values.length ? round(values.reduce((sum, value) => sum + value, 0) / values.length, 2) : null,
+    ];
+  }),
 );
 const totalScore = round(
   regions.reduce((sum, region) => sum + region.scores.weighted, 0) / regions.length,
