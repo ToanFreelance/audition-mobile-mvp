@@ -20,6 +20,7 @@ const MOBILE_DPR_CAP = 1.25;
 const MOBILE_NEON_DPR_CAP = 1.25;
 const NEON_CHARACTER_STAGE_Z_OFFSET = 2.0;
 const DESKTOP_DPR_CAP = 1.6;
+const STAGE_VISUAL_COMPARE_SONG_TIME_MS = 12_000;
 
 function isMobileStageProfile() {
   return window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
@@ -103,6 +104,9 @@ type Stage3DProps = {
   getSongTimeMs?: () => number;
   bpm?: number;
   selectedStageId?: string | null;
+  visualCompareMode?: boolean;
+  hideCharacter?: boolean;
+  fixedPresentationTimeSeconds?: number;
 };
 
 export default function Stage3D({
@@ -112,6 +116,9 @@ export default function Stage3D({
   getSongTimeMs,
   bpm = 110,
   selectedStageId = DEFAULT_STAGE_ID,
+  visualCompareMode = false,
+  hideCharacter = false,
+  fixedPresentationTimeSeconds,
 }: Stage3DProps) {
   const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
@@ -271,6 +278,7 @@ export default function Stage3D({
       host.dataset.stageSource = result.stageId;
       host.dataset.stageEmbeddedAnimations = String(result.embeddedAnimations);
       host.dataset.stageMetrics = JSON.stringify(result);
+      host.dataset.visualCompareReady = "1";
     }).catch(error => {
       if (disposed) return;
       host.dataset.stageSource = "placeholder";
@@ -285,26 +293,31 @@ export default function Stage3D({
       selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
     }
 
-    const character = CharacterActor.fromAssetId(selectedCharacter.characterAssetId);
-    characterRef.current = character;
-    character.setGameActive(isPlayingRef.current);
-    character.root.position.set(
-      CHARACTER_STAGE_POSITION.x,
-      CHARACTER_STAGE_POSITION.y,
-      CHARACTER_STAGE_POSITION.z + (neonPresentation ? NEON_CHARACTER_STAGE_Z_OFFSET : 0),
-    );
-    stage.add(character.root);
-    host.dataset.characterAssetId = selectedCharacter.characterAssetId;
-    host.dataset.characterProfileVersion = String(selectedCharacter.version);
-    host.dataset.characterSource = "loading";
-    void character.load().then((result) => {
-      if (!result || disposed) return;
-      if (neonPresentation) applyNeonCharacterFill(character.root);
-      host.dataset.characterSource = result.source;
-      host.dataset.characterIdle = result.idleClip ?? "static";
-      host.dataset.characterMetrics = JSON.stringify(result.metrics);
-      if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
-    });
+    let character: CharacterActor | null = null;
+    if (!hideCharacter) {
+      character = CharacterActor.fromAssetId(selectedCharacter.characterAssetId);
+      characterRef.current = character;
+      character.setGameActive(isPlayingRef.current);
+      character.root.position.set(
+        CHARACTER_STAGE_POSITION.x,
+        CHARACTER_STAGE_POSITION.y,
+        CHARACTER_STAGE_POSITION.z + (neonPresentation ? NEON_CHARACTER_STAGE_Z_OFFSET : 0),
+      );
+      stage.add(character.root);
+      host.dataset.characterAssetId = selectedCharacter.characterAssetId;
+      host.dataset.characterProfileVersion = String(selectedCharacter.version);
+      host.dataset.characterSource = "loading";
+      void character.load().then((result) => {
+        if (!result || disposed || !character) return;
+        if (neonPresentation) applyNeonCharacterFill(character.root);
+        host.dataset.characterSource = result.source;
+        host.dataset.characterIdle = result.idleClip ?? "static";
+        host.dataset.characterMetrics = JSON.stringify(result.metrics);
+        if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
+      });
+    } else {
+      host.dataset.characterSource = "hidden";
+    }
 
     const cameraTarget = (portrait: boolean) => {
       const frame = getCharacterCameraFrame(cameraPresetRef.current, portrait);
@@ -347,12 +360,17 @@ export default function Stage3D({
       if (disposed) return;
       if (document.hidden) return;
       const delta = Math.min(clock.getDelta(), .1);
-      const t = clock.elapsedTime;
-      const songTimeMs = getSongTimeMsRef.current?.() ?? 0;
+      const liveTime = clock.elapsedTime;
+      const t = Number.isFinite(fixedPresentationTimeSeconds)
+        ? Math.max(0, fixedPresentationTimeSeconds ?? 0)
+        : liveTime;
+      const songTimeMs = visualCompareMode
+        ? Math.max(STAGE_VISUAL_COMPARE_SONG_TIME_MS, t * 1000)
+        : (getSongTimeMsRef.current?.() ?? 0);
       const portrait = host.clientHeight > host.clientWidth;
       const basePose = getStagePresentationCameraPose(
         songTimeMs,
-        isPlayingRef.current,
+        visualCompareMode ? false : isPlayingRef.current,
         portrait,
         cameraPresetRef.current,
       );
@@ -384,7 +402,7 @@ export default function Stage3D({
       lastPresentationCamera = pose.preset;
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
-      character.update(delta, t, songTimeMs);
+      character?.update(delta, t, songTimeMs);
       if (stageEnvironment.root.visible) {
         stageEnvironment.setPresentationCamera(pose.preset);
         stageEnvironment.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
@@ -411,15 +429,15 @@ export default function Stage3D({
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       observer.disconnect();
-      character.dispose();
+      character?.dispose();
       stageEnvironment.dispose();
-      if (characterRef.current === character) characterRef.current = null;
+      if (character && characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry, neonPresentation]);
+  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds]);
 
   return (
     <div
@@ -428,6 +446,7 @@ export default function Stage3D({
       data-camera-preset={cameraPreset}
       data-selected-stage-id={selectedStageId ?? DEFAULT_STAGE_ID}
       data-stage-catalog-id={selectedStageEntry.id}
+      data-visual-compare-mode={visualCompareMode ? "1" : "0"}
       data-stage-environment-kind={selectedStageEntry.kind}
       data-stage-catalog-status={selectedStageEntry.status}
       data-stage-selectable={String(selectedStageEntry.selectable)}
