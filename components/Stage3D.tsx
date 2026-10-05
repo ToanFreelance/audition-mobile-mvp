@@ -67,10 +67,13 @@ function getNeonGoldenComparePose(pose: StageCameraPose): StageCameraPose {
   if (pose.preset !== "gameplay_portrait_locked") return pose;
   return {
     ...pose,
-    // Calibrated from the owner-approved 941×1672 golden plate. The compare
-    // camera is presentation-only and must not change gameplay framing.
-    z: 24.8,
-    targetY: 2.22,
+    // Registered from the owner's 2026-10-05 compare capture against the
+    // accepted golden plate. The runtime stage needed an isotropic ~4.6%
+    // reduction plus an ~30 px upward shift at canonical portrait size.
+    // Dolly back for scale and lower the look target for the vertical shift;
+    // keep this comparison-only until the owner accepts the composition.
+    z: 26.0,
+    targetY: 1.86,
   };
 }
 
