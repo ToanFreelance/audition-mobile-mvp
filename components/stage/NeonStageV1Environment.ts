@@ -88,6 +88,7 @@ const FLOOR_Y = -0.03;
 const REAR_Z = -5.65;
 const ACCEPTED_R15_FLOOR_WIDTH = 19.8;
 const ACCEPTED_R15_DANCE_RING_Z = 0.25;
+const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v2.svg";
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -463,10 +464,10 @@ function makeAcceptedFloorReflectionTexture() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  base.addColorStop(0, "rgba(168,43,255,0.12)");
-  base.addColorStop(0.30, "rgba(227,43,219,0.075)");
-  base.addColorStop(0.62, "rgba(86,48,214,0.045)");
-  base.addColorStop(1, "rgba(28,20,105,0.018)");
+  base.addColorStop(0, "rgba(168,43,255,0.035)");
+  base.addColorStop(0.30, "rgba(227,43,219,0.024)");
+  base.addColorStop(0.62, "rgba(86,48,214,0.014)");
+  base.addColorStop(1, "rgba(28,20,105,0.004)");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -530,8 +531,8 @@ function makeAcceptedFloorReflectionTexture() {
   }
 
   const centerBloom = ctx.createRadialGradient(256, 118, 0, 256, 118, 160);
-  centerBloom.addColorStop(0, "rgba(255,61,219,0.20)");
-  centerBloom.addColorStop(0.34, "rgba(172,68,255,0.11)");
+  centerBloom.addColorStop(0, "rgba(255,61,219,0.095)");
+  centerBloom.addColorStop(0.34, "rgba(172,68,255,0.055)");
   centerBloom.addColorStop(1, "rgba(88,45,190,0)");
   ctx.fillStyle = centerBloom;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -542,161 +543,13 @@ function makeAcceptedFloorReflectionTexture() {
   return texture;
 }
 
-function makeAcceptedLogoOverlayTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 2048;
-  canvas.height = 1024;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("R15.1 logo-overlay canvas unavailable.");
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const logicalWidth = canvas.width / 2;
-  ctx.scale(2, 2);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
-  ctx.font = "italic 900 133px Arial";
-
-  // Outline-only wordmark. Never paint the glyph interior here; the localized
-  // magenta bed in the backdrop supplies the concept's luminous inner field.
-  ctx.shadowBlur = 0;
-
-  // Soft magenta bloom.
-  ctx.lineWidth = 10.5;
-  ctx.strokeStyle = "rgba(255,38,211,0.90)";
-  ctx.shadowColor = "rgba(255,35,207,0.82)";
-  ctx.shadowBlur = 9;
-  ctx.strokeText("AUDITION", logicalWidth / 2, 270);
-
-  // Saturated transition edge.
-  ctx.lineWidth = 5.4;
-  ctx.strokeStyle = "rgba(255,112,231,0.99)";
-  ctx.shadowColor = "rgba(255,69,219,0.56)";
-  ctx.shadowBlur = 4;
-  ctx.strokeText("AUDITION", logicalWidth / 2, 270);
-
-  // Hot white/pink inner neon edge.
-  ctx.lineWidth = 3.15;
-  ctx.strokeStyle = "rgba(255,255,255,1)";
-  ctx.shadowColor = "rgba(255,229,252,0.54)";
-  ctx.shadowBlur = 1.15;
-  ctx.strokeText("AUDITION", logicalWidth / 2, 270);
-
-  ctx.shadowBlur = 2.5;
-  ctx.fillStyle = "rgba(255,255,255,0.99)";
-  ctx.font = "700 26px Arial";
-  ctx.fillText("D A N C E   T O G E T H E R", logicalWidth / 2, 354);
-  ctx.shadowBlur = 0;
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.needsUpdate = true;
-  return texture;
-}
-
 function makeAcceptedBackdropGlowTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 512;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("R15.1 backdrop-glow canvas unavailable.");
-
-  // Authoritative concept plate: dark glossy violet with localized magenta
-  // energy and crisp cyan/magenta chevrons. This intentionally replaces the
-  // previous additive wash stack, which flattened contrast on mobile.
-  const base = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-  base.addColorStop(0, "#130529");
-  base.addColorStop(0.28, "#240852");
-  base.addColorStop(0.52, "#4a0a78");
-  base.addColorStop(0.72, "#6e0c75");
-  base.addColorStop(1, "#180638");
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const center = ctx.createRadialGradient(
-    canvas.width * 0.50, canvas.height * 0.49, 8,
-    canvas.width * 0.50, canvas.height * 0.49, canvas.width * 0.31,
-  );
-  center.addColorStop(0, "rgba(255,43,213,0.58)");
-  center.addColorStop(0.26, "rgba(187,37,235,0.39)");
-  center.addColorStop(0.60, "rgba(104,21,192,0.18)");
-  center.addColorStop(1, "rgba(37,9,100,0)");
-  ctx.fillStyle = center;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Dark edge vignette keeps the concept's premium contrast and lets the neon
-  // rails read as architecture instead of a flat purple poster.
-  const vignette = ctx.createRadialGradient(
-    canvas.width * 0.5, canvas.height * 0.50, canvas.width * 0.20,
-    canvas.width * 0.5, canvas.height * 0.50, canvas.width * 0.72,
-  );
-  vignette.addColorStop(0, "rgba(0,0,0,0)");
-  vignette.addColorStop(0.72, "rgba(4,2,22,0.10)");
-  vignette.addColorStop(1, "rgba(3,1,17,0.46)");
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const drawNeonPath = (
-    points: ReadonlyArray<readonly [number, number]>,
-    color: string,
-    hot: string,
-    outerWidth: number,
-    innerWidth: number,
-  ) => {
-    ctx.save();
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
-    ctx.lineWidth = outerWidth;
-    ctx.strokeStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 15;
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i += 1) ctx.lineTo(points[i][0], points[i][1]);
-    ctx.lineWidth = innerWidth;
-    ctx.strokeStyle = hot;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 4;
-    ctx.stroke();
-
-    ctx.restore();
-  };
-
-  // The concept uses mirrored nested chevrons with magenta as the dominant
-  // architectural rail and cyan as a narrower accent.
-  drawNeonPath([[54, 42], [165, 256], [54, 470]], "rgba(255,39,210,0.98)", "rgba(255,221,247,1)", 20, 5.2);
-  drawNeonPath([[132, 42], [252, 256], [132, 470]], "rgba(35,218,255,0.99)", "rgba(226,254,255,1)", 18, 4.8);
-  drawNeonPath([[228, 72], [326, 256], [228, 440]], "rgba(189,65,255,0.92)", "rgba(245,225,255,1)", 13, 3.8);
-
-  drawNeonPath([[970, 42], [859, 256], [970, 470]], "rgba(255,39,210,0.98)", "rgba(255,221,247,1)", 20, 5.2);
-  drawNeonPath([[892, 42], [772, 256], [892, 470]], "rgba(35,218,255,0.99)", "rgba(226,254,255,1)", 18, 4.8);
-  drawNeonPath([[796, 72], [698, 256], [796, 440]], "rgba(189,65,255,0.92)", "rgba(245,225,255,1)", 13, 3.8);
-
-  // A thin magenta horizon line anchors the wall to the stairs like the concept.
-  const horizon = ctx.createLinearGradient(0, 0, canvas.width, 0);
-  horizon.addColorStop(0, "rgba(255,45,210,0)");
-  horizon.addColorStop(0.16, "rgba(255,45,210,0.76)");
-  horizon.addColorStop(0.50, "rgba(255,119,231,0.96)");
-  horizon.addColorStop(0.84, "rgba(255,45,210,0.76)");
-  horizon.addColorStop(1, "rgba(255,45,210,0)");
-  ctx.fillStyle = horizon;
-  ctx.fillRect(0, 442, canvas.width, 4);
-
-  const texture = new THREE.CanvasTexture(canvas);
+  const texture = new THREE.TextureLoader().load(CONCEPT_LED_ASSET_URL);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
+  texture.anisotropy = 4;
   texture.needsUpdate = true;
   return texture;
 }
@@ -958,14 +811,10 @@ export class NeonStageV1Environment {
       centralLed.material = Array.isArray(centralLed.material) ? next : next[0];
     }
 
-    const crown = model.getObjectByName("Crown_Center") as THREE.Mesh | undefined;
-    if (crown?.isMesh) {
-      crown.material = new THREE.MeshBasicMaterial({
-        name: "Crown Runtime Concept Gold",
-        color: 0xffd85a,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      });
+    const crown = model.getObjectByName("Crown_Center");
+    if (crown) {
+      // The concept-locked LED surface owns the single visible crown.
+      crown.visible = false;
     }
 
     this.tuneAcceptedR15Materials(model);
@@ -1043,14 +892,14 @@ export class NeonStageV1Environment {
         if (name.includes("runtimeneutralled")) return;
 
         if (name.includes("architecture navy")) {
-          material.emissive.setHex(0x17083f);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.38);
+          material.emissive.setHex(0x09031f);
+          material.emissiveIntensity = 0.10;
         } else if (name.includes("architecture indigo")) {
-          material.emissive.setHex(0x42106f);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.72);
+          material.emissive.setHex(0x22053d);
+          material.emissiveIntensity = 0.18;
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x4a0d70);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.52);
+          material.emissive.setHex(0x2a0646);
+          material.emissiveIntensity = 0.22;
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x20d9ff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 7.8);
@@ -1076,8 +925,8 @@ export class NeonStageV1Environment {
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 4.2);
           material.toneMapped = false;
         } else if (name.includes("led matrix")) {
-          material.emissive.setHex(0xb23fff);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 4.35);
+          material.emissive.setHex(0x7b22c7);
+          material.emissiveIntensity = 1.65;
         } else if (name.includes("pixel magenta")) {
           material.emissive.setHex(0xff35d1);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 5.2);
@@ -1085,12 +934,12 @@ export class NeonStageV1Environment {
         }
 
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
-          material.roughness = Math.min(material.roughness, 0.055);
-          material.metalness = Math.max(material.metalness, 0.08);
-          material.emissive.setHex(0x13062f);
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 0.18);
+          material.roughness = Math.min(material.roughness, 0.035);
+          material.metalness = Math.max(material.metalness, 0.12);
+          material.emissive.setHex(0x080119);
+          material.emissiveIntensity = 0.06;
         } else if (name.includes("riser polished top")) {
-          material.roughness = Math.min(material.roughness, 0.16);
+          material.roughness = Math.min(material.roughness, 0.09);
           material.metalness = Math.max(material.metalness, 0.03);
         }
       });
@@ -1167,7 +1016,7 @@ export class NeonStageV1Environment {
             uniforms: {
               uColor: { value: presentationColor.clone() },
               uLength: { value: group.length },
-              uOpacity: { value: group.prefix === "MainFixture" ? 0.34 : 0.25 },
+              uOpacity: { value: group.prefix === "MainFixture" ? 0.18 : 0.13 },
             },
             vertexShader: `
               varying vec2 vUv;
@@ -1177,7 +1026,7 @@ export class NeonStageV1Environment {
                 vUv = uv;
                 vec3 p = position;
                 vDistance = clamp((-p.y) / uLength, 0.0, 1.0);
-                p.x *= mix(0.72, 1.0, vDistance);
+                p.x *= mix(0.22, 1.42, vDistance);
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
               }
             `,
@@ -1188,9 +1037,9 @@ export class NeonStageV1Environment {
               uniform float uOpacity;
               void main() {
                 float radial = abs(vUv.x * 2.0 - 1.0);
-                float edgeFade = 1.0 - smoothstep(0.05, 0.98, radial);
-                float core = exp(-radial * radial * 5.2);
-                float haze = exp(-radial * radial * 1.35);
+                float edgeFade = 1.0 - smoothstep(0.12, 1.0, radial);
+                float core = exp(-radial * radial * 8.5);
+                float haze = exp(-radial * radial * 0.92);
                 float travel = max(0.0, 1.0 - vDistance);
                 float longitudinal = 0.18 + 0.82 * pow(travel, 0.32);
                 float nearHaze = 1.0 + 1.35 * exp(-vDistance * 6.5);
@@ -1380,20 +1229,18 @@ export class NeonStageV1Environment {
   }
 
   private createAcceptedR15BeautyLighting(model: THREE.Object3D) {
-    const ambient = new THREE.AmbientLight(0x4b155e, 0.25);
+    const ambient = new THREE.AmbientLight(0x2d0a3e, 0.07);
     ambient.name = "R15RuntimeBeautyAmbient";
     this.acceptedFxRoot.add(ambient);
 
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
     const floorReflectionTexture = makeAcceptedFloorReflectionTexture();
-    const logoTexture = makeAcceptedLogoOverlayTexture();
     const lowerFixtureGlowTexture = makeAcceptedBeamSourceTexture();
     this.textures.push(
       poolTexture,
       backdropTexture,
       floorReflectionTexture,
-      logoTexture,
       lowerFixtureGlowTexture,
     );
 
@@ -1422,24 +1269,6 @@ export class NeonStageV1Environment {
       backdrop.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.028);
       this.acceptedFxRoot.add(backdrop);
 
-      const logoMaterial = new THREE.MeshBasicMaterial({
-        map: logoTexture,
-        transparent: true,
-        opacity: 1.0,
-        depthWrite: false,
-        depthTest: true,
-        blending: THREE.NormalBlending,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      });
-      const logoOverlay = new THREE.Mesh(
-        new THREE.PlaneGeometry(ledSize.x * 0.985, ledSize.y * 0.97),
-        logoMaterial,
-      );
-      logoOverlay.name = "R15AcceptedAuditionLogoOverlay";
-      logoOverlay.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.046);
-      logoOverlay.renderOrder = 30;
-      this.acceptedFxRoot.add(logoOverlay);
     }
 
     // No broad backdrop wash planes: the authored LED plate is the single source
@@ -1471,7 +1300,7 @@ export class NeonStageV1Environment {
           map: lowerFixtureGlowTexture,
           color: palette[index % palette.length],
           transparent: true,
-          opacity: 0.88,
+          opacity: 0.96,
           depthWrite: false,
           depthTest: true,
           blending: THREE.AdditiveBlending,
@@ -1481,7 +1310,7 @@ export class NeonStageV1Environment {
         sprite.name = key + "_RuntimeApertureGlow";
         sprite.position.set(center.x, center.y + size.y * 0.12, bounds.max.z + 0.055);
         sprite.renderOrder = 18;
-        const diameter = THREE.MathUtils.clamp(Math.max(size.x, size.y) * 1.72, 0.54, 0.92);
+        const diameter = THREE.MathUtils.clamp(Math.max(size.x, size.y) * 1.36, 0.46, 0.78);
         sprite.scale.set(diameter, diameter, 1);
         this.acceptedFxRoot.add(sprite);
       });
@@ -1489,7 +1318,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.98,
+      opacity: 0.76,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -1545,7 +1374,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.42 + glow * 0.11;
+        state.beamMaterial.uniforms.uOpacity.value = 0.18 + glow * 0.08;
       }
 
       if (!state.floorAimBase || (!state.beamRoot && !state.spillMesh)) return;
