@@ -37,10 +37,10 @@ function getNeonGameplayCameraFrame(frame: ReturnType<typeof getCharacterCameraF
   if (!portrait) return frame;
   return {
     ...frame,
-    fov: Math.max(40, frame.fov + 1),
-    y: frame.y + 0.55,
-    z: frame.z + 3.8,
-    targetY: frame.targetY + 0.15,
+    fov: Math.max(41, frame.fov + 2),
+    y: frame.y + 0.65,
+    z: frame.z + 6.0,
+    targetY: frame.targetY + 0.05,
   };
 }
 
@@ -52,10 +52,10 @@ function getNeonPresentationPose(
   if (!neonPresentation || !portrait || pose.preset !== "gameplay_portrait_locked") return pose;
   return {
     ...pose,
-    fov: Math.max(40, pose.fov + 1),
-    y: pose.y + 0.55,
-    z: pose.z + 3.8,
-    targetY: pose.targetY + 0.15,
+    fov: Math.max(41, pose.fov + 2),
+    y: pose.y + 0.65,
+    z: pose.z + 6.0,
+    targetY: pose.targetY + 0.05,
   };
 }
 
@@ -164,7 +164,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.12 : 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.24 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
@@ -174,18 +174,18 @@ export default function Stage3D({
     scene.add(new THREE.HemisphereLight(
       neonPresentation ? 0x8f7add : 0xdceeff,
       neonPresentation ? 0x360845 : 0x737b9c,
-      neonPresentation ? 0.52 : 2.2,
+      neonPresentation ? 0.62 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
       neonPresentation ? 0xeee3ff : 0xfff3ff,
-      neonPresentation ? 0.90 : 3.0,
+      neonPresentation ? 1.02 : 3.0,
     );
     key.position.set(-2.5, 8, 8);
     scene.add(key);
 
     if (neonPresentation) {
-      const magentaRim = new THREE.DirectionalLight(0xff38cc, 0.45);
+      const magentaRim = new THREE.DirectionalLight(0xff38cc, 0.55);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
     } else {
