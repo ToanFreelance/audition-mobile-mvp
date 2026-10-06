@@ -492,7 +492,7 @@ function makeAcceptedFloorReflectionTexture() {
 
     ctx.save();
     ctx.translate(cx, source.y);
-    ctx.scale(source.w * 0.82, source.len * 1.02);
+    ctx.scale(source.w * 0.62, source.len * 1.02);
     const tail = ctx.createRadialGradient(0, 0, 0, 0, 0, 72);
     tail.addColorStop(0, source.hot);
     tail.addColorStop(0.08, source.color);
@@ -535,7 +535,7 @@ function makeAcceptedFloorReflectionTexture() {
 
     ctx.save();
     ctx.translate(cx, source.y + 168);
-    ctx.scale(source.w * 0.46, source.len * 1.34);
+    ctx.scale(source.w * 0.34, source.len * 1.34);
     const foregroundTail = ctx.createRadialGradient(0, 0, 0, 0, 0, 86);
     foregroundTail.addColorStop(0, source.color.replace(/0\.[0-9]+\)$/, "0.18)"));
     foregroundTail.addColorStop(0.30, source.color.replace(/0\.[0-9]+\)$/, "0.080)"));
@@ -559,6 +559,40 @@ function makeAcceptedFloorReflectionTexture() {
     const spineWidth = Math.max(2.5, source.w * 4.2);
     ctx.fillRect(cx - spineWidth / 2, source.y + 10, spineWidth, 170);
   }
+
+  // Secondary narrow mirror columns reproduce the many discrete specular
+  // reflections in the approved glossy floor instead of four merged bands.
+  const mirrorColumns = [
+    { x: -7.7, color: "rgba(255,34,205,0.56)" },
+    { x: -5.9, color: "rgba(22,213,255,0.60)" },
+    { x: -4.1, color: "rgba(255,32,205,0.60)" },
+    { x: -2.2, color: "rgba(20,211,255,0.54)" },
+    { x:  0.0, color: "rgba(255,36,214,0.60)" },
+    { x:  2.2, color: "rgba(16,215,255,0.56)" },
+    { x:  4.1, color: "rgba(255,31,204,0.60)" },
+    { x:  5.9, color: "rgba(20,213,255,0.60)" },
+    { x:  7.7, color: "rgba(255,34,205,0.56)" },
+  ] as const;
+
+  mirrorColumns.forEach((column, index) => {
+    const cx = xToCanvas(column.x);
+    const topY = 112 + (index % 3) * 8;
+    const gradient = ctx.createLinearGradient(0, topY, 0, 486);
+    gradient.addColorStop(0, column.color);
+    gradient.addColorStop(0.18, column.color.replace(/0\.[0-9]+\)$/, "0.34)"));
+    gradient.addColorStop(0.62, column.color.replace(/0\.[0-9]+\)$/, "0.095)"));
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = gradient;
+    const width = index === 4 ? 4.2 : 3.0;
+    ctx.fillRect(cx - width / 2, topY, width, 374);
+
+    const hot = ctx.createRadialGradient(cx, topY, 0, cx, topY, 18);
+    hot.addColorStop(0, "rgba(255,255,255,0.78)");
+    hot.addColorStop(0.18, column.color);
+    hot.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = hot;
+    ctx.fillRect(cx - 20, topY - 16, 40, 36);
+  });
 
   const centerBloom = ctx.createRadialGradient(256, 118, 0, 256, 118, 160);
   centerBloom.addColorStop(0, "rgba(255,0,194,0.055)");
@@ -661,6 +695,49 @@ function makeAcceptedBackdropGlowTexture() {
   return texture;
 }
 
+function makeAcceptedLedLowerExtensionTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("R15.1 LED-extension canvas unavailable.");
+
+  const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  base.addColorStop(0, "#2a075f");
+  base.addColorStop(0.52, "#1b0348");
+  base.addColorStop(1, "#10002f");
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const cyan = ctx.createRadialGradient(90, 16, 0, 90, 16, 150);
+  cyan.addColorStop(0, "rgba(0,207,255,0.18)");
+  cyan.addColorStop(1, "rgba(0,207,255,0)");
+  ctx.fillStyle = cyan;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const magenta = ctx.createRadialGradient(420, 16, 0, 420, 16, 160);
+  magenta.addColorStop(0, "rgba(255,0,190,0.20)");
+  magenta.addColorStop(1, "rgba(255,0,190,0)");
+  ctx.fillStyle = magenta;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Preserve the subtle LED-matrix read from the approved plate without
+  // duplicating the wordmark/tagline in the padded lower region.
+  ctx.fillStyle = "rgba(190,70,255,0.16)";
+  for (let y = 5; y < canvas.height; y += 9) {
+    for (let x = 5; x < canvas.width; x += 9) {
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function offsetObjectWorldY(object: THREE.Object3D, deltaY: number) {
   const parent = object.parent;
   if (!parent) {
@@ -706,7 +783,9 @@ function applyGoldenVerticalRegistration(model: THREE.Object3D) {
   // 2026-10-06 residual registration: LED center and riser lips are now
   // effectively aligned, while the truss landed ~20-30 px too high.
   // Preserve the accepted LED/riser offsets and reduce only the truss offset.
-  const trussWorldYOffset = 0.38;
+  // 2026-10-06 14:13 residual: LED, risers and ring are composition-locked.
+  // The truss alone remains ~10-15 px high at canonical portrait size.
+  const trussWorldYOffset = 0.21;
   const ledWorldYOffset = 0.50;
   const riserWorldYOffset = -0.68;
 
@@ -1033,20 +1112,26 @@ export class NeonStageV1Environment {
 
       const normalized = object.name.toLowerCase();
       const color = normalized.includes("outer")
-        ? 0xff2fcf
+        ? 0xff23d0
         : normalized.includes("mid") || normalized.includes("middle")
-          ? 0x25dcff
+          ? 0x12ddff
           : 0xc64dff;
+      const hotColor = normalized.includes("outer")
+        ? 0xffb9ef
+        : normalized.includes("mid") || normalized.includes("middle")
+          ? 0x9af5ff
+          : 0xe98cff;
+      const targetIntensity = normalized.includes("outer") ? 17.5 : 16.2;
       const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const next = sources.map(source => {
         if (!(source instanceof THREE.MeshStandardMaterial)) return source;
         const material = source.clone();
         material.name = source.name + " GoldenRing";
         material.color.setHex(color);
-        material.emissive.setHex(color);
-        material.emissiveIntensity = Math.max(material.emissiveIntensity, 13.5);
-        material.roughness = Math.min(material.roughness, 0.08);
-        material.metalness = Math.max(material.metalness, 0.08);
+        material.emissive.setHex(hotColor);
+        material.emissiveIntensity = Math.max(material.emissiveIntensity, targetIntensity);
+        material.roughness = Math.min(material.roughness, 0.045);
+        material.metalness = Math.max(material.metalness, 0.10);
         material.toneMapped = false;
         material.needsUpdate = true;
         return material;
@@ -1092,7 +1177,7 @@ export class NeonStageV1Environment {
         const material = source.clone();
         material.name = source.name + " R15.1 Breath " + phase.toFixed(2);
         if (/^(Mobile_Risers_Neon_|Riser[0-3]_(Cyan|Magenta)Lip$)/.test(mesh.name)) {
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 15.0);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 18.0);
           material.toneMapped = false;
         }
         shared.set(key, material);
@@ -1139,8 +1224,8 @@ export class NeonStageV1Environment {
           material.emissive.setHex(0x47136f);
           material.emissiveIntensity = 0.46;
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0xa21df0);
-          material.emissiveIntensity = 1.42;
+          material.emissive.setHex(0xb72cff);
+          material.emissiveIntensity = 1.72;
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x16ddff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 9.2);
@@ -1227,7 +1312,7 @@ export class NeonStageV1Environment {
     this.textures.push(lightPoolTexture, beamSourceTexture, reflectionStreakTexture);
 
     const groups = [
-      { prefix: "MainFixture", count: 11, pan: 11, tilt: 6.5, speed: 0.62, phase: 0.00, length: 10.0, radius: 1.08 },
+      { prefix: "MainFixture", count: 11, pan: 11, tilt: 6.5, speed: 0.62, phase: 0.00, length: 10.0, radius: 0.90 },
       { prefix: "RearFixture", count: 5, pan: 10, tilt: 6, speed: 0.58, phase: 0.80, length: 7.2, radius: 0.64 },
     ] as const;
 
@@ -1286,10 +1371,10 @@ export class NeonStageV1Environment {
                 float haze = exp(-radial * radial * 0.86);
                 float travel = max(0.0, 1.0 - vDistance);
                 float longitudinal = 0.18 + 0.82 * pow(travel, 0.32);
-                float nearHaze = 1.0 + 0.72 * exp(-vDistance * 6.5);
+                float nearHaze = 1.0 + 0.42 * exp(-vDistance * 6.5);
                 float sourceGlow = exp(-vDistance * 4.2) * core;
                 vec3 color = mix(uColor, vec3(1.0), min(0.52, sourceGlow));
-                float alpha = uOpacity * edgeFade * (0.42 * haze + 0.58 * core) * longitudinal * nearHaze;
+                float alpha = uOpacity * edgeFade * (0.30 * haze + 0.70 * core) * longitudinal * nearHaze;
                 alpha *= 1.0 - smoothstep(0.92, 1.0, vDistance);
                 if (alpha < 0.003) discard;
                 gl_FragColor = vec4(color, alpha);
@@ -1357,7 +1442,7 @@ export class NeonStageV1Environment {
             map: lightPoolTexture,
             color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.06),
             transparent: true,
-            opacity: group.prefix === "MainFixture" ? 0.43 : 0.34,
+            opacity: group.prefix === "MainFixture" ? 0.32 : 0.27,
             depthWrite: false,
             depthTest: false,
             side: THREE.DoubleSide,
@@ -1505,27 +1590,41 @@ export class NeonStageV1Environment {
     const ambient = new THREE.AmbientLight(0x2d0a3e, 0.11);
     ambient.name = "R15RuntimeBeautyAmbient";
 
-    // Local fills replace a global purple wash: reveal structure without
-    // flattening the dark gaps that make the concept look premium.
-    const trussFill = new THREE.PointLight(0x5d35ff, 21.5, 14.5, 1.82);
-    trussFill.name = "R15RuntimeTrussFill";
-    trussFill.position.set(0, 7.43, -1.35);
+    // The approved ceiling is nearly black. Omnidirectional truss point
+    // lights created three cyan/violet/magenta ceiling blobs, so use downward
+    // spot fills that reveal only the truss/fixture structure.
+    const makeTrussSpot = (
+      name: string,
+      color: number,
+      intensity: number,
+      x: number,
+      z: number,
+    ) => {
+      const light = new THREE.SpotLight(
+        color,
+        intensity,
+        4.8,
+        Math.PI / 3.2,
+        0.90,
+        2.0,
+      );
+      light.name = name;
+      light.position.set(x, 8.10, z);
+      light.target.position.set(x * 0.78, 6.55, -1.85);
+      return light;
+    };
 
-    const trussLeftFill = new THREE.PointLight(0x00dfff, 12.8, 9.2, 1.92);
-    trussLeftFill.name = "R15RuntimeTrussLeftFill";
-    trussLeftFill.position.set(-5.3, 7.18, -1.5);
+    const trussFill = makeTrussSpot("R15RuntimeTrussFill", 0x5d35ff, 16.0, 0, -1.35);
+    const trussLeftFill = makeTrussSpot("R15RuntimeTrussLeftFill", 0x00dfff, 10.0, -5.0, -1.5);
+    const trussRightFill = makeTrussSpot("R15RuntimeTrussRightFill", 0xff00b8, 10.0, 5.0, -1.5);
 
-    const trussRightFill = new THREE.PointLight(0xff00b8, 12.8, 9.2, 1.92);
-    trussRightFill.name = "R15RuntimeTrussRightFill";
-    trussRightFill.position.set(5.3, 7.18, -1.5);
-
-    const leftArchitectureFill = new THREE.PointLight(0x29dfff, 7.2, 12.5, 1.95);
+    const leftArchitectureFill = new THREE.PointLight(0x29dfff, 5.4, 5.6, 2.15);
     leftArchitectureFill.name = "R15RuntimeLeftArchitectureFill";
-    leftArchitectureFill.position.set(-6.2, 4.2, -2.0);
+    leftArchitectureFill.position.set(-6.2, 4.0, -2.0);
 
-    const rightArchitectureFill = new THREE.PointLight(0xff35d1, 7.2, 12.5, 1.95);
+    const rightArchitectureFill = new THREE.PointLight(0xff35d1, 5.4, 5.6, 2.15);
     rightArchitectureFill.name = "R15RuntimeRightArchitectureFill";
-    rightArchitectureFill.position.set(6.2, 4.2, -2.0);
+    rightArchitectureFill.position.set(6.2, 4.0, -2.0);
 
     const riserFill = new THREE.PointLight(0xaa35ff, 19.0, 11.4, 1.88);
     riserFill.name = "R15RuntimeRiserFill";
@@ -1542,8 +1641,11 @@ export class NeonStageV1Environment {
     this.acceptedFxRoot.add(
       ambient,
       trussFill,
+      trussFill.target,
       trussLeftFill,
+      trussLeftFill.target,
       trussRightFill,
+      trussRightFill.target,
       leftArchitectureFill,
       rightArchitectureFill,
       riserFill,
@@ -1553,12 +1655,14 @@ export class NeonStageV1Environment {
 
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
+    const ledLowerExtensionTexture = makeAcceptedLedLowerExtensionTexture();
     const floorReflectionTexture = makeAcceptedFloorReflectionTexture();
     const floorGridTexture = makeAcceptedFloorGridTexture();
     const lowerFixtureGlowTexture = makeAcceptedBeamSourceTexture();
     this.textures.push(
       poolTexture,
       backdropTexture,
+      ledLowerExtensionTexture,
       floorReflectionTexture,
       floorGridTexture,
       lowerFixtureGlowTexture,
@@ -1581,13 +1685,40 @@ export class NeonStageV1Environment {
         side: THREE.DoubleSide,
         toneMapped: false,
       });
+      const backdropHeight = ledSize.y * 0.957;
+      const backdropWidth = ledSize.x * 0.972;
       const backdrop = new THREE.Mesh(
-        new THREE.PlaneGeometry(ledSize.x * 0.972, ledSize.y * 0.957),
+        new THREE.PlaneGeometry(backdropWidth, backdropHeight),
         backdropMaterial,
       );
       backdrop.name = "R15AcceptedLedGlowOverlay";
       backdrop.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.028);
       this.acceptedFxRoot.add(backdrop);
+
+      // The golden artwork scale/center is already registered. Extend only the
+      // lower LED surface (~15% panel height) to remove the runtime black band
+      // below the tagline without stretching or moving the wordmark/crown.
+      const lowerExtensionHeight = ledSize.y * 0.155;
+      const lowerExtensionMaterial = new THREE.MeshBasicMaterial({
+        map: ledLowerExtensionTexture,
+        transparent: false,
+        depthWrite: false,
+        depthTest: true,
+        blending: THREE.NormalBlending,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
+      const lowerExtension = new THREE.Mesh(
+        new THREE.PlaneGeometry(backdropWidth, lowerExtensionHeight),
+        lowerExtensionMaterial,
+      );
+      lowerExtension.name = "R15AcceptedLedLowerExtension";
+      lowerExtension.position.set(
+        ledCenter.x,
+        ledCenter.y - backdropHeight / 2 - lowerExtensionHeight / 2 + 0.025,
+        ledBounds.max.z + 0.027,
+      );
+      this.acceptedFxRoot.add(lowerExtension);
 
     }
 
@@ -1714,7 +1845,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.16 + glow * 0.07;
+        state.beamMaterial.uniforms.uOpacity.value = 0.13 + glow * 0.055;
       }
 
       state.sourceAnchor.updateWorldMatrix(true, false);
