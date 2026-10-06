@@ -728,7 +728,9 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
         // saturated than the sketch. Darken the plate locally and restore
         // chroma without changing global exposure.
         float luma = dot(art, vec3(0.2126, 0.7152, 0.0722));
-        art = mix(vec3(luma), art, 1.14) * 0.88;
+        art = mix(vec3(luma), art, 1.16) * 1.055;
+        vec3 hot = max(art - vec3(0.56), vec3(0.0));
+        art += hot * hot * 0.48;
 
         float mask = rectMask(vUv, artCenter, artSize, 0.010);
         vec3 color = mix(bg, art, mask);
@@ -1117,20 +1119,30 @@ export class NeonStageV1Environment {
 
       const normalized = object.name.toLowerCase();
       const color = normalized.includes("outer")
-        ? 0xff2fcf
+        ? 0xff23d0
         : normalized.includes("mid") || normalized.includes("middle")
-          ? 0x25dcff
+          ? 0x16ddff
           : 0xc64dff;
+      const hotColor = normalized.includes("outer")
+        ? 0xffb8ef
+        : normalized.includes("mid") || normalized.includes("middle")
+          ? 0xa2f6ff
+          : 0xee9dff;
+      const targetIntensity = normalized.includes("outer")
+        ? 18.0
+        : normalized.includes("mid") || normalized.includes("middle")
+          ? 17.0
+          : 15.8;
       const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const next = sources.map(source => {
         if (!(source instanceof THREE.MeshStandardMaterial)) return source;
         const material = source.clone();
         material.name = source.name + " GoldenRing";
         material.color.setHex(color);
-        material.emissive.setHex(color);
-        material.emissiveIntensity = Math.max(material.emissiveIntensity, 13.5);
-        material.roughness = Math.min(material.roughness, 0.08);
-        material.metalness = Math.max(material.metalness, 0.08);
+        material.emissive.setHex(hotColor);
+        material.emissiveIntensity = Math.max(material.emissiveIntensity, targetIntensity);
+        material.roughness = Math.min(material.roughness, 0.040);
+        material.metalness = Math.max(material.metalness, 0.12);
         material.toneMapped = false;
         material.needsUpdate = true;
         return material;
@@ -1176,7 +1188,7 @@ export class NeonStageV1Environment {
         const material = source.clone();
         material.name = source.name + " R15.1 Breath " + phase.toFixed(2);
         if (/^(Mobile_Risers_Neon_|Riser[0-3]_(Cyan|Magenta)Lip$)/.test(mesh.name)) {
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 15.0);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 18.0);
           material.toneMapped = false;
         }
         shared.set(key, material);
@@ -1223,8 +1235,8 @@ export class NeonStageV1Environment {
           material.emissive.setHex(0x47136f);
           material.emissiveIntensity = 0.46;
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0xa21df0);
-          material.emissiveIntensity = 1.42;
+          material.emissive.setHex(0xb82cff);
+          material.emissiveIntensity = 1.78;
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x16ddff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 9.2);
@@ -1259,11 +1271,11 @@ export class NeonStageV1Environment {
         }
 
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
-          material.color.multiplyScalar(0.72);
-          material.roughness = Math.min(material.roughness, 0.018);
-          material.metalness = Math.max(material.metalness, 0.28);
-          material.emissive.setHex(0x09002b);
-          material.emissiveIntensity = 0.07;
+          material.color.multiplyScalar(0.84);
+          material.roughness = Math.min(material.roughness, 0.012);
+          material.metalness = Math.max(material.metalness, 0.34);
+          material.emissive.setHex(0x0d0438);
+          material.emissiveIntensity = 0.10;
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.075);
           material.metalness = Math.max(material.metalness, 0.05);
@@ -1519,13 +1531,13 @@ export class NeonStageV1Environment {
             map: reflectionStreakTexture,
             color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.18),
             transparent: true,
-            opacity: 0.46,
+            opacity: 0.64,
             depthWrite: false,
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
             toneMapped: false,
           });
-          reflectionCoreMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 4.4), reflectionCoreMaterial);
+          reflectionCoreMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 5.6), reflectionCoreMaterial);
           reflectionCoreMesh.name = `${key}_RuntimeReflectionCoreMesh`;
           reflectionCoreMesh.rotation.x = -Math.PI / 2;
           reflectionCoreMesh.position.y = 0.051;
@@ -1536,13 +1548,13 @@ export class NeonStageV1Environment {
             map: reflectionStreakTexture,
             color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.04),
             transparent: true,
-            opacity: 0.20,
+            opacity: 0.34,
             depthWrite: false,
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
             toneMapped: false,
           });
-          reflectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.30, 9.8), reflectionMaterial);
+          reflectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.70, 13.6), reflectionMaterial);
           reflectionMesh.name = `${key}_RuntimeReflectionStreakMesh`;
           reflectionMesh.rotation.x = -Math.PI / 2;
           reflectionMesh.position.y = 0.049;
@@ -1611,15 +1623,15 @@ export class NeonStageV1Environment {
     rightArchitectureFill.name = "R15RuntimeRightArchitectureFill";
     rightArchitectureFill.position.set(6.2, 4.2, -2.0);
 
-    const riserFill = new THREE.PointLight(0xaa35ff, 19.0, 11.4, 1.88);
+    const riserFill = new THREE.PointLight(0xaa35ff, 22.0, 11.4, 1.88);
     riserFill.name = "R15RuntimeRiserFill";
     riserFill.position.set(0, 1.47, -2.8);
 
-    const floorCyanFill = new THREE.PointLight(0x08dcff, 3.4, 9.6, 2.15);
+    const floorCyanFill = new THREE.PointLight(0x08dcff, 4.4, 10.2, 2.15);
     floorCyanFill.name = "R15RuntimeFloorCyanFill";
     floorCyanFill.position.set(-4.2, 0.72, 4.8);
 
-    const floorMagentaFill = new THREE.PointLight(0xff0bc6, 3.4, 9.6, 2.15);
+    const floorMagentaFill = new THREE.PointLight(0xff0bc6, 4.4, 10.2, 2.15);
     floorMagentaFill.name = "R15RuntimeFloorMagentaFill";
     floorMagentaFill.position.set(4.2, 0.72, 4.8);
 
@@ -1723,7 +1735,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.58,
+      opacity: 0.74,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -1741,7 +1753,7 @@ export class NeonStageV1Environment {
     const floorGridMaterial = new THREE.MeshBasicMaterial({
       map: floorGridTexture,
       transparent: true,
-      opacity: 0.70,
+      opacity: 0.80,
       depthWrite: false,
       depthTest: true,
       blending: THREE.NormalBlending,
@@ -1856,7 +1868,7 @@ export class NeonStageV1Environment {
           coreLength / 4.8,
           1,
         );
-        state.reflectionCoreMesh.material.opacity = 0.48 + glow * 0.12;
+        state.reflectionCoreMesh.material.opacity = 0.74 + glow * 0.16;
         state.reflectionCoreMesh.visible = true;
       }
 
@@ -1869,11 +1881,11 @@ export class NeonStageV1Environment {
           hitZ + reflectionLength * 0.5,
         );
         state.reflectionMesh.scale.set(
-          0.76 + glow * 0.10,
-          reflectionLength / 11.8,
+          0.82 + glow * 0.11,
+          reflectionLength / 14.2,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.20 + glow * 0.08;
+        state.reflectionMesh.material.opacity = 0.42 + glow * 0.10;
         state.reflectionMesh.visible = true;
       }
     });
