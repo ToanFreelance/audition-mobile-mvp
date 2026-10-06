@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { SourceBvhAnimationDemo } from "../../../components/character/SourceBvhAnimationDemo";
 
 const MODELS = {
   male: { label: "Nam_co_ban" },
@@ -370,6 +371,8 @@ export default function CharacterRigQaPage() {
             </label>
           </div>
         </section>
+
+        <SourceBvhAnimationDemo />
 
         <section style={styles.notes}>
           <strong>Inspect</strong>
