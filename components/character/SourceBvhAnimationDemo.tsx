@@ -319,7 +319,7 @@ export function SourceBvhAnimationDemo() {
   };
 
   return (
-    <section style={styles.card}>
+    <section id="source-animation-demo" style={styles.card}>
       <div style={styles.headingRow}>
         <div>
           <p style={styles.eyebrow}>CURATED LIBRARY · SOURCE BVH DEMO</p>
@@ -356,10 +356,10 @@ export function SourceBvhAnimationDemo() {
       </label>
 
       <div style={styles.metaGrid}>
-        <span><strong>{selectedMotion.genre}</strong><small>Genre</small></span>
-        <span><strong>{selectedMotion.duration.toFixed(2)}s</strong><small>Duration</small></span>
-        <span><strong>{selectedMotion.fps} fps</strong><small>Source</small></span>
-        <span><strong>{selectedMotion.retargetRisk}</strong><small>Retarget risk</small></span>
+        <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.genre}</strong><small style={styles.metaLabel}>Genre</small></span>
+        <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.duration.toFixed(2)}s</strong><small style={styles.metaLabel}>Duration</small></span>
+        <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.fps} fps</strong><small style={styles.metaLabel}>Source</small></span>
+        <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.retargetRisk}</strong><small style={styles.metaLabel}>Retarget risk</small></span>
       </div>
 
       <div ref={hostRef} style={styles.canvasHost} aria-label="Curated BVH source animation preview" />
@@ -410,7 +410,10 @@ const styles: Record<string, CSSProperties> = {
   segmented: { display: "flex", gap: 7 },
   selectorLabel: { display: "grid", gap: 5, color: "#9da7b8", fontSize: 10, fontWeight: 850 },
   select: { width: "100%", minWidth: 0, border: "1px solid #45405a", background: "#171520", color: "#edf0f6", borderRadius: 10, padding: "11px 10px", fontWeight: 800 },
-  metaGrid: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 },
+  metaGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 },
+  metaCell: { display: "grid", gap: 2, minWidth: 0, padding: "8px 9px", borderRadius: 9, background: "#171520" },
+  metaValue: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#e8e3f4", fontSize: 11 },
+  metaLabel: { color: "#7f899a", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" },
   canvasHost: { width: "100%", height: "min(52vh, 460px)", minHeight: 320, overflow: "hidden", borderRadius: 12, background: "#0a0d14", touchAction: "none" },
   status: { minHeight: 16, padding: "0 3px", color: "#8f9aab", fontSize: 10 },
   controls: { display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" },
@@ -420,4 +423,3 @@ const styles: Record<string, CSSProperties> = {
   note: { margin: 0, padding: 9, borderRadius: 10, background: "#171521", color: "#8f94a7", fontSize: 10, lineHeight: 1.45 },
 };
 
-for (const value of Object.values(styles.metaGrid ? {} : {})) void value;
