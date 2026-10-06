@@ -464,108 +464,109 @@ function makeAcceptedFloorReflectionTexture() {
   if (!ctx) throw new Error("R15.1 floor-reflection canvas unavailable.");
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = "lighter";
 
   const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
-  base.addColorStop(0, "rgba(104,0,220,0.016)");
-  base.addColorStop(0.30, "rgba(230,0,196,0.010)");
-  base.addColorStop(0.62, "rgba(44,0,170,0.006)");
-  base.addColorStop(1, "rgba(10,0,70,0.002)");
+  base.addColorStop(0, "rgba(90,0,205,0.020)");
+  base.addColorStop(0.32, "rgba(235,0,198,0.010)");
+  base.addColorStop(0.68, "rgba(30,0,135,0.005)");
+  base.addColorStop(1, "rgba(7,0,48,0)");
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const xToCanvas = (worldX: number) => ((worldX + 9.9) / 19.8) * canvas.width;
   const sources = [
-    { x: -9.0, color: "rgba(45,218,255,0.54)", hot: "rgba(58,222,255,0.66)", w: 0.78, len: 2.70, y: 205 },
-    { x: -6.8, color: "rgba(255,55,211,0.70)", hot: "rgba(255,52,211,0.72)", w: 0.86, len: 3.25, y: 180 },
-    { x: -5.0, color: "rgba(49,216,255,0.72)", hot: "rgba(62,226,255,0.72)", w: 0.76, len: 3.55, y: 190 },
-    { x: -3.0, color: "rgba(255,53,207,0.76)", hot: "rgba(255,48,207,0.74)", w: 0.82, len: 3.80, y: 195 },
-    { x: -1.2, color: "rgba(76,208,255,0.58)", hot: "rgba(72,224,255,0.68)", w: 0.62, len: 3.40, y: 188 },
-    { x:  1.2, color: "rgba(255,61,219,0.60)", hot: "rgba(255,62,217,0.70)", w: 0.64, len: 3.45, y: 190 },
-    { x:  3.0, color: "rgba(50,216,255,0.74)", hot: "rgba(62,226,255,0.73)", w: 0.80, len: 3.80, y: 192 },
-    { x:  5.0, color: "rgba(255,54,208,0.72)", hot: "rgba(255,52,211,0.72)", w: 0.84, len: 3.55, y: 184 },
-    { x:  6.8, color: "rgba(47,214,255,0.68)", hot: "rgba(58,222,255,0.70)", w: 0.76, len: 3.20, y: 178 },
-    { x:  9.0, color: "rgba(255,57,210,0.52)", hot: "rgba(255,55,213,0.64)", w: 0.76, len: 2.65, y: 205 },
+    { x: -8.7, cyan: true,  a: 0.45, y: 158, w: 0.78 },
+    { x: -6.6, cyan: false, a: 0.62, y: 144, w: 0.88 },
+    { x: -4.8, cyan: true,  a: 0.66, y: 150, w: 0.82 },
+    { x: -3.0, cyan: false, a: 0.72, y: 154, w: 0.86 },
+    { x: -1.2, cyan: true,  a: 0.50, y: 148, w: 0.68 },
+    { x:  1.2, cyan: false, a: 0.52, y: 150, w: 0.70 },
+    { x:  3.0, cyan: true,  a: 0.70, y: 152, w: 0.86 },
+    { x:  4.8, cyan: false, a: 0.66, y: 146, w: 0.84 },
+    { x:  6.6, cyan: true,  a: 0.60, y: 142, w: 0.80 },
+    { x:  8.7, cyan: false, a: 0.44, y: 158, w: 0.76 },
   ] as const;
 
-  for (const source of sources) {
+  const rgba = (cyan: boolean, alpha: number) => (
+    cyan
+      ? `rgba(34,214,255,${alpha.toFixed(3)})`
+      : `rgba(255,39,205,${alpha.toFixed(3)})`
+  );
+
+  sources.forEach((source, sourceIndex) => {
     const cx = xToCanvas(source.x);
 
+    // Compact hot pool where the source reflection begins.
     ctx.save();
     ctx.translate(cx, source.y);
-    ctx.scale(source.w * 0.82, source.len * 1.02);
-    const tail = ctx.createRadialGradient(0, 0, 0, 0, 0, 72);
-    tail.addColorStop(0, source.hot);
-    tail.addColorStop(0.08, source.color);
-    tail.addColorStop(0.32, source.color.replace(/0\.[0-9]+\)$/, "0.22)"));
-    tail.addColorStop(0.66, source.color.replace(/0\.[0-9]+\)$/, "0.040)"));
-    tail.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = tail;
+    ctx.scale(source.w, 0.62);
+    const hot = ctx.createRadialGradient(0, 0, 0, 0, 0, 48);
+    hot.addColorStop(0, rgba(source.cyan, source.a));
+    hot.addColorStop(0.20, rgba(source.cyan, source.a * 0.52));
+    hot.addColorStop(0.62, rgba(source.cyan, source.a * 0.12));
+    hot.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = hot;
     ctx.beginPath();
-    ctx.arc(0, 0, 72, 0, Math.PI * 2);
+    ctx.arc(0, 0, 48, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    ctx.save();
-    ctx.translate(cx, source.y + 18);
-    ctx.scale(source.w * 0.24, source.len * 1.10);
-    const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 58);
-    core.addColorStop(0, source.hot);
-    core.addColorStop(0.10, source.color.replace(/0\.[0-9]+\)$/, "0.82)"));
-    core.addColorStop(0.42, source.color.replace(/0\.[0-9]+\)$/, "0.24)"));
-    core.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = core;
-    ctx.beginPath();
-    ctx.arc(0, 0, 58, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    // Broken mirror fragments: longer toward the camera, but interrupted by
+    // dark tile gaps. Small deterministic lateral drift keeps them organic.
+    for (let segment = 0; segment < 7; segment += 1) {
+      const t = segment / 6;
+      const cy = source.y + 28 + segment * 46;
+      const drift = Math.sin(sourceIndex * 1.7 + segment * 0.9) * (1.5 + t * 2.2);
+      const halfW = 5.0 + source.w * (5.0 + t * 4.0);
+      const halfH = 16 + t * 18;
+      const alpha = source.a * (0.42 - t * 0.30);
+      if (alpha <= 0.025) continue;
 
-    ctx.save();
-    ctx.translate(cx, 92);
-    ctx.scale(source.w * 0.74, 0.92);
-    const impact = ctx.createRadialGradient(0, 0, 0, 0, 0, 58);
-    impact.addColorStop(0, source.hot);
-    impact.addColorStop(0.16, source.color);
-    impact.addColorStop(0.58, source.color.replace(/0\.[0-9]+\)$/, "0.15)"));
-    impact.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = impact;
-    ctx.beginPath();
-    ctx.arc(0, 0, 58, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+      ctx.save();
+      ctx.translate(cx + drift, cy);
+      ctx.scale(halfW / 42, halfH / 42);
+      const fragment = ctx.createRadialGradient(0, 0, 0, 0, 0, 42);
+      fragment.addColorStop(0, rgba(source.cyan, alpha));
+      fragment.addColorStop(0.16, rgba(source.cyan, alpha * 0.72));
+      fragment.addColorStop(0.54, rgba(source.cyan, alpha * 0.20));
+      fragment.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = fragment;
+      ctx.beginPath();
+      ctx.arc(0, 0, 42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
 
-    ctx.save();
-    ctx.translate(cx, source.y + 168);
-    ctx.scale(source.w * 0.46, source.len * 1.34);
-    const foregroundTail = ctx.createRadialGradient(0, 0, 0, 0, 0, 86);
-    foregroundTail.addColorStop(0, source.color.replace(/0\.[0-9]+\)$/, "0.18)"));
-    foregroundTail.addColorStop(0.30, source.color.replace(/0\.[0-9]+\)$/, "0.080)"));
-    foregroundTail.addColorStop(0.68, source.color.replace(/0\.[0-9]+\)$/, "0.018)"));
-    foregroundTail.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = foregroundTail;
-    ctx.beginPath();
-    ctx.arc(0, 0, 86, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+      // Narrow hot center inside each fragment, not a continuous laser line.
+      const coreAlpha = alpha * 0.62;
+      const core = ctx.createLinearGradient(0, cy - halfH, 0, cy + halfH);
+      core.addColorStop(0, "rgba(255,255,255,0)");
+      core.addColorStop(0.40, rgba(source.cyan, coreAlpha * 0.34));
+      core.addColorStop(0.52, rgba(source.cyan, coreAlpha));
+      core.addColorStop(0.64, rgba(source.cyan, coreAlpha * 0.28));
+      core.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = core;
+      ctx.fillRect(cx + drift - 1.25, cy - halfH, 2.5, halfH * 2);
+    }
+  });
 
-    // A narrow specular spine gives the glossy floor the vertical mirror
-    // highlight visible in the accepted plate. Keep it subordinate to the
-    // broad colored reflection column so it reads as a reflection, not a beam.
-    const spine = ctx.createLinearGradient(0, 0, 0, 170);
-    spine.addColorStop(0, source.hot.replace(/0\.[0-9]+\)$/, "0.70)"));
-    spine.addColorStop(0.24, source.color.replace(/0\.[0-9]+\)$/, "0.38)"));
-    spine.addColorStop(0.72, source.color.replace(/0\.[0-9]+\)$/, "0.08)"));
-    spine.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = spine;
-    const spineWidth = Math.max(2.5, source.w * 4.2);
-    ctx.fillRect(cx - spineWidth / 2, source.y + 10, spineWidth, 170);
-  }
-
-  const centerBloom = ctx.createRadialGradient(256, 118, 0, 256, 118, 160);
-  centerBloom.addColorStop(0, "rgba(255,0,194,0.055)");
-  centerBloom.addColorStop(0.34, "rgba(86,0,225,0.028)");
+  // Soft mirrored energy from the central ring / LED, kept below the source
+  // fragments so the foreground still has dark premium gaps.
+  const centerBloom = ctx.createRadialGradient(256, 116, 0, 256, 116, 155);
+  centerBloom.addColorStop(0, "rgba(255,26,202,0.075)");
+  centerBloom.addColorStop(0.28, "rgba(52,184,255,0.042)");
+  centerBloom.addColorStop(0.62, "rgba(90,0,210,0.018)");
   centerBloom.addColorStop(1, "rgba(88,45,190,0)");
   ctx.fillStyle = centerBloom;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Reflection breakup at major tile boundaries.
+  ctx.globalCompositeOperation = "destination-out";
+  for (let y = 205; y < 500; y += 47) {
+    ctx.fillStyle = "rgba(0,0,0,0.16)";
+    ctx.fillRect(0, y, canvas.width, 2);
+  }
+  ctx.globalCompositeOperation = "source-over";
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -655,29 +656,93 @@ function makeAcceptedBackdropGlowTexture() {
   texture.magFilter = THREE.LinearFilter;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
-
-  // Registered directly from the owner's 20:37 iPhone capture against the
-  // accepted sketch. The authored V2 wall surface is continuous, but its
-  // internal artwork rendered ~7.3% too large in the runtime panel.
-  //
-  // Keep the physical LED plane locked to CentralLED and remap only the
-  // texture inside that plane:
-  //   runtime -> concept similarity scale = 0.9316
-  //   residual artwork shift ≈ +8 px X / +16 px Y at canonical portrait size.
-  //
-  // Clamp-to-edge fills the small perimeter with the wall's own border pixels,
-  // so there is still exactly ONE LED surface and no extension seam.
-  const artworkScale = 0.9316;
-  const samplingScale = 1 / artworkScale;
-  texture.center.set(0.5, 0.5);
-  texture.repeat.set(samplingScale, samplingScale);
-  texture.offset.set(-0.0094, 0.0600);
-
-  // Preserve edge detail on mobile instead of rebuilding the artwork
-  // procedurally.
   texture.anisotropy = 8;
   texture.needsUpdate = true;
   return texture;
+}
+
+function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
+  return new THREE.ShaderMaterial({
+    name: "R15AcceptedUnifiedBackdropMaterial",
+    transparent: false,
+    depthWrite: false,
+    depthTest: true,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+    uniforms: {
+      uMap: { value: texture },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec2 vUv;
+      uniform sampler2D uMap;
+
+      float rectMask(vec2 p, vec2 center, vec2 size, float feather) {
+        vec2 d = abs(p - center) - size * 0.5;
+        float edge = max(d.x, d.y);
+        return 1.0 - smoothstep(-feather, feather, edge);
+      }
+
+      void main() {
+        // Physical wall is 1.10x the CentralLED height. Keep the golden artwork
+        // at the measured 0.9316 scale inside that wall, with the residual
+        // +0.94% X / +6% Y registration baked into the artwork center.
+        vec2 artCenter = vec2(0.50945, 0.49091);
+        vec2 artSize = vec2(0.93628, 0.84691);
+        vec2 artMin = artCenter - artSize * 0.5;
+        vec2 artUv = (vUv - artMin) / artSize;
+
+        // Authored deep-violet continuation outside the artwork. This is a
+        // generated LED-wall support field, not stretched edge pixels.
+        float vertical = smoothstep(0.0, 1.0, vUv.y);
+        vec3 bg = mix(
+          vec3(0.040, 0.010, 0.115),
+          vec3(0.105, 0.020, 0.220),
+          0.55 + 0.25 * vertical
+        );
+        float centerGlow = exp(
+          -pow((vUv.x - 0.5) / 0.34, 2.0)
+          -pow((vUv.y - 0.46) / 0.58, 2.0)
+        );
+        float cyanGlow = exp(
+          -pow((vUv.x - 0.16) / 0.22, 2.0)
+          -pow((vUv.y - 0.45) / 0.62, 2.0)
+        );
+        float magentaGlow = exp(
+          -pow((vUv.x - 0.84) / 0.22, 2.0)
+          -pow((vUv.y - 0.45) / 0.62, 2.0)
+        );
+        bg += vec3(0.080, 0.000, 0.090) * centerGlow;
+        bg += vec3(0.000, 0.050, 0.085) * cyanGlow;
+        bg += vec3(0.075, 0.000, 0.060) * magentaGlow;
+
+        vec3 art = texture2D(uMap, clamp(artUv, 0.0, 1.0)).rgb;
+
+        // The iPhone overlay measured the runtime LED ~22% brighter and less
+        // saturated than the sketch. Darken the plate locally and restore
+        // chroma without changing global exposure.
+        float luma = dot(art, vec3(0.2126, 0.7152, 0.0722));
+        art = mix(vec3(luma), art, 1.14) * 0.88;
+
+        float mask = rectMask(vUv, artCenter, artSize, 0.010);
+        vec3 color = mix(bg, art, mask);
+
+        // Subtle matrix grain in the generated continuation makes it read as
+        // the same LED surface instead of a flat filler strip.
+        float gridX = step(0.94, fract(vUv.x * 92.0));
+        float gridY = step(0.94, fract(vUv.y * 46.0));
+        color += vec3(0.10, 0.02, 0.14) * gridX * gridY * (1.0 - mask) * 0.20;
+
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `,
+  });
 }
 
 function offsetObjectWorldY(object: THREE.Object3D, deltaY: number) {
@@ -1454,13 +1519,13 @@ export class NeonStageV1Environment {
             map: reflectionStreakTexture,
             color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.18),
             transparent: true,
-            opacity: 0.64,
+            opacity: 0.46,
             depthWrite: false,
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
             toneMapped: false,
           });
-          reflectionCoreMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.92, 5.6), reflectionCoreMaterial);
+          reflectionCoreMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 4.4), reflectionCoreMaterial);
           reflectionCoreMesh.name = `${key}_RuntimeReflectionCoreMesh`;
           reflectionCoreMesh.rotation.x = -Math.PI / 2;
           reflectionCoreMesh.position.y = 0.051;
@@ -1471,13 +1536,13 @@ export class NeonStageV1Environment {
             map: reflectionStreakTexture,
             color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.04),
             transparent: true,
-            opacity: 0.38,
+            opacity: 0.20,
             depthWrite: false,
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide,
             toneMapped: false,
           });
-          reflectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.86, 15.2), reflectionMaterial);
+          reflectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.30, 9.8), reflectionMaterial);
           reflectionMesh.name = `${key}_RuntimeReflectionStreakMesh`;
           reflectionMesh.rotation.x = -Math.PI / 2;
           reflectionMesh.position.y = 0.049;
@@ -1590,31 +1655,20 @@ export class NeonStageV1Environment {
       const ledSize = ledBounds.getSize(new THREE.Vector3());
       const ledCenter = ledBounds.getCenter(new THREE.Vector3());
 
-      const backdropMaterial = new THREE.MeshBasicMaterial({
-        map: backdropTexture,
-        transparent: false,
-        opacity: 1.0,
-        depthWrite: false,
-        depthTest: true,
-        blending: THREE.NormalBlending,
-        side: THREE.DoubleSide,
-        toneMapped: false,
-      });
+      const backdropMaterial = makeAcceptedBackdropMaterial(backdropTexture);
 
-      // The V2 authored raster is cropped directly from the accepted golden
-      // sketch's LED surface. It already contains the correct edge treatment,
-      // chevrons, crown, wordmark and lower panel continuation, so render it as
-      // ONE uninterrupted surface. Do not add lower extension rows, repeated
-      // edge UVs or extra overlay planes: those were the source of the visible
-      // "cut backdrop" seam in the owner's iPhone captures.
+      // One uninterrupted wall surface. The top stays locked to the registered
+      // CentralLED while the extra 10% height continues downward into the
+      // concept's lower LED field, removing the black "cut backdrop" band.
+      const backdropHeight = ledSize.y * 1.10;
       const backdrop = new THREE.Mesh(
-        new THREE.PlaneGeometry(ledSize.x * 0.995, ledSize.y * 0.995),
+        new THREE.PlaneGeometry(ledSize.x * 0.995, backdropHeight),
         backdropMaterial,
       );
       backdrop.name = "R15AcceptedLedGlowOverlay";
       backdrop.position.set(
         ledCenter.x,
-        ledCenter.y,
+        ledCenter.y - ledSize.y * 0.05,
         ledBounds.max.z + 0.028,
       );
       backdrop.renderOrder = 2;
@@ -1669,7 +1723,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.68,
+      opacity: 0.58,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -1687,7 +1741,7 @@ export class NeonStageV1Environment {
     const floorGridMaterial = new THREE.MeshBasicMaterial({
       map: floorGridTexture,
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.70,
       depthWrite: false,
       depthTest: true,
       blending: THREE.NormalBlending,
@@ -1802,7 +1856,7 @@ export class NeonStageV1Environment {
           coreLength / 4.8,
           1,
         );
-        state.reflectionCoreMesh.material.opacity = 0.78 + glow * 0.17;
+        state.reflectionCoreMesh.material.opacity = 0.48 + glow * 0.12;
         state.reflectionCoreMesh.visible = true;
       }
 
@@ -1815,11 +1869,11 @@ export class NeonStageV1Environment {
           hitZ + reflectionLength * 0.5,
         );
         state.reflectionMesh.scale.set(
-          0.84 + glow * 0.12,
-          reflectionLength / 15.5,
+          0.76 + glow * 0.10,
+          reflectionLength / 11.8,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.48 + glow * 0.12;
+        state.reflectionMesh.material.opacity = 0.20 + glow * 0.08;
         state.reflectionMesh.visible = true;
       }
     });
