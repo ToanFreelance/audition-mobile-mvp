@@ -1581,12 +1581,68 @@ export class NeonStageV1Environment {
         side: THREE.DoubleSide,
         toneMapped: false,
       });
-      const backdrop = new THREE.Mesh(
-        new THREE.PlaneGeometry(ledSize.x * 0.972, ledSize.y * 0.957),
-        backdropMaterial,
-      );
+
+      // Overlay registration is already correct for crown / wordmark /
+      // chevrons, so do NOT scale the artwork to cover the remaining panel.
+      // Instead build one continuous LED surface with clamped edge strips:
+      // - the center cell preserves the accepted 0.972 × 0.957 artwork size;
+      // - left/right cells repeat only the raster edge color;
+      // - the lower row repeats only the raster bottom edge.
+      // This removes the visible "cut panel" / black-band seam without moving
+      // or resizing the registered artwork.
+      const artworkWidth = ledSize.x * 0.972;
+      const artworkHeight = ledSize.y * 0.957;
+      const fullWidth = ledSize.x * 0.995;
+      const lowerExtensionHeight = ledSize.y * 0.105;
+      const totalHeight = artworkHeight + lowerExtensionHeight;
+
+      const x0 = -fullWidth / 2;
+      const x1 = -artworkWidth / 2;
+      const x2 = artworkWidth / 2;
+      const x3 = fullWidth / 2;
+      const y0 = totalHeight / 2;
+      const y1 = y0 - artworkHeight;
+      const y2 = -totalHeight / 2;
+
+      const edgeU0 = 0.012;
+      const edgeU1 = 0.988;
+      const edgeV0 = 0.012;
+      const edgeV1 = 0.988;
+
+      const positions = new Float32Array([
+        x0, y0, 0,  x1, y0, 0,  x2, y0, 0,  x3, y0, 0,
+        x0, y1, 0,  x1, y1, 0,  x2, y1, 0,  x3, y1, 0,
+        x0, y2, 0,  x1, y2, 0,  x2, y2, 0,  x3, y2, 0,
+      ]);
+      const uvs = new Float32Array([
+        edgeU0, edgeV1,  edgeU0, edgeV1,  edgeU1, edgeV1,  edgeU1, edgeV1,
+        edgeU0, edgeV0,  edgeU0, edgeV0,  edgeU1, edgeV0,  edgeU1, edgeV0,
+        edgeU0, edgeV0,  edgeU0, edgeV0,  edgeU1, edgeV0,  edgeU1, edgeV0,
+      ]);
+      const indices = [
+        0, 4, 1,  1, 4, 5,
+        1, 5, 2,  2, 5, 6,
+        2, 6, 3,  3, 6, 7,
+        4, 8, 5,  5, 8, 9,
+        5, 9, 6,  6, 9, 10,
+        6, 10, 7,  7, 10, 11,
+      ];
+
+      const backdropGeometry = new THREE.BufferGeometry();
+      backdropGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      backdropGeometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+      backdropGeometry.setIndex(indices);
+      backdropGeometry.computeBoundingSphere();
+
+      const backdrop = new THREE.Mesh(backdropGeometry, backdropMaterial);
       backdrop.name = "R15AcceptedLedGlowOverlay";
-      backdrop.position.set(ledCenter.x, ledCenter.y, ledBounds.max.z + 0.028);
+      // Shift down by half the extension height so the artwork top/center stay
+      // registered exactly where the accepted overlay put them.
+      backdrop.position.set(
+        ledCenter.x,
+        ledCenter.y - lowerExtensionHeight * 0.5,
+        ledBounds.max.z + 0.028,
+      );
       this.acceptedFxRoot.add(backdrop);
 
     }
