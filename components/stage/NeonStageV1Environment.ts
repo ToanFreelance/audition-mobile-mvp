@@ -653,9 +653,28 @@ function makeAcceptedBackdropGlowTexture() {
   texture.generateMipmaps = true;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
-  // The golden raster carries the final crown, wordmark, pixel texture and
-  // neon geometry. Preserve its edge detail on mobile instead of rebuilding
-  // those layers procedurally.
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+
+  // Registered directly from the owner's 20:37 iPhone capture against the
+  // accepted sketch. The authored V2 wall surface is continuous, but its
+  // internal artwork rendered ~7.3% too large in the runtime panel.
+  //
+  // Keep the physical LED plane locked to CentralLED and remap only the
+  // texture inside that plane:
+  //   runtime -> concept similarity scale = 0.9316
+  //   residual artwork shift ≈ +8 px X / +16 px Y at canonical portrait size.
+  //
+  // Clamp-to-edge fills the small perimeter with the wall's own border pixels,
+  // so there is still exactly ONE LED surface and no extension seam.
+  const artworkScale = 0.9316;
+  const samplingScale = 1 / artworkScale;
+  texture.center.set(0.5, 0.5);
+  texture.repeat.set(samplingScale, samplingScale);
+  texture.offset.set(-0.0094, 0.0600);
+
+  // Preserve edge detail on mobile instead of rebuilding the artwork
+  // procedurally.
   texture.anisotropy = 8;
   texture.needsUpdate = true;
   return texture;
