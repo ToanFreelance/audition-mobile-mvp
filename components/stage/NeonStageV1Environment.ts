@@ -546,6 +546,18 @@ function makeAcceptedFloorReflectionTexture() {
     ctx.arc(0, 0, 86, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+
+    // A narrow specular spine gives the glossy floor the vertical mirror
+    // highlight visible in the accepted plate. Keep it subordinate to the
+    // broad colored reflection column so it reads as a reflection, not a beam.
+    const spine = ctx.createLinearGradient(0, 0, 0, 170);
+    spine.addColorStop(0, source.hot.replace(/0\.[0-9]+\)$/, "0.70)"));
+    spine.addColorStop(0.24, source.color.replace(/0\.[0-9]+\)$/, "0.38)"));
+    spine.addColorStop(0.72, source.color.replace(/0\.[0-9]+\)$/, "0.08)"));
+    spine.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = spine;
+    const spineWidth = Math.max(2.5, source.w * 4.2);
+    ctx.fillRect(cx - spineWidth / 2, source.y + 10, spineWidth, 170);
   }
 
   const centerBloom = ctx.createRadialGradient(256, 118, 0, 256, 118, 160);
@@ -569,30 +581,62 @@ function makeAcceptedFloorGridTexture() {
   if (!ctx) throw new Error("R15.1 floor-grid canvas unavailable.");
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.lineWidth = 1;
 
-  // Floor tile seams from the accepted golden plate. The floor mesh applies
-  // perspective; this texture only supplies the regular architectural grid.
+  // Golden floor language: dark tile seams establish perspective/depth, with
+  // a very small cyan/magenta edge catch from the surrounding stage lights.
+  // The floor plane supplies the real perspective so this stays one cheap
+  // texture instead of extra geometry.
+  const drawSeam = (
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    accent: string,
+    major: boolean,
+  ) => {
+    ctx.lineWidth = major ? 2.2 : 1.6;
+    ctx.strokeStyle = major
+      ? "rgba(3,4,26,0.88)"
+      : "rgba(7,8,38,0.74)";
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    ctx.lineWidth = 0.65;
+    ctx.strokeStyle = accent;
+    ctx.beginPath();
+    ctx.moveTo(x1 + 0.75, y1 + 0.75);
+    ctx.lineTo(x2 + 0.75, y2 + 0.75);
+    ctx.stroke();
+  };
+
   for (let index = 1; index < 10; index += 1) {
     const x = (index / 10) * canvas.width;
-    ctx.strokeStyle = index % 2 === 0
-      ? "rgba(46,186,255,0.22)"
-      : "rgba(138,70,255,0.18)";
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
-    ctx.stroke();
+    drawSeam(
+      x,
+      0,
+      x,
+      canvas.height,
+      index % 2 === 0
+        ? "rgba(28,196,255,0.24)"
+        : "rgba(178,49,255,0.20)",
+      index === 5,
+    );
   }
 
   for (let index = 1; index < 13; index += 1) {
     const y = (index / 13) * canvas.height;
-    ctx.strokeStyle = index % 3 === 0
-      ? "rgba(255,46,205,0.19)"
-      : "rgba(93,82,206,0.16)";
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
-    ctx.stroke();
+    drawSeam(
+      0,
+      y,
+      canvas.width,
+      y,
+      index % 3 === 0
+        ? "rgba(255,28,200,0.22)"
+        : "rgba(44,86,220,0.17)",
+      index % 4 === 0,
+    );
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -659,7 +703,10 @@ function applyGoldenVerticalRegistration(model: THREE.Object3D) {
   // truss ≈ 51 px too low, golden LED ≈ 35 px too low, risers ≈ 50 px too high.
   // Convert those screen deltas to rear-stage world units instead of trying to
   // solve incompatible anchors with another global camera adjustment.
-  const trussWorldYOffset = 0.72;
+  // 2026-10-06 residual registration: LED center and riser lips are now
+  // effectively aligned, while the truss landed ~20-30 px too high.
+  // Preserve the accepted LED/riser offsets and reduce only the truss offset.
+  const trussWorldYOffset = 0.38;
   const ledWorldYOffset = 0.50;
   const riserWorldYOffset = -0.68;
 
@@ -1045,7 +1092,7 @@ export class NeonStageV1Environment {
         const material = source.clone();
         material.name = source.name + " R15.1 Breath " + phase.toFixed(2);
         if (/^(Mobile_Risers_Neon_|Riser[0-3]_(Cyan|Magenta)Lip$)/.test(mesh.name)) {
-          material.emissiveIntensity = Math.max(material.emissiveIntensity, 12.0);
+          material.emissiveIntensity = Math.max(material.emissiveIntensity, 15.0);
           material.toneMapped = false;
         }
         shared.set(key, material);
@@ -1092,8 +1139,8 @@ export class NeonStageV1Environment {
           material.emissive.setHex(0x47136f);
           material.emissiveIntensity = 0.46;
         } else if (name.includes("riser polished top")) {
-          material.emissive.setHex(0x8c16d8);
-          material.emissiveIntensity = 1.12;
+          material.emissive.setHex(0xa21df0);
+          material.emissiveIntensity = 1.42;
         } else if (name.includes("aperture cyan")) {
           material.emissive.setHex(0x16ddff);
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 9.2);
@@ -1239,10 +1286,10 @@ export class NeonStageV1Environment {
                 float haze = exp(-radial * radial * 0.86);
                 float travel = max(0.0, 1.0 - vDistance);
                 float longitudinal = 0.18 + 0.82 * pow(travel, 0.32);
-                float nearHaze = 1.0 + 1.35 * exp(-vDistance * 6.5);
+                float nearHaze = 1.0 + 0.72 * exp(-vDistance * 6.5);
                 float sourceGlow = exp(-vDistance * 4.2) * core;
                 vec3 color = mix(uColor, vec3(1.0), min(0.52, sourceGlow));
-                float alpha = uOpacity * edgeFade * (0.64 * haze + 0.36 * core) * longitudinal * nearHaze;
+                float alpha = uOpacity * edgeFade * (0.42 * haze + 0.58 * core) * longitudinal * nearHaze;
                 alpha *= 1.0 - smoothstep(0.92, 1.0, vDistance);
                 if (alpha < 0.003) discard;
                 gl_FragColor = vec4(color, alpha);
@@ -1462,15 +1509,15 @@ export class NeonStageV1Environment {
     // flattening the dark gaps that make the concept look premium.
     const trussFill = new THREE.PointLight(0x5d35ff, 21.5, 14.5, 1.82);
     trussFill.name = "R15RuntimeTrussFill";
-    trussFill.position.set(0, 7.77, -1.35);
+    trussFill.position.set(0, 7.43, -1.35);
 
     const trussLeftFill = new THREE.PointLight(0x00dfff, 12.8, 9.2, 1.92);
     trussLeftFill.name = "R15RuntimeTrussLeftFill";
-    trussLeftFill.position.set(-5.3, 7.52, -1.5);
+    trussLeftFill.position.set(-5.3, 7.18, -1.5);
 
     const trussRightFill = new THREE.PointLight(0xff00b8, 12.8, 9.2, 1.92);
     trussRightFill.name = "R15RuntimeTrussRightFill";
-    trussRightFill.position.set(5.3, 7.52, -1.5);
+    trussRightFill.position.set(5.3, 7.18, -1.5);
 
     const leftArchitectureFill = new THREE.PointLight(0x29dfff, 7.2, 12.5, 1.95);
     leftArchitectureFill.name = "R15RuntimeLeftArchitectureFill";
@@ -1535,7 +1582,7 @@ export class NeonStageV1Environment {
         toneMapped: false,
       });
       const backdrop = new THREE.Mesh(
-        new THREE.PlaneGeometry(ledSize.x * 0.995, ledSize.y * 0.985),
+        new THREE.PlaneGeometry(ledSize.x * 0.972, ledSize.y * 0.957),
         backdropMaterial,
       );
       backdrop.name = "R15AcceptedLedGlowOverlay";
@@ -1609,7 +1656,7 @@ export class NeonStageV1Environment {
     const floorGridMaterial = new THREE.MeshBasicMaterial({
       map: floorGridTexture,
       transparent: true,
-      opacity: 0.58,
+      opacity: 0.82,
       depthWrite: false,
       depthTest: true,
       blending: THREE.NormalBlending,
@@ -1667,7 +1714,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = 0.18 + glow * 0.08;
+        state.beamMaterial.uniforms.uOpacity.value = 0.16 + glow * 0.07;
       }
 
       state.sourceAnchor.updateWorldMatrix(true, false);
