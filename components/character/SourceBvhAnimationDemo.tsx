@@ -5,10 +5,6 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { BVHLoader } from "three/examples/jsm/loaders/BVHLoader.js";
 
-const CMU_SOURCE_PIN = "09a07f54f3bbb58797325f009282d0b2048a2871";
-const CMU_RAW_BASE =
-  "https://raw.githubusercontent.com/una-dinosauria/cmu-mocap/" + CMU_SOURCE_PIN + "/data";
-
 type DemoRole = "normal" | "backup" | "finish";
 
 type CuratedMotion = {
@@ -54,8 +50,7 @@ const CURATED_MOTIONS: readonly CuratedMotion[] = [
 ] as const;
 
 function bvhUrl(id: string) {
-  const subject = id.split("_")[0].padStart(3, "0");
-  return CMU_RAW_BASE + "/" + subject + "/" + id + ".bvh";
+  return "/api/curated-animation-source/" + encodeURIComponent(id);
 }
 
 function normalizeSourceSkeleton(group: THREE.Group, bones: readonly THREE.Bone[]) {
@@ -382,7 +377,7 @@ export function SourceBvhAnimationDemo() {
       </div>
 
       <p style={styles.note}>
-        BVH is fetched from the immutable CMU mirror pin used by Acquisition V1. The converter reference T-pose
+        BVH is fetched through a same-origin read-only proxy from the immutable CMU mirror pin used by Acquisition V1. The converter reference T-pose
         sample is omitted for preview only. Finish candidates play once; Normal/Backup candidates loop. Animation
         duration never drives gameplay timing.
       </p>
