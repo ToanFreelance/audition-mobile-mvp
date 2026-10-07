@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server";
+import {
+  CURATED_SOURCE_PIN,
+  RETAINED_SOURCE_ID_SET,
+} from "@/lib/animation/curated-source-library-v2";
 
-const CMU_SOURCE_PIN = "09a07f54f3bbb58797325f009282d0b2048a2871";
 const CMU_RAW_BASE =
-  "https://raw.githubusercontent.com/una-dinosauria/cmu-mocap/" + CMU_SOURCE_PIN + "/data";
-
-const CURATED_SOURCE_IDS = new Set([
-  "90_30", "93_08", "85_03", "94_07", "120_06", "05_07", "55_01", "94_14",
-  "05_04", "111_05", "94_03", "141_12", "93_03", "94_13", "05_02", "143_35",
-  "90_31", "120_07", "94_06", "05_12", "113_04",
-  "85_05", "85_14", "85_08", "85_10", "85_04",
-  "143_34", "55_12", "55_25", "55_02",
-  "60_01", "60_03", "60_05", "61_05", "93_04", "93_05", "93_06",
-  "120_05", "94_16", "94_09", "94_05", "85_11", "85_12", "05_06", "05_13",
-]);
+  "https://raw.githubusercontent.com/una-dinosauria/cmu-mocap/" +
+  CURATED_SOURCE_PIN +
+  "/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,8 +18,8 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  if (!CURATED_SOURCE_IDS.has(id)) {
-    return NextResponse.json({ error: "Curated source motion not found" }, { status: 404 });
+  if (!RETAINED_SOURCE_ID_SET.has(id)) {
+    return NextResponse.json({ error: "Retained V2 source motion not found" }, { status: 404 });
   }
 
   const subject = id.split("_")[0].padStart(3, "0");
@@ -47,7 +42,7 @@ export async function GET(
     headers.set("Content-Type", "text/plain; charset=utf-8");
     headers.set("Cache-Control", "public, max-age=86400, s-maxage=604800, immutable");
     headers.set("X-Audition-Source-Id", id);
-    headers.set("X-Audition-Source-Pin", CMU_SOURCE_PIN);
+    headers.set("X-Audition-Source-Pin", CURATED_SOURCE_PIN);
 
     return new NextResponse(upstream.body, { status: 200, headers });
   } catch {

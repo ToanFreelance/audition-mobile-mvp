@@ -4,103 +4,21 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { BVHLoader } from "three/examples/jsm/loaders/BVHLoader.js";
+import {
+  STATUS_LABELS,
+  STYLE_LABELS,
+  type CuratedSourceMotion,
+  type CuratedStatus,
+  type CuratedStyleId,
+} from "@/lib/animation/curated-source-library-v2";
 
-type DemoRole = "normal" | "backup" | "finish" | "utility" | "partner" | "explore";
-type StyleId =
-  | "pop_casual"
-  | "social_swing"
-  | "modern_stage"
-  | "world_folk"
-  | "street_break"
-  | "party_reaction";
-type StyleFilter = "all" | StyleId;
-type RoleFilter = "all" | DemoRole;
+type StyleFilter = "all" | CuratedStyleId;
+type StatusFilter = "all" | CuratedStatus;
+type ReviewDecision = "keep" | "reject";
+type ReviewFilter = "all" | "unreviewed" | ReviewDecision;
+type ReviewMap = Record<string, ReviewDecision>;
 
-type CuratedMotion = {
-  id: string;
-  title: string;
-  genre: string;
-  duration: number;
-  fps: number;
-  role: DemoRole;
-  rank: number;
-  style: StyleId;
-  tier: "A" | "B" | "SPECIAL" | "UTILITY" | "EXPLORE";
-  retargetRisk: "Low" | "Low-Med" | "Med" | "Med-High" | "High" | "Very High";
-  modeHints: readonly string[];
-  partnerDependent?: boolean;
-};
-
-const STYLE_LABELS: Record<StyleId, string> = {
-  pop_casual: "Pop / Casual",
-  social_swing: "Khiêu vũ / Social",
-  modern_stage: "Modern / Stage",
-  world_folk: "World / Folk",
-  street_break: "Street / Break",
-  party_reaction: "Party / Reaction",
-};
-
-const ROLE_LABELS: Record<DemoRole, string> = {
-  normal: "Normal A",
-  backup: "Backup",
-  finish: "Finish / Special",
-  utility: "Utility",
-  partner: "Partner-dependent",
-  explore: "Explore V2",
-};
-
-const CURATED_MOTIONS: readonly CuratedMotion[] = [
-  { id: "90_30", title: "Russian dance", genre: "Freestyle / folk", duration: 11.93, fps: 120, role: "normal", rank: 1, style: "world_folk", tier: "A", retargetRisk: "High", modeHints: ["boss", "world", "performance"] },
-  { id: "93_08", title: "xtra fancY charleston", genre: "Charleston", duration: 4.63, fps: 120, role: "normal", rank: 2, style: "social_swing", tier: "A", retargetRisk: "Med", modeHints: ["social", "retro", "party"] },
-  { id: "85_03", title: "UpRightSequence", genre: "Break", duration: 27.03, fps: 120, role: "normal", rank: 3, style: "street_break", tier: "A", retargetRisk: "Med-High", modeHints: ["boss", "battle", "performance"] },
-  { id: "94_07", title: "Indian dance take 94_07", genre: "Indian", duration: 19.27, fps: 120, role: "normal", rank: 4, style: "world_folk", tier: "A", retargetRisk: "Med", modeHints: ["world", "performance"] },
-  { id: "120_06", title: "Mickey Dance", genre: "Freestyle", duration: 11.93, fps: 120, role: "normal", rank: 5, style: "pop_casual", tier: "A", retargetRisk: "Med", modeHints: ["pop", "casual", "party"] },
-  { id: "05_07", title: "jetes / arabesque / pirouette", genre: "Modern / Ballet", duration: 9.92, fps: 120, role: "normal", rank: 6, style: "modern_stage", tier: "A", retargetRisk: "High", modeHints: ["modern", "boss", "performance"] },
-  { id: "55_01", title: "dance, whirl", genre: "Freestyle", duration: 15.04, fps: 120, role: "normal", rank: 7, style: "pop_casual", tier: "A", retargetRisk: "Med", modeHints: ["pop", "party", "performance"] },
-  { id: "94_14", title: "Indian dance take 94_14", genre: "Indian", duration: 24.95, fps: 120, role: "normal", rank: 8, style: "world_folk", tier: "A", retargetRisk: "Med", modeHints: ["world", "performance"] },
-  { id: "05_04", title: "sideways arabesque / back bend", genre: "Modern / Ballet", duration: 9.98, fps: 120, role: "normal", rank: 9, style: "modern_stage", tier: "A", retargetRisk: "Med", modeHints: ["modern", "stage"] },
-  { id: "111_05", title: "Dance", genre: "Freestyle", duration: 7.71, fps: 120, role: "normal", rank: 10, style: "pop_casual", tier: "A", retargetRisk: "Low-Med", modeHints: ["pop", "casual"] },
-  { id: "94_03", title: "Indian dance take 94_03", genre: "Indian", duration: 31.09, fps: 120, role: "normal", rank: 11, style: "world_folk", tier: "A", retargetRisk: "Med", modeHints: ["world", "stage"] },
-  { id: "141_12", title: "Dance, Twist", genre: "Freestyle", duration: 4.72, fps: 120, role: "normal", rank: 12, style: "pop_casual", tier: "A", retargetRisk: "Low-Med", modeHints: ["pop", "retro", "casual"] },
-  { id: "93_03", title: "charleston_01", genre: "Charleston", duration: 3.67, fps: 120, role: "normal", rank: 13, style: "social_swing", tier: "A", retargetRisk: "Low-Med", modeHints: ["social", "retro"] },
-  { id: "94_13", title: "Indian dance take 94_13", genre: "Indian", duration: 16.62, fps: 120, role: "normal", rank: 14, style: "world_folk", tier: "A", retargetRisk: "Low-Med", modeHints: ["world", "casual"] },
-  { id: "05_02", title: "expressive arms / pirouette", genre: "Modern / Ballet", duration: 9.35, fps: 120, role: "normal", rank: 15, style: "modern_stage", tier: "A", retargetRisk: "Med-High", modeHints: ["modern", "stage"] },
-  { id: "143_35", title: "Macarena Dance", genre: "Freestyle / novelty", duration: 10.65, fps: 120, role: "normal", rank: 16, style: "party_reaction", tier: "A", retargetRisk: "Low", modeHints: ["pop", "party", "event"] },
-
-  { id: "90_31", title: "Russian dance", genre: "Freestyle / folk", duration: 8.15, fps: 120, role: "backup", rank: 1, style: "world_folk", tier: "B", retargetRisk: "High", modeHints: ["boss", "world"] },
-  { id: "120_07", title: "Mickey Dance", genre: "Freestyle", duration: 9.27, fps: 120, role: "backup", rank: 2, style: "pop_casual", tier: "B", retargetRisk: "Low-Med", modeHints: ["pop", "casual"] },
-  { id: "94_06", title: "Indian dance take 94_06", genre: "Indian", duration: 20.94, fps: 120, role: "backup", rank: 3, style: "world_folk", tier: "B", retargetRisk: "Low-Med", modeHints: ["world", "casual"] },
-  { id: "05_12", title: "arms held high / upper body rotation", genre: "Modern / Ballet", duration: 11.28, fps: 120, role: "backup", rank: 4, style: "modern_stage", tier: "B", retargetRisk: "Low", modeHints: ["relaxed", "modern", "stage"] },
-  { id: "113_04", title: "Dance", genre: "Freestyle", duration: 8.08, fps: 120, role: "backup", rank: 5, style: "pop_casual", tier: "B", retargetRisk: "Low-Med", modeHints: ["pop", "casual"] },
-
-  { id: "85_05", title: "HandStandKicks", genre: "Break / Floor", duration: 13.61, fps: 120, role: "finish", rank: 1, style: "street_break", tier: "SPECIAL", retargetRisk: "High", modeHints: ["finish", "boss", "battle"] },
-  { id: "85_14", title: "BreakSequencewithFlips", genre: "Break / Floor", duration: 24.73, fps: 120, role: "finish", rank: 2, style: "street_break", tier: "SPECIAL", retargetRisk: "Very High", modeHints: ["finish", "boss", "battle"] },
-  { id: "85_08", title: "Helicopter", genre: "Break / Floor", duration: 8.46, fps: 120, role: "finish", rank: 3, style: "street_break", tier: "SPECIAL", retargetRisk: "Very High", modeHints: ["finish", "boss"] },
-  { id: "85_10", title: "EndofBreakDance", genre: "Break / Floor", duration: 6.44, fps: 120, role: "finish", rank: 4, style: "street_break", tier: "SPECIAL", retargetRisk: "High", modeHints: ["finish", "battle"] },
-  { id: "85_04", title: "FancyFootWork", genre: "Break / Floor", duration: 21.28, fps: 120, role: "finish", rank: 5, style: "street_break", tier: "SPECIAL", retargetRisk: "Very High", modeHints: ["finish", "boss"] },
-
-  { id: "143_34", title: "Chicken Dance", genre: "Novelty", duration: 6.52, fps: 120, role: "utility", rank: 1, style: "party_reaction", tier: "UTILITY", retargetRisk: "Low-Med", modeHints: ["party", "waiting-room", "reaction"] },
-  { id: "55_12", title: "Dancing Bear", genre: "Novelty", duration: 17.28, fps: 120, role: "utility", rank: 2, style: "party_reaction", tier: "UTILITY", retargetRisk: "Med", modeHints: ["party", "waiting-room", "reaction"] },
-  { id: "55_25", title: "Dancing Animal", genre: "Novelty", duration: 26.56, fps: 120, role: "utility", rank: 3, style: "party_reaction", tier: "UTILITY", retargetRisk: "Med-High", modeHints: ["party", "reaction", "celebration"] },
-  { id: "55_02", title: "Lambada Dance", genre: "Latin / freestyle", duration: 18.16, fps: 120, role: "utility", rank: 4, style: "social_swing", tier: "UTILITY", retargetRisk: "Med", modeHints: ["social", "latin", "waiting-room"] },
-
-  { id: "60_01", title: "Salsa take 60_01", genre: "Salsa", duration: 18.68, fps: 120, role: "partner", rank: 1, style: "social_swing", tier: "EXPLORE", retargetRisk: "High", modeHints: ["social", "latin", "duet"], partnerDependent: true },
-  { id: "60_03", title: "Salsa take 60_03", genre: "Salsa", duration: 15.24, fps: 120, role: "partner", rank: 2, style: "social_swing", tier: "EXPLORE", retargetRisk: "Med-High", modeHints: ["social", "latin", "duet"], partnerDependent: true },
-  { id: "60_05", title: "Salsa take 60_05", genre: "Salsa", duration: 13.98, fps: 120, role: "partner", rank: 3, style: "social_swing", tier: "EXPLORE", retargetRisk: "Med", modeHints: ["social", "latin", "duet"], partnerDependent: true },
-  { id: "61_05", title: "Salsa take 61_05", genre: "Salsa", duration: 13.98, fps: 120, role: "partner", rank: 4, style: "social_swing", tier: "EXPLORE", retargetRisk: "High", modeHints: ["social", "latin", "duet"], partnerDependent: true },
-  { id: "93_04", title: "Charleston side-by-side female", genre: "Charleston", duration: 4.21, fps: 120, role: "partner", rank: 5, style: "social_swing", tier: "EXPLORE", retargetRisk: "Med", modeHints: ["social", "retro", "duet"], partnerDependent: true },
-  { id: "93_05", title: "Charleston side-by-side male", genre: "Charleston", duration: 4.54, fps: 120, role: "partner", rank: 6, style: "social_swing", tier: "EXPLORE", retargetRisk: "Med", modeHints: ["social", "retro", "duet"], partnerDependent: true },
-  { id: "93_06", title: "Lindy Hop", genre: "Lindy", duration: 3.34, fps: 120, role: "partner", rank: 7, style: "social_swing", tier: "EXPLORE", retargetRisk: "High", modeHints: ["social", "swing", "duet"], partnerDependent: true },
-
-  { id: "120_05", title: "Mickey Dance", genre: "Freestyle", duration: 11.27, fps: 120, role: "explore", rank: 1, style: "pop_casual", tier: "EXPLORE", retargetRisk: "Low-Med", modeHints: ["pop", "casual"] },
-  { id: "94_16", title: "Indian dance take 94_16", genre: "Indian", duration: 16.92, fps: 120, role: "explore", rank: 2, style: "world_folk", tier: "EXPLORE", retargetRisk: "Low-Med", modeHints: ["world", "casual"] },
-  { id: "94_09", title: "Indian dance take 94_09", genre: "Indian", duration: 33.11, fps: 120, role: "explore", rank: 3, style: "world_folk", tier: "EXPLORE", retargetRisk: "Med", modeHints: ["world", "stage"] },
-  { id: "94_05", title: "Indian dance take 94_05", genre: "Indian", duration: 43.93, fps: 120, role: "explore", rank: 4, style: "world_folk", tier: "EXPLORE", retargetRisk: "Med", modeHints: ["world", "stage"] },
-  { id: "85_11", title: "UpRightSequence", genre: "Break", duration: 15.01, fps: 120, role: "explore", rank: 5, style: "street_break", tier: "EXPLORE", retargetRisk: "Med-High", modeHints: ["boss", "battle"] },
-  { id: "85_12", title: "LongSequenceGood", genre: "Break / Floor", duration: 37.48, fps: 120, role: "explore", rank: 6, style: "street_break", tier: "EXPLORE", retargetRisk: "Very High", modeHints: ["boss", "battle", "special"] },
-  { id: "05_06", title: "cartwheel-like start / pirouettes / jete", genre: "Modern / Ballet", duration: 7.37, fps: 120, role: "explore", rank: 7, style: "modern_stage", tier: "EXPLORE", retargetRisk: "Very High", modeHints: ["modern", "boss", "performance"] },
-  { id: "05_13", title: "small jetes / pirouette", genre: "Modern / Ballet", duration: 9.12, fps: 120, role: "explore", rank: 8, style: "modern_stage", tier: "EXPLORE", retargetRisk: "High", modeHints: ["modern", "stage"] },
-] as const;
+const REVIEW_STORAGE_KEY = "audition:animation-library:curation-v2:owner-review";
 
 function bvhUrl(id: string) {
   return "/api/curated-animation-source/" + encodeURIComponent(id);
@@ -114,22 +32,26 @@ function normalizeSourceSkeleton(group: THREE.Group, bones: readonly THREE.Bone[
     bone.getWorldPosition(point);
     bounds.expandByPoint(point);
   }
-
   if (bounds.isEmpty()) return;
+
   const size = bounds.getSize(new THREE.Vector3());
   const center = bounds.getCenter(new THREE.Vector3());
   const height = Math.max(size.y, 1);
   const scale = 1.45 / height;
-
   group.scale.setScalar(scale);
   group.position.set(-center.x * scale, -bounds.min.y * scale, -center.z * scale);
   group.updateMatrixWorld(true);
 }
 
+function reviewSymbol(decision?: ReviewDecision) {
+  if (decision === "keep") return "✓";
+  if (decision === "reject") return "✕";
+  return "·";
+}
+
 export function SourceBvhAnimationDemo() {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
-  const controlsRef = useRef<OrbitControls | null>(null);
   const sourceGroupRef = useRef<THREE.Group | null>(null);
   const helperRef = useRef<THREE.SkeletonHelper | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -138,28 +60,99 @@ export function SourceBvhAnimationDemo() {
   const playingRef = useRef(true);
   const speedRef = useRef(1);
 
+  const [motions, setMotions] = useState<CuratedSourceMotion[]>([]);
+  const [catalogStatus, setCatalogStatus] = useState("Loading 73 retained V2 motions…");
   const [styleFilter, setStyleFilter] = useState<StyleFilter>("all");
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const [selectedId, setSelectedId] = useState("90_30");
-  const [status, setStatus] = useState("Loading curated source motion…");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
+  const [selectedId, setSelectedId] = useState("");
+  const [playerStatus, setPlayerStatus] = useState("Waiting for curated catalog…");
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
+  const [review, setReview] = useState<ReviewMap>({});
+  const [reviewReady, setReviewReady] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/curated-animation-catalog", { cache: "force-cache" })
+      .then(async response => {
+        if (!response.ok) throw new Error("catalog HTTP " + response.status);
+        return response.json() as Promise<{ motions: CuratedSourceMotion[]; choreographyGroups: number }>;
+      })
+      .then(data => {
+        if (cancelled) return;
+        setMotions(data.motions);
+        setSelectedId(current => current || data.motions[0]?.id || "");
+        setCatalogStatus(data.motions.length + " retained takes · " + data.choreographyGroups + " choreography groups");
+      })
+      .catch(error => {
+        if (!cancelled) {
+          setCatalogStatus("Catalog load failed: " + (error instanceof Error ? error.message : "unknown error"));
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(REVIEW_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const valid: ReviewMap = {};
+        for (const [id, value] of Object.entries(parsed)) {
+          if (value === "keep" || value === "reject") valid[id] = value;
+        }
+        setReview(valid);
+      }
+    } catch {
+      setReviewMessage("Không đọc được review cũ trên thiết bị này.");
+    } finally {
+      setReviewReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!reviewReady) return;
+    try {
+      window.localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(review));
+    } catch {
+      setReviewMessage("Không lưu được review vào local storage.");
+    }
+  }, [review, reviewReady]);
 
   const visibleMotions = useMemo(
-    () => CURATED_MOTIONS.filter(motion =>
-      (styleFilter === "all" || motion.style === styleFilter) &&
-      (roleFilter === "all" || motion.role === roleFilter),
-    ),
-    [roleFilter, styleFilter],
+    () => motions.filter(motion => {
+      if (styleFilter !== "all" && motion.style !== styleFilter) return false;
+      if (statusFilter !== "all" && motion.status !== statusFilter) return false;
+      const decision = review[motion.id];
+      if (reviewFilter === "unreviewed" && decision) return false;
+      if (reviewFilter === "keep" && decision !== "keep") return false;
+      if (reviewFilter === "reject" && decision !== "reject") return false;
+      return true;
+    }),
+    [motions, review, reviewFilter, statusFilter, styleFilter],
   );
 
   const selectedMotion =
-    CURATED_MOTIONS.find(motion => motion.id === selectedId) ?? CURATED_MOTIONS[0];
+    visibleMotions.find(motion => motion.id === selectedId) ??
+    visibleMotions[0] ??
+    null;
 
   useEffect(() => {
-    if (visibleMotions.some(motion => motion.id === selectedId)) return;
-    if (visibleMotions[0]) setSelectedId(visibleMotions[0].id);
-  }, [selectedId, visibleMotions]);
+    if (!selectedMotion) return;
+    if (selectedId !== selectedMotion.id) setSelectedId(selectedMotion.id);
+  }, [selectedId, selectedMotion]);
+
+  const reviewCounts = useMemo(() => {
+    let keep = 0;
+    let reject = 0;
+    for (const motion of motions) {
+      if (review[motion.id] === "keep") keep += 1;
+      if (review[motion.id] === "reject") reject += 1;
+    }
+    return { keep, reject, unreviewed: motions.length - keep - reject };
+  }, [motions, review]);
 
   const clearLoadedMotion = useCallback(() => {
     actionRef.current?.stop();
@@ -193,7 +186,7 @@ export function SourceBvhAnimationDemo() {
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
     if (!context) {
-      setStatus("WebGL is unavailable on this device.");
+      setPlayerStatus("WebGL is unavailable on this device.");
       return;
     }
 
@@ -224,7 +217,6 @@ export function SourceBvhAnimationDemo() {
     controls.target.set(0, 0.72, 0);
     controls.minDistance = 1.25;
     controls.maxDistance = 4.5;
-    controlsRef.current = controls;
 
     const resize = () => {
       const width = Math.max(1, host.clientWidth);
@@ -261,7 +253,6 @@ export function SourceBvhAnimationDemo() {
       observer.disconnect();
       clearLoadedMotion();
       controls.dispose();
-      controlsRef.current = null;
       grid.geometry.dispose();
       gridMaterial.dispose();
       floor.geometry.dispose();
@@ -276,9 +267,15 @@ export function SourceBvhAnimationDemo() {
     const scene = sceneRef.current;
     if (!scene) return;
 
+    if (!selectedMotion) {
+      clearLoadedMotion();
+      setPlayerStatus("Không có animation khớp bộ lọc hiện tại.");
+      return;
+    }
+
     let cancelled = false;
     clearLoadedMotion();
-    setStatus("Loading " + selectedMotion.id + " from pinned CMU source…");
+    setPlayerStatus("Loading " + selectedMotion.id + " from pinned CMU source…");
 
     const loader = new BVHLoader();
     void loader.loadAsync(bvhUrl(selectedMotion.id)).then(result => {
@@ -292,21 +289,22 @@ export function SourceBvhAnimationDemo() {
       group.add(root);
       scene.add(group);
 
-      const endFrame = Math.max(2, Math.round(result.clip.duration * selectedMotion.fps) + 1);
+      const fps = 120;
+      const endFrame = Math.max(2, Math.round(result.clip.duration * fps) + 1);
       const clip = THREE.AnimationUtils.subclip(
         result.clip,
         "Source-" + selectedMotion.id,
         1,
         endFrame,
-        selectedMotion.fps,
+        fps,
       );
+
       const mixer = new THREE.AnimationMixer(root);
       const action = mixer.clipAction(clip);
-      const oneShot = selectedMotion.role === "finish";
       action.reset();
       action.enabled = true;
-      action.clampWhenFinished = oneShot;
-      action.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity);
+      action.clampWhenFinished = selectedMotion.finishCandidate;
+      action.setLoop(selectedMotion.finishCandidate ? THREE.LoopOnce : THREE.LoopRepeat, selectedMotion.finishCandidate ? 1 : Infinity);
       action.setEffectiveWeight(1);
       action.setEffectiveTimeScale(speedRef.current);
       action.play();
@@ -327,19 +325,20 @@ export function SourceBvhAnimationDemo() {
       actionRef.current = action;
       animationRootRef.current = root;
 
-      setStatus(
+      setPlayerStatus(
         selectedMotion.id +
           " · " +
           STYLE_LABELS[selectedMotion.style] +
           " · " +
-          selectedMotion.duration.toFixed(2) +
+          clip.duration.toFixed(2) +
           "s · " +
-          (selectedMotion.partnerDependent ? "PARTNER DEPENDENT · " : "") +
+          (selectedMotion.partner ? "PARTNER · " : "") +
+          (selectedMotion.finishCandidate ? "FINISH CANDIDATE · " : "") +
           "source skeleton only",
       );
     }).catch(error => {
       if (!cancelled) {
-        setStatus("BVH load failed: " + (error instanceof Error ? error.message : "unknown error"));
+        setPlayerStatus("BVH load failed: " + (error instanceof Error ? error.message : "unknown error"));
       }
     });
 
@@ -359,6 +358,38 @@ export function SourceBvhAnimationDemo() {
     }
   }, [playing, speed]);
 
+  const moveSelection = (delta: number) => {
+    if (!selectedMotion || visibleMotions.length < 2) return;
+    const index = visibleMotions.findIndex(motion => motion.id === selectedMotion.id);
+    const nextIndex = (index + delta + visibleMotions.length) % visibleMotions.length;
+    setSelectedId(visibleMotions[nextIndex].id);
+    setPlaying(true);
+  };
+
+  const markDecision = (decision: ReviewDecision) => {
+    if (!selectedMotion) return;
+    const currentId = selectedMotion.id;
+    const index = visibleMotions.findIndex(motion => motion.id === currentId);
+    const next = visibleMotions[index + 1] ?? visibleMotions.find(motion => motion.id !== currentId);
+
+    setReview(previous => ({ ...previous, [currentId]: decision }));
+    setReviewMessage(decision === "keep" ? "Đã giữ " + currentId : "Đã loại " + currentId);
+    if (next) {
+      setSelectedId(next.id);
+      setPlaying(true);
+    }
+  };
+
+  const clearCurrentDecision = () => {
+    if (!selectedMotion) return;
+    setReview(previous => {
+      const next = { ...previous };
+      delete next[selectedMotion.id];
+      return next;
+    });
+    setReviewMessage("Đã bỏ đánh dấu " + selectedMotion.id);
+  };
+
   const restart = () => {
     const action = actionRef.current;
     if (!action) return;
@@ -370,28 +401,126 @@ export function SourceBvhAnimationDemo() {
     action.paused = !playingRef.current;
   };
 
+  const copyReview = async () => {
+    const payload = JSON.stringify({
+      schemaVersion: 1,
+      catalog: "Animation Library Curation V2",
+      reviewedAt: new Date().toISOString(),
+      summary: reviewCounts,
+      decisions: motions
+        .filter(motion => review[motion.id])
+        .map(motion => ({
+          id: motion.id,
+          decision: review[motion.id],
+          style: motion.style,
+          status: motion.status,
+          choreographyGroup: motion.choreographyGroup,
+        })),
+    }, null, 2);
+
+    try {
+      await navigator.clipboard.writeText(payload);
+      setReviewMessage("Đã copy review JSON — bạn có thể dán gửi lại cho tôi.");
+    } catch {
+      const blob = new Blob([payload], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "Audition_Animation_Curation_V2_Owner_Review.json";
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setReviewMessage("Clipboard không khả dụng; đã tạo file review JSON.");
+    }
+  };
+
+  const resetReview = () => {
+    if (!window.confirm("Xóa toàn bộ quyết định Giữ/Loại trên thiết bị này?")) return;
+    setReview({});
+    setReviewMessage("Đã xóa toàn bộ owner review trên thiết bị này.");
+  };
+
+  const currentDecision = selectedMotion ? review[selectedMotion.id] : undefined;
+
   return (
     <section id="source-animation-demo" style={styles.card}>
       <div style={styles.headingRow}>
         <div>
-          <p style={styles.eyebrow}>ANIMATION LIBRARY · STYLE CATALOG</p>
-          <h2 style={styles.title}>Source animation demo — 45 motions</h2>
+          <p style={styles.eyebrow}>CURATION V2 · OWNER REVIEW</p>
+          <h2 style={styles.title}>Source animation demo — 73 retained</h2>
           <p style={styles.lead}>
-            Group source choreography by reusable dance style instead of hard-wiring motions to one game mode.
-            Mode hints are metadata only: no Nam/Nữ retarget, runtime publishing or gameplay integration.
+            {catalogStatus}. Xem realtime rồi đánh dấu Giữ/Loại. Review được lưu trên trình duyệt này
+            và không tự publish animation vào runtime/gameplay.
           </p>
         </div>
         <span style={styles.badge}>SOURCE ONLY</span>
+      </div>
+
+      <div style={styles.reviewPanel}>
+        <div style={styles.reviewHeader}>
+          <div>
+            <p style={styles.sectionLabel}>OWNER REVIEW</p>
+            <strong style={styles.reviewHeadline}>
+              ✓ {reviewCounts.keep} giữ · ✕ {reviewCounts.reject} loại · {reviewCounts.unreviewed} chưa xem
+            </strong>
+          </div>
+          <span style={styles.reviewSaved}>{reviewReady ? "Auto-saved" : "Loading…"}</span>
+        </div>
+
+        <div style={styles.decisionButtons}>
+          <button
+            type="button"
+            disabled={!selectedMotion}
+            onClick={() => markDecision("keep")}
+            style={decisionButton("keep", currentDecision === "keep")}
+          >
+            ✓ GIỮ
+          </button>
+          <button
+            type="button"
+            disabled={!selectedMotion}
+            onClick={() => markDecision("reject")}
+            style={decisionButton("reject", currentDecision === "reject")}
+          >
+            ✕ LOẠI
+          </button>
+          <button type="button" disabled={!currentDecision} onClick={clearCurrentDecision} style={styles.clearDecisionButton}>
+            Bỏ đánh dấu
+          </button>
+        </div>
+
+        <div style={styles.reviewFilters}>
+          {([
+            ["all", "Tất cả " + motions.length],
+            ["unreviewed", "Chưa " + reviewCounts.unreviewed],
+            ["keep", "Giữ " + reviewCounts.keep],
+            ["reject", "Loại " + reviewCounts.reject],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setReviewFilter(value)}
+              style={reviewFilterButton(reviewFilter === value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div style={styles.reviewActions}>
+          <button type="button" onClick={copyReview} style={styles.secondaryButton}>Copy review JSON</button>
+          <button type="button" onClick={resetReview} style={styles.dangerLink}>Xóa review</button>
+        </div>
+        {reviewMessage ? <div style={styles.reviewMessage}>{reviewMessage}</div> : null}
       </div>
 
       <div>
         <p style={styles.sectionLabel}>STYLE</p>
         <div style={styles.styleGrid}>
           <button type="button" onClick={() => setStyleFilter("all")} style={styleButton(styleFilter === "all")}>
-            Tất cả · {CURATED_MOTIONS.length}
+            Tất cả · {motions.length}
           </button>
-          {(Object.keys(STYLE_LABELS) as StyleId[]).map(style => {
-            const count = CURATED_MOTIONS.filter(motion => motion.style === style).length;
+          {(Object.keys(STYLE_LABELS) as CuratedStyleId[]).map(style => {
+            const count = motions.filter(motion => motion.style === style).length;
             return (
               <button key={style} type="button" onClick={() => setStyleFilter(style)} style={styleButton(styleFilter === style)}>
                 {STYLE_LABELS[style]} · {count}
@@ -403,56 +532,67 @@ export function SourceBvhAnimationDemo() {
 
       <div style={styles.filterRow}>
         <label style={styles.selectorLabel}>
-          Pool / trạng thái
-          <select value={roleFilter} onChange={event => setRoleFilter(event.target.value as RoleFilter)} style={styles.select}>
-            <option value="all">Tất cả pool</option>
-            {(Object.keys(ROLE_LABELS) as DemoRole[]).map(role => (
-              <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+          Curation status
+          <select value={statusFilter} onChange={event => setStatusFilter(event.target.value as StatusFilter)} style={styles.select}>
+            <option value="all">Tất cả retained status</option>
+            {(Object.keys(STATUS_LABELS) as CuratedStatus[]).map(status => (
+              <option key={status} value={status}>{STATUS_LABELS[status]}</option>
             ))}
           </select>
         </label>
 
         <label style={styles.selectorLabel}>
           Animation · {visibleMotions.length} kết quả
-          <select value={selectedId} onChange={event => setSelectedId(event.target.value)} style={styles.select}>
+          <select
+            value={selectedMotion?.id ?? ""}
+            disabled={!visibleMotions.length}
+            onChange={event => setSelectedId(event.target.value)}
+            style={styles.select}
+          >
             {visibleMotions.map(motion => (
               <option key={motion.id} value={motion.id}>
-                {motion.id} · {motion.title}
+                {reviewSymbol(review[motion.id])} {motion.id} · {motion.title}
               </option>
             ))}
           </select>
         </label>
       </div>
 
-      <div style={styles.metaGrid}>
-        <span style={styles.metaCell}><strong style={styles.metaValue}>{STYLE_LABELS[selectedMotion.style]}</strong><small style={styles.metaLabel}>Style</small></span>
-        <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.tier} · {ROLE_LABELS[selectedMotion.role]}</strong><small style={styles.metaLabel}>Pool</small></span>
-        <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.genre}</strong><small style={styles.metaLabel}>Genre</small></span>
-        <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.duration.toFixed(2)}s · {selectedMotion.fps}fps</strong><small style={styles.metaLabel}>Source</small></span>
-        <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.retargetRisk}</strong><small style={styles.metaLabel}>Retarget risk</small></span>
-        <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.modeHints.join(" · ")}</strong><small style={styles.metaLabel}>Mode hints</small></span>
-      </div>
+      {selectedMotion ? (
+        <>
+          <div style={styles.metaGrid}>
+            <span style={styles.metaCell}><strong style={styles.metaValue}>{STYLE_LABELS[selectedMotion.style]}</strong><small style={styles.metaLabel}>Style</small></span>
+            <span style={styles.metaCell}><strong style={styles.metaValue}>{STATUS_LABELS[selectedMotion.status]}</strong><small style={styles.metaLabel}>Curation</small></span>
+            <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.origin}</strong><small style={styles.metaLabel}>Source batch</small></span>
+            <span style={styles.metaCell}><strong style={styles.metaValue}>{selectedMotion.choreographyGroup}</strong><small style={styles.metaLabel}>Choreography group</small></span>
+          </div>
 
-      {selectedMotion.partnerDependent ? (
-        <div style={styles.partnerWarning}>
-          PARTNER_DEPENDENT — source này có choreography giả định performer thứ hai. Chỉ xem để đánh giá mode khiêu vũ/duet; không đưa vào solo Normal.
-        </div>
-      ) : null}
+          {selectedMotion.partner ? (
+            <div style={styles.partnerWarning}>
+              PARTNER — choreography này giả định performer thứ hai; review cho Social/Duet, không phải solo Normal.
+            </div>
+          ) : null}
 
-      {selectedMotion.role === "explore" ? (
-        <div style={styles.exploreWarning}>
-          EXPLORE V2 — motion đã có source preview/contact evidence nhưng chưa được nâng lên curated A/B. Dùng để mở rộng style pool, chưa phải retarget acceptance.
-        </div>
-      ) : null}
+          {selectedMotion.finishCandidate ? (
+            <div style={styles.finishWarning}>
+              FINISH CANDIDATE — chỉ là motion candidate. Không thay đổi Finish semantics; AUDIO END vẫn là game-end duy nhất.
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <div style={styles.emptyState}>Không có animation khớp bộ lọc. Đổi Style / Status / Review filter để tiếp tục.</div>
+      )}
 
-      <div ref={hostRef} style={styles.canvasHost} aria-label="Style-grouped BVH source animation preview" />
-      <div style={styles.status}>{status}</div>
+      <div ref={hostRef} style={styles.canvasHost} aria-label="Curation V2 source animation preview" />
+      <div style={styles.status}>{playerStatus}</div>
 
       <div style={styles.controls}>
+        <button type="button" onClick={() => moveSelection(-1)} disabled={visibleMotions.length < 2} style={styles.controlButton}>← Trước</button>
         <button type="button" onClick={() => setPlaying(value => !value)} style={styles.controlButton}>
           {playing ? "Ⅱ Pause" : "▶ Play"}
         </button>
         <button type="button" onClick={restart} style={styles.controlButton}>↺ Restart</button>
+        <button type="button" onClick={() => moveSelection(1)} disabled={visibleMotions.length < 2} style={styles.controlButton}>Sau →</button>
         <label style={styles.speedLabel}>
           Speed
           <select value={speed} onChange={event => setSpeed(Number(event.target.value))} style={styles.speedSelect}>
@@ -465,9 +605,8 @@ export function SourceBvhAnimationDemo() {
       </div>
 
       <p style={styles.note}>
-        Current demo exposes 45 motions from the already acquired CMU pool: 16 A Normal, 5 Backup, 5 Finish,
-        4 utility/reaction, 7 partner-dependent social motions and 8 Explore V2 candidates. Style and mode hints
-        are presentation metadata only. Animation duration never owns gameplay timing.
+        Curation V2 giữ 73 source take thuộc 64 choreography group bảo thủ. Owner review ở đây chỉ là visual keep/reject
+        trên thiết bị; không retarget, không sửa 8 Moonlight frozen, không thay Character Catalog và không chạm gameplay.
       </p>
     </section>
   );
@@ -483,6 +622,27 @@ const styleButton = (active: boolean): CSSProperties => ({
   fontSize: 10,
 });
 
+const reviewFilterButton = (active: boolean): CSSProperties => ({
+  border: active ? "1px solid #9e80ed" : "1px solid #3a4352",
+  background: active ? "#2b2145" : "#171c25",
+  color: active ? "#f2ebff" : "#b8c0cf",
+  borderRadius: 999,
+  padding: "7px 9px",
+  fontSize: 9,
+  fontWeight: 850,
+});
+
+const decisionButton = (kind: ReviewDecision, active: boolean): CSSProperties => ({
+  flex: 1,
+  minHeight: 46,
+  border: active ? (kind === "keep" ? "2px solid #68d391" : "2px solid #fc8181") : "1px solid #414958",
+  background: active ? (kind === "keep" ? "#183828" : "#3d1c21") : "#171c25",
+  color: active ? "#ffffff" : "#dfe5ef",
+  borderRadius: 11,
+  fontWeight: 950,
+  fontSize: 13,
+});
+
 const styles: Record<string, CSSProperties> = {
   card: { display: "grid", gap: 11, padding: 11, border: "1px solid #3a3153", borderRadius: 15, background: "#12101b" },
   headingRow: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 },
@@ -490,6 +650,17 @@ const styles: Record<string, CSSProperties> = {
   title: { margin: "4px 0 5px", fontSize: 18, lineHeight: 1.1 },
   lead: { margin: 0, color: "#929cad", fontSize: 11, lineHeight: 1.45 },
   badge: { flex: "0 0 auto", border: "1px solid #685983", background: "#241d32", color: "#ddcff8", borderRadius: 999, padding: "5px 8px", fontSize: 8, fontWeight: 950, letterSpacing: ".08em" },
+  reviewPanel: { display: "grid", gap: 9, padding: 10, border: "1px solid #49405d", borderRadius: 12, background: "#171421" },
+  reviewHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
+  reviewHeadline: { color: "#f2eef9", fontSize: 12 },
+  reviewSaved: { borderRadius: 999, background: "#202637", color: "#a9b5c7", padding: "5px 7px", fontSize: 8, fontWeight: 800 },
+  decisionButtons: { display: "flex", gap: 7 },
+  clearDecisionButton: { minHeight: 46, border: "1px solid #414958", background: "#202632", color: "#aeb8c8", borderRadius: 11, padding: "0 10px", fontSize: 9, fontWeight: 800 },
+  reviewFilters: { display: "flex", gap: 5, flexWrap: "wrap" },
+  reviewActions: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  secondaryButton: { border: "1px solid #4b5669", background: "#202735", color: "#e2e8f1", borderRadius: 9, padding: "8px 9px", fontSize: 9, fontWeight: 850 },
+  dangerLink: { border: 0, background: "transparent", color: "#a88f93", padding: 7, fontSize: 9, fontWeight: 800 },
+  reviewMessage: { color: "#aeb9ca", fontSize: 9, lineHeight: 1.4 },
   sectionLabel: { margin: "0 0 6px", color: "#7f899a", fontSize: 8, fontWeight: 950, letterSpacing: ".12em" },
   styleGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 },
   filterRow: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 7 },
@@ -500,7 +671,8 @@ const styles: Record<string, CSSProperties> = {
   metaValue: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#e8e3f4", fontSize: 11 },
   metaLabel: { color: "#7f899a", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" },
   partnerWarning: { padding: "8px 9px", borderRadius: 9, border: "1px solid #705c32", background: "#2b2416", color: "#f1d99b", fontSize: 10, lineHeight: 1.4, fontWeight: 750 },
-  exploreWarning: { padding: "8px 9px", borderRadius: 9, border: "1px solid #405a75", background: "#152332", color: "#b8d5ef", fontSize: 10, lineHeight: 1.4, fontWeight: 750 },
+  finishWarning: { padding: "8px 9px", borderRadius: 9, border: "1px solid #713d4b", background: "#2b1720", color: "#f4bac8", fontSize: 10, lineHeight: 1.4, fontWeight: 750 },
+  emptyState: { padding: 14, borderRadius: 10, background: "#171c25", color: "#a7b0bf", fontSize: 10, textAlign: "center" },
   canvasHost: { width: "100%", height: "min(52vh, 460px)", minHeight: 320, overflow: "hidden", borderRadius: 12, background: "#0a0d14", touchAction: "none" },
   status: { minHeight: 16, padding: "0 3px", color: "#8f9aab", fontSize: 10 },
   controls: { display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" },
