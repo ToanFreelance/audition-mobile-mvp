@@ -148,6 +148,8 @@ export function AnimationFlowDemo() {
   const actionRef = useRef<Map<string, THREE.AnimationAction>>(new Map());
 
   const runningRef = useRef(true);
+  const loadingRef = useRef(true);
+  const triggerSpaceRef = useRef<(trigger: TriggerSource) => void>(() => {});
   const bpmRef = useRef(120);
   const blendBeatsRef = useRef(0.35);
   const beatElapsedRef = useRef(0);
@@ -282,12 +284,12 @@ export function AnimationFlowDemo() {
   }, []);
 
   const triggerSpace = useCallback((trigger: TriggerSource) => {
-    if (loading || loadedRef.current.size < 2) return;
+    if (loadingRef.current || loadedRef.current.size < 2) return;
     const nextId = pickNextId(currentIdRef.current);
     if (!nextId) return;
     flashSpace();
     startMotion(nextId, true, trigger);
-  }, [flashSpace, loading, pickNextId, startMotion]);
+  }, [flashSpace, pickNextId, startMotion]);
 
   const resetRun = useCallback(() => {
     beatElapsedRef.current = 0;
@@ -381,7 +383,7 @@ export function AnimationFlowDemo() {
       raf = requestAnimationFrame(render);
       const delta = Math.min(clock.getDelta(), 0.05);
 
-      if (runningRef.current && !loading) {
+      if (runningRef.current && !loadingRef.current) {
         beatElapsedRef.current += delta * (bpmRef.current / 60);
 
         const beatInTurn = beatElapsedRef.current % 4;
@@ -402,7 +404,7 @@ export function AnimationFlowDemo() {
           setTurnNumber(turnIndex + 1);
           setBeatNumber(1);
           lastBeatVisual = 1;
-          triggerSpace("AUTO TURN");
+          triggerSpaceRef.current("AUTO TURN");
         }
 
         mixerRef.current?.update(delta);
@@ -429,7 +431,7 @@ export function AnimationFlowDemo() {
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       sceneRef.current = null;
     };
-  }, [clearLoaded, loading, triggerSpace]);
+  }, [clearLoaded]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -520,6 +522,14 @@ export function AnimationFlowDemo() {
   useEffect(() => {
     runningRef.current = running;
   }, [running]);
+
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
+  useEffect(() => {
+    triggerSpaceRef.current = triggerSpace;
+  }, [triggerSpace]);
 
   useEffect(() => {
     bpmRef.current = bpm;
