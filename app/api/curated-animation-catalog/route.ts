@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import {
   CURATED_SOURCE_PIN,
+  MODE_LABELS,
   RETAINED_SOURCE_IDS,
   buildCuratedSourceMotion,
+  type CuratedGameModeId,
 } from "@/lib/animation/curated-source-library-v2";
 
 const INDEX_URL =
@@ -36,13 +38,21 @@ export async function GET() {
     const motions = RETAINED_SOURCE_IDS.map(id =>
       buildCuratedSourceMotion(id, titles.get(id) ?? ("CMU " + id)),
     );
+    const modeCounts = Object.fromEntries(
+      (Object.keys(MODE_LABELS) as CuratedGameModeId[]).map(mode => [
+        mode,
+        motions.filter(motion => motion.modes.includes(mode)).length,
+      ]),
+    );
 
     return NextResponse.json(
       {
-        schemaVersion: 2,
+        schemaVersion: 3,
         retainedTakes: motions.length,
         choreographyGroups: 64,
         sourcePin: CURATED_SOURCE_PIN,
+        modeCounts,
+        unassignedUtilityTakes: motions.filter(motion => motion.modes.length === 0).length,
         motions,
       },
       {
