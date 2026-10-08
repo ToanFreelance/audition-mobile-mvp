@@ -180,6 +180,14 @@ function usePhysicalExtensionE24Compare() {
     && new URLSearchParams(window.location.search).get("stageFx") === "physical-extension-e24";
 }
 
+// E25 only adjusts the lower *physical extension* against the riser.
+// E24 remains a byte-identical rendered control without any E25 geometry.
+function usePhysicalExtensionE25Compare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageFx") === "physical-extension-e25";
+}
+
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
@@ -1239,6 +1247,7 @@ function extendE24PhysicalCentralLed(
   fxRoot: THREE.Object3D,
   ledBounds: THREE.Box3,
   ledTexture: THREE.Texture,
+  fineContactE25 = false,
 ) {
   const size = ledBounds.getSize(new THREE.Vector3());
   const candidates: {name: string; y: number}[] = [];
@@ -1265,7 +1274,9 @@ function extendE24PhysicalCentralLed(
     return;
   }
   const top = ledBounds.min.y + 0.07;
-  const bottom = support.y - 0.04;
+  // E25: 0.045 units extra overlap with the rear stair, without lowering
+  // CentralLED or changing any LED art, fixture, floor or beam coordinates.
+  const bottom = support.y - (fineContactE25 ? 0.085 : 0.04);
   const height = top - bottom;
   const material = new THREE.ShaderMaterial({
     name: "NeonE24RecessedPhysicalLowerLED",
@@ -1318,12 +1329,15 @@ function extendE24PhysicalCentralLed(
   lowerWall.position.set(
     (ledBounds.min.x + ledBounds.max.x) * 0.5,
     (top + bottom) * 0.5,
-    ledBounds.max.z - 0.105,
+    // Still recessed behind the actual CentralLED front face: with 0.16
+    // total depth the E25 front is ledBounds.max.z - 0.008 (never in front).
+    ledBounds.max.z - (fineContactE25 ? 0.088 : 0.105),
   );
   fxRoot.add(lowerWall);
   console.info("[NeonStage E24] LED extended without art scaling", {
     riser: support.name, gapBefore: gap, supportTop: support.y,
     originalLedBottom: ledBounds.min.y, newLowerWallBottom: bottom,
+    fineContactE25,
   });
 }
 
@@ -2064,7 +2078,9 @@ export class NeonStageV1Environment {
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
   private readonly integratedStageFx = useIntegratedStageFxCompare();
-  private readonly physicalExtensionE24 = usePhysicalExtensionE24Compare();
+  private readonly physicalExtensionE25 = usePhysicalExtensionE25Compare();
+  private readonly physicalExtensionE24 =
+    usePhysicalExtensionE24Compare() || this.physicalExtensionE25;
   private readonly physicalAlignmentE23 = usePhysicalAlignmentE23Compare();
   private readonly physicalFidelityE22 = usePhysicalFidelityE22Compare()
     || this.physicalAlignmentE23 || this.physicalExtensionE24;
@@ -2973,7 +2989,10 @@ export class NeonStageV1Environment {
           ledMin: ledBounds.min.toArray(), ledMax: ledBounds.max.toArray(),
         });
         if (this.physicalExtensionE24) {
-          extendE24PhysicalCentralLed(model, this.acceptedFxRoot, ledBounds, backdropTexture);
+          extendE24PhysicalCentralLed(
+            model, this.acceptedFxRoot, ledBounds,
+            backdropTexture, this.physicalExtensionE25,
+          );
         } else if (this.physicalRepairE21 && !this.physicalAlignmentE23) {
           addE21LedRiserStructuralBridge(
             model, this.acceptedFxRoot, ledBounds, this.physicalFidelityE22,
