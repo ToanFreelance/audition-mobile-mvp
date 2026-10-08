@@ -25,7 +25,7 @@ The harness is presentation-only. It does not alter WebAudio timing, gameplay st
 
 Use:
 
-`/tools/neon-stage-compare`
+`/tools/neon-stage-compare` (default: V14 authored SVG; `?ledAsset=legacy` for the low-resolution WebP control; retired V15 query values fall back to V14)
 
 This route renders:
 

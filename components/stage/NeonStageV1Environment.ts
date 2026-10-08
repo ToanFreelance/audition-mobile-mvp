@@ -92,31 +92,14 @@ const ACCEPTED_R15_DANCE_RING_Z = 0.25;
 // Do not enable it in gameplay before the owner accepts an iPhone comparison.
 const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/golden-led-wall-v2.webp";
 const VECTOR_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v14.svg";
-const GOLDEN_LETTERING_VECTOR_LED_ASSET_URL =
-  "/stages/neon-stage-v1/concept-led-golden-lettering-v15.svg";
-// 2048×844 native authoring contours recovered from the accepted golden PNG.
-// This is a compare-only overlay over the exact low-res golden master.
-const GOLDEN_CORE_LED_ASSET_URL = "/stages/neon-stage-v1/golden-led-master-core-v3.svg";
-const GOLDEN_CORE_BASE_ASSET_URL = "/stages/neon-stage-v1/golden-led-panel-v1.webp";
-
-function useGoldenCoreLedCompare() {
-  return typeof window !== "undefined"
-    && window.location.pathname === "/tools/neon-stage-compare"
-    && new URLSearchParams(window.location.search).get("ledAsset") === "golden-core";
-}
-
+// Owner rejected the V15 golden-core and traced-lettering experiments.
+// V14 is the default, compare-only working baseline, including deprecated V15 URLs.
+// Explicit ?ledAsset=legacy preserves the low-resolution WebP control.
+// Non-compare gameplay continues to use the existing WebP asset unchanged.
 function useHiResLedCompare() {
   if (typeof window === "undefined") return false;
   if (window.location.pathname !== "/tools/neon-stage-compare") return false;
-  return new URLSearchParams(window.location.search).get("ledAsset") === "vector";
-}
-
-function useGoldenLetteringLedCompare() {
-  if (typeof window === "undefined") return false;
-  // Compare-only experiment. Never replace gameplay/approved golden baseline
-  // without measured overlay and owner visual acceptance on iPhone.
-  return window.location.pathname === "/tools/neon-stage-compare"
-    && new URLSearchParams(window.location.search).get("ledAsset") === "vector-golden-lettering";
+  return new URLSearchParams(window.location.search).get("ledAsset") !== "legacy";
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -678,15 +661,9 @@ function makeAcceptedFloorGridTexture() {
 }
 
 function makeAcceptedBackdropGlowTexture() {
-  const nativeLetterCompare = useGoldenLetteringLedCompare();
-  const hiResCompare = useHiResLedCompare() || nativeLetterCompare;
-  const goldenCoreCompare = useGoldenCoreLedCompare();
+  const hiResCompare = useHiResLedCompare();
   const texture = new THREE.TextureLoader().load(
-    goldenCoreCompare
-      ? GOLDEN_CORE_BASE_ASSET_URL
-      : nativeLetterCompare
-        ? GOLDEN_LETTERING_VECTOR_LED_ASSET_URL
-        : hiResCompare ? VECTOR_LED_ASSET_URL : CONCEPT_LED_ASSET_URL,
+    hiResCompare ? VECTOR_LED_ASSET_URL : CONCEPT_LED_ASSET_URL,
   );
   texture.colorSpace = THREE.SRGBColorSpace;
   // 512x191 WebP is source-resolution limited; no mip smoothing in legacy mode.
@@ -700,30 +677,15 @@ function makeAcceptedBackdropGlowTexture() {
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.anisotropy = 8;
-  texture.userData.ledSamplingSize = goldenCoreCompare
-    ? new THREE.Vector2(448, 185)
-    : hiResCompare ? new THREE.Vector2(2048, 844) : new THREE.Vector2(512, 191);
-  texture.userData.ledSharpness = (hiResCompare || goldenCoreCompare) ? 0.0 : 0.40;
+  texture.userData.ledSamplingSize = hiResCompare
+    ? new THREE.Vector2(2048, 844)
+    : new THREE.Vector2(512, 191);
+  texture.userData.ledSharpness = hiResCompare ? 0.0 : 0.40;
   texture.needsUpdate = true;
   return texture;
 }
 
-function makeAcceptedLedGoldenCoreTexture() {
-  const texture = new THREE.TextureLoader().load(GOLDEN_CORE_LED_ASSET_URL);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function makeAcceptedBackdropMaterial(
-  texture: THREE.Texture,
-  goldenCore: THREE.Texture | null,
-) {
+function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
   return new THREE.ShaderMaterial({
     name: "R15AcceptedUnifiedBackdropMaterial",
     transparent: false,
@@ -740,8 +702,6 @@ function makeAcceptedBackdropMaterial(
         1 / (texture.userData.ledSamplingSize as THREE.Vector2).y,
       ) },
       uSharpness: { value: texture.userData.ledSharpness as number },
-      uGoldenCore: { value: goldenCore ?? texture },
-      uUseGoldenCore: { value: goldenCore ? 1.0 : 0.0 },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -755,8 +715,6 @@ function makeAcceptedBackdropMaterial(
       uniform sampler2D uMap;
       uniform vec2 uTexelSize;
       uniform float uSharpness;
-      uniform sampler2D uGoldenCore;
-      uniform float uUseGoldenCore;
 
       vec3 sampleCrispLed(vec2 uv) {
         vec2 p = clamp(uv, vec2(0.0), vec2(1.0));
@@ -819,16 +777,6 @@ function makeAcceptedBackdropMaterial(
         // treatments. Do not re-grade or square its highlights: the old
         // treatment clipped neon cores into soft, smeared ribbons.
         vec3 art = sampleCrispLed(artUv);
-        // Compare-only high-resolution native letter contours from the
-        // original golden sketch, composited INSIDE the same LED surface.
-        if (uUseGoldenCore > 0.5) {
-          vec4 core = texture2D(
-            uGoldenCore,
-            clamp(artUv, vec2(0.0), vec2(1.0))
-          );
-          art = mix(art, core.rgb, core.a * 0.82);
-        }
-
         float mask = rectMask(vUv, artCenter, artSize, 0.010);
         vec3 color = mix(bg, art, mask);
 
@@ -1751,16 +1699,12 @@ export class NeonStageV1Environment {
 
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
-    const goldenCoreTexture = useGoldenCoreLedCompare()
-      ? makeAcceptedLedGoldenCoreTexture()
-      : null;
     const floorReflectionTexture = makeAcceptedFloorReflectionTexture();
     const floorGridTexture = makeAcceptedFloorGridTexture();
     const lowerFixtureGlowTexture = makeAcceptedBeamSourceTexture();
     this.textures.push(
       poolTexture,
       backdropTexture,
-      ...(goldenCoreTexture ? [goldenCoreTexture] : []),
       floorReflectionTexture,
       floorGridTexture,
       lowerFixtureGlowTexture,
@@ -1773,7 +1717,7 @@ export class NeonStageV1Environment {
       const ledSize = ledBounds.getSize(new THREE.Vector3());
       const ledCenter = ledBounds.getCenter(new THREE.Vector3());
 
-      const backdropMaterial = makeAcceptedBackdropMaterial(backdropTexture, goldenCoreTexture);
+      const backdropMaterial = makeAcceptedBackdropMaterial(backdropTexture);
 
       // One uninterrupted wall surface. The top stays locked to the registered
       // CentralLED while the extra 10% height continues downward into the

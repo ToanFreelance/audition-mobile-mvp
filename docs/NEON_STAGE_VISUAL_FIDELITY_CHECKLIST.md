@@ -66,3 +66,12 @@ promotion to next visual phase without matching screenshot evidence.
 - [ ] Compare owner iPhone screenshots of v14 vector versus golden-lettering v15 at identical viewport; record direct overlay, logo edge error, color and position.
 - [ ] If background/crown differ visibly from sketch, reconstruct them independently; **do not** claim full LED or game stage acceptance on lettering improvement alone.
 - [ ] Promotion to gameplay requires owner approval. Existing gameplay source remains unchanged.
+
+## 2026-10-08 — Owner rejection of V15 / V14 restoration
+
+- **REJECTED:** both `golden-core` shader compositing and `vector-golden-lettering` traced SVG. Keep their source assets for diagnostic history, but no longer load either in the compare workflow.
+- **WORKING BASELINE:** `/tools/neon-stage-compare` and `?ledAsset=vector` now both render `concept-led-v14.svg`. Obsolete V15 query values also safely fall back to V14, never to V15 artwork.
+- **CONTROL:** `?ledAsset=legacy` retains the original 512×191 low-resolution WebP. Gameplay always continues to use this existing source; owner approval is required before any promotion.
+- Preserved the 941×1672 compare framing, existing perspective/camera, and compare-only Retina pixel ratio. No unrelated rendering or gameplay changes.
+- Remaining root cause: V14 still uses runtime SVG `Arial Black` italic text with 33px/19px/10.5px strokes and Gaussian glow. This differs geometrically from the approved raster sketch; improving source resolution alone cannot repair font fallback, italic contours or outline widths.
+- **NOT VISUALLY ACCEPTED:** do not mark logo/backdrop PASS until direct iPhone crops and aligned region-wise diff against the approved 941×1672 sketch are inspected. No arbitrary homography for scores.
