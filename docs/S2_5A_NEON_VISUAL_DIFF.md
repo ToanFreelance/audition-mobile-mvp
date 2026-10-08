@@ -420,3 +420,56 @@ Keep E21 / E19 as immutable same-viewport controls. No gameplay promotion.
   shadows/new render targets. iPhone FPS measurement still required.
 - Deployment READY or numeric diagnostics do NOT imply visual acceptance.
   Do not merge PR #17 or change gameplay/Stage Catalog.
+
+
+## 2026-10-08 — E23 owner-requested physical backdrop descent / crown rebalance
+
+Owner screenshot: `IMG_3136.jpeg` (E22 iPhone Safari) and owner direction
+following review: **the physical backdrop appears too high**, and should
+descend to meet the top stair/riser edge. After descending the backdrop,
+raise the crown a little relative to the LED artwork. Preserve wordmark,
+existing camera, and accepted gameplay, without stretching the plate.
+
+**E23 compare-only review path:**
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-alignment-e23`.
+E22 and E19 remain available unchanged.
+
+Implementation details:
+- `alignE23LedBottomToRearRiser()` runs only after the existing model
+  normalization and original golden vertical registration. It searches
+  actual GLB riser support meshes with sufficient LED horizontal overlap,
+  nearby rear-wall depth and a top below the original physical LED bottom.
+  When found, it translates (does not scale) the imported `CentralLED`
+  down by the measured vertical gap minus 0.012 stage units, capped at
+  `min(1.65, 0.30×LED-height)` to guard against unrelated fixture
+  geometry. It logs the selected riser, before/after clearance, and cap.
+  If no safe support is found, E23 preserves existing LED placement and
+  emits a diagnostic warning; never silently invent a landing coordinate.
+- E23 does **not** render E21's additional lower cove/infill geometry.
+  Intent is a physically registered wall/riser contact rather than
+  another decorative horizontal strip or tinted image plane.
+- Copy-only `concept-led-balanced-e23.svg` retains E22 art except the
+  crown's source-space Y origin `183 → 169` (up 14 SVG units relative
+  to the now-lowered wall). E22/V16 SVGs remain untouched.
+- E23 floor derives from E22's continuous-floor shader but raises its
+  subtle base, widens its UV edge fade, increases the rough reflection
+  sampling radius and reduces logo mirror legibility (especially at ring).
+  It adds no extra reflection geometry or LED-X bands.
+- E23 avoids the extra two E22 shaft emitters and third intersecting beam
+  plane, reducing plume opacity, beam intensity, lens glint and the four
+  preexisting shadow-free real spots. E22's other hardware and moving-head
+  scheduling remain available and unchanged for A/B.
+- E23 modestly increases only the compare-mode swivel fixture geometry's
+  size so the mechanical feet and gimbal read at iPhone resolution.
+
+**Validation:** Vercel Next.js/TypeScript build; inspect E23 Safari
+screenshot and compare E22 at identical viewport before visual acceptance.
+Important unresolved checks: actual measured LED/stair contact; whether
+lowering only `CentralLED` exposes a top frame separation; whether crown
+is fully visible and sufficiently separated from AUDITION; whether floor
+gloss looks uniform/soft rather than striped or divided; whether beams
+still read like stage lights without overexposing the brand; and Mobile
+Safari FPS. Vercel READY alone is NOT visual PASS.
+
+No gameplay clock, gauge, Finish, sequenceCounts, RoomState, or integration
+branch changes. Do not merge PR #17 before explicit owner approval.
