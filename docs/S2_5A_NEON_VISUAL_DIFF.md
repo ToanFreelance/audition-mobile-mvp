@@ -271,3 +271,49 @@ query-selectable controls.
 placement, occluders and Mobile Safari FPS on owner iPhone screenshots.
 Next use same-device E18/E19 screenshot A/B; do not infer acceptance from
 Vercel build READY.
+
+
+## E20 owner-requested lighting and floor refinement (2026-10-08)
+
+Owner iPhone screenshot: `IMG_3130.jpeg`. E19 direction is provisionally
+owner-positive. **Do not regress E19 logo/LED/framing**. Owner requests:
+reflection over the WHOLE physical dance floor including the ring, stronger
+rough/soft reflections at the dancer's feet, genuine truss light and glint,
+and grounded low-stage uplight bases.
+
+E20 is explicitly **compare-only**, not gameplay:
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-refinement-e20`.
+E19 remains available without source changes at
+`?ledAsset=typography-v16&stageFx=physical-reflection-e19`.
+
+Implementation:
+- The E20 floor shader continues ray/LED-bound registration from E19,
+  but adds low-frequency LED illumination over the entire 19.2 × 34
+  world-space floor field, including locations whose perfect mirror ray
+  falls outside the LED. Ring bounds are taken from the actual GLB
+  `R15 Dance Ring Outer` mesh, with substantially wider 9-tap LED
+  blur and attenuated legibility under the dancer. Tile breakup and
+  progressive reflection falloff remain. No additional reflection plane
+  or reflection render target was created.
+- Four named upper fixtures now produce actual shadow-free SpotLights,
+  aimed each frame at the existing source-to-stage targets, in addition
+  to the prior cheap volumetric beam geometry. All main truss heads get
+  a bounded source-attached optical glint; the existing E19 beam/sprite
+  path is unchanged. No return to V17's global lavender wash.
+- Physical mount pads and slim side supports were added one-per-unique
+  `DeckUplight_* / FloorUplight_*` fixture group. Pads use real GLB
+  bounds and nearest eligible riser/floor support bounds. Existing GLB
+  yokes/bodies remain visible; the flare sprites were reduced and
+  anchored closer to the actual aperture instead of hovering in front.
+
+Validation gate:
+- Next.js/TypeScript/Vercel build must pass; build does NOT validate
+  browser WebGL shader compilation or quality.
+- Compare E19 and E20 from the **same owner iPhone Safari viewport**.
+- Confirm full-floor coverage, blurred/suppressed mirrored AUDITION at
+  dance-ring center, readable ring illumination, optical bloom controlled
+  at truss lens, uplight base contact and Mobile Safari FPS.
+- E20 currently uses additional fragment texture taps, four actual
+  non-shadow-casting SpotLights and extra small fixture meshes **only**
+  in the compare URL. Profiling and owner image acceptance are required
+  before considering any runtime promotion; do not merge PR #17 yet.
