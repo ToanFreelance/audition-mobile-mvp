@@ -49,6 +49,7 @@ type AcceptedBreathMaterial = {
   material: THREE.MeshStandardMaterial;
   baseEmissiveIntensity: number;
   phaseOffsetSeconds: number;
+  isGoldenRing: boolean;
 };
 
 type AcceptedMovingHead = {
@@ -2753,17 +2754,27 @@ export class NeonStageV1Environment {
         if (/^Riser[0-3]_(Cyan|Magenta)Lip$/.test(mesh.name)) return 0.05;
         return null;
       })();
-      if (phase === null) return;
+      if (phase === null && !this.motionPassEnabled) return;
 
       const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const next = sources.map(source => {
         if (!(source instanceof THREE.MeshStandardMaterial)) return source;
-        const key = source.uuid + ":" + phase.toFixed(2);
+        // Include actual GLB emissive strips omitted by the old mesh-name
+        // filters. Exclude LED Matrix backgrounds and polished floor tiles.
+        const identity = source.name.toLowerCase();
+        const isGoldenRing = identity.includes("goldenring");
+        const isNeon = /neon (cyan|magenta|violet|white)|aperture (cyan|violet)|pixel magenta/.test(identity);
+        const resolvedPhase = phase ?? (
+          this.motionPassEnabled && (isNeon || isGoldenRing)
+            ? (isGoldenRing ? 0.02 : 0.06) : null
+        );
+        if (resolvedPhase === null) return source;
+        const key = source.uuid + ":" + resolvedPhase.toFixed(2);
         const cached = shared.get(key);
         if (cached) return cached;
 
         const material = source.clone();
-        material.name = source.name + " R15.1 Breath " + phase.toFixed(2);
+        material.name = source.name + " R15.1 Breath " + resolvedPhase.toFixed(2);
         if (/^(Mobile_Risers_Neon_|Riser[0-3]_(Cyan|Magenta)Lip$)/.test(mesh.name)) {
           material.emissiveIntensity = Math.max(material.emissiveIntensity, 18.0);
           material.toneMapped = false;
@@ -2772,7 +2783,8 @@ export class NeonStageV1Environment {
         this.acceptedBreathMaterials.push({
           material,
           baseEmissiveIntensity: material.emissiveIntensity,
-          phaseOffsetSeconds: phase,
+          phaseOffsetSeconds: resolvedPhase,
+          isGoldenRing,
         });
         return material;
       });
@@ -3601,13 +3613,18 @@ export class NeonStageV1Environment {
         // The existing rail/riser breath stays smooth in idle. During playback,
         // weak/strong pulses follow the same song-time beat as the central LED.
         if (this.motionPassEnabled) {
-          // Some E29 Riser strips already have intensity >=18 and disable
-          // tone mapping. Brightening them further stays clipped on Safari.
-          // Bring them into a readable dim/bright range for the motion pass.
-          const usableBase = Math.min(state.baseEmissiveIntensity, 2.2);
-          state.material.emissiveIntensity = usableBase * (
-            isPlaying ? 0.38 + beatEnergy * 1.48 : idleBreath
-          );
+          if (state.isGoldenRing) {
+            // Keep calibrated ring legible beneath the dancer at all times.
+            state.material.emissiveIntensity = state.baseEmissiveIntensity
+              * (isPlaying ? 0.82 + beatEnergy * 0.42 : idleBreath);
+          } else {
+            // E29 riser strips can have intensity >=18 with toneMapped=false,
+            // so raising an already clipped emission will not visibly pulse.
+            const usableBase = Math.min(state.baseEmissiveIntensity, 2.2);
+            state.material.emissiveIntensity = usableBase * (
+              isPlaying ? 0.38 + beatEnergy * 1.48 : idleBreath
+            );
+          }
         } else {
           state.material.emissiveIntensity = state.baseEmissiveIntensity
             * acceptedBreathMultiplier(renderTimeSeconds, state.phaseOffsetSeconds);
