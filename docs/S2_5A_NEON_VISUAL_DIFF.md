@@ -785,3 +785,57 @@ initial S2.5 pack is accepted.
 **Integration approval:** the owner said E29 is visually good and
 authorized continuation of the roadmap; this is NOT authorization to
 merge PR #17 or parent PR #16 into any integration branch.
+
+
+## S2.5A — Owner-requested Neon Stage Motion Pass N1/N2 (2026-10-08)
+
+**Source:** Owner visually accepted E29, then verified portrait gameplay on
+iPhone (20:58 capture) and reported gameplay performance satisfactory.
+Requested additional *presentation-only* motion:
+(1) a few truss moving-head lights sweeping back/forth;
+(2) magenta/cyan neon breathing between soft and stronger beats of music.
+
+### Implementation
+
+- Scoped to directly requested Neon Stage runtime outside
+  `/tools/neon-stage-compare`. Existing accepted E29 compare screenshots
+  remain deterministic and have no added pulse.
+- Runtime A/B controls:
+  - **Animated:** `/?stage=neon-stage-v1`
+  - **Static E29 motion baseline:** `/?stage=neon-stage-v1&stageMotion=off`
+- Stage3D already provided `renderTimeSeconds`, authoritative
+  `songTimeMs`, `bpm` and `isPlaying` to NeonStageV1Environment.
+  The Neon Stage now *consumes* the song time and BPM for visual pulse
+  only. No timer, additional clock, beat scheduler or gameplay state change.
+  The 4-beat phrase energy is calculated from
+  `beatPosition = songTimeMs * bpm / 60000`: beat indices divisible
+  by 4 are stronger, 1–3 softer. A bounded exponential decay creates a
+  quick onset and natural fade. No changes to the global-turn timeline.
+- The actual glTF `CentralLED` shader has a single new
+  `uNeonBreath` float. Selective magenta/cyan emission modulation
+  excludes most neutral navy background, white wordmark, and golden crown.
+  The uniform changes at rendering time; no texture rerender, extra
+  geometry, postprocessing, WebGL render target or expensive extra taps.
+  Gain is bounded at +11.5% on the major beat.
+- Existing GLB rail/riser neon emissive materials also gently track the
+  beat during active playback (up to +17%) instead of the free-running
+  1.08-second breath. Idle remains on the existing soft visual cadence.
+- Four existing truss heads (`MainFixture_01`, `04`, `06`, `09`)
+  gain modest pan/tilt and upper-wall aim movement, plus slight beat
+  enhancement of existing beam/glint opacity (bounded by +0.075). Other
+  fixtures remain in their E29 movement. No additional light sources,
+  shadows, full-floor laser shafts or structural changes.
+- StageFX does not mutate RoomState, WebAudio, RhythmRuntime, gauge,
+  Finish or `sequenceCounts`. Bright Stage remains the selectable
+  default. Stage Catalog stays unchanged; do not begin Host Selector.
+
+### Owner QA gate
+
+Check at the stable branch preview `/?stage=neon-stage-v1` on
+Safari iPhone. Observe moving heads while music is playing, note
+strong beat accents versus softer breaths, verify no irritating strobe
+or oversaturated logo/crown, consistent frame rate and HUD visibility.
+Compare the same track with `&stageMotion=off`.
+Golden still-image comparison remains the original E29 route.
+Vercel READY proves build/deploy, **not** runtime WebGL visual quality
+or mobile FPS. Keep PR #17 open; no merge without explicit approval.
