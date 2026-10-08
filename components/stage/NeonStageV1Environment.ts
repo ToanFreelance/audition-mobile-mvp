@@ -102,6 +102,8 @@ const CLEAN_BASE_E22_ASSET_URL =
   "/stages/neon-stage-v1/concept-led-clean-base-e22.svg";
 const BALANCED_E23_ASSET_URL =
   "/stages/neon-stage-v1/concept-led-balanced-e23.svg";
+const ARTWORK_E27_ASSET_URL =
+  "/stages/neon-stage-v1/concept-led-artwork-e27.svg";
 // Owner rejected the V15 golden-core and traced-lettering experiments.
 // V14 is the default, compare-only working baseline, including deprecated V15 URLs.
 // Explicit ?ledAsset=legacy preserves the low-resolution WebP control.
@@ -195,6 +197,13 @@ function usePhysicalRegistrationE26Compare() {
   return typeof window !== "undefined"
     && window.location.pathname === "/tools/neon-stage-compare"
     && new URLSearchParams(window.location.search).get("stageFx") === "physical-registration-e26";
+}
+
+// E27: visual-only correction. No game route, room state or timing changes.
+function usePhysicalCleanupE27Compare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageFx") === "physical-cleanup-e27";
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -1535,6 +1544,50 @@ function makeE24WholeFloorMaterial(
   return material;
 }
 
+// E27: increase the physically registered reflected light across ONE floor
+// surface, retaining the E24 rough specular map and falloff instead of
+// adding poster-like mirrored planes or E20's vertical stripe wash.
+function makeE27GlossyContinuousFloorMaterial(
+  localTexture: THREE.Texture,
+  ledTexture: THREE.Texture,
+  bounds: THREE.Box3,
+  ringCenter: THREE.Vector2,
+  ringRadius: number,
+  fixtureLeft: THREE.Vector2,
+  fixtureRight: THREE.Vector2,
+) {
+  const material = makeE24WholeFloorMaterial(
+    localTexture, ledTexture, bounds, ringCenter, ringRadius,
+    fixtureLeft, fixtureRight,
+  );
+  material.name = "NeonE27GlossyContinuousFloor";
+  const substitutions: Array<[string,string]> = [
+    ["vec3(0.022, 0.014, 0.036)", "vec3(0.028, 0.019, 0.045)"],
+    ["vec3(0.023, 0.014, 0.036)", "vec3(0.029, 0.020, 0.046)"],
+    ["float sourceFade = exp(-6.0 * length(outsideUv));",
+     "float sourceFade = exp(-4.4 * length(outsideUv));"],
+    ["vec2(0.071, 0.088), vec2(0.105, 0.122)",
+     "vec2(0.056, 0.073), vec2(0.091, 0.109)"],
+    ["* mix(0.41, 0.28, dancerZone) * 0.78;",
+     "* mix(0.61, 0.41, dancerZone) * 0.96;"],
+    ["vec3 reflectedPools = localPools.rgb * localPools.a * 1.10;",
+     "vec3 reflectedPools = localPools.rgb * localPools.a * 1.31;"],
+    ["vec3 uniformBounce = vec3(0.010, 0.005, 0.018)",
+     "vec3 uniformBounce = vec3(0.014, 0.009, 0.023)"],
+    ["float tile = 1.0 - 0.20 *", "float tile = 1.0 - 0.13 *"],
+    ["gl_FragColor = vec4(color, 0.83);",
+     "gl_FragColor = vec4(color, 0.90);"],
+  ];
+  for (const [before, after] of substitutions) {
+    if (!material.fragmentShader.includes(before)) {
+      throw new Error("E27 floor shader source changed unexpectedly: " + before);
+    }
+    material.fragmentShader = material.fragmentShader.replace(before, after);
+  }
+  material.needsUpdate = true;
+  return material;
+}
+
 // E22 swivelling architectural lower fixture. Unlike the E20 box-on-riser
 // mounts, the body has an axis pin, U-yoke, tilt barrel and inset glass lens.
 // All dimensions are derived from EACH real GLB fixture's bounds. Use only
@@ -1709,8 +1762,10 @@ function makeAcceptedBackdropGlowTexture() {
   const physicalFidelityE22 = usePhysicalFidelityE22Compare();
   const physicalAlignmentE23 = usePhysicalAlignmentE23Compare();
   const physicalExtensionE24 = usePhysicalExtensionE24Compare();
+  const physicalCleanupE27 = usePhysicalCleanupE27Compare();
   const texture = new THREE.TextureLoader().load(
-    physicalExtensionE24 ? BALANCED_E23_ASSET_URL
+    physicalCleanupE27 ? ARTWORK_E27_ASSET_URL
+      : physicalExtensionE24 ? BALANCED_E23_ASSET_URL
       : physicalAlignmentE23 ? BALANCED_E23_ASSET_URL
       : physicalFidelityE22 ? CLEAN_BASE_E22_ASSET_URL
       : physicalRepairE21 ? CROWN_CLEARANCE_E21_ASSET_URL : typographyV16Compare
@@ -2002,6 +2057,52 @@ function applyGoldenVerticalRegistration(model: THREE.Object3D) {
   );
 }
 
+// E27: remove only two narrow *physical* LED header/base crossbars.
+// The owner's E26 close-up shows their overlap with the neon. Do NOT remove
+// truss, stair/riser trims, side rails, fixtures, or broad wall panels.
+// This is GLB-world-bounds-based, not a screen-space crop/overlay.
+function hideE27LedCrossbars(model: THREE.Object3D) {
+  const led = model.getObjectByName("CentralLED");
+  if (!led) return;
+  model.updateMatrixWorld(true);
+  const ledBox = new THREE.Box3().setFromObject(led);
+  if (ledBox.isEmpty()) return;
+  const size = ledBox.getSize(new THREE.Vector3());
+  const mid = ledBox.getCenter(new THREE.Vector3());
+  const hidden: string[] = [];
+  const candidates: {name: string; edge: string; dy: number}[] = [];
+  model.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh || mesh === led || !mesh.visible) return;
+    // Never modify stage hardware or any other component outside LED frame.
+    if (/(?:truss|riser|stair|floor|rail|ring|fixture|uplight|beam|optic|crown|logo)/i.test(mesh.name)) return;
+    const bounds = new THREE.Box3().setFromObject(mesh);
+    if (bounds.isEmpty()) return;
+    const span = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    if (span.x < size.x * 0.58 || span.x > size.x * 1.45) return;
+    if (span.y > Math.min(0.45, size.y * 0.105) || span.y < 0.003) return;
+    if (Math.abs(center.x - mid.x) > size.x * 0.12) return;
+    if (Math.abs(center.z - ledBox.max.z) > 0.90) return;
+    const topDistance = Math.abs(center.y - ledBox.max.y);
+    const bottomDistance = Math.abs(center.y - ledBox.min.y);
+    const nearTop = topDistance <= size.y * 0.21;
+    const nearBottom = bottomDistance <= size.y * 0.23;
+    if (!nearTop && !nearBottom) return;
+    const matNames = (Array.isArray(mesh.material) ? mesh.material : [mesh.material])
+      .filter(Boolean).map(mat => mat.name);
+    const identity = [mesh.name, ...matNames].join(" ").toLowerCase();
+    if (!/(?:led|wall|backdrop|frame|border|header|crossbar|topbar|bottombar|fascia|trim|architecture)/.test(identity)) return;
+    const edge = nearTop && (!nearBottom || topDistance < bottomDistance) ? "top" : "bottom";
+    candidates.push({name: mesh.name, edge, dy: edge === "top" ? topDistance : bottomDistance});
+    mesh.visible = false;
+    hidden.push(mesh.name);
+  });
+  console.info("[NeonStage E27] Physical LED crossbar removal", {
+    hidden, candidates, bounds: {min: ledBox.min.toArray(), max: ledBox.max.toArray()},
+  });
+}
+
 // E26: E25's lower-wall overlap did not address the TOP LED/frame registration.
 // Translate the real CentralLED only a small, bounded world-space amount.
 // This is not E23's much larger riser-to-LED alignment and NEVER scales artwork.
@@ -2117,7 +2218,9 @@ export class NeonStageV1Environment {
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
   private readonly integratedStageFx = useIntegratedStageFxCompare();
-  private readonly physicalRegistrationE26 = usePhysicalRegistrationE26Compare();
+  private readonly physicalCleanupE27 = usePhysicalCleanupE27Compare();
+  private readonly physicalRegistrationE26 =
+    usePhysicalRegistrationE26Compare() || this.physicalCleanupE27;
   private readonly physicalExtensionE25 =
     usePhysicalExtensionE25Compare() || this.physicalRegistrationE26;
   private readonly physicalExtensionE24 =
@@ -2297,6 +2400,9 @@ export class NeonStageV1Environment {
     applyGoldenVerticalRegistration(model);
     if (this.physicalRegistrationE26) {
       lowerE26CentralLedWithinHeader(model);
+    }
+    if (this.physicalCleanupE27) {
+      hideE27LedCrossbars(model);
     }
     if (this.physicalAlignmentE23) {
       alignE23LedBottomToRearRiser(model);
@@ -3157,7 +3263,15 @@ export class NeonStageV1Environment {
     const leftFixture = lowerFixtureCenters[0] ?? new THREE.Vector3(-4.0, 0, -3.0);
     const rightFixture = lowerFixtureCenters[lowerFixtureCenters.length - 1]
       ?? new THREE.Vector3(4.0, 0, -3.0);
-    const reflectionMaterial = this.physicalExtensionE24 && actualLedBounds && !actualLedBounds.isEmpty()
+    const reflectionMaterial = this.physicalCleanupE27 && actualLedBounds && !actualLedBounds.isEmpty()
+      ? makeE27GlossyContinuousFloorMaterial(
+        floorReflectionTexture, backdropTexture, actualLedBounds,
+        new THREE.Vector2(ringCenter.x, ringCenter.z),
+        Math.max(ringSize.x, ringSize.z) * 0.45,
+        new THREE.Vector2(leftFixture.x, leftFixture.z),
+        new THREE.Vector2(rightFixture.x, rightFixture.z),
+      )
+      : this.physicalExtensionE24 && actualLedBounds && !actualLedBounds.isEmpty()
       ? makeE24WholeFloorMaterial(
         floorReflectionTexture, backdropTexture, actualLedBounds,
         new THREE.Vector2(ringCenter.x, ringCenter.z),
