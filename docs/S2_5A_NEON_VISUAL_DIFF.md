@@ -317,3 +317,52 @@ Validation gate:
   non-shadow-casting SpotLights and extra small fixture meshes **only**
   in the compare URL. Profiling and owner image acceptance are required
   before considering any runtime promotion; do not merge PR #17 yet.
+
+
+## 2026-10-08 — E21 owner rejection follow-up (E20 stripes, crown clearance, LED→riser gap)
+
+Owner's E20 iPhone screenshot `IMG_3132.jpeg` rejects E20 whole-floor
+reflections: visible long vertical magenta/cyan stripes are a hard FAIL.
+Owner additionally identifies the crown tip being obstructed in both E19
+and E20, and an excessively dark/empty structural gap between the lower
+LED backdrop and the stairs.
+
+**Preserve as the positive visual baseline:** E19
+`?ledAsset=typography-v16&stageFx=physical-reflection-e19`.
+
+**Isolated compare-only E21:**
+`?ledAsset=typography-v16&stageFx=physical-repair-e21`.
+No gameplay/StageCatalog changes. E19, V16, E20 forensic URLs stay intact.
+
+Changes:
+- E21 rejects the E20 shader completely. Its floor material derives from
+  E19's existing world-space LED reflection ray. A bounded seven-tap
+  blur softens legible reflected typography, and a **radial, isotropic**
+  low-frequency ring pool gives dance-center coverage without horizontally
+  sampled floor-wide stripe bands. The ring radius/position comes from the
+  real `R15 Dance Ring Outer` GLB bounds. No extra reflection planes/FBO.
+- V16 source SVG stays untouched. E21 uses separate authored asset
+  `concept-led-crown-clearance-e21.svg`: crown translateY 150→183,
+  vertical scale 1.075→0.93, horizontal scale remains 1.22. The lower crown
+  and more conservative height clear the top frame while preserving a gap
+  before AUDITION. Must inspect iPhone lettering/top-clearance before
+  accepting.
+- E21 adds opaque **physical cove / infill geometry** only BELOW the real
+  `CentralLED` lower bound to close the empty interval to the highest
+  eligible GLB riser support. Its height is calculated from real world
+  bounds and capped at 2.45 stage units to guard against broken assets.
+  One recessed lip conceals the seam. No new LED billboard, front-tinted
+  overlay or camera/LED vertical registration change. Need iPhone QA to
+  confirm riser contact and that the repair does not occlude equipment.
+- Keep E20's localized four non-shadow SpotLights and fixture contact
+  mounts in E21 only as a separate, already-scoped stage-lighting
+  refinement; E20's striped floor fragment shader is NOT used.
+
+Actual validation required:
+1. Next.js/TypeScript/Vercel build and route existence.
+2. Identical iPhone Safari E19 vs E21 viewport screenshots, stage-only.
+3. Detect any crown clipping/wordmark overlap, residual backdrop/riser
+   air-gap, dark infill, fixture occlusion, ring reflection sharpness,
+   unnatural vertical bands, and overall GPU performance.
+4. Vercel READY is not visual PASS; no integration or PR #17 merge without
+   owner's acceptance.
