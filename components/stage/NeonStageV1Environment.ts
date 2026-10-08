@@ -188,6 +188,15 @@ function usePhysicalExtensionE25Compare() {
     && new URLSearchParams(window.location.search).get("stageFx") === "physical-extension-e25";
 }
 
+// E26: owner iPhone top-frame clearance. A small whole-CentralLED shift,
+// while E25's structural lower wall follows the updated world-space bounds.
+// The source LED artwork, crown, floor and overhead lights stay unchanged.
+function usePhysicalRegistrationE26Compare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageFx") === "physical-registration-e26";
+}
+
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
@@ -1993,6 +2002,36 @@ function applyGoldenVerticalRegistration(model: THREE.Object3D) {
   );
 }
 
+// E26: E25's lower-wall overlap did not address the TOP LED/frame registration.
+// Translate the real CentralLED only a small, bounded world-space amount.
+// This is not E23's much larger riser-to-LED alignment and NEVER scales artwork.
+function lowerE26CentralLedWithinHeader(model: THREE.Object3D) {
+  const led = model.getObjectByName("CentralLED");
+  if (!led) {
+    console.warn("[NeonStage E26] CentralLED missing; skip registration.");
+    return;
+  }
+  model.updateMatrixWorld(true);
+  const before = new THREE.Box3().setFromObject(led);
+  const size = before.getSize(new THREE.Vector3());
+  if (before.isEmpty() || !Number.isFinite(size.y) || size.y <= 0) {
+    console.warn("[NeonStage E26] Invalid CentralLED world bounds; skip registration.");
+    return;
+  }
+  // Small compared with the already accepted +0.50 registered LED offset.
+  // Up to 0.16 stage units (about a third of that original offset) protects
+  // lower chevron endpoints from the heavy descent seen in rejected E23.
+  const descent = Math.min(0.16, size.y * 0.035);
+  offsetObjectWorldY(led, -descent);
+  model.updateMatrixWorld(true);
+  const after = new THREE.Box3().setFromObject(led);
+  console.info("[NeonStage E26] Subtle whole LED/frame clearance", {
+    descent, topBefore: before.max.y, topAfter: after.max.y,
+    bottomBefore: before.min.y, bottomAfter: after.min.y,
+    heightBefore: size.y, heightAfter: after.getSize(new THREE.Vector3()).y,
+  });
+}
+
 // E23: close the verified physical LED-to-rear-riser clearance by translating
 // (not scaling/stretching) CentralLED. All support geometry comes from the GLB.
 // Neither the camera nor global stage positions nor gameplay are affected.
@@ -2078,7 +2117,9 @@ export class NeonStageV1Environment {
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
   private readonly integratedStageFx = useIntegratedStageFxCompare();
-  private readonly physicalExtensionE25 = usePhysicalExtensionE25Compare();
+  private readonly physicalRegistrationE26 = usePhysicalRegistrationE26Compare();
+  private readonly physicalExtensionE25 =
+    usePhysicalExtensionE25Compare() || this.physicalRegistrationE26;
   private readonly physicalExtensionE24 =
     usePhysicalExtensionE24Compare() || this.physicalExtensionE25;
   private readonly physicalAlignmentE23 = usePhysicalAlignmentE23Compare();
@@ -2254,6 +2295,9 @@ export class NeonStageV1Environment {
 
   private prepareAcceptedR15Runtime(model: THREE.Object3D) {
     applyGoldenVerticalRegistration(model);
+    if (this.physicalRegistrationE26) {
+      lowerE26CentralLedWithinHeader(model);
+    }
     if (this.physicalAlignmentE23) {
       alignE23LedBottomToRearRiser(model);
     }
