@@ -4,7 +4,7 @@ Phase 1 — Solo Easy Core Gameplay, Phase 2 — Portrait HUD / iPhone UX, and P
 
 Current integration checkpoint:
 
-**Phase 5 — Room / lobby / Ready / preload / shared countdown / WebAudio gameplay handoff is functionally complete on `work/lobby-preload`. P5.1–P5.5 implementation, Full QA, and owner Host iPhone P5.5 acceptance are PASS. The branch is pending owner-approved integration into `development`. Phase 6 has not started.**
+**Phase 5 is integrated into `development`, including owner-accepted P5.6 Waiting Room Visual V2. PR #15 merged at `d27168929f9923b1de561133b941977d039d56a1`. Current roadmap work is S2 — Stage Catalog on `work/s2-stage-catalog` / draft PR #16. S3 Host Stage Selector has not started.**
 
 Phase 3 functional owner QA passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, Finish continuation, and the shared Finish Miss cadence. Phase 3 was merged into `development` at `e1d7a814b95144b3947cfb39503b998564b2bc29`, and owner iPhone staging QA passed. Rapid iPhone heating / battery drain remains explicit performance debt; thermal and battery profiling are not being misrepresented as complete.
 
@@ -15,7 +15,7 @@ Phase 3 functional owner QA passed for the humanoid runtime, published Normal Da
 | 2 | Portrait HUD / iPhone UX | Complete; owner iPhone QA accepted; integrated into `development` |
 | 3 | Human character, animation controller, published Normal/Final dance content | **Functional PASS; integrated into `development`; thermal/battery debt open** |
 | 4 | Multiplayer shared song clock | **P4.1–P4.5 complete; architecture present in `development`** |
-| 5 | Room, lobby, Ready, preload, synchronized start and gameplay handoff | **P5.1–P5.5 PASS on `work/lobby-preload`; pending owner-approved integration** |
+| 5 | Room, lobby, Ready, preload, synchronized start and gameplay handoff | **P5.1–P5.6 PASS; owner accepted; integrated into `development`** |
 | 6 | Additional game modes | Planned |
 | 7 | Account, profile, progression | Planned |
 | 8 | Modular humanoid clothing, accessories, inventory | Planned |
@@ -400,7 +400,7 @@ Owner physical P5.5 Host acceptance: **PASS**.
 
 ### P5.6 — Waiting Room Visual V2
 
-Current owner-review milestone on `work/p5-6-waiting-room-visual-v2`.
+Owner-accepted and integrated into `development` via PR #15 at `d27168929f9923b1de561133b941977d039d56a1`.
 
 Scope:
 
@@ -413,15 +413,41 @@ Scope:
 - player identity text follows the actor head; Host is identified by a crown rather than a HOST badge;
 - Wide / Center / Close camera presets live inside Room Settings so stage arrows remain visually unambiguous.
 
-P5.6 remains in owner visual review and must not be merged until explicitly approved.
+P5.6 owner visual acceptance: **PASS**.
 
 ### Phase 5 closeout status
 
-Phase 5 implementation is **READY FOR INTEGRATION REVIEW**.
+Phase 5 implementation is **INTEGRATED**.
 
-The branch must not merge itself. Owner approval is required before merging `work/lobby-preload` into `development`.
+The accepted Waiting Room baseline is now part of `development`. Further stage work must not regress Waiting Room authority, actor lifetime behavior, or the accepted mobile visual composition.
 
-Do not start Phase 6 from the unmerged Phase 5 branch. After owner-approved integration, create a new `work/<phase-6-milestone>` branch from updated `development`.
+### Stage roadmap — S2 / S2.5 / S3
+
+Current milestone:
+
+**S2 — Stage Catalog** on `work/s2-stage-catalog` / draft PR #16.
+
+Locked resolution path:
+
+`selectedStageId → Stage Catalog → runtime asset → presentation profile → Stage3D`
+
+S2 scope is catalog/runtime resolution only. The technical Stage Catalog represents general play environments / venues, not only literal concert stages.
+
+After S2:
+
+**S2.5 — Environment / Venue Pack V1**
+
+Planned catalog/content sequence:
+
+- `bright-stage-v1` — existing accepted Bright Stage;
+- `neon-stage-v1` — first new environment; based on the accepted P5.6 Waiting Room stage visual, redrawn/animated for gameplay presentation;
+- `football-field-v1` — planned sports environment;
+- `classroom-v1` — planned classroom environment;
+- `cafe-v1` — planned cafe environment.
+
+S2.5A Neon Stage V1 should reuse the Waiting Room's accepted neon composition/language rather than revive the rejected `neon-club-v3` direction. Higgsfield-generated/redrawn animation may be used as visual source material, while Stage3D/WebAudio architecture remains unchanged.
+
+**S3 — Host Stage Selector** follows after the initial environment pack is accepted, so the selector exposes real runnable choices rather than placeholder entries.
 
 ## Phase 1 architecture invariants
 
@@ -467,9 +493,13 @@ Completed Phase 4 path:
 
 `development → work/multiplayer-clock → P4.1–P4.5 → focused validation → owner review → development`
 
-Current Phase 5 integration path:
+Completed Phase 5 integration path:
 
-`development → work/lobby → waiting-room/realtime acceptance → development → work/lobby-preload → P5.2 PRELOADING → P5.3 ALL CLIENTS LOADED → P5.4 shared countdown → P5.5 shared WebAudio gameplay handoff → Full QA → owner iPhone Host PASS → pending owner-approved merge to development`
+`development → work/lobby → waiting-room/realtime acceptance → development → work/lobby-preload → P5.2 PRELOADING → P5.3 ALL CLIENTS LOADED → P5.4 shared countdown → P5.5 shared WebAudio gameplay handoff → P5.6 Waiting Room Visual V2 → owner iPhone acceptance → PR #15 → development`
+
+Current stage-roadmap path:
+
+`development → work/s2-stage-catalog → Stage Catalog review → owner acceptance → S2.5 Environment / Venue Pack V1 → Neon Stage + additional venues → owner acceptance → S3 Host Stage Selector`
 
 Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 4 work unless owner explicitly requests a later production promotion.
 

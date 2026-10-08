@@ -5,6 +5,12 @@ test("Bright Stage V1 loads without taking gameplay timing authority", async ({ 
   await page.goto("/?debug=1&seed=123");
   const stage = page.locator(".stage-3d");
 
+  await expect(stage).toHaveAttribute("data-selected-stage-id", "bright-stage-v1");
+  await expect(stage).toHaveAttribute("data-stage-catalog-id", "bright-stage-v1");
+  await expect(stage).toHaveAttribute("data-stage-runtime-asset-id", "bright-stage-v1");
+  await expect(stage).toHaveAttribute("data-stage-presentation-profile", "bright-stage-v1");
+  await expect(stage).toHaveAttribute("data-stage-catalog-status", "active");
+  await expect(stage).toHaveAttribute("data-stage-selectable", "true");
   await expect(stage).toHaveAttribute("data-stage-source", /placeholder|bright-stage-v1/);
   await expect(stage).toHaveAttribute("data-character-asset-id", "c1-casual-grace");
 
