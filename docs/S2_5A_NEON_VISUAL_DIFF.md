@@ -635,3 +635,55 @@ Acceptance gate:
   crown stays visible; floor is glossier and continuous from ring to
   foreground without readable reflected logo/stripe regressions.
 - Profile Mobile Safari if E27 is considered for runtime promotion.
+
+
+## E28 — owner E27 iPhone floor band investigation and crown polish (2026-10-08)
+
+Owner iPhone screenshot `IMG_3142(1).jpeg`: **E27 overall is visually much
+better**, but a horizontal row of floor tiles reads unusually purple,
+the reflection should fill the stage more evenly, and the crown should be
+slightly smaller with fresher/brighter gold. E27's backdrop/layout,
+truss, uplights and LED artwork are not to be redesigned.
+
+**Compare-only E28:**
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-gloss-e28`
+
+Changes:
+- `concept-led-artwork-e28.svg` is a copy of E27 with only the crown
+  group reduced from `scale(1.22 0.93)` to `scale(1.14 0.87)`
+  (~6% reduction) and warmer luminous gold gradient/highlight.
+  All E27 neon, AUDITION, subtitle, backing, crown relative placement,
+  top/down frame geometry and floor ring remain untouched.
+- The suspected horizontal violet tile row is due to **potential
+  concentration** of additive, world-space mirror LED lettering inside
+  a small floor-depth interval, possibly compounded with the underlying
+  PolishedDanceFloor material and grid. This is a shader-origin
+  hypothesis pending isolated visual proof, not a proven GLB diagnosis.
+- E28 derives directly from the **single E27 floor shader** and reduces
+  the sharply defined LED specular lobe, widens rough LED taps, improves
+  floor-wide, low-frequency bounce using FOUR fixed LED samples instead
+  of floor-X indexed samples, and strengthens existing fixture glints.
+  Tile joint attenuation is relaxed. There are no new additive meshes,
+  bloom passes, RTT/planar mirrors, or E20 stripe-causing LED columns.
+- Three *optional E28-only* diagnostic URLs are available to isolate
+  the layer producing the horizontal violet tile band:
+  `&floorDebug=reflection-off` hides the floor reflection field;
+  `&floorDebug=grid-off` hides the tile-grid plane;
+  `&floorDebug=base-neutral` temporarily assigns a neutral diagnostic
+  material to the imported PolishedDanceFloor. The baseline E27 does
+  not accept any diagnostic mode. No ordinary gameplay setting changes.
+  If the tile row persists in reflection-off, the GLB base/grid is
+  implicated; if it disappears, the reflection shader is implicated.
+
+Validation / owner acceptance:
+- GitHub diff limited to compare-only Neon Stage asset/source/docs.
+- Vercel build: Next.js + TypeScript + compare route. Vercel READY is
+  not proof of shader correctness or visual fidelity.
+- Owner must review E28 screenshot side-by-side with E27 on SAME iPhone
+  viewport. Compare presence/absence of purple horizontal row, polished
+  texture continuity across ring and foreground, mirrored AUDITION
+  legibility, crown size/gold, GPU/FPS when available.
+- If the horizontal row remains, obtain diagnostic screenshots with
+  isolated `floorDebug` modes before making further changes; avoid
+  blind masks or ungrounded paint-over.
+- Do NOT merge PR #17 without owner acceptance.
