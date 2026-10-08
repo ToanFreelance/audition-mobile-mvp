@@ -88,7 +88,17 @@ const FLOOR_Y = -0.03;
 const REAR_Z = -5.65;
 const ACCEPTED_R15_FLOOR_WIDTH = 19.8;
 const ACCEPTED_R15_DANCE_RING_Z = 0.25;
+// High-resolution, already-authored stage artwork for controlled optical QA.
+// Do not enable it in gameplay before the owner accepts an iPhone comparison.
 const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/golden-led-wall-v2.webp";
+const VECTOR_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v14.svg";
+
+function useHiResLedCompare() {
+  if (typeof window === "undefined") return false;
+  // Strictly isolated to the compare route: no gameplay presentation changes.
+  if (window.location.pathname !== "/tools/neon-stage-compare") return false;
+  return new URLSearchParams(window.location.search).get("ledAsset") === "vector";
+}
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
@@ -649,16 +659,26 @@ function makeAcceptedFloorGridTexture() {
 }
 
 function makeAcceptedBackdropGlowTexture() {
-  const texture = new THREE.TextureLoader().load(CONCEPT_LED_ASSET_URL);
+  const hiResCompare = useHiResLedCompare();
+  const texture = new THREE.TextureLoader().load(
+    hiResCompare ? VECTOR_LED_ASSET_URL : CONCEPT_LED_ASSET_URL,
+  );
   texture.colorSpace = THREE.SRGBColorSpace;
-  // Small authored WebP is a close-up LED graphic, not a distant terrain map.
-  // Generated mip levels smoothed already-soft neon edges and subtitle glyphs.
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
+  // 512x191 WebP is source-resolution limited; no mip smoothing in legacy mode.
+  // The authored 2048x844 SVG is vector at source and rasterized once by the
+  // browser at its intrinsic resolution, with mipmaps for distance sampling.
+  texture.generateMipmaps = hiResCompare;
+  texture.minFilter = hiResCompare
+    ? THREE.LinearMipmapLinearFilter
+    : THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
   texture.anisotropy = 8;
+  texture.userData.ledSamplingSize = hiResCompare
+    ? new THREE.Vector2(2048, 844)
+    : new THREE.Vector2(512, 191);
+  texture.userData.ledSharpness = hiResCompare ? 0.0 : 0.40;
   texture.needsUpdate = true;
   return texture;
 }
@@ -673,9 +693,13 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
     toneMapped: false,
     uniforms: {
       uMap: { value: texture },
-      // Actual V2 asset dimensions; avoid guessing texture derivatives from
-      // the CSS viewport (which varies with iPhone pixel ratio).
-      uTexelSize: { value: new THREE.Vector2(1 / 512, 1 / 191) },
+      // Sample in source texels, not CSS pixels: 2048x844 for vector trial,
+      // 512x191 for the existing owner baseline.
+      uTexelSize: { value: new THREE.Vector2(
+        1 / (texture.userData.ledSamplingSize as THREE.Vector2).x,
+        1 / (texture.userData.ledSamplingSize as THREE.Vector2).y,
+      ) },
+      uSharpness: { value: texture.userData.ledSharpness as number },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -688,10 +712,14 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
       varying vec2 vUv;
       uniform sampler2D uMap;
       uniform vec2 uTexelSize;
+      uniform float uSharpness;
 
       vec3 sampleCrispLed(vec2 uv) {
         vec2 p = clamp(uv, vec2(0.0), vec2(1.0));
         vec3 center = texture2D(uMap, p).rgb;
+        // A vector source has clean inner strokes already. Avoid inventing
+        // ringing halos by post-sharpening it.
+        if (uSharpness < 0.001) return center;
         vec3 neighbors = (
           texture2D(uMap, clamp(p + vec2(uTexelSize.x, 0.0), 0.0, 1.0)).rgb +
           texture2D(uMap, clamp(p - vec2(uTexelSize.x, 0.0), 0.0, 1.0)).rgb +
@@ -701,7 +729,7 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
         vec3 detail = center - neighbors;
         // Conservative local sharpening: preserve the concept's authored
         // soft halo, recover inner-line/letter boundaries without white halos.
-        return clamp(center + detail * 0.40, 0.0, 1.0);
+        return clamp(center + detail * uSharpness, 0.0, 1.0);
       }
 
       float rectMask(vec2 p, vec2 center, vec2 size, float feather) {
