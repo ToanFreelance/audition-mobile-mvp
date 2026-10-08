@@ -584,3 +584,54 @@ Acceptance (pending): actual Safari iPhone screenshot with fully visible
 upper neon stroke endpoints, no LED protrusion above top bar, retained
 lower chevron tips, lower LED-to-stair junction, no floor/beam regression.
 Vercel build READY is NOT visual PASS. No PR #17 merge.
+
+
+## E27 — LED crossbar cleanup, independently lowered artwork, continuous gloss (2026-10-08)
+
+Owner reviewed E26 iPhone screenshot `IMG_3141.jpeg`:
+upper horizontal stage header still clips neon stroke heads; lower magenta
+LED-area horizontal bar is unwanted. Keep backdrop background as-is,
+remove both physical obstructing bars, and shift only the neon, AUDITION
+wordmark, crown, and DANCE TOGETHER slightly lower. Lower chevron ends
+may sit behind existing riser fixtures. Floor needs more consistent
+gloss/reflectance without sharp mirror text or E20 vertical striping.
+
+**Compare-only E27 URL:**
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-cleanup-e27`.
+Keep `physical-registration-e26` as the strict A/B control.
+
+Implementation:
+- A separate `concept-led-artwork-e27.svg` preserves all SVG
+  background gradient, center glow, top haze, pixel texture, vignette and
+  wordmark proportions. A single vector `translate(0 32)` shifts ONLY
+  the neon rail graphics, crown, wordmark and subtitle downward in the
+  artwork-local coordinates. No `CentralLED` transform or rescale.
+- E27 inherits E26's accepted small LED-world-Y shift and E25's lower
+  extension intact. `hideE27LedCrossbars` runs only during compare-mode
+  GLB preparation. It considers only narrow horizontal stage meshes near
+  the upper/lower `CentralLED` world bounds with LED/frame architectural
+  names or material identity; geometry filters exclude meshes much
+  wider/taller than the wall or far from its Z plane. Truss, risers,
+  stairs, rails, floor, fixtures, optics, ring and `CentralLED` itself
+  are explicitly excluded. The exact removed mesh names/positions are
+  logged in browser devtools, allowing a zero-removal case to be
+  diagnosed without guessing.
+- The E27 floor uses the existing one-field world-registered E24 shader,
+  with slightly brighter uniform navy/violet gloss, stronger but still
+  blurred LED reflection, lower harsh tile seam modulation and increased
+  fixture reflection strength. No additional floor mesh, no mirror
+  renderer/RTT and no E20 vertically striped screen-X LED sample.
+- No edits to main/development, gameplay, character/waiting room, audio
+  authority, gauge, Finish, sequenceCounts, or Stage Catalog. PR #17
+  remains draft and must not be merged without owner approval.
+
+Acceptance gate:
+- E27 Vercel build PASS does NOT prove GLB crossbar removal: inspect the
+  owner iPhone screenshot for upper neon endpoints, lower pink strip
+  removal, and preserved riser/stair contacts. If a bar is still visible,
+  inspect `[NeonStage E27] Physical LED crossbar removal` browser log
+  before changing the geometry selector.
+- Verify LED backing remains unchanged behind the now-lowered artwork;
+  crown stays visible; floor is glossier and continuous from ring to
+  foreground without readable reflected logo/stripe regressions.
+- Profile Mobile Safari if E27 is considered for runtime promotion.
