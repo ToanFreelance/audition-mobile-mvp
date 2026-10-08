@@ -127,6 +127,13 @@ function usePhysicalSurfaceE18Compare() {
     && new URLSearchParams(window.location.search).get("stageFx") === "physical-surface-e18";
 }
 
+// Retain E18 for identical-viewport A/B. E19 never activates in gameplay.
+function usePhysicalReflectionE19Compare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageFx") === "physical-reflection-e19";
+}
+
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
@@ -820,6 +827,85 @@ function makeGroundedE18FloorReflectionTexture(model: THREE.Object3D) {
   return texture;
 }
 
+// E19 compares reflection rays against real imported LED geometry using four
+// texture reads per floor pixel; no extra render pass, FBO or stacked planes.
+function makeE19ReflectedWallFloorMaterial(
+  localTexture: THREE.Texture,
+  ledTexture: THREE.Texture,
+  ledBounds: THREE.Box3,
+) {
+  return new THREE.ShaderMaterial({
+    name: "NeonE19GeometryRegisteredFloorReflection",
+    transparent: true,
+    depthWrite: false,
+    depthTest: true,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    toneMapped: false,
+    uniforms: {
+      uLocalMap: { value: localTexture },
+      uLedMap: { value: ledTexture },
+      uLedMin: { value: ledBounds.min.clone() },
+      uLedMax: { value: ledBounds.max.clone() },
+    },
+    vertexShader: `
+      varying vec2 vFloorUv;
+      varying vec3 vFloorWorld;
+      void main() {
+        vFloorUv = uv;
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        vFloorWorld = world.xyz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }
+    `,
+    fragmentShader: `
+      varying vec2 vFloorUv;
+      varying vec3 vFloorWorld;
+      uniform sampler2D uLocalMap;
+      uniform sampler2D uLedMap;
+      uniform vec3 uLedMin;
+      uniform vec3 uLedMax;
+      void main() {
+        vec4 localLight = texture2D(uLocalMap, vFloorUv);
+        vec3 reflected = vec3(0.0);
+        vec3 ray = reflect(normalize(vFloorWorld - cameraPosition), vec3(0.0, 1.0, 0.0));
+        if (ray.z < -0.015) {
+          float t = (uLedMax.z - vFloorWorld.z) / ray.z;
+          if (t > 0.0) {
+            vec3 hit = vFloorWorld + ray * t;
+            vec2 uv = (hit.xy - uLedMin.xy) / max(uLedMax.xy - uLedMin.xy, vec2(0.001));
+            float mask = smoothstep(0.0, 0.09, uv.x)
+              * smoothstep(0.0, 0.09, 1.0 - uv.x)
+              * smoothstep(0.0, 0.12, uv.y)
+              * smoothstep(0.0, 0.12, 1.0 - uv.y);
+            if (mask > 0.0) {
+              uv = clamp(uv, vec2(0.0), vec2(1.0));
+              vec3 light = texture2D(uLedMap, uv).rgb * 0.55
+                + texture2D(uLedMap, uv + vec2(0.010, 0.013)).rgb * 0.225
+                + texture2D(uLedMap, uv - vec2(0.010, 0.013)).rgb * 0.225;
+              float source = smoothstep(0.08, 0.48,
+                max(light.r, max(light.g, light.b)));
+              float glancing = 1.0 - abs(dot(normalize(cameraPosition - vFloorWorld),
+                vec3(0.0, 1.0, 0.0)));
+              float seams = 1.0 - 0.35 * (1.0
+                - smoothstep(0.0, 0.08, fract(vFloorWorld.z / 2.55)));
+              float breakup = 0.80 + 0.20
+                * sin(vFloorWorld.x * 13.2 + vFloorWorld.z * 5.6)
+                * sin(vFloorWorld.z * 8.7 - vFloorWorld.x * 2.3);
+              float falloff = exp(-0.026 * max(0.0, t - 7.0));
+              reflected = light * source * mask * seams * breakup
+                * falloff * (0.60 + 0.40 * glancing) * 1.35;
+            }
+          }
+        }
+        vec3 color = localLight.rgb * localLight.a * 1.40 + reflected;
+        gl_FragColor = vec4(color, 0.86);
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+}
+
 function makeAcceptedFloorGridTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -922,12 +1008,32 @@ function makeAcceptedBackdropGlowTexture() {
   return texture;
 }
 
-function makePhysicalCentralLedMaterial(texture: THREE.Texture, bounds: THREE.Box3) {
+function makePhysicalCentralLedMaterial(texture: THREE.Texture, bounds: THREE.Box3, fullSurface: boolean) {
   // Registered to the actual imported surface, independent of glTF UV seams.
   // Reuse the calibrated V16 source-color shader without a second plane.
   const material = makeAcceptedBackdropMaterial(texture, false);
   const span = bounds.getSize(new THREE.Vector3());
-  material.name = "NeonE18PhysicalCentralLed";
+  material.name = fullSurface ? "NeonE19FullSurfaceCentralLed" : "NeonE18PhysicalCentralLed";
+  if (fullSurface) {
+    // The nested 0.936x0.847 V14 art mask made even the REAL glTF LED read
+    // as a poster inside a rectangular panel. Apply V16 to the entire surface.
+    material.uniforms.uPhysicalFullSurface = { value: 1 };
+    material.fragmentShader = material.fragmentShader
+      .replace(
+        "uniform float uIntegrated;",
+        "uniform float uIntegrated;" + String.fromCharCode(10) +
+          "uniform float uPhysicalFullSurface;",
+      )
+      .replace(
+        "vec2 artUv = (vUv - artMin) / artSize;",
+        `vec2 artUv = (vUv - artMin) / artSize;
+        if (uPhysicalFullSurface > 0.5) {
+          gl_FragColor = vec4(sampleCrispLed(vUv), 1.0);
+          #include <colorspace_fragment>
+          return;
+        }`,
+      );
+  }
   material.depthWrite = true;
   material.uniforms.uWorldMin = { value: bounds.min.clone() };
   material.uniforms.uWorldSize = {
@@ -1203,7 +1309,8 @@ export class NeonStageV1Environment {
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
   private readonly integratedStageFx = useIntegratedStageFxCompare();
-  private readonly physicalSurfaceE18 = usePhysicalSurfaceE18Compare();
+  private readonly physicalReflectionE19 = usePhysicalReflectionE19Compare();
+  private readonly physicalSurfaceE18 = usePhysicalSurfaceE18Compare() || this.physicalReflectionE19;
   private readonly pulseMaterials: PulseMaterial[] = [];
   private readonly breathMaterials: BreathMaterial[] = [];
   private readonly beamStates: BeamState[] = [];
@@ -2013,7 +2120,9 @@ export class NeonStageV1Environment {
 
       if (this.physicalSurfaceE18 && (centralLed as THREE.Mesh).isMesh && ledSize.x > 0 && ledSize.y > 0) {
         const physicalLed = centralLed as THREE.Mesh;
-        physicalLed.material = makePhysicalCentralLedMaterial(backdropTexture, ledBounds);
+        physicalLed.material = makePhysicalCentralLedMaterial(
+          backdropTexture, ledBounds, this.physicalReflectionE19,
+        );
         physicalLed.renderOrder = 2;
         const physicalFloor = model.getObjectByName("PolishedDanceFloor") as THREE.Mesh | undefined;
         const stats = (mesh: THREE.Mesh | undefined) => mesh?.isMesh ? {
@@ -2113,22 +2222,29 @@ export class NeonStageV1Environment {
         this.acceptedFxRoot.add(sprite);
       });
 
-    const reflectionMaterial = new THREE.MeshBasicMaterial({
-      map: floorReflectionTexture,
-      transparent: true,
-      opacity: this.physicalSurfaceE18 ? 0.98 : this.integratedStageFx ? 0.92 : 0.74,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      toneMapped: false,
-    });
+    const actualLed = model.getObjectByName("CentralLED");
+    const actualLedBounds = actualLed ? new THREE.Box3().setFromObject(actualLed) : null;
+    const reflectionMaterial = this.physicalReflectionE19 && actualLedBounds && !actualLedBounds.isEmpty()
+      ? makeE19ReflectedWallFloorMaterial(
+        floorReflectionTexture, backdropTexture, actualLedBounds,
+      )
+      : new THREE.MeshBasicMaterial({
+        map: floorReflectionTexture,
+        transparent: true,
+        opacity: this.physicalSurfaceE18 ? 0.98 : this.integratedStageFx ? 0.92 : 0.74,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+        toneMapped: false,
+      });
     const reflectionField = new THREE.Mesh(
       new THREE.PlaneGeometry(19.2, 34.0),
       reflectionMaterial,
     );
     reflectionField.name = "R15AcceptedFloorReflectionField";
     reflectionField.rotation.x = -Math.PI / 2;
-    reflectionField.position.set(0, 0.044, 11.2);
+    reflectionField.position.set(0, this.physicalReflectionE19 ? 0.055 : 0.044, 11.2);
+    if (this.physicalReflectionE19) reflectionField.renderOrder = 3;
     this.acceptedFxRoot.add(reflectionField);
 
     const floorGridMaterial = new THREE.MeshBasicMaterial({
