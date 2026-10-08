@@ -75,3 +75,12 @@ promotion to next visual phase without matching screenshot evidence.
 - Preserved the 941×1672 compare framing, existing perspective/camera, and compare-only Retina pixel ratio. No unrelated rendering or gameplay changes.
 - Remaining root cause: V14 still uses runtime SVG `Arial Black` italic text with 33px/19px/10.5px strokes and Gaussian glow. This differs geometrically from the approved raster sketch; improving source resolution alone cannot repair font fallback, italic contours or outline widths.
 - **NOT VISUALLY ACCEPTED:** do not mark logo/backdrop PASS until direct iPhone crops and aligned region-wise diff against the approved 941×1672 sketch are inspected. No arbitrary homography for scores.
+
+## 2026-10-08 — Retina root cause and measurable visual capture
+
+- [x] Found high-impact rendering bug: Stage3D initialization selected compare DPR 2, but `resize()` immediately forced compare DPR 1; fixed without changing gameplay DPR.
+- [x] Added direct edge overlay, heatmap and region image outputs to the existing Golden Diff CLI; no warp or new scene architecture.
+- [x] Guarded against aspect-distorted crop scoring; mismatch cannot pass the numeric gate.
+- [ ] Re-capture V14 on the new DPR-preserving preview; existing older screenshots predate the fix.
+- [ ] Acquire the actual 941×1672 owner-approved golden image file for numerically registered scoring; Safari screenshots at different viewport aspect are diagnostic references only.
+- [ ] Defer typography edits until the original reference and iPhone capture are aligned; V15 traced-lettering and golden-core remain rejected.

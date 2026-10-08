@@ -85,13 +85,19 @@ async function canonicalImage(filePath, crop) {
   const metadata = await source.metadata();
   if (!metadata.width || !metadata.height) throw new Error(`Cannot read dimensions for ${filePath}`);
   const extract = cropPixels(crop, metadata.width, metadata.height);
+  // Never silently stretch a Safari viewport into the canonical golden plate.
+  // A mismatched aspect ratio invalidates fidelity scores, even if resampled.
+  const aspectErrorPct = ((extract.width / extract.height) / (width / height) - 1) * 100;
+  if (Math.abs(aspectErrorPct) > 1 && args["allow-aspect-mismatch"] !== "1") {
+    throw new Error(`Noncanonical crop for ${filePath}: ${extract.width}x${extract.height} (${aspectErrorPct.toFixed(2)}% aspect error). Crop the stage viewport precisely or pass --allow-aspect-mismatch 1 for DIAGNOSTICS ONLY.`);
+  }
   const { data, info } = await source
     .extract(extract)
     .resize(width, height, { fit: "fill", kernel: sharp.kernel.lanczos3 })
     .removeAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  return { data, info, metadata, extract };
+  return { data, info, metadata, extract, aspectErrorPct };
 }
 
 function srgbToLinear(value) {
@@ -499,6 +505,56 @@ await sharp(golden.data, { raw: { width, height, channels: 3 } })
   .png()
   .toFile(path.join(outDir, "golden-canonical.png"));
 
+// Critical diagnostic artifacts: original-coordinate edges, color difference
+// heatmap, and separately labeled region crops. No homography or camera warp.
+const fullBounds = { x0: 0, y0: 0, x1: width, y1: height, rw: width, rh: height };
+const currentEdges = makeEdgeMap(current.data, fullBounds).edges;
+const goldenEdges = makeEdgeMap(golden.data, fullBounds).edges;
+const edgeOverlay = Buffer.alloc(width * height * 3);
+const heatmap = Buffer.alloc(width * height * 3);
+for (let pixel = 0; pixel < width * height; pixel += 1) {
+  const idx = pixel * 3;
+  const a = currentEdges[pixel] === 1;
+  const b = goldenEdges[pixel] === 1;
+  if (a && b) {
+    edgeOverlay[idx] = 255; edgeOverlay[idx + 1] = 255; edgeOverlay[idx + 2] = 255;
+  } else if (a) {
+    edgeOverlay[idx] = 30; edgeOverlay[idx + 1] = 220; edgeOverlay[idx + 2] = 255;
+  } else if (b) {
+    edgeOverlay[idx] = 255; edgeOverlay[idx + 1] = 40; edgeOverlay[idx + 2] = 195;
+  } else {
+    edgeOverlay[idx] = Math.round(current.data[idx] * 0.22);
+    edgeOverlay[idx + 1] = Math.round(current.data[idx + 1] * 0.22);
+    edgeOverlay[idx + 2] = Math.round(current.data[idx + 2] * 0.22);
+  }
+  const error = (diff[idx] + diff[idx + 1] + diff[idx + 2]) / 3;
+  const intensity = Math.min(1, error / 110);
+  heatmap[idx] = Math.round(255 * intensity);
+  heatmap[idx + 1] = Math.round(205 * Math.max(0, 1 - Math.abs(intensity - 0.5) * 2));
+  heatmap[idx + 2] = Math.round(180 * (1 - intensity));
+}
+await sharp(edgeOverlay, { raw: { width, height, channels: 3 } })
+  .png().toFile(path.join(outDir, "canonical-edge-overlay.png"));
+await sharp(heatmap, { raw: { width, height, channels: 3 } })
+  .png().toFile(path.join(outDir, "absolute-difference-heatmap.png"));
+
+const cropsDir = path.join(outDir, "regions");
+await fs.mkdir(cropsDir, { recursive: true });
+for (const region of REGIONS) {
+  const [name] = region;
+  const { x0, y0, rw, rh } = regionBounds(region);
+  const roi = { left: x0, top: y0, width: rw, height: rh };
+  const dataInfo = { raw: { width, height, channels: 3 } };
+  await Promise.all([
+    sharp(current.data, dataInfo).extract(roi).png()
+      .toFile(path.join(cropsDir, `${name}-current.png`)),
+    sharp(golden.data, dataInfo).extract(roi).png()
+      .toFile(path.join(cropsDir, `${name}-golden.png`)),
+    sharp(overlay, dataInfo).extract(roi).png()
+      .toFile(path.join(cropsDir, `${name}-overlay.png`)),
+  ]);
+}
+
 const regions = REGIONS.map(region => statsForRegion(current.data, golden.data, region));
 const categories = ["composition", "shape", "color", "lighting", "perceptual"];
 const categoryScores = Object.fromEntries(
@@ -517,19 +573,24 @@ const totalScore = round(
   2,
 );
 const criticalFloor = Math.min(...regions.map(region => region.scores.weighted));
+const registeredAspect = Math.abs(current.aspectErrorPct) <= 1 && Math.abs(golden.aspectErrorPct) <= 1;
 const acceptance = {
+  registeredAspect,
+  // Diagnostic-only renders may display raw differences but cannot PASS.
+  aspectMismatchDiagnosticOnly: !registeredAspect,
   targetWeightedScore: 95,
   targetCriticalRegionFloor: 90,
   ownerVisualAcceptanceRequired: true,
   weightedScore: totalScore,
   criticalRegionFloor: round(criticalFloor, 2),
-  passesNumericGate: totalScore >= 95 && criticalFloor >= 90,
+  passesNumericGate: registeredAspect && totalScore >= 95 && criticalFloor >= 90,
 };
 
 const result = {
   generatedAt: new Date().toISOString(),
-  current: { path: currentPath, crop: currentCrop, source: current.metadata, extract: current.extract },
-  golden: { path: goldenPath, crop: goldenCrop, source: golden.metadata, extract: golden.extract },
+  current: { path: currentPath, crop: currentCrop, source: current.metadata, extract: current.extract, aspectErrorPct: round(current.aspectErrorPct) },
+  golden: { path: goldenPath, crop: goldenCrop, source: golden.metadata, extract: golden.extract, aspectErrorPct: round(golden.aspectErrorPct) },
+  edgeOverlayLegend: { currentOnly: "cyan", goldenOnly: "magenta", shared: "white" },
   ignoreMasks: useDefaultMasks ? DEFAULT_IGNORE_MASKS : [],
   canonical: { width, height },
   categoryScores,

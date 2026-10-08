@@ -154,3 +154,11 @@ The score is a regression guard, not a replacement for owner review.
 7. Repeat until the numeric gate is reached, then ask for owner iPhone acceptance.
 
 This replaces the previous workflow of repeatedly changing global glow, purple wash, opacity or camera values without objective evidence.
+
+## V14 / Retina / diagnostic artifacts (2026-10-08)
+
+- Fixed the **compare-only** Retina regression: the first `ResizeObserver` callback formerly overrode DPR 2 with DPR 1; subsequent callbacks now retain the initial cap `min(devicePixelRatio, 2)`. Gameplay rendering remains unchanged.
+- Diff CLI now refuses stage crops whose aspect differs from the specified canonical 941:1672 ratio by more than 1%. This avoids presenting stretched iPhone screenshots as registered/accepted visual evidence.
+- `--allow-aspect-mismatch 1` permits exploratory screenshots at differing aspect ratios, but sets `aspectMismatchDiagnosticOnly: true` and forces `passesNumericGate: false`. Do not use such scores for golden acceptance.
+- Extra output: `canonical-edge-overlay.png` (cyan=current-only, magenta=golden-only, white=shared); `absolute-difference-heatmap.png`; `regions/<REGION>-current.png`, `-golden.png`, `-overlay.png` for all eleven named areas.
+- For true fidelity measurement, provide the owner-approved **stage-only** original 941×1672 and a screenshot captured from the exact comparison viewport. The owner-shared 864×1536 Safari image is a useful visual reference, **not** a registered golden-stage source.
