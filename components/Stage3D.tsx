@@ -13,15 +13,105 @@ import {
   resolveStageCatalogEntry,
 } from "./stage/stage-catalog";
 import { createStageEnvironment } from "./stage/stage-runtime";
-import { getStagePresentationCameraPose } from "./stage/stageCamera";
+import { getStagePresentationCameraPose, type StageCameraPose } from "./stage/stageCamera";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
+const MOBILE_NEON_DPR_CAP = 1.25;
+const NEON_CHARACTER_STAGE_Z_OFFSET = 2.0;
 const DESKTOP_DPR_CAP = 1.6;
+const STAGE_VISUAL_COMPARE_SONG_TIME_MS = 12_000;
+const NEON_GOLDEN_COMPARE_WIDTH = 941;
+const NEON_GOLDEN_COMPARE_HEIGHT = 1672;
+const NEON_GOLDEN_COMPARE_HORIZONTAL_FOV_SCALE = 1.145;
 
-function getStagePixelRatio() {
-  const mobileProfile = window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
-  return Math.min(window.devicePixelRatio || 1, mobileProfile ? MOBILE_DPR_CAP : DESKTOP_DPR_CAP);
+function isMobileStageProfile() {
+  return window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 768;
+}
+
+function getStagePixelRatio(neonPresentation: boolean) {
+  const mobileProfile = isMobileStageProfile();
+  const cap = mobileProfile
+    ? (neonPresentation ? MOBILE_NEON_DPR_CAP : MOBILE_DPR_CAP)
+    : DESKTOP_DPR_CAP;
+  return Math.min(window.devicePixelRatio || 1, cap);
+}
+
+function getNeonGameplayCameraFrame(frame: ReturnType<typeof getCharacterCameraFrame>, portrait: boolean) {
+  if (!portrait) return frame;
+  return {
+    ...frame,
+    fov: Math.max(41, frame.fov + 3),
+    y: frame.y + 0.68,
+    z: frame.z + 6.8,
+    targetY: frame.targetY + 0.20,
+  };
+}
+
+function getNeonPresentationPose(
+  pose: StageCameraPose,
+  neonPresentation: boolean,
+  portrait: boolean,
+): StageCameraPose {
+  if (!neonPresentation || !portrait || pose.preset !== "gameplay_portrait_locked") return pose;
+  return {
+    ...pose,
+    fov: Math.max(41, pose.fov + 3),
+    y: pose.y + 0.68,
+    z: pose.z + 6.8,
+    targetY: pose.targetY + 0.20,
+  };
+}
+
+function getNeonGoldenComparePose(pose: StageCameraPose): StageCameraPose {
+  if (pose.preset !== "gameplay_portrait_locked") return pose;
+  return {
+    ...pose,
+    // Registered from the owner's 2026-10-05 compare capture against the
+    // accepted golden plate. The runtime stage needed an isotropic ~4.6%
+    // reduction plus an ~30 px upward shift at canonical portrait size.
+    // Dolly back for scale and lower the look target for the vertical shift;
+    // keep this comparison-only until the owner accepts the composition.
+    z: 26.0,
+    targetY: 1.86,
+  };
+}
+
+function applyNeonCharacterFill(root: THREE.Object3D) {
+  const cloned = new Map<string, THREE.MeshStandardMaterial>();
+
+  root.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+
+    const sources = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const next = sources.map(source => {
+      if (!(source instanceof THREE.MeshStandardMaterial)) return source;
+
+      const cached = cloned.get(source.uuid);
+      if (cached) return cached;
+
+      const material = source.clone();
+      if (material.map) {
+        // Reuse the albedo texture as a very soft self-fill so skin, hair and
+        // clothes keep their authored colors instead of receiving white emissive.
+        material.emissive.setHex(0xffffff);
+        material.emissiveMap = material.map;
+        material.emissiveIntensity = 0.185;
+      } else {
+        material.emissive.copy(material.color);
+        material.emissiveIntensity = Math.min(
+          0.10,
+          Math.max(material.emissiveIntensity, 0.065),
+        );
+      }
+      material.needsUpdate = true;
+      cloned.set(source.uuid, material);
+      return material;
+    });
+
+    mesh.material = Array.isArray(mesh.material) ? next : next[0];
+  });
 }
 
 type Stage3DProps = {
@@ -31,6 +121,9 @@ type Stage3DProps = {
   getSongTimeMs?: () => number;
   bpm?: number;
   selectedStageId?: string | null;
+  visualCompareMode?: boolean;
+  hideCharacter?: boolean;
+  fixedPresentationTimeSeconds?: number;
 };
 
 export default function Stage3D({
@@ -40,9 +133,13 @@ export default function Stage3D({
   getSongTimeMs,
   bpm = 110,
   selectedStageId = DEFAULT_STAGE_ID,
+  visualCompareMode = false,
+  hideCharacter = false,
+  fixedPresentationTimeSeconds,
 }: Stage3DProps) {
   const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
+  const neonPresentation = stageEntry.presentationProfileId === "neon-stage-v1";
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
@@ -67,8 +164,8 @@ export default function Stage3D({
     if (!host) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1b2d49);
-    scene.fog = new THREE.FogExp2(0x6b7f9f, 0.01);
+    scene.background = new THREE.Color(neonPresentation ? 0x020517 : 0x1b2d49);
+    scene.fog = neonPresentation ? null : new THREE.FogExp2(0x6b7f9f, 0.01);
 
     const initialCameraFrame = getCharacterCameraFrame("center", false);
     const camera = new THREE.PerspectiveCamera(initialCameraFrame.fov, 16 / 9, 0.1, 100);
@@ -80,38 +177,61 @@ export default function Stage3D({
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2");
     if (!context) return;
-    const renderer = new THREE.WebGLRenderer({ canvas, context, antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(getStagePixelRatio());
+    const mobileRenderProfile = isMobileStageProfile();
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      context,
+      antialias: true,
+      powerPreference: "high-performance",
+    });
+    // Compare captures must be sharp enough for edge/halo QA on Retina iPhones.
+    // Backing resolution changes only; CSS viewport, FOV and camera anchors
+    // remain unchanged. Gameplay retains its existing mobile DPR cap.
+    const comparePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    renderer.setPixelRatio(
+      visualCompareMode ? comparePixelRatio : getStagePixelRatio(neonPresentation),
+    );
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.28;
+    renderer.toneMappingExposure = neonPresentation ? 1.22 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
 
     const stage = new THREE.Group();
     scene.add(stage);
-    scene.add(new THREE.HemisphereLight(0xdceeff, 0x737b9c, 2.2));
 
-    const key = new THREE.DirectionalLight(0xfff3ff, 3.0);
-    key.position.set(2, 8, 8);
+    scene.add(new THREE.HemisphereLight(
+      neonPresentation ? 0x8f7add : 0xdceeff,
+      neonPresentation ? 0x360845 : 0x737b9c,
+      neonPresentation ? 0.64 : 2.2,
+    ));
+
+    const key = new THREE.DirectionalLight(
+      neonPresentation ? 0xeee3ff : 0xfff3ff,
+      neonPresentation ? 0.98 : 3.0,
+    );
+    key.position.set(-2.5, 8, 8);
     scene.add(key);
 
-    const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
-    coolFill.position.set(-4, 5, 7);
-    scene.add(coolFill);
+    if (neonPresentation) {
+      const magentaRim = new THREE.DirectionalLight(0xff2fcb, 0.60);
+      magentaRim.position.set(5, 5, -2);
+      scene.add(magentaRim);
+    } else {
+      const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
+      coolFill.position.set(-4, 5, 7);
+      scene.add(coolFill);
 
-    const warmRim = new THREE.DirectionalLight(0xffb2dd, 0.75);
-    warmRim.position.set(4, 4, -3);
-    scene.add(warmRim);
+      const warmRim = new THREE.DirectionalLight(0xffb2dd, 0.75);
+      warmRim.position.set(4, 4, -3);
+      scene.add(warmRim);
+    }
 
-    // One static key accent is enough for the placeholder stage. The cyan and
-    // violet accents remain in emissive/basic materials without adding lights
-    // to every MeshStandardMaterial shader or mutating intensities per frame.
     const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
     accent.position.set(0, 8, 4.5);
     accent.target.position.set(0, 1.8, 0);
-    scene.add(accent, accent.target);
+    if (!neonPresentation) scene.add(accent, accent.target);
 
     const wall = new THREE.Mesh(new THREE.BoxGeometry(19, 8.5, 0.6), new THREE.MeshStandardMaterial({ color: 0x0c0b1c, roughness: .88, metalness: .15 }));
     wall.position.set(0, 4.2, -3.2);
@@ -181,6 +301,7 @@ export default function Stage3D({
       host.dataset.stageSource = result.stageId;
       host.dataset.stageEmbeddedAnimations = String(result.embeddedAnimations);
       host.dataset.stageMetrics = JSON.stringify(result);
+      host.dataset.visualCompareReady = "1";
     }).catch(error => {
       if (disposed) return;
       host.dataset.stageSource = "placeholder";
@@ -195,27 +316,36 @@ export default function Stage3D({
       selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
     }
 
-    const character = CharacterActor.fromAssetId(selectedCharacter.characterAssetId);
-    characterRef.current = character;
-    character.setGameActive(isPlayingRef.current);
-    character.root.position.set(
-      CHARACTER_STAGE_POSITION.x,
-      CHARACTER_STAGE_POSITION.y,
-      CHARACTER_STAGE_POSITION.z,
-    );
-    stage.add(character.root);
-    host.dataset.characterAssetId = selectedCharacter.characterAssetId;
-    host.dataset.characterProfileVersion = String(selectedCharacter.version);
-    host.dataset.characterSource = "loading";
-    void character.load().then((result) => {
-      if (!result || disposed) return;
-      host.dataset.characterSource = result.source;
-      host.dataset.characterIdle = result.idleClip ?? "static";
-      host.dataset.characterMetrics = JSON.stringify(result.metrics);
-      if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
-    });
+    let character: CharacterActor | null = null;
+    if (!hideCharacter) {
+      character = CharacterActor.fromAssetId(selectedCharacter.characterAssetId);
+      characterRef.current = character;
+      character.setGameActive(isPlayingRef.current);
+      character.root.position.set(
+        CHARACTER_STAGE_POSITION.x,
+        CHARACTER_STAGE_POSITION.y,
+        CHARACTER_STAGE_POSITION.z + (neonPresentation ? NEON_CHARACTER_STAGE_Z_OFFSET : 0),
+      );
+      stage.add(character.root);
+      host.dataset.characterAssetId = selectedCharacter.characterAssetId;
+      host.dataset.characterProfileVersion = String(selectedCharacter.version);
+      host.dataset.characterSource = "loading";
+      void character.load().then((result) => {
+        if (!result || disposed || !character) return;
+        if (neonPresentation) applyNeonCharacterFill(character.root);
+        host.dataset.characterSource = result.source;
+        host.dataset.characterIdle = result.idleClip ?? "static";
+        host.dataset.characterMetrics = JSON.stringify(result.metrics);
+        if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
+      });
+    } else {
+      host.dataset.characterSource = "hidden";
+    }
 
-    const cameraTarget = (portrait: boolean) => getCharacterCameraFrame(cameraPresetRef.current, portrait);
+    const cameraTarget = (portrait: boolean) => {
+      const frame = getCharacterCameraFrame(cameraPresetRef.current, portrait);
+      return neonPresentation ? getNeonGameplayCameraFrame(frame, portrait) : frame;
+    };
 
     let hasSized = false;
     const resize = () => {
@@ -230,10 +360,22 @@ export default function Stage3D({
         camera.lookAt(cameraLookTarget);
         hasSized = true;
       }
-      camera.aspect = width / height;
+      const renderedAspect = width / height;
+      camera.aspect = visualCompareMode && neonPresentation
+        ? renderedAspect * NEON_GOLDEN_COMPARE_HORIZONTAL_FOV_SCALE
+        : renderedAspect;
       camera.updateProjectionMatrix();
-      renderer.setPixelRatio(getStagePixelRatio());
+      // Preserve compare-only Retina backing through all resize callbacks.
+      // The previous 1x override silently discarded the 2x initialization.
+      renderer.setPixelRatio(
+        visualCompareMode ? comparePixelRatio : getStagePixelRatio(neonPresentation),
+      );
       renderer.setSize(width, height, false);
+      if (visualCompareMode) {
+        host.dataset.visualCompareCanonicalWidth = String(NEON_GOLDEN_COMPARE_WIDTH);
+        host.dataset.visualCompareCanonicalHeight = String(NEON_GOLDEN_COMPARE_HEIGHT);
+        host.dataset.visualCompareAspect = String(NEON_GOLDEN_COMPARE_WIDTH / NEON_GOLDEN_COMPARE_HEIGHT);
+      }
     };
 
     const observer = new ResizeObserver(resize);
@@ -253,14 +395,24 @@ export default function Stage3D({
       if (disposed) return;
       if (document.hidden) return;
       const delta = Math.min(clock.getDelta(), .1);
-      const t = clock.elapsedTime;
-      const songTimeMs = getSongTimeMsRef.current?.() ?? 0;
-      const pose = getStagePresentationCameraPose(
+      const liveTime = clock.elapsedTime;
+      const t = Number.isFinite(fixedPresentationTimeSeconds)
+        ? Math.max(0, fixedPresentationTimeSeconds ?? 0)
+        : liveTime;
+      const songTimeMs = visualCompareMode
+        ? Math.max(STAGE_VISUAL_COMPARE_SONG_TIME_MS, t * 1000)
+        : (getSongTimeMsRef.current?.() ?? 0);
+      const portrait = host.clientHeight > host.clientWidth;
+      const basePose = getStagePresentationCameraPose(
         songTimeMs,
-        isPlayingRef.current,
-        host.clientHeight > host.clientWidth,
+        visualCompareMode ? false : isPlayingRef.current,
+        portrait,
         cameraPresetRef.current,
       );
+      const neonPose = getNeonPresentationPose(basePose, neonPresentation, portrait);
+      const pose = visualCompareMode && neonPresentation
+        ? getNeonGoldenComparePose(neonPose)
+        : neonPose;
       host.dataset.presentationCamera = pose.preset;
       const shotChanged = pose.preset !== lastPresentationCamera;
       const cutToIntroShot = shotChanged && pose.preset !== "gameplay_portrait_locked";
@@ -272,7 +424,9 @@ export default function Stage3D({
       // continuous camera rail through stage geometry. Snap at intro-shot
       // boundaries, then keep the subtle motion inside each shot. Blend only
       // when returning to the locked gameplay camera.
-      if (cutToIntroShot) {
+      if (visualCompareMode || cutToIntroShot) {
+        // Visual comparison must be bit-stable: never depend on how many RAFs
+        // elapsed before the screenshot was taken.
         camera.position.set(pose.x, pose.y, pose.z);
         camera.fov = pose.fov;
         cameraLookTarget.set(pose.targetX, pose.targetY, pose.targetZ);
@@ -288,7 +442,7 @@ export default function Stage3D({
       lastPresentationCamera = pose.preset;
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
-      character.update(delta, t, songTimeMs);
+      character?.update(delta, t, songTimeMs);
       if (stageEnvironment.root.visible) {
         stageEnvironment.setPresentationCamera(pose.preset);
         stageEnvironment.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
@@ -315,15 +469,15 @@ export default function Stage3D({
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       observer.disconnect();
-      character.dispose();
+      character?.dispose();
       stageEnvironment.dispose();
-      if (characterRef.current === character) characterRef.current = null;
+      if (character && characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry]);
+  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds]);
 
   return (
     <div
@@ -332,6 +486,7 @@ export default function Stage3D({
       data-camera-preset={cameraPreset}
       data-selected-stage-id={selectedStageId ?? DEFAULT_STAGE_ID}
       data-stage-catalog-id={selectedStageEntry.id}
+      data-visual-compare-mode={visualCompareMode ? "1" : "0"}
       data-stage-environment-kind={selectedStageEntry.kind}
       data-stage-catalog-status={selectedStageEntry.status}
       data-stage-selectable={String(selectedStageEntry.selectable)}

@@ -1,5 +1,6 @@
 import type { Group } from "three";
 import { BrightStageV1Environment } from "./BrightStageV1Environment";
+import { NeonStageV1Environment } from "./NeonStageV1Environment";
 import { PerformanceStageV1Environment } from "./PerformanceStageV1Environment";
 import { StageV3Environment } from "./StageV3Environment";
 import type { RunnableStageCatalogEntry } from "./stage-catalog";
@@ -40,6 +41,17 @@ export function createStageEnvironment(entry: RunnableStageCatalogEntry): StageE
   switch (entry.presentationProfileId) {
     case "bright-stage-v1": {
       const environment = new BrightStageV1Environment();
+      return {
+        root: environment.root,
+        load: () => verifyCatalogRuntime(entry, () => environment.load()),
+        update: (renderTimeSeconds, songTimeMs, bpm, isPlaying) =>
+          environment.update(renderTimeSeconds, songTimeMs, bpm, isPlaying),
+        setPresentationCamera: preset => environment.setPresentationCamera(preset),
+        dispose: () => environment.dispose(),
+      };
+    }
+    case "neon-stage-v1": {
+      const environment = new NeonStageV1Environment();
       return {
         root: environment.root,
         load: () => verifyCatalogRuntime(entry, () => environment.load()),

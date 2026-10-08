@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="844" viewBox="0 0 2048 844">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#030016"/>
+    <stop offset=".19" stop-color="#08002e"/>
+    <stop offset=".50" stop-color="#25006b"/>
+    <stop offset=".72" stop-color="#390049"/>
+    <stop offset="1" stop-color="#04001c"/>
+  </linearGradient>
+  <radialGradient id="center" cx="50%" cy="48%" r="48%">
+    <stop offset="0" stop-color="#c400ff" stop-opacity=".48"/>
+    <stop offset=".20" stop-color="#8a00ff" stop-opacity=".34"/>
+    <stop offset=".48" stop-color="#4b00cc" stop-opacity=".18"/>
+    <stop offset=".78" stop-color="#19007a" stop-opacity=".08"/>
+    <stop offset="1" stop-color="#07051d" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="topGlow" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#2b17e5" stop-opacity=".48"/>
+    <stop offset=".50" stop-color="#6d00d7" stop-opacity=".16"/>
+    <stop offset="1" stop-color="#000" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="vignette" cx="50%" cy="50%" r="76%">
+    <stop offset=".42" stop-color="#000" stop-opacity="0"/>
+    <stop offset=".78" stop-color="#02000d" stop-opacity=".10"/>
+    <stop offset="1" stop-color="#010008" stop-opacity=".56"/>
+  </radialGradient>
+  <pattern id="pixels" width="22" height="22" patternUnits="userSpaceOnUse">
+    <circle cx="4" cy="4" r="1.35" fill="#c13cff" opacity=".31"/>
+  </pattern>
+  <filter id="glowPink" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="13" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="glowCyan" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="11" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="logoGlow" x="-40%" y="-80%" width="180%" height="260%">
+    <feGaussianBlur stdDeviation="4.0" result="b"/>
+    <feFlood flood-color="#ff00c8" flood-opacity=".94" result="c"/>
+    <feComposite in="c" in2="b" operator="in" result="g"/>
+    <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <linearGradient id="crownGold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#ffd94d"/>
+    <stop offset=".34" stop-color="#ffc62e"/>
+    <stop offset=".72" stop-color="#ee9b09"/>
+    <stop offset="1" stop-color="#c56d05"/>
+  </linearGradient>
+  <filter id="crownGlow" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="4.2" result="blur"/>
+    <feFlood flood-color="#ffb70e" flood-opacity=".18" result="gold"/>
+    <feComposite in="gold" in2="blur" operator="in" result="glow"/>
+    <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+</defs>
+
+<rect width="2048" height="844" fill="url(#bg)"/>
+<rect width="2048" height="844" fill="url(#topGlow)"/>
+<rect width="2048" height="844" fill="url(#center)"/>
+<rect width="2048" height="844" fill="url(#pixels)" opacity=".24"/>
+
+<!-- mirrored concept rails: narrow neon architecture with dark gaps -->
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="74,80 250,422 74,764" stroke="#ff00c8" stroke-width="34" opacity=".72" filter="url(#glowPink)"/>
+  <polyline points="74,80 250,422 74,764" stroke="#ffd8fb" stroke-width="12"/>
+  <polyline points="175,78 354,422 175,766" stroke="#ff00d4" stroke-width="25" opacity=".84" filter="url(#glowPink)"/>
+  <polyline points="175,78 354,422 175,766" stroke="#fff0ff" stroke-width="6"/>
+  <polyline points="302,66 474,422 302,778" stroke="#00dcff" stroke-width="28" opacity=".88" filter="url(#glowCyan)"/>
+  <polyline points="302,66 474,422 302,778" stroke="#e4ffff" stroke-width="6"/>
+  <polyline points="443,102 590,422 443,742" stroke="#8f28ff" stroke-width="19" opacity=".84" filter="url(#glowPink)"/>
+  <polyline points="443,102 590,422 443,742" stroke="#eee0ff" stroke-width="4"/>
+
+  <polyline points="1974,80 1798,422 1974,764" stroke="#ff00c8" stroke-width="34" opacity=".72" filter="url(#glowPink)"/>
+  <polyline points="1974,80 1798,422 1974,764" stroke="#ffd8fb" stroke-width="12"/>
+  <polyline points="1873,78 1694,422 1873,766" stroke="#ff00d4" stroke-width="25" opacity=".84" filter="url(#glowPink)"/>
+  <polyline points="1873,78 1694,422 1873,766" stroke="#fff0ff" stroke-width="6"/>
+  <polyline points="1746,66 1574,422 1746,778" stroke="#00dcff" stroke-width="28" opacity=".88" filter="url(#glowCyan)"/>
+  <polyline points="1746,66 1574,422 1746,778" stroke="#e4ffff" stroke-width="6"/>
+  <polyline points="1605,102 1458,422 1605,742" stroke="#8f28ff" stroke-width="19" opacity=".84" filter="url(#glowPink)"/>
+  <polyline points="1605,102 1458,422 1605,742" stroke="#eee0ff" stroke-width="4"/>
+</g>
+
+<!-- E23 compare-only: crown raised 14 SVG units relative to LED art; original E22 untouched. -->
+<!-- E21 compare-only: preserve V16 lettering; lower and slightly compact crown vertically to clear upper stage frame.\n     Source V16 remains immutable.\n     Original V16 experiment: only typography/crown proportions change.
+     No traced raster contours or layered master-wordmark compositing. -->
+<g transform="translate(1024 169) scale(1.22 0.93)" filter="url(#crownGlow)">
+  <path
+    d="M-108 48 L-126 -26 L-79 7 L-55 -50 L-24 -5 L0 -88 L25 -5 L56 -50 L80 7 L127 -26 L108 48 Z"
+    fill="url(#crownGold)"
+    stroke="#ffd85b"
+    stroke-width="2.2"
+    stroke-linejoin="round"
+  />
+  <circle cx="-126" cy="-26" r="5.5" fill="#ffca2d"/>
+  <circle cx="-55" cy="-50" r="5.5" fill="#ffca2d"/>
+  <circle cx="0" cy="-88" r="6.5" fill="#ffdf69"/>
+  <circle cx="56" cy="-50" r="5.5" fill="#ffca2d"/>
+  <circle cx="127" cy="-26" r="5.5" fill="#ffca2d"/>
+  <rect x="-106" y="55" width="212" height="15" rx="4" fill="#eba714"/>
+  <rect x="-95" y="58" width="190" height="4" rx="2" fill="#ffd65a" opacity=".58"/>
+</g>
+
+<!-- AUDITION: outline-only, concept-like hot white/pink inner line -->
+<g transform="translate(1024 0) scale(1.00 1.0) translate(-1024 0)" font-family="Arial Black,Arial,Helvetica,sans-serif" font-style="italic" font-weight="900" text-anchor="middle">
+  <text x="1024" y="478" font-size="274" fill="none" stroke="#ff00c8" stroke-width="33" opacity=".88" filter="url(#logoGlow)">AUDITION</text>
+  <text x="1024" y="478" font-size="274" fill="none" stroke="#ff18d6" stroke-width="19">AUDITION</text>
+  <text x="1024" y="478" font-size="274" fill="none" stroke="#ffffff" stroke-width="10.5">AUDITION</text>
+</g>
+
+<text x="1024" y="596" text-anchor="middle"
+      font-family="Arial,Helvetica,sans-serif" font-size="54" font-weight="700"
+      letter-spacing="19" fill="#ffffff">DANCE TOGETHER</text>
+
+<!-- E22: omit redundant magenta divider at base of the physical LED. -->
+<rect width="2048" height="844" fill="url(#vignette)"/>
+</svg>
