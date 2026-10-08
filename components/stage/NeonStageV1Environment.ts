@@ -109,7 +109,8 @@ const ARTWORK_E28_ASSET_URL =
 // Owner rejected the V15 golden-core and traced-lettering experiments.
 // V14 is the default, compare-only working baseline, including deprecated V15 URLs.
 // Explicit ?ledAsset=legacy preserves the low-resolution WebP control.
-// Non-compare gameplay continues to use the existing WebP asset unchanged.
+// Other stages keep Bright Stage as default. Direct Neon runtime now uses
+// the owner-accepted E29 SVG; compare routes retain all historical controls.
 function useHiResLedCompare() {
   if (typeof window === "undefined") return false;
   if (window.location.pathname !== "/tools/neon-stage-compare") return false;
@@ -220,6 +221,15 @@ function usePhysicalFloorBalanceE29Compare() {
   return typeof window !== "undefined"
     && window.location.pathname === "/tools/neon-stage-compare"
     && new URLSearchParams(window.location.search).get("stageFx") === "physical-floor-balance-e29";
+}
+
+// Owner accepted E29 on iPhone for S2.5A visual fidelity. When this
+// NeonStageV1Environment is requested outside the isolated compare route,
+// present the same E29 appearance for direct Neon runtime QA. The catalog
+// still keeps Bright Stage default/selectable; this doesn't enable S3.
+function useAcceptedNeonE29RuntimePresentation() {
+  return typeof window !== "undefined"
+    && window.location.pathname !== "/tools/neon-stage-compare";
 }
 
 function getE28FloorDiagnostic() {
@@ -1887,14 +1897,15 @@ function makeAcceptedFloorGridTexture() {
 }
 
 function makeAcceptedBackdropGlowTexture() {
-  const hiResCompare = useHiResLedCompare();
+  const hiResCompare = useHiResLedCompare() || useAcceptedNeonE29RuntimePresentation();
   const typographyV16Compare = useTypographyV16LedCompare();
   const physicalRepairE21 = usePhysicalRepairE21Compare();
   const physicalFidelityE22 = usePhysicalFidelityE22Compare();
   const physicalAlignmentE23 = usePhysicalAlignmentE23Compare();
   const physicalExtensionE24 = usePhysicalExtensionE24Compare();
   const physicalGlossE28 = usePhysicalGlossE28Compare();
-  const physicalFloorBalanceE29 = usePhysicalFloorBalanceE29Compare();
+  const physicalFloorBalanceE29 =
+    usePhysicalFloorBalanceE29Compare() || useAcceptedNeonE29RuntimePresentation();
   const physicalCleanupE27 = usePhysicalCleanupE27Compare();
   const texture = new THREE.TextureLoader().load(
     physicalFloorBalanceE29 ? ARTWORK_E28_ASSET_URL
@@ -2353,7 +2364,8 @@ export class NeonStageV1Environment {
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
   private readonly integratedStageFx = useIntegratedStageFxCompare();
-  private readonly physicalFloorBalanceE29 = usePhysicalFloorBalanceE29Compare();
+  private readonly physicalFloorBalanceE29 =
+    usePhysicalFloorBalanceE29Compare() || useAcceptedNeonE29RuntimePresentation();
   private readonly physicalGlossE28 = usePhysicalGlossE28Compare();
   private readonly e28FloorDiagnostic = getE28FloorDiagnostic();
   private readonly physicalCleanupE27 = usePhysicalCleanupE27Compare()
