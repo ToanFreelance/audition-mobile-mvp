@@ -215,6 +215,13 @@ function usePhysicalGlossE28Compare() {
     && new URLSearchParams(window.location.search).get("stageFx") === "physical-gloss-e28";
 }
 
+// E29 fixes the rejected E28 floor color wash. Keep E28 and E27 as independent controls.
+function usePhysicalFloorBalanceE29Compare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageFx") === "physical-floor-balance-e29";
+}
+
 function getE28FloorDiagnostic() {
   if (!usePhysicalGlossE28Compare()) return null;
   const value = new URLSearchParams(window.location.search).get("floorDebug");
@@ -1663,6 +1670,55 @@ function makeE28ContinuousPolishedFloorMaterial(
   return material;
 }
 
+// E29: E28's fixed four-sample wallEnergy/diffuseGloss painted saturated
+// magenta over every floor pixel. DO NOT build on that shader. Restore the
+// accepted E27 ray-registered rough reflection, cool the floor's low-frequency
+// substrate, and keep only LOCAL fixture/specular highlights. No additional
+// floor layers, purple wash, or horizontally sampled LED image bands.
+function makeE29BalancedDarkGlossFloorMaterial(
+  localTexture: THREE.Texture,
+  ledTexture: THREE.Texture,
+  bounds: THREE.Box3,
+  ringCenter: THREE.Vector2,
+  ringRadius: number,
+  fixtureLeft: THREE.Vector2,
+  fixtureRight: THREE.Vector2,
+) {
+  const material = makeE27GlossyContinuousFloorMaterial(
+    localTexture, ledTexture, bounds, ringCenter, ringRadius,
+    fixtureLeft, fixtureRight,
+  );
+  material.name = "NeonE29BalancedDarkGlossFloor";
+  const revisions: Array<[string, string]> = [
+    // Preserve dark navy tiles instead of a uniform purple substrate.
+    ["vec3(0.028, 0.019, 0.045)", "vec3(0.016, 0.018, 0.030)"],
+    ["vec3(0.029, 0.020, 0.046)", "vec3(0.018, 0.020, 0.033)"],
+    ["vec3 uniformBounce = vec3(0.014, 0.009, 0.023)",
+     "vec3 uniformBounce = vec3(0.005, 0.007, 0.011)"],
+    // Stronger local lamp reflections, NOT uniform LED-colored illumination.
+    ["vec3 reflectedPools = localPools.rgb * localPools.a * 1.31;",
+     "vec3 reflectedPools = localPools.rgb * localPools.a * 1.43;"],
+    // Retain the rough mirrored artwork but prevent a readable text band.
+    ["* mix(0.61, 0.41, dancerZone) * 0.96;",
+     "* mix(0.57, 0.40, dancerZone) * 0.93;"],
+    ["gl_FragColor = vec4(color, 0.90);",
+     "gl_FragColor = vec4(color, 0.87);"],
+  ];
+  for (const [before, after] of revisions) {
+    if (!material.fragmentShader.includes(before)) {
+      throw new Error("E29 floor shader source changed: " + before);
+    }
+    material.fragmentShader = material.fragmentShader.replace(before, after);
+  }
+  // Guard against the rejected E28 full-floor violet contamination.
+  if (material.fragmentShader.includes("diffuseGloss")
+    || material.fragmentShader.includes("wallEnergy")) {
+    throw new Error("Rejected E28 wall-color wash leaked into E29.");
+  }
+  material.needsUpdate = true;
+  return material;
+}
+
 // E22 swivelling architectural lower fixture. Unlike the E20 box-on-riser
 // mounts, the body has an axis pin, U-yoke, tilt barrel and inset glass lens.
 // All dimensions are derived from EACH real GLB fixture's bounds. Use only
@@ -1838,9 +1894,11 @@ function makeAcceptedBackdropGlowTexture() {
   const physicalAlignmentE23 = usePhysicalAlignmentE23Compare();
   const physicalExtensionE24 = usePhysicalExtensionE24Compare();
   const physicalGlossE28 = usePhysicalGlossE28Compare();
+  const physicalFloorBalanceE29 = usePhysicalFloorBalanceE29Compare();
   const physicalCleanupE27 = usePhysicalCleanupE27Compare();
   const texture = new THREE.TextureLoader().load(
-    physicalGlossE28 ? ARTWORK_E28_ASSET_URL
+    physicalFloorBalanceE29 ? ARTWORK_E28_ASSET_URL
+      : physicalGlossE28 ? ARTWORK_E28_ASSET_URL
       : physicalCleanupE27 ? ARTWORK_E27_ASSET_URL
       : physicalExtensionE24 ? BALANCED_E23_ASSET_URL
       : physicalAlignmentE23 ? BALANCED_E23_ASSET_URL
@@ -2295,10 +2353,11 @@ export class NeonStageV1Environment {
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
   private readonly integratedStageFx = useIntegratedStageFxCompare();
+  private readonly physicalFloorBalanceE29 = usePhysicalFloorBalanceE29Compare();
   private readonly physicalGlossE28 = usePhysicalGlossE28Compare();
   private readonly e28FloorDiagnostic = getE28FloorDiagnostic();
-  private readonly physicalCleanupE27 =
-    usePhysicalCleanupE27Compare() || this.physicalGlossE28;
+  private readonly physicalCleanupE27 = usePhysicalCleanupE27Compare()
+    || this.physicalGlossE28 || this.physicalFloorBalanceE29;
   private readonly physicalRegistrationE26 =
     usePhysicalRegistrationE26Compare() || this.physicalCleanupE27;
   private readonly physicalExtensionE25 =
@@ -3343,7 +3402,15 @@ export class NeonStageV1Environment {
     const leftFixture = lowerFixtureCenters[0] ?? new THREE.Vector3(-4.0, 0, -3.0);
     const rightFixture = lowerFixtureCenters[lowerFixtureCenters.length - 1]
       ?? new THREE.Vector3(4.0, 0, -3.0);
-    const reflectionMaterial = this.physicalGlossE28 && actualLedBounds && !actualLedBounds.isEmpty()
+    const reflectionMaterial = this.physicalFloorBalanceE29 && actualLedBounds && !actualLedBounds.isEmpty()
+      ? makeE29BalancedDarkGlossFloorMaterial(
+        floorReflectionTexture, backdropTexture, actualLedBounds,
+        new THREE.Vector2(ringCenter.x, ringCenter.z),
+        Math.max(ringSize.x, ringSize.z) * 0.45,
+        new THREE.Vector2(leftFixture.x, leftFixture.z),
+        new THREE.Vector2(rightFixture.x, rightFixture.z),
+      )
+      : this.physicalGlossE28 && actualLedBounds && !actualLedBounds.isEmpty()
       ? makeE28ContinuousPolishedFloorMaterial(
         floorReflectionTexture, backdropTexture, actualLedBounds,
         new THREE.Vector2(ringCenter.x, ringCenter.z),
