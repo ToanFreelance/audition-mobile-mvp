@@ -46,3 +46,12 @@ promotion to next visual phase without matching screenshot evidence.
 - [ ] Acquire matched iPhone screenshots from `?ledAsset=vector` and default compare.
 - [ ] Measure position/size/color/edge/detail region-by-region against golden sketch.
 - [ ] DO NOT promote vector to gameplay unless owner visually accepts design. SVG v14 is an earlier authored approximation, **not** the accepted golden screenshot.
+
+## 2026-10-08 — Golden master lettering fidelity A/B (isolated compare-only)
+- [x] Compare the approved 2048×844 golden source directly with its 448×185 WebP fallback.
+- [x] Trace the master image's actual AUDITION lettering/subtitle contours (no replacement font) into a transparent high-resolution SVG.
+- [x] Add `?ledAsset=golden-core` compare-only hybrid: original golden WebP illumination + native letter cores, ONE LED mesh/shader.
+- [x] Keep both previous baseline and `?ledAsset=vector` comparison intact; gameplay unchanged.
+- [ ] Owner screenshot A/B of baseline, vector and golden-core under same iPhone viewport.
+- [ ] Evaluate LED color/edge registration before any gameplay promotion.
+- [ ] Full 2048×844 raster upload still preferable for all-background high-frequency fidelity; this pass restores lettering/detail only.
