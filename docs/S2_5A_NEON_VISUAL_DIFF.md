@@ -221,3 +221,53 @@ specular response, still much darker/less structured than the concept.
 stage-side geometry, camera/view volume, and floor materials. Fix one
 source of mismatch per isolated A/B. Do not restore V17 feather/spill or
 add more color wash. Keep owner visual acceptance mandatory.
+
+
+## Owner iPhone E18 review (2026-10-08)
+
+Owner attached `IMG_3127.jpeg` (E18 compare, 710×1536) against the Safari-adapted
+golden screenshot (864×1536); V17 rejected screenshot (710×1536) provides
+the previous control. All references are **stage-only** after cropping
+Y=165..1398. The golden was center-cropped X=77..787 to 710 px at physical
+pixel scale. **No image stretching, camera adjustment or homography.**
+
+**Strictly diagnostic, NOT a registered fidelity or 95% acceptance score:**
+
+| Region (common crop) | E18 vs golden RGB MAE | V17 vs golden RGB MAE | E18 Y | Golden Y |
+|---|---:|---:|---:|---:|
+| LED wall/frame | 69.68 | 67.75 | 72.63 | 73.58 |
+| Crown | 66.15 | 60.63 | 105.22 | 121.42 |
+| Wordmark | 80.44 | 72.97 | 86.71 | 91.89 |
+| Dance ring | 93.75 | 91.28 | 32.62 | 73.16 |
+| Mid-floor | 72.45 | 70.72 | 16.33 | 50.86 |
+| Foreground floor | 42.50 | 42.03 | 5.98 | 27.13 |
+
+Y = mean Rec.709 gamma-weighted screenshot luminance (0..255), not a
+radiometrically linear measurement. Cropped images are not aligned to the
+original 941×1672 golden master, so absolute MAE is confounded by
+camera/composition shifts. Diagnostics were created from owner screenshots
+without nonuniform scaling.
+
+**Result: E18 visual FAIL / do not promote.** The glTF
+`CentralLED` now carries the shader, but it still uses the V14-style nested
+`artSize = (0.93628, 0.84691)` rectangular matte inside the physical
+LED. This repeats the poster-within-a-frame silhouette. The stage floor
+remains too dark despite the fixture-anchored lightmap; adding material
+metalness does not automatically reflect an emissive LED in a Three.js
+WebGL scene without an environment/reflection source.
+
+**E19 opt-in implementation:** compare-only
+`?ledAsset=typography-v16&stageFx=physical-reflection-e19`.
+The `CentralLED` physical mesh now samples V16 across the entire GLB
+surface (no nested matte). The existing floor reflection field uses a
+shader that projects the viewer's reflected direction into the actual
+CentralLED world bounds, with low-cost blurred taps, tile breakup and
+attenuation; the existing local fixture-anchored lightmap remains in use.
+No planar second scene render, FBO, new LED plane, V17 wall wash, gameplay
+change or unaccepted default-stage promotion. V16 and E18 remain exact
+query-selectable controls.
+
+**Pending:** Verify E19 shader compilation, actual 3D wall reflection
+placement, occluders and Mobile Safari FPS on owner iPhone screenshots.
+Next use same-device E18/E19 screenshot A/B; do not infer acceptance from
+Vercel build READY.
