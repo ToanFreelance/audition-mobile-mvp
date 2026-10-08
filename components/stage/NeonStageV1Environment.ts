@@ -110,12 +110,14 @@ function useTypographyV16LedCompare() {
     && new URLSearchParams(window.location.search).get("ledAsset") === "typography-v16";
 }
 
-// Owner review lane: physical wall integration + grounded reflections.
-// Explicit opt-in; never changes the gameplay stage or the V14/V16 baselines.
+// Owner REJECTED the integrated-v1 visual after direct iPhone comparison.
+// Old public review URLs must safely fall back to the untouched V14/V16 visual.
+// Preserve the previous shader/floor branch ONLY behind an explicitly marked
+// forensic route so the failed effect can still be reproduced if required.
 function useIntegratedStageFxCompare() {
   return typeof window !== "undefined"
     && window.location.pathname === "/tools/neon-stage-compare"
-    && new URLSearchParams(window.location.search).get("stageFx") === "integrated-v1";
+    && new URLSearchParams(window.location.search).get("stageFx") === "rejected-v17-diagnostic";
 }
 
 function disposeObject(root: THREE.Object3D) {

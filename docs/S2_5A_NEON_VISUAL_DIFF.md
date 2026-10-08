@@ -171,3 +171,53 @@ This replaces the previous workflow of repeatedly changing global glow, purple w
 - For canonical, stage-only golden scoring always pass `--mask-hud 0`; masked image comparisons cannot pass even with an approved golden reference.
 - `absolute-difference.png` is now *unamplified* literal RGB absolute difference. For boosted diagnosis, use `absolute-difference-heatmap.png`.
 - Preserve the original approved golden binary or explicitly re-approve and document any alternate encoding before updating its hash. iPhone visual acceptance remains a separate required gate.
+
+## 2026-10-08 — Owner rejection of V17 integrated wall / floor, measured overlay
+
+The owner's 13:04 iPhone screenshot (IMG_3125.jpeg) rejects the V17
+`stageFx=integrated-v1` option due to a pale/lavender rectangular overlay
+and inferior reflections. Owner's previously approved Safari comparison
+image is `3FD7BDA3-A8F0-47CD-9DCF-5E3C015111B6(2).jpeg`.
+
+**Review guard:** `?stageFx=integrated-v1` no longer selects the rejected
+V17 effects, and falls back to the unchanged V14/V16 base artwork. The
+rejected effect remains reproducible ONLY through the deliberately named
+`?stageFx=rejected-v17-diagnostic` route, never in gameplay.
+
+**Measurement method (no image registration cheating):**
+
+- Current screenshot: 710×1536; Safari golden screenshot: 864×1536.
+- Remove browser chrome at y=165..1398 on both. Center-crop golden from
+  x=77..787 to match current 710-pixel width at 1:1 physical screenshot
+  pixels. No warp, homography, nonuniform stretch or automatic fitting.
+- Because the screenshot widths differ and the crop loses side geometry,
+  all RGB/edge findings below are **diagnostic only**. Do not use them
+  for 95% numeric acceptance. The original approved 941×1672 stage-only
+  PNG is still the authoritative quantitative golden plate.
+
+**Observed comparison (approximate screen-pixel anchors):**
+
+- Overhead truss y≈365 in runtime versus y≈286 in Safari sketch
+  (≈79px downward difference).
+- Top LED edge y≈500 versus y≈450 (≈50px downward difference).
+- Riser lip y≈793 versus y≈808 (≈15px upward difference).
+- Ring center y≈925 versus y≈956 (≈31px upward difference).
+- These are geometry/camera/depth differences, **not** bloom problems.
+- Diagnostic average luminance (0..255) for center ring and mid-floor:
+  runtime 26.58 versus reference 73.09; for the foreground floor:
+  runtime 12.83 versus reference 42.51.
+- LED/frame region has RGB MAE ≈72.17, and the ring/mid-floor region ≈80.72,
+  but **neither value is a registered golden fidelity score**.
+
+**Shader root cause:** `makeAcceptedBackdropMaterial()` renders a
+foreground `R15AcceptedLedGlowOverlay` over a separate neutralized GLB
+`CentralLED`. V17 additionally mixed generated violet background with
+the artwork using a feathered rectangular UV mask and added wall bounce
+PointLights; their broad color field caused an unwanted apparent overlay.
+The floor used additive, prepainted canvas reflections without true
+specular response, still much darker/less structured than the concept.
+
+**Next controlled work:** inspect actual CentralLED mesh UVs, thickness,
+stage-side geometry, camera/view volume, and floor materials. Fix one
+source of mismatch per isolated A/B. Do not restore V17 feather/spill or
+add more color wash. Keep owner visual acceptance mandatory.

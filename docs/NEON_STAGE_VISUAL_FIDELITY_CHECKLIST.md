@@ -115,3 +115,13 @@ promotion to next visual phase without matching screenshot evidence.
 
 - [x] Preserve the bright pink/cyan chevron emitter pixels where the new dark-wall feather approaches the SVG boundaries; feather applies to dark backdrop, not the approved neon core shapes.
 - [ ] Confirm with identical-viewport iPhone captures that the LED edge no longer reads as a rectangular poster and that emitter lines remain sharp. This is compare-only, not a gameplay promotion or visual PASS.
+
+## 2026-10-08 — V17 rejected after iPhone vs Safari-golden overlay
+
+- [x] Receive owner iPhone V17 screenshot and compare against owner-approved Safari-sized concept.
+- [x] Generate center-cropped native-pixel 50/50 overlay, cyan/magenta edge overlay, RGB difference heatmap and region crops; unequal screenshot widths disallow strict registered scoring.
+- [x] Confirm the broad LED lavender mask and under-reflected floor regressed versus the golden reference; see `docs/S2_5A_NEON_VISUAL_DIFF.md`.
+- [x] Retire `stageFx=integrated-v1` from review (now baseline fallback). Preserve diagnostic reproduction only as `stageFx=rejected-v17-diagnostic`; no gameplay change.
+- [ ] Trace CentralLED GLB surface geometry and UV registration rather than further adding a second rectangular poster.
+- [ ] Align actual viewport/camera geometry to canonical golden before graded logo/floor comparisons.
+- [ ] Make next floor reflection approach match measured tile/ring/light geometry without additively stacking straight columns.
