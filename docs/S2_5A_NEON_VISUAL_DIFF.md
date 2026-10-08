@@ -687,3 +687,55 @@ Validation / owner acceptance:
   isolated `floorDebug` modes before making further changes; avoid
   blind masks or ungrounded paint-over.
 - Do NOT merge PR #17 without owner acceptance.
+
+
+## E29 — Owner rejected E28 full-floor violet wash (2026-10-08)
+
+Owner E28 Safari screenshot (19:55 local capture) shows an obvious
+**full-floor saturated violet layer**. E28 is REJECTED. The accepted
+working stage layout/backdrop remains E27; owner has not requested
+any change to its LED or lighting. Keep the smaller/fresher gold crown
+artwork introduced by E28.
+
+Compare-only preview:
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-floor-balance-e29`.
+E27 and E28 compare routes remain available without changes.
+
+### Root cause and fix
+
+- The E28 floor shader inherited E27's magenta-tinted continuousBase,
+  uniformBounce and local luminous fixture pools, **then added**
+  `wallEnergy` obtained from four magenta/cyan samples of the LED art.
+  `diffuseGloss = wallEnergy * 0.083 * ...` was accumulated across
+  **every** floor pixel, and E28 also raised final additive alpha to
+  `0.92`. This is a concrete shader-level source of extra violet
+  energy across the floor, not a demonstrated GLB material problem.
+- E29 deliberately builds directly on E27's proven reflection shader,
+  NOT on E28's raw LED-color diffuse wash. The E29 shader reduces and
+  neutralizes the uniform navy/violet floor base and low-frequency
+  bounce; local authored fixture light pools are slightly stronger,
+  while the LED reflection is still rough/attenuated and not fully
+  legible beneath dancers. Additive alpha is lowered from E27
+  `0.90` to `0.87`. It adds **no** new render plane, no screen-X LED
+  sampling, no new spotlights, and no WebGL render targets.
+- E29 selects `concept-led-artwork-e28.svg` unmodified to retain the
+  ~6% smaller, fresher-gold crown. All LED backdrop, logo,
+  chevrons, stage positions, risers, moving-head lighting, floor grid
+  and imported `PolishedDanceFloor` geometry remain E27-equivalent.
+- E28 diagnostic controls remain available on the rejected E28 route
+  if the isolated purple tile row still needs investigation later;
+  E29 does not change them.
+
+### Validation / risks
+
+- Inspect E29 on real iPhone Safari and compare against E27 and E28
+  using the identical viewport. Target: dark glossy continuous tiles,
+  localized softened cyan/magenta reflections, luminous ring, no
+  full-floor violet color wash, no E20 vertical stripe regression.
+- Vercel TypeScript/build READY is not proof of visual quality or
+  of realtime browser shader compilation. The physical/glossy tile
+  model may still show isolated brighter rows; debug separately if
+  visible and do not hide defects under a new overlay.
+- No changes to gameplay/WebAudio/gauge/Finish/sequenceCounts,
+  multiplayer RoomState, Stage Catalog, or integration branches.
+  Do NOT merge PR #17 without explicit owner approval.
