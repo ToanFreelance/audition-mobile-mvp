@@ -366,3 +366,57 @@ Actual validation required:
    unnatural vertical bands, and overall GPU performance.
 4. Vercel READY is not visual PASS; no integration or PR #17 merge without
    owner's acceptance.
+
+
+## E22 — owner iPhone refinement for lower wall / continuous floor / fixtures (2026-10-08)
+
+**Owner visual evidence:** `IMG_3133.jpeg` (E21 screenshot), plus owner-supplied
+reference crops of the under-LED **swivel uplight fixture** and truss beam
+cone. E21 is more favorable than E20 but NOT accepted: two horizontal
+magenta dividers below the LED, disjoint ring/foreground floor reflection,
+weak overhead volumetric shafts and boxy lower fixture supports.
+
+**E22 opt-in URL:**
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-fidelity-e22`.
+Keep E21 / E19 as immutable same-viewport controls. No gameplay promotion.
+
+### Code/asset changes
+
+- **LED lower bars:** E21 imported `concept-led-crown-clearance-e21.svg`
+  contains a horizontal lower magenta `rect` at y=736; `addE21LedRiserStructuralBridge`
+  also generated an emissive cove lip, so both lines were visible. A separate
+  `concept-led-clean-base-e22.svg` removes only the SVG divider, and E22
+  passes `noDecorativeLip` to remove only the extra cove lip. The E21
+  lower 3D infill stays opaque and physical; existing crown top clearance,
+  AUDITION lettering and geometry camera remain unchanged.
+- **Floor:** E22 derives from the known working E19 physical
+  LED-reflection material and replaces E21 ring-only emphasis with a
+  continuous, very low-frequency floor base. Two broad world-space
+  fixture-centered color lobes bridge ring→mid-floor→foreground. Reflected
+  logo samples are spread over 9 taps, blur increases near the ring,
+  rays leaving the wall edge fade exponentially rather than hard-cutting.
+  No X-sampled LED stripe field, screen-space overlay, added render target,
+  new reflection plane or E20 shader.
+- **Truss:** retain original 4 shadow-free stage spotlights; increase
+  cone widths, opacity and select 2 extra moving-head shafts ONLY for
+  E22. A third crossed plane increases volumetric beam visibility. The
+  optical source remains physically anchored to the GLB lens/pivot.
+- **Lower fixtures:** replace E20/E21 box-style mounting additions ONLY
+  in E22 with a stage-mounted swivel foot, circular turntable, yoke,
+  gimbal pins, angled head and inset optical face. Coordinates and scale
+  derive from each actual imported `DeckUplight`/`FloorUplight` mesh
+  bounds; the original GLB equipment is not deleted.
+
+### Validation and acceptance
+
+- Next.js compilation and TypeScript checked through Vercel build;
+  route remains /tools/neon-stage-compare.
+- Pending actual iPhone Safari E22 capture: verify removal of both
+  lower magenta lines, a continuous dark glossy reflection across ring
+  and foreground, wide directional beams resembling supplied crop,
+  stable realistic uplight mounting, camera and logo preservation.
+- Performance risk: 2 additional visual beam shafts (each with 3 crossed
+  planes), 4 inherited spotlights and extra small fixture geometry; no
+  shadows/new render targets. iPhone FPS measurement still required.
+- Deployment READY or numeric diagnostics do NOT imply visual acceptance.
+  Do not merge PR #17 or change gameplay/Stage Catalog.
