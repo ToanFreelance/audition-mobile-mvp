@@ -839,3 +839,50 @@ Compare the same track with `&stageMotion=off`.
 Golden still-image comparison remains the original E29 route.
 Vercel READY proves build/deploy, **not** runtime WebGL visual quality
 or mobile FPS. Keep PR #17 open; no merge without explicit approval.
+
+
+## N3 — Neon Stage stronger visible truss sweep / full-neon beat breath (2026-10-08)
+
+**Owner Safari feedback after N1/N2 runtime:** Truss heads move, but motion
+is too slow/subtle; neon breath is not perceptible. Requested faster,
+larger truss movement and a clearly visible breath across the neon
+without compromising E29 visual baseline.
+
+Implementation on `work/s2-5a-neon-stage-v1`:
+- Existing four selected `MainFixture_01/04/06/09` pan/tilt
+  animation speed raised to 1.85x relative to N1/N2, pan amplitude
+  1.64x and tilt amplitude 1.38x; upper-backdrop beam aim also
+  travels further left/right. Other heads preserve their baseline.
+  Beam and lens glint gain slightly more energy on strong beats.
+  No extra moving heads, geometry, spotlights, shadows or floor shafts.
+- Root cause of weak breath: the earlier LED pulse was only
+  `1 + 0.115*exp(-5*beatPhase)`, which decayed quickly and often
+  saturated the already-bright render. High-intensity rail/riser
+  materials with `toneMapped=false` clipped instead of visibly
+  growing brighter. New beat envelope has a soft attack and gentler
+  decay, retaining strong beat 1 (within a group of 4), weaker beats
+  2/3/4, and a real dim phase between peaks.
+- The physical LED's `uNeonBreath` varies with authoritative
+  `songTimeMs` and BPM, selecting only magenta/cyan emitters;
+  crown, white center and dark backing are not deliberately boosted.
+  Rail/riser emissives use a capped usable intensity to keep troughs
+  visible even on Safari (with visually stronger pulses at peaks).
+  Existing GLB neon cyan/magenta/violet/white, aperture and pixel
+  magenta materials beyond the original mesh-name whitelist now join
+  the runtime-only breath. Gold ring gets a gentler modulation so
+  the dancer remains legible. Existing uplight aperture sprites
+  also participate; no new sprites or textures.
+- Motion off / direct A-B URL:
+  `/?stage=neon-stage-v1&stageMotion=off`
+  vs live motion:
+  `/?stage=neon-stage-v1`.
+  `/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-floor-balance-e29`
+  continues to render the accepted static E29 without pulse.
+- This remains presentation-only: never advances, rewinds or schedules
+  game turns; does not touch WebAudio authority, global timeline,
+  gauge, Finish, sequenceCounts, RoomState, or actor animation state.
+- Validation: Next.js and TypeScript via Vercel build; real iPhone
+  visual acceptance / FPS and perceived beat synchronization
+  remain pending. Build READY is not visual PASS.
+
+No merge PR #17 without explicit approval.
