@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import sharp from "sharp";
 
 const args = Object.fromEntries(
@@ -16,10 +17,18 @@ const goldenPath = args.golden;
 const outDir = args.out ?? "test-results/neon-stage-visual-diff";
 const width = Number(args.width ?? 941);
 const height = Number(args.height ?? 1672);
+const referenceKind = args["reference-kind"] ?? "golden";
+if (referenceKind !== "golden" && referenceKind !== "regression") {
+  throw new Error("--reference-kind must be golden or regression.");
+}
+// Canonical approved stage-only golden recorded in docs/S2_5A_NEON_VISUAL_DIFF.md.
+// This exact original file is mandatory for numeric acceptance, not A/B captures.
+const APPROVED_GOLDEN_SHA256 =
+  "f03a302766906ed14ab1d225f4aaec7b623d28786670f618412d5d3d0c24c26d";
 
 if (!currentPath || !goldenPath) {
   console.error(
-    "Usage: node scripts/neon-stage-visual-diff.mjs --current <png/jpeg> --golden <png/jpeg> [--out <dir>] [--width 941] [--height 1672] [--current-crop x,y,w,h] [--golden-crop x,y,w,h]",
+    "Usage: node scripts/neon-stage-visual-diff.mjs --current <png/jpeg> --golden <png/jpeg> [--out <dir>] [--width 941] [--height 1672] [--current-crop x,y,w,h] [--golden-crop x,y,w,h] [--mask-hud 0] [--reference-kind golden|regression]",
   );
   process.exit(2);
 }
@@ -494,8 +503,9 @@ for (let i = 0; i < overlay.length; i += 3) {
 await sharp(overlay, { raw: { width, height, channels: 3 } })
   .png()
   .toFile(path.join(outDir, "canonical-overlay.png"));
+// Literal per-channel |current - reference|: do NOT amplify numeric error.
+// The separately exported false-color heatmap provides a visibility boost.
 await sharp(diff, { raw: { width, height, channels: 3 } })
-  .linear(2.2, 0)
   .png()
   .toFile(path.join(outDir, "absolute-difference.png"));
 await sharp(current.data, { raw: { width, height, channels: 3 } })
@@ -574,16 +584,25 @@ const totalScore = round(
 );
 const criticalFloor = Math.min(...regions.map(region => region.scores.weighted));
 const registeredAspect = Math.abs(current.aspectErrorPct) <= 1 && Math.abs(golden.aspectErrorPct) <= 1;
+const goldenSha256 = createHash("sha256")
+  .update(await fs.readFile(goldenPath))
+  .digest("hex");
+const approvedGoldenSource = referenceKind === "golden"
+  && goldenSha256 === APPROVED_GOLDEN_SHA256;
 const acceptance = {
   registeredAspect,
-  // Diagnostic-only renders may display raw differences but cannot PASS.
+  referenceKind,
+  approvedGoldenSource,
+  goldenSha256,
+  // Diagnostic-only renders, unknown references or masked crops cannot PASS.
   aspectMismatchDiagnosticOnly: !registeredAspect,
   targetWeightedScore: 95,
   targetCriticalRegionFloor: 90,
   ownerVisualAcceptanceRequired: true,
   weightedScore: totalScore,
   criticalRegionFloor: round(criticalFloor, 2),
-  passesNumericGate: registeredAspect && totalScore >= 95 && criticalFloor >= 90,
+  passesNumericGate: registeredAspect && approvedGoldenSource && !useDefaultMasks
+    && totalScore >= 95 && criticalFloor >= 90,
 };
 
 const result = {

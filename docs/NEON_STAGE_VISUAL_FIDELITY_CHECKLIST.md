@@ -84,3 +84,10 @@ promotion to next visual phase without matching screenshot evidence.
 - [ ] Re-capture V14 on the new DPR-preserving preview; existing older screenshots predate the fix.
 - [ ] Acquire the actual 941×1672 owner-approved golden image file for numerically registered scoring; Safari screenshots at different viewport aspect are diagnostic references only.
 - [ ] Defer typography edits until the original reference and iPhone capture are aligned; V15 traced-lettering and golden-core remain rejected.
+
+## 2026-10-08 — PASS C golden reference authenticity
+
+- [x] Guard numerical PASS with exact golden SHA-256, canonical aspect, no HUD masks, and reference kind.
+- [x] Correct the absolute-difference file to unamplified RGB error; heatmap remains the visualization.
+- [ ] Source PNG 941×1672 needs to be available for local automated comparison.
+- [ ] Re-capture post-Retina-fix V14 iPhone viewport for visual scoring; don't restore V15.

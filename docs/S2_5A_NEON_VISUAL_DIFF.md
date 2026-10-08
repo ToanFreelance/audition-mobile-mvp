@@ -162,3 +162,12 @@ This replaces the previous workflow of repeatedly changing global glow, purple w
 - `--allow-aspect-mismatch 1` permits exploratory screenshots at differing aspect ratios, but sets `aspectMismatchDiagnosticOnly: true` and forces `passesNumericGate: false`. Do not use such scores for golden acceptance.
 - Extra output: `canonical-edge-overlay.png` (cyan=current-only, magenta=golden-only, white=shared); `absolute-difference-heatmap.png`; `regions/<REGION>-current.png`, `-golden.png`, `-overlay.png` for all eleven named areas.
 - For true fidelity measurement, provide the owner-approved **stage-only** original 941×1672 and a screenshot captured from the exact comparison viewport. The owner-shared 864×1536 Safari image is a useful visual reference, **not** a registered golden-stage source.
+
+## 2026-10-08 — Source provenance and numeric acceptance guard
+
+- Authoritative 941×1672 golden stage-only source digest (SHA-256): `f03a302766906ed14ab1d225f4aaec7b623d28786670f618412d5d3d0c24c26d`.
+- The scorer now checks the **original reference image bytes** against this digest. A V14/V15 A/B screenshot, Safari screenshot, proxy, resized image, or different PNG encoding cannot accidentally pass the golden numeric gate.
+- For A/B regression comparisons, pass `--reference-kind regression`. It still generates metrics/heatmaps but `passesNumericGate` remains false.
+- For canonical, stage-only golden scoring always pass `--mask-hud 0`; masked image comparisons cannot pass even with an approved golden reference.
+- `absolute-difference.png` is now *unamplified* literal RGB absolute difference. For boosted diagnosis, use `absolute-difference-heatmap.png`.
+- Preserve the original approved golden binary or explicitly re-approve and document any alternate encoding before updating its hash. iPhone visual acceptance remains a separate required gate.
