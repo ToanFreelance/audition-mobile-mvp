@@ -651,8 +651,10 @@ function makeAcceptedFloorGridTexture() {
 function makeAcceptedBackdropGlowTexture() {
   const texture = new THREE.TextureLoader().load(CONCEPT_LED_ASSET_URL);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.generateMipmaps = true;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  // Small authored WebP is a close-up LED graphic, not a distant terrain map.
+  // Generated mip levels smoothed already-soft neon edges and subtitle glyphs.
+  texture.generateMipmaps = false;
+  texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -671,6 +673,9 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
     toneMapped: false,
     uniforms: {
       uMap: { value: texture },
+      // Actual V2 asset dimensions; avoid guessing texture derivatives from
+      // the CSS viewport (which varies with iPhone pixel ratio).
+      uTexelSize: { value: new THREE.Vector2(1 / 512, 1 / 191) },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -682,6 +687,22 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
     fragmentShader: `
       varying vec2 vUv;
       uniform sampler2D uMap;
+      uniform vec2 uTexelSize;
+
+      vec3 sampleCrispLed(vec2 uv) {
+        vec2 p = clamp(uv, vec2(0.0), vec2(1.0));
+        vec3 center = texture2D(uMap, p).rgb;
+        vec3 neighbors = (
+          texture2D(uMap, clamp(p + vec2(uTexelSize.x, 0.0), 0.0, 1.0)).rgb +
+          texture2D(uMap, clamp(p - vec2(uTexelSize.x, 0.0), 0.0, 1.0)).rgb +
+          texture2D(uMap, clamp(p + vec2(0.0, uTexelSize.y), 0.0, 1.0)).rgb +
+          texture2D(uMap, clamp(p - vec2(0.0, uTexelSize.y), 0.0, 1.0)).rgb
+        ) * 0.25;
+        vec3 detail = center - neighbors;
+        // Conservative local sharpening: preserve the concept's authored
+        // soft halo, recover inner-line/letter boundaries without white halos.
+        return clamp(center + detail * 0.40, 0.0, 1.0);
+      }
 
       float rectMask(vec2 p, vec2 center, vec2 size, float feather) {
         vec2 d = abs(p - center) - size * 0.5;
@@ -722,15 +743,10 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
         bg += vec3(0.000, 0.050, 0.085) * cyanGlow;
         bg += vec3(0.075, 0.000, 0.060) * magentaGlow;
 
-        vec3 art = texture2D(uMap, clamp(artUv, 0.0, 1.0)).rgb;
-
-        // The iPhone overlay measured the runtime LED ~22% brighter and less
-        // saturated than the sketch. Darken the plate locally and restore
-        // chroma without changing global exposure.
-        float luma = dot(art, vec3(0.2126, 0.7152, 0.0722));
-        art = mix(vec3(luma), art, 1.16) * 1.055;
-        vec3 hot = max(art - vec3(0.56), vec3(0.0));
-        art += hot * hot * 0.48;
+        // This texture already contains the sketch's magenta/pink/gold
+        // treatments. Do not re-grade or square its highlights: the old
+        // treatment clipped neon cores into soft, smeared ribbons.
+        vec3 art = sampleCrispLed(artUv);
 
         float mask = rectMask(vUv, artCenter, artSize, 0.010);
         vec3 color = mix(bg, art, mask);
@@ -742,6 +758,11 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
         color += vec3(0.10, 0.02, 0.14) * gridX * gridY * (1.0 - mask) * 0.20;
 
         gl_FragColor = vec4(color, 1.0);
+        // SRGB textures are sampled in linear light. ShaderMaterial does NOT
+        // append output conversion automatically; without this, the LED was
+        // displayed in the wrong color space and subsequent overbright tweaks
+        // compensated in the wrong domain.
+        #include <colorspace_fragment>
       }
     `,
   });

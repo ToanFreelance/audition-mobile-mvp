@@ -184,7 +184,13 @@ export default function Stage3D({
       antialias: true,
       powerPreference: "high-performance",
     });
-    renderer.setPixelRatio(visualCompareMode ? 1 : getStagePixelRatio(neonPresentation));
+    // Compare captures must be sharp enough for edge/halo QA on Retina iPhones.
+    // Backing resolution changes only; CSS viewport, FOV and camera anchors
+    // remain unchanged. Gameplay retains its existing mobile DPR cap.
+    const comparePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    renderer.setPixelRatio(
+      visualCompareMode ? comparePixelRatio : getStagePixelRatio(neonPresentation),
+    );
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
