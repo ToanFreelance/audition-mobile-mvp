@@ -120,6 +120,13 @@ function useIntegratedStageFxCompare() {
     && new URLSearchParams(window.location.search).get("stageFx") === "rejected-v17-diagnostic";
 }
 
+// Isolated E18 physical-surface trial: never alter accepted/legacy or V16.
+function usePhysicalSurfaceE18Compare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageFx") === "physical-surface-e18";
+}
+
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
@@ -732,6 +739,87 @@ function makeIntegratedFloorReflectionTexture(model: THREE.Object3D) {
   return texture;
 }
 
+// E18: bounded reflections traced to authored fixture and ring world positions.
+// Single static texture: no per-frame reflection RT, no long straight planes,
+// and no rejected V17 wall tint/spill. Tile seams interrupt the reflections.
+function makeGroundedE18FloorReflectionTexture(model: THREE.Object3D) {
+  const canvas = document.createElement("canvas");
+  const size = 1024;
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("E18 floor reflection canvas unavailable.");
+  const uvX = (x: number) => (x / 19.2 + 0.5) * size;
+  const uvZ = (z: number) => ((z + 5.8) / 34.0) * size;
+  const paint = (x: number, z: number, rx: number, rz: number, color: string, alpha: number) => {
+    ctx.save();
+    ctx.translate(uvX(x), uvZ(z));
+    ctx.scale(rx, rz);
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    gradient.addColorStop(0, color.replace("ALPHA", alpha.toFixed(3)));
+    gradient.addColorStop(0.35, color.replace("ALPHA", (alpha * 0.35).toFixed(3)));
+    gradient.addColorStop(1, color.replace("ALPHA", "0"));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(-1, -1, 2, 2);
+    ctx.restore();
+  };
+  const boundsByFixture = new Map<string, THREE.Box3>();
+  model.traverse(object => {
+    const key = object.name.match(/^(DeckUplight|FloorUplight)_\d+/)?.[0];
+    if (!key) return;
+    const bounds = new THREE.Box3().setFromObject(object);
+    if (bounds.isEmpty()) return;
+    const previous = boundsByFixture.get(key);
+    if (previous) previous.union(bounds);
+    else boundsByFixture.set(key, bounds);
+  });
+  const fixtures = [...boundsByFixture.entries()]
+    .map(([key, bounds]) => ({ key, center: bounds.getCenter(new THREE.Vector3()) }))
+    .sort((a, b) => a.center.x - b.center.x || a.key.localeCompare(b.key));
+  ctx.globalCompositeOperation = "lighter";
+  fixtures.forEach((fixture, index) => {
+    const cyan = index % 2 === 1;
+    const color = cyan ? "rgba(18,208,255,ALPHA)" : "rgba(255,22,204,ALPHA)";
+    const x = fixture.center.x;
+    const z = fixture.center.z;
+    paint(x, z + 0.26, 33, 24, color, 0.78);
+    // A wet floor scatters the source into non-uniform local patches.
+    // Width and stagger derive from the fixture index and distance.
+    for (let band = 0; band < 12; band++) {
+      const distance = band / 12;
+      const zz = z + 0.55 + band * 0.66;
+      const drift = Math.sin(index * 1.77 + band * 2.18) * (0.11 + 0.35 * distance);
+      const attenuation = Math.exp(-distance * 2.15);
+      const fragmented = 0.60 + 0.40 * Math.pow(Math.sin(band * 1.89 + index * 0.8), 2);
+      paint(x + drift, zz, 10 + distance * 20, 14 + distance * 22, color,
+        0.49 * attenuation * fragmented);
+    }
+  });
+  const ring = model.getObjectByName("R15 Dance Ring Outer");
+  if (ring) {
+    const box = new THREE.Box3().setFromObject(ring);
+    if (!box.isEmpty()) {
+      const center = box.getCenter(new THREE.Vector3());
+      const radius = box.getSize(new THREE.Vector3()).x * size / 19.2 * 0.55;
+      paint(center.x, center.z + 0.65, radius * 0.98, 56,
+        "rgba(250,33,207,ALPHA)", 0.30);
+      paint(center.x, center.z + 1.0, radius * 0.68, 84,
+        "rgba(24,205,255,ALPHA)", 0.21);
+    }
+  }
+  // Physically consistent dark joints; never draw full-height neon columns.
+  ctx.globalCompositeOperation = "destination-out";
+  for (let z = -4.0; z < 28.1; z += 2.55) {
+    ctx.fillStyle = "rgba(0,0,0,0.30)";
+    ctx.fillRect(0, uvZ(z), size, 3);
+  }
+  ctx.globalCompositeOperation = "source-over";
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function makeAcceptedFloorGridTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -832,6 +920,31 @@ function makeAcceptedBackdropGlowTexture() {
   texture.userData.ledSharpness = hiResCompare ? 0.0 : 0.40;
   texture.needsUpdate = true;
   return texture;
+}
+
+function makePhysicalCentralLedMaterial(texture: THREE.Texture, bounds: THREE.Box3) {
+  // Registered to the actual imported surface, independent of glTF UV seams.
+  // Reuse the calibrated V16 source-color shader without a second plane.
+  const material = makeAcceptedBackdropMaterial(texture, false);
+  const span = bounds.getSize(new THREE.Vector3());
+  material.name = "NeonE18PhysicalCentralLed";
+  material.depthWrite = true;
+  material.uniforms.uWorldMin = { value: bounds.min.clone() };
+  material.uniforms.uWorldSize = {
+    value: new THREE.Vector2(Math.max(0.001, span.x), Math.max(0.001, span.y)),
+  };
+  material.vertexShader = `
+    varying vec2 vUv;
+    uniform vec3 uWorldMin;
+    uniform vec2 uWorldSize;
+    void main() {
+      vec4 world = modelMatrix * vec4(position, 1.0);
+      vUv = (world.xy - uWorldMin.xy) / uWorldSize;
+      gl_Position = projectionMatrix * viewMatrix * world;
+    }
+  `;
+  material.needsUpdate = true;
+  return material;
 }
 
 function makeAcceptedBackdropMaterial(texture: THREE.Texture, integrated: boolean) {
@@ -1090,6 +1203,7 @@ export class NeonStageV1Environment {
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
   private readonly integratedStageFx = useIntegratedStageFxCompare();
+  private readonly physicalSurfaceE18 = usePhysicalSurfaceE18Compare();
   private readonly pulseMaterials: PulseMaterial[] = [];
   private readonly breathMaterials: BreathMaterial[] = [];
   private readonly beamStates: BeamState[] = [];
@@ -1283,7 +1397,7 @@ export class NeonStageV1Environment {
     rejectedLogoNodes.forEach(object => object.removeFromParent());
 
     const centralLed = model.getObjectByName("CentralLED") as THREE.Mesh | undefined;
-    if (centralLed?.isMesh) {
+    if (centralLed?.isMesh && !this.physicalSurfaceE18) {
       const sources = Array.isArray(centralLed.material)
         ? centralLed.material
         : [centralLed.material];
@@ -1494,11 +1608,11 @@ export class NeonStageV1Environment {
         }
 
         if (name.includes("porcelain tile") || name.includes("polished tile")) {
-          material.color.multiplyScalar(0.84);
-          material.roughness = Math.min(material.roughness, 0.012);
-          material.metalness = Math.max(material.metalness, 0.34);
+          material.color.multiplyScalar(this.physicalSurfaceE18 ? 0.99 : 0.84);
+          material.roughness = Math.min(material.roughness, this.physicalSurfaceE18 ? 0.075 : 0.012);
+          material.metalness = Math.max(material.metalness, this.physicalSurfaceE18 ? 0.52 : 0.34);
           material.emissive.setHex(0x0d0438);
-          material.emissiveIntensity = 0.10;
+          material.emissiveIntensity = this.physicalSurfaceE18 ? 0.16 : 0.10;
         } else if (name.includes("riser polished top")) {
           material.roughness = Math.min(material.roughness, 0.075);
           material.metalness = Math.max(material.metalness, 0.05);
@@ -1542,8 +1656,9 @@ export class NeonStageV1Environment {
     ]);
     const lightPoolTexture = makeAcceptedLightPoolTexture();
     const beamSourceTexture = makeAcceptedBeamSourceTexture();
-    const reflectionStreakTexture = makeAcceptedReflectionStreakTexture();
-    this.textures.push(lightPoolTexture, beamSourceTexture, reflectionStreakTexture);
+    const reflectionStreakTexture = this.physicalSurfaceE18 ? null : makeAcceptedReflectionStreakTexture();
+    this.textures.push(lightPoolTexture, beamSourceTexture);
+    if (reflectionStreakTexture) this.textures.push(reflectionStreakTexture);
 
     const groups = [
       { prefix: "MainFixture", count: 11, pan: 11, tilt: 6.5, speed: 0.62, phase: 0.00, length: 10.0, radius: 1.08 },
@@ -1749,6 +1864,7 @@ export class NeonStageV1Environment {
           spillMesh.position.y = 0.045;
           this.acceptedFxRoot.add(spillMesh);
 
+          if (reflectionStreakTexture) {
           const reflectionCoreMaterial = new THREE.MeshBasicMaterial({
             name: `${key}_RuntimeReflectionCore`,
             map: reflectionStreakTexture,
@@ -1782,6 +1898,7 @@ export class NeonStageV1Environment {
           reflectionMesh.rotation.x = -Math.PI / 2;
           reflectionMesh.position.y = 0.049;
           this.acceptedFxRoot.add(reflectionMesh);
+          }
         }
 
         const side = (index - center) / Math.max(1, center);
@@ -1872,9 +1989,11 @@ export class NeonStageV1Environment {
 
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
-    const floorReflectionTexture = this.integratedStageFx
-      ? makeIntegratedFloorReflectionTexture(model)
-      : makeAcceptedFloorReflectionTexture();
+    const floorReflectionTexture = this.physicalSurfaceE18
+      ? makeGroundedE18FloorReflectionTexture(model)
+      : this.integratedStageFx
+        ? makeIntegratedFloorReflectionTexture(model)
+        : makeAcceptedFloorReflectionTexture();
     const floorGridTexture = makeAcceptedFloorGridTexture();
     const lowerFixtureGlowTexture = makeAcceptedBeamSourceTexture();
     this.textures.push(
@@ -1892,6 +2011,23 @@ export class NeonStageV1Environment {
       const ledSize = ledBounds.getSize(new THREE.Vector3());
       const ledCenter = ledBounds.getCenter(new THREE.Vector3());
 
+      if (this.physicalSurfaceE18 && (centralLed as THREE.Mesh).isMesh && ledSize.x > 0 && ledSize.y > 0) {
+        const physicalLed = centralLed as THREE.Mesh;
+        physicalLed.material = makePhysicalCentralLedMaterial(backdropTexture, ledBounds);
+        physicalLed.renderOrder = 2;
+        const physicalFloor = model.getObjectByName("PolishedDanceFloor") as THREE.Mesh | undefined;
+        const stats = (mesh: THREE.Mesh | undefined) => mesh?.isMesh ? {
+          size: new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3()).toArray(),
+          vertices: mesh.geometry.getAttribute("position")?.count ?? 0,
+          uvCount: mesh.geometry.getAttribute("uv")?.count ?? 0,
+          normals: mesh.geometry.getAttribute("normal")?.count ?? 0,
+          groups: mesh.geometry.groups.length,
+        } : "not-a-mesh";
+        console.info("[NeonStage E18] GLB physical surface diagnostics", {
+          led: stats(physicalLed), floor: stats(physicalFloor),
+          ledMin: ledBounds.min.toArray(), ledMax: ledBounds.max.toArray(),
+        });
+      } else {
       const backdropMaterial = makeAcceptedBackdropMaterial(backdropTexture, this.integratedStageFx);
 
       // One uninterrupted wall surface. The top stays locked to the registered
@@ -1929,6 +2065,7 @@ export class NeonStageV1Environment {
           );
           this.acceptedFxRoot.add(wallBounce);
         }
+      }
       }
     }
 
@@ -1979,7 +2116,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: this.integratedStageFx ? 0.92 : 0.74,
+      opacity: this.physicalSurfaceE18 ? 0.98 : this.integratedStageFx ? 0.92 : 0.74,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
