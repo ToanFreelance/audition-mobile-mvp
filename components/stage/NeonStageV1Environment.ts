@@ -628,7 +628,7 @@ function makeIntegratedFloorReflectionTexture(model: THREE.Object3D) {
 
   const fixtureBounds = new Map<string, THREE.Box3>();
   model.traverse(object => {
-    const key = object.name.match(/^(DeckUplight|FloorUplight)_\\d+/)?.[0];
+    const key = object.name.match(/^(DeckUplight|FloorUplight)_\d+/)?.[0];
     if (!key) return;
     const bounds = new THREE.Box3().setFromObject(object);
     if (bounds.isEmpty()) return;
