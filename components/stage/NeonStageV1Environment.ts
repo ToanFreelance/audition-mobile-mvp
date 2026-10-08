@@ -466,7 +466,10 @@ function acceptedSongBeatEnergy(songTimeMs: number, bpm: number, isPlaying: bool
   const index = Math.floor(beatPosition);
   const phase = beatPosition - index;
   const accented = index % 4 === 0;
-  return (accented ? 1 : 0.43) * Math.exp(-5.0 * phase);
+  // N3: preserve a smooth beat envelope long enough to be visible on iPhone.
+  const gentleAttack = 0.58 + 0.42 * (1 - Math.exp(-24.0 * phase));
+  const release = Math.exp(-2.2 * phase);
+  return (accented ? 1 : 0.68) * gentleAttack * release;
 }
 
 function acceptedBreathMultiplier(renderTimeSeconds: number, phaseOffsetSeconds = 0) {
@@ -2394,6 +2397,7 @@ export class NeonStageV1Environment {
     && window.location.pathname !== "/tools/neon-stage-compare"
     && new URLSearchParams(window.location.search).get("stageMotion") !== "off";
   private acceptedLedMaterial: THREE.ShaderMaterial | null = null;
+  private readonly acceptedApertureGlowMaterials: THREE.SpriteMaterial[] = [];
 
   private readonly loader = new GLTFLoader();
   private readonly animatedRoot = new THREE.Group();
@@ -2574,6 +2578,7 @@ export class NeonStageV1Environment {
     this.fallbackChildren.length = 0;
     this.loadedModel = null;
     this.acceptedLedMaterial = null;
+    this.acceptedApertureGlowMaterials.length = 0;
     this.lastAcceptedBreathUpdateSeconds = Number.NEGATIVE_INFINITY;
     this.root.clear();
   }
@@ -3422,6 +3427,7 @@ export class NeonStageV1Environment {
         });
         const sprite = new THREE.Sprite(material);
         sprite.name = key + "_RuntimeApertureGlow";
+        if (this.motionPassEnabled) this.acceptedApertureGlowMaterials.push(material);
         sprite.position.set(
           center.x,
           center.y + size.y * (this.physicalLightingRefinement ? 0.04 : 0.12),
@@ -3581,20 +3587,36 @@ export class NeonStageV1Environment {
   ) {
     const beatEnergy = this.motionPassEnabled
       ? acceptedSongBeatEnergy(songTimeMs, bpm, isPlaying) : 0;
-    // Updating a float uniform doesn't reload the 2048px SVG or its shader.
+    // The N1 +11.5% peak on saturated E29 artwork was barely noticeable:
+    // alternate visible dim phases and bright accents without flashing.
+    const idleBreath = 0.78 + 0.20
+      * (0.5 + 0.5 * Math.sin(renderTimeSeconds * (Math.PI * 2 / 2.8)));
+    const neonGain = !this.motionPassEnabled ? 1
+      : isPlaying ? 0.58 + beatEnergy * 0.92 : idleBreath;
     if (this.acceptedLedMaterial) {
-      this.acceptedLedMaterial.uniforms.uNeonBreath.value = this.motionPassEnabled
-        ? 1 + beatEnergy * 0.115 : 1;
+      this.acceptedLedMaterial.uniforms.uNeonBreath.value = neonGain;
     }
     if (renderTimeSeconds - this.lastAcceptedBreathUpdateSeconds >= 1 / 30) {
       this.acceptedBreathMaterials.forEach(state => {
         // The existing rail/riser breath stays smooth in idle. During playback,
         // weak/strong pulses follow the same song-time beat as the central LED.
-        const multiplier = this.motionPassEnabled && isPlaying
-          ? 1 + beatEnergy * 0.17
-          : acceptedBreathMultiplier(renderTimeSeconds, state.phaseOffsetSeconds);
-        state.material.emissiveIntensity =
-          state.baseEmissiveIntensity * multiplier;
+        if (this.motionPassEnabled) {
+          // Some E29 Riser strips already have intensity >=18 and disable
+          // tone mapping. Brightening them further stays clipped on Safari.
+          // Bring them into a readable dim/bright range for the motion pass.
+          const usableBase = Math.min(state.baseEmissiveIntensity, 2.2);
+          state.material.emissiveIntensity = usableBase * (
+            isPlaying ? 0.38 + beatEnergy * 1.48 : idleBreath
+          );
+        } else {
+          state.material.emissiveIntensity = state.baseEmissiveIntensity
+            * acceptedBreathMultiplier(renderTimeSeconds, state.phaseOffsetSeconds);
+        }
+      });
+      this.acceptedApertureGlowMaterials.forEach(material => {
+        material.opacity = isPlaying
+          ? THREE.MathUtils.clamp(0.46 + beatEnergy * 0.66, 0.40, 1.0)
+          : 0.72 + (idleBreath - 0.78) * 0.90;
       });
       this.lastAcceptedBreathUpdateSeconds = renderTimeSeconds;
     }
@@ -3609,18 +3631,19 @@ export class NeonStageV1Environment {
     const deltaQuaternion = new THREE.Quaternion();
 
     this.acceptedMovingHeads.forEach(state => {
-      const theta = renderTimeSeconds * state.speed + state.phase;
       const accentedHead = this.motionPassEnabled && state.motionAccent;
+      const theta = renderTimeSeconds * state.speed
+        * (accentedHead ? 1.85 : 1.0) + state.phase;
       const sweep = state.panAmplitude * (
         0.82 * Math.sin(theta)
         + 0.18 * Math.sin(theta * 2 + 0.35)
-      ) * (accentedHead ? 1.17 : 1);
+      ) * (accentedHead ? 1.64 : 1);
       const tilt = state.tiltAmplitude * (
         0.78 * Math.sin(theta + 1.05)
         + 0.22 * Math.sin(theta * 2 - state.phase * 0.25)
-      ) * (accentedHead ? 1.12 : 1);
+      ) * (accentedHead ? 1.38 : 1);
       const glow = 0.5 + 0.5 * Math.sin(theta * 0.72 + 0.6);
-      const opticalAccent = accentedHead ? beatEnergy * 0.075 : 0;
+      const opticalAccent = accentedHead ? beatEnergy * 0.12 : 0;
 
       state.panPivot.quaternion
         .copy(state.basePanQuaternion)
@@ -3664,12 +3687,18 @@ export class NeonStageV1Environment {
 
       localTarget.copy(state.floorAimBase);
       localTarget.x += Math.sin(theta * 0.82 + state.phase)
-        * (accentedHead ? 0.65 : 0.28);
+        * (accentedHead ? 0.94 : 0.28);
       localTarget.z += Math.sin(theta * 0.64 + state.phase * 0.7)
-        * (accentedHead ? 0.32 : 0.24);
+        * (accentedHead ? 0.40 : 0.24);
       if (this.physicalExtensionE24 && this.e24BeamTarget) {
-        localTarget.set(localTarget.x * 0.72,
-          this.e24BeamTarget.y, this.e24BeamTarget.z);
+        // Retain E29's short beams at the upper wall, never hit the floor.
+        localTarget.set(
+          accentedHead
+            ? localTarget.x * 1.45 + 0.55 * Math.sin(theta * 0.72 + state.phase)
+            : localTarget.x * 0.72,
+          this.e24BeamTarget.y,
+          this.e24BeamTarget.z,
+        );
       }
 
       localDirection.subVectors(localTarget, localSource);
