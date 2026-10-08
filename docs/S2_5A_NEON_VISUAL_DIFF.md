@@ -739,3 +739,49 @@ E27 and E28 compare routes remain available without changes.
 - No changes to gameplay/WebAudio/gauge/Finish/sequenceCounts,
   multiplayer RoomState, Stage Catalog, or integration branches.
   Do NOT merge PR #17 without explicit owner approval.
+
+
+## 2026-10-08 — Owner visual acceptance of E29 and S2.5A runtime QA handoff
+
+**Decision: owner visually ACCEPTS E29** from their Safari iPhone capture.
+The only consciously deferred visual discrepancy is ONE horizontal
+purple-highlighted floor tile row before the central ring. **Do not
+start E30, rebalance floor, or alter the approved backdrop, neon, crown,
+truss, beams, fixtures or floor without a new explicit owner request.**
+This is visual acceptance; do not misreport registered 95% golden metric,
+runtime FPS validation or full gameplay integration as already passed.
+
+**Accepted visual control (immutable compare-only A/B):**
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-floor-balance-e29`.
+
+### Runtime QA handoff (not automatic integration)
+
+Following the owner's permission to continue the roadmap, the accepted
+E29 *presentation* is now selected for the directly requested
+`neon-stage-v1` runtime outside the visual compare route. This uses the
+same E29 SVG, high-resolution texture sampling, 3D LED/riser transforms,
+moving-head presentation and soft dark floor shader as the approved
+compare path. Prior E19–E28 compare diagnostics remain available and
+unchanged. **Bright Stage stays the default/only selectable environment.**
+`STAGE_CATALOG["neon-stage-v1"]` remains `status: "planned"` and
+`selectable: false` until direct in-game owner validation; do not
+start S3 Host Stage Selector or merge the stacked PRs.
+
+**Direct Neon Stage gameplay QA URL:**
+`/?stage=neon-stage-v1` on this phase's stable Vercel branch origin.
+Owner must verify that E29 survives the non-compare portrait gameplay
+camera/HUD, character occlusion, asset preload, mobile FPS and WebGL
+rendering. No changes to WebAudio scheduling, song-time authority,
+global turns, gauge, Finish, sequenceCounts, RoomState/CAS/Realtime,
+character source of truth or song timing.
+
+**Next roadmap after Neon runtime acceptance:** remaining S2.5
+Environment / Venue Pack V1 content: `football-field-v1`, then
+`classroom-v1`, then `cafe-v1`. Work should proceed on a separate
+phase/work branch, using approved visual direction before creating
+or promoting new environment assets. S3 is deferred until the
+initial S2.5 pack is accepted.
+
+**Integration approval:** the owner said E29 is visually good and
+authorized continuation of the roadmap; this is NOT authorization to
+merge PR #17 or parent PR #16 into any integration branch.
