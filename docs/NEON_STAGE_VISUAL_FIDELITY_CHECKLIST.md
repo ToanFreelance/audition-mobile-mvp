@@ -36,3 +36,13 @@ Compare: `/tools/neon-stage-compare` (stage only, portrait 941×1672 logical com
 **Acceptance gate:** one scoped visual change per pass where possible. A successful
 Vercel build verifies compilation, not screenshot fidelity; no automatic
 promotion to next visual phase without matching screenshot evidence.
+
+## 2026-10-08 — LED source fidelity A/B (isolated compare-only)
+- [x] Verified raster LED is only 512×191; edge loss cannot be solved by filtering/sharpening alone.
+- [x] Located existing authored 2048×844 SVG `concept-led-v14.svg` in the SAME stage asset catalog.
+- [x] Added **compare-only** option `/tools/neon-stage-compare?ledAsset=vector` for high-resolution artwork sampling.
+- [x] Default compare and gameplay continue to use existing golden WebP; no unapproved visual switch.
+- [x] Shader sharpening is disabled for vector mode, enabled for the legacy low-resolution mode.
+- [ ] Acquire matched iPhone screenshots from `?ledAsset=vector` and default compare.
+- [ ] Measure position/size/color/edge/detail region-by-region against golden sketch.
+- [ ] DO NOT promote vector to gameplay unless owner visually accepts design. SVG v14 is an earlier authored approximation, **not** the accepted golden screenshot.
