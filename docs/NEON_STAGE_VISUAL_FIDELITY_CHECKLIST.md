@@ -55,3 +55,14 @@ promotion to next visual phase without matching screenshot evidence.
 - [ ] Owner screenshot A/B of baseline, vector and golden-core under same iPhone viewport.
 - [ ] Evaluate LED color/edge registration before any gameplay promotion.
 - [ ] Full 2048×844 raster upload still preferable for all-background high-frequency fidelity; this pass restores lettering/detail only.
+
+## 2026-10-08 — Exact golden lettering on high-resolution vector background
+
+- [x] Inspected owner iPhone vector/WebP pair `IMG_3116.jpeg`/`IMG_3117.jpeg`.
+- [x] Isolated root cause: SVG v14 draws its wordmark with browser-rendered Arial Black and a 33px bloom stroke, **not** the approved sketch's lettering.
+- [x] Created `public/stages/neon-stage-v1/concept-led-golden-lettering-v15.svg`, preserving v14 vector background/crown/chevrons while replacing both wordmark and tagline with traced native contours from approved 2048×844 golden master.
+- [x] Replaced 33px blurry font halo with a narrow pink under-stroke + restrained outer glow; white core remains unfiltered, preserving sharp edges.
+- [x] Exposed compare-only `/tools/neon-stage-compare?ledAsset=vector-golden-lettering` with existing shader, camera, stage geometry, render settings.
+- [ ] Compare owner iPhone screenshots of v14 vector versus golden-lettering v15 at identical viewport; record direct overlay, logo edge error, color and position.
+- [ ] If background/crown differ visibly from sketch, reconstruct them independently; **do not** claim full LED or game stage acceptance on lettering improvement alone.
+- [ ] Promotion to gameplay requires owner approval. Existing gameplay source remains unchanged.

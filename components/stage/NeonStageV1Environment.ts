@@ -92,6 +92,8 @@ const ACCEPTED_R15_DANCE_RING_Z = 0.25;
 // Do not enable it in gameplay before the owner accepts an iPhone comparison.
 const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/golden-led-wall-v2.webp";
 const VECTOR_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v14.svg";
+const GOLDEN_LETTERING_VECTOR_LED_ASSET_URL =
+  "/stages/neon-stage-v1/concept-led-golden-lettering-v15.svg";
 // 2048×844 native authoring contours recovered from the accepted golden PNG.
 // This is a compare-only overlay over the exact low-res golden master.
 const GOLDEN_CORE_LED_ASSET_URL = "/stages/neon-stage-v1/golden-led-master-core-v3.svg";
@@ -105,9 +107,16 @@ function useGoldenCoreLedCompare() {
 
 function useHiResLedCompare() {
   if (typeof window === "undefined") return false;
-  // Strictly isolated to the compare route: no gameplay presentation changes.
   if (window.location.pathname !== "/tools/neon-stage-compare") return false;
   return new URLSearchParams(window.location.search).get("ledAsset") === "vector";
+}
+
+function useGoldenLetteringLedCompare() {
+  if (typeof window === "undefined") return false;
+  // Compare-only experiment. Never replace gameplay/approved golden baseline
+  // without measured overlay and owner visual acceptance on iPhone.
+  return window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("ledAsset") === "vector-golden-lettering";
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -669,12 +678,15 @@ function makeAcceptedFloorGridTexture() {
 }
 
 function makeAcceptedBackdropGlowTexture() {
-  const hiResCompare = useHiResLedCompare();
+  const nativeLetterCompare = useGoldenLetteringLedCompare();
+  const hiResCompare = useHiResLedCompare() || nativeLetterCompare;
   const goldenCoreCompare = useGoldenCoreLedCompare();
   const texture = new THREE.TextureLoader().load(
     goldenCoreCompare
       ? GOLDEN_CORE_BASE_ASSET_URL
-      : hiResCompare ? VECTOR_LED_ASSET_URL : CONCEPT_LED_ASSET_URL,
+      : nativeLetterCompare
+        ? GOLDEN_LETTERING_VECTOR_LED_ASSET_URL
+        : hiResCompare ? VECTOR_LED_ASSET_URL : CONCEPT_LED_ASSET_URL,
   );
   texture.colorSpace = THREE.SRGBColorSpace;
   // 512x191 WebP is source-resolution limited; no mip smoothing in legacy mode.
