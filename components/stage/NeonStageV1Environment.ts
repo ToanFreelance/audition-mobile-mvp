@@ -96,6 +96,8 @@ const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/golden-led-wall-v2.webp";
 const VECTOR_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v14.svg";
 const TYPOGRAPHY_V16_COMPARE_ASSET_URL =
   "/stages/neon-stage-v1/concept-led-typography-v16.svg";
+const CROWN_CLEARANCE_E21_ASSET_URL =
+  "/stages/neon-stage-v1/concept-led-crown-clearance-e21.svg";
 // Owner rejected the V15 golden-core and traced-lettering experiments.
 // V14 is the default, compare-only working baseline, including deprecated V15 URLs.
 // Explicit ?ledAsset=legacy preserves the low-resolution WebP control.
@@ -141,6 +143,14 @@ function usePhysicalRefinementE20Compare() {
   return typeof window !== "undefined"
     && window.location.pathname === "/tools/neon-stage-compare"
     && new URLSearchParams(window.location.search).get("stageFx") === "physical-refinement-e20";
+}
+
+// E21 uses E19 reflection architecture and preserves E20 only as a rejected
+// visual diagnostic. Keeps all new work completely isolated from gameplay.
+function usePhysicalRepairE21Compare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageFx") === "physical-repair-e21";
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -1037,6 +1047,160 @@ function addE20UplightMounts(
     });
 }
 
+// E21: E19 reflection geometry, softened by rough multi-tap sampling and
+// one isotropic, low-frequency ring pool. NEVER reinstate E20's X-dependent
+// floor-wide LED lookup: it created vertical stripe artifacts on iPhone.
+function makeE21SoftRingReflectionMaterial(
+  localTexture: THREE.Texture,
+  ledTexture: THREE.Texture,
+  ledBounds: THREE.Box3,
+  ringCenter: THREE.Vector2,
+  ringRadius: number,
+) {
+  const material = makeE19ReflectedWallFloorMaterial(localTexture, ledTexture, ledBounds);
+  material.name = "NeonE21SoftRingReflection";
+  material.uniforms.uRingCenter = { value: ringCenter.clone() };
+  material.uniforms.uRingRadius = { value: Math.max(0.25, ringRadius) };
+  material.fragmentShader = `
+    varying vec2 vFloorUv;
+    varying vec3 vFloorWorld;
+    uniform sampler2D uLocalMap;
+    uniform sampler2D uLedMap;
+    uniform vec3 uLedMin;
+    uniform vec3 uLedMax;
+    uniform vec2 uRingCenter;
+    uniform float uRingRadius;
+
+    vec3 softMirror(vec2 uv, vec2 blur) {
+      uv = clamp(uv, vec2(0.0), vec2(1.0));
+      vec3 c = texture2D(uLedMap, uv).rgb * 0.18;
+      c += texture2D(uLedMap, clamp(uv + vec2(blur.x, 0.0), 0.0, 1.0)).rgb * 0.16;
+      c += texture2D(uLedMap, clamp(uv - vec2(blur.x, 0.0), 0.0, 1.0)).rgb * 0.16;
+      c += texture2D(uLedMap, clamp(uv + vec2(0.0, blur.y), 0.0, 1.0)).rgb * 0.14;
+      c += texture2D(uLedMap, clamp(uv - vec2(0.0, blur.y), 0.0, 1.0)).rgb * 0.14;
+      c += texture2D(uLedMap, clamp(uv + blur * vec2(0.75, 0.75), 0.0, 1.0)).rgb * 0.11;
+      c += texture2D(uLedMap, clamp(uv - blur * vec2(0.75, 0.75), 0.0, 1.0)).rgb * 0.11;
+      return c;
+    }
+
+    void main() {
+      vec4 pools = texture2D(uLocalMap, vFloorUv);
+      float r = length(vFloorWorld.xz - uRingCenter) / uRingRadius;
+      float ringSoft = exp(-1.55 * r * r);
+      float brokenTile = 1.0 - 0.25 *
+        (1.0 - smoothstep(0.0, 0.07, fract(vFloorWorld.z / 2.55)));
+      float noise = 0.92 + 0.08 * sin(vFloorWorld.x * 8.1 + vFloorWorld.z * 3.7)
+        * sin(vFloorWorld.z * 5.1 - vFloorWorld.x * 6.3);
+      vec3 reflected = vec3(0.0);
+
+      // Mirror rays still use actual CentralLED position exactly as in E19.
+      vec3 ray = reflect(normalize(vFloorWorld - cameraPosition), vec3(0.0, 1.0, 0.0));
+      if (ray.z < -0.015) {
+        float t = (uLedMax.z - vFloorWorld.z) / ray.z;
+        if (t > 0.0) {
+          vec3 hit = vFloorWorld + ray * t;
+          vec2 uv = (hit.xy - uLedMin.xy) / max(uLedMax.xy - uLedMin.xy, vec2(0.001));
+          float mask = smoothstep(0.0, 0.09, uv.x)
+            * smoothstep(0.0, 0.09, 1.0 - uv.x)
+            * smoothstep(0.0, 0.12, uv.y)
+            * smoothstep(0.0, 0.12, 1.0 - uv.y);
+          if (mask > 0.0) {
+            vec2 blur = mix(vec2(0.014, 0.019), vec2(0.037, 0.048), ringSoft);
+            vec3 led = softMirror(uv, blur);
+            float bright = smoothstep(0.075, 0.44,
+              max(led.r, max(led.g, led.b)));
+            float falloff = exp(-0.020 * max(0.0, t - 6.0));
+            reflected = led * bright * mask * falloff * brokenTile * noise
+              * (1.0 - 0.46 * ringSoft) * 1.25;
+          }
+        }
+      }
+
+      // A diffuse ROUND ring-sized pool fills the dancer zone where the
+      // geometric specular ray misses the wall. No X-band / striped wash.
+      vec3 ringPool = mix(
+        vec3(0.025, 0.13, 0.19),
+        vec3(0.19, 0.030, 0.14),
+        0.5 + 0.5 * sin(1.6 * vFloorWorld.x)
+      ) * ringSoft * brokenTile * 0.36;
+      vec3 color = pools.rgb * pools.a * (1.32 + 0.18 * ringSoft)
+        + reflected + ringPool;
+      gl_FragColor = vec4(color, 0.83 - 0.12 * ringSoft);
+      #include <colorspace_fragment>
+    }
+  `;
+  material.needsUpdate = true;
+  return material;
+}
+
+// E21 uses the *rear physical stage wall / cove* to bridge the vertical
+// clearance between actual CentralLED bounds and the upper physical riser.
+// Opaque architecture only: no new billboard, poster, alpha/glow plane.
+function addE21LedRiserStructuralBridge(
+  model: THREE.Object3D,
+  fxRoot: THREE.Object3D,
+  ledBounds: THREE.Box3,
+) {
+  const candidateTops: number[] = [];
+  model.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh || !/^(?:Mobile_Risers_|Riser[0-3](?:_|$))/.test(mesh.name)) return;
+    const box = new THREE.Box3().setFromObject(mesh);
+    if (box.isEmpty()) return;
+    // Only structure behind the LED and below its lower edge is relevant.
+    if (box.max.y < ledBounds.min.y - 0.04
+        && box.max.z < ledBounds.max.z + 2.5
+        && box.min.z > ledBounds.min.z - 4.0) candidateTops.push(box.max.y);
+  });
+  const nearestDeckTop = candidateTops.length > 0
+    ? Math.max(...candidateTops) : ledBounds.min.y - 0.90;
+  const upperY = ledBounds.min.y + 0.025;
+  const lowerY = Math.min(upperY - 0.10,
+    Math.max(ledBounds.min.y - 2.45, nearestDeckTop - 0.045));
+  const height = upperY - lowerY;
+  if (!Number.isFinite(height) || height < 0.10) return;
+  const width = ledBounds.max.x - ledBounds.min.x;
+  const frontZ = ledBounds.max.z - 0.085;
+  const backing = new THREE.Mesh(
+    new THREE.BoxGeometry(width * 0.982, height, 0.19),
+    new THREE.MeshStandardMaterial({
+      name: "NeonE21ArchitecturalLowerCove",
+      color: 0x10072f,
+      emissive: 0x25094f,
+      emissiveIntensity: 0.52,
+      roughness: 0.61,
+      metalness: 0.22,
+    }),
+  );
+  backing.name = "NeonE21PhysicalLedRiserInfill";
+  backing.position.set((ledBounds.min.x + ledBounds.max.x) * 0.5,
+    (upperY + lowerY) * 0.5, frontZ);
+  fxRoot.add(backing);
+
+  // One recessed, physical cove lip hides the LED/infill seam. It follows the
+  // LED WORLD bounds and never crosses the logo/crown or stairs in screen space.
+  const lip = new THREE.Mesh(
+    new THREE.BoxGeometry(width * 0.966, 0.035, 0.09),
+    new THREE.MeshStandardMaterial({
+      name: "NeonE21PhysicalCoveLip",
+      color: 0x321355,
+      emissive: 0xae20d2,
+      emissiveIntensity: 1.45,
+      roughness: 0.28,
+      metalness: 0.48,
+    }),
+  );
+  lip.name = "NeonE21LedLowerStructuralLip";
+  lip.position.set(backing.position.x, ledBounds.min.y - 0.022,
+    ledBounds.max.z + 0.008);
+  fxRoot.add(lip);
+  console.info("[NeonStage E21] Physical LED/riser bridge", {
+    topY: upperY, bottomY: lowerY, nearestDeckTop,
+    width, frontZ,
+  });
+}
+
+
 function makeAcceptedFloorGridTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -1114,8 +1278,9 @@ function makeAcceptedFloorGridTexture() {
 function makeAcceptedBackdropGlowTexture() {
   const hiResCompare = useHiResLedCompare();
   const typographyV16Compare = useTypographyV16LedCompare();
+  const physicalRepairE21 = usePhysicalRepairE21Compare();
   const texture = new THREE.TextureLoader().load(
-    typographyV16Compare
+    physicalRepairE21 ? CROWN_CLEARANCE_E21_ASSET_URL : typographyV16Compare
       ? TYPOGRAPHY_V16_COMPARE_ASSET_URL
       : hiResCompare ? VECTOR_LED_ASSET_URL : CONCEPT_LED_ASSET_URL,
   );
@@ -1440,8 +1605,11 @@ export class NeonStageV1Environment {
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
   private readonly integratedStageFx = useIntegratedStageFxCompare();
+  private readonly physicalRepairE21 = usePhysicalRepairE21Compare();
   private readonly physicalRefinementE20 = usePhysicalRefinementE20Compare();
-  private readonly physicalReflectionE19 = usePhysicalReflectionE19Compare() || this.physicalRefinementE20;
+  private readonly physicalLightingRefinement = this.physicalRefinementE20 || this.physicalRepairE21;
+  private readonly physicalReflectionE19 = usePhysicalReflectionE19Compare()
+    || this.physicalRefinementE20 || this.physicalRepairE21;
   private readonly physicalSurfaceE18 = usePhysicalSurfaceE18Compare() || this.physicalReflectionE19;
   private readonly pulseMaterials: PulseMaterial[] = [];
   private readonly breathMaterials: BreathMaterial[] = [];
@@ -1895,7 +2063,7 @@ export class NeonStageV1Environment {
     ]);
     const lightPoolTexture = makeAcceptedLightPoolTexture();
     const beamSourceTexture = makeAcceptedBeamSourceTexture();
-    const e20GlintTexture = this.physicalRefinementE20 ? makeE20LensGlintTexture() : null;
+    const e20GlintTexture = this.physicalLightingRefinement ? makeE20LensGlintTexture() : null;
     if (e20GlintTexture) this.textures.push(e20GlintTexture);
     const reflectionStreakTexture = this.physicalSurfaceE18 ? null : makeAcceptedReflectionStreakTexture();
     this.textures.push(lightPoolTexture, beamSourceTexture);
@@ -2086,7 +2254,7 @@ export class NeonStageV1Environment {
 
         let e20Spot: THREE.SpotLight | null = null;
         let e20GlintMaterial: THREE.SpriteMaterial | null = null;
-        if (this.physicalRefinementE20 && sourceFxRoot && group.prefix === "MainFixture" && e20GlintTexture) {
+        if (this.physicalLightingRefinement && sourceFxRoot && group.prefix === "MainFixture" && e20GlintTexture) {
           e20GlintMaterial = new THREE.SpriteMaterial({
             name: key + "_E20LensFlare",
             map: e20GlintTexture,
@@ -2304,6 +2472,9 @@ export class NeonStageV1Environment {
           led: stats(physicalLed), floor: stats(physicalFloor),
           ledMin: ledBounds.min.toArray(), ledMax: ledBounds.max.toArray(),
         });
+        if (this.physicalRepairE21) {
+          addE21LedRiserStructuralBridge(model, this.acceptedFxRoot, ledBounds);
+        }
       } else {
       const backdropMaterial = makeAcceptedBackdropMaterial(backdropTexture, this.integratedStageFx);
 
@@ -2365,7 +2536,7 @@ export class NeonStageV1Environment {
       else lowerFixtureBounds.set(key, bounds.clone());
     });
 
-    if (this.physicalRefinementE20) {
+    if (this.physicalLightingRefinement) {
       addE20UplightMounts(this.acceptedFxRoot, model, lowerFixtureBounds);
     }
 
@@ -2389,11 +2560,11 @@ export class NeonStageV1Environment {
         sprite.name = key + "_RuntimeApertureGlow";
         sprite.position.set(
           center.x,
-          center.y + size.y * (this.physicalRefinementE20 ? 0.04 : 0.12),
-          bounds.max.z + (this.physicalRefinementE20 ? 0.010 : 0.055),
+          center.y + size.y * (this.physicalLightingRefinement ? 0.04 : 0.12),
+          bounds.max.z + (this.physicalLightingRefinement ? 0.010 : 0.055),
         );
         sprite.renderOrder = 18;
-        const diameter = this.physicalRefinementE20
+        const diameter = this.physicalLightingRefinement
           ? THREE.MathUtils.clamp(Math.max(size.x, size.y) * 0.78, 0.28, 0.46)
           : THREE.MathUtils.clamp(Math.max(size.x, size.y) * 1.36, 0.46, 0.78);
         sprite.scale.set(diameter, diameter, 1);
@@ -2402,14 +2573,20 @@ export class NeonStageV1Environment {
 
     const actualLed = model.getObjectByName("CentralLED");
     const actualLedBounds = actualLed ? new THREE.Box3().setFromObject(actualLed) : null;
-    const ringNode = this.physicalRefinementE20
+    const ringNode = this.physicalRefinementE20 || this.physicalRepairE21
       ? model.getObjectByName("R15 Dance Ring Outer") : null;
     const ringBounds = ringNode ? new THREE.Box3().setFromObject(ringNode) : null;
     const ringCenter = ringBounds && !ringBounds.isEmpty()
       ? ringBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, 0, ACCEPTED_R15_DANCE_RING_Z);
     const ringSize = ringBounds && !ringBounds.isEmpty()
       ? ringBounds.getSize(new THREE.Vector3()) : new THREE.Vector3(4, 0, 4);
-    const reflectionMaterial = this.physicalRefinementE20 && actualLedBounds && !actualLedBounds.isEmpty()
+    const reflectionMaterial = this.physicalRepairE21 && actualLedBounds && !actualLedBounds.isEmpty()
+      ? makeE21SoftRingReflectionMaterial(
+        floorReflectionTexture, backdropTexture, actualLedBounds,
+        new THREE.Vector2(ringCenter.x, ringCenter.z),
+        Math.max(ringSize.x, ringSize.z) * 0.45,
+      )
+      : this.physicalRefinementE20 && actualLedBounds && !actualLedBounds.isEmpty()
       ? makeE20SoftFloorMaterial(
         floorReflectionTexture, backdropTexture, actualLedBounds,
         new THREE.Vector2(ringCenter.x, ringCenter.z),
@@ -2499,7 +2676,7 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = this.physicalRefinementE20
+        state.beamMaterial.uniforms.uOpacity.value = this.physicalLightingRefinement
           ? 0.21 + glow * 0.09
           : 0.16 + glow * 0.07;
       }
