@@ -518,3 +518,30 @@ require owner screenshot review. Check the continuity of lower wall into
 the riser, intact **bottom chevron tips**, crown clearance, uniform
 floor roughness, and soft overhead-only beams. Do not declare golden
 fidelity PASS or merge PR #17 without explicit owner acceptance.
+
+
+## E25 — micro-gap closure at E24 physical LED-to-stair contact (2026-10-08)
+
+Owner's Safari screenshot of E24 (`IMG_3138.jpeg`) shows the lower physical
+LED structure is close to, but not quite touching, the rear stair edge.
+Request: a small adjustment **only** to the 3D bottom extension, not a
+renewed translation of the full `CentralLED` or any artwork/lighting/floor.
+
+Compare-only URL:
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-extension-e25`
+
+- E25 inherits all unchanged E24 presentation.
+- Only `extendE24PhysicalCentralLed(..., fineContactE25)` differs: the
+  bottom overlaps the measured support top by `0.085` instead of `0.04`
+  world units (+0.045 overlap). Mesh centre Z moves from
+  `ledBounds.max.z - 0.105` to `-0.088`, only 0.017 forward.
+  The 0.16-deep extruded mesh's front still lies 0.008 *behind* the actual
+  CentralLED front surface.
+- No extra mesh, no horizontal lip, no core LED movement, no SVG change,
+  no shader edits to floor or beams. E24 URL still renders the original
+  `0.04 / 0.105` parameters as a strict iPhone A/B control.
+- Geometry-based support selection and failure warnings remain intact.
+
+Validation gate: Next.js/TypeScript build, Vercel preview, actual owner
+iPhone Safari screenshot of the remaining gap and clipped chevron tips.
+Do not equate deployment READY with visual acceptance. No merge PR #17.
