@@ -110,3 +110,8 @@ promotion to next visual phase without matching screenshot evidence.
 - **Floor:** compare-only 1024² single texture derived at load-time from *actual* DeckUplight/FloorUplight world bounds and R15 Dance Ring Outer bounds. Break highlights into diminishing fragments toward the spectator, add diffuse mirrored ring energy and dark tile seam interruptions. Attenuate the old long laser-streak meshes in integrated compare only to prevent double exposure.
 - **Mobile budget:** single precomputed CanvasTexture, two bounded local lights; no planar reflection camera, frame buffer, real-time rerender, per-frame texture regeneration or gameplay scheduler changes.
 - **Scope/acceptance:** A/B only pending owner 941×1672 iPhone crop and frame-by-frame comparison against Safari sketch. No claim of 95% or premium visual PASS from compilation.
+
+## 2026-10-08 — V17 emitter-edge safeguard
+
+- [x] Preserve the bright pink/cyan chevron emitter pixels where the new dark-wall feather approaches the SVG boundaries; feather applies to dark backdrop, not the approved neon core shapes.
+- [ ] Confirm with identical-viewport iPhone captures that the LED edge no longer reads as a rectangular poster and that emitter lines remain sharp. This is compare-only, not a gameplay promotion or visual PASS.

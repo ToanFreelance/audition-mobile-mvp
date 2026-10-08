@@ -935,7 +935,12 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture, integrated: boolea
             * smoothstep(0.0, 0.065, 1.0 - artUv.x);
           float edgeY = smoothstep(0.0, 0.12, artUv.y)
             * smoothstep(0.0, 0.12, 1.0 - artUv.y);
-          mask = edgeX * edgeY;
+          // The outer chevrons reach close to the authored panel edge.
+          // Preserve bright LED emitters while feathering dark wall pixels,
+          // otherwise the anti-poster treatment dims the neon lines.
+          float emitter = smoothstep(0.34, 0.72, max(art.r, max(art.g, art.b)));
+          mask = max(edgeX * edgeY,
+            0.94 * emitter * rectMask(vUv, artCenter, artSize, 0.010));
           // Physical LED diode modulation applies ONLY to background level,
           // retaining the high-frequency wordmark cores unblurred.
           float diode = 0.975 + 0.025 * cos(artUv.x * 2048.0 * 0.65)
