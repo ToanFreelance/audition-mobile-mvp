@@ -473,3 +473,48 @@ Safari FPS. Vercel READY alone is NOT visual PASS.
 
 No gameplay clock, gauge, Finish, sequenceCounts, RoomState, or integration
 branch changes. Do not merge PR #17 before explicit owner approval.
+
+
+## E24 — Physical lower-wall height extension, unified floor, upper-only beams (2026-10-08)
+
+Owner rejected E23 whole-`CentralLED` descent: screenshot `IMG_3137.jpeg`
+shows the bottom chevron heads clipped by the rear stage fixtures/risers.
+Owner instruction: **restore the upper/core artwork position and ADD lower
+physical wall height without rescaling logo, crown or chevrons**. Floor
+still lacks one continuous glossy character; overhead beams should be
+soft and terminate in the upper/mid backdrop (not on the dance floor).
+
+**E24 compare-only:**
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-extension-e24`
+
+- `CentralLED` stays at the original E22 golden vertical registration
+  (the E23 down-translation never executes under E24). E24 reuses the
+  crisp E23 balanced SVG plate, without source-asset change or stretch.
+- A single opaque, physically thick `NeonE24PhysicalLEDLowerExtension`
+  is created below the actual GLB `CentralLED`, recessed behind the
+  bottom surface and ending behind the highest eligible rear GLB riser.
+  Width, height and lower-edge placement come from world-space GLB
+  bounds; overlarge/missing gaps are rejected with console warnings.
+  A local shader reads several **bottom LED color** samples, blends
+  quickly to dark violet, and is limited to the bottom structural
+  extension so artwork remains unchanged. No double-line cove lip,
+  separate poster billboard or V17 overlay.
+- E24 derives the E23 one-pass floor shader, reduces readable mirrored
+  AUDITION by widening its rough-LED taps and damping direct reflection,
+  and adds a subtle, mostly constant floor-wide cool-violet bounce.
+  The existing ring, glossy tiles, grid and geometry remain unchanged.
+- E24's overhead beam meshes are approximately 4.6 units long for main
+  heads and 3.7 for rear heads, compared with the previous 10 / 7.2.
+  Physical cone direction and the four existing shadow-free SpotLights
+  target the upper/mid GLB LED region rather than the floor.
+  E24 hides spot floor-pool meshes; no shadow or new postprocessing pass.
+  Glints, flare and real spotlight intensity remain bounded.
+- E19/E20/E21/E22/E23 review variants remain independently selectable.
+  Ordinary gameplay has zero E24 activation.
+
+**Validation:** GitHub work-branch diff and Vercel build (Next.js +
+TypeScript + compare route); browser shader compile and iPhone GPU FPS
+require owner screenshot review. Check the continuity of lower wall into
+the riser, intact **bottom chevron tips**, crown clearance, uniform
+floor roughness, and soft overhead-only beams. Do not declare golden
+fidelity PASS or merge PR #17 without explicit owner acceptance.
