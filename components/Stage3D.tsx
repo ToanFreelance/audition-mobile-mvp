@@ -365,7 +365,11 @@ export default function Stage3D({
         ? renderedAspect * NEON_GOLDEN_COMPARE_HORIZONTAL_FOV_SCALE
         : renderedAspect;
       camera.updateProjectionMatrix();
-      renderer.setPixelRatio(visualCompareMode ? 1 : getStagePixelRatio(neonPresentation));
+      // Preserve compare-only Retina backing through all resize callbacks.
+      // The previous 1x override silently discarded the 2x initialization.
+      renderer.setPixelRatio(
+        visualCompareMode ? comparePixelRatio : getStagePixelRatio(neonPresentation),
+      );
       renderer.setSize(width, height, false);
       if (visualCompareMode) {
         host.dataset.visualCompareCanonicalWidth = String(NEON_GOLDEN_COMPARE_WIDTH);
