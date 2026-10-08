@@ -110,6 +110,14 @@ function useTypographyV16LedCompare() {
     && new URLSearchParams(window.location.search).get("ledAsset") === "typography-v16";
 }
 
+// Owner review lane: physical wall integration + grounded reflections.
+// Explicit opt-in; never changes the gameplay stage or the V14/V16 baselines.
+function useIntegratedStageFxCompare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageFx") === "integrated-v1";
+}
+
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
@@ -594,6 +602,134 @@ function makeAcceptedFloorReflectionTexture() {
   return texture;
 }
 
+
+/**
+ * Compare-only wet floor: reconstruct light pools from real GLB fixture bounds
+ * instead of painting equally-spaced neon lanes in screen/image coordinates.
+ * One premultiplied-looking transparent canvas texture, no screen-space
+ * reflections, render targets, WebGL extensions, or per-frame allocations.
+ */
+function makeIntegratedFloorReflectionTexture(model: THREE.Object3D) {
+  const width = 1024;
+  const height = 1024;
+  const planeWidth = 19.2;
+  const planeLength = 34.0;
+  const planeCenterZ = 11.2;
+  const backZ = planeCenterZ - planeLength / 2;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Integrated floor reflection canvas unavailable.");
+
+  const toX = (x: number) => (x / planeWidth + 0.5) * width;
+  const toY = (z: number) => ((z - backZ) / planeLength) * height;
+
+  const fixtureBounds = new Map<string, THREE.Box3>();
+  model.traverse(object => {
+    const key = object.name.match(/^(DeckUplight|FloorUplight)_\\d+/)?.[0];
+    if (!key) return;
+    const bounds = new THREE.Box3().setFromObject(object);
+    if (bounds.isEmpty()) return;
+    const existing = fixtureBounds.get(key);
+    if (existing) existing.union(bounds);
+    else fixtureBounds.set(key, bounds);
+  });
+
+  const fixtures = [...fixtureBounds.entries()]
+    .map(([key, bounds]) => ({ key, center: bounds.getCenter(new THREE.Vector3()) }))
+    .sort((a, b) => a.center.x - b.center.x || a.key.localeCompare(b.key));
+  const rgba = (cyan: boolean, alpha: number) => cyan
+    ? `rgba(30,210,255,${Math.max(0, Math.min(1, alpha)).toFixed(3)})`
+    : `rgba(255,38,207,${Math.max(0, Math.min(1, alpha)).toFixed(3)})`;
+
+  const paintPool = (x: number, y: number, radiusX: number, radiusY: number, cyan: boolean, alpha: number) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(radiusX, radiusY);
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    glow.addColorStop(0, rgba(cyan, alpha));
+    glow.addColorStop(0.22, rgba(cyan, alpha * 0.54));
+    glow.addColorStop(0.65, rgba(cyan, alpha * 0.11));
+    glow.addColorStop(1, rgba(cyan, 0));
+    ctx.fillStyle = glow;
+    ctx.fillRect(-1, -1, 2, 2);
+    ctx.restore();
+  };
+
+  // Distinct reflections start underneath each physical uplight, and become
+  // wider, dimmer and more fragmented toward the spectator/camera.
+  ctx.globalCompositeOperation = "lighter";
+  fixtures.forEach((fixture, index) => {
+    const cyan = index % 2 === 1;
+    const x = toX(fixture.center.x);
+    const sourceY = toY(fixture.center.z);
+    paintPool(x, sourceY + 12, 28, 27, cyan, 0.49);
+
+    for (let band = 0; band < 14; band += 1) {
+      const progress = band / 13;
+      const z = fixture.center.z + 0.65 + band * 0.78;
+      const y = toY(z);
+      const drift = Math.sin(index * 1.41 + band * 1.83) * (2.2 + progress * 8.5);
+      const intensity = (0.29 + 0.07 * Math.cos(index * 2.1))
+        * Math.exp(-progress * 1.65)
+        * (0.75 + 0.25 * Math.cos(band * 2.42));
+      paintPool(x + drift, y, 14 + progress * 19, 15 + progress * 14, cyan, intensity);
+    }
+  });
+
+  // Real ring bounds establish scale and location of diffuse reflected energy.
+  // No extra sharp ring geometry: the actual GLB ring is already the crisp source.
+  const ring = model.getObjectByName("R15 Dance Ring Outer");
+  if (ring) {
+    const bounds = new THREE.Box3().setFromObject(ring);
+    if (!bounds.isEmpty()) {
+      const center = bounds.getCenter(new THREE.Vector3());
+      const size = bounds.getSize(new THREE.Vector3());
+      const x = toX(center.x);
+      const y = toY(center.z);
+      const rx = Math.max(18, (size.x / planeWidth) * width * 0.56);
+      const rz = Math.max(9, (size.z / planeLength) * height * 0.56);
+      // Soft ring halo only; full-bright mirrored circles would double the ring.
+      paintPool(x, y + 12, rx * 1.18, Math.max(24, rz * 2.0), false, 0.24);
+      paintPool(x, y + 34, rx * 0.83, 50, true, 0.13);
+      for (const side of [-0.73, 0, 0.73]) {
+        const cyan = side === 0;
+        for (let step = 0; step < 9; step += 1) {
+          const progress = step / 9;
+          const taper = Math.exp(-progress * 1.5);
+          paintPool(
+            x + side * rx + Math.sin(step * 1.4 + side) * 3,
+            y + 26 + step * 26,
+            12 + progress * 9,
+            25 + progress * 8,
+            cyan,
+            (side === 0 ? 0.20 : 0.30) * taper,
+          );
+        }
+      }
+    }
+  }
+
+  // Tile joints interrupt reflection coherently across the entire floor;
+  // no continuous straight cyan/pink laser columns to the foreground.
+  ctx.globalCompositeOperation = "destination-out";
+  for (let z = backZ + 1.8; z < backZ + planeLength; z += 2.55) {
+    const y = toY(z);
+    ctx.fillStyle = "rgba(0,0,0,0.21)";
+    ctx.fillRect(0, y, width, 2.2);
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  texture.generateMipmaps = true;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 function makeAcceptedFloorGridTexture() {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -696,7 +832,7 @@ function makeAcceptedBackdropGlowTexture() {
   return texture;
 }
 
-function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
+function makeAcceptedBackdropMaterial(texture: THREE.Texture, integrated: boolean) {
   return new THREE.ShaderMaterial({
     name: "R15AcceptedUnifiedBackdropMaterial",
     transparent: false,
@@ -713,6 +849,7 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
         1 / (texture.userData.ledSamplingSize as THREE.Vector2).y,
       ) },
       uSharpness: { value: texture.userData.ledSharpness as number },
+      uIntegrated: { value: integrated ? 1.0 : 0.0 },
     },
     vertexShader: `
       varying vec2 vUv;
@@ -726,6 +863,7 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
       uniform sampler2D uMap;
       uniform vec2 uTexelSize;
       uniform float uSharpness;
+      uniform float uIntegrated;
 
       vec3 sampleCrispLed(vec2 uv) {
         vec2 p = clamp(uv, vec2(0.0), vec2(1.0));
@@ -789,6 +927,22 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture) {
         // treatment clipped neon cores into soft, smeared ribbons.
         vec3 art = sampleCrispLed(artUv);
         float mask = rectMask(vUv, artCenter, artSize, 0.010);
+        if (uIntegrated > 0.5) {
+          // V14 authored image coordinates remain fixed: soften only the
+          // bounded perimeter, not logo/crown/chevrons in the LED interior.
+          // There is no hard rectangular alpha seam defining a "poster".
+          float edgeX = smoothstep(0.0, 0.065, artUv.x)
+            * smoothstep(0.0, 0.065, 1.0 - artUv.x);
+          float edgeY = smoothstep(0.0, 0.12, artUv.y)
+            * smoothstep(0.0, 0.12, 1.0 - artUv.y);
+          mask = edgeX * edgeY;
+          // Physical LED diode modulation applies ONLY to background level,
+          // retaining the high-frequency wordmark cores unblurred.
+          float diode = 0.975 + 0.025 * cos(artUv.x * 2048.0 * 0.65)
+            * cos(artUv.y * 844.0 * 0.65);
+          float lowLight = 1.0 - smoothstep(0.17, 0.53, max(art.r, max(art.g, art.b)));
+          art *= 1.0 - (1.0 - diode) * lowLight;
+        }
         vec3 color = mix(bg, art, mask);
 
         // Subtle matrix grain in the generated continuation makes it read as
@@ -928,6 +1082,7 @@ export class NeonStageV1Environment {
   private readonly loader = new GLTFLoader();
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
+  private readonly integratedStageFx = useIntegratedStageFxCompare();
   private readonly pulseMaterials: PulseMaterial[] = [];
   private readonly breathMaterials: BreathMaterial[] = [];
   private readonly beamStates: BeamState[] = [];
@@ -1710,7 +1865,9 @@ export class NeonStageV1Environment {
 
     const poolTexture = makeAcceptedLightPoolTexture();
     const backdropTexture = makeAcceptedBackdropGlowTexture();
-    const floorReflectionTexture = makeAcceptedFloorReflectionTexture();
+    const floorReflectionTexture = this.integratedStageFx
+      ? makeIntegratedFloorReflectionTexture(model)
+      : makeAcceptedFloorReflectionTexture();
     const floorGridTexture = makeAcceptedFloorGridTexture();
     const lowerFixtureGlowTexture = makeAcceptedBeamSourceTexture();
     this.textures.push(
@@ -1728,7 +1885,7 @@ export class NeonStageV1Environment {
       const ledSize = ledBounds.getSize(new THREE.Vector3());
       const ledCenter = ledBounds.getCenter(new THREE.Vector3());
 
-      const backdropMaterial = makeAcceptedBackdropMaterial(backdropTexture);
+      const backdropMaterial = makeAcceptedBackdropMaterial(backdropTexture, this.integratedStageFx);
 
       // One uninterrupted wall surface. The top stays locked to the registered
       // CentralLED while the extra 10% height continues downward into the
@@ -1742,11 +1899,30 @@ export class NeonStageV1Environment {
       backdrop.position.set(
         ledCenter.x,
         ledCenter.y - ledSize.y * 0.05,
-        ledBounds.max.z + 0.028,
+        ledBounds.max.z + (this.integratedStageFx ? 0.010 : 0.028),
       );
       backdrop.renderOrder = 2;
       this.acceptedFxRoot.add(backdrop);
 
+      if (this.integratedStageFx) {
+        // Small local wall-source spill on nearby *3D* architecture, not a
+        // fullscreen purple overlay. Anchored to the CentralLED GLB bounds.
+        for (const side of [-1, 1]) {
+          const wallBounce = new THREE.PointLight(
+            side < 0 ? 0x21c8fa : 0xf72bcf, 3.3,
+            Math.min(10.5, ledSize.x * 0.72), 2.0,
+          );
+          wallBounce.name = side < 0
+            ? "NeonCompareLeftLedSpill"
+            : "NeonCompareRightLedSpill";
+          wallBounce.position.set(
+            ledCenter.x + side * ledSize.x * 0.37,
+            ledCenter.y - ledSize.y * 0.28,
+            ledBounds.max.z + 1.15,
+          );
+          this.acceptedFxRoot.add(wallBounce);
+        }
+      }
     }
 
     // No broad backdrop wash planes: the authored LED plate is the single source
@@ -1796,7 +1972,7 @@ export class NeonStageV1Environment {
     const reflectionMaterial = new THREE.MeshBasicMaterial({
       map: floorReflectionTexture,
       transparent: true,
-      opacity: 0.74,
+      opacity: this.integratedStageFx ? 0.92 : 0.74,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
@@ -1929,7 +2105,9 @@ export class NeonStageV1Environment {
           coreLength / 4.8,
           1,
         );
-        state.reflectionCoreMesh.material.opacity = 0.74 + glow * 0.16;
+        state.reflectionCoreMesh.material.opacity = this.integratedStageFx
+          ? 0.24 + glow * 0.08
+          : 0.74 + glow * 0.16;
         state.reflectionCoreMesh.visible = true;
       }
 
@@ -1946,7 +2124,9 @@ export class NeonStageV1Environment {
           reflectionLength / 14.2,
           1,
         );
-        state.reflectionMesh.material.opacity = 0.42 + glow * 0.10;
+        state.reflectionMesh.material.opacity = this.integratedStageFx
+          ? 0.15 + glow * 0.045
+          : 0.42 + glow * 0.10;
         state.reflectionMesh.visible = true;
       }
     });

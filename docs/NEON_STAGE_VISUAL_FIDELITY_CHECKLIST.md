@@ -101,3 +101,12 @@ promotion to next visual phase without matching screenshot evidence.
 - **Not fixed by this pass:** the `Arial Black` font fallback and underlying glyph contour mismatch. Do not claim a typography PASS until owner iPhone A/B. The failed V15 trace/overlay remains disabled; this experiment is not a V15 restoration.
 - Defaults stay V14 on `/tools/neon-stage-compare`; `?ledAsset=vector` remains V14; `?ledAsset=legacy` remains WebP. Gameplay asset, runtime clock, camera, mesh placement, and approved stage geometry remain unchanged.
 - After owner screenshot review, choose either retain/reject this measured geometry variant, then address lettering source paths independently. Defer truss/beam/floor changes pending branding acceptance.
+
+## 2026-10-08 — D1.2 LED integration + premium floor A/B (owner iPhone pending)
+
+- **Root cause:** the original V14/V16 LED shader had a visibly rectangular UV art mask and the art plane floated 0.028 world units in front of the GLB CentralLED. Floor was a single 512² painted additive overlay plus overlapping straight per-fixture reflection strips; no linkage to actual fixture locations or dance-ring radius.
+- **Isolated comparison:** `/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=integrated-v1`. Omitting `stageFx` keeps V14/V16 unchanged; actual gameplay remains on the accepted WebP source and original stage presentation.
+- **Backdrop:** move compare-only LED plate close to physical CentralLED surface (+0.010), replace rectangular sticker mask with bounded UV edge feather, retain unfiltered white/pink logo cores; add two bounded, GLB-anchored cyan/magenta PointLight spills on nearby 3D architecture. No full-screen wash, post-bloom, new logo tracing, lower extension plane or camera scale change.
+- **Floor:** compare-only 1024² single texture derived at load-time from *actual* DeckUplight/FloorUplight world bounds and R15 Dance Ring Outer bounds. Break highlights into diminishing fragments toward the spectator, add diffuse mirrored ring energy and dark tile seam interruptions. Attenuate the old long laser-streak meshes in integrated compare only to prevent double exposure.
+- **Mobile budget:** single precomputed CanvasTexture, two bounded local lights; no planar reflection camera, frame buffer, real-time rerender, per-frame texture regeneration or gameplay scheduler changes.
+- **Scope/acceptance:** A/B only pending owner 941×1672 iPhone crop and frame-by-frame comparison against Safari sketch. No claim of 95% or premium visual PASS from compilation.
