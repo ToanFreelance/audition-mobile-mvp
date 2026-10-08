@@ -545,3 +545,42 @@ Compare-only URL:
 Validation gate: Next.js/TypeScript build, Vercel preview, actual owner
 iPhone Safari screenshot of the remaining gap and clipped chevron tips.
 Do not equate deployment READY with visual acceptance. No merge PR #17.
+
+
+## E26 — top LED/header registration correction from owner's E25 close-up (2026-10-08)
+
+Owner attached E25 full portrait and zoomed screenshot (IMG_3139.jpeg,
+IMG_3140.jpeg). The **whole CentralLED surface/artwork starts above its
+intended upper crossbar/header** and the chevrons are partly visually
+occluded there. Prior E25 only extended the lower structural panel and
+therefore could not fix the *upper* registration.
+
+**Owner correction:** gently move the entire LED/backdrop artwork DOWN,
+not just the lower extension. Do not repeat E23's excessive downward
+translation, which cut off the bottom chevron tips.
+
+**Compare-only E26:**
+`/tools/neon-stage-compare?ledAsset=typography-v16&stageFx=physical-registration-e26`.
+E25 remains independently selectable as the exact baseline/control.
+
+Implementation:
+- New `usePhysicalRegistrationE26Compare()` flag activates only on the
+  Neon Stage compare route; E26 inherits E25 extension, floor, truss
+  lighting and artwork without altering their source parameters.
+- `lowerE26CentralLedWithinHeader()` runs after existing registered
+  model transforms, before materials/lighting/reflections. It moves only
+  the imported glTF `CentralLED` mesh in world Y by
+  `-min(0.16, 0.035 × LED world-height)` units. The small cap avoids the
+  rejected E23 full-rise-to-riser gap compensation. It never scales
+  or rewrites logo, chevrons, crown or texture UVs.
+- E25 lower structural extension and E24/E25 reflection material recalc
+  against the updated LED bounds automatically. No extra plane, poster,
+  cove lip, new render pass, altered camera or gameplay change.
+- The console logs original/new top and bottom bounds and unchanged
+  surface height, so frame clearance can be rechecked against the
+  owner iPhone crop.
+
+Acceptance (pending): actual Safari iPhone screenshot with fully visible
+upper neon stroke endpoints, no LED protrusion above top bar, retained
+lower chevron tips, lower LED-to-stair junction, no floor/beam regression.
+Vercel build READY is NOT visual PASS. No PR #17 merge.
