@@ -91,3 +91,13 @@ promotion to next visual phase without matching screenshot evidence.
 - [x] Correct the absolute-difference file to unamplified RGB error; heatmap remains the visualization.
 - [ ] Source PNG 941×1672 needs to be available for local automated comparison.
 - [ ] Re-capture post-Retina-fix V14 iPhone viewport for visual scoring; don't restore V15.
+
+## 2026-10-08 — Safari iPhone V16 typography A/B (owner review required)
+
+- The owner's 16:39 Safari-conformed sketch is the *visual composition* reference; it is not a byte-identical replacement for the original 941×1672 stage-only SHA-verified golden image.
+- Baseline owner iPhone runtime screenshot is the 10:18 V14 compare frame. These screenshots have 710×1536 and 864×1536 dimensions; they cannot be treated as strict pixel-registered pairs. Browser chrome must be excluded, and neither side can be nonuniformly stretched into a formal acceptance claim.
+- Measured against the panel width in the screenshots: runtime wordmark occupies approximately 67%, sketch approximately 61–64%; crown approximately 13–15%, sketch approximately 15–17%; subtitle approximately 30%, sketch approximately 34–36%. Boundaries are visual/ROI approximations, not certified golden pixel measurements.
+- Added compare-only `?ledAsset=typography-v16` using a single full authored V14 SVG copy, with only logo horizontal scale 1.11→1.00, crown x/y scales 1.10/1.00→1.22/1.075, and subtitle font size/spacing 48/18→54/19.
+- **Not fixed by this pass:** the `Arial Black` font fallback and underlying glyph contour mismatch. Do not claim a typography PASS until owner iPhone A/B. The failed V15 trace/overlay remains disabled; this experiment is not a V15 restoration.
+- Defaults stay V14 on `/tools/neon-stage-compare`; `?ledAsset=vector` remains V14; `?ledAsset=legacy` remains WebP. Gameplay asset, runtime clock, camera, mesh placement, and approved stage geometry remain unchanged.
+- After owner screenshot review, choose either retain/reject this measured geometry variant, then address lettering source paths independently. Defer truss/beam/floor changes pending branding acceptance.

@@ -92,6 +92,8 @@ const ACCEPTED_R15_DANCE_RING_Z = 0.25;
 // Do not enable it in gameplay before the owner accepts an iPhone comparison.
 const CONCEPT_LED_ASSET_URL = "/stages/neon-stage-v1/golden-led-wall-v2.webp";
 const VECTOR_LED_ASSET_URL = "/stages/neon-stage-v1/concept-led-v14.svg";
+const TYPOGRAPHY_V16_COMPARE_ASSET_URL =
+  "/stages/neon-stage-v1/concept-led-typography-v16.svg";
 // Owner rejected the V15 golden-core and traced-lettering experiments.
 // V14 is the default, compare-only working baseline, including deprecated V15 URLs.
 // Explicit ?ledAsset=legacy preserves the low-resolution WebP control.
@@ -100,6 +102,12 @@ function useHiResLedCompare() {
   if (typeof window === "undefined") return false;
   if (window.location.pathname !== "/tools/neon-stage-compare") return false;
   return new URLSearchParams(window.location.search).get("ledAsset") !== "legacy";
+}
+
+function useTypographyV16LedCompare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("ledAsset") === "typography-v16";
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -662,8 +670,11 @@ function makeAcceptedFloorGridTexture() {
 
 function makeAcceptedBackdropGlowTexture() {
   const hiResCompare = useHiResLedCompare();
+  const typographyV16Compare = useTypographyV16LedCompare();
   const texture = new THREE.TextureLoader().load(
-    hiResCompare ? VECTOR_LED_ASSET_URL : CONCEPT_LED_ASSET_URL,
+    typographyV16Compare
+      ? TYPOGRAPHY_V16_COMPARE_ASSET_URL
+      : hiResCompare ? VECTOR_LED_ASSET_URL : CONCEPT_LED_ASSET_URL,
   );
   texture.colorSpace = THREE.SRGBColorSpace;
   // 512x191 WebP is source-resolution limited; no mip smoothing in legacy mode.
