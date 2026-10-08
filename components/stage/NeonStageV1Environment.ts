@@ -52,6 +52,7 @@ type AcceptedBreathMaterial = {
 };
 
 type AcceptedMovingHead = {
+  motionAccent: boolean;
   panPivot: THREE.Object3D;
   tiltPivot: THREE.Object3D;
   optical: THREE.SpotLight;
@@ -453,6 +454,19 @@ function architecturalBreathMultiplier(renderTimeSeconds: number, phaseOffsetSec
   const softEnvelope = Math.sin(Math.PI * localPhase) ** 2;
   const amplitude = pulseIndex === 3 ? 0.72 : 0.24;
   return 1 + amplitude * softEnvelope;
+}
+
+// Presentation-only beat energy. Read from Stage3D's existing authoritative
+// WebAudio song time (never owns, changes or schedules the global timeline).
+// A brief attack and soft release read as musical breath, not a strobe.
+function acceptedSongBeatEnergy(songTimeMs: number, bpm: number, isPlaying: boolean) {
+  if (!isPlaying || !Number.isFinite(songTimeMs) || songTimeMs < 0
+    || !Number.isFinite(bpm) || bpm <= 0) return 0;
+  const beatPosition = songTimeMs * bpm / 60000;
+  const index = Math.floor(beatPosition);
+  const phase = beatPosition - index;
+  const accented = index % 4 === 0;
+  return (accented ? 1 : 0.43) * Math.exp(-5.0 * phase);
 }
 
 function acceptedBreathMultiplier(renderTimeSeconds: number, phaseOffsetSeconds = 0) {
@@ -1958,7 +1972,7 @@ function makePhysicalCentralLedMaterial(texture: THREE.Texture, bounds: THREE.Bo
         "vec2 artUv = (vUv - artMin) / artSize;",
         `vec2 artUv = (vUv - artMin) / artSize;
         if (uPhysicalFullSurface > 0.5) {
-          gl_FragColor = vec4(sampleCrispLed(vUv), 1.0);
+          gl_FragColor = vec4(modulateNeonEmitters(sampleCrispLed(vUv)), 1.0);
           #include <colorspace_fragment>
           return;
         }`,
@@ -1993,6 +2007,8 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture, integrated: boolea
     toneMapped: false,
     uniforms: {
       uMap: { value: texture },
+      // Neutral baseline 1.0 is byte-identical to the owner-accepted E29.
+      uNeonBreath: { value: 1.0 },
       // Sample in source texels, not CSS pixels: 2048x844 for vector trial,
       // 512x191 for the existing owner baseline.
       uTexelSize: { value: new THREE.Vector2(
@@ -2015,6 +2031,20 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture, integrated: boolea
       uniform vec2 uTexelSize;
       uniform float uSharpness;
       uniform float uIntegrated;
+      uniform float uNeonBreath;
+
+      vec3 modulateNeonEmitters(vec3 color) {
+        // React only to saturated cyan/magenta emitters, NOT the dark
+        // backdrop, white text cores or gold crown. Maintain crisp glyphs.
+        float high = max(color.r, max(color.g, color.b));
+        float magenta = smoothstep(0.07, 0.24, color.r - color.g)
+          * smoothstep(0.035, 0.14, color.b - color.g);
+        float cyan = smoothstep(0.06, 0.25, color.g - color.r)
+          * smoothstep(0.055, 0.22, color.b - color.r);
+        float mask = max(magenta, cyan)
+          * smoothstep(0.16, 0.54, high);
+        return color * mix(1.0, uNeonBreath, mask);
+      }
 
       vec3 sampleCrispLed(vec2 uv) {
         vec2 p = clamp(uv, vec2(0.0), vec2(1.0));
@@ -2099,7 +2129,7 @@ function makeAcceptedBackdropMaterial(texture: THREE.Texture, integrated: boolea
           float lowLight = 1.0 - smoothstep(0.17, 0.53, max(art.r, max(art.g, art.b)));
           art *= 1.0 - (1.0 - diode) * lowLight;
         }
-        vec3 color = mix(bg, art, mask);
+        vec3 color = mix(bg, modulateNeonEmitters(art), mask);
 
         // Subtle matrix grain in the generated continuation makes it read as
         // the same LED surface instead of a flat filler strip.
@@ -2359,6 +2389,11 @@ function normalizeAcceptedR15Model(model: THREE.Object3D) {
 
 export class NeonStageV1Environment {
   readonly root = new THREE.Group();
+  // Runtime only; never perturb deterministic Golden Sketch/E29 compare.
+  private readonly motionPassEnabled = typeof window !== "undefined"
+    && window.location.pathname !== "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageMotion") !== "off";
+  private acceptedLedMaterial: THREE.ShaderMaterial | null = null;
 
   private readonly loader = new GLTFLoader();
   private readonly animatedRoot = new THREE.Group();
@@ -2478,14 +2513,10 @@ export class NeonStageV1Environment {
   }
 
   update(renderTimeSeconds: number, songTimeMs: number, bpm: number, isPlaying: boolean) {
-    // Neon Stage motion is presentation-only and intentionally independent of the
-    // gameplay/audio clock. Keep the Stage3D contract unchanged.
-    void songTimeMs;
-    void bpm;
-    void isPlaying;
-
+    // Existing camera/truss motion continues on presentation time. Beat
+    // modulation ONLY reads WebAudio authority; no new scheduler or timer.
     if (this.loadedModel) {
-      this.updateAcceptedR15Runtime(renderTimeSeconds);
+      this.updateAcceptedR15Runtime(renderTimeSeconds, songTimeMs, bpm, isPlaying);
       return;
     }
 
@@ -2542,6 +2573,7 @@ export class NeonStageV1Environment {
     this.acceptedMovingHeads.length = 0;
     this.fallbackChildren.length = 0;
     this.loadedModel = null;
+    this.acceptedLedMaterial = null;
     this.lastAcceptedBreathUpdateSeconds = Number.NEGATIVE_INFINITY;
     this.root.clear();
   }
@@ -3173,6 +3205,8 @@ export class NeonStageV1Environment {
           : null;
 
         this.acceptedMovingHeads.push({
+          motionAccent: group.prefix === "MainFixture"
+            && ["01", "04", "06", "09"].includes(suffix),
           panPivot,
           tiltPivot,
           optical,
@@ -3276,6 +3310,7 @@ export class NeonStageV1Environment {
         physicalLed.material = makePhysicalCentralLedMaterial(
           backdropTexture, ledBounds, this.physicalReflectionE19,
         );
+        this.acceptedLedMaterial = physicalLed.material as THREE.ShaderMaterial;
         physicalLed.renderOrder = 2;
         const physicalFloor = model.getObjectByName("PolishedDanceFloor") as THREE.Mesh | undefined;
         const stats = (mesh: THREE.Mesh | undefined) => mesh?.isMesh ? {
@@ -3301,6 +3336,7 @@ export class NeonStageV1Environment {
         }
       } else {
       const backdropMaterial = makeAcceptedBackdropMaterial(backdropTexture, this.integratedStageFx);
+      this.acceptedLedMaterial = backdropMaterial;
 
       // One uninterrupted wall surface. The top stays locked to the registered
       // CentralLED while the extra 10% height continues downward into the
@@ -3540,12 +3576,25 @@ export class NeonStageV1Environment {
 
   }
 
-  private updateAcceptedR15Runtime(renderTimeSeconds: number) {
+  private updateAcceptedR15Runtime(
+    renderTimeSeconds: number, songTimeMs: number, bpm: number, isPlaying: boolean,
+  ) {
+    const beatEnergy = this.motionPassEnabled
+      ? acceptedSongBeatEnergy(songTimeMs, bpm, isPlaying) : 0;
+    // Updating a float uniform doesn't reload the 2048px SVG or its shader.
+    if (this.acceptedLedMaterial) {
+      this.acceptedLedMaterial.uniforms.uNeonBreath.value = this.motionPassEnabled
+        ? 1 + beatEnergy * 0.115 : 1;
+    }
     if (renderTimeSeconds - this.lastAcceptedBreathUpdateSeconds >= 1 / 30) {
       this.acceptedBreathMaterials.forEach(state => {
+        // The existing rail/riser breath stays smooth in idle. During playback,
+        // weak/strong pulses follow the same song-time beat as the central LED.
+        const multiplier = this.motionPassEnabled && isPlaying
+          ? 1 + beatEnergy * 0.17
+          : acceptedBreathMultiplier(renderTimeSeconds, state.phaseOffsetSeconds);
         state.material.emissiveIntensity =
-          state.baseEmissiveIntensity
-          * acceptedBreathMultiplier(renderTimeSeconds, state.phaseOffsetSeconds);
+          state.baseEmissiveIntensity * multiplier;
       });
       this.lastAcceptedBreathUpdateSeconds = renderTimeSeconds;
     }
@@ -3561,15 +3610,17 @@ export class NeonStageV1Environment {
 
     this.acceptedMovingHeads.forEach(state => {
       const theta = renderTimeSeconds * state.speed + state.phase;
+      const accentedHead = this.motionPassEnabled && state.motionAccent;
       const sweep = state.panAmplitude * (
         0.82 * Math.sin(theta)
         + 0.18 * Math.sin(theta * 2 + 0.35)
-      );
+      ) * (accentedHead ? 1.17 : 1);
       const tilt = state.tiltAmplitude * (
         0.78 * Math.sin(theta + 1.05)
         + 0.22 * Math.sin(theta * 2 - state.phase * 0.25)
-      );
+      ) * (accentedHead ? 1.12 : 1);
       const glow = 0.5 + 0.5 * Math.sin(theta * 0.72 + 0.6);
+      const opticalAccent = accentedHead ? beatEnergy * 0.075 : 0;
 
       state.panPivot.quaternion
         .copy(state.basePanQuaternion)
@@ -3580,7 +3631,7 @@ export class NeonStageV1Environment {
 
       if (state.beamMaterial) {
         state.beamMaterial.uniforms.uOpacity.value = this.physicalExtensionE24
-          ? 0.22 + glow * 0.065
+          ? 0.22 + glow * 0.065 + opticalAccent
           : this.physicalAlignmentE23
           ? 0.205 + glow * 0.065
           : this.physicalFidelityE22
@@ -3591,7 +3642,7 @@ export class NeonStageV1Environment {
       }
       if (state.e20GlintMaterial) {
         state.e20GlintMaterial.opacity = this.physicalExtensionE24
-          ? 0.24 + glow * 0.14
+          ? 0.24 + glow * 0.14 + opticalAccent
           : this.physicalAlignmentE23
           ? 0.17 + glow * 0.13 : 0.27 + glow * 0.24;
       }
@@ -3612,8 +3663,10 @@ export class NeonStageV1Environment {
       }
 
       localTarget.copy(state.floorAimBase);
-      localTarget.x += Math.sin(theta * 0.82 + state.phase) * 0.28;
-      localTarget.z += Math.sin(theta * 0.64 + state.phase * 0.7) * 0.24;
+      localTarget.x += Math.sin(theta * 0.82 + state.phase)
+        * (accentedHead ? 0.65 : 0.28);
+      localTarget.z += Math.sin(theta * 0.64 + state.phase * 0.7)
+        * (accentedHead ? 0.32 : 0.24);
       if (this.physicalExtensionE24 && this.e24BeamTarget) {
         localTarget.set(localTarget.x * 0.72,
           this.e24BeamTarget.y, this.e24BeamTarget.z);
