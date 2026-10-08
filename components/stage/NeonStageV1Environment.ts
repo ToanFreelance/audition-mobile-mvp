@@ -98,6 +98,8 @@ const TYPOGRAPHY_V16_COMPARE_ASSET_URL =
   "/stages/neon-stage-v1/concept-led-typography-v16.svg";
 const CROWN_CLEARANCE_E21_ASSET_URL =
   "/stages/neon-stage-v1/concept-led-crown-clearance-e21.svg";
+const CLEAN_BASE_E22_ASSET_URL =
+  "/stages/neon-stage-v1/concept-led-clean-base-e22.svg";
 // Owner rejected the V15 golden-core and traced-lettering experiments.
 // V14 is the default, compare-only working baseline, including deprecated V15 URLs.
 // Explicit ?ledAsset=legacy preserves the low-resolution WebP control.
@@ -151,6 +153,14 @@ function usePhysicalRepairE21Compare() {
   return typeof window !== "undefined"
     && window.location.pathname === "/tools/neon-stage-compare"
     && new URLSearchParams(window.location.search).get("stageFx") === "physical-repair-e21";
+}
+
+// E22 retains the positive E21 camera/logo and upgrades optics/fixture
+// geometry independently. All ordinary gameplay URLs remain unchanged.
+function usePhysicalFidelityE22Compare() {
+  return typeof window !== "undefined"
+    && window.location.pathname === "/tools/neon-stage-compare"
+    && new URLSearchParams(window.location.search).get("stageFx") === "physical-fidelity-e22";
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -1140,6 +1150,7 @@ function addE21LedRiserStructuralBridge(
   model: THREE.Object3D,
   fxRoot: THREE.Object3D,
   ledBounds: THREE.Box3,
+  noDecorativeLip = false,
 ) {
   const candidateTops: number[] = [];
   model.traverse(object => {
@@ -1177,8 +1188,10 @@ function addE21LedRiserStructuralBridge(
     (upperY + lowerY) * 0.5, frontZ);
   fxRoot.add(backing);
 
-  // One recessed, physical cove lip hides the LED/infill seam. It follows the
-  // LED WORLD bounds and never crosses the logo/crown or stairs in screen space.
+  // E21's emissive cove lip + the decorative SVG lower line caused the two
+  // magenta bars rejected on the E21 screenshot. E22 keeps the solid lower
+  // wall, without the redundant luminous bar.
+  if (!noDecorativeLip) {
   const lip = new THREE.Mesh(
     new THREE.BoxGeometry(width * 0.966, 0.035, 0.09),
     new THREE.MeshStandardMaterial({
@@ -1194,12 +1207,205 @@ function addE21LedRiserStructuralBridge(
   lip.position.set(backing.position.x, ledBounds.min.y - 0.022,
     ledBounds.max.z + 0.008);
   fxRoot.add(lip);
+  }
   console.info("[NeonStage E21] Physical LED/riser bridge", {
     topY: upperY, bottomY: lowerY, nearestDeckTop,
     width, frontZ,
   });
 }
 
+
+// E22: one continuous low-frequency gloss field under the whole dance floor.
+// The two new world-positioned fixture pools are very broad, not screen-X
+// texture samples. E19's wall reflection remains a separate blurred lobe.
+function makeE22ContinuousFloorReflectionMaterial(
+  localTexture: THREE.Texture,
+  ledTexture: THREE.Texture,
+  ledBounds: THREE.Box3,
+  ringCenter: THREE.Vector2,
+  ringRadius: number,
+  fixtureLeft: THREE.Vector2,
+  fixtureRight: THREE.Vector2,
+) {
+  const material = makeE19ReflectedWallFloorMaterial(
+    localTexture, ledTexture, ledBounds,
+  );
+  material.name = "NeonE22ContinuousPremiumFloor";
+  material.uniforms.uRingCenter = { value: ringCenter.clone() };
+  material.uniforms.uRingRadius = { value: Math.max(0.4, ringRadius) };
+  material.uniforms.uFixtureLeft = { value: fixtureLeft.clone() };
+  material.uniforms.uFixtureRight = { value: fixtureRight.clone() };
+  material.fragmentShader = `
+    varying vec2 vFloorUv;
+    varying vec3 vFloorWorld;
+    uniform sampler2D uLocalMap;
+    uniform sampler2D uLedMap;
+    uniform vec3 uLedMin;
+    uniform vec3 uLedMax;
+    uniform vec2 uRingCenter;
+    uniform float uRingRadius;
+    uniform vec2 uFixtureLeft;
+    uniform vec2 uFixtureRight;
+
+    vec3 roughLed(vec2 uv, vec2 radius) {
+      uv = clamp(uv, vec2(0.0), vec2(1.0));
+      vec3 c = texture2D(uLedMap, uv).rgb * 0.12;
+      c += texture2D(uLedMap, clamp(uv + vec2( radius.x, 0.0), 0.0, 1.0)).rgb * 0.14;
+      c += texture2D(uLedMap, clamp(uv + vec2(-radius.x, 0.0), 0.0, 1.0)).rgb * 0.14;
+      c += texture2D(uLedMap, clamp(uv + vec2(0.0,  radius.y), 0.0, 1.0)).rgb * 0.12;
+      c += texture2D(uLedMap, clamp(uv + vec2(0.0, -radius.y), 0.0, 1.0)).rgb * 0.12;
+      c += texture2D(uLedMap, clamp(uv + radius, 0.0, 1.0)).rgb * 0.12;
+      c += texture2D(uLedMap, clamp(uv - radius, 0.0, 1.0)).rgb * 0.12;
+      c += texture2D(uLedMap, clamp(uv + radius * vec2(-1.0, 1.0), 0.0, 1.0)).rgb * 0.06;
+      c += texture2D(uLedMap, clamp(uv + radius * vec2(1.0, -1.0), 0.0, 1.0)).rgb * 0.06;
+      return c;
+    }
+
+    void main() {
+      vec4 localPools = texture2D(uLocalMap, vFloorUv);
+      vec2 p = vFloorWorld.xz;
+      float ringDistance = length(p - uRingCenter) / uRingRadius;
+      float dancerZone = exp(-0.65 * ringDistance * ringDistance);
+      float depth = clamp((p.y + 5.8) / 34.0, 0.0, 1.0);
+
+      // This understated color is present at EVERY floor pixel; no mid-floor
+      // cut or broad vertical bars keyed to the LED artwork.
+      vec3 continuousBase = mix(
+        vec3(0.011, 0.007, 0.020),
+        vec3(0.014, 0.009, 0.026),
+        smoothstep(0.0, 1.0, depth)
+      );
+      vec2 left = (p - (uFixtureLeft + vec2(0.0, 4.2))) / vec2(5.5, 10.5);
+      vec2 right = (p - (uFixtureRight + vec2(0.0, 4.2))) / vec2(5.5, 10.5);
+      float cyanFalloff = exp(-dot(left, left));
+      float pinkFalloff = exp(-dot(right, right));
+      vec3 scatteredLight = vec3(0.006, 0.032, 0.054) * cyanFalloff
+        + vec3(0.044, 0.006, 0.032) * pinkFalloff;
+
+      vec3 reflection = vec3(0.0);
+      vec3 ray = reflect(normalize(vFloorWorld - cameraPosition), vec3(0.0, 1.0, 0.0));
+      if (ray.z < -0.015) {
+        float t = (uLedMax.z - vFloorWorld.z) / ray.z;
+        if (t > 0.0) {
+          vec3 hit = vFloorWorld + ray * t;
+          vec2 uv = (hit.xy - uLedMin.xy) /
+            max(uLedMax.xy - uLedMin.xy, vec2(0.001));
+          // Reflection softly falls away when the specular ray misses the
+          // LED surface, instead of creating a rectangular floor cutoff.
+          vec2 outsideUv = max(max(-uv, uv - vec2(1.0)), vec2(0.0));
+          float sourceFade = exp(-19.0 * length(outsideUv));
+          vec2 blur = mix(vec2(0.025, 0.034), vec2(0.064, 0.076), dancerZone);
+          vec3 light = roughLed(uv, blur);
+          float emissive = smoothstep(0.075, 0.42,
+            max(light.r, max(light.g, light.b)));
+          float reach = exp(-0.028 * max(0.0, t - 6.0));
+          reflection = light * emissive * sourceFade * reach
+            * mix(0.98, 0.39, dancerZone) * 1.07;
+        }
+      }
+      float tile = 1.0 - 0.20 *
+        (1.0 - smoothstep(0.0, 0.065, fract(p.y / 2.55)));
+      float roughness = 0.95 + 0.05 *
+        sin(p.x * 7.9 + p.y * 5.1) * sin(p.y * 8.3 - p.x * 5.7);
+      vec3 reflectedPools = localPools.rgb * localPools.a * 1.35;
+      vec3 color = (continuousBase + scatteredLight
+        + reflectedPools + reflection) * tile * roughness;
+      gl_FragColor = vec4(color, 0.83);
+      #include <colorspace_fragment>
+    }
+  `;
+  material.needsUpdate = true;
+  return material;
+}
+
+// E22 swivelling architectural lower fixture. Unlike the E20 box-on-riser
+// mounts, the body has an axis pin, U-yoke, tilt barrel and inset glass lens.
+// All dimensions are derived from EACH real GLB fixture's bounds. Use only
+// with E22; the original imported actor/fixture meshes remain in place.
+function addE22SwivelUplightHousings(
+  fxRoot: THREE.Object3D,
+  model: THREE.Object3D,
+  fixtureBounds: Map<string, THREE.Box3>,
+) {
+  const housing = new THREE.MeshStandardMaterial({
+    name: "NeonE22FixtureHousingBlackAlloy",
+    color: 0x17192c, metalness: 0.68, roughness: 0.31,
+  });
+  const trim = new THREE.MeshStandardMaterial({
+    name: "NeonE22FixturePivotTrim",
+    color: 0x41415f, metalness: 0.78, roughness: 0.24,
+  });
+  const lensCyan = new THREE.MeshBasicMaterial({
+    name: "NeonE22CyanOptic", color: 0x8df5ff, toneMapped: false,
+  });
+  const lensPink = new THREE.MeshBasicMaterial({
+    name: "NeonE22MagentaOptic", color: 0xff8fe8, toneMapped: false,
+  });
+  const supports: THREE.Box3[] = [];
+  model.traverse(object => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh || !/^(?:Mobile_Risers_|Riser[0-3](?:_|$)|PolishedDanceFloor)/.test(mesh.name)) return;
+    const box = new THREE.Box3().setFromObject(mesh);
+    if (!box.isEmpty()) supports.push(box);
+  });
+  const barrelGeometry = new THREE.CylinderGeometry(0.15, 0.17, 0.26, 16);
+  const lensGeometry = new THREE.CircleGeometry(0.118, 20);
+  const pivotGeometry = new THREE.CylinderGeometry(0.048, 0.048, 0.08, 12);
+  const indexKeys = [...fixtureBounds.entries()]
+    .sort(([a], [b]) => a.localeCompare(b));
+  indexKeys.forEach(([key, bounds], index) => {
+    const center = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3());
+    let deckY = bounds.min.y - 0.08;
+    for (const support of supports) {
+      if (center.x < support.min.x || center.x > support.max.x
+        || center.z < support.min.z || center.z > support.max.z) continue;
+      if (support.max.y <= bounds.min.y + 0.015 && support.max.y > deckY) {
+        deckY = support.max.y;
+      }
+    }
+    deckY = THREE.MathUtils.clamp(deckY, bounds.min.y - 0.28, bounds.min.y);
+    const scale = THREE.MathUtils.clamp(Math.min(size.x, size.y) * 0.64, 0.62, 1.15);
+    const unit = new THREE.Group();
+    unit.name = key + "_E22SwivelHousing";
+    unit.position.set(center.x, deckY, bounds.max.z - Math.min(0.16, size.z * 0.24));
+    unit.scale.setScalar(scale);
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.085, 0.50), housing);
+    pad.name = "Footing";
+    pad.position.y = 0.044;
+    unit.add(pad);
+    const turntable = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.24, 0.12, 18), trim);
+    turntable.name = "SwivelAxisBase";
+    turntable.position.y = 0.13;
+    unit.add(turntable);
+    const height = Math.max(0.37, (center.y - deckY) / scale);
+    for (const sign of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.055, height * 0.54, 0.10), trim);
+      arm.name = sign < 0 ? "TiltYokeLeft" : "TiltYokeRight";
+      arm.position.set(sign * 0.19, height * 0.52, 0);
+      unit.add(arm);
+      const pivot = new THREE.Mesh(pivotGeometry, housing);
+      pivot.name = sign < 0 ? "LeftGimbalPin" : "RightGimbalPin";
+      pivot.rotation.z = Math.PI / 2;
+      pivot.position.set(sign * 0.205, height * 0.75, 0);
+      unit.add(pivot);
+    }
+    const head = new THREE.Group();
+    head.name = "TiltingLuminaireHead";
+    head.position.y = height * 0.75;
+    head.rotation.x = 0.16;
+    const body = new THREE.Mesh(barrelGeometry, housing);
+    body.name = "OpticalBarrel";
+    body.rotation.x = Math.PI / 2;
+    head.add(body);
+    const glass = new THREE.Mesh(lensGeometry, index % 2 ? lensCyan : lensPink);
+    glass.name = "InsetLens";
+    glass.position.z = 0.138;
+    head.add(glass);
+    unit.add(head);
+    fxRoot.add(unit);
+  });
+}
 
 function makeAcceptedFloorGridTexture() {
   const canvas = document.createElement("canvas");
@@ -1279,8 +1485,10 @@ function makeAcceptedBackdropGlowTexture() {
   const hiResCompare = useHiResLedCompare();
   const typographyV16Compare = useTypographyV16LedCompare();
   const physicalRepairE21 = usePhysicalRepairE21Compare();
+  const physicalFidelityE22 = usePhysicalFidelityE22Compare();
   const texture = new THREE.TextureLoader().load(
-    physicalRepairE21 ? CROWN_CLEARANCE_E21_ASSET_URL : typographyV16Compare
+    physicalFidelityE22 ? CLEAN_BASE_E22_ASSET_URL
+      : physicalRepairE21 ? CROWN_CLEARANCE_E21_ASSET_URL : typographyV16Compare
       ? TYPOGRAPHY_V16_COMPARE_ASSET_URL
       : hiResCompare ? VECTOR_LED_ASSET_URL : CONCEPT_LED_ASSET_URL,
   );
@@ -1605,7 +1813,8 @@ export class NeonStageV1Environment {
   private readonly animatedRoot = new THREE.Group();
   private readonly acceptedFxRoot = new THREE.Group();
   private readonly integratedStageFx = useIntegratedStageFxCompare();
-  private readonly physicalRepairE21 = usePhysicalRepairE21Compare();
+  private readonly physicalFidelityE22 = usePhysicalFidelityE22Compare();
+  private readonly physicalRepairE21 = usePhysicalRepairE21Compare() || this.physicalFidelityE22;
   private readonly physicalRefinementE20 = usePhysicalRefinementE20Compare();
   private readonly physicalLightingRefinement = this.physicalRefinementE20 || this.physicalRepairE21;
   private readonly physicalReflectionE19 = usePhysicalReflectionE19Compare()
@@ -2053,6 +2262,12 @@ export class NeonStageV1Environment {
       "MainFixture_08",
       "MainFixture_09",
     ]);
+    // E22: strengthen the stage-light cone cadence from the owner's closeup.
+    // E19/E21 retain the exact six-source beam layout.
+    if (this.physicalFidelityE22) {
+      activeBeamKeys.add("MainFixture_05");
+      activeBeamKeys.add("MainFixture_07");
+    }
     const activeSpillKeys = new Set([
       "MainFixture_01",
       "MainFixture_02",
@@ -2146,7 +2361,10 @@ export class NeonStageV1Environment {
 
           const makeBeamPlane = (rotationY: number) => {
             const beam = new THREE.Mesh(
-              new THREE.PlaneGeometry(group.radius * 2.15, group.length, 1, 1),
+              new THREE.PlaneGeometry(
+                group.radius * (this.physicalFidelityE22 ? 2.88 : 2.15),
+                group.length, 1, 1,
+              ),
               beamMaterial!,
             );
             beam.geometry.translate(0, -group.length / 2, 0);
@@ -2159,6 +2377,11 @@ export class NeonStageV1Environment {
           const beamB = makeBeamPlane(Math.PI / 2);
           beamB.name = `${key}_RuntimeBeamSoftB`;
           beamRoot.add(beamA, beamB);
+          if (this.physicalFidelityE22) {
+            const beamC = makeBeamPlane(Math.PI / 3);
+            beamC.name = key + "_E22VolumetricConeC";
+            beamRoot.add(beamC);
+          }
           this.acceptedFxRoot.add(beamRoot);
 
           sourceFxRoot = new THREE.Group();
@@ -2200,7 +2423,7 @@ export class NeonStageV1Environment {
             map: lightPoolTexture,
             color: presentationColor.clone().lerp(new THREE.Color(0xffffff), 0.06),
             transparent: true,
-            opacity: group.prefix === "MainFixture" ? 0.43 : 0.34,
+            opacity: this.physicalFidelityE22 ? 0.62 : group.prefix === "MainFixture" ? 0.43 : 0.34,
             depthWrite: false,
             depthTest: false,
             side: THREE.DoubleSide,
@@ -2473,7 +2696,9 @@ export class NeonStageV1Environment {
           ledMin: ledBounds.min.toArray(), ledMax: ledBounds.max.toArray(),
         });
         if (this.physicalRepairE21) {
-          addE21LedRiserStructuralBridge(model, this.acceptedFxRoot, ledBounds);
+          addE21LedRiserStructuralBridge(
+            model, this.acceptedFxRoot, ledBounds, this.physicalFidelityE22,
+          );
         }
       } else {
       const backdropMaterial = makeAcceptedBackdropMaterial(backdropTexture, this.integratedStageFx);
@@ -2536,7 +2761,9 @@ export class NeonStageV1Environment {
       else lowerFixtureBounds.set(key, bounds.clone());
     });
 
-    if (this.physicalLightingRefinement) {
+    if (this.physicalFidelityE22) {
+      addE22SwivelUplightHousings(this.acceptedFxRoot, model, lowerFixtureBounds);
+    } else if (this.physicalLightingRefinement) {
       addE20UplightMounts(this.acceptedFxRoot, model, lowerFixtureBounds);
     }
 
@@ -2580,7 +2807,21 @@ export class NeonStageV1Environment {
       ? ringBounds.getCenter(new THREE.Vector3()) : new THREE.Vector3(0, 0, ACCEPTED_R15_DANCE_RING_Z);
     const ringSize = ringBounds && !ringBounds.isEmpty()
       ? ringBounds.getSize(new THREE.Vector3()) : new THREE.Vector3(4, 0, 4);
-    const reflectionMaterial = this.physicalRepairE21 && actualLedBounds && !actualLedBounds.isEmpty()
+    const lowerFixtureCenters = [...lowerFixtureBounds.values()]
+      .map(bounds => bounds.getCenter(new THREE.Vector3()))
+      .sort((a, b) => a.x - b.x);
+    const leftFixture = lowerFixtureCenters[0] ?? new THREE.Vector3(-4.0, 0, -3.0);
+    const rightFixture = lowerFixtureCenters[lowerFixtureCenters.length - 1]
+      ?? new THREE.Vector3(4.0, 0, -3.0);
+    const reflectionMaterial = this.physicalFidelityE22 && actualLedBounds && !actualLedBounds.isEmpty()
+      ? makeE22ContinuousFloorReflectionMaterial(
+        floorReflectionTexture, backdropTexture, actualLedBounds,
+        new THREE.Vector2(ringCenter.x, ringCenter.z),
+        Math.max(ringSize.x, ringSize.z) * 0.45,
+        new THREE.Vector2(leftFixture.x, leftFixture.z),
+        new THREE.Vector2(rightFixture.x, rightFixture.z),
+      )
+      : this.physicalRepairE21 && actualLedBounds && !actualLedBounds.isEmpty()
       ? makeE21SoftRingReflectionMaterial(
         floorReflectionTexture, backdropTexture, actualLedBounds,
         new THREE.Vector2(ringCenter.x, ringCenter.z),
@@ -2676,9 +2917,11 @@ export class NeonStageV1Environment {
         .multiply(deltaQuaternion.setFromAxisAngle(tiltAxis, tilt));
 
       if (state.beamMaterial) {
-        state.beamMaterial.uniforms.uOpacity.value = this.physicalLightingRefinement
-          ? 0.21 + glow * 0.09
-          : 0.16 + glow * 0.07;
+        state.beamMaterial.uniforms.uOpacity.value = this.physicalFidelityE22
+          ? 0.36 + glow * 0.13
+          : this.physicalLightingRefinement
+            ? 0.21 + glow * 0.09
+            : 0.16 + glow * 0.07;
       }
       if (state.e20GlintMaterial) state.e20GlintMaterial.opacity = 0.27 + glow * 0.24;
 
