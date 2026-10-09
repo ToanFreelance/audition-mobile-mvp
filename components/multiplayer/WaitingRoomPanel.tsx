@@ -1317,14 +1317,116 @@ export default function WaitingRoomPanel({
     setRoom(current => setGuestReady(current, viewer.participantId, viewer.readyState !== "ready"));
   };
 
+  // Host browser presence is not the RoomState connection flag. A tab can
+  // disappear without a leave mutation; directory entries expire unless the
+  // actual Host is in a visible tab and refreshes a metadata-only lease.
+  useEffect(() => {
+    if (!initialSync?.entryFlow || initialSync.role !== "host"
+      || room.status !== "waiting" || leftRoom || leaveIntentPending) return;
+    let disposed = false;
+    let busy = false;
+    const touch = async () => {
+      if (disposed || busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try {
+        const response = await fetch("/api/multiplayer/room", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "heartbeat",
+            roomId: initialSync.roomId,
+            actorParticipantId: initialSync.participantId,
+          }),
+        });
+        const data = await response.json() as { ok: boolean; active?: boolean };
+        if (!disposed && (!response.ok || !data.ok || !data.active)) {
+          setSyncDetail("Phòng đã đóng hoặc Host không còn hợp lệ.");
+        }
+      } catch {
+        // Transient heartbeat failure: room list naturally expires until the
+        // next successful foreground touch. Never mutate RoomState to fake
+        // the host presence or change match timing.
+      } finally {
+        busy = false;
+      }
+    };
+    void touch();
+    const id = window.setInterval(() => { void touch(); }, 25_000);
+    document.addEventListener("visibilitychange", touch);
+    window.addEventListener("pageshow", touch);
+    return () => {
+      disposed = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", touch);
+      window.removeEventListener("pageshow", touch);
+    };
+  }, [
+    initialSync?.entryFlow, initialSync?.role, initialSync?.roomId,
+    initialSync?.participantId, room.status, leftRoom, leaveIntentPending,
+  ]);
+
   const leaveRoom = () => {
     if (leaveIntentPending || leftRoom) return;
 
     if (syncOptions) {
-      if (syncOptions.role !== "guest") {
-        setSyncDetail("Host leave requires a room-close/host-transfer flow and is not part of this demo.");
+      if (syncOptions.role === "host") {
+        // The QA fixture still has no host-close action. Only actual MVP
+        // rooms can close, and only while WAITING (not during a live match).
+        if (!initialSync?.entryFlow || room.status !== "waiting") {
+          setSyncDetail("Đang trong trận hoặc phòng QA: không thể đóng phòng tại đây.");
+          return;
+        }
+        if (!window.confirm("Đóng phòng cho tất cả người chơi và trở về sảnh?")) return;
+        setLeaveIntentPending(true);
+        void (async () => {
+          let expectedRevision = roomRef.current.revision;
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            const response = await fetch("/api/multiplayer/room", {
+              method: "POST",
+              cache: "no-store",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "close",
+                roomId: syncOptions.roomId,
+                expectedRevision,
+                actorParticipantId: syncOptions.participantId,
+              }),
+            });
+            if (response.status === 404) {
+              window.location.assign("/rooms");
+              return;
+            }
+            const data = await response.json() as {
+              ok: boolean; closed?: boolean; conflict?: boolean;
+              snapshot?: RoomState; error?: string;
+            };
+            if (!response.ok || !data.ok) {
+              throw new Error(data.error ?? "Không thể đóng phòng.");
+            }
+            if (data.closed) {
+              setLeftRoom(true);
+              transportRef.current?.disconnect();
+              window.location.assign("/rooms");
+              return;
+            }
+            if (!data.conflict || !data.snapshot
+              || !isCanonicalRoomSnapshot(data.snapshot)
+              || data.snapshot.status !== "waiting") {
+              throw new Error("Phòng đã bắt đầu hoặc không thể đóng.");
+            }
+            expectedRevision = data.snapshot.revision;
+            adoptServerSnapshot(data.snapshot);
+          }
+          throw new Error("Phòng vừa thay đổi. Vui lòng thử Đóng phòng lại.");
+        })().catch(error => {
+          setSyncDetail(error instanceof Error ? error.message : "Không thể đóng phòng.");
+        }).finally(() => {
+          setLeaveIntentPending(false);
+        });
         return;
       }
+      if (syncOptions.role !== "guest") return;
 
       const localParticipant = room.participants.find(
         item => item.participantId === syncOptions.participantId,
@@ -1332,6 +1434,7 @@ export default function WaitingRoomPanel({
       if (!localParticipant) {
         setLeftRoom(true);
         setSyncDetail("Guest already left the room.");
+        if (initialSync?.entryFlow) window.location.assign("/rooms");
         return;
       }
 
@@ -1340,7 +1443,8 @@ export default function WaitingRoomPanel({
         action: "leave",
         expectedRevision: room.revision,
         participantId: syncOptions.participantId,
-      }, "Guest left the room.").then(() => {
+      }, "Guest left the room.").then(result => {
+        if (result.conflict) throw new Error("Phòng vừa thay đổi. Hãy thử rời phòng lại.");
         setLeftRoom(true);
         setReadyIntentPending(false);
         setPresentParticipantIds(current =>
@@ -1610,7 +1714,9 @@ export default function WaitingRoomPanel({
       >
         <header className={styles.header}>
           <button className={styles.iconButton} type="button" aria-label="Back"
-            onClick={initialSync?.entryFlow ? () => window.location.assign("/rooms") : undefined}>‹</button>
+            onClick={initialSync?.entryFlow
+              ? () => room.status === "waiting" ? leaveRoom() : window.location.assign("/rooms")
+              : undefined}>‹</button>
           <div className={styles.titleBlock}>
             <strong>{room.roomName}</strong>
             <span data-testid="room-summary">ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {orderedParticipants.length}/{Math.min(room.maxPlayers, WAITING_ROOM_MAX_PLAYERS)}</span>
@@ -1899,12 +2005,17 @@ export default function WaitingRoomPanel({
           <button
             className={styles.leaveButton}
             data-testid="leave-button"
-            disabled={Boolean(hostView || leaveIntentPending || leftRoom)}
+            disabled={Boolean(leaveIntentPending || leftRoom || (
+              hostView && (!initialSync?.entryFlow || room.status !== "waiting")
+            ))}
             onClick={leaveRoom}
-            title={hostView ? "Host leave cần room-close/host-transfer flow." : undefined}
+            title={hostView && !initialSync?.entryFlow
+              ? "Host leave cần room-close/host-transfer flow."
+              : undefined}
             type="button"
           >
-            ↪ {leaveIntentPending ? "ĐANG RỜI..." : leftRoom ? "ĐÃ RỜI PHÒNG" : "Rời phòng"}
+            ↪ {leaveIntentPending ? "ĐANG XỬ LÝ..." : leftRoom ? "ĐÃ RỜI PHÒNG"
+              : hostView && initialSync?.entryFlow ? "Đóng phòng" : "Rời phòng"}
           </button>
           {viewer.kind === "human" && viewer.role === "guest" ? (
             <button
