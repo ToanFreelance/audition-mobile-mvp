@@ -156,7 +156,8 @@ begin
   -- will subsequently keep it alive with its own visible-tab heartbeat.
   insert into public.mvp_room_member_lease (room_id,participant_id,last_seen_at)
     values (p_room_id,next_host_id,now())
-  on conflict (room_id,participant_id) do update set last_seen_at=excluded.last_seen_at;
+  on conflict on constraint mvp_room_member_lease_pkey
+    do update set last_seen_at=excluded.last_seen_at;
   return query select true,false,'transferred'::text,
     current_room.room_id,current_room.revision+1,next_snapshot;
 end;
