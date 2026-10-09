@@ -283,3 +283,68 @@ rejected; preloading rejected; fixture cleaned.
 Vercel TypeScript/build gates tracked by PR #18.
 **Owner multi-client visual E2E: DEFERRED** as explicitly requested
 in `docs/PROJECT_ROADMAP.md`. PR remains Draft and unmerged.
+
+
+## 2026-10-09 — Multiplayer Audio Reliability Pass — WebAudio source timeline
+
+Owner evidence on **one iPhone / two browsers**: the server persisted
+canonical PLAYING / exact immutable shared epoch, but Guest's P5.5
+screen could show `SONG 0 ms / AUDIO STALLED` while Host remained
+at `AUDIO DECODED · scheduling shared epoch…`. This does **not**
+prove two independent foreground devices fail; iOS backgrounding can
+suspend JavaScript/AudioContext.
+
+**Code-level failure modes confirmed by inspection (not device runtime proof):**
+
+1. `WebAudioTransport.getCurrentTimeMs()` preferred
+   `AudioContext.getOutputTimestamp().contextTime` when numerically
+   finite. On Safari an output timestamp can be *valid but frozen at
+   zero* while `AudioContext.currentTime` advances. WebAudio buffer
+   sources are scheduled against `currentTime`, so song/gameplay time
+   must be read from that same context timeline. There is no
+   `Date.now` or `performance.now` gameplay-clock substitute.
+2. The shared-start bridge awaited `AudioContext.resume()` with
+   no bounded failure. On a suspended iOS page it could remain in a
+   pending promise without a visible terminal error. Now shared
+   scheduling has a 2-second resume timeout, reports errors and keeps
+   the canonical start epoch unchanged.
+3. The AudioContext clock may freeze during async resume while
+   server/monotonic time passes the shared start epoch. A check against
+   `context.currentTime` alone cannot detect this late start. The
+   transport now also checks the immutable local monotonic deadline
+   `plan.localStartMonotonicMs` immediately before source.start().
+   If elapsed, it rejects; no replacement start, seek, or delayed
+   room-wide rewind is issued.
+4. The bridge starts `MultiplayerGameplayRuntime` **after** WebAudio
+   source scheduling succeeds and resets the source on failure, so
+   unscheduled clients do not falsely enter a RUNNING gameplay runtime.
+5. The Waiting Room scheduling effect previously canceled an in-flight
+   async attempt for same-session changes (NTP resample or user-gesture
+   nonce) while retaining an attempt latch. It now tracks the exact
+   `matchId/roomRevision/startRevision/participant/immutableEpoch`:
+   same-epoch updates keep the attempt alive, true session changes
+   or unmount cancel it. A new explicit audio activation gesture can
+   retry a *failed* attempt, but not reissue the shared epoch.
+
+**Regression tests added** in
+`e2e/p55-web-audio-reliability.spec.ts` (five focused cases):
+- frozen Safari output timestamp / progressing WebAudio context clock;
+- suspended AudioContext with expired server deadline: no source;
+- unresolved `resume()` ends with an explicit timeout error;
+- two independently scheduled simulated players use the same server
+  epoch and both local song clocks advance from AudioContext;
+- late client returns LATE, without running gameplay or scheduling
+  a replacement audio start.
+
+**Validation actually run:** Vercel Next.js/TypeScript production build
+PASS on this work branch. **The new Playwright tests were authored but
+not executed** in this session (repository checkout/browser runner
+unavailable). Physical **two-device foreground iPhone/desktop**
+playback is still **PENDING**, and the older same-iPhone repro is
+not considered resolved until verified. PR #18 remains Draft and
+unmerged.
+
+**Non-goals/unchanged:** WebAudio remains the authoritative game clock,
+one turn remains four beats; MatchManifest, shared epoch, RoomState,
+CAS, Finish, `sequenceCounts`, gauge, song length, stage and actor
+lifetime are unchanged.
