@@ -169,3 +169,75 @@ or Back -> room disappears immediately; create second room and force
 close Host tab -> it disappears from Room Browser within ~3 minutes.
 
 PR #18 remains Draft; no merges without owner approval.
+
+
+## 2026-10-09 — Owner direction: automatic Host succession in Waiting Room
+
+**Newest owner rule supersedes the previous close-on-Host-exit behavior:**
+When the Host voluntarily leaves a waiting room OR loses connection,
+the **earliest-joined eligible human Guest** becomes Host. A room closes
+only when the Host leaves voluntarily and there is no remaining Guest.
+This is Waiting Room V1 only: no live match host reassignment after a
+MatchManifest has been frozen.
+
+**Authority / ordering / safety:**
+- The canonical `RoomState.participants` list is append-on-join.
+  Its array order (not a potentially reused slot number) determines
+  which Guest entered first. A transfer drops old Host, promotes the
+  selected Guest to slot 0, opens their prior slot, sets
+  `hostParticipantId`, gives the new Host `readyState=not-applicable`
+  and clears Ready for other human Guests. Room revision increments
+  exactly once under a row lock with an expected-revision CAS gate.
+- `handoff_mvp_room_host` is an additive waiting-only atomic
+  Supabase RPC; it refuses preloading/countdown/playing and preserves
+  all gameplay state/authority and the frozen shared epoch.
+  If the last person leaves explicitly, the empty room is removed.
+  The old destructive close RPC is revoked from anon/authenticated.
+- `touch_mvp_room_member` records per-member server timestamps in
+  the new isolated RLS table `mvp_room_member_lease`. Only the
+  currently valid Host refreshes directory `updated_at`.
+  Every visible Waiting Room participant heartbeats every 20 seconds;
+  a live Guest checks the canonical room and asks the **server** to
+  recover an absent Host (never electing a Host locally). The server
+  requires Host heartbeat absent for 75 seconds, a 75-second room
+  grace, and a fresh Guest lease. The earliest *live* Guest wins on
+  disconnect. This prevents a single short iOS background pause
+  from immediately stealing Host status.
+- Explicit Host exit transfers immediately with a Realtime revision
+  hint, then navigates back to the Room Browser. A Guest reconciles
+  missed hints by periodic foreground RoomState GET. Client rebinds
+  role from canonical data, not `initialSync.role`. Host crown,
+  center slot, label and controls follow the promoted participant
+  without changing character identity, rebuilding the 3D scene or
+  restarting AnimationMixer. The promoted Host can use the normal
+  Host START gate after remaining Guests Ready again.
+- Room Browser discovery still excludes abandoned waiting rooms if no
+  valid Host continues heartbeating. Automatic recovery occurs while
+  at least one Guest remains active; there is no background cron
+  and no arbitrary deletion of live matches.
+- **Security limitation** remains: locally stored device IDs are
+  not account-backed authorization. These RPCs inherit the MVP's
+  participant-ID trust assumption and must be hardened for production
+  authentication/anti-spoofing. Presence isn't considered a secure
+  credential.
+- No refactor to RoomState Ready/CAS/Reatime protocol, P5.4/5.5
+  preload/shared epoch, WebAudio, gauge, Finish or global turns.
+
+### Validation and owner acceptance
+
+- Vercel TypeScript/Next.js build; Supabase migrations applied.
+- A transaction-scoped DB QA fixture **actually passed**:
+  first joined Guest at slot 2 beats later joined Guest at slot 1;
+  promoted Host moved to slot 0, READY reset; stale revision
+  rejected; second transfer worked; last Host left closed the
+  room; fresh Host lease rejected takeover; expired Host lease
+  transferred to live oldest Guest; fixtures cleaned.
+- Owner iPhone runtime QA remains pending. Suggested run: 3 browser
+  sessions / 2+ devices, join Guests B then C, check B wins if
+  Host A presses Rời phòng. B should see Host crown/center/START,
+  C should become NOT READY. Then repeat with A backgrounded or
+  disconnected for at least ~75–95 seconds, both B/C foreground;
+  verify no split-brain Host and normal Ready/Start gate.
+- With no Guest: Host Rời phòng closes the room. With a frozen
+  match: no role migration during preload or gameplay.
+- PR #18 remains Draft; no merge without owner approval.
