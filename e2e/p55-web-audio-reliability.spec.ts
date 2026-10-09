@@ -94,7 +94,7 @@ test.describe("P5.5 WebAudio reliability regression", () => {
       if (!applied.accepted) throw Error(applied.reason);
       session = applied.session;
     }
-    session = issueSharedStartEpoch(beginServerClockSampling(session), 1_000);
+    session = issueSharedStartEpoch(beginServerClockSampling(session), performance.now() - 20_000);
     const immutableEpoch = session.startAtServerMs;
     const qa = transportHarness();
     const player = manifest.participants[0].participantId;
