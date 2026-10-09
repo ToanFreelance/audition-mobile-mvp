@@ -452,6 +452,22 @@ export default function WaitingRoomPanel({
       roomRef.current = snapshot;
       setRoom(snapshot);
       setReadyIntentPending(false);
+      if (initialSync?.entryFlow) {
+        const local = snapshot.participants.find(item =>
+          item.participantId === syncOptions.participantId
+        );
+        if (local?.kind === "human" && local.role !== syncOptions.role) {
+          // Rebind presence and host actions to canonical authority. A
+          // promoted Guest must become the real Host without page reload.
+          setSyncOptions(current => current?.participantId === local.participantId
+            ? { ...current, role: local.role } : current);
+          setSyncDetail(local.role === "host"
+            ? "Bạn đã được chuyển quyền Host." : "Room role synchronized.");
+          setViewMode("center");
+          setStagePage(0);
+          setSelectedParticipantId(local.participantId);
+        }
+      }
 
       const memberIds = new Set(snapshot.participants.map(item => item.participantId));
       confirmedPresenceIds = confirmedPresenceIds.filter(
@@ -748,7 +764,9 @@ export default function WaitingRoomPanel({
   const viewer = room.participants.find(item => item.participantId === viewParticipantId)
     ?? (initialSync?.entryFlow ? room.participants[0]
       : syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
-  const hostView = syncOptions ? syncOptions.role === "host" : viewer.participantId === room.hostParticipantId;
+  const hostView = syncOptions
+    ? syncOptions.participantId === room.hostParticipantId
+    : viewer.participantId === room.hostParticipantId;
   const startGate = useMemo(() => canStartRoom(displayRoom), [displayRoom]);
   const participantById = useMemo(
     () => new Map(displayRoom.participants.map(item => [item.participantId, item])),
@@ -1299,7 +1317,8 @@ export default function WaitingRoomPanel({
     if (viewer.readyState !== "ready") activateGameplayAudioFromGesture();
 
     if (syncOptions) {
-      if (syncOptions.role !== "guest" || viewer.participantId !== syncOptions.participantId || readyIntentPending) return;
+      if (room.hostParticipantId === syncOptions.participantId
+        || viewer.participantId !== syncOptions.participantId || readyIntentPending) return;
       setReadyIntentPending(true);
       void runServerMutation({
         action: "ready",
@@ -1317,67 +1336,104 @@ export default function WaitingRoomPanel({
     setRoom(current => setGuestReady(current, viewer.participantId, viewer.readyState !== "ready"));
   };
 
-  // Host browser presence is not the RoomState connection flag. A tab can
-  // disappear without a leave mutation; directory entries expire unless the
-  // actual Host is in a visible tab and refreshes a metadata-only lease.
+  // Liveness is server-owned metadata, independent of RoomState/CAS. Every
+  // visible human member reports presence while WAITING. A Guest may request
+  // recovery, but only the server may transfer Host after 75s without a
+  // Host heartbeat; a single iOS background pause must not move authority.
   useEffect(() => {
-    if (!initialSync?.entryFlow || initialSync.role !== "host"
+    if (!initialSync?.entryFlow || !syncOptions
       || room.status !== "waiting" || leftRoom || leaveIntentPending) return;
     let disposed = false;
     let busy = false;
-    const touch = async () => {
+    const checkMember = async () => {
       if (disposed || busy || document.visibilityState !== "visible") return;
       busy = true;
       try {
-        const response = await fetch("/api/multiplayer/room", {
-          method: "POST",
-          cache: "no-store",
+        const memberResponse = await fetch("/api/multiplayer/room", {
+          method: "POST", cache: "no-store",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "heartbeat",
-            roomId: initialSync.roomId,
-            actorParticipantId: initialSync.participantId,
+            action: "heartbeat", roomId: syncOptions.roomId,
+            actorParticipantId: syncOptions.participantId,
           }),
         });
-        const data = await response.json() as { ok: boolean; active?: boolean };
-        if (!disposed && (!response.ok || !data.ok || !data.active)) {
-          setSyncDetail("Phòng đã đóng hoặc Host không còn hợp lệ.");
+        const memberData = await memberResponse.json() as {
+          ok: boolean; active?: boolean;
+        };
+        if (!memberResponse.ok || !memberData.ok || !memberData.active) {
+          if (!disposed) setSyncDetail("Bạn không còn trong phòng đang chờ.");
+          return;
+        }
+        if (roomRef.current.hostParticipantId === syncOptions.participantId) return;
+
+        // Periodically reconcile canonical membership if a revision hint was
+        // missed during Safari background/suspend.
+        const latest = await fetchRoomSnapshot(syncOptions.roomId);
+        if (disposed) return;
+        if (latest.revision > roomRef.current.revision) adoptServerSnapshot(latest);
+        if (latest.status !== "waiting"
+          || latest.hostParticipantId === syncOptions.participantId
+          || !latest.participants.some(item => item.participantId === syncOptions.participantId)) return;
+
+        const response = await fetch("/api/multiplayer/room", {
+          method: "POST", cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "recover-host",
+            roomId: syncOptions.roomId,
+            expectedRevision: latest.revision,
+            actorParticipantId: syncOptions.participantId,
+          }),
+        });
+        const result = await response.json() as {
+          ok: boolean; conflict?: boolean; transferred?: boolean;
+          snapshot?: RoomState | null;
+        };
+        if (disposed || !response.ok || !result.ok) return;
+        if (result.snapshot && isCanonicalRoomSnapshot(result.snapshot)
+          && result.snapshot.revision >= roomRef.current.revision) {
+          adoptServerSnapshot(result.snapshot);
+          if (result.transferred && transportRef.current?.status === "connected") {
+            void transportRef.current.send({
+              kind: "room-revision", roomRevision: result.snapshot.revision,
+              reason: "participant",
+            }).catch(() => undefined);
+          }
         }
       } catch {
-        // Transient heartbeat failure: room list naturally expires until the
-        // next successful foreground touch. Never mutate RoomState to fake
-        // the host presence or change match timing.
+        // A transient offline browser must not self-elect a Host or modify
+        // the match epoch. Retrying the next heartbeat is sufficient.
       } finally {
         busy = false;
       }
     };
-    void touch();
-    const id = window.setInterval(() => { void touch(); }, 25_000);
-    document.addEventListener("visibilitychange", touch);
-    window.addEventListener("pageshow", touch);
+    void checkMember();
+    const interval = window.setInterval(() => { void checkMember(); }, 20_000);
+    document.addEventListener("visibilitychange", checkMember);
+    window.addEventListener("pageshow", checkMember);
     return () => {
       disposed = true;
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", touch);
-      window.removeEventListener("pageshow", touch);
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", checkMember);
+      window.removeEventListener("pageshow", checkMember);
     };
   }, [
-    initialSync?.entryFlow, initialSync?.role, initialSync?.roomId,
-    initialSync?.participantId, room.status, leftRoom, leaveIntentPending,
+    initialSync?.entryFlow, syncOptions?.roomId, syncOptions?.participantId,
+    room.status, leftRoom, leaveIntentPending,
   ]);
 
   const leaveRoom = () => {
     if (leaveIntentPending || leftRoom) return;
 
     if (syncOptions) {
-      if (syncOptions.role === "host") {
-        // The QA fixture still has no host-close action. Only actual MVP
-        // rooms can close, and only while WAITING (not during a live match).
+      if (room.hostParticipantId === syncOptions.participantId) {
+        // The QA fixture has no role transfer. MVP hands the room to the
+        // earliest joined human Guest, or closes it if nobody remains.
         if (!initialSync?.entryFlow || room.status !== "waiting") {
           setSyncDetail("Đang trong trận hoặc phòng QA: không thể đóng phòng tại đây.");
           return;
         }
-        if (!window.confirm("Đóng phòng cho tất cả người chơi và trở về sảnh?")) return;
+        if (!window.confirm("Rời phòng? Quyền Host sẽ chuyển cho Guest vào sớm nhất; phòng chỉ đóng nếu không còn Guest.")) return;
         setLeaveIntentPending(true);
         void (async () => {
           let expectedRevision = roomRef.current.revision;
@@ -1387,7 +1443,7 @@ export default function WaitingRoomPanel({
               cache: "no-store",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                action: "close",
+                action: "host-leave",
                 roomId: syncOptions.roomId,
                 expectedRevision,
                 actorParticipantId: syncOptions.participantId,
@@ -1398,13 +1454,27 @@ export default function WaitingRoomPanel({
               return;
             }
             const data = await response.json() as {
-              ok: boolean; closed?: boolean; conflict?: boolean;
-              snapshot?: RoomState; error?: string;
+              ok: boolean; closed?: boolean; transferred?: boolean;
+              conflict?: boolean; reason?: string;
+              snapshot?: RoomState | null; error?: string;
             };
             if (!response.ok || !data.ok) {
               throw new Error(data.error ?? "Không thể đóng phòng.");
             }
-            if (data.closed) {
+            if (data.closed || data.transferred) {
+              if (data.transferred && data.snapshot
+                && transportRef.current?.status === "connected") {
+                try {
+                  await transportRef.current.send({
+                    kind: "room-revision",
+                    roomRevision: data.snapshot.revision,
+                    reason: "participant",
+                  });
+                } catch {
+                  // Server CAS already succeeded; Guest foreground refresh
+                  // and periodic member polling will recover the new Host.
+                }
+              }
               setLeftRoom(true);
               transportRef.current?.disconnect();
               window.location.assign("/rooms");
@@ -1418,7 +1488,7 @@ export default function WaitingRoomPanel({
             expectedRevision = data.snapshot.revision;
             adoptServerSnapshot(data.snapshot);
           }
-          throw new Error("Phòng vừa thay đổi. Vui lòng thử Đóng phòng lại.");
+          throw new Error("Phòng vừa thay đổi. Vui lòng thử Rời phòng lại.");
         })().catch(error => {
           setSyncDetail(error instanceof Error ? error.message : "Không thể đóng phòng.");
         }).finally(() => {
@@ -1426,7 +1496,7 @@ export default function WaitingRoomPanel({
         });
         return;
       }
-      if (syncOptions.role !== "guest") return;
+      if (room.hostParticipantId === syncOptions.participantId) return;
 
       const localParticipant = room.participants.find(
         item => item.participantId === syncOptions.participantId,
@@ -1723,7 +1793,7 @@ export default function WaitingRoomPanel({
           </div>
           <div className={styles.headerRight}>
             <button className={styles.iconButton} data-testid="room-settings-button" onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
-            <small data-testid="sync-status" className={syncOptions ? (syncStatus === "connected" ? styles.syncLive : styles.syncOffline) : ""}>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${syncOptions.role === "host" ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
+            <small data-testid="sync-status" className={syncOptions ? (syncStatus === "connected" ? styles.syncLive : styles.syncOffline) : ""}>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${hostView ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
           </div>
         </header>
 
@@ -1733,7 +1803,7 @@ export default function WaitingRoomPanel({
             {syncOptions ? (
               <div className={styles.settingsMeta}>
                 <span>Realtime · {syncStatus.toUpperCase()}</span>
-                <span>Client · {syncOptions.role.toUpperCase()}</span>
+                <span>Client · {hostView ? "HOST" : "GUEST"}</span>
                 <span>Sync room · {syncOptions.roomId}</span>
                 {syncDetail && <span>{syncDetail}</span>}
               </div>
@@ -2015,7 +2085,7 @@ export default function WaitingRoomPanel({
             type="button"
           >
             ↪ {leaveIntentPending ? "ĐANG XỬ LÝ..." : leftRoom ? "ĐÃ RỜI PHÒNG"
-              : hostView && initialSync?.entryFlow ? "Đóng phòng" : "Rời phòng"}
+              : hostView && initialSync?.entryFlow ? "Rời phòng · Chuyển Host" : "Rời phòng"}
           </button>
           {viewer.kind === "human" && viewer.role === "guest" ? (
             <button
