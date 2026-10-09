@@ -493,6 +493,14 @@ checks deferred and PR #18 unmerged.
   Earlier same-iPhone two-browser tests reached server PLAYING while
   Guest displayed `SONG 0 ms / AUDIO STALLED` and Host stayed at
   `scheduling shared epoch…`; do not call this fixed without retest.
+  **2026-10-09 code pass:** WebAudio time now uses the scheduling
+  `AudioContext.currentTime` (rather than possibly frozen Safari
+  `getOutputTimestamp().contextTime`), async resume is bounded,
+  stale epoch is rejected by monotonic deadline, and same-epoch
+  React scheduling is protected against unrelated rerenders.
+  Five deterministic regression tests were added but **NOT EXECUTED**
+  in this session. Vercel build/TypeScript PASS is not a substitute
+  for device/runtime E2E. Keep this item unchecked.
 
 **Acceptance gate:** Owner physical-device confirmation of multi-user
 Host handoff and audio progression, no RoomState/Realtime/actor
