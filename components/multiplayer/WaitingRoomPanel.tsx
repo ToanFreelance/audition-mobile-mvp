@@ -1596,6 +1596,7 @@ export default function WaitingRoomPanel({
         runtime={gameplaySchedule.runtime}
         startAtServerMs={gameplaySchedule.startAtServerMs}
         transport={gameplaySchedule.transport}
+        audioContextState={gameplayAudioContextState}
       />
     );
   }
