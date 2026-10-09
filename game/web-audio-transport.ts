@@ -34,8 +34,11 @@ async function resumeSharedAudioContext(context: AudioContext) {
   } finally {
     if (timeoutId !== null) clearTimeout(timeoutId);
   }
-  if (context.state !== "running") {
-    throw new Error(`Shared WebAudio context is not running (state: ${context.state}).`);
+  // AudioContext.state can change asynchronously during resume(). Read
+  // through a fresh accessor so TS does not preserve pre-await narrowing.
+  const readContextState = (): AudioContextState => context.state;
+  if (readContextState() !== "running") {
+    throw new Error(`Shared WebAudio context is not running (state: ${readContextState()}).`);
   }
 }
 
