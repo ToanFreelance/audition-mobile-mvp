@@ -329,6 +329,21 @@ export default function CharacterCreationV1() {
             {created ? "✓ NHÂN VẬT MVP ĐÃ SẴN SÀNG" : "TẠO NHÂN VẬT"}
           </button>
 
+          {created && (
+            <a
+              href="/rooms"
+              data-testid="entry-continue-rooms"
+              style={{
+                display: "block", marginTop: 10, padding: "14px 12px",
+                borderRadius: 12, textAlign: "center",
+                background: "linear-gradient(105deg, #6d38cf, #c53edb)",
+                color: "#fff", textDecoration: "none", fontWeight: 800,
+              }}
+            >
+              TIẾP TỤC → SẢNH PHÒNG
+            </a>
+          )}
+
           <div className={styles.footerNote}>
             <span>{created ? "Draft đã lưu trên thiết bị để QA." : "DANCE YOUR STORY ♡"}</span>
             <small>Chưa ghi account/Supabase; Profile authority thuộc Phase 7.</small>
