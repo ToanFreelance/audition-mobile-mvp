@@ -40,7 +40,6 @@ type CompareAndSwapRow = StoredRoomRow & {
 type RoomMutationBody =
   | {
       action: "create";
-      roomId: string;
       roomName: string;
       participantId: string;
       displayName: string;
@@ -286,7 +285,7 @@ function leaveHumanGuest(
   return removeParticipant(room, participant.participantId);
 }
 
-function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" }>) {
+function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" }>) {
   assertExpectedRevision(row, body.expectedRevision);
   const room = row.snapshot;
   if (!isCanonicalRoomSnapshot(room)) throw new Error("Stored room snapshot is invalid.");
@@ -453,8 +452,9 @@ async function createEntryRoom(body: Extract<RoomMutationBody, { action: "create
 function parseBody(value: unknown): RoomMutationBody | null {
   if (!value || typeof value !== "object") return null;
   const body = value as Record<string, unknown>;
-  if (typeof body.action !== "string" || typeof body.roomId !== "string") return null;
+  if (typeof body.action !== "string") return null;
   if (body.action === "create") return body as RoomMutationBody;
+  if (typeof body.roomId !== "string") return null;
   if (!roomIdIsSafe(body.roomId)) return null;
   return body as RoomMutationBody;
 }
