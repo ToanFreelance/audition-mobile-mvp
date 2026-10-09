@@ -86,6 +86,57 @@ test.describe("P5.5 WebAudio reliability regression", () => {
     await qa.transport.destroy();
   });
 
+  test("two independently scheduled audio clients advance from the same epoch with frozen output timestamps", async () => {
+    const { manifest } = createP41QaFixture();
+    let session = createMatchStartSession({ manifest, startRevision: 2 });
+    for (const player of manifest.participants) {
+      const result = applyLoadedAck(session, createLoadedAckForSession(session, player.participantId));
+      if (!result.accepted) throw Error(result.reason);
+      session = result.session;
+    }
+    const serverNow = performance.now();
+    session = issueSharedStartEpoch(beginServerClockSampling(session), serverNow);
+    const frozenEpoch = session.startAtServerMs;
+    const host = transportHarness();
+    const guest = transportHarness();
+    const hostStart = await scheduleMultiplayerAudioGameplay({
+      session,
+      participantId: manifest.participants[0].participantId,
+      transport: host.transport,
+      estimatedServerOffsetMs: 0,
+    });
+    const guestStart = await scheduleMultiplayerAudioGameplay({
+      session,
+      participantId: manifest.participants[1].participantId,
+      transport: guest.transport,
+      estimatedServerOffsetMs: 0,
+    });
+    expect(hostStart.status).toBe("scheduled");
+    expect(guestStart.status).toBe("scheduled");
+    if (hostStart.status !== "scheduled" || guestStart.status !== "scheduled") return;
+
+    expect(hostStart.plan.startAtServerMs).toBe(frozenEpoch);
+    expect(guestStart.plan.startAtServerMs).toBe(frozenEpoch);
+    expect(host.starts).toBe(1);
+    expect(guest.starts).toBe(1);
+    expect(hostStart.runtime.isStarted).toBe(true);
+    expect(guestStart.runtime.isStarted).toBe(true);
+
+    host.context.currentTime = host.when + 2.2;
+    guest.context.currentTime = guest.when + 2.2;
+    expect(hostStart.runtime.songTimeMs).toBeCloseTo(2_200);
+    expect(guestStart.runtime.songTimeMs).toBeCloseTo(2_200);
+    expect(hostStart.runtime.snapshot().globalAbsoluteTurn)
+      .toBe(guestStart.runtime.snapshot().globalAbsoluteTurn);
+    expect(host.context.getOutputTimestamp().contextTime).toBe(0);
+    expect(guest.context.getOutputTimestamp().contextTime).toBe(0);
+
+    hostStart.runtime.stop();
+    guestStart.runtime.stop();
+    await host.transport.destroy();
+    await guest.transport.destroy();
+  });
+
   test("late client reports LATE using original epoch; no WebAudio source or gameplay runtime", async () => {
     const { manifest } = createP41QaFixture();
     let session = createMatchStartSession({ manifest, startRevision: 1 });
