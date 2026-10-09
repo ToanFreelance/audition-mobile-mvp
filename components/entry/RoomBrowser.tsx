@@ -60,6 +60,22 @@ export default function RoomBrowser() {
     void refresh();
   }, [refresh]);
 
+  // Rooms can close/expire while the browser is parked. Refresh when the
+  // user returns to the tab, plus a low-frequency foreground poll.
+  useEffect(() => {
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    const timer = window.setInterval(refreshVisible, 30_000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    window.addEventListener("pageshow", refreshVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshVisible);
+      window.removeEventListener("pageshow", refreshVisible);
+    };
+  }, [refresh]);
+
   const create = async () => {
     if (!identity || loading) return;
     const title = roomName.trim() || `Phòng của ${identity.profile.name}`;
