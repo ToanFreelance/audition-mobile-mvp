@@ -38,6 +38,8 @@ type CompareAndSwapRow = StoredRoomRow & {
 };
 
 type RoomMutationBody =
+  | { action: "close"; roomId: string; expectedRevision: number; actorParticipantId: string }
+  | { action: "heartbeat"; roomId: string; actorParticipantId: string }
   | {
       action: "create";
       roomName: string;
@@ -285,7 +287,7 @@ function leaveHumanGuest(
   return removeParticipant(room, participant.participantId);
 }
 
-function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" }>) {
+function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "heartbeat" }>) {
   assertExpectedRevision(row, body.expectedRevision);
   const room = row.snapshot;
   if (!isCanonicalRoomSnapshot(room)) throw new Error("Stored room snapshot is invalid.");
@@ -494,6 +496,33 @@ export async function POST(request: NextRequest) {
     if (body.action === "bootstrap") {
       const row = await bootstrap(body.roomId);
       return NextResponse.json({ ok: true, snapshot: row.snapshot }, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
+    }
+    if (body.action === "heartbeat") {
+      const results = await callRoomRpc<boolean>("touch_mvp_lobby_room", {
+        p_room_id: body.roomId,
+        p_host_participant_id: body.actorParticipantId,
+      });
+      return NextResponse.json({ ok: true, active: results[0] === true }, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
+    }
+    if (body.action === "close") {
+      if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 1) {
+        return jsonError("Invalid close revision.", 400);
+      }
+      const results = await callRoomRpc<CompareAndSwapRow>("close_mvp_lobby_room", {
+        p_room_id: body.roomId,
+        p_expected_revision: body.expectedRevision,
+        p_host_participant_id: body.actorParticipantId,
+      });
+      const result = results[0];
+      if (!result) return jsonError("Room already closed or not found.", 404);
+      if (!result.applied) return jsonConflict(result.snapshot);
+      // No replacement RoomState, no new status, and no spoofed Realtime
+      // revision. The canonical row is gone after atomic CAS delete.
+      return NextResponse.json({ ok: true, closed: true }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
     }
