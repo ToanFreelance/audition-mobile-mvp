@@ -1327,6 +1327,7 @@ export default function WaitingRoomPanel({
         transportRef.current?.disconnect();
         setSyncStatus("disconnected");
         setSyncDetail("Bạn đã rời phòng.");
+        if (initialSync?.entryFlow) window.location.assign("/rooms");
       }).catch(error => {
         setSyncDetail(error instanceof Error ? error.message : "Leave room failed.");
       }).finally(() => {
