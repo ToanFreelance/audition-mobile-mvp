@@ -266,7 +266,8 @@ function modeLabel(modeId: string) {
 }
 
 function roomRevisionReason(action: unknown): "participant" | "song" | "mode" | "slot" | "other" {
-  if (action === "join" || action === "ready" || action === "leave" || action === "kick") return "participant";
+  if (action === "join" || action === "ready" || action === "leave"
+    || action === "kick" || action === "transfer-host") return "participant";
   if (action === "song") return "song";
   if (action === "mode") return "mode";
   if (action === "stage" || action === "open-slot" || action === "close-slot") return "slot";
@@ -337,6 +338,7 @@ export default function WaitingRoomPanel({
   const [syncDetail, setSyncDetail] = useState<string | null>(null);
   const [readyIntentPending, setReadyIntentPending] = useState(false);
   const [leaveIntentPending, setLeaveIntentPending] = useState(false);
+  const [manualHostTransferPending, setManualHostTransferPending] = useState(false);
   const [leftRoom, setLeftRoom] = useState(false);
   const [startIntentPending, setStartIntentPending] = useState(false);
   const [frozenMatchManifest, setFrozenMatchManifest] = useState<MatchManifest | null>(null);
@@ -845,6 +847,11 @@ export default function WaitingRoomPanel({
           setSyncDetail("Bạn đã được chuyển quyền Host.");
           setViewMode("center");
           setSelectedParticipantId(local.participantId);
+          setStagePage(0);
+        } else {
+          setSyncDetail("Quyền Host đã chuyển; bạn hiện là Guest.");
+          setViewMode("center");
+          setSelectedParticipantId(snapshot.hostParticipantId);
           setStagePage(0);
         }
       }
@@ -1748,6 +1755,62 @@ export default function WaitingRoomPanel({
     setPanel(null);
   };
 
+  const transferHostToSelectedParticipant = () => {
+    // Only the current canonical Host may transfer in an unfrozen
+    // waiting room. QA fixtures cannot produce a real host transfer.
+    if (!syncOptions || !initialSync?.entryFlow || !hostView
+      || manualHostTransferPending || leaveIntentPending
+      || room.status !== "waiting" || frozenMatchManifest
+      || !selectedParticipant || selectedParticipant.kind !== "human"
+      || selectedParticipant.role !== "guest"
+      || selectedParticipant.participantId === room.hostParticipantId) return;
+
+    const targetParticipantId = selectedParticipant.participantId;
+    const targetName = selectedParticipant.displayName;
+    if (!window.confirm(
+      `Chuyển quyền Host cho ${targetName}? Bạn sẽ trở thành Guest, vẫn ở trong phòng. Tất cả Guest cần READY lại.`,
+    )) return;
+
+    setManualHostTransferPending(true);
+    setActionNotice(null);
+    void (async () => {
+      // Re-read authority after the confirmation dialog. A member can leave,
+      // a Host can change, or a match can freeze during the user gesture.
+      const latest = await fetchRoomSnapshot(syncOptions.roomId);
+      if (latest.revision > roomRef.current.revision) adoptServerSnapshot(latest);
+      if (latest.status !== "waiting" || (latest.matchStart ?? null) !== null
+        || latest.hostParticipantId !== syncOptions.participantId
+        || !latest.participants.some(member =>
+          member.participantId === targetParticipantId
+          && member.kind === "human" && member.role === "guest"
+        )) {
+        throw new Error("Phòng hoặc Guest đã thay đổi. Hãy chọn lại người nhận Host.");
+      }
+      const result = await runServerMutation({
+        action: "transfer-host",
+        expectedRevision: latest.revision,
+        actorParticipantId: syncOptions.participantId,
+        targetParticipantId,
+      }, `Đã chuyển quyền Host cho ${targetName}. Bạn vẫn ở trong phòng.`);
+      if (result.conflict) throw new Error("RoomState vừa thay đổi; vui lòng thử lại.");
+      if (result.snapshot.hostParticipantId !== targetParticipantId
+        || result.snapshot.participants.some(member =>
+          member.participantId === syncOptions.participantId
+          && member.role !== "guest"
+        )) {
+        throw new Error("Chuyển Host chưa được server xác nhận.");
+      }
+      setSelectedParticipantId(targetParticipantId);
+      setPanel(null);
+      setViewMode("center");
+      setStagePage(0);
+    })().catch(error => {
+      setActionNotice(error instanceof Error ? error.message : "Không thể chuyển Host.");
+    }).finally(() => {
+      setManualHostTransferPending(false);
+    });
+  };
+
   const kickSelectedParticipant = () => {
     if (!hostView || !selectedParticipant || selectedParticipant.participantId === room.hostParticipantId) return;
     const kickedId = selectedParticipant.participantId;
@@ -2252,6 +2315,19 @@ export default function WaitingRoomPanel({
                   <button onClick={() => playerAction("Xem đồ")} type="button">◆ <span>Xem đồ</span></button>
                   <button onClick={() => playerAction("Thông tin")} type="button">▤ <span>Thông tin</span></button>
                   <button onClick={() => playerAction("Chat riêng")} type="button">● <span>Chat riêng</span></button>
+                  {hostView && initialSync?.entryFlow && room.status === "waiting"
+                    && !frozenMatchManifest && selectedParticipant.kind === "human"
+                    && selectedParticipant.role === "guest" && (
+                    <button
+                      className={styles.transferHostButton}
+                      data-testid="transfer-host-button"
+                      disabled={manualHostTransferPending || leaveIntentPending}
+                      onClick={transferHostToSelectedParticipant}
+                      type="button"
+                    >
+                      ♛ <span>{manualHostTransferPending ? "ĐANG CHUYỂN HOST..." : "Chuyển Host"}</span>
+                    </button>
+                  )}
                   {hostView && selectedParticipant.participantId !== room.hostParticipantId && (
                     <button className={styles.kickButton} data-testid="kick-button" onClick={kickSelectedParticipant} type="button">⌁ <span>Kick khỏi phòng</span></button>
                   )}
