@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   addParticipant,
+  createRoomState,
   changeMode,
   changeSong,
   changeStage,
@@ -21,6 +22,8 @@ import type { MatchLoadedAck } from "../../../../multiplayer/match-start-protoco
 import { isCanonicalRoomSnapshot } from "../../../../multiplayer/room-sync";
 import type { HumanGuestParticipant, MatchManifest, RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
 import { createP53SyncedWaitingRoomBase } from "../../../../multiplayer/waiting-room-qa";
+import { getCharacterCatalogEntry, isCharacterAssetId } from "../../../../components/character/character-catalog";
+import { WAITING_ROOM_MAX_PLAYERS, type HumanHostParticipant } from "../../../../multiplayer/types";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +38,14 @@ type CompareAndSwapRow = StoredRoomRow & {
 };
 
 type RoomMutationBody =
+  | {
+      action: "create";
+      roomId: string;
+      roomName: string;
+      participantId: string;
+      displayName: string;
+      characterAssetId: string;
+    }
   | { action: "bootstrap"; roomId: string }
   | {
       action: "join";
@@ -365,15 +376,100 @@ async function bootstrap(roomId: string) {
   return insertInitialRoom(baseRoom);
 }
 
+
+// Room Browser exposes ONLY summaries of newly created MVP rooms. Never send
+// arbitrary historical QA snapshots, roster identities, or service credentials.
+async function listEntryRooms() {
+  const config = getSupabaseServerConfig();
+  if (!config) throw new Error("Room storage configuration is unavailable.");
+  const query = new URLSearchParams({
+    select: "room_id,snapshot,updated_at",
+    room_id: "like.mvp-*",
+    updated_at: "gte." + new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
+    order: "updated_at.desc",
+    limit: "60",
+  });
+  const response = await fetch(`${config.url}/rest/v1/lobby_rooms?${query}`, {
+    cache: "no-store",
+    headers: dbHeaders(config.key),
+  });
+  if (!response.ok) {
+    throw new Error("Room Browser could not read room summaries (" + response.status + ").");
+  }
+  const rows = await response.json() as Array<{ room_id: string; snapshot: RoomState }>;
+  return rows
+    .filter(row => row.room_id.startsWith("mvp-") && isCanonicalRoomSnapshot(row.snapshot))
+    .filter(row => row.snapshot.status === "waiting")
+    .map(row => ({
+      roomId: row.room_id,
+      roomName: row.snapshot.roomName,
+      modeId: row.snapshot.modeId,
+      playerCount: row.snapshot.participants.length,
+      maxPlayers: Math.min(WAITING_ROOM_MAX_PLAYERS, row.snapshot.maxPlayers),
+      openSlots: row.snapshot.slots
+        .filter(slot => slot.state === "open" && slot.slotIndex < WAITING_ROOM_MAX_PLAYERS).length,
+    }));
+}
+
+// Atomic bootstrap_lobby_room inserts only if absent, returning the saved row.
+// Random server-side ids avoid creating/replacing an existing user's room.
+async function createEntryRoom(body: Extract<RoomMutationBody, { action: "create" }>) {
+  const participantId = body.participantId.trim();
+  const name = body.displayName.trim();
+  const title = body.roomName.trim();
+  if (!/^player-[0-9a-f-]{36}$/.test(participantId)
+    || !name || name.length > 14 || !title || title.length > 32
+    || !isCharacterAssetId(body.characterAssetId)) {
+    throw new Error("Invalid character or room details.");
+  }
+  const character = getCharacterCatalogEntry(body.characterAssetId);
+  if (!character?.runtimeReady) throw new Error("Character not ready for gameplay.");
+  const host: HumanHostParticipant = {
+    participantId, displayName: name, kind: "human", role: "host",
+    slotIndex: 0, readyState: "not-applicable",
+    loadState: "idle", connectionState: "connected",
+    avatar: {
+      characterId: character.id,
+      characterAssetId: character.id,
+      outfit: {}, accessoryIds: [], petId: null, titleId: null,
+    },
+  };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const roomId = "mvp-" + crypto.randomUUID().slice(0, 12);
+    const room = createRoomState({
+      roomId, roomName: title, host,
+      maxPlayers: WAITING_ROOM_MAX_PLAYERS,
+      modeId: "solo-easy-battle", selectedSongId: "aloha",
+    });
+    if (!isCanonicalRoomSnapshot(room)) throw new Error("Invalid entry room state.");
+    const row = await insertInitialRoom(room);
+    if (row.snapshot.hostParticipantId === participantId && row.snapshot.roomId === roomId) {
+      return row.snapshot;
+    }
+  }
+  throw new Error("Could not allocate a unique room ID.");
+}
+
 function parseBody(value: unknown): RoomMutationBody | null {
   if (!value || typeof value !== "object") return null;
   const body = value as Record<string, unknown>;
   if (typeof body.action !== "string" || typeof body.roomId !== "string") return null;
+  if (body.action === "create") return body as RoomMutationBody;
   if (!roomIdIsSafe(body.roomId)) return null;
   return body as RoomMutationBody;
 }
 
 export async function GET(request: NextRequest) {
+  if (request.nextUrl.searchParams.get("browse") === "1") {
+    if (!getSupabaseServerConfig()) return jsonError("Room storage configuration is unavailable.", 503);
+    try {
+      return NextResponse.json({ ok: true, rooms: await listEntryRooms() }, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Room list failed.", 503);
+    }
+  }
   const roomId = request.nextUrl.searchParams.get("roomId")?.trim() ?? "";
   if (!roomIdIsSafe(roomId)) return jsonError("Invalid roomId.", 400);
   if (!getSupabaseServerConfig()) return jsonError("Supabase room storage configuration is unavailable.", 503);
@@ -401,6 +497,11 @@ export async function POST(request: NextRequest) {
   if (!body) return jsonError("Invalid room mutation payload.", 400);
 
   try {
+    if (body.action === "create") {
+      return NextResponse.json({ ok: true, snapshot: await createEntryRoom(body) }, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
+    }
     if (body.action === "bootstrap") {
       const row = await bootstrap(body.roomId);
       return NextResponse.json({ ok: true, snapshot: row.snapshot }, {
