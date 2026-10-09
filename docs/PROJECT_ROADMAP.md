@@ -421,6 +421,62 @@ Phase 5 implementation is **INTEGRATED**.
 
 The accepted Waiting Room baseline is now part of `development`. Further stage work must not regress Waiting Room authority, actor lifetime behavior, or the accepted mobile visual composition.
 
+### MVP Entry Flow V1 / PR #18 — Multi-user QA backlog (DEFERRED)
+
+**Status (owner decision, 2026-10-09): QA DEFERRED / NOT YET ACCEPTED.**
+The owner cannot currently run a 3-user test. Keep this as a concrete
+QA checkpoint for when enough independent clients/devices are available;
+do **not** mark it PASS based only on CI or database simulation, and do
+**not** merge PR #18 to `development` without explicit owner approval.
+
+Scope already implemented on `work/mvp-entry-room-flow-v1`: character
+creation → Room Browser → Waiting Room 3D, plus canonical server-CAS
+Host succession. Supabase transactional fixtures **PASSED** first-join
+ordering, slot-0 promotion, READY reset, stale-revision rejection,
+subsequent transfers, last-Host exit and live/expired heartbeat cases.
+Physical multi-client iPhone QA remains **PENDING**.
+
+**Deferred QA checklist — Host Transfer and room lifecycle:**
+
+- [ ] **Three clients (A/B/C), ideally on separate devices:** A creates
+  a room; Guest B joins before Guest C, even when B's slot index is
+  higher than C's. Verify identities, Character Catalog actors and
+  join order are correct on all clients.
+- [ ] **Explicit Host leave:** A presses **Rời phòng** in a WAITING
+  room. Verify B becomes canonical Host immediately without closing
+  the room; B moves to Host slot 0 with crown and START controls; C
+  stays Guest and returns to NOT READY; no duplicate Host or stale
+  roster on A/B/C after Realtime/poll reconciliation.
+- [ ] **Second handoff / close empty room:** B subsequently leaves,
+  C becomes Host; if the final Host leaves and no Guest remains, the
+  room closes and disappears from Room Browser.
+- [ ] **Disconnect recovery:** Repeat with A's tab closed/offline,
+  keeping B and C active in foreground. After the configured **75 s
+  host heartbeat timeout** (allow ~75–95 s for polling), verify the
+  earliest **still-active** Guest is promoted exactly once and the
+  room remains discoverable. Confirm a brief iOS background pause
+  does *not* spuriously steal Host authority.
+- [ ] **CAS/Reactivity/3D:** Verify all clients converge to the same
+  room revision, Host ID and occupied slots; prior Host cannot issue
+  Host-only commands; new Host can change song and use normal
+  Ready/START gate; role/READY updates do not recreate unchanged
+  actors, restart AnimationMixer or rebuild the Three.js scene.
+- [ ] **No takeover mid-match:** Host changes are waiting-only.
+  PRELOADING/COUNTDOWN/PLAYING must preserve frozen MatchManifest,
+  immutable shared epoch, WebAudio clock and gameplay timeline.
+- [ ] **Separate audio E2E blocker:** On two devices kept foreground,
+  confirm both clients transition from ALL CLIENTS LOADED through
+  shared countdown into P5.5 gameplay, and both song clocks advance.
+  Earlier same-iPhone two-browser tests reached server PLAYING while
+  Guest displayed `SONG 0 ms / AUDIO STALLED` and Host stayed at
+  `scheduling shared epoch…`; do not call this fixed without retest.
+
+**Acceptance gate:** Owner physical-device confirmation of multi-user
+Host handoff and audio progression, no RoomState/Realtime/actor
+regressions, then owner approval to integrate PR #18. Automated DB
+checks and a green Vercel build are technical validation only.
+Detailed implementation/QA notes: `docs/MVP_ENTRY_ROOM_FLOW_V1.md`.
+
 ### Stage roadmap — S2 / S2.5 / S3
 
 Current milestone:
