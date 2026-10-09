@@ -1844,6 +1844,38 @@ export default function WaitingRoomStage3D({
           return;
         }
 
+        // Room host succession changes role and often slotIndex, but NEVER
+        // changes actor identity. Retint the existing ring in place; keep
+        // the same skinned actor, AnimationMixer, GLB and WebGL scene.
+        if (existing.participant.role !== participant.role
+          || existing.participant.slotIndex !== participant.slotIndex) {
+          const sketch = visualPresetRef.current === "sketch";
+          const accent = sketch
+            ? participantSketchRingAccent(participant)
+            : participantAccent(participant);
+          const isHost = participant.role === "host";
+          const ring = existing.ring;
+          ring.userData.accent = accent;
+          ring.userData.emphasis = isHost ? 0.55 : 0;
+          const materialKeys = [
+            "underglowMaterial", "floorMaterial", "haloMaterial",
+            "outerMaterial", "coreMaterial",
+          ] as const;
+          materialKeys.forEach(key => {
+            const material = ring.userData[key] as THREE.MeshBasicMaterial | undefined;
+            material?.color.setHex(accent);
+          });
+          const inner = ring.userData.innerMaterial as THREE.MeshBasicMaterial | undefined;
+          if (inner) {
+            inner.color.setHex(!sketch && isHost ? 0xffd454 : accent);
+            inner.opacity = sketch ? 0.84 : isHost ? 0.66 : 0.34;
+          }
+          const core = ring.userData.coreMaterial as THREE.MeshBasicMaterial | undefined;
+          if (core && sketch) core.color.set(new THREE.Color(accent).lerp(new THREE.Color(0xffffff), 0.24));
+          const shine = ring.userData.shineMaterial as THREE.MeshBasicMaterial | undefined;
+          if (shine && sketch) shine.color.set(new THREE.Color(accent).lerp(new THREE.Color(0xffffff), 0.32));
+        }
+
         // READY / NOT READY and connection metadata only refresh the node's
         // logical participant reference. Never restart its AnimationMixer.
         existing.participant = participant;
