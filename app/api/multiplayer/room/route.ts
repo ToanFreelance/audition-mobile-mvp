@@ -38,7 +38,9 @@ type CompareAndSwapRow = StoredRoomRow & {
 };
 
 type RoomMutationBody =
-  | { action: "close" | "host-leave" | "recover-host"; roomId: string; expectedRevision: number; actorParticipantId: string }
+  | { action: "close"; roomId: string; expectedRevision: number; actorParticipantId: string }
+  | { action: "host-leave"; roomId: string; expectedRevision: number; actorParticipantId: string }
+  | { action: "recover-host"; roomId: string; expectedRevision: number; actorParticipantId: string }
   | { action: "heartbeat"; roomId: string; actorParticipantId: string }
   | {
       action: "create";
