@@ -277,7 +277,11 @@ type WaitingRoomPanelProps = {
   initialSync?: {
     roomId: string;
     role: SyncClientRole;
+    participantId?: string;
+    /** Entry Flow reads an existing canonical room; QA still bootstraps. */
+    entryFlow?: boolean;
   } | null;
+  initialRoom?: RoomState;
   calibrationMode?: boolean;
   blueprintMode?: boolean;
   fixMapMode?: boolean;
@@ -292,16 +296,18 @@ type WaitingRoomPanelProps = {
 
 export default function WaitingRoomPanel({
   initialSync = null,
+  initialRoom,
   calibrationMode = false,
   blueprintMode = false,
   fixMapMode = false,
   goldenTrace = null,
   visualPreset = "default",
 }: WaitingRoomPanelProps) {
-  const initialParticipantId = initialSync?.role === "guest" ? "p51-guest" : "p51-host";
-  const [room, setRoom] = useState(() => initialSync
+  const initialParticipantId = initialSync?.participantId
+    ?? (initialSync?.role === "guest" ? "p51-guest" : "p51-host");
+  const [room, setRoom] = useState(() => initialRoom ?? (initialSync
     ? createP53SyncedWaitingRoomBase(initialSync.roomId)
-    : createP51WaitingRoomFixture());
+    : createP51WaitingRoomFixture()));
   const [viewParticipantId, setViewParticipantId] = useState(
     initialSync ? initialParticipantId : room.hostParticipantId,
   );
@@ -459,6 +465,11 @@ export default function WaitingRoomPanel({
         return initialSnapshot;
       }
       if (guestJoinedThisSession) return initialSnapshot;
+      // Entry joins happen on the browser through CAS before mounting.
+      // Do not silently resurrect a removed/kicked participant.
+      if (initialSync?.entryFlow) {
+        throw new Error("Bạn không còn trong phòng. Hãy trở lại sảnh.");
+      }
 
       const guest = createP53QaGuestParticipant();
       let current = initialSnapshot;
@@ -553,19 +564,24 @@ export default function WaitingRoomPanel({
         const config = await configResponse.json() as RealtimeConfig;
         if (disposed) return;
 
-        const bootstrapResult = await postRoomMutation({
-          action: "bootstrap",
-          roomId: syncOptions.roomId,
-        });
+        // QA keeps bootstrap; entry requires an existing canonical room.
+        const initialSnapshot = initialSync?.entryFlow
+          ? await fetchRoomSnapshot(syncOptions.roomId)
+          : (await postRoomMutation({
+              action: "bootstrap",
+              roomId: syncOptions.roomId,
+            })).snapshot;
         if (disposed) return;
 
-        applyCanonicalSnapshot(bootstrapResult.snapshot);
-        const joinedSnapshot = await ensureGuestJoined(bootstrapResult.snapshot);
+        applyCanonicalSnapshot(initialSnapshot);
+        const joinedSnapshot = await ensureGuestJoined(initialSnapshot);
         if (disposed) return;
 
-        const localParticipant = syncOptions.role === "guest"
-          ? createP53QaGuestParticipant()
-          : joinedSnapshot.participants.find(item => item.participantId === syncOptions.participantId);
+        const localParticipant = initialSync?.entryFlow
+          ? joinedSnapshot.participants.find(item => item.participantId === syncOptions.participantId)
+          : syncOptions.role === "guest"
+            ? createP53QaGuestParticipant()
+            : joinedSnapshot.participants.find(item => item.participantId === syncOptions.participantId);
         if (!localParticipant) throw new Error("Local sync participant is unavailable.");
 
         transport = new SupabaseRealtimeRoomTransport({
@@ -717,7 +733,8 @@ export default function WaitingRoomPanel({
     && estimatedServerNowMs >= gameplaySchedule.startAtServerMs,
   );
   const viewer = room.participants.find(item => item.participantId === viewParticipantId)
-    ?? (syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
+    ?? (initialSync?.entryFlow ? room.participants[0]
+      : syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
   const hostView = syncOptions ? syncOptions.role === "host" : viewer.participantId === room.hostParticipantId;
   const startGate = useMemo(() => canStartRoom(displayRoom), [displayRoom]);
   const participantById = useMemo(
@@ -1566,7 +1583,8 @@ export default function WaitingRoomPanel({
         data-visual-preset={visualPreset}
       >
         <header className={styles.header}>
-          <button className={styles.iconButton} type="button" aria-label="Back">‹</button>
+          <button className={styles.iconButton} type="button" aria-label="Back"
+            onClick={initialSync?.entryFlow ? () => window.location.assign("/rooms") : undefined}>‹</button>
           <div className={styles.titleBlock}>
             <strong>{room.roomName}</strong>
             <span data-testid="room-summary">ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {orderedParticipants.length}/{Math.min(room.maxPlayers, WAITING_ROOM_MAX_PLAYERS)}</span>
