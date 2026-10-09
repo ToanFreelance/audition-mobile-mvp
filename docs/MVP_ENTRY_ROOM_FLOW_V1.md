@@ -69,3 +69,49 @@ no Stage Selector S3, and no gameplay architecture changes.
 Branch: `work/mvp-entry-room-flow-v1`.
 Keep a draft PR against `development` until owner iPhone acceptance.
 No merge of `development` or `main` without owner approval.
+
+
+## 2026-10-09 — iPhone Safari/embedded-browser P5.5 handoff regression
+
+Owner reproduced on **one iPhone with two distinct browser surfaces**:
+- Guest's P5.5 gameplay page shows `SONG 0 ms`, `GLOBAL TURN T-5` and
+  `RUNNING`, but no music progression.
+- Host is in Waiting Room `STARTING / GO · SHARED EPOCH` and
+  `AUDIO DECODED · scheduling shared epoch…`.
+- Supabase canonical room was verified at revision 10 with both human
+  participants Loaded, status Playing, and shared epoch
+  `1791540332491` (same as owner's screenshots).
+
+Root cause in **client lifecycle** with two distinct risks:
+1. The audio scheduling `useEffect` depended on a reconstructed
+   `matchStartSession` object. Updates to authoritative room revision
+   re-created that object and could cancel the outstanding async
+   scheduling callback, while its `gameplayScheduleAttemptRef` latch
+   still blocked another attempt. This can strand the Host in the
+   `AUDIO DECODED · scheduling…` state.
+2. Mobile Safari/WKWebView can interrupt or suspend the AudioContext as
+   the user swaps browser foreground; the shared RoomState can be
+   `playing` even while a client WebAudio song clock has stopped. This
+   is a separate iOS lifecycle limitation, not permission to restart,
+   seek, or move the immutable shared epoch.
+
+Fix scoped to `WaitingRoomPanel.tsx`:
+- Audio scheduling dependencies now track primitive session key,
+  immutable `startAtServerMs`, clock offset, participant identity, and
+  audio readiness, **not** the reconstructed session object. Attempt
+  latch is tied to exact session and epoch.
+- AudioContext `statechange` is observed after audio activation.
+  Suspended/interrupted contexts display a direct warning and an
+  activation control where appropriate.
+- `LiveMultiplayerGameplay.tsx` observes the *existing*
+  authoritative song time for liveness diagnostics. After a sustained
+  non-advancing song clock it displays `AUDIO STALLED`, not a false
+  `RUNNING` claim. This diagnostic does not advance turns or mutate
+  audio time.
+
+Validation: Next.js/TypeScript and Vercel branch deployment. **Safari
+runtime regression remains unverified** until owner repeats with two
+separate foreground devices. Two apps/browsers alternating on the
+same iPhone cannot certify simultaneous uninterrupted WebAudio.
+No new epochs, offsets, seek, new turns, gauge changes, or gameplay
+refactor. PR #18 remains Draft until owner iPhone acceptance.
