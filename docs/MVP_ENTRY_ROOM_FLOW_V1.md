@@ -241,3 +241,45 @@ MatchManifest has been frozen.
 - With no Guest: Host Rời phòng closes the room. With a frozen
   match: no role migration during preload or gameplay.
 - PR #18 remains Draft; no merge without owner approval.
+
+
+## 2026-10-09 — Manual Host Transfer — chosen Guest (owner requested)
+
+Separate from automatic succession on Host leave/disconnect, the Host may
+**tap any human Guest** in the existing Player sheet and choose **Chuyển Host**.
+A confirmation dialog explains that the current Host will remain in the room
+as a Guest and all human Guests must READY again. The UI is available only
+to the **canonical current Host** of an unfrozen `WAITING` MVP Entry room.
+
+Authority is server-owned and CAS-guarded:
+- `POST /api/multiplayer/room {action:"transfer-host", expectedRevision,
+  actorParticipantId, targetParticipantId}` validates a fresh canonical
+  RoomState. New SQL `public.transfer_mvp_room_host` additionally locks the
+  row and verifies revision, current Host, selected human Guest, waiting
+  status and absence of MatchStart.
+- One atomic revision advances by exactly one. The old Host becomes
+  `guest/not-ready` occupying the selected Guest's previous slot;
+  the chosen Guest becomes `host/not-applicable` at slot 0.
+  Every other human Guest becomes NOT READY. The room stays open;
+  no participant is dropped and neither avatar nor actor identity changes.
+- Existing Realtime `room-revision` hints announce the winning
+  authoritative snapshot. Both client role paths (live Realtime and
+  foreground canonical refresh) update Host identity; the Waiting Room
+  already reconciles ring/crown presentation **without recreating actors
+  or restarting AnimationMixer**.
+- Reject transfer to oneself, Bots, absent Guests, stale revisions,
+  non-Host requesters and rooms that have started preloading.
+  No local election, extra room clock or shared epoch mutation.
+- Production security remains outstanding: the MVP's locally held
+  participant ID cannot authenticate a Host to a public service.
+  This is not ready for untrusted public traffic until account
+  ownership/auth is enforced.
+
+**Technical QA run:** Supabase transaction-scoped fixture PASS:
+Host → chosen Guest at slot 2 while another Guest is at slot 1,
+old Host retained in slot 2; all Guest READY reset; revision 7→8;
+reverse Host transfer succeeded; invalid actor/target/self/stale CAS
+rejected; preloading rejected; fixture cleaned.
+Vercel TypeScript/build gates tracked by PR #18.
+**Owner multi-client visual E2E: DEFERRED** as explicitly requested
+in `docs/PROJECT_ROADMAP.md`. PR remains Draft and unmerged.
