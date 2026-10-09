@@ -32,7 +32,8 @@ begin
 
   insert into public.mvp_room_member_lease (room_id,participant_id,last_seen_at)
     values (p_room_id,p_participant_id,now())
-  on conflict (room_id,participant_id) do update set last_seen_at=excluded.last_seen_at;
+  on conflict on constraint mvp_room_member_lease_pkey
+    do update set last_seen_at=excluded.last_seen_at;
   -- Directory updated_at is only moved by the current Host; a guest must
   -- never prolong the listing of a room abandoned by its host.
   if current_host=p_participant_id then
