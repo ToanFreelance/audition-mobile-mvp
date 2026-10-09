@@ -41,6 +41,7 @@ type RoomMutationBody =
   | { action: "close"; roomId: string; expectedRevision: number; actorParticipantId: string }
   | { action: "host-leave"; roomId: string; expectedRevision: number; actorParticipantId: string }
   | { action: "recover-host"; roomId: string; expectedRevision: number; actorParticipantId: string }
+  | { action: "transfer-host"; roomId: string; expectedRevision: number; actorParticipantId: string; targetParticipantId: string }
   | { action: "heartbeat"; roomId: string; actorParticipantId: string }
   | {
       action: "create";
@@ -303,7 +304,7 @@ function leaveHumanGuest(
   return removeParticipant(room, participant.participantId);
 }
 
-function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "host-leave" | "recover-host" | "heartbeat" }>) {
+function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "host-leave" | "recover-host" | "transfer-host" | "heartbeat" }>) {
   assertExpectedRevision(row, body.expectedRevision);
   const room = row.snapshot;
   if (!isCanonicalRoomSnapshot(room)) throw new Error("Stored room snapshot is invalid.");
@@ -550,6 +551,35 @@ export async function POST(request: NextRequest) {
       }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
+    }
+
+    if (body.action === "transfer-host") {
+      if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 1
+        || !body.actorParticipantId?.trim() || !body.targetParticipantId?.trim()) {
+        return jsonError("Invalid Host transfer details.", 400);
+      }
+      const rows = await callRoomRpc<CompareAndSwapRow & { reason: string }>(
+        "transfer_mvp_room_host", {
+          p_room_id: body.roomId,
+          p_expected_revision: body.expectedRevision,
+          p_actor_participant_id: body.actorParticipantId,
+          p_target_participant_id: body.targetParticipantId,
+        },
+      );
+      const result = rows[0];
+      if (!result) return jsonError("Room not found.", 404);
+      if (!result.applied) {
+        if (result.reason === "revision-conflict") return jsonConflict(result.snapshot);
+        return jsonError(`Host transfer refused: ${result.reason}.`, 409);
+      }
+      if (!isCanonicalRoomSnapshot(result.snapshot)
+        || result.snapshot.revision !== body.expectedRevision + 1
+        || result.snapshot.hostParticipantId !== body.targetParticipantId) {
+        return jsonError("Host transfer returned an invalid snapshot.", 500);
+      }
+      return NextResponse.json({
+        ok: true, transferred: true, snapshot: result.snapshot,
+      }, { headers: { "Cache-Control": "no-store, max-age=0" } });
     }
 
     const current = await readRoom(body.roomId);
