@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { WebAudioTransport } from "../../game/web-audio-transport";
 import type { Direction } from "../../game/types";
 import { describeSharedTurn } from "../../multiplayer/determinism";
@@ -31,8 +31,13 @@ export default function LiveMultiplayerGameplay(props: {
   transport: WebAudioTransport;
   startAtServerMs: number;
   roomStatus: string;
+  audioContextState?: AudioContextState | null;
 }) {
   const [snapshot, setSnapshot] = useState<MultiplayerGameplaySnapshot>(() => props.runtime.snapshot());
+  // Display-only liveness monitor. It never advances/rewinds WebAudio,
+  // global turns, local commands, or the immutable shared start epoch.
+  const lastAudioProgressRef = useRef({ songMs: 0, observedAtMs: 0 });
+  const [audioClockStalled, setAudioClockStalled] = useState(false);
 
   useEffect(() => {
     let raf = 0;
@@ -47,6 +52,16 @@ export default function LiveMultiplayerGameplay(props: {
         && !props.transport.playing
         && songTimeMs >= durationMs - 5) {
         props.runtime.markAudioEnded();
+      }
+      const nowMonotonicMs = performance.now();
+      const progress = lastAudioProgressRef.current;
+      if (progress.observedAtMs === 0 || songTimeMs > progress.songMs + 3) {
+        progress.songMs = songTimeMs;
+        progress.observedAtMs = nowMonotonicMs;
+        setAudioClockStalled(false);
+      } else if (props.runtime.isStarted && !props.runtime.isAudioEnded
+        && nowMonotonicMs - progress.observedAtMs > 3000) {
+        setAudioClockStalled(true);
       }
       setSnapshot(props.runtime.snapshot());
       raf = requestAnimationFrame(tick);
@@ -95,6 +110,8 @@ export default function LiveMultiplayerGameplay(props: {
       data-audio-ended={snapshot.audioEnded ? "1" : "0"}
       data-match-id={props.manifest.matchId}
       data-room-status={props.roomStatus}
+      data-audio-context={props.audioContextState ?? "unknown"}
+      data-audio-stalled={audioClockStalled ? "1" : "0"}
       data-testid="multiplayer-gameplay-live"
     >
       <section className={styles.hero}>
@@ -110,6 +127,19 @@ export default function LiveMultiplayerGameplay(props: {
         </div>
       </section>
 
+      {(props.audioContextState && props.audioContextState !== "running"
+        || audioClockStalled) && (
+        <p role="alert" data-testid="multiplayer-audio-health" style={{
+          margin: "12px 16px", padding: 12,
+          border: "1px solid #fd8391", borderRadius: 12,
+          background: "#391526", color: "#ffced6", fontSize: 13,
+        }}>
+          {props.audioContextState && props.audioContextState !== "running"
+            ? "AudioContext đã bị Safari tạm dừng. Client không còn phát theo shared epoch."
+            : "WebAudio song clock không tiến. Màn hình RUNNING không đồng nghĩa nhạc đang phát."}
+          {" "}Thử lại với hai thiết bị riêng, mỗi trình duyệt ở foreground.
+        </p>
+      )}
       <section className={styles.metrics}>
         <div><span>Participant</span><strong>{props.participantId}</strong></div>
         <div><span>Global turn</span><strong data-testid="gameplay-global-turn">T{snapshot.globalAbsoluteTurn}</strong></div>
@@ -162,7 +192,10 @@ export default function LiveMultiplayerGameplay(props: {
       <footer className={styles.footer}>
         <span>Audio authority: <b>WEBAUDIO</b></span>
         <span>Room status: <b>{props.roomStatus.toUpperCase()}</b></span>
-        <span>{snapshot.audioEnded ? "AUDIO END" : snapshot.started ? "RUNNING" : "STOPPED"}</span>
+        <span>{snapshot.audioEnded ? "AUDIO END"
+          : snapshot.started && (audioClockStalled || props.audioContextState && props.audioContextState !== "running")
+            ? "AUDIO STALLED"
+            : snapshot.started ? "RUNNING" : "STOPPED"}</span>
       </footer>
     </main>
   );
