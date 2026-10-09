@@ -1262,6 +1262,10 @@ export default function WaitingRoomPanel({
     // while leaving the canonical epoch unchanged. Only the primitives
     // below may restart this scheduling effect.
   }, [
+    // On Safari the AudioContext may have been suspended and a previous
+    // attempt can fail. A NEW explicit user gesture is a permitted retry
+    // ONLY against the same immutable epoch (the bridge rejects LATE).
+    audioActivationNonce,
     clockSyncEstimate?.offsetMs,
     gameplayAudioReadyKey,
     gameplaySchedule?.sessionKey,
