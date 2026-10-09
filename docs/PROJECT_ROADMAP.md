@@ -431,7 +431,7 @@ do **not** mark it PASS based only on CI or database simulation, and do
 
 Scope already implemented on `work/mvp-entry-room-flow-v1`: character
 creation → Room Browser → Waiting Room 3D, plus canonical server-CAS
-Host succession. Supabase transactional fixtures **PASSED** first-join
+automatic Host succession and Host-selected manual role transfer. Supabase transactional fixtures **PASSED** first-join
 ordering, slot-0 promotion, READY reset, stale-revision rejection,
 subsequent transfers, last-Host exit and live/expired heartbeat cases.
 Physical multi-client iPhone QA remains **PENDING**.
@@ -447,6 +447,17 @@ Physical multi-client iPhone QA remains **PENDING**.
   the room; B moves to Host slot 0 with crown and START controls; C
   stays Guest and returns to NOT READY; no duplicate Host or stale
   roster on A/B/C after Realtime/poll reconciliation.
+- [ ] **Manual Host choice (NEW):** While room is WAITING, Host A
+  taps Guest C (not necessarily earliest joined) → **Chuyển Host** →
+  confirms. Verify C becomes Host in slot 0 with crown/START, A
+  remains in the room as Guest in C's previous slot, B stays Guest,
+  and all human Guest READY states reset. Cancel confirmation and
+  selecting oneself/Bot must never transfer Host.
+- [ ] **Manual transfer after transfer:** Former Host A can READY
+  again; new Host C can choose B to transfer once more, with correct
+  3D actor identity and no AnimationMixer recreation. Concurrent
+  changes (Guest leaves, Host changes, START freezes match) must fail
+  the stale-CAS transfer rather than overriding the newest state.
 - [ ] **Second handoff / close empty room:** B subsequently leaves,
   C becomes Host; if the final Host leaves and no Guest remains, the
   room closes and disappears from Room Browser.
