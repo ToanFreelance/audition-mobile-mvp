@@ -115,3 +115,57 @@ separate foreground devices. Two apps/browsers alternating on the
 same iPhone cannot certify simultaneous uninterrupted WebAudio.
 No new epochs, offsets, seek, new turns, gauge changes, or gameplay
 refactor. PR #18 remains Draft until owner iPhone acceptance.
+
+
+## 2026-10-09 — Abandoned Waiting Room lifecycle fix
+
+Owner observed “Phòng một nha” still advertised as **1/5 / waiting**
+after both browser sessions had exited. Supabase read-only diagnosis confirmed
+the canonical room was still at revision 3 with only Host persisted. This
+happened because Host **Rời phòng** was disabled, the Entry header Back only
+navigated, and `list_mvp_lobby_rooms()` treated any waiting snapshot updated
+in the past **72 hours** as an open room.
+
+**Scoped fix, no RoomState/gameplay rewrite:**
+
+- **Host explicit exit:** Enable **Đóng phòng** for the actual
+  `/rooms/[roomId]` Host when status is `waiting`. Require confirmation,
+  then `POST /api/multiplayer/room {action:"close", expectedRevision,...}`.
+  New `close_mvp_lobby_room` RPC deletes only that MVP row if its
+  canonical host participant ID, revision and waiting status all match.
+  Conflicts return the latest snapshot and the UI retries at most 3
+  times; other room states (preloading/countdown/playing) cannot be
+  deleted. Header Back uses the same close action for a waiting Host.
+  Guest header Back now sends an actual leave CAS mutation before
+  navigation (instead of leaving a stale occupied slot).
+- **Tab/browser abandonment:** A visible Host sends a metadata-only
+  heartbeat every 25 seconds and when the page returns to foreground.
+  `touch_mvp_lobby_room` refreshes `updated_at` only if the MVP room
+  is waiting and the canonical Host ID matches; it never edits the
+  snapshot, revision, Ready state, Realtime protocol, preload, clock,
+  WebAudio or gameplay. Room directory now advertises only waiting
+  rooms touched in the **last 3 minutes** instead of 72 hours.
+  An abandoned room is thus **hidden** without automatically deleting
+  its underlying RoomState. Host can make it visible again by
+  returning to the still-open waiting room.
+- Room Browser refreshes on mount, on foreground return, and every
+  30 seconds while open, so previously visible stale entries disappear.
+- Original QA lobby fixture and no-auto-create Entry policy unchanged.
+- DB migration applied to the existing Supabase project and checked:
+  abandoned “Phòng một nha” is absent from directory, still persisted
+  for historical inspection; non-existent room heartbeat returns false
+  and close returns no rows. No user room was manually deleted.
+
+**Known risks and acceptance:** Device participant ID remains a
+non-authenticated MVP identity. Raw RoomState and Host ID are accessible
+to clients under the existing contract; this action is not a secure
+authorization boundary for public launch. Host tab termination is
+best-effort via 3-minute directory expiry (not instantaneous server
+deletion). When a Host closes a waiting room, other connected Guests
+may require a refresh to see the 404 because no Realtime protocol
+change was made. Owner must verify on iPhone:
+create room, join guest, Guest leaves -> 1/5, Host taps Đóng phòng
+or Back -> room disappears immediately; create second room and force
+close Host tab -> it disappears from Room Browser within ~3 minutes.
+
+PR #18 remains Draft; no merges without owner approval.
