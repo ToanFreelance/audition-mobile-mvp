@@ -352,6 +352,8 @@ export default function WaitingRoomPanel({
   const [gameplaySchedule, setGameplaySchedule] = useState<ScheduledGameplay | null>(null);
   const [gameplayHandoffError, setGameplayHandoffError] = useState<string | null>(null);
   const [audioActivationNonce, setAudioActivationNonce] = useState(0);
+  const [gameplayAudioContextState, setGameplayAudioContextState] =
+    useState<AudioContextState | null>(null);
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
   const preloadAttemptRef = useRef<string | null>(null);
@@ -367,6 +369,17 @@ export default function WaitingRoomPanel({
   useEffect(() => {
     roomRef.current = room;
   }, [room]);
+
+  // The user gesture creates the AudioContext. Observe Safari's native
+  // suspension state; never infer audio progress from RoomState PLAYING.
+  useEffect(() => {
+    const context = gameplayAudioContextRef.current;
+    if (!context) return;
+    const reflect = () => setGameplayAudioContextState(context.state);
+    reflect();
+    context.addEventListener("statechange", reflect);
+    return () => context.removeEventListener("statechange", reflect);
+  }, [audioActivationNonce]);
 
   useEffect(() => () => {
     gameplayRuntimeRef.current?.stop();
@@ -847,8 +860,11 @@ export default function WaitingRoomPanel({
       }
       setGameplayHandoffError(null);
       setAudioActivationNonce(current => current + 1);
+      setGameplayAudioContextState(context.state);
       if (context.state !== "running") {
-        void context.resume().catch(error => {
+        void context.resume().then(() => {
+          setGameplayAudioContextState(context.state);
+        }).catch(error => {
           setGameplayHandoffError(
             error instanceof Error ? error.message : "WebAudio activation failed.",
           );
@@ -1148,8 +1164,12 @@ export default function WaitingRoomPanel({
 
     const prepared = gameplayAudioRef.current;
     if (!prepared || prepared.sessionKey !== matchStartSessionKey) return;
-    if (gameplayScheduleAttemptRef.current === matchStartSessionKey) return;
-    gameplayScheduleAttemptRef.current = matchStartSessionKey;
+    // Depend on the immutable match/epoch, not the reconstructed
+    // matchStartSession object. RoomState revision / presence changes must
+    // never cancel scheduling mid-flight while keeping the attempt latch.
+    const attemptKey = `${matchStartSessionKey}:${matchStartSession.startAtServerMs}`;
+    if (gameplayScheduleAttemptRef.current === attemptKey) return;
+    gameplayScheduleAttemptRef.current = attemptKey;
 
     let cancelled = false;
     void scheduleMultiplayerAudioGameplay({
@@ -1194,13 +1214,17 @@ export default function WaitingRoomPanel({
     return () => {
       cancelled = true;
     };
+    // IMPORTANT: matchStartSession and syncOptions are object references,
+    // not schedule identity. A room revision can reconstruct the former
+    // while leaving the canonical epoch unchanged. Only the primitives
+    // below may restart this scheduling effect.
   }, [
-    clockSyncEstimate,
+    clockSyncEstimate?.offsetMs,
     gameplayAudioReadyKey,
     gameplaySchedule?.sessionKey,
-    matchStartSession,
     matchStartSessionKey,
-    syncOptions,
+    matchStartSession?.startAtServerMs,
+    syncOptions?.participantId,
   ]);
 
   useEffect(() => {
@@ -1842,7 +1866,15 @@ export default function WaitingRoomPanel({
                         ? "AUDIO ACTIVATION REQUIRED"
                         : "AUDIO PREPARING…"}
                 </small>
-                {(audioActivationNonce === 0 || gameplayHandoffError) && !gameplaySchedule && (
+                {gameplayAudioContextState === "suspended" && (
+                  <small className={styles.preloadAudioError} data-testid="p55-audio-suspended">
+                    AUDIO CONTEXT SUSPENDED · Safari đã tạm dừng WebAudio.
+                    Nếu shared epoch đã qua, client phải báo LATE; không tự dịch lịch phát.
+                  </small>
+                )}
+                {(audioActivationNonce === 0 || gameplayHandoffError
+                  || gameplayAudioContextState === "suspended")
+                  && !gameplaySchedule && (
                   <button
                     className={styles.preloadAudioButton}
                     data-testid="enable-gameplay-audio"
