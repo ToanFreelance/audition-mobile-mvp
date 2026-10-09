@@ -176,6 +176,20 @@ async function callRoomRpc<T>(functionName: string, body: Record<string, unknown
   return await response.json() as T[];
 }
 
+// Unlike the existing row-returning RPCs, PostgREST returns a scalar JSON
+// boolean for touch_mvp_lobby_room(). Never index the result as an array.
+async function touchMvpRoom(roomId: string, hostParticipantId: string): Promise<boolean> {
+  const config = getSupabaseServerConfig();
+  if (!config) throw new Error("Supabase room storage configuration is unavailable.");
+  const response = await fetch(`${config.url}/rest/v1/rpc/touch_mvp_lobby_room`, {
+    method: "POST", cache: "no-store",
+    headers: dbHeaders(config.key),
+    body: JSON.stringify({ p_room_id: roomId, p_host_participant_id: hostParticipantId }),
+  });
+  if (!response.ok) throw new Error(`Room heartbeat RPC failed (${response.status}).`);
+  return await response.json() === true;
+}
+
 async function readRoom(roomId: string): Promise<StoredRoomRow | null> {
   const rows = await callRoomRpc<StoredRoomRow>("get_lobby_room", {
     p_room_id: roomId,
@@ -500,11 +514,8 @@ export async function POST(request: NextRequest) {
       });
     }
     if (body.action === "heartbeat") {
-      const results = await callRoomRpc<boolean>("touch_mvp_lobby_room", {
-        p_room_id: body.roomId,
-        p_host_participant_id: body.actorParticipantId,
-      });
-      return NextResponse.json({ ok: true, active: results[0] === true }, {
+      const active = await touchMvpRoom(body.roomId, body.actorParticipantId);
+      return NextResponse.json({ ok: true, active }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
     }
