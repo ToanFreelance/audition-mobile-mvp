@@ -831,8 +831,24 @@ export default function WaitingRoomPanel({
     if (snapshot.roomId !== room.roomId || !isCanonicalRoomSnapshot(snapshot)) {
       throw new Error("Server returned an invalid room snapshot.");
     }
+    if (snapshot.revision < roomRef.current.revision) return;
     roomRef.current = snapshot;
     setRoom(snapshot);
+    if (initialSync?.entryFlow && syncOptions) {
+      const local = snapshot.participants.find(item =>
+        item.participantId === syncOptions.participantId
+      );
+      if (local?.kind === "human" && local.role !== syncOptions.role) {
+        setSyncOptions(current => current?.participantId === local.participantId
+          ? { ...current, role: local.role } : current);
+        if (local.role === "host") {
+          setSyncDetail("Bạn đã được chuyển quyền Host.");
+          setViewMode("center");
+          setSelectedParticipantId(local.participantId);
+          setStagePage(0);
+        }
+      }
+    }
   };
 
   const runServerMutation = async (payload: Record<string, unknown>, successDetail?: string) => {
