@@ -436,7 +436,19 @@ ordering, slot-0 promotion, READY reset, stale-revision rejection,
 subsequent transfers, last-Host exit and live/expired heartbeat cases.
 Physical multi-client iPhone QA remains **PENDING**.
 
+**Owner smoke test update (2026-10-09):** Manual **Chuyển Host**
+has been tested by the owner and reported working (**OWNER SMOKE PASS**).
+This validates the user-observed manual transfer path only; it does not
+certify the full three-client scenario, back-to-back transfers, timing
+races, disconnect recovery or the separate WebAudio E2E. Keep those
+checks deferred and PR #18 unmerged.
+
 **Deferred QA checklist — Host Transfer and room lifecycle:**
+
+- [x] **Owner smoke test — manual Chuyển Host:** Host-selected Guest
+  transfer was observed working by the owner on the PR #18 preview.
+  Detailed 3-client role/crown/READY/actor and race-condition QA
+  remains unchecked below.
 
 - [ ] **Three clients (A/B/C), ideally on separate devices:** A creates
   a room; Guest B joins before Guest C, even when B's slot index is
