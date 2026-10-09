@@ -464,10 +464,12 @@ export default function WaitingRoomPanel({
           setSyncOptions(current => current?.participantId === local.participantId
             ? { ...current, role: local.role } : current);
           setSyncDetail(local.role === "host"
-            ? "Bạn đã được chuyển quyền Host." : "Room role synchronized.");
+            ? "Bạn đã được chuyển quyền Host."
+            : "Quyền Host đã chuyển; bạn hiện là Guest.");
           setViewMode("center");
           setStagePage(0);
-          setSelectedParticipantId(local.participantId);
+          setSelectedParticipantId(local.role === "host"
+            ? local.participantId : snapshot.hostParticipantId);
         }
       }
 
