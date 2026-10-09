@@ -38,7 +38,7 @@ type CompareAndSwapRow = StoredRoomRow & {
 };
 
 type RoomMutationBody =
-  | { action: "close"; roomId: string; expectedRevision: number; actorParticipantId: string }
+  | { action: "close" | "host-leave" | "recover-host"; roomId: string; expectedRevision: number; actorParticipantId: string }
   | { action: "heartbeat"; roomId: string; actorParticipantId: string }
   | {
       action: "create";
@@ -178,13 +178,13 @@ async function callRoomRpc<T>(functionName: string, body: Record<string, unknown
 
 // Unlike the existing row-returning RPCs, PostgREST returns a scalar JSON
 // boolean for touch_mvp_lobby_room(). Never index the result as an array.
-async function touchMvpRoom(roomId: string, hostParticipantId: string): Promise<boolean> {
+async function touchMvpRoom(roomId: string, participantId: string): Promise<boolean> {
   const config = getSupabaseServerConfig();
   if (!config) throw new Error("Supabase room storage configuration is unavailable.");
-  const response = await fetch(`${config.url}/rest/v1/rpc/touch_mvp_lobby_room`, {
+  const response = await fetch(`${config.url}/rest/v1/rpc/touch_mvp_room_member`, {
     method: "POST", cache: "no-store",
     headers: dbHeaders(config.key),
-    body: JSON.stringify({ p_room_id: roomId, p_host_participant_id: hostParticipantId }),
+    body: JSON.stringify({ p_room_id: roomId, p_participant_id: participantId }),
   });
   if (!response.ok) throw new Error(`Room heartbeat RPC failed (${response.status}).`);
   return await response.json() === true;
@@ -301,7 +301,7 @@ function leaveHumanGuest(
   return removeParticipant(room, participant.participantId);
 }
 
-function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "heartbeat" }>) {
+function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "host-leave" | "recover-host" | "heartbeat" }>) {
   assertExpectedRevision(row, body.expectedRevision);
   const room = row.snapshot;
   if (!isCanonicalRoomSnapshot(room)) throw new Error("Stored room snapshot is invalid.");
@@ -519,21 +519,33 @@ export async function POST(request: NextRequest) {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
     }
-    if (body.action === "close") {
+    if (body.action === "host-leave"
+      || body.action === "recover-host"
+      || body.action === "close") {
       if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 1) {
-        return jsonError("Invalid close revision.", 400);
+        return jsonError("Invalid host transfer revision.", 400);
       }
-      const results = await callRoomRpc<CompareAndSwapRow>("close_mvp_lobby_room", {
+      const results = await callRoomRpc<CompareAndSwapRow & {
+        closed: boolean;
+        reason: string;
+      }>("handoff_mvp_room_host", {
         p_room_id: body.roomId,
         p_expected_revision: body.expectedRevision,
-        p_host_participant_id: body.actorParticipantId,
+        p_actor_participant_id: body.actorParticipantId,
+        p_disconnect: body.action === "recover-host",
       });
       const result = results[0];
-      if (!result) return jsonError("Room already closed or not found.", 404);
-      if (!result.applied) return jsonConflict(result.snapshot);
-      // No replacement RoomState, no new status, and no spoofed Realtime
-      // revision. The canonical row is gone after atomic CAS delete.
-      return NextResponse.json({ ok: true, closed: true }, {
+      if (!result) return jsonError("Room not found.", 404);
+      if (!result.applied && result.reason === "revision-conflict") {
+        return jsonConflict(result.snapshot);
+      }
+      return NextResponse.json({
+        ok: true,
+        transferred: Boolean(result.applied && !result.closed),
+        closed: Boolean(result.applied && result.closed),
+        reason: result.reason,
+        snapshot: result.applied && result.closed ? null : result.snapshot,
+      }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
     }
