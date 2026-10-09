@@ -364,6 +364,12 @@ export default function WaitingRoomPanel({
   const gameplayAudioRef = useRef<PreparedGameplayAudio | null>(null);
   const gameplayAudioPrepareAttemptRef = useRef<string | null>(null);
   const gameplayScheduleAttemptRef = useRef<string | null>(null);
+  // Track the immutable epoch independently of React effect dependencies.
+  // Realtime updates, resampling and explicit audio gestures must not cancel
+  // an in-flight source.start() for the SAME match/epoch.
+  const audioScheduleIdentityRef = useRef<string | null>(null);
+  const activeAudioScheduleAttemptRef = useRef<{ key: string; cancelled: boolean } | null>(null);
+  const audioScheduleMountedRef = useRef(false);
   const gameplayRuntimeRef = useRef<MultiplayerGameplayRuntime | null>(null);
   const playingTransitionAttemptRef = useRef<string | null>(null);
 
@@ -383,8 +389,14 @@ export default function WaitingRoomPanel({
     return () => context.removeEventListener("statechange", reflect);
   }, [audioActivationNonce]);
 
-  useEffect(() => () => {
-    gameplayRuntimeRef.current?.stop();
+  useEffect(() => {
+    audioScheduleMountedRef.current = true;
+    return () => {
+      audioScheduleMountedRef.current = false;
+      if (activeAudioScheduleAttemptRef.current) {
+        activeAudioScheduleAttemptRef.current.cancelled = true;
+      }
+      gameplayRuntimeRef.current?.stop();
     gameplayRuntimeRef.current = null;
     const prepared = gameplayAudioRef.current;
     gameplayAudioRef.current = null;
@@ -392,6 +404,7 @@ export default function WaitingRoomPanel({
     const context = gameplayAudioContextRef.current;
     gameplayAudioContextRef.current = null;
     if (context && context.state !== "closed") void context.close().catch(() => undefined);
+    };
   }, []);
 
   useEffect(() => {
@@ -742,6 +755,10 @@ export default function WaitingRoomPanel({
     : null;
   const clockSyncEstimate = matchStartSessionKey && clockSyncState?.sessionKey === matchStartSessionKey
     ? clockSyncState.estimate
+    : null;
+  audioScheduleIdentityRef.current = matchStartSessionKey
+    && matchStartSession?.startAtServerMs != null
+    ? `${matchStartSessionKey}:${matchStartSession.startAtServerMs}`
     : null;
   const estimatedServerNowMs = clockSyncEstimate && countdownNowMonotonicMs !== null
     ? estimateServerNowMs(countdownNowMonotonicMs, clockSyncEstimate.offsetMs)
@@ -1214,15 +1231,22 @@ export default function WaitingRoomPanel({
     if (gameplayScheduleAttemptRef.current === attemptKey) return;
     gameplayScheduleAttemptRef.current = attemptKey;
 
-    let cancelled = false;
+    const attempt = { key: attemptKey, cancelled: false };
+    activeAudioScheduleAttemptRef.current = attempt;
+    const abandoned = () => attempt.cancelled
+      || !audioScheduleMountedRef.current
+      || audioScheduleIdentityRef.current !== attemptKey;
     void scheduleMultiplayerAudioGameplay({
       session: matchStartSession,
       participantId: syncOptions.participantId,
       transport: prepared.transport,
       estimatedServerOffsetMs: clockSyncEstimate.offsetMs,
     }).then(result => {
-      if (cancelled) {
+      if (abandoned()) {
         result.runtime?.stop();
+        // If this attempt scheduled a source after a true match change or
+        // unmount, stop it; never allow a stale audio owner to linger.
+        prepared.transport.reset();
         return;
       }
       if (result.status === "late") {
@@ -1247,15 +1271,28 @@ export default function WaitingRoomPanel({
         `AUDIO SCHEDULED · shared epoch ${Math.round(result.plan.startAtServerMs)} · lead ${Math.round(result.plan.leadTimeMs)} ms.`,
       );
     }).catch(error => {
-      if (cancelled) return;
+      if (abandoned()) return;
       gameplayScheduleAttemptRef.current = null;
       setGameplayHandoffError(
         error instanceof Error ? error.message : "Shared WebAudio scheduling failed.",
       );
+    }).finally(() => {
+      if (activeAudioScheduleAttemptRef.current === attempt) {
+        activeAudioScheduleAttemptRef.current = null;
+      }
     });
 
     return () => {
-      cancelled = true;
+      // Dependencies such as audioActivationNonce or the NTP estimate may
+      // change while source.start() is pending. Retain the same in-flight
+      // attempt in that case. Cancel ONLY after true epoch/session change;
+      // the mount cleanup independently handles true unmount.
+      if (audioScheduleIdentityRef.current !== attemptKey) {
+        attempt.cancelled = true;
+        if (gameplayScheduleAttemptRef.current === attemptKey) {
+          gameplayScheduleAttemptRef.current = null;
+        }
+      }
     };
     // IMPORTANT: matchStartSession and syncOptions are object references,
     // not schedule identity. A room revision can reconstruct the former
