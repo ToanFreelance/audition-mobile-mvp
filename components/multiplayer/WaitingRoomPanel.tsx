@@ -1867,14 +1867,14 @@ export default function WaitingRoomPanel({
                         ? "AUDIO ACTIVATION REQUIRED"
                         : "AUDIO PREPARING…"}
                 </small>
-                {gameplayAudioContextState === "suspended" && (
+                {gameplayAudioContextState !== null && gameplayAudioContextState !== "running" && (
                   <small className={styles.preloadAudioError} data-testid="p55-audio-suspended">
-                    AUDIO CONTEXT SUSPENDED · Safari đã tạm dừng WebAudio.
+                    AUDIO CONTEXT INTERRUPTED · Safari đã tạm dừng WebAudio.
                     Nếu shared epoch đã qua, client phải báo LATE; không tự dịch lịch phát.
                   </small>
                 )}
                 {(audioActivationNonce === 0 || gameplayHandoffError
-                  || gameplayAudioContextState === "suspended")
+                  || (gameplayAudioContextState !== null && gameplayAudioContextState !== "running"))
                   && !gameplaySchedule && (
                   <button
                     className={styles.preloadAudioButton}
