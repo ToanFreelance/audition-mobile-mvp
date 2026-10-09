@@ -379,35 +379,24 @@ async function bootstrap(roomId: string) {
 // Room Browser exposes ONLY summaries of newly created MVP rooms. Never send
 // arbitrary historical QA snapshots, roster identities, or service credentials.
 async function listEntryRooms() {
-  const config = getSupabaseServerConfig();
-  if (!config) throw new Error("Room storage configuration is unavailable.");
-  const query = new URLSearchParams({
-    select: "room_id,snapshot,updated_at",
-    room_id: "like.mvp-*",
-    updated_at: "gte." + new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-    order: "updated_at.desc",
-    limit: "60",
-  });
-  const response = await fetch(`${config.url}/rest/v1/lobby_rooms?${query}`, {
-    cache: "no-store",
-    headers: dbHeaders(config.key),
-  });
-  if (!response.ok) {
-    throw new Error("Room Browser could not read room summaries (" + response.status + ").");
-  }
-  const rows = await response.json() as Array<{ room_id: string; snapshot: RoomState }>;
-  return rows
-    .filter(row => row.room_id.startsWith("mvp-") && isCanonicalRoomSnapshot(row.snapshot))
-    .filter(row => row.snapshot.status === "waiting")
-    .map(row => ({
-      roomId: row.room_id,
-      roomName: row.snapshot.roomName,
-      modeId: row.snapshot.modeId,
-      playerCount: row.snapshot.participants.length,
-      maxPlayers: Math.min(WAITING_ROOM_MAX_PLAYERS, row.snapshot.maxPlayers),
-      openSlots: row.snapshot.slots
-        .filter(slot => slot.state === "open" && slot.slotIndex < WAITING_ROOM_MAX_PLAYERS).length,
-    }));
+  // The publishable key must NEVER get table-level read access. This
+  // narrowly scoped SECURITY DEFINER RPC returns public room summaries only.
+  const rows = await callRoomRpc<{
+    room_id: string;
+    room_name: string;
+    mode_id: string;
+    player_count: number;
+    max_players: number;
+    open_slots: number;
+  }>("list_mvp_lobby_rooms", {});
+  return rows.map(row => ({
+    roomId: row.room_id,
+    roomName: row.room_name,
+    modeId: row.mode_id,
+    playerCount: row.player_count,
+    maxPlayers: row.max_players,
+    openSlots: row.open_slots,
+  }));
 }
 
 // Atomic bootstrap_lobby_room inserts only if absent, returning the saved row.
