@@ -451,3 +451,59 @@ browser harness on this new commit. This remains
 No claim of iPhone Safari hardware verification.
 
 PR #18 remains OPEN / Draft; no merge to development.
+
+
+## 2026-10-10 — Multiplayer Stage3D/HUD presentation integration (PR #18)
+
+After independently verified D01/D01-R automated recovery QA, the owner
+approved integrating the existing multiplayer WebAudio/GameplayRuntime
+consumer into the actual portrait 3D presentation.
+
+**Integration (presentation-only):**
+- `WaitingRoomPanel` still owns the same PRELOADING → shared epoch →
+  COUNTDOWN → WebAudio schedule handoff. Only after a successful schedule
+  and `gameplayActive` does it mount `LiveMultiplayerGameplay`.
+  The existing `MultiplayerGameplayRuntime` remains the sole consumer
+  of command/judgement/score and the WebAudio transport remains the only
+  gameplay clock.
+- `LiveMultiplayerGameplay` renders existing `Stage3D` behind a
+  portrait HUD with frozen roster labels, local score/combo, global
+  level/turn, deterministic command/reverse/Finish presentation,
+  existing `AuditionGauge` driven by exact BPM/spaceStartMs and
+  WebAudio song-time, touch SPACE/D-pad, and existing judgement artwork.
+  No opponent scores are fabricated. Existing P5.5 song/epoch/global
+  turn diagnostics remain as QA data-testid hooks.
+- `Stage3D` has an optional `characterAssetId` override.
+  Multiplayer resolves the **local human avatar** through
+  `MatchManifest.participants[].avatar` → migration compatibility
+  `avatarCharacterAssetId` → Character Catalog. No participant name
+  or gender heuristic; no untrusted localStorage Character Creation
+  draft for this character. Solo Stage3D usage without the prop is
+  unchanged. It consumes the frozen Waiting Room stage ID and
+  existing Stage Catalog/runtime fallback.
+- Runtime local judgement callback feeds the published choreography
+  presentation event with frozen seed, authoritative `atSongTimeMs`
+  and absoluteTurn. Stage3D's CharacterActor continues to use the
+  WebAudio `getSongTimeMs` callback. The event never mutates
+  gameplay/clock/RoomState.
+- The existing WebAudio stall alert, AUDIO END semantics and immutable
+  shared-epoch diagnostic markers remain. UI RAF only samples runtime
+  snapshots and *never* advances time itself.
+
+**Explicit scope limitation:** this first integration renders the
+*local player's* 3D character. Other frozen participants are shown in
+the roster, but networked remote judgement / dance animation poses and
+a true synchronized five-actor gameplay formation are **NOT**
+implemented. Do not imply real opponent scores or remote animations.
+That requires a separately approved protocol/presentation task.
+
+**Validation:** Vercel build and TypeScript checked for the focused
+presentation changes. Browser stage-rendering, real character asset/
+animation, mobile GPU performance, iOS two-device audio and Supabase
+staging multiplayer E2E remain **NOT RUN in this implementation pass**.
+Keep PR #18 OPEN / Draft; do not merge or imply owner visual acceptance.
+
+Locked invariants untouched: RoomState authority/CAS, Supabase Realtime,
+ready/host gate, preload/epoch handoff, WebAudio scheduling, calibrated
+gauge parameters, Finish/AUDIO END, sequenceCounts and global rhythm
+turn timeline.
