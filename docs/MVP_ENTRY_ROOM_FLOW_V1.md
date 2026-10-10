@@ -348,3 +348,52 @@ unmerged.
 one turn remains four beats; MatchManifest, shared epoch, RoomState,
 CAS, Finish, `sequenceCounts`, gauge, song length, stage and actor
 lifetime are unchanged.
+
+
+## 2026-10-10 — D01 P1 clock-sampling React lifecycle fix (Work QA follow-up)
+
+Source: owner-supplied PR18 execution QA and its `PR18_QA_EVIDENCE.zip`.
+Work reproduced a refresh regression with a real two-context local harness:
+after PLAYING, a refreshed Guest remained at "Recovering shared server
+clock…" while canonical RoomState preserved the issued epoch. A controlled
+production-effect test found `syncStatus` changing from connecting to
+connected during `sampleLobbyServerClock()`. The first React effect
+cleaned up but kept `countdownAttemptRef` latched; the next render saw
+the identical attempt and did not sample again, so `clockSyncState`
+remained null and neither successful audio scheduling nor explicit
+LATE handling could proceed.
+
+**Focused fix:** `components/multiplayer/WaitingRoomPanel.tsx` now binds
+clock sampling to the exact frozen match/startRevision/participant
+identity (`matchStartSessionKey`) plus the all-loaded gate. Ordinary
+`syncStatus`, `room.status` and `clockSyncState` changes do not clean
+up an in-flight sample. The same async attempt checks
+`roomRef.current` after await and only requests countdown while
+canonical state is PRELOADING; if already COUNTDOWN/PLAYING it only
+stores the offset. True match/participant switch or unmount releases
+only the old attempt latch and ignores stale promise results.
+Clock endpoint failures retry up to three times (short bounded
+backoff); terminal errors clear the latch and appear in sync detail.
+
+**Targeted regression artifact:** `e2e/p55-clock-recovery-effect.spec.ts`
+extracts the actual production effect via TypeScript and runs
+controlled hook lifecycle scenarios: (1) connecting→connected and
+clock-state rerender while the first sample is pending, (2) first
+sampling request fails, second succeeds, (3) session identity changes
+during sampling and the stale promise cannot overwrite the new
+offset or leave the old latch. This specifically covers the gap that
+the original five WebAudio transport tests did not cover.
+
+**Validation actually executed here:** Three direct JavaScript
+isolated reproductions of the extracted production effect PASS
+(using controlled promises and React dependency/cleanup simulation).
+Vercel Next.js/TypeScript build PASS. The committed Playwright
+file and the Work QA local two-browser refresh E2E have **not yet
+been executed end-to-end** on this new commit; rerun in ChatGPT Work
+against the new verified HEAD. Owner physical iPhone QA remains
+deferred. Do not mark D01 fixed on iOS until both QA rerun and
+device checks pass.
+
+No changes to RoomState, CAS, Supabase Realtime protocol, shared
+epoch, WebAudio authority, `sequenceCounts`, gauge, Finish or global
+turn scheduling. PR #18 stays OPEN / Draft, unmerged.
