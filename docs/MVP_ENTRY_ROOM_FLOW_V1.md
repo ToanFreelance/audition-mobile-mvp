@@ -587,3 +587,45 @@ Browser E2E and visual/physical iPhone comparison of the corrected
 layout remain **PENDING**. Do not claim visual acceptance until
 the owner reviews a new screenshot. Host-only START must remain
 untouched and PR #18 must remain OPEN/Draft.
+
+
+## 2026-10-10 — RC01: concurrent five-Human preload CAS recovery
+
+Work real-client QA on HEAD `abac9c4bd78adc2d624d93b69dea75bcb59d87c0`
+reproduced a P1 failure with five independent Human clients (local PGlite SQL/CAS +
+Realtime shim). Concurrent `preload-loading`/`loaded` updates exhausted the
+three-attempt client CAS loop. The client incorrectly sent `preload-failed`
+after **metadata contention**, leaving the room in PRELOADING (3 LOADED,
+2 FAILED in recorded traces) and without an epoch.
+
+Focused RC01 correction on `work/mvp-entry-room-flow-v1`:
+
+- `multiplayer/preload-cas-retry.ts` retries only the frozen-session
+  metadata mutation against the latest canonical RoomState revision.
+  Conflict responses are inspected as conflicts even if HTTP status is 200.
+  Retries use bounded backoff/jitter, up to 24 attempts with a 20-second
+  metadata retry budget. Cancellation and changed match/start identity
+  prevent stale ACK mutations.
+- `WaitingRoomPanel` keeps successfully loaded resource readiness in a
+  session-scoped ref and resends the same `loaded` ACK without fetching assets
+  again after a retryable CAS/network failure.
+- Only an actual frozen-content preload exception can report
+  `preload-failed`. A persistent metadata failure instead shows a separate
+  `PRELOAD ACK RETRY` message and explicit `THỬ GỬI LOADED LẠI` action.
+  The attempt latch is released on terminal contention so the explicit
+  retry is possible. No automatic new match, extra epoch, or bypass of
+  `ALL CLIENTS LOADED`.
+- `e2e/preload-cas-retry.spec.ts` adds a five-Human canonical-state
+  concurrent CAS regression, a terminal contention/manual retry case, and
+  stale-session/cancellation guards.
+
+Unchanged: RoomState/server CAS authority, Realtime protocol, Guest READY
+and Host-only START, frozen MatchManifest, shared epoch, WebAudio/gameplay
+clock, gauge, Finish, Stage3D and accepted portrait HUD.
+
+**Validation status:** Next.js/TypeScript through Vercel CI at the final HEAD
+is the minimum implementation gate. Newly added Playwright tests and the
+five-browser local PGlite/Realtime-harness reproduction still require actual
+execution; neither Vercel build success nor source inspection is a five-Human
+E2E PASS. Follow with Work rerun on real independent browser contexts,
+then staging Supabase verification. Keep PR #18 OPEN/Draft.
