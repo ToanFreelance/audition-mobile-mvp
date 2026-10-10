@@ -507,3 +507,39 @@ Locked invariants untouched: RoomState authority/CAS, Supabase Realtime,
 ready/host gate, preload/epoch handoff, WebAudio scheduling, calibrated
 gauge parameters, Finish/AUDIO END, sequenceCounts and global rhythm
 turn timeline.
+
+
+## 2026-10-10 — Host-only START (single human in a multiplayer room)
+
+Owner explicitly requested that a connected Host can START when they are
+the only participant in the Waiting Room; no Bot or second client is
+required. **One targeted change** to `canStartRoom()` removes the
+`opponent-required` guard. Preconditions remain: canonical room is
+WAITING, the song is selected, and the occupied Host exists and is
+connected. If any non-Host participant is present, existing Guest READY
+gating remains unchanged (Bots are always Ready). Empty/open/closed
+slots do not require readiness.
+
+The **same** authoritative `freezeLobbyMatch` →
+`beginLobbyPreload` → Host LOADED ACK → `allClientsLoaded`
+(one frozen participant) → `beginLobbyCountdown` →
+immutable server epoch → WebAudio scheduling → PLAYING path is used.
+No new solo gameplay runtime, replacement countdown, fake opponent,
+timeline extension or clock fallback.
+
+Regression updates:
+- `e2e/multiplayer-domain.spec.ts`: host-only gate succeeds; no-song
+  and disconnected-host gates still reject; Host has no READY action;
+  Guest READY and Bot behavior remain covered.
+- `e2e/lobby-all-clients-loaded.spec.ts`: host-only canonical room,
+  frozen one-participant manifest, Host-only loading/LOADED, one
+  immutable countdown epoch and PLAYING all pass through the existing
+  application domain functions; duplicate countdown is rejected.
+
+**Validation actually run:** Vercel production build and TypeScript
+PASS for this branch. The new Playwright tests and physical iPhone
+Host-only START/audio/Stage3D gameplay were **NOT executed** in this
+implementation environment (GitHub checkout/package runner unavailable).
+Independent Work QA and owner iPhone smoke test remain pending.
+No change to WebAudio authority, RoomState/CAS protocol, gauge,
+Finish or global turn budget. PR #18 remains Draft/unmerged.
