@@ -349,6 +349,13 @@ export default function WaitingRoomPanel({
     sessionKey: string;
     estimate: ClockSyncEstimate;
   } | null>(null);
+  // Keep terminal clock failures separate from syncDetail: preload/audio
+  // notifications must not mask the only recovery path on an iPhone.
+  const [clockSyncFailure, setClockSyncFailure] = useState<{
+    sessionKey: string;
+    message: string;
+  } | null>(null);
+  const [clockRetryNonce, setClockRetryNonce] = useState(0);
   const [countdownNowMonotonicMs, setCountdownNowMonotonicMs] = useState<number | null>(null);
   const [gameplayAudioReadyKey, setGameplayAudioReadyKey] = useState<string | null>(null);
   const [gameplaySchedule, setGameplaySchedule] = useState<ScheduledGameplay | null>(null);
@@ -756,6 +763,11 @@ export default function WaitingRoomPanel({
   const clockSyncEstimate = matchStartSessionKey && clockSyncState?.sessionKey === matchStartSessionKey
     ? clockSyncState.estimate
     : null;
+  const activeClockSyncFailure = matchStartSessionKey
+    && clockSyncFailure?.sessionKey === matchStartSessionKey
+    && !clockSyncEstimate
+    ? clockSyncFailure
+    : null;
   audioScheduleIdentityRef.current = matchStartSessionKey
     && matchStartSession?.startAtServerMs != null
     ? `${matchStartSessionKey}:${matchStartSession.startAtServerMs}`
@@ -911,6 +923,17 @@ export default function WaitingRoomPanel({
     return result;
   };
 
+  const retryClockSynchronization = () => {
+    // Explicit owner/user gesture only after a terminal sampling failure.
+    // No implicit retry on focus, Realtime or RoomState revision changes.
+    if (!matchStartSessionKey || !activeClockSyncFailure
+      || !allParticipantsLoaded || countdownAttemptRef.current !== null
+      || (room.status !== "preloading"
+        && room.status !== "countdown" && room.status !== "playing")) return;
+    setClockSyncFailure(null);
+    setClockRetryNonce(value => value + 1);
+  };
+
   const activateGameplayAudioFromGesture = () => {
     try {
       let context = gameplayAudioContextRef.current;
@@ -1056,6 +1079,7 @@ export default function WaitingRoomPanel({
     countdownAttemptRef.current = attemptKey;
 
     let cancelled = false;
+    let samplingCompleted = false;
 
     void (async () => {
       setSyncDetail(
@@ -1081,6 +1105,8 @@ export default function WaitingRoomPanel({
         }
       }
       if (cancelled || !estimate) return;
+      samplingCompleted = true;
+      setClockSyncFailure(null);
       setClockSyncState({ sessionKey, estimate });
 
       if (roomRef.current.status === "countdown" || roomRef.current.status === "playing") {
@@ -1122,7 +1148,11 @@ export default function WaitingRoomPanel({
     })().catch(error => {
       if (cancelled) return;
       if (countdownAttemptRef.current === attemptKey) countdownAttemptRef.current = null;
-      setSyncDetail(error instanceof Error ? error.message : "Shared countdown synchronization failed.");
+      const message = error instanceof Error ? error.message : "Shared countdown synchronization failed.";
+      // Only sampling failures are recoverable by re-sampling. A separate
+      // countdown-CAS failure must not masquerade as a recoverable clock error.
+      if (!samplingCompleted) setClockSyncFailure({ sessionKey, message });
+      setSyncDetail(message);
     });
 
     return () => {
@@ -1138,6 +1168,7 @@ export default function WaitingRoomPanel({
   }, [
     allParticipantsLoaded,
     matchStartSessionKey,
+    clockRetryNonce,
   ]);
 
   useEffect(() => {
@@ -2174,13 +2205,31 @@ export default function WaitingRoomPanel({
                 ALL CLIENTS LOADED
               </em>
             ) : null}
+            {activeClockSyncFailure && (
+              <div className={styles.preloadAudioState} data-testid="clock-sync-recovery">
+                <small className={styles.preloadAudioError} data-testid="clock-sync-error" role="alert">
+                  CLOCK SYNC FAILED · {activeClockSyncFailure.message}
+                </small>
+                <button
+                  className={styles.preloadAudioButton}
+                  data-testid="retry-clock-sync"
+                  type="button"
+                  disabled={countdownAttemptRef.current !== null}
+                  onClick={retryClockSynchronization}
+                >
+                  ↻ THỬ ĐỒNG BỘ LẠI
+                </button>
+              </div>
+            )}
             {(room.status === "countdown" || room.status === "playing") && (
               <div className={styles.preloadAudioState}>
                 <small data-testid="p55-audio-state">
                   {gameplaySchedule?.sessionKey === matchStartSessionKey
                     ? `AUDIO SCHEDULED · lead ${Math.round(gameplaySchedule.plan.leadTimeMs)}ms`
-                    : gameplayAudioReadyKey === matchStartSessionKey
-                      ? "AUDIO DECODED · scheduling shared epoch…"
+                    : activeClockSyncFailure
+                      ? "CLOCK SYNC FAILED · retry required"
+                      : gameplayAudioReadyKey === matchStartSessionKey
+                        ? "AUDIO DECODED · scheduling shared epoch…"
                       : audioActivationNonce === 0
                         ? "AUDIO ACTIVATION REQUIRED"
                         : "AUDIO PREPARING…"}
