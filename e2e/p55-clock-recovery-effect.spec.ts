@@ -96,7 +96,10 @@ function createEffectHarness() {
     env.activeClockSyncFailure = env.clockSyncFailure?.sessionKey === env.matchStartSessionKey
       && env.clockSyncState?.sessionKey !== env.matchStartSessionKey
       ? env.clockSyncFailure : null;
-    return runInNewContext(actualClockEffect, { ...env, useEffect });
+    // Clock requests are rejected by this host-realm test harness. Pass its
+    // Error constructor into the VM so production's "instanceof Error" check
+    // sees the original message rather than falling back to generic text.
+    return runInNewContext(actualClockEffect, { ...env, useEffect, Error });
   };
   const retry = () => {
     env.activeClockSyncFailure = env.clockSyncFailure?.sessionKey === env.matchStartSessionKey
