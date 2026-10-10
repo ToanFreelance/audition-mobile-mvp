@@ -215,9 +215,9 @@ test("@real host + guest Ready through one shared epoch into WebAudio multiplaye
       await expect(clientPage.locator(".audition-page .audition-hud .command-zone")).toBeVisible();
       await expect(clientPage.locator(".audition-hud .hud-song")).toBeVisible();
       await expect(clientPage.locator(".audition-hud .mobile-controls .portrait-space-art"))
-        .toHaveAttribute("src", /portrait-space-from-sketch\\.png/);
+        .toHaveAttribute("src", /portrait-space-from-sketch\.png/);
       await expect(clientPage.locator(".audition-hud .mobile-controls .portrait-dpad-art"))
-        .toHaveAttribute("src", /portrait-dpad-from-sketch\\.png/);
+        .toHaveAttribute("src", /portrait-dpad-from-sketch\.png/);
       await expect(clientPage.getByTestId("gameplay-3d-stage").locator(".stage-3d")).toHaveCount(1);
     }
     await expect(host.page.getByTestId("multiplayer-gameplay-live")).toHaveAttribute("data-match-id", hostMatchId);
