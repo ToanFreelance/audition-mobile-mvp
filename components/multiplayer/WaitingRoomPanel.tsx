@@ -367,6 +367,7 @@ export default function WaitingRoomPanel({
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
   const preloadAttemptRef = useRef<string | null>(null);
   const countdownAttemptRef = useRef<string | null>(null);
+  const clockRetryRequestedRef = useRef(false);
   const gameplayAudioContextRef = useRef<AudioContext | null>(null);
   const gameplayAudioRef = useRef<PreparedGameplayAudio | null>(null);
   const gameplayAudioPrepareAttemptRef = useRef<string | null>(null);
@@ -927,9 +928,11 @@ export default function WaitingRoomPanel({
     // Explicit owner/user gesture only after a terminal sampling failure.
     // No implicit retry on focus, Realtime or RoomState revision changes.
     if (!matchStartSessionKey || !activeClockSyncFailure
-      || !allParticipantsLoaded || countdownAttemptRef.current !== null
+      || !allParticipantsLoaded || clockRetryRequestedRef.current
+      || countdownAttemptRef.current !== null
       || (room.status !== "preloading"
         && room.status !== "countdown" && room.status !== "playing")) return;
+    clockRetryRequestedRef.current = true;
     setClockSyncFailure(null);
     setClockRetryNonce(value => value + 1);
   };
@@ -1072,6 +1075,7 @@ export default function WaitingRoomPanel({
     if (!localParticipant || localParticipant.kind !== "human") return;
 
     const sessionKey = matchStartSessionKey;
+    clockRetryRequestedRef.current = false;
     if (clockSyncState?.sessionKey === sessionKey) return;
 
     const attemptKey = sessionKey;
@@ -2214,7 +2218,7 @@ export default function WaitingRoomPanel({
                   className={styles.preloadAudioButton}
                   data-testid="retry-clock-sync"
                   type="button"
-                  disabled={countdownAttemptRef.current !== null}
+                  disabled={clockRetryRequestedRef.current || countdownAttemptRef.current !== null}
                   onClick={retryClockSynchronization}
                 >
                   ↻ THỬ ĐỒNG BỘ LẠI
