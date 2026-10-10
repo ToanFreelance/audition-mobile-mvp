@@ -219,6 +219,19 @@ test("@real host + guest Ready through one shared epoch into WebAudio multiplaye
       await expect(clientPage.locator(".audition-hud .mobile-controls .portrait-dpad-art"))
         .toHaveAttribute("src", /portrait-dpad-from-sketch\.png/);
       await expect(clientPage.getByTestId("gameplay-3d-stage").locator(".stage-3d")).toHaveCount(1);
+      // The multiplayer hit wrapper must preserve the approved GameShell
+      // portrait gauge geometry without changing the calibrated timing.
+      const gaugeHitArea = clientPage.getByTestId("gameplay-gauge");
+      await expect(gaugeHitArea).toHaveCSS("pointer-events", "auto");
+      if (await clientPage.evaluate(() =>
+        window.matchMedia("(max-width:700px) and (orientation:portrait)").matches)) {
+        await expect(gaugeHitArea).toHaveCSS("margin-top", "8px");
+        const gaugeRect = await gaugeHitArea.boundingBox();
+        const commandRect = await clientPage.getByTestId("gameplay-command").boundingBox();
+        expect(gaugeRect).not.toBeNull();
+        expect(commandRect).not.toBeNull();
+        expect(Math.abs(gaugeRect!.width - commandRect!.width)).toBeLessThan(1);
+      }
     }
     await expect(host.page.getByTestId("multiplayer-gameplay-live")).toHaveAttribute("data-match-id", hostMatchId);
     await expect(guest.page.getByTestId("multiplayer-gameplay-live")).toHaveAttribute("data-match-id", hostMatchId);
