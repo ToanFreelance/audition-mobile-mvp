@@ -520,6 +520,14 @@ checks deferred and PR #18 unmerged.
   acceptance are still PENDING; remote participants currently appear
   in the frozen roster, not as synchronized remote dance actors.
 
+**2026-10-10 Host-only START (owner-requested):** One connected Host
+may start the selected song without any Guest/Bot. Guest READY
+gating remains required when others are present. The canonical
+one-participant MatchManifest follows the unchanged LOADED/shared
+epoch/WebAudio path. TypeScript/Vercel build PASS; Playwright
+host-only regression and physical iPhone gameplay smoke **PENDING**.
+PR #18 remains Draft.
+
 **Acceptance gate:** Owner physical-device confirmation of multi-user
 Host handoff and audio progression, no RoomState/Realtime/actor
 regressions, then owner approval to integrate PR #18. Automated DB
