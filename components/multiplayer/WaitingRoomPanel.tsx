@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createWebAudioContext, WebAudioTransport } from "../../game/web-audio-transport";
+import { retryPreloadCas, type PreloadCasAction } from "../../multiplayer/preload-cas-retry";
 import {
   canStartRoom,
   changeMode,
@@ -356,6 +357,8 @@ export default function WaitingRoomPanel({
     message: string;
   } | null>(null);
   const [clockRetryNonce, setClockRetryNonce] = useState(0);
+  const [preloadRetryNonce, setPreloadRetryNonce] = useState(0);
+  const [preloadCasFailure, setPreloadCasFailure] = useState<{ sessionKey: string; message: string } | null>(null);
   const [countdownNowMonotonicMs, setCountdownNowMonotonicMs] = useState<number | null>(null);
   const [gameplayAudioReadyKey, setGameplayAudioReadyKey] = useState<string | null>(null);
   const [gameplaySchedule, setGameplaySchedule] = useState<ScheduledGameplay | null>(null);
@@ -367,6 +370,11 @@ export default function WaitingRoomPanel({
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
   const preloadAttemptRef = useRef<string | null>(null);
+  // A successful asset preload remains cached when only its LOADED CAS needs retry.
+  const preloadReadinessRef = useRef<{
+    sessionKey: string;
+    readiness: Awaited<ReturnType<typeof preloadFrozenLobbyMatch>>;
+  } | null>(null);
   const countdownAttemptRef = useRef<string | null>(null);
   const clockRetryRequestedRef = useRef(false);
   const gameplayAudioContextRef = useRef<AudioContext | null>(null);
@@ -770,6 +778,12 @@ export default function WaitingRoomPanel({
     && !clockSyncEstimate
     ? clockSyncFailure
     : null;
+  const activePreloadCasFailure = matchStartSessionKey
+    && preloadCasFailure?.sessionKey === matchStartSessionKey
+    && room.status === "preloading"
+    && room.participants.some(item => item.participantId === syncOptions?.participantId && item.loadState !== "loaded")
+    ? preloadCasFailure
+    : null;
   audioScheduleIdentityRef.current = matchStartSessionKey
     && matchStartSession?.startAtServerMs != null
     ? `${matchStartSessionKey}:${matchStartSession.startAtServerMs}`
@@ -989,57 +1003,72 @@ export default function WaitingRoomPanel({
     preloadAttemptRef.current = identityKey;
 
     let cancelled = false;
-
-    const submitPreloadMutation = async (
-      action: "preload-loading" | "preload-failed" | "loaded",
+    const submitPreloadMutation = (
+      action: PreloadCasAction,
       ack?: ReturnType<typeof createLoadedAckForSession>,
-    ) => {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const current = roomRef.current;
-        const binding = current.matchStart;
-        if (!binding
-          || binding.matchId !== identity.matchId
-          || binding.roomRevision !== identity.roomRevision
-          || binding.startRevision !== identity.startRevision) {
-          throw new Error("Active preload session changed before the client ACK completed.");
-        }
-
-        const result = await runServerMutation({
-          action,
-          expectedRevision: current.revision,
-          actorParticipantId: localParticipant.participantId,
-          matchId: identity.matchId,
-          roomRevision: identity.roomRevision,
-          startRevision: identity.startRevision,
-          ...(ack ? { ack } : {}),
-        });
-        if (!result.conflict) return result.snapshot;
-      }
-      throw new Error("Preload ACK could not win the canonical RoomState CAS after retries.");
-    };
+    ) => retryPreloadCas({
+      action,
+      identity,
+      participantId: localParticipant.participantId,
+      readCurrent: () => roomRef.current,
+      cancelled: () => cancelled,
+      mutate: current => runServerMutation({
+        action,
+        expectedRevision: current.revision,
+        actorParticipantId: localParticipant.participantId,
+        matchId: identity.matchId,
+        roomRevision: identity.roomRevision,
+        startRevision: identity.startRevision,
+        ...(ack ? { ack } : {}),
+      }),
+    });
 
     void (async () => {
-      await submitPreloadMutation("preload-loading");
-      if (cancelled) return;
+      // CAS contention is a metadata issue, not an asset failure.
+      const loadingSnapshot = await submitPreloadMutation("preload-loading");
+      if (cancelled || !loadingSnapshot) return;
+      if (roomRef.current.participants.some(
+        item => item.participantId === localParticipant.participantId && item.loadState === "loaded",
+      )) return;
 
-      const readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest);
-      if (cancelled) return;
+      let readiness = preloadReadinessRef.current?.sessionKey === identityKey
+        ? preloadReadinessRef.current.readiness : null;
+      if (!readiness) {
+        try {
+          readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest);
+          if (cancelled) return;
+          preloadReadinessRef.current = { sessionKey: identityKey, readiness };
+        } catch (error) {
+          if (cancelled) return;
+          // Only a genuine asset/content preload error may mark FAILED.
+          setSyncDetail(error instanceof Error ? error.message : "Match content preload failed.");
+          try {
+            await submitPreloadMutation("preload-failed");
+          } catch (mutationError) {
+            if (cancelled) return;
+            if (preloadAttemptRef.current === identityKey) preloadAttemptRef.current = null;
+            setPreloadCasFailure({
+              sessionKey: identityKey,
+              message: mutationError instanceof Error ? mutationError.message : "Failed to report preload error.",
+            });
+          }
+          return;
+        }
+      }
 
+      if (cancelled) return;
       const current = roomRef.current;
-      if (!current.matchStart) throw new Error("Preload session disappeared before LOADED ACK.");
+      if (!current.matchStart || current.status !== "preloading") return;
       const currentSession = restoreRoomMatchStartSession(current.matchStart, current.participants);
-      const ack = createLoadedAckForSession(
-        currentSession,
-        localParticipant.participantId,
-        readiness,
-      );
+      const ack = createLoadedAckForSession(currentSession, localParticipant.participantId, readiness);
       const loadedSnapshot = await submitPreloadMutation("loaded", ack);
-      if (cancelled || !loadedSnapshot.matchStart) return;
+      if (cancelled || !loadedSnapshot?.matchStart) return;
 
       const loadedSession = restoreRoomMatchStartSession(
         loadedSnapshot.matchStart,
         loadedSnapshot.participants,
       );
+      setPreloadCasFailure(previous => previous?.sessionKey === identityKey ? null : previous);
       setSyncDetail(
         allClientsLoaded(loadedSession)
           ? "ALL CLIENTS LOADED."
@@ -1047,19 +1076,27 @@ export default function WaitingRoomPanel({
       );
     })().catch(error => {
       if (cancelled) return;
-      setSyncDetail(error instanceof Error ? error.message : "Match preload failed.");
-      void submitPreloadMutation("preload-failed").catch(() => undefined);
+      // Network failure or terminal CAS contention leaves assets intact.
+      // Expose a user-gesture retry of the same frozen ACK, not preload-failed.
+      if (preloadAttemptRef.current === identityKey) preloadAttemptRef.current = null;
+      const message = error instanceof Error ? error.message : "Preload ACK synchronization failed.";
+      setPreloadCasFailure({ sessionKey: identityKey, message });
+      setSyncDetail(message);
     });
 
     return () => {
       cancelled = true;
+      if (preloadAttemptRef.current === identityKey) preloadAttemptRef.current = null;
     };
+    // Only frozen match identity/phase and explicit retry own the preload task.
+    // RoomState revisions and Realtime presence must not restart asset loading.
   }, [
     matchStartSession?.matchId,
     matchStartSession?.roomRevision,
     matchStartSession?.startRevision,
     room.status,
     syncOptions?.participantId,
+    preloadRetryNonce,
   ]);
 
   // D01: an NTP sample belongs to the frozen match + participant,
@@ -2214,6 +2251,26 @@ export default function WaitingRoomPanel({
                 ALL CLIENTS LOADED
               </em>
             ) : null}
+            {activePreloadCasFailure && (
+              <div className={styles.preloadAudioState} data-testid="preload-ack-recovery">
+                <small className={styles.preloadAudioError} data-testid="preload-ack-error" role="alert">
+                  PRELOAD ACK RETRY · {activePreloadCasFailure.message}
+                </small>
+                <button
+                  className={styles.preloadAudioButton}
+                  data-testid="retry-preload-ack"
+                  type="button"
+                  disabled={preloadAttemptRef.current === matchStartSessionKey}
+                  onClick={() => {
+                    if (preloadAttemptRef.current === matchStartSessionKey) return;
+                    setPreloadCasFailure(null);
+                    setPreloadRetryNonce(value => value + 1);
+                  }}
+                >
+                  ↻ THỬ GỬI LOADED LẠI
+                </button>
+              </div>
+            )}
             {activeClockSyncFailure && (
               <div className={styles.preloadAudioState} data-testid="clock-sync-recovery">
                 <small className={styles.preloadAudioError} data-testid="clock-sync-error" role="alert">
