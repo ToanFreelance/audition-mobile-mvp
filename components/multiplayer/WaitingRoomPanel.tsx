@@ -1035,8 +1035,12 @@ export default function WaitingRoomPanel({
     syncOptions?.participantId,
   ]);
 
+  // D01: an NTP sample belongs to the frozen match + participant,
+  // NOT to Realtime connection status, RoomState phase or clockSyncState.
+  // Re-rendering any of those must not discard an in-flight sample while
+  // leaving countdownAttemptRef latched forever (Safari refresh recovery).
   useEffect(() => {
-    if (!syncOptions || !matchStartSession || !allParticipantsLoaded) return;
+    if (!syncOptions || !matchStartSession || !matchStartSessionKey || !allParticipantsLoaded) return;
     if (room.status !== "preloading" && room.status !== "countdown" && room.status !== "playing") return;
 
     const localParticipant = room.participants.find(
@@ -1044,11 +1048,10 @@ export default function WaitingRoomPanel({
     );
     if (!localParticipant || localParticipant.kind !== "human") return;
 
-    const sessionKey = `${matchStartSession.matchId}:${matchStartSession.roomRevision}:${matchStartSession.startRevision}:${localParticipant.participantId}`;
-    if ((room.status === "countdown" || room.status === "playing")
-      && clockSyncState?.sessionKey === sessionKey) return;
+    const sessionKey = matchStartSessionKey;
+    if (clockSyncState?.sessionKey === sessionKey) return;
 
-    const attemptKey = `${sessionKey}:${room.status}`;
+    const attemptKey = sessionKey;
     if (countdownAttemptRef.current === attemptKey) return;
     countdownAttemptRef.current = attemptKey;
 
@@ -1060,8 +1063,24 @@ export default function WaitingRoomPanel({
           ? "ALL CLIENTS LOADED · sampling shared server clock…"
           : "Recovering shared server clock…",
       );
-      const estimate = await sampleLobbyServerClock();
-      if (cancelled) return;
+      // Bounded retries for transient clock-endpoint/network failures.
+      // All attempts target the SAME immutable session; none can issue or
+      // move an epoch. Final failures are surfaced rather than latched.
+      let estimate: ClockSyncEstimate | null = null;
+      for (let samplingAttempt = 0; samplingAttempt < 3; samplingAttempt += 1) {
+        if (cancelled) return;
+        try {
+          estimate = await sampleLobbyServerClock();
+          break;
+        } catch (error) {
+          if (cancelled) return;
+          if (samplingAttempt === 2) throw error;
+          await new Promise<void>(resolve => {
+            window.setTimeout(resolve, 250 * (samplingAttempt + 1));
+          });
+        }
+      }
+      if (cancelled || !estimate) return;
       setClockSyncState({ sessionKey, estimate });
 
       if (roomRef.current.status === "countdown" || roomRef.current.status === "playing") {
@@ -1102,22 +1121,23 @@ export default function WaitingRoomPanel({
       throw new Error("Shared countdown epoch could not win the canonical RoomState CAS.");
     })().catch(error => {
       if (cancelled) return;
-      countdownAttemptRef.current = null;
+      if (countdownAttemptRef.current === attemptKey) countdownAttemptRef.current = null;
       setSyncDetail(error instanceof Error ? error.message : "Shared countdown synchronization failed.");
     });
 
     return () => {
+      // Only an actual frozen-session change, lost all-loaded gate or
+      // unmount cleans this effect. Release ONLY our own latch so the
+      // next valid session/reconnect can sample again.
       cancelled = true;
+      if (countdownAttemptRef.current === attemptKey) countdownAttemptRef.current = null;
     };
+    // Match + participant are the ONLY clock-sampling ownership inputs.
+    // Realtime syncStatus, phase, clockSyncState and RoomState revisions
+    // are deliberately excluded: async callbacks read roomRef.current.
   }, [
     allParticipantsLoaded,
-    clockSyncState?.sessionKey,
-    matchStartSession?.matchId,
-    matchStartSession?.roomRevision,
-    matchStartSession?.startRevision,
-    room.status,
-    syncOptions?.participantId,
-    syncStatus,
+    matchStartSessionKey,
   ]);
 
   useEffect(() => {
