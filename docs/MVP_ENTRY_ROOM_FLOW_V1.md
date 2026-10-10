@@ -543,3 +543,47 @@ implementation environment (GitHub checkout/package runner unavailable).
 Independent Work QA and owner iPhone smoke test remain pending.
 No change to WebAudio authority, RoomState/CAS protocol, gauge,
 Finish or global turn budget. PR #18 remains Draft/unmerged.
+
+
+## 2026-10-10 — Multiplayer HUD correction after owner iPhone screenshot
+
+The owner verified **Host-only START works** on the deployed iPhone
+preview, but rejected the new multiplayer-only HUD: oversized
+CLUB AUDITION/MY SCORE cards, the bespoke command tray, and custom
+SPACE/D-pad controls did **not** match the existing accepted gameplay
+presentation.
+
+**Correction on PR #18**:
+- Retire the bespoke multiplayer HUD CSS-module presentation.
+  `LiveMultiplayerGameplay` now mounts Stage3D inside the same
+  `audition-page → audition-stage → audition-hud` layout and
+  `hud-song`, `level-panel`, `combo-panel`, `command-zone`,
+  `command-strip`, `mobile-controls` classes as the existing
+  `components/GameShell.tsx` gameplay HUD.
+- Reuse the exact accepted portrait control artwork paths:
+  `/ui/controls/portrait-space-from-sketch.png` and
+  `/ui/controls/portrait-dpad-from-sketch.png`. The shared
+  `GameCommandTokenVisual` component contains the exact solo
+  command SVG previously in GameShell; GameShell itself now imports
+  that same component, with no visual logic change.
+- Continue using `AuditionGauge` with locked parameters and
+  WebAudio-derived currentTimeMs, and existing `JudgementLabel`.
+  Use the frozen local player identity/score only: avoid copying
+  fake opponent scores/leaderboard numbers from solo QA placeholders.
+- Keep all gameplay command/Finish, judgement, score, event and
+  audio clock authority with the **unchanged**
+  `MultiplayerGameplayRuntime`/`WebAudioTransport`.
+  P5.5 matchId/epoch/songTime/globalTurn data-testid diagnostics
+  remain for independent regression checks, but are hidden from
+  the ordinary portrait HUD. Stage3D retains the frozen
+  MatchManifest Character Catalog asset.
+- Stabilize the keyboard listener for 60fps HUD re-renders. Add
+  E2E selectors verifying both client HUDs reuse the GameShell
+  class hierarchy, 3D stage and owner-approved control images.
+
+**Validation scope:** Next.js/Vercel TypeScript build is the only
+automatic execution available to this implementation session.
+Browser E2E and visual/physical iPhone comparison of the corrected
+layout remain **PENDING**. Do not claim visual acceptance until
+the owner reviews a new screenshot. Host-only START must remain
+untouched and PR #18 must remain OPEN/Draft.
