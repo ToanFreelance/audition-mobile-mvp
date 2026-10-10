@@ -629,3 +629,34 @@ five-browser local PGlite/Realtime-harness reproduction still require actual
 execution; neither Vercel build success nor source inspection is a five-Human
 E2E PASS. Follow with Work rerun on real independent browser contexts,
 then staging Supabase verification. Keep PR #18 OPEN/Draft.
+
+
+## 2026-10-10 — UX01: durable frozen-content preload failure feedback
+
+RC01 Work retest on `59f4a8b24b89e3f22504089d18c87c4c5882d7ee`
+confirmed local CAS/ACK recovery: 10/10 five-Human runs reached five LOADED,
+while full E2E audio tolerance still failed 5/10 runs (AUD01 open). It also
+reproduced UX01: a genuine content preload 503 correctly resulted in canonical
+FAILED, but concurrent metadata CAS conflict overwrote the original error
+text stored in `syncDetail`.
+
+Focused UX01 correction:
+
+- `WaitingRoomPanel` stores the real frozen-content preload exception in a
+  dedicated `preloadContentFailure` state keyed by
+  matchId/roomRevision/startRevision/participantId.
+- The PRELOADING banner renders `preload-content-failure` and
+  `preload-content-error` with `role="alert"` independently of ephemeral
+  RoomState conflict notices. A failed content fetch remains distinguishable
+  from `preload-ack-recovery` metadata retries.
+- An explicit retry/new attempt clears the matching stale content error; an
+  unrelated session cannot display a prior session's error. A successful LOADED
+  ACK clears the error for its own session.
+- No change to canonical FAILED semantics, server CAS, frozen manifest,
+  ALL CLIENTS LOADED, shared epoch, gameplay clock, HUD baseline or assets.
+
+**Validation:** Vercel Next.js production build/TypeScript are CI gates. The
+new browser-level UX01 scenario (genuine 503 plus concurrent CAS revision
+conflict) needs Work retest; source/CI alone are NOT a browser PASS. AUD01
+five-client audio drift root cause is separate and remains OPEN. Keep PR #18
+OPEN/Draft, never merge without explicit owner approval.
