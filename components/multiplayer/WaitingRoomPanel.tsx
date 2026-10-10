@@ -16,7 +16,7 @@ import { applyServerRoomSnapshot, isCanonicalRoomSnapshot } from "../../multipla
 import { latchLobbyPresence, projectRoomForPresence } from "../../multiplayer/lobby-presence";
 import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
 import { scheduleMultiplayerAudioGameplay } from "../../multiplayer/audio-gameplay-start";
-import type { MultiplayerGameplayRuntime } from "../../multiplayer/gameplay-runtime";
+import type { MultiplayerGameplayJudgementEvent, MultiplayerGameplayRuntime } from "../../multiplayer/gameplay-runtime";
 import {
   freezeLobbyMatch,
   matchManifestMatchesRoom,
@@ -359,6 +359,7 @@ export default function WaitingRoomPanel({
   const [countdownNowMonotonicMs, setCountdownNowMonotonicMs] = useState<number | null>(null);
   const [gameplayAudioReadyKey, setGameplayAudioReadyKey] = useState<string | null>(null);
   const [gameplaySchedule, setGameplaySchedule] = useState<ScheduledGameplay | null>(null);
+  const [gameplayPresentationJudgement, setGameplayPresentationJudgement] = useState<MultiplayerGameplayJudgementEvent | null>(null);
   const [gameplayHandoffError, setGameplayHandoffError] = useState<string | null>(null);
   const [audioActivationNonce, setAudioActivationNonce] = useState(0);
   const [gameplayAudioContextState, setGameplayAudioContextState] =
@@ -1296,6 +1297,8 @@ export default function WaitingRoomPanel({
       participantId: syncOptions.participantId,
       transport: prepared.transport,
       estimatedServerOffsetMs: clockSyncEstimate.offsetMs,
+      // Presentation-only callback. Never mutates WebAudio/shared timing.
+      callbacks: { onJudgement: setGameplayPresentationJudgement },
     }).then(result => {
       if (abandoned()) {
         result.runtime?.stop();
@@ -1943,6 +1946,8 @@ export default function WaitingRoomPanel({
       <LiveMultiplayerGameplay
         manifest={matchStartSession.manifest}
         participantId={syncOptions?.participantId ?? viewer.participantId}
+        stageId={room.selectedStageId}
+        presentationJudgement={gameplayPresentationJudgement}
         roomStatus={room.status}
         runtime={gameplaySchedule.runtime}
         startAtServerMs={gameplaySchedule.startAtServerMs}
