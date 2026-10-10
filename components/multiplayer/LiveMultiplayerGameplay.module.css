@@ -1,201 +1,324 @@
+/* Multiplayer display only: authoritative song time and gameplay state are
+   owned by WebAudioTransport + MultiplayerGameplayRuntime, not CSS animation. */
 .shell {
-  min-height: 100svh;
-  padding: 22px 16px 28px;
-  color: #f7f8ff;
-  background:
-    radial-gradient(circle at 50% 10%, rgba(116, 70, 255, .28), transparent 34%),
-    linear-gradient(180deg, #07091d 0%, #090b18 55%, #05050d 100%);
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100svh;
+  overflow: hidden;
+  color: #f7f7ff;
+  background: #030513;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-.hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-  max-width: 720px;
-  margin: 0 auto 14px;
-  padding: 16px;
-  border: 1px solid rgba(113, 226, 255, .3);
-  border-radius: 18px;
-  background: rgba(8, 12, 32, .88);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, .24);
-}
-.hero h1 {
-  margin: 4px 0 6px;
-  font-size: clamp(28px, 8vw, 48px);
-  line-height: .95;
-  letter-spacing: -.04em;
-}
-.hero p {
-  margin: 0;
-  max-width: 430px;
-  color: rgba(255, 255, 255, .62);
-  font-size: 11px;
-  line-height: 1.45;
-}
-.eyebrow {
-  color: #79e8ff;
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .16em;
-}
-.clock {
-  display: grid;
-  justify-items: end;
-  gap: 2px;
-  flex: 0 0 auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.clock span {
-  color: rgba(255,255,255,.48);
-  font-size: 8px;
-  letter-spacing: .16em;
-}
-.clock strong {
-  color: #7dffbb;
-  font-size: 14px;
-}
-.clock small {
-  max-width: 170px;
+.stageViewport {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  color: rgba(255,255,255,.36);
-  font-size: 7px;
-  text-overflow: ellipsis;
+  isolation: isolate;
 }
-.metrics {
+.hud {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.hud button { pointer-events: auto; }
+.header {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top, 0px));
+  left: 11px;
+  right: 11px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  max-width: 720px;
-  margin: 0 auto 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  align-items: start;
 }
-.metrics div {
-  min-width: 0;
-  padding: 10px;
-  border: 1px solid rgba(255,255,255,.09);
+.songCard, .scoreCard {
+  border: 1px solid rgba(137, 111, 255, .56);
   border-radius: 12px;
-  background: rgba(255,255,255,.045);
+  background: linear-gradient(150deg, rgba(12, 9, 35, .88), rgba(7, 9, 24, .77));
+  box-shadow: 0 9px 24px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.1);
+  backdrop-filter: blur(7px);
 }
-.metrics span {
-  display: block;
-  color: rgba(255,255,255,.46);
+.songCard {
+  padding: 8px 11px 9px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.brand {
+  color: #77eaff;
   font-size: 8px;
-  font-weight: 800;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  font-weight: 900;
+  letter-spacing: .075em;
 }
-.metrics strong {
-  display: block;
-  margin-top: 3px;
-  overflow: hidden;
-  font-size: 12px;
-  text-overflow: ellipsis;
+.songCard strong {
+  font-size: 14px;
+  line-height: 1.14;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.command {
-  max-width: 720px;
-  margin: 0 auto 16px;
-  padding: 22px 16px;
-  border: 1px solid rgba(83, 203, 255, .42);
-  border-radius: 20px;
-  background: linear-gradient(145deg, rgba(18, 29, 63, .96), rgba(18, 9, 44, .96));
-  text-align: center;
+.songCard > span:not(.brand) {
+  font-size: 9px;
+  color: #cbcae0;
+  font-variant-numeric: tabular-nums;
 }
-.command > span {
-  color: #91eaff;
+.songProgress {
+  height: 3px;
+  overflow: hidden;
+  margin-top: 2px;
+  border-radius: 99px;
+  background: #3a2a56;
+}
+.songProgress i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ab58ff, #5de9ff);
+}
+.scoreCard {
+  min-width: 108px;
+  padding: 9px 10px;
+  text-align: right;
+  display: grid;
+  gap: 2px;
+}
+.scoreCard small {
+  font-size: 8px;
+  color: #b8adf5;
+  letter-spacing: .08em;
+}
+.scoreCard strong {
+  font-size: clamp(16px, 5vw, 23px);
+  color: #ffe576;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.scoreCard span {
+  font-size: 9px;
+  font-weight: 800;
+  color: #ffffff;
+}
+.matchInfo {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top, 0px)) + 99px);
+  left: 11px;
+  right: 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 10px;
   font-weight: 900;
-  letter-spacing: .16em;
+  letter-spacing: .09em;
+  text-shadow: 0 2px 7px #000;
 }
-.command small {
+.matchInfo span:first-child { color: #ffe569; }
+.matchInfo span:nth-child(2) { color: #85eaff; }
+.roster {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top, 0px)) + 123px);
+  left: 12px;
+  right: 12px;
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.roster span {
   display: block;
-  margin-top: 12px;
-  color: rgba(255,255,255,.48);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
+  max-width: 100px;
+  padding: 4px 7px;
+  color: #d8e0ff;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid rgba(124, 176, 255, .28);
+  border-radius: 20px;
+  background: rgba(3, 5, 24, .62);
+  text-shadow: 0 1px 4px #000;
+}
+.roster .me {
+  color: #fff3af;
+  border-color: rgba(255, 207, 92, .75);
+  background: rgba(55, 29, 77, .77);
+}
+.audioAlert {
+  position: absolute;
+  z-index: 12;
+  top: 29%;
+  left: 5%;
+  right: 5%;
+  margin: 0;
+  padding: 13px 12px;
+  border: 1px solid #fd819b;
+  border-radius: 12px;
+  color: #ffe4ed;
+  background: rgba(57, 14, 35, .94);
+  text-align: center;
+  font-size: 12px;
+  box-shadow: 0 0 28px rgba(255, 61, 119, .25);
+}
+.commandArea {
+  position: absolute;
+  bottom: calc(150px + max(5px, env(safe-area-inset-bottom, 0px)));
+  left: 12px;
+  right: 12px;
+  max-width: 690px;
+  margin-inline: auto;
+  padding: 9px 10px 8px;
+  border-radius: 17px;
+  border: 1px solid rgba(163, 178, 239, .49);
+  background: linear-gradient(180deg, rgba(15, 13, 37, .79), rgba(7, 9, 23, .66));
+  box-shadow: 0 12px 28px rgba(0,0,0,.27), inset 0 1px 0 rgba(255,255,255,.12);
+}
+.commandHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0 4px 6px;
+  font-size: 10px;
+  color: #b8ecff;
+}
+.commandHeader strong {
+  font-size: 14px;
+  color: #ffdf6b;
+  letter-spacing: .06em;
+}
+.commandHeader span { font-variant-numeric: tabular-nums; }
+.commandStrip {
+  min-height: 49px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(3px, 1.2vw, 7px);
+  overflow: hidden;
+}
+.commandToken {
+  flex: 0 1 43px;
+  min-width: 0;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  color: #f8fbff;
+  font-size: clamp(18px, 6vw, 30px);
+  text-shadow: 0 0 9px currentColor;
+  border: 1px solid rgba(153, 219, 255, .62);
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 20%, rgba(61, 99, 221, .94), rgba(5, 18, 65, .94) 75%);
+  box-shadow: inset 0 0 9px rgba(104, 158, 255, .25);
+}
+.commandToken:nth-child(even) {
+  background: radial-gradient(circle at 30% 20%, rgba(193, 61, 172, .95), rgba(67, 9, 58, .95) 77%);
+}
+.commandToken.target {
+  border-color: #fff;
+  box-shadow: 0 0 13px rgba(126, 230, 255, .64), inset 0 0 10px rgba(255,255,255,.27);
+}
+.commandToken.completed { opacity: .45; }
+.commandToken.reverse {
+  border-color: #ff7185;
+  color: #ff8498;
+  box-shadow: inset 0 0 11px rgba(255, 42, 66, .27);
+}
+.waitingCommand {
+  color: #aeadd3;
+  font-size: 20px;
+  letter-spacing: .28em;
 }
 .finish {
-  border-color: rgba(255, 73, 100, .8);
-  background: linear-gradient(145deg, rgba(110, 14, 34, .96), rgba(44, 7, 23, .96));
+  border-color: rgba(255, 89, 112, .8);
+  background: linear-gradient(180deg, rgba(82, 12, 35, .83), rgba(29, 5, 21, .75));
 }
-.finish > span {
-  color: #ff8a9c;
-}
-.arrows {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  min-height: 54px;
-  margin-top: 10px;
-}
-.arrows b {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border: 1px solid rgba(127, 221, 255, .48);
-  border-radius: 12px;
-  background: rgba(72, 156, 255, .13);
-  font-size: 28px;
-  line-height: 1;
-}
-.arrows .reverse {
-  border-color: rgba(255, 90, 110, .72);
-  color: #ff7388;
-  background: rgba(255, 46, 80, .15);
-}
-.arrows .hiddenCommand {
-  width: auto;
-  min-width: 92px;
-  color: rgba(255,255,255,.35);
-  letter-spacing: .18em;
+.finish .commandHeader strong { color: #ff7b93; }
+.gauge {
+  width: 100%;
+  margin-top: 5px;
+  touch-action: manipulation;
+  pointer-events: auto;
 }
 .controls {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  max-width: 720px;
-  margin: 0 auto;
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  height: 126px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  max-width: 650px;
+  margin-inline: auto;
 }
 .controls button {
-  min-height: 54px;
-  border: 1px solid rgba(126, 222, 255, .42);
-  border-radius: 14px;
-  color: white;
-  background: rgba(25, 46, 92, .72);
-  font-size: 22px;
+  color: #fdfbff;
   font-weight: 900;
   touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.controls .space {
-  grid-column: 1 / -1;
-  min-height: 58px;
-  border-color: rgba(255, 199, 86, .62);
-  color: #ffe29b;
-  background: rgba(112, 70, 18, .52);
-  font-size: 15px;
+.controls button:disabled { opacity: .4; }
+.spaceButton {
+  width: min(40vw, 162px);
+  height: 77px;
+  border-radius: 44px;
+  border: 2px solid #ff72df;
+  background: radial-gradient(ellipse at center, #a12eaf 0%, #4d1166 46%, #130d3a 100%);
+  font-size: 18px;
   letter-spacing: .12em;
+  box-shadow: 0 0 22px rgba(255, 49, 202, .38), inset 0 0 17px rgba(255,255,255,.14);
 }
+.spaceButton:active { transform: scale(.96); }
+.dpad {
+  flex: 0 0 130px;
+  width: 130px;
+  height: 126px;
+  position: relative;
+  border-radius: 50%;
+  border: 1px solid rgba(106, 223, 255, .29);
+  background: rgba(4, 8, 35, .26);
+}
+.dpad button {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(125, 224, 255, .7);
+  background: linear-gradient(145deg, #2c3381, #101139);
+  font-size: 24px;
+  box-shadow: inset 0 0 10px rgba(72, 171, 255, .16);
+}
+.dpad button:active { transform: scale(.92); }
+.padLeft { left: 2px; top: 42px; }
+.padRight { right: 2px; top: 42px; }
+.padUp { left: 43px; top: 0; }
+.padDown { left: 43px; bottom: 0; }
 .footer {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 2px;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 14px;
-  max-width: 720px;
-  margin: 16px auto 0;
-  color: rgba(255,255,255,.48);
-  font-size: 9px;
+  justify-content: space-between;
+  gap: 6px;
+  color: rgba(236, 238, 255, .68);
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 5px #000;
 }
-.footer b {
-  color: #78f4b0;
+@media (min-width: 700px) {
+  .header { max-width: 760px; margin-inline: auto; }
+  .commandArea { bottom: 195px; }
+  .controls { bottom: 36px; }
+  .matchInfo, .roster { left: max(20px, calc(50vw - 365px)); right: max(20px, calc(50vw - 365px)); }
 }
-@media (max-width: 520px) {
-  .shell { padding: 14px 10px 22px; }
-  .hero { padding: 13px; }
-  .hero p { display: none; }
-  .clock strong { font-size: 11px; }
-  .metrics { grid-template-columns: repeat(2, 1fr); }
-  .command { padding: 18px 10px; }
-  .arrows { gap: 5px; }
-  .arrows b { width: 42px; height: 42px; font-size: 24px; }
+@media (max-height: 690px) {
+  .matchInfo { top: calc(max(5px, env(safe-area-inset-top, 0px)) + 88px); }
+  .roster { top: calc(max(5px, env(safe-area-inset-top, 0px)) + 108px); }
+  .commandArea { bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
+  .controls { bottom: max(8px, env(safe-area-inset-bottom, 0px)); height: 113px; }
+  .dpad { transform: scale(.87); transform-origin: right center; }
+  .spaceButton { height: 68px; }
 }
