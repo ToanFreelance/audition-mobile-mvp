@@ -347,7 +347,7 @@ export default function LiveMultiplayerGameplay(props: {
                 );
               })}
             </div>
-            <div data-testid="gameplay-gauge">
+            <div data-testid="gameplay-gauge" style={{ pointerEvents: "auto" }}>
               <AuditionGauge
                 bpm={props.manifest.gameplay.bpmExact}
                 value={snapshot.gaugePercent}
