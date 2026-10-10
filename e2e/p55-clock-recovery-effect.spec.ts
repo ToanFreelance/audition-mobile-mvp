@@ -17,6 +17,15 @@ if (d01 < 0 || start < 0 || end < 0) {
 const actualClockEffect = ts.transpileModule(source.slice(start, end), {
   compilerOptions: { target: ts.ScriptTarget.ES2022 },
 }).outputText;
+const retryStart = source.indexOf("  const retryClockSynchronization = () => {");
+const retryEnd = source.indexOf("\n  };", retryStart) + "\n  };".length;
+if (retryStart < 0 || retryEnd <= retryStart) {
+  throw new Error("Unable to extract production D01-R retry handler.");
+}
+const actualClockRetry = ts.transpileModule(
+  `${source.slice(retryStart, retryEnd)}\nretryClockSynchronization();`,
+  { compilerOptions: { target: ts.ScriptTarget.ES2022 } },
+).outputText;
 
 type Sample = { offsetMs: number; minRoundTripMs: number };
 type Pending = {
@@ -41,11 +50,23 @@ function createEffectHarness() {
     roomRef: { current: room },
     syncStatus: "connecting",
     clockSyncState: null as null | { sessionKey: string; estimate: Sample },
+    clockSyncFailure: null as null | { sessionKey: string; message: string },
+    activeClockSyncFailure: null as null | { sessionKey: string; message: string },
+    clockRetryNonce: 0,
     countdownAttemptRef: { current: null as string | null },
+    clockRetryRequestedRef: { current: false },
     syncDetail: "",
     setSyncDetail(value: string) { env.syncDetail = value; },
     setClockSyncState(value: { sessionKey: string; estimate: Sample }) {
       env.clockSyncState = value;
+    },
+    setClockSyncFailure(value: null | { sessionKey: string; message: string }) {
+      env.clockSyncFailure = value;
+      env.activeClockSyncFailure = value?.sessionKey === env.matchStartSessionKey
+        && env.clockSyncState?.sessionKey !== env.matchStartSessionKey ? value : null;
+    },
+    setClockRetryNonce(update: (value: number) => number) {
+      env.clockRetryNonce = update(env.clockRetryNonce);
     },
     sampleLobbyServerClock: () => new Promise<Sample>((resolve, reject) => {
       requests.push({ resolve, reject });
@@ -71,9 +92,20 @@ function createEffectHarness() {
     previousDeps = [...deps];
     cleanup = callback() || undefined;
   };
-  const render = () => runInNewContext(actualClockEffect, { ...env, useEffect });
+  const render = () => {
+    env.activeClockSyncFailure = env.clockSyncFailure?.sessionKey === env.matchStartSessionKey
+      && env.clockSyncState?.sessionKey !== env.matchStartSessionKey
+      ? env.clockSyncFailure : null;
+    return runInNewContext(actualClockEffect, { ...env, useEffect });
+  };
+  const retry = () => {
+    env.activeClockSyncFailure = env.clockSyncFailure?.sessionKey === env.matchStartSessionKey
+      && env.clockSyncState?.sessionKey !== env.matchStartSessionKey
+      ? env.clockSyncFailure : null;
+    runInNewContext(actualClockRetry, { ...env });
+  };
   const unmount = () => cleanup?.();
-  return { env, requests, render, unmount };
+  return { env, requests, render, retry, unmount };
 }
 
 const flush = async () => {
@@ -113,6 +145,68 @@ test.describe("D01 production clock-sampling effect", () => {
     await flush();
     expect(h.env.clockSyncState?.estimate.offsetMs).toBe(60);
     expect(h.requests).toHaveLength(2);
+    h.unmount();
+  });
+
+  test("terminal sample failure persists through unrelated rerenders and explicit retry recovers", async () => {
+    const h = createEffectHarness();
+    h.render();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      h.requests[attempt].reject(Error("Clock endpoint temporarily unavailable"));
+      await flush();
+    }
+    expect(h.requests).toHaveLength(3);
+    expect(h.env.countdownAttemptRef.current).toBeNull();
+    expect(h.env.clockSyncState).toBeNull();
+    expect(h.env.clockSyncFailure).toMatchObject({
+      sessionKey: h.env.matchStartSessionKey,
+      message: "Clock endpoint temporarily unavailable",
+    });
+    // A separate preload/audio update must not erase the durable failure.
+    h.env.syncDetail = "P5.5 gameplay audio decoded and ready.";
+    h.env.syncStatus = "connected";
+    h.render();
+    expect(h.requests).toHaveLength(3);
+    expect(h.env.activeClockSyncFailure).toBeTruthy();
+
+    h.retry();
+    h.retry(); // double tap before React commit cannot queue a second retry
+    expect(h.env.clockRetryNonce).toBe(1);
+    expect(h.env.clockSyncFailure).toBeNull();
+    h.render();
+    expect(h.requests).toHaveLength(4);
+    h.requests[3].resolve({ offsetMs: 77, minRoundTripMs: 14 });
+    await flush();
+    expect(h.env.clockSyncState).toMatchObject({
+      sessionKey: h.env.matchStartSessionKey,
+      estimate: { offsetMs: 77 },
+    });
+    expect(h.env.clockSyncFailure).toBeNull();
+    expect(h.env.syncDetail).toContain("PLAYING synced");
+    h.render();
+    expect(h.requests).toHaveLength(4); // no extra epoch or hidden retry
+    h.unmount();
+  });
+
+  test("terminal failure from previous session is not exposed or retried in a new match", async () => {
+    const h = createEffectHarness();
+    h.render();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      h.requests[attempt].reject(Error("Offline"));
+      await flush();
+    }
+    expect(h.env.clockSyncFailure?.sessionKey).toBe("qa-match:7:1:qa-guest");
+    h.env.matchStartSession = { matchId: "new-match", roomRevision: 12, startRevision: 2 };
+    h.env.matchStartSessionKey = "new-match:12:2:qa-guest";
+    h.render();
+    expect(h.env.activeClockSyncFailure).toBeNull();
+    expect(h.requests).toHaveLength(4);
+    h.retry(); // No new-session error: handler must refuse
+    expect(h.env.clockRetryNonce).toBe(0);
+    h.requests[3].resolve({ offsetMs: 99, minRoundTripMs: 10 });
+    await flush();
+    expect(h.env.clockSyncState?.sessionKey).toBe("new-match:12:2:qa-guest");
+    expect(h.env.clockSyncFailure).toBeNull();
     h.unmount();
   });
 
