@@ -274,6 +274,15 @@
   .command-strip .command-key.done .command-token-visual{display:block;width:100%;height:100%;max-width:none!important;max-height:none!important;overflow:visible;filter:none!important}
   .command-strip .command-key.wrong .command-token-visual{filter:drop-shadow(0 0 3px rgba(255,57,94,.75))!important}
   .command-zone > .audition-gauge-svg{display:block;width:100%;max-width:100%;margin:8px auto 0}
+  /* Multiplayer retains a gauge hit-area wrapper for touch and E2E probes.
+     Match the approved GameShell gauge's direct-child spacing and width. */
+  .command-zone > .gameplay-gauge-hit-area{
+    display:block;
+    width:100%;
+    max-width:100%;
+    margin:8px auto 0;
+    pointer-events:auto;
+  }
 }
 
 /* Phase 2 P2.3 + P2.4: stable iPhone viewport and sketch-traced top HUD. */
