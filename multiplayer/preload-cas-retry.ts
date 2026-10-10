@@ -28,7 +28,9 @@ export async function retryPreloadCas(options: {
     wait = ms => new Promise<void>(resolve => setTimeout(resolve, ms)),
   } = options;
 
+  const startedAtMs = Date.now(); // Bounds metadata retries, NOT song/global-turn time.
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    if (attempt > 0 && Date.now() - startedAtMs > 20_000) break;
     if (cancelled()) return null;
     const current = readCurrent();
     const binding = current.matchStart;
@@ -50,7 +52,13 @@ export async function retryPreloadCas(options: {
     if (cancelled()) return null;
     // The server response might be newer than our local render. Re-read
     // canonical state on every conflict; never reuse a stale revision.
-    if (!result.conflict) return result.snapshot;
+    if (!result.conflict) {
+      const settledBinding = result.snapshot.matchStart;
+      if (!settledBinding || settledBinding.matchId !== identity.matchId
+        || settledBinding.roomRevision !== identity.roomRevision
+        || settledBinding.startRevision !== identity.startRevision) return null;
+      return result.snapshot;
+    }
 
     if (attempt + 1 < maxAttempts) {
       // Metadata backoff/jitter only, never an independent gameplay timer.
