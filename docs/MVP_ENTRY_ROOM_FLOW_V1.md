@@ -397,3 +397,57 @@ device checks pass.
 No changes to RoomState, CAS, Supabase Realtime protocol, shared
 epoch, WebAudio authority, `sequenceCounts`, gauge, Finish or global
 turn scheduling. PR #18 stays OPEN / Draft, unmerged.
+
+
+## 2026-10-10 — D01-R terminal clock recovery (follow-up to Work QA)
+
+Second independent Work QA proved the original D01 status-change race
+is fixed and ordinary Guest refresh in PLAYING now reaches explicit
+LATE with the original immutable server epoch. Work found **D01-R P1**:
+after three failed `sampleLobbyServerClock()` rounds, the ref latch was
+cleared but `useEffect` had unchanged dependencies. Realtime reconnect,
+foreground and audio activation did not trigger a new server-clock
+sample. `syncDetail` was subsequently overwritten by audio preparation,
+leaving the user at CLOCK SYNC / AUDIO DECODED without recovery controls.
+
+**Focused implementation** in `WaitingRoomPanel.tsx`:
+- Terminal sampling errors are stored in a dedicated
+  `clockSyncFailure: { sessionKey, message }` state. Only the exact
+  active `matchStartSessionKey` may display the failure; unrelated
+  audio/preload status updates cannot erase it.
+- The Waiting Room's existing preload banner shows a persistent
+  `CLOCK SYNC FAILED` alert and **THỬ ĐỒNG BỘ LẠI** button in
+  PRELOADING, COUNTDOWN or PLAYING. Audio status also identifies the
+  clock failure rather than claiming to be stuck scheduling.
+- The button works only after the old attempt releases its latch,
+  while the same all-loaded human participant/session remains active.
+  A synchronous click guard prevents double-tap retries. It clears
+  the error and increments explicit `clockRetryNonce`, the only new
+  dependency of the D01 sampling effect. Realtime status, current
+  RoomState revision and audio activation remain excluded.
+- Sample success clears the clock failure and fills the ordinary
+  server-clock estimate. If the canonical epoch is already past,
+  the unchanged WebAudio scheduling bridge returns **LATE**; no new
+  epoch/audio seek/fallback clock is introduced.
+- A separate countdown-CAS failure is **not** mislabeled as a
+  recoverable sampling failure. The independent QA report identified
+  potential countdown-CAS retry reachability as a source-review
+  hypothesis; it is not modified in this focused D01-R patch.
+
+**Regression coverage:** `e2e/p55-clock-recovery-effect.spec.ts`
+now includes the production-extracted retry handler and tests for
+terminal three-attempt failure, durable session-scoped alert state,
+no implicit retry from Realtime updates, double-tap suppression,
+explicit same-session retry, and stale-error isolation after a
+match change. Earlier D01 promise-race tests remain.
+
+**Validation:** Two direct isolated JavaScript executions of the exact
+production `useEffect` and retry handler PASS for terminal recovery
+and old-match isolation; Next.js/TypeScript Vercel build PASS.
+The newly committed Playwright regression file and full two-client
+refresh/terminal-fault E2E have **NOT** been re-run in the Work
+browser harness on this new commit. This remains
+**D01-R IMPLEMENTED / AUTOMATED QA PENDING / OWNER DEVICE QA PENDING**.
+No claim of iPhone Safari hardware verification.
+
+PR #18 remains OPEN / Draft; no merge to development.
