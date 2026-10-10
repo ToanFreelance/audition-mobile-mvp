@@ -359,6 +359,8 @@ export default function WaitingRoomPanel({
   const [clockRetryNonce, setClockRetryNonce] = useState(0);
   const [preloadRetryNonce, setPreloadRetryNonce] = useState(0);
   const [preloadCasFailure, setPreloadCasFailure] = useState<{ sessionKey: string; message: string } | null>(null);
+  // An actual frozen-content error must survive RoomState CAS conflict notices.
+  const [preloadContentFailure, setPreloadContentFailure] = useState<{ sessionKey: string; message: string } | null>(null);
   const [countdownNowMonotonicMs, setCountdownNowMonotonicMs] = useState<number | null>(null);
   const [gameplayAudioReadyKey, setGameplayAudioReadyKey] = useState<string | null>(null);
   const [gameplaySchedule, setGameplaySchedule] = useState<ScheduledGameplay | null>(null);
@@ -784,6 +786,12 @@ export default function WaitingRoomPanel({
     && room.participants.some(item => item.participantId === syncOptions?.participantId && item.loadState !== "loaded")
     ? preloadCasFailure
     : null;
+  const activePreloadContentFailure = matchStartSessionKey
+    && preloadContentFailure?.sessionKey === matchStartSessionKey
+    && room.status === "preloading"
+    && room.participants.some(item => item.participantId === syncOptions?.participantId && item.loadState !== "loaded")
+    ? preloadContentFailure
+    : null;
   audioScheduleIdentityRef.current = matchStartSessionKey
     && matchStartSession?.startAtServerMs != null
     ? `${matchStartSessionKey}:${matchStartSession.startAtServerMs}`
@@ -1001,6 +1009,9 @@ export default function WaitingRoomPanel({
     }
     if (preloadAttemptRef.current === identityKey) return;
     preloadAttemptRef.current = identityKey;
+    // Clear only when a new attempt starts; old-session errors are hidden by
+    // the frozen match identity, never by an unrelated Realtime notice.
+    setPreloadContentFailure(previous => previous?.sessionKey === identityKey ? null : previous);
 
     let cancelled = false;
     const submitPreloadMutation = (
@@ -1041,7 +1052,10 @@ export default function WaitingRoomPanel({
         } catch (error) {
           if (cancelled) return;
           // Only a genuine asset/content preload error may mark FAILED.
-          setSyncDetail(error instanceof Error ? error.message : "Match content preload failed.");
+          // Keep the cause independently visible across subsequent CAS conflicts.
+          const message = error instanceof Error ? error.message : "Match content preload failed.";
+          setPreloadContentFailure({ sessionKey: identityKey, message });
+          setSyncDetail(message);
           try {
             await submitPreloadMutation("preload-failed");
           } catch (mutationError) {
@@ -1069,6 +1083,7 @@ export default function WaitingRoomPanel({
         loadedSnapshot.participants,
       );
       setPreloadCasFailure(previous => previous?.sessionKey === identityKey ? null : previous);
+      setPreloadContentFailure(previous => previous?.sessionKey === identityKey ? null : previous);
       setSyncDetail(
         allClientsLoaded(loadedSession)
           ? "ALL CLIENTS LOADED."
@@ -2251,6 +2266,13 @@ export default function WaitingRoomPanel({
                 ALL CLIENTS LOADED
               </em>
             ) : null}
+            {activePreloadContentFailure && (
+              <div className={styles.preloadAudioState} data-testid="preload-content-failure">
+                <small className={styles.preloadAudioError} data-testid="preload-content-error" role="alert">
+                  CONTENT PRELOAD FAILED · {activePreloadContentFailure.message}
+                </small>
+              </div>
+            )}
             {activePreloadCasFailure && (
               <div className={styles.preloadAudioState} data-testid="preload-ack-recovery">
                 <small className={styles.preloadAudioError} data-testid="preload-ack-error" role="alert">
