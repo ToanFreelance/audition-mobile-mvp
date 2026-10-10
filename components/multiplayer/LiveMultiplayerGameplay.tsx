@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AuditionGauge from "../AuditionGauge";
+import JudgementLabel from "../JudgementLabel";
+import Stage3D from "../Stage3D";
+import { SCORE_ZONE_END, SCORE_ZONE_START } from "../../game/runtime";
 import type { WebAudioTransport } from "../../game/web-audio-transport";
 import type { Direction } from "../../game/types";
+import { isCharacterAssetId, DEFAULT_CHARACTER_ASSET_ID } from "../character/character-catalog";
+import { createCharacterPresentationEvent } from "../character/choreography";
+import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { describeSharedTurn } from "../../multiplayer/determinism";
 import type {
+  MultiplayerGameplayJudgementEvent,
   MultiplayerGameplayRuntime,
   MultiplayerGameplaySnapshot,
 } from "../../multiplayer/gameplay-runtime";
@@ -20,13 +28,21 @@ function directionSymbol(direction: Direction) {
   return "↓";
 }
 
-function rounded(value: number) {
-  return Math.round(value);
+function formatSongTime(ms: number) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+/**
+ * Presentation-only consumer of the already scheduled P5.5 runtime.
+ * No local timer, animation or user interaction is allowed to own song time,
+ * the global timeline, shared epoch or any frozen gameplay configuration.
+ */
 export default function LiveMultiplayerGameplay(props: {
   manifest: MatchManifest;
   participantId: string;
+  stageId: string;
+  presentationJudgement?: MultiplayerGameplayJudgementEvent | null;
   runtime: MultiplayerGameplayRuntime;
   transport: WebAudioTransport;
   startAtServerMs: number;
@@ -34,14 +50,13 @@ export default function LiveMultiplayerGameplay(props: {
   audioContextState?: AudioContextState | null;
 }) {
   const [snapshot, setSnapshot] = useState<MultiplayerGameplaySnapshot>(() => props.runtime.snapshot());
-  // Display-only liveness monitor. It never advances/rewinds WebAudio,
-  // global turns, local commands, or the immutable shared start epoch.
-  const lastAudioProgressRef = useRef({ songMs: 0, observedAtMs: 0 });
   const [audioClockStalled, setAudioClockStalled] = useState(false);
+  const lastAudioProgressRef = useRef({ songMs: 0, observedAtMs: 0 });
 
   useEffect(() => {
     let raf = 0;
     let disposed = false;
+    lastAudioProgressRef.current = { songMs: 0, observedAtMs: 0 };
 
     const tick = () => {
       if (disposed) return;
@@ -53,14 +68,14 @@ export default function LiveMultiplayerGameplay(props: {
         && songTimeMs >= durationMs - 5) {
         props.runtime.markAudioEnded();
       }
-      const nowMonotonicMs = performance.now();
+      const now = performance.now();
       const progress = lastAudioProgressRef.current;
       if (progress.observedAtMs === 0 || songTimeMs > progress.songMs + 3) {
         progress.songMs = songTimeMs;
-        progress.observedAtMs = nowMonotonicMs;
+        progress.observedAtMs = now;
         setAudioClockStalled(false);
       } else if (props.runtime.isStarted && !props.runtime.isAudioEnded
-        && nowMonotonicMs - progress.observedAtMs > 3000) {
+        && now - progress.observedAtMs > 3000) {
         setAudioClockStalled(true);
       }
       setSnapshot(props.runtime.snapshot());
@@ -98,11 +113,68 @@ export default function LiveMultiplayerGameplay(props: {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [props.runtime]);
 
+  const localParticipant = props.manifest.participants.find(
+    participant => participant.participantId === props.participantId,
+  );
+  const characterAssetCandidate = localParticipant
+    ? avatarCharacterAssetId(localParticipant.avatar)
+    : DEFAULT_CHARACTER_ASSET_ID;
+  const characterAssetId = isCharacterAssetId(characterAssetCandidate)
+    ? characterAssetCandidate
+    : DEFAULT_CHARACTER_ASSET_ID;
+
+  // An event is emitted only by this client's RhythmEngine judgement callback.
+  // The published choreography controller consumes the same immutable song time.
+  const judgementEvent = props.presentationJudgement?.matchId === props.manifest.matchId
+    && props.presentationJudgement.participantId === props.participantId
+    ? props.presentationJudgement
+    : null;
+  const characterEvent = useMemo(() => judgementEvent
+    ? createCharacterPresentationEvent(
+      judgementEvent.absoluteTurn + 1,
+      judgementEvent.judgement,
+      {
+        atMs: judgementEvent.atSongTimeMs,
+        absoluteTurn: judgementEvent.absoluteTurn,
+        level: judgementEvent.level,
+        isFinish: judgementEvent.isFinish,
+      },
+      props.manifest.gameplay.seed,
+    )
+    : null, [judgementEvent, props.manifest.gameplay.seed]);
+
+  const getSongTimeMs = useCallback(
+    () => props.transport.getCurrentTimeMs(),
+    [props.transport],
+  );
   const active = useMemo(
     () => describeSharedTurn(props.manifest, snapshot.activeCommandTurn),
     [props.manifest, snapshot.activeCommandTurn],
   );
   const visibleCommand = snapshot.commandVisible ? active.command : [];
+  const audioInterrupted = Boolean(
+    (props.audioContextState && props.audioContextState !== "running") || audioClockStalled,
+  );
+  const judgementVisible = snapshot.lastJudgement !== null
+    && snapshot.judgementAtSongTimeMs !== null
+    && snapshot.songTimeMs - snapshot.judgementAtSongTimeMs < 950;
+  const songProgress = Math.min(100, 100 * snapshot.songTimeMs / Math.max(1, props.transport.durationMs));
+
+  const pressDirection = (direction: Direction) => {
+    if (!snapshot.audioEnded) props.runtime.handleDirection(direction);
+  };
+  const pressSpace = () => {
+    if (!snapshot.audioEnded) props.runtime.handleSpace();
+  };
+  const pressGauge = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (snapshot.audioEnded) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const percent = 100 * (event.clientX - rect.left) / rect.width;
+    if (percent < SCORE_ZONE_START || percent > SCORE_ZONE_END) return;
+    event.preventDefault();
+    pressSpace();
+  };
 
   return (
     <main
@@ -114,89 +186,140 @@ export default function LiveMultiplayerGameplay(props: {
       data-audio-stalled={audioClockStalled ? "1" : "0"}
       data-testid="multiplayer-gameplay-live"
     >
-      <section className={styles.hero}>
-        <div>
-          <span className={styles.eyebrow}>P5.5 · LIVE MULTIPLAYER GAMEPLAY</span>
-          <h1>{active.isFinish ? "FINISH" : `LEVEL ${snapshot.activeCommandLevel}`}</h1>
-          <p>Shared WebAudio epoch → local WebAudio song clock → deterministic global turn.</p>
-        </div>
-        <div className={styles.clock}>
-          <span>SONG</span>
-          <strong data-testid="gameplay-song-time-ms">{rounded(snapshot.songTimeMs)} ms</strong>
-          <small data-testid="gameplay-start-at-server-ms">{props.startAtServerMs}</small>
-        </div>
+      <section className={styles.stageViewport} aria-label="Multiplayer 3D stage">
+        <Stage3D
+          selectedStageId={props.stageId}
+          characterAssetId={characterAssetId}
+          isPlaying={snapshot.started && !snapshot.audioEnded}
+          characterEvent={characterEvent}
+          getSongTimeMs={getSongTimeMs}
+          bpm={props.manifest.gameplay.bpmExact}
+        />
       </section>
 
-      {(props.audioContextState && props.audioContextState !== "running"
-        || audioClockStalled) && (
-        <p role="alert" data-testid="multiplayer-audio-health" style={{
-          margin: "12px 16px", padding: 12,
-          border: "1px solid #fd8391", borderRadius: 12,
-          background: "#391526", color: "#ffced6", fontSize: 13,
-        }}>
-          {props.audioContextState && props.audioContextState !== "running"
-            ? "AudioContext đã bị Safari tạm dừng. Client không còn phát theo shared epoch."
-            : "WebAudio song clock không tiến. Màn hình RUNNING không đồng nghĩa nhạc đang phát."}
-          {" "}Thử lại với hai thiết bị riêng, mỗi trình duyệt ở foreground.
-        </p>
-      )}
-      <section className={styles.metrics}>
-        <div><span>Participant</span><strong>{props.participantId}</strong></div>
-        <div><span>Global turn</span><strong data-testid="gameplay-global-turn">T{snapshot.globalAbsoluteTurn}</strong></div>
-        <div><span>Global level</span><strong data-testid="gameplay-global-level">{snapshot.globalLevel === null ? "PRE" : `L${snapshot.globalLevel}`}</strong></div>
-        <div><span>Score</span><strong>{snapshot.stats.score}</strong></div>
-        <div><span>Combo</span><strong>{snapshot.stats.combo}</strong></div>
-        <div><span>Last</span><strong>{snapshot.lastJudgement?.toUpperCase() ?? "—"}</strong></div>
-      </section>
+      <div className={styles.hud}>
+        <header className={styles.header}>
+          <div className={styles.songCard}>
+            <span className={styles.brand}>CLUB AUDITION · MULTIPLAYER</span>
+            <strong>{props.manifest.content.songId}</strong>
+            <span>BPM {props.manifest.gameplay.bpmExact.toFixed(2)} · {formatSongTime(snapshot.songTimeMs)} / {formatSongTime(props.transport.durationMs)}</span>
+            <div className={styles.songProgress}><i style={{ width: `${songProgress}%` }} /></div>
+          </div>
+          <div className={styles.scoreCard}>
+            <small>MY SCORE</small>
+            <strong data-testid="gameplay-score">{snapshot.stats.score.toLocaleString()}</strong>
+            <span>COMBO {snapshot.stats.combo}</span>
+          </div>
+        </header>
 
-      <section
-        className={`${styles.command} ${active.isFinish ? styles.finish : ""}`}
-        data-command-hash={snapshot.activeCommandHash}
-        data-command-visible={snapshot.commandVisible ? "1" : "0"}
-        data-testid="gameplay-command"
-      >
-        <span>{active.isFinish ? "FINISH" : snapshot.commandVisible ? "COMMAND" : active.roomRest ? "ROOM REST" : "WAIT"}</span>
-        <div className={styles.arrows}>
-          {visibleCommand.length
-            ? visibleCommand.map((token, index) => (
-                <b className={token.reverse ? styles.reverse : ""} key={`${snapshot.activeCommandTurn}-${index}`}>
-                  {directionSymbol(token.displayDirection)}
-                </b>
-              ))
-            : <b className={styles.hiddenCommand}>•••</b>}
+        <div className={styles.matchInfo}>
+          <span data-testid="gameplay-global-level">{snapshot.globalLevel === null ? "READY" : `LEVEL ${snapshot.globalLevel}`}</span>
+          <span data-testid="gameplay-global-turn">T{snapshot.globalAbsoluteTurn}</span>
+          <span>PLAYERS {props.manifest.participants.length}</span>
         </div>
-        <small>target {rounded(snapshot.activeTargetSpaceMs)} ms · gauge {snapshot.gaugePercent.toFixed(1)}%</small>
-      </section>
+        <div className={styles.roster} aria-label="Frozen match participants">
+          {props.manifest.participants.map(participant => (
+            <span
+              key={participant.participantId}
+              className={participant.participantId === props.participantId ? styles.me : ""}
+              data-testid={participant.participantId === props.participantId ? "gameplay-local-player" : undefined}
+            >
+              {participant.participantId === props.participantId ? "★ " : ""}{participant.displayName}
+            </span>
+          ))}
+        </div>
 
-      <section className={styles.controls} aria-label="Gameplay controls">
-        {DIRECTIONS.map(direction => (
-          <button
-            data-testid={`gameplay-${direction}`}
-            key={direction}
-            onClick={() => props.runtime.handleDirection(direction)}
-            type="button"
-          >
-            {directionSymbol(direction)}
-          </button>
-        ))}
-        <button
-          className={styles.space}
-          data-testid="gameplay-space"
-          onClick={() => props.runtime.handleSpace()}
-          type="button"
+        {judgementVisible && snapshot.lastJudgement && (
+          <JudgementLabel
+            key={`judge-${snapshot.judgementAtSongTimeMs}`}
+            judgement={snapshot.lastJudgement}
+            perfectStreak={snapshot.lastJudgement === "perfect" ? snapshot.stats.combo : 0}
+          />
+        )}
+
+        {audioInterrupted && (
+          <p className={styles.audioAlert} role="alert" data-testid="multiplayer-audio-health">
+            {props.audioContextState && props.audioContextState !== "running"
+              ? "AudioContext bị tạm dừng. Không thay shared epoch."
+              : "AUDIO STALLED · WebAudio song clock không tiến."}
+          </p>
+        )}
+
+        <section
+          className={`${styles.commandArea} ${active.isFinish ? styles.finish : ""}`}
+          data-command-hash={snapshot.activeCommandHash}
+          data-command-visible={snapshot.commandVisible ? "1" : "0"}
+          data-testid="gameplay-command"
         >
-          SPACE
-        </button>
-      </section>
+          <div className={styles.commandHeader}>
+            <strong>{active.isFinish ? "FINISH" : `LEVEL ${snapshot.activeCommandLevel}`}</strong>
+            <span>{snapshot.commandVisible
+              ? `${snapshot.completedDirections} / ${active.command.length}`
+              : active.roomRest ? "ROOM REST" : "WAIT"}</span>
+          </div>
+          <div className={styles.commandStrip}>
+            {visibleCommand.length
+              ? visibleCommand.map((token, index) => (
+                  <b
+                    className={`${styles.commandToken} ${token.reverse ? styles.reverse : ""}
+                      ${index < snapshot.completedDirections ? styles.completed : ""}
+                      ${index === snapshot.completedDirections ? styles.target : ""}`}
+                    data-direction={token.displayDirection}
+                    data-reverse={token.reverse ? "1" : "0"}
+                    key={`${snapshot.activeCommandTurn}-${index}`}
+                  >
+                    {directionSymbol(token.displayDirection)}
+                  </b>
+                ))
+              : <span className={styles.waitingCommand}>{active.roomRest ? "REST" : "•••"}</span>}
+          </div>
+          <div className={styles.gauge} data-testid="gameplay-gauge">
+            <AuditionGauge
+              bpm={props.manifest.gameplay.bpmExact}
+              value={snapshot.gaugePercent}
+              spaceStartMs={props.manifest.gameplay.spaceStartMs}
+              currentTimeMs={snapshot.songTimeMs}
+              zoneStart={SCORE_ZONE_START}
+              zoneEnd={SCORE_ZONE_END}
+              onPointerDown={pressGauge}
+            />
+          </div>
+        </section>
 
-      <footer className={styles.footer}>
-        <span>Audio authority: <b>WEBAUDIO</b></span>
-        <span>Room status: <b>{props.roomStatus.toUpperCase()}</b></span>
-        <span>{snapshot.audioEnded ? "AUDIO END"
-          : snapshot.started && (audioClockStalled || props.audioContextState && props.audioContextState !== "running")
-            ? "AUDIO STALLED"
-            : snapshot.started ? "RUNNING" : "STOPPED"}</span>
-      </footer>
+        <section className={styles.controls} aria-label="Gameplay controls">
+          <button
+            className={styles.spaceButton}
+            data-testid="gameplay-space"
+            type="button"
+            disabled={snapshot.audioEnded}
+            onPointerDown={event => { event.preventDefault(); pressSpace(); }}
+            aria-label="SPACE"
+          >SPACE</button>
+          <div className={styles.dpad}>
+            {DIRECTIONS.map(direction => (
+              <button
+                key={direction}
+                className={styles[`pad${direction[0].toUpperCase()}${direction.slice(1)}`]}
+                data-testid={`gameplay-${direction}`}
+                type="button"
+                disabled={snapshot.audioEnded}
+                onPointerDown={event => { event.preventDefault(); pressDirection(direction); }}
+                aria-label={direction}
+              >
+                {directionSymbol(direction)}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <footer className={styles.footer}>
+          <span>WEBAUDIO · {snapshot.audioEnded ? "AUDIO END"
+            : snapshot.started && audioInterrupted ? "AUDIO STALLED"
+              : snapshot.started ? "RUNNING" : "STOPPED"}</span>
+          <span data-testid="gameplay-song-time-ms">{Math.round(snapshot.songTimeMs)} ms</span>
+          <span data-testid="gameplay-start-at-server-ms">{props.startAtServerMs}</span>
+        </footer>
+      </div>
     </main>
   );
 }
