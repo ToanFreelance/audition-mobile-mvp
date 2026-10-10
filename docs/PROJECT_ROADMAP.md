@@ -499,8 +499,16 @@ checks deferred and PR #18 unmerged.
   stale epoch is rejected by monotonic deadline, and same-epoch
   React scheduling is protected against unrelated rerenders.
   Five deterministic regression tests were added but **NOT EXECUTED**
-  in this session. Vercel build/TypeScript PASS is not a substitute
-  for device/runtime E2E. Keep this item unchecked.
+  in the initial implementation session. A subsequent Work QA run
+  actually PASSed those five and found/fixed the original clock effect
+  cancellation race (D01), but exposed D01-R: terminal clock sampling
+  failed with no same-session recovery trigger. **2026-10-10 D01-R
+  implementation:** persistent session-scoped clock error + explicit
+  THỬ ĐỒNG BỘ LẠI control, click-only nonce trigger and duplicate-click
+  guard; focused regression cases added. Vercel build and isolated
+  production-effect checks PASS. Independent Work E2E terminal recovery
+  rerun is **PENDING**, as is physical two-device Safari QA.
+  Do not mark audio integration accepted yet. Keep this item unchecked.
 
 **Acceptance gate:** Owner physical-device confirmation of multi-user
 Host handoff and audio progression, no RoomState/Realtime/actor
