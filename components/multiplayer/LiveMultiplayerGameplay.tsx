@@ -186,7 +186,8 @@ export default function LiveMultiplayerGameplay(props: {
       data-audio-stalled={audioClockStalled ? "1" : "0"}
       data-testid="multiplayer-gameplay-live"
     >
-      <section className={styles.stageViewport} aria-label="Multiplayer 3D stage">
+      <section className={styles.stageViewport} aria-label="Multiplayer 3D stage"
+        data-testid="gameplay-3d-stage" data-frozen-stage-id={props.stageId}>
         <Stage3D
           selectedStageId={props.stageId}
           characterAssetId={characterAssetId}
