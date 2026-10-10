@@ -69,6 +69,11 @@ export default function LiveMultiplayerGameplay(props: {
   const activeDirectionTimerRef = useRef<number | null>(null);
   const pressTimerRef = useRef<number | null>(null);
   const lastAudioProgressRef = useRef({ songMs: 0, observedAtMs: 0 });
+  const keyboardInputRef = useRef<{
+    pressSpace: () => void;
+    pressDirection: (direction: Direction) => void;
+    menuOpen: boolean;
+  }>({ pressSpace: () => undefined, pressDirection: () => undefined, menuOpen: false });
 
   useEffect(() => {
     try {
@@ -191,19 +196,29 @@ export default function LiveMultiplayerGameplay(props: {
     pressSpace();
   };
 
+  keyboardInputRef.current = { pressSpace, pressDirection, menuOpen };
   useEffect(() => {
+    // Runtime snapshots may render every RAF. Never rebind a global listener
+    // each frame just because HUD numbers/gauge changed.
     const onKey = (event: KeyboardEvent) => {
-      if (event.repeat || menuOpen) return;
-      if (event.code === "Space") { event.preventDefault(); pressSpace(); return; }
+      if (event.repeat || keyboardInputRef.current.menuOpen) return;
+      if (event.code === "Space") {
+        event.preventDefault();
+        keyboardInputRef.current.pressSpace();
+        return;
+      }
       const map: Record<string, Direction> = {
         ArrowLeft: "left", ArrowUp: "up", ArrowDown: "down", ArrowRight: "right",
       };
       const direction = map[event.code];
-      if (direction) { event.preventDefault(); pressDirection(direction); }
+      if (direction) {
+        event.preventDefault();
+        keyboardInputRef.current.pressDirection(direction);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, []);
 
   const saveSetting = (key: keyof typeof SETTING_KEYS, value: string) => {
     try { window.localStorage.setItem(SETTING_KEYS[key], value); } catch {}
