@@ -84,10 +84,7 @@ test.describe("P4.1 room domain", () => {
     });
     expect(canStartRoom({
       ...room,
-      participants: room.participants.map(participant => ({
-        ...participant,
-        connectionState: "disconnected" as const,
-      })),
+      participants: [{ ...host(), connectionState: "disconnected" }],
     })).toEqual({ allowed: false, reason: "host-unavailable" });
   });
 
