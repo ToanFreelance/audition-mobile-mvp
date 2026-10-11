@@ -18,6 +18,8 @@ import { isCharacterAssetId, DEFAULT_CHARACTER_ASSET_ID } from "../character/cha
 import { createCharacterPresentationEvent } from "../character/choreography";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { describeSharedTurn } from "../../multiplayer/determinism";
+import { acceptLiveScoreSnapshot, type LiveScoreSnapshot } from "../../multiplayer/live-score";
+import type { MultiplayerRoomTransport } from "../../multiplayer/transport";
 import type {
   MultiplayerGameplayJudgementEvent,
   MultiplayerGameplayRuntime,
@@ -52,8 +54,19 @@ export default function LiveMultiplayerGameplay(props: {
   startAtServerMs: number;
   roomStatus: string;
   audioContextState?: AudioContextState | null;
+  /** Realtime score metadata only; never participates in WebAudio scheduling. */
+  scoreTransport?: MultiplayerRoomTransport | null;
+  startRevision?: number;
 }) {
   const [snapshot, setSnapshot] = useState<MultiplayerGameplaySnapshot>(() => props.runtime.snapshot());
+  const [scoreReceipts, setScoreReceipts] = useState<{
+    matchId: string;
+    byParticipant: Record<string, LiveScoreSnapshot>;
+  }>(() => ({ matchId: props.manifest.matchId, byParticipant: {} }));
+  const lastResolvedScoreTurnRef = useRef<{ matchId: string; absoluteTurn: number }>({
+    matchId: props.manifest.matchId,
+    absoluteTurn: -1,
+  });
   const [audioClockStalled, setAudioClockStalled] = useState(false);
   const [activeDirection, setActiveDirection] = useState<Direction | null>(null);
   const [wrongDirection, setWrongDirection] = useState<Direction | null>(null);
@@ -125,6 +138,105 @@ export default function LiveMultiplayerGameplay(props: {
     if (activeDirectionTimerRef.current !== null) window.clearTimeout(activeDirectionTimerRef.current);
     if (pressTimerRef.current !== null) window.clearTimeout(pressTimerRef.current);
   }, []);
+
+  // Cumulative score updates repair dropped broadcasts without replaying
+  // individual judgement events. The data is client-reported, never a server
+  // verified score, and NEVER owns the shared WebAudio/global-turn timeline.
+  const publishLocalScore = useCallback(() => {
+    const transport = props.scoreTransport;
+    if (!transport || transport.status !== "connected"
+      || props.startRevision === undefined
+      || !props.manifest.participants.some(participant =>
+        participant.participantId === props.participantId && participant.kind === "human"
+      )) return;
+
+    const lastTurn = lastResolvedScoreTurnRef.current.matchId === props.manifest.matchId
+      ? lastResolvedScoreTurnRef.current.absoluteTurn : -1;
+    const update: LiveScoreSnapshot = {
+      matchId: props.manifest.matchId,
+      participantId: props.participantId,
+      lastResolvedTurn: lastTurn,
+      stats: props.runtime.stats,
+      audioEnded: props.runtime.isAudioEnded,
+    };
+    void transport.send({
+      kind: "player-score-snapshot",
+      roomRevision: props.manifest.roomRevision,
+      matchId: props.manifest.matchId,
+      startRevision: props.startRevision,
+      update,
+    }).catch(() => {
+      // Lossy score/presence telemetry. The next cumulative snapshot repairs
+      // reception when Realtime reconnects; never halt local gameplay.
+    });
+  }, [props.manifest, props.participantId, props.runtime, props.scoreTransport, props.startRevision]);
+
+  useEffect(() => {
+    const transport = props.scoreTransport;
+    if (!transport || props.startRevision === undefined) return;
+    const unsubscribeEvent = transport.onEvent(envelope => {
+      const payload = envelope.payload;
+      if (payload.kind !== "player-score-snapshot"
+        || envelope.roomId !== transport.roomId
+        || payload.matchId !== props.manifest.matchId
+        || payload.roomRevision !== props.manifest.roomRevision
+        || payload.startRevision !== props.startRevision) return;
+      setScoreReceipts(current => {
+        const existing = current.matchId === props.manifest.matchId
+          ? current.byParticipant : {};
+        const accepted = acceptLiveScoreSnapshot({
+          manifest: props.manifest,
+          localParticipantId: props.participantId,
+          senderParticipantId: envelope.senderParticipantId,
+          candidate: payload.update,
+          previous: existing[payload.update?.participantId],
+        });
+        if (!accepted) return current;
+        return {
+          matchId: props.manifest.matchId,
+          byParticipant: { ...existing, [accepted.participantId]: accepted },
+        };
+      });
+    });
+    const unsubscribeStatus = transport.onStatus(status => {
+      if (status === "connected") publishLocalScore();
+    });
+    publishLocalScore();
+    const interval = window.setInterval(publishLocalScore, 2500);
+    return () => {
+      window.clearInterval(interval);
+      unsubscribeStatus();
+      unsubscribeEvent();
+    };
+  }, [props.scoreTransport, props.manifest, props.participantId, props.startRevision, publishLocalScore]);
+
+  useEffect(() => {
+    const event = props.presentationJudgement;
+    if (!event || event.matchId !== props.manifest.matchId
+      || event.participantId !== props.participantId) return;
+    const previous = lastResolvedScoreTurnRef.current;
+    lastResolvedScoreTurnRef.current = {
+      matchId: props.manifest.matchId,
+      absoluteTurn: previous.matchId === props.manifest.matchId
+        ? Math.max(previous.absoluteTurn, event.absoluteTurn)
+        : event.absoluteTurn,
+    };
+    publishLocalScore();
+  }, [props.presentationJudgement, props.manifest.matchId, props.participantId, publishLocalScore]);
+
+  const currentRemoteScores = scoreReceipts.matchId === props.manifest.matchId
+    ? scoreReceipts.byParticipant : {};
+  const liveRankings = props.manifest.participants.map((participant, slot) => ({
+    participant,
+    slot,
+    stats: participant.participantId === props.participantId
+      ? snapshot.stats : currentRemoteScores[participant.participantId]?.stats ?? null,
+  })).sort((a, b) => {
+    if (a.stats && b.stats) return b.stats.score - a.stats.score || a.slot - b.slot;
+    if (a.stats) return -1;
+    if (b.stats) return 1;
+    return a.slot - b.slot;
+  });
 
   const localParticipant = props.manifest.participants.find(
     participant => participant.participantId === props.participantId,
@@ -275,15 +387,19 @@ export default function LiveMultiplayerGameplay(props: {
             <div className="function-key">PLAYERS {props.manifest.participants.length} · WEB AUDIO</div>
           </div>
           {props.manifest.participants.length > 1 && (
-            <div className="leaderboard">
-              {props.manifest.participants.map(participant => (
-                <div className="rank-line blue" key={participant.participantId}>
-                  <b>{participant.role === "host" ? "H" : "P"}</b>
+            <div className="leaderboard" aria-label="Bảng điểm trực tiếp tạm tính, do client báo cáo" data-testid="gameplay-live-scores">
+              {liveRankings.map((row, rank) => (
+                <div className="rank-line blue" key={row.participant.participantId}
+                  data-testid={`score-row-${row.participant.participantId}`}
+                  data-score-origin={row.participant.participantId === props.participantId
+                    ? "local" : row.stats ? "realtime" : "pending"}>
+                  <b>{row.stats ? rank + 1 : "—"}</b>
                   <span className="avatar" aria-hidden="true" />
                   <span className="rank-copy">
-                    <span>{participant.displayName}</span>
-                    <strong>{participant.participantId === props.participantId
-                      ? snapshot.stats.score.toLocaleString() : "—"}</strong>
+                    <span>{row.participant.displayName}</span>
+                    <strong data-testid={`live-score-${row.participant.participantId}`}>
+                      {row.stats ? row.stats.score.toLocaleString() : "—"}
+                    </strong>
                   </span>
                 </div>
               ))}
