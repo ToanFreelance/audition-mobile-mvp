@@ -2005,6 +2005,8 @@ export default function WaitingRoomPanel({
         startAtServerMs={gameplaySchedule.startAtServerMs}
         transport={gameplaySchedule.transport}
         audioContextState={gameplayAudioContextState}
+        scoreTransport={transportRef.current}
+        startRevision={matchStartSession.startRevision}
       />
     );
   }
