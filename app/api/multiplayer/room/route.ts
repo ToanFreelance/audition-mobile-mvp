@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   addParticipant,
+  createRoomState,
   changeMode,
   changeSong,
   changeStage,
@@ -21,6 +22,8 @@ import type { MatchLoadedAck } from "../../../../multiplayer/match-start-protoco
 import { isCanonicalRoomSnapshot } from "../../../../multiplayer/room-sync";
 import type { HumanGuestParticipant, MatchManifest, RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
 import { createP53SyncedWaitingRoomBase } from "../../../../multiplayer/waiting-room-qa";
+import { getCharacterCatalogEntry, isCharacterAssetId } from "../../../../components/character/character-catalog";
+import { WAITING_ROOM_MAX_PLAYERS, type HumanHostParticipant } from "../../../../multiplayer/types";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +38,18 @@ type CompareAndSwapRow = StoredRoomRow & {
 };
 
 type RoomMutationBody =
+  | { action: "close"; roomId: string; expectedRevision: number; actorParticipantId: string }
+  | { action: "host-leave"; roomId: string; expectedRevision: number; actorParticipantId: string }
+  | { action: "recover-host"; roomId: string; expectedRevision: number; actorParticipantId: string }
+  | { action: "transfer-host"; roomId: string; expectedRevision: number; actorParticipantId: string; targetParticipantId: string }
+  | { action: "heartbeat"; roomId: string; actorParticipantId: string }
+  | {
+      action: "create";
+      roomName: string;
+      participantId: string;
+      displayName: string;
+      characterAssetId: string;
+    }
   | { action: "bootstrap"; roomId: string }
   | {
       action: "join";
@@ -164,6 +179,20 @@ async function callRoomRpc<T>(functionName: string, body: Record<string, unknown
   return await response.json() as T[];
 }
 
+// Unlike the existing row-returning RPCs, PostgREST returns a scalar JSON
+// boolean for touch_mvp_lobby_room(). Never index the result as an array.
+async function touchMvpRoom(roomId: string, participantId: string): Promise<boolean> {
+  const config = getSupabaseServerConfig();
+  if (!config) throw new Error("Supabase room storage configuration is unavailable.");
+  const response = await fetch(`${config.url}/rest/v1/rpc/touch_mvp_room_member`, {
+    method: "POST", cache: "no-store",
+    headers: dbHeaders(config.key),
+    body: JSON.stringify({ p_room_id: roomId, p_participant_id: participantId }),
+  });
+  if (!response.ok) throw new Error(`Room heartbeat RPC failed (${response.status}).`);
+  return await response.json() === true;
+}
+
 async function readRoom(roomId: string): Promise<StoredRoomRow | null> {
   const rows = await callRoomRpc<StoredRoomRow>("get_lobby_room", {
     p_room_id: roomId,
@@ -275,7 +304,7 @@ function leaveHumanGuest(
   return removeParticipant(room, participant.participantId);
 }
 
-function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" }>) {
+function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "host-leave" | "recover-host" | "transfer-host" | "heartbeat" }>) {
   assertExpectedRevision(row, body.expectedRevision);
   const room = row.snapshot;
   if (!isCanonicalRoomSnapshot(room)) throw new Error("Stored room snapshot is invalid.");
@@ -365,15 +394,90 @@ async function bootstrap(roomId: string) {
   return insertInitialRoom(baseRoom);
 }
 
+
+// Room Browser exposes ONLY summaries of newly created MVP rooms. Never send
+// arbitrary historical QA snapshots, roster identities, or service credentials.
+async function listEntryRooms() {
+  // The publishable key must NEVER get table-level read access. This
+  // narrowly scoped SECURITY DEFINER RPC returns public room summaries only.
+  const rows = await callRoomRpc<{
+    room_id: string;
+    room_name: string;
+    mode_id: string;
+    player_count: number;
+    max_players: number;
+    open_slots: number;
+  }>("list_mvp_lobby_rooms", {});
+  return rows.map(row => ({
+    roomId: row.room_id,
+    roomName: row.room_name,
+    modeId: row.mode_id,
+    playerCount: row.player_count,
+    maxPlayers: row.max_players,
+    openSlots: row.open_slots,
+  }));
+}
+
+// Atomic bootstrap_lobby_room inserts only if absent, returning the saved row.
+// Random server-side ids avoid creating/replacing an existing user's room.
+async function createEntryRoom(body: Extract<RoomMutationBody, { action: "create" }>) {
+  const participantId = body.participantId.trim();
+  const name = body.displayName.trim();
+  const title = body.roomName.trim();
+  if (!/^player-[0-9a-f-]{36}$/.test(participantId)
+    || !name || name.length > 14 || !title || title.length > 32
+    || !isCharacterAssetId(body.characterAssetId)) {
+    throw new Error("Invalid character or room details.");
+  }
+  const character = getCharacterCatalogEntry(body.characterAssetId);
+  if (!character?.runtimeReady) throw new Error("Character not ready for gameplay.");
+  const host: HumanHostParticipant = {
+    participantId, displayName: name, kind: "human", role: "host",
+    slotIndex: 0, readyState: "not-applicable",
+    loadState: "idle", connectionState: "connected",
+    avatar: {
+      characterId: character.id,
+      characterAssetId: character.id,
+      outfit: {}, accessoryIds: [], petId: null, titleId: null,
+    },
+  };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const roomId = "mvp-" + crypto.randomUUID().slice(0, 12);
+    const room = createRoomState({
+      roomId, roomName: title, host,
+      maxPlayers: WAITING_ROOM_MAX_PLAYERS,
+      modeId: "solo-easy-battle", selectedSongId: "aloha",
+    });
+    if (!isCanonicalRoomSnapshot(room)) throw new Error("Invalid entry room state.");
+    const row = await insertInitialRoom(room);
+    if (row.snapshot.hostParticipantId === participantId && row.snapshot.roomId === roomId) {
+      return row.snapshot;
+    }
+  }
+  throw new Error("Could not allocate a unique room ID.");
+}
+
 function parseBody(value: unknown): RoomMutationBody | null {
   if (!value || typeof value !== "object") return null;
   const body = value as Record<string, unknown>;
-  if (typeof body.action !== "string" || typeof body.roomId !== "string") return null;
+  if (typeof body.action !== "string") return null;
+  if (body.action === "create") return body as RoomMutationBody;
+  if (typeof body.roomId !== "string") return null;
   if (!roomIdIsSafe(body.roomId)) return null;
   return body as RoomMutationBody;
 }
 
 export async function GET(request: NextRequest) {
+  if (request.nextUrl.searchParams.get("browse") === "1") {
+    if (!getSupabaseServerConfig()) return jsonError("Room storage configuration is unavailable.", 503);
+    try {
+      return NextResponse.json({ ok: true, rooms: await listEntryRooms() }, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Room list failed.", 503);
+    }
+  }
   const roomId = request.nextUrl.searchParams.get("roomId")?.trim() ?? "";
   if (!roomIdIsSafe(roomId)) return jsonError("Invalid roomId.", 400);
   if (!getSupabaseServerConfig()) return jsonError("Supabase room storage configuration is unavailable.", 503);
@@ -401,11 +505,81 @@ export async function POST(request: NextRequest) {
   if (!body) return jsonError("Invalid room mutation payload.", 400);
 
   try {
+    if (body.action === "create") {
+      return NextResponse.json({ ok: true, snapshot: await createEntryRoom(body) }, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
+    }
     if (body.action === "bootstrap") {
       const row = await bootstrap(body.roomId);
       return NextResponse.json({ ok: true, snapshot: row.snapshot }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
+    }
+    if (body.action === "heartbeat") {
+      const active = await touchMvpRoom(body.roomId, body.actorParticipantId);
+      return NextResponse.json({ ok: true, active }, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
+    }
+    if (body.action === "host-leave"
+      || body.action === "recover-host"
+      || body.action === "close") {
+      if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 1) {
+        return jsonError("Invalid host transfer revision.", 400);
+      }
+      const results = await callRoomRpc<CompareAndSwapRow & {
+        closed: boolean;
+        reason: string;
+      }>("handoff_mvp_room_host", {
+        p_room_id: body.roomId,
+        p_expected_revision: body.expectedRevision,
+        p_actor_participant_id: body.actorParticipantId,
+        p_disconnect: body.action === "recover-host",
+      });
+      const result = results[0];
+      if (!result) return jsonError("Room not found.", 404);
+      if (!result.applied && result.reason === "revision-conflict") {
+        return jsonConflict(result.snapshot);
+      }
+      return NextResponse.json({
+        ok: true,
+        transferred: Boolean(result.applied && !result.closed),
+        closed: Boolean(result.applied && result.closed),
+        reason: result.reason,
+        snapshot: result.applied && result.closed ? null : result.snapshot,
+      }, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
+    }
+
+    if (body.action === "transfer-host") {
+      if (!Number.isInteger(body.expectedRevision) || body.expectedRevision < 1
+        || !body.actorParticipantId?.trim() || !body.targetParticipantId?.trim()) {
+        return jsonError("Invalid Host transfer details.", 400);
+      }
+      const rows = await callRoomRpc<CompareAndSwapRow & { reason: string }>(
+        "transfer_mvp_room_host", {
+          p_room_id: body.roomId,
+          p_expected_revision: body.expectedRevision,
+          p_actor_participant_id: body.actorParticipantId,
+          p_target_participant_id: body.targetParticipantId,
+        },
+      );
+      const result = rows[0];
+      if (!result) return jsonError("Room not found.", 404);
+      if (!result.applied) {
+        if (result.reason === "revision-conflict") return jsonConflict(result.snapshot);
+        return jsonError(`Host transfer refused: ${result.reason}.`, 409);
+      }
+      if (!isCanonicalRoomSnapshot(result.snapshot)
+        || result.snapshot.revision !== body.expectedRevision + 1
+        || result.snapshot.hostParticipantId !== body.targetParticipantId) {
+        return jsonError("Host transfer returned an invalid snapshot.", 500);
+      }
+      return NextResponse.json({
+        ok: true, transferred: true, snapshot: result.snapshot,
+      }, { headers: { "Cache-Control": "no-store, max-age=0" } });
     }
 
     const current = await readRoom(body.roomId);

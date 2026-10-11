@@ -18,7 +18,7 @@ import {
   deriveSharedCountdown,
 } from "../multiplayer/match-start-protocol";
 import { isCanonicalRoomSnapshot } from "../multiplayer/room-sync";
-import { addParticipant, setGuestReady } from "../multiplayer/room-state";
+import { addParticipant, canStartRoom, createRoomState, setGuestReady } from "../multiplayer/room-state";
 import {
   createP53QaGuestParticipant,
   createP53SyncedWaitingRoomBase,
@@ -63,6 +63,64 @@ function identity(room: ReturnType<typeof startRoom>) {
     startRevision: room.matchStart.startRevision,
   };
 }
+
+test("Host alone passes the canonical START → LOADED → countdown → PLAYING path", () => {
+  const fixture = createP53SyncedWaitingRoomBase("host-only-fixture");
+  const host = fixture.participants.find(item => item.participantId === fixture.hostParticipantId);
+  if (!host || host.kind !== "human" || host.role !== "host") {
+    throw new Error("Missing QA host identity.");
+  }
+  // No bots/guests and no fake opponent. The actual RoomState retains open slots.
+  const waiting = createRoomState({
+    roomId: "host-only-playing",
+    roomName: "Host Only",
+    host,
+    modeId: "solo-easy-battle",
+    selectedSongId: "aloha",
+  });
+  expect(waiting.participants).toHaveLength(1);
+  expect(canStartRoom(waiting)).toEqual({ allowed: true, reason: null });
+  expect(isCanonicalRoomSnapshot(waiting)).toBe(true);
+
+  const manifest = freezeLobbyMatch(waiting, host.participantId, freezeInput());
+  expect(manifest.participants.map(item => item.participantId)).toEqual([host.participantId]);
+  expect(Object.isFrozen(manifest)).toBe(true);
+
+  let room = beginLobbyPreload(waiting, host.participantId, manifest, 1).room;
+  expect(room.status).toBe("preloading");
+  expect(room.matchStart?.startAtServerMs ?? null).toBeNull();
+  expect(isCanonicalRoomSnapshot(room)).toBe(true);
+
+  room = markLobbyParticipantLoading(room, host.participantId, identity(room)).room;
+  let session = restoreRoomMatchStartSession(room.matchStart!, room.participants);
+  expect(allClientsLoaded(session)).toBe(false);
+  const loaded = applyLobbyLoadedAck(
+    room, host.participantId, createLoadedAckForSession(session, host.participantId),
+  );
+  expect(loaded.accepted).toBe(true);
+  if (!loaded.accepted) throw new Error(loaded.reason);
+  room = loaded.room;
+  session = loaded.session;
+  expect(allClientsLoaded(session)).toBe(true);
+  expect(session.participants).toHaveLength(1);
+  expect(isCanonicalRoomSnapshot(room)).toBe(true);
+
+  const serverNowMs = 1_800_000_000_000;
+  const countdown = beginLobbyCountdown(room, host.participantId, identity(room), serverNowMs);
+  room = countdown.room;
+  const issuedEpoch = room.matchStart?.startAtServerMs;
+  expect(issuedEpoch).toBeGreaterThan(serverNowMs);
+  expect(room.status).toBe("countdown");
+  expect(isCanonicalRoomSnapshot(room)).toBe(true);
+  expect(() => beginLobbyCountdown(room, host.participantId, identity(room), serverNowMs + 10))
+    .toThrow("Room has no active preloading session");
+
+  room = beginLobbyPlaying(room, host.participantId, identity(room), issuedEpoch!).room;
+  expect(room.status).toBe("playing");
+  expect(room.matchStart?.startAtServerMs).toBe(issuedEpoch);
+  expect(room.participants).toHaveLength(1);
+  expect(isCanonicalRoomSnapshot(room)).toBe(true);
+});
 
 test.describe("P5.3 all clients loaded", () => {
   test("Host and Guest load independently before the exact session becomes all-loaded", () => {

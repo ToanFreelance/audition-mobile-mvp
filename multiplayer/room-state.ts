@@ -78,9 +78,10 @@ export function canStartRoom(room: RoomState): { allowed: boolean; reason: strin
     return { allowed: false, reason: "host-unavailable" };
   }
 
+  // The Host may start alone. If other participants occupy slots, every
+  // human Guest must still READY; empty/open slots never block START.
+  // This is the same multiplayer preload/epoch path, not a separate solo clock.
   const nonHost = occupied.filter(participant => participant.participantId !== room.hostParticipantId);
-  if (nonHost.length === 0) return { allowed: false, reason: "opponent-required" };
-
   const allReady = nonHost.every(participant => {
     if (participant.kind === "bot") return participant.readyState === "ready";
     return participant.role === "guest" && participant.readyState === "ready";

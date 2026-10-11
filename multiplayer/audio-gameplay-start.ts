@@ -55,11 +55,21 @@ export async function scheduleMultiplayerAudioGameplay(input: {
     input.callbacks,
   );
   runtime.setTimeSource(() => input.transport.getCurrentTimeMs());
-  runtime.start();
 
   try {
-    await input.transport.playAtContextTime(plan.audioContextStartTimeSec);
+    // Keep the server epoch immutable even if Safari suspends the context
+    // between NTP mapping and buffer-source.start(). The WebAudio context
+    // alone may have been frozen while the server/monotonic clock progressed.
+    await input.transport.playAtContextTime(
+      plan.audioContextStartTimeSec,
+      0,
+      plan.localStartMonotonicMs,
+    );
+    // Only mark the gameplay consumer started AFTER WebAudio scheduling
+    // succeeds. A stalled/resume-rejected context is never "RUNNING".
+    runtime.start();
   } catch (error) {
+    input.transport.reset();
     runtime.stop();
     throw error;
   }

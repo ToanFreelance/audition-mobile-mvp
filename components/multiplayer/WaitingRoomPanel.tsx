@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createWebAudioContext, WebAudioTransport } from "../../game/web-audio-transport";
+import { retryPreloadCas, type PreloadCasAction } from "../../multiplayer/preload-cas-retry";
 import {
   canStartRoom,
   changeMode,
@@ -16,7 +17,7 @@ import { applyServerRoomSnapshot, isCanonicalRoomSnapshot } from "../../multipla
 import { latchLobbyPresence, projectRoomForPresence } from "../../multiplayer/lobby-presence";
 import { SupabaseRealtimeRoomTransport } from "../../multiplayer/supabase-realtime-transport";
 import { scheduleMultiplayerAudioGameplay } from "../../multiplayer/audio-gameplay-start";
-import type { MultiplayerGameplayRuntime } from "../../multiplayer/gameplay-runtime";
+import type { MultiplayerGameplayJudgementEvent, MultiplayerGameplayRuntime } from "../../multiplayer/gameplay-runtime";
 import {
   freezeLobbyMatch,
   matchManifestMatchesRoom,
@@ -266,7 +267,8 @@ function modeLabel(modeId: string) {
 }
 
 function roomRevisionReason(action: unknown): "participant" | "song" | "mode" | "slot" | "other" {
-  if (action === "join" || action === "ready" || action === "leave" || action === "kick") return "participant";
+  if (action === "join" || action === "ready" || action === "leave"
+    || action === "kick" || action === "transfer-host") return "participant";
   if (action === "song") return "song";
   if (action === "mode") return "mode";
   if (action === "stage" || action === "open-slot" || action === "close-slot") return "slot";
@@ -277,7 +279,11 @@ type WaitingRoomPanelProps = {
   initialSync?: {
     roomId: string;
     role: SyncClientRole;
+    participantId?: string;
+    /** Entry Flow reads an existing canonical room; QA still bootstraps. */
+    entryFlow?: boolean;
   } | null;
+  initialRoom?: RoomState;
   calibrationMode?: boolean;
   blueprintMode?: boolean;
   fixMapMode?: boolean;
@@ -292,16 +298,18 @@ type WaitingRoomPanelProps = {
 
 export default function WaitingRoomPanel({
   initialSync = null,
+  initialRoom,
   calibrationMode = false,
   blueprintMode = false,
   fixMapMode = false,
   goldenTrace = null,
   visualPreset = "default",
 }: WaitingRoomPanelProps) {
-  const initialParticipantId = initialSync?.role === "guest" ? "p51-guest" : "p51-host";
-  const [room, setRoom] = useState(() => initialSync
+  const initialParticipantId = initialSync?.participantId
+    ?? (initialSync?.role === "guest" ? "p51-guest" : "p51-host");
+  const [room, setRoom] = useState(() => initialRoom ?? (initialSync
     ? createP53SyncedWaitingRoomBase(initialSync.roomId)
-    : createP51WaitingRoomFixture());
+    : createP51WaitingRoomFixture()));
   const [viewParticipantId, setViewParticipantId] = useState(
     initialSync ? initialParticipantId : room.hostParticipantId,
   );
@@ -331,6 +339,7 @@ export default function WaitingRoomPanel({
   const [syncDetail, setSyncDetail] = useState<string | null>(null);
   const [readyIntentPending, setReadyIntentPending] = useState(false);
   const [leaveIntentPending, setLeaveIntentPending] = useState(false);
+  const [manualHostTransferPending, setManualHostTransferPending] = useState(false);
   const [leftRoom, setLeftRoom] = useState(false);
   const [startIntentPending, setStartIntentPending] = useState(false);
   const [frozenMatchManifest, setFrozenMatchManifest] = useState<MatchManifest | null>(null);
@@ -341,19 +350,45 @@ export default function WaitingRoomPanel({
     sessionKey: string;
     estimate: ClockSyncEstimate;
   } | null>(null);
+  // Keep terminal clock failures separate from syncDetail: preload/audio
+  // notifications must not mask the only recovery path on an iPhone.
+  const [clockSyncFailure, setClockSyncFailure] = useState<{
+    sessionKey: string;
+    message: string;
+  } | null>(null);
+  const [clockRetryNonce, setClockRetryNonce] = useState(0);
+  const [preloadRetryNonce, setPreloadRetryNonce] = useState(0);
+  const [preloadCasFailure, setPreloadCasFailure] = useState<{ sessionKey: string; message: string } | null>(null);
+  // An actual frozen-content error must survive RoomState CAS conflict notices.
+  const [preloadContentFailure, setPreloadContentFailure] = useState<{ sessionKey: string; message: string } | null>(null);
   const [countdownNowMonotonicMs, setCountdownNowMonotonicMs] = useState<number | null>(null);
   const [gameplayAudioReadyKey, setGameplayAudioReadyKey] = useState<string | null>(null);
   const [gameplaySchedule, setGameplaySchedule] = useState<ScheduledGameplay | null>(null);
+  const [gameplayPresentationJudgement, setGameplayPresentationJudgement] = useState<MultiplayerGameplayJudgementEvent | null>(null);
   const [gameplayHandoffError, setGameplayHandoffError] = useState<string | null>(null);
   const [audioActivationNonce, setAudioActivationNonce] = useState(0);
+  const [gameplayAudioContextState, setGameplayAudioContextState] =
+    useState<AudioContextState | null>(null);
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
   const preloadAttemptRef = useRef<string | null>(null);
+  // A successful asset preload remains cached when only its LOADED CAS needs retry.
+  const preloadReadinessRef = useRef<{
+    sessionKey: string;
+    readiness: Awaited<ReturnType<typeof preloadFrozenLobbyMatch>>;
+  } | null>(null);
   const countdownAttemptRef = useRef<string | null>(null);
+  const clockRetryRequestedRef = useRef(false);
   const gameplayAudioContextRef = useRef<AudioContext | null>(null);
   const gameplayAudioRef = useRef<PreparedGameplayAudio | null>(null);
   const gameplayAudioPrepareAttemptRef = useRef<string | null>(null);
   const gameplayScheduleAttemptRef = useRef<string | null>(null);
+  // Track the immutable epoch independently of React effect dependencies.
+  // Realtime updates, resampling and explicit audio gestures must not cancel
+  // an in-flight source.start() for the SAME match/epoch.
+  const audioScheduleIdentityRef = useRef<string | null>(null);
+  const activeAudioScheduleAttemptRef = useRef<{ key: string; cancelled: boolean } | null>(null);
+  const audioScheduleMountedRef = useRef(false);
   const gameplayRuntimeRef = useRef<MultiplayerGameplayRuntime | null>(null);
   const playingTransitionAttemptRef = useRef<string | null>(null);
 
@@ -362,8 +397,25 @@ export default function WaitingRoomPanel({
     roomRef.current = room;
   }, [room]);
 
-  useEffect(() => () => {
-    gameplayRuntimeRef.current?.stop();
+  // The user gesture creates the AudioContext. Observe Safari's native
+  // suspension state; never infer audio progress from RoomState PLAYING.
+  useEffect(() => {
+    const context = gameplayAudioContextRef.current;
+    if (!context) return;
+    const reflect = () => setGameplayAudioContextState(context.state);
+    reflect();
+    context.addEventListener("statechange", reflect);
+    return () => context.removeEventListener("statechange", reflect);
+  }, [audioActivationNonce]);
+
+  useEffect(() => {
+    audioScheduleMountedRef.current = true;
+    return () => {
+      audioScheduleMountedRef.current = false;
+      if (activeAudioScheduleAttemptRef.current) {
+        activeAudioScheduleAttemptRef.current.cancelled = true;
+      }
+      gameplayRuntimeRef.current?.stop();
     gameplayRuntimeRef.current = null;
     const prepared = gameplayAudioRef.current;
     gameplayAudioRef.current = null;
@@ -371,6 +423,7 @@ export default function WaitingRoomPanel({
     const context = gameplayAudioContextRef.current;
     gameplayAudioContextRef.current = null;
     if (context && context.state !== "closed") void context.close().catch(() => undefined);
+    };
   }, []);
 
   useEffect(() => {
@@ -433,6 +486,24 @@ export default function WaitingRoomPanel({
       roomRef.current = snapshot;
       setRoom(snapshot);
       setReadyIntentPending(false);
+      if (initialSync?.entryFlow) {
+        const local = snapshot.participants.find(item =>
+          item.participantId === syncOptions.participantId
+        );
+        if (local?.kind === "human" && local.role !== syncOptions.role) {
+          // Rebind presence and host actions to canonical authority. A
+          // promoted Guest must become the real Host without page reload.
+          setSyncOptions(current => current?.participantId === local.participantId
+            ? { ...current, role: local.role } : current);
+          setSyncDetail(local.role === "host"
+            ? "Bạn đã được chuyển quyền Host."
+            : "Quyền Host đã chuyển; bạn hiện là Guest.");
+          setViewMode("center");
+          setStagePage(0);
+          setSelectedParticipantId(local.role === "host"
+            ? local.participantId : snapshot.hostParticipantId);
+        }
+      }
 
       const memberIds = new Set(snapshot.participants.map(item => item.participantId));
       confirmedPresenceIds = confirmedPresenceIds.filter(
@@ -459,6 +530,11 @@ export default function WaitingRoomPanel({
         return initialSnapshot;
       }
       if (guestJoinedThisSession) return initialSnapshot;
+      // Entry joins happen on the browser through CAS before mounting.
+      // Do not silently resurrect a removed/kicked participant.
+      if (initialSync?.entryFlow) {
+        throw new Error("Bạn không còn trong phòng. Hãy trở lại sảnh.");
+      }
 
       const guest = createP53QaGuestParticipant();
       let current = initialSnapshot;
@@ -553,19 +629,24 @@ export default function WaitingRoomPanel({
         const config = await configResponse.json() as RealtimeConfig;
         if (disposed) return;
 
-        const bootstrapResult = await postRoomMutation({
-          action: "bootstrap",
-          roomId: syncOptions.roomId,
-        });
+        // QA keeps bootstrap; entry requires an existing canonical room.
+        const initialSnapshot = initialSync?.entryFlow
+          ? await fetchRoomSnapshot(syncOptions.roomId)
+          : (await postRoomMutation({
+              action: "bootstrap",
+              roomId: syncOptions.roomId,
+            })).snapshot;
         if (disposed) return;
 
-        applyCanonicalSnapshot(bootstrapResult.snapshot);
-        const joinedSnapshot = await ensureGuestJoined(bootstrapResult.snapshot);
+        applyCanonicalSnapshot(initialSnapshot);
+        const joinedSnapshot = await ensureGuestJoined(initialSnapshot);
         if (disposed) return;
 
-        const localParticipant = syncOptions.role === "guest"
-          ? createP53QaGuestParticipant()
-          : joinedSnapshot.participants.find(item => item.participantId === syncOptions.participantId);
+        const localParticipant = initialSync?.entryFlow
+          ? joinedSnapshot.participants.find(item => item.participantId === syncOptions.participantId)
+          : syncOptions.role === "guest"
+            ? createP53QaGuestParticipant()
+            : joinedSnapshot.participants.find(item => item.participantId === syncOptions.participantId);
         if (!localParticipant) throw new Error("Local sync participant is unavailable.");
 
         transport = new SupabaseRealtimeRoomTransport({
@@ -694,6 +775,27 @@ export default function WaitingRoomPanel({
   const clockSyncEstimate = matchStartSessionKey && clockSyncState?.sessionKey === matchStartSessionKey
     ? clockSyncState.estimate
     : null;
+  const activeClockSyncFailure = matchStartSessionKey
+    && clockSyncFailure?.sessionKey === matchStartSessionKey
+    && !clockSyncEstimate
+    ? clockSyncFailure
+    : null;
+  const activePreloadCasFailure = matchStartSessionKey
+    && preloadCasFailure?.sessionKey === matchStartSessionKey
+    && room.status === "preloading"
+    && room.participants.some(item => item.participantId === syncOptions?.participantId && item.loadState !== "loaded")
+    ? preloadCasFailure
+    : null;
+  const activePreloadContentFailure = matchStartSessionKey
+    && preloadContentFailure?.sessionKey === matchStartSessionKey
+    && room.status === "preloading"
+    && room.participants.some(item => item.participantId === syncOptions?.participantId && item.loadState !== "loaded")
+    ? preloadContentFailure
+    : null;
+  audioScheduleIdentityRef.current = matchStartSessionKey
+    && matchStartSession?.startAtServerMs != null
+    ? `${matchStartSessionKey}:${matchStartSession.startAtServerMs}`
+    : null;
   const estimatedServerNowMs = clockSyncEstimate && countdownNowMonotonicMs !== null
     ? estimateServerNowMs(countdownNowMonotonicMs, clockSyncEstimate.offsetMs)
     : null;
@@ -717,8 +819,11 @@ export default function WaitingRoomPanel({
     && estimatedServerNowMs >= gameplaySchedule.startAtServerMs,
   );
   const viewer = room.participants.find(item => item.participantId === viewParticipantId)
-    ?? (syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
-  const hostView = syncOptions ? syncOptions.role === "host" : viewer.participantId === room.hostParticipantId;
+    ?? (initialSync?.entryFlow ? room.participants[0]
+      : syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
+  const hostView = syncOptions
+    ? syncOptions.participantId === room.hostParticipantId
+    : viewer.participantId === room.hostParticipantId;
   const startGate = useMemo(() => canStartRoom(displayRoom), [displayRoom]);
   const participantById = useMemo(
     () => new Map(displayRoom.participants.map(item => [item.participantId, item])),
@@ -783,8 +888,29 @@ export default function WaitingRoomPanel({
     if (snapshot.roomId !== room.roomId || !isCanonicalRoomSnapshot(snapshot)) {
       throw new Error("Server returned an invalid room snapshot.");
     }
+    if (snapshot.revision < roomRef.current.revision) return;
     roomRef.current = snapshot;
     setRoom(snapshot);
+    if (initialSync?.entryFlow && syncOptions) {
+      const local = snapshot.participants.find(item =>
+        item.participantId === syncOptions.participantId
+      );
+      if (local?.kind === "human" && local.role !== syncOptions.role) {
+        setSyncOptions(current => current?.participantId === local.participantId
+          ? { ...current, role: local.role } : current);
+        if (local.role === "host") {
+          setSyncDetail("Bạn đã được chuyển quyền Host.");
+          setViewMode("center");
+          setSelectedParticipantId(local.participantId);
+          setStagePage(0);
+        } else {
+          setSyncDetail("Quyền Host đã chuyển; bạn hiện là Guest.");
+          setViewMode("center");
+          setSelectedParticipantId(snapshot.hostParticipantId);
+          setStagePage(0);
+        }
+      }
+    }
   };
 
   const runServerMutation = async (payload: Record<string, unknown>, successDetail?: string) => {
@@ -821,6 +947,19 @@ export default function WaitingRoomPanel({
     return result;
   };
 
+  const retryClockSynchronization = () => {
+    // Explicit owner/user gesture only after a terminal sampling failure.
+    // No implicit retry on focus, Realtime or RoomState revision changes.
+    if (!matchStartSessionKey || !activeClockSyncFailure
+      || !allParticipantsLoaded || clockRetryRequestedRef.current
+      || countdownAttemptRef.current !== null
+      || (room.status !== "preloading"
+        && room.status !== "countdown" && room.status !== "playing")) return;
+    clockRetryRequestedRef.current = true;
+    setClockSyncFailure(null);
+    setClockRetryNonce(value => value + 1);
+  };
+
   const activateGameplayAudioFromGesture = () => {
     try {
       let context = gameplayAudioContextRef.current;
@@ -830,8 +969,11 @@ export default function WaitingRoomPanel({
       }
       setGameplayHandoffError(null);
       setAudioActivationNonce(current => current + 1);
+      setGameplayAudioContextState(context.state);
       if (context.state !== "running") {
-        void context.resume().catch(error => {
+        void context.resume().then(() => {
+          setGameplayAudioContextState(context.state);
+        }).catch(error => {
           setGameplayHandoffError(
             error instanceof Error ? error.message : "WebAudio activation failed.",
           );
@@ -867,59 +1009,81 @@ export default function WaitingRoomPanel({
     }
     if (preloadAttemptRef.current === identityKey) return;
     preloadAttemptRef.current = identityKey;
+    // Clear only when a new attempt starts; old-session errors are hidden by
+    // the frozen match identity, never by an unrelated Realtime notice.
+    setPreloadContentFailure(previous => previous?.sessionKey === identityKey ? null : previous);
 
     let cancelled = false;
-
-    const submitPreloadMutation = async (
-      action: "preload-loading" | "preload-failed" | "loaded",
+    const submitPreloadMutation = (
+      action: PreloadCasAction,
       ack?: ReturnType<typeof createLoadedAckForSession>,
-    ) => {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const current = roomRef.current;
-        const binding = current.matchStart;
-        if (!binding
-          || binding.matchId !== identity.matchId
-          || binding.roomRevision !== identity.roomRevision
-          || binding.startRevision !== identity.startRevision) {
-          throw new Error("Active preload session changed before the client ACK completed.");
-        }
-
-        const result = await runServerMutation({
-          action,
-          expectedRevision: current.revision,
-          actorParticipantId: localParticipant.participantId,
-          matchId: identity.matchId,
-          roomRevision: identity.roomRevision,
-          startRevision: identity.startRevision,
-          ...(ack ? { ack } : {}),
-        });
-        if (!result.conflict) return result.snapshot;
-      }
-      throw new Error("Preload ACK could not win the canonical RoomState CAS after retries.");
-    };
+    ) => retryPreloadCas({
+      action,
+      identity,
+      participantId: localParticipant.participantId,
+      readCurrent: () => roomRef.current,
+      cancelled: () => cancelled,
+      mutate: current => runServerMutation({
+        action,
+        expectedRevision: current.revision,
+        actorParticipantId: localParticipant.participantId,
+        matchId: identity.matchId,
+        roomRevision: identity.roomRevision,
+        startRevision: identity.startRevision,
+        ...(ack ? { ack } : {}),
+      }),
+    });
 
     void (async () => {
-      await submitPreloadMutation("preload-loading");
-      if (cancelled) return;
+      // CAS contention is a metadata issue, not an asset failure.
+      const loadingSnapshot = await submitPreloadMutation("preload-loading");
+      if (cancelled || !loadingSnapshot) return;
+      if (roomRef.current.participants.some(
+        item => item.participantId === localParticipant.participantId && item.loadState === "loaded",
+      )) return;
 
-      const readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest);
-      if (cancelled) return;
+      let readiness = preloadReadinessRef.current?.sessionKey === identityKey
+        ? preloadReadinessRef.current.readiness : null;
+      if (!readiness) {
+        try {
+          readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest);
+          if (cancelled) return;
+          preloadReadinessRef.current = { sessionKey: identityKey, readiness };
+        } catch (error) {
+          if (cancelled) return;
+          // Only a genuine asset/content preload error may mark FAILED.
+          // Keep the cause independently visible across subsequent CAS conflicts.
+          const message = error instanceof Error ? error.message : "Match content preload failed.";
+          setPreloadContentFailure({ sessionKey: identityKey, message });
+          setSyncDetail(message);
+          try {
+            await submitPreloadMutation("preload-failed");
+          } catch (mutationError) {
+            if (cancelled) return;
+            if (preloadAttemptRef.current === identityKey) preloadAttemptRef.current = null;
+            setPreloadCasFailure({
+              sessionKey: identityKey,
+              message: mutationError instanceof Error ? mutationError.message : "Failed to report preload error.",
+            });
+          }
+          return;
+        }
+      }
 
+      if (cancelled) return;
       const current = roomRef.current;
-      if (!current.matchStart) throw new Error("Preload session disappeared before LOADED ACK.");
+      if (!current.matchStart || current.status !== "preloading") return;
       const currentSession = restoreRoomMatchStartSession(current.matchStart, current.participants);
-      const ack = createLoadedAckForSession(
-        currentSession,
-        localParticipant.participantId,
-        readiness,
-      );
+      const ack = createLoadedAckForSession(currentSession, localParticipant.participantId, readiness);
       const loadedSnapshot = await submitPreloadMutation("loaded", ack);
-      if (cancelled || !loadedSnapshot.matchStart) return;
+      if (cancelled || !loadedSnapshot?.matchStart) return;
 
       const loadedSession = restoreRoomMatchStartSession(
         loadedSnapshot.matchStart,
         loadedSnapshot.participants,
       );
+      setPreloadCasFailure(previous => previous?.sessionKey === identityKey ? null : previous);
+      setPreloadContentFailure(previous => previous?.sessionKey === identityKey ? null : previous);
       setSyncDetail(
         allClientsLoaded(loadedSession)
           ? "ALL CLIENTS LOADED."
@@ -927,23 +1091,35 @@ export default function WaitingRoomPanel({
       );
     })().catch(error => {
       if (cancelled) return;
-      setSyncDetail(error instanceof Error ? error.message : "Match preload failed.");
-      void submitPreloadMutation("preload-failed").catch(() => undefined);
+      // Network failure or terminal CAS contention leaves assets intact.
+      // Expose a user-gesture retry of the same frozen ACK, not preload-failed.
+      if (preloadAttemptRef.current === identityKey) preloadAttemptRef.current = null;
+      const message = error instanceof Error ? error.message : "Preload ACK synchronization failed.";
+      setPreloadCasFailure({ sessionKey: identityKey, message });
+      setSyncDetail(message);
     });
 
     return () => {
       cancelled = true;
+      if (preloadAttemptRef.current === identityKey) preloadAttemptRef.current = null;
     };
+    // Only frozen match identity/phase and explicit retry own the preload task.
+    // RoomState revisions and Realtime presence must not restart asset loading.
   }, [
     matchStartSession?.matchId,
     matchStartSession?.roomRevision,
     matchStartSession?.startRevision,
     room.status,
     syncOptions?.participantId,
+    preloadRetryNonce,
   ]);
 
+  // D01: an NTP sample belongs to the frozen match + participant,
+  // NOT to Realtime connection status, RoomState phase or clockSyncState.
+  // Re-rendering any of those must not discard an in-flight sample while
+  // leaving countdownAttemptRef latched forever (Safari refresh recovery).
   useEffect(() => {
-    if (!syncOptions || !matchStartSession || !allParticipantsLoaded) return;
+    if (!syncOptions || !matchStartSession || !matchStartSessionKey || !allParticipantsLoaded) return;
     if (room.status !== "preloading" && room.status !== "countdown" && room.status !== "playing") return;
 
     const localParticipant = room.participants.find(
@@ -951,15 +1127,16 @@ export default function WaitingRoomPanel({
     );
     if (!localParticipant || localParticipant.kind !== "human") return;
 
-    const sessionKey = `${matchStartSession.matchId}:${matchStartSession.roomRevision}:${matchStartSession.startRevision}:${localParticipant.participantId}`;
-    if ((room.status === "countdown" || room.status === "playing")
-      && clockSyncState?.sessionKey === sessionKey) return;
+    const sessionKey = matchStartSessionKey;
+    clockRetryRequestedRef.current = false;
+    if (clockSyncState?.sessionKey === sessionKey) return;
 
-    const attemptKey = `${sessionKey}:${room.status}`;
+    const attemptKey = sessionKey;
     if (countdownAttemptRef.current === attemptKey) return;
     countdownAttemptRef.current = attemptKey;
 
     let cancelled = false;
+    let samplingCompleted = false;
 
     void (async () => {
       setSyncDetail(
@@ -967,8 +1144,26 @@ export default function WaitingRoomPanel({
           ? "ALL CLIENTS LOADED · sampling shared server clock…"
           : "Recovering shared server clock…",
       );
-      const estimate = await sampleLobbyServerClock();
-      if (cancelled) return;
+      // Bounded retries for transient clock-endpoint/network failures.
+      // All attempts target the SAME immutable session; none can issue or
+      // move an epoch. Final failures are surfaced rather than latched.
+      let estimate: ClockSyncEstimate | null = null;
+      for (let samplingAttempt = 0; samplingAttempt < 3; samplingAttempt += 1) {
+        if (cancelled) return;
+        try {
+          estimate = await sampleLobbyServerClock();
+          break;
+        } catch (error) {
+          if (cancelled) return;
+          if (samplingAttempt === 2) throw error;
+          await new Promise<void>(resolve => {
+            window.setTimeout(resolve, 250 * (samplingAttempt + 1));
+          });
+        }
+      }
+      if (cancelled || !estimate) return;
+      samplingCompleted = true;
+      setClockSyncFailure(null);
       setClockSyncState({ sessionKey, estimate });
 
       if (roomRef.current.status === "countdown" || roomRef.current.status === "playing") {
@@ -1009,22 +1204,28 @@ export default function WaitingRoomPanel({
       throw new Error("Shared countdown epoch could not win the canonical RoomState CAS.");
     })().catch(error => {
       if (cancelled) return;
-      countdownAttemptRef.current = null;
-      setSyncDetail(error instanceof Error ? error.message : "Shared countdown synchronization failed.");
+      if (countdownAttemptRef.current === attemptKey) countdownAttemptRef.current = null;
+      const message = error instanceof Error ? error.message : "Shared countdown synchronization failed.";
+      // Only sampling failures are recoverable by re-sampling. A separate
+      // countdown-CAS failure must not masquerade as a recoverable clock error.
+      if (!samplingCompleted) setClockSyncFailure({ sessionKey, message });
+      setSyncDetail(message);
     });
 
     return () => {
+      // Only an actual frozen-session change, lost all-loaded gate or
+      // unmount cleans this effect. Release ONLY our own latch so the
+      // next valid session/reconnect can sample again.
       cancelled = true;
+      if (countdownAttemptRef.current === attemptKey) countdownAttemptRef.current = null;
     };
+    // Match + participant are the ONLY clock-sampling ownership inputs.
+    // Realtime syncStatus, phase, clockSyncState and RoomState revisions
+    // are deliberately excluded: async callbacks read roomRef.current.
   }, [
     allParticipantsLoaded,
-    clockSyncState?.sessionKey,
-    matchStartSession?.matchId,
-    matchStartSession?.roomRevision,
-    matchStartSession?.startRevision,
-    room.status,
-    syncOptions?.participantId,
-    syncStatus,
+    matchStartSessionKey,
+    clockRetryNonce,
   ]);
 
   useEffect(() => {
@@ -1131,18 +1332,31 @@ export default function WaitingRoomPanel({
 
     const prepared = gameplayAudioRef.current;
     if (!prepared || prepared.sessionKey !== matchStartSessionKey) return;
-    if (gameplayScheduleAttemptRef.current === matchStartSessionKey) return;
-    gameplayScheduleAttemptRef.current = matchStartSessionKey;
+    // Depend on the immutable match/epoch, not the reconstructed
+    // matchStartSession object. RoomState revision / presence changes must
+    // never cancel scheduling mid-flight while keeping the attempt latch.
+    const attemptKey = `${matchStartSessionKey}:${matchStartSession.startAtServerMs}`;
+    if (gameplayScheduleAttemptRef.current === attemptKey) return;
+    gameplayScheduleAttemptRef.current = attemptKey;
 
-    let cancelled = false;
+    const attempt = { key: attemptKey, cancelled: false };
+    activeAudioScheduleAttemptRef.current = attempt;
+    const abandoned = () => attempt.cancelled
+      || !audioScheduleMountedRef.current
+      || audioScheduleIdentityRef.current !== attemptKey;
     void scheduleMultiplayerAudioGameplay({
       session: matchStartSession,
       participantId: syncOptions.participantId,
       transport: prepared.transport,
       estimatedServerOffsetMs: clockSyncEstimate.offsetMs,
+      // Presentation-only callback. Never mutates WebAudio/shared timing.
+      callbacks: { onJudgement: setGameplayPresentationJudgement },
     }).then(result => {
-      if (cancelled) {
+      if (abandoned()) {
         result.runtime?.stop();
+        // If this attempt scheduled a source after a true match change or
+        // unmount, stop it; never allow a stale audio owner to linger.
+        prepared.transport.reset();
         return;
       }
       if (result.status === "late") {
@@ -1167,23 +1381,44 @@ export default function WaitingRoomPanel({
         `AUDIO SCHEDULED · shared epoch ${Math.round(result.plan.startAtServerMs)} · lead ${Math.round(result.plan.leadTimeMs)} ms.`,
       );
     }).catch(error => {
-      if (cancelled) return;
+      if (abandoned()) return;
       gameplayScheduleAttemptRef.current = null;
       setGameplayHandoffError(
         error instanceof Error ? error.message : "Shared WebAudio scheduling failed.",
       );
+    }).finally(() => {
+      if (activeAudioScheduleAttemptRef.current === attempt) {
+        activeAudioScheduleAttemptRef.current = null;
+      }
     });
 
     return () => {
-      cancelled = true;
+      // Dependencies such as audioActivationNonce or the NTP estimate may
+      // change while source.start() is pending. Retain the same in-flight
+      // attempt in that case. Cancel ONLY after true epoch/session change;
+      // the mount cleanup independently handles true unmount.
+      if (audioScheduleIdentityRef.current !== attemptKey) {
+        attempt.cancelled = true;
+        if (gameplayScheduleAttemptRef.current === attemptKey) {
+          gameplayScheduleAttemptRef.current = null;
+        }
+      }
     };
+    // IMPORTANT: matchStartSession and syncOptions are object references,
+    // not schedule identity. A room revision can reconstruct the former
+    // while leaving the canonical epoch unchanged. Only the primitives
+    // below may restart this scheduling effect.
   }, [
-    clockSyncEstimate,
+    // On Safari the AudioContext may have been suspended and a previous
+    // attempt can fail. A NEW explicit user gesture is a permitted retry
+    // ONLY against the same immutable epoch (the bridge rejects LATE).
+    audioActivationNonce,
+    clockSyncEstimate?.offsetMs,
     gameplayAudioReadyKey,
     gameplaySchedule?.sessionKey,
-    matchStartSession,
     matchStartSessionKey,
-    syncOptions,
+    matchStartSession?.startAtServerMs,
+    syncOptions?.participantId,
   ]);
 
   useEffect(() => {
@@ -1258,7 +1493,8 @@ export default function WaitingRoomPanel({
     if (viewer.readyState !== "ready") activateGameplayAudioFromGesture();
 
     if (syncOptions) {
-      if (syncOptions.role !== "guest" || viewer.participantId !== syncOptions.participantId || readyIntentPending) return;
+      if (room.hostParticipantId === syncOptions.participantId
+        || viewer.participantId !== syncOptions.participantId || readyIntentPending) return;
       setReadyIntentPending(true);
       void runServerMutation({
         action: "ready",
@@ -1276,14 +1512,167 @@ export default function WaitingRoomPanel({
     setRoom(current => setGuestReady(current, viewer.participantId, viewer.readyState !== "ready"));
   };
 
+  // Liveness is server-owned metadata, independent of RoomState/CAS. Every
+  // visible human member reports presence while WAITING. A Guest may request
+  // recovery, but only the server may transfer Host after 75s without a
+  // Host heartbeat; a single iOS background pause must not move authority.
+  useEffect(() => {
+    if (!initialSync?.entryFlow || !syncOptions
+      || room.status !== "waiting" || leftRoom || leaveIntentPending) return;
+    let disposed = false;
+    let busy = false;
+    const checkMember = async () => {
+      if (disposed || busy || document.visibilityState !== "visible") return;
+      busy = true;
+      try {
+        const memberResponse = await fetch("/api/multiplayer/room", {
+          method: "POST", cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "heartbeat", roomId: syncOptions.roomId,
+            actorParticipantId: syncOptions.participantId,
+          }),
+        });
+        const memberData = await memberResponse.json() as {
+          ok: boolean; active?: boolean;
+        };
+        if (!memberResponse.ok || !memberData.ok || !memberData.active) {
+          if (!disposed) setSyncDetail("Bạn không còn trong phòng đang chờ.");
+          return;
+        }
+        if (roomRef.current.hostParticipantId === syncOptions.participantId) return;
+
+        // Periodically reconcile canonical membership if a revision hint was
+        // missed during Safari background/suspend.
+        const latest = await fetchRoomSnapshot(syncOptions.roomId);
+        if (disposed) return;
+        if (latest.revision > roomRef.current.revision) adoptServerSnapshot(latest);
+        if (latest.status !== "waiting"
+          || latest.hostParticipantId === syncOptions.participantId
+          || !latest.participants.some(item => item.participantId === syncOptions.participantId)) return;
+
+        const response = await fetch("/api/multiplayer/room", {
+          method: "POST", cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "recover-host",
+            roomId: syncOptions.roomId,
+            expectedRevision: latest.revision,
+            actorParticipantId: syncOptions.participantId,
+          }),
+        });
+        const result = await response.json() as {
+          ok: boolean; conflict?: boolean; transferred?: boolean;
+          snapshot?: RoomState | null;
+        };
+        if (disposed || !response.ok || !result.ok) return;
+        if (result.snapshot && isCanonicalRoomSnapshot(result.snapshot)
+          && result.snapshot.revision >= roomRef.current.revision) {
+          adoptServerSnapshot(result.snapshot);
+          if (result.transferred && transportRef.current?.status === "connected") {
+            void transportRef.current.send({
+              kind: "room-revision", roomRevision: result.snapshot.revision,
+              reason: "participant",
+            }).catch(() => undefined);
+          }
+        }
+      } catch {
+        // A transient offline browser must not self-elect a Host or modify
+        // the match epoch. Retrying the next heartbeat is sufficient.
+      } finally {
+        busy = false;
+      }
+    };
+    void checkMember();
+    const interval = window.setInterval(() => { void checkMember(); }, 20_000);
+    document.addEventListener("visibilitychange", checkMember);
+    window.addEventListener("pageshow", checkMember);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", checkMember);
+      window.removeEventListener("pageshow", checkMember);
+    };
+  }, [
+    initialSync?.entryFlow, syncOptions?.roomId, syncOptions?.participantId,
+    room.status, leftRoom, leaveIntentPending,
+  ]);
+
   const leaveRoom = () => {
     if (leaveIntentPending || leftRoom) return;
 
     if (syncOptions) {
-      if (syncOptions.role !== "guest") {
-        setSyncDetail("Host leave requires a room-close/host-transfer flow and is not part of this demo.");
+      if (room.hostParticipantId === syncOptions.participantId) {
+        // The QA fixture has no role transfer. MVP hands the room to the
+        // earliest joined human Guest, or closes it if nobody remains.
+        if (!initialSync?.entryFlow || room.status !== "waiting") {
+          setSyncDetail("Đang trong trận hoặc phòng QA: không thể đóng phòng tại đây.");
+          return;
+        }
+        if (!window.confirm("Rời phòng? Quyền Host sẽ chuyển cho Guest vào sớm nhất; phòng chỉ đóng nếu không còn Guest.")) return;
+        setLeaveIntentPending(true);
+        void (async () => {
+          let expectedRevision = roomRef.current.revision;
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            const response = await fetch("/api/multiplayer/room", {
+              method: "POST",
+              cache: "no-store",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "host-leave",
+                roomId: syncOptions.roomId,
+                expectedRevision,
+                actorParticipantId: syncOptions.participantId,
+              }),
+            });
+            if (response.status === 404) {
+              window.location.assign("/rooms");
+              return;
+            }
+            const data = await response.json() as {
+              ok: boolean; closed?: boolean; transferred?: boolean;
+              conflict?: boolean; reason?: string;
+              snapshot?: RoomState | null; error?: string;
+            };
+            if (!response.ok || !data.ok) {
+              throw new Error(data.error ?? "Không thể đóng phòng.");
+            }
+            if (data.closed || data.transferred) {
+              if (data.transferred && data.snapshot
+                && transportRef.current?.status === "connected") {
+                try {
+                  await transportRef.current.send({
+                    kind: "room-revision",
+                    roomRevision: data.snapshot.revision,
+                    reason: "participant",
+                  });
+                } catch {
+                  // Server CAS already succeeded; Guest foreground refresh
+                  // and periodic member polling will recover the new Host.
+                }
+              }
+              setLeftRoom(true);
+              transportRef.current?.disconnect();
+              window.location.assign("/rooms");
+              return;
+            }
+            if (!data.conflict || !data.snapshot
+              || !isCanonicalRoomSnapshot(data.snapshot)
+              || data.snapshot.status !== "waiting") {
+              throw new Error("Phòng đã bắt đầu hoặc không thể đóng.");
+            }
+            expectedRevision = data.snapshot.revision;
+            adoptServerSnapshot(data.snapshot);
+          }
+          throw new Error("Phòng vừa thay đổi. Vui lòng thử Rời phòng lại.");
+        })().catch(error => {
+          setSyncDetail(error instanceof Error ? error.message : "Không thể đóng phòng.");
+        }).finally(() => {
+          setLeaveIntentPending(false);
+        });
         return;
       }
+      if (room.hostParticipantId === syncOptions.participantId) return;
 
       const localParticipant = room.participants.find(
         item => item.participantId === syncOptions.participantId,
@@ -1291,6 +1680,7 @@ export default function WaitingRoomPanel({
       if (!localParticipant) {
         setLeftRoom(true);
         setSyncDetail("Guest already left the room.");
+        if (initialSync?.entryFlow) window.location.assign("/rooms");
         return;
       }
 
@@ -1299,7 +1689,8 @@ export default function WaitingRoomPanel({
         action: "leave",
         expectedRevision: room.revision,
         participantId: syncOptions.participantId,
-      }, "Guest left the room.").then(() => {
+      }, "Guest left the room.").then(result => {
+        if (result.conflict) throw new Error("Phòng vừa thay đổi. Hãy thử rời phòng lại.");
         setLeftRoom(true);
         setReadyIntentPending(false);
         setPresentParticipantIds(current =>
@@ -1310,6 +1701,7 @@ export default function WaitingRoomPanel({
         transportRef.current?.disconnect();
         setSyncStatus("disconnected");
         setSyncDetail("Bạn đã rời phòng.");
+        if (initialSync?.entryFlow) window.location.assign("/rooms");
       }).catch(error => {
         setSyncDetail(error instanceof Error ? error.message : "Leave room failed.");
       }).finally(() => {
@@ -1516,6 +1908,62 @@ export default function WaitingRoomPanel({
     setPanel(null);
   };
 
+  const transferHostToSelectedParticipant = () => {
+    // Only the current canonical Host may transfer in an unfrozen
+    // waiting room. QA fixtures cannot produce a real host transfer.
+    if (!syncOptions || !initialSync?.entryFlow || !hostView
+      || manualHostTransferPending || leaveIntentPending
+      || room.status !== "waiting" || frozenMatchManifest
+      || !selectedParticipant || selectedParticipant.kind !== "human"
+      || selectedParticipant.role !== "guest"
+      || selectedParticipant.participantId === room.hostParticipantId) return;
+
+    const targetParticipantId = selectedParticipant.participantId;
+    const targetName = selectedParticipant.displayName;
+    if (!window.confirm(
+      `Chuyển quyền Host cho ${targetName}? Bạn sẽ trở thành Guest, vẫn ở trong phòng. Tất cả Guest cần READY lại.`,
+    )) return;
+
+    setManualHostTransferPending(true);
+    setActionNotice(null);
+    void (async () => {
+      // Re-read authority after the confirmation dialog. A member can leave,
+      // a Host can change, or a match can freeze during the user gesture.
+      const latest = await fetchRoomSnapshot(syncOptions.roomId);
+      if (latest.revision > roomRef.current.revision) adoptServerSnapshot(latest);
+      if (latest.status !== "waiting" || (latest.matchStart ?? null) !== null
+        || latest.hostParticipantId !== syncOptions.participantId
+        || !latest.participants.some(member =>
+          member.participantId === targetParticipantId
+          && member.kind === "human" && member.role === "guest"
+        )) {
+        throw new Error("Phòng hoặc Guest đã thay đổi. Hãy chọn lại người nhận Host.");
+      }
+      const result = await runServerMutation({
+        action: "transfer-host",
+        expectedRevision: latest.revision,
+        actorParticipantId: syncOptions.participantId,
+        targetParticipantId,
+      }, `Đã chuyển quyền Host cho ${targetName}. Bạn vẫn ở trong phòng.`);
+      if (result.conflict) throw new Error("RoomState vừa thay đổi; vui lòng thử lại.");
+      if (result.snapshot.hostParticipantId !== targetParticipantId
+        || result.snapshot.participants.some(member =>
+          member.participantId === syncOptions.participantId
+          && member.role !== "guest"
+        )) {
+        throw new Error("Chuyển Host chưa được server xác nhận.");
+      }
+      setSelectedParticipantId(targetParticipantId);
+      setPanel(null);
+      setViewMode("center");
+      setStagePage(0);
+    })().catch(error => {
+      setActionNotice(error instanceof Error ? error.message : "Không thể chuyển Host.");
+    }).finally(() => {
+      setManualHostTransferPending(false);
+    });
+  };
+
   const kickSelectedParticipant = () => {
     if (!hostView || !selectedParticipant || selectedParticipant.participantId === room.hostParticipantId) return;
     const kickedId = selectedParticipant.participantId;
@@ -1550,10 +1998,15 @@ export default function WaitingRoomPanel({
       <LiveMultiplayerGameplay
         manifest={matchStartSession.manifest}
         participantId={syncOptions?.participantId ?? viewer.participantId}
+        stageId={room.selectedStageId}
+        presentationJudgement={gameplayPresentationJudgement}
         roomStatus={room.status}
         runtime={gameplaySchedule.runtime}
         startAtServerMs={gameplaySchedule.startAtServerMs}
         transport={gameplaySchedule.transport}
+        audioContextState={gameplayAudioContextState}
+        scoreTransport={transportRef.current}
+        startRevision={matchStartSession.startRevision}
       />
     );
   }
@@ -1566,14 +2019,17 @@ export default function WaitingRoomPanel({
         data-visual-preset={visualPreset}
       >
         <header className={styles.header}>
-          <button className={styles.iconButton} type="button" aria-label="Back">‹</button>
+          <button className={styles.iconButton} type="button" aria-label="Back"
+            onClick={initialSync?.entryFlow
+              ? () => room.status === "waiting" ? leaveRoom() : window.location.assign("/rooms")
+              : undefined}>‹</button>
           <div className={styles.titleBlock}>
             <strong>{room.roomName}</strong>
             <span data-testid="room-summary">ID: {room.roomId} <i /> {modeLabel(room.modeId)} <i /> {orderedParticipants.length}/{Math.min(room.maxPlayers, WAITING_ROOM_MAX_PLAYERS)}</span>
           </div>
           <div className={styles.headerRight}>
             <button className={styles.iconButton} data-testid="room-settings-button" onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
-            <small data-testid="sync-status" className={syncOptions ? (syncStatus === "connected" ? styles.syncLive : styles.syncOffline) : ""}>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${syncOptions.role === "host" ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
+            <small data-testid="sync-status" className={syncOptions ? (syncStatus === "connected" ? styles.syncLive : styles.syncOffline) : ""}>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${hostView ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
           </div>
         </header>
 
@@ -1583,7 +2039,7 @@ export default function WaitingRoomPanel({
             {syncOptions ? (
               <div className={styles.settingsMeta}>
                 <span>Realtime · {syncStatus.toUpperCase()}</span>
-                <span>Client · {syncOptions.role.toUpperCase()}</span>
+                <span>Client · {hostView ? "HOST" : "GUEST"}</span>
                 <span>Sync room · {syncOptions.roomId}</span>
                 {syncDetail && <span>{syncDetail}</span>}
               </div>
@@ -1812,18 +2268,71 @@ export default function WaitingRoomPanel({
                 ALL CLIENTS LOADED
               </em>
             ) : null}
+            {activePreloadContentFailure && (
+              <div className={styles.preloadAudioState} data-testid="preload-content-failure">
+                <small className={styles.preloadAudioError} data-testid="preload-content-error" role="alert">
+                  CONTENT PRELOAD FAILED · {activePreloadContentFailure.message}
+                </small>
+              </div>
+            )}
+            {activePreloadCasFailure && (
+              <div className={styles.preloadAudioState} data-testid="preload-ack-recovery">
+                <small className={styles.preloadAudioError} data-testid="preload-ack-error" role="alert">
+                  PRELOAD ACK RETRY · {activePreloadCasFailure.message}
+                </small>
+                <button
+                  className={styles.preloadAudioButton}
+                  data-testid="retry-preload-ack"
+                  type="button"
+                  disabled={preloadAttemptRef.current === matchStartSessionKey}
+                  onClick={() => {
+                    if (preloadAttemptRef.current === matchStartSessionKey) return;
+                    setPreloadCasFailure(null);
+                    setPreloadRetryNonce(value => value + 1);
+                  }}
+                >
+                  ↻ THỬ GỬI LOADED LẠI
+                </button>
+              </div>
+            )}
+            {activeClockSyncFailure && (
+              <div className={styles.preloadAudioState} data-testid="clock-sync-recovery">
+                <small className={styles.preloadAudioError} data-testid="clock-sync-error" role="alert">
+                  CLOCK SYNC FAILED · {activeClockSyncFailure.message}
+                </small>
+                <button
+                  className={styles.preloadAudioButton}
+                  data-testid="retry-clock-sync"
+                  type="button"
+                  disabled={clockRetryRequestedRef.current || countdownAttemptRef.current !== null}
+                  onClick={retryClockSynchronization}
+                >
+                  ↻ THỬ ĐỒNG BỘ LẠI
+                </button>
+              </div>
+            )}
             {(room.status === "countdown" || room.status === "playing") && (
               <div className={styles.preloadAudioState}>
                 <small data-testid="p55-audio-state">
                   {gameplaySchedule?.sessionKey === matchStartSessionKey
                     ? `AUDIO SCHEDULED · lead ${Math.round(gameplaySchedule.plan.leadTimeMs)}ms`
-                    : gameplayAudioReadyKey === matchStartSessionKey
-                      ? "AUDIO DECODED · scheduling shared epoch…"
+                    : activeClockSyncFailure
+                      ? "CLOCK SYNC FAILED · retry required"
+                      : gameplayAudioReadyKey === matchStartSessionKey
+                        ? "AUDIO DECODED · scheduling shared epoch…"
                       : audioActivationNonce === 0
                         ? "AUDIO ACTIVATION REQUIRED"
                         : "AUDIO PREPARING…"}
                 </small>
-                {(audioActivationNonce === 0 || gameplayHandoffError) && !gameplaySchedule && (
+                {gameplayAudioContextState !== null && gameplayAudioContextState !== "running" && (
+                  <small className={styles.preloadAudioError} data-testid="p55-audio-suspended">
+                    AUDIO CONTEXT INTERRUPTED · Safari đã tạm dừng WebAudio.
+                    Nếu shared epoch đã qua, client phải báo LATE; không tự dịch lịch phát.
+                  </small>
+                )}
+                {(audioActivationNonce === 0 || gameplayHandoffError
+                  || (gameplayAudioContextState !== null && gameplayAudioContextState !== "running"))
+                  && !gameplaySchedule && (
                   <button
                     className={styles.preloadAudioButton}
                     data-testid="enable-gameplay-audio"
@@ -1847,12 +2356,17 @@ export default function WaitingRoomPanel({
           <button
             className={styles.leaveButton}
             data-testid="leave-button"
-            disabled={Boolean(hostView || leaveIntentPending || leftRoom)}
+            disabled={Boolean(leaveIntentPending || leftRoom || (
+              hostView && (!initialSync?.entryFlow || room.status !== "waiting")
+            ))}
             onClick={leaveRoom}
-            title={hostView ? "Host leave cần room-close/host-transfer flow." : undefined}
+            title={hostView && !initialSync?.entryFlow
+              ? "Host leave cần room-close/host-transfer flow."
+              : undefined}
             type="button"
           >
-            ↪ {leaveIntentPending ? "ĐANG RỜI..." : leftRoom ? "ĐÃ RỜI PHÒNG" : "Rời phòng"}
+            ↪ {leaveIntentPending ? "ĐANG XỬ LÝ..." : leftRoom ? "ĐÃ RỜI PHÒNG"
+              : hostView && initialSync?.entryFlow ? "Rời phòng · Chuyển Host" : "Rời phòng"}
           </button>
           {viewer.kind === "human" && viewer.role === "guest" ? (
             <button
@@ -2003,6 +2517,19 @@ export default function WaitingRoomPanel({
                   <button onClick={() => playerAction("Xem đồ")} type="button">◆ <span>Xem đồ</span></button>
                   <button onClick={() => playerAction("Thông tin")} type="button">▤ <span>Thông tin</span></button>
                   <button onClick={() => playerAction("Chat riêng")} type="button">● <span>Chat riêng</span></button>
+                  {hostView && initialSync?.entryFlow && room.status === "waiting"
+                    && !frozenMatchManifest && selectedParticipant.kind === "human"
+                    && selectedParticipant.role === "guest" && (
+                    <button
+                      className={styles.transferHostButton}
+                      data-testid="transfer-host-button"
+                      disabled={manualHostTransferPending || leaveIntentPending}
+                      onClick={transferHostToSelectedParticipant}
+                      type="button"
+                    >
+                      ♛ <span>{manualHostTransferPending ? "ĐANG CHUYỂN HOST..." : "Chuyển Host"}</span>
+                    </button>
+                  )}
                   {hostView && selectedParticipant.participantId !== room.hostParticipantId && (
                     <button className={styles.kickButton} data-testid="kick-button" onClick={kickSelectedParticipant} type="button">⌁ <span>Kick khỏi phòng</span></button>
                   )}

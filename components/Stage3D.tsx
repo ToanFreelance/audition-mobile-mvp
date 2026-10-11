@@ -7,6 +7,7 @@ import { CharacterActor, disposeObjectResources } from "./character/CharacterAct
 import type { CharacterPresentationEvent } from "./character/character-types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
+import { isCharacterAssetId, type CharacterAssetId } from "./character/character-catalog";
 import {
   DEFAULT_STAGE_ID,
   resolveRuntimeStageCatalogEntry,
@@ -121,6 +122,8 @@ type Stage3DProps = {
   getSongTimeMs?: () => number;
   bpm?: number;
   selectedStageId?: string | null;
+  /** Frozen MatchManifest avatar for multiplayer; solo falls back to Character Creation draft. */
+  characterAssetId?: CharacterAssetId;
   visualCompareMode?: boolean;
   hideCharacter?: boolean;
   fixedPresentationTimeSeconds?: number;
@@ -133,6 +136,7 @@ export default function Stage3D({
   getSongTimeMs,
   bpm = 110,
   selectedStageId = DEFAULT_STAGE_ID,
+  characterAssetId,
   visualCompareMode = false,
   hideCharacter = false,
   fixedPresentationTimeSeconds,
@@ -309,16 +313,23 @@ export default function Stage3D({
       console.warn(`[Stage3D] ${stageEntry.displayName} failed; procedural stage remains active:`, error);
     });
 
+    // Multiplayer identity is frozen by MatchManifest, not a client draft.
+    // The solo path retains the existing persisted Character Creation behavior.
     let selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
-    try {
-      selectedCharacter = loadCharacterCreationDraft(window.localStorage) ?? DEFAULT_CHARACTER_CREATION_PROFILE;
-    } catch {
-      selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
+    if (!characterAssetId) {
+      try {
+        selectedCharacter = loadCharacterCreationDraft(window.localStorage) ?? DEFAULT_CHARACTER_CREATION_PROFILE;
+      } catch {
+        selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
+      }
     }
+    const runtimeCharacterAssetId = characterAssetId && isCharacterAssetId(characterAssetId)
+      ? characterAssetId
+      : selectedCharacter.characterAssetId;
 
     let character: CharacterActor | null = null;
     if (!hideCharacter) {
-      character = CharacterActor.fromAssetId(selectedCharacter.characterAssetId);
+      character = CharacterActor.fromAssetId(runtimeCharacterAssetId);
       characterRef.current = character;
       character.setGameActive(isPlayingRef.current);
       character.root.position.set(
@@ -327,7 +338,7 @@ export default function Stage3D({
         CHARACTER_STAGE_POSITION.z + (neonPresentation ? NEON_CHARACTER_STAGE_Z_OFFSET : 0),
       );
       stage.add(character.root);
-      host.dataset.characterAssetId = selectedCharacter.characterAssetId;
+      host.dataset.characterAssetId = runtimeCharacterAssetId;
       host.dataset.characterProfileVersion = String(selectedCharacter.version);
       host.dataset.characterSource = "loading";
       void character.load().then((result) => {
@@ -477,7 +488,7 @@ export default function Stage3D({
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds]);
+  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId]);
 
   return (
     <div

@@ -1110,3 +1110,13 @@
   font-size:7.5px;
   letter-spacing:.04em;
 }
+
+
+/* Manual Host handoff is deliberately distinct from destructive Kick. */
+.playerActions .transferHostButton {
+  border-color: #f3c759;
+  background: linear-gradient(180deg, #76521f, #402e1c);
+  color: #fff4c7;
+  font-weight: 800;
+}
+.playerActions .transferHostButton:disabled { opacity: .48; cursor: not-allowed; }

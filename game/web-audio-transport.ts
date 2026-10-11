@@ -12,12 +12,34 @@ function getAudioSession(): AudioSessionLike | null {
   return (navigator as Navigator & { audioSession?: AudioSessionLike }).audioSession ?? null;
 }
 
-function getOutputContextTime(context: AudioContext): number {
-  const stamped = context as AudioContext & {
-    getOutputTimestamp?: () => { contextTime?: number };
-  };
-  const value = stamped.getOutputTimestamp?.()?.contextTime;
-  return typeof value === "number" && Number.isFinite(value) ? value : context.currentTime;
+// WebAudio scheduling and the authoritative song clock must read the SAME
+// AudioContext timeline. Safari may return a valid-but-frozen
+// getOutputTimestamp().contextTime (often 0) until the output hardware has
+// produced an output timestamp. It is not a safe clock for beat scheduling.
+const SHARED_RESUME_TIMEOUT_MS = 2_000;
+
+async function resumeSharedAudioContext(context: AudioContext) {
+  if (context.state === "running") return;
+  if (context.state === "closed") throw new Error("Shared WebAudio context is closed.");
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    await Promise.race([
+      context.resume(),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(
+          "Shared WebAudio activation timed out. Safari may have suspended the audio context.",
+        )), SHARED_RESUME_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+  }
+  // AudioContext.state can change asynchronously during resume(). Read
+  // through a fresh accessor so TS does not preserve pre-await narrowing.
+  const readContextState = (): AudioContextState => context.state;
+  if (readContextState() !== "running") {
+    throw new Error(`Shared WebAudio context is not running (state: ${readContextState()}).`);
+  }
 }
 
 export function createWebAudioContext() {
@@ -103,8 +125,8 @@ export class WebAudioTransport {
 
   async getSchedulingContextTimeSec() {
     await this.prepare();
-    await this.unlock();
     const context = this.ensureContext();
+    await resumeSharedAudioContext(context);
     return context.currentTime;
   }
 
@@ -122,8 +144,10 @@ export class WebAudioTransport {
     const context = this.context;
     const run = this.run;
     if (!context || !run) return this.offsetSeconds * 1000;
-    const outputContextTime = getOutputContextTime(context);
-    const seconds = run.offsetSeconds + Math.max(0, outputContextTime - run.startContextTime);
+    // AudioContext.currentTime is the WebAudio rendering/scheduling clock.
+    // Never use getOutputTimestamp as a substitute; an iOS output timestamp
+    // can remain at zero even while the scheduled context clock advances.
+    const seconds = run.offsetSeconds + Math.max(0, context.currentTime - run.startContextTime);
     const duration = this.buffer?.duration ?? Number.POSITIVE_INFINITY;
     return Math.min(seconds, duration) * 1000;
   }
@@ -161,9 +185,16 @@ export class WebAudioTransport {
    * Schedule playback on an already-mapped AudioContext epoch.
    * A past epoch is rejected instead of silently moving the room start time.
    */
-  async playAtContextTime(startContextTimeSec: number, offsetMs = 0) {
+  async playAtContextTime(
+    startContextTimeSec: number,
+    offsetMs = 0,
+    latestLocalMonotonicMs?: number,
+  ) {
     if (!Number.isFinite(startContextTimeSec)) throw new Error("startContextTimeSec must be finite.");
     if (!Number.isFinite(offsetMs) || offsetMs < 0) throw new Error("offsetMs must be a non-negative finite value.");
+    if (latestLocalMonotonicMs !== undefined && !Number.isFinite(latestLocalMonotonicMs)) {
+      throw new Error("latestLocalMonotonicMs must be finite.");
+    }
     await this.prepare();
     const context = this.ensureContext();
     const buffer = this.buffer;
@@ -173,7 +204,13 @@ export class WebAudioTransport {
     if (session) {
       try { session.type = "playback"; } catch {}
     }
-    if (context.state !== "running") await context.resume();
+    await resumeSharedAudioContext(context);
+    // A suspended AudioContext clock may freeze while wall/monotonic time
+    // advances beyond the shared server epoch. Checking currentTime ALONE
+    // would schedule audio after the match had already begun.
+    if (latestLocalMonotonicMs !== undefined && performance.now() > latestLocalMonotonicMs) {
+      throw new Error("Shared server start epoch expired before WebAudio scheduling; epoch was not moved.");
+    }
     if (startContextTimeSec < context.currentTime) {
       throw new Error("Shared AudioContext start epoch is already late.");
     }
