@@ -1,4 +1,5 @@
 import type { MultiplayerGameplayJudgementEvent } from "./gameplay-runtime";
+import type { LiveScoreSnapshot } from "./live-score";
 import type { MatchLoadedAck } from "./match-start-protocol";
 import type { MatchManifest, RoomState } from "./types";
 
@@ -90,6 +91,14 @@ export type RoomTransportPayload =
       matchId: string;
       startRevision: number;
       event: MultiplayerGameplayJudgementEvent;
+    }
+  | {
+      /** RC02: cumulative, client-reported display metadata; no RoomState mutation. */
+      kind: "player-score-snapshot";
+      roomRevision: number;
+      matchId: string;
+      startRevision: number;
+      update: LiveScoreSnapshot;
     }
   | {
       kind: "qa-ping";
