@@ -3,16 +3,32 @@ import type { GameStats } from "../game/types";
 import { acceptLiveScoreSnapshot, type LiveScoreSnapshot } from "../multiplayer/live-score";
 import type { MatchManifest } from "../multiplayer/types";
 
-const manifest = {
+const manifest: MatchManifest = {
+  manifestVersion: 1,
   matchId: "live-match-A",
   roomId: "mvp-live-A",
   roomRevision: 12,
   participants: [
-    { participantId: "human-host", kind: "human", role: "host" },
-    { participantId: "human-guest", kind: "human", role: "guest" },
-    { participantId: "human-third", kind: "human", role: "guest" },
+    { participantId: "human-host", displayName: "Host", kind: "human", role: "host",
+      slotIndex: 0, avatar: { characterId: "default-male", outfit: {}, accessoryIds: [] } },
+    { participantId: "human-guest", displayName: "Guest", kind: "human", role: "guest",
+      slotIndex: 1, avatar: { characterId: "default-female", outfit: {}, accessoryIds: [] } },
+    { participantId: "human-third", displayName: "Guest 2", kind: "human", role: "guest",
+      slotIndex: 2, avatar: { characterId: "default-male", outfit: {}, accessoryIds: [] } },
   ],
-} as MatchManifest;
+  content: {
+    songId: "aloha", audioVersion: "audio-v1", audioHash: "audio-hash",
+    chartVersion: "chart-v1", chartHash: "chart-hash",
+    characterRuntimeVersion: "character-v1",
+    animationReleaseVersion: 0, animationReleaseHash: "animations-hash",
+  },
+  gameplay: {
+    configVersion: "solo-easy-locked-v1", configHash: "gameplay-hash",
+    modeId: "solo-easy-battle", seed: 123, bpmExact: 101.05,
+    spaceStartMs: 10000, sequenceCounts: [1], commandLengths: [4],
+    finishRestTurns: 4,
+  },
+};
 
 function score(stats?: Partial<GameStats>): GameStats {
   return {
