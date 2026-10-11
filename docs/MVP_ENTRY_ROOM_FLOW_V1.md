@@ -660,3 +660,55 @@ new browser-level UX01 scenario (genuine 503 plus concurrent CAS revision
 conflict) needs Work retest; source/CI alone are NOT a browser PASS. AUD01
 five-client audio drift root cause is separate and remains OPEN. Keep PR #18
 OPEN/Draft, never merge without explicit owner approval.
+
+
+## 2026-10-11 — RC02: provisional live multiplayer score sync (owner-approved)
+
+The owner approved continuing after AUD01 root-cause review. Existing
+`LiveMultiplayerGameplay` rendered only local score and `—` for remote
+participants; `player-judgement` was defined but not wired to the HUD.
+The already existing room Realtime transport is reused, without making
+score metadata authoritative over the gameplay timeline.
+
+Implementation scope:
+
+- `multiplayer/live-score.ts`: typed cumulative client-reported score
+  snapshots; accept only the frozen match, known Human sender/participant,
+  monotonically increasing judged turn and counters, valid score arithmetic,
+  and idempotent AUDIO END updates. Reject duplicates/stale/malformed data.
+- `multiplayer/transport.ts`: additive `player-score-snapshot` broadcast
+  metadata with match/start/room revision identity. Existing Realtime WebSocket
+  protocol, RoomState CAS and match handoff remain unchanged.
+- `LiveMultiplayerGameplay`: subscribe to score broadcasts only while
+  gameplay is mounted; send local `MultiplayerGameplayRuntime.stats` at
+  initial connect, judgement updates, and every 2.5 s to repair missed
+  broadcasts. Remote scores are shown in the existing portrait leaderboard;
+  unknown remote values remain `—`. Provisional order is by received score,
+  with frozen manifest ordering used for ties. The local score remains the
+  gameplay-runtime value, never read from network.
+- `WaitingRoomPanel` passes the existing room Realtime transport and the
+  immutable `startRevision` through to gameplay. This metadata stream does
+  not write RoomState or create additional audio sources/epochs/turns.
+- `e2e/multiplayer-live-score.spec.ts`: assertions on cumulative-score
+  acceptance, late/out-of-order/duplicate broadcasts, sender/match isolation,
+  invalid score arithmetic, AUDIO END and initial zero/Miss cases.
+
+**Important trust boundary:** This is a **client-reported provisional LIVE
+scoreboard**, NOT authenticated server-verified competitive ranking or a
+persistent final-results ledger. The MVP participant identity is not
+authenticated (LocalStorage IDs are forgeable). Even a plausible cumulative
+snapshot is not fraud-proof. Results remain local-authoritative to the
+player; external ranking/anti-cheat requires separately scoped server
+verification/authentication before public competitive release. Lost traffic is
+repaired by later cumulative broadcasts only while peers are online.
+
+**QA gates:** Vercel Next.js production build/TypeScript are the initial
+implementation checks. The new score unit suite and real 2/3/5-client
+Playwright browser test (different participants input different scores,
+Realtime delivery/reconnect, no fake opponent scores) MUST run before
+calling RC02 E2E PASS. AUD01 production applicability remains open and
+requires real device/hardware GPU and isolated Supabase staging validation.
+
+Locked WebAudio clock, global turn budget, calibrated gauge, Finish,
+RoomState/CAS authority, shared epoch, Character Catalog, Stage3D and
+owner-accepted portrait GameShell HUD are unchanged. Keep PR #18 OPEN/Draft.
