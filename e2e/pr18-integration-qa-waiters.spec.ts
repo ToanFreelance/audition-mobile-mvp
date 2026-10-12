@@ -179,3 +179,51 @@ test("later gameplay DOM screenshot cannot retroactively change a timeout", asyn
   });
   await expect(page.getByTestId("multiplayer-gameplay-live")).toBeVisible();
 });
+
+test("JOIN cannot PASS from stale membership after a later canonical GET failure", async () => {
+  let reads = 0;
+  let visibility = 0;
+  const page = {
+    isClosed: () => false,
+    url: () => "http://qa.invalid/rooms/" + roomId,
+    getByTestId: () => ({
+      isVisible: async () => ++visibility > 1,
+    }),
+    evaluate: async () => ({ gameplayDomVisible: false }),
+  } as unknown as import("@playwright/test").Page;
+  await expect(waitForJoinConvergence({
+    page, roomId, participantId: guestId,
+    readCanonical: async () => {
+      if (++reads === 1) return currentRoom(true);
+      throw new Error("Canonical GET unavailable after first snapshot");
+    },
+    timeoutMs: 160, pollMs: 5,
+  })).rejects.toMatchObject({
+    code: "JOIN_CANONICAL_QUERY_FAILED",
+    diagnostics: expect.objectContaining({
+      canonicalJoined: false,
+      canonicalError: expect.stringContaining("Canonical GET unavailable"),
+    }),
+  });
+  expect(reads).toBeGreaterThan(1);
+});
+
+test("JOIN can recover from transient canonical GET failure with a fresh valid read", async () => {
+  let reads = 0;
+  const page = {
+    isClosed: () => false,
+    url: () => "http://qa.invalid/rooms/" + roomId,
+    getByTestId: () => ({ isVisible: async () => true }),
+  } as unknown as import("@playwright/test").Page;
+  const result = await waitForJoinConvergence({
+    page, roomId, participantId: guestId,
+    readCanonical: async () => {
+      if (++reads === 1) throw new Error("Temporary PostgREST 503");
+      return currentRoom(true);
+    },
+    timeoutMs: 1500, pollMs: 5,
+  });
+  expect(reads).toBe(2);
+  expect(result.canonicalRevision).toBe(4);
+  expect(result.readyButtonVisible).toBe(true);
+});

@@ -122,6 +122,9 @@ export async function waitForJoinConvergence(args: {
       }
       canonicalError = null;
     } catch (error) {
+      // A failed canonical GET must never validate a previous membership snapshot.
+      // JOIN PASS requires a successful canonical read in this polling cycle.
+      canonicalJoined = false;
       canonicalError = error instanceof Error ? error.message : String(error);
     }
     try {
@@ -138,10 +141,9 @@ export async function waitForJoinConvergence(args: {
     await sleep(Math.min(pollMs, Math.max(1, deadline - Date.now())));
   }
 
-  const code: JoinFailureCode = canonicalJoined
-    ? "JOIN_UI_NOT_SETTLED"
-    : canonicalError && lastRevision === null
-      ? "JOIN_CANONICAL_QUERY_FAILED" : "JOIN_NOT_COMMITTED";
+  const code: JoinFailureCode = canonicalError
+    ? "JOIN_CANONICAL_QUERY_FAILED"
+    : canonicalJoined ? "JOIN_UI_NOT_SETTLED" : "JOIN_NOT_COMMITTED";
   let pageDiagnostics: Record<string, unknown> | null = null;
   if (!page.isClosed()) {
     pageDiagnostics = await page.evaluate(() => {
