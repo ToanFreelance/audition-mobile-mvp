@@ -71,6 +71,9 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
   );
   return (
     <WaitingRoomPanel
+      // P5.6 owner-accepted golden-sketch stage, including reflective floor.
+      // The fallback/default preset is only for isolated QA experiments.
+      visualPreset="sketch"
       initialRoom={entry.snapshot}
       initialSync={{
         roomId,

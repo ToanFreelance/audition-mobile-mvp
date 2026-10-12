@@ -212,10 +212,10 @@ export default function RoomBrowser() {
             </div>
             <div className={styles.playerTokens} aria-label="Số dư mẫu chưa triển khai">
               <span className={styles.tokenGold} aria-label="0 coin"><span className={styles.coinSymbol}>◎</span><b>0</b></span>
-              <span className={styles.tokenGem} aria-label="0 gem"><span className={styles.gemSymbol}>◆</span><b>0</b></span>
+              <span className={styles.tokenGem} aria-label="0 gem"><span className={styles.gemSymbol} aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" focusable="false"><path d="M7 3.75h10l5 6.3L12 21 2 10.05Z" fill="#CB72FF" stroke="#F6C9FF" strokeWidth="1.1" /><path d="M7 3.75 9.2 10h5.6L17 3.75M9.2 10 12 21l2.8-11H2m12.8 0H22" stroke="#FFF0FF" strokeOpacity=".55" strokeWidth=".7" fill="none" /></svg></span><b>0</b></span>
             </div>
             <button type="button" className={styles.profileSettings} aria-label="Thông tin coin và gem"
-              aria-expanded={walletInfoOpen} onClick={() => setWalletInfoOpen(current => !current)}>＋</button>
+              aria-expanded={walletInfoOpen} onClick={() => setWalletInfoOpen(current => !current)}><svg aria-hidden="true" viewBox="0 0 24 24" width="19" height="19" fill="none"><path d="M12 4.5v15M4.5 12h15" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" /></svg></button>
           </header>
           {walletInfoOpen && <p className={styles.walletNotice} role="status">Coin và Gem: 0 (dữ liệu mẫu). Shop sẽ được mở sau.</p>}
           <nav className={styles.primaryTabs} aria-label="Mục trong sảnh">

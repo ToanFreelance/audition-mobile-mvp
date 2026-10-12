@@ -199,3 +199,14 @@
 .error{position:absolute;left:12px;right:12px;bottom:calc(58px + env(safe-area-inset-bottom));z-index:5;margin:0;box-shadow:0 8px 24px #07071dbb}
 @media(max-height:700px){.content{padding-top:calc(env(safe-area-inset-top) + 7px)}.playerBar{margin-bottom:8px}.primaryTabs{height:39px;flex-basis:39px}.filters{margin:7px 0 8px}.createCard{height:61px;min-height:61px;flex-basis:61px}.createIcon{width:39px;height:39px;flex-basis:39px}.joinQuick{margin-bottom:5px}.bottomNav button{min-height:49px}}
 @media(max-width:360px){.content{padding-inline:9px}.playerTokens>span{min-width:47px}.roomDetails>strong{font-size:12px}.roomAction{gap:7px}.cover{width:58px;height:58px;flex-basis:58px}.roomTags>span{padding:3px 6px}.roomRight{min-width:46px}}
+
+/* Safari /rooms currency cluster: prevent glyph baselines from shifting gem and top-up button. */
+.playerBar{align-items:center}
+.playerTokens{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.playerTokens>span{height:30px;min-height:30px;display:flex;align-items:center;justify-content:center;line-height:1;padding-block:0}
+.playerTokens>span b{line-height:1;display:block;font-variant-numeric:tabular-nums}
+.gemSymbol{display:grid!important;place-items:center;width:20px!important;height:20px!important;flex:0 0 20px!important;line-height:0!important;font-size:0!important}
+.gemSymbol svg{display:block;filter:drop-shadow(0 0 3px rgba(191,89,255,.78))}
+.profileSettings{display:grid;place-items:center;align-self:center;flex:0 0 30px;width:30px;height:30px;padding:0;line-height:0;font-size:0;border-radius:8px}
+.profileSettings svg{display:block;flex:none}
+@media(max-width:360px){.playerTokens>span{height:28px;min-height:28px}.profileSettings{width:28px;height:28px;flex-basis:28px}}
