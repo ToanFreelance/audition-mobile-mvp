@@ -1071,12 +1071,20 @@ export default function WaitingRoomPanel({
         startRevision: identity.startRevision,
         ...(ack ? { ack } : {}),
       }, undefined, timeoutMs),
+      // LOADING is an advisory metadata update. Do not spend the entire ACK
+      // recovery budget fighting over a state that LOADED can supersede.
+      ...(action === "preload-loading" ? { maxAttempts: 2, maxDurationMs: 9_000 } : {}),
     });
 
     void (async () => {
-      // CAS contention is a metadata issue, not an asset failure.
-      const loadingSnapshot = await submitPreloadMutation("preload-loading");
-      if (cancelled || !loadingSnapshot) return;
+      // Content readiness must not be gated on a LOADING metadata POST.
+      // LOADED remains the authoritative, content-validated CAS handshake.
+      // A timed-out LOADING POST may have committed; the LOADED retry resolves
+      // its canonical revision without replaying a stale mutation.
+      void submitPreloadMutation("preload-loading").catch(() => {
+        // LOADING is best-effort. Report a failure only if the content preload
+        // or its LOADED/FAILED acknowledgement actually fails below.
+      });
       if (roomRef.current.participants.some(
         item => item.participantId === localParticipant.participantId && item.loadState === "loaded",
       )) return;
