@@ -90,3 +90,51 @@
 @media(min-width:700px){.app{border-radius:0 0 15px 15px;box-shadow:0 0 60px #2736bf6b}}
 @media(max-width:360px){.content{padding-inline:10px}.avatar{width:46px;height:46px;flex-basis:46px}.playerTokens>span{padding:4px 5px;font-size:9px}.playerBar{gap:6px}.filters{gap:5px}.filters button{padding:8px 9px;font-size:11px}.roomAction{gap:8px}.cover{width:67px;height:67px;flex-basis:67px}.roomDetails>strong{font-size:13px}.roomRight{min-width:52px}.createCard{gap:12px;padding:12px}.createText strong{font-size:20px}}
 @media(prefers-reduced-motion:reduce){.createCard,.room,.filters button{animation:none;transition:none}}
+
+/* P18 sketch alignment: live RoomState actions stay authoritative; illustrative cards cannot JOIN. */
+.app{height:100dvh;min-height:0}
+.content{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#3d479c transparent;padding-top:calc(env(safe-area-inset-top) + 22px);padding-bottom:18px}
+.bottomNav{position:relative;flex:0 0 auto;margin-top:0;padding-bottom:max(6px,env(safe-area-inset-bottom));background:linear-gradient(180deg,#0c2455,#07132f 92%);border-top:2px solid #398aff;box-shadow:0 -3px 13px #088efa66}
+.bottomNav button{min-height:66px}
+.playerBar{gap:7px;margin-bottom:23px}
+.avatar{width:51px;height:51px;flex-basis:51px;border:2px solid #f2b0ff;background:#5e279c;box-shadow:0 0 0 2px #804dff7d,0 0 14px #f331f5a8}
+.playerText strong{font-size:15px}
+.playerText>span{font-size:12px;letter-spacing:0;color:#d1c5ff;font-weight:750}
+.playerTokens{gap:5px}
+.playerTokens>span{font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:.01em;min-width:65px;justify-content:center;padding:5px 7px;border-radius:24px;background:#08132e;border-color:#485eac;box-shadow:inset 0 0 7px #346dff44,0 0 5px #2032aa44}
+.coinSymbol{display:grid;place-items:center;width:22px;height:22px;flex:0 0 22px;border:2px solid #fff298;border-radius:50%;background:radial-gradient(circle at 35% 20%,#fff6b5,#ffae00 60%,#bf7100);color:#b66b05!important;font-size:21px!important;font-weight:950;line-height:1;box-shadow:0 0 6px #ffce27ad}
+.gemSymbol{display:grid;place-items:center;width:23px;height:21px;flex:0 0 23px;color:#dc8eff!important;text-shadow:0 0 7px #ce42ff!important;font-size:22px!important}
+.profileSettings{font:inherit;flex:0 0 31px;width:31px;height:32px;color:#fff;font-size:25px;font-weight:800;cursor:pointer;background:linear-gradient(140deg,#1f92ff,#0b55bd);border:2px solid #73cfff;border-radius:8px;box-shadow:0 0 9px #1180ffd1}
+.walletNotice{font-size:11px;color:#ead0ff;background:#241441;border:1px solid #913fde;border-radius:9px;padding:9px;margin:-12px 0 12px}
+.primaryTabs{height:50px;border-radius:11px;margin-bottom:0}
+.filters{margin-top:16px;margin-bottom:16px;padding-bottom:2px}
+.filters button{font-size:12px;padding:8px 10px}
+.createCard{min-height:82px;padding:12px 18px;border-radius:17px;gap:16px;margin-bottom:11px;background:linear-gradient(112deg,#fb34ca 0%,#d02cd6 43%,#6427e8 100%);box-shadow:0 0 15px #fa50ed78,inset 0 1px 5px #fff8,0 2px 7px #e44bff6c}
+.createIcon{width:54px;height:54px;flex-basis:54px;border-radius:10px}
+.createText strong{font-size:19px}.createText small{font-size:11px}
+.sectionHeader{height:21px;margin-bottom:6px;align-items:center}
+.sectionHeader h1{font-size:11px;color:#aebde7;letter-spacing:.08em;font-weight:650;text-transform:uppercase}
+.refresh{font-size:10px}
+.roomList{gap:8px}
+.room{border-radius:13px;border-color:#3d5baf;background:linear-gradient(110deg,#11234b,#0d1c41 70%,#101838);box-shadow:0 0 0 1px #1b64bb33,inset 0 0 8px #2745a725}
+.roomAction{min-height:86px;gap:11px;padding:6px 9px}
+.cover{width:74px;height:74px;flex-basis:74px;border-radius:12px;border:2px solid #e9c4ff;background:#2c176d;box-shadow:0 0 6px #bc65ff7d}
+.cover img{width:100%;height:100%;display:block;object-fit:cover}
+.sampleMark{position:absolute;top:2px;right:2px;padding:2px 3px;font-size:7px;font-weight:850;line-height:1.1;background:#101442d9;border:1px solid #cbb7ff9e;border-radius:3px;color:#ffeffe;letter-spacing:.04em}
+.roomDetails{gap:4px}
+.roomDetails>strong{font-size:15px;font-weight:900}
+.roomCode{font-size:11px;font-weight:600;color:#c7c8e8}
+.roomTags{gap:6px}
+.roomTags>span{font-size:10px;border-radius:6px;padding:4px 10px}
+.easyTag{color:#8df5cf!important;background:#10493e;border:1px solid #31c7a5}
+.normalTag{color:#ffe4ab!important;background:#4d3819;border:1px solid #e7b450}
+.hardTag{color:#ff9f9f!important;background:#4d1c2a;border:1px solid #ff496c}
+.playTag{color:#a3caff!important;background:#152d68;border:1px solid #2469cf}
+.sampleRoom .roomAction:disabled{opacity:1;cursor:default}
+.roomRight{padding:5px 2px 5px 0;min-width:58px}
+.capacity{font-size:15px;gap:4px}
+.signal{height:22px}
+.sampleNotice{font-size:10px;line-height:1.45;color:#9eafd5;text-align:center;margin:10px 4px 0}
+.createOptions,.joinQuick{margin-top:12px}
+.joinQuick{margin-bottom:4px}
+@media(max-width:360px){.content{padding-inline:9px}.playerBar{gap:5px}.avatar{width:43px;height:43px;flex-basis:43px}.playerTokens>span{min-width:52px;padding:4px}.profileSettings{flex-basis:26px;width:26px}.roomAction{gap:7px}.cover{width:65px;height:65px;flex-basis:65px}.roomRight{min-width:48px}.roomDetails>strong{font-size:13px}.roomTags>span{padding:3px 7px}.filters button{font-size:11px;padding:7px 8px}}

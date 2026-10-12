@@ -9,6 +9,17 @@ type RoomResponse = { ok: boolean; error?: string; conflict?: boolean; snapshot?
 type Section = "rooms" | "entertainment" | "friends" | "shop" | "bag";
 type Filter = "all" | "solo" | "team" | "playing";
 type IconName = "home" | "shop" | "bag" | "friends" | "plus" | "person" | "refresh" | "enter" | "sparkle" | "music" | "settings";
+type ShowcaseRoom = { title: string; bpm: number; beat: string; difficulty: "Dễ" | "Thường" | "Khó"; players: number; capacity: number; playing?: boolean; art: number; };
+type DisplayRoom = { id: string; roomId: string | null; title: string; subtitle: string; difficulty: ShowcaseRoom["difficulty"] | null; players: number; capacity: number; full: boolean; playing: boolean; sample: boolean; mode: "solo" | "team"; art: number; };
+/** Visual-only room cards from the owner-approved sketch. Never JOIN fake room IDs. */
+const SHOWCASE_ROOMS: readonly ShowcaseRoom[] = [
+  { title: "Hey Beautiful", bpm: 128, beat: "4/4", difficulty: "Dễ", players: 6, capacity: 8, playing: true, art: 1 },
+  { title: "Love Scenario", bpm: 110, beat: "2/4", difficulty: "Thường", players: 2, capacity: 8, art: 2 },
+  { title: "Dynamite", bpm: 124, beat: "4/8", difficulty: "Khó", players: 5, capacity: 8, art: 3 },
+  { title: "Perfect Night", bpm: 120, beat: "4/4", difficulty: "Thường", players: 1, capacity: 8, art: 4 },
+  { title: "Smoke", bpm: 132, beat: "4/6", difficulty: "Khó", players: 7, capacity: 8, art: 5 },
+  { title: "Super Shy", bpm: 125, beat: "4/4", difficulty: "Dễ", players: 3, capacity: 8, art: 6 },
+];
 const API = "/api/multiplayer/room";
 const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: "rooms", label: "Phòng", icon: "home" },
@@ -39,7 +50,6 @@ async function readResponse(response: Response): Promise<RoomResponse> {
   return data;
 }
 const isTeamMode = (modeId: string) => modeId.toLowerCase().includes("team");
-const modeLabel = (modeId: string) => isTeamMode(modeId) ? "Team" : modeId.toLowerCase().startsWith("solo") ? "Solo" : "Chế độ khác";
 
 export default function RoomBrowser() {
   const [identity, setIdentity] = useState<EntryIdentity | null>(null);
@@ -50,15 +60,32 @@ export default function RoomBrowser() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [walletInfoOpen, setWalletInfoOpen] = useState(false);
   const [section, setSection] = useState<Section>("rooms");
   const [filter, setFilter] = useState<Filter>("all");
 
-  const visibleRooms = useMemo(() => rooms.filter(room => {
-    if (filter === "playing") return false; // The public listing RPC only returns waiting rooms.
-    if (filter === "solo") return !isTeamMode(room.modeId);
-    if (filter === "team") return isTeamMode(room.modeId);
-    return true;
-  }), [rooms, filter]);
+  const displayRooms = useMemo(() => {
+    const live: DisplayRoom[] = rooms.map((room, index) => ({
+      id: room.roomId, roomId: room.roomId, title: room.roomName,
+      subtitle: `Mã ${room.roomId}`, difficulty: null,
+      players: room.playerCount, capacity: room.maxPlayers,
+      full: room.openSlots < 1, playing: false, sample: false,
+      mode: isTeamMode(room.modeId) ? "team" : "solo", art: index % 6 + 1,
+    }));
+    const samples: DisplayRoom[] = SHOWCASE_ROOMS.slice(0, Math.max(0, 6 - live.length))
+      .map((room, index) => ({
+        id: `sample-${index}`, roomId: null, title: room.title,
+        subtitle: `BPM ${room.bpm}  |  ${room.beat}`, difficulty: room.difficulty,
+        players: room.players, capacity: room.capacity, full: false,
+        playing: Boolean(room.playing), sample: true, mode: (index === 1 || index === 5) ? "team" : "solo", art: room.art,
+      }));
+    return [...live, ...samples].filter(room => {
+      if (filter === "playing") return room.playing;
+      if (filter === "solo") return room.mode === "solo";
+      if (filter === "team") return room.mode === "team";
+      return true;
+    });
+  }, [rooms, filter]);
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -166,7 +193,7 @@ export default function RoomBrowser() {
   );
 
   const portrait = identity.profile.characterAssetId === "c4-casual-boy"
-    ? "/characters/portraits/c4-casual-boy.jpg" : "/characters/portraits/c1-casual-grace.jpg";
+    ? "/characters/portraits/c4-casual-boy.jpg" : "/room-ui/demo-avatar.svg";
   const isRoomSection = section === "rooms";
   const sectionLabel = section === "entertainment" ? "Giải trí"
     : section === "friends" ? "Bạn bè" : section === "shop" ? "Shop" : "Túi đồ";
@@ -181,14 +208,16 @@ export default function RoomBrowser() {
             </a>
             <div className={styles.playerText}>
               <strong>{identity.profile.name}</strong>
-              <span>DANCER · MVP</span>
+              <span>Lv. 25</span>
             </div>
-            <div className={styles.playerTokens} aria-label="Thông tin demo">
-              <span className={styles.tokenGold}><span>✦</span> MVP</span>
-              <span className={styles.tokenGem}><span>◆</span> DEMO</span>
+            <div className={styles.playerTokens} aria-label="Số dư mẫu chưa triển khai">
+              <span className={styles.tokenGold} aria-label="0 coin"><span className={styles.coinSymbol}>◎</span><b>0</b></span>
+              <span className={styles.tokenGem} aria-label="0 gem"><span className={styles.gemSymbol}>◆</span><b>0</b></span>
             </div>
-            <a href="/character/create" className={styles.profileSettings} aria-label="Sửa nhân vật"><Icon name="settings" size={18} /></a>
+            <button type="button" className={styles.profileSettings} aria-label="Thông tin coin và gem"
+              aria-expanded={walletInfoOpen} onClick={() => setWalletInfoOpen(current => !current)}>＋</button>
           </header>
+          {walletInfoOpen && <p className={styles.walletNotice} role="status">Coin và Gem: 0 (dữ liệu mẫu). Shop sẽ được mở sau.</p>}
           <nav className={styles.primaryTabs} aria-label="Mục trong sảnh">
             <button type="button" className={isRoomSection ? styles.tabActive : ""}
               aria-current={isRoomSection ? "page" : undefined} onClick={() => setSection("rooms")}>Phòng</button>
@@ -214,6 +243,51 @@ export default function RoomBrowser() {
               </span>
               <span className={styles.createSparkle}><Icon name="sparkle" size={20} /></span>
             </button>
+            <section className={styles.roomSection} aria-label="Danh sách phòng">
+              <div className={styles.sectionHeader}>
+                <h1>Danh sách phòng</h1>
+                <button className={styles.refresh} type="button" disabled={refreshing}
+                  onClick={() => void refresh()} aria-label="Làm mới danh sách phòng">
+                  <Icon name="refresh" size={17} /><span>{refreshing ? "Đang tải" : "Làm mới"}</span>
+                </button>
+              </div>
+              <div className={styles.roomList}>
+                {displayRooms.map(room => (
+                  <article key={room.id} className={room.sample ? `${styles.room} ${styles.sampleRoom}` : styles.room}>
+                    <button type="button" className={styles.roomAction}
+                      data-testid={room.sample ? undefined : "entry-join-room"}
+                      disabled={loading || room.full || room.sample}
+                      onClick={() => { if (room.roomId) void join(room.roomId); }}
+                      aria-label={`${room.title} · ${room.sample ? "Phòng mẫu, không thể tham gia" : room.full ? "Đã đầy" : "Vào phòng"}`}>
+                      <span className={styles.cover}>
+                        <img src={`/room-ui/cover-${room.art}.svg`} alt="" loading="lazy" width="76" height="76" />
+                        {room.sample && <span className={styles.sampleMark}>MẪU</span>}
+                      </span>
+                      <span className={styles.roomDetails}>
+                        <strong>{room.title}</strong>
+                        <span className={styles.roomCode}>{room.subtitle}</span>
+                        <span className={styles.roomTags}>
+                          {room.difficulty ? <span className={
+                            room.difficulty === "Dễ" ? styles.easyTag
+                              : room.difficulty === "Khó" ? styles.hardTag : styles.normalTag
+                          }>{room.difficulty}</span>
+                            : <span className={room.mode === "team" ? styles.teamTag : styles.soloTag}>{room.mode === "team" ? "Team" : "Solo"}</span>}
+                          {room.playing && <span className={styles.playTag}>Đang chơi</span>}
+                          {!room.sample && <span className={room.full ? styles.fullTag : styles.waitTag}>
+                            {room.full ? "Đã đầy" : "Đang chờ"}
+                          </span>}
+                        </span>
+                      </span>
+                      <span className={styles.roomRight}>
+                        <span className={styles.signal} aria-hidden="true"><i /><i /><i /><i /></span>
+                        <span className={styles.capacity}><Icon name="person" size={17} /> {room.players}/{room.capacity}</span>
+                      </span>
+                    </button>
+                  </article>
+                ))}
+              </div>
+              {rooms.length === 0 && <p className={styles.sampleNotice}>Các phòng có nhãn MẪU chỉ minh họa giao diện. Tạo phòng để chơi thật.</p>}
+            </section>
             <details className={styles.createOptions}>
               <summary>Tùy chỉnh tên phòng <span>⌄</span></summary>
               <label htmlFor="roomName">Tên phòng mới</label>
@@ -228,50 +302,6 @@ export default function RoomBrowser() {
                 onChange={event => setJoinId(event.target.value)}
                 onKeyDown={event => { if (event.key === "Enter") void join(joinId); }} />
               <button type="button" disabled={loading} onClick={() => void join(joinId)}>Tham gia</button>
-            </section>
-            <section className={styles.roomSection} aria-label="Danh sách phòng">
-              <div className={styles.sectionHeader}>
-                <h1>Danh sách phòng <span>{visibleRooms.length}</span></h1>
-                <button className={styles.refresh} type="button" disabled={refreshing}
-                  onClick={() => void refresh()} aria-label="Làm mới danh sách phòng">
-                  <Icon name="refresh" size={17} /><span>{refreshing ? "Đang tải" : "Làm mới"}</span>
-                </button>
-              </div>
-              {visibleRooms.length === 0 ? <div className={styles.empty}>
-                <span className={styles.emptyIcon}><Icon name="music" size={30} /></span>
-                <strong>{refreshing ? "Đang cập nhật danh sách…" : filter === "playing"
-                  ? "Chưa hỗ trợ xem phòng đang chơi" : "Chưa có phòng phù hợp"}</strong>
-                <p>{filter === "playing" ? "Bản MVP hiện chỉ công khai các phòng đang chờ."
-                  : filter === "team" ? "Chưa có phòng Team đang chờ. Thử bộ lọc Tất cả."
-                  : "Tạo phòng đầu tiên hoặc nhập mã từ bạn bè để cùng nhảy nhé."}</p>
-              </div> : <div className={styles.roomList}>
-                {visibleRooms.map((room, index) => {
-                  const full = room.openSlots < 1;
-                  return <article key={room.roomId} className={styles.room}>
-                    <button type="button" className={styles.roomAction}
-                      data-testid="entry-join-room" disabled={loading || full}
-                      onClick={() => void join(room.roomId)}
-                      aria-label={`${room.roomName} · ${full ? "Phòng đầy" : "Vào phòng"}`}>
-                      <span className={styles.cover} data-art={(index % 4) + 1}>
-                        <span className={styles.coverShine} /><span className={styles.coverMark}>A</span>
-                        <span className={styles.coverCaption}>AUDITION</span>
-                      </span>
-                      <span className={styles.roomDetails}>
-                        <strong>{room.roomName}</strong>
-                        <span className={styles.roomCode}>{room.roomId}</span>
-                        <span className={styles.roomTags}>
-                          <span className={isTeamMode(room.modeId) ? styles.teamTag : styles.soloTag}>{modeLabel(room.modeId)}</span>
-                          <span className={full ? styles.fullTag : styles.waitTag}>{full ? "Đã đầy" : "Đang chờ"}</span>
-                        </span>
-                      </span>
-                      <span className={styles.roomRight}>
-                        <span className={styles.signal} aria-hidden="true"><i /><i /><i /><i /></span>
-                        <span className={styles.capacity}><Icon name="person" size={17} /> {room.playerCount}/{room.maxPlayers}</span>
-                      </span>
-                    </button>
-                  </article>;
-                })}
-              </div>}
             </section>
           </> : <section className={styles.comingSoon}>
             <span className={styles.comingSoonIcon}>
