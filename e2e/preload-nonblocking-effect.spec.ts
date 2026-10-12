@@ -94,6 +94,10 @@ function scenario(options: {
     setPreloadCasFailure: (next: any) => {
       casFailure = typeof next === "function" ? next(casFailure) : next;
     },
+    // Pass the host Error constructor to the sandbox. Errors produced by
+    // async host-side fixtures must preserve instanceof Error inside the
+    // extracted production useEffect (vm realms have separate intrinsics).
+    Error,
     setSyncDetail: () => {},
     fetchRoomSnapshot: () => { throw new Error("Unexpected canonical fetch"); },
     adoptServerSnapshot: () => {},

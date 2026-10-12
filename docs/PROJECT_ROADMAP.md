@@ -534,6 +534,25 @@ regressions, then owner approval to integrate PR #18. Automated DB
 checks and a green Vercel build are technical validation only.
 Detailed implementation/QA notes: `docs/MVP_ENTRY_ROOM_FLOW_V1.md`.
 
+### P4.6 — Multiplayer Gameplay Ensemble (2–5 live Human actors) — PLANNED
+
+**Owner decision (2026-10-12):** Actual multiplayer gameplay should display **all 2–5 joined Human characters dancing together on the same stage**, in the spirit of Audition PC. The current PR #18 gameplay renderer intentionally shows only the local frozen character (with a 2–5-player provisional leaderboard); it does **not** yet provide a synchronized remote-actor stage formation. The accepted five-character P5.6 Waiting Room is not equivalent to multiplayer gameplay multi-actor support.
+
+**Priority and activation gate:** This is a **deferred gameplay-presentation milestone**, not part of the current PR #18 integration hardening. First stabilize the existing focused QA harness and complete real-Supabase 5-Human integration acceptance, then obtain separate owner approval for implementation scope/branch. Do not start this in parallel as a workaround for failed QA. No automatic merge of PR #18, `development`, or `main`.
+
+**Planned contracts (not yet implemented):**
+
+- Render each Human participant in the frozen `MatchManifest.participants` (2–5), using the existing Character Catalog resolution from `participant.avatar.characterAssetId` to runtime actor and animation profile; preserve both accepted migration fallbacks.
+- Introduce a bounded, portrait/mobile-first ensemble layout/camera, with local player focus and remote characters in stable stage slots. The accepted Waiting Room composition remains unchanged.
+- Animate each participant separately using the shared **WebAudio-authoritative global turn timeline**. Per-player judgement/motion state can differ; no player animation, network event or latency may pause, repeat, replace or extend the global rhythm turn budget, shared epoch, Finish or AUDIO END.
+- Reuse existing multiplayer participant identity, frozen manifest, stage catalog and Realtime abstractions. Define and review an explicit per-participant animation/judgement presentation event contract before implementation. **Do not invent remote dance results** from local inputs or score-rank updates. Client-reported events must remain provisional until separately authenticated/server-validated.
+- Preserve local touch HUD and gauge. Remote animation updates must not create a second authoritative scheduler or take ownership of the audio clock.
+- Mobile performance gate: asset sharing/cache, bounded `SkinnedMesh` and `AnimationMixer` work, stable actor instances across ordinary roster/connection/READY metadata, and measured FPS/GPU/thermal/battery on owner iPhone. Degrade remote visual detail if necessary without suppressing global turns or changing game outcomes.
+
+**Acceptance criteria for later milestone:** With 2, 3 and 5 Humans, each participant sees the same frozen roster with distinct characters occupying stable on-stage positions; receives actual participant-specific dance presentation (including misses where available); local judgement controls and WebAudio cadence remain unchanged; each client has exactly one authoritative song source and one immutable shared epoch; reconnect/background recovery does not duplicate actors or mixers. Owner physical iPhone visual/performance acceptance is required.
+
+**Status: BACKLOG ONLY — no implementation, no QA acceptance claimed.**
+
 ### Stage roadmap — S2 / S2.5 / S3
 
 Current milestone:

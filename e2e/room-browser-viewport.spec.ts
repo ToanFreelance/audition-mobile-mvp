@@ -30,7 +30,9 @@ for (const height of [620, 740] as const) {
     const filters = page.getByRole("navigation", { name: "Bộ lọc phòng" });
     const create = page.getByTestId("entry-create-room");
     const join = page.getByRole("region", { name: "Vào phòng bằng mã" });
-    const footer = page.getByRole("contentinfo", { name: "Điều hướng chính" });
+    // The footer is nested inside <main>; HTML-AAM suppresses its implicit
+    // contentinfo landmark role. Select the labeled element directly.
+    const footer = page.locator('footer[aria-label="Điều hướng chính"]');
 
     await expect(browser).toBeVisible();
     await expect(list).toBeVisible();
