@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createWebAudioContext, WebAudioTransport } from "../../game/web-audio-transport";
+import { RoomMetadataTransportError } from "../../multiplayer/room-metadata-retry";
+import { retryReadyCas } from "../../multiplayer/ready-cas-retry";
 import { retryPreloadCas, type PreloadCasAction } from "../../multiplayer/preload-cas-retry";
 import {
   canStartRoom,
@@ -172,6 +174,9 @@ async function postRoomMutation(payload: Record<string, unknown>, timeoutMs = 80
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
+    if (response.status >= 500 || response.status === 408 || response.status === 429) {
+      throw new RoomMetadataTransportError(`Room service unavailable (${response.status}).`);
+    }
     const data = await response.json() as RoomApiResponse;
     if (data.conflict && data.snapshot && isCanonicalRoomSnapshot(data.snapshot)) {
       return { snapshot: data.snapshot, conflict: true };
@@ -183,8 +188,9 @@ async function postRoomMutation(payload: Record<string, unknown>, timeoutMs = 80
     return { snapshot: data.snapshot, conflict: false };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("Room update timed out. Please retry.");
+      throw new RoomMetadataTransportError("Room update timed out. Please retry.");
     }
+    if (error instanceof SyntaxError) throw new RoomMetadataTransportError("Room response incomplete. Refresh canonical state.");
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
@@ -199,6 +205,9 @@ async function fetchRoomSnapshot(roomId: string, timeoutMs = 8000): Promise<Room
       cache: "no-store",
       signal: controller.signal,
     });
+    if (response.status >= 500 || response.status === 408 || response.status === 429) {
+      throw new RoomMetadataTransportError(`Room service unavailable (${response.status}).`);
+    }
     const data = await response.json() as RoomApiResponse;
     if (!response.ok || !data.ok || !data.snapshot) {
       throw new Error(data.error ?? `Room fetch failed (${response.status}).`);
@@ -207,8 +216,9 @@ async function fetchRoomSnapshot(roomId: string, timeoutMs = 8000): Promise<Room
     return data.snapshot;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("Room refresh timed out. Please retry.");
+      throw new RoomMetadataTransportError("Room refresh timed out. Please retry.");
     }
+    if (error instanceof SyntaxError) throw new RoomMetadataTransportError("Room response incomplete. Retry canonical refresh.");
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
@@ -391,6 +401,20 @@ export default function WaitingRoomPanel({
   const audioScheduleMountedRef = useRef(false);
   const gameplayRuntimeRef = useRef<MultiplayerGameplayRuntime | null>(null);
   const playingTransitionAttemptRef = useRef<string | null>(null);
+  const [canonicalSync, setCanonicalSync] = useState<{
+    key: string; state: "checking" | "verified" | "error"; message?: string;
+  } | null>(null);
+  const canonicalSyncRef = useRef(canonicalSync);
+  const recoverRoomSyncRef = useRef<(() => Promise<void>) | null>(null);
+  const readyAttemptRef = useRef<object | null>(null);
+  const [readyFailure, setReadyFailure] = useState<{ desiredReady: boolean; message: string } | null>(null);
+  const syncKey = syncOptions ? `${syncOptions.roomId}:${syncOptions.participantId}:${syncOptions.role}` : null;
+  const setCanonicalHealth = (next: NonNullable<typeof canonicalSync>) => {
+    canonicalSyncRef.current = next;
+    setCanonicalSync(next);
+  };
+  const canonicalVerified = !syncOptions || (canonicalSync?.key === syncKey
+    && canonicalSync.state === "verified" && syncStatus === "connected");
 
 
   useEffect(() => {
@@ -465,7 +489,20 @@ export default function WaitingRoomPanel({
     let transport: SupabaseRealtimeRoomTransport | null = null;
     let resumePromise: Promise<void> | null = null;
     let canonicalRefreshPromise: Promise<RoomState> | null = null;
-    let lastResumeAt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const key = `${syncOptions.roomId}:${syncOptions.participantId}:${syncOptions.role}`;
+    const health = (state: "checking" | "verified" | "error", message?: string) => {
+      if (!disposed) setCanonicalHealth({ key, state, message });
+    };
+    const syncError = (error: unknown) => {
+      if (disposed) return;
+      health("error", "Chưa đồng bộ được phòng. Kiểm tra kết nối rồi bấm ĐỒNG BỘ LẠI PHÒNG.");
+      setSyncStatus(transport?.status === "connected" ? "connected" : "error");
+      setSyncDetail(error instanceof Error ? error.message : "Room synchronization failed.");
+    };
+    readyAttemptRef.current = null;
+    setReadyIntentPending(false);
+    setReadyFailure(null);
     let guestJoinedThisSession = false;
     const cleanups: Array<() => void> = [];
     let confirmedPresenceIds: readonly string[] = [syncOptions.participantId];
@@ -485,7 +522,6 @@ export default function WaitingRoomPanel({
 
       roomRef.current = snapshot;
       setRoom(snapshot);
-      setReadyIntentPending(false);
       if (initialSync?.entryFlow) {
         const local = snapshot.participants.find(item =>
           item.participantId === syncOptions.participantId
@@ -563,15 +599,11 @@ export default function WaitingRoomPanel({
       throw new Error("Guest could not join the current room state.");
     };
 
-    const ensureTransportConnected = async (forceReconnect = false) => {
-      if (!transport) return;
-      if (forceReconnect && transport.status === "connected") {
-        transport.disconnect();
-      } else if (transport.status === "error") {
-        transport.disconnect();
-      }
+    const ensureTransportConnected = async () => {
+      if (!transport || disposed) return;
       if (transport.status === "connected") return;
-      if (transport.status === "connecting") return;
+      // The single resumePromise owns connection attempts and socket reuse.
+      transport.disconnect();
       await transport.connect();
     };
 
@@ -580,53 +612,36 @@ export default function WaitingRoomPanel({
 
       canonicalRefreshPromise = (async () => {
         const latest = await fetchRoomSnapshot(syncOptions.roomId);
+        if (disposed) return latest;
         applyCanonicalSnapshot(latest);
         return ensureGuestJoined(latest);
-      })().finally(() => {
+      })().catch(error => {
+        syncError(error);
+        throw error;
+      }).finally(() => {
         canonicalRefreshPromise = null;
       });
 
       return canonicalRefreshPromise;
     };
 
-    const resumeFromServer = (forceReconnect = true) => {
-      if (disposed) return Promise.resolve();
-      if (resumePromise) return resumePromise;
-
-      const now = Date.now();
-      if (now - lastResumeAt < 700) return Promise.resolve();
-      lastResumeAt = now;
-
-      resumePromise = (async () => {
-        try {
-          setSyncDetail("Refreshing canonical room…");
-          await ensureTransportConnected(forceReconnect);
-          if (disposed) return;
-          await refreshCanonicalRoom();
-          if (disposed) return;
-          setSyncStatus(transport?.status === "connected" ? "connected" : "disconnected");
-          setSyncDetail("Canonical room refreshed.");
-        } catch (error) {
-          if (disposed) return;
-          setReadyIntentPending(false);
-          setSyncStatus(transport?.status === "connected" ? "connected" : "error");
-          setSyncDetail(error instanceof Error ? error.message : "Room refresh failed.");
-        } finally {
-          resumePromise = null;
-        }
-      })();
-
-      return resumePromise;
-    };
-
     const connect = async () => {
-      try {
+        if (transport) {
+          await ensureTransportConnected();
+          if (!disposed) await refreshCanonicalRoom();
+          return;
+        }
         setSyncStatus("connecting");
         setSyncDetail("Connecting authoritative room…");
 
-        const configResponse = await fetch("/api/multiplayer/realtime-config", { cache: "no-store" });
-        if (!configResponse.ok) throw new Error(`Realtime config failed (${configResponse.status}).`);
-        const config = await configResponse.json() as RealtimeConfig;
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), 8000);
+        let config: RealtimeConfig;
+        try {
+          const configResponse = await fetch("/api/multiplayer/realtime-config", { cache: "no-store", signal: controller.signal });
+          if (!configResponse.ok) throw new Error(`Realtime config failed (${configResponse.status}).`);
+          config = await configResponse.json() as RealtimeConfig;
+        } finally { window.clearTimeout(timer); }
         if (disposed) return;
 
         // QA keeps bootstrap; entry requires an existing canonical room.
@@ -666,6 +681,7 @@ export default function WaitingRoomPanel({
         cleanups.push(transport.onStatus((status, detail) => {
           if (disposed) return;
           setSyncStatus(status);
+          if (status === "error" || status === "disconnected") syncError(new Error(detail ?? "Realtime disconnected."));
           if (detail) setSyncDetail(detail);
         }));
 
@@ -689,7 +705,7 @@ export default function WaitingRoomPanel({
             item.participantId !== syncOptions.participantId
             && !knownIds.has(item.participantId)
           ));
-          if (discoveredRemoteMember) void refreshCanonicalRoom();
+          if (discoveredRemoteMember) void refreshCanonicalRoom().catch(syncError);
         }));
 
         cleanups.push(transport.onEvent(event => {
@@ -697,7 +713,7 @@ export default function WaitingRoomPanel({
 
           if (event.payload.kind === "room-revision") {
             if (event.payload.roomRevision > roomRef.current.revision) {
-              void refreshCanonicalRoom();
+              void refreshCanonicalRoom().catch(syncError);
             }
             return;
           }
@@ -719,35 +735,51 @@ export default function WaitingRoomPanel({
         await refreshCanonicalRoom();
         if (disposed) return;
 
-        setSyncStatus("connected");
-        setSyncDetail("Server-authoritative room synced.");
-
-        const handleForeground = () => {
-          if (document.visibilityState === "visible") void resumeFromServer(true);
-        };
-        const handlePageShow = () => void resumeFromServer(true);
-        const handleFocus = () => {
-          if (document.visibilityState === "visible") void resumeFromServer(true);
-        };
-
-        document.addEventListener("visibilitychange", handleForeground);
-        window.addEventListener("pageshow", handlePageShow);
-        window.addEventListener("focus", handleFocus);
-        cleanups.push(() => document.removeEventListener("visibilitychange", handleForeground));
-        cleanups.push(() => window.removeEventListener("pageshow", handlePageShow));
-        cleanups.push(() => window.removeEventListener("focus", handleFocus));
-      } catch (error) {
-        if (disposed) return;
-        setReadyIntentPending(false);
-        setSyncStatus("error");
-        setSyncDetail(error instanceof Error ? error.message : "Authoritative room sync failed.");
-      }
     };
 
-    void connect();
+    const resumeFromServer = () => {
+      if (disposed) return Promise.resolve();
+      if (resumePromise) return resumePromise;
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+      health("checking", "Đang xác minh trạng thái phòng…");
+      resumePromise = (async () => {
+        try {
+          await connect();
+          if (disposed) return;
+          if (transport?.status !== "connected") throw new Error("Realtime is not connected.");
+          health("verified");
+          setSyncStatus("connected");
+          setSyncDetail("Server-authoritative room synced.");
+        } catch (error) { syncError(error); }
+        finally { resumePromise = null; }
+      })();
+      return resumePromise;
+    };
+    // Recovery exists before initialization; failures cannot strand the page.
+    const handleForeground = () => {
+      if (document.visibilityState === "visible") void resumeFromServer();
+    };
+    document.addEventListener("visibilitychange", handleForeground);
+    for (const event of ["pageshow", "focus", "online"]) {
+      window.addEventListener(event, handleForeground);
+      cleanups.push(() => window.removeEventListener(event, handleForeground));
+    }
+    cleanups.push(() => document.removeEventListener("visibilitychange", handleForeground));
+    recoverRoomSyncRef.current = resumeFromServer;
+    const initialAttempt = async (attempt: number) => {
+      await resumeFromServer();
+      if (!disposed && canonicalSyncRef.current?.key === key
+        && canonicalSyncRef.current.state !== "verified" && attempt < 2) {
+        retryTimer = setTimeout(() => void initialAttempt(attempt + 1), 400 * (attempt + 1));
+      }
+    };
+    void initialAttempt(0);
 
     return () => {
       disposed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      if (recoverRoomSyncRef.current === resumeFromServer) recoverRoomSyncRef.current = null;
+      readyAttemptRef.current = null;
       for (const cleanup of cleanups) cleanup();
       if (transportRef.current === transport) transportRef.current = null;
       transport?.disconnect();
@@ -824,7 +856,9 @@ export default function WaitingRoomPanel({
   const hostView = syncOptions
     ? syncOptions.participantId === room.hostParticipantId
     : viewer.participantId === room.hostParticipantId;
-  const startGate = useMemo(() => canStartRoom(displayRoom), [displayRoom]);
+  const startGate = useMemo(() => canonicalVerified
+    ? canStartRoom(room)
+    : { allowed: false, reason: "Chưa xác minh trạng thái phòng. Hãy đồng bộ lại." }, [room, canonicalVerified]);
   const participantById = useMemo(
     () => new Map(displayRoom.participants.map(item => [item.participantId, item])),
     [displayRoom.participants],
@@ -913,24 +947,24 @@ export default function WaitingRoomPanel({
     }
   };
 
-  const runServerMutation = async (payload: Record<string, unknown>, successDetail?: string) => {
+  const runServerMutation = async (payload: Record<string, unknown>, successDetail?: string, timeoutMs = 8000) => {
     if (!syncOptions) throw new Error("Realtime room sync is not enabled.");
     const beforeRevision = roomRef.current.revision;
     const result = await postRoomMutation({
       roomId: syncOptions.roomId,
       ...payload,
-    });
+    }, timeoutMs);
     adoptServerSnapshot(result.snapshot);
 
     if (!result.conflict && result.snapshot.revision > beforeRevision) {
       const currentTransport = transportRef.current;
       if (currentTransport?.status === "connected") {
         try {
-          await currentTransport.send({
+          void currentTransport.send({
             kind: "room-revision",
             roomRevision: result.snapshot.revision,
             reason: roomRevisionReason(payload.action),
-          });
+          }).catch(() => undefined);
         } catch {
           // Mutation is already authoritative on the server. Foreground refresh
           // remains the recovery path if this best-effort realtime hint fails.
@@ -1023,7 +1057,12 @@ export default function WaitingRoomPanel({
       participantId: localParticipant.participantId,
       readCurrent: () => roomRef.current,
       cancelled: () => cancelled,
-      mutate: current => runServerMutation({
+      refreshCanonical: async timeoutMs => {
+        const latest = await fetchRoomSnapshot(syncOptions.roomId, timeoutMs);
+        if (!cancelled) adoptServerSnapshot(latest);
+        return latest;
+      },
+      mutate: (current, timeoutMs) => runServerMutation({
         action,
         expectedRevision: current.revision,
         actorParticipantId: localParticipant.participantId,
@@ -1031,7 +1070,7 @@ export default function WaitingRoomPanel({
         roomRevision: identity.roomRevision,
         startRevision: identity.startRevision,
         ...(ack ? { ack } : {}),
-      }),
+      }, undefined, timeoutMs),
     });
 
     void (async () => {
@@ -1487,28 +1526,49 @@ export default function WaitingRoomPanel({
       : openSlot(current, current.hostParticipantId, slotIndex));
   };
 
+  const requestReady = (desiredReady: boolean) => {
+    if (!syncOptions || readyAttemptRef.current || leftRoom) return;
+    const participantId = syncOptions.participantId;
+    const local = roomRef.current.participants.find(p => p.participantId === participantId);
+    if (!local || local.kind !== "human" || local.role !== "guest" || roomRef.current.status !== "waiting") return;
+    const attempt = {};
+    readyAttemptRef.current = attempt;
+    setReadyIntentPending(true);
+    setReadyFailure(null);
+    void retryReadyCas({
+      participantId, desiredReady, hostParticipantId: roomRef.current.hostParticipantId,
+      readCurrent: () => roomRef.current,
+      cancelled: () => readyAttemptRef.current !== attempt,
+      refreshCanonical: async timeoutMs => {
+        const snapshot = await fetchRoomSnapshot(syncOptions.roomId, timeoutMs);
+        if (readyAttemptRef.current === attempt) adoptServerSnapshot(snapshot);
+        return snapshot;
+      },
+      mutate: (current, timeoutMs) => runServerMutation({
+        action: "ready", expectedRevision: current.revision, participantId, ready: desiredReady,
+      }, undefined, timeoutMs),
+    }).then(result => {
+      if (readyAttemptRef.current !== attempt) return;
+      if (result) setSyncDetail("Ready state synced.");
+      else setActionNotice("Phòng hoặc quyền Host đã thay đổi. Kiểm tra trạng thái trước khi READY lại.");
+    }).catch(error => {
+      if (readyAttemptRef.current !== attempt) return;
+      setReadyFailure({ desiredReady, message: error instanceof Error ? error.message : "Ready update failed." });
+    }).finally(() => {
+      if (readyAttemptRef.current !== attempt) return;
+      readyAttemptRef.current = null;
+      setReadyIntentPending(false);
+    });
+  };
+
   const toggleReady = () => {
-    if (viewer.kind !== "human" || viewer.role !== "guest") return;
-
+    if (viewer.kind !== "human" || viewer.role !== "guest" || readyAttemptRef.current) return;
     if (viewer.readyState !== "ready") activateGameplayAudioFromGesture();
-
     if (syncOptions) {
-      if (room.hostParticipantId === syncOptions.participantId
-        || viewer.participantId !== syncOptions.participantId || readyIntentPending) return;
-      setReadyIntentPending(true);
-      void runServerMutation({
-        action: "ready",
-        expectedRevision: room.revision,
-        participantId: viewer.participantId,
-        ready: viewer.readyState !== "ready",
-      }, "Ready state synced.").catch(error => {
-        setSyncDetail(error instanceof Error ? error.message : "Ready update failed.");
-      }).finally(() => {
-        setReadyIntentPending(false);
-      });
+      if (viewer.participantId !== syncOptions.participantId) return;
+      requestReady(viewer.readyState !== "ready");
       return;
     }
-
     setRoom(current => setGuestReady(current, viewer.participantId, viewer.readyState !== "ready"));
   };
 
@@ -1720,6 +1780,8 @@ export default function WaitingRoomPanel({
 
   const freezeMatchForStart = () => {
     if (!hostView || startIntentPending || frozenMatchManifest || !startGate.allowed) return;
+    if (syncOptions && (canonicalSyncRef.current?.key !== syncKey
+      || canonicalSyncRef.current?.state !== "verified" || transportRef.current?.status !== "connected")) return;
     activateGameplayAudioFromGesture();
     if (!room.selectedSongId) {
       setSyncDetail("A selected song is required before Start.");
@@ -1803,6 +1865,7 @@ export default function WaitingRoomPanel({
       );
     })().catch(error => {
       setFrozenMatchManifest(null);
+      if (syncKey) setCanonicalHealth({ key: syncKey, state: "error", message: "Không thể xác minh START. Hãy đồng bộ lại phòng." });
       setSyncDetail(error instanceof Error ? error.message : "Match freeze failed.");
     }).finally(() => {
       setStartIntentPending(false);
@@ -2350,6 +2413,22 @@ export default function WaitingRoomPanel({
               </div>
             )}
           </section>
+        )}
+
+        {syncOptions && !canonicalVerified && (
+          <div className={styles.preloadAudioState} role="status" data-testid="room-sync-recovery">
+            <small className={styles.preloadAudioError}>{canonicalSync?.message ?? "Đang xác minh trạng thái phòng…"}</small>
+            <button className={styles.preloadAudioButton} type="button" data-testid="retry-room-sync"
+              disabled={canonicalSync?.state === "checking"}
+              onClick={() => void recoverRoomSyncRef.current?.()}>ĐỒNG BỘ LẠI PHÒNG</button>
+          </div>
+        )}
+        {readyFailure && room.status === "waiting" && viewer.kind === "human" && viewer.role === "guest" && (
+          <div className={styles.preloadAudioState} role="alert" data-testid="ready-recovery">
+            <small className={styles.preloadAudioError}>{readyFailure.message}</small>
+            <button className={styles.preloadAudioButton} type="button" data-testid="retry-ready" disabled={readyIntentPending}
+              onClick={() => requestReady(readyFailure.desiredReady)}>THỬ GỬI {readyFailure.desiredReady ? "READY" : "NOT READY"} LẠI</button>
+          </div>
         )}
 
         <footer className={`${styles.actions} ${viewer.kind === "human" && viewer.role === "guest" ? styles.actionsGuest : ""}`}>

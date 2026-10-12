@@ -712,3 +712,32 @@ requires real device/hardware GPU and isolated Supabase staging validation.
 Locked WebAudio clock, global turn budget, calibrated gauge, Finish,
 RoomState/CAS authority, shared epoch, Character Catalog, Stage3D and
 owner-accepted portrait GameShell HUD are unchanged. Keep PR #18 OPEN/Draft.
+
+### PR18 integration metadata hardening
+
+Room metadata recovery is desired-state CAS, not a gameplay restart. Transport
+timeouts/408/429/5xx and incomplete responses have an uncertain outcome: SQL
+may already have committed. Before another write, read/adopt canonical state
+(or accept an already-satisfied validated server snapshot). CAS conflicts supply
+their canonical snapshot directly. Never replay an old revision blindly.
+
+- Preload retains one match/roomRevision/startRevision identity, membership
+  guards and cached readiness. A maximum of 24 recovery cycles / 30 seconds
+  uses capped jittered backoff; each request remains capped at 8 seconds or the
+  remaining deadline. Exhaustion leaves the existing same-session ACK retry
+  available. Only genuine frozen-content errors report FAILED.
+- READY freezes the requested boolean and Host identity, with at most 8 cycles
+  / 30 seconds. Removal, Host transfer or leaving WAITING stops the intent.
+  A synchronous tap latch survives unrelated canonical broadcasts; an explicit
+  retry resubmits the same desired state, never a toggle.
+- START uses the full canonical roster, not presence-filtered presentation,
+  and requires verified synchronization for the current room/participant/role.
+  Focus/online/manual recovery is installed before the first connection attempt.
+  Initial retries are bounded; healthy transport and in-flight refresh are
+  reused. The existing server rechecks and authoritative CAS remain mandatory.
+
+Regression suites: `preload-cas-retry`, `ready-cas-retry`,
+`room-sync-recovery-effect`, `room-metadata-http`. The effect tests execute
+production source as the existing D01 suite does. Real Supabase/browser
+acceptance and AUD01's unchanged 50 ms threshold are separate gates; these
+changes alone do not establish five-Human or real-device acceptance.

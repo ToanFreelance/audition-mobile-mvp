@@ -160,23 +160,33 @@ function dbHeaders(key: string) {
   };
 }
 
+class RoomStorageUnavailable extends Error {}
+
 async function callRoomRpc<T>(functionName: string, body: Record<string, unknown>): Promise<T[]> {
   const config = getSupabaseServerConfig();
   if (!config) throw new Error("Supabase room storage configuration is unavailable.");
 
-  const response = await fetch(`${config.url}/rest/v1/rpc/${functionName}`, {
-    method: "POST",
-    cache: "no-store",
-    headers: dbHeaders(config.key),
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${config.url}/rest/v1/rpc/${functionName}`, {
+      method: "POST", cache: "no-store", headers: dbHeaders(config.key),
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // SQL may already have committed; this is not a domain rejection.
+    throw new RoomStorageUnavailable("Room storage connection failed. Refresh canonical state.");
+  }
+  if (response.status >= 500 || response.status === 408 || response.status === 429) {
+    throw new RoomStorageUnavailable(`Room storage temporarily unavailable (${response.status}).`);
+  }
 
   if (!response.ok) {
     const detail = await response.text().catch(() => "");
     throw new Error(`Room storage RPC ${functionName} failed (${response.status})${detail ? `: ${detail.slice(0, 180)}` : ""}.`);
   }
 
-  return await response.json() as T[];
+  try { return await response.json() as T[]; }
+  catch { throw new RoomStorageUnavailable("Room storage response lost. Refresh canonical state."); }
 }
 
 // Unlike the existing row-returning RPCs, PostgREST returns a scalar JSON
@@ -612,6 +622,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === "ROOM_REVISION_CONFLICT" && current) {
       return jsonConflict(current);
     }
-    return jsonError(error instanceof Error ? error.message : "Room mutation failed.", 400);
+    return jsonError(error instanceof Error ? error.message : "Room mutation failed.", error instanceof RoomStorageUnavailable ? 503 : 400);
   }
 }

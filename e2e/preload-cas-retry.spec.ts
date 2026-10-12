@@ -8,10 +8,23 @@ import {
 } from "../multiplayer/lobby-start-handoff";
 import { freezeLobbyMatch } from "../multiplayer/lobby-match-freeze";
 import { allClientsLoaded, createLoadedAckForSession } from "../multiplayer/match-start-protocol";
-import { retryPreloadCas } from "../multiplayer/preload-cas-retry";
+import { retryPreloadCas as productionRetryPreloadCas } from "../multiplayer/preload-cas-retry";
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import * as ts from "typescript";
 import { addParticipant, canStartRoom, createRoomState } from "../multiplayer/room-state";
 import { createP53SyncedWaitingRoomBase } from "../multiplayer/waiting-room-qa";
 import type { HumanGuestParticipant, RoomSlotIndex, RoomState } from "../multiplayer/types";
+import { RoomMetadataTransportError } from "../multiplayer/room-metadata-retry";
+
+// QA can replay these regressions against the exact pre-fix helper without
+// replacing the working tree. Only the baseline helper (type-only imports) is evaluated.
+const selectedRetry: typeof productionRetryPreloadCas = process.env.PR18_PRELOAD_SOURCE
+  ? runInNewContext(ts.transpileModule(readFileSync(process.env.PR18_PRELOAD_SOURCE, "utf8"), {
+      compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+    }).outputText + "\nexports.retryPreloadCas;", { exports: {}, Error, Date, Math, setTimeout })
+  : productionRetryPreloadCas;
+const retryPreloadCas: typeof productionRetryPreloadCas = options => Promise.resolve(selectedRetry(options));
 
 function fiveHumanPreload(): RoomState {
   const host = createP53SyncedWaitingRoomBase("preload-cas-five").participants[0];
@@ -72,6 +85,7 @@ test("5 Human concurrent loading/LOADED ACKs survive repeated canonical CAS coll
       const result = await retryPreloadCas({
         action, identity: frozen, participantId,
         readCurrent: () => clients.get(participantId)!,
+        refreshCanonical: async () => canonical,
         cancelled: () => false,
         maxAttempts: 40,
         wait: async () => { await Promise.resolve(); },
@@ -127,6 +141,7 @@ test("CAS exhaustion does not mark an asset FAILED; manual retry of same identit
     identity: frozen,
     participantId,
     readCurrent: () => local,
+    refreshCanonical: async () => canonical,
     cancelled: () => false,
     maxAttempts,
     wait: async () => undefined,
@@ -160,6 +175,7 @@ test("stale session and cancellation never send a preload mutation", async () =>
     identity: identity(initial),
     participantId: initial.hostParticipantId,
     readCurrent: () => current,
+    refreshCanonical: async () => current,
     cancelled: () => cancelled,
     wait: async () => undefined,
     mutate: async () => {
@@ -177,4 +193,103 @@ test("stale session and cancellation never send a preload mutation", async () =>
   };
   expect(await retryPreloadCas(options)).toBeNull();
   expect(sent).toBe(0);
+});
+
+for (const failure of ["timeout-before-execution", "committed-response-lost", "http-failure-revision-advanced"] as const) {
+  test(`preload recovers ${failure} by canonical verification, not stale replay`, async () => {
+    let server = fiveHumanPreload(), local = server;
+    const frozen = identity(server), participantId = server.hostParticipantId;
+    const events: string[] = [];
+    let posts = 0;
+    const result = await retryPreloadCas({
+      action: "preload-loading", identity: frozen, participantId,
+      readCurrent: () => local, cancelled: () => false, wait: async () => undefined,
+      refreshCanonical: async () => { events.push("GET"); local = server; return server; },
+      mutate: async snapshot => {
+        events.push(`POST:${snapshot.revision}`); posts++;
+        expect(snapshot.revision).toBe(server.revision);
+        if (posts === 1) {
+          if (failure === "committed-response-lost") server = markLobbyParticipantLoading(server, participantId, frozen).room;
+          if (failure === "http-failure-revision-advanced") server = { ...server, revision: server.revision + 1 };
+          throw failure === "timeout-before-execution" ? new DOMException("timeout", "AbortError") : new RoomMetadataTransportError("503/lost body");
+        }
+        server = markLobbyParticipantLoading(server, participantId, frozen).room;
+        local = server;
+        return { snapshot: server, conflict: false };
+      },
+    });
+    expect(events[1]).toBe("GET");
+    expect(posts).toBe(failure === "committed-response-lost" ? 1 : 2);
+    expect(result?.participants[0].loadState).toBe("loading");
+    expect(identity(server)).toEqual(frozen);
+    expect(server.matchStart?.startAtServerMs ?? null).toBeNull();
+  });
+}
+
+test("already LOADED and duplicate retry issue no mutation, even after reconnect", async () => {
+  let current = fiveHumanPreload();
+  const frozen = identity(current), participantId = current.hostParticipantId;
+  const ack = createLoadedAckForSession(restoreRoomMatchStartSession(current.matchStart!, current.participants), participantId);
+  current = applyLobbyLoadedAck(current, participantId, ack).room;
+  let posts = 0;
+  const options = { action: "loaded" as const, identity: frozen, participantId,
+    readCurrent: () => current, refreshCanonical: async () => current, cancelled: () => false,
+    mutate: async () => { posts++; return { snapshot: current, conflict: false }; } };
+  expect(await retryPreloadCas(options)).toEqual(current);
+  expect(await retryPreloadCas(options)).toEqual(current);
+  expect(posts).toBe(0);
+});
+
+for (const change of ["match", "participant", "room"] as const) {
+  test(`uncertain preload stops when ${change} changes during recovery`, async () => {
+    let current = fiveHumanPreload();
+    const frozen = identity(current), participantId = current.hostParticipantId;
+    let posts = 0;
+    const result = await retryPreloadCas({
+      action: "loaded", identity: frozen, participantId, readCurrent: () => current,
+      cancelled: () => false, wait: async () => undefined,
+      refreshCanonical: async () => {
+        current = { ...current, revision: current.revision + 1,
+          ...(change === "match" ? { matchStart: { ...current.matchStart!, matchId: "new-match" } } : {}),
+          ...(change === "participant" ? { participants: current.participants.slice(1) } : {}),
+          ...(change === "room" ? { roomId: "other-room" } : {}) };
+        return current;
+      },
+      mutate: async () => { posts++; throw new TypeError("offline"); },
+    });
+    expect(result).toBeNull(); expect(posts).toBe(1);
+  });
+}
+
+test("transport exhaustion is bounded; same frozen manual retry reuses readiness", async () => {
+  let current = fiveHumanPreload(), time = 0, offline = true, gets = 0, posts = 0;
+  const frozen = identity(current), participantId = current.hostParticipantId;
+  const readiness = createLoadedAckForSession(restoreRoomMatchStartSession(current.matchStart!, current.participants), participantId);
+  const run = () => retryPreloadCas({
+    action: "loaded", identity: frozen, participantId, readCurrent: () => current,
+    cancelled: () => false, maxDurationMs: 100, now: () => time,
+    wait: async ms => { time += ms; },
+    refreshCanonical: async () => { gets++; return current; },
+    mutate: async (snapshot, timeout) => {
+      posts++; expect(timeout).toBeLessThanOrEqual(100);
+      if (offline) throw new TypeError("offline");
+      current = applyLobbyLoadedAck(snapshot, participantId, readiness).room;
+      return { snapshot: current, conflict: false };
+    },
+  });
+  await expect(run()).rejects.toThrow("retry exhausted");
+  expect(time).toBe(100); expect(posts).toBe(1); expect(gets).toBe(0);
+  expect(current.participants.every(p => p.loadState !== "failed")).toBe(true);
+  offline = false;
+  expect((await run())?.participants[0].loadState).toBe("loaded");
+  expect(identity(current)).toEqual(frozen);
+});
+
+test("genuine content/domain rejection is not retried as metadata network failure", async () => {
+  const current = fiveHumanPreload(); let posts = 0;
+  await expect(retryPreloadCas({ action: "loaded", identity: identity(current), participantId: current.hostParticipantId,
+    readCurrent: () => current, refreshCanonical: async () => current, cancelled: () => false,
+    mutate: async () => { posts++; throw new Error("Frozen audio hash mismatch"); },
+  })).rejects.toThrow("Frozen audio hash mismatch");
+  expect(posts).toBe(1);
 });
