@@ -130,7 +130,8 @@ export async function waitForJoinConvergence(args: {
     } catch {
       readyVisible = false;
     }
-    if (canonicalJoined && lastPath === wantedPath && readyVisible) {
+    // A visibility query may resolve after the deadline under browser load.
+    if (Date.now() < deadline && canonicalJoined && lastPath === wantedPath && readyVisible) {
       return { elapsedMs: Date.now() - startedAt, roomId, participantId,
         canonicalRevision: lastRevision ?? 0, path: lastPath, readyButtonVisible: true };
     }
@@ -255,7 +256,9 @@ export async function waitForGameplayDom(args: {
   const startedAt = Date.now();
   const deadline = startedAt + (args.timeoutMs ?? 75_000);
   while (Date.now() < deadline && !page.isClosed()) {
-    if (await page.getByTestId("multiplayer-gameplay-live").isVisible().catch(() => false)) {
+    const visible = await page.getByTestId("multiplayer-gameplay-live").isVisible().catch(() => false);
+    // A late observation is evidence of a timeout, never an on-time PASS.
+    if (visible && Date.now() < deadline) {
       return { elapsedMs: Date.now() - startedAt, diagnostics: await captureGameplayHandoffDiagnostics(page) };
     }
     await sleep(Math.min(args.pollMs ?? 500, Math.max(1, deadline - Date.now())));

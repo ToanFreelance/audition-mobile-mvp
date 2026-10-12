@@ -97,3 +97,85 @@ test("gameplay deadline without DOM throws explicit diagnostic failure", async (
       diagnostics: expect.objectContaining({ gameplayDomVisible: false }),
     });
 });
+
+/**
+ * Deadline regression cases adopted from the independently executed V4
+ * diagnostic harness. These fake Page fixtures deliberately delay
+ * isVisible() beyond the deadline, testing false-PASS prevention.
+ */
+function sleepForQa(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function delayedVisibilityPage(delayMs: number): import("@playwright/test").Page {
+  return {
+    isClosed: () => false,
+    url: () => "http://qa.invalid/rooms/mvp-qa-wait-123",
+    getByTestId: () => ({ isVisible: async () => {
+      await sleepForQa(delayMs);
+      return true;
+    } }),
+    evaluate: async () => ({ gameplayDomVisible: true, capturedAtEpochMs: Date.now() }),
+  } as unknown as import("@playwright/test").Page;
+}
+
+test("JOIN late visibility observation must not PASS after deadline", async () => {
+  await expect(waitForJoinConvergence({
+    page: delayedVisibilityPage(120),
+    roomId,
+    participantId: guestId,
+    readCanonical: async () => currentRoom(true),
+    timeoutMs: 40,
+    pollMs: 5,
+  })).rejects.toMatchObject({ code: "JOIN_UI_NOT_SETTLED" });
+});
+
+test("gameplay late visibility observation must not PASS after deadline", async () => {
+  await expect(waitForGameplayDom({
+    page: delayedVisibilityPage(120),
+    timeoutMs: 40,
+    pollMs: 5,
+  })).rejects.toThrow("GAMEPLAY_DOM_NOT_VISIBLE_WITHIN_DEADLINE");
+});
+
+test("slow canonical GET is aborted without a duplicate JOIN mutation", async () => {
+  let reads = 0;
+  let aborts = 0;
+  await expect(waitForJoinConvergence({
+    page: delayedVisibilityPage(0),
+    roomId,
+    participantId: guestId,
+    timeoutMs: 180,
+    requestTimeoutMs: 50,
+    pollMs: 5,
+    readCanonical: async (_roomId, signal) => {
+      reads += 1;
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          aborts += 1;
+          reject(new Error("canonical GET aborted"));
+        });
+      });
+    },
+  })).rejects.toMatchObject({ code: "JOIN_CANONICAL_QUERY_FAILED" });
+  expect(reads).toBeGreaterThan(0);
+  expect(aborts).toBe(reads);
+});
+
+test("later gameplay DOM screenshot cannot retroactively change a timeout", async ({ page }) => {
+  await page.route("http://qa.invalid/**", route => route.fulfill({
+    status: 200,
+    contentType: "text/html",
+    body: "<!doctype html><html><body>WAITING</body></html>",
+  }));
+  await page.goto("http://qa.invalid/rooms/mvp-qa-wait-123");
+  await expect(waitForGameplayDom({
+    page,
+    timeoutMs: 100,
+    pollMs: 20,
+  })).rejects.toThrow("GAMEPLAY_DOM_NOT_VISIBLE_WITHIN_DEADLINE");
+  await page.evaluate(() => {
+    document.body.innerHTML = '<main data-testid="multiplayer-gameplay-live">LATE</main>';
+  });
+  await expect(page.getByTestId("multiplayer-gameplay-live")).toBeVisible();
+});
