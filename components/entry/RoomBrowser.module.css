@@ -138,3 +138,64 @@
 .createOptions,.joinQuick{margin-top:12px}
 .joinQuick{margin-bottom:4px}
 @media(max-width:360px){.content{padding-inline:9px}.playerBar{gap:5px}.avatar{width:43px;height:43px;flex-basis:43px}.playerTokens>span{min-width:52px;padding:4px}.profileSettings{flex-basis:26px;width:26px}.roomAction{gap:7px}.cover{width:65px;height:65px;flex-basis:65px}.roomRight{min-width:48px}.roomDetails>strong{font-size:13px}.roomTags>span{padding:3px 7px}.filters button{font-size:11px;padding:7px 8px}}
+
+/* Compact portrait layout: controls and bottom nav never scroll; room list alone scrolls. */
+.shell{position:fixed;inset:0;width:100%;height:100dvh;min-height:0;overflow:hidden;overscroll-behavior:none}
+.app{height:100%;max-height:100%;min-height:0;overflow:hidden}
+.content{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden;overscroll-behavior:none;padding:calc(env(safe-area-inset-top) + 11px) 12px 0}
+.playerBar{flex:0 0 auto;min-height:43px;gap:7px;margin-bottom:11px}
+.avatar{width:43px;height:43px;flex-basis:43px;border-radius:10px}
+.avatar img{border-radius:7px}
+.playerText strong{font-size:13px}
+.playerText>span{font-size:10px}
+.playerTokens>span{min-width:56px;padding:4px 6px;font-size:12px}
+.coinSymbol,.gemSymbol{width:19px;height:19px;flex-basis:19px;font-size:18px!important}
+.profileSettings{width:28px;flex-basis:28px;height:29px;font-size:22px}
+.walletNotice{flex:0 0 auto;margin:0 0 6px}
+.primaryTabs{flex:0 0 42px;height:42px;padding:3px;border-radius:10px}
+.primaryTabs button{font-size:12px;border-radius:8px}
+.filters{flex:0 0 auto;margin:10px 0 11px;padding-bottom:0;gap:6px}
+.filters button{min-height:34px;font-size:11px;padding:7px 9px}
+.createCard{flex:0 0 67px;min-height:67px;height:67px;gap:11px;margin-bottom:5px;padding:9px 13px;border-radius:14px}
+.createIcon{width:43px;height:43px;flex-basis:43px;border-radius:9px}
+.createIcon svg{width:26px;height:26px}
+.createText strong{font-size:16px}
+.createText small{font-size:10px}
+.createSparkle svg{width:16px;height:16px}
+.createOptions{flex:0 0 auto;font-size:10px;margin:2px 3px 3px}
+.createOptions label{margin-top:6px}
+.createOptions input{padding:8px;font-size:13px}
+.joinQuick{flex:0 0 34px;height:34px;min-height:34px;margin:3px 0 8px;padding:2px 3px 2px 8px;border-radius:9px}
+.joinQuick input{height:27px;font-size:11px}
+.joinQuick button{padding:6px 9px;font-size:10px}
+.roomSection{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden;padding-bottom:0}
+.sectionHeader{flex:0 0 21px;height:21px;margin:0 1px 6px}
+.sectionHeader h1{font-size:10px}
+.refresh{font-size:10px}
+.roomScroll{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:#5265b3 transparent;padding:1px 2px 12px}
+.roomScroll::-webkit-scrollbar{width:4px}
+.roomScroll::-webkit-scrollbar-thumb{background:#5265b3;border-radius:6px}
+.roomList{gap:7px}
+.roomAction{min-height:76px;gap:9px;padding:6px 7px}
+.cover{width:62px;height:62px;flex-basis:62px;border-radius:10px}
+.roomDetails{gap:3px}
+.roomDetails>strong{font-size:13px}
+.roomCode{font-size:10px}
+.roomTags>span{font-size:9px;padding:3px 7px}
+.roomRight{min-width:50px;padding:4px 2px 4px 0}
+.capacity{font-size:12px}
+.capacity svg{width:14px;height:14px}
+.signal{height:17px}
+.signal i:nth-child(1){height:5px}
+.signal i:nth-child(2){height:9px}
+.signal i:nth-child(3){height:13px}
+.signal i:nth-child(4){height:17px}
+.sampleNotice{margin:8px 5px 0}
+.bottomNav{position:relative;flex:0 0 auto;margin:0;padding-bottom:env(safe-area-inset-bottom);border-top-width:1px}
+.bottomNav button{min-height:54px;padding:3px 0;gap:3px;font-size:10px;line-height:1.2}
+.bottomNav button svg{width:19px;height:19px}
+.bottomNav .navActive{border-radius:11px 11px 0 0}
+.comingSoon{flex:1 1 auto;min-height:0;overflow-y:auto}
+.error{position:absolute;left:12px;right:12px;bottom:calc(58px + env(safe-area-inset-bottom));z-index:5;margin:0;box-shadow:0 8px 24px #07071dbb}
+@media(max-height:700px){.content{padding-top:calc(env(safe-area-inset-top) + 7px)}.playerBar{margin-bottom:8px}.primaryTabs{height:39px;flex-basis:39px}.filters{margin:7px 0 8px}.createCard{height:61px;min-height:61px;flex-basis:61px}.createIcon{width:39px;height:39px;flex-basis:39px}.joinQuick{margin-bottom:5px}.bottomNav button{min-height:49px}}
+@media(max-width:360px){.content{padding-inline:9px}.playerTokens>span{min-width:47px}.roomDetails>strong{font-size:12px}.roomAction{gap:7px}.cover{width:58px;height:58px;flex-basis:58px}.roomTags>span{padding:3px 6px}.roomRight{min-width:46px}}

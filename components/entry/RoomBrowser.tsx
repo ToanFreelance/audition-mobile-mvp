@@ -243,6 +243,21 @@ export default function RoomBrowser() {
               </span>
               <span className={styles.createSparkle}><Icon name="sparkle" size={20} /></span>
             </button>
+            <details className={styles.createOptions}>
+              <summary>Tùy chỉnh tên phòng <span>⌄</span></summary>
+              <label htmlFor="roomName">Tên phòng mới</label>
+              <input id="roomName" data-testid="entry-room-name" maxLength={32}
+                placeholder={`Phòng của ${identity.profile.name}`} value={roomName}
+                onChange={event => setRoomName(event.target.value)} />
+            </details>
+            <section className={styles.joinQuick} aria-label="Vào phòng bằng mã">
+              <span className={styles.quickIcon}><Icon name="enter" size={19} /></span>
+              <input aria-label="Mã phòng" data-testid="entry-room-code" maxLength={64}
+                placeholder="Nhập mã phòng mvp-…" value={joinId}
+                onChange={event => setJoinId(event.target.value)}
+                onKeyDown={event => { if (event.key === "Enter") void join(joinId); }} />
+              <button type="button" disabled={loading} onClick={() => void join(joinId)}>Tham gia</button>
+            </section>
             <section className={styles.roomSection} aria-label="Danh sách phòng">
               <div className={styles.sectionHeader}>
                 <h1>Danh sách phòng</h1>
@@ -251,7 +266,8 @@ export default function RoomBrowser() {
                   <Icon name="refresh" size={17} /><span>{refreshing ? "Đang tải" : "Làm mới"}</span>
                 </button>
               </div>
-              <div className={styles.roomList}>
+              <div className={styles.roomScroll} role="region" aria-label="Danh sách phòng cuộn" data-testid="entry-room-scroll" tabIndex={0}>
+                <div className={styles.roomList}>
                 {displayRooms.map(room => (
                   <article key={room.id} className={room.sample ? `${styles.room} ${styles.sampleRoom}` : styles.room}>
                     <button type="button" className={styles.roomAction}
@@ -285,23 +301,9 @@ export default function RoomBrowser() {
                     </button>
                   </article>
                 ))}
+                </div>
+                {rooms.length === 0 && <p className={styles.sampleNotice}>Các phòng có nhãn MẪU chỉ minh họa giao diện. Tạo phòng để chơi thật.</p>}
               </div>
-              {rooms.length === 0 && <p className={styles.sampleNotice}>Các phòng có nhãn MẪU chỉ minh họa giao diện. Tạo phòng để chơi thật.</p>}
-            </section>
-            <details className={styles.createOptions}>
-              <summary>Tùy chỉnh tên phòng <span>⌄</span></summary>
-              <label htmlFor="roomName">Tên phòng mới</label>
-              <input id="roomName" data-testid="entry-room-name" maxLength={32}
-                placeholder={`Phòng của ${identity.profile.name}`} value={roomName}
-                onChange={event => setRoomName(event.target.value)} />
-            </details>
-            <section className={styles.joinQuick} aria-label="Vào phòng bằng mã">
-              <span className={styles.quickIcon}><Icon name="enter" size={19} /></span>
-              <input aria-label="Mã phòng" data-testid="entry-room-code" maxLength={64}
-                placeholder="Nhập mã phòng mvp-…" value={joinId}
-                onChange={event => setJoinId(event.target.value)}
-                onKeyDown={event => { if (event.key === "Enter") void join(joinId); }} />
-              <button type="button" disabled={loading} onClick={() => void join(joinId)}>Tham gia</button>
             </section>
           </> : <section className={styles.comingSoon}>
             <span className={styles.comingSoonIcon}>
@@ -318,7 +320,7 @@ export default function RoomBrowser() {
             aria-current={section === item.id ? "page" : undefined}
             className={section === item.id ? styles.navActive : ""}
             onClick={() => setSection(item.id)}>
-            <Icon name={item.icon} size={23} /><span>{item.label}</span>
+            <Icon name={item.icon} size={19} /><span>{item.label}</span>
           </button>)}
         </footer>
       </div>
