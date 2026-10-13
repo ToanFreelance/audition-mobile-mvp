@@ -43,8 +43,9 @@ function readerWith(fetchImpl: (url: string, init: RequestInit, index: number) =
       return Boolean(snapshot && snapshot.roomId === "mvp-test" && Number.isInteger(snapshot.revision));
     },
   };
-  const read = runInNewContext(compiled + "\nfetchStartCanonicalSnapshot;", sandbox)
-    as CanonicalReader["read"];
+  const read: CanonicalReader["read"] = runInNewContext(
+    compiled + "\nfetchStartCanonicalSnapshot;", sandbox,
+  );
   return { read, requests };
 }
 
