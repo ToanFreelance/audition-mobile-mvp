@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createWebAudioContext, WebAudioTransport } from "../../game/web-audio-transport";
-import { RoomMetadataTransportError } from "../../multiplayer/room-metadata-retry";
+import { RoomMetadataTransportError, isRetryableRoomMetadataError } from "../../multiplayer/room-metadata-retry";
 import { retryReadyCas } from "../../multiplayer/ready-cas-retry";
 import { retryPreloadCas, type PreloadCasAction } from "../../multiplayer/preload-cas-retry";
 import {
@@ -222,6 +222,20 @@ async function fetchRoomSnapshot(roomId: string, timeoutMs = 8000): Promise<Room
     throw error;
   } finally {
     window.clearTimeout(timeoutId);
+  }
+}
+
+// Host START performs two read-only canonical checks (before and after content
+// resolution). A transient GET timeout must not abandon an otherwise READY
+// room; a second GET is safe because it neither mutates CAS nor starts a match.
+// Each fetchRoomSnapshot call owns a fresh AbortController and an 8s deadline.
+// Domain/invalid-snapshot errors are NOT retried.
+async function fetchStartCanonicalSnapshot(roomId: string): Promise<RoomState> {
+  try {
+    return await fetchRoomSnapshot(roomId);
+  } catch (error) {
+    if (!isRetryableRoomMetadataError(error)) throw error;
+    return fetchRoomSnapshot(roomId);
   }
 }
 
@@ -1807,7 +1821,7 @@ export default function WaitingRoomPanel({
 
     void (async () => {
       const latest = syncOptions
-        ? await fetchRoomSnapshot(syncOptions.roomId)
+        ? await fetchStartCanonicalSnapshot(syncOptions.roomId)
         : roomRef.current;
 
       if (latest.revision !== roomRef.current.revision) {
@@ -1831,7 +1845,7 @@ export default function WaitingRoomPanel({
       // mutation may land on the server while this page has not received any
       // realtime presentation update yet, so local roomRef alone is insufficient.
       const finalSnapshot = syncOptions
-        ? await fetchRoomSnapshot(syncOptions.roomId)
+        ? await fetchStartCanonicalSnapshot(syncOptions.roomId)
         : roomRef.current;
       if (finalSnapshot.revision !== latest.revision) {
         if (syncOptions) adoptServerSnapshot(finalSnapshot);
