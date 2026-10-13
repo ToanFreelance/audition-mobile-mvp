@@ -1604,20 +1604,24 @@ export default function WaitingRoomPanel({
         const memberData = await memberResponse.json() as {
           ok: boolean; active?: boolean;
         };
-        if (!memberResponse.ok || !memberData.ok || !memberData.active) {
-          if (!disposed) setSyncDetail("Bạn không còn trong phòng đang chờ.");
+        // The presence RPC is WAITING-only: inactive may mean the server
+        // advanced to PRELOADING while this tab missed its Realtime hint.
+        // A failed heartbeat is not proof that membership was removed.
+        if (!memberResponse.ok || !memberData.ok) return;
+        if (memberData.active
+          && roomRef.current.hostParticipantId === syncOptions.participantId) return;
+
+        // Reconcile from canonical authority before interpreting an inactive
+        // lease as removal or attempting waiting-only Host recovery.
+        const latest = await fetchRoomSnapshot(syncOptions.roomId);
+        if (disposed || latest.revision < roomRef.current.revision) return;
+        if (latest.revision > roomRef.current.revision) adoptServerSnapshot(latest);
+        if (!latest.participants.some(item => item.participantId === syncOptions.participantId)) {
+          setSyncDetail("Bạn không còn trong phòng đang chờ.");
           return;
         }
-        if (roomRef.current.hostParticipantId === syncOptions.participantId) return;
-
-        // Periodically reconcile canonical membership if a revision hint was
-        // missed during Safari background/suspend.
-        const latest = await fetchRoomSnapshot(syncOptions.roomId);
-        if (disposed) return;
-        if (latest.revision > roomRef.current.revision) adoptServerSnapshot(latest);
-        if (latest.status !== "waiting"
-          || latest.hostParticipantId === syncOptions.participantId
-          || !latest.participants.some(item => item.participantId === syncOptions.participantId)) return;
+        if (!memberData.active || latest.status !== "waiting"
+          || latest.hostParticipantId === syncOptions.participantId) return;
 
         const response = await fetch("/api/multiplayer/room", {
           method: "POST", cache: "no-store",
