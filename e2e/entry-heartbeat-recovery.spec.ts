@@ -25,6 +25,7 @@ type Options = {
   stale?: boolean;
   failFirstRead?: boolean;
   delayedRead?: boolean;
+  readyGuest?: boolean;
 };
 const flush = async () => {
   for (let i = 0; i < 50; i++) await Promise.resolve();
@@ -40,7 +41,11 @@ function scenario(options: Options = {}) {
     ...local,
     revision: options.stale ? 8 : 15,
     status: options.canonicalStatus ?? "preloading",
-    participants: options.removed ? [] : local.participants,
+    participants: options.removed ? []
+      : options.readyGuest ? [
+          ...local.participants,
+          { participantId: "guest", kind: "human", readyState: "ready" },
+        ] : local.participants,
   };
   const events: string[] = [];
   let interval: (() => void) | null = null;
@@ -156,10 +161,14 @@ test("active waiting Guest still uses server-only Host recovery", async () => {
   h.unmount();
 });
 
-test("active waiting Host avoids unnecessary reconciliation", async () => {
-  const h = scenario({ canonicalStatus: "waiting", active: true, host: true });
+test("active Host fetches newer canonical JOIN/READY despite missed revision hint", async () => {
+  const h = scenario({ canonicalStatus: "waiting", active: true, host: true, readyGuest: true });
   await h.mount();
-  expect(h.events).toEqual(["heartbeat"]);
+  expect(h.events).toContain("canonical");
+  expect(h.events).toContain("adopt:waiting");
+  expect(h.roomRef.current.revision).toBe(15);
+  expect(h.roomRef.current.participants.some(p => p.participantId === "guest" && "readyState" in p && p.readyState === "ready")).toBe(true);
+  expect(h.events).not.toContain("recover-host");
   h.unmount();
 });
 

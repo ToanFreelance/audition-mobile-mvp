@@ -1608,8 +1608,10 @@ export default function WaitingRoomPanel({
         // advanced to PRELOADING while this tab missed its Realtime hint.
         // A failed heartbeat is not proof that membership was removed.
         if (!memberResponse.ok || !memberData.ok) return;
-        if (memberData.active
-          && roomRef.current.hostParticipantId === syncOptions.participantId) return;
+        // Host must also reconcile while its heartbeat remains active:
+        // missing a JOIN/READY revision hint otherwise leaves START gated by
+        // a stale local roster indefinitely until a foreground reconnect.
+        // Liveness is advisory; RoomState revision remains authoritative.
 
         // Reconcile from canonical authority before interpreting an inactive
         // lease as removal or attempting waiting-only Host recovery.
