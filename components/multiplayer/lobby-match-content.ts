@@ -258,7 +258,7 @@ export async function preloadFrozenLobbyMatch(manifest: MatchManifest): Promise<
 }> {
   const music = await fetchPlayableMusicConfig(manifest.content.songId);
   const published = manifest.content.animationReleaseVersion > 0
-    ? await loadPublishedDanceRelease()
+    ? await loadPublishedDanceRelease(false, manifest.content.animationReleaseVersion)
     : null;
   const identity = await frozenContentIdentity(music, published);
   assertFrozenContent(manifest, identity);

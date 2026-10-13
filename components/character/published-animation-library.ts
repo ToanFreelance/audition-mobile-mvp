@@ -1,12 +1,16 @@
 import * as THREE from "three";
 import { loadRuntimeAnimationBundle } from "./runtime-animation-bundle";
 import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
+import { fetchPublishedAnimationJson } from "./published-animation-transport";
 
 export const PUBLISHED_DANCE_BUNDLE_URL =
   "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
 export const PUBLISHED_DANCE_MANIFEST_URL = PUBLISHED_DANCE_BUNDLE_URL + "?manifest=1";
 
-const PUBLISHED_DANCE_CONNECT_TIMEOUT_MS = 8000;
+const PUBLISHED_DANCE_MANIFEST_TIMEOUT_MS = 8000;
+// A versioned bundle contains all clips, so its deadline must not share the
+// lightweight manifest's short timeout or be reused by a fallback request.
+const PUBLISHED_DANCE_BUNDLE_TIMEOUT_MS = 16000;
 
 const NORMAL_DANCE_SLOT_NAMES = [
   "HumanDance01",
@@ -49,67 +53,90 @@ export type PublishedDanceLibraryResult = {
 let cachedPublishedDanceRelease: LoadedPublishedDanceRelease | null = null;
 
 /**
- * Fetches and validates the latest canonical animation release. Failure stays
- * presentation-only and must never affect gameplay timing.
+ * Fetches a versioned immutable animation bundle. A retry uses a new signal
+ * and refreshes the cached response only on the retry attempt.
  */
-export async function loadPublishedDanceRelease(forceRefresh = false): Promise<LoadedPublishedDanceRelease | null> {
-  if (forceRefresh) cachedPublishedDanceRelease = null;
-  if (cachedPublishedDanceRelease) return cachedPublishedDanceRelease;
+async function fetchVersionedDanceBundle(releaseVersion: number, forceRefresh: boolean) {
+  return fetchPublishedAnimationJson(
+    (signal, attempt) => fetchPersistentAsset(
+      PUBLISHED_DANCE_BUNDLE_URL + "?release=" + releaseVersion,
+      {
+        cacheKey: "animation-full-release:" + releaseVersion,
+        forceRefresh: forceRefresh || attempt > 0,
+        request: { headers: { Accept: "application/json" }, signal },
+      },
+    ),
+    "release v" + releaseVersion,
+    PUBLISHED_DANCE_BUNDLE_TIMEOUT_MS,
+  );
+}
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PUBLISHED_DANCE_CONNECT_TIMEOUT_MS);
+/**
+ * Optional presentation callers may fall back to built-in clips. Frozen
+ * multiplayer preload MUST request the exact manifest release and propagate
+ * an unavailable transport error rather than invent releaseVersion 0.
+ */
+export async function loadPublishedDanceRelease(
+  forceRefresh = false,
+  frozenReleaseVersion?: number,
+): Promise<LoadedPublishedDanceRelease | null> {
+  if (frozenReleaseVersion !== undefined
+    && (!Number.isInteger(frozenReleaseVersion) || frozenReleaseVersion <= 0)) {
+    throw new Error("Invalid frozen published animation release version.");
+  }
+  if (forceRefresh) cachedPublishedDanceRelease = null;
+  if (cachedPublishedDanceRelease
+    && (frozenReleaseVersion === undefined
+      || cachedPublishedDanceRelease.info.releaseVersion === frozenReleaseVersion)) {
+    return cachedPublishedDanceRelease;
+  }
 
   try {
-    let response: Response;
-    let expectedReleaseVersion: number | null = null;
+    let expectedReleaseVersion: number | null = frozenReleaseVersion ?? null;
+    let bundleJson: unknown;
 
-    try {
-      const manifestResponse = await fetch(PUBLISHED_DANCE_MANIFEST_URL, {
-        method: "GET",
-        cache: "no-cache",
-        headers: { Accept: "application/json" },
-        signal: controller.signal,
-      });
-      if (!manifestResponse.ok) {
-        throw new Error("published animation manifest endpoint returned " + manifestResponse.status);
-      }
-
-      const manifest = await manifestResponse.json() as Record<string, unknown>;
-      const releaseVersion = Number(manifest.releaseVersion ?? 0);
-      if (!Number.isInteger(releaseVersion) || releaseVersion <= 0) {
-        throw new Error("published animation manifest has no valid releaseVersion");
-      }
-
-      expectedReleaseVersion = releaseVersion;
-      response = await fetchPersistentAsset(
-        PUBLISHED_DANCE_BUNDLE_URL + "?release=" + releaseVersion,
-        {
-          cacheKey: "animation-full-release:" + releaseVersion,
-          forceRefresh,
-          request: {
+    if (expectedReleaseVersion === null) {
+      // Non-match presentation calls can resolve the latest manifest. Frozen
+      // multiplayer sessions never consult 'latest' after START.
+      try {
+        const manifest = await fetchPublishedAnimationJson(
+          signal => fetch(PUBLISHED_DANCE_MANIFEST_URL, {
+            method: "GET",
+            cache: "no-cache",
             headers: { Accept: "application/json" },
-            signal: controller.signal,
-          },
-        },
-      );
-    } catch (manifestError) {
-      console.warn(
-        "[character] lightweight animation manifest unavailable; falling back to legacy bundle endpoint",
-        manifestError,
-      );
-      response = await fetch(PUBLISHED_DANCE_BUNDLE_URL, {
-        method: "GET",
-        cache: "default",
-        headers: { Accept: "application/json" },
-        signal: controller.signal,
-      });
+            signal,
+          }),
+          "manifest",
+          PUBLISHED_DANCE_MANIFEST_TIMEOUT_MS,
+        ) as Record<string, unknown>;
+        const releaseVersion = Number(manifest.releaseVersion ?? 0);
+        if (!Number.isInteger(releaseVersion) || releaseVersion <= 0) {
+          throw new Error("published animation manifest has no valid releaseVersion");
+        }
+        expectedReleaseVersion = releaseVersion;
+      } catch (manifestError) {
+        console.warn(
+          "[character] lightweight animation manifest unavailable; falling back to legacy bundle endpoint",
+          manifestError,
+        );
+        // An unavailable manifest does not make its AbortSignal reusable.
+        bundleJson = await fetchPublishedAnimationJson(
+          signal => fetch(PUBLISHED_DANCE_BUNDLE_URL, {
+            method: "GET",
+            cache: "default",
+            headers: { Accept: "application/json" },
+            signal,
+          }),
+          "legacy bundle",
+          PUBLISHED_DANCE_BUNDLE_TIMEOUT_MS,
+        );
+      }
     }
 
-    if (!response.ok) {
-      throw new Error("published animation endpoint returned " + response.status);
+    if (bundleJson === undefined && expectedReleaseVersion !== null) {
+      bundleJson = await fetchVersionedDanceBundle(expectedReleaseVersion, forceRefresh);
     }
-
-    const bundle = loadRuntimeAnimationBundle(await response.json());
+    const bundle = loadRuntimeAnimationBundle(bundleJson);
     if (bundle.manifest.status !== "published") {
       throw new Error("latest animation bundle is not published");
     }
@@ -158,13 +185,14 @@ export async function loadPublishedDanceRelease(forceRefresh = false): Promise<L
     cachedPublishedDanceRelease = loaded;
     return loaded;
   } catch (error) {
+    // A frozen match cannot silently substitute built-in clips/release 0.
+    // The immutable hash/version check remains authoritative after delivery.
+    if (frozenReleaseVersion !== undefined) throw error;
     console.warn(
       "[character] published animation release unavailable; keeping built-in presentation fallback",
       error,
     );
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
