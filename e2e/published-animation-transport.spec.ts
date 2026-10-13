@@ -8,6 +8,7 @@ import {
   PublishedAnimationTransportError,
 } from "../components/character/published-animation-transport";
 
+// VM-created async Promises must be normalized to this realm before Playwright rejects matchers.
 type Loaded = { info: { releaseVersion: number; sourceAssetIds: string[] } };
 type ProductionLoader = {
   loadPublishedDanceRelease(forceRefresh?: boolean, frozenReleaseVersion?: number): Promise<Loaded | null>;
@@ -117,7 +118,7 @@ test("unavailable frozen release propagates transport error instead of returning
     calls += 1;
     throw new Error("network aborted");
   });
-  await expect(loader.loadPublishedDanceRelease(false, 4))
+  await expect(Promise.resolve(loader.loadPublishedDanceRelease(false, 4)))
     .rejects.toThrow(PublishedAnimationTransportError);
   expect(calls).toBe(2);
 });
@@ -128,7 +129,7 @@ test("wrong pinned release is rejected even if HTTP and JSON succeed", async () 
     requests += 1;
     return bundleResponse(5);
   });
-  await expect(loader.loadPublishedDanceRelease(false, 4))
+  await expect(Promise.resolve(loader.loadPublishedDanceRelease(false, 4)))
     .rejects.toThrow("published animation release mismatch");
   expect(requests).toBe(1);
 });
@@ -166,7 +167,7 @@ test("permanent 404 for frozen release fails without legacy fallback or retry", 
     calls += 1;
     return new Response("missing", { status: 404 });
   });
-  await expect(loader.loadPublishedDanceRelease(false, 4))
+  await expect(Promise.resolve(loader.loadPublishedDanceRelease(false, 4)))
     .rejects.toThrow("HTTP 404");
   expect(calls).toBe(1);
 });
