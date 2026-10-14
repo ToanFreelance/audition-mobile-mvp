@@ -56,6 +56,7 @@ import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlotIndex, typ
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
+import { PerformanceDiagnostics, performanceDiagnosticsEnabled } from "../diagnostics/performance-diagnostics";
 import WaitingRoomStage3D, {
   type WaitingRoomCalibrationLayout,
   type WaitingRoomStageView,
@@ -404,6 +405,16 @@ export default function WaitingRoomPanel({
   const countdownAttemptRef = useRef<string | null>(null);
   const clockRetryRequestedRef = useRef(false);
   const gameplayAudioContextRef = useRef<AudioContext | null>(null);
+  const diagnosticsRef = useRef<PerformanceDiagnostics | null>(null);
+  const [performanceDiagnostics, setPerformanceDiagnostics] = useState<PerformanceDiagnostics | null>(null);
+  useEffect(() => {
+    if (!performanceDiagnosticsEnabled(window.location.search)) return;
+    const diagnostics = new PerformanceDiagnostics();
+    diagnosticsRef.current = diagnostics;
+    diagnostics.start();
+    setPerformanceDiagnostics(diagnostics);
+    return () => { diagnosticsRef.current = null; diagnostics.dispose(); };
+  }, []);
   const gameplayAudioRef = useRef<PreparedGameplayAudio | null>(null);
   const gameplayAudioPrepareAttemptRef = useRef<string | null>(null);
   const gameplayScheduleAttemptRef = useRef<string | null>(null);
@@ -1411,7 +1422,9 @@ export default function WaitingRoomPanel({
       transport: prepared.transport,
       estimatedServerOffsetMs: clockSyncEstimate.offsetMs,
       // Presentation-only callback. Never mutates WebAudio/shared timing.
-      callbacks: { onJudgement: setGameplayPresentationJudgement },
+      callbacks: { onJudgement: diagnosticsRef.current
+        ? event => { diagnosticsRef.current?.recordJudgement(event); setGameplayPresentationJudgement(event); }
+        : setGameplayPresentationJudgement },
     }).then(result => {
       if (abandoned()) {
         result.runtime?.stop();
@@ -2098,6 +2111,8 @@ export default function WaitingRoomPanel({
         audioContextState={gameplayAudioContextState}
         scoreTransport={transportRef.current}
         startRevision={matchStartSession.startRevision}
+        performanceDiagnostics={performanceDiagnostics}
+        diagnosticAudioContext={performanceDiagnostics ? gameplayAudioContextRef.current : null}
       />
     );
   }

@@ -26,6 +26,8 @@ import type {
   MultiplayerGameplaySnapshot,
 } from "../../multiplayer/gameplay-runtime";
 import type { MatchManifest } from "../../multiplayer/types";
+import type { PerformanceDiagnostics } from "../diagnostics/performance-diagnostics";
+import PerformanceDiagnosticsOverlay from "../diagnostics/PerformanceDiagnosticsOverlay";
 
 const DIRECTIONS: readonly Direction[] = ["left", "up", "down", "right"];
 const SETTING_KEYS = {
@@ -57,6 +59,8 @@ export default function LiveMultiplayerGameplay(props: {
   /** Realtime score metadata only; never participates in WebAudio scheduling. */
   scoreTransport?: MultiplayerRoomTransport | null;
   startRevision?: number;
+  performanceDiagnostics?: PerformanceDiagnostics | null;
+  diagnosticAudioContext?: AudioContext | null;
 }) {
   const [snapshot, setSnapshot] = useState<MultiplayerGameplaySnapshot>(() => props.runtime.snapshot());
   const [scoreReceipts, setScoreReceipts] = useState<{
@@ -83,10 +87,23 @@ export default function LiveMultiplayerGameplay(props: {
   const pressTimerRef = useRef<number | null>(null);
   const lastAudioProgressRef = useRef({ songMs: 0, observedAtMs: 0 });
   const keyboardInputRef = useRef<{
-    pressSpace: () => void;
+    pressSpace: (eventTimeStamp?: number, kind?: "keyboard" | "pointer", handlerEntryMs?: number) => void;
     pressDirection: (direction: Direction) => void;
     menuOpen: boolean;
-  }>({ pressSpace: () => undefined, pressDirection: () => undefined, menuOpen: false });
+    diagnostics: boolean;
+  }>({ pressSpace: () => undefined, pressDirection: () => undefined, menuOpen: false, diagnostics: false });
+
+  useEffect(() => { props.performanceDiagnostics?.hudCommitted(); });
+  useEffect(() => {
+    const diagnostics = props.performanceDiagnostics;
+    if (!diagnostics) return;
+    diagnostics.setAudioReader(() => ({
+      context: props.diagnosticAudioContext ?? null,
+      songTimeMs: props.transport.getCurrentTimeMs(),
+      playing: props.transport.playing, audioEnded: props.runtime.isAudioEnded,
+    }));
+    return () => diagnostics.setAudioReader(null);
+  }, [props.performanceDiagnostics, props.diagnosticAudioContext, props.transport, props.runtime]);
 
   useEffect(() => {
     try {
@@ -291,12 +308,16 @@ export default function LiveMultiplayerGameplay(props: {
     setWrongDirection(nextArrow && nextArrow !== direction ? direction : null);
     props.runtime.handleDirection(direction);
   };
-  const pressSpace = () => {
+  const pressSpace = (eventTimeStamp?: number, kind: "keyboard" | "pointer" = "keyboard", enteredAtMs?: number) => {
+    const diagnostics = props.performanceDiagnostics;
+    const handlerEntryMs = diagnostics ? (enteredAtMs ?? performance.now()) : undefined;
     if (!snapshot.started || snapshot.audioEnded || menuOpen) return;
     setSpacePressed(true);
     if (pressTimerRef.current !== null) window.clearTimeout(pressTimerRef.current);
     pressTimerRef.current = window.setTimeout(() => setSpacePressed(false), 110);
-    props.runtime.handleSpace();
+    diagnostics?.beginInput(eventTimeStamp, kind, props.transport.getCurrentTimeMs(), snapshot.activeTargetSpaceMs, handlerEntryMs);
+    const result = props.runtime.handleSpace();
+    diagnostics?.endInput(result);
   };
   const pressGauge = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!snapshot.started || snapshot.audioEnded || menuOpen) return;
@@ -305,18 +326,19 @@ export default function LiveMultiplayerGameplay(props: {
     const percent = 100 * (event.clientX - rect.left) / rect.width;
     if (percent < SCORE_ZONE_START || percent > SCORE_ZONE_END) return;
     event.preventDefault();
-    pressSpace();
+    pressSpace(event.timeStamp, "pointer");
   };
 
-  keyboardInputRef.current = { pressSpace, pressDirection, menuOpen };
+  keyboardInputRef.current = { pressSpace, pressDirection, menuOpen, diagnostics: Boolean(props.performanceDiagnostics) };
   useEffect(() => {
     // Runtime snapshots may render every RAF. Never rebind a global listener
     // each frame just because HUD numbers/gauge changed.
     const onKey = (event: KeyboardEvent) => {
+      const handlerEntryMs = keyboardInputRef.current.diagnostics ? performance.now() : undefined;
       if (event.repeat || keyboardInputRef.current.menuOpen) return;
       if (event.code === "Space") {
         event.preventDefault();
-        keyboardInputRef.current.pressSpace();
+        keyboardInputRef.current.pressSpace(event.timeStamp, "keyboard", handlerEntryMs);
         return;
       }
       const map: Record<string, Direction> = {
@@ -347,6 +369,7 @@ export default function LiveMultiplayerGameplay(props: {
       data-audio-stalled={audioClockStalled ? "1" : "0"}
       data-testid="multiplayer-gameplay-live"
     >
+      {props.performanceDiagnostics && <PerformanceDiagnosticsOverlay diagnostics={props.performanceDiagnostics} />}
       <section className="audition-stage">
         <div data-testid="gameplay-3d-stage" data-frozen-stage-id={props.stageId}>
           <Stage3D
@@ -357,6 +380,7 @@ export default function LiveMultiplayerGameplay(props: {
             characterEvent={characterEvent}
             getSongTimeMs={getSongTimeMs}
             bpm={props.manifest.gameplay.bpmExact}
+            performanceDiagnostics={props.performanceDiagnostics}
           />
         </div>
         <div className="audition-hud">
@@ -485,7 +509,7 @@ export default function LiveMultiplayerGameplay(props: {
           >
             <button className={`space-control ${spacePressed ? "pressed" : ""}`}
               disabled={snapshot.audioEnded} data-testid="gameplay-space"
-              onPointerDown={event => { event.preventDefault(); pressSpace(); }} aria-label="SPACE">
+              onPointerDown={event => { event.preventDefault(); pressSpace(event.timeStamp, "pointer"); }} aria-label="SPACE">
               <NextImage className="portrait-space-art"
                 src="/ui/controls/portrait-space-from-sketch.png"
                 alt="" width={315} height={150} priority unoptimized draggable={false} aria-hidden="true" />

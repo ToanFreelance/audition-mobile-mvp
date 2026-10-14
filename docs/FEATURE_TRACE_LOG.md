@@ -1,5 +1,13 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-14 — PR18 V14 opt-in performance diagnostics
+
+- Focused diagnostics implementation on `work/mvp-entry-room-flow-v1`, based on verified `ba982fa`; PR18 remains OPEN/Draft, base development. Actual WaitingRoomPanel → LiveMultiplayerGameplay → Stage3D wiring, explicit `?perf=1`, disabled by default; compact overlay and bounded JSON export. No rendering optimization or clock/CAS/asset change.
+- Cached WebGL metadata once; read-only counters/native audio progression/input-judgement observations, 2-second aggregation and bounded history. Production React durations/GPU execution time/physical input and output latency are unavailable, not reported as zero.
+- Focused deterministic diagnostics, existing preload/handoff/WebAudio regressions, TypeScript and production build executed; see V14 report for exact commands/counts and native collector/overlay contracts. Real-Supabase smoke did not reach gameplay: initial CREATE waiter failed at 5s; corrected preflight aborted at 25s. Preserve original failed JUnit/traces; no integration PASS claimed.
+- Hardware qualification **BLOCKED — NO QUALIFIED HARDWARE GPU RUNNER**: Chromium153 reports ANGLE/SwiftShader, software compositing/rasterization; no hardware DPR A/B benchmark executed. V13 software-GPU evidence does not identify the original MacBook root cause. Existing context-before-powerPreference mismatch remains unchanged.
+- Evidence: `PR18_V14_PERFORMANCE_DIAGNOSTICS_REPORT.md`, `PR18_V14_PERFORMANCE_DIAGNOSTICS_EVIDENCE.zip`. Next: real foreground hardware capture using `docs/qa/PERFORMANCE_DIAGNOSTICS.md`; validate actual multiplayer diagnostics and identical-content DPR A/B before choosing a rendering optimization. AUD01 and full five-Human acceptance remain OPEN; P4.6/S3/Background Preload unstarted.
+
 > **Living project tracker.** Update this single document whenever a feature, investigation, fix, QA gate, or branch status changes. This is a historical/audit index, **not** a substitute for the referenced source code, PR diff or actual test evidence.
 >
 > Updated: **2026-10-13**. Latest PR #18 HEAD verified at start of this log: `5ad07bb02c211641e5c782b0651dbbf369d42dd9`. This value is a **checkpoint**, not a permanently current HEAD.

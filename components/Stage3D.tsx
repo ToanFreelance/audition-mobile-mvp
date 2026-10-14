@@ -15,6 +15,7 @@ import {
 } from "./stage/stage-catalog";
 import { createStageEnvironment } from "./stage/stage-runtime";
 import { getStagePresentationCameraPose, type StageCameraPose } from "./stage/stageCamera";
+import type { PerformanceDiagnostics } from "./diagnostics/performance-diagnostics";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
@@ -127,6 +128,7 @@ type Stage3DProps = {
   visualCompareMode?: boolean;
   hideCharacter?: boolean;
   fixedPresentationTimeSeconds?: number;
+  performanceDiagnostics?: PerformanceDiagnostics | null;
 };
 
 export default function Stage3D({
@@ -140,6 +142,7 @@ export default function Stage3D({
   visualCompareMode = false,
   hideCharacter = false,
   fixedPresentationTimeSeconds,
+  performanceDiagnostics,
 }: Stage3DProps) {
   const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
@@ -150,6 +153,8 @@ export default function Stage3D({
   const isPlayingRef = useRef(isPlaying);
   const getSongTimeMsRef = useRef(getSongTimeMs);
   const bpmRef = useRef(bpm);
+  const diagnosticsRef = useRef(performanceDiagnostics);
+  diagnosticsRef.current = performanceDiagnostics;
   cameraPresetRef.current = cameraPreset;
   isPlayingRef.current = isPlaying;
   getSongTimeMsRef.current = getSongTimeMs;
@@ -201,6 +206,8 @@ export default function Stage3D({
     renderer.toneMappingExposure = neonPresentation ? 1.22 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
+    const diagnostics = diagnosticsRef.current;
+    diagnostics?.bindRenderer(renderer);
 
     const stage = new THREE.Group();
     scene.add(stage);
@@ -330,6 +337,7 @@ export default function Stage3D({
     let character: CharacterActor | null = null;
     if (!hideCharacter) {
       character = CharacterActor.fromAssetId(runtimeCharacterAssetId);
+      diagnostics?.actorCreated();
       characterRef.current = character;
       character.setGameActive(isPlayingRef.current);
       character.root.position.set(
@@ -405,6 +413,7 @@ export default function Stage3D({
       raf = 0;
       if (disposed) return;
       if (document.hidden) return;
+      const diagnosticFrameStart = diagnostics ? performance.now() : 0;
       const delta = Math.min(clock.getDelta(), .1);
       const liveTime = clock.elapsedTime;
       const t = Number.isFinite(fixedPresentationTimeSeconds)
@@ -462,6 +471,7 @@ export default function Stage3D({
         sign.scale.set(signPulse, signPulse, signPulse);
       }
       renderer.render(scene, camera);
+      if (diagnostics) diagnostics.frame(diagnosticFrameStart, performance.now() - diagnosticFrameStart);
       scheduleFrame();
     };
     const handleVisibilityChange = () => {
@@ -480,6 +490,8 @@ export default function Stage3D({
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       observer.disconnect();
+      diagnostics?.unbindRenderer(renderer);
+      if (character) diagnostics?.actorDisposed();
       character?.dispose();
       stageEnvironment.dispose();
       if (character && characterRef.current === character) characterRef.current = null;
