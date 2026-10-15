@@ -1,10 +1,16 @@
 # Audition Mobile roadmap
 
+## Owner-approved priority — 2026-10-15 (PR #18 closeout)
+
+- **Current work:** PR #18 Draft `work/mvp-entry-room-flow-v1`, base `development`. Owner review sequence: **C1 Character Creation → Room Browser → Waiting Room → Gameplay**. Complete and obtain owner iPhone visual acceptance for one screen before proceeding to the next; **C1 is active**, and only `/character/create` plus direct visual assets may change in C1.
+- **Already integrated:** P5.6 PR #15, S2 Stage Catalog PR #16, S2.5A Neon Stage V1 PR #17 are **MERGED** into `development`. Do not re-open or treat these as active milestones. S3 and remaining S2.5 venues are deferred; P4.6 2–5 Human ensemble is deferred.
+- **Phase 12 performance/hardening:** GPU/FPS profiling, adaptive DPR, cross-device Chrome/Safari/WebGL, thermal and battery optimization **DEFERRED** until the main MVP flow is accepted. **Phase 14 resolution/visual-fidelity global pass remains DEFERRED** until primary product phases are complete. These are open technical debts, not fixed or QA-accepted.
+- **Quality gates remain OPEN:** strict five-independent-Human end-to-end acceptance, real-device AUD01 audio/sync and unresolved transport/CI issues are not cleared by visual work. Historical strict two-Human PASS does not imply five-Human PASS. WebAudio/RoomState/CAS/Realtime/Finish/gauge/MatchManifest rules remain locked.
+- No work directly on `main` or `development`; **never merge PR #18 without explicit owner approval**.
+
 Phase 1 — Solo Easy Core Gameplay, Phase 2 — Portrait HUD / iPhone UX, and Phase 3 — Human Character + Animation Controller are complete for their accepted functional scope and integrated into `development`.
 
-Current integration checkpoint:
-
-**Phase 5 is integrated into `development`, including owner-accepted P5.6 Waiting Room Visual V2. PR #15 merged at `d27168929f9923b1de561133b941977d039d56a1`. S2 Stage Catalog is implemented on PR #16. Current roadmap work is S2.5A — Neon Stage V1 on `work/s2-5a-neon-stage-v1`, stacked on S2. S3 Host Stage Selector has not started.**
+Current integration checkpoint (verified 2026-10-15): **P5.6/PR #15, S2/PR #16 and S2.5A/PR #17 are merged into `development`. PR #18 MVP Entry Flow is OPEN/Draft; active closeout screen is C1 Character Creation.** Historical S2/S2.5 implementation detail remains below.
 
 Phase 3 functional owner QA passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, Finish continuation, and the shared Finish Miss cadence. Phase 3 was merged into `development` at `e1d7a814b95144b3947cfb39503b998564b2bc29`, and owner iPhone staging QA passed. Rapid iPhone heating / battery drain remains explicit performance debt; thermal and battery profiling are not being misrepresented as complete.
 
@@ -22,7 +28,7 @@ Phase 3 functional owner QA passed for the humanoid runtime, published Normal Da
 | 9 | Shop and server-validated economy | Planned |
 | 10 | Friends, invitations, presence, chat | Planned |
 | 11 | Versioned charts/assets, admin and live operations | Planned |
-| 12 | Reconnect, security, telemetry, mobile performance | Planned |
+| 12 | Reconnect, security, telemetry, mobile / cross-device performance | **DEFERRED performance optimization; unresolved QA/security debt still OPEN** |
 | 13 | Content rights and distribution review | Required before commercial release |
 
 ## Phase 2 closeout
@@ -421,9 +427,9 @@ Phase 5 implementation is **INTEGRATED**.
 
 The accepted Waiting Room baseline is now part of `development`. Further stage work must not regress Waiting Room authority, actor lifetime behavior, or the accepted mobile visual composition.
 
-### MVP Entry Flow V1 / PR #18 — Multi-user QA backlog (DEFERRED)
+### MVP Entry Flow V1 / PR #18 — historical Multi-user QA backlog
 
-**Status (owner decision, 2026-10-09): QA DEFERRED / NOT YET ACCEPTED.**
+**Historical status (2026-10-09): QA DEFERRED / NOT YET ACCEPTED. Updated 2026-10-15: PR #18 is Draft and under screen-by-screen visual closeout; five-Human QA remains unaccepted.**
 The owner cannot currently run a 3-user test. Keep this as a concrete
 QA checkpoint for when enough independent clients/devices are available;
 do **not** mark it PASS based only on CI or database simulation, and do
@@ -555,9 +561,7 @@ Detailed implementation/QA notes: `docs/MVP_ENTRY_ROOM_FLOW_V1.md`.
 
 ### Stage roadmap — S2 / S2.5 / S3
 
-Current milestone:
-
-**S2 — Stage Catalog** on `work/s2-stage-catalog` / draft PR #16.
+Historical Stage Catalog milestone (now MERGED via PR #16; S2.5A MERGED via PR #17). Current PR #18 closeout milestone is documented at the top of this roadmap.
 
 Locked resolution path:
 
@@ -633,9 +637,9 @@ Completed Phase 5 integration path:
 
 `development → work/lobby → waiting-room/realtime acceptance → development → work/lobby-preload → P5.2 PRELOADING → P5.3 ALL CLIENTS LOADED → P5.4 shared countdown → P5.5 shared WebAudio gameplay handoff → P5.6 Waiting Room Visual V2 → owner iPhone acceptance → PR #15 → development`
 
-Current stage-roadmap path:
+Historical stage-roadmap path (S2 and S2.5A already integrated; remaining environments and S3 deferred):
 
-`development → work/s2-stage-catalog → Stage Catalog review → owner acceptance → S2.5 Environment / Venue Pack V1 → Neon Stage + additional venues → owner acceptance → S3 Host Stage Selector`
+`development → S2 Stage Catalog (merged) → S2.5A Neon Stage V1 (merged) → remaining environments (deferred) → S3 Host Stage Selector (deferred)`
 
 Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 4 work unless owner explicitly requests a later production promotion.
 

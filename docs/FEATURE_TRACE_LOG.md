@@ -1,5 +1,12 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-15 — Owner roadmap reprioritization / PR18 closeout
+
+- Verified GitHub: PR #15 P5.6, PR #16 Stage Catalog and PR #17 Neon Stage V1 **MERGED**; PR #18 Entry Flow **OPEN/Draft**, head at review start `5468e05364fe1324358f94831a935d8123cbb5cc`, base `development`.
+- Owner acceptance order: C1 Character Creation (ACTIVE) → Room Browser → Waiting Room → Gameplay. Do not begin later screen fixes until preceding screen passes owner iPhone visual review. C1 visual scope excludes 3D character/rig/animation and runtime gameplay authority.
+- Defer cross-device FPS/DPR/GPU/WebGL/thermal/battery optimization to Phase 12 and the global resolution/visual pass to Phase 14. V14 opt-in diagnostics remain available, but neither QA regressions nor performance debt are declared fixed.
+- Independent five-Human acceptance, AUD01 hardware checks, real Supabase/transport defects and other outstanding QA gates remain **OPEN**. Strict two-Human V10 PASS is a limited historical gate, not overall PR #18 PASS. No merge approval.
+
 ### 2026-10-14 — PR18 V14 opt-in performance diagnostics
 
 - Focused diagnostics implementation on `work/mvp-entry-room-flow-v1`, based on verified `ba982fa`; PR18 remains OPEN/Draft, base development. Actual WaitingRoomPanel → LiveMultiplayerGameplay → Stage3D wiring, explicit `?perf=1`, disabled by default; compact overlay and bounded JSON export. No rendering optimization or clock/CAS/asset change.
@@ -10,7 +17,7 @@
 
 > **Living project tracker.** Update this single document whenever a feature, investigation, fix, QA gate, or branch status changes. This is a historical/audit index, **not** a substitute for the referenced source code, PR diff or actual test evidence.
 >
-> Updated: **2026-10-13**. Latest PR #18 HEAD verified at start of this log: `5ad07bb02c211641e5c782b0651dbbf369d42dd9`. This value is a **checkpoint**, not a permanently current HEAD.
+> Updated: **2026-10-15**. PR #18 HEAD verified at start of C1 review: `5468e05364fe1324358f94831a935d8123cbb5cc`. Historical HEAD checkpoints in entries below are not current.
 >
 > Repository: `ToanFreelance/audition-mobile-mvp`. Stable/integration branches: `main` / `development`. Never edit either directly or merge without owner approval.
 
@@ -30,7 +37,7 @@ Statuses: `ACCEPTED` (owner/required gate accepted), `IMPLEMENTED / QA OPEN`, `P
 | **READY / Host START recovery** | Desired READY boolean, verified canonical host START eligibility | `work/mvp-entry-room-flow-v1`, PR #18 | Hardening in `3c884a5`; targeted local regressions reported by Work | **IMPLEMENTED / QA OPEN**; retain server CAS + READY gate |
 | **RC02 Multiplayer provisional live scores** | Cumulative player-reported score snapshots over real Realtime; remote leaderboard | `work/mvp-entry-room-flow-v1`, PR #18 | Client-reported live scoreboard + prior Work 2/3/5 Human checks; score remains provisional | **IMPLEMENTED / SECURITY LIMITATION**. No authenticated anti-cheat/ranking |
 | **P4.6 Gameplay Ensemble** | Show 2–5 genuine Human actors dancing simultaneously in Gameplay, each with participant-specific animation; portrait performance gate | **Future dedicated work branch, not created**. Roadmap `docs/PROJECT_ROADMAP.md` | Owner requested on 2026-10-12. Roadmap recorded in `5ad07bb`. Current Gameplay still renders only the local actor, while Waiting Room renders all | **PLANNED / DO NOT IMPLEMENT BEFORE PR #18 ACCEPTANCE** |
-| **S2.5A Neon Stage V1** | Separate stage/environment content and visual-fidelity workflow | historical `work/s2-5a-neon-stage-v1` / PR #17 | Described in `docs/S2_5A_NEON_STAGE_V1.md`; current status not freshly verified in this PR #18 QA pass | **OUT OF SCOPE** for PR #18; no stage work here |
+| **S2.5A Neon Stage V1** | Separate stage/environment content and visual-fidelity workflow | historical `work/s2-5a-neon-stage-v1` / PR #17 | GitHub verified MERGED into `development` 2026-10-15; details in `docs/S2_5A_NEON_STAGE_V1.md` | **MERGED / OUT OF C1 SCOPE** |
 | **AUD01 Audio cross-client skew** | Real-hardware WebAudio synchronization and playback tolerance | Cross-cutting PR #18 QA | Cloud Chromium diagnostics have out-of-tolerance differences and resource contention; do not equate diagnostic residuals to measured speaker output | **OPEN / requires independent foreground iPhone devices**. Do not change scheduler or 50 ms acceptance threshold without proof |
 
 ## Issue / QA register

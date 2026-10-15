@@ -1,5 +1,11 @@
 # MVP Entry Flow V1 — Character → Rooms → Waiting Room → Game
 
+## Current owner closeout gate — 2026-10-15
+
+PR #18 remains OPEN/Draft on `work/mvp-entry-room-flow-v1` against `development`. Owner-approved screen-by-screen order: **C1 Character Creation (active) → Room Browser → Waiting Room → Gameplay**. Visual review and acceptance of each screen is required before touching the next. C1 uses the second screen of the approved six-screen concept as layout/icon/color reference, excluding 3D character models. Limit work to `/character/create` and direct visuals; do not change character identity persistence or room navigation.
+
+P5.6/PR #15, S2/PR #16 and S2.5A/PR #17 have merged to `development`. Performance Phase 12 (GPU/FPS/DPR/cross-device/thermal/battery) and global Phase 14 resolution pass are deferred; not marked fixed. Existing independent five-Human QA, AUD01 real-device sync and related transport/integration gates remain unresolved. Preserve WebAudio/RoomState/CAS/Realtime/preload/MatchManifest architecture. PR #18 MUST NOT be merged without owner approval.
+
 Owner decision (2026-10-09): **defer S2.5B Football Field, Classroom, Café** and prioritize
 an end-to-end user journey on the existing app. No new project, no new stage,
 no Stage Selector S3, and no gameplay architecture changes.
