@@ -1,5 +1,13 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-15 — C1 Character Creation sketch chrome implementation (PR #18)
+
+- **Branch/commit:** `work/mvp-entry-room-flow-v1`, `f3b16c01cd9292d8038b3ccdc26044a13955402a`. Files: `CharacterCreationV1.tsx`, `CharacterCreationV1.module.css`, new focused `CreatorIcon.tsx`, `e2e/c2-character-creation.spec.ts`. All changes limited to Character Creation presentation and its focused regression spec; stage/rig/character catalog/draft schema/gameplay untouched.
+- **Source-based mismatch before:** Unicode placeholder toolbar icons, extra fixed header, six-category order, technical options permanently in the bottom dock, no sketch-style four-thumbnail strip/edit pencil; gradient and proportions only partially match concept. No before runtime screenshot captured: private Preview inaccessible to available screenshot environment.
+- **Implementation:** Five ordered sketch-specific SVG category icons plus back/dice/rotate/edit/heart; floating top controls, larger 3D viewport, neon purple/magenta/cyan chrome, portrait-responsive toolbar, four visual slots (two actual Character Catalog runtime choices plus two disabled placeholders), selected thumbnail glow, focused name editor, and retained create → local draft → `/rooms` path. Existing catalog-driven appearance/face/equipment controls remain accessible from a temporary category panel, not deceptively presented as additional available variants.
+- **Verified automation on commit:** GitHub Actions `fast-lobby-qa` **PASS** with explicit `npx tsc --noEmit` **PASS** and focused lobby architecture regression **PASS**. Vercel build/Preview state **READY**. New C1 Playwright test is **AUTHORED, NOT EXECUTED**; C1 route browser smoke, icon screenshots, scroll/overflow, iPhone portrait and name→Room Browser physical flow are **PENDING**. `static-build`, `core-regression`, `real-host-guest-e2e` CI checks **SKIPPED by branch conditions** (not PASS).
+- **Visual QA gate:** Owner iPhone compare to second panel of approved six-screen sketch **PENDING**; model and thumbnail portrait fidelity intentionally excluded; currently only two genuine runtime choices exist. No claim of pixel-perfect/overlay PASS. C1 remains **IMPLEMENTED / OWNER QA OPEN**; do not start Room Browser or merge PR #18.
+
 ### 2026-10-15 — Owner roadmap reprioritization / PR18 closeout
 
 - Verified GitHub: PR #15 P5.6, PR #16 Stage Catalog and PR #17 Neon Stage V1 **MERGED**; PR #18 Entry Flow **OPEN/Draft**, head at review start `5468e05364fe1324358f94831a935d8123cbb5cc`, base `development`.
