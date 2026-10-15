@@ -1,5 +1,13 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-15 — C1 owner iPhone ACCEPTED + emulated tablet/desktop browser QA
+
+- **Owner acceptance:** iPhone screenshot of production-equivalent PR #18 Preview `48d9de8c` was explicitly **APPROVED**. Five-item toolbar fits, decorative ring arcs gone, and neon visual direction accepted. **C1 visual gate PASS for owner iPhone** only.
+- **Browser QA implementation:** `.github/workflows/c1-responsive-qa.yml` + `e2e/c1-responsive-visual.spec.ts`, on the same PR #18 work branch. Initial run `38717645146` failed due to **ambiguous Playwright textbox selector** (not product). Corrected selector `d5355dd4`; run `38717912426` **PASS**: TypeScript, Next.js build, Chromium and viewport checks at 768×1024, 1024×768, 1280×800, 1440×900, 1024×600; all five screenshots captured with `data-preview-state=ready`. No document overflow, toolbar/CTA clipping or functional menu/name regression in these browser simulations.
+- **Visual review:** before tablet portrait screenshot revealed overly close/cropped face because the 3D preview canvas became tall/narrow in a two-column layout. Focused presentation-only camera-distance correction `0c6b0a9` applies at viewport width >=768px only when the stage aspect is narrower than 0.68. It does not alter iPhone camera framing, mesh, rig or Character Catalog. The follow-up run `38718567838` **PASS** for TypeScript, Next build, Chromium, all five viewports. Tablet portrait 3D preview is `ready` at camera distance 3.15 vs baseline 2.25; screenshot visually inspected and no longer severely cropped. Screenshots saved in GitHub Actions artifact `c1-responsive-visual-0c6b0a9afaaa7cf2fd1272ddc158e087aaa61009` (run `38718567838`).
+- **Remaining limits:** no physical tablet/desktop hardware QA; no cross-device WebGL perf/thermal/battery certification. These remain Phase 12/14 technical debt. Browser QA does not assert exact visual fidelity on actual tablet/desktop screens. Existing multi-Human/AUD01 acceptance gates remain OPEN.
+- **Roadmap:** C1 iPhone owner PASS, simulated responsive PASS; Room Browser is the next screen to review, **not implemented/modified during C1 closeout**. PR #18 remains OPEN/Draft and must NOT be merged without owner approval.
+
 ### 2026-10-15 — C1 iPhone follow-up: toolbar clearance and unwanted arc overlay
 
 - **Owner screenshot:** `/character/create` five-item left toolbar bottom visually clipped by lower appearance preset dock; multiple thin concentric arcs under rotate hint. Other C1 theme/design direction remains accepted.

@@ -57,7 +57,7 @@ Current roadmap work branch:
 
 Current milestone:
 
-`PR #18 closeout — C1 Character Creation Visual Fidelity`.
+`PR #18 closeout — C1 Character Creation accepted on iPhone; next Room Browser review pending`.
 
 Screen acceptance order: Character Creation → Room Browser → Waiting Room → Gameplay. No visual work on subsequent screens before owner accepts the current screen.
 
@@ -400,8 +400,8 @@ Never let an assumption override an explicit owner decision.
 
 ## Current Priority
 
-**2026-10-15: PR #18 MVP Entry Flow closeout — C1 Character Creation Visual Fidelity.** Match owner-approved six-screen concept's **second screen** for icons, neon colors, positioning, thumbnails, name field, and CTA; do not alter accepted 3D characters/rigs/animation/Character Catalog. Preserve name draft persistence, selection and room navigation. Review actual runtime before changes; compare portrait before/after if a capable browser is available. Owner iPhone visual acceptance is mandatory.
+**2026-10-15: C1 Character Creation owner visual acceptance PASS (physical iPhone).** The approved concept's second screen has been adapted with confirmed chrome/icons, avatar look-presets, fixed viewport and toolbar clearance. Chromium responsive QA PASS at tablet portrait 768×1024, tablet landscape 1024×768, desktop 1280×800, desktop 1440×900 and short desktop 1024×600; the visual camera correction applies only to narrow tablet-stage framing. **Physical tablet/desktop acceptance is NOT VERIFIED**; browser simulation must not be conflated with native GPU/input/performance evidence.
 
-Only after C1 acceptance proceed sequentially to Room Browser, Waiting Room and Gameplay. Phase 12/14 performance optimization, P4.6, remaining S2.5 venues and S3 are deferred. Do not merge PR #18 without owner approval.
+C1 is accepted; the next screen in the strict sequence is **Room Browser**, not yet started in this review. Wait for the owner's next explicit C2 task before changing it. Then proceed sequentially to Waiting Room and Gameplay. Phase 12/14 performance optimization, P4.6, remaining S2.5 venues and S3 are deferred. Do not merge PR #18 without owner approval.
 
 Never change WebAudio song clock, global turns, gauge, Finish, RoomState CAS/Realtime, frozen MatchManifest, preload/shared epoch, or actor lifetime for these visual adjustments.
