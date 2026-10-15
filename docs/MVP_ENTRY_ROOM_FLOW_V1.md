@@ -1,5 +1,12 @@
 # MVP Entry Flow V1 — Character → Rooms → Waiting Room → Game
 
+## 2026-10-15 — C2 Room Browser mode/name UX review
+
+- Owner accepted existing Room Browser neon visuals, requested inline room name and mode selection before creation, plus responsive desktop. C2 now has direct name input, three selectable mode chips, and the existing neon Create CTA. Empty name falls back to `Phòng của <displayName>`.
+- **Supported gameplay:** Only Pop tự do / Solo Easy maps to real canonical `solo-easy-battle` and can POST `action:"create"`. Mode ID is explicitly submitted to `/api/multiplayer/room`; server validates against the real supported mode, with a backward-compatible default for older clients. Khiêu vũ and Boss hiện đại are clearly identified **non-playable UI samples**, and Create is disabled when either is selected. Do not claim these games have been implemented.
+- On screens >=768px a two-column layout separates setup from the room-list scroller; on phone, fixed header/footer and scrollable room cards are retained. RoomState, CAS, Ready, Supabase Realtime, WebAudio, actor lifetime and gameplay remain unchanged.
+- CI `38751562735` PASS on Chromium for mobile 320×568/390×740, tablet 768×1024/1024×768, desktop 1280×800/1440×900. Server rejects unsupported mode; canonical form POST includes room name and selected mode. Real device QA and **owner C2 acceptance OPEN**. Next Waiting Room visual milestone may begin only after owner approval.
+
 ## C1 follow-up — same-character look shortcuts (owner, 2026-10-15)
 
 - `/character/create` is a fixed no-document-scroll/no-pinch presentation. Touch drag rotates the existing 3D actor; the internal category drawer retains its own vertical overflow when needed. Scoped DOM/CSS/viewport controls are restored when the page unmounts. Tablet/desktop use a two-column 3D stage + creator console, retaining the mobile violet/magenta/cyan theme.
