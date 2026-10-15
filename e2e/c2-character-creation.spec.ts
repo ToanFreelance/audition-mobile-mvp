@@ -151,3 +151,39 @@ test("C1 leaving the route restores document scroll/zoom ownership", async ({ pa
   await expect(page).toHaveURL("/");
   await expect.poll(() => page.evaluate(() => document.documentElement.style.overflow)).toBe("");
 });
+
+test("C1 mobile rail fits entirely above the presets and arcs are removed", async ({ page }) => {
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 375, height: 667 },
+    { width: 390, height: 740 },
+    { width: 430, height: 932 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/character/create");
+    const geometry = await page.getByRole("navigation", { name: "Tuỳ chỉnh nhân vật" }).evaluate(rail => {
+      const hero = rail.parentElement;
+      const lastButton = rail.querySelector("button:last-child");
+      if (!hero || !lastButton) return null;
+      const railRect = rail.getBoundingClientRect();
+      const heroRect = hero.getBoundingClientRect();
+      const lastRect = lastButton.getBoundingClientRect();
+      return {
+        railTop: railRect.top,
+        railBottom: railRect.bottom,
+        heroTop: heroRect.top,
+        heroBottom: heroRect.bottom,
+        lastBottom: lastRect.bottom,
+        decorativeArc: getComputedStyle(hero, "::after").content,
+      };
+    });
+    expect(geometry, "rail and hero should be measurable").not.toBeNull();
+    expect(geometry!.railTop).toBeGreaterThanOrEqual(geometry!.heroTop);
+    expect(geometry!.railBottom).toBeLessThanOrEqual(geometry!.heroBottom - 1);
+    expect(geometry!.lastBottom).toBeLessThanOrEqual(geometry!.heroBottom - 1);
+    expect(geometry!.decorativeArc).toBe("none");
+    await expect(page.getByRole("button", { name: "Tạo hình" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Mẫu ngoại hình đã lưu" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+  }
+});

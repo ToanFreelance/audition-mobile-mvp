@@ -1,5 +1,12 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-15 — C1 iPhone follow-up: toolbar clearance and unwanted arc overlay
+
+- **Owner screenshot:** `/character/create` five-item left toolbar bottom visually clipped by lower appearance preset dock; multiple thin concentric arcs under rotate hint. Other C1 theme/design direction remains accepted.
+- **Root cause:** mobile `.rail` uses five fixed minimum-height rows with `bottom:auto`, independent of the remaining `.hero` height, while the dock consumes a large part of short portrait screens. The arc artwork is exactly `.hero:after` `repeating-radial-gradient`, unrelated to character geometry/rig or the WebAudio scene.
+- **Focused implementation:** remove the `.hero:after` radial arc pseudo-element; constrain mobile rail by both top and bottom inside the current hero and use a five-row minmax grid; reduce toolbar buttons/icons proportionally and slightly condense preset tiles/dock/CTA while retaining legible labels and touch targets. Desktop/tablet two-column layout and accepted 3D character/stage model remain unchanged.
+- **Validation contract:** TypeScript + work-branch fast-lobby CI and Vercel Preview; new Playwright viewport geometry test for 320×568 / 375×667 / 390×740 / 430×932 is authored, **not counted PASS until executed**. Owner iPhone screenshot remains final visual gate. No PR #18 merge and no Room Browser work.
+
 ### 2026-10-15 — C1 owner iPhone follow-up: viewport and one-character look presets
 
 - **Owner visual feedback:** Neon/toolbar/base concept accepted; remaining issues are page pan/zoom outside the 3D viewer, wrong four-thumb semantics (male/female chooser vs saved looks) and tablet/desktop composition.
