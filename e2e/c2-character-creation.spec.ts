@@ -30,7 +30,8 @@ test("C3 creator resolves the real starter through the versioned catalog", async
   const stage = page.getByTestId("c2-character-stage");
   await expect(stage).toHaveAttribute("data-character-asset-id", "c1-casual-grace");
   await expect(stage).toHaveAttribute("data-focus", "hair");
-  await page.getByRole("button", { name: "Mặt" }).click();
+  await page.getByRole("button", { name: "Tạo hình" }).click();
+  await page.getByRole("button", { name: /Mặt · Tuỳ chỉnh/ }).click();
   await expect(stage).toHaveAttribute("data-focus", "face");
   await page.getByRole("button", { name: "Tạo hình" }).click();
   await expect(stage).toHaveAttribute("data-focus", "body");
@@ -65,4 +66,24 @@ test("C3 rejects stale drafts that request unavailable or unknown catalog varian
   await page.goto("/character/create");
   await expect(page.getByLabel("Tên nhân vật")).toHaveValue("Luna");
   await expect(page.getByTestId("c2-confirm-character")).toHaveText("TẠO NHÂN VẬT");
+});
+
+test("C1 sketch chrome keeps five SVG tabs, four portrait slots and an editable name", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto("/character/create");
+  const root = page.getByTestId("c2-character-creation");
+  await expect(root.locator("nav[aria-label='Tuỳ chỉnh nhân vật'] button")).toHaveCount(5);
+  await expect(root.locator("nav[aria-label='Tuỳ chỉnh nhân vật'] svg")).toHaveCount(5);
+  const avatars = root.getByRole("group", { name: "Chọn nhân vật" });
+  await expect(avatars.getByRole("button")).toHaveCount(4);
+  await expect(avatars.getByRole("button", { name: "Chân dung 3 chưa khả dụng" })).toBeDisabled();
+  await expect(root.getByRole("button", { name: "Ngẫu nhiên" }).locator("svg")).toBeVisible();
+  await root.getByRole("button", { name: "Sửa tên nhân vật" }).click();
+  await expect(page.getByLabel("Tên nhân vật")).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await avatars.getByRole("button", { name: "Chọn Casual Boy" }).click();
+  await expect(root).toHaveAttribute("data-character-asset", "c4-casual-boy");
+  await page.getByLabel("Tên nhân vật").fill("C1SketchQA");
+  await page.getByTestId("c2-confirm-character").click();
+  await expect(page.getByTestId("entry-continue-rooms")).toHaveAttribute("href", "/rooms");
 });

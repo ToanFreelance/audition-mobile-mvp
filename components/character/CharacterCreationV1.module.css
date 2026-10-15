@@ -322,3 +322,145 @@
 @media(min-width:431px){
   .phone{height:min(920px,100dvh);border-radius:24px;border:1px solid rgba(106,98,220,.35)}
 }
+
+/* C1 visual-only overlay matching the approved Character Creation screen.
+   Keeps the existing Three.js actor, catalog options, draft and room handoff. */
+.page{background:radial-gradient(ellipse at 18% 12%,#25205e 0,transparent 45%),#080822}
+.phone{height:100dvh;min-height:0;display:flex;flex-direction:column;background:#090b2b}
+.header{
+  position:absolute;z-index:12;top:calc(env(safe-area-inset-top) + 14px);left:0;right:0;
+  padding:0 14px;min-height:48px;display:flex;justify-content:space-between;
+  border:0;background:transparent;pointer-events:none
+}
+.headerIcon{
+  display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;padding:8px;
+  pointer-events:auto;border:1.5px solid #9377f5;border-radius:11px;
+  background:linear-gradient(140deg,rgba(55,29,112,.94),rgba(15,18,62,.95));
+  color:#fff;box-shadow:0 0 13px #a441fb6b,inset 0 0 10px #8c70e533;
+  text-decoration:none
+}
+.headerIcon svg{display:block;width:100%;height:100%}
+.header>div{display:none}
+.hero{flex:1 1 auto;min-height:0;border-bottom:1.5px solid #b054e9;isolation:isolate;background:linear-gradient(145deg,#281352,#0a0c34 65%,#32165b)}
+.hero:before{
+  content:"";position:absolute;z-index:4;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 86% 18%,#ce42ed22,transparent 42%),
+    radial-gradient(ellipse at 5% 80%,#7e34db40,transparent 43%),
+    linear-gradient(90deg,#0a082849,transparent 29%,#8d3cb010);
+}
+.hero:after{z-index:4;bottom:-35%;height:45%}
+.viewport{inset:0 0 0 44px}
+.rail{
+  z-index:9;left:7px;top:21%;bottom:auto;width:72px;
+  display:flex;flex-direction:column;gap:0;overflow:hidden;border:1px solid #7c59d0;
+  border-radius:14px;background:linear-gradient(180deg,#17133f,#0c0e30);
+  box-shadow:0 0 12px #4c27aa77,inset 0 0 15px #7855d133
+}
+.rail button{
+  min-height:69px;width:100%;flex:0 0 auto;gap:4px;padding:7px 2px;
+  border:0;border-bottom:1px solid #6555a447;border-radius:0;
+  color:#fbf9ff;background:transparent;box-shadow:none
+}
+.rail button:last-child{border-bottom:0}
+.rail button .railSymbol{display:block;width:33px;height:33px;line-height:1}
+.rail button small{font-size:10px;line-height:1.1;letter-spacing:-.025em;font-weight:800;text-shadow:0 1px 2px #08071d}
+.rail .railActive{background:linear-gradient(180deg,#4f2187,#20134d);color:#fff;box-shadow:inset 0 -3px #e043e7,0 0 15px #d53ee74a}
+.rail .railLocked{opacity:1}
+.rail button:focus-visible,.avatarTile:focus-visible,.headerIcon:focus-visible,.editName:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+.heroBadge{display:none}
+.rotateHint{left:27%;right:10px;bottom:8%;justify-content:center;gap:8px}
+.rotateHint>b{width:58px;height:45px;display:block;flex-shrink:0;filter:drop-shadow(0 0 5px #79eaff)}
+.rotateHint>div{gap:0}
+.rotateHint strong{font-size:14px;color:#fff;text-shadow:0 2px 4px #060522}
+.rotateHint small{font-size:10px;color:#e3ddfa;text-shadow:0 2px 4px #060522}
+.dock{
+  position:relative;z-index:10;flex:0 0 auto;display:flex;flex-direction:column;gap:11px;
+  padding:12px 14px calc(14px + env(safe-area-inset-bottom));
+  border-top:1px solid #b87cff80;
+  background:radial-gradient(ellipse at 50% -8%,#8a369042,transparent 62%),linear-gradient(175deg,#15133e,#090e31 70%,#0c0a32);
+}
+.avatarRow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.avatarTile{
+  position:relative;display:grid;place-items:center;min-width:0;aspect-ratio:1/1.06;
+  padding:3px;overflow:hidden;border:2px solid #9f8cc2;border-radius:12px;
+  background:linear-gradient(135deg,#2d215f,#13132e);
+  box-shadow:inset 0 0 9px #bc6dce3a;cursor:pointer
+}
+.avatarTile img{width:100%;height:100%;display:block;object-fit:cover;border-radius:8px}
+.avatarSelected{
+  border-color:#f56bfd;box-shadow:0 0 0 2px #a449ee,0 0 16px 3px #f34eecb8,inset 0 0 8px #ffa9fa;
+  background:#5812a4
+}
+.avatarUnavailable{opacity:.56;cursor:not-allowed;color:#d8c3ff}
+.avatarUnavailable svg{width:55%;height:55%}
+.avatarUnavailable span{position:absolute;bottom:5px;font-size:8px;letter-spacing:.02em;font-weight:900;text-shadow:0 1px 4px #070624}
+.nameField{
+  min-height:48px;display:grid;grid-template-columns:minmax(0,1fr) 36px;
+  align-items:center;gap:5px;padding:5px 9px 5px 15px;
+  border:1.5px solid #7f81d6;border-radius:12px;background:#0b1639;
+  box-shadow:inset 0 0 8px #536cc524,0 0 3px #7a6dc943
+}
+.nameField>div{gap:0}
+.nameField span{display:none}
+.nameField input{width:100%;font-size:18px;font-weight:700;letter-spacing:.01em}
+.editName{display:grid;place-items:center;width:35px;height:35px;padding:5px;border:0;background:transparent;color:#f9ecff}
+.nameCounter{display:none}
+.createButton{
+  min-height:56px;border:2px solid #fbb1ff;border-radius:18px;
+  background:linear-gradient(112deg,#fa42e6 0%,#d635e8 46%,#713bf4 100%);
+  font-size:20px;font-weight:850;letter-spacing:0;line-height:1.2;text-transform:none;
+  box-shadow:0 0 12px #dd3dff9c,inset 0 2px 6px #ffffff80,0 6px 18px #7632d05c
+}
+.createButton:disabled{opacity:.5}
+.footerNote{display:flex;justify-content:center;min-height:34px}
+.footerNote span{display:flex;align-items:center;justify-content:center;gap:10px;font-size:11px;letter-spacing:.27em;color:#e8d7ff}
+.footerNote svg{width:23px;height:23px;color:#f07af4;filter:drop-shadow(0 0 5px #ed4afa)}
+.footerNote small{position:absolute;right:10px;bottom:1px;font-size:8px}
+.optionsOverlay{
+  position:absolute;z-index:11;left:85px;right:9px;bottom:9px;max-height:min(50%,310px);
+  overflow-y:auto;overscroll-behavior:contain;display:grid;gap:11px;
+  padding:18px 11px 12px;border:1px solid #c46df4;border-radius:13px;
+  background:linear-gradient(155deg,rgba(27,15,69,.98),rgba(9,13,45,.97));
+  box-shadow:0 0 26px #ad33ec70,inset 0 0 19px #7844ef23
+}
+.optionsClose{position:absolute;right:6px;top:3px;width:27px;height:27px;border:0;background:transparent;color:white;font-size:23px}
+.optionsOverlay .panelTitle{margin-right:22px}
+.optionsOverlay .panelTitle span,.optionsOverlay .panelTitle>small{display:none}
+.optionsOverlay .panelTitle strong{font-size:14px}
+.optionsOverlay .optionStack{gap:7px}
+.optionsOverlay .optionStack label,.optionsOverlay .bodyCard label{font-size:9px}
+.optionsOverlay .choiceCard{min-height:63px}
+.faceSwitch{min-height:30px;border:1px solid #8261e5;border-radius:8px;color:#eee4ff;background:#28205a;font-size:11px}
+@media(max-width:370px){
+ .header{padding:0 9px}
+ .headerIcon{flex-basis:40px;width:40px;height:40px}
+ .rail{left:5px;width:61px}
+ .rail button{min-height:58px;padding:5px 1px}
+ .rail button .railSymbol{width:27px;height:27px}
+ .rail button small{font-size:8.5px}
+ .viewport{left:38px}
+ .rotateHint{left:23%;bottom:6%}
+ .rotateHint strong{font-size:12px}
+ .dock{gap:8px;padding:9px 10px calc(10px + env(safe-area-inset-bottom))}
+ .avatarRow{gap:6px}
+ .nameField{min-height:42px}
+ .createButton{min-height:48px;font-size:17px}
+ .footerNote{min-height:25px}
+ .footerNote span{font-size:9px}
+ .optionsOverlay{left:70px}
+}
+@media(max-height:740px){
+ .rail{top:16%}
+ .rail button{min-height:53px}
+ .rail button .railSymbol{width:25px;height:25px}
+ .rail button small{font-size:8px}
+ .rotateHint{bottom:2%}
+ .dock{gap:7px;padding-top:7px;padding-bottom:calc(7px + env(safe-area-inset-bottom))}
+ .avatarTile{aspect-ratio:1/0.84}
+ .nameField{min-height:40px}
+ .createButton{min-height:44px;font-size:17px}
+ .footerNote{min-height:24px}
+}
+@media(min-width:431px){
+ .phone{height:min(920px,100dvh);border-radius:24px}
+}
