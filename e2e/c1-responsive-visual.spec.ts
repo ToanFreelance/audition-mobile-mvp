@@ -47,6 +47,7 @@ test("C1 portrait/tablet/desktop layouts fit and remain interactive", async ({ p
         document: { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight },
         root: box(root), stage: box(stage), rail: box(rail), presets: box(presets), cta: box(cta),
         previewState: document.querySelector('[data-testid="c2-character-stage"]')?.getAttribute("data-preview-state"),
+        previewCameraDistance: Number(document.querySelector('[data-testid="c2-character-stage"]')?.getAttribute("data-preview-camera-distance")),
       };
     });
     console.log(`C1_RESPONSIVE ${size.name} ${JSON.stringify(metrics)}`);
@@ -54,6 +55,11 @@ test("C1 portrait/tablet/desktop layouts fit and remain interactive", async ({ p
     expect(metrics.document.width, `${size.name}: horizontal document overflow`).toBeLessThanOrEqual(size.width);
     expect(metrics.document.height, `${size.name}: vertical document overflow`).toBeLessThanOrEqual(size.height);
     expect(metrics.stage.width).toBeGreaterThan(200);
+    if (size.name === "tablet-portrait" && metrics.previewState === "ready") {
+      // Baseline hair cameraZ = 2.25. Narrow tablet stage must be framed farther
+      // away, without replacing the character model or changing iPhone camera.
+      expect(metrics.previewCameraDistance).toBeGreaterThan(2.7);
+    }
     expect(metrics.rail.height).toBeGreaterThan(180);
     expect(metrics.rail.bottom, `${size.name}: toolbar outside screen`).toBeLessThanOrEqual(metrics.window.height);
     expect(metrics.cta.bottom, `${size.name}: CTA outside screen`).toBeLessThanOrEqual(metrics.window.height);

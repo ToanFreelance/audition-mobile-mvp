@@ -9,6 +9,7 @@ on:
       - "e2e/c1-responsive-visual.spec.ts"
       - "components/character/CharacterCreationV1.tsx"
       - "components/character/CharacterCreationV1.module.css"
+      - "components/character/CharacterCreationStage3D.tsx"
       - "app/character/create/page.tsx"
 
 permissions:
