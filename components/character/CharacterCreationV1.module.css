@@ -556,3 +556,10 @@
   .rail{top:11%}
   .rail button{min-height:45px}
 }
+
+/* Fixed document is the scroll lock. Do not put touch-action:none on
+   ancestors of the scrollable option drawer: that would block its pan-y. */
+.page,.phone,.hero{touch-action:auto}
+.dock,.rail{touch-action:manipulation}
+.viewport{touch-action:none}
+.optionsOverlay{touch-action:pan-y}
