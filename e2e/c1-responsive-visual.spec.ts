@@ -18,7 +18,7 @@ test("C1 portrait/tablet/desktop layouts fit and remain interactive", async ({ p
     const rail = page.getByRole("navigation", { name: "Tuỳ chỉnh nhân vật" });
     const stage = page.getByTestId("c2-character-stage");
     const presets = page.getByRole("group", { name: "Mẫu ngoại hình đã lưu" });
-    const nameInput = page.getByLabel("Tên nhân vật");
+    const nameInput = page.getByRole("textbox", { name: "Tên nhân vật" });
     const create = page.getByTestId("c2-confirm-character");
 
     await expect(root).toBeVisible();
