@@ -16,6 +16,13 @@ import {
 } from "./character-profile";
 import styles from "./CharacterCreationV1.module.css";
 import CreatorIcon from "./CreatorIcon";
+import {
+  appearanceFromProfile,
+  emptyCharacterLookSlots,
+  readCharacterLookSlots,
+  writeCharacterLookSlots,
+  type CharacterLookSlots,
+} from "./character-look-presets";
 
 type CreatorTab = "hair" | "face" | "body" | "outfit" | "accessory" | "shoes";
 
@@ -66,6 +73,11 @@ export default function CharacterCreationV1() {
   const [tab, setTab] = useState<CreatorTab>("hair");
   const [optionsOpen, setOptionsOpen] = useState(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const rootRef = useRef<HTMLElement | null>(null);
+  const [lockedAssetId, setLockedAssetId] = useState<CharacterAssetId | null>(null);
+  const [lookSlots, setLookSlots] = useState<CharacterLookSlots>(emptyCharacterLookSlots);
+  const [activeLookSlot, setActiveLookSlot] = useState<number | null>(null);
+  const [lookMessage, setLookMessage] = useState("");
   const [yaw, setYaw] = useState(-0.08);
   const [name, setName] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.name);
   const [characterAssetId, setCharacterAssetId] = useState<CharacterAssetId>(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
@@ -90,6 +102,54 @@ export default function CharacterCreationV1() {
     name: normalizedName,
   }), [creatorCharacter.gender, creatorCharacter.id, face, hairColor, hairStyle, normalizedName, skinTone]);
 
+  // Scope the no-scroll/no-pinch game viewport to this route only.
+  // Restore prior document styles when navigating to /rooms or any other route.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const previous = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      htmlOverscroll: html.style.overscrollBehavior,
+      bodyOverscroll: body.style.overscrollBehavior,
+    };
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overscrollBehavior = "none";
+
+    const visualViewport = window.visualViewport;
+    const syncViewport = () => {
+      const root = rootRef.current;
+      if (!root) return;
+      root.style.setProperty("--creator-height", `${visualViewport?.height ?? window.innerHeight}px`);
+      root.style.setProperty("--creator-top", `${visualViewport?.offsetTop ?? 0}px`);
+    };
+    const preventPinch = (event: Event) => event.preventDefault();
+    const preventMultiTouch = (event: TouchEvent) => {
+      if (event.touches.length > 1) event.preventDefault();
+    };
+    syncViewport();
+    visualViewport?.addEventListener("resize", syncViewport);
+    visualViewport?.addEventListener("scroll", syncViewport);
+    window.addEventListener("resize", syncViewport);
+    document.addEventListener("gesturestart", preventPinch, { passive: false });
+    document.addEventListener("gesturechange", preventPinch, { passive: false });
+    document.addEventListener("touchmove", preventMultiTouch, { passive: false });
+    return () => {
+      html.style.overflow = previous.htmlOverflow;
+      body.style.overflow = previous.bodyOverflow;
+      html.style.overscrollBehavior = previous.htmlOverscroll;
+      body.style.overscrollBehavior = previous.bodyOverscroll;
+      visualViewport?.removeEventListener("resize", syncViewport);
+      visualViewport?.removeEventListener("scroll", syncViewport);
+      window.removeEventListener("resize", syncViewport);
+      document.removeEventListener("gesturestart", preventPinch);
+      document.removeEventListener("gesturechange", preventPinch);
+      document.removeEventListener("touchmove", preventMultiTouch);
+    };
+  }, []);
+
   useEffect(() => {
     try {
       const draft = loadCharacterCreationDraft(window.localStorage);
@@ -100,7 +160,13 @@ export default function CharacterCreationV1() {
       setHairColor(draft.hairColor);
       setSkinTone(draft.skinTone);
       setFace(draft.face);
+      setLockedAssetId(draft.characterAssetId);
       setCreated(true);
+      // Legacy migration: an existing one-character draft becomes its first
+      // saved appearance. Never seed a second male/female character here.
+      const saved = readCharacterLookSlots(window.localStorage, draft.characterAssetId);
+      setLookSlots(saved ?? [appearanceFromProfile(draft), null, null, null]);
+      setActiveLookSlot(0);
     } catch {
       // Local draft restore is optional. Account/profile authority remains Phase 7.
     }
@@ -108,12 +174,14 @@ export default function CharacterCreationV1() {
 
   const selectCharacter = (assetId: CharacterAssetId) => {
     const next = getCharacterCatalogEntry(assetId);
-    if (!next?.runtimeReady || next.id === characterAssetId) return;
+    if (!next?.runtimeReady || next.id === characterAssetId || (lockedAssetId && lockedAssetId !== next.id)) return;
     setCharacterAssetId(next.id);
     setHairStyle(next.defaultAppearance.hairStyle);
     setHairColor(next.defaultAppearance.hairColor);
     setSkinTone(next.defaultAppearance.skinTone);
     setFace(next.defaultAppearance.face);
+    setLookSlots(emptyCharacterLookSlots());
+    setActiveLookSlot(null);
     setCreated(false);
   };
 
@@ -145,18 +213,60 @@ export default function CharacterCreationV1() {
   };
 
   const createCharacter = () => {
-    if (!valid) return;
+    if (!valid || (lockedAssetId && lockedAssetId !== profile.characterAssetId)) return;
     try {
       saveCharacterCreationDraft(window.localStorage, profile);
+      // First creation also creates the default appearance preset.
+      const nextSlots = lockedAssetId
+        ? lookSlots
+        : [appearanceFromProfile(profile), null, null, null] as CharacterLookSlots;
+      writeCharacterLookSlots(window.localStorage, profile.characterAssetId, nextSlots);
+      setLookSlots(nextSlots);
+      setLockedAssetId(profile.characterAssetId);
+      setActiveLookSlot(lockedAssetId ? activeLookSlot : 0);
+      setLookMessage("");
+      setCreated(true);
     } catch {
-      // Draft persistence is optional. Account/profile authority belongs to Phase 7.
+      setLookMessage("Không thể lưu trên thiết bị. Hãy kiểm tra dung lượng trình duyệt.");
     }
-    setCreated(true);
+  };
+
+  const saveLook = (index: number) => {
+    if (!lockedAssetId) {
+      setLookMessage("Hãy tạo nhân vật trước khi lưu mẫu ngoại hình.");
+      return;
+    }
+    if (lockedAssetId !== profile.characterAssetId) return;
+    const nextSlots = [...lookSlots] as CharacterLookSlots;
+    nextSlots[index] = appearanceFromProfile(profile);
+    try {
+      writeCharacterLookSlots(window.localStorage, lockedAssetId, nextSlots);
+      setLookSlots(nextSlots);
+      setActiveLookSlot(index);
+      setLookMessage(`Đã lưu mẫu ${index + 1} trên thiết bị`);
+    } catch {
+      setLookMessage("Không thể lưu mẫu. Hãy kiểm tra bộ nhớ trình duyệt.");
+    }
+  };
+
+  const applyLook = (index: number) => {
+    const look = lookSlots[index];
+    if (!look || !lockedAssetId || lockedAssetId !== profile.characterAssetId) return;
+    setHairStyle(look.hairStyle);
+    setHairColor(look.hairColor);
+    setSkinTone(look.skinTone);
+    setFace(look.face);
+    setActiveLookSlot(index);
+    setOptionsOpen(false);
+    setCreated(false); // Press CTA to persist the active appearance to the draft.
+    setLookMessage(`Đã chọn mẫu ${index + 1}. Nhấn Tạo nhân vật để áp dụng.`);
   };
 
   return (
     <main
       className={styles.page}
+      ref={rootRef}
+      data-locked-asset={lockedAssetId ?? ""}
       data-character-asset={creatorCharacter.id}
       data-profile-version="1"
       data-testid="c2-character-creation"
@@ -265,10 +375,10 @@ export default function CharacterCreationV1() {
           {tab === "body" && (
             <div className={styles.bodyGrid}>
               <div className={styles.bodyCard}>
-                <label>GIỚI TÍNH</label>
+                <label>NHÂN VẬT {lockedAssetId ? "(ĐÃ CHỌN)" : "(CHỌN MỘT LẦN)"}</label>
                 <button
                   className={creatorCharacter.gender === "female" ? styles.bodyActive : ""}
-                  disabled={!femaleStarter}
+                  disabled={!femaleStarter || (lockedAssetId !== null && lockedAssetId !== femaleStarter.id)}
                   onClick={() => femaleStarter && selectCharacter(femaleStarter.id)}
                   type="button"
                 >
@@ -276,7 +386,7 @@ export default function CharacterCreationV1() {
                 </button>
                 <button
                   className={creatorCharacter.gender === "male" ? styles.bodyActive : ""}
-                  disabled={!maleStarter}
+                  disabled={!maleStarter || (lockedAssetId !== null && lockedAssetId !== maleStarter.id)}
                   onClick={() => maleStarter && selectCharacter(maleStarter.id)}
                   type="button"
                 >
@@ -321,27 +431,41 @@ export default function CharacterCreationV1() {
         </div>
 
         <div className={styles.dock}>
-          <div className={styles.avatarRow} role="group" aria-label="Chọn nhân vật">
-            {CHARACTER_CATALOG_V1.filter(entry => entry.runtimeReady).map(entry => (
-              <button
-                aria-label={`Chọn ${entry.label}`}
-                aria-pressed={characterAssetId === entry.id}
-                className={[styles.avatarTile, characterAssetId === entry.id ? styles.avatarSelected : ""].filter(Boolean).join(" ")}
-                data-testid={`c1-avatar-${entry.id}`}
-                key={entry.id}
-                onClick={() => selectCharacter(entry.id)}
-                type="button"
-              >
-                <img alt="" src={entry.portraitUrl} />
-              </button>
-            ))}
-            {[1, 2].map(slot => (
-              <button aria-label={`Chân dung ${slot + 2} chưa khả dụng`} className={[styles.avatarTile, styles.avatarUnavailable].join(" ")} disabled key={slot} type="button">
-                <CreatorIcon kind="body" />
-                <span>CHƯA CÓ</span>
-              </button>
+          <div className={styles.desktopHeading}>
+            <span>CHARACTER CREATION</span>
+            <strong>TẠO NHÂN VẬT</strong>
+            <small>Một nhân vật · Bốn mẫu ngoại hình yêu thích</small>
+          </div>
+          <div className={styles.presetHeader}>
+            <span>MẪU NGOẠI HÌNH</span>
+            <small>Chạm mẫu để dùng • Lưu để ghi đè</small>
+          </div>
+          <div className={styles.avatarRow} role="group" aria-label="Mẫu ngoại hình đã lưu">
+            {lookSlots.map((look, index) => (
+              <div className={styles.presetCell} key={index}>
+                <button
+                  aria-label={look ? `Áp dụng mẫu ${index + 1}` : `Lưu mẫu ${index + 1}`}
+                  aria-pressed={activeLookSlot === index && look !== null}
+                  className={[styles.avatarTile, look && activeLookSlot === index ? styles.avatarSelected : "", !look ? styles.avatarEmpty : ""].filter(Boolean).join(" ")}
+                  data-testid={`c1-look-slot-${index + 1}`}
+                  onClick={() => look ? applyLook(index) : saveLook(index)}
+                  type="button"
+                >
+                  {look ? <img alt="" src={creatorCharacter.portraitUrl} /> : <span className={styles.emptyLookPlus}>＋</span>}
+                  <span className={styles.presetLabel}>{`MẪU ${String(index + 1).padStart(2, "0")}`}</span>
+                </button>
+                {look && (
+                  <button
+                    aria-label={`Ghi đè mẫu ${index + 1}`}
+                    className={styles.presetSave}
+                    onClick={() => saveLook(index)}
+                    type="button"
+                  >Lưu</button>
+                )}
+              </div>
             ))}
           </div>
+          {lookMessage && <p className={styles.presetMessage} role="status">{lookMessage}</p>}
 
           <div className={styles.nameField}>
             <div>

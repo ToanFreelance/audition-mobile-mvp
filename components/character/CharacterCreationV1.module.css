@@ -464,3 +464,95 @@
 @media(min-width:431px){
  .phone{height:min(920px,100dvh);border-radius:24px}
 }
+
+/* C1 follow-up: only this creator route is a locked single-screen app.
+   Internal options retain intentional scrolling, even when the page cannot. */
+.page{
+  position:fixed;left:0;right:0;top:var(--creator-top,0px);
+  height:var(--creator-height,100dvh);min-height:0;width:100%;
+  overflow:hidden;overscroll-behavior:none;touch-action:none;
+}
+.phone{max-height:100%;height:100%;overscroll-behavior:none;touch-action:none}
+.hero,.dock,.rail,.avatarRow{overscroll-behavior:none}
+.optionsOverlay{
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  overscroll-behavior:contain;
+}
+.nameField input{font-size:max(16px,1.1rem)}
+.desktopHeading{display:none}
+.presetHeader{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.presetHeader span{font-size:10px;font-weight:900;letter-spacing:.17em;color:#e3b6ff}
+.presetHeader small{font-size:9px;color:#a69fc6;text-align:right}
+.presetCell{position:relative;min-width:0}
+.presetCell .avatarTile{width:100%;height:100%;overflow:hidden}
+.presetCell .avatarTile img{padding-bottom:13px}
+.presetLabel{
+  position:absolute;bottom:1px;left:2px;right:2px;display:block;
+  padding:4px 0 2px;border-radius:0 0 9px 9px;text-align:center;
+  color:#faf4ff;background:linear-gradient(180deg,transparent,#090924d9);
+  font-size:9px;font-weight:900;letter-spacing:.045em;text-shadow:0 1px 3px #0a0826;
+}
+.emptyLookPlus{font-size:clamp(22px,5vw,38px);line-height:1;color:#bf8af8;text-shadow:0 0 13px #ad49f4}
+.presetSave{
+  position:absolute;z-index:2;right:5px;top:5px;min-width:33px;height:23px;
+  border:1px solid #e8baff;border-radius:7px;background:rgba(19,9,57,.91);
+  color:#fff;font-size:10px;font-weight:800;box-shadow:0 0 6px #ae59f6
+}
+.avatarEmpty{border-style:dashed;border-color:#76589f;background:linear-gradient(155deg,#30205c,#121132)}
+.presetMessage{margin:0;text-align:center;font-size:10px;color:#d2e3ff;line-height:1.2}
+.dock{gap:clamp(6px,1.1vh,11px)}
+/* Desktop/tablet: generous 3D stage and dedicated right-side creator console. */
+@media(min-width:768px) and (min-height:600px){
+  .page{
+    background:radial-gradient(circle at 18% 32%,#302063,transparent 45%),
+      radial-gradient(circle at 88% 70%,#4c195e,transparent 46%),#06091f;
+  }
+  .phone{
+    --creator-panel-width:clamp(315px,35%,410px);
+    width:min(calc(100vw - 32px),1200px);
+    height:min(calc(100dvh - 32px),900px);
+    display:grid;grid-template-columns:minmax(0,1fr) var(--creator-panel-width);
+    grid-template-rows:minmax(0,1fr);align-items:stretch;
+    border:1px solid #7356bd;border-radius:24px;
+    box-shadow:0 0 55px #46198180,0 22px 85px #000a;
+  }
+  .header{right:var(--creator-panel-width);top:22px}
+  .hero{grid-column:1;grid-row:1;height:100%;min-height:0;border-bottom:0;border-right:1px solid #7454bb}
+  .viewport{left:45px}
+  .rail{top:50%;transform:translateY(-50%);left:13px;width:79px}
+  .rail button{min-height:77px}
+  .rotateHint{left:25%;bottom:7%}
+  .dock{
+    grid-column:2;grid-row:1;min-height:0;
+    padding:clamp(16px,3vw,30px);gap:clamp(12px,1.8vh,22px);
+    justify-content:center;border-top:0;background:
+      radial-gradient(ellipse at 50% 20%,#72367d45,transparent 65%),
+      linear-gradient(170deg,#1d1845,#0b1233 75%,#141039);
+  }
+  .desktopHeading{display:grid;gap:7px;margin-bottom:clamp(10px,3vh,35px);text-align:center}
+  .desktopHeading span{font-size:11px;letter-spacing:.27em;color:#e47bff}
+  .desktopHeading strong{font-size:clamp(21px,2.6vw,30px);white-space:nowrap;color:#fff;text-shadow:0 0 20px #df63ff}
+  .desktopHeading small{font-size:11px;color:#afa6cf}
+  .avatarRow{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .avatarTile{aspect-ratio:1.5/1}
+  .presetLabel{font-size:11px}
+  .nameField{min-height:55px}
+  .createButton{min-height:58px}
+  .footerNote{margin-top:clamp(6px,2vh,24px)}
+  .optionsOverlay{left:105px;right:20px;bottom:20px;max-height:60%;padding:18px}
+}
+@media(min-width:1000px) and (min-height:720px){
+  .phone{--creator-panel-width:390px}
+  .avatarTile{aspect-ratio:1.35/1}
+}
+@media(max-height:620px){
+  .dock{gap:4px;padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
+  .presetHeader{display:none}
+  .avatarTile{aspect-ratio:1.5/1}
+  .footerNote{min-height:20px}
+  .footerNote span{font-size:9px}
+  .createButton{min-height:39px}
+  .rail{top:11%}
+  .rail button{min-height:45px}
+}
