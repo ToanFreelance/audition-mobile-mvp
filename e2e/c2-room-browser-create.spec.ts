@@ -25,7 +25,7 @@ test("C2 create-room mode and name go through canonical Solo Easy only",async({p
   const req=page.waitForRequest(r=>r.method()==="POST"&&r.url().includes("/api/multiplayer/room"));
   await create.click();
   expect((await req).postDataJSON()).toMatchObject({action:"create",roomName:"C2 Custom Room",modeId:"solo-easy-battle",displayName:"Lucas",characterAssetId:"c1-casual-grace"});
-  await expect(page.getByRole("alert")).toContainText("QA blocked create");
+  await expect(page.locator("p[role=\"alert\"]")).toContainText("QA blocked create");
 });
 test("C2 API refuses mock gameplay modes",async({page})=>{
   const res=await page.request.post("/api/multiplayer/room",{data:{
@@ -69,7 +69,10 @@ test("C2 portrait tablet and desktop layout does not overlap or scroll document"
     expect(data.button.bottom).toBeLessThanOrEqual(data.footer.top+1);
     expect(data.list.bottom).toBeLessThanOrEqual(data.footer.top+1);
     expect(data.listHeight).toBeGreaterThan(60);
-    expect(data.scrollHeight).toBeGreaterThan(data.listHeight);
+    expect(data.scrollHeight).toBeGreaterThanOrEqual(data.listHeight);
+    // Large tablet screens can display every sample room without scrolling.
+    // Only require scroll movement when content actually overflows the list.
+
     if(size.width>=768) {
       expect(data.left.right).toBeLessThanOrEqual(data.right.x+1);
       expect(data.right.width).toBeGreaterThan(200);
@@ -77,6 +80,10 @@ test("C2 portrait tablet and desktop layout does not overlap or scroll document"
     await page.screenshot({path:`test-results/c2-responsive/${size.label}-${size.width}x${size.height}.png`,animations:"disabled"});
     const list=page.getByTestId("entry-room-scroll");
     await list.evaluate(el=>el.scrollTop=el.scrollHeight);
-    expect(await list.evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+    if (data.scrollHeight > data.listHeight + 1) {
+      expect(await list.evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+    } else {
+      expect(await list.evaluate(el=>el.scrollTop)).toBe(0);
+    }
   }
 });
