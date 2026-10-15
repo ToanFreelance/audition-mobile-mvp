@@ -563,3 +563,12 @@
 .dock,.rail{touch-action:manipulation}
 .viewport{touch-action:none}
 .optionsOverlay{touch-action:pan-y}
+
+/* Short tablet landscape: center the vertical rail despite mobile-height rules. */
+@media(min-width:768px) and (min-height:600px) and (max-height:620px){
+  .rail{top:50%;transform:translateY(-50%)}
+  .dock{padding:10px 15px}
+  .desktopHeading{margin-bottom:3px}
+  .avatarRow{gap:8px}
+  .avatarTile{aspect-ratio:1.8/1}
+}

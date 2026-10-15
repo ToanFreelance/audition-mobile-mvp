@@ -1,5 +1,12 @@
 # MVP Entry Flow V1 — Character → Rooms → Waiting Room → Game
 
+## C1 follow-up — same-character look shortcuts (owner, 2026-10-15)
+
+- `/character/create` is a fixed no-document-scroll/no-pinch presentation. Touch drag rotates the existing 3D actor; the internal category drawer retains its own vertical overflow when needed. Scoped DOM/CSS/viewport controls are restored when the page unmounts. Tablet/desktop use a two-column 3D stage + creator console, retaining the mobile violet/magenta/cyan theme.
+- Four lower thumbnails represent **appearance presets**, not four available characters: `audition.characterLookPresets.v1` stores four validated `hairStyle/hairColor/skinTone/face` snapshots for exactly the currently saved `characterAssetId`. Empty slot tap saves; filled slot tap applies; explicit save overwrites. A pre-existing valid `audition.characterCreationDraft.v1` seeds preset 1 in the UI without changing its identity.
+- The existing single local character draft is still the MVP source for Room Browser identity. Before first successful save, the user can choose a starter via `Tạo hình`; after save, other character IDs/genders are disabled. Saving or switching a style never invents an additional participant, account, or Catalog character, and style application requires CTA persistence before handoff to `/rooms`.
+- Future account/profile server persistence belongs to Phase 7; additional appearance assets/equipment belong to later approved content phases. C1 device/browser visual approval remains open. None of this modifies shared multiplayer clock, RoomState, CAS, Realtime or gameplay.
+
 ## Current owner closeout gate — 2026-10-15
 
 PR #18 remains OPEN/Draft on `work/mvp-entry-room-flow-v1` against `development`. Owner-approved screen-by-screen order: **C1 Character Creation (active) → Room Browser → Waiting Room → Gameplay**. Visual review and acceptance of each screen is required before touching the next. C1 uses the second screen of the approved six-screen concept as layout/icon/color reference, excluding 3D character models. Limit work to `/character/create` and direct visuals; do not change character identity persistence or room navigation.

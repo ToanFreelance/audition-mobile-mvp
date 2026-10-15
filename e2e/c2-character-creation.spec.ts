@@ -143,3 +143,11 @@ test("C1 tablet and desktop stage/sidebar have no document overflow", async ({ p
     expect(a!.x + a!.width).toBeLessThan(b!.x + 25);
   }
 });
+
+test("C1 leaving the route restores document scroll/zoom ownership", async ({ page }) => {
+  await page.goto("/character/create");
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.overflow)).toBe("hidden");
+  await page.getByRole("link", { name: "Quay lại" }).click();
+  await expect(page).toHaveURL("/");
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.overflow)).toBe("");
+});

@@ -1,5 +1,14 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-15 — C1 owner iPhone follow-up: viewport and one-character look presets
+
+- **Owner visual feedback:** Neon/toolbar/base concept accepted; remaining issues are page pan/zoom outside the 3D viewer, wrong four-thumb semantics (male/female chooser vs saved looks) and tablet/desktop composition.
+- **Root cause:** C1 root had no document scroll lock, the viewer alone used touch-action:none; four tiles were generated from two runtime-ready catalog identities and two disabled filler items. The original CSS capped the entire app at 430px even on tablet/desktop.
+- **Focused fix:** Route-only fixed-height creator + scoped html/body overflow/overscroll lock with unmount cleanup, visualViewport keyboard/resize tracking, prevented multi-touch pinch/gesture and route-only viewport metadata; intentional category drawer scrolling remains possible. Responsive 2-column stage/creator layout for >=768px at reasonable heights; portrait mobile design stays intact.
+- **Preset contract:** Four persistent device-local style slots keyed by `audition.characterLookPresets.v1`, each strictly validated against one `characterAssetId` and available Character Catalog variants. Tap empty slot to save, saved slot to apply, explicit `Lưu` button to overwrite. Existing legacy character draft seeds slot 1 without rewriting the draft. Creating the first character persists a canonical identity in the existing `audition.characterCreationDraft.v1`; subsequent male/female switching is disabled. No second character, no profile/account/server migration, no fake cosmetics, no actor/model change.
+- **Implementation commits:** `5b82a21a26a4e3941f830433d218a7c4eff2208f`, `879a367dadf68b9ee422086ae51ddd23fd616b9f`. GitHub Action TypeScript + fast lobby QA PASS and Vercel Preview READY on `879a367`. New dedicated C1 Playwright tests (preset persistence, identity lock, scroll/viewport/tablet/desktop) **AUTHORED, NOT RUN**. Browser screenshots and physical owner iPhone/tablet/desktop acceptance **PENDING**. PR #18 remains OPEN/Draft; do not start Room Browser.
+- **Known limitation:** C1 Character Catalog currently exposes one available appearance for each real character; four slots preserve independent saved selections but cannot demonstrate four genuinely different costumes/hair variants until independently approved assets exist. The slot image is the character catalog portrait, not a captured screenshot of customized look.
+
 ### 2026-10-15 — C1 Character Creation sketch chrome implementation (PR #18)
 
 - **Branch/commit:** `work/mvp-entry-room-flow-v1`, `f3b16c01cd9292d8038b3ccdc26044a13955402a`. Files: `CharacterCreationV1.tsx`, `CharacterCreationV1.module.css`, new focused `CreatorIcon.tsx`, `e2e/c2-character-creation.spec.ts`. All changes limited to Character Creation presentation and its focused regression spec; stage/rig/character catalog/draft schema/gameplay untouched.
