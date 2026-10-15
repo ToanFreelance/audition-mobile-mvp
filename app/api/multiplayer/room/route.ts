@@ -49,6 +49,7 @@ type RoomMutationBody =
       participantId: string;
       displayName: string;
       characterAssetId: string;
+      modeId?: string;
     }
   | { action: "bootstrap"; roomId: string }
   | {
@@ -434,6 +435,12 @@ async function createEntryRoom(body: Extract<RoomMutationBody, { action: "create
   const participantId = body.participantId.trim();
   const name = body.displayName.trim();
   const title = body.roomName.trim();
+  // The browser may preview future modes, but a canonical MVP room must never
+  // advertise unsupported gameplay or freeze an experimental MatchManifest.
+  const modeId = body.modeId ?? "solo-easy-battle";
+  if (modeId !== "solo-easy-battle") {
+    throw new Error("Mode chưa hỗ trợ tạo phòng. Hãy chọn Pop tự do.");
+  }
   if (!/^player-[0-9a-f-]{36}$/.test(participantId)
     || !name || name.length > 14 || !title || title.length > 32
     || !isCharacterAssetId(body.characterAssetId)) {
@@ -456,7 +463,7 @@ async function createEntryRoom(body: Extract<RoomMutationBody, { action: "create
     const room = createRoomState({
       roomId, roomName: title, host,
       maxPlayers: WAITING_ROOM_MAX_PLAYERS,
-      modeId: "solo-easy-battle", selectedSongId: "aloha",
+      modeId, selectedSongId: "aloha",
     });
     if (!isCanonicalRoomSnapshot(room)) throw new Error("Invalid entry room state.");
     const row = await insertInitialRoom(room);

@@ -1,5 +1,12 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-15 — C2 Room Browser create-room simplification + responsive desktop
+
+- **Owner iPhone review:** Main Room Browser visual direction accepted. Existing title customization was hidden in a collapsible details panel; there was no mode choice. Existing create API silently forced `solo-easy-battle`.
+- **C2 scope:** Keep accepted neon header/tabs/cards/footer. Present room-name text field and three visible mode chips (Pop tự do: existing `solo-easy-battle` runtime, Khiêu vũ/Boss hiện đại: visual roadmap samples). Creating an unsupported mode is explicitly disabled; no false gameplay support and no fake canonical RoomState mode. API creates only `solo-easy-battle` and rejects any unsupported `modeId`, retains historical omission fallback, Supabase CAS and Ready gates untouched.
+- **Desktop:** expanded centered responsive shell with setup column and scrollable live/sample room cards; mobile retains fixed header/footer and internal room-list scroll. No Character/Waiting Room/Game visual changes.
+- **Acceptance:** browser QA and owner iPhone review required before C2 visual PASS. Physical desktop/tablet still unverified; deferred Phase 12 performance work remains open. PR #18 must not merge.
+
 ### 2026-10-15 — C1 owner iPhone ACCEPTED + emulated tablet/desktop browser QA
 
 - **Owner acceptance:** iPhone screenshot of production-equivalent PR #18 Preview `48d9de8c` was explicitly **APPROVED**. Five-item toolbar fits, decorative ring arcs gone, and neon visual direction accepted. **C1 visual gate PASS for owner iPhone** only.

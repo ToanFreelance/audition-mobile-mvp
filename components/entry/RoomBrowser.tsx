@@ -21,6 +21,12 @@ const SHOWCASE_ROOMS: readonly ShowcaseRoom[] = [
   { title: "Super Shy", bpm: 125, beat: "4/4", difficulty: "Dễ", players: 3, capacity: 8, art: 6 },
 ];
 const API = "/api/multiplayer/room";
+const CREATE_MODES = [
+  { id: "solo-easy-battle", label: "Pop tự do", note: "Solo Easy · Chơi được", available: true },
+  { id: "ballroom-preview", label: "Khiêu vũ", note: "Mode mẫu · Sắp ra mắt", available: false },
+  { id: "boss-preview", label: "Boss hiện đại", note: "Mode mẫu · Sắp ra mắt", available: false },
+] as const;
+type CreateModeId = (typeof CREATE_MODES)[number]["id"];
 const NAV: { id: Section; label: string; icon: IconName }[] = [
   { id: "rooms", label: "Phòng", icon: "home" },
   { id: "shop", label: "Shop", icon: "shop" },
@@ -56,6 +62,7 @@ export default function RoomBrowser() {
   const [initialized, setInitialized] = useState(false);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomName, setRoomName] = useState("");
+  const [createMode, setCreateMode] = useState<CreateModeId>("solo-easy-battle");
   const [joinId, setJoinId] = useState("");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -118,7 +125,7 @@ export default function RoomBrowser() {
   }, [refresh]);
 
   const create = async () => {
-    if (!identity || loading) return;
+    if (!identity || loading || createMode !== "solo-easy-battle") return;
     const title = roomName.trim() || `Phòng của ${identity.profile.name}`;
     setLoading(true); setError("");
     try {
@@ -127,6 +134,7 @@ export default function RoomBrowser() {
         body: JSON.stringify({
           action: "create", participantId: identity.participantId,
           displayName: identity.profile.name, characterAssetId: identity.profile.characterAssetId, roomName: title,
+          modeId: createMode,
         }),
       }));
       window.location.assign("/rooms/" + encodeURIComponent(result.snapshot!.roomId));
@@ -227,6 +235,8 @@ export default function RoomBrowser() {
               onClick={() => setSection("friends")}>Bạn bè</button>
           </nav>
           {isRoomSection ? <>
+          <div className={styles.workspace}>
+            <section className={styles.creationColumn} aria-label="Thiết lập phòng mới">
             <nav className={styles.filters} aria-label="Bộ lọc phòng">
               {([["all", "Tất cả"], ["solo", "Solo"], ["team", "Team"], ["playing", "Đang chơi"]] as const).map(([value, label]) => (
                 <button type="button" key={value} aria-pressed={filter === value}
@@ -234,22 +244,39 @@ export default function RoomBrowser() {
                   onClick={() => setFilter(value)}>{label}</button>
               ))}
             </nav>
+            <div className={styles.createSetup}>
+              <label className={styles.createNameLabel} htmlFor="roomName">Tên phòng</label>
+              <input id="roomName" className={styles.createNameInput} data-testid="entry-room-name"
+                aria-label="Tên phòng" maxLength={32}
+                placeholder={`Phòng của ${identity.profile.name}`} value={roomName}
+                onChange={event => setRoomName(event.target.value)}
+                onKeyDown={event => { if (event.key === "Enter" && createMode === "solo-easy-battle") void create(); }} />
+              <div className={styles.modeHeader}><span>Mode chơi</span><small>Chọn trước khi tạo phòng</small></div>
+              <div className={styles.modeChoices} role="group" aria-label="Chọn mode chơi">
+                {CREATE_MODES.map(mode => (
+                  <button key={mode.id} type="button" aria-pressed={createMode === mode.id}
+                    className={createMode === mode.id ? styles.modeActive : ""}
+                    onClick={() => setCreateMode(mode.id)} data-testid={`entry-mode-${mode.id}`}>
+                    <strong>{mode.label}</strong>
+                    <small>{mode.available ? "Chơi được" : "Mẫu"}</small>
+                  </button>
+                ))}
+              </div>
+              {createMode !== "solo-easy-battle" && (
+                <p className={styles.modeNotice} role="status">
+                  {CREATE_MODES.find(mode => mode.id === createMode)?.note}. Hiện chưa thể tạo phòng với mode này.
+                </p>
+              )}
+            </div>
             <button className={styles.createCard} data-testid="entry-create-room" type="button"
-              disabled={loading} onClick={() => void create()}>
+              disabled={loading || createMode !== "solo-easy-battle"} onClick={() => void create()}>
               <span className={styles.createIcon}><Icon name="plus" size={31} /></span>
               <span className={styles.createText}>
-                <strong>{loading ? "Đang tạo phòng…" : "Tạo phòng"}</strong>
-                <small>Tự do thiết lập, chơi cùng bạn bè</small>
+                <strong>{loading ? "Đang tạo phòng…" : createMode === "solo-easy-battle" ? "Tạo phòng" : "Sắp ra mắt"}</strong>
+                <small>{createMode === "solo-easy-battle" ? "Pop tự do · Chơi cùng bạn bè" : "Chọn Pop tự do để tạo phòng thật"}</small>
               </span>
               <span className={styles.createSparkle}><Icon name="sparkle" size={20} /></span>
             </button>
-            <details className={styles.createOptions}>
-              <summary>Tùy chỉnh tên phòng <span>⌄</span></summary>
-              <label htmlFor="roomName">Tên phòng mới</label>
-              <input id="roomName" data-testid="entry-room-name" maxLength={32}
-                placeholder={`Phòng của ${identity.profile.name}`} value={roomName}
-                onChange={event => setRoomName(event.target.value)} />
-            </details>
             <section className={styles.joinQuick} aria-label="Vào phòng bằng mã">
               <span className={styles.quickIcon}><Icon name="enter" size={19} /></span>
               <input aria-label="Mã phòng" data-testid="entry-room-code" maxLength={64}
@@ -257,6 +284,7 @@ export default function RoomBrowser() {
                 onChange={event => setJoinId(event.target.value)}
                 onKeyDown={event => { if (event.key === "Enter") void join(joinId); }} />
               <button type="button" disabled={loading} onClick={() => void join(joinId)}>Tham gia</button>
+            </section>
             </section>
             <section className={styles.roomSection} aria-label="Danh sách phòng">
               <div className={styles.sectionHeader}>
@@ -305,6 +333,7 @@ export default function RoomBrowser() {
                 {rooms.length === 0 && <p className={styles.sampleNotice}>Các phòng có nhãn MẪU chỉ minh họa giao diện. Tạo phòng để chơi thật.</p>}
               </div>
             </section>
+          </div>
           </> : <section className={styles.comingSoon}>
             <span className={styles.comingSoonIcon}>
               <Icon name={section === "shop" ? "shop" : section === "bag" ? "bag" : "sparkle"} size={42} />

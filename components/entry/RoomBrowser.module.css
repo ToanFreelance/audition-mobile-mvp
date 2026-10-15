@@ -210,3 +210,110 @@
 .profileSettings{display:grid;place-items:center;align-self:center;flex:0 0 30px;width:30px;height:30px;padding:0;line-height:0;font-size:0;border-radius:8px}
 .profileSettings svg{display:block;flex:none}
 @media(max-width:360px){.playerTokens>span{height:28px;min-height:28px}.profileSettings{width:28px;height:28px;flex-basis:28px}}
+
+/* C2: always-visible, compact create-room setup. Preserve approved room card,
+   player header, filter/room list and bottom nav neon treatment. */
+.workspace{
+  display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden;
+}
+.creationColumn{display:flex;flex-direction:column;flex:0 0 auto;min-width:0}
+.createSetup{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:5px;
+  padding:8px 10px 7px;margin-bottom:7px;
+  border:1px solid #5059a3;border-radius:12px;
+  background:linear-gradient(140deg,rgba(21,29,70,.92),rgba(32,18,75,.91));
+  box-shadow:inset 0 0 10px #5d32a21f;
+}
+.createNameLabel,.modeHeader>span{
+  font-size:10px;font-weight:850;letter-spacing:.06em;color:#decfff;
+}
+.createNameInput{
+  display:block;width:100%;min-width:0;height:33px;padding:5px 10px;
+  border:1px solid #6265bf;border-radius:8px;outline:none;
+  color:#fff;background:rgba(7,17,49,.8);font:inherit;font-size:14px;
+}
+.createNameInput::placeholder{color:#9ca7cd}
+.createNameInput:focus-visible{border-color:#f58bff;box-shadow:0 0 0 2px #d75aff35}
+.modeHeader{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px}
+.modeHeader small{font-size:9px;color:#aaaed7}
+.modeChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.modeChoices button{
+  min-height:42px;min-width:0;padding:5px 3px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  border:1px solid #3e57a0;border-radius:9px;
+  background:linear-gradient(160deg,#15254c,#101739);
+  color:#d8d9f6;cursor:pointer;font:inherit;line-height:1.1;
+}
+.modeChoices button strong{font-size:10px;font-weight:800}
+.modeChoices button small{font-size:9px;color:#a3b2e4}
+.modeChoices .modeActive{
+  border-color:#f07cf4;color:#fff;
+  background:linear-gradient(140deg,#6223ad,#9f2acd);
+  box-shadow:inset 0 1px 6px #fff2,0 0 9px #a744e878;
+}
+.modeChoices button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.modeNotice{font-size:10px;line-height:1.35;color:#e9c8ff;margin:1px 0 0}
+.createCard:disabled{opacity:.64;cursor:not-allowed}
+.createCard{margin-bottom:6px}
+.joinQuick{margin-top:4px}
+/* Actual room list remains the only vertical scroller on portrait devices. */
+@media(min-width:768px) and (min-height:600px){
+  .app{
+    width:min(calc(100% - 32px),1240px);
+    border-radius:20px 20px 0 0;
+  }
+  .content{padding:clamp(16px,2.4vw,30px) clamp(18px,2.7vw,36px) 0}
+  .playerBar{min-height:58px;gap:14px;margin-bottom:18px}
+  .avatar{width:57px;height:57px;flex-basis:57px}
+  .playerText strong{font-size:20px}
+  .primaryTabs{height:52px;flex-basis:52px;max-width:100%}
+  .primaryTabs button{font-size:15px}
+  .workspace{
+    display:grid;grid-template-columns:minmax(295px,350px) minmax(0,1fr);
+    align-items:stretch;gap:clamp(15px,2.2vw,28px);
+    padding-top:16px;
+  }
+  .creationColumn{align-self:start}
+  .creationColumn .filters{margin:0 0 14px}
+  .creationColumn .filters button{font-size:12px;padding:9px 5px}
+  .creationColumn .createSetup{gap:10px;padding:14px;margin-bottom:15px}
+  .creationColumn .createNameInput{height:44px;font-size:16px}
+  .creationColumn .modeChoices{gap:7px}
+  .creationColumn .modeChoices button{min-height:60px}
+  .creationColumn .modeChoices button strong{font-size:11px}
+  .creationColumn .createCard{min-height:82px;height:82px;flex-basis:82px;margin-bottom:16px}
+  .creationColumn .createText strong{font-size:19px}
+  .creationColumn .joinQuick{height:42px;min-height:42px}
+  .creationColumn .joinQuick input{height:36px;font-size:13px}
+  .roomSection{height:100%;min-height:0;min-width:0}
+  .sectionHeader{height:29px;flex-basis:29px;margin-bottom:12px}
+  .sectionHeader h1{font-size:14px}
+  .roomScroll{height:100%;min-height:0}
+  .roomList{gap:11px}
+  .roomAction{min-height:97px;gap:13px}
+  .cover{width:79px;height:79px;flex-basis:79px}
+  .roomDetails>strong{font-size:18px}
+  .roomCode{font-size:12px}
+  .capacity{font-size:15px}
+  .bottomNav button{min-height:58px}
+}
+@media(min-width:1050px) and (min-height:660px){
+  .workspace{grid-template-columns:minmax(325px,390px) minmax(0,1fr)}
+  .roomAction{min-height:104px}
+}
+@media(max-width:360px){
+  .createSetup{padding:6px 7px;gap:4px}
+  .modeChoices button{min-height:37px}
+  .modeChoices button strong{font-size:9px}
+  .modeChoices button small{font-size:8px}
+  .createCard{height:59px;min-height:59px;flex-basis:59px}
+}
+@media(max-height:680px) and (max-width:767px){
+  .createSetup{padding:5px 8px;gap:3px;margin-bottom:5px}
+  .createNameInput{height:29px}
+  .modeChoices button{min-height:33px;padding:3px}
+  .modeChoices button strong{font-size:9px}
+  .modeChoices button small{font-size:8px}
+  .createCard{height:56px;min-height:56px;flex-basis:56px}
+  .filters{margin:6px 0 7px}
+}
