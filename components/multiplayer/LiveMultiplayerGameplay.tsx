@@ -67,17 +67,13 @@ export default function LiveMultiplayerGameplay(props: {
   const [stagePresentationReady, setStagePresentationReady] = useState(false);
   const [entryCurtainVisible, setEntryCurtainVisible] = useState(true);
   const onStagePresentationReady = useCallback(() => setStagePresentationReady(true), []);
-  // Visual-only curtain. Neither its readiness nor its timeout owns audio,
-  // controls, the shared epoch or gameplay progression.
+  // The banner never lifts until the actual 3D scene, actor, animation mixer
+  // and authoritative shared start have progressed. No artificial deadline.
   useEffect(() => {
-    const safety = window.setTimeout(() => setEntryCurtainVisible(false), 2400);
-    return () => window.clearTimeout(safety);
-  }, []);
-  useEffect(() => {
-    if (!stagePresentationReady) return;
-    const reveal = window.setTimeout(() => setEntryCurtainVisible(false), 320);
+    if (!stagePresentationReady || !snapshot.started) return;
+    const reveal = window.setTimeout(() => setEntryCurtainVisible(false), 350);
     return () => window.clearTimeout(reveal);
-  }, [stagePresentationReady]);
+  }, [stagePresentationReady, snapshot.started]);
   const [scoreReceipts, setScoreReceipts] = useState<{
     matchId: string;
     byParticipant: Record<string, LiveScoreSnapshot>;
@@ -396,7 +392,7 @@ export default function LiveMultiplayerGameplay(props: {
             getSongTimeMs={getSongTimeMs}
             bpm={props.manifest.gameplay.bpmExact}
             performanceDiagnostics={props.performanceDiagnostics}
-            skipIntroCamera
+            cinematicMatchId={props.manifest.matchId}
             onPresentationReady={onStagePresentationReady}
           />
         </div>
@@ -412,7 +408,8 @@ export default function LiveMultiplayerGameplay(props: {
             <span>AUDITION · LIVE STAGE</span>
             <strong>VÀO SÂN KHẤU</strong>
             <i />
-            <small>{stagePresentationReady ? "SẴN SÀNG TỎA SÁNG" : "ĐANG CHUẨN BỊ SÂN KHẤU"}</small>
+            <small>{!stagePresentationReady ? "ĐANG TẢI SÂN KHẤU · NHÂN VẬT · VŨ ĐẠO"
+              : !snapshot.started ? "SCENE READY · CHỜ SHARED EPOCH" : "SẴN SÀNG TỎA SÁNG"}</small>
           </div>
         </div>
         <div className="audition-hud">

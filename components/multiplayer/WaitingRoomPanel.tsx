@@ -2097,7 +2097,10 @@ export default function WaitingRoomPanel({
 
   const playerAction = (label: string) => setActionNotice(`${label} sẽ được nối dữ liệu thật ở milestone tương ứng.`);
 
-  if (gameplayActive && gameplaySchedule && matchStartSession) {
+  // Mount the gameplay scene as soon as WebAudio is scheduled, during the
+  // shared COUNTDOWN rather than waiting until its epoch. The existing React
+  // stage/actor can warm underneath the banner and survives the epoch.
+  if (gameplaySchedule && matchStartSession) {
     return (
       <LiveMultiplayerGameplay
         manifest={matchStartSession.manifest}

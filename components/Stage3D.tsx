@@ -14,7 +14,7 @@ import {
   resolveStageCatalogEntry,
 } from "./stage/stage-catalog";
 import { createStageEnvironment } from "./stage/stage-runtime";
-import { getStagePresentationCameraPose, type StageCameraPose } from "./stage/stageCamera";
+import { getStagePresentationCameraPose, getMatchStageCameraPose, selectMatchCameraStyle, type StageCameraPose } from "./stage/stageCamera";
 import type { PerformanceDiagnostics } from "./diagnostics/performance-diagnostics";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
@@ -131,6 +131,8 @@ type Stage3DProps = {
   performanceDiagnostics?: PerformanceDiagnostics | null;
   /** Multiplayer entry: avoid the four-second solo cinematic shot sequence. */
   skipIntroCamera?: boolean;
+  /** Frozen session identity; selects the same cinematic style on every device. */
+  cinematicMatchId?: string;
   /** Fires only after stage and actor have settled and a complete frame was painted. */
   onPresentationReady?: () => void;
 };
@@ -148,6 +150,7 @@ export default function Stage3D({
   fixedPresentationTimeSeconds,
   performanceDiagnostics,
   skipIntroCamera = false,
+  cinematicMatchId,
   onPresentationReady,
 }: Stage3DProps) {
   const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
@@ -313,6 +316,7 @@ export default function Stage3D({
     host.dataset.stageSource = "placeholder";
     host.dataset.stageEmbeddedAnimations = "0";
     host.dataset.presentationReady = "0";
+    if (cinematicMatchId) host.dataset.introCameraStyle = selectMatchCameraStyle(cinematicMatchId);
     let stageSettled = false;
     void stageEnvironment.load().then(result => {
       if (disposed) return;
@@ -445,19 +449,23 @@ export default function Stage3D({
         ? Math.max(STAGE_VISUAL_COMPARE_SONG_TIME_MS, t * 1000)
         : (getSongTimeMsRef.current?.() ?? 0);
       const portrait = host.clientHeight > host.clientWidth;
-      const basePose = getStagePresentationCameraPose(
-        songTimeMs,
-        visualCompareMode ? false : isPlayingRef.current && !skipIntroCamera,
-        portrait,
-        cameraPresetRef.current,
-      );
+      const basePose = cinematicMatchId && !visualCompareMode && !skipIntroCamera
+        ? getMatchStageCameraPose(songTimeMs, isPlayingRef.current, portrait, cameraPresetRef.current, cinematicMatchId)
+        : getStagePresentationCameraPose(
+          songTimeMs,
+          visualCompareMode ? false : isPlayingRef.current && !skipIntroCamera,
+          portrait,
+          cameraPresetRef.current,
+        );
       const neonPose = getNeonPresentationPose(basePose, neonPresentation, portrait);
       const pose = visualCompareMode && neonPresentation
         ? getNeonGoldenComparePose(neonPose)
         : neonPose;
       host.dataset.presentationCamera = pose.preset;
       const shotChanged = pose.preset !== lastPresentationCamera;
-      const cutToIntroShot = shotChanged && pose.preset !== "gameplay_portrait_locked";
+      // Match camera styles use continuous, authored rails. The solo legacy
+      // retains hard cuts at its named cinematic shot boundaries.
+      const cutToIntroShot = !cinematicMatchId && shotChanged && pose.preset !== "gameplay_portrait_locked";
       const cameraEase = pose.preset === "gameplay_portrait_locked"
         ? 1 - Math.pow(1 - .14, delta * 60)
         : 1 - Math.pow(1 - .20, delta * 60);
@@ -466,7 +474,7 @@ export default function Stage3D({
       // continuous camera rail through stage geometry. Snap at intro-shot
       // boundaries, then keep the subtle motion inside each shot. Blend only
       // when returning to the locked gameplay camera.
-      if (visualCompareMode || cutToIntroShot || (skipIntroCamera && firstPresentationFrame)) {
+      if (visualCompareMode || cutToIntroShot || (Boolean(cinematicMatchId) && firstPresentationFrame) || (skipIntroCamera && firstPresentationFrame)) {
         // Visual comparison must be bit-stable: never depend on how many RAFs
         // elapsed before the screenshot was taken.
         camera.position.set(pose.x, pose.y, pose.z);
@@ -528,7 +536,7 @@ export default function Stage3D({
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, skipIntroCamera]);
+  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, skipIntroCamera, cinematicMatchId]);
 
   return (
     <div
