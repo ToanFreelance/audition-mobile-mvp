@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { createRoomState } from "../multiplayer/room-state";
+import type { HumanHostParticipant } from "../multiplayer/types";
 
 const sizes = [
   { label: "iphone-390x740", width: 390, height: 740 },
@@ -73,27 +75,21 @@ test("C3 real entry Settings hides internal QA controls but keeps camera presets
       skinTone: "warm", face: "basic-01", name: "C3OwnerQA",
     }));
   }, { id: participantId });
+  const host: HumanHostParticipant = {
+    participantId, displayName: "C3OwnerQA", kind: "human", role: "host",
+    slotIndex: 0, readyState: "not-applicable", loadState: "idle",
+    connectionState: "connected", avatar: {
+      characterId: "default-female", characterAssetId: "c1-casual-grace",
+      outfit: {}, accessoryIds: [], petId: null, titleId: null,
+    },
+  };
+  const room = createRoomState({
+    roomId, roomName: "C3 QA Room", host, maxPlayers: 5,
+    modeId: "solo-easy-battle", selectedSongId: "aloha",
+  });
   await page.route("**/api/multiplayer/room?roomId=*", route => route.fulfill({
     status: 200, contentType: "application/json",
-    body: JSON.stringify({ ok: true, snapshot: {
-      roomId, roomName: "C3 QA Room", revision: 1,
-      status: "waiting", hostParticipantId: participantId,
-      maxPlayers: 5, modeId: "solo-easy-battle",
-      selectedSongId: "aloha", selectedStageId: "studio-81",
-      participants: [{
-        participantId, displayName: "C3OwnerQA", kind: "human",
-        role: "host", slotIndex: 0, readyState: "not-applicable",
-        loadState: "idle", connectionState: "connected",
-        avatar: { characterId: "default-female", characterAssetId: "c1-casual-grace",
-          outfit: {}, accessoryIds: [], petId: null, titleId: null },
-      }],
-      slots: [
-        { slotIndex: 0, state: "occupied", participantId },
-        { slotIndex: 1, state: "open" }, { slotIndex: 2, state: "open" },
-        { slotIndex: 3, state: "open" }, { slotIndex: 4, state: "open" },
-      ],
-      startState: null, startAtServerMs: null, matchManifest: null,
-    }}),
+    body: JSON.stringify({ ok: true, snapshot: room }),
   }));
   await page.route("**/api/multiplayer/realtime-config", route => route.fulfill({
     status: 503, contentType: "application/json",
