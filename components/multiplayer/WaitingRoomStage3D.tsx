@@ -1130,6 +1130,12 @@ export default function WaitingRoomStage3D({
       body.position.y = 0.96;
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), bodyMaterial);
       head.position.y = 1.78;
+      // An unoccupied sketch slot is a floor marker, not a translucent
+      // substitute dancer. Keep the legacy QA silhouette outside sketch mode.
+      if (sketchVisual) {
+        body.visible = false;
+        head.visible = false;
+      }
       group.add(body, head);
       group.visible = false;
       scene.add(group);
@@ -2097,6 +2103,7 @@ export default function WaitingRoomStage3D({
       data-stage-risers={visualPreset === "sketch" ? "3" : "0"}
       data-ring-reflection={visualPreset === "sketch" ? "contact-glow-only" : "default"}
       data-empty-slot-reflection={visualPreset === "sketch" ? "excluded" : "default"}
+      data-empty-slot-presentation={visualPreset === "sketch" ? "marker-only" : "placeholder-actor"}
       data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
       data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}
       data-stage-footprint={visualPreset === "sketch" ? "expanded" : "standard"}
