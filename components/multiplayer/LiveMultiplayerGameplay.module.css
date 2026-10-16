@@ -327,7 +327,7 @@
 .entryCurtain {
   position: absolute;
   inset: 0;
-  z-index: 30;
+  z-index: 1;
   display: grid;
   place-items: center;
   overflow: hidden;

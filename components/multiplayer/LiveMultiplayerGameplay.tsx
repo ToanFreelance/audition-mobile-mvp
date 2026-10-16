@@ -385,21 +385,6 @@ export default function LiveMultiplayerGameplay(props: {
       data-testid="multiplayer-gameplay-live"
     >
       {props.performanceDiagnostics && <PerformanceDiagnosticsOverlay diagnostics={props.performanceDiagnostics} />}
-      <div
-        className={`${transitionStyles.entryCurtain} ${entryCurtainVisible ? "" : transitionStyles.entryCurtainHidden}`}
-        data-testid="gameplay-entry-curtain"
-        data-visible={entryCurtainVisible ? "1" : "0"}
-        data-stage-ready={stagePresentationReady ? "1" : "0"}
-        aria-hidden="true"
-      >
-        <div className={transitionStyles.entryHalo} />
-        <div className={transitionStyles.entryTitle}>
-          <span>AUDITION · LIVE STAGE</span>
-          <strong>VÀO SÂN KHẤU</strong>
-          <i />
-          <small>{stagePresentationReady ? "SẴN SÀNG TỎA SÁNG" : "ĐANG CHUẨN BỊ SÂN KHẤU"}</small>
-        </div>
-      </div>
       <section className="audition-stage">
         <div data-testid="gameplay-3d-stage" data-frozen-stage-id={props.stageId}>
           <Stage3D
@@ -414,6 +399,21 @@ export default function LiveMultiplayerGameplay(props: {
             skipIntroCamera
             onPresentationReady={onStagePresentationReady}
           />
+        </div>
+        <div
+          className={`${transitionStyles.entryCurtain} ${entryCurtainVisible ? "" : transitionStyles.entryCurtainHidden}`}
+          data-testid="gameplay-entry-curtain"
+          data-visible={entryCurtainVisible ? "1" : "0"}
+          data-stage-ready={stagePresentationReady ? "1" : "0"}
+          aria-hidden="true"
+        >
+          <div className={transitionStyles.entryHalo} />
+          <div className={transitionStyles.entryTitle}>
+            <span>AUDITION · LIVE STAGE</span>
+            <strong>VÀO SÂN KHẤU</strong>
+            <i />
+            <small>{stagePresentationReady ? "SẴN SÀNG TỎA SÁNG" : "ĐANG CHUẨN BỊ SÂN KHẤU"}</small>
+          </div>
         </div>
         <div className="audition-hud">
           {/* Same GameShell song widget, not the discarded custom multiplayer HUD. */}
