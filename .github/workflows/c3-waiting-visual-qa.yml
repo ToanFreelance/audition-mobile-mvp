@@ -1,0 +1,54 @@
+name: C3 Waiting Room visual baseline QA
+
+on:
+  push:
+    branches:
+      - "work/mvp-entry-room-flow-v1"
+    paths:
+      - ".github/workflows/c3-waiting-visual-qa.yml"
+      - "e2e/c3-waiting-visual-review.spec.ts"
+      - "components/multiplayer/WaitingRoomPanel.module.css"
+      - "components/multiplayer/WaitingRoomPanel.tsx"
+      - "components/multiplayer/WaitingRoomStage3D.tsx"
+
+permissions:
+  contents: read
+
+jobs:
+  c3-sketch-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CI: "true"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      PLAYWRIGHT_WEB_SERVER: "1"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Next.js build
+        run: npm run build
+      - name: Chromium setup
+        run: npx playwright install --with-deps chromium
+      - name: C3 sketch fixture visual capture and smoke
+        run: npx playwright test e2e/c3-waiting-visual-review.spec.ts --project=desktop --workers=1
+      - name: Upload baseline screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c3-waiting-room-baseline-${{ github.sha }}
+          path: |
+            test-results/c3-baseline/
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 7
