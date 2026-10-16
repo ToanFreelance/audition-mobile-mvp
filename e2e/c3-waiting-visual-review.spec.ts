@@ -109,3 +109,64 @@ test("C3 real entry Settings hides internal QA controls but keeps camera presets
   await expect(settings).not.toContainText("Revision ·");
   await expect(page.getByTestId("camera-preset-controls")).toBeVisible();
 });
+
+test("C3 single-Host real-layout fixture has one non-reflected empty marker per slot", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto("/tools/lobby-qa-sketch?solo=1");
+  const root = page.getByTestId("lobby-root");
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 40_000 });
+  await expect(stage).toHaveAttribute("data-empty-slot-reflection", "excluded");
+  await expect(page.getByTestId("room-summary")).toContainText("1/5");
+  await expect(root.getByTestId("slot-2")).toContainText("HOST");
+  const empty = await root.locator('[data-testid^="slot-"]').filter({ hasText: "OPEN" }).count();
+  expect(empty).toBe(4);
+  await page.screenshot({ path: "test-results/c3-baseline/single-host-no-double-rings-390x740.png", fullPage: false, animations: "disabled" });
+});
+
+test("C3 pending server sync is a modal overlay and does not shift the waiting-room controls", async ({ page }) => {
+  const profile = {
+    version: 1, name: "Luna", gender: "female", characterAssetId: "c1-casual-grace",
+    hairStyle: "female-bob-01", hairColor: "brown", skinTone: "warm", face: "basic-01",
+  };
+  const roomId = "mvp-c3-visual-single";
+  const participantId = "player-00000000-0000-4000-8000-000000000001";
+  await page.addInitScript(({ profile, participantId }) => {
+    localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify(profile));
+    localStorage.setItem("audition.entryParticipantId.v1", participantId);
+  }, { profile, participantId });
+  await page.route("**/api/multiplayer/room?roomId=*", async route => {
+    // Use an isolated canonical Host snapshot; no mutations or live multiplayer.
+    const mock = {
+      roomId, roomName: "C3 Single Host", status: "waiting", revision: 1,
+      hostParticipantId: participantId, maxPlayers: 5, modeId: "solo-easy-battle",
+      selectedSongId: "aloha", selectedStageId: "studio-81",
+      matchStart: null,
+      slots: Array.from({ length: 6 }, (_, index) => index === 2
+        ? { slotIndex:index, state:"occupied", participantId }
+        : { slotIndex:index, state:index < 5 ? "open" : "closed" }),
+      participants:[{
+        participantId, displayName:"Luna", kind:"human", role:"host",
+        slotIndex:2, readyState:"not-applicable", loadState:"idle", connectionState:"connected",
+        avatar:{characterId:"default-female",characterAssetId:"c1-casual-grace",outfit:{},accessoryIds:[],petId:null,titleId:null}
+      }]
+    };
+    await route.fulfill({ status:200,contentType:"application/json",body:JSON.stringify({ok:true,snapshot:mock}) });
+  });
+  await page.route("**/api/multiplayer/realtime-config", route => route.fulfill({
+    status:503,contentType:"application/json",body:JSON.stringify({error:"C3 offline test"}),
+  }));
+  await page.setViewportSize({ width:390, height:740 });
+  await page.goto("/rooms/" + roomId);
+  const overlay=page.getByTestId("room-sync-overlay");
+  await expect(overlay).toBeVisible({timeout:15_000});
+  await expect(overlay).toHaveCSS("position","fixed");
+  await expect(overlay.getByTestId("retry-room-sync")).toBeVisible();
+  const boxes=await page.evaluate(()=>{
+    const footer=document.querySelector('[data-testid="start-button"]')!.getBoundingClientRect();
+    const overlay=document.querySelector('[data-testid="room-sync-overlay"]')!.getBoundingClientRect();
+    return {footerBottom:footer.bottom,viewportHeight:innerHeight,overlayHeight:overlay.height};
+  });
+  expect(boxes.footerBottom).toBeLessThanOrEqual(boxes.viewportHeight);
+  expect(boxes.overlayHeight).toBe(boxes.viewportHeight);
+});
