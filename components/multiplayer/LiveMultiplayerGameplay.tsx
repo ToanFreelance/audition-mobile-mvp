@@ -410,19 +410,35 @@ export default function LiveMultiplayerGameplay(props: {
           <StageLaunchArtwork />
           <div className={transitionStyles.entryHalo} />
           <div className={transitionStyles.entryTitle}>
-            <span>AUDITION · LIVE STAGE</span>
-            <div className={transitionStyles.entrySteps}>
-              <b>✓ PRELOAD</b>
-              <b>✓ LOADED</b>
-              <b>{snapshot.songTimeMs > 0 ? "✓ EPOCH" : "◌ EPOCH"}</b>
-              <b>{stagePresentationReady ? "✓ SCENE" : "◌ SCENE"}</b>
-            </div>
-            <strong>VÀO SÂN KHẤU</strong>
-            <i />
-            <small className={transitionStyles.epochInfo}>EPOCH · {Math.round(props.startAtServerMs)}</small>
+            <span>DANCE UP · YUNA ON STAGE</span>
+            <strong>PREPARING STAGE</strong>
             <small>{stagePresentationError ? stagePresentationError
-              : !stagePresentationReady ? "ĐANG TẢI SÂN KHẤU · NHÂN VẬT · VŨ ĐẠO"
-              : snapshot.songTimeMs <= 0 ? "SCENE READY · CHỜ SHARED EPOCH" : "SẴN SÀNG TỎA SÁNG"}</small>
+              : !stagePresentationReady ? "Loading stage, characters and animations…"
+              : snapshot.songTimeMs <= 0 ? "Scene ready · Waiting for shared epoch" : "Ready to dance!"}</small>
+            <div className={transitionStyles.entrySteps}>
+              <b className={transitionStyles.entryDone}>01 <small>PRELOAD ✓</small></b>
+              <b className={transitionStyles.entryDone}>02 <small>LOADED ✓</small></b>
+              <b className={snapshot.songTimeMs > 0 ? transitionStyles.entryDone : ""}>03 <small>SYNC {snapshot.songTimeMs > 0 ? "✓" : "◌"}</small></b>
+              <b className={stagePresentationReady ? transitionStyles.entryDone : ""}>04 <small>STAGE {stagePresentationReady ? "✓" : "◌"}</small></b>
+            </div>
+            <div className={transitionStyles.entryTrack}
+              role="progressbar" aria-label="Tiến trình sân khấu" aria-valuemin={0} aria-valuemax={100}
+              aria-valuenow={50 + Number(snapshot.songTimeMs > 0) * 25 + Number(stagePresentationReady) * 25}
+            >
+              <i style={{ width: `${50 + Number(snapshot.songTimeMs > 0) * 25 + Number(stagePresentationReady) * 25}%` }} />
+              <span>{50 + Number(snapshot.songTimeMs > 0) * 25 + Number(stagePresentationReady) * 25}%</span>
+            </div>
+            <small className={transitionStyles.epochInfo}>SHARED EPOCH · {Math.round(props.startAtServerMs)}</small>
+            <div className={transitionStyles.entryRosterTitle}>DANCERS LOADED <b>{props.manifest.participants.length}/{props.manifest.participants.length}</b></div>
+            <div className={transitionStyles.entryRoster}>
+              {props.manifest.participants.map(participant => (
+                <span key={participant.participantId}>
+                  <i>{participant.role === "host" ? "♛" : "✦"}</i>
+                  <b>{participant.displayName}</b>
+                  <small>✓ LOADED</small>
+                </span>
+              ))}
+            </div>
           </div>
         </div>
         <div className="audition-hud">

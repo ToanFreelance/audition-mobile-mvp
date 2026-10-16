@@ -1,16 +1,18 @@
-/* Neon launch banner: graphical floor, truss, beams and LED wall. No 3D context. */
-.backdrop{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse 120% 80% at 50% 30%,#242357 0%,#0c1634 46%,#040717 85%);}
-.aura{position:absolute;width:100%;height:65%;top:-14%;left:0;background:radial-gradient(ellipse at 50% 40%,rgba(186,60,250,.44),transparent 60%),radial-gradient(ellipse at 80% 50%,rgba(42,206,255,.26),transparent 53%);}
-.truss{position:absolute;left:-8%;right:-8%;top:14%;height:22%;border-top:5px solid rgba(93,228,255,.58);border-bottom:2px solid rgba(230,76,255,.55);border-radius:50% 50% 12% 12%;transform:perspective(400px) rotateX(-23deg);box-shadow:0 -8px 38px rgba(66,209,255,.35),0 14px 25px rgba(160,70,255,.2);}
-.truss:before{content:"";position:absolute;inset:19% 8%;border-top:2px dashed rgba(178,235,255,.38);border-radius:50%;}
-.spotlightLeft,.spotlightRight{position:absolute;top:17%;height:64%;width:53%;opacity:.48;transform-origin:50% 0;filter:blur(8px);}
-.spotlightLeft{left:10%;transform:rotate(-14deg);background:linear-gradient(180deg,rgba(56,220,255,.54),rgba(49,140,255,.07) 88%,transparent);clip-path:polygon(40% 0,55% 0,100% 100%,0 100%);}
-.spotlightRight{right:10%;transform:rotate(14deg);background:linear-gradient(180deg,rgba(241,60,248,.54),rgba(141,68,255,.08) 88%,transparent);clip-path:polygon(40% 0,55% 0,100% 100%,0 100%);}
-.ledWall{position:absolute;top:29%;left:11%;right:11%;height:25%;display:grid;place-content:center;gap:2px;text-align:center;border:2px solid rgba(97,186,255,.58);border-radius:16px 16px 6px 6px;background:linear-gradient(150deg,rgba(20,7,57,.8),rgba(15,38,88,.7)),repeating-linear-gradient(0deg,rgba(116,223,255,.08) 0px,rgba(116,223,255,.08) 2px,transparent 2px,transparent 7px);box-shadow:inset 0 0 55px rgba(127,57,238,.43),0 0 30px rgba(35,181,255,.3);}
-.ledWall span{font-size:clamp(37px,10vw,78px);font-style:italic;font-weight:1000;letter-spacing:-.035em;line-height:1;color:#f9d6ff;text-shadow:0 0 6px #fb80fc,0 0 19px rgba(236,67,255,.88),0 0 36px rgba(111,93,255,.9);}
-.ledWall small{color:#8cecff;font-size:clamp(8px,2vw,13px);letter-spacing:.42em;font-weight:900;text-shadow:0 0 12px #52daff;}
-.riser{position:absolute;left:13%;right:13%;top:53%;height:13%;border-top:3px solid rgba(87,217,255,.68);border-bottom:3px solid rgba(211,74,255,.55);background:linear-gradient(180deg,rgba(31,29,79,.85),rgba(10,9,37,.95));clip-path:polygon(3% 0,97% 0,100% 100%,0 100%);}
-.danceFloor{position:absolute;top:64%;left:-28%;width:156%;height:67%;background:repeating-linear-gradient(90deg,transparent 0,transparent calc(12.5% - 1px),rgba(72,137,255,.2) 12.5%),linear-gradient(180deg,rgba(22,60,126,.45),rgba(28,8,77,.62),rgba(5,6,27,.98));transform:perspective(460px) rotateX(57deg);transform-origin:top center;border-top:2px solid rgba(90,207,255,.65);box-shadow:inset 0 50px 75px rgba(123,48,219,.3);}
-.floorRing{position:absolute;bottom:9%;left:50%;width:min(50vw,260px);height:min(19vw,95px);transform:translateX(-50%);border:2px solid rgba(94,217,255,.6);border-radius:50%;box-shadow:0 0 22px rgba(65,217,255,.38),inset 0 0 24px rgba(168,70,250,.32);}
-.vignette{position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,4,20,.15),transparent 18%,rgba(3,5,21,.08) 42%,rgba(4,6,23,.66) 88%,#040615 100%);}
-@media(max-height:680px){.truss{top:8%}.ledWall{top:24%}.riser{top:50%}.danceFloor{top:60%}.floorRing{bottom:5%;}}
+/* Approved 2026-10-16 DANCE UP / Yuna artwork; locally bundled and reused
+   across PRELOADING, LOADED, shared epoch and gameplay scene handoff. */
+.backdrop {
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background-color:#08071d;
+  background-image:
+    linear-gradient(180deg,transparent 0%,rgba(7,5,28,0) 43%,rgba(9,6,32,.48) 56%,#090b2b 80%,#070818 100%),
+    url("/images/dance-up-yuna-launch.webp");
+  background-size:100% 100%, cover;
+  background-position:center top;
+  background-repeat:no-repeat;
+}
+@media (min-aspect-ratio:3/4) {
+  .backdrop { background-size:100% 100%, auto 100%; }
+}

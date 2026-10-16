@@ -1263,3 +1263,83 @@
 .launchProgress span{min-width:0;padding:6px 3px;text-align:center;font-size:9px;font-weight:900;color:#7788b5;border:1px solid rgba(97,112,169,.4);border-radius:6px;background:rgba(8,14,38,.7);}
 .launchProgress .launchProgressDone{color:#b7f8ff;border-color:rgba(83,223,255,.65);background:rgba(11,80,122,.4);box-shadow:0 0 12px rgba(63,194,255,.15);}
 @media(max-height:640px){.preloadOverlay{padding:calc(8px + env(safe-area-inset-top,0px)) 10px calc(8px + env(safe-area-inset-bottom,0px));}.preloadOverlay .preloadBanner{padding:12px;max-height:100%;}}
+
+/* C3 owner-accepted DANCE UP / Yuna exact artwork: responsive live status card. */
+.preloadOverlay {
+  align-items:flex-end;
+  justify-content:center;
+  padding:0 max(10px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));
+}
+.preloadOverlay .preloadBanner {
+  width:min(100%,500px);
+  max-height:49dvh;
+  padding:clamp(10px,2.4vw,18px);
+  border:2px solid rgba(112,198,255,.9);
+  border-radius:22px;
+  background:linear-gradient(160deg,rgba(10,13,56,.97),rgba(13,8,55,.97) 53%,rgba(9,18,58,.98));
+  box-shadow:0 0 14px rgba(107,217,255,.6),0 0 24px rgba(196,61,255,.38),0 22px 50px #040415;
+  gap:5px;
+  scrollbar-width:thin;
+}
+.preloadOverlay .preloadBanner>strong {
+  font-style:italic;
+  font-weight:1000;
+  color:#fde7ff;
+  font-size:clamp(21px,5.5vw,32px);
+  text-shadow:0 0 8px #f746ff,0 0 17px rgba(124,113,255,.9);
+}
+.preloadOverlay .preloadBanner>span[data-testid="preload-match-id"] {
+  order:3;
+  font-size:8px;
+  opacity:.6;
+  font-variant-numeric:tabular-nums;
+}
+.preloadOverlay .preloadBanner>small {order:4;font-size:8px;}
+.preloadOverlay .preloadBanner>em,
+.preloadOverlay .preloadBanner>.preloadAudioState {order:7;}
+.preloadOverlay .launchBrand{
+  text-align:center;
+  margin:0 0 2px;
+  font-size:10px;
+  font-style:italic;
+  letter-spacing:.14em;
+  color:#fdd7ff;
+}
+.preloadOverlay .launchSubtitle{margin:0 auto 4px;max-width:95%;font-size:10px;color:#d9d8ff;text-align:center;line-height:1.25;}
+.preloadOverlay .launchProgress{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:3px 0;}
+.preloadOverlay .launchProgress span{
+  padding:5px 2px;
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  color:#7784bb;
+  font-size:14px;
+  border:1px solid #4e4a9a;
+  border-radius:11px;
+  background:rgba(10,14,51,.9);
+}
+.preloadOverlay .launchProgress b{font-size:7px;white-space:nowrap;letter-spacing:0;}
+.preloadOverlay .launchProgress .launchProgressDone{color:#efffff;border-color:#54eaff;background:rgba(14,83,141,.65);box-shadow:0 0 9px rgba(51,210,255,.4),inset 0 0 10px rgba(97,80,237,.25);}
+.preloadOverlay .launchTrack{height:11px;position:relative;margin:6px 3px;background:#101447;border:1px solid #727aff;border-radius:99px;overflow:hidden;box-shadow:0 0 9px rgba(151,52,232,.3);}
+.preloadOverlay .launchTrack i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#50daff,#954fff,#f950de);box-shadow:0 0 15px #e564ff;transition:width .35s ease-out;}
+.preloadOverlay .launchRosterTitle{display:flex;align-items:center;justify-content:center;gap:8px;color:#f1a5ff;font-size:11px;font-weight:900;letter-spacing:.07em;}
+.preloadOverlay .launchRosterTitle b{font-size:14px;color:#64ffce;}
+.preloadOverlay .launchRosterTitle small{font-size:8px;letter-spacing:0;color:#75eebb;margin-left:auto;}
+.preloadOverlay .preloadParticipants{display:flex;justify-content:center;flex-wrap:nowrap;gap:4px;padding:1px 0;}
+.preloadOverlay .preloadParticipants>span{position:relative;flex:1 1 0;max-width:88px;min-width:0;padding:6px 3px 5px;display:grid;justify-items:center;gap:2px;border:1px solid rgba(91,88,214,.65);border-radius:10px;background:rgba(14,19,72,.83);}
+.preloadOverlay .preloadParticipants>span strong{width:100%;overflow:hidden;text-overflow:ellipsis;text-align:center;white-space:nowrap;font-size:9px;}
+.preloadOverlay .preloadParticipants>span small{font-size:8px;color:#c9c4ff;}
+.preloadOverlay .preloadParticipants>span b{white-space:nowrap;border:1px solid rgba(62,246,207,.55);border-radius:25px;font-size:8px;color:#76ffd7;padding:2px 4px;}
+.preloadOverlay .preloadParticipants>span[data-load-state="idle"] b,
+.preloadOverlay .preloadParticipants>span[data-load-state="loading"] b{border-color:#8080bd;color:#bbb3ec;}
+.preloadOverlay .launchAvatar{position:relative;display:grid;place-items:center;width:37px;height:37px;border:2px solid #cf64fb;border-radius:50%;background:radial-gradient(circle,#7445c5,#141344);color:#fff;font-style:normal;box-shadow:0 0 10px #a53dfc;}
+.preloadOverlay .launchAvatar sup{position:absolute;top:-11px;color:#ffd85c;font-size:14px;}
+.preloadOverlay .preloadAllLoaded{font-size:10px;}
+@media(max-height:760px){
+  .preloadOverlay .preloadBanner{max-height:53dvh;padding:10px;}
+  .preloadOverlay .preloadParticipants>span{padding:4px 2px;}
+  .preloadOverlay .launchRosterTitle small{font-size:7px;}
+}
+@media(max-height:610px){
+  .preloadOverlay .preloadBanner{max-height:60dvh;padding:8px;}
+  .preloadOverlay .preloadBanner>strong{font-size:20px;}
+  .preloadOverlay .launchBrand{font-size:8px;}
+}

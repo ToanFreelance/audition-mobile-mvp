@@ -2352,13 +2352,38 @@ export default function WaitingRoomPanel({
             data-phase={room.status}
             data-testid="preload-state"
           >
-            <div className={styles.launchBrand}>AUDITION <span>✦ MOBILE STAGE</span></div>
-            <div className={styles.launchProgress} aria-hidden="true">
-              <span className={styles.launchProgressDone}>01 · PRELOAD</span>
-              <span className={allParticipantsLoaded ? styles.launchProgressDone : ""}>02 · LOADED</span>
-              <span className={room.status === "countdown" || room.status === "playing" ? styles.launchProgressDone : ""}>03 · SYNC</span>
+            <div className={styles.launchBrand}>DANCE UP <span>✦ YUNA · ON STAGE</span></div>
+            <strong>{room.status === "playing" ? "GET READY TO DANCE" : "PREPARING STAGE"}</strong>
+            <p className={styles.launchSubtitle}>
+              {room.status === "preloading" ? "Loading stage, characters, animations and shared epoch…"
+                : "All dancers are preparing for the stage…"}
+            </p>
+            <div className={styles.launchProgress} aria-label="Tiến trình chuẩn bị sân khấu">
+              <span className={matchStartSession.participants.some(p => p.participantId === viewer.participantId && p.state === "loaded") ? styles.launchProgressDone : ""}>01 <b>PRELOAD</b></span>
+              <span className={allParticipantsLoaded ? styles.launchProgressDone : ""}>02 <b>LOADED</b></span>
+              <span className={matchStartSession.startAtServerMs != null ? styles.launchProgressDone : ""}>03 <b>SYNC</b></span>
+              <span>04 <b>STAGE READY</b></span>
             </div>
-            <strong>{room.status === "playing" ? "STARTING" : room.status === "countdown" ? "COUNTDOWN" : "PRELOADING"}</strong>
+            <div className={styles.launchTrack}
+              aria-label="Tỷ lệ hoàn tất các bước chuẩn bị"
+              role="progressbar" aria-valuemin={0} aria-valuemax={100}
+              aria-valuenow={25 * (
+                Number(matchStartSession.participants.some(p => p.participantId === viewer.participantId && p.state === "loaded"))
+                + Number(allParticipantsLoaded)
+                + Number(matchStartSession.startAtServerMs != null)
+              )}
+            >
+              <i style={{width: `${25 * (
+                Number(matchStartSession.participants.some(p => p.participantId === viewer.participantId && p.state === "loaded"))
+                + Number(allParticipantsLoaded)
+                + Number(matchStartSession.startAtServerMs != null)
+              )}%`}} />
+            </div>
+            <div className={styles.launchRosterTitle}>
+              <span>♟ DANCERS LOADED</span>
+              <b>{matchStartSession.participants.filter(p => p.state === "loaded").length}/{matchStartSession.participants.length}</b>
+              <small>{allParticipantsLoaded ? "✓ All clients loaded" : "Waiting for dancers…"}</small>
+            </div>
             <span data-testid="preload-match-id">{matchStartSession.matchId}</span>
             <small>
               room r<span data-testid="preload-room-revision">{matchStartSession.roomRevision}</span>
@@ -2380,7 +2405,13 @@ export default function WaitingRoomPanel({
                     data-testid={`preload-participant-${participant.participantId}`}
                     key={participant.participantId}
                   >
-                    {roomParticipant?.displayName ?? participant.participantId}: {participant.state.toUpperCase()}
+                    <i className={styles.launchAvatar} aria-hidden="true">
+                      {roomParticipant?.role === "host" && <sup>♛</sup>}
+                      {(roomParticipant?.displayName ?? participant.participantId).slice(0,2).toUpperCase()}
+                    </i>
+                    <strong>{roomParticipant?.displayName ?? participant.participantId}</strong>
+                    <small>{roomParticipant ? `Lv. ${levelFor(roomParticipant)}` : "DANCER"}</small>
+                    <b>{participant.state === "loaded" ? "✓ LOADED" : participant.state.toUpperCase()}</b>
                   </span>
                 );
               })}
@@ -2500,6 +2531,7 @@ export default function WaitingRoomPanel({
             role="dialog" aria-modal="true" aria-label="Đang kết nối phòng">
           <StageLaunchArtwork />
           <section className={styles.preloadBanner}>
+            <div className={styles.launchBrand}>DANCE UP <span>✦ CONNECT</span></div>
             <strong>ĐANG KẾT NỐI PHÒNG</strong>
             <span>Đang xác minh trạng thái phòng...</span>
           <div className={styles.preloadAudioState} role="status" data-testid="room-sync-recovery">
