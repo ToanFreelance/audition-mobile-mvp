@@ -66,6 +66,7 @@ export default function LiveMultiplayerGameplay(props: {
 }) {
   const [snapshot, setSnapshot] = useState<MultiplayerGameplaySnapshot>(() => props.runtime.snapshot());
   const [stagePresentationReady, setStagePresentationReady] = useState(false);
+  const [stagePresentationError, setStagePresentationError] = useState<string | null>(null);
   const [entryCurtainVisible, setEntryCurtainVisible] = useState(true);
   const onStagePresentationReady = useCallback(() => setStagePresentationReady(true), []);
   // The banner never lifts until the actual 3D scene, actor, animation mixer
@@ -395,6 +396,7 @@ export default function LiveMultiplayerGameplay(props: {
             performanceDiagnostics={props.performanceDiagnostics}
             cinematicMatchId={props.manifest.matchId}
             onPresentationReady={onStagePresentationReady}
+            onPresentationFailure={setStagePresentationError}
           />
         </div>
         <div
@@ -402,6 +404,7 @@ export default function LiveMultiplayerGameplay(props: {
           data-testid="gameplay-entry-curtain"
           data-visible={entryCurtainVisible ? "1" : "0"}
           data-stage-ready={stagePresentationReady ? "1" : "0"}
+          data-stage-error={stagePresentationError ? "1" : "0"}
           aria-hidden="true"
         >
           <StageLaunchArtwork />
@@ -410,7 +413,8 @@ export default function LiveMultiplayerGameplay(props: {
             <span>AUDITION · LIVE STAGE</span>
             <strong>VÀO SÂN KHẤU</strong>
             <i />
-            <small>{!stagePresentationReady ? "ĐANG TẢI SÂN KHẤU · NHÂN VẬT · VŨ ĐẠO"
+            <small>{stagePresentationError ? stagePresentationError
+              : !stagePresentationReady ? "ĐANG TẢI SÂN KHẤU · NHÂN VẬT · VŨ ĐẠO"
               : snapshot.songTimeMs <= 0 ? "SCENE READY · CHỜ SHARED EPOCH" : "SẴN SÀNG TỎA SÁNG"}</small>
           </div>
         </div>

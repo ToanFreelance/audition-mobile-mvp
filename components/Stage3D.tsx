@@ -135,6 +135,7 @@ type Stage3DProps = {
   cinematicMatchId?: string;
   /** Fires only after stage and actor have settled and a complete frame was painted. */
   onPresentationReady?: () => void;
+  onPresentationFailure?: (message: string) => void;
 };
 
 export default function Stage3D({
@@ -152,6 +153,7 @@ export default function Stage3D({
   skipIntroCamera = false,
   cinematicMatchId,
   onPresentationReady,
+  onPresentationFailure,
 }: Stage3DProps) {
   const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
@@ -164,8 +166,10 @@ export default function Stage3D({
   const bpmRef = useRef(bpm);
   const diagnosticsRef = useRef(performanceDiagnostics);
   const onPresentationReadyRef = useRef(onPresentationReady);
+  const onPresentationFailureRef = useRef(onPresentationFailure);
   diagnosticsRef.current = performanceDiagnostics;
   onPresentationReadyRef.current = onPresentationReady;
+  onPresentationFailureRef.current = onPresentationFailure;
   cameraPresetRef.current = cameraPreset;
   isPlayingRef.current = isPlaying;
   getSongTimeMsRef.current = getSongTimeMs;
@@ -332,7 +336,8 @@ export default function Stage3D({
       if (disposed) return;
       host.dataset.stageSource = "placeholder";
       host.dataset.stageError = error instanceof Error ? error.message : String(error);
-      stageSettled = true; // The procedural fallback remains renderable.
+      // The visual gate must not claim ready when the selected venue failed.
+      onPresentationFailureRef.current?.("Không thể tải sân khấu đã chọn.");
       console.warn(`[Stage3D] ${stageEntry.displayName} failed; procedural stage remains active:`, error);
     });
 
@@ -368,8 +373,12 @@ export default function Stage3D({
       host.dataset.characterSource = "loading";
       void character.load().then((result) => {
         if (disposed || !character) return;
-        characterSettled = true;
         if (!result) return;
+        if (result.error || !result.metrics.animationClips.length) {
+          onPresentationFailureRef.current?.("Nhân vật hoặc animation chưa sẵn sàng.");
+          return;
+        }
+        characterSettled = true;
         if (neonPresentation) applyNeonCharacterFill(character.root);
         host.dataset.characterSource = result.source;
         host.dataset.characterIdle = result.idleClip ?? "static";
@@ -377,7 +386,7 @@ export default function Stage3D({
         if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
       }).catch(error => {
         if (disposed) return;
-        characterSettled = true;
+        onPresentationFailureRef.current?.("Không thể tải nhân vật và animation.");
         host.dataset.characterSource = "fallback";
         console.warn("[Stage3D] Character asset loading failed:", error);
       });
