@@ -404,7 +404,7 @@
   .entryHalo { animation: none; }
 }
 
-.entryCurtain{isolation:isolate;background:#05091e;}
+.entryCurtain{isolation:isolate;background:#05091e;z-index:30;}
 .entryTitle{
   padding:34px 22px;
   border:1px solid rgba(116,201,255,.68);border-radius:22px;

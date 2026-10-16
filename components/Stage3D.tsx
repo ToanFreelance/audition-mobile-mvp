@@ -429,6 +429,9 @@ export default function Stage3D({
     let lastPresentationCamera = "gameplay_portrait_locked";
     let firstPresentationFrame = true;
     let presentationReadySent = false;
+    // Camera-only offset: if assets load after audio begins, still show the
+    // full authored intro after reveal. Gameplay/animation get real song time.
+    let cameraIntroOriginSongMs = 0;
     let raf = 0;
     let disposed = false;
     const scheduleFrame = () => {
@@ -449,8 +452,9 @@ export default function Stage3D({
         ? Math.max(STAGE_VISUAL_COMPARE_SONG_TIME_MS, t * 1000)
         : (getSongTimeMsRef.current?.() ?? 0);
       const portrait = host.clientHeight > host.clientWidth;
+      const cameraSongTimeMs = Math.max(0, songTimeMs - cameraIntroOriginSongMs);
       const basePose = cinematicMatchId && !visualCompareMode && !skipIntroCamera
-        ? getMatchStageCameraPose(songTimeMs, isPlayingRef.current, portrait, cameraPresetRef.current, cinematicMatchId)
+        ? getMatchStageCameraPose(cameraSongTimeMs, isPlayingRef.current, portrait, cameraPresetRef.current, cinematicMatchId)
         : getStagePresentationCameraPose(
           songTimeMs,
           visualCompareMode ? false : isPlayingRef.current && !skipIntroCamera,
@@ -504,6 +508,7 @@ export default function Stage3D({
       firstPresentationFrame = false;
       if (!presentationReadySent && stageSettled && characterSettled) {
         presentationReadySent = true;
+        cameraIntroOriginSongMs = songTimeMs;
         host.dataset.presentationReady = "1";
         onPresentationReadyRef.current?.();
       }

@@ -71,10 +71,10 @@ export default function LiveMultiplayerGameplay(props: {
   // The banner never lifts until the actual 3D scene, actor, animation mixer
   // and authoritative shared start have progressed. No artificial deadline.
   useEffect(() => {
-    if (!stagePresentationReady || !snapshot.started) return;
+    if (!stagePresentationReady || !snapshot.started || snapshot.songTimeMs <= 0) return;
     const reveal = window.setTimeout(() => setEntryCurtainVisible(false), 350);
     return () => window.clearTimeout(reveal);
-  }, [stagePresentationReady, snapshot.started]);
+  }, [stagePresentationReady, snapshot.started, snapshot.songTimeMs > 0]);
   const [scoreReceipts, setScoreReceipts] = useState<{
     matchId: string;
     byParticipant: Record<string, LiveScoreSnapshot>;
@@ -411,7 +411,7 @@ export default function LiveMultiplayerGameplay(props: {
             <strong>VÀO SÂN KHẤU</strong>
             <i />
             <small>{!stagePresentationReady ? "ĐANG TẢI SÂN KHẤU · NHÂN VẬT · VŨ ĐẠO"
-              : !snapshot.started ? "SCENE READY · CHỜ SHARED EPOCH" : "SẴN SÀNG TỎA SÁNG"}</small>
+              : snapshot.songTimeMs <= 0 ? "SCENE READY · CHỜ SHARED EPOCH" : "SẴN SÀNG TỎA SÁNG"}</small>
           </div>
         </div>
         <div className="audition-hud">
