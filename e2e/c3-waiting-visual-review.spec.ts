@@ -61,3 +61,55 @@ test("C3 five-player waiting-room baseline across viewports", async ({ page }) =
     await expect(page.getByTestId("room-settings-button")).toBeVisible();
   }
 });
+
+test("C3 real entry Settings hides internal QA controls but keeps camera presets", async ({ page }) => {
+  const participantId = "player-00000000-0000-4000-8000-000000000001";
+  const roomId = "mvp-c3-settings-qa";
+  await page.addInitScript(({ id }) => {
+    localStorage.setItem("audition.entryParticipantId.v1", id);
+    localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify({
+      version: 1, gender: "female", characterAssetId: "c1-casual-grace",
+      hairStyle: "female-bob-01", hairColor: "brown",
+      skinTone: "warm", face: "basic-01", name: "C3OwnerQA",
+    }));
+  }, { id: participantId });
+  await page.route("**/api/multiplayer/room?roomId=*", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, snapshot: {
+      roomId, roomName: "C3 QA Room", revision: 1,
+      status: "waiting", hostParticipantId: participantId,
+      maxPlayers: 5, modeId: "solo-easy-battle",
+      selectedSongId: "aloha", selectedStageId: "studio-81",
+      participants: [{
+        participantId, displayName: "C3OwnerQA", kind: "human",
+        role: "host", slotIndex: 0, readyState: "not-applicable",
+        loadState: "idle", connectionState: "connected",
+        avatar: { characterId: "default-female", characterAssetId: "c1-casual-grace",
+          outfit: {}, accessoryIds: [], petId: null, titleId: null },
+      }],
+      slots: [
+        { slotIndex: 0, state: "occupied", participantId },
+        { slotIndex: 1, state: "open" }, { slotIndex: 2, state: "open" },
+        { slotIndex: 3, state: "open" }, { slotIndex: 4, state: "open" },
+      ],
+      startState: null, startAtServerMs: null, matchManifest: null,
+    }}),
+  }));
+  await page.route("**/api/multiplayer/realtime-config", route => route.fulfill({
+    status: 503, contentType: "application/json",
+    body: JSON.stringify({ error: "QA intentionally offline" }),
+  }));
+  await page.goto("/rooms/" + roomId);
+  const settingsButton = page.getByTestId("room-settings-button");
+  await expect(settingsButton).toBeVisible();
+  // Call the DOM button directly to avoid SwiftShader's continuous animation
+  // making Playwright's 'stable' pointer heuristic hang in the CI renderer.
+  await settingsButton.evaluate(element => (element as HTMLButtonElement).click());
+  const settings = page.getByTestId("room-settings-panel");
+  await expect(settings).toBeVisible();
+  await expect(settings).toContainText("CÀI ĐẶT PHÒNG");
+  await expect(settings).not.toContainText("ROOM QA");
+  await expect(settings).not.toContainText("Switch mode QA");
+  await expect(settings).not.toContainText("Revision ·");
+  await expect(page.getByTestId("camera-preset-controls")).toBeVisible();
+});
