@@ -1,5 +1,13 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-16 — C3 Waiting Room baseline + production Settings polish
+
+- **Visual baseline:** existing `/rooms/[roomId]` uses P5.6 approved `visualPreset="sketch"`; five-player isolated fixture `/tools/lobby-qa-sketch` recorded at 390×740, 430×932, 768×1024, 1280×800. Host-centered crown-only, head-follow labels, accepted reflective stage, five portrait slots, song card and canonical Start/Ready controls remain unchanged. **C3 owner visual gate remains OPEN**.
+- **Source finding (focused C3 UX fix):** production entry path previously showed internal `ROOM QA`, `Switch mode QA`, room revision/start diagnostics in Settings. Commit `2bb3982d` conditionally hides developer-only controls for `entryFlow` while leaving QA route and camera presets intact; connection status remains visible. No change to RoomState, changeMode reducer, CAS, preload/clock, actor or AnimationMixer lifetime.
+- **Validation actually run:** GitHub Actions run `38837047932` on `622384a7` **PASS**: `npx tsc --noEmit`, Next.js production build, headless Chromium, two Playwright tests (four viewport screenshot captures of isolated five-person fixture + mock canonical real-entry Settings behavior), screenshot artifact `c3-waiting-room-baseline-622384a73c5dbdaa543d42b75dae20d87edfb46e` ID `12019507698`. Existing fast-lobby-qa PASS, Vercel Preview READY. Initial C3 browser run was blocked by WebGL-driven Playwright stable-click timeout; screenshot run separated from click and focused real-entry Settings asserts DOM click to avoid false pointer-performance claims.
+- **Visual observations, NOT owner verdict:** Mobile fixture shows edge participant names cropped against viewport at some positions; long/tall layouts include extra blank area below controls. At desktop 1280×800 the stage remains a centered 430px portrait composition. This is a currently accepted mobile-first P5.6 baseline, not a newly approved desktop design; do not move 3D actors, camera, labels, HUD or responsive layout without owner screenshot/instructions.
+- **Remaining gates:** owner iPhone actual `/rooms/<roomId>` visual and interaction review, host/guest multiplayer human acceptance, hardware tablet/desktop and cross-device performance all PENDING. P4.6 ensemble and C4 Gameplay visuals not started. PR #18 remains OPEN/Draft; no merge.
+
 ### 2026-10-16 — C2 OWNER ACCEPTED / C3 Waiting Room review opened
 
 - Owner explicitly approved C2 Room Browser after reviewing iPhone layout and responsive browser images (tablet/desktop included). **C2 VISUAL ACCEPTED**; separate physical tablet/desktop test remains UNVERIFIED. C2 browser QA run `38751562735` PASS. C1 remains owner-accepted.
