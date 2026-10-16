@@ -2141,13 +2141,22 @@ export default function WaitingRoomPanel({
 
         {settingsOpen && (
           <aside className={styles.settingsPopover} data-testid="room-settings-panel">
-            <strong>ROOM QA</strong>
+            <strong>{initialSync?.entryFlow ? "CÀI ĐẶT PHÒNG" : "ROOM QA"}</strong>
             {syncOptions ? (
               <div className={styles.settingsMeta}>
-                <span>Realtime · {syncStatus.toUpperCase()}</span>
-                <span>Client · {hostView ? "HOST" : "GUEST"}</span>
-                <span>Sync room · {syncOptions.roomId}</span>
-                {syncDetail && <span>{syncDetail}</span>}
+                {initialSync?.entryFlow ? (
+                  <>
+                    <span>Kết nối · {syncStatus === "connected" ? "Đã kết nối" : "Đang đồng bộ"}</span>
+                    {syncStatus !== "connected" && syncDetail && <span>{syncDetail}</span>}
+                  </>
+                ) : (
+                  <>
+                    <span>Realtime · {syncStatus.toUpperCase()}</span>
+                    <span>Client · {hostView ? "HOST" : "GUEST"}</span>
+                    <span>Sync room · {syncOptions.roomId}</span>
+                    {syncDetail && <span>{syncDetail}</span>}
+                  </>
+                )}
               </div>
             ) : (
               <div className={styles.settingsRow}>
@@ -2189,17 +2198,23 @@ export default function WaitingRoomPanel({
                 })}
               </div>
             </div>
-            {hostView && <button className={styles.settingsAction} onClick={changeModeQa} type="button">Switch mode QA</button>}
+            {hostView && !initialSync?.entryFlow && (
+              <button className={styles.settingsAction} onClick={changeModeQa} type="button">Switch mode QA</button>
+            )}
             <div className={styles.settingsMeta}>
               <span>Stage · {currentStage.name}</span>
-              <span>Start gate · {startGate.allowed ? "ENABLED" : startGate.reason}</span>
-              <span>Revision · {room.revision}</span>
-              <span>Room status · {room.status.toUpperCase()}</span>
-              <span>Host Ready · not-applicable</span>
-              {frozenMatchManifest && (
+              {!initialSync?.entryFlow && (
+                <>
+                  <span>Start gate · {startGate.allowed ? "ENABLED" : startGate.reason}</span>
+                  <span>Revision · {room.revision}</span>
+                  <span>Room status · {room.status.toUpperCase()}</span>
+                  <span>Host Ready · not-applicable</span>
+                </>
+              )}
+              {!initialSync?.entryFlow && frozenMatchManifest && (
                 <span data-testid="frozen-match">Frozen match · {frozenMatchManifest.matchId} · r{frozenMatchManifest.roomRevision}</span>
               )}
-              {matchStartSession && (
+              {!initialSync?.entryFlow && matchStartSession && (
                 <span data-testid="start-session-meta">
                   Start session · {matchStartSession.phase.toUpperCase()} · start r{matchStartSession.startRevision}
                 </span>
