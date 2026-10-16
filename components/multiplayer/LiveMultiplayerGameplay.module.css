@@ -458,3 +458,47 @@
 .entryCurtain .entryTitle>i{display:none;}
 @media(max-height:760px){.entryCurtain .entryTitle{max-height:53dvh;padding:10px;gap:5px;}}
 @media(max-height:610px){.entryCurtain .entryTitle{max-height:60dvh;padding:8px;}}
+
+/* C3.1 — Same real-time panel placement and glass treatment as the
+ * Waiting Room. The approved bitmap supplies the logo/Yuna only. */
+.entryCurtain .entryTitle {
+  position:absolute;
+  top:49%;
+  bottom:max(4%,env(safe-area-inset-bottom,0px));
+  left:max(12px,env(safe-area-inset-left,0px));
+  right:max(12px,env(safe-area-inset-right,0px));
+  width:auto;
+  max-width:500px;
+  max-height:none;
+  min-height:0;
+  margin:0 auto;
+  padding:clamp(10px,3vw,18px);
+  justify-content:flex-start;
+  gap:6px;
+  background:linear-gradient(155deg,rgba(24,13,81,.82),rgba(7,14,55,.88) 55%,rgba(26,10,85,.83));
+  border:2px solid rgba(116,194,255,.94);
+  border-radius:25px;
+  box-shadow:0 0 0 1px rgba(237,81,247,.35),0 0 27px rgba(82,143,255,.65),0 0 36px rgba(217,55,255,.26),inset 0 0 32px rgba(113,64,236,.2);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.entryCurtain .entryTitle>span{display:none;}
+.entryCurtain .entryTitle>strong{
+  font-size:clamp(22px,5.4vw,33px);
+  background:linear-gradient(100deg,#fff 10%,#f9a8ff 35%,#a1e8ff 75%,#fff 96%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 8px rgba(229,81,255,.65));
+}
+.entryCurtain .entrySteps{gap:4px;margin:5px 0;}
+.entryCurtain .entrySteps b{min-height:52px;position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;border-radius:18px;font-size:clamp(17px,5vw,25px);background:linear-gradient(160deg,rgba(24,23,95,.91),rgba(7,13,52,.95));border-color:rgba(94,116,218,.7);}
+.entryCurtain .entrySteps b small{font-size:clamp(7px,1.7vw,10px);}
+.entryCurtain .entrySteps .entryDone{border-color:#63eaff;background:linear-gradient(150deg,rgba(22,109,191,.84),rgba(50,31,155,.8));box-shadow:0 0 13px rgba(73,220,255,.58),inset 0 0 15px rgba(139,77,255,.45);}
+.entryCurtain .entryTrack{margin:2px 0 14px;}
+.entryCurtain .entryRosterTitle{justify-content:flex-start;gap:10px;}
+.entryCurtain .entryRoster>span{max-width:90px;padding:5px 2px;}
+.entryCurtain .entryTitle>.epochInfo{font-size:8px;}
+@media(max-height:650px){
+  .entryCurtain .entryTitle{top:44%;bottom:max(1%,env(safe-area-inset-bottom,0px));padding:8px;}
+  .entryCurtain .entrySteps b{min-height:43px;}
+  .entryCurtain .entryRoster>span{padding:3px 2px;}
+}

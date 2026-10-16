@@ -827,6 +827,16 @@ export default function WaitingRoomPanel({
     }
   }, [room.matchStart, room.participants]);
   const allParticipantsLoaded = matchStartSession ? allClientsLoaded(matchStartSession) : false;
+  const localPreloadLoaded = matchStartSession?.participants.some(
+    participant => participant.participantId === viewer.participantId && participant.state === "loaded",
+  ) ?? false;
+  // The fourth checkpoint (scene + AnimationMixer) is reached in the 3D
+  // presentation; the Waiting Room must never claim stage-ready early.
+  const launchProgressPercent = 25 * (
+    Number(localPreloadLoaded)
+    + Number(allParticipantsLoaded)
+    + Number(matchStartSession?.startAtServerMs != null)
+  );
   const matchStartSessionKey = matchStartSession && syncOptions
     ? `${matchStartSession.matchId}:${matchStartSession.roomRevision}:${matchStartSession.startRevision}:${syncOptions.participantId}`
     : null;
@@ -2343,7 +2353,7 @@ export default function WaitingRoomPanel({
         </section>
 
         {matchStartSession && (
-          <div className={styles.preloadOverlay} data-testid="preload-overlay"
+          <div className={`${styles.preloadOverlay} ${styles.stageLaunchOverlay}`} data-testid="preload-overlay"
             role="dialog" aria-modal="true" aria-label="Đang chuẩn bị trận đấu">
           <StageLaunchArtwork />
           <section
@@ -2352,32 +2362,26 @@ export default function WaitingRoomPanel({
             data-phase={room.status}
             data-testid="preload-state"
           >
-            <div className={styles.launchBrand}>DANCE UP <span>✦ YUNA · ON STAGE</span></div>
             <strong>{room.status === "playing" ? "GET READY TO DANCE" : "PREPARING STAGE"}</strong>
             <p className={styles.launchSubtitle}>
               {room.status === "preloading" ? "Loading stage, characters, animations and shared epoch…"
                 : "All dancers are preparing for the stage…"}
             </p>
             <div className={styles.launchProgress} aria-label="Tiến trình chuẩn bị sân khấu">
-              <span className={matchStartSession.participants.some(p => p.participantId === viewer.participantId && p.state === "loaded") ? styles.launchProgressDone : ""}>01 <b>PRELOAD</b></span>
+              <span className={localPreloadLoaded ? styles.launchProgressDone : ""}>01 <b>PRELOAD</b></span>
               <span className={allParticipantsLoaded ? styles.launchProgressDone : ""}>02 <b>LOADED</b></span>
               <span className={matchStartSession.startAtServerMs != null ? styles.launchProgressDone : ""}>03 <b>SYNC</b></span>
               <span>04 <b>STAGE READY</b></span>
             </div>
-            <div className={styles.launchTrack}
-              aria-label="Tỷ lệ hoàn tất các bước chuẩn bị"
-              role="progressbar" aria-valuemin={0} aria-valuemax={100}
-              aria-valuenow={25 * (
-                Number(matchStartSession.participants.some(p => p.participantId === viewer.participantId && p.state === "loaded"))
-                + Number(allParticipantsLoaded)
-                + Number(matchStartSession.startAtServerMs != null)
-              )}
-            >
-              <i style={{width: `${25 * (
-                Number(matchStartSession.participants.some(p => p.participantId === viewer.participantId && p.state === "loaded"))
-                + Number(allParticipantsLoaded)
-                + Number(matchStartSession.startAtServerMs != null)
-              )}%`}} />
+            <div className={styles.launchProgressMeter}>
+              <div className={styles.launchTrack}
+                aria-label="Tỷ lệ hoàn tất các bước chuẩn bị"
+                role="progressbar" aria-valuemin={0} aria-valuemax={100}
+                aria-valuenow={launchProgressPercent}
+              >
+                <i style={{width: `${launchProgressPercent}%`}} />
+              </div>
+              <output>{launchProgressPercent}%</output>
             </div>
             <div className={styles.launchRosterTitle}>
               <span>♟ DANCERS LOADED</span>
@@ -2527,9 +2531,8 @@ export default function WaitingRoomPanel({
         )}
 
         {syncOptions && !canonicalVerified && !matchStartSession && (
-          <div className={styles.preloadOverlay} data-testid="room-sync-overlay"
+          <div className={`${styles.preloadOverlay} ${styles.roomSyncOverlay}`} data-testid="room-sync-overlay"
             role="dialog" aria-modal="true" aria-label="Đang kết nối phòng">
-          <StageLaunchArtwork />
           <section className={styles.preloadBanner}>
             <div className={styles.launchBrand}>DANCE UP <span>✦ CONNECT</span></div>
             <strong>ĐANG KẾT NỐI PHÒNG</strong>

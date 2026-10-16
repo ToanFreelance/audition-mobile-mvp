@@ -1343,3 +1343,128 @@
   .preloadOverlay .preloadBanner>strong{font-size:20px;}
   .preloadOverlay .launchBrand{font-size:8px;}
 }
+
+/* C3.1 — Approved DANCE UP reference: no duplicate static processing UI.
+ * The hero plate holds the logo + Yuna only, not the baked sketch counters.
+ * Glass processing lives exclusively on an actual match-start session. */
+.stageLaunchOverlay { isolation:isolate; }
+.stageLaunchOverlay .preloadBanner {
+  position:absolute;
+  top:49%;
+  bottom:max(4%,env(safe-area-inset-bottom,0px));
+  left:max(12px,env(safe-area-inset-left,0px));
+  right:max(12px,env(safe-area-inset-right,0px));
+  width:auto;
+  max-width:500px;
+  max-height:none;
+  margin:0 auto;
+  padding:clamp(10px,3vw,18px);
+  justify-content:flex-start;
+  gap:6px;
+  background:linear-gradient(155deg,
+    rgba(24,13,81,.82),
+    rgba(7,14,55,.88) 55%,
+    rgba(26,10,85,.83));
+  border:2px solid rgba(116,194,255,.94);
+  border-radius:25px;
+  box-shadow:
+    0 0 0 1px rgba(237,81,247,.35),
+    0 0 27px rgba(82,143,255,.65),
+    0 0 36px rgba(217,55,255,.26),
+    inset 0 0 32px rgba(113,64,236,.2);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.stageLaunchOverlay .preloadBanner>strong {
+  order:0;
+  margin:0;
+  font-size:clamp(22px,5.4vw,33px);
+  letter-spacing:.04em;
+  font-style:italic;
+  font-weight:1000;
+  line-height:1.1;
+  background:linear-gradient(100deg,#fff 10%,#f9a8ff 35%,#a1e8ff 75%,#fff 96%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  filter:drop-shadow(0 0 8px rgba(229,81,255,.65));
+}
+.stageLaunchOverlay .launchSubtitle{order:0;font-size:clamp(9px,2.25vw,12px);}
+.stageLaunchOverlay .launchProgress{order:0;gap:4px;margin:5px 0;}
+.stageLaunchOverlay .launchProgress span{
+  position:relative;
+  min-height:52px;
+  justify-content:center;
+  border-radius:18px;
+  font-size:clamp(17px,5vw,25px);
+  font-weight:1000;
+  background:linear-gradient(160deg,rgba(24,23,95,.91),rgba(7,13,52,.95));
+  border-color:rgba(94,116,218,.7);
+}
+.stageLaunchOverlay .launchProgress span b{font-size:clamp(7px,1.7vw,10px);}
+.stageLaunchOverlay .launchProgress .launchProgressDone{
+  border-color:#63eaff;
+  background:linear-gradient(150deg,rgba(22,109,191,.84),rgba(50,31,155,.8));
+  box-shadow:0 0 13px rgba(73,220,255,.58),inset 0 0 15px rgba(139,77,255,.45);
+}
+.stageLaunchOverlay .launchProgress .launchProgressDone:after{
+  content:"✓";
+  position:absolute;
+  top:5px;
+  right:5px;
+  width:14px;
+  height:14px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  border:1px solid #6ffff1;
+  color:#80ffe3;
+  font-size:10px;
+  text-shadow:0 0 9px #60ffe3;
+}
+.stageLaunchOverlay .launchProgressMeter{
+  order:0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:1px 4px 5px;
+}
+.stageLaunchOverlay .launchTrack{flex:1;min-width:0;margin:0;height:15px;border:2px solid rgba(146,129,255,.9);background:rgba(10,10,59,.96);}
+.stageLaunchOverlay .launchProgressMeter output{flex:0 0 43px;font-size:19px;color:#a6eeff;font-style:italic;font-weight:950;font-variant-numeric:tabular-nums;}
+.stageLaunchOverlay .launchRosterTitle{order:1;justify-content:flex-start;gap:6px;padding-top:6px;font-size:11px;}
+.stageLaunchOverlay .launchRosterTitle b{font-size:15px;}
+.stageLaunchOverlay .launchRosterTitle small{max-width:40%;text-align:right;}
+.stageLaunchOverlay .preloadParticipants{order:2;display:flex;flex-wrap:nowrap;gap:4px;}
+.stageLaunchOverlay .preloadParticipants>span{flex:1 1 0;max-width:90px;min-width:0;gap:3px;padding:6px 2px;background:rgba(15,18,74,.75);border-color:rgba(90,102,235,.55);}
+.stageLaunchOverlay .launchAvatar{width:35px;height:35px;}
+.stageLaunchOverlay .preloadParticipants>span b{font-size:7px;}
+.stageLaunchOverlay .preloadBanner>span[data-testid="preload-match-id"]{order:3;font-size:8px;}
+.stageLaunchOverlay .preloadBanner>small{order:4;font-size:8px;}
+.stageLaunchOverlay .preloadAllLoaded{order:5;font-size:10px;}
+.stageLaunchOverlay .preloadBanner>.preloadAudioState{order:6;}
+/* Entry room sync happens BEFORE START: no Yuna/launch poster or milestones. */
+.roomSyncOverlay{
+  display:grid;
+  place-items:center;
+  background:rgba(4,7,25,.89);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.roomSyncOverlay .preloadBanner{
+  position:relative;
+  inset:auto;
+  width:min(100%,370px);
+  max-height:min(60dvh,420px);
+  margin:0;
+  padding:20px;
+  border:1px solid rgba(109,181,255,.72);
+  border-radius:18px;
+  background:linear-gradient(155deg,rgba(15,17,65,.98),rgba(9,13,39,.98));
+  box-shadow:0 0 24px rgba(76,144,255,.35),0 18px 42px rgba(0,0,0,.55);
+}
+@media(max-height:650px){
+  .stageLaunchOverlay .preloadBanner{top:44%;bottom:max(1%,env(safe-area-inset-bottom,0px));padding:8px;}
+  .stageLaunchOverlay .launchProgress span{min-height:43px;}
+  .stageLaunchOverlay .preloadParticipants>span{padding:3px 2px;}
+}
