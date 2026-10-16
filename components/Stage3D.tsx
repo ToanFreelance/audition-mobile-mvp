@@ -129,6 +129,10 @@ type Stage3DProps = {
   hideCharacter?: boolean;
   fixedPresentationTimeSeconds?: number;
   performanceDiagnostics?: PerformanceDiagnostics | null;
+  /** Multiplayer entry: avoid the four-second solo cinematic shot sequence. */
+  skipIntroCamera?: boolean;
+  /** Fires only after stage and actor have settled and a complete frame was painted. */
+  onPresentationReady?: () => void;
 };
 
 export default function Stage3D({
@@ -143,6 +147,8 @@ export default function Stage3D({
   hideCharacter = false,
   fixedPresentationTimeSeconds,
   performanceDiagnostics,
+  skipIntroCamera = false,
+  onPresentationReady,
 }: Stage3DProps) {
   const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
@@ -154,7 +160,9 @@ export default function Stage3D({
   const getSongTimeMsRef = useRef(getSongTimeMs);
   const bpmRef = useRef(bpm);
   const diagnosticsRef = useRef(performanceDiagnostics);
+  const onPresentationReadyRef = useRef(onPresentationReady);
   diagnosticsRef.current = performanceDiagnostics;
+  onPresentationReadyRef.current = onPresentationReady;
   cameraPresetRef.current = cameraPreset;
   isPlayingRef.current = isPlaying;
   getSongTimeMsRef.current = getSongTimeMs;
@@ -304,6 +312,8 @@ export default function Stage3D({
     stage.add(stageEnvironment.root);
     host.dataset.stageSource = "placeholder";
     host.dataset.stageEmbeddedAnimations = "0";
+    host.dataset.presentationReady = "0";
+    let stageSettled = false;
     void stageEnvironment.load().then(result => {
       if (disposed) return;
       stageEnvironment.root.visible = true;
@@ -313,10 +323,12 @@ export default function Stage3D({
       host.dataset.stageEmbeddedAnimations = String(result.embeddedAnimations);
       host.dataset.stageMetrics = JSON.stringify(result);
       host.dataset.visualCompareReady = "1";
+      stageSettled = true;
     }).catch(error => {
       if (disposed) return;
       host.dataset.stageSource = "placeholder";
       host.dataset.stageError = error instanceof Error ? error.message : String(error);
+      stageSettled = true; // The procedural fallback remains renderable.
       console.warn(`[Stage3D] ${stageEntry.displayName} failed; procedural stage remains active:`, error);
     });
 
@@ -335,6 +347,7 @@ export default function Stage3D({
       : selectedCharacter.characterAssetId;
 
     let character: CharacterActor | null = null;
+    let characterSettled = hideCharacter;
     if (!hideCharacter) {
       character = CharacterActor.fromAssetId(runtimeCharacterAssetId);
       diagnostics?.actorCreated();
@@ -350,12 +363,19 @@ export default function Stage3D({
       host.dataset.characterProfileVersion = String(selectedCharacter.version);
       host.dataset.characterSource = "loading";
       void character.load().then((result) => {
-        if (!result || disposed || !character) return;
+        if (disposed || !character) return;
+        characterSettled = true;
+        if (!result) return;
         if (neonPresentation) applyNeonCharacterFill(character.root);
         host.dataset.characterSource = result.source;
         host.dataset.characterIdle = result.idleClip ?? "static";
         host.dataset.characterMetrics = JSON.stringify(result.metrics);
         if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
+      }).catch(error => {
+        if (disposed) return;
+        characterSettled = true;
+        host.dataset.characterSource = "fallback";
+        console.warn("[Stage3D] Character asset loading failed:", error);
       });
     } else {
       host.dataset.characterSource = "hidden";
@@ -403,6 +423,8 @@ export default function Stage3D({
 
     const clock = new THREE.Clock();
     let lastPresentationCamera = "gameplay_portrait_locked";
+    let firstPresentationFrame = true;
+    let presentationReadySent = false;
     let raf = 0;
     let disposed = false;
     const scheduleFrame = () => {
@@ -425,7 +447,7 @@ export default function Stage3D({
       const portrait = host.clientHeight > host.clientWidth;
       const basePose = getStagePresentationCameraPose(
         songTimeMs,
-        visualCompareMode ? false : isPlayingRef.current,
+        visualCompareMode ? false : isPlayingRef.current && !skipIntroCamera,
         portrait,
         cameraPresetRef.current,
       );
@@ -444,7 +466,7 @@ export default function Stage3D({
       // continuous camera rail through stage geometry. Snap at intro-shot
       // boundaries, then keep the subtle motion inside each shot. Blend only
       // when returning to the locked gameplay camera.
-      if (visualCompareMode || cutToIntroShot) {
+      if (visualCompareMode || cutToIntroShot || (skipIntroCamera && firstPresentationFrame)) {
         // Visual comparison must be bit-stable: never depend on how many RAFs
         // elapsed before the screenshot was taken.
         camera.position.set(pose.x, pose.y, pose.z);
@@ -471,6 +493,12 @@ export default function Stage3D({
         sign.scale.set(signPulse, signPulse, signPulse);
       }
       renderer.render(scene, camera);
+      firstPresentationFrame = false;
+      if (!presentationReadySent && stageSettled && characterSettled) {
+        presentationReadySent = true;
+        host.dataset.presentationReady = "1";
+        onPresentationReadyRef.current?.();
+      }
       if (diagnostics) diagnostics.frame(diagnosticFrameStart, performance.now() - diagnosticFrameStart);
       scheduleFrame();
     };
@@ -500,7 +528,7 @@ export default function Stage3D({
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId]);
+  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, skipIntroCamera]);
 
   return (
     <div

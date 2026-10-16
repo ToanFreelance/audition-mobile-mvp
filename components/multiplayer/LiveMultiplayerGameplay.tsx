@@ -28,6 +28,7 @@ import type {
 import type { MatchManifest } from "../../multiplayer/types";
 import type { PerformanceDiagnostics } from "../diagnostics/performance-diagnostics";
 import PerformanceDiagnosticsOverlay from "../diagnostics/PerformanceDiagnosticsOverlay";
+import transitionStyles from "./LiveMultiplayerGameplay.module.css";
 
 const DIRECTIONS: readonly Direction[] = ["left", "up", "down", "right"];
 const SETTING_KEYS = {
@@ -63,6 +64,20 @@ export default function LiveMultiplayerGameplay(props: {
   diagnosticAudioContext?: AudioContext | null;
 }) {
   const [snapshot, setSnapshot] = useState<MultiplayerGameplaySnapshot>(() => props.runtime.snapshot());
+  const [stagePresentationReady, setStagePresentationReady] = useState(false);
+  const [entryCurtainVisible, setEntryCurtainVisible] = useState(true);
+  const onStagePresentationReady = useCallback(() => setStagePresentationReady(true), []);
+  // Visual-only curtain. Neither its readiness nor its timeout owns audio,
+  // controls, the shared epoch or gameplay progression.
+  useEffect(() => {
+    const safety = window.setTimeout(() => setEntryCurtainVisible(false), 2400);
+    return () => window.clearTimeout(safety);
+  }, []);
+  useEffect(() => {
+    if (!stagePresentationReady) return;
+    const reveal = window.setTimeout(() => setEntryCurtainVisible(false), 320);
+    return () => window.clearTimeout(reveal);
+  }, [stagePresentationReady]);
   const [scoreReceipts, setScoreReceipts] = useState<{
     matchId: string;
     byParticipant: Record<string, LiveScoreSnapshot>;
@@ -370,6 +385,21 @@ export default function LiveMultiplayerGameplay(props: {
       data-testid="multiplayer-gameplay-live"
     >
       {props.performanceDiagnostics && <PerformanceDiagnosticsOverlay diagnostics={props.performanceDiagnostics} />}
+      <div
+        className={`${transitionStyles.entryCurtain} ${entryCurtainVisible ? "" : transitionStyles.entryCurtainHidden}`}
+        data-testid="gameplay-entry-curtain"
+        data-visible={entryCurtainVisible ? "1" : "0"}
+        data-stage-ready={stagePresentationReady ? "1" : "0"}
+        aria-hidden="true"
+      >
+        <div className={transitionStyles.entryHalo} />
+        <div className={transitionStyles.entryTitle}>
+          <span>AUDITION · LIVE STAGE</span>
+          <strong>VÀO SÂN KHẤU</strong>
+          <i />
+          <small>{stagePresentationReady ? "SẴN SÀNG TỎA SÁNG" : "ĐANG CHUẨN BỊ SÂN KHẤU"}</small>
+        </div>
+      </div>
       <section className="audition-stage">
         <div data-testid="gameplay-3d-stage" data-frozen-stage-id={props.stageId}>
           <Stage3D
@@ -381,6 +411,8 @@ export default function LiveMultiplayerGameplay(props: {
             getSongTimeMs={getSongTimeMs}
             bpm={props.manifest.gameplay.bpmExact}
             performanceDiagnostics={props.performanceDiagnostics}
+            skipIntroCamera
+            onPresentationReady={onStagePresentationReady}
           />
         </div>
         <div className="audition-hud">

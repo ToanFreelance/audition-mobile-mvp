@@ -322,3 +322,84 @@
   .dpad { transform: scale(.87); transform-origin: right center; }
   .spaceButton { height: 68px; }
 }
+
+/* C3: presentation-only handoff. The shared WebAudio clock and HUD remain live underneath. */
+.entryCurtain {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 72% 48% at 50% 46%, rgba(89, 39, 170, .32), transparent 85%),
+    linear-gradient(155deg, #050719 0%, #10103a 45%, #070b22 100%);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+  transition: opacity 650ms ease-in-out, visibility 0s linear 650ms;
+}
+.entryCurtainHidden {
+  opacity: 0;
+  visibility: hidden;
+}
+.entryHalo {
+  position: absolute;
+  width: min(90vw, 400px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(95, 221, 255, .17);
+  border-radius: 50%;
+  box-shadow: 0 0 85px rgba(156, 65, 255, .16), inset 0 0 70px rgba(59, 174, 255, .07);
+  animation: entryGlow 1700ms ease-in-out infinite alternate;
+}
+.entryHalo:after {
+  content: "";
+  position: absolute;
+  inset: 14%;
+  border-radius: 50%;
+  border: 1px solid rgba(252, 92, 231, .18);
+}
+.entryTitle {
+  position: relative;
+  z-index: 1;
+  width: min(88vw, 380px);
+  display: grid;
+  justify-items: center;
+  gap: 15px;
+  text-align: center;
+  text-shadow: 0 0 18px rgba(118, 198, 255, .38);
+}
+.entryTitle span {
+  color: #8beaff;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .24em;
+}
+.entryTitle strong {
+  color: #fff;
+  font-size: clamp(27px, 8vw, 42px);
+  line-height: 1.16;
+  font-weight: 1000;
+  letter-spacing: .045em;
+}
+.entryTitle i {
+  width: 120px;
+  height: 3px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, transparent, #5cddff 27%, #ef75ea 74%, transparent);
+  box-shadow: 0 0 16px rgba(98, 217, 255, .75);
+}
+.entryTitle small {
+  color: #c7c5ed;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .17em;
+}
+@keyframes entryGlow {
+  from { transform: scale(.97); opacity: .7; }
+  to { transform: scale(1.06); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .entryCurtain { transition: none; }
+  .entryHalo { animation: none; }
+}
