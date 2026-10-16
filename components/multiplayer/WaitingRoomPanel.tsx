@@ -2339,6 +2339,8 @@ export default function WaitingRoomPanel({
         </section>
 
         {matchStartSession && (
+          <div className={styles.preloadOverlay} data-testid="preload-overlay"
+            role="dialog" aria-modal="true" aria-label="Đang chuẩn bị trận đấu">
           <section
             className={styles.preloadBanner}
             data-audio-scheduled={gameplaySchedule?.sessionKey === matchStartSessionKey ? "1" : "0"}
@@ -2470,15 +2472,31 @@ export default function WaitingRoomPanel({
                 )}
               </div>
             )}
+            {syncOptions && !canonicalVerified && (
+              <div className={styles.preloadAudioState} role="status" data-testid="room-sync-recovery">
+                <small className={styles.preloadAudioError}>{canonicalSync?.message ?? "Đang xác minh trạng thái phòng…"}</small>
+                <button className={styles.preloadAudioButton} type="button" data-testid="retry-room-sync"
+                  disabled={canonicalSync?.state === "checking"}
+                  onClick={() => void recoverRoomSyncRef.current?.()}>ĐỒNG BỘ LẠI PHÒNG</button>
+              </div>
+            )}
           </section>
+          </div>
         )}
 
-        {syncOptions && !canonicalVerified && (
+        {syncOptions && !canonicalVerified && !matchStartSession && (
+          <div className={styles.preloadOverlay} data-testid="room-sync-overlay"
+            role="dialog" aria-modal="true" aria-label="Đang kết nối phòng">
+          <section className={styles.preloadBanner}>
+            <strong>ĐANG KẾT NỐI PHÒNG</strong>
+            <span>Đang xác minh trạng thái phòng...</span>
           <div className={styles.preloadAudioState} role="status" data-testid="room-sync-recovery">
             <small className={styles.preloadAudioError}>{canonicalSync?.message ?? "Đang xác minh trạng thái phòng…"}</small>
             <button className={styles.preloadAudioButton} type="button" data-testid="retry-room-sync"
               disabled={canonicalSync?.state === "checking"}
               onClick={() => void recoverRoomSyncRef.current?.()}>ĐỒNG BỘ LẠI PHÒNG</button>
+          </div>
+          </section>
           </div>
         )}
         {readyFailure && room.status === "waiting" && viewer.kind === "human" && viewer.role === "guest" && (

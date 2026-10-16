@@ -1136,6 +1136,25 @@ export default function WaitingRoomStage3D({
       slotPlaceholdersRef.current.push({ slotIndex, group, ringMaterial, bodyMaterial });
     }
 
+    // The Reflector performs an offscreen mirror pass before the regular scene.
+    // Reflect real participants normally, but do not reflect empty-slot decals:
+    // otherwise each unoccupied slot shows a second displaced ring (and ghost).
+    // Restore visibility synchronously so the normal pass still shows one marker.
+    if (sketchReflector) {
+      const mirrorPass = sketchReflector.onBeforeRender.bind(sketchReflector);
+      sketchReflector.onBeforeRender = (...args) => {
+        const visibility = slotPlaceholdersRef.current.map(({ group }) => group.visible);
+        try {
+          slotPlaceholdersRef.current.forEach(({ group }) => { group.visible = false; });
+          mirrorPass(...args);
+        } finally {
+          slotPlaceholdersRef.current.forEach(({ group }, index) => {
+            group.visible = visibility[index];
+          });
+        }
+      };
+    }
+
     const projectedHead = new THREE.Vector3();
     const updateIdentityLabels = () => {
       const width = Math.max(1, mount.clientWidth);
@@ -2077,6 +2096,7 @@ export default function WaitingRoomStage3D({
       data-ring-geometry={visualPreset === "sketch" ? "two-medium-one-fine" : "standard"}
       data-stage-risers={visualPreset === "sketch" ? "3" : "0"}
       data-ring-reflection={visualPreset === "sketch" ? "contact-glow-only" : "default"}
+      data-empty-slot-reflection={visualPreset === "sketch" ? "excluded" : "default"}
       data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
       data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}
       data-stage-footprint={visualPreset === "sketch" ? "expanded" : "standard"}

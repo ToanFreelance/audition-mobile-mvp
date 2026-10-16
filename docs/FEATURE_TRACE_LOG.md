@@ -1,5 +1,12 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-16 — C3 real iPhone screenshots: empty slot rings + preload layout
+
+- **Owner evidence:** actual 1/5 Host Waiting Room compared to five-person P5.6 sketch QA. Empty slots show a normal cyan marker plus a displaced mirrored ring and ghost body on reflective floor; waiting connection and PRELOADING/COUNTDOWN panels are inserted before the footer, physically pushing the controls out of portrait safe area.
+- **Root cause:** sketch floor `Reflector` mirrors temporary `SlotPlaceholder` meshes as if they were participants; `.preloadBanner` and `room-sync-recovery` are normal-flow children of `.phone` rather than a fixed overlay.
+- **Focused fix:** exclude `SlotPlaceholder` groups only during the offscreen Reflector render, restoring visibility synchronously for the main render. Real participant actors and rings remain reflected, no actor identity/lifetime changes. Move phase panel (with all existing retry actions, participant state, shared epoch, AUDIO SCHEDULED, failure details and test selectors) to fixed full-screen dimmed dialog; move initial canonical room sync into the same class of overlay, preserving manual recovery. No RoomState/CAS/READY/START/MatchManifest/shared epoch/WebAudio changes.
+- **Acceptance:** C3 owner physical iPhone re-test PENDING; focused TypeScript/regression and viewport screenshot validation required. Preserve any confirmed outstanding five-Human QA failures as OPEN. PR #18 OPEN/Draft; no merge.
+
 ### 2026-10-16 — C3 Waiting Room baseline + production Settings polish
 
 - **Visual baseline:** existing `/rooms/[roomId]` uses P5.6 approved `visualPreset="sketch"`; five-player isolated fixture `/tools/lobby-qa-sketch` recorded at 390×740, 430×932, 768×1024, 1280×800. Host-centered crown-only, head-follow labels, accepted reflective stage, five portrait slots, song card and canonical Start/Ready controls remain unchanged. **C3 owner visual gate remains OPEN**.

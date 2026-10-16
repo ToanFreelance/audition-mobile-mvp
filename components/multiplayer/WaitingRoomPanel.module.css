@@ -1120,3 +1120,111 @@
   font-weight: 800;
 }
 .playerActions .transferHostButton:disabled { opacity: .48; cursor: not-allowed; }
+
+/* C3 real-room fix: waiting/connection status must never extend the stage
+   or push READY/START buttons below the Safari viewport. Fixed screen overlay,
+   centered within phone safe area, separate from the room layout flow. */
+.preloadOverlay{
+  position:fixed;
+  z-index:150;
+  inset:0;
+  padding:calc(20px + env(safe-area-inset-top,0px))
+          max(15px,env(safe-area-inset-right,0px))
+          calc(20px + env(safe-area-inset-bottom,0px))
+          max(15px,env(safe-area-inset-left,0px));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(ellipse at center,rgba(86,43,163,.23),transparent 72%),
+    rgba(3,5,24,.90);
+  backdrop-filter:blur(11px);
+  -webkit-backdrop-filter:blur(11px);
+  overscroll-behavior:contain;
+}
+.preloadOverlay .preloadBanner{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  width:min(100%,410px);
+  max-height:min(76dvh,650px);
+  min-height:0;
+  margin:0;
+  padding:clamp(17px,5vw,27px);
+  overflow:auto;
+  overflow-wrap:anywhere;
+  -webkit-overflow-scrolling:touch;
+  border:1px solid rgba(168,121,255,.83);
+  border-radius:21px;
+  background:
+    radial-gradient(ellipse at 50% 0,rgba(183,60,232,.24),transparent 62%),
+    linear-gradient(155deg,#151445,#070f2e 78%);
+  box-shadow:0 0 36px rgba(181,72,255,.3),0 22px 70px rgba(0,0,0,.66),inset 0 1px rgba(255,255,255,.16);
+}
+.preloadOverlay .preloadBanner>strong{
+  color:#f6c2ff;
+  text-align:center;
+  font-size:clamp(19px,5.5vw,26px);
+  letter-spacing:.09em;
+  line-height:1.25;
+  text-shadow:0 0 15px rgba(238,85,255,.5);
+}
+.preloadOverlay .preloadBanner>span{
+  color:#cbd2ed;
+  font-size:11px;
+  font-weight:700;
+  text-align:center;
+  overflow-wrap:anywhere;
+  white-space:normal;
+}
+.preloadOverlay .preloadBanner>small{
+  display:block;
+  text-align:center;
+  color:#a6b3df;
+  line-height:1.45;
+  overflow-wrap:anywhere;
+}
+.preloadOverlay .preloadParticipants{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+  gap:8px;
+  padding:12px 0 3px;
+}
+.preloadOverlay .preloadParticipants span{
+  min-width:0;
+  white-space:normal;
+  padding:9px;
+  text-align:center;
+  border:1px solid rgba(77,115,207,.54);
+  border-radius:9px;
+  background:rgba(19,34,72,.65);
+}
+.preloadOverlay .preloadAllLoaded{
+  display:block;
+  text-align:center;
+  font-size:12px;
+  letter-spacing:.05em;
+  line-height:1.6;
+  overflow-wrap:anywhere;
+}
+.preloadOverlay .preloadAudioState{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  padding-top:9px;
+  border-top:1px solid rgba(105,129,195,.24);
+}
+.preloadOverlay .preloadAudioState small{
+  flex:1 1 100%;
+  font-size:10px;
+  text-align:center;
+  line-height:1.6;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.preloadOverlay .preloadAudioButton{min-height:38px;padding:8px 12px;font-size:11px}
+@media(max-height:600px){
+  .preloadOverlay .preloadBanner{max-height:calc(100dvh - 24px);padding:14px}
+  .preloadOverlay .preloadParticipants{padding-top:6px;gap:5px}
+  .preloadOverlay .preloadParticipants span{padding:5px}
+}
