@@ -1,5 +1,11 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-10-16 — C2 OWNER ACCEPTED / C3 Waiting Room review opened
+
+- Owner explicitly approved C2 Room Browser after reviewing iPhone layout and responsive browser images (tablet/desktop included). **C2 VISUAL ACCEPTED**; separate physical tablet/desktop test remains UNVERIFIED. C2 browser QA run `38751562735` PASS. C1 remains owner-accepted.
+- Next approved closeout step: **C3 Waiting Room visual/UX review** of the existing P5.6 sketch-aligned `/rooms/[roomId]` path. C3 not yet accepted. Preserve P5.6 visual hierarchy and all authoritative multiplayer state/CAS/Realtime, READY/START, MatchManifest, shared WebAudio epoch and actor/mixer lifetime. Do not modify Gameplay visual scope until C3 passes owner iPhone acceptance.
+- PR #18 remains OPEN/Draft; no merge approval. Performance Phases 12 and 14 remain deferred as technical debt.
+
 ### 2026-10-15 — C2 Room Browser create-room simplification + responsive desktop
 
 - **Owner iPhone review:** Main Room Browser visual direction accepted. Existing title customization was hidden in a collapsible details panel; there was no mode choice. Existing create API silently forced `solo-easy-battle`.
@@ -7,7 +13,7 @@
 - **Desktop:** expanded centered responsive shell with setup column and scrollable live/sample room cards; mobile retains fixed header/footer and internal room-list scroll. No Character/Waiting Room/Game visual changes.
 - **Validation actually run:** GitHub Actions `38751562735` **PASS**: TypeScript, Next.js production build, Chromium install, three focused Playwright tests. Browser geometry and interactions PASS at 320×568, 390×740, 768×1024, 1024×768, 1280×800, 1440×900. Test confirms display-name and selected mode sent on canonical create POST, sample choice disables creation, backend returns HTTP 400 for unsupported mode, viewport remains non-scrolling while sample room list scrolls only when needed. Artifacts: `c2-responsive-856c6676e2418315ee82697417a951b11635a9ec` from run `38751562735`. Work branch fast-lobby-qa PASS, Vercel Preview READY.
 - **QA test correction:** initial run `38751261958` failed due to ambiguous Next.js `role=alert` and the false expectation that a tablet page must scroll even when all rooms fit. Fixed solely test assertions in `856c6676`; rerun passed. No runtime change.
-- **Acceptance:** **OWNER IPHONE VISUAL REVIEW PENDING for C2**. Physical desktop/tablet still unverified; deferred Phase 12 performance work remains open. PR #18 must not merge.
+- **Acceptance:** **OWNER ACCEPTED C2 (2026-10-16)**. Physical desktop/tablet still unverified; deferred Phase 12 performance work remains open. PR #18 must not merge.
 
 ### 2026-10-15 — C1 owner iPhone ACCEPTED + emulated tablet/desktop browser QA
 

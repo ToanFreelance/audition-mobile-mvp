@@ -1,11 +1,17 @@
 # MVP Entry Flow V1 — Character → Rooms → Waiting Room → Game
 
+## 2026-10-16 — Owner C2 acceptance, C3 Waiting Room next
+
+- Owner accepted C2 visuals and simplified create-room/name/mode flow, including responsive browser screenshot evidence, after C1 acceptance. No need to reopen C1/C2 unless a confirmed regression emerges.
+- **Next active closeout milestone:** C3 Waiting Room visual/UX review. Preserve the P5.6 already-approved waiting-room stage/sketch, Host crown-only identity, five-player arrangement, head-follow labels, Settings camera presets, stable actor/mixer lifetime and authoritative real-time protocols. Owner iPhone screenshot is the final acceptance source; static compare/Chromium may supplement it.
+- Hold Gameplay C4 visual work, cross-device performance optimization and future stages until authorized. PR #18 stays OPEN/Draft.
+
 ## 2026-10-15 — C2 Room Browser mode/name UX review
 
 - Owner accepted existing Room Browser neon visuals, requested inline room name and mode selection before creation, plus responsive desktop. C2 now has direct name input, three selectable mode chips, and the existing neon Create CTA. Empty name falls back to `Phòng của <displayName>`.
 - **Supported gameplay:** Only Pop tự do / Solo Easy maps to real canonical `solo-easy-battle` and can POST `action:"create"`. Mode ID is explicitly submitted to `/api/multiplayer/room`; server validates against the real supported mode, with a backward-compatible default for older clients. Khiêu vũ and Boss hiện đại are clearly identified **non-playable UI samples**, and Create is disabled when either is selected. Do not claim these games have been implemented.
 - On screens >=768px a two-column layout separates setup from the room-list scroller; on phone, fixed header/footer and scrollable room cards are retained. RoomState, CAS, Ready, Supabase Realtime, WebAudio, actor lifetime and gameplay remain unchanged.
-- CI `38751562735` PASS on Chromium for mobile 320×568/390×740, tablet 768×1024/1024×768, desktop 1280×800/1440×900. Server rejects unsupported mode; canonical form POST includes room name and selected mode. Real device QA and **owner C2 acceptance OPEN**. Next Waiting Room visual milestone may begin only after owner approval.
+- CI `38751562735` PASS on Chromium for mobile 320×568/390×740, tablet 768×1024/1024×768, desktop 1280×800/1440×900. Server rejects unsupported mode; canonical form POST includes room name and selected mode. Real device C2 visual review **owner ACCEPTED (2026-10-16)**; independent multiplayer physical-device QA remains open. Next Waiting Room visual milestone may begin only after owner approval.
 
 ## C1 follow-up — same-character look shortcuts (owner, 2026-10-15)
 

@@ -57,7 +57,7 @@ Current roadmap work branch:
 
 Current milestone:
 
-`PR #18 closeout — C2 Room Browser create-flow visual review; owner iPhone acceptance pending`.
+`PR #18 closeout — C3 Waiting Room visual/UX review (C2 owner accepted 2026-10-16)`.
 
 Screen acceptance order: Character Creation → Room Browser → Waiting Room → Gameplay. No visual work on subsequent screens before owner accepts the current screen.
 
@@ -402,6 +402,6 @@ Never let an assumption override an explicit owner decision.
 
 **2026-10-15: C1 Character Creation owner visual acceptance PASS (physical iPhone).** The approved concept's second screen has been adapted with confirmed chrome/icons, avatar look-presets, fixed viewport and toolbar clearance. Chromium responsive QA PASS at tablet portrait 768×1024, tablet landscape 1024×768, desktop 1280×800, desktop 1440×900 and short desktop 1024×600; the visual camera correction applies only to narrow tablet-stage framing. **Physical tablet/desktop acceptance is NOT VERIFIED**; browser simulation must not be conflated with native GPU/input/performance evidence.
 
-C1 is accepted. **C2 Room Browser** is implemented for inline room-name editing, visible mode selection, responsive desktop and awaiting owner iPhone visual acceptance. Only the canonical runtime-ready `solo-easy-battle` mode may create a room; ballroom/boss are clearly labeled non-playable preview choices. Do not start Waiting Room or Gameplay visual passes until C2 acceptance. Then proceed sequentially to Waiting Room and Gameplay. Phase 12/14 performance optimization, P4.6, remaining S2.5 venues and S3 are deferred. Do not merge PR #18 without owner approval.
+C1 and **C2 Room Browser** are owner-accepted. C2 inline room name, mode preview (only `solo-easy-battle` is playable) and responsive layout are frozen except for confirmed regressions. **C3 Waiting Room** is now active for visual/UX review of the existing P5.6 owner-approved runtime, not a redesign. Verify actual layout/evidence first; limit corrections to justified C3 presentation changes. Do not begin Gameplay visuals until C3 owner acceptance. Then proceed sequentially to Waiting Room and Gameplay. Phase 12/14 performance optimization, P4.6, remaining S2.5 venues and S3 are deferred. Do not merge PR #18 without owner approval.
 
 Never change WebAudio song clock, global turns, gauge, Finish, RoomState CAS/Realtime, frozen MatchManifest, preload/shared epoch, or actor lifetime for these visual adjustments.
