@@ -442,6 +442,13 @@ export default function WaitingRoomPanel({
   const canonicalVerified = !syncOptions || (canonicalSync?.key === syncKey
     && canonicalSync.state === "verified" && syncStatus === "connected");
 
+  // Entry Flow: don't start the expensive reflector/actor WebGL pipeline while
+  // room authority is still being verified. Latch after first confirmation:
+  // transient Realtime status changes must NOT recreate the actor/mixer.
+  const [hasVerifiedRoomOnce, setHasVerifiedRoomOnce] = useState(!initialSync?.entryFlow);
+  useEffect(() => {
+    if (canonicalVerified) setHasVerifiedRoomOnce(true);
+  }, [canonicalVerified]);
 
   useEffect(() => {
     roomRef.current = room;
@@ -2256,7 +2263,7 @@ export default function WaitingRoomPanel({
               )}
             </aside>
           )}
-          <WaitingRoomStage3D
+          {hasVerifiedRoomOnce && !matchStartSession && <WaitingRoomStage3D
             calibrationMode={calibrationMode}
             blueprintMode={blueprintMode}
             calibrationResetToken={calibrationResetToken}
@@ -2271,7 +2278,7 @@ export default function WaitingRoomPanel({
             pageSize={2}
             selectedParticipantId={selectedParticipantId}
             onSelectParticipant={selectParticipant}
-          />
+          />}
 
           {(goldenTrace?.enabled || fixMapMode) && (
             <div className={styles.goldenTraceRuntimeOverlay} aria-hidden="true">
@@ -2533,6 +2540,7 @@ export default function WaitingRoomPanel({
         {syncOptions && !canonicalVerified && !matchStartSession && (
           <div className={`${styles.preloadOverlay} ${styles.roomSyncOverlay}`} data-testid="room-sync-overlay"
             role="dialog" aria-modal="true" aria-label="Đang kết nối phòng">
+          <StageLaunchArtwork />
           <section className={styles.preloadBanner}>
             <div className={styles.launchBrand}>DANCE UP <span>✦ CONNECT</span></div>
             <strong>ĐANG KẾT NỐI PHÒNG</strong>

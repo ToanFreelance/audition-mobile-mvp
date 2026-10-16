@@ -1468,3 +1468,25 @@
   .stageLaunchOverlay .launchProgress span{min-height:43px;}
   .stageLaunchOverlay .preloadParticipants>span{padding:3px 2px;}
 }
+
+/* C3.2 initial-entry sync: show only the accepted Yuna hero artwork behind
+ * a small status sheet; never render fake preload milestones before START. */
+.roomSyncOverlay {
+  isolation:isolate;
+  align-items:end;
+  padding-bottom:max(11dvh,calc(env(safe-area-inset-bottom,0px) + 24px));
+}
+.roomSyncOverlay .preloadBanner {
+  position:relative;
+  z-index:2;
+  max-height:min(44dvh,360px);
+  width:min(100%,370px);
+  padding:14px 15px;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+  background:linear-gradient(155deg,rgba(13,13,55,.96),rgba(9,11,44,.97));
+}
+@media(max-height:640px) {
+  .roomSyncOverlay {padding-bottom:max(5dvh,env(safe-area-inset-bottom,0px));}
+  .roomSyncOverlay .preloadBanner {padding:10px 12px;}
+}

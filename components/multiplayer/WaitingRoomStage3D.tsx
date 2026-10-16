@@ -2024,6 +2024,11 @@ export default function WaitingRoomStage3D({
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
       renderer.dispose();
+      // renderer.dispose() frees Three.js objects but may leave the WebGL
+      // context and backing stores resident until Safari's next GC cycle.
+      // Explicit loss here is safe because this canvas is being destroyed;
+      // free its GPU resources BEFORE match audio/model/animation preloading.
+      renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [roomId, visualPreset]);
