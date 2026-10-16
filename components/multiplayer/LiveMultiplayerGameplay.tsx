@@ -29,6 +29,7 @@ import type { MatchManifest } from "../../multiplayer/types";
 import type { PerformanceDiagnostics } from "../diagnostics/performance-diagnostics";
 import PerformanceDiagnosticsOverlay from "../diagnostics/PerformanceDiagnosticsOverlay";
 import transitionStyles from "./LiveMultiplayerGameplay.module.css";
+import StageLaunchArtwork from "./StageLaunchArtwork";
 
 const DIRECTIONS: readonly Direction[] = ["left", "up", "down", "right"];
 const SETTING_KEYS = {
@@ -403,6 +404,7 @@ export default function LiveMultiplayerGameplay(props: {
           data-stage-ready={stagePresentationReady ? "1" : "0"}
           aria-hidden="true"
         >
+          <StageLaunchArtwork />
           <div className={transitionStyles.entryHalo} />
           <div className={transitionStyles.entryTitle}>
             <span>AUDITION · LIVE STAGE</span>

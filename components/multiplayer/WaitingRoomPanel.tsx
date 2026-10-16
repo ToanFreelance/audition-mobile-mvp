@@ -56,6 +56,7 @@ import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlotIndex, typ
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
+import StageLaunchArtwork from "./StageLaunchArtwork";
 import { PerformanceDiagnostics, performanceDiagnosticsEnabled } from "../diagnostics/performance-diagnostics";
 import WaitingRoomStage3D, {
   type WaitingRoomCalibrationLayout,
@@ -2344,12 +2345,19 @@ export default function WaitingRoomPanel({
         {matchStartSession && (
           <div className={styles.preloadOverlay} data-testid="preload-overlay"
             role="dialog" aria-modal="true" aria-label="Đang chuẩn bị trận đấu">
+          <StageLaunchArtwork />
           <section
             className={styles.preloadBanner}
             data-audio-scheduled={gameplaySchedule?.sessionKey === matchStartSessionKey ? "1" : "0"}
             data-phase={room.status}
             data-testid="preload-state"
           >
+            <div className={styles.launchBrand}>AUDITION <span>✦ MOBILE STAGE</span></div>
+            <div className={styles.launchProgress} aria-hidden="true">
+              <span className={styles.launchProgressDone}>01 · PRELOAD</span>
+              <span className={allParticipantsLoaded ? styles.launchProgressDone : ""}>02 · LOADED</span>
+              <span className={room.status === "countdown" || room.status === "playing" ? styles.launchProgressDone : ""}>03 · SYNC</span>
+            </div>
             <strong>{room.status === "playing" ? "STARTING" : room.status === "countdown" ? "COUNTDOWN" : "PRELOADING"}</strong>
             <span data-testid="preload-match-id">{matchStartSession.matchId}</span>
             <small>
@@ -2490,6 +2498,7 @@ export default function WaitingRoomPanel({
         {syncOptions && !canonicalVerified && !matchStartSession && (
           <div className={styles.preloadOverlay} data-testid="room-sync-overlay"
             role="dialog" aria-modal="true" aria-label="Đang kết nối phòng">
+          <StageLaunchArtwork />
           <section className={styles.preloadBanner}>
             <strong>ĐANG KẾT NỐI PHÒNG</strong>
             <span>Đang xác minh trạng thái phòng...</span>
