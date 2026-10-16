@@ -411,8 +411,15 @@ export default function LiveMultiplayerGameplay(props: {
           <div className={transitionStyles.entryHalo} />
           <div className={transitionStyles.entryTitle}>
             <span>AUDITION · LIVE STAGE</span>
+            <div className={transitionStyles.entrySteps}>
+              <b>✓ PRELOAD</b>
+              <b>✓ LOADED</b>
+              <b>{snapshot.songTimeMs > 0 ? "✓ EPOCH" : "◌ EPOCH"}</b>
+              <b>{stagePresentationReady ? "✓ SCENE" : "◌ SCENE"}</b>
+            </div>
             <strong>VÀO SÂN KHẤU</strong>
             <i />
+            <small className={transitionStyles.epochInfo}>EPOCH · {Math.round(props.startAtServerMs)}</small>
             <small>{stagePresentationError ? stagePresentationError
               : !stagePresentationReady ? "ĐANG TẢI SÂN KHẤU · NHÂN VẬT · VŨ ĐẠO"
               : snapshot.songTimeMs <= 0 ? "SCENE READY · CHỜ SHARED EPOCH" : "SẴN SÀNG TỎA SÁNG"}</small>
