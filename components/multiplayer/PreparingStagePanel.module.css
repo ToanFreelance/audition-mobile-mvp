@@ -108,3 +108,12 @@
  .rosterStatus{font-size:1.4cqw;}
 }
 @media(prefers-reduced-motion:reduce){.spinner{animation:none;}}
+
+/* Routine messages stay in the stepper and roster. Only actionable failures
+ * and user-triggered recovery controls are rendered beneath the plate. */
+.recovery,.recovery:not(:empty){
+  padding:0;margin:0;gap:0;background:transparent;
+}
+.recovery:has(> :not([data-testid="shared-countdown"]):not([data-testid="preload-all-loaded"])){
+  gap:6px;
+}

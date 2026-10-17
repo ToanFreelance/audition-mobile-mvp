@@ -140,10 +140,19 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
 
 export default function PreparingStagePanel({
   phase,room,session,localParticipantId,progressPercent,allParticipantsLoaded,
-  audioScheduled,stageReady=false,startDetail,children,
+  audioScheduled,stageReady=false,children,
 }:Props) {
-  const dancers=session?.participants??[];
-  const loaded=dancers.filter(p=>p.state==="loaded").length;
+  // Keep the real room roster visible from the first START intent frame.
+  // Until a MatchStartSession exists, use canonical READY state, never
+  // pretend that a player has already acknowledged gameplay preload.
+  const dancers=session?.participants??room?.participants.map(p=>({
+    participantId:p.participantId,
+    role:p.role,
+    state:(p.role==="host"||p.kind==="bot"||p.readyState==="ready")
+      ? "ready" as const : "waiting" as const,
+  }))??[];
+  const loaded=session?dancers.filter(p=>p.state==="loaded").length:0;
+  const readyCount=session?loaded:dancers.filter(p=>p.state==="ready").length;
   const localLoaded=dancers.some(p=>p.participantId===localParticipantId&&p.state==="loaded");
   const epochReady=session?.startAtServerMs!=null;
   const steps:Step[]=[
@@ -181,10 +190,8 @@ export default function PreparingStagePanel({
             {" · epoch "}<span data-testid="start-at-server-ms">{Math.round(session.startAtServerMs as number)}</span>
           </span></>}
         </small>
-      </div> : <div className={styles.metadata} data-testid="start-intent-detail">
-        {startDetail??"Đang xác nhận START…"}
-      </div>}
-      {session && <div className={styles.roster}>
+      </div> : <div className={styles.metadata} data-testid="start-intent-detail" aria-hidden="true" />}
+      {dancers.length>0 && <div className={styles.roster}>
         <div className={styles.rosterHeading}>
           <div className={styles.rosterHeadingMain}>
             <svg viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
@@ -192,18 +199,17 @@ export default function PreparingStagePanel({
               <path d="M.8 21v-7c0-4 4.2-5.1 7.2-5.1 2.2 0 3.4.6 4.4 1.8-3.4 1.6-4 4-4 6.9V21Zm30.4 0v-7c0-4-4.2-5.1-7.2-5.1-2.2 0-3.4.6-4.4 1.8 3.4 1.6 4 4 4 6.9V21ZM10.6 22v-7c0-4.5 3-6 5.4-6 2.4 0 5.4 1.5 5.4 6v7Z"/>
             </svg>
             <strong>DANCERS READY</strong>
-            <b data-testid="dancers-loaded-count">{loaded}/{dancers.length}</b>
+            <b data-testid="dancers-loaded-count">{readyCount}/{dancers.length}</b>
           </div>
-          <span className={styles.rosterStatus}>
-            {allParticipantsLoaded?"All clients loaded":`${loaded}/${dancers.length} loaded`}
-            {allParticipantsLoaded && <CheckMark/>}
+          <span className={styles.rosterStatus} aria-label={session&&allParticipantsLoaded?"Đã tải đủ người chơi":undefined}>
+            {session&&allParticipantsLoaded&&<CheckMark/>}
           </span>
         </div>
         <div className={styles.rosterGrid} data-testid="preload-participants"
           style={{gridTemplateColumns:`repeat(${Math.max(1,dancers.length)},minmax(0,${dancers.length===1?"110px":"1fr"}))`}}>
           {dancers.map(person=>{
             const member=room?.participants.find(p=>p.participantId===person.participantId)
-              ??session.manifest.participants.find(p=>p.participantId===person.participantId);
+              ??session?.manifest.participants.find(p=>p.participantId===person.participantId);
             const portrait=member?getCharacterCatalogEntry(avatarCharacterAssetId(member.avatar))?.portraitUrl:undefined;
             return <div className={styles.dancer} data-load-state={person.state}
               data-testid={`preload-participant-${person.participantId}`} key={person.participantId}>
@@ -216,9 +222,10 @@ export default function PreparingStagePanel({
                 {member?.displayName??person.participantId}
               </strong>
               <small>{availableLevel(member)}</small>
-              <div className={`${styles.loadBadge} ${person.state==="loaded"?styles.loadBadgeDone:""}`}>
-                {person.state==="loaded"&&<CheckMark/>}
-                {person.state==="loaded"?"LOADED":person.state.toUpperCase()}
+              <div className={`${styles.loadBadge} ${person.state==="loaded"||person.state==="ready"?styles.loadBadgeDone:""}`}>
+                {(person.state==="loaded"||person.state==="ready")&&<CheckMark/>}
+                {person.state==="loaded"?"LOADED":person.state==="ready"?"READY":
+                  person.state==="waiting"?"WAITING":person.state.toUpperCase()}
               </div>
             </div>;
           })}
