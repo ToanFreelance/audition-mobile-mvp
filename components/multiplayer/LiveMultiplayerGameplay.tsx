@@ -30,6 +30,7 @@ import type { PerformanceDiagnostics } from "../diagnostics/performance-diagnost
 import PerformanceDiagnosticsOverlay from "../diagnostics/PerformanceDiagnosticsOverlay";
 import transitionStyles from "./LiveMultiplayerGameplay.module.css";
 import StageLaunchArtwork from "./StageLaunchArtwork";
+import PreparingStagePanel from "./PreparingStagePanel";
 
 const DIRECTIONS: readonly Direction[] = ["left", "up", "down", "right"];
 const SETTING_KEYS = {
@@ -72,8 +73,12 @@ export default function LiveMultiplayerGameplay(props: {
   const [entryCurtainVisible, setEntryCurtainVisible] = useState(true);
   const loadedCount = props.manifest.participants.filter(p => props.loadedParticipantIds?.includes(p.participantId)).length;
   const allPreloaded = loadedCount === props.manifest.participants.length;
-  const launchProgress = 25 * (Number(loadedCount > 0) + Number(allPreloaded)
-    + Number(snapshot.songTimeMs > 0) + Number(stagePresentationReady));
+  const launchProgress = 25 * (
+    Number(props.loadedParticipantIds?.includes(props.participantId))
+    + Number(allPreloaded)
+    + Number(Number.isFinite(props.startAtServerMs))
+    + Number(stagePresentationReady)
+  );
   const onStagePresentationReady = useCallback(() => setStagePresentationReady(true), []);
   // The banner never lifts until the actual 3D scene, actor, animation mixer
   // and authoritative shared start have progressed. No artificial deadline.
@@ -414,38 +419,32 @@ export default function LiveMultiplayerGameplay(props: {
           aria-hidden="true"
         >
           <StageLaunchArtwork />
-          <div className={transitionStyles.entryHalo} />
-          <div className={transitionStyles.entryTitle}>
-            <span>DANCE UP · YUNA ON STAGE</span>
-            <strong>PREPARING STAGE</strong>
-            <small>{stagePresentationError ? stagePresentationError
-              : !stagePresentationReady ? "Loading stage, characters and animations…"
-              : snapshot.songTimeMs <= 0 ? "Scene ready · Waiting for shared epoch" : "Ready to dance!"}</small>
-            <div className={transitionStyles.entrySteps}>
-              <b className={loadedCount > 0 ? transitionStyles.entryDone : ""}>01 <small>PRELOAD {loadedCount > 0 ? "✓" : "◌"}</small></b>
-              <b className={allPreloaded ? transitionStyles.entryDone : ""}>02 <small>LOADED {allPreloaded ? "✓" : "◌"}</small></b>
-              <b className={snapshot.songTimeMs > 0 ? transitionStyles.entryDone : ""}>03 <small>SYNC {snapshot.songTimeMs > 0 ? "✓" : "◌"}</small></b>
-              <b className={stagePresentationReady ? transitionStyles.entryDone : ""}>04 <small>STAGE {stagePresentationReady ? "✓" : "◌"}</small></b>
-            </div>
-            <div className={transitionStyles.entryTrack}
-              role="progressbar" aria-label="Tiến trình sân khấu" aria-valuemin={0} aria-valuemax={100}
-              aria-valuenow={launchProgress}
-            >
-              <i style={{ width: `${launchProgress}%` }} />
-              <span>{launchProgress}%</span>
-            </div>
-            <small className={transitionStyles.epochInfo}>SHARED EPOCH · {Math.round(props.startAtServerMs)}</small>
-            <div className={transitionStyles.entryRosterTitle}>DANCERS LOADED <b>{loadedCount}/{props.manifest.participants.length}</b></div>
-            <div className={transitionStyles.entryRoster}>
-              {props.manifest.participants.map(participant => (
-                <span key={participant.participantId}>
-                  <i>{participant.role === "host" ? "♛" : "✦"}</i>
-                  <b>{participant.displayName}</b>
-                  <small>{props.loadedParticipantIds?.includes(participant.participantId) ? "✓ LOADED" : "◌ WAITING"}</small>
-                </span>
-              ))}
-            </div>
-          </div>
+          <PreparingStagePanel
+            phase="playing"
+            room={null}
+            session={{
+              matchId: props.manifest.matchId,
+              roomRevision: props.manifest.roomRevision,
+              startRevision: props.startRevision ?? 1,
+              startAtServerMs: props.startAtServerMs,
+              manifest: props.manifest,
+              participants: props.manifest.participants.map(participant => ({
+                participantId: participant.participantId,
+                kind: participant.kind,
+                role: participant.role,
+                state: props.loadedParticipantIds?.includes(participant.participantId) ? "loaded" : "loading",
+              })),
+            }}
+            localParticipantId={props.participantId}
+            progressPercent={launchProgress}
+            allParticipantsLoaded={allPreloaded}
+            audioScheduled={true}
+            stageReady={stagePresentationReady}
+          >
+            {stagePresentationError && <small role="alert">{stagePresentationError}</small>}
+            {stagePresentationReady && snapshot.songTimeMs <= 0 &&
+              <small>Scene ready · Waiting for shared epoch</small>}
+          </PreparingStagePanel>
         </div>
         <div className="audition-hud">
           {/* Same GameShell song widget, not the discarded custom multiplayer HUD. */}

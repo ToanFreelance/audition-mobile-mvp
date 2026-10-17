@@ -2,19 +2,23 @@
 
 import type { ReactNode } from "react";
 import type { MatchStartSession } from "../../multiplayer/match-start-protocol";
-import type { RoomParticipant, RoomState } from "../../multiplayer/types";
+import type { MatchParticipantSnapshot, RoomParticipant, RoomState } from "../../multiplayer/types";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
 import styles from "./PreparingStagePanel.module.css";
 
+type DisplaySession = Pick<MatchStartSession,
+  "matchId" | "roomRevision" | "startRevision" | "startAtServerMs" | "participants" | "manifest">;
+
 type Props = {
   phase: "start-intent" | "preloading" | "countdown" | "playing";
-  room: RoomState;
-  session: MatchStartSession | null;
+  room: RoomState | null;
+  session: DisplaySession | null;
   localParticipantId: string;
   progressPercent: number;
   allParticipantsLoaded: boolean;
   audioScheduled: boolean;
+  stageReady?: boolean;
   startDetail?: string | null;
   children?: ReactNode;
 };
@@ -54,7 +58,7 @@ function Crown() {
   );
 }
 
-function availableLevel(participant: RoomParticipant | undefined): string {
+function availableLevel(participant: RoomParticipant | MatchParticipantSnapshot | undefined): string {
   // RoomState does not yet persist level. Never manufacture the sketch's Lv.25.
   if (participant && "level" in participant
     && typeof participant.level === "number" && Number.isFinite(participant.level)) {
@@ -65,7 +69,7 @@ function availableLevel(participant: RoomParticipant | undefined): string {
 
 export default function PreparingStagePanel({
   phase, room, session, localParticipantId, progressPercent,
-  allParticipantsLoaded, audioScheduled, startDetail, children,
+  allParticipantsLoaded, audioScheduled, stageReady = false, startDetail, children,
 }: Props) {
   const dancers = session?.participants ?? [];
   const loaded = dancers.filter(person => person.state === "loaded").length;
@@ -77,7 +81,7 @@ export default function PreparingStagePanel({
     { number: "01", label: "PRELOAD", done: localLoaded, active: Boolean(session) && !localLoaded },
     { number: "02", label: "LOADED", done: allParticipantsLoaded, active: localLoaded && !allParticipantsLoaded },
     { number: "03", label: "SYNC", done: epochReady, active: allParticipantsLoaded && !epochReady },
-    { number: "04", label: "STAGE READY", done: false, active: false },
+    { number: "04", label: "STAGE READY", done: stageReady, active: epochReady && !stageReady },
   ];
   const boundedProgress = Math.max(0, Math.min(100, progressPercent));
   return (
@@ -147,7 +151,8 @@ export default function PreparingStagePanel({
           <div className={styles.rosterGrid} data-testid="preload-participants"
             style={{ gridTemplateColumns: `repeat(${Math.max(1,dancers.length)}, minmax(0,${dancers.length === 1 ? "110px" : "1fr"}))` }}>
             {dancers.map(person => {
-              const member = room.participants.find(p => p.participantId === person.participantId);
+              const member = room?.participants.find(p => p.participantId === person.participantId)
+                ?? session.manifest.participants.find(p => p.participantId === person.participantId);
               const portrait = member
                 ? getCharacterCatalogEntry(avatarCharacterAssetId(member.avatar))?.portraitUrl
                 : undefined;
