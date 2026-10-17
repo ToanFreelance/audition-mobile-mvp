@@ -2362,6 +2362,17 @@ export default function WaitingRoomPanel({
           {hostView && <button className={styles.changeSongButton} data-testid="change-song-button" onClick={openSongPicker} type="button">♫ Đổi nhạc</button>}
         </section>
 
+        {startIntentPending && !matchStartSession && (
+          <div className={`${styles.preloadOverlay} ${styles.stageLaunchOverlay}`} data-testid="start-intent-overlay"
+            role="dialog" aria-modal="true" aria-label="Đang xác nhận bắt đầu trận đấu">
+            <StageLaunchArtwork />
+            <section className={styles.preloadBanner} data-phase="start-intent" role="status">
+              <strong>PREPARING STAGE</strong>
+              <p className={styles.launchSubtitle}>Đang xác nhận phòng và đóng băng thông tin trận đấu…</p>
+              <small data-testid="start-intent-detail">{syncDetail ?? "Đang chờ server xác nhận START…"}</small>
+            </section>
+          </div>
+        )}
         {matchStartSession && (
           <div className={`${styles.preloadOverlay} ${styles.stageLaunchOverlay}`} data-testid="preload-overlay"
             role="dialog" aria-modal="true" aria-label="Đang chuẩn bị trận đấu">
@@ -2540,7 +2551,7 @@ export default function WaitingRoomPanel({
           </div>
         )}
 
-        {syncOptions && !canonicalVerified && !matchStartSession && (
+        {syncOptions && !canonicalVerified && !matchStartSession && !startIntentPending && (
           <div className={`${styles.preloadOverlay} ${styles.roomSyncOverlay}`} data-testid="room-sync-overlay"
             role="dialog" aria-modal="true" aria-label="Đang kết nối phòng">
           <StageLaunchArtwork />
