@@ -244,6 +244,29 @@ test("C3 reference B: true-state four-step glass panel and five dancer cards fit
     expect(titleFits, "PREPARING STAGE must not overlap its decorative SVG waves").toBe(true);
     await expect(page.getByTestId("preload-participants").locator(":scope > div")).toHaveCount(5);
     await expect(processing.locator('[role="progressbar"]')).toHaveAttribute("aria-valuenow", /^(0|25|50|75|100)$/);
+    // Owner's processing art is 873×644. Prevent vertical stretching of
+    // the artwork that made V3 look unlike the accepted reference.
+    const actualRatio = await processing.evaluate(node => {
+      const el = node as HTMLElement;
+      const plate = el.querySelector('[class*="plate"]') as HTMLElement | null;
+      if (!plate) return null;
+      const box = plate.getBoundingClientRect();
+      return box.width / box.height;
+    });
+    expect(actualRatio).not.toBeNull();
+    expect(Math.abs(actualRatio! - 873/644), "873×644 SVG plate aspect ratio").toBeLessThan(0.015);
+    const regions = await processing.evaluate(node => {
+      const plate = node.querySelector('[class*="plate"]') as HTMLElement;
+      const base = plate.getBoundingClientRect();
+      return ["heading","steps","meterRow","metadata","roster"].map(name => {
+        const child = plate.querySelector('[class*="'+name+'"]') as HTMLElement;
+        const rect = child.getBoundingClientRect();
+        return { name, top: (rect.top-base.top)/base.height, left: (rect.left-base.left)/base.width };
+      });
+    });
+    for (const [index, expectation] of [[0,.071],[1,.2484],[2,.4345],[3,.5055],[4,.58]] as const) {
+      expect(Math.abs(regions[index].top - expectation), `${regions[index].name} reference vertical anchor`).toBeLessThan(.02);
+    }
     const bounds = await processing.boundingBox();
     expect(bounds).not.toBeNull();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);

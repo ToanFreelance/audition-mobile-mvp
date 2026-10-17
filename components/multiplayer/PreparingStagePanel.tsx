@@ -103,10 +103,10 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
     <rect x="7.8" y="7.8" width="857.4" height="627" rx="36" fill="url(#c3-plate-glow)"
       stroke="#8977fc" strokeWidth="1.2" strokeOpacity=".58"/>
     <path d="M45 4H829" stroke="#f1faff" strokeWidth="2" strokeOpacity=".68" filter="url(#c3-soft)"/>
-    <path d="M100 76H126l7-13 8 27 8-39 8 50 8-26h25" stroke="#76ecff" strokeWidth="2.5"
-      fill="none" transform="translate(-32,-1)" opacity=".92"/>
-    <path d="M100 76H126l7-13 8 27 8-39 8 50 8-26h25" stroke="#76ecff" strokeWidth="2.5"
-      fill="none" transform="translate(679,-1) scale(-1,1)" opacity=".92"/>
+    <path d="M90 80h18l5-12 7 24 6-35 6 44 6-21h19" stroke="#76ecff" strokeWidth="2.5"
+      fill="none" opacity=".92"/>
+    <path d="M90 80h18l5-12 7 24 6-35 6 44 6-21h19" stroke="#76ecff" strokeWidth="2.5"
+      fill="none" transform="translate(866 0) scale(-1 1)" opacity=".92"/>
     <path d="M94 78H132M741 78H778" stroke="#53d8ff" strokeWidth="3" filter="url(#c3-soft)"/>
     <path d="M125 207H760" stroke="#cd6cff" strokeWidth="6" opacity=".8" filter="url(#c3-soft)"/>
     <path d="M125 207H760" stroke="#a7a3ff" strokeWidth="2" opacity=".87"/>
