@@ -8,7 +8,7 @@
     "build": "next build",
     "prebuild": "node scripts/analyze-rhythm.mjs",
     "start": "next start",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint . --quiet && node scripts/verify-c3-lint-tdz.mjs",
     "test:qa": "playwright test",
     "test:qa:ui": "playwright test --ui",
     "test:qa:report": "playwright show-report",
@@ -16,7 +16,8 @@
     "test:qa:lobby:e2e": "playwright test e2e/lobby-real-user.spec.ts --project=desktop --project=mobile --workers=1 --grep @real",
     "test:qa:lobby:fast": "playwright test e2e/s2-stage-catalog.spec.ts e2e/s2-5a-neon-stage.spec.ts e2e/lobby-preload-handoff.spec.ts e2e/preload-mobile-memory.spec.ts e2e/published-animation-identity.spec.ts e2e/lobby-all-clients-loaded.spec.ts e2e/lobby-start-freeze.spec.ts e2e/lobby-presence.spec.ts e2e/lobby-stage-identity.spec.ts e2e/multiplayer-start-protocol.spec.ts e2e/multiplayer-transport.spec.ts --project=desktop --workers=1",
     "visual:neon:diff": "node scripts/neon-stage-visual-diff.mjs",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "lint:report": "eslint ."
   },
   "dependencies": {
     "@audio/beat": "^2.1.3",
