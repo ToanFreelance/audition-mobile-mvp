@@ -1512,3 +1512,17 @@
   font-size:12px;
   color:#a8eaff;
 }
+
+/* C3 Processing V3: component-owned panel, not legacy .preloadBanner.
+   Poster remains accepted Image A, new glass status plate matches Image B. */
+.stageLaunchOverlay{align-items:flex-end;justify-content:center;}
+.stageLaunchOverlay [data-testid="preload-state"],
+.stageLaunchOverlay [data-testid="start-intent-state"]{
+  margin:0 auto;
+}
+.stageLaunchOverlay [data-testid="start-intent-state"]{
+  max-height:min(40dvh,290px);
+}
+@media(min-width:700px) and (min-height:600px){
+  .stageLaunchOverlay{padding-bottom:max(3vh,env(safe-area-inset-bottom,0px));}
+}

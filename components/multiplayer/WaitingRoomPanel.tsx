@@ -57,6 +57,7 @@ import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
 import StageLaunchArtwork from "./StageLaunchArtwork";
+import PreparingStagePanel from "./PreparingStagePanel";
 import { recordC3StartCheckpoint } from "./c3-start-trace";
 import { PerformanceDiagnostics, performanceDiagnosticsEnabled } from "../diagnostics/performance-diagnostics";
 import WaitingRoomStage3D, {
@@ -2384,81 +2385,26 @@ export default function WaitingRoomPanel({
           <div className={`${styles.preloadOverlay} ${styles.stageLaunchOverlay}`} data-testid="start-intent-overlay"
             role="dialog" aria-modal="true" aria-label="Đang xác nhận bắt đầu trận đấu">
             <StageLaunchArtwork />
-            <section className={styles.preloadBanner} data-phase="start-intent" role="status">
-              <strong>PREPARING STAGE</strong>
-              <p className={styles.launchSubtitle}>Đang xác nhận phòng và đóng băng thông tin trận đấu…</p>
-              <small data-testid="start-intent-detail">{syncDetail ?? "Đang chờ server xác nhận START…"}</small>
-            </section>
+            <PreparingStagePanel
+              phase="start-intent" room={room} session={null}
+              localParticipantId={syncOptions?.participantId ?? viewer.participantId}
+              progressPercent={0} allParticipantsLoaded={false}
+              audioScheduled={false} startDetail={syncDetail}
+            />
           </div>
         )}
         {matchStartSession && (
           <div className={`${styles.preloadOverlay} ${styles.stageLaunchOverlay}`} data-testid="preload-overlay"
             role="dialog" aria-modal="true" aria-label="Đang chuẩn bị trận đấu">
           <StageLaunchArtwork />
-          <section
-            className={styles.preloadBanner}
-            data-audio-scheduled={gameplaySchedule?.sessionKey === matchStartSessionKey ? "1" : "0"}
-            data-phase={room.status}
-            data-testid="preload-state"
+          <PreparingStagePanel
+            phase={room.status === "playing" ? "playing" : room.status === "countdown" ? "countdown" : "preloading"}
+            room={room} session={matchStartSession}
+            localParticipantId={syncOptions?.participantId ?? viewer.participantId}
+            progressPercent={launchProgressPercent}
+            allParticipantsLoaded={allParticipantsLoaded}
+            audioScheduled={gameplaySchedule?.sessionKey === matchStartSessionKey}
           >
-            <strong>{room.status === "playing" ? "GET READY TO DANCE" : "PREPARING STAGE"}</strong>
-            <p className={styles.launchSubtitle}>
-              {room.status === "preloading" ? "Loading stage, characters, animations and shared epoch…"
-                : "All dancers are preparing for the stage…"}
-            </p>
-            <div className={styles.launchProgress} aria-label="Tiến trình chuẩn bị sân khấu">
-              <span className={localPreloadLoaded ? styles.launchProgressDone : ""}>01 <b>PRELOAD</b></span>
-              <span className={allParticipantsLoaded ? styles.launchProgressDone : ""}>02 <b>LOADED</b></span>
-              <span className={matchStartSession.startAtServerMs != null ? styles.launchProgressDone : ""}>03 <b>SYNC</b></span>
-              <span>04 <b>STAGE READY</b></span>
-            </div>
-            <div className={styles.launchProgressMeter}>
-              <div className={styles.launchTrack}
-                aria-label="Tỷ lệ hoàn tất các bước chuẩn bị"
-                role="progressbar" aria-valuemin={0} aria-valuemax={100}
-                aria-valuenow={launchProgressPercent}
-              >
-                <i style={{width: `${launchProgressPercent}%`}} />
-              </div>
-              <output>{launchProgressPercent}%</output>
-            </div>
-            <div className={styles.launchRosterTitle}>
-              <span>♟ DANCERS LOADED</span>
-              <b>{matchStartSession.participants.filter(p => p.state === "loaded").length}/{matchStartSession.participants.length}</b>
-              <small>{allParticipantsLoaded ? "✓ All clients loaded" : "Waiting for dancers…"}</small>
-            </div>
-            <span data-testid="preload-match-id">{matchStartSession.matchId}</span>
-            <small>
-              room r<span data-testid="preload-room-revision">{matchStartSession.roomRevision}</span>
-              {" · "}start r<span data-testid="preload-start-revision">{matchStartSession.startRevision}</span>
-              {(room.status === "countdown" || room.status === "playing") && matchStartSession.startAtServerMs !== null && (
-                <>
-                  {" · "}epoch <span data-testid="start-at-server-ms">{Math.round(matchStartSession.startAtServerMs ?? 0)}</span>
-                </>
-              )}
-            </small>
-            <div className={styles.preloadParticipants} data-testid="preload-participants">
-              {matchStartSession.participants.map(participant => {
-                const roomParticipant = room.participants.find(
-                  item => item.participantId === participant.participantId,
-                );
-                return (
-                  <span
-                    data-load-state={participant.state}
-                    data-testid={`preload-participant-${participant.participantId}`}
-                    key={participant.participantId}
-                  >
-                    <i className={styles.launchAvatar} aria-hidden="true">
-                      {roomParticipant?.role === "host" && <sup>♛</sup>}
-                      {(roomParticipant?.displayName ?? participant.participantId).slice(0,2).toUpperCase()}
-                    </i>
-                    <strong>{roomParticipant?.displayName ?? participant.participantId}</strong>
-                    <small>{roomParticipant ? `Lv. ${levelFor(roomParticipant)}` : "DANCER"}</small>
-                    <b>{participant.state === "loaded" ? "✓ LOADED" : participant.state.toUpperCase()}</b>
-                  </span>
-                );
-              })}
-            </div>
             {(room.status === "countdown" || room.status === "playing") ? (
               <em
                 className={styles.preloadAllLoaded}
@@ -2565,7 +2511,7 @@ export default function WaitingRoomPanel({
                   onClick={() => void recoverRoomSyncRef.current?.()}>ĐỒNG BỘ LẠI PHÒNG</button>
               </div>
             )}
-          </section>
+          </PreparingStagePanel>
           </div>
         )}
 
