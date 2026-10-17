@@ -240,6 +240,17 @@ test("C3 reference B: true-state four-step glass panel and five dancer cards fit
     const processing = page.getByTestId("preload-state");
     await expect(processing).toBeVisible();
     await expect(page.getByTestId("preload-steps").locator('[data-testid^="preload-step-"]')).toHaveCount(4);
+    const headerClearance = await processing.evaluate(node => {
+      const frame = node.querySelector('[class*="plate"]')!.getBoundingClientRect();
+      const title = node.querySelector("h2")!.getBoundingClientRect();
+      return {
+        left: (title.left - frame.left) / frame.width,
+        right: (frame.right - title.right) / frame.width,
+      };
+    });
+    // Both waves end ~15% in from the reference's sides.
+    expect(headerClearance.left).toBeGreaterThan(.151);
+    expect(headerClearance.right).toBeGreaterThan(.15);
     const titleFits = await processing.locator("h2").evaluate(el => el.scrollWidth <= el.clientWidth + 2);
     expect(titleFits, "PREPARING STAGE must not overlap its decorative SVG waves").toBe(true);
     await expect(page.getByTestId("preload-participants").locator(":scope > div")).toHaveCount(5);
