@@ -1490,3 +1490,11 @@
   .roomSyncOverlay {padding-bottom:max(5dvh,env(safe-area-inset-bottom,0px));}
   .roomSyncOverlay .preloadBanner {padding:10px 12px;}
 }
+
+/* C3: full image A remains visible behind a compact room-sync status. */
+.roomSyncOverlay{display:flex;align-items:flex-end;justify-content:center;background:#07091d;padding:12px 12px max(5dvh,calc(env(safe-area-inset-bottom,0px) + 12px));backdrop-filter:none;-webkit-backdrop-filter:none;}
+.roomSyncOverlay .preloadBanner{position:relative;inset:auto;z-index:2;width:min(100%,390px);max-height:min(35dvh,270px);margin:0;overflow-y:auto;padding:12px 15px;border:1px solid rgba(114,207,255,.9);background:linear-gradient(155deg,rgba(13,13,55,.96),rgba(9,11,44,.97));backdrop-filter:none;-webkit-backdrop-filter:none;}
+/* Image B is a layout reference, never a raster with fake counters. */
+.stageLaunchOverlay{display:flex;align-items:flex-end;justify-content:center;background:#07091d;padding:12px max(8px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px));backdrop-filter:none;-webkit-backdrop-filter:none;}
+.stageLaunchOverlay .preloadBanner{position:relative;inset:auto;z-index:2;width:min(100%,700px);max-width:700px;max-height:min(75dvh,690px);min-height:0;margin:0;padding:clamp(10px,3vw,20px);overflow-y:auto;overscroll-behavior:contain;background:linear-gradient(158deg,rgba(29,14,90,.96),rgba(7,15,57,.97) 55%,rgba(29,10,89,.96));backdrop-filter:none;-webkit-backdrop-filter:none;}
+@media(max-height:650px){.stageLaunchOverlay .preloadBanner{max-height:calc(100dvh - 22px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));padding:9px;}.roomSyncOverlay{padding-bottom:max(8px,env(safe-area-inset-bottom,0px));}.roomSyncOverlay .preloadBanner{max-height:min(43dvh,250px);}}

@@ -1,35 +1,3 @@
-/* Canonical approved DANCE UP/Yuna image. Its bottom half contains
- * sample loading UI (72%, 5/5, sample match ID). Never show those pixels:
- * only the top logo/hero artwork is visible; all processing UI is live DOM.
- * This also means a banner displayed before START never pretends to load. */
-.backdrop {
-  position:absolute;
-  inset:0;
-  z-index:0;
-  overflow:hidden;
-  pointer-events:none;
-  background-color:#07071b;
-  background-image:
-    linear-gradient(to bottom,
-      transparent 0%, transparent 37%,
-      rgba(7,7,28,.06) 40%,
-      rgba(7,7,28,.82) 45%,
-      #080922 49%,
-      #0b0930 68%,
-      #07091d 100%),
-    url("/images/dance-up-yuna-launch.webp");
-  background-size:100% 100%, cover;
-  background-position:center top;
-  background-repeat:no-repeat;
-}
-.backdrop::after {
-  content:"";
-  position:absolute;
-  inset:49% 0 0;
-  background:
-    radial-gradient(ellipse 75% 32% at 50% 6%,rgba(177,61,244,.23),transparent 75%),
-    radial-gradient(ellipse 90% 45% at 50% 100%,rgba(36,133,226,.19),transparent 80%);
-}
-@media (min-aspect-ratio:3/4) {
-  .backdrop { background-size:100% 100%, auto 100%; }
-}
+/* C3 approved full Yuna hero: no baked processing or cropped artwork. */
+.backdrop{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse 95% 76% at 50% 38%,#392069 0%,#120e38 64%,#07091d 100%);}
+.backdrop::before{content:"";position:absolute;inset:0;background-image:url("https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/3be23199-e035-4f16-a021-7ef54f5d363f.jpg");background-size:contain;background-position:center;background-repeat:no-repeat;}

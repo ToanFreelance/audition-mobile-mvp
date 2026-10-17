@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import type { RoomState } from "../../multiplayer/types";
 import WaitingRoomPanel from "../multiplayer/WaitingRoomPanel";
+import StageLaunchArtwork from "../multiplayer/StageLaunchArtwork";
+import styles from "./EntryWaitingRoom.module.css";
 import { getEntryIdentity, isEntryRoomId } from "./entry-session";
 
 type ActiveEntry = {
@@ -57,16 +59,14 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
     return () => { canceled = true; };
   }, [roomId]);
 
-  if (error) return (
-    <main style={{ minHeight: "100dvh", background: "#101027", padding: 24, color: "#fff" }}>
-      <h1>Không vào được phòng</h1>
-      <p role="alert">{error}</p>
-      <a href="/rooms" style={{ color: "#f0a5ff" }}>← Quay lại sảnh phòng</a>
-    </main>
-  );
-  if (!entry) return (
-    <main style={{ minHeight: "100dvh", background: "#101027", padding: 24, color: "#fff" }}>
-      Đang xác nhận thành viên phòng…
+  if (error || !entry) return (
+    <main className={styles.cover} data-testid="entry-room-cover">
+      <StageLaunchArtwork />
+      <section className={styles.status} role="status" aria-live="polite">
+        <strong>{error ? "KHÔNG VÀO ĐƯỢC PHÒNG" : "ĐANG KẾT NỐI PHÒNG"}</strong>
+        <p>{error || "Đang xác nhận thành viên và trạng thái phòng…"}</p>
+        {error && <a href="/rooms">← Quay lại sảnh phòng</a>}
+      </section>
     </main>
   );
   return (
