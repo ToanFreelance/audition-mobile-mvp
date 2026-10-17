@@ -14,12 +14,12 @@
 .plate{position:relative;width:100%;aspect-ratio:873/644;isolation:isolate;
   min-width:0;overflow:hidden;border-radius:4.85cqw;background:#12104e;}
 .chrome{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
-.heading{position:absolute;left:12.5%;right:12.5%;top:7.1%;height:10%;display:grid;place-items:center;}
+.heading{position:absolute;left:12.5%;right:12.5%;top:6.1%;height:10%;display:grid;place-items:center;}
 .heading h2{font-family:Arial,Helvetica,sans-serif;font-weight:1000;
   margin:0;max-width:100%;line-height:1.06;white-space:nowrap;
-  font-size:5.35cqw;font-style:italic;letter-spacing:.015em;
+  font-size:7.0cqw;font-style:italic;letter-spacing:.005em;
   color:#fbe5ff;-webkit-text-stroke:.08cqw #ffedff;
-  background:linear-gradient(180deg,#fff8ff 0%,#fbdaff 30%,#f397ff 48%,#a88aff 75%,#f8e1ff);
+  background:linear-gradient(106deg,#fff5ff 0%,#ffa4fa 42%,#d1a6ff 62%,#8ddaff 87%,#fafaff);
   background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;
   filter:drop-shadow(0 0 .7cqw #f45bff) drop-shadow(0 0 1.5cqw #b446f4);
 }
@@ -60,7 +60,7 @@
 .metadata .epoch{font-size:1.2cqw;}
 .roster{position:absolute;left:3.9%;right:3.9%;top:58%;height:39.5%;min-width:0;}
 .rosterHeading{height:20%;display:flex;align-items:center;justify-content:space-between;gap:1cqw;padding:0 3.1%;}
-.rosterHeadingMain{display:flex;align-items:center;gap:1.65cqw;min-width:0;white-space:nowrap;}
+.rosterHeadingMain{display:flex;align-items:center;gap:3.6cqw;min-width:0;white-space:nowrap;}
 .rosterHeadingMain svg{width:4.25cqw;flex:0 0 auto;color:#f1acff;
   filter:drop-shadow(0 0 .9cqw rgba(249,91,255,.7));}
 .rosterHeadingMain strong{color:#f1afff;font-size:2.0cqw;letter-spacing:.14em;font-weight:850;font-style:italic;}

@@ -70,10 +70,10 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
   return <svg className={styles.chrome} viewBox="0 0 873 644" preserveAspectRatio="none" aria-hidden="true">
     <defs>
       <linearGradient id="c3-plate-bg" x1="0" y1="0" x2="1" y2="1">
-        <stop stopColor="#271366"/><stop offset=".4" stopColor="#10134f"/><stop offset="1" stopColor="#1a0e50"/>
+        <stop stopColor="#171956"/><stop offset=".4" stopColor="#101247"/><stop offset="1" stopColor="#100b3d"/>
       </linearGradient>
       <radialGradient id="c3-plate-glow" cx=".16" cy=".08" r=".92">
-        <stop stopColor="#704bdb" stopOpacity=".4"/><stop offset="1" stopColor="#1a125a" stopOpacity="0"/>
+        <stop stopColor="#7258d8" stopOpacity=".25"/><stop offset="1" stopColor="#1a125a" stopOpacity="0"/>
       </radialGradient>
       <linearGradient id="c3-frame" x1="0" y1="0" x2="1" y2="1">
         <stop stopColor="#b7ffff"/><stop offset=".3" stopColor="#8e8cff"/><stop offset=".69" stopColor="#fa79ff"/><stop offset="1" stopColor="#6de9ff"/>
