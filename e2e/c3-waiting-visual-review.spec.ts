@@ -182,3 +182,31 @@ test("C3 pending server sync is a modal overlay and does not shift the waiting-r
   expect(boxes.footerBottom).toBeLessThanOrEqual(boxes.viewportHeight);
   expect(boxes.overlayHeight).toBe(boxes.viewportHeight);
 });
+
+test("C3 START intent immediately covers released 3D scene while manifest freezes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  // Keep MatchManifest content resolution pending without real Supabase or
+  // changing the canonical START gate. This isolates the exact prior blank gap.
+  await page.route("**/api/music-config", async route => {
+    await new Promise(resolve => setTimeout(resolve, 3_000));
+    await route.fulfill({
+      status: 503, contentType: "application/json",
+      body: JSON.stringify({ error: "Intent-overlay fixture: intentionally delayed" }),
+    }).catch(() => undefined);
+  });
+  await page.goto("/tools/lobby-qa-sketch?solo=1");
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 40_000 });
+  const start = page.getByTestId("start-button");
+  await expect(start).toBeEnabled();
+  await start.evaluate(el => (el as HTMLButtonElement).click());
+  const overlay = page.getByTestId("start-intent-overlay");
+  await expect(overlay).toBeVisible({ timeout: 8_000 });
+  await expect(overlay).toContainText("PREPARING STAGE");
+  await expect(page.getByTestId("waiting-room-stage")).toHaveCount(0);
+  await expect(page.getByTestId("preload-overlay")).toHaveCount(0);
+  await page.screenshot({
+    path: "test-results/c3-baseline/start-intent-covered-390x740.png",
+    fullPage: false, animations: "disabled",
+  });
+});
