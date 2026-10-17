@@ -107,7 +107,9 @@ export class WebAudioTransport {
       });
       if (!response.ok) throw new Error(`Audio HTTP ${response.status}`);
       const bytes = await response.arrayBuffer();
-      const decoded = await context.decodeAudioData(bytes.slice(0));
+      // decodeAudioData may detach the input; bytes are not reused here.
+      // Avoid allocating a second full audio ArrayBuffer on Safari.
+      const decoded = await context.decodeAudioData(bytes);
       if (this.destroyed) return;
       this.buffer = decoded;
       this.offsetSeconds = Math.min(this.offsetSeconds, decoded.duration);

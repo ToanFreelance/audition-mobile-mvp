@@ -136,10 +136,30 @@ export async function prepareLobbyMatchFreezeInput(input: {
 }
 
 
-async function preloadAssetBytes(url: string, label: string) {
+/**
+ * Consume the *entire* asset to preserve the canonical LOADED gate, but do
+ * not retain another full-sized ArrayBuffer just for warmup. A 3–5 MB GLB or
+ * audio file can otherwise overlap WebAudio decoding and Three.js allocations
+ * on memory-limited iOS Safari.
+ */
+export async function preloadAssetBytes(url: string, label: string) {
   const response = await fetch(url, { cache: "force-cache" });
   if (!response.ok) throw new Error(`${label} preload failed (${response.status}).`);
-  await response.arrayBuffer();
+  if (!response.body) {
+    // Compatibility with older/partial fetch implementations.
+    await response.arrayBuffer();
+    return;
+  }
+  const reader = response.body.getReader();
+  try {
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
+      // Every byte is consumed, but no chunks are accumulated in JS heap.
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 async function frozenContentIdentity(
@@ -273,7 +293,8 @@ export async function preloadFrozenLobbyMatch(manifest: MatchManifest): Promise<
 
   let characterReadiness: PresentationResourceReadiness = "ready";
   try {
-    await Promise.all([...characterUrls].map(url => preloadAssetBytes(url, "Character model")));
+    // Sequential warmup bounds peak outstanding response bytes on mobile.
+    for (const url of characterUrls) await preloadAssetBytes(url, "Character model");
   } catch (error) {
     console.warn("[lobby-preload] character asset warmup failed; runtime fallback remains allowed", error);
     characterReadiness = "fallback-ready";
@@ -281,10 +302,8 @@ export async function preloadFrozenLobbyMatch(manifest: MatchManifest): Promise<
 
   let animationReadiness: PresentationResourceReadiness = "ready";
   try {
-    await Promise.all([
-      preloadAssetBytes(HUMAN_ANIMATION_LIBRARY_URL, "Base animation library"),
-      preloadAssetBytes(HUMAN_FINISH_MOCAP_URL, "Finish animation fallback"),
-    ]);
+    await preloadAssetBytes(HUMAN_ANIMATION_LIBRARY_URL, "Base animation library");
+    await preloadAssetBytes(HUMAN_FINISH_MOCAP_URL, "Finish animation fallback");
   } catch (error) {
     console.warn("[lobby-preload] base animation warmup failed; presentation fallback remains allowed", error);
     animationReadiness = "fallback-ready";
