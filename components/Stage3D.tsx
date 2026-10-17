@@ -200,14 +200,24 @@ export default function Stage3D({
     // Rendering is optional; unavailable GPU must never stop the rhythm runtime.
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2");
-    if (!context) return;
+    if (!context) {
+      onPresentationFailureRef.current?.("Không thể khởi tạo WebGL2 trên thiết bị.");
+      return;
+    }
     const mobileRenderProfile = isMobileStageProfile();
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      context,
-      antialias: true,
-      powerPreference: "high-performance",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        context,
+        antialias: true,
+        powerPreference: "high-performance",
+      });
+    } catch (error) {
+      onPresentationFailureRef.current?.("Không thể tạo renderer sân khấu trên thiết bị.");
+      console.warn("[Stage3D] WebGL renderer initialization failed:", error);
+      return;
+    }
     // Compare captures must be sharp enough for edge/halo QA on Retina iPhones.
     // Backing resolution changes only; CSS viewport, FOV and camera anchors
     // remain unchanged. Gameplay retains its existing mobile DPR cap.
@@ -547,6 +557,9 @@ export default function Stage3D({
       if (character && characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();
+      // Explicitly release backing stores when this scene is removed, instead
+      // of retaining a second WebGL context until Safari decides to run GC.
+      renderer.forceContextLoss();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };

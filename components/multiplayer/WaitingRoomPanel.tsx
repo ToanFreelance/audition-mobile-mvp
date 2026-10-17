@@ -2134,6 +2134,7 @@ export default function WaitingRoomPanel({
         startRevision={matchStartSession.startRevision}
         performanceDiagnostics={performanceDiagnostics}
         diagnosticAudioContext={performanceDiagnostics ? gameplayAudioContextRef.current : null}
+        loadedParticipantIds={matchStartSession.participants.filter(item => item.state === "loaded").map(item => item.participantId)}
       />
     );
   }
@@ -2263,7 +2264,9 @@ export default function WaitingRoomPanel({
               )}
             </aside>
           )}
-          {hasVerifiedRoomOnce && !matchStartSession && <WaitingRoomStage3D
+          {/* START intent releases the costly Waiting Room WebGL context before
+              asynchronous manifest resolution/asset preload begins on Safari. */}
+          {hasVerifiedRoomOnce && !startIntentPending && !matchStartSession && <WaitingRoomStage3D
             calibrationMode={calibrationMode}
             blueprintMode={blueprintMode}
             calibrationResetToken={calibrationResetToken}

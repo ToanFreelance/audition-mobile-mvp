@@ -502,3 +502,6 @@
   .entryCurtain .entrySteps b{min-height:43px;}
   .entryCurtain .entryRoster>span{padding:3px 2px;}
 }
+
+/* Avoid offscreen backdrop-blur compositing over a live WebGL canvas on Safari. */
+.entryCurtain .entryTitle{backdrop-filter:none;-webkit-backdrop-filter:none;}

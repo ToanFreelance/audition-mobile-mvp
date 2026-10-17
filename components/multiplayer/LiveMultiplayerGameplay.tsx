@@ -63,11 +63,17 @@ export default function LiveMultiplayerGameplay(props: {
   startRevision?: number;
   performanceDiagnostics?: PerformanceDiagnostics | null;
   diagnosticAudioContext?: AudioContext | null;
+  /** Frozen authoritative LOADED acknowledgements for the transition UI. */
+  loadedParticipantIds?: readonly string[];
 }) {
   const [snapshot, setSnapshot] = useState<MultiplayerGameplaySnapshot>(() => props.runtime.snapshot());
   const [stagePresentationReady, setStagePresentationReady] = useState(false);
   const [stagePresentationError, setStagePresentationError] = useState<string | null>(null);
   const [entryCurtainVisible, setEntryCurtainVisible] = useState(true);
+  const loadedCount = props.manifest.participants.filter(p => props.loadedParticipantIds?.includes(p.participantId)).length;
+  const allPreloaded = loadedCount === props.manifest.participants.length;
+  const launchProgress = 25 * (Number(loadedCount > 0) + Number(allPreloaded)
+    + Number(snapshot.songTimeMs > 0) + Number(stagePresentationReady));
   const onStagePresentationReady = useCallback(() => setStagePresentationReady(true), []);
   // The banner never lifts until the actual 3D scene, actor, animation mixer
   // and authoritative shared start have progressed. No artificial deadline.
@@ -416,26 +422,26 @@ export default function LiveMultiplayerGameplay(props: {
               : !stagePresentationReady ? "Loading stage, characters and animations…"
               : snapshot.songTimeMs <= 0 ? "Scene ready · Waiting for shared epoch" : "Ready to dance!"}</small>
             <div className={transitionStyles.entrySteps}>
-              <b className={transitionStyles.entryDone}>01 <small>PRELOAD ✓</small></b>
-              <b className={transitionStyles.entryDone}>02 <small>LOADED ✓</small></b>
+              <b className={loadedCount > 0 ? transitionStyles.entryDone : ""}>01 <small>PRELOAD {loadedCount > 0 ? "✓" : "◌"}</small></b>
+              <b className={allPreloaded ? transitionStyles.entryDone : ""}>02 <small>LOADED {allPreloaded ? "✓" : "◌"}</small></b>
               <b className={snapshot.songTimeMs > 0 ? transitionStyles.entryDone : ""}>03 <small>SYNC {snapshot.songTimeMs > 0 ? "✓" : "◌"}</small></b>
               <b className={stagePresentationReady ? transitionStyles.entryDone : ""}>04 <small>STAGE {stagePresentationReady ? "✓" : "◌"}</small></b>
             </div>
             <div className={transitionStyles.entryTrack}
               role="progressbar" aria-label="Tiến trình sân khấu" aria-valuemin={0} aria-valuemax={100}
-              aria-valuenow={50 + Number(snapshot.songTimeMs > 0) * 25 + Number(stagePresentationReady) * 25}
+              aria-valuenow={launchProgress}
             >
-              <i style={{ width: `${50 + Number(snapshot.songTimeMs > 0) * 25 + Number(stagePresentationReady) * 25}%` }} />
-              <span>{50 + Number(snapshot.songTimeMs > 0) * 25 + Number(stagePresentationReady) * 25}%</span>
+              <i style={{ width: `${launchProgress}%` }} />
+              <span>{launchProgress}%</span>
             </div>
             <small className={transitionStyles.epochInfo}>SHARED EPOCH · {Math.round(props.startAtServerMs)}</small>
-            <div className={transitionStyles.entryRosterTitle}>DANCERS LOADED <b>{props.manifest.participants.length}/{props.manifest.participants.length}</b></div>
+            <div className={transitionStyles.entryRosterTitle}>DANCERS LOADED <b>{loadedCount}/{props.manifest.participants.length}</b></div>
             <div className={transitionStyles.entryRoster}>
               {props.manifest.participants.map(participant => (
                 <span key={participant.participantId}>
                   <i>{participant.role === "host" ? "♛" : "✦"}</i>
                   <b>{participant.displayName}</b>
-                  <small>✓ LOADED</small>
+                  <small>{props.loadedParticipantIds?.includes(participant.participantId) ? "✓ LOADED" : "◌ WAITING"}</small>
                 </span>
               ))}
             </div>
