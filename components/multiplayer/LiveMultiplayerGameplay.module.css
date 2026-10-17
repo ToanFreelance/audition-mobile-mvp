@@ -514,5 +514,5 @@
 }
 .entryCurtain > [data-testid="preload-state"]{
   position:relative;inset:auto;margin:0 auto;
-  width:min(100%,700px);max-width:700px;
+  width:min(100%,873px);max-width:873px;
 }
