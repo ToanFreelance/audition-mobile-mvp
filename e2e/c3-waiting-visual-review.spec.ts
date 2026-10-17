@@ -348,8 +348,30 @@ test("C3 bubble-chain chrome joins every step; filled check and READY pill distr
   const chain = panel.getByTestId("preload-bubble-chain");
   await expect(chain.getByTestId("preload-bubble-link")).toHaveCount(3);
   for (const bridge of await chain.getByTestId("preload-bubble-link").all()) {
-    const neck = bridge.locator("path").first();
-    await expect(neck).toHaveAttribute("d", /C.*Z$/);
+    const contours = bridge.locator("path");
+    await expect(contours).toHaveCount(5);
+    // A connected water-bubble outline has NO filled bridge and NO closed Z.
+    for (const path of await contours.all()) {
+      await expect(path).toHaveAttribute("fill", "none");
+      await expect(path).toHaveAttribute("d", /^M .* C .*$/);
+      const shape = await path.getAttribute("d");
+      expect(shape).not.toMatch(/Z/i);
+    }
+  }
+  const shells = panel.getByTestId("preload-bubble-shell");
+  await expect(shells).toHaveCount(4);
+  for (const shell of await shells.all()) {
+    const outer = shell.getByTestId("bubble-outer-shell");
+    const core = shell.getByTestId("bubble-inner-core");
+    const [ox,oy,ow,oh,ix,iy,iw,ih] = await Promise.all([
+      outer.getAttribute("x"),outer.getAttribute("y"),outer.getAttribute("width"),
+      outer.getAttribute("height"),core.getAttribute("x"),core.getAttribute("y"),
+      core.getAttribute("width"),core.getAttribute("height"),
+    ]).then(v=>v.map(Number));
+    expect(ix-ox, "separate refractive bubble shell / inner core").toBeGreaterThanOrEqual(10);
+    expect(iy-oy).toBeGreaterThanOrEqual(10);
+    expect(ox+ow-ix-iw).toBeGreaterThanOrEqual(10);
+    expect(oy+oh-iy-ih).toBeGreaterThanOrEqual(10);
   }
   const done = panel.getByTestId("preload-step-01");
   await expect(done).toHaveAttribute("data-step-state", "done");

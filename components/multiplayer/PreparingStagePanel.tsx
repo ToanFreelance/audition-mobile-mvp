@@ -133,25 +133,32 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
     <path d="M86 80h13l4-8 5 18 5-30 5 34 4-14h10" stroke="#76ecff" strokeWidth="2.5"
       fill="none" transform="translate(866 0) scale(-1 1)" opacity=".92"/>
     <path d="M94 78H132M741 78H778" stroke="#53d8ff" strokeWidth="3" filter="url(#c3-soft)"/>
-    {/* Three fluid necks intersect the capsules beneath their enamel rim;
-        each neck belongs to the same bubble silhouette, not a detached line. */}
+    {/* Open-water neck: TOP and BOTTOM contours only. Both ends join
+        the outer shell exactly where its rim deliberately opens; absolutely
+        no filled path/polygon can make a solid bridge between capsules. */}
     <g data-testid="preload-bubble-chain">
       {geometry.slice(0,-1).map((left,index)=>{
         const right=geometry[index+1];
-        const x1=left.x+left.width-10;
-        const x2=right.x+10;
+        const x1=left.x+left.width;
+        const x2=right.x;
+        const top1=left.y+left.radius;
+        const top2=right.y+right.radius;
+        const bottom1=left.y+left.height-left.radius;
+        const bottom2=right.y+right.height-right.radius;
         const mid=(x1+x2)/2;
-        const neck=`M ${x1} 189 C ${x1+12} 189 ${x1+10} 200 ${mid} 200 C ${x2-10} 200 ${x2-12} 189 ${x2} 189 L ${x2} 225 C ${x2-12} 225 ${x2-10} 214 ${mid} 214 C ${x1+10} 214 ${x1+12} 225 ${x1} 225 Z`;
-        const shine=`M ${x1} 196 C ${x1+10} 196 ${x1+11} 203 ${mid} 203 C ${x2-11} 203 ${x2-10} 196 ${x2} 196`;
-        const bottom=`M ${x1} 219 C ${x1+10} 219 ${x1+11} 211 ${mid} 211 C ${x2-11} 211 ${x2-10} 219 ${x2} 219`;
+        const upper=`M ${x1} ${top1} C ${x1+7} ${top1-1} ${mid-8} 199 ${mid} 199 C ${mid+8} 199 ${x2-7} ${top2-1} ${x2} ${top2}`;
+        const lower=`M ${x1} ${bottom1} C ${x1+7} ${bottom1+1} ${mid-8} 215 ${mid} 215 C ${mid+8} 215 ${x2-7} ${bottom2+1} ${x2} ${bottom2}`;
         return <g key={index} data-testid="preload-bubble-link">
-          <path d={neck} fill={`url(#c3-bubble-link-${index})`} opacity=".84"
-            stroke={`url(#c3-bubble-link-${index})`} strokeWidth="4.5"
-            filter="url(#c3-neon)"/>
-          <path d={neck} fill={`url(#c3-bubble-link-${index})`} stroke="#b5d8ff"
-            strokeWidth=".85" strokeOpacity=".7"/>
-          <path d={shine} stroke="#dcfaff" strokeWidth="2" strokeOpacity=".87" fill="none"/>
-          <path d={bottom} stroke="#c185ff" strokeWidth="1.45" strokeOpacity=".7" fill="none"/>
+          <path d={upper} fill="none" stroke={`url(#c3-bubble-link-${index})`}
+            strokeWidth="5" strokeLinecap="round" opacity=".85" filter="url(#c3-soft)"/>
+          <path d={lower} fill="none" stroke={`url(#c3-bubble-link-${index})`}
+            strokeWidth="5" strokeLinecap="round" opacity=".85" filter="url(#c3-soft)"/>
+          <path d={upper} fill="none" stroke={`url(#c3-bubble-link-${index})`}
+            strokeWidth="2.2" strokeLinecap="round" />
+          <path d={lower} fill="none" stroke={`url(#c3-bubble-link-${index})`}
+            strokeWidth="2.2" strokeLinecap="round" />
+          <path d={upper} fill="none" stroke="#e3faff"
+            strokeWidth=".95" strokeLinecap="round" opacity=".67"/>
         </g>;
       })}
     </g>
@@ -161,23 +168,44 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
       const color=step.done
         ? index===1?"#e57aff":"#69efff"
         : step.active?"#d179ff":"#5c61a7";
-      return <g key={index}>
-        <rect x={g.x} y={g.y} width={g.width} height={g.height} rx={g.radius} fill={color}
-          opacity={on?".34":".1"} filter="url(#c3-neon)"/>
-        <rect x={g.x+2} y={g.y+2} width={g.width-4} height={g.height-4} rx={g.radius-2}
+      // Outer shell is ~11px larger on all sides than the inner process core.
+      // The center-facing sides of connected shells remain OPEN so that the
+      // unfilled neck contours visually extend their exterior perimeter.
+      const inset=11.5;
+      const topRim=`M ${g.x} ${g.y+g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x+g.radius} ${g.y} H ${g.x+g.width-g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x+g.width} ${g.y+g.radius}`;
+      const lowerRim=`M ${g.x+g.width} ${g.y+g.height-g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x+g.width-g.radius} ${g.y+g.height} H ${g.x+g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x} ${g.y+g.height-g.radius}`;
+      return <g key={index} data-testid="preload-bubble-shell">
+        <rect x={g.x} y={g.y} width={g.width} height={g.height} rx={g.radius}
+          fill={color} opacity={on?".29":".10"} filter="url(#c3-neon)"/>
+        <rect data-testid="bubble-outer-shell" x={g.x} y={g.y}
+          width={g.width} height={g.height} rx={g.radius}
+          fill="url(#c3-bubble-sheen)" fillOpacity={on?".19":".10"}/>
+        {/* Split outer outline: omit internal vertical seams at all necks. */}
+        {[topRim,lowerRim].map((d,i)=><g key={i}>
+          <path d={d} fill="none" stroke={color} strokeWidth={on?6:4}
+            opacity={on?".64":".25"} filter="url(#c3-soft)"/>
+          <path d={d} fill="none" stroke={color} strokeWidth={on?2.8:2}
+            strokeLinecap="round" opacity={on?"1":".65"}/>
+          <path d={d} fill="none" stroke="#efffff" strokeWidth=".85"
+            opacity={on?".62":".22"}/>
+        </g>)}
+        {index===0 && <path d={`M ${g.x} ${g.y+g.radius} V ${g.y+g.height-g.radius}`}
+          stroke={color} strokeWidth="2.4" fill="none"/>}
+        {index===geometry.length-1 && <path
+          d={`M ${g.x+g.width} ${g.y+g.radius} V ${g.y+g.height-g.radius}`}
+          stroke={color} strokeWidth="2.4" fill="none" opacity=".8"/>}
+        <rect data-testid="bubble-inner-core"
+          x={g.x+inset} y={g.y+inset}
+          width={g.width-2*inset} height={g.height-2*inset}
+          rx={g.radius-inset}
           fill={step.done ? (index===1?"url(#c3-purple)":"url(#c3-blue)"):"url(#c3-dark-step)"}
-          stroke={color} strokeWidth={on?3:2} />
-        {/* Double refractive glass rim: bright upper reflection, muted lower
-            bounce. Glows are decorative only, independent of protocol state. */}
-        <rect x={g.x+5.6} y={g.y+5.6} width={g.width-11.2} height={g.height-11.2} rx={g.radius-5.6}
-          fill="none" stroke={color} strokeOpacity={on?".65":".24"} strokeWidth="1.35"/>
-        <path d={`M ${g.x+g.radius-8} ${g.y+6.5} H ${g.x+g.width-g.radius+6}
-          Q ${g.x+g.width-6} ${g.y+8} ${g.x+g.width-6} ${g.y+g.radius-7}`}
-          fill="none" stroke="url(#c3-bubble-sheen)" strokeWidth="2.1"
-          strokeLinecap="round" strokeOpacity={on?".91":".46"}/>
-        <path d={`M ${g.x+g.radius-6} ${g.y+g.height-6.5}
-          H ${g.x+g.width-g.radius+7}`} fill="none"
-          stroke="#b5a7ff" strokeWidth="1.25" strokeOpacity={on?".5":".25"}/>
+          stroke={color} strokeWidth={on?2.35:1.6} strokeOpacity={on?".94":".58"}/>
+        <rect x={g.x+inset+2.4} y={g.y+inset+2.4}
+          width={g.width-2*inset-4.8} height={g.height-2*inset-4.8}
+          rx={g.radius-inset-2.4} fill="none"
+          stroke="url(#c3-bubble-sheen)" strokeWidth="1.1" opacity={on?".83":".38"}/>
+        <path d={`M ${g.x+g.radius+1} ${g.y+3.1} H ${g.x+g.width-g.radius-2}`}
+          stroke="#f2ffff" strokeWidth="1.6" strokeLinecap="round" opacity={on?".73":".32"} fill="none"/>
       </g>;
     })}
     <rect x="50" y="281" width="682" height="37" rx="20" fill="#9164ff" opacity=".34" filter="url(#c3-soft)"/>
