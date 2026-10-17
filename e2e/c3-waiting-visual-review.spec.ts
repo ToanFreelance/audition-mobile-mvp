@@ -339,3 +339,41 @@ test("C3 successful LOADED keeps routine messages and diagnostic notices outside
     animations:"disabled",
   });
 });
+
+test("C3 bubble-chain chrome joins every step; filled check and READY pill distribute to both edges", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto("/tools/c3-preloading-five?loaded=1");
+  const panel = page.getByTestId("preload-state");
+  await expect(panel).toBeVisible();
+  const chain = panel.getByTestId("preload-bubble-chain");
+  await expect(chain.getByTestId("preload-bubble-link")).toHaveCount(3);
+  for (const bridge of await chain.getByTestId("preload-bubble-link").all()) {
+    const neck = bridge.locator("path").first();
+    await expect(neck).toHaveAttribute("d", /C.*Z$/);
+  }
+  const done = panel.getByTestId("preload-step-01");
+  await expect(done).toHaveAttribute("data-step-state", "done");
+  const filled = done.getByTestId("filled-ready-check");
+  await expect(filled.locator("circle[fill='#8fffe8']")).toHaveCount(1);
+  const pill = panel.locator('[data-load-state="loaded"] [class*="loadBadge"]').first();
+  const check = pill.getByTestId("filled-ready-check");
+  const label = pill.locator('[class*="badgeLabel"]');
+  await expect(check).toBeVisible();
+  await expect(label).toHaveText("LOADED");
+  const spaces = await pill.evaluate(element => {
+    const a = element.getBoundingClientRect();
+    const icon = element.querySelector("svg")!.getBoundingClientRect();
+    const txt = element.querySelector('[class*="badgeLabel"]')!.getBoundingClientRect();
+    return {
+      iconLeft: icon.left - a.left, labelRight: a.right - txt.right,
+      centerGap: txt.left - icon.right, pillWidth: a.width,
+    };
+  });
+  expect(spaces.iconLeft).toBeLessThan(spaces.pillWidth * .2);
+  expect(spaces.labelRight).toBeLessThan(spaces.pillWidth * .2);
+  expect(spaces.centerGap).toBeGreaterThan(1);
+  await page.screenshot({
+    path:"test-results/c3-baseline/bubble-chain-filled-check-390x740.png",
+    fullPage:false, animations:"disabled",
+  });
+});

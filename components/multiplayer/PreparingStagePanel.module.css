@@ -89,13 +89,18 @@
 .dancer>strong{font-size:1.6cqw;color:#f5edff;max-width:96%;text-overflow:ellipsis;
   overflow:hidden;white-space:nowrap;line-height:1.1;font-weight:800;}
 .dancer>small{font-size:1.35cqw;color:#c0c8f7;white-space:nowrap;}
-.loadBadge{width:87%;height:3.6cqw;display:flex;justify-content:center;align-items:center;gap:.6cqw;
+.loadBadge{box-sizing:border-box;width:87%;height:3.6cqw;
+  display:flex;justify-content:center;align-items:center;gap:.35cqw;
   border:.2cqw solid #626eaa;border-radius:4cqw;white-space:nowrap;
-  font-size:1.4cqw;font-weight:900;color:#b2afd8;background:rgba(13,14,58,.48);}
+  font-size:1.4cqw;font-weight:900;color:#b2afd8;background:rgba(13,14,58,.48);
+  min-width:0;}
 .loadBadgeDone{border-color:#68efcf;color:#8effdd;
-  box-shadow:0 0 .8cqw rgba(88,254,221,.34);
+  justify-content:space-between;padding-inline:.65cqw 1.15cqw;
+  box-shadow:0 0 .8cqw rgba(88,254,221,.34),inset 0 0 .4cqw rgba(72,245,206,.12);
   background:linear-gradient(90deg,rgba(13,79,76,.6),rgba(9,31,69,.6));}
 .loadBadge svg{width:2.6cqw;height:2.6cqw;flex:0 0 auto;}
+.loadBadge .badgeLabel{display:block;flex:0 0 auto;text-align:right;line-height:1;}
+.filledCheck{color:#8fffe8;filter:drop-shadow(0 0 .52cqw rgba(103,255,231,.88));}
 .recovery{position:relative;display:flex;flex-direction:column;gap:6px;
   background:#100f41;padding:0 10px;z-index:3;}
 .recovery:not(:empty){padding:8px 10px 12px;}

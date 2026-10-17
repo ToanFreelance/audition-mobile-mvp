@@ -23,10 +23,16 @@ type Props = {
   children?: ReactNode;
 };
 
+/** Filled enamel badge, shared by completed steps and roster READY/LOADED. */
 function CheckMark() {
-  return <svg viewBox="0 0 34 34" fill="none" aria-hidden="true">
-    <circle cx="17" cy="17" r="13" stroke="currentColor" strokeWidth="2.3"/>
-    <path d="m10.3 17 4.6 4.6 8.5-9.1" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"/>
+  return <svg className={styles.filledCheck} data-testid="filled-ready-check"
+    viewBox="0 0 34 34" fill="none" aria-hidden="true">
+    <circle cx="17" cy="17" r="16.1" fill="#7fffe4" opacity=".22"/>
+    <circle cx="17" cy="17" r="13.6" fill="#8fffe8" stroke="#e6ffff" strokeWidth="1.4"/>
+    <path d="m10.3 17 4.6 4.6 8.5-9.1" stroke="#123e52" strokeWidth="3.1"
+      strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M8.5 11.4a10.7 10.7 0 0 1 16-4.3" stroke="#fff" strokeOpacity=".75"
+      strokeWidth="1.45" strokeLinecap="round"/>
   </svg>;
 }
 function Spinner() {
@@ -96,6 +102,25 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
       <filter id="c3-soft" x="-18%" y="-20%" width="136%" height="140%">
         <feGaussianBlur stdDeviation="3"/>
       </filter>
+      <linearGradient id="c3-bubble-sheen" x1="0" y1="0" x2="0" y2="1">
+        <stop stopColor="#e3ffff" stopOpacity=".83"/>
+        <stop offset=".34" stopColor="#b9dcff" stopOpacity=".17"/>
+        <stop offset=".72" stopColor="#6747d1" stopOpacity="0"/>
+        <stop offset="1" stopColor="#e5baff" stopOpacity=".33"/>
+      </linearGradient>
+      {geometry.slice(0,-1).map((g,index)=>{
+        const end=geometry[index+1];
+        const leftColor=steps[index].done ? (index===1?"#f38cff":"#67f5ff")
+          : steps[index].active?"#d184ff":"#6368ab";
+        const rightColor=steps[index+1].done ? (index+1===1?"#f38cff":"#67f5ff")
+          : steps[index+1].active?"#d184ff":"#6368ab";
+        return <linearGradient key={index} id={`c3-bubble-link-${index}`} gradientUnits="userSpaceOnUse"
+          x1={g.x+g.width} x2={end.x}>
+          <stop stopColor={leftColor} stopOpacity=".81"/>
+          <stop offset=".49" stopColor="#c0bfff" stopOpacity=".48"/>
+          <stop offset="1" stopColor={rightColor} stopOpacity=".81"/>
+        </linearGradient>;
+      })}
     </defs>
     <rect x="6" y="7" width="861" height="630" rx="41" fill="#8040ff" opacity=".32" filter="url(#c3-neon)"/>
     <rect x="2.4" y="2.4" width="868.2" height="639.2" rx="41" fill="url(#c3-plate-bg)"
@@ -108,8 +133,28 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
     <path d="M86 80h13l4-8 5 18 5-30 5 34 4-14h10" stroke="#76ecff" strokeWidth="2.5"
       fill="none" transform="translate(866 0) scale(-1 1)" opacity=".92"/>
     <path d="M94 78H132M741 78H778" stroke="#53d8ff" strokeWidth="3" filter="url(#c3-soft)"/>
-    <path d="M125 207H760" stroke="#cd6cff" strokeWidth="6" opacity=".8" filter="url(#c3-soft)"/>
-    <path d="M125 207H760" stroke="#a7a3ff" strokeWidth="2" opacity=".87"/>
+    {/* Three fluid necks intersect the capsules beneath their enamel rim;
+        each neck belongs to the same bubble silhouette, not a detached line. */}
+    <g data-testid="preload-bubble-chain">
+      {geometry.slice(0,-1).map((left,index)=>{
+        const right=geometry[index+1];
+        const x1=left.x+left.width-10;
+        const x2=right.x+10;
+        const mid=(x1+x2)/2;
+        const neck=`M ${x1} 189 C ${x1+12} 189 ${x1+10} 200 ${mid} 200 C ${x2-10} 200 ${x2-12} 189 ${x2} 189 L ${x2} 225 C ${x2-12} 225 ${x2-10} 214 ${mid} 214 C ${x1+10} 214 ${x1+12} 225 ${x1} 225 Z`;
+        const shine=`M ${x1} 196 C ${x1+10} 196 ${x1+11} 203 ${mid} 203 C ${x2-11} 203 ${x2-10} 196 ${x2} 196`;
+        const bottom=`M ${x1} 219 C ${x1+10} 219 ${x1+11} 211 ${mid} 211 C ${x2-11} 211 ${x2-10} 219 ${x2} 219`;
+        return <g key={index} data-testid="preload-bubble-link">
+          <path d={neck} fill={`url(#c3-bubble-link-${index})`} opacity=".84"
+            stroke={`url(#c3-bubble-link-${index})`} strokeWidth="4.5"
+            filter="url(#c3-neon)"/>
+          <path d={neck} fill={`url(#c3-bubble-link-${index})`} stroke="#b5d8ff"
+            strokeWidth=".85" strokeOpacity=".7"/>
+          <path d={shine} stroke="#dcfaff" strokeWidth="2" strokeOpacity=".87" fill="none"/>
+          <path d={bottom} stroke="#c185ff" strokeWidth="1.45" strokeOpacity=".7" fill="none"/>
+        </g>;
+      })}
+    </g>
     {geometry.map((g,index) => {
       const step=steps[index];
       const on=step.done || step.active;
@@ -122,8 +167,17 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
         <rect x={g.x+2} y={g.y+2} width={g.width-4} height={g.height-4} rx={g.radius-2}
           fill={step.done ? (index===1?"url(#c3-purple)":"url(#c3-blue)"):"url(#c3-dark-step)"}
           stroke={color} strokeWidth={on?3:2} />
-        <rect x={g.x+6} y={g.y+6} width={g.width-12} height={g.height-12} rx={g.radius-6}
-          fill="none" stroke={color} strokeOpacity={on?".52":".15"} strokeWidth="1.1"/>
+        {/* Double refractive glass rim: bright upper reflection, muted lower
+            bounce. Glows are decorative only, independent of protocol state. */}
+        <rect x={g.x+5.6} y={g.y+5.6} width={g.width-11.2} height={g.height-11.2} rx={g.radius-5.6}
+          fill="none" stroke={color} strokeOpacity={on?".65":".24"} strokeWidth="1.35"/>
+        <path d={`M ${g.x+g.radius-8} ${g.y+6.5} H ${g.x+g.width-g.radius+6}
+          Q ${g.x+g.width-6} ${g.y+8} ${g.x+g.width-6} ${g.y+g.radius-7}`}
+          fill="none" stroke="url(#c3-bubble-sheen)" strokeWidth="2.1"
+          strokeLinecap="round" strokeOpacity={on?".91":".46"}/>
+        <path d={`M ${g.x+g.radius-6} ${g.y+g.height-6.5}
+          H ${g.x+g.width-g.radius+7}`} fill="none"
+          stroke="#b5a7ff" strokeWidth="1.25" strokeOpacity={on?".5":".25"}/>
       </g>;
     })}
     <rect x="50" y="281" width="682" height="37" rx="20" fill="#9164ff" opacity=".34" filter="url(#c3-soft)"/>
@@ -224,8 +278,10 @@ export default function PreparingStagePanel({
               <small>{availableLevel(member)}</small>
               <div className={`${styles.loadBadge} ${person.state==="loaded"||person.state==="ready"?styles.loadBadgeDone:""}`}>
                 {(person.state==="loaded"||person.state==="ready")&&<CheckMark/>}
-                {person.state==="loaded"?"LOADED":person.state==="ready"?"READY":
-                  person.state==="waiting"?"WAITING":person.state.toUpperCase()}
+                <span className={styles.badgeLabel}>
+                  {person.state==="loaded"?"LOADED":person.state==="ready"?"READY":
+                    person.state==="waiting"?"WAITING":person.state.toUpperCase()}
+                </span>
               </div>
             </div>;
           })}
