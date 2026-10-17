@@ -31,7 +31,7 @@ test("preload consumes all streaming bytes without copying into an ArrayBuffer",
   }
 });
 
-test("preload waits for the final chunk, and propagates truncated/failed streams", async () => {
+test("preload waits for the final streaming chunk before resolving", async () => {
   const actualFetch = globalThis.fetch;
   let finish!: () => void;
   let firstChunkRead = false;
@@ -66,5 +66,47 @@ test("non-OK preload still fails before any LOADED acknowledgement", async () =>
     );
   } finally {
     globalThis.fetch = actualFetch;
+  }
+});
+
+test("streaming preload propagates mid-response network errors", async () => {
+  const actualFetch = globalThis.fetch;
+  const broken = new Response(new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array([1, 2, 3]));
+      controller.error(new Error("Connection interrupted"));
+    },
+  }), { status: 200 });
+  globalThis.fetch = async () => broken;
+  try {
+    await expect(preloadAssetBytes("/broken.glb", "Model")).rejects.toThrow("Connection interrupted");
+  } finally {
+    globalThis.fetch = actualFetch;
+  }
+});
+
+test("WebAudio decoder consumes the original bytes without cloning", async () => {
+  const { WebAudioTransport } = await import("../game/web-audio-transport");
+  const originalFetch = globalThis.fetch;
+  const audioBytes = new ArrayBuffer(128);
+  const response = new Response(audioBytes, { status: 200 });
+  response.arrayBuffer = async () => audioBytes;
+  let decodedInput: ArrayBuffer | null = null;
+  const context = {
+    state: "running" as AudioContextState,
+    decodeAudioData: async (bytes: ArrayBuffer) => {
+      decodedInput = bytes;
+      return { duration: 10 } as AudioBuffer;
+    },
+  } as unknown as AudioContext;
+  globalThis.fetch = async () => response;
+  const transport = new WebAudioTransport("/test.mp3", context);
+  try {
+    await transport.prepare();
+    expect(decodedInput).toBe(audioBytes);
+    expect(await transport.getDecodedBuffer()).toBeTruthy();
+  } finally {
+    await transport.destroy();
+    globalThis.fetch = originalFetch;
   }
 });
