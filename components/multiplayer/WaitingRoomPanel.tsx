@@ -826,6 +826,12 @@ export default function WaitingRoomPanel({
       : room,
     [presentParticipantIds, room, syncOptions],
   );
+  // Resolve the local viewer before all derived PRELOADING state. Accessing
+  // viewer inside localPreloadLoaded before this declaration causes a TDZ
+  // ReferenceError immediately after START CAS succeeds in Safari.
+  const viewer = room.participants.find(item => item.participantId === viewParticipantId)
+    ?? (initialSync?.entryFlow ? room.participants[0]
+      : syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
   const matchStartSession = useMemo(() => {
     if (!room.matchStart) return null;
     try {
@@ -894,9 +900,6 @@ export default function WaitingRoomPanel({
     && estimatedServerNowMs !== null
     && estimatedServerNowMs >= gameplaySchedule.startAtServerMs,
   );
-  const viewer = room.participants.find(item => item.participantId === viewParticipantId)
-    ?? (initialSync?.entryFlow ? room.participants[0]
-      : syncOptions?.role === "guest" ? createP53QaGuestParticipant() : room.participants[0]);
   const hostView = syncOptions
     ? syncOptions.participantId === room.hostParticipantId
     : viewer.participantId === room.hostParticipantId;
