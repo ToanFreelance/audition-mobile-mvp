@@ -13,7 +13,7 @@ import {
   CHARACTER_CATALOG_VERSION,
   resolveCharacterAssetUrl,
 } from "../character/character-catalog";
-import { loadPublishedDanceRelease } from "../character/published-animation-library";
+import { loadPublishedDanceRelease, loadPublishedDanceReleaseIdentity } from "../character/published-animation-library";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import type { LobbyMatchFreezeInput } from "../../multiplayer/lobby-match-freeze";
 import type { MatchManifest } from "../../multiplayer/types";
@@ -80,7 +80,7 @@ export async function prepareLobbyMatchFreezeInput(input: {
   songId: string;
 }): Promise<LobbyMatchFreezeInput> {
   const music = await fetchPlayableMusicConfig(input.songId);
-  const published = await loadPublishedDanceRelease();
+  const publishedIdentity = await loadPublishedDanceReleaseIdentity();
 
   const audioIdentity = {
     songId: music.id,
@@ -95,10 +95,10 @@ export async function prepareLobbyMatchFreezeInput(input: {
     gameplay: music.gameplay,
     updatedAt: music.updatedAt || "unversioned",
   };
-  const animationIdentity = published
+  const animationIdentity = publishedIdentity
     ? {
-        releaseVersion: published.info.releaseVersion,
-        sourceAssetIds: published.info.sourceAssetIds,
+        releaseVersion: publishedIdentity.releaseVersion,
+        sourceAssetIds: publishedIdentity.sourceAssetIds,
       }
     : {
         releaseVersion: 0,
@@ -122,7 +122,7 @@ export async function prepareLobbyMatchFreezeInput(input: {
     chartVersion: `chart:${music.id}:${music.updatedAt || "unversioned"}`,
     chartHash: await sha256(chartIdentity),
     characterRuntimeVersion: `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
-    animationReleaseVersion: published?.info.releaseVersion ?? 0,
+    animationReleaseVersion: publishedIdentity?.releaseVersion ?? 0,
     animationReleaseHash: await sha256(animationIdentity),
     gameplayConfigVersion: GAMEPLAY_CONFIG_VERSION,
     gameplayConfigHash: await sha256(gameplayIdentity),
