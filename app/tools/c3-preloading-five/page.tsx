@@ -2,11 +2,14 @@ import WaitingRoomPanel from "../../../components/multiplayer/WaitingRoomPanel";
 import { DEFAULT_SOLO_SETTINGS } from "../../../game/solo-easy";
 import { beginLobbyPreload } from "../../../multiplayer/lobby-start-handoff";
 import { freezeLobbyMatch } from "../../../multiplayer/lobby-match-freeze";
-import { setGuestReady } from "../../../multiplayer/room-state";
+import { setGuestReady, setParticipantLoadState } from "../../../multiplayer/room-state";
 import { createP51WaitingRoomFixture } from "../../../multiplayer/waiting-room-qa";
 
 /** Five-participant C3 presentation fixture, never connected to real RoomState. */
-export default function C3PreparingStageFivePersonFixture() {
+export default async function C3PreparingStageFivePersonFixture({searchParams}: {
+  searchParams: Promise<{loaded?: string}>;
+}) {
+  const {loaded} = await searchParams;
   const waiting = setGuestReady(
     createP51WaitingRoomFixture("c3-preparing-five"),
     "p51-guest", true,
@@ -30,5 +33,8 @@ export default function C3PreparingStageFivePersonFixture() {
     finishRestTurns: DEFAULT_SOLO_SETTINGS.finishRestTurns,
   });
   const {room} = beginLobbyPreload(waiting,waiting.hostParticipantId,manifest,1);
-  return <WaitingRoomPanel initialRoom={room} visualPreset="sketch" />;
+  const shownRoom = loaded === "1"
+    ? room.participants.reduce((next,person) => setParticipantLoadState(next,person.participantId,"loaded"),room)
+    : room;
+  return <WaitingRoomPanel initialRoom={shownRoom} visualPreset="sketch" />;
 }

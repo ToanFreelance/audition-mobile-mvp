@@ -204,6 +204,21 @@ test("C3 START intent immediately covers released 3D scene while manifest freeze
   const overlay = page.getByTestId("start-intent-overlay");
   await expect(overlay).toBeVisible({ timeout: 8_000 });
   await expect(overlay).toContainText("PREPARING STAGE");
+  const intent = page.getByTestId("start-intent-state");
+  await expect(intent).toBeVisible();
+  await expect(intent.getByTestId("preload-participants").locator(":scope > div")).toHaveCount(1);
+  await expect(intent.getByTestId("start-intent-detail")).toBeEmpty();
+  const visibleFrame = await intent.evaluate((panel) => {
+    const frame = panel.querySelector('[class*="plate"]')!.getBoundingClientRect();
+    const parent = panel.getBoundingClientRect();
+    return {
+      top: frame.top, bottom: frame.bottom, frameHeight: frame.height,
+      panelHeight: parent.height, viewport: window.innerHeight,
+    };
+  });
+  expect(visibleFrame.top).toBeGreaterThanOrEqual(0);
+  expect(visibleFrame.bottom).toBeLessThanOrEqual(visibleFrame.viewport + 1);
+  expect(visibleFrame.frameHeight).toBeLessThanOrEqual(visibleFrame.panelHeight + 1);
   await expect(page.getByTestId("waiting-room-stage")).toHaveCount(0);
   await expect(page.getByTestId("preload-overlay")).toHaveCount(0);
   await page.screenshot({
@@ -300,4 +315,27 @@ test("C3 gameplay entry curtain reuses the same preparing-stage plate and actual
   expect(code).toContain('onPresentationReady={onStagePresentationReady}');
   expect(code).toContain('data-testid="gameplay-entry-curtain"');
   expect(code).not.toContain('className={transitionStyles.entryTitle}');
+});
+
+test("C3 successful LOADED keeps routine messages and diagnostic notices outside the visual plate hidden", async ({ page }) => {
+  await page.setViewportSize({width: 390, height: 740});
+  await page.goto("/tools/c3-preloading-five?loaded=1");
+  const panel = page.getByTestId("preload-state");
+  await expect(panel).toBeVisible({timeout: 20_000});
+  await expect(page.getByTestId("dancers-loaded-count")).toHaveText("5/5");
+  await expect(page.getByTestId("preload-all-loaded")).toBeHidden();
+  await expect(page.getByTestId("shared-countdown")).toBeHidden();
+  await expect(page.getByTestId("p55-audio-state")).toBeHidden();
+  const dimensions = await panel.evaluate((element) => {
+    const plate = element.querySelector('[class*="plate"]')!.getBoundingClientRect();
+    const root = element.getBoundingClientRect();
+    return {plateBottom: plate.bottom, rootBottom:root.bottom, viewport:innerHeight};
+  });
+  expect(dimensions.rootBottom-dimensions.plateBottom).toBeLessThanOrEqual(1);
+  expect(dimensions.rootBottom).toBeLessThanOrEqual(dimensions.viewport+1);
+  await page.screenshot({
+    path:"test-results/c3-baseline/preloading-loaded-no-status-390x740.png",
+    fullPage:false,
+    animations:"disabled",
+  });
 });
