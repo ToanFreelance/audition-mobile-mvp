@@ -1110,3 +1110,416 @@
   font-size:7.5px;
   letter-spacing:.04em;
 }
+
+
+/* Manual Host handoff is deliberately distinct from destructive Kick. */
+.playerActions .transferHostButton {
+  border-color: #f3c759;
+  background: linear-gradient(180deg, #76521f, #402e1c);
+  color: #fff4c7;
+  font-weight: 800;
+}
+.playerActions .transferHostButton:disabled { opacity: .48; cursor: not-allowed; }
+
+/* C3 real-room fix: waiting/connection status must never extend the stage
+   or push READY/START buttons below the Safari viewport. Fixed screen overlay,
+   centered within phone safe area, separate from the room layout flow. */
+.preloadOverlay{
+  position:fixed;
+  z-index:150;
+  inset:0;
+  padding:calc(20px + env(safe-area-inset-top,0px))
+          max(15px,env(safe-area-inset-right,0px))
+          calc(20px + env(safe-area-inset-bottom,0px))
+          max(15px,env(safe-area-inset-left,0px));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(ellipse at center,rgba(86,43,163,.23),transparent 72%),
+    rgba(3,5,24,.90);
+  backdrop-filter:blur(11px);
+  -webkit-backdrop-filter:blur(11px);
+  overscroll-behavior:contain;
+}
+.preloadOverlay .preloadBanner{
+  position:relative;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  width:min(100%,410px);
+  max-height:min(76dvh,650px);
+  min-height:0;
+  margin:0;
+  padding:clamp(17px,5vw,27px);
+  overflow:auto;
+  overflow-wrap:anywhere;
+  -webkit-overflow-scrolling:touch;
+  border:1px solid rgba(168,121,255,.83);
+  border-radius:21px;
+  background:
+    radial-gradient(ellipse at 50% 0,rgba(183,60,232,.24),transparent 62%),
+    linear-gradient(155deg,#151445,#070f2e 78%);
+  box-shadow:0 0 36px rgba(181,72,255,.3),0 22px 70px rgba(0,0,0,.66),inset 0 1px rgba(255,255,255,.16);
+}
+.preloadOverlay .preloadBanner>strong{
+  color:#f6c2ff;
+  text-align:center;
+  font-size:clamp(19px,5.5vw,26px);
+  letter-spacing:.09em;
+  line-height:1.25;
+  text-shadow:0 0 15px rgba(238,85,255,.5);
+}
+.preloadOverlay .preloadBanner>span{
+  color:#cbd2ed;
+  font-size:11px;
+  font-weight:700;
+  text-align:center;
+  overflow-wrap:anywhere;
+  white-space:normal;
+}
+.preloadOverlay .preloadBanner>small{
+  display:block;
+  text-align:center;
+  color:#a6b3df;
+  line-height:1.45;
+  overflow-wrap:anywhere;
+}
+.preloadOverlay .preloadParticipants{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+  gap:8px;
+  padding:12px 0 3px;
+}
+.preloadOverlay .preloadParticipants span{
+  min-width:0;
+  white-space:normal;
+  padding:9px;
+  text-align:center;
+  border:1px solid rgba(77,115,207,.54);
+  border-radius:9px;
+  background:rgba(19,34,72,.65);
+}
+.preloadOverlay .preloadAllLoaded{
+  display:block;
+  text-align:center;
+  font-size:12px;
+  letter-spacing:.05em;
+  line-height:1.6;
+  overflow-wrap:anywhere;
+}
+.preloadOverlay .preloadAudioState{
+  display:flex;
+  justify-content:center;
+  gap:8px;
+  padding-top:9px;
+  border-top:1px solid rgba(105,129,195,.24);
+}
+.preloadOverlay .preloadAudioState small{
+  flex:1 1 100%;
+  font-size:10px;
+  text-align:center;
+  line-height:1.6;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.preloadOverlay .preloadAudioButton{min-height:38px;padding:8px 12px;font-size:11px}
+@media(max-height:600px){
+  .preloadOverlay .preloadBanner{max-height:calc(100dvh - 24px);padding:14px}
+  .preloadOverlay .preloadParticipants{padding-top:6px;gap:5px}
+  .preloadOverlay .preloadParticipants span{padding:5px}
+}
+
+/* No page scroll: stage flexes to the leftover height; bottom HUD is reserved. */
+.shell{position:fixed;inset:0;width:100%;height:100dvh;min-height:0;overflow:hidden;overscroll-behavior:none;}
+.phone,.phone[data-visual-preset="sketch"]{height:100%;max-height:100%;min-height:0;margin:0;border-radius:0;overflow:hidden;overscroll-behavior:none;}
+.phone[data-visual-preset="sketch"] .stageWrap{flex:1 1 0;min-height:0;height:auto!important;max-height:none!important;margin-top:0!important;}
+.phone[data-visual-preset="sketch"] .slotDock,
+.phone[data-visual-preset="sketch"] .songCard,
+.phone[data-visual-preset="sketch"] .actions{flex-shrink:0;top:0!important;}
+.phone[data-visual-preset="sketch"] .actions{padding-bottom:max(2px,env(safe-area-inset-bottom,0px))!important;}
+.phone[data-visual-preset="sketch"] .safeBottom{display:none!important;}
+@media(max-height:640px){
+  .phone[data-visual-preset="sketch"] .slotDock{padding:4px 5px 3px;margin-bottom:3px;}
+  .phone[data-visual-preset="sketch"] .slotAvatar{width:32px;height:32px;}
+  .phone[data-visual-preset="sketch"] .songCard{padding:4px 6px;margin-bottom:3px;grid-template-columns:42px 1fr auto;gap:5px;}
+  .phone[data-visual-preset="sketch"] .cover{width:42px;height:42px;}
+  .phone[data-visual-preset="sketch"] .actions button{min-height:42px;}
+}
+@media(min-width:500px){.phone[data-visual-preset="sketch"]{border:1px solid rgba(64,86,174,.45);border-radius:0;}}
+.preloadOverlay{isolation:isolate;background:#06091d;backdrop-filter:none;-webkit-backdrop-filter:none;}
+.preloadOverlay .preloadBanner{
+  width:min(100%,440px);
+  max-height:calc(100dvh - 42px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+  border:1px solid rgba(149,208,255,.8);
+  background:linear-gradient(165deg,rgba(12,14,48,.94),rgba(13,12,43,.94) 60%,rgba(5,13,39,.97));
+  box-shadow:0 16px 65px rgba(2,4,23,.9),0 0 32px rgba(94,167,255,.23),inset 0 1px rgba(255,255,255,.24);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+}
+.launchBrand{margin-bottom:10px;text-align:center;font-size:12px;font-weight:1000;font-style:italic;letter-spacing:.11em;color:#fff;text-shadow:0 0 15px #d462ff;}
+.launchBrand span{font-style:normal;font-size:8px;letter-spacing:.16em;color:#81eaff;}
+.launchProgress{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-bottom:12px;}
+.launchProgress span{min-width:0;padding:6px 3px;text-align:center;font-size:9px;font-weight:900;color:#7788b5;border:1px solid rgba(97,112,169,.4);border-radius:6px;background:rgba(8,14,38,.7);}
+.launchProgress .launchProgressDone{color:#b7f8ff;border-color:rgba(83,223,255,.65);background:rgba(11,80,122,.4);box-shadow:0 0 12px rgba(63,194,255,.15);}
+@media(max-height:640px){.preloadOverlay{padding:calc(8px + env(safe-area-inset-top,0px)) 10px calc(8px + env(safe-area-inset-bottom,0px));}.preloadOverlay .preloadBanner{padding:12px;max-height:100%;}}
+
+/* C3 owner-accepted DANCE UP / Yuna exact artwork: responsive live status card. */
+.preloadOverlay {
+  align-items:flex-end;
+  justify-content:center;
+  padding:0 max(10px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));
+}
+.preloadOverlay .preloadBanner {
+  width:min(100%,500px);
+  max-height:49dvh;
+  padding:clamp(10px,2.4vw,18px);
+  border:2px solid rgba(112,198,255,.9);
+  border-radius:22px;
+  background:linear-gradient(160deg,rgba(10,13,56,.97),rgba(13,8,55,.97) 53%,rgba(9,18,58,.98));
+  box-shadow:0 0 14px rgba(107,217,255,.6),0 0 24px rgba(196,61,255,.38),0 22px 50px #040415;
+  gap:5px;
+  scrollbar-width:thin;
+}
+.preloadOverlay .preloadBanner>strong {
+  font-style:italic;
+  font-weight:1000;
+  color:#fde7ff;
+  font-size:clamp(21px,5.5vw,32px);
+  text-shadow:0 0 8px #f746ff,0 0 17px rgba(124,113,255,.9);
+}
+.preloadOverlay .preloadBanner>span[data-testid="preload-match-id"] {
+  order:3;
+  font-size:8px;
+  opacity:.6;
+  font-variant-numeric:tabular-nums;
+}
+.preloadOverlay .preloadBanner>small {order:4;font-size:8px;}
+.preloadOverlay .preloadBanner>em,
+.preloadOverlay .preloadBanner>.preloadAudioState {order:7;}
+.preloadOverlay .launchBrand{
+  text-align:center;
+  margin:0 0 2px;
+  font-size:10px;
+  font-style:italic;
+  letter-spacing:.14em;
+  color:#fdd7ff;
+}
+.preloadOverlay .launchSubtitle{margin:0 auto 4px;max-width:95%;font-size:10px;color:#d9d8ff;text-align:center;line-height:1.25;}
+.preloadOverlay .launchProgress{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:3px 0;}
+.preloadOverlay .launchProgress span{
+  padding:5px 2px;
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  color:#7784bb;
+  font-size:14px;
+  border:1px solid #4e4a9a;
+  border-radius:11px;
+  background:rgba(10,14,51,.9);
+}
+.preloadOverlay .launchProgress b{font-size:7px;white-space:nowrap;letter-spacing:0;}
+.preloadOverlay .launchProgress .launchProgressDone{color:#efffff;border-color:#54eaff;background:rgba(14,83,141,.65);box-shadow:0 0 9px rgba(51,210,255,.4),inset 0 0 10px rgba(97,80,237,.25);}
+.preloadOverlay .launchTrack{height:11px;position:relative;margin:6px 3px;background:#101447;border:1px solid #727aff;border-radius:99px;overflow:hidden;box-shadow:0 0 9px rgba(151,52,232,.3);}
+.preloadOverlay .launchTrack i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#50daff,#954fff,#f950de);box-shadow:0 0 15px #e564ff;transition:width .35s ease-out;}
+.preloadOverlay .launchRosterTitle{display:flex;align-items:center;justify-content:center;gap:8px;color:#f1a5ff;font-size:11px;font-weight:900;letter-spacing:.07em;}
+.preloadOverlay .launchRosterTitle b{font-size:14px;color:#64ffce;}
+.preloadOverlay .launchRosterTitle small{font-size:8px;letter-spacing:0;color:#75eebb;margin-left:auto;}
+.preloadOverlay .preloadParticipants{display:flex;justify-content:center;flex-wrap:nowrap;gap:4px;padding:1px 0;}
+.preloadOverlay .preloadParticipants>span{position:relative;flex:1 1 0;max-width:88px;min-width:0;padding:6px 3px 5px;display:grid;justify-items:center;gap:2px;border:1px solid rgba(91,88,214,.65);border-radius:10px;background:rgba(14,19,72,.83);}
+.preloadOverlay .preloadParticipants>span strong{width:100%;overflow:hidden;text-overflow:ellipsis;text-align:center;white-space:nowrap;font-size:9px;}
+.preloadOverlay .preloadParticipants>span small{font-size:8px;color:#c9c4ff;}
+.preloadOverlay .preloadParticipants>span b{white-space:nowrap;border:1px solid rgba(62,246,207,.55);border-radius:25px;font-size:8px;color:#76ffd7;padding:2px 4px;}
+.preloadOverlay .preloadParticipants>span[data-load-state="idle"] b,
+.preloadOverlay .preloadParticipants>span[data-load-state="loading"] b{border-color:#8080bd;color:#bbb3ec;}
+.preloadOverlay .launchAvatar{position:relative;display:grid;place-items:center;width:37px;height:37px;border:2px solid #cf64fb;border-radius:50%;background:radial-gradient(circle,#7445c5,#141344);color:#fff;font-style:normal;box-shadow:0 0 10px #a53dfc;}
+.preloadOverlay .launchAvatar sup{position:absolute;top:-11px;color:#ffd85c;font-size:14px;}
+.preloadOverlay .preloadAllLoaded{font-size:10px;}
+@media(max-height:760px){
+  .preloadOverlay .preloadBanner{max-height:53dvh;padding:10px;}
+  .preloadOverlay .preloadParticipants>span{padding:4px 2px;}
+  .preloadOverlay .launchRosterTitle small{font-size:7px;}
+}
+@media(max-height:610px){
+  .preloadOverlay .preloadBanner{max-height:60dvh;padding:8px;}
+  .preloadOverlay .preloadBanner>strong{font-size:20px;}
+  .preloadOverlay .launchBrand{font-size:8px;}
+}
+
+/* C3.1 — Approved DANCE UP reference: no duplicate static processing UI.
+ * The hero plate holds the logo + Yuna only, not the baked sketch counters.
+ * Glass processing lives exclusively on an actual match-start session. */
+.stageLaunchOverlay { isolation:isolate; }
+.stageLaunchOverlay .preloadBanner {
+  position:absolute;
+  top:49%;
+  bottom:max(4%,env(safe-area-inset-bottom,0px));
+  left:max(12px,env(safe-area-inset-left,0px));
+  right:max(12px,env(safe-area-inset-right,0px));
+  width:auto;
+  max-width:500px;
+  max-height:none;
+  margin:0 auto;
+  padding:clamp(10px,3vw,18px);
+  justify-content:flex-start;
+  gap:6px;
+  background:linear-gradient(155deg,
+    rgba(24,13,81,.82),
+    rgba(7,14,55,.88) 55%,
+    rgba(26,10,85,.83));
+  border:2px solid rgba(116,194,255,.94);
+  border-radius:25px;
+  box-shadow:
+    0 0 0 1px rgba(237,81,247,.35),
+    0 0 27px rgba(82,143,255,.65),
+    0 0 36px rgba(217,55,255,.26),
+    inset 0 0 32px rgba(113,64,236,.2);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.stageLaunchOverlay .preloadBanner>strong {
+  order:0;
+  margin:0;
+  font-size:clamp(22px,5.4vw,33px);
+  letter-spacing:.04em;
+  font-style:italic;
+  font-weight:1000;
+  line-height:1.1;
+  background:linear-gradient(100deg,#fff 10%,#f9a8ff 35%,#a1e8ff 75%,#fff 96%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  filter:drop-shadow(0 0 8px rgba(229,81,255,.65));
+}
+.stageLaunchOverlay .launchSubtitle{order:0;font-size:clamp(9px,2.25vw,12px);}
+.stageLaunchOverlay .launchProgress{order:0;gap:4px;margin:5px 0;}
+.stageLaunchOverlay .launchProgress span{
+  position:relative;
+  min-height:52px;
+  justify-content:center;
+  border-radius:18px;
+  font-size:clamp(17px,5vw,25px);
+  font-weight:1000;
+  background:linear-gradient(160deg,rgba(24,23,95,.91),rgba(7,13,52,.95));
+  border-color:rgba(94,116,218,.7);
+}
+.stageLaunchOverlay .launchProgress span b{font-size:clamp(7px,1.7vw,10px);}
+.stageLaunchOverlay .launchProgress .launchProgressDone{
+  border-color:#63eaff;
+  background:linear-gradient(150deg,rgba(22,109,191,.84),rgba(50,31,155,.8));
+  box-shadow:0 0 13px rgba(73,220,255,.58),inset 0 0 15px rgba(139,77,255,.45);
+}
+.stageLaunchOverlay .launchProgress .launchProgressDone:after{
+  content:"✓";
+  position:absolute;
+  top:5px;
+  right:5px;
+  width:14px;
+  height:14px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  border:1px solid #6ffff1;
+  color:#80ffe3;
+  font-size:10px;
+  text-shadow:0 0 9px #60ffe3;
+}
+.stageLaunchOverlay .launchProgressMeter{
+  order:0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:1px 4px 5px;
+}
+.stageLaunchOverlay .launchTrack{flex:1;min-width:0;margin:0;height:15px;border:2px solid rgba(146,129,255,.9);background:rgba(10,10,59,.96);}
+.stageLaunchOverlay .launchProgressMeter output{flex:0 0 43px;font-size:19px;color:#a6eeff;font-style:italic;font-weight:950;font-variant-numeric:tabular-nums;}
+.stageLaunchOverlay .launchRosterTitle{order:1;justify-content:flex-start;gap:6px;padding-top:6px;font-size:11px;}
+.stageLaunchOverlay .launchRosterTitle b{font-size:15px;}
+.stageLaunchOverlay .launchRosterTitle small{max-width:40%;text-align:right;}
+.stageLaunchOverlay .preloadParticipants{order:2;display:flex;flex-wrap:nowrap;gap:4px;}
+.stageLaunchOverlay .preloadParticipants>span{flex:1 1 0;max-width:90px;min-width:0;gap:3px;padding:6px 2px;background:rgba(15,18,74,.75);border-color:rgba(90,102,235,.55);}
+.stageLaunchOverlay .launchAvatar{width:35px;height:35px;}
+.stageLaunchOverlay .preloadParticipants>span b{font-size:7px;}
+.stageLaunchOverlay .preloadBanner>span[data-testid="preload-match-id"]{order:3;font-size:8px;}
+.stageLaunchOverlay .preloadBanner>small{order:4;font-size:8px;}
+.stageLaunchOverlay .preloadAllLoaded{order:5;font-size:10px;}
+.stageLaunchOverlay .preloadBanner>.preloadAudioState{order:6;}
+/* Entry room sync happens BEFORE START: no Yuna/launch poster or milestones. */
+.roomSyncOverlay{
+  display:grid;
+  place-items:center;
+  background:rgba(4,7,25,.89);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(10px + env(safe-area-inset-bottom,0px));
+}
+.roomSyncOverlay .preloadBanner{
+  position:relative;
+  inset:auto;
+  width:min(100%,370px);
+  max-height:min(60dvh,420px);
+  margin:0;
+  padding:20px;
+  border:1px solid rgba(109,181,255,.72);
+  border-radius:18px;
+  background:linear-gradient(155deg,rgba(15,17,65,.98),rgba(9,13,39,.98));
+  box-shadow:0 0 24px rgba(76,144,255,.35),0 18px 42px rgba(0,0,0,.55);
+}
+@media(max-height:650px){
+  .stageLaunchOverlay .preloadBanner{top:44%;bottom:max(1%,env(safe-area-inset-bottom,0px));padding:8px;}
+  .stageLaunchOverlay .launchProgress span{min-height:43px;}
+  .stageLaunchOverlay .preloadParticipants>span{padding:3px 2px;}
+}
+
+/* C3.2 initial-entry sync: show only the accepted Yuna hero artwork behind
+ * a small status sheet; never render fake preload milestones before START. */
+.roomSyncOverlay {
+  isolation:isolate;
+  align-items:end;
+  padding-bottom:max(11dvh,calc(env(safe-area-inset-bottom,0px) + 24px));
+}
+.roomSyncOverlay .preloadBanner {
+  position:relative;
+  z-index:2;
+  max-height:min(44dvh,360px);
+  width:min(100%,370px);
+  padding:14px 15px;
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+  background:linear-gradient(155deg,rgba(13,13,55,.96),rgba(9,11,44,.97));
+}
+@media(max-height:640px) {
+  .roomSyncOverlay {padding-bottom:max(5dvh,env(safe-area-inset-bottom,0px));}
+  .roomSyncOverlay .preloadBanner {padding:10px 12px;}
+}
+
+/* C3: full image A remains visible behind a compact room-sync status. */
+.roomSyncOverlay{display:flex;align-items:flex-end;justify-content:center;background:#07091d;padding:12px 12px max(5dvh,calc(env(safe-area-inset-bottom,0px) + 12px));backdrop-filter:none;-webkit-backdrop-filter:none;}
+.roomSyncOverlay .preloadBanner{position:relative;inset:auto;z-index:2;width:min(100%,390px);max-height:min(35dvh,270px);margin:0;overflow-y:auto;padding:12px 15px;border:1px solid rgba(114,207,255,.9);background:linear-gradient(155deg,rgba(13,13,55,.96),rgba(9,11,44,.97));backdrop-filter:none;-webkit-backdrop-filter:none;}
+/* Image B is a layout reference, never a raster with fake counters. */
+.stageLaunchOverlay{display:flex;align-items:flex-end;justify-content:center;background:#07091d;padding:12px max(8px,env(safe-area-inset-right,0px)) max(12px,env(safe-area-inset-bottom,0px));backdrop-filter:none;-webkit-backdrop-filter:none;}
+.stageLaunchOverlay .preloadBanner{position:relative;inset:auto;z-index:2;width:min(100%,700px);max-width:700px;max-height:min(75dvh,690px);min-height:0;margin:0;padding:clamp(10px,3vw,20px);overflow-y:auto;overscroll-behavior:contain;background:linear-gradient(158deg,rgba(29,14,90,.96),rgba(7,15,57,.97) 55%,rgba(29,10,89,.96));backdrop-filter:none;-webkit-backdrop-filter:none;}
+@media(max-height:650px){.stageLaunchOverlay .preloadBanner{max-height:calc(100dvh - 22px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));padding:9px;}.roomSyncOverlay{padding-bottom:max(8px,env(safe-area-inset-bottom,0px));}.roomSyncOverlay .preloadBanner{max-height:min(43dvh,250px);}}
+
+/* START intent uses the same full-height panel geometry as PRELOADING.
+ * Do not cap at 250/290px: the 873:644 SVG was clipped on iPhone Safari. */
+
+/* C3 Processing V3: component-owned panel, not legacy .preloadBanner.
+   Poster remains accepted Image A, new glass status plate matches Image B. */
+.stageLaunchOverlay{align-items:flex-end;justify-content:center;}
+.stageLaunchOverlay [data-testid="preload-state"],
+.stageLaunchOverlay [data-testid="start-intent-state"]{
+  margin:0 auto;
+}
+/* The panel itself sizes to the visual viewport; allow its lower frame
+ * and roster to remain visible while server START confirmation is pending. */
+@media(min-width:700px) and (min-height:600px){
+  .stageLaunchOverlay{padding-bottom:max(3vh,env(safe-area-inset-bottom,0px));}
+}
+
+/* C3: keep background progress diagnostics available to QA without
+ * creating a second text strip under the accepted processing frame. */
+.stageLaunchOverlay [data-testid="shared-countdown"],
+.stageLaunchOverlay [data-testid="preload-all-loaded"],
+.stageLaunchOverlay [data-testid="p55-audio-state"]{display:none;}
+.stageLaunchOverlay .preloadAudioState:has(> [data-testid="p55-audio-state"]){
+  display:contents;
+}

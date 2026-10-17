@@ -1130,10 +1130,35 @@ export default function WaitingRoomStage3D({
       body.position.y = 0.96;
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 8), bodyMaterial);
       head.position.y = 1.78;
+      // An unoccupied sketch slot is a floor marker, not a translucent
+      // substitute dancer. Keep the legacy QA silhouette outside sketch mode.
+      if (sketchVisual) {
+        body.visible = false;
+        head.visible = false;
+      }
       group.add(body, head);
       group.visible = false;
       scene.add(group);
       slotPlaceholdersRef.current.push({ slotIndex, group, ringMaterial, bodyMaterial });
+    }
+
+    // The Reflector performs an offscreen mirror pass before the regular scene.
+    // Reflect real participants normally, but do not reflect empty-slot decals:
+    // otherwise each unoccupied slot shows a second displaced ring (and ghost).
+    // Restore visibility synchronously so the normal pass still shows one marker.
+    if (sketchReflector) {
+      const mirrorPass = sketchReflector.onBeforeRender.bind(sketchReflector);
+      sketchReflector.onBeforeRender = (...args) => {
+        const visibility = slotPlaceholdersRef.current.map(({ group }) => group.visible);
+        try {
+          slotPlaceholdersRef.current.forEach(({ group }) => { group.visible = false; });
+          mirrorPass(...args);
+        } finally {
+          slotPlaceholdersRef.current.forEach(({ group }, index) => {
+            group.visible = visibility[index];
+          });
+        }
+      };
     }
 
     const projectedHead = new THREE.Vector3();
@@ -1844,6 +1869,38 @@ export default function WaitingRoomStage3D({
           return;
         }
 
+        // Room host succession changes role and often slotIndex, but NEVER
+        // changes actor identity. Retint the existing ring in place; keep
+        // the same skinned actor, AnimationMixer, GLB and WebGL scene.
+        if (existing.participant.role !== participant.role
+          || existing.participant.slotIndex !== participant.slotIndex) {
+          const sketch = visualPresetRef.current === "sketch";
+          const accent = sketch
+            ? participantSketchRingAccent(participant)
+            : participantAccent(participant);
+          const isHost = participant.role === "host";
+          const ring = existing.ring;
+          ring.userData.accent = accent;
+          ring.userData.emphasis = isHost ? 0.55 : 0;
+          const materialKeys = [
+            "underglowMaterial", "floorMaterial", "haloMaterial",
+            "outerMaterial", "coreMaterial",
+          ] as const;
+          materialKeys.forEach(key => {
+            const material = ring.userData[key] as THREE.MeshBasicMaterial | undefined;
+            material?.color.setHex(accent);
+          });
+          const inner = ring.userData.innerMaterial as THREE.MeshBasicMaterial | undefined;
+          if (inner) {
+            inner.color.setHex(!sketch && isHost ? 0xffd454 : accent);
+            inner.opacity = sketch ? 0.84 : isHost ? 0.66 : 0.34;
+          }
+          const core = ring.userData.coreMaterial as THREE.MeshBasicMaterial | undefined;
+          if (core && sketch) core.color.set(new THREE.Color(accent).lerp(new THREE.Color(0xffffff), 0.24));
+          const shine = ring.userData.shineMaterial as THREE.MeshBasicMaterial | undefined;
+          if (shine && sketch) shine.color.set(new THREE.Color(accent).lerp(new THREE.Color(0xffffff), 0.32));
+        }
+
         // READY / NOT READY and connection metadata only refresh the node's
         // logical participant reference. Never restart its AnimationMixer.
         existing.participant = participant;
@@ -1967,6 +2024,11 @@ export default function WaitingRoomStage3D({
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
       renderer.dispose();
+      // renderer.dispose() frees Three.js objects but may leave the WebGL
+      // context and backing stores resident until Safari's next GC cycle.
+      // Explicit loss here is safe because this canvas is being destroyed;
+      // free its GPU resources BEFORE match audio/model/animation preloading.
+      renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [roomId, visualPreset]);
@@ -2045,6 +2107,8 @@ export default function WaitingRoomStage3D({
       data-ring-geometry={visualPreset === "sketch" ? "two-medium-one-fine" : "standard"}
       data-stage-risers={visualPreset === "sketch" ? "3" : "0"}
       data-ring-reflection={visualPreset === "sketch" ? "contact-glow-only" : "default"}
+      data-empty-slot-reflection={visualPreset === "sketch" ? "excluded" : "default"}
+      data-empty-slot-presentation={visualPreset === "sketch" ? "marker-only" : "placeholder-actor"}
       data-stage-lighting={visualPreset === "sketch" ? "grand" : "standard"}
       data-character-grade={visualPreset === "sketch" ? "warm-neon" : "standard"}
       data-stage-footprint={visualPreset === "sketch" ? "expanded" : "standard"}

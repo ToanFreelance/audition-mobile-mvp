@@ -1,4 +1,6 @@
 import WaitingRoomPanel from "../../../components/multiplayer/WaitingRoomPanel";
+import { createRoomState } from "../../../multiplayer/room-state";
+import type { HumanHostParticipant } from "../../../multiplayer/types";
 import type { WaitingRoomGoldenTraceMode } from "../../../components/multiplayer/WaitingRoomGoldenTraceSvg";
 
 type LobbyQaSketchPageProps = {
@@ -12,6 +14,7 @@ type LobbyQaSketchPageProps = {
     goldenTrace?: string;
     traceOpacity?: string;
     traceMode?: string;
+    solo?: string;
   }>;
 };
 
@@ -35,9 +38,39 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       }
     : null;
   const goldenTraceEnabled = params.goldenTrace === "1" || params.fixmap === "1";
+  // Read-only 1/5 fixture for ring/reflection QA. Never connects to Supabase.
+  const soloHost: HumanHostParticipant = {
+    participantId: "c3-single-host",
+    displayName: "Luna",
+    kind: "human",
+    role: "host",
+    slotIndex: 2,
+    readyState: "not-applicable",
+    loadState: "idle",
+    connectionState: "connected",
+    avatar: {
+      characterId: "default-female",
+      characterAssetId: "c1-casual-grace",
+      outfit: {},
+      accessoryIds: [],
+      petId: null,
+      titleId: null,
+    },
+  };
+  const soloRoom = params.solo === "1"
+    ? createRoomState({
+        roomId: "c3-ring-fixture",
+        roomName: "C3 Single Host",
+        host: soloHost,
+        maxPlayers: 5,
+        modeId: "solo-easy-battle",
+        selectedSongId: "aloha",
+      })
+    : undefined;
 
   return (
     <WaitingRoomPanel
+      initialRoom={soloRoom}
       initialSync={initialSync}
       calibrationMode={params.calibrate === "1"}
       blueprintMode={params.blueprint === "1"}

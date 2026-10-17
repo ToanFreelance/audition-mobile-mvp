@@ -1,0 +1,319 @@
+.shell{position:relative;min-height:100dvh;display:flex;justify-content:center;overflow-x:hidden;color:#f9f4ff;background:radial-gradient(ellipse at 45% -10%,#44236e 0%,#12132b 43%,#070b1b 100%);font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+.shell::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.38;background:repeating-linear-gradient(108deg,transparent 0 54px,rgba(104,52,220,.095) 57px,transparent 83px),radial-gradient(circle at 16% 11%,#a630d855,transparent 30%),radial-gradient(circle at 87% 53%,#0869df44,transparent 36%)}
+.app{position:relative;isolation:isolate;width:min(100%,460px);min-height:100dvh;display:flex;flex-direction:column;background:linear-gradient(160deg,rgba(8,18,52,.94) 0%,rgba(7,14,42,.98) 52%,rgba(7,15,45,.96));border-inline:1px solid rgba(60,170,255,.47);box-shadow:0 0 0 1px rgba(162,78,255,.13),0 0 42px rgba(20,110,255,.31);overflow:hidden}
+.app::before{content:"";position:absolute;pointer-events:none;z-index:-1;inset:0 0 auto;height:420px;background:radial-gradient(ellipse at 15% 8%,rgba(133,37,247,.27),transparent 56%),radial-gradient(ellipse at 85% 25%,rgba(10,95,241,.18),transparent 48%)}
+.content{flex:1;min-width:0;padding:calc(env(safe-area-inset-top) + 18px) 14px 22px}
+.playerBar{display:flex;align-items:center;gap:9px;min-height:60px;margin-bottom:19px}
+.avatar{position:relative;width:54px;height:54px;flex:0 0 54px;padding:3px;overflow:hidden;border-radius:12px;background:linear-gradient(135deg,#ff9cf4,#9b5cfa,#36caff);box-shadow:0 0 13px #bb43ee83;text-decoration:none}
+.avatar img{width:100%;height:100%;object-fit:cover;border-radius:9px;background:#222c69}
+.playerText{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.playerText strong{font-size:16px;font-weight:850;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 0 8px #ccafff77}
+.playerText>span{font-size:9px;letter-spacing:.13em;color:#beb6f1;font-weight:750}
+.playerTokens{display:flex;gap:5px;align-items:center}
+.playerTokens>span{white-space:nowrap;display:flex;align-items:center;gap:4px;border:1px solid #4061a1;border-radius:100px;padding:5px 7px;font-size:10px;font-weight:800;background:#0c1b40dd;box-shadow:inset 0 0 10px #3761e526}
+.tokenGold span{color:#ffca34;font-size:14px;text-shadow:0 0 8px #ffca3488}.tokenGem span{color:#c885ff;font-size:13px;text-shadow:0 0 8px #bf8aff}
+.profileSettings{width:27px;height:32px;flex:0 0 27px;color:#b9d7ff;display:grid;place-items:center;text-decoration:none;border:1px solid #4360a0;border-radius:8px;background:#16254ab8}
+.primaryTabs{height:49px;display:grid;grid-template-columns:repeat(3,1fr);padding:4px;background:linear-gradient(180deg,#10214a,#0d1640);border:1px solid #485aa1;border-radius:13px;box-shadow:0 5px 23px #4d2ef327,inset 0 0 10px #515cf21a}
+.primaryTabs button{appearance:none;border:0;border-radius:10px;background:transparent;color:#d7d2f7;font-size:14px;font-weight:800;cursor:pointer}
+.primaryTabs .tabActive{color:#fff;background:linear-gradient(128deg,#7449ff,#ba28e2 68%,#e448e8);border:1px solid #e36fff;box-shadow:0 0 12px #af30ff80,inset 0 1px 7px #ffe2ff3a}
+.filters{display:flex;gap:7px;margin:17px 0 17px;overflow-x:auto;padding:1px 1px 8px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.filters button{flex:1 0 auto;min-width:0;white-space:nowrap;background:linear-gradient(180deg,#152347,#0c1734);border:1px solid #3d559b;border-radius:999px;color:#d9d8f6;padding:9px 12px;font-size:12px;font-weight:750;cursor:pointer}
+.filters .filterActive{background:linear-gradient(155deg,#8219c7,#cc28ea);border-color:#ec71ff;color:#fff;box-shadow:0 0 0 1px #f365fc6b,0 0 13px #cf39ff99}
+.createCard{width:100%;min-height:91px;position:relative;display:flex;align-items:center;gap:17px;overflow:hidden;text-align:left;padding:14px 17px;border:1.5px solid #ff85f7;border-radius:19px;color:white;cursor:pointer;background:linear-gradient(112deg,#fa3eb4 0%,#c52cea 43%,#693cf0 100%);box-shadow:inset 0 0 0 1px #ffceff5c,0 0 16px #c93fff60,0 8px 24px #a027ff3c}
+.createCard::after{content:"";position:absolute;width:160px;height:160px;right:-80px;top:-88px;transform:rotate(30deg);background:linear-gradient(90deg,transparent,#ffffff52,transparent)}
+.createIcon{width:57px;height:57px;flex:0 0 57px;display:grid;place-items:center;color:#cb269d;background:linear-gradient(150deg,#fffaff,#f3d7ff);border-radius:12px;box-shadow:0 0 14px #fcbdff6d}
+.createText{display:flex;flex-direction:column;gap:4px;min-width:0}.createText strong{font-size:22px;line-height:1.15;text-shadow:0 1px 8px #44187554}.createText small{font-size:12px;color:#fff1ff;line-height:1.3}.createSparkle{margin-left:auto;opacity:.7;color:#fff1ff}
+.createCard:disabled{opacity:.55;cursor:wait}
+.createOptions{font-size:11px;color:#b3b3e6;margin:8px 3px 10px}
+.createOptions summary{cursor:pointer;display:flex;justify-content:flex-end;gap:5px;list-style:none;user-select:none}
+.createOptions summary::-webkit-details-marker{display:none}
+.createOptions label{display:block;font-size:11px;margin:9px 0 5px;color:#d9ccff}
+.createOptions input,.joinQuick input{font:inherit;min-width:0;color:#fff;outline:none;background:rgba(10,23,55,.85);border:1px solid #5360a4;border-radius:8px}
+.createOptions input{display:block;width:100%;font-size:14px;padding:10px}
+.createOptions input:focus,.joinQuick input:focus{border-color:#d967ff;box-shadow:0 0 0 2px #db63ff33}
+.joinQuick{display:flex;align-items:center;gap:7px;min-height:39px;margin:0 0 18px;padding:3px 4px 3px 9px;background:linear-gradient(145deg,#111d42,#10183a);border:1px solid #344d8a;border-radius:11px}
+.quickIcon{color:#89bdff;display:flex}
+.joinQuick input{flex:1;width:100%;height:32px;padding:6px 2px;background:transparent;border:0;font-size:12px}
+.joinQuick input:focus{box-shadow:none}
+.joinQuick input::placeholder{color:#929ac0}
+.joinQuick button{font:inherit;border:1px solid #7293f4;border-radius:8px;color:white;background:linear-gradient(130deg,#3957dc,#7633de);padding:8px 11px;font-size:11px;font-weight:850;white-space:nowrap;cursor:pointer}
+.joinQuick button:disabled{opacity:.5;cursor:wait}
+.roomSection{padding-bottom:12px}
+.sectionHeader{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 10px}
+.sectionHeader h1{font-weight:850;font-size:15px;margin:0;color:#f7f2ff}
+.sectionHeader h1 span{font-size:10px;display:inline-grid;place-items:center;min-width:21px;height:21px;margin-left:5px;border-radius:99px;background:#253a70;border:1px solid #566bb3;color:#a9d7ff}
+.refresh{display:inline-flex;gap:5px;align-items:center;background:transparent;border:0;color:#a9c8ff;padding:5px;font-size:11px;font-weight:750;cursor:pointer}
+.refresh:disabled{opacity:.5}
+.roomList{display:flex;flex-direction:column;gap:9px}
+.room{border:1px solid #415b9a;border-radius:14px;background:linear-gradient(115deg,rgba(12,24,62,.98),rgba(14,21,51,.95));box-shadow:inset 0 0 0 1px rgba(105,102,212,.15),0 3px 12px #0005;overflow:hidden}
+.roomAction{width:100%;min-height:94px;display:flex;gap:12px;align-items:center;padding:8px;text-align:left;border:0;background:transparent;color:inherit;cursor:pointer}
+.roomAction:focus-visible{outline:2px solid #ed7cff;outline-offset:-2px}
+.roomAction:disabled{cursor:not-allowed;opacity:.65}
+.room:not(:has(.roomAction:disabled)):active{border-color:#ed75ff;background:#222253}
+.cover{position:relative;display:grid;place-items:center;width:75px;height:75px;flex:0 0 75px;overflow:hidden;border:2px solid #d7b5ff;border-radius:12px;background:linear-gradient(30deg,#b525c377,#252fe27f),url('/stages/neon-stage-v1/golden-led-panel-v1.webp') center/cover;box-shadow:0 0 7px #d453f16b}
+.cover[data-art="2"]{background:linear-gradient(40deg,#f455a580,#562ae87d),url('/stages/neon-stage-v1/golden-led-panel-v1.webp') 15% center/cover}
+.cover[data-art="3"]{background:linear-gradient(170deg,#5813ac99,#07a2ed6d),url('/stages/neon-stage-v1/golden-led-panel-v1.webp') 70% center/cover}
+.cover[data-art="4"]{background:linear-gradient(65deg,#f63a7273,#1a1ea9a6),url('/stages/neon-stage-v1/golden-led-panel-v1.webp') center/cover}
+.coverShine{position:absolute;inset:0;background:radial-gradient(ellipse at 55% 8%,#ffffff54,transparent 40%)}
+.coverMark{position:relative;font-weight:1000;font-style:italic;font-size:37px;line-height:1;color:#ffdbff;text-shadow:-2px 3px #9819ed,0 0 12px #e947fc}
+.coverCaption{position:absolute;bottom:5px;letter-spacing:.1em;font-size:7px;font-weight:950;text-shadow:0 0 6px #080524}
+.roomDetails{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+.roomDetails>strong{max-width:100%;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15px;font-weight:850;letter-spacing:-.02em;line-height:1.2}
+.roomCode{color:#aab8e4;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.roomTags{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.roomTags>span{border-radius:6px;padding:4px 8px;font-size:10px;line-height:1;font-weight:850}
+.soloTag{background:#153f45;border:1px solid #269c9d;color:#70f8e2}
+.teamTag{background:#30205b;border:1px solid #995eff;color:#d9b5ff}
+.waitTag{background:#102a59;border:1px solid #2564bf;color:#78baff}
+.fullTag{background:#4c1b38;border:1px solid #bf476c;color:#ffa9bb}
+.roomRight{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;align-self:stretch;min-width:55px;padding:8px 3px 5px 0}
+.signal{height:22px;display:flex;gap:3px;align-items:end;opacity:.76}
+.signal i{display:block;width:3px;border-radius:1px;background:#a4c3ff}
+.signal i:nth-child(1){height:7px;opacity:.25}.signal i:nth-child(2){height:12px;opacity:.45}.signal i:nth-child(3){height:17px;opacity:.75}.signal i:nth-child(4){height:21px;background:#fcc9f2}
+.capacity{display:flex;align-items:center;gap:4px;font-size:14px;font-variant-numeric:tabular-nums;font-weight:850;white-space:nowrap}
+.empty{min-height:176px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;text-align:center;padding:20px;border:1px dashed #5d5da6;border-radius:13px;background:linear-gradient(135deg,#1b1b50a8,#111d48a8)}
+.emptyIcon{color:#e08aff;text-shadow:0 0 18px #ac52ff}.empty strong{font-size:14px}.empty p{max-width:265px;margin:0;font-size:12px;line-height:1.6;color:#bfc3e1}
+.bottomNav{z-index:2;position:sticky;bottom:0;margin-top:auto;display:grid;grid-template-columns:repeat(4,1fr);background:linear-gradient(180deg,#0e1d4f 0%,#071333 90%);border-top:1px solid #397dd5;box-shadow:0 -4px 22px #3269ff32,0 -1px 7px #48c1ff4d;padding-bottom:max(11px,env(safe-area-inset-bottom))}
+.bottomNav button{border:0;min-height:75px;background:transparent;color:#adbfe6;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;font-size:11px;font-weight:800;cursor:pointer}
+.bottomNav .navActive{color:#fff;border:1px solid #3179df;border-top:2px solid #52dcff;border-radius:17px 17px 0 0;background:linear-gradient(180deg,#0754bcb5,#113a7e65 65%,transparent);box-shadow:inset 0 12px 18px #197bea33,0 -5px 18px #1d8bff62}
+.comingSoon{min-height:54vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:24px}
+.comingSoonIcon{display:grid;place-items:center;width:90px;height:90px;border-radius:50%;background:#442079a6;border:1px solid #9e61de;color:#f4b6ff;box-shadow:0 0 36px #983ce85a}
+.comingSoon h1{font-size:25px;margin:0}.comingSoon p{line-height:1.7;color:#c7bde7;font-size:13px}
+.backToRooms,.onboardingButton{border:1px solid #e77cff;border-radius:12px;background:linear-gradient(125deg,#e849d0,#7d4cf5);color:#fff;padding:12px 20px;font:inherit;font-weight:800;text-decoration:none;cursor:pointer}
+.error{margin-top:14px;padding:11px 13px;border:1px solid #ff789c;background:#571e3b;color:#ffe0ec;border-radius:11px;font-size:12px;line-height:1.5}
+.centerState{margin:auto;color:#e0cfff;font-size:14px}
+.onboarding{position:relative;align-self:center;width:min(90%,380px);margin:auto;text-align:center;padding:38px 24px;border:1px solid #a65fea;border-radius:24px;background:linear-gradient(155deg,#23194eb8,#11194bee);box-shadow:0 0 45px #b54afe45}
+.brand{display:block;font-size:26px;font-weight:950;font-style:italic;letter-spacing:.04em;color:#e9b9ff;text-shadow:0 0 18px #af48fc}.brand em{font-size:13px;letter-spacing:.3em;font-style:normal}
+.onboardingSymbol{display:block;margin:24px auto;color:#ffb8f7}
+.onboarding h1{font-size:21px}.onboarding p{color:#d1c3e6;font-size:13px;line-height:1.7;margin-bottom:24px}.onboardingButton{display:inline-flex}
+@media(min-width:700px){.app{border-radius:0 0 15px 15px;box-shadow:0 0 60px #2736bf6b}}
+@media(max-width:360px){.content{padding-inline:10px}.avatar{width:46px;height:46px;flex-basis:46px}.playerTokens>span{padding:4px 5px;font-size:9px}.playerBar{gap:6px}.filters{gap:5px}.filters button{padding:8px 9px;font-size:11px}.roomAction{gap:8px}.cover{width:67px;height:67px;flex-basis:67px}.roomDetails>strong{font-size:13px}.roomRight{min-width:52px}.createCard{gap:12px;padding:12px}.createText strong{font-size:20px}}
+@media(prefers-reduced-motion:reduce){.createCard,.room,.filters button{animation:none;transition:none}}
+
+/* P18 sketch alignment: live RoomState actions stay authoritative; illustrative cards cannot JOIN. */
+.app{height:100dvh;min-height:0}
+.content{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#3d479c transparent;padding-top:calc(env(safe-area-inset-top) + 22px);padding-bottom:18px}
+.bottomNav{position:relative;flex:0 0 auto;margin-top:0;padding-bottom:max(6px,env(safe-area-inset-bottom));background:linear-gradient(180deg,#0c2455,#07132f 92%);border-top:2px solid #398aff;box-shadow:0 -3px 13px #088efa66}
+.bottomNav button{min-height:66px}
+.playerBar{gap:7px;margin-bottom:23px}
+.avatar{width:51px;height:51px;flex-basis:51px;border:2px solid #f2b0ff;background:#5e279c;box-shadow:0 0 0 2px #804dff7d,0 0 14px #f331f5a8}
+.playerText strong{font-size:15px}
+.playerText>span{font-size:12px;letter-spacing:0;color:#d1c5ff;font-weight:750}
+.playerTokens{gap:5px}
+.playerTokens>span{font-size:13px;font-variant-numeric:tabular-nums;letter-spacing:.01em;min-width:65px;justify-content:center;padding:5px 7px;border-radius:24px;background:#08132e;border-color:#485eac;box-shadow:inset 0 0 7px #346dff44,0 0 5px #2032aa44}
+.coinSymbol{display:grid;place-items:center;width:22px;height:22px;flex:0 0 22px;border:2px solid #fff298;border-radius:50%;background:radial-gradient(circle at 35% 20%,#fff6b5,#ffae00 60%,#bf7100);color:#b66b05!important;font-size:21px!important;font-weight:950;line-height:1;box-shadow:0 0 6px #ffce27ad}
+.gemSymbol{display:grid;place-items:center;width:23px;height:21px;flex:0 0 23px;color:#dc8eff!important;text-shadow:0 0 7px #ce42ff!important;font-size:22px!important}
+.profileSettings{font:inherit;flex:0 0 31px;width:31px;height:32px;color:#fff;font-size:25px;font-weight:800;cursor:pointer;background:linear-gradient(140deg,#1f92ff,#0b55bd);border:2px solid #73cfff;border-radius:8px;box-shadow:0 0 9px #1180ffd1}
+.walletNotice{font-size:11px;color:#ead0ff;background:#241441;border:1px solid #913fde;border-radius:9px;padding:9px;margin:-12px 0 12px}
+.primaryTabs{height:50px;border-radius:11px;margin-bottom:0}
+.filters{margin-top:16px;margin-bottom:16px;padding-bottom:2px}
+.filters button{font-size:12px;padding:8px 10px}
+.createCard{min-height:82px;padding:12px 18px;border-radius:17px;gap:16px;margin-bottom:11px;background:linear-gradient(112deg,#fb34ca 0%,#d02cd6 43%,#6427e8 100%);box-shadow:0 0 15px #fa50ed78,inset 0 1px 5px #fff8,0 2px 7px #e44bff6c}
+.createIcon{width:54px;height:54px;flex-basis:54px;border-radius:10px}
+.createText strong{font-size:19px}.createText small{font-size:11px}
+.sectionHeader{height:21px;margin-bottom:6px;align-items:center}
+.sectionHeader h1{font-size:11px;color:#aebde7;letter-spacing:.08em;font-weight:650;text-transform:uppercase}
+.refresh{font-size:10px}
+.roomList{gap:8px}
+.room{border-radius:13px;border-color:#3d5baf;background:linear-gradient(110deg,#11234b,#0d1c41 70%,#101838);box-shadow:0 0 0 1px #1b64bb33,inset 0 0 8px #2745a725}
+.roomAction{min-height:86px;gap:11px;padding:6px 9px}
+.cover{width:74px;height:74px;flex-basis:74px;border-radius:12px;border:2px solid #e9c4ff;background:#2c176d;box-shadow:0 0 6px #bc65ff7d}
+.cover img{width:100%;height:100%;display:block;object-fit:cover}
+.sampleMark{position:absolute;top:2px;right:2px;padding:2px 3px;font-size:7px;font-weight:850;line-height:1.1;background:#101442d9;border:1px solid #cbb7ff9e;border-radius:3px;color:#ffeffe;letter-spacing:.04em}
+.roomDetails{gap:4px}
+.roomDetails>strong{font-size:15px;font-weight:900}
+.roomCode{font-size:11px;font-weight:600;color:#c7c8e8}
+.roomTags{gap:6px}
+.roomTags>span{font-size:10px;border-radius:6px;padding:4px 10px}
+.easyTag{color:#8df5cf!important;background:#10493e;border:1px solid #31c7a5}
+.normalTag{color:#ffe4ab!important;background:#4d3819;border:1px solid #e7b450}
+.hardTag{color:#ff9f9f!important;background:#4d1c2a;border:1px solid #ff496c}
+.playTag{color:#a3caff!important;background:#152d68;border:1px solid #2469cf}
+.sampleRoom .roomAction:disabled{opacity:1;cursor:default}
+.roomRight{padding:5px 2px 5px 0;min-width:58px}
+.capacity{font-size:15px;gap:4px}
+.signal{height:22px}
+.sampleNotice{font-size:10px;line-height:1.45;color:#9eafd5;text-align:center;margin:10px 4px 0}
+.createOptions,.joinQuick{margin-top:12px}
+.joinQuick{margin-bottom:4px}
+@media(max-width:360px){.content{padding-inline:9px}.playerBar{gap:5px}.avatar{width:43px;height:43px;flex-basis:43px}.playerTokens>span{min-width:52px;padding:4px}.profileSettings{flex-basis:26px;width:26px}.roomAction{gap:7px}.cover{width:65px;height:65px;flex-basis:65px}.roomRight{min-width:48px}.roomDetails>strong{font-size:13px}.roomTags>span{padding:3px 7px}.filters button{font-size:11px;padding:7px 8px}}
+
+/* Compact portrait layout: controls and bottom nav never scroll; room list alone scrolls. */
+.shell{position:fixed;inset:0;width:100%;height:100dvh;min-height:0;overflow:hidden;overscroll-behavior:none}
+.app{height:100%;max-height:100%;min-height:0;overflow:hidden}
+.content{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden;overscroll-behavior:none;padding:calc(env(safe-area-inset-top) + 11px) 12px 0}
+.playerBar{flex:0 0 auto;min-height:43px;gap:7px;margin-bottom:11px}
+.avatar{width:43px;height:43px;flex-basis:43px;border-radius:10px}
+.avatar img{border-radius:7px}
+.playerText strong{font-size:13px}
+.playerText>span{font-size:10px}
+.playerTokens>span{min-width:56px;padding:4px 6px;font-size:12px}
+.coinSymbol,.gemSymbol{width:19px;height:19px;flex-basis:19px;font-size:18px!important}
+.profileSettings{width:28px;flex-basis:28px;height:29px;font-size:22px}
+.walletNotice{flex:0 0 auto;margin:0 0 6px}
+.primaryTabs{flex:0 0 42px;height:42px;padding:3px;border-radius:10px}
+.primaryTabs button{font-size:12px;border-radius:8px}
+.filters{flex:0 0 auto;margin:10px 0 11px;padding-bottom:0;gap:6px}
+.filters button{min-height:34px;font-size:11px;padding:7px 9px}
+.createCard{flex:0 0 67px;min-height:67px;height:67px;gap:11px;margin-bottom:5px;padding:9px 13px;border-radius:14px}
+.createIcon{width:43px;height:43px;flex-basis:43px;border-radius:9px}
+.createIcon svg{width:26px;height:26px}
+.createText strong{font-size:16px}
+.createText small{font-size:10px}
+.createSparkle svg{width:16px;height:16px}
+.createOptions{flex:0 0 auto;font-size:10px;margin:2px 3px 3px}
+.createOptions label{margin-top:6px}
+.createOptions input{padding:8px;font-size:13px}
+.joinQuick{flex:0 0 34px;height:34px;min-height:34px;margin:3px 0 8px;padding:2px 3px 2px 8px;border-radius:9px}
+.joinQuick input{height:27px;font-size:11px}
+.joinQuick button{padding:6px 9px;font-size:10px}
+.roomSection{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden;padding-bottom:0}
+.sectionHeader{flex:0 0 21px;height:21px;margin:0 1px 6px}
+.sectionHeader h1{font-size:10px}
+.refresh{font-size:10px}
+.roomScroll{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:#5265b3 transparent;padding:1px 2px 12px}
+.roomScroll::-webkit-scrollbar{width:4px}
+.roomScroll::-webkit-scrollbar-thumb{background:#5265b3;border-radius:6px}
+.roomList{gap:7px}
+.roomAction{min-height:76px;gap:9px;padding:6px 7px}
+.cover{width:62px;height:62px;flex-basis:62px;border-radius:10px}
+.roomDetails{gap:3px}
+.roomDetails>strong{font-size:13px}
+.roomCode{font-size:10px}
+.roomTags>span{font-size:9px;padding:3px 7px}
+.roomRight{min-width:50px;padding:4px 2px 4px 0}
+.capacity{font-size:12px}
+.capacity svg{width:14px;height:14px}
+.signal{height:17px}
+.signal i:nth-child(1){height:5px}
+.signal i:nth-child(2){height:9px}
+.signal i:nth-child(3){height:13px}
+.signal i:nth-child(4){height:17px}
+.sampleNotice{margin:8px 5px 0}
+.bottomNav{position:relative;flex:0 0 auto;margin:0;padding-bottom:env(safe-area-inset-bottom);border-top-width:1px}
+.bottomNav button{min-height:54px;padding:3px 0;gap:3px;font-size:10px;line-height:1.2}
+.bottomNav button svg{width:19px;height:19px}
+.bottomNav .navActive{border-radius:11px 11px 0 0}
+.comingSoon{flex:1 1 auto;min-height:0;overflow-y:auto}
+.error{position:absolute;left:12px;right:12px;bottom:calc(58px + env(safe-area-inset-bottom));z-index:5;margin:0;box-shadow:0 8px 24px #07071dbb}
+@media(max-height:700px){.content{padding-top:calc(env(safe-area-inset-top) + 7px)}.playerBar{margin-bottom:8px}.primaryTabs{height:39px;flex-basis:39px}.filters{margin:7px 0 8px}.createCard{height:61px;min-height:61px;flex-basis:61px}.createIcon{width:39px;height:39px;flex-basis:39px}.joinQuick{margin-bottom:5px}.bottomNav button{min-height:49px}}
+@media(max-width:360px){.content{padding-inline:9px}.playerTokens>span{min-width:47px}.roomDetails>strong{font-size:12px}.roomAction{gap:7px}.cover{width:58px;height:58px;flex-basis:58px}.roomTags>span{padding:3px 6px}.roomRight{min-width:46px}}
+
+/* Safari /rooms currency cluster: prevent glyph baselines from shifting gem and top-up button. */
+.playerBar{align-items:center}
+.playerTokens{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.playerTokens>span{height:30px;min-height:30px;display:flex;align-items:center;justify-content:center;line-height:1;padding-block:0}
+.playerTokens>span b{line-height:1;display:block;font-variant-numeric:tabular-nums}
+.gemSymbol{display:grid!important;place-items:center;width:20px!important;height:20px!important;flex:0 0 20px!important;line-height:0!important;font-size:0!important}
+.gemSymbol svg{display:block;filter:drop-shadow(0 0 3px rgba(191,89,255,.78))}
+.profileSettings{display:grid;place-items:center;align-self:center;flex:0 0 30px;width:30px;height:30px;padding:0;line-height:0;font-size:0;border-radius:8px}
+.profileSettings svg{display:block;flex:none}
+@media(max-width:360px){.playerTokens>span{height:28px;min-height:28px}.profileSettings{width:28px;height:28px;flex-basis:28px}}
+
+/* C2: always-visible, compact create-room setup. Preserve approved room card,
+   player header, filter/room list and bottom nav neon treatment. */
+.workspace{
+  display:flex;flex-direction:column;flex:1 1 auto;min-height:0;overflow:hidden;
+}
+.creationColumn{display:flex;flex-direction:column;flex:0 0 auto;min-width:0}
+.createSetup{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:5px;
+  padding:8px 10px 7px;margin-bottom:7px;
+  border:1px solid #5059a3;border-radius:12px;
+  background:linear-gradient(140deg,rgba(21,29,70,.92),rgba(32,18,75,.91));
+  box-shadow:inset 0 0 10px #5d32a21f;
+}
+.createNameLabel,.modeHeader>span{
+  font-size:10px;font-weight:850;letter-spacing:.06em;color:#decfff;
+}
+.createNameInput{
+  display:block;width:100%;min-width:0;height:33px;padding:5px 10px;
+  border:1px solid #6265bf;border-radius:8px;outline:none;
+  color:#fff;background:rgba(7,17,49,.8);font:inherit;font-size:14px;
+}
+.createNameInput::placeholder{color:#9ca7cd}
+.createNameInput:focus-visible{border-color:#f58bff;box-shadow:0 0 0 2px #d75aff35}
+.modeHeader{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:2px}
+.modeHeader small{font-size:9px;color:#aaaed7}
+.modeChoices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.modeChoices button{
+  min-height:42px;min-width:0;padding:5px 3px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  border:1px solid #3e57a0;border-radius:9px;
+  background:linear-gradient(160deg,#15254c,#101739);
+  color:#d8d9f6;cursor:pointer;font:inherit;line-height:1.1;
+}
+.modeChoices button strong{font-size:10px;font-weight:800}
+.modeChoices button small{font-size:9px;color:#a3b2e4}
+.modeChoices .modeActive{
+  border-color:#f07cf4;color:#fff;
+  background:linear-gradient(140deg,#6223ad,#9f2acd);
+  box-shadow:inset 0 1px 6px #fff2,0 0 9px #a744e878;
+}
+.modeChoices button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.modeNotice{font-size:10px;line-height:1.35;color:#e9c8ff;margin:1px 0 0}
+.createCard:disabled{opacity:.64;cursor:not-allowed}
+.createCard{margin-bottom:6px}
+.joinQuick{margin-top:4px}
+/* Actual room list remains the only vertical scroller on portrait devices. */
+@media(min-width:768px) and (min-height:600px){
+  .app{
+    width:min(calc(100% - 32px),1240px);
+    border-radius:20px 20px 0 0;
+  }
+  .content{padding:clamp(16px,2.4vw,30px) clamp(18px,2.7vw,36px) 0}
+  .playerBar{min-height:58px;gap:14px;margin-bottom:18px}
+  .avatar{width:57px;height:57px;flex-basis:57px}
+  .playerText strong{font-size:20px}
+  .primaryTabs{height:52px;flex-basis:52px;max-width:100%}
+  .primaryTabs button{font-size:15px}
+  .workspace{
+    display:grid;grid-template-columns:minmax(295px,350px) minmax(0,1fr);
+    align-items:stretch;gap:clamp(15px,2.2vw,28px);
+    padding-top:16px;
+  }
+  .creationColumn{align-self:start}
+  .creationColumn .filters{margin:0 0 14px}
+  .creationColumn .filters button{font-size:12px;padding:9px 5px}
+  .creationColumn .createSetup{gap:10px;padding:14px;margin-bottom:15px}
+  .creationColumn .createNameInput{height:44px;font-size:16px}
+  .creationColumn .modeChoices{gap:7px}
+  .creationColumn .modeChoices button{min-height:60px}
+  .creationColumn .modeChoices button strong{font-size:11px}
+  .creationColumn .createCard{min-height:82px;height:82px;flex-basis:82px;margin-bottom:16px}
+  .creationColumn .createText strong{font-size:19px}
+  .creationColumn .joinQuick{height:42px;min-height:42px}
+  .creationColumn .joinQuick input{height:36px;font-size:13px}
+  .roomSection{height:100%;min-height:0;min-width:0}
+  .sectionHeader{height:29px;flex-basis:29px;margin-bottom:12px}
+  .sectionHeader h1{font-size:14px}
+  .roomScroll{height:100%;min-height:0}
+  .roomList{gap:11px}
+  .roomAction{min-height:97px;gap:13px}
+  .cover{width:79px;height:79px;flex-basis:79px}
+  .roomDetails>strong{font-size:18px}
+  .roomCode{font-size:12px}
+  .capacity{font-size:15px}
+  .bottomNav button{min-height:58px}
+}
+@media(min-width:1050px) and (min-height:660px){
+  .workspace{grid-template-columns:minmax(325px,390px) minmax(0,1fr)}
+  .roomAction{min-height:104px}
+}
+@media(max-width:360px){
+  .createSetup{padding:6px 7px;gap:4px}
+  .modeChoices button{min-height:37px}
+  .modeChoices button strong{font-size:9px}
+  .modeChoices button small{font-size:8px}
+  .createCard{height:59px;min-height:59px;flex-basis:59px}
+}
+@media(max-height:680px) and (max-width:767px){
+  .createSetup{padding:5px 8px;gap:3px;margin-bottom:5px}
+  .createNameInput{height:29px}
+  .modeChoices button{min-height:33px;padding:3px}
+  .modeChoices button strong{font-size:9px}
+  .modeChoices button small{font-size:8px}
+  .createCard{height:56px;min-height:56px;flex-basis:56px}
+  .filters{margin:6px 0 7px}
+}

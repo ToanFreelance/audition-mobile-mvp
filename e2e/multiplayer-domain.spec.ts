@@ -74,10 +74,18 @@ function roomWithSong() {
 }
 
 test.describe("P4.1 room domain", () => {
-  test("host never owns Ready state and at least one opponent is required", () => {
+  test("connected Host can start alone without Ready while empty slots stay open", () => {
     const room = roomWithSong();
-    expect(canStartRoom(room)).toEqual({ allowed: false, reason: "opponent-required" });
+    expect(room.participants).toHaveLength(1);
+    expect(canStartRoom(room)).toEqual({ allowed: true, reason: null });
     expect(() => setGuestReady(room, "host", true)).toThrow("Host does not have Ready state");
+    expect(canStartRoom({ ...room, selectedSongId: null })).toEqual({
+      allowed: false, reason: "song-required",
+    });
+    expect(canStartRoom({
+      ...room,
+      participants: [{ ...host(), connectionState: "disconnected" }],
+    })).toEqual({ allowed: false, reason: "host-unavailable" });
   });
 
   test("bots are auto-ready and open/closed empty slots do not block Start", () => {

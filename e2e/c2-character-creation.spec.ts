@@ -30,7 +30,8 @@ test("C3 creator resolves the real starter through the versioned catalog", async
   const stage = page.getByTestId("c2-character-stage");
   await expect(stage).toHaveAttribute("data-character-asset-id", "c1-casual-grace");
   await expect(stage).toHaveAttribute("data-focus", "hair");
-  await page.getByRole("button", { name: "Mặt" }).click();
+  await page.getByRole("button", { name: "Tạo hình" }).click();
+  await page.getByRole("button", { name: /Mặt · Tuỳ chỉnh/ }).click();
   await expect(stage).toHaveAttribute("data-focus", "face");
   await page.getByRole("button", { name: "Tạo hình" }).click();
   await expect(stage).toHaveAttribute("data-focus", "body");
@@ -65,4 +66,124 @@ test("C3 rejects stale drafts that request unavailable or unknown catalog varian
   await page.goto("/character/create");
   await expect(page.getByLabel("Tên nhân vật")).toHaveValue("Luna");
   await expect(page.getByTestId("c2-confirm-character")).toHaveText("TẠO NHÂN VẬT");
+});
+
+test("C1 sketch chrome keeps five SVG tabs, four portrait slots and an editable name", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.goto("/character/create");
+  const root = page.getByTestId("c2-character-creation");
+  await expect(root.locator("nav[aria-label='Tuỳ chỉnh nhân vật'] button")).toHaveCount(5);
+  await expect(root.locator("nav[aria-label='Tuỳ chỉnh nhân vật'] svg")).toHaveCount(5);
+  const avatars = root.getByRole("group", { name: "Mẫu ngoại hình đã lưu" });
+  await expect(avatars.locator("[data-testid^='c1-look-slot-']")).toHaveCount(4);
+  await expect(avatars.getByRole("button", { name: "Lưu mẫu 3" })).toBeEnabled();
+  await expect(root.getByRole("button", { name: "Ngẫu nhiên" }).locator("svg")).toBeVisible();
+  await root.getByRole("button", { name: "Sửa tên nhân vật" }).click();
+  await expect(page.getByLabel("Tên nhân vật")).toBeFocused();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await avatars.getByRole("button", { name: "Lưu mẫu 2" }).click();
+  await expect(root.getByRole("status")).toContainText("Hãy tạo nhân vật trước");
+  await expect(root).toHaveAttribute("data-character-asset", "c1-casual-grace");
+  await page.getByLabel("Tên nhân vật").fill("C1SketchQA");
+  await page.getByTestId("c2-confirm-character").click();
+  await expect(page.getByTestId("entry-continue-rooms")).toHaveAttribute("href", "/rooms");
+});
+
+test("C1 creator stays locked while preserving internal panel scrolling", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 660 });
+  await page.goto("/character/create");
+  await expect.poll(() => page.evaluate(() => ({
+    x: document.documentElement.scrollWidth - innerWidth,
+    y: document.documentElement.scrollHeight - innerHeight,
+    overflow: getComputedStyle(document.documentElement).overflow,
+  }))).toEqual({ x: 0, y: 0, overflow: "hidden" });
+  const viewportMeta = page.locator('meta[name="viewport"]');
+  await expect(viewportMeta).toHaveAttribute("content", /maximum-scale=1/);
+  const rail = page.getByRole("navigation", { name: "Tuỳ chỉnh nhân vật" });
+  await rail.getByRole("button", { name: "Kiểu tóc" }).click();
+  await expect(page.getByTestId("c1-category-options")).toBeVisible();
+  await expect(page.getByTestId("c1-category-options")).toHaveCSS("overflow-y", "auto");
+});
+
+test("C1 one-identity four-look presets persist and cannot select a second character", async ({ page }) => {
+  await page.goto("/character/create");
+  const root = page.getByTestId("c2-character-creation");
+  const slots = root.getByRole("group", { name: "Mẫu ngoại hình đã lưu" });
+  await page.getByLabel("Tên nhân vật").fill("MyDancer");
+  await page.getByTestId("c2-confirm-character").click();
+  await expect(root).toHaveAttribute("data-locked-asset", "c1-casual-grace");
+  await expect(slots.getByRole("button", { name: "Áp dụng mẫu 1" })).toBeVisible();
+  await slots.getByRole("button", { name: "Lưu mẫu 2" }).click();
+  await expect(slots.getByRole("button", { name: "Áp dụng mẫu 2" })).toBeVisible();
+  await slots.getByRole("button", { name: "Ghi đè mẫu 2" }).click();
+  await slots.getByRole("button", { name: "Áp dụng mẫu 1" }).click();
+  await page.getByRole("button", { name: "Tạo hình" }).click();
+  await expect(page.getByRole("button", { name: /♂ Nam/ })).toBeDisabled();
+  await page.reload();
+  await expect(root).toHaveAttribute("data-character-asset", "c1-casual-grace");
+  await expect(slots.getByRole("button", { name: "Áp dụng mẫu 2" })).toBeVisible();
+  await expect(page.getByLabel("Tên nhân vật")).toHaveValue("MyDancer");
+  await expect(root.getByTestId("entry-continue-rooms")).toHaveAttribute("href", "/rooms");
+});
+
+test("C1 tablet and desktop stage/sidebar have no document overflow", async ({ page }) => {
+  for (const viewport of [{ width: 768, height: 1024 }, { width: 1280, height: 800 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/character/create");
+    await expect(page.getByTestId("c2-character-creation")).toBeVisible();
+    await expect(page.getByRole("group", { name: "Mẫu ngoại hình đã lưu" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => ({
+      overflow: getComputedStyle(document.documentElement).overflow,
+      width: document.documentElement.scrollWidth <= innerWidth,
+      height: document.documentElement.scrollHeight <= innerHeight,
+    }))).toEqual({ overflow: "hidden", width: true, height: true });
+    const a = await page.getByTestId("c2-character-viewport").boundingBox();
+    const b = await page.getByTestId("c2-confirm-character").boundingBox();
+    expect(a && b && a.width > 200 && b.width > 200).toBeTruthy();
+    expect(a!.x + a!.width).toBeLessThan(b!.x + 25);
+  }
+});
+
+test("C1 leaving the route restores document scroll/zoom ownership", async ({ page }) => {
+  await page.goto("/character/create");
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.overflow)).toBe("hidden");
+  await page.getByRole("link", { name: "Quay lại" }).click();
+  await expect(page).toHaveURL("/");
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.overflow)).toBe("");
+});
+
+test("C1 mobile rail fits entirely above the presets and arcs are removed", async ({ page }) => {
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 375, height: 667 },
+    { width: 390, height: 740 },
+    { width: 430, height: 932 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/character/create");
+    const geometry = await page.getByRole("navigation", { name: "Tuỳ chỉnh nhân vật" }).evaluate(rail => {
+      const hero = rail.parentElement;
+      const lastButton = rail.querySelector("button:last-child");
+      if (!hero || !lastButton) return null;
+      const railRect = rail.getBoundingClientRect();
+      const heroRect = hero.getBoundingClientRect();
+      const lastRect = lastButton.getBoundingClientRect();
+      return {
+        railTop: railRect.top,
+        railBottom: railRect.bottom,
+        heroTop: heroRect.top,
+        heroBottom: heroRect.bottom,
+        lastBottom: lastRect.bottom,
+        decorativeArc: getComputedStyle(hero, "::after").content,
+      };
+    });
+    expect(geometry, "rail and hero should be measurable").not.toBeNull();
+    expect(geometry!.railTop).toBeGreaterThanOrEqual(geometry!.heroTop);
+    expect(geometry!.railBottom).toBeLessThanOrEqual(geometry!.heroBottom - 1);
+    expect(geometry!.lastBottom).toBeLessThanOrEqual(geometry!.heroBottom - 1);
+    expect(geometry!.decorativeArc).toBe("none");
+    await expect(page.getByRole("button", { name: "Tạo hình" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Mẫu ngoại hình đã lưu" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+  }
 });

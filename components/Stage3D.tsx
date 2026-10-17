@@ -7,13 +7,15 @@ import { CharacterActor, disposeObjectResources } from "./character/CharacterAct
 import type { CharacterPresentationEvent } from "./character/character-types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
+import { isCharacterAssetId, type CharacterAssetId } from "./character/character-catalog";
 import {
   DEFAULT_STAGE_ID,
   resolveRuntimeStageCatalogEntry,
   resolveStageCatalogEntry,
 } from "./stage/stage-catalog";
 import { createStageEnvironment } from "./stage/stage-runtime";
-import { getStagePresentationCameraPose, type StageCameraPose } from "./stage/stageCamera";
+import { getStagePresentationCameraPose, getMatchStageCameraPose, selectMatchCameraStyle, type StageCameraPose } from "./stage/stageCamera";
+import type { PerformanceDiagnostics } from "./diagnostics/performance-diagnostics";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
@@ -121,9 +123,19 @@ type Stage3DProps = {
   getSongTimeMs?: () => number;
   bpm?: number;
   selectedStageId?: string | null;
+  /** Frozen MatchManifest avatar for multiplayer; solo falls back to Character Creation draft. */
+  characterAssetId?: CharacterAssetId;
   visualCompareMode?: boolean;
   hideCharacter?: boolean;
   fixedPresentationTimeSeconds?: number;
+  performanceDiagnostics?: PerformanceDiagnostics | null;
+  /** Multiplayer entry: avoid the four-second solo cinematic shot sequence. */
+  skipIntroCamera?: boolean;
+  /** Frozen session identity; selects the same cinematic style on every device. */
+  cinematicMatchId?: string;
+  /** Fires only after stage and actor have settled and a complete frame was painted. */
+  onPresentationReady?: () => void;
+  onPresentationFailure?: (message: string) => void;
 };
 
 export default function Stage3D({
@@ -133,9 +145,15 @@ export default function Stage3D({
   getSongTimeMs,
   bpm = 110,
   selectedStageId = DEFAULT_STAGE_ID,
+  characterAssetId,
   visualCompareMode = false,
   hideCharacter = false,
   fixedPresentationTimeSeconds,
+  performanceDiagnostics,
+  skipIntroCamera = false,
+  cinematicMatchId,
+  onPresentationReady,
+  onPresentationFailure,
 }: Stage3DProps) {
   const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
@@ -146,6 +164,12 @@ export default function Stage3D({
   const isPlayingRef = useRef(isPlaying);
   const getSongTimeMsRef = useRef(getSongTimeMs);
   const bpmRef = useRef(bpm);
+  const diagnosticsRef = useRef(performanceDiagnostics);
+  const onPresentationReadyRef = useRef(onPresentationReady);
+  const onPresentationFailureRef = useRef(onPresentationFailure);
+  diagnosticsRef.current = performanceDiagnostics;
+  onPresentationReadyRef.current = onPresentationReady;
+  onPresentationFailureRef.current = onPresentationFailure;
   cameraPresetRef.current = cameraPreset;
   isPlayingRef.current = isPlaying;
   getSongTimeMsRef.current = getSongTimeMs;
@@ -176,14 +200,24 @@ export default function Stage3D({
     // Rendering is optional; unavailable GPU must never stop the rhythm runtime.
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2");
-    if (!context) return;
+    if (!context) {
+      onPresentationFailureRef.current?.("Không thể khởi tạo WebGL2 trên thiết bị.");
+      return;
+    }
     const mobileRenderProfile = isMobileStageProfile();
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      context,
-      antialias: true,
-      powerPreference: "high-performance",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        context,
+        antialias: true,
+        powerPreference: "high-performance",
+      });
+    } catch (error) {
+      onPresentationFailureRef.current?.("Không thể tạo renderer sân khấu trên thiết bị.");
+      console.warn("[Stage3D] WebGL renderer initialization failed:", error);
+      return;
+    }
     // Compare captures must be sharp enough for edge/halo QA on Retina iPhones.
     // Backing resolution changes only; CSS viewport, FOV and camera anchors
     // remain unchanged. Gameplay retains its existing mobile DPR cap.
@@ -197,6 +231,8 @@ export default function Stage3D({
     renderer.toneMappingExposure = neonPresentation ? 1.22 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
+    const diagnostics = diagnosticsRef.current;
+    diagnostics?.bindRenderer(renderer);
 
     const stage = new THREE.Group();
     scene.add(stage);
@@ -293,6 +329,9 @@ export default function Stage3D({
     stage.add(stageEnvironment.root);
     host.dataset.stageSource = "placeholder";
     host.dataset.stageEmbeddedAnimations = "0";
+    host.dataset.presentationReady = "0";
+    if (cinematicMatchId) host.dataset.introCameraStyle = selectMatchCameraStyle(cinematicMatchId);
+    let stageSettled = false;
     void stageEnvironment.load().then(result => {
       if (disposed) return;
       stageEnvironment.root.visible = true;
@@ -302,23 +341,35 @@ export default function Stage3D({
       host.dataset.stageEmbeddedAnimations = String(result.embeddedAnimations);
       host.dataset.stageMetrics = JSON.stringify(result);
       host.dataset.visualCompareReady = "1";
+      stageSettled = true;
     }).catch(error => {
       if (disposed) return;
       host.dataset.stageSource = "placeholder";
       host.dataset.stageError = error instanceof Error ? error.message : String(error);
+      // The visual gate must not claim ready when the selected venue failed.
+      onPresentationFailureRef.current?.("Không thể tải sân khấu đã chọn.");
       console.warn(`[Stage3D] ${stageEntry.displayName} failed; procedural stage remains active:`, error);
     });
 
+    // Multiplayer identity is frozen by MatchManifest, not a client draft.
+    // The solo path retains the existing persisted Character Creation behavior.
     let selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
-    try {
-      selectedCharacter = loadCharacterCreationDraft(window.localStorage) ?? DEFAULT_CHARACTER_CREATION_PROFILE;
-    } catch {
-      selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
+    if (!characterAssetId) {
+      try {
+        selectedCharacter = loadCharacterCreationDraft(window.localStorage) ?? DEFAULT_CHARACTER_CREATION_PROFILE;
+      } catch {
+        selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
+      }
     }
+    const runtimeCharacterAssetId = characterAssetId && isCharacterAssetId(characterAssetId)
+      ? characterAssetId
+      : selectedCharacter.characterAssetId;
 
     let character: CharacterActor | null = null;
+    let characterSettled = hideCharacter;
     if (!hideCharacter) {
-      character = CharacterActor.fromAssetId(selectedCharacter.characterAssetId);
+      character = CharacterActor.fromAssetId(runtimeCharacterAssetId);
+      diagnostics?.actorCreated();
       characterRef.current = character;
       character.setGameActive(isPlayingRef.current);
       character.root.position.set(
@@ -327,16 +378,27 @@ export default function Stage3D({
         CHARACTER_STAGE_POSITION.z + (neonPresentation ? NEON_CHARACTER_STAGE_Z_OFFSET : 0),
       );
       stage.add(character.root);
-      host.dataset.characterAssetId = selectedCharacter.characterAssetId;
+      host.dataset.characterAssetId = runtimeCharacterAssetId;
       host.dataset.characterProfileVersion = String(selectedCharacter.version);
       host.dataset.characterSource = "loading";
       void character.load().then((result) => {
-        if (!result || disposed || !character) return;
+        if (disposed || !character) return;
+        if (!result) return;
+        if (result.error || !result.metrics.animationClips.length) {
+          onPresentationFailureRef.current?.("Nhân vật hoặc animation chưa sẵn sàng.");
+          return;
+        }
+        characterSettled = true;
         if (neonPresentation) applyNeonCharacterFill(character.root);
         host.dataset.characterSource = result.source;
         host.dataset.characterIdle = result.idleClip ?? "static";
         host.dataset.characterMetrics = JSON.stringify(result.metrics);
         if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
+      }).catch(error => {
+        if (disposed) return;
+        onPresentationFailureRef.current?.("Không thể tải nhân vật và animation.");
+        host.dataset.characterSource = "fallback";
+        console.warn("[Stage3D] Character asset loading failed:", error);
       });
     } else {
       host.dataset.characterSource = "hidden";
@@ -384,6 +446,11 @@ export default function Stage3D({
 
     const clock = new THREE.Clock();
     let lastPresentationCamera = "gameplay_portrait_locked";
+    let firstPresentationFrame = true;
+    let presentationReadySent = false;
+    // Camera-only offset: if assets load after audio begins, still show the
+    // full authored intro after reveal. Gameplay/animation get real song time.
+    let cameraIntroOriginSongMs = 0;
     let raf = 0;
     let disposed = false;
     const scheduleFrame = () => {
@@ -394,6 +461,7 @@ export default function Stage3D({
       raf = 0;
       if (disposed) return;
       if (document.hidden) return;
+      const diagnosticFrameStart = diagnostics ? performance.now() : 0;
       const delta = Math.min(clock.getDelta(), .1);
       const liveTime = clock.elapsedTime;
       const t = Number.isFinite(fixedPresentationTimeSeconds)
@@ -403,19 +471,24 @@ export default function Stage3D({
         ? Math.max(STAGE_VISUAL_COMPARE_SONG_TIME_MS, t * 1000)
         : (getSongTimeMsRef.current?.() ?? 0);
       const portrait = host.clientHeight > host.clientWidth;
-      const basePose = getStagePresentationCameraPose(
-        songTimeMs,
-        visualCompareMode ? false : isPlayingRef.current,
-        portrait,
-        cameraPresetRef.current,
-      );
+      const cameraSongTimeMs = Math.max(0, songTimeMs - cameraIntroOriginSongMs);
+      const basePose = cinematicMatchId && !visualCompareMode && !skipIntroCamera
+        ? getMatchStageCameraPose(cameraSongTimeMs, isPlayingRef.current, portrait, cameraPresetRef.current, cinematicMatchId)
+        : getStagePresentationCameraPose(
+          songTimeMs,
+          visualCompareMode ? false : isPlayingRef.current && !skipIntroCamera,
+          portrait,
+          cameraPresetRef.current,
+        );
       const neonPose = getNeonPresentationPose(basePose, neonPresentation, portrait);
       const pose = visualCompareMode && neonPresentation
         ? getNeonGoldenComparePose(neonPose)
         : neonPose;
       host.dataset.presentationCamera = pose.preset;
       const shotChanged = pose.preset !== lastPresentationCamera;
-      const cutToIntroShot = shotChanged && pose.preset !== "gameplay_portrait_locked";
+      // Match camera styles use continuous, authored rails. The solo legacy
+      // retains hard cuts at its named cinematic shot boundaries.
+      const cutToIntroShot = !cinematicMatchId && shotChanged && pose.preset !== "gameplay_portrait_locked";
       const cameraEase = pose.preset === "gameplay_portrait_locked"
         ? 1 - Math.pow(1 - .14, delta * 60)
         : 1 - Math.pow(1 - .20, delta * 60);
@@ -424,7 +497,7 @@ export default function Stage3D({
       // continuous camera rail through stage geometry. Snap at intro-shot
       // boundaries, then keep the subtle motion inside each shot. Blend only
       // when returning to the locked gameplay camera.
-      if (visualCompareMode || cutToIntroShot) {
+      if (visualCompareMode || cutToIntroShot || (Boolean(cinematicMatchId) && firstPresentationFrame) || (skipIntroCamera && firstPresentationFrame)) {
         // Visual comparison must be bit-stable: never depend on how many RAFs
         // elapsed before the screenshot was taken.
         camera.position.set(pose.x, pose.y, pose.z);
@@ -451,6 +524,14 @@ export default function Stage3D({
         sign.scale.set(signPulse, signPulse, signPulse);
       }
       renderer.render(scene, camera);
+      firstPresentationFrame = false;
+      if (!presentationReadySent && stageSettled && characterSettled) {
+        presentationReadySent = true;
+        cameraIntroOriginSongMs = songTimeMs;
+        host.dataset.presentationReady = "1";
+        onPresentationReadyRef.current?.();
+      }
+      if (diagnostics) diagnostics.frame(diagnosticFrameStart, performance.now() - diagnosticFrameStart);
       scheduleFrame();
     };
     const handleVisibilityChange = () => {
@@ -469,15 +550,20 @@ export default function Stage3D({
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       observer.disconnect();
+      diagnostics?.unbindRenderer(renderer);
+      if (character) diagnostics?.actorDisposed();
       character?.dispose();
       stageEnvironment.dispose();
       if (character && characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();
+      // Explicitly release backing stores when this scene is removed, instead
+      // of retaining a second WebGL context until Safari decides to run GC.
+      renderer.forceContextLoss();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds]);
+  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, skipIntroCamera, cinematicMatchId]);
 
   return (
     <div

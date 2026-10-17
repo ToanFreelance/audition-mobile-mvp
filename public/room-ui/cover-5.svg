@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+<title>Smoke — mock cover artwork</title>
+<defs><radialGradient id="bg"><stop stop-color="#fc6c9c"/><stop offset=".65" stop-color="#b22ffe"/><stop offset="1" stop-color="#0b103c"/></radialGradient>
+<linearGradient id="floor" x1="0" x2=".3" y1="0" y2="1"><stop stop-color="#55bbff" stop-opacity=".9"/><stop offset="1" stop-color="#12144c"/></linearGradient>
+<filter id="glow"><feGaussianBlur stdDeviation="7"/></filter></defs>
+<rect width="200" height="200" fill="#0a0e32"/><rect width="200" height="200" fill="url(#bg)" opacity=".83"/>
+<circle cx="100" cy="52" r="57" fill="#fc6c9c" filter="url(#glow)" opacity=".48"/>
+<path d="M0 15 87 200H60L0 55ZM200 12 123 200h32l45-137Z" fill="#55bbff" opacity=".25"/>
+<path d="M12 8l88 174M187 3 98 184" stroke="#fcbaff" stroke-width="8" opacity=".25"/>
+<circle cx="81" cy="5" r="2.4" fill="#fff3ff" opacity="0.35"/><circle cx="124" cy="22" r="0.75" fill="#55bbff" opacity="0.48"/><circle cx="167" cy="73" r="0.75" fill="#55bbff" opacity="0.61"/><circle cx="20" cy="158" r="0.75" fill="#fff3ff" opacity="0.74"/><circle cx="63" cy="122" r="0.75" fill="#55bbff" opacity="0.35"/><circle cx="106" cy="120" r="2.4" fill="#55bbff" opacity="0.48"/><circle cx="149" cy="152" r="0.75" fill="#fff3ff" opacity="0.61"/><circle cx="192" cy="63" r="0.75" fill="#55bbff" opacity="0.74"/><circle cx="45" cy="8" r="0.75" fill="#55bbff" opacity="0.35"/><circle cx="88" cy="142" r="0.75" fill="#fff3ff" opacity="0.48"/><circle cx="131" cy="155" r="2.4" fill="#55bbff" opacity="0.61"/><circle cx="174" cy="47" r="0.75" fill="#55bbff" opacity="0.74"/><circle cx="27" cy="128" r="0.75" fill="#fff3ff" opacity="0.35"/><circle cx="70" cy="88" r="0.75" fill="#55bbff" opacity="0.48"/><circle cx="113" cy="82" r="0.75" fill="#55bbff" opacity="0.61"/><circle cx="156" cy="110" r="2.4" fill="#fff3ff" opacity="0.74"/><circle cx="9" cy="17" r="0.75" fill="#55bbff" opacity="0.35"/><circle cx="52" cy="113" r="0.75" fill="#55bbff" opacity="0.48"/><circle cx="95" cy="88" r="0.75" fill="#fff3ff" opacity="0.61"/><circle cx="138" cy="97" r="0.75" fill="#55bbff" opacity="0.74"/><circle cx="181" cy="140" r="2.4" fill="#55bbff" opacity="0.35"/><circle cx="34" cy="62" r="0.75" fill="#fff3ff" opacity="0.48"/><circle cx="77" cy="18" r="0.75" fill="#55bbff" opacity="0.61"/><circle cx="120" cy="8" r="0.75" fill="#55bbff" opacity="0.74"/><circle cx="163" cy="32" r="0.75" fill="#fff3ff" opacity="0.35"/><circle cx="16" cy="90" r="2.4" fill="#55bbff" opacity="0.48"/><circle cx="59" cy="27" r="0.75" fill="#55bbff" opacity="0.61"/><circle cx="102" cy="153" r="0.75" fill="#fff3ff" opacity="0.74"/>
+<ellipse cx="100" cy="185" rx="111" ry="26" fill="url(#floor)" opacity=".65"/>
+<ellipse cx="100" cy="177" rx="68" ry="15" stroke="#55bbff" stroke-width="3" fill="none" opacity=".7"/>
+<g transform="translate(3 11) rotate(12 100 103)">
+<path d="M63 60Q57 19 96 27Q130 21 139 70L148 135Q115 113 79 133Z" fill="#15102e" stroke="#b22ffe" stroke-width="2"/>
+<path d="M68 47Q82 20 104 24Q136 29 139 62L129 86Q110 56 88 67L73 115Z" fill="#1a1035"/>
+<path d="M79 75q12-7 18 0l4 21-12 17-11-13z" fill="#f8b4aa"/>
+<path d="M78 65q-4-17 8-31 20-13 32 1 9 15 3 31-5 18-22 21-16 0-21-22" fill="#ffe0cd" stroke="#f5b9d0" stroke-width="2"/>
+<path d="M75 57Q76 28 105 29Q123 32 123 57Q117 47 113 43Q91 58 77 56Z" fill="#22102f"/>
+<path d="M85 62l9-1m12-1l9 1" stroke="#36224a" stroke-width="3" stroke-linecap="round"/>
+<path d="M96 76q5 4 11-1" stroke="#e86e98" stroke-width="2" fill="none"/>
+<path d="M82 84Q88 95 91 104L75 131 60 121 71 105Z" fill="#fc6c9c" stroke="#ffc1f0" stroke-width="2"/>
+<path d="M92 99Q113 89 125 104l16 28-51 12-17-20Z" fill="#b22ffe" stroke="#e7b0ff" stroke-width="2"/>
+<path d="M89 104l-23 28-29-19" fill="none" stroke="#ffbfaa" stroke-width="11" stroke-linecap="round"/>
+<path d="M122 111l20 13 24-24" fill="none" stroke="#ffbfaa" stroke-width="10" stroke-linecap="round"/>
+<path d="M80 130l-19 43m50-35 19 34" stroke="#272042" stroke-width="15" stroke-linecap="round"/>
+<path d="M59 174l-5 10h23m55-11 9 11h-23" fill="#1e1440" stroke="#ba8dff" stroke-width="4"/>
+<path d="M81 112L107 101" stroke="#fff2fb" stroke-width="3" opacity=".7"/>
+</g>
+<rect y="177" width="200" height="23" fill="#08103f" opacity=".75"/>
+<text x="100" y="194" fill="#fff3ff" text-anchor="middle" font-size="13" font-family="Arial,sans-serif" font-style="italic" font-weight="900" letter-spacing="1.3">SMOKE</text>
+<rect x="2" y="2" width="196" height="196" rx="9" fill="none" stroke="#55bbff" stroke-opacity=".85" stroke-width="3"/>
+</svg>
