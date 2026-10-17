@@ -20,6 +20,7 @@ export default defineConfig([
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/ban-ts-comment": "warn",
       "@next/next/no-location-assign-relative-destination": "warn",
+      "@next/next/no-html-link-for-pages": "warn",
       "@next/next/no-assign-module-variable": "warn",
       "prefer-const": "warn",
       "react-hooks/rules-of-hooks": "warn",

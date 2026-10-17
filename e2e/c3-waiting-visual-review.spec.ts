@@ -229,3 +229,29 @@ test("C3 already-frozen PRELOADING renders without viewer temporal-dead-zone cra
   });
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+test("C3 reference B: true-state four-step glass panel and five dancer cards fit portrait and landscape", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  for (const [width, height] of [[320, 568], [390, 740], [768, 1024], [873, 644]] as const) {
+    await page.setViewportSize({ width, height });
+    await page.goto("/tools/c3-preloading-five");
+    const processing = page.getByTestId("preload-state");
+    await expect(processing).toBeVisible();
+    await expect(page.getByTestId("preload-steps").locator('[data-testid^="preload-step-"]')).toHaveCount(4);
+    await expect(page.getByTestId("preload-participants").locator(":scope > div")).toHaveCount(5);
+    await expect(processing.locator('[role="progressbar"]')).toHaveAttribute("aria-valuenow", /^(0|25|50|75|100)$/);
+    const bounds = await processing.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width + 1);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(height + 1);
+    if ((width === 390 && height === 740) || (width === 873 && height === 644)) {
+      await page.screenshot({
+        path: `test-results/c3-baseline/preparing-stage-v3-${width}x${height}.png`,
+        fullPage: false, animations: "disabled",
+      });
+    }
+  }
+  expect(errors, errors.join("\n")).toEqual([]);
+});
