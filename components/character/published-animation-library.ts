@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { loadRuntimeAnimationBundle } from "./runtime-animation-bundle";
 import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
-import { fetchPublishedAnimationJson } from "./published-animation-transport";
+import { fetchPublishedAnimationJson, PublishedAnimationTransportError } from "./published-animation-transport";
+import { P37_DANCE_POOL_ID, P37_DANCE_POOL_VERSION, P37_DANCE_POOL_SOURCE_VERSION } from "./animation-pool";
 
 export const PUBLISHED_DANCE_BUNDLE_URL =
   "https://uaosdkrfxidiwqljmelg.supabase.co/functions/v1/p37-animation-publish";
@@ -44,6 +45,63 @@ export type LoadedPublishedDanceRelease = {
   idleSourceClips: THREE.AnimationClip[];
   info: PublishedDanceReleaseInfo;
 };
+
+
+/**
+ * START requires a frozen content identity, not the 10 MB published clip JSON.
+ * The lightweight published manifest carries the same ordered role IDs used by
+ * loadPublishedDanceRelease(). Full pinned clip validation stays in PRELOADING.
+ */
+export async function loadPublishedDanceReleaseIdentity(): Promise<{
+  releaseVersion: number;
+  sourceAssetIds: readonly string[];
+} | null> {
+  let result: unknown;
+  try {
+    result = await fetchPublishedAnimationJson(
+      signal => fetch(PUBLISHED_DANCE_MANIFEST_URL, {
+        method: "GET", cache: "no-cache",
+        headers: { Accept: "application/json" }, signal,
+      }),
+      "manifest", PUBLISHED_DANCE_MANIFEST_TIMEOUT_MS,
+    );
+  } catch (error) {
+    // Explicit 404 means no published release: retain the existing built-in
+    // v0 identity. Transient errors must not silently change frozen content.
+    if (error instanceof PublishedAnimationTransportError
+      && error.message.includes("HTTP 404")) return null;
+    throw error;
+  }
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    throw new Error("Published animation identity manifest is invalid.");
+  }
+  const manifest = result as Record<string, unknown>;
+  if (manifest.schemaVersion !== 1
+    || manifest.poolId !== P37_DANCE_POOL_ID
+    || manifest.poolVersion !== P37_DANCE_POOL_VERSION
+    || manifest.sourceVersion !== P37_DANCE_POOL_SOURCE_VERSION) {
+    throw new Error("Published animation identity manifest version mismatch.");
+  }
+  if (!Number.isInteger(manifest.releaseVersion) || Number(manifest.releaseVersion) <= 0) {
+    throw new Error("Published animation identity has no valid releaseVersion.");
+  }
+  const isIds = (ids: unknown): ids is string[] =>
+    Array.isArray(ids)
+    && ids.every(id => typeof id === "string" && id.length > 0)
+    && new Set(ids).size === ids.length;
+  const { normalIds, finalIds, idleIds, approvedIds } = manifest;
+  if (!isIds(normalIds) || normalIds.length === 0 || !isIds(finalIds)
+    || !isIds(idleIds) || !isIds(approvedIds)) {
+    throw new Error("Published animation identity has invalid role IDs.");
+  }
+  // Keep ordered de-duplication bit-identical to published clip resolution.
+  const sourceAssetIds = [...new Set([...normalIds, ...finalIds, ...idleIds])];
+  if (manifest.clipCount !== sourceAssetIds.length
+    || sourceAssetIds.some(id => !approvedIds.includes(id))) {
+    throw new Error("Published animation identity clip inventory mismatch.");
+  }
+  return { releaseVersion: Number(manifest.releaseVersion), sourceAssetIds };
+}
 
 export type PublishedDanceLibraryResult = {
   clips: THREE.AnimationClip[];
