@@ -348,6 +348,11 @@ test("C3 bubble-chain chrome joins every step; filled check and READY pill distr
   const chain = panel.getByTestId("preload-bubble-chain");
   await expect(chain.getByTestId("preload-bubble-link")).toHaveCount(3);
   for (const bridge of await chain.getByTestId("preload-bubble-link").all()) {
+    const mouthGap = Number(await bridge.getAttribute("data-mouth-gap"));
+    const waistGap = Number(await bridge.getAttribute("data-waist-gap"));
+    expect(mouthGap, "wide bubble mouths").toBeGreaterThanOrEqual(35);
+    expect(waistGap, "pinched droplet center").toBeGreaterThan(0);
+    expect(mouthGap / waistGap, "visibly tapered, not horizontal").toBeGreaterThan(4);
     const contours = bridge.locator("path");
     await expect(contours).toHaveCount(5);
     // A connected water-bubble outline has NO filled bridge and NO closed Z.

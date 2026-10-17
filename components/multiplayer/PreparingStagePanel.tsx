@@ -65,6 +65,18 @@ const STEP_RECTS = [
   { x: 664, y: 160, width: 178, height: 94, radius: 37 },
 ] as const;
 
+// Droplet separation: open the outer glass rim well above/below the equator
+// and converge its contour toward a narrow 8-unit waist at each neck midpoint.
+// This geometry is in the approved 873×644 coordinate system.
+const NECK_MOUTH_RISE = 13;
+const NECK_WAIST_TOP = 203;
+const NECK_WAIST_BOTTOM = 211;
+function shellMouthInset(radius: number): number {
+  // Position on the actual circular corner, so the connector and shell rim
+  // meet with no discontinuity instead of attaching to an arbitrary X offset.
+  return radius - Math.sqrt(radius * radius - NECK_MOUTH_RISE * NECK_MOUTH_RISE);
+}
+
 /**
  * Reference plate, traced against the owner's 873×644 processing sketch.
  * All decorative vectors share one immutable coordinate system, so they never
@@ -139,24 +151,31 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
     <g data-testid="preload-bubble-chain">
       {geometry.slice(0,-1).map((left,index)=>{
         const right=geometry[index+1];
-        const x1=left.x+left.width;
-        const x2=right.x;
-        const top1=left.y+left.radius;
-        const top2=right.y+right.radius;
-        const bottom1=left.y+left.height-left.radius;
-        const bottom2=right.y+right.height-right.radius;
+        // Endpoints sit on the curved shells, not in the empty gap.
+        const x1=left.x+left.width-shellMouthInset(left.radius);
+        const x2=right.x+shellMouthInset(right.radius);
+        const top1=left.y+left.radius-NECK_MOUTH_RISE;
+        const top2=right.y+right.radius-NECK_MOUTH_RISE;
+        const bottom1=left.y+left.height-left.radius+NECK_MOUTH_RISE;
+        const bottom2=right.y+right.height-right.radius+NECK_MOUTH_RISE;
         const mid=(x1+x2)/2;
-        const upper=`M ${x1} ${top1} C ${x1+7} ${top1-1} ${mid-8} 199 ${mid} 199 C ${mid+8} 199 ${x2-7} ${top2-1} ${x2} ${top2}`;
-        const lower=`M ${x1} ${bottom1} C ${x1+7} ${bottom1+1} ${mid-8} 215 ${mid} 215 C ${mid+8} 215 ${x2-7} ${bottom2+1} ${x2} ${bottom2}`;
-        return <g key={index} data-testid="preload-bubble-link">
+        const handle=(x2-x1)*.23;
+        // Wide by each bubble mouth, pronounced symmetric pinch at midpoint.
+        // Paired outline paths never close or fill the hourglass interior.
+        const upper=`M ${x1} ${top1} C ${x1+handle} ${top1} ${mid-handle*.5} ${NECK_WAIST_TOP} ${mid} ${NECK_WAIST_TOP} C ${mid+handle*.5} ${NECK_WAIST_TOP} ${x2-handle} ${top2} ${x2} ${top2}`;
+        const lower=`M ${x1} ${bottom1} C ${x1+handle} ${bottom1} ${mid-handle*.5} ${NECK_WAIST_BOTTOM} ${mid} ${NECK_WAIST_BOTTOM} C ${mid+handle*.5} ${NECK_WAIST_BOTTOM} ${x2-handle} ${bottom2} ${x2} ${bottom2}`;
+        const mouthGap=bottom1-top1;
+        const waistGap=NECK_WAIST_BOTTOM-NECK_WAIST_TOP;
+        return <g key={index} data-testid="preload-bubble-link"
+          data-mouth-gap={mouthGap} data-waist-gap={waistGap}>
           <path d={upper} fill="none" stroke={`url(#c3-bubble-link-${index})`}
-            strokeWidth="5" strokeLinecap="round" opacity=".85" filter="url(#c3-soft)"/>
+            strokeWidth="6" strokeLinecap="round" opacity=".84" filter="url(#c3-soft)"/>
           <path d={lower} fill="none" stroke={`url(#c3-bubble-link-${index})`}
-            strokeWidth="5" strokeLinecap="round" opacity=".85" filter="url(#c3-soft)"/>
+            strokeWidth="6" strokeLinecap="round" opacity=".84" filter="url(#c3-soft)"/>
           <path d={upper} fill="none" stroke={`url(#c3-bubble-link-${index})`}
-            strokeWidth="2.2" strokeLinecap="round" />
+            strokeWidth="2.5" strokeLinecap="round" />
           <path d={lower} fill="none" stroke={`url(#c3-bubble-link-${index})`}
-            strokeWidth="2.2" strokeLinecap="round" />
+            strokeWidth="2.5" strokeLinecap="round" />
           <path d={upper} fill="none" stroke="#e3faff"
             strokeWidth=".95" strokeLinecap="round" opacity=".67"/>
         </g>;
@@ -172,8 +191,13 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
       // The center-facing sides of connected shells remain OPEN so that the
       // unfilled neck contours visually extend their exterior perimeter.
       const inset=11.5;
-      const topRim=`M ${g.x} ${g.y+g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x+g.radius} ${g.y} H ${g.x+g.width-g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x+g.width} ${g.y+g.radius}`;
-      const lowerRim=`M ${g.x+g.width} ${g.y+g.height-g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x+g.width-g.radius} ${g.y+g.height} H ${g.x+g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x} ${g.y+g.height-g.radius}`;
+      const mouthX=shellMouthInset(g.radius);
+      const mouthTop=g.y+g.radius-NECK_MOUTH_RISE;
+      const mouthBottom=g.y+g.height-g.radius+NECK_MOUTH_RISE;
+      // The rim terminates directly at the droplet's flare, leaving the
+      // vertical throat open on connected sides of the outer shell.
+      const topRim=`M ${g.x+mouthX} ${mouthTop} A ${g.radius} ${g.radius} 0 0 1 ${g.x+g.radius} ${g.y} H ${g.x+g.width-g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x+g.width-mouthX} ${mouthTop}`;
+      const lowerRim=`M ${g.x+g.width-mouthX} ${mouthBottom} A ${g.radius} ${g.radius} 0 0 1 ${g.x+g.width-g.radius} ${g.y+g.height} H ${g.x+g.radius} A ${g.radius} ${g.radius} 0 0 1 ${g.x+mouthX} ${mouthBottom}`;
       return <g key={index} data-testid="preload-bubble-shell">
         <rect x={g.x} y={g.y} width={g.width} height={g.height} rx={g.radius}
           fill={color} opacity={on?".29":".10"} filter="url(#c3-neon)"/>
@@ -189,10 +213,11 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
           <path d={d} fill="none" stroke="#efffff" strokeWidth=".85"
             opacity={on?".62":".22"}/>
         </g>)}
-        {index===0 && <path d={`M ${g.x} ${g.y+g.radius} V ${g.y+g.height-g.radius}`}
+        {index===0 && <path
+          d={`M ${g.x+mouthX} ${mouthTop} Q ${g.x} ${g.y+g.radius} ${g.x} ${g.y+g.radius} V ${g.y+g.height-g.radius} Q ${g.x} ${mouthBottom} ${g.x+mouthX} ${mouthBottom}`}
           stroke={color} strokeWidth="2.4" fill="none"/>}
         {index===geometry.length-1 && <path
-          d={`M ${g.x+g.width} ${g.y+g.radius} V ${g.y+g.height-g.radius}`}
+          d={`M ${g.x+g.width-mouthX} ${mouthTop} Q ${g.x+g.width} ${g.y+g.radius} ${g.x+g.width} ${g.y+g.radius} V ${g.y+g.height-g.radius} Q ${g.x+g.width} ${mouthBottom} ${g.x+g.width-mouthX} ${mouthBottom}`}
           stroke={color} strokeWidth="2.4" fill="none" opacity=".8"/>}
         <rect data-testid="bubble-inner-core"
           x={g.x+inset} y={g.y+inset}
