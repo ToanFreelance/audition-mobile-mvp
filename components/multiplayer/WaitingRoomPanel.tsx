@@ -57,6 +57,7 @@ import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
 import StageLaunchArtwork from "./StageLaunchArtwork";
+import { recordC3StartCheckpoint } from "./c3-start-trace";
 import { PerformanceDiagnostics, performanceDiagnosticsEnabled } from "../diagnostics/performance-diagnostics";
 import WaitingRoomStage3D, {
   type WaitingRoomCalibrationLayout,
@@ -1132,15 +1133,18 @@ export default function WaitingRoomPanel({
         item => item.participantId === localParticipant.participantId && item.loadState === "loaded",
       )) return;
 
+      recordC3StartCheckpoint("preloading-assets-begin");
       let readiness = preloadReadinessRef.current?.sessionKey === identityKey
         ? preloadReadinessRef.current.readiness : null;
       if (!readiness) {
         try {
           readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest);
           if (cancelled) return;
+          recordC3StartCheckpoint("preloading-assets-ready");
           preloadReadinessRef.current = { sessionKey: identityKey, readiness };
         } catch (error) {
           if (cancelled) return;
+          recordC3StartCheckpoint("preloading-assets-error");
           // Only a genuine asset/content preload error may mark FAILED.
           // Keep the cause independently visible across subsequent CAS conflicts.
           const message = error instanceof Error ? error.message : "Match content preload failed.";
@@ -1165,9 +1169,11 @@ export default function WaitingRoomPanel({
       if (!current.matchStart || current.status !== "preloading") return;
       const currentSession = restoreRoomMatchStartSession(current.matchStart, current.participants);
       const ack = createLoadedAckForSession(currentSession, localParticipant.participantId, readiness);
+      recordC3StartCheckpoint("preloading-loaded-ack-request");
       const loadedSnapshot = await submitPreloadMutation("loaded", ack);
       if (cancelled || !loadedSnapshot?.matchStart) return;
 
+      recordC3StartCheckpoint("preloading-loaded-ack-confirmed");
       const loadedSession = restoreRoomMatchStartSession(
         loadedSnapshot.matchStart,
         loadedSnapshot.participants,
@@ -1461,6 +1467,7 @@ export default function WaitingRoomPanel({
 
       gameplayRuntimeRef.current?.stop();
       gameplayRuntimeRef.current = result.runtime;
+      recordC3StartCheckpoint("shared-epoch-audio-scheduled");
       setGameplaySchedule({
         sessionKey: matchStartSessionKey,
         transport: prepared.transport,
@@ -1847,10 +1854,12 @@ export default function WaitingRoomPanel({
       return;
     }
 
+    recordC3StartCheckpoint("start-intent");
     setStartIntentPending(true);
     setSyncDetail("Freezing authoritative room into MatchManifest…");
 
     void (async () => {
+      recordC3StartCheckpoint("start-canonical-fetch");
       const latest = syncOptions
         ? await fetchStartCanonicalSnapshot(syncOptions.roomId)
         : roomRef.current;
@@ -1860,18 +1869,21 @@ export default function WaitingRoomPanel({
         throw new Error("Room changed before Start. State refreshed; press Start again.");
       }
 
+      recordC3StartCheckpoint("start-canonical-confirmed");
       const gate = canStartRoom(latest);
       if (!gate.allowed) {
         throw new Error(`Room cannot start: ${gate.reason}.`);
       }
       if (!latest.selectedSongId) throw new Error("Selected song is required.");
 
+      recordC3StartCheckpoint("start-animation-metadata-fetch");
       const content = await prepareLobbyMatchFreezeInput({
         roomId: latest.roomId,
         roomRevision: latest.revision,
         songId: latest.selectedSongId,
       });
 
+      recordC3StartCheckpoint("start-metadata-resolved");
       // Re-fetch canonical state after async content resolution. A Ready/config
       // mutation may land on the server while this page has not received any
       // realtime presentation update yet, so local roomRef alone is insufficient.
@@ -1892,6 +1904,7 @@ export default function WaitingRoomPanel({
       const startRevision = (finalSnapshot.matchStart?.startRevision ?? 0) + 1;
 
       if (syncOptions) {
+        recordC3StartCheckpoint("start-preload-cas-request");
         const result = await runServerMutation({
           action: "start-preload",
           expectedRevision: finalSnapshot.revision,
@@ -1903,6 +1916,7 @@ export default function WaitingRoomPanel({
           throw new Error("Room changed before preload handoff. State refreshed; press Start again.");
         }
         const session = restoreRoomMatchStartSession(result.snapshot.matchStart);
+        recordC3StartCheckpoint("start-preloading-confirmed");
         setFrozenMatchManifest(session.manifest);
         setSyncDetail(
           `PRELOADING · ${session.matchId} · room r${session.roomRevision} · start r${session.startRevision}.`,
@@ -1923,6 +1937,7 @@ export default function WaitingRoomPanel({
         `PRELOADING · ${transition.session.matchId} · room r${transition.session.roomRevision} · start r${transition.session.startRevision}.`,
       );
     })().catch(error => {
+      recordC3StartCheckpoint("start-error");
       setFrozenMatchManifest(null);
       if (syncKey) setCanonicalHealth({ key: syncKey, state: "error", message: "Không thể xác minh START. Hãy đồng bộ lại phòng." });
       setSyncDetail(error instanceof Error ? error.message : "Match freeze failed.");
