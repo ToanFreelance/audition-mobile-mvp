@@ -210,3 +210,22 @@ test("C3 START intent immediately covers released 3D scene while manifest freeze
     fullPage: false, animations: "disabled",
   });
 });
+
+test("C3 already-frozen PRELOADING renders without viewer temporal-dead-zone crash", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 740 });
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/tools/c3-preloading-render");
+  const panel = page.getByTestId("preload-state");
+  await expect(panel).toBeVisible({ timeout: 15_000 });
+  await expect(panel).toHaveAttribute("data-phase", "preloading");
+  await expect(page.getByTestId("preload-participants")).toBeVisible();
+  await expect(page.getByTestId("preload-overlay")).toBeVisible();
+  await expect(page.getByTestId("waiting-room-stage")).toHaveCount(0);
+  await page.screenshot({
+    path: "test-results/c3-baseline/preloading-render-390x740.png",
+    fullPage: false,
+    animations: "disabled",
+  });
+  expect(errors, errors.join("\n")).toEqual([]);
+});
