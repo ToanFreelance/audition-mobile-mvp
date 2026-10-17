@@ -69,7 +69,7 @@
 .rosterStatus{display:flex;align-items:center;justify-content:flex-end;gap:.8cqw;
   font-size:1.55cqw;color:#80ffdf;text-align:right;white-space:nowrap;}
 .rosterStatus svg{width:3.3cqw;color:#a3ffe4;flex:0 0 auto;}
-.rosterGrid{position:absolute;top:20.3%;bottom:2.5%;left:2%;right:2%;
+.rosterGrid{position:absolute;top:30%;bottom:2.5%;left:2%;right:2%;
   display:grid;gap:.7cqw;justify-content:center;min-width:0;}
 .dancer{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;
   align-items:center;justify-content:flex-end;
