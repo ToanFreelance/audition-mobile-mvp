@@ -56,6 +56,9 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+      - name: ESLint gate
+        run: npm run lint
+
       - name: Focused lobby architecture regression
         run: npm run test:qa:lobby:fast
 
