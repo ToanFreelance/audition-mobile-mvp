@@ -240,6 +240,8 @@ test("C3 reference B: true-state four-step glass panel and five dancer cards fit
     const processing = page.getByTestId("preload-state");
     await expect(processing).toBeVisible();
     await expect(page.getByTestId("preload-steps").locator('[data-testid^="preload-step-"]')).toHaveCount(4);
+    const titleFits = await processing.locator("h2").evaluate(el => el.scrollWidth <= el.clientWidth + 2);
+    expect(titleFits, "PREPARING STAGE must not overlap its decorative SVG waves").toBe(true);
     await expect(page.getByTestId("preload-participants").locator(":scope > div")).toHaveCount(5);
     await expect(processing.locator('[role="progressbar"]')).toHaveAttribute("aria-valuenow", /^(0|25|50|75|100)$/);
     const bounds = await processing.boundingBox();

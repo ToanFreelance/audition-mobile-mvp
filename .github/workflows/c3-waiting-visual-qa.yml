@@ -52,16 +52,6 @@ jobs:
       - name: C3 processing panel in mobile WebKit
         run: npx playwright test e2e/c3-waiting-visual-review.spec.ts --project=mobile --workers=1 --grep "C3 reference B:"
 
-      - name: Emit 390x740 processing capture for comparison
-        if: always()
-        run: |
-          if [ -f test-results/c3-baseline/preparing-stage-v3-390x740.png ]; then
-            echo "C3_IMAGE_390_BEGIN"
-            base64 -w0 test-results/c3-baseline/preparing-stage-v3-390x740.png
-            echo
-            echo "C3_IMAGE_390_END"
-          fi
-
       - name: Upload baseline screenshots
         if: always()
         uses: actions/upload-artifact@v4
