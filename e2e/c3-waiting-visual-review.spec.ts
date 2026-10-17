@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { createRoomState } from "../multiplayer/room-state";
 import type { HumanHostParticipant } from "../multiplayer/types";
 
@@ -254,4 +255,13 @@ test("C3 reference B: true-state four-step glass panel and five dancer cards fit
     }
   }
   expect(errors, errors.join("\n")).toEqual([]);
+});
+
+test("C3 gameplay entry curtain reuses the same preparing-stage plate and actual stage-readiness callback", () => {
+  const code = readFileSync("components/multiplayer/LiveMultiplayerGameplay.tsx", "utf8");
+  expect(code).toContain('import PreparingStagePanel from "./PreparingStagePanel"');
+  expect(code).toContain('stageReady={stagePresentationReady}');
+  expect(code).toContain('onPresentationReady={onStagePresentationReady}');
+  expect(code).toContain('data-testid="gameplay-entry-curtain"');
+  expect(code).not.toContain('className={transitionStyles.entryTitle}');
 });

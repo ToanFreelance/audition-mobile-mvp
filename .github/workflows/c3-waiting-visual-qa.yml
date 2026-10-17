@@ -11,6 +11,11 @@ on:
       - "components/multiplayer/WaitingRoomPanel.module.css"
       - "components/multiplayer/WaitingRoomPanel.tsx"
       - "components/multiplayer/WaitingRoomStage3D.tsx"
+      - "components/multiplayer/PreparingStagePanel.tsx"
+      - "components/multiplayer/PreparingStagePanel.module.css"
+      - "components/multiplayer/LiveMultiplayerGameplay.tsx"
+      - "components/multiplayer/LiveMultiplayerGameplay.module.css"
+      - "app/tools/c3-preloading-five/page.tsx"
 
 permissions:
   contents: read
