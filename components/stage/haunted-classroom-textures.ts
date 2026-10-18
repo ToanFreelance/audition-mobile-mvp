@@ -22,9 +22,9 @@ function canvasTexture(w: number, h: number, seed: number, paint: (c: CanvasRend
 }
 export function makeOldPlaster() {
   return canvasTexture(1024, 512, 401, (c, r) => {
-    c.fillStyle = "#344256"; c.fillRect(0, 0, 1024, 512);
+    c.fillStyle = "#42566b"; c.fillRect(0, 0, 1024, 512);
     // Turquoise lower paint with ragged boundary and dried water damage.
-    c.fillStyle = "#254e53"; c.fillRect(0, 345, 1024, 167);
+    c.fillStyle = "#2e6067"; c.fillRect(0, 345, 1024, 167);
     for (let i = 0; i < 1500; i++) {
       const x = r() * 1024, y = r() * 512;
       c.fillStyle = r() > .56 ? "rgba(4,9,24,.11)" : "rgba(169,164,139,.07)";
@@ -41,7 +41,7 @@ export function makeOldPlaster() {
 }
 export function makeOldFloor() {
   return canvasTexture(1024, 1024, 402, (c,r) => {
-    c.fillStyle = "#43313b"; c.fillRect(0,0,1024,1024);
+    c.fillStyle = "#55424b"; c.fillRect(0,0,1024,1024);
     const plank=77;
     for(let row=0;row<14;row++){
       const y=row*plank;
@@ -49,7 +49,7 @@ export function makeOldFloor() {
       const offset=row%3===0 ? -290 : row%3===1 ? -520 : -90;
       for(let x=offset;x<1100;x+=370){
         const v=r();
-        const a=v>.5 ? [79,56,61] : [60,49,60];
+        const a=v>.5 ? [105,73,73] : [76,57,66];
         const dr=Math.round((r()-.5)*29);
         c.fillStyle="rgb("+(a[0]+dr)+","+(a[1]+dr)+","+(a[2]+dr)+")";
         c.fillRect(x+4,y+5,365,70);
@@ -80,14 +80,14 @@ export function makeOldFloor() {
 }
 export function makeChalkboard() {
   return canvasTexture(1536, 768, 403, (c,r) => {
-    c.fillStyle="#102b31"; c.fillRect(0,0,1536,768);
+    c.fillStyle="#15343d"; c.fillRect(0,0,1536,768);
     for(let i=0;i<900;i++){
       c.fillStyle=r()>.5 ? "rgba(218,229,225,.035)" : "rgba(1,8,10,.13)";
       c.fillRect(r()*1536,r()*768,8+r()*190,r()*7+.5);
     }
     c.save();
-    c.globalAlpha=.55;
-    c.strokeStyle="#7e9aa6"; c.lineWidth=4; c.lineCap="round";
+    c.globalAlpha=.77;
+    c.strokeStyle="#a1b9c1"; c.lineWidth=5; c.lineCap="round";
     const ghost=(x:number,y:number,s:number)=>{
       c.save();c.translate(x,y);c.scale(s,s);
       c.beginPath();c.moveTo(-70,83);
@@ -124,8 +124,8 @@ export function makeChalkboard() {
 export function makeGhostWindow() {
   return canvasTexture(512, 1024, 404, (c,r) => {
     const g=c.createLinearGradient(0,0,0,1024);
-    g.addColorStop(0,"#241633");g.addColorStop(.34,"#9b3c9a");
-    g.addColorStop(.65,"#772b80");g.addColorStop(1,"#211931");
+    g.addColorStop(0,"#32133d");g.addColorStop(.27,"#dd4ac2");
+    g.addColorStop(.65,"#a238a9");g.addColorStop(1,"#371c59");
     c.fillStyle=g;c.fillRect(0,0,512,1024);
     const moon=c.createRadialGradient(310,155,4,310,155,155);
     moon.addColorStop(0,"rgba(251,198,239,.95)");
@@ -147,7 +147,7 @@ export function makeGhostWindow() {
       }
     }
     // Uncanny figures are decals BEHIND glass, not actors in the room.
-    c.save();c.globalAlpha=.24;c.fillStyle="#c5e3f5";
+    c.save();c.globalAlpha=.56;c.fillStyle="#d9f1ff";
     for(const q of [{x:106,y:565,s:1},{x:425,y:680,s:.65}]){
       c.save();c.translate(q.x,q.y);c.scale(q.s,q.s);
       c.beginPath();c.ellipse(0,-66,39,55,0,0,2*Math.PI);c.fill();
@@ -193,6 +193,63 @@ export function makeSchoolPaper() {
     for(let i=0;i<350;i++){
       c.fillStyle=r()>.5?"rgba(35,22,30,.06)":"rgba(241,230,204,.13)";
       c.fillRect(r()*256,r()*256,2+r()*15,r()*2+1);
+    }
+  });
+}
+
+
+/**
+ * A lightweight pre-painted reflection decal, NOT another WebGL renderer
+ * or a postprocessing pass. World-space plane over the glossy wood creates
+ * the window/candle color streaks visible in the owner's reference.
+ */
+export function makeClassroomFloorReflections() {
+  return canvasTexture(1024, 1024, 409, (c, r) => {
+    c.clearRect(0, 0, 1024, 1024);
+    const pools: Array<[number, number, number, number, string]> = [
+      [95,210,180,200,"227,70,190"],
+      [930,200,180,200,"229,67,199"],
+      [180,570,205,235,"155,70,239"],
+      [840,560,240,230,"182,70,228"],
+      [320,860,155,150,"244,137,95"],
+      [725,885,155,155,"253,144,92"],
+      [500,405,200,165,"106,114,228"],
+      [500,810,120,130,"155,62,162"],
+    ];
+    for (const [x,y,rx,ry,color] of pools) {
+      c.save(); c.translate(x,y); c.scale(1,ry/rx);
+      const g=c.createRadialGradient(0,0,8,0,0,rx);
+      g.addColorStop(0,"rgba("+color+",.40)");
+      g.addColorStop(.25,"rgba("+color+",.20)");
+      g.addColorStop(.70,"rgba("+color+",.055)");
+      g.addColorStop(1,"rgba("+color+",0)");
+      c.fillStyle=g;c.beginPath();c.arc(0,0,rx,0,Math.PI*2);c.fill();
+      c.restore();
+    }
+    // Directional, imperfect streaks; broken at plank grout lines.
+    for (let i=0;i<580;i++) {
+      const x=r()*1024,y=r()*1024, len=12+r()*100;
+      const warm=r()>.75;
+      c.strokeStyle=warm?"rgba(255,173,110,.09)":"rgba(229,121,239,.095)";
+      c.lineWidth=.5+r()*2.5;
+      c.beginPath();c.moveTo(x,y);c.lineTo(x+len,y+(r()-.5)*3);c.stroke();
+    }
+  });
+}
+export function makeWindowShaft() {
+  return canvasTexture(256,512,410,(c,r)=>{
+    c.clearRect(0,0,256,512);
+    const g=c.createLinearGradient(0,0,0,512);
+    g.addColorStop(0,"rgba(242,125,255,.0)");
+    g.addColorStop(.24,"rgba(232,124,255,.19)");
+    g.addColorStop(.63,"rgba(195,108,244,.13)");
+    g.addColorStop(1,"rgba(187,99,246,0)");
+    c.fillStyle=g;
+    c.beginPath();c.moveTo(75,0);c.lineTo(170,0);c.lineTo(255,512);
+    c.lineTo(0,512);c.closePath();c.fill();
+    for(let i=0;i<55;i++){
+      c.fillStyle="rgba(244,214,255,"+(.015+r()*.035)+")";
+      c.fillRect(r()*256,r()*512,1+r()*9,1+r()*3);
     }
   });
 }
