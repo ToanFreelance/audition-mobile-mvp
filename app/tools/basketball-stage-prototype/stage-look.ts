@@ -50,19 +50,39 @@ export function makeOldBrick() {
         }
       }
     }
-    // Connected chipped stucco patches instead of the earlier pale triangle stickers.
-    for (let cluster = 0; cluster < 13; cluster++) {
-      const cx = 45 + rand() * 940, cy = 28 + rand() * 420;
-      const rx = 25 + rand() * 75, ry = 13 + rand() * 32;
-      for (let i = 0; i < 45; i++) {
-        const theta = rand() * Math.PI * 2, r = Math.sqrt(rand());
-        const x = cx + Math.cos(theta) * rx * r;
-        const y = cy + Math.sin(theta) * ry * r;
-        const size = 4 + rand() * 17;
-        c.fillStyle = rand() < .54 ? "rgba(239,229,211,.65)" : "rgba(212,207,193,.54)";
+    // A few connected, wind-eroded stucco patches, rather than disconnected
+    // white decals. Low-frequency contours keep the exposed brick legible.
+    for (let cluster = 0; cluster < 7; cluster++) {
+      const cx = 90 + rand() * 840;
+      const cy = 58 + rand() * 375;
+      const rx = 52 + rand() * 92;
+      const ry = 16 + rand() * 37;
+      const phase = rand() * 6.28;
+      const drawPatch = (radiusScale: number, opacity: number) => {
         c.beginPath();
-        c.ellipse(x, y, size * (0.55 + rand()), size * (0.17 + rand() * .26), rand() * 2, 0, 2 * Math.PI);
+        for (let i = 0; i <= 90; i++) {
+          const a = i * Math.PI * 2 / 90;
+          const wobble = 1 + .11 * Math.sin(a * 3 + phase)
+            + .08 * Math.sin(a * 8 - phase * 1.3)
+            + .04 * Math.sin(a * 15 + phase);
+          const x = cx + Math.cos(a) * rx * radiusScale * wobble;
+          const y = cy + Math.sin(a) * ry * radiusScale * wobble;
+          if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+        }
+        c.closePath();
+        c.fillStyle = "rgba(226,217,204," + opacity + ")";
         c.fill();
+      };
+      drawPatch(1.12, .19);
+      drawPatch(.94, .37);
+      drawPatch(.79, .24);
+      // Small exposed-red interruptions, subdued rather than bright starbursts.
+      for (let i = 0; i < 19; i++) {
+        const a = rand() * Math.PI * 2;
+        const dist = .45 + rand() * .57;
+        c.fillStyle = "rgba(150,79,60,.22)";
+        c.fillRect(cx + Math.cos(a) * rx * dist, cy + Math.sin(a) * ry * dist,
+          4 + rand() * 21, 1.5 + rand() * 5);
       }
     }
     weather(c, rand, 1024, 512, 7500);
@@ -115,11 +135,11 @@ function wildStroke(c: CanvasRenderingContext2D, path: Path2D, fill: CanvasGradi
   c.lineJoin = "round";
   c.lineCap = "round";
   const strokes: Array<[string | CanvasGradient, number]> = [
-    ["#0d0920", width + 32],
-    ["#391548", width + 23],
-    ["#f9e3f2", width + 15],
-    ["#8d54bd", width + 9],
-    ["#1d1235", width + 3],
+    ["#090712", width + 55],
+    ["#2a0e43", width + 40],
+    ["#f2ddee", width + 25],
+    ["#8048b2", width + 16],
+    ["#1a0c2e", width + 7],
     [fill, width],
   ];
   for (const [color, w] of strokes) { c.lineWidth = w; c.strokeStyle = color; c.stroke(path); }
@@ -152,7 +172,7 @@ function graffitiPiece(c: CanvasRenderingContext2D, rand: () => number, x: numbe
     p.lineTo(84, 89); p.lineTo(-46, 77); p.lineTo(-15, 16);
     p.lineTo(-95, 44);
   }
-  wildStroke(c, p, grad, 24);
+  wildStroke(c, p, grad, 31);
   c.lineWidth = 3.5; c.strokeStyle = "#fdf2ff";
   c.beginPath(); c.moveTo(-68, -30); c.lineTo(28, -85); c.lineTo(72, -46); c.stroke();
   c.strokeStyle = "#190d35"; c.lineWidth = 4;
@@ -161,110 +181,142 @@ function graffitiPiece(c: CanvasRenderingContext2D, rand: () => number, x: numbe
 }
 
 export function makeGraffitiWall() {
-  return canvasTexture(2048, 512, (c, rand) => {
-    // Transparent overlay; the physically separate weathered block wall shows
-    // through the mural, unlike the old fully opaque sticker plane.
+  // 2048x1024 (8 MiB uncompressed): balanced for iPhone WebGL.
+  // Vertical supersampling helps the dark outline remain sharp on a portrait viewport.
+  return canvasTexture(2048, 1024, (c, rand) => {
+    c.scale(1, 2);
     c.clearRect(0, 0, 2048, 512);
-    const pink = ["#ed268a", "#f757a7", "#b130ad", "#66287b", "#30aace"];
-    // Dark backdrop anchored to 4 connected but irregular mural islands.
-    for (let j = 0; j < 4; j++) {
-      const cx = 275 + j * 500, cy = 260 + Math.sin(j * 2.1) * 30;
-      const gradient = c.createRadialGradient(cx, cy, 20, cx, cy, 315);
-      gradient.addColorStop(0, "rgba(22,7,39,.94)");
-      gradient.addColorStop(.69, "rgba(39,10,67,.89)");
-      gradient.addColorStop(1, "rgba(85,18,80,0)");
-      c.fillStyle = gradient;
-      c.beginPath(); c.ellipse(cx, cy, 310, 150, -.1, 0, Math.PI * 2); c.fill();
-      for (let k = 0; k < 44; k++) {
-        const x = cx + (rand() - .5) * 580, y = cy + (rand() - .5) * 245;
-        c.fillStyle = pink[k % pink.length];
-        c.globalAlpha = .10 + rand() * .42;
-        c.beginPath(); c.ellipse(x, y, 9 + rand() * 46, 2 + rand() * 23, rand() * 3, 0, Math.PI * 2); c.fill();
-      }
+    const pink = ["#fc4e9d", "#ed338c", "#a32c9d", "#5b2681", "#3baad9"];
+    // An asymmetrical deep purple painted mass under the entire central mural.
+    // The previous disconnected radial gradients made it look like one thin decal.
+    c.save();
+    c.beginPath();
+    c.moveTo(135, 302);
+    for (let i = 0; i <= 29; i++) {
+      const x = 145 + i * 59;
+      c.lineTo(x, 108 + 25 * Math.sin(i * 1.1) + rand() * 44);
     }
-    c.globalAlpha = 1;
-    for (let i = 0; i < 11; i++) {
-      const x = 138 + i * 178 + (rand() - .5) * 20;
-      const y = 251 + Math.sin(i * 1.21) * 46;
-      graffitiPiece(c, rand, x, y, .83 + rand() * .24, i);
+    c.lineTo(1907, 337);
+    for (let i = 29; i >= 0; i--) {
+      const x = 145 + i * 59;
+      c.lineTo(x, 435 + 13 * Math.sin(i * 1.5) - rand() * 37);
     }
-    // Distinctive long sweeping magenta/purple arrows over and under the letters.
-    for (let i = 0; i < 29; i++) {
-      const x = 65 + rand() * 1940, y = 160 + rand() * 230;
-      c.save(); c.translate(x, y); c.rotate((rand() - .5) * 2.1);
-      c.lineWidth = 3 + rand() * 8;
-      c.lineCap = "round";
-      c.strokeStyle = i % 3 === 0 ? "#f5d6ed" : i % 3 === 1 ? "#dd56c2" : "#251132";
-      c.beginPath(); c.moveTo(-30, 21); c.quadraticCurveTo(16, -30, 50, -17);
-      c.lineTo(34, -21); c.moveTo(50, -17); c.lineTo(42, 4); c.stroke();
+    c.closePath();
+    c.fillStyle = "rgba(17,7,31,.90)";
+    c.fill();
+    c.strokeStyle = "rgba(142,44,129,.57)";
+    c.lineWidth = 17;
+    c.stroke();
+    c.restore();
+    // Broad aerosol undercoats: magenta and cyan spray behind the letters.
+    for (let j = 0; j < 68; j++) {
+      const x = 80 + rand() * 1880;
+      const y = 135 + rand() * 255;
+      c.save();
+      c.translate(x, y);
+      c.rotate(rand() * 6.28);
+      c.fillStyle = pink[j % pink.length];
+      c.globalAlpha = .17 + rand() * .24;
+      c.beginPath();
+      c.ellipse(0, 0, 18 + rand() * 73, 3 + rand() * 36, 0, 0, Math.PI * 2);
+      c.fill();
       c.restore();
     }
-    // Separate left-side marker and right-side street-art figure like the plate.
-    c.save(); c.translate(32, 231); c.rotate(-.13);
-    c.font = "italic 900 61px Impact, sans-serif";
-    c.strokeStyle = "#7b164d"; c.lineWidth = 9; c.strokeText("LOVE", 0, 0);
-    c.fillStyle = "#db3f83"; c.fillText("LOVE", 0, 0); c.restore();
-    c.save(); c.translate(1850, 325); c.rotate(-.17);
-    c.font = "italic 900 66px Impact, sans-serif";
-    c.strokeStyle = "#16101e"; c.lineWidth = 10; c.strokeText("BEAT", 0, 0);
-    c.fillStyle = "#fcab64"; c.fillText("BEAT", 0, 0); c.restore();
-    // Orange cap + outlined profile at right edge: one small non-animated wall illustration.
-    c.save(); c.translate(1970, 220);
-    c.strokeStyle = "#20152c"; c.lineWidth = 10; c.lineJoin = "round";
-    c.fillStyle = "#f6984e";
-    c.beginPath(); c.moveTo(-60, -38); c.lineTo(-31, -110); c.lineTo(39, -86); c.lineTo(78, -39); c.closePath();
-    c.fill(); c.stroke();
-    c.fillStyle = "#e1af83"; c.beginPath(); c.ellipse(0, 26, 49, 75, -.23, 0, Math.PI * 2); c.fill(); c.stroke();
-    c.strokeStyle = "#412849"; c.lineWidth = 6;
-    c.beginPath(); c.moveTo(-28, 16); c.lineTo(-9, 21); c.moveTo(19, 16); c.lineTo(36, 12); c.stroke();
-    c.restore();
-    for (let i = 0; i < 95; i++) {
-      const x = rand() * 2048, y = 145 + rand() * 260;
-      splat(c, rand, x, y, pink[i % pink.length], 10);
+    // Seven large, varied calligraphic figures instead of 11 tiny repeats.
+    for (let i = 0; i < 7; i++) {
+      const x = 262 + i * 253 + (rand() - .5) * 35;
+      const y = 245 + 36 * Math.sin(i * 1.18);
+      graffitiPiece(c, rand, x, y, 1.17 + rand() * .30, i);
     }
-    for (let i = 0; i < 95; i++) {
-      const x = rand() * 2048, y = 335 + rand() * 103;
-      c.fillStyle = pink[i % pink.length];
+    // Nonrepeating intertwined swashes and arrows spanning multiple letters.
+    for (let i = 0; i < 22; i++) {
+      const x = 100 + rand() * 1830, y = 130 + rand() * 260;
+      c.save(); c.translate(x, y); c.rotate((rand() - .5) * 1.9);
+      c.lineCap = "round";
+      c.lineJoin = "round";
+      c.lineWidth = i % 3 === 0 ? 10 : 4 + rand() * 7;
+      c.strokeStyle = i % 4 === 0 ? "#fa7dc0" : i % 4 === 1 ? "#e7d9ff" : i % 4 === 2 ? "#20102b" : "#8851c9";
+      c.beginPath();
+      c.moveTo(-70, 30);
+      c.bezierCurveTo(-25, -30, 45, -29, 87, -68);
+      c.lineTo(61, -58);
+      c.moveTo(87, -68); c.lineTo(80, -38);
+      c.stroke();
+      c.restore();
+    }
+    // Small tags on the margins avoid billboard-style headline text.
+    c.save(); c.translate(47, 210); c.rotate(-.17);
+    c.font = "italic 900 62px Impact, sans-serif";
+    c.strokeStyle = "#5c0c43"; c.lineWidth = 7; c.strokeText("LOVE", 0, 0);
+    c.fillStyle = "#e75c92"; c.fillText("LOVE", 0, 0);
+    c.restore();
+    c.save(); c.translate(1850, 342); c.rotate(-.14);
+    c.font = "italic 900 52px Impact, sans-serif";
+    c.strokeStyle = "#0e0b20"; c.lineWidth = 8; c.strokeText("BEAT", 0, 0);
+    c.fillStyle = "#ffa45f"; c.fillText("BEAT", 0, 0);
+    c.restore();
+    // One small warm colored character/tag accent on the far-right edge.
+    c.save(); c.translate(1980, 235);
+    c.strokeStyle = "#1b0c24"; c.lineWidth = 9; c.lineJoin = "round";
+    c.fillStyle = "#ea9246";
+    c.beginPath(); c.moveTo(-62,-37); c.lineTo(-30,-105); c.lineTo(39,-81);
+    c.lineTo(80,-35); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = "#d8a47b"; c.beginPath(); c.ellipse(0,27,44,65,-.24,0,2*Math.PI); c.fill(); c.stroke();
+    c.strokeStyle = "#382247"; c.lineWidth = 6;
+    c.beginPath(); c.moveTo(-27,15); c.lineTo(-8,21); c.moveTo(13,15); c.lineTo(33,11); c.stroke();
+    c.restore();
+    for (let i = 0; i < 155; i++) {
+      splat(c, rand, 60 + rand() * 1920, 95 + rand() * 333, pink[i % pink.length], 8);
+    }
+    for (let i = 0; i < 100; i++) {
+      const x = rand() * 2048, y = 330 + rand() * 117;
       c.globalAlpha = .3 + rand() * .6;
-      c.fillRect(x, y, 1 + rand() * 4, 6 + rand() * 25);
+      c.fillStyle = pink[i % pink.length];
+      c.fillRect(x, y, 1 + rand() * 4, 9 + rand() * 27);
     }
     c.globalAlpha = 1;
-  }, 4794);
+  }, 5641);
 }
 
 function courtPaint(w: number, h: number, paint: string, seed: number) {
   return canvasTexture(w, h, (c, rand) => {
     c.fillStyle = paint; c.fillRect(0, 0, w, h);
-    for (let i = 0; i < 18500; i++) {
+    // Long rubbed scuffs, flaked topcoat and subtle hairline cracks. Fewer dots.
+    for (let i = 0; i < 9200; i++) {
       const x = rand() * w, y = rand() * h;
-      c.fillStyle = rand() < .53 ? "rgba(18,29,39,.13)" : "rgba(245,222,197,.14)";
-      c.fillRect(x, y, .5 + rand() * 5.5, .25 + rand() * 1.7);
+      c.fillStyle = rand() < .51 ? "rgba(20,28,40,.10)" : "rgba(252,235,212,.12)";
+      c.fillRect(x, y, 1 + rand() * 8, .25 + rand() * 1.45);
     }
-    // Short irregular cracks and rubbed-through chalk patches, not repeating dots.
-    for (let i = 0; i < 115; i++) {
-      const x = rand() * w, y = rand() * h;
-      const length = 6 + rand() * 42;
-      c.strokeStyle = rand() < .45 ? "rgba(27,35,40,.22)" : "rgba(241,220,199,.27)";
-      c.lineWidth = rand() * 1.3 + .3;
+    for (let i = 0; i < 95; i++) {
+      const x = rand() * w, y = rand() * h, len = 12 + rand() * 79;
+      c.strokeStyle = rand() < .5 ? "rgba(23,33,42,.22)" : "rgba(242,221,188,.19)";
+      c.lineWidth = .3 + rand() * 1.2;
       c.beginPath(); c.moveTo(x, y);
       let xx = x, yy = y;
-      for (let j = 0; j < 5; j++) {
-        xx += length / 5 * (rand() * .55 + .7);
-        yy += (rand() - .5) * 7;
+      for (let j = 0; j < 7; j++) {
+        xx += len / 7 * (.65 + rand() * .48);
+        yy += (rand() - .5) * 10;
         c.lineTo(xx, yy);
       }
       c.stroke();
     }
-    const edge = c.createLinearGradient(0, h * .15, w * .9, h);
-    edge.addColorStop(0, "rgba(0,0,0,.11)");
-    edge.addColorStop(.52, "rgba(0,0,0,0)");
-    edge.addColorStop(1, "rgba(0,0,0,.13)");
-    c.fillStyle = edge; c.fillRect(0, 0, w, h);
-    weather(c, rand, w, h, 4600);
+    // Soft tire scuffs and chipped dusty paint — not high-contrast speckle noise.
+    for (let i = 0; i < 32; i++) {
+      const x = rand() * w, y = rand() * h;
+      c.save(); c.translate(x, y); c.rotate((rand() - .5) * 1.4);
+      c.fillStyle = rand() < .5 ? "rgba(227,204,172,.085)" : "rgba(27,33,43,.055)";
+      c.fillRect(-10, 0, 20 + rand() * 93, 1 + rand() * 4);
+      c.restore();
+    }
+    const wash = c.createLinearGradient(0, 0, w, h);
+    wash.addColorStop(0, "rgba(18,32,41,.10)");
+    wash.addColorStop(.47, "rgba(18,32,41,0)");
+    wash.addColorStop(1, "rgba(18,32,41,.12)");
+    c.fillStyle = wash; c.fillRect(0, 0, w, h);
   }, seed);
 }
-export function makeAsphalt() { return courtPaint(1024, 1024, "#3c5c8e", 4725); }
-export function makePaint() { return courtPaint(512, 1024, "#d07854", 4726); }
+export function makeAsphalt() { return courtPaint(1024, 1024, "#47648b", 5642); }
+export function makePaint() { return courtPaint(512, 1024, "#c97855", 5643); }
 export function makeBackboardPatina() {
   return canvasTexture(512, 256, (c, rand) => {
     c.clearRect(0, 0, 512, 256);
