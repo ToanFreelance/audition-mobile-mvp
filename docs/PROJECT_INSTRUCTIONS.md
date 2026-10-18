@@ -53,19 +53,17 @@ Never develop directly on `main` or `development`.
 
 Current roadmap work branch:
 
-`work/s2-5a-neon-stage-v1`
-
-Parent roadmap PR:
-
-`#16 — S2 Stage Catalog`
+`work/mvp-entry-room-flow-v1` (PR #18 OPEN / Draft; base `development`)
 
 Current milestone:
 
-`S2.5A — Neon Stage V1`
+`PR #18 closeout — C3 Waiting Room visual/UX review (C2 owner accepted 2026-10-16)`.
+
+Screen acceptance order: Character Creation → Room Browser → Waiting Room → Gameplay. No visual work on subsequent screens before owner accepts the current screen.
 
 P5.6 Waiting Room Visual V2 was owner-accepted and merged into `development` via PR #15 at merge commit `d27168929f9923b1de561133b941977d039d56a1`.
 
-Do NOT merge PR #16, `development`, or `main` without explicit owner approval.
+PR #16 and PR #17 are merged; their original work branches are historical. Never merge PR #18 or directly change `development`/`main` without explicit owner approval.
 
 ## Roadmap
 
@@ -87,22 +85,11 @@ High-level roadmap:
 - Phase 13 — Rights / Distribution
 - Phase 14 — Resolution & Visual Fidelity Pass
 
-Phase 14 is deferred until the primary product phases are complete.
+Phase 14 is deferred until the primary product phases are complete. Phase 12 GPU/FPS/cross-device/DPR/thermal/battery optimization is deferred as performance debt, not considered fixed.
 
-Current active roadmap work:
+Current active roadmap work: **PR #18 main flow closeout, beginning with C1 Character Creation**. P5.6/PR #15, S2/PR #16 and S2.5A/PR #17 are merged and accepted for their respective recorded scope. Five-Human and AUD01 QA gates remain open; do not claim all multiplayer QA passed.
 
-**S2.5A — Neon Stage V1**
-
-P5.6 is accepted and integrated into `development`.
-
-S2 Stage Catalog is implemented on PR #16 and remains unmerged unless the owner explicitly approves it. S2.5A is stacked on the S2 branch so Neon Stage work can proceed without bypassing the integration rules.
-
-After S2.5A visual/runtime acceptance:
-
-- continue the remaining S2.5 Environment / Venue Pack V1 entries;
-- then S3 — Host Stage Selector.
-
-Do not begin S3 until the initial S2.5 environment pack is accepted or the owner explicitly asks to proceed.
+Future milestones (P4.6 ensemble, remaining S2.5 venues, S3 Host Stage Selector and performance optimization) must not start before the owner accepts the main user flow or explicitly reprioritizes.
 
 ## Two-Lane Work Policy
 
@@ -276,7 +263,7 @@ Visual work must remain presentation-only and must not alter multiplayer or game
 
 Bright Stage V1 is already accepted.
 
-S2 Stage Catalog is the current milestone.
+S2 Stage Catalog is a **completed historical milestone** (merged PR #16); S2.5A Neon Stage V1 is also merged (PR #17). Current work is PR #18 C1 visual closeout.
 
 Locked stage-resolution direction:
 
@@ -413,12 +400,8 @@ Never let an assumption override an explicit owner decision.
 
 ## Current Priority
 
-Execute S2.5A Neon Stage V1 on `work/s2-5a-neon-stage-v1`, using `neon_audition_dance_arena.png` as the approved visual source of truth and preserving the accepted S2 Stage Catalog architecture.
+**2026-10-15: C1 Character Creation owner visual acceptance PASS (physical iPhone).** The approved concept's second screen has been adapted with confirmed chrome/icons, avatar look-presets, fixed viewport and toolbar clearance. Chromium responsive QA PASS at tablet portrait 768×1024, tablet landscape 1024×768, desktop 1280×800, desktop 1440×900 and short desktop 1024×600; the visual camera correction applies only to narrow tablet-stage framing. **Physical tablet/desktop acceptance is NOT VERIFIED**; browser simulation must not be conflated with native GPU/input/performance evidence.
 
-First review the editable 3D blockout and presentation direction, then integrate the accepted runtime asset/profile into `neon-stage-v1`.
+C1 and **C2 Room Browser** are owner-accepted. C2 inline room name, mode preview (only `solo-easy-battle` is playable) and responsive layout are frozen except for confirmed regressions. **C3 Waiting Room** is now active for visual/UX review of the existing P5.6 owner-approved runtime, not a redesign. Verify actual layout/evidence first; limit corrections to justified C3 presentation changes. Do not begin Gameplay visuals until C3 owner acceptance. Then proceed sequentially to Waiting Room and Gameplay. Phase 12/14 performance optimization, P4.6, remaining S2.5 venues and S3 are deferred. Do not merge PR #18 without owner approval.
 
-Additional planned venues remain football field, classroom and cafe.
-
-Do not start S3 Host Stage Selector until the initial S2.5 environment pack is accepted.
-
-Keep gameplay, RoomState, WebAudio, character runtime, and the accepted Waiting Room visual baseline unchanged while Stage Catalog work proceeds.
+Never change WebAudio song clock, global turns, gauge, Finish, RoomState CAS/Realtime, frozen MatchManifest, preload/shared epoch, or actor lifetime for these visual adjustments.

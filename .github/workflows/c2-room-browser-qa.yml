@@ -1,0 +1,49 @@
+name: C2 Room Browser responsive QA
+on:
+  push:
+    branches: ["work/mvp-entry-room-flow-v1"]
+    paths:
+      - ".github/workflows/c2-room-browser-qa.yml"
+      - "e2e/c2-room-browser-create.spec.ts"
+      - "components/entry/RoomBrowser.tsx"
+      - "components/entry/RoomBrowser.module.css"
+      - "app/api/multiplayer/room/route.ts"
+permissions:
+  contents: read
+jobs:
+  c2-browser-responsive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CI: "true"
+      PLAYWRIGHT_WEB_SERVER: "1"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      - name: Next production build
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: C2 viewport and create-mode tests
+        run: npx playwright test e2e/c2-room-browser-create.spec.ts --project=desktop --workers=1
+      - name: Save screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c2-responsive-${{ github.sha }}
+          path: |
+            test-results/c2-responsive/
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 7

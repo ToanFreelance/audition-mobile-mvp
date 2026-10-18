@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "date": "2026-10-13",
+  "testedHead": "bf7dc59bccb7b4d7dac34f5e5de4c11b3bb1dbdf",
+  "branch": "work/mvp-entry-room-flow-v1",
+  "pr": 18,
+  "method": "Real Supabase, five independent five-Human UI/CAS/Realtime sessions; 2+2+1 then 2+1+1+1 browser distribution",
+  "result": {
+    "coreHandoffPass": 1,
+    "coreHandoffFail": 4,
+    "fullAcceptancePass": 0
+  },
+  "runs": [
+    {
+      "run": 1,
+      "roomId": "mvp-8b64f253-a2a",
+      "revision": 19,
+      "phase": "playing",
+      "readyGuests": 4,
+      "loaded": 5,
+      "failed": 0,
+      "loading": 0,
+      "idle": 0,
+      "sharedEpoch": 1791861860384,
+      "gameplayDomCount": 5,
+      "longMusicSourcesPerClient": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "status": "CORE_PASS_FULL_UNVERIFIED"
+    },
+    {
+      "run": 2,
+      "roomId": "mvp-d2575c56-6c0",
+      "revision": 17,
+      "phase": "preloading",
+      "readyGuests": 4,
+      "loaded": 4,
+      "failed": 0,
+      "loading": 1,
+      "idle": 0,
+      "blockedParticipant": "G3",
+      "observedAnimationGetMsApprox": 7962,
+      "status": "FAIL_5_OF_5_LOADED"
+    },
+    {
+      "run": 3,
+      "roomId": "mvp-59be7801-381",
+      "revision": 17,
+      "phase": "preloading",
+      "readyGuests": 4,
+      "loaded": 2,
+      "failed": 3,
+      "loading": 0,
+      "idle": 0,
+      "blockedParticipants": [
+        "G1",
+        "G2",
+        "G4"
+      ],
+      "observedAbortsMsApprox": [
+        9326,
+        5700
+      ],
+      "frozenReleaseMismatchUI": true,
+      "status": "FAIL_5_OF_5_LOADED"
+    },
+    {
+      "run": 4,
+      "roomId": "mvp-cf70b77c-c18",
+      "revision": 16,
+      "phase": "preloading",
+      "readyGuests": 4,
+      "loaded": 4,
+      "failed": 0,
+      "loading": 0,
+      "idle": 1,
+      "blockedParticipant": "Host",
+      "hostPreloadLoadingHttp200Observed": true,
+      "serverCasAppliedNotVerified": true,
+      "status": "FAIL_5_OF_5_LOADED"
+    },
+    {
+      "run": 5,
+      "roomId": "mvp-6ec63dca-50f",
+      "revision": 18,
+      "phase": "preloading",
+      "readyGuests": 4,
+      "loaded": 4,
+      "failed": 1,
+      "loading": 0,
+      "idle": 0,
+      "blockedParticipant": "G2",
+      "animationAbortMs": 8000,
+      "immediateFallbackAbort": true,
+      "frozenReleaseMismatchUI": true,
+      "status": "FAIL_5_OF_5_LOADED"
+    }
+  ],
+  "cleanup": {
+    "testRoomsDeleted": 5,
+    "testLeasesDeleted": 25,
+    "testRoomsRemaining": 0,
+    "testLeasesRemaining": 0,
+    "unrelatedRooms": 471,
+    "unrelatedFingerprint": "1ce98616e38058f72d9172b37749cf48"
+  },
+  "limitations": [
+    "Core pass only; V7 Gameplay DOM deadline starts after canonical PLAYING, not Host START",
+    "Five-person score convergence and owner hardware AUD01 not assessed",
+    "Temporary sandbox runners; no full browser trace archive exported",
+    "HTTP200 does not prove CAS applied",
+    "No production code changed"
+  ]
+}

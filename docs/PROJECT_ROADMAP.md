@@ -1,10 +1,16 @@
 # Audition Mobile roadmap
 
+## Owner-approved priority — 2026-10-15 (PR #18 closeout)
+
+- **Current work:** PR #18 Draft `work/mvp-entry-room-flow-v1`, base `development`. Owner review sequence: **C1 Character Creation → Room Browser → Waiting Room → Gameplay**. Complete and obtain owner iPhone visual acceptance for one screen before proceeding to the next; **C1 owner iPhone visual acceptance PASS (2026-10-15)**. Tablet/desktop simulated Chromium responsive QA PASS across five viewports; real tablet/desktop hardware remains UNVERIFIED. **C2 Room Browser OWNER ACCEPTED (2026-10-16)** after review of iPhone, tablet and desktop Chromium screenshots. Inline room name, mode preview and responsive layouts accepted; physical tablet/desktop hardware still UNVERIFIED. **C3 Waiting Room review is now ACTIVE**, not yet accepted.
+- **Already integrated:** P5.6 PR #15, S2 Stage Catalog PR #16, S2.5A Neon Stage V1 PR #17 are **MERGED** into `development`. Do not re-open or treat these as active milestones. S3 and remaining S2.5 venues are deferred; P4.6 2–5 Human ensemble is deferred.
+- **Phase 12 performance/hardening:** GPU/FPS profiling, adaptive DPR, cross-device Chrome/Safari/WebGL, thermal and battery optimization **DEFERRED** until the main MVP flow is accepted. **Phase 14 resolution/visual-fidelity global pass remains DEFERRED** until primary product phases are complete. These are open technical debts, not fixed or QA-accepted.
+- **Quality gates remain OPEN:** strict five-independent-Human end-to-end acceptance, real-device AUD01 audio/sync and unresolved transport/CI issues are not cleared by visual work. Historical strict two-Human PASS does not imply five-Human PASS. WebAudio/RoomState/CAS/Realtime/Finish/gauge/MatchManifest rules remain locked.
+- No work directly on `main` or `development`; **never merge PR #18 without explicit owner approval**.
+
 Phase 1 — Solo Easy Core Gameplay, Phase 2 — Portrait HUD / iPhone UX, and Phase 3 — Human Character + Animation Controller are complete for their accepted functional scope and integrated into `development`.
 
-Current integration checkpoint:
-
-**Phase 5 is integrated into `development`, including owner-accepted P5.6 Waiting Room Visual V2. PR #15 merged at `d27168929f9923b1de561133b941977d039d56a1`. S2 Stage Catalog is implemented on PR #16. Current roadmap work is S2.5A — Neon Stage V1 on `work/s2-5a-neon-stage-v1`, stacked on S2. S3 Host Stage Selector has not started.**
+Current integration checkpoint (verified 2026-10-15): **P5.6/PR #15, S2/PR #16 and S2.5A/PR #17 are merged into `development`. PR #18 MVP Entry Flow is OPEN/Draft; C1 Character Creation owner iPhone visual PASS, browser-emulated tablet/desktop layout PASS, physical desktop/tablet UNVERIFIED. **C2 Room Browser has owner visual acceptance (2026-10-16); C3 Waiting Room is the current review gate.** Gameplay screen visual work remains blocked until owner accepts C3.** Historical S2/S2.5 implementation detail remains below.
 
 Phase 3 functional owner QA passed for the humanoid runtime, published Normal Dance pool, Miss reaction, published Final Dance pool, Finish continuation, and the shared Finish Miss cadence. Phase 3 was merged into `development` at `e1d7a814b95144b3947cfb39503b998564b2bc29`, and owner iPhone staging QA passed. Rapid iPhone heating / battery drain remains explicit performance debt; thermal and battery profiling are not being misrepresented as complete.
 
@@ -22,7 +28,7 @@ Phase 3 functional owner QA passed for the humanoid runtime, published Normal Da
 | 9 | Shop and server-validated economy | Planned |
 | 10 | Friends, invitations, presence, chat | Planned |
 | 11 | Versioned charts/assets, admin and live operations | Planned |
-| 12 | Reconnect, security, telemetry, mobile performance | Planned |
+| 12 | Reconnect, security, telemetry, mobile / cross-device performance | **DEFERRED performance optimization; unresolved QA/security debt still OPEN** |
 | 13 | Content rights and distribution review | Required before commercial release |
 
 ## Phase 2 closeout
@@ -421,11 +427,141 @@ Phase 5 implementation is **INTEGRATED**.
 
 The accepted Waiting Room baseline is now part of `development`. Further stage work must not regress Waiting Room authority, actor lifetime behavior, or the accepted mobile visual composition.
 
+### MVP Entry Flow V1 / PR #18 — historical Multi-user QA backlog
+
+**Historical status (2026-10-09): QA DEFERRED / NOT YET ACCEPTED. Updated 2026-10-15: PR #18 is Draft and under screen-by-screen visual closeout; five-Human QA remains unaccepted.**
+The owner cannot currently run a 3-user test. Keep this as a concrete
+QA checkpoint for when enough independent clients/devices are available;
+do **not** mark it PASS based only on CI or database simulation, and do
+**not** merge PR #18 to `development` without explicit owner approval.
+
+Scope already implemented on `work/mvp-entry-room-flow-v1`: character
+creation → Room Browser → Waiting Room 3D, plus canonical server-CAS
+automatic Host succession and Host-selected manual role transfer. Supabase transactional fixtures **PASSED** first-join
+ordering, slot-0 promotion, READY reset, stale-revision rejection,
+subsequent transfers, last-Host exit and live/expired heartbeat cases.
+Physical multi-client iPhone QA remains **PENDING**.
+
+**Owner smoke test update (2026-10-09):** Manual **Chuyển Host**
+has been tested by the owner and reported working (**OWNER SMOKE PASS**).
+This validates the user-observed manual transfer path only; it does not
+certify the full three-client scenario, back-to-back transfers, timing
+races, disconnect recovery or the separate WebAudio E2E. Keep those
+checks deferred and PR #18 unmerged.
+
+**Deferred QA checklist — Host Transfer and room lifecycle:**
+
+- [x] **Owner smoke test — manual Chuyển Host:** Host-selected Guest
+  transfer was observed working by the owner on the PR #18 preview.
+  Detailed 3-client role/crown/READY/actor and race-condition QA
+  remains unchecked below.
+
+- [ ] **Three clients (A/B/C), ideally on separate devices:** A creates
+  a room; Guest B joins before Guest C, even when B's slot index is
+  higher than C's. Verify identities, Character Catalog actors and
+  join order are correct on all clients.
+- [ ] **Explicit Host leave:** A presses **Rời phòng** in a WAITING
+  room. Verify B becomes canonical Host immediately without closing
+  the room; B moves to Host slot 0 with crown and START controls; C
+  stays Guest and returns to NOT READY; no duplicate Host or stale
+  roster on A/B/C after Realtime/poll reconciliation.
+- [ ] **Manual Host choice (NEW):** While room is WAITING, Host A
+  taps Guest C (not necessarily earliest joined) → **Chuyển Host** →
+  confirms. Verify C becomes Host in slot 0 with crown/START, A
+  remains in the room as Guest in C's previous slot, B stays Guest,
+  and all human Guest READY states reset. Cancel confirmation and
+  selecting oneself/Bot must never transfer Host.
+- [ ] **Manual transfer after transfer:** Former Host A can READY
+  again; new Host C can choose B to transfer once more, with correct
+  3D actor identity and no AnimationMixer recreation. Concurrent
+  changes (Guest leaves, Host changes, START freezes match) must fail
+  the stale-CAS transfer rather than overriding the newest state.
+- [ ] **Second handoff / close empty room:** B subsequently leaves,
+  C becomes Host; if the final Host leaves and no Guest remains, the
+  room closes and disappears from Room Browser.
+- [ ] **Disconnect recovery:** Repeat with A's tab closed/offline,
+  keeping B and C active in foreground. After the configured **75 s
+  host heartbeat timeout** (allow ~75–95 s for polling), verify the
+  earliest **still-active** Guest is promoted exactly once and the
+  room remains discoverable. Confirm a brief iOS background pause
+  does *not* spuriously steal Host authority.
+- [ ] **CAS/Reactivity/3D:** Verify all clients converge to the same
+  room revision, Host ID and occupied slots; prior Host cannot issue
+  Host-only commands; new Host can change song and use normal
+  Ready/START gate; role/READY updates do not recreate unchanged
+  actors, restart AnimationMixer or rebuild the Three.js scene.
+- [ ] **No takeover mid-match:** Host changes are waiting-only.
+  PRELOADING/COUNTDOWN/PLAYING must preserve frozen MatchManifest,
+  immutable shared epoch, WebAudio clock and gameplay timeline.
+- [ ] **Separate audio E2E blocker:** On two devices kept foreground,
+  confirm both clients transition from ALL CLIENTS LOADED through
+  shared countdown into P5.5 gameplay, and both song clocks advance.
+  Earlier same-iPhone two-browser tests reached server PLAYING while
+  Guest displayed `SONG 0 ms / AUDIO STALLED` and Host stayed at
+  `scheduling shared epoch…`; do not call this fixed without retest.
+  **2026-10-09 code pass:** WebAudio time now uses the scheduling
+  `AudioContext.currentTime` (rather than possibly frozen Safari
+  `getOutputTimestamp().contextTime`), async resume is bounded,
+  stale epoch is rejected by monotonic deadline, and same-epoch
+  React scheduling is protected against unrelated rerenders.
+  Five deterministic regression tests were added but **NOT EXECUTED**
+  in the initial implementation session. A subsequent Work QA run
+  actually PASSed those five and found/fixed the original clock effect
+  cancellation race (D01), but exposed D01-R: terminal clock sampling
+  failed with no same-session recovery trigger. **2026-10-10 D01-R
+  implementation:** persistent session-scoped clock error + explicit
+  THỬ ĐỒNG BỘ LẠI control, click-only nonce trigger and duplicate-click
+  guard; focused regression cases added. **2026-10-10 independent
+  Work verification:** D01/D01-R 5/5, WebAudio 5/5, lobby fast 39/39
+  PASS, plus two local PGlite/Chromium-client trace cases PASS.
+  T01 VM Error realm and T02 QA-only trace duplication are resolved.
+  **D01/D01-R automated QA CLOSED**, but physical two-device Safari
+  and real Supabase staging remain PENDING. Keep this owner QA item
+  unchecked.
+  **Owner-authorized Stage3D/HUD presentation integration** is now on
+  PR #18: reuse Stage3D for the local frozen Character Catalog actor,
+  existing AuditionGauge, touch controls, deterministic command/Finish
+  and stage selection. No production gameplay clock/epoch changes.
+  UI/browser, asset animation and physical iPhone visual/performance
+  acceptance are still PENDING; remote participants currently appear
+  in the frozen roster, not as synchronized remote dance actors.
+
+**2026-10-10 Host-only START (owner-requested):** One connected Host
+may start the selected song without any Guest/Bot. Guest READY
+gating remains required when others are present. The canonical
+one-participant MatchManifest follows the unchanged LOADED/shared
+epoch/WebAudio path. TypeScript/Vercel build PASS; Playwright
+host-only regression and physical iPhone gameplay smoke **PENDING**.
+PR #18 remains Draft.
+
+**Acceptance gate:** Owner physical-device confirmation of multi-user
+Host handoff and audio progression, no RoomState/Realtime/actor
+regressions, then owner approval to integrate PR #18. Automated DB
+checks and a green Vercel build are technical validation only.
+Detailed implementation/QA notes: `docs/MVP_ENTRY_ROOM_FLOW_V1.md`.
+
+### P4.6 — Multiplayer Gameplay Ensemble (2–5 live Human actors) — PLANNED
+
+**Owner decision (2026-10-12):** Actual multiplayer gameplay should display **all 2–5 joined Human characters dancing together on the same stage**, in the spirit of Audition PC. The current PR #18 gameplay renderer intentionally shows only the local frozen character (with a 2–5-player provisional leaderboard); it does **not** yet provide a synchronized remote-actor stage formation. The accepted five-character P5.6 Waiting Room is not equivalent to multiplayer gameplay multi-actor support.
+
+**Priority and activation gate:** This is a **deferred gameplay-presentation milestone**, not part of the current PR #18 integration hardening. First stabilize the existing focused QA harness and complete real-Supabase 5-Human integration acceptance, then obtain separate owner approval for implementation scope/branch. Do not start this in parallel as a workaround for failed QA. No automatic merge of PR #18, `development`, or `main`.
+
+**Planned contracts (not yet implemented):**
+
+- Render each Human participant in the frozen `MatchManifest.participants` (2–5), using the existing Character Catalog resolution from `participant.avatar.characterAssetId` to runtime actor and animation profile; preserve both accepted migration fallbacks.
+- Introduce a bounded, portrait/mobile-first ensemble layout/camera, with local player focus and remote characters in stable stage slots. The accepted Waiting Room composition remains unchanged.
+- Animate each participant separately using the shared **WebAudio-authoritative global turn timeline**. Per-player judgement/motion state can differ; no player animation, network event or latency may pause, repeat, replace or extend the global rhythm turn budget, shared epoch, Finish or AUDIO END.
+- Reuse existing multiplayer participant identity, frozen manifest, stage catalog and Realtime abstractions. Define and review an explicit per-participant animation/judgement presentation event contract before implementation. **Do not invent remote dance results** from local inputs or score-rank updates. Client-reported events must remain provisional until separately authenticated/server-validated.
+- Preserve local touch HUD and gauge. Remote animation updates must not create a second authoritative scheduler or take ownership of the audio clock.
+- Mobile performance gate: asset sharing/cache, bounded `SkinnedMesh` and `AnimationMixer` work, stable actor instances across ordinary roster/connection/READY metadata, and measured FPS/GPU/thermal/battery on owner iPhone. Degrade remote visual detail if necessary without suppressing global turns or changing game outcomes.
+
+**Acceptance criteria for later milestone:** With 2, 3 and 5 Humans, each participant sees the same frozen roster with distinct characters occupying stable on-stage positions; receives actual participant-specific dance presentation (including misses where available); local judgement controls and WebAudio cadence remain unchanged; each client has exactly one authoritative song source and one immutable shared epoch; reconnect/background recovery does not duplicate actors or mixers. Owner physical iPhone visual/performance acceptance is required.
+
+**Status: BACKLOG ONLY — no implementation, no QA acceptance claimed.**
+
 ### Stage roadmap — S2 / S2.5 / S3
 
-Current milestone:
-
-**S2 — Stage Catalog** on `work/s2-stage-catalog` / draft PR #16.
+Historical Stage Catalog milestone (now MERGED via PR #16; S2.5A MERGED via PR #17). Current PR #18 closeout milestone is documented at the top of this roadmap.
 
 Locked resolution path:
 
@@ -501,9 +637,9 @@ Completed Phase 5 integration path:
 
 `development → work/lobby → waiting-room/realtime acceptance → development → work/lobby-preload → P5.2 PRELOADING → P5.3 ALL CLIENTS LOADED → P5.4 shared countdown → P5.5 shared WebAudio gameplay handoff → P5.6 Waiting Room Visual V2 → owner iPhone acceptance → PR #15 → development`
 
-Current stage-roadmap path:
+Historical stage-roadmap path (S2 and S2.5A already integrated; remaining environments and S3 deferred):
 
-`development → work/s2-stage-catalog → Stage Catalog review → owner acceptance → S2.5 Environment / Venue Pack V1 → Neon Stage + additional venues → owner acceptance → S3 Host Stage Selector`
+`development → S2 Stage Catalog (merged) → S2.5A Neon Stage V1 (merged) → remaining environments (deferred) → S3 Host Stage Selector (deferred)`
 
 Do not develop directly on `development` or `main`. `main` remains stable/production and is not updated as part of Phase 4 work unless owner explicitly requests a later production promotion.
 

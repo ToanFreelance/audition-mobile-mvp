@@ -1,0 +1,7 @@
+/* First room fetch: lightweight full-art cover before WaitingRoomPanel mounts. */
+.cover{position:fixed;inset:0;min-height:100dvh;display:flex;align-items:flex-end;justify-content:center;padding:16px 12px max(5dvh,env(safe-area-inset-bottom,0px));color:#fff;background:#07091d;overflow:hidden;isolation:isolate;font-family:Inter,ui-sans-serif,system-ui,sans-serif;}
+.status{position:relative;z-index:2;width:min(100%,390px);padding:13px 16px;text-align:center;border:1px solid rgba(114,207,255,.9);border-radius:18px;background:linear-gradient(155deg,rgba(13,13,55,.96),rgba(9,11,44,.97));box-shadow:0 0 22px rgba(87,157,255,.42),0 12px 38px rgba(0,0,0,.5);}
+.status strong{font-size:clamp(14px,3.5vw,18px);letter-spacing:.045em;color:#eec7ff;}
+.status p{font-size:12px;line-height:1.4;margin:8px 0 0;color:#e3e0ff;}
+.status a{display:inline-block;margin-top:12px;color:#83e7ff;}
+@media(max-height:550px){.cover{padding-bottom:max(8px,env(safe-area-inset-bottom,0px));}.status{padding:9px 12px;}}

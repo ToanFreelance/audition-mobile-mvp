@@ -74,6 +74,15 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId }: Props)
     camera.position.set(0, initialFrame.cameraY, initialFrame.cameraZ);
     const lookTarget = new THREE.Vector3(0, initialFrame.targetY, 0);
     camera.lookAt(lookTarget);
+    let activeFocus: CharacterCreatorFocus = focus;
+
+    // A portrait tablet uses a tall, narrow stage pane beside its controls.
+    // Increase only its presentation distance to prevent head cropping.
+    // The accepted iPhone framing and all normal/wide desktop frames are unchanged.
+    const cameraDistance = (baselineZ: number) => {
+      if (window.innerWidth < 768 || camera.aspect >= 0.68) return baselineZ;
+      return baselineZ * Math.min(1.4, 0.68 / Math.max(0.1, camera.aspect));
+    };
 
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("webgl2");
@@ -146,18 +155,21 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId }: Props)
 
     const render = () => {
       if (disposed) return;
+      host.dataset.previewCameraDistance = camera.position.z.toFixed(3);
       renderer.render(scene, camera);
     };
     renderRef.current = render;
 
     const applyFocus = (nextFocus: CharacterCreatorFocus, animate = true) => {
+      activeFocus = nextFocus;
       const frame = PREVIEW_FRAMES[nextFocus];
+      const fittedZ = cameraDistance(frame.cameraZ);
       cancelAnimationFrame(focusRaf);
 
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (!animate || reducedMotion) {
         camera.position.y = frame.cameraY;
-        camera.position.z = frame.cameraZ;
+        camera.position.z = fittedZ;
         camera.fov = frame.fov;
         lookTarget.y = frame.targetY;
         camera.lookAt(lookTarget);
@@ -177,7 +189,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId }: Props)
         const progress = Math.min(1, (now - startedAt) / durationMs);
         const eased = easeOutCubic(progress);
         camera.position.y = THREE.MathUtils.lerp(startPosition.y, frame.cameraY, eased);
-        camera.position.z = THREE.MathUtils.lerp(startPosition.z, frame.cameraZ, eased);
+        camera.position.z = THREE.MathUtils.lerp(startPosition.z, fittedZ, eased);
         camera.fov = THREE.MathUtils.lerp(startFov, frame.fov, eased);
         lookTarget.y = THREE.MathUtils.lerp(startTargetY, frame.targetY, eased);
         camera.lookAt(lookTarget);
@@ -194,6 +206,8 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId }: Props)
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
       camera.aspect = width / height;
+      camera.position.z = cameraDistance(PREVIEW_FRAMES[activeFocus].cameraZ);
+      camera.lookAt(lookTarget);
       camera.updateProjectionMatrix();
       const mobile = window.matchMedia("(pointer: coarse)").matches || width <= 768;
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.6));

@@ -1,0 +1,55 @@
+name: C1 responsive browser QA
+
+on:
+  push:
+    branches:
+      - "work/mvp-entry-room-flow-v1"
+    paths:
+      - ".github/workflows/c1-responsive-qa.yml"
+      - "e2e/c1-responsive-visual.spec.ts"
+      - "components/character/CharacterCreationV1.tsx"
+      - "components/character/CharacterCreationV1.module.css"
+      - "components/character/CharacterCreationStage3D.tsx"
+      - "app/character/create/page.tsx"
+
+permissions:
+  contents: read
+
+jobs:
+  c1-responsive-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CI: "true"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      PLAYWRIGHT_WEB_SERVER: "1"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install project dependencies
+        run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Build existing Next.js app
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser layout and interaction snapshots
+        run: npx playwright test e2e/c1-responsive-visual.spec.ts --project=desktop --workers=1
+      - name: Upload responsive screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c1-responsive-visual-${{ github.sha }}
+          path: |
+            test-results/c1-responsive/
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 7

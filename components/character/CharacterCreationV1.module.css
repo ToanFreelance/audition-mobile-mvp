@@ -52,19 +52,7 @@
   overflow:hidden;
   border-bottom:1px solid rgba(104,73,223,.38);
 }
-.hero:after{
-  content:"";
-  position:absolute;
-  z-index:1;
-  left:10%;
-  right:-20%;
-  bottom:-22%;
-  height:49%;
-  border-radius:50%;
-  border-top:1px solid rgba(80,225,255,.24);
-  background:repeating-radial-gradient(ellipse at 50% 0,rgba(82,116,255,.13) 0 1px,transparent 2px 24px);
-  pointer-events:none;
-}
+.hero:after{content:none;display:none}
 .rail{
   position:absolute;
   z-index:7;
@@ -321,4 +309,308 @@
 }
 @media(min-width:431px){
   .phone{height:min(920px,100dvh);border-radius:24px;border:1px solid rgba(106,98,220,.35)}
+}
+
+/* C1 visual-only overlay matching the approved Character Creation screen.
+   Keeps the existing Three.js actor, catalog options, draft and room handoff. */
+.page{background:radial-gradient(ellipse at 18% 12%,#25205e 0,transparent 45%),#080822}
+.phone{height:100dvh;min-height:0;display:flex;flex-direction:column;background:#090b2b}
+.header{
+  position:absolute;z-index:12;top:calc(env(safe-area-inset-top) + 14px);left:0;right:0;
+  padding:0 14px;min-height:48px;display:flex;justify-content:space-between;
+  border:0;background:transparent;pointer-events:none
+}
+.headerIcon{
+  display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;padding:8px;
+  pointer-events:auto;border:1.5px solid #9377f5;border-radius:11px;
+  background:linear-gradient(140deg,rgba(55,29,112,.94),rgba(15,18,62,.95));
+  color:#fff;box-shadow:0 0 13px #a441fb6b,inset 0 0 10px #8c70e533;
+  text-decoration:none
+}
+.headerIcon svg{display:block;width:100%;height:100%}
+.header>div{display:none}
+.hero{flex:1 1 auto;min-height:0;border-bottom:1.5px solid #b054e9;isolation:isolate;background:linear-gradient(145deg,#281352,#0a0c34 65%,#32165b)}
+.hero:before{
+  content:"";position:absolute;z-index:4;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 86% 18%,#ce42ed22,transparent 42%),
+    radial-gradient(ellipse at 5% 80%,#7e34db40,transparent 43%),
+    linear-gradient(90deg,#0a082849,transparent 29%,#8d3cb010);
+}
+
+.viewport{inset:0 0 0 44px}
+.rail{
+  z-index:9;left:7px;top:21%;bottom:auto;width:72px;
+  display:flex;flex-direction:column;gap:0;overflow:hidden;border:1px solid #7c59d0;
+  border-radius:14px;background:linear-gradient(180deg,#17133f,#0c0e30);
+  box-shadow:0 0 12px #4c27aa77,inset 0 0 15px #7855d133
+}
+.rail button{
+  min-height:69px;width:100%;flex:0 0 auto;gap:4px;padding:7px 2px;
+  border:0;border-bottom:1px solid #6555a447;border-radius:0;
+  color:#fbf9ff;background:transparent;box-shadow:none
+}
+.rail button:last-child{border-bottom:0}
+.rail button .railSymbol{display:block;width:33px;height:33px;line-height:1}
+.rail button small{font-size:10px;line-height:1.1;letter-spacing:-.025em;font-weight:800;text-shadow:0 1px 2px #08071d}
+.rail .railActive{background:linear-gradient(180deg,#4f2187,#20134d);color:#fff;box-shadow:inset 0 -3px #e043e7,0 0 15px #d53ee74a}
+.rail .railLocked{opacity:1}
+.rail button:focus-visible,.avatarTile:focus-visible,.headerIcon:focus-visible,.editName:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+.heroBadge{display:none}
+.rotateHint{left:27%;right:10px;bottom:8%;justify-content:center;gap:8px}
+.rotateHint>b{width:58px;height:45px;display:block;flex-shrink:0;filter:drop-shadow(0 0 5px #79eaff)}
+.rotateHint>div{gap:0}
+.rotateHint strong{font-size:14px;color:#fff;text-shadow:0 2px 4px #060522}
+.rotateHint small{font-size:10px;color:#e3ddfa;text-shadow:0 2px 4px #060522}
+.dock{
+  position:relative;z-index:10;flex:0 0 auto;display:flex;flex-direction:column;gap:11px;
+  padding:12px 14px calc(14px + env(safe-area-inset-bottom));
+  border-top:1px solid #b87cff80;
+  background:radial-gradient(ellipse at 50% -8%,#8a369042,transparent 62%),linear-gradient(175deg,#15133e,#090e31 70%,#0c0a32);
+}
+.avatarRow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.avatarTile{
+  position:relative;display:grid;place-items:center;min-width:0;aspect-ratio:1/1.06;
+  padding:3px;overflow:hidden;border:2px solid #9f8cc2;border-radius:12px;
+  background:linear-gradient(135deg,#2d215f,#13132e);
+  box-shadow:inset 0 0 9px #bc6dce3a;cursor:pointer
+}
+.avatarTile img{width:100%;height:100%;display:block;object-fit:cover;border-radius:8px}
+.avatarSelected{
+  border-color:#f56bfd;box-shadow:0 0 0 2px #a449ee,0 0 16px 3px #f34eecb8,inset 0 0 8px #ffa9fa;
+  background:#5812a4
+}
+.avatarUnavailable{opacity:.56;cursor:not-allowed;color:#d8c3ff}
+.avatarUnavailable svg{width:55%;height:55%}
+.avatarUnavailable span{position:absolute;bottom:5px;font-size:8px;letter-spacing:.02em;font-weight:900;text-shadow:0 1px 4px #070624}
+.nameField{
+  min-height:48px;display:grid;grid-template-columns:minmax(0,1fr) 36px;
+  align-items:center;gap:5px;padding:5px 9px 5px 15px;
+  border:1.5px solid #7f81d6;border-radius:12px;background:#0b1639;
+  box-shadow:inset 0 0 8px #536cc524,0 0 3px #7a6dc943
+}
+.nameField>div{gap:0}
+.nameField span{display:none}
+.nameField input{width:100%;font-size:18px;font-weight:700;letter-spacing:.01em}
+.editName{display:grid;place-items:center;width:35px;height:35px;padding:5px;border:0;background:transparent;color:#f9ecff}
+.nameCounter{display:none}
+.createButton{
+  min-height:56px;border:2px solid #fbb1ff;border-radius:18px;
+  background:linear-gradient(112deg,#fa42e6 0%,#d635e8 46%,#713bf4 100%);
+  font-size:20px;font-weight:850;letter-spacing:0;line-height:1.2;text-transform:none;
+  box-shadow:0 0 12px #dd3dff9c,inset 0 2px 6px #ffffff80,0 6px 18px #7632d05c
+}
+.createButton:disabled{opacity:.5}
+.footerNote{display:flex;justify-content:center;min-height:34px}
+.footerNote span{display:flex;align-items:center;justify-content:center;gap:10px;font-size:11px;letter-spacing:.27em;color:#e8d7ff}
+.footerNote svg{width:23px;height:23px;color:#f07af4;filter:drop-shadow(0 0 5px #ed4afa)}
+.footerNote small{position:absolute;right:10px;bottom:1px;font-size:8px}
+.optionsOverlay{
+  position:absolute;z-index:11;left:85px;right:9px;bottom:9px;max-height:min(50%,310px);
+  overflow-y:auto;overscroll-behavior:contain;display:grid;gap:11px;
+  padding:18px 11px 12px;border:1px solid #c46df4;border-radius:13px;
+  background:linear-gradient(155deg,rgba(27,15,69,.98),rgba(9,13,45,.97));
+  box-shadow:0 0 26px #ad33ec70,inset 0 0 19px #7844ef23
+}
+.optionsClose{position:absolute;right:6px;top:3px;width:27px;height:27px;border:0;background:transparent;color:white;font-size:23px}
+.optionsOverlay .panelTitle{margin-right:22px}
+.optionsOverlay .panelTitle span,.optionsOverlay .panelTitle>small{display:none}
+.optionsOverlay .panelTitle strong{font-size:14px}
+.optionsOverlay .optionStack{gap:7px}
+.optionsOverlay .optionStack label,.optionsOverlay .bodyCard label{font-size:9px}
+.optionsOverlay .choiceCard{min-height:63px}
+.faceSwitch{min-height:30px;border:1px solid #8261e5;border-radius:8px;color:#eee4ff;background:#28205a;font-size:11px}
+@media(max-width:370px){
+ .header{padding:0 9px}
+ .headerIcon{flex-basis:40px;width:40px;height:40px}
+ .rail{left:5px;width:61px}
+ .rail button{min-height:58px;padding:5px 1px}
+ .rail button .railSymbol{width:27px;height:27px}
+ .rail button small{font-size:8.5px}
+ .viewport{left:38px}
+ .rotateHint{left:23%;bottom:6%}
+ .rotateHint strong{font-size:12px}
+ .dock{gap:8px;padding:9px 10px calc(10px + env(safe-area-inset-bottom))}
+ .avatarRow{gap:6px}
+ .nameField{min-height:42px}
+ .createButton{min-height:48px;font-size:17px}
+ .footerNote{min-height:25px}
+ .footerNote span{font-size:9px}
+ .optionsOverlay{left:70px}
+}
+@media(max-height:740px){
+ .rail{top:16%}
+ .rail button{min-height:53px}
+ .rail button .railSymbol{width:25px;height:25px}
+ .rail button small{font-size:8px}
+ .rotateHint{bottom:2%}
+ .dock{gap:7px;padding-top:7px;padding-bottom:calc(7px + env(safe-area-inset-bottom))}
+ .avatarTile{aspect-ratio:1/0.84}
+ .nameField{min-height:40px}
+ .createButton{min-height:44px;font-size:17px}
+ .footerNote{min-height:24px}
+}
+@media(min-width:431px){
+ .phone{height:min(920px,100dvh);border-radius:24px}
+}
+
+/* C1 follow-up: only this creator route is a locked single-screen app.
+   Internal options retain intentional scrolling, even when the page cannot. */
+.page{
+  position:fixed;left:0;right:0;top:var(--creator-top,0px);
+  height:var(--creator-height,100dvh);min-height:0;width:100%;
+  overflow:hidden;overscroll-behavior:none;touch-action:none;
+}
+.phone{max-height:100%;height:100%;overscroll-behavior:none;touch-action:none}
+.hero,.dock,.rail,.avatarRow{overscroll-behavior:none}
+.optionsOverlay{
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+  overscroll-behavior:contain;
+}
+.nameField input{font-size:max(16px,1.1rem)}
+.desktopHeading{display:none}
+.presetHeader{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.presetHeader span{font-size:10px;font-weight:900;letter-spacing:.17em;color:#e3b6ff}
+.presetHeader small{font-size:9px;color:#a69fc6;text-align:right}
+.presetCell{position:relative;min-width:0}
+.presetCell .avatarTile{width:100%;height:100%;overflow:hidden}
+.presetCell .avatarTile img{padding-bottom:13px}
+.presetLabel{
+  position:absolute;bottom:1px;left:2px;right:2px;display:block;
+  padding:4px 0 2px;border-radius:0 0 9px 9px;text-align:center;
+  color:#faf4ff;background:linear-gradient(180deg,transparent,#090924d9);
+  font-size:9px;font-weight:900;letter-spacing:.045em;text-shadow:0 1px 3px #0a0826;
+}
+.emptyLookPlus{font-size:clamp(22px,5vw,38px);line-height:1;color:#bf8af8;text-shadow:0 0 13px #ad49f4}
+.presetSave{
+  position:absolute;z-index:2;right:5px;top:5px;min-width:33px;height:23px;
+  border:1px solid #e8baff;border-radius:7px;background:rgba(19,9,57,.91);
+  color:#fff;font-size:10px;font-weight:800;box-shadow:0 0 6px #ae59f6
+}
+.avatarEmpty{border-style:dashed;border-color:#76589f;background:linear-gradient(155deg,#30205c,#121132)}
+.presetMessage{margin:0;text-align:center;font-size:10px;color:#d2e3ff;line-height:1.2}
+.dock{gap:clamp(6px,1.1vh,11px)}
+/* Desktop/tablet: generous 3D stage and dedicated right-side creator console. */
+@media(min-width:768px) and (min-height:600px){
+  .page{
+    background:radial-gradient(circle at 18% 32%,#302063,transparent 45%),
+      radial-gradient(circle at 88% 70%,#4c195e,transparent 46%),#06091f;
+  }
+  .phone{
+    --creator-panel-width:clamp(315px,35%,410px);
+    width:min(calc(100vw - 32px),1200px);
+    height:min(calc(100dvh - 32px),900px);
+    display:grid;grid-template-columns:minmax(0,1fr) var(--creator-panel-width);
+    grid-template-rows:minmax(0,1fr);align-items:stretch;
+    border:1px solid #7356bd;border-radius:24px;
+    box-shadow:0 0 55px #46198180,0 22px 85px #000a;
+  }
+  .header{right:var(--creator-panel-width);top:22px}
+  .hero{grid-column:1;grid-row:1;height:100%;min-height:0;border-bottom:0;border-right:1px solid #7454bb}
+  .viewport{left:45px}
+  .rail{top:50%;transform:translateY(-50%);left:13px;width:79px}
+  .rail button{min-height:77px}
+  .rotateHint{left:25%;bottom:7%}
+  .dock{
+    grid-column:2;grid-row:1;min-height:0;
+    padding:clamp(16px,3vw,30px);gap:clamp(12px,1.8vh,22px);
+    justify-content:center;border-top:0;background:
+      radial-gradient(ellipse at 50% 20%,#72367d45,transparent 65%),
+      linear-gradient(170deg,#1d1845,#0b1233 75%,#141039);
+  }
+  .desktopHeading{display:grid;gap:7px;margin-bottom:clamp(10px,3vh,35px);text-align:center}
+  .desktopHeading span{font-size:11px;letter-spacing:.27em;color:#e47bff}
+  .desktopHeading strong{font-size:clamp(21px,2.6vw,30px);white-space:nowrap;color:#fff;text-shadow:0 0 20px #df63ff}
+  .desktopHeading small{font-size:11px;color:#afa6cf}
+  .avatarRow{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .avatarTile{aspect-ratio:1.5/1}
+  .presetLabel{font-size:11px}
+  .nameField{min-height:55px}
+  .createButton{min-height:58px}
+  .footerNote{margin-top:clamp(6px,2vh,24px)}
+  .optionsOverlay{left:105px;right:20px;bottom:20px;max-height:60%;padding:18px}
+}
+@media(min-width:1000px) and (min-height:720px){
+  .phone{--creator-panel-width:390px}
+  .avatarTile{aspect-ratio:1.35/1}
+}
+@media(max-height:620px){
+  .dock{gap:4px;padding-top:5px;padding-bottom:calc(5px + env(safe-area-inset-bottom))}
+  .presetHeader{display:none}
+  .avatarTile{aspect-ratio:1.5/1}
+  .footerNote{min-height:20px}
+  .footerNote span{font-size:9px}
+  .createButton{min-height:39px}
+  .rail{top:11%}
+  .rail button{min-height:45px}
+}
+
+/* Fixed document is the scroll lock. Do not put touch-action:none on
+   ancestors of the scrollable option drawer: that would block its pan-y. */
+.page,.phone,.hero{touch-action:auto}
+.dock,.rail{touch-action:manipulation}
+.viewport{touch-action:none}
+.optionsOverlay{touch-action:pan-y}
+
+/* Short tablet landscape: center the vertical rail despite mobile-height rules. */
+@media(min-width:768px) and (min-height:600px) and (max-height:620px){
+  .rail{top:50%;transform:translateY(-50%)}
+  .dock{padding:10px 15px}
+  .desktopHeading{margin-bottom:3px}
+  .avatarRow{gap:8px}
+  .avatarTile{aspect-ratio:1.8/1}
+}
+
+/* C1 iPhone visual follow-up: fit all five categories inside the actual
+   remaining hero height rather than letting fixed-height buttons be clipped
+   by the appearance preset dock. Desktop/tablet rules above stay unchanged. */
+@media(max-width:767px){
+  .rail{
+    left:6px;
+    top:clamp(64px,18%,96px);
+    bottom:10px;
+    width:64px;
+    max-height:290px;
+    display:grid;
+    grid-template-rows:repeat(5,minmax(0,1fr));
+    gap:0;
+    transform:none;
+  }
+  .rail button{
+    min-height:0;
+    height:100%;
+    padding:4px 2px;
+    gap:2px;
+  }
+  .rail button .railSymbol{width:27px;height:27px}
+  .rail button small{font-size:9px;line-height:1.05}
+  .dock{
+    gap:6px;
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  }
+  .avatarRow{gap:7px}
+  .presetCell .avatarTile{
+    height:auto;
+    aspect-ratio:1.28 / 1;
+    border-radius:10px;
+  }
+  .presetLabel{font-size:8px;padding:3px 0 2px}
+  .presetHeader span{font-size:9px}
+  .presetHeader small{font-size:8px}
+  .nameField{min-height:44px}
+  .createButton{min-height:48px;font-size:18px}
+  .footerNote{min-height:23px}
+}
+@media(max-width:767px) and (max-height:700px){
+  .rail{
+    top:clamp(57px,17%,80px);
+    bottom:8px;
+    width:60px;
+    max-height:255px;
+  }
+  .rail button .railSymbol{width:24px;height:24px}
+  .rail button small{font-size:8px}
+  .presetCell .avatarTile{aspect-ratio:1.48 / 1}
+  .dock{gap:5px;padding:6px 10px calc(6px + env(safe-area-inset-bottom))}
+  .footerNote{min-height:20px}
 }
