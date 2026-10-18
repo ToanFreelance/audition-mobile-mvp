@@ -38,6 +38,15 @@ function buildCourt(): CourtBuild {
   floor.position.set(0, -0.07, 0);
   floor.name = "FlatCourtFloor";
   root.add(floor);
+  // Reference-grounded FIBA measurements: restricted area 4.90 m wide,
+  // free-throw circle 3.60 m across, and 5 cm marking width.
+  // Keep the existing decorative orange apron independent of regulated lines.
+  const laneWidthUnits = 9.6;
+  const sceneUnitsPerMeter = laneWidthUnits / 4.9;
+  const freeThrowRadius = 1.8 * sceneUnitsPerMeter;
+  const freeThrowDiameter = 3.6 * sceneUnitsPerMeter;
+  const courtLineRadius = 0.025 * sceneUnitsPerMeter;
+  const freeThrowZ = 3.57;
   const weatheredOrange = new THREE.MeshStandardMaterial({ map: makePaint(), roughness: 0.98 });
   box("TerracottaKey", 0, -0.021, -2.9, 9.6, 0.035, 13.1, 0xc85c37).material = weatheredOrange;
   box("PaintedBackKey", 0, -0.019, -8.9, 9.6, 0.032, 1.1, 0xb74f33).material = weatheredOrange;
@@ -68,7 +77,8 @@ function buildCourt(): CourtBuild {
   stripe(-4.8, -2.9, 0.11, 13.1);
   stripe(4.8, -2.9, 0.11, 13.1);
   stripe(0, -9.35, 9.7, 0.12);
-  stripe(0, 3.57, 9.6, 0.1);
+  // Actual FIBA free-throw line spans 3.60 m, not the full 4.90 m lane.
+  stripe(0, freeThrowZ, freeThrowDiameter, courtLineRadius * 2);
   const arc = (name: string, x: number, z: number, radius: number, start: number, angle: number, thickness = 0.064) => {
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= 100; i += 1) {
@@ -80,10 +90,19 @@ function buildCourt(): CourtBuild {
     mesh.name = name;
     root.add(mesh);
   };
-  // Restore the reference's two legible circular lines: rounded orange tip,
-  // plus the shallow inner key arc. Both stay over the flat dance floor.
-  arc("OrangeKeyFrontArc", 0, 3.57, 4.78, 0, Math.PI, 0.091);
-  arc("RestoredInnerFreeThrowArc", 0, 3.57, 4.15, Math.PI, Math.PI, 0.075);
+  // Outline of the orange graphic apron is decorative, not a second
+  // free-throw circle. The actual free-throw circle is the two matched
+  // 1.80 m radius halves centred at the midpoint of the 3.60 m line.
+  arc("DecorativeOrangeApronEdge", 0, freeThrowZ, 4.78, 0, Math.PI, 0.078);
+  arc("RegulationFreeThrowSolidSemicircle", 0, freeThrowZ,
+    freeThrowRadius, 0, Math.PI, courtLineRadius);
+  // Inside the restricted area FIBA illustrates a dashed inner half.
+  for (let dash = 0; dash < 14; dash++) {
+    const dashLength = (Math.PI / 14) * 0.58;
+    arc("RegulationFreeThrowDashedSemicircle", 0, freeThrowZ,
+      freeThrowRadius, Math.PI + dash * (Math.PI / 14),
+      dashLength, courtLineRadius);
+  }
   arc("DistantOuterArc", 0, -8.0, 17.5, 0.14, Math.PI - 0.28, 0.065);
   for (const side of [-1, 1]) {
     for (let tick = 0; tick < 5; tick++) {
@@ -104,10 +123,13 @@ function buildCourt(): CourtBuild {
   box("RightAlleyBlock", 16.8, 8.8, -13.9, 6.4, 17.5, 7, 0xc77b62);
   box("RearWallConcrete", 0, 2.25, -10.55, 30, 4.65, 0.7, 0xa98a75).material = stoneWall;
   const graffiti = new THREE.Mesh(
-    new THREE.PlaneGeometry(29.7, 3.68),
-    new THREE.MeshBasicMaterial({ map: makeGraffitiWall(), transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }),
+    new THREE.PlaneGeometry(29.7, 3.94),
+    new THREE.MeshBasicMaterial({
+      map: makeGraffitiWall(), transparent: true, opacity: 0.99,
+      depthWrite: false, toneMapped: false, side: THREE.DoubleSide,
+    }),
   );
-  graffiti.position.set(0, 2.22, -10.185);
+  graffiti.position.set(0, 2.26, -10.185);
   graffiti.name = "GraffitiMuralTextureOnWall";
   root.add(graffiti);
   box("WallCap", 0, 4.63, -10.55, 30.6, 0.23, 0.93, 0xd5c5ab);
