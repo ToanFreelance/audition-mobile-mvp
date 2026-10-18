@@ -1,0 +1,267 @@
+import * as T from "three";
+import type { ExitPolicy, PhraseSpec } from "./catalog";
+
+export type SourceMotion = { clip: T.AnimationClip; skeleton: T.Skeleton };
+export type Pose = { root: T.Vector3; rotations: T.Quaternion[] };
+type Sampler = { evaluate(t: number): ArrayLike<number> };
+export type PreparedPhrase = {
+  spec: PhraseSpec; duration: number; clip: T.AnimationClip;
+  translation: Sampler; rotations: Sampler[]; path: T.Vector3[];
+  sourceScale: number; floorReference: number;
+};
+export type CanonicalRig = { root: T.Bone; bones: T.Bone[]; names: string[]; scale: number };
+type Playback = { phrase: PreparedPhrase; startBeat: number; offset: T.Vector3; yaw: number };
+type Blend = { from: Playback | Pose; startBeat: number; durationBeats: number };
+export type TransitionRecord = {
+  a: string | null; b: string; source: string; phrase: [number, number]; group: string;
+  requestedBeat: number; visualStartBeat: number; delayBeats: number; policy: ExitPolicy;
+  blendBeats: number; blendSeconds: number; entryDisplacement: number;
+  before: number[]; after: number[]; afterBlend?: number[]; fadeTravelXZ?: number;
+  interrupted?: boolean; stageAnchor: number[]; yaw: number; loopSeamWarning: string | null;
+};
+
+const Y = new T.Vector3(0, 1, 0);
+const clamp = T.MathUtils.clamp;
+const clonePose = (p: Pose): Pose => ({ root: p.root.clone(), rotations: p.rotations.map(q => q.clone()) });
+const interpolate = (a: Pose, b: Pose, t: number): Pose => ({
+  root: a.root.clone().lerp(b.root, t), rotations: a.rotations.map((q, i) => q.clone().slerp(b.rotations[i], t)),
+});
+const smooth = (t: number) => { const x = clamp(t, 0, 1); return x * x * (3 - 2 * x); };
+export function rootYaw(q: T.Quaternion) {
+  const forward = new T.Vector3(0, 0, 1).applyQuaternion(q);
+  return Math.atan2(forward.x, forward.z);
+}
+const interpolant = (track: T.KeyframeTrack): Sampler => {
+  // createInterpolant is supplied by the concrete track type at runtime.
+  return (track as T.KeyframeTrack & { createInterpolant(): Sampler }).createInterpolant();
+};
+function track(source: SourceMotion, name: string) {
+  const t = source.clip.tracks.find(t => t.name === name);
+  if (!t) throw new Error(`Thiếu track ${name}.`);
+  return t;
+}
+
+export function makeCanonicalRig(source: SourceMotion): CanonicalRig {
+  const root = source.skeleton.bones[0].clone(true);
+  const bones: T.Bone[] = [];
+  root.traverse(o => { if ((o as T.Bone).isBone) bones.push(o as T.Bone); });
+  const q = new Map(source.clip.tracks.filter(t => t.name.endsWith(".quaternion")).map(t => [t.name, interpolant(t)]));
+  for (const b of bones) { const s = q.get(b.name + ".quaternion"); if (s) b.quaternion.fromArray(s.evaluate(0.6)); }
+  root.position.set(0, 0, 0); root.updateMatrixWorld(true);
+  const box = new T.Box3(); for (const b of bones) box.expandByPoint(b.getWorldPosition(new T.Vector3()));
+  const scale = 1.65 / Math.max(box.max.y - box.min.y, 1);
+  // Positions belong to one canonical CMU rig and never animate/bend in length.
+  for (const b of bones) { b.position.multiplyScalar(scale); b.quaternion.identity(); }
+  root.position.set(0, 0, 0); root.updateMatrixWorld(true);
+  return { root, bones, names: bones.map(b => b.name), scale };
+}
+
+function legLength(source: SourceMotion) {
+  return ["LeftUpLeg", "LeftLeg", "LeftFoot"].reduce((n, name) => {
+    const bone = source.skeleton.bones.find(b => b.name === name);
+    if (!bone) throw new Error("Hierarchy BVH không tương thích.");
+    return n + bone.position.length();
+  }, 0);
+}
+
+export function preparePhrase(spec: PhraseSpec, source: SourceMotion, canonical: CanonicalRig, canonicalSource: SourceMotion): PreparedPhrase {
+  if (!(spec.end > spec.start) || spec.end > source.clip.duration + 1 / 120) throw new Error(`Window không hợp lệ: ${spec.id}`);
+  const sourceNames = source.skeleton.bones.map(b => b.name);
+  if (JSON.stringify(sourceNames) !== JSON.stringify(canonical.names)) throw new Error("Hierarchy BVH khác canonical rig.");
+  const position = interpolant(track(source, "Hips.position"));
+  const qs = canonical.names.map(name => {
+    const t = source.clip.tracks.find(t => t.name === name + ".quaternion");
+    return t ? interpolant(t) : null;
+  });
+  const entry = new T.Vector3().fromArray(position.evaluate(spec.start));
+  const rootEntry = new T.Quaternion().fromArray(qs[0]!.evaluate(spec.start));
+  const inverseYaw = new T.Quaternion().setFromAxisAngle(Y, -rootYaw(rootEntry));
+  const sourceScale = canonical.scale * legLength(canonicalSource) / legLength(source);
+  const duration = Math.min(spec.end, source.clip.duration) - spec.start;
+  const times: number[] = [], roots: number[] = [];
+  const quaternionValues = canonical.names.map(() => [] as number[]);
+  const path: T.Vector3[] = [];
+  const frames = Math.ceil(duration * 60);
+  const previous: (T.Quaternion | null)[] = canonical.names.map(() => null);
+  let floorReference = 0;
+  const scratch = canonical.root.clone(true); const scratchBones: T.Bone[] = [];
+  scratch.traverse(o => { if ((o as T.Bone).isBone) scratchBones.push(o as T.Bone); });
+  for (let frame = 0; frame <= frames; frame++) {
+    const t = frame === frames ? duration : frame / 60;
+    const p = new T.Vector3().fromArray(position.evaluate(spec.start + t)).sub(entry).multiplyScalar(sourceScale).applyQuaternion(inverseYaw);
+    for (let i = 0; i < qs.length; i++) {
+      const q = qs[i] ? new T.Quaternion().fromArray(qs[i]!.evaluate(spec.start + t)) : new T.Quaternion();
+      if (i === 0) q.premultiply(inverseYaw);
+      q.normalize(); if (previous[i] && previous[i]!.dot(q) < 0) q.set(-q.x, -q.y, -q.z, -q.w);
+      previous[i] = q.clone(); scratchBones[i].quaternion.copy(q); quaternionValues[i].push(...q.toArray());
+    }
+    scratch.updateMatrixWorld(true);
+    // Retain captured Y motion, including jumps/inversions. Correct only ground
+    // penetration caused by canonical proportions. This is not contact IK.
+    let minimumY = Infinity;
+    for (const bone of scratchBones) minimumY = Math.min(minimumY, bone.getWorldPosition(new T.Vector3()).y);
+    if (frame === 0) floorReference = -minimumY;
+    p.y += floorReference; p.y = Math.max(p.y, -minimumY);
+    times.push(t); roots.push(...p.toArray()); path.push(p.clone());
+  }
+  const rootTrack = new T.VectorKeyframeTrack("motionRoot.position", times, roots);
+  const tracks: T.KeyframeTrack[] = [rootTrack, ...canonical.names.map((name, i) => new T.QuaternionKeyframeTrack(name + ".quaternion", times, quaternionValues[i]))];
+  const clip = new T.AnimationClip(spec.id, duration, tracks);
+  return { spec, duration, clip, translation: interpolant(rootTrack), rotations: tracks.slice(1).map(interpolant), path, sourceScale, floorReference };
+}
+
+export function safeExitTime(spec: PhraseSpec, localSeconds: number, duration: number, override?: ExitPolicy) {
+  const inside = spec.protectedRanges?.find(([a, b]) => localSeconds >= a && localSeconds < b);
+  // A UI override may make an upright phrase stricter, never bypass true contact protection.
+  const policy = inside ? "PROTECTED" : override ?? spec.policy;
+  if (policy === "FREE") return { localSeconds, policy: policy as ExitPolicy };
+  const earliest = inside ? inside[1] : localSeconds;
+  const exit = spec.exitMarkers.find(t => t >= earliest - 1e-7) ?? duration;
+  return { localSeconds: Math.max(localSeconds, Math.min(exit, duration)), policy: policy as ExitPolicy };
+}
+
+export class SourceFlowEngine {
+  readonly stageAnchor = new T.Group();
+  readonly motionRoot = new T.Group();
+  readonly rigRoot = new T.Group();
+  readonly history: TransitionRecord[] = [];
+  readonly radius = 1.35;
+  current: Playback | null = null;
+  pending: { id: string; requestedBeat: number; dueBeat: number; policy: ExitPolicy } | null = null;
+  blendBeats = 0.35;
+  bpm = 120;
+  policyOverride: ExitPolicy | undefined;
+  private blend: Blend | null = null;
+  private pose: Pose;
+  private latestBeat = 0;
+  private lastRecord: TransitionRecord | null = null;
+  private startedAt = new T.Vector3();
+  private previousRoot = new T.Vector3();
+  pathLength = 0;
+  maxRadius = 0;
+  maxFrameStep = 0;
+  rejectedRequests = 0;
+
+  constructor(readonly rig: CanonicalRig, readonly phrases: Map<string, PreparedPhrase>) {
+    this.stageAnchor.name = "QA-V2-stable-stage-anchor";
+    this.motionRoot.name = "QA-V2-localized-motion-root";
+    this.rigRoot.name = "QA-V2-canonical-CMU-rig";
+    this.stageAnchor.add(this.motionRoot); this.motionRoot.add(this.rigRoot); this.rigRoot.add(rig.root);
+    this.pose = { root: new T.Vector3(), rotations: rig.bones.map(() => new T.Quaternion()) };
+  }
+  private time(p: Playback, beat: number) { return clamp((beat - p.startBeat) * 60 / p.phrase.spec.referenceBpm, 0, p.phrase.duration); }
+  private sample(p: Playback, beat: number): Pose {
+    const t = this.time(p, beat), yaw = new T.Quaternion().setFromAxisAngle(Y, p.yaw);
+    const root = new T.Vector3().fromArray(p.phrase.translation.evaluate(t)).applyQuaternion(yaw);
+    root.x += p.offset.x; root.z += p.offset.z;
+    return { root, rotations: p.phrase.rotations.map((s, i) => {
+      const q = new T.Quaternion().fromArray(s.evaluate(t)); return i === 0 ? q.premultiply(yaw) : q;
+    }) };
+  }
+  /** Test the ENTIRE path, not just its endpoint. Convex blends stay inside the same disc. */
+  placement(id: string, at = this.pose.root, heading = rootYaw(this.pose.rotations[0])) {
+    const phrase = this.phrases.get(id); if (!phrase) return null;
+    let best: { yaw: number; score: number } | null = null;
+    for (let step = 0; step < 48; step++) {
+      const yaw = heading + step * Math.PI / 24, q = new T.Quaternion().setFromAxisAngle(Y, yaw);
+      let peak = 0, end = 0;
+      for (const p of phrase.path) {
+        const v = p.clone().applyQuaternion(q); const r = Math.hypot(v.x + at.x, v.z + at.z);
+        peak = Math.max(peak, r); end = r;
+      }
+      const angle = Math.abs(Math.atan2(Math.sin(yaw - heading), Math.cos(yaw - heading)));
+      const score = peak + end * 1.5 + angle * 0.045;
+      if (peak <= this.radius - 0.005 && (!best || score < best.score)) best = { yaw, score };
+    }
+    return best;
+  }
+  start(id: string, beat = 0) {
+    this.latestBeat = beat; this.pose.root.set(0, 0, 0);
+    this.current = null; this.blend = null; this.pending = null; this.history.length = 0;
+    this.pathLength = 0; this.maxRadius = 0; this.maxFrameStep = 0; this.rejectedRequests = 0;
+    if (!this.commit(id, beat, beat, "FREE", true)) throw new Error("Phrase không vừa vùng sân.");
+    this.update(beat); this.startedAt.copy(this.pose.root); this.previousRoot.copy(this.pose.root);
+  }
+  request(id: string, beat: number) {
+    this.update(beat);
+    if (!this.current) return this.commit(id, beat, beat, "FREE");
+    const time = this.time(this.current, beat);
+    const exit = safeExitTime(this.current.phrase.spec, time, this.current.phrase.duration, this.policyOverride);
+    const dueBeat = beat + (exit.localSeconds - time) * this.current.phrase.spec.referenceBpm / 60;
+    if (dueBeat > beat + 1e-6) {
+      // Coalesce repeated SPACE, but retain the first recovery deadline. A later
+      // request can replace the target; it cannot postpone the exit forever.
+      this.pending = { id, requestedBeat: beat, dueBeat: this.pending?.dueBeat ?? dueBeat, policy: exit.policy };
+      return true;
+    }
+    this.pending = null; return this.commit(id, beat, beat, exit.policy);
+  }
+  private commit(id: string, beat: number, requestedBeat: number, policy: ExitPolicy, initial = false) {
+    const phrase = this.phrases.get(id); const place = this.placement(id);
+    if (!phrase || !place) { this.rejectedRequests++; return false; }
+    const before = clonePose(this.pose), previous = this.current;
+    if (this.lastRecord && this.blend && !this.lastRecord.afterBlend) this.lastRecord.interrupted = true;
+    const from = this.blend ? before : previous;
+    this.current = { phrase, startBeat: beat, offset: before.root.clone(), yaw: place.yaw };
+    this.blend = initial || !from ? null : { from, startBeat: beat, durationBeats: this.blendBeats };
+    const entry = this.sample(this.current, beat);
+    const record: TransitionRecord = {
+      a: previous?.phrase.spec.id ?? null, b: id, source: phrase.spec.source,
+      phrase: [phrase.spec.start, phrase.spec.end], group: phrase.spec.group,
+      requestedBeat, visualStartBeat: beat, delayBeats: beat - requestedBeat, policy,
+      blendBeats: this.blend?.durationBeats ?? 0, blendSeconds: (this.blend?.durationBeats ?? 0) * 60 / this.bpm,
+      entryDisplacement: Math.hypot(entry.root.x - before.root.x, entry.root.z - before.root.z),
+      before: before.root.toArray(), after: initial ? entry.root.toArray() : before.root.toArray(),
+      stageAnchor: this.stageAnchor.position.toArray(), yaw: place.yaw, loopSeamWarning: null,
+    };
+    this.history.push(record); this.lastRecord = record;
+    this.apply(initial ? entry : before); return true;
+  }
+  update(beat: number) {
+    if (!this.current) return;
+    this.latestBeat = beat;
+    let pose = this.sample(this.current, beat);
+    if (this.blend) {
+      const alpha = (beat - this.blend.startBeat) / this.blend.durationBeats;
+      const from = "phrase" in this.blend.from ? this.sample(this.blend.from, beat) : this.blend.from;
+      pose = interpolate(from, pose, smooth(alpha));
+      if (alpha >= 1) {
+        if (this.lastRecord) { this.lastRecord.afterBlend = pose.root.toArray(); this.lastRecord.fadeTravelXZ = Math.hypot(pose.root.x - this.lastRecord.before[0], pose.root.z - this.lastRecord.before[2]); }
+        this.blend = null;
+      }
+    }
+    this.apply(pose);
+    if (this.pending && beat >= this.pending.dueBeat - 1e-7) {
+      const request = this.pending; this.pending = null;
+      // Evaluate the outgoing path at its recorded exit, even after a dropped frame.
+      this.apply(this.sample(this.current, request.dueBeat));
+      if (this.commit(request.id, request.dueBeat, request.requestedBeat, request.policy)) this.update(beat);
+    }
+  }
+  private apply(pose: Pose) {
+    const step = Math.hypot(pose.root.x - this.pose.root.x, pose.root.z - this.pose.root.z);
+    this.maxFrameStep = Math.max(this.maxFrameStep, step);
+    this.pathLength += step; this.previousRoot.copy(this.pose.root);
+    this.pose = pose; this.motionRoot.position.copy(pose.root);
+    this.rig.bones.forEach((b, i) => b.quaternion.copy(pose.rotations[i]));
+    this.stageAnchor.updateMatrixWorld(true);
+    this.maxRadius = Math.max(this.maxRadius, Math.hypot(pose.root.x, pose.root.z));
+  }
+  snapshot() {
+    const current = this.current, time = current ? this.time(current, this.latestBeat) : 0;
+    return {
+      current: current?.phrase.spec.id ?? null, previous: this.history.at(-1)?.a ?? null,
+      source: current?.phrase.spec.source ?? null, sourcePhrase: current ? [current.phrase.spec.start, current.phrase.spec.end] : null,
+      sourceTime: current ? current.phrase.spec.start + time : 0,
+      root: this.pose.root.toArray(), stageAnchor: this.stageAnchor.position.toArray(),
+      entryDisplacement: this.history.at(-1)?.entryDisplacement ?? 0,
+      cumulativeDisplacement: Math.hypot(this.pose.root.x - this.startedAt.x, this.pose.root.z - this.startedAt.z),
+      pathLength: this.pathLength, maxRadius: this.maxRadius, maxFrameStep: this.maxFrameStep,
+      pending: this.pending, blendProgress: this.blend ? clamp((this.latestBeat - this.blend.startBeat) / this.blend.durationBeats, 0, 1) : 1,
+      policy: this.pending?.policy ?? current?.phrase.spec.policy ?? "FREE",
+      heldAtEnd: Boolean(current && time >= current.phrase.duration),
+      loopSeamWarning: null, rejectedRequests: this.rejectedRequests,
+      transitionCount: Math.max(0, this.history.length - 1),
+    };
+  }
+}
