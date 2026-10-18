@@ -158,6 +158,7 @@ export default function Stage3D({
   const selectedStageEntry = resolveStageCatalogEntry(selectedStageId);
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
   const neonPresentation = stageEntry.presentationProfileId === "neon-stage-v1";
+  const basketballPresentation = stageEntry.presentationProfileId === "basketball-court-v1";
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
@@ -188,8 +189,12 @@ export default function Stage3D({
     if (!host) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(neonPresentation ? 0x020517 : 0x1b2d49);
-    scene.fog = neonPresentation ? null : new THREE.FogExp2(0x6b7f9f, 0.01);
+    scene.background = new THREE.Color(
+      basketballPresentation ? 0x91c7ed : neonPresentation ? 0x020517 : 0x1b2d49,
+    );
+    scene.fog = basketballPresentation
+      ? new THREE.Fog(0x91c7ed, 42, 96)
+      : neonPresentation ? null : new THREE.FogExp2(0x6b7f9f, 0.01);
 
     const initialCameraFrame = getCharacterCameraFrame("center", false);
     const camera = new THREE.PerspectiveCamera(initialCameraFrame.fov, 16 / 9, 0.1, 100);
@@ -228,7 +233,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = neonPresentation ? 1.22 : 1.28;
+    renderer.toneMappingExposure = basketballPresentation ? 1.13 : neonPresentation ? 1.22 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
     const diagnostics = diagnosticsRef.current;
@@ -238,23 +243,23 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      neonPresentation ? 0x8f7add : 0xdceeff,
-      neonPresentation ? 0x360845 : 0x737b9c,
-      neonPresentation ? 0.64 : 2.2,
+      basketballPresentation ? 0xfff6eb : neonPresentation ? 0x8f7add : 0xdceeff,
+      basketballPresentation ? 0x7890b1 : neonPresentation ? 0x360845 : 0x737b9c,
+      basketballPresentation ? 1.42 : neonPresentation ? 0.64 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      neonPresentation ? 0xeee3ff : 0xfff3ff,
-      neonPresentation ? 0.98 : 3.0,
+      basketballPresentation ? 0xfff0df : neonPresentation ? 0xeee3ff : 0xfff3ff,
+      basketballPresentation ? 1.82 : neonPresentation ? 0.98 : 3.0,
     );
-    key.position.set(-2.5, 8, 8);
+    key.position.set(...(basketballPresentation ? [-10, 19, 15] as const : [-2.5, 8, 8] as const));
     scene.add(key);
 
     if (neonPresentation) {
       const magentaRim = new THREE.DirectionalLight(0xff2fcb, 0.60);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
-    } else {
+    } else if (!basketballPresentation) {
       const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
       coolFill.position.set(-4, 5, 7);
       scene.add(coolFill);
@@ -267,7 +272,7 @@ export default function Stage3D({
     const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
     accent.position.set(0, 8, 4.5);
     accent.target.position.set(0, 1.8, 0);
-    if (!neonPresentation) scene.add(accent, accent.target);
+    if (!neonPresentation && !basketballPresentation) scene.add(accent, accent.target);
 
     const wall = new THREE.Mesh(new THREE.BoxGeometry(19, 8.5, 0.6), new THREE.MeshStandardMaterial({ color: 0x0c0b1c, roughness: .88, metalness: .15 }));
     wall.position.set(0, 4.2, -3.2);
