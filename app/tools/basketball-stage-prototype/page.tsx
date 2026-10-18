@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { makeOldBrick, makeGraffitiWall, makeAsphalt, makePaint, makeBackboardPatina, installAmbientIvy } from "./stage-look";
+import { makeOldBrick, makeRetainingWall, makeGraffitiWall, makeAsphalt, makePaint, makeBackboardPatina, installAmbientIvy } from "./stage-look";
 
 type CameraMode = "front" | "angle" | "wide";
 type CourtBuild = { root: THREE.Group; markers: THREE.Group; animate: (seconds: number, enabled: boolean) => void };
@@ -41,7 +41,29 @@ function buildCourt(): CourtBuild {
   const weatheredOrange = new THREE.MeshStandardMaterial({ map: makePaint(), roughness: 0.98 });
   box("TerracottaKey", 0, -0.021, -2.9, 9.6, 0.035, 13.1, 0xc85c37).material = weatheredOrange;
   box("PaintedBackKey", 0, -0.019, -8.9, 9.6, 0.032, 1.1, 0xb74f33).material = weatheredOrange;
-  const chalk = 0xe4d6b7;
+  // Single rounded paint key, following the original concept's half-court silhouette.
+  const fanPositions: number[] = [];
+  const fanUVs: number[] = [];
+  const fanIndices: number[] = [];
+  const addFanVertex = (x: number, z: number) => {
+    fanPositions.push(x, -0.002, z);
+    fanUVs.push(0.5 + x / 9.6, 0.5 + (z - 3.57) / 9.6);
+  };
+  addFanVertex(0, 3.57);
+  for (let i = 0; i <= 72; i += 1) {
+    const angle = Math.PI * i / 72;
+    addFanVertex(Math.cos(angle) * 4.78, 3.57 + Math.sin(angle) * 4.78);
+  }
+  for (let i = 1; i <= 72; i += 1) fanIndices.push(0, i + 1, i);
+  const fanGeometry = new THREE.BufferGeometry();
+  fanGeometry.setAttribute("position", new THREE.Float32BufferAttribute(fanPositions, 3));
+  fanGeometry.setAttribute("uv", new THREE.Float32BufferAttribute(fanUVs, 2));
+  fanGeometry.setIndex(fanIndices);
+  fanGeometry.computeVertexNormals();
+  const roundedPaint = new THREE.Mesh(fanGeometry, weatheredOrange);
+  roundedPaint.name = "ReferenceRoundedOrangeKey";
+  root.add(roundedPaint);
+  const chalk = 0xe8d4a8;
   const stripe = (x: number, z: number, width: number, depth: number) => box("CourtMark", x, 0.015, z, width, 0.015, depth, chalk);
   stripe(-4.8, -2.9, 0.11, 13.1);
   stripe(4.8, -2.9, 0.11, 13.1);
@@ -58,31 +80,31 @@ function buildCourt(): CourtBuild {
     mesh.name = name;
     root.add(mesh);
   };
-  arc("CenterDanceCircle", 0, 3.6, 4.78, 0, Math.PI, 0.078);
-  arc("FreeThrowRing", 0, 3.57, 4.78, Math.PI, Math.PI, 0.078);
-  arc("ThreePointArc", 0, -8.0, 11.8, 0.20, Math.PI - 0.4, 0.066);
+  arc("OrangeKeyFrontArc", 0, 3.57, 4.78, 0, Math.PI, 0.078);
+  arc("DistantOuterArc", 0, -8.0, 17.5, 0.14, Math.PI - 0.28, 0.055);
   stripe(-12.9, 6.1, 0.1, 23);
   stripe(12.9, 6.1, 0.1, 23);
   // Building faces are real extruded volumes, not a skybox image.
   const brick = makeOldBrick();
-  const brickFace = new THREE.MeshStandardMaterial({ map: brick, roughness: 0.99 });
+  const brickFace = new THREE.MeshStandardMaterial({ map: brick, roughness: 0.97 });
+  const stoneWall = new THREE.MeshStandardMaterial({ map: makeRetainingWall(), roughness: 0.99 });
   const building = new THREE.Mesh(new THREE.BoxGeometry(29, 14, 3.1), brickFace);
   building.name = "RedBrickApartmentBuilding";
   building.position.set(0, 9.9, -13.9);
   root.add(building);
   box("LeftAlleyBlock", -16.8, 7.8, -13.9, 6.4, 15.5, 7, 0xbaa68c);
   box("RightAlleyBlock", 16.8, 8.8, -13.9, 6.4, 17.5, 7, 0xc77b62);
-  box("RearWallConcrete", 0, 2.25, -10.55, 30, 4.65, 0.7, 0xa98a75).material = brickFace;
+  box("RearWallConcrete", 0, 2.25, -10.55, 30, 4.65, 0.7, 0xa98a75).material = stoneWall;
   const graffiti = new THREE.Mesh(
-    new THREE.PlaneGeometry(29.7, 3.8),
-    new THREE.MeshStandardMaterial({ map: makeGraffitiWall(), roughness: 0.97, side: THREE.DoubleSide }),
+    new THREE.PlaneGeometry(29.7, 3.68),
+    new THREE.MeshBasicMaterial({ map: makeGraffitiWall(), transparent: true, depthWrite: false, toneMapped: false, side: THREE.DoubleSide }),
   );
-  graffiti.position.set(0, 2.0, -10.178);
+  graffiti.position.set(0, 2.22, -10.185);
   graffiti.name = "GraffitiMuralTextureOnWall";
   root.add(graffiti);
   box("WallCap", 0, 4.63, -10.55, 30.6, 0.23, 0.93, 0xd5c5ab);
   for (let y = 6.3; y <= 12.0; y += 3.2) {
-    for (const x of [-10.8, -6.4, -2.0, 2.4, 11.9]) {
+    for (const x of [-10.0, -5.5, 8.0]) {
       box("WindowFrame", x, y, -12.30, 1.65, 2.12, 0.22, 0xd9c4ac);
       box("WindowGlass", x, y, -12.15, 1.29, 1.74, 0.045, 0x1d344d);
       box("WindowCrossVertical", x, y, -12.10, 0.075, 1.74, 0.06, 0xc7baaa);
@@ -223,7 +245,7 @@ export default function BasketballStagePrototypePage() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.22;
+    renderer.toneMappingExposure = 1.07;
     target.appendChild(renderer.domElement);
     renderer.domElement.style.display = "block";
     renderer.domElement.style.width = "100%";
@@ -232,8 +254,8 @@ export default function BasketballStagePrototypePage() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x98cdf0);
     scene.fog = new THREE.Fog(0x98cdf0, 39, 95);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8798b6, 1.85));
-    const sun = new THREE.DirectionalLight(0xffefdf, 2.1);
+    scene.add(new THREE.HemisphereLight(0xfff8ed, 0x8595aa, 1.35));
+    const sun = new THREE.DirectionalLight(0xfff1de, 1.65);
     sun.position.set(-10, 19, 15);
     scene.add(sun);
     let built: CourtBuild;
