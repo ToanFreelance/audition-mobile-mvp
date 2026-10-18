@@ -252,7 +252,8 @@ export default function Stage3D({
       basketballPresentation ? 0xfff0df : neonPresentation ? 0xeee3ff : 0xfff3ff,
       basketballPresentation ? 1.82 : neonPresentation ? 0.98 : 3.0,
     );
-    key.position.set(...(basketballPresentation ? [-10, 19, 15] as const : [-2.5, 8, 8] as const));
+    if (basketballPresentation) key.position.set(-10, 19, 15);
+    else key.position.set(-2.5, 8, 8);
     scene.add(key);
 
     if (neonPresentation) {
