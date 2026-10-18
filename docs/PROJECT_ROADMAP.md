@@ -577,7 +577,8 @@ Planned catalog/content sequence:
 
 - `bright-stage-v1` — existing accepted Bright Stage;
 - `neon-stage-v1` — first new environment; based on the accepted P5.6 Waiting Room stage visual, redrawn/animated for gameplay presentation;
-- `football-field-v1` — planned sports environment;
+- `basketball-court-v1` — basketball street-court venue; owner accepted the isolated V5 visual prototype on iPhone (2026-10-18); production runtime/catalog integration remains pending;
+- `football-field-v1` — separate planned sports environment (do not replace or rename it);
 - `classroom-v1` — planned classroom environment;
 - `cafe-v1` — planned cafe environment.
 
@@ -586,6 +587,19 @@ S2.5A Neon Stage V1 should reuse the Waiting Room's accepted neon composition/la
 The owner-approved concept `neon_audition_dance_arena.png` is the S2.5A visual source of truth. Required visual anchors are the curved overhead truss, cyan/violet fixture palette, large LED backdrop, curved multi-tier risers, glossy reflective floor, and central circular dance mark.
 
 Higgsfield 3D / animation generation may be used for editable blockout and motion-source exploration. Runtime Stage3D/WebAudio authority remains unchanged.
+
+#### S2.5B — Basketball Street Court V1 (visual accepted; production integration pending)
+
+**Owner visual decision (2026-10-18): ACCEPTED for the isolated V5 Three.js stage prototype.** Source: PR #20, branch `work/basketball-stage-3d-prototype`, accepted visual baseline commit `cffc2dcca36e4168e84da88af50a5b1904a0a368`, and route `/tools/basketball-stage-prototype`. The accepted direction is a mobile-first urban basketball dance venue with aged red-brick buildings, black fire escape, large high-contrast graffiti wall, blue/orange weathered floor, clear hoop/backboard, regulation-proportioned free-throw circle, and restrained net/ivy idle ambience. Keep the floor flat for five dancing actors.
+
+**Acceptance boundary:** This records owner iPhone **visual acceptance of the standalone stage prototype only**. It does *not* certify Stage3D runtime integration, five-actor gameplay/HUD readability, multiplayer preload, mobile GPU/FPS/thermal performance, or production selection. PR #20 remains a Draft lab PR and must not be merged without explicit owner approval.
+
+**Proposed future implementation when owner prioritizes the next environment milestone:**
+1. Start a focused integration work branch from the latest verified `development` (do not develop on `main` or `development`); reuse the approved PR #20 prototype as the visual source, not as a second production renderer.
+2. Extract a lifecycle-owned `BasketballCourtV1Environment` compatible with `StageEnvironmentRuntime` (`root/load/update/setPresentationCamera/dispose`); preserve the existing Stage3D architecture, single render loop, cleanup, canvas texture budget and deterministic output.
+3. Register **new** `basketball-court-v1` as kind `sports` via `selectedStageId → Stage Catalog → runtime asset → presentation profile → Stage3D` only once runnable. Keep `football-field-v1` reserved separately. Do not change `DEFAULT_STAGE_ID = bright-stage-v1` or expose an unfinished entry as selectable.
+4. Isolate environment presentation motion from gameplay authority. WebAudio, four-beat global turns, Finish/AUDIO END, gauge, MatchManifest, Ready/Start, Supabase CAS/Realtime and shared epoch remain untouched.
+5. Validate catalog/runtime ID resolution, load/dispose and fallback, three camera presets/portrait HUD, character-ground contact and non-occlusion for five actors, and actual owner iPhone GPU/FPS/thermal behavior before declaring *runtime acceptance*. S3 Host Stage Selector remains a separate deferred milestone.
 
 **S3 — Host Stage Selector** follows after the initial environment pack is accepted, so the selector exposes real runnable choices rather than placeholder entries.
 
