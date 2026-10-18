@@ -196,7 +196,9 @@ export class SourceFlowEngine {
       if (peak > this.radius - 0.005) { decision.spatialRejected++; continue; }
       const boundaryPoint = new T.Vector3().fromArray(phrase.translation.evaluate(Math.min(phrase.duration, 4 * 60 / phrase.spec.referenceBpm))).applyQuaternion(q);
       const boundaryRadius = Math.hypot(boundaryPoint.x + at.x, boundaryPoint.z + at.z);
-      if (!fixture && this.current && boundaryRadius > Math.max(1.05, Math.hypot(at.x, at.z) - 0.1)) { decision.continuationRejected++; continue; }
+      // Reserve recovery space even if a rejected SPACE lets this one-shot run
+      // to its end. Boundary-only checking stranded browser seed 315885701.
+      if (!fixture && this.current && Math.max(boundaryRadius, end) > Math.max(1.05, Math.hypot(at.x, at.z) - 0.1)) { decision.continuationRejected++; continue; }
       const boundaryHeading = phrase.headings[Math.min(phrase.headings.length - 1, Math.round(4 * 60 / phrase.spec.referenceBpm * 60))] + yaw;
       const exitFacing = Math.abs(wrapAngle(boundaryHeading - this.desiredHeading));
       const errors = phrase.headings.map(h => Math.abs(wrapAngle(h + yaw - this.desiredHeading)));

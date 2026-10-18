@@ -79,7 +79,7 @@ test("canonical forward is corroborated by hips, shoulders and toes; orbit does 
   results.push({ calibration: flow.forwardCalibration, phrases: [...flow.phrases.values()].map(p => ({ id:p.spec.id, window:[p.spec.start,p.spec.end], yawRangeDeg:[Math.min(...p.headings),Math.max(...p.headings)].map(T.MathUtils.radToDeg), pathRadius:Math.max(...p.path.map(v=>Math.hypot(v.x,v.z))) })) });
 });
 
-for (const bpm of [120,160]) for (const fade of [.15,.35,1]) for (const seed of [20261018,42]) {
+for (const bpm of [120,160]) for (const fade of [.15,.35,1]) for (const seed of [20261018,42,315885701]) {
   test(`heading + spatial: ${bpm} BPM / ${fade} beat / seed ${seed}`, () => {
     const flow=engine(), bag=new PhraseBag(CORE_PHRASES,seed), turns=new TurnCursor();
     flow.bpm=bpm; flow.blendBeats=fade; flow.start(bag.next()!.id);

@@ -15,7 +15,7 @@ Quy ước: nội bộ radian; JSON độ; `atan2(x,z)`, góc dương từ +Z đ
 1. Giữ nguyên canonical scale, chuẩn hóa origin/yaw nguồn, local translation và hierarchy stageAnchor → motionRoot → rigRoot. Không recenter, clamp XZ hay triệt quỹ đạo.
 2. Core thử 48 hướng cách 7,5° cộng hướng khớp chính xác outgoing và hướng căn giữa toàn dải heading của phrase. Toàn path phải nằm trong radius **1,345** (biên an toàn bên trong 1,35).
 3. Entry lệch stage-front tối đa 60°; toàn phrase tối đa 85°; chênh outgoing→incoming entry tối đa 45°. ±45° cho toàn phrase sẽ loại 120-mickey (dải nguồn gần 102°); 85° vẫn loại placement quay lưng, giữ bước xoay có chủ ý. Đây là ngưỡng QA thử nghiệm, chưa nghiệm thu mỹ thuật.
-4. Dự trữ khoảng trống ở mốc bốn beat: radius tại mốc không quá `max(1.05, currentRadius−0.1)` với transition thường. Chỉ loại placement, không sửa path. Điểm chọn: `2*rmsFacing + 3*exitFacing + .3*entryAngle + peakRadius + endRadius + 2*boundaryRadius`; góc tính radian. Ưu tiên hướng tại lượt sau giúp tránh cạn lựa chọn.
+4. Dự trữ khoảng trống ở mốc bốn beat: radius tại mốc **và cuối phrase** không quá `max(1.05, currentRadius−0.1)` với transition thường. Chỉ loại placement, không sửa path. Điểm chọn: `2*rmsFacing + 3*exitFacing + .3*entryAngle + peakRadius + endRadius + 2*boundaryRadius`; góc tính radian. Ưu tiên hướng tại lượt sau giúp tránh cạn lựa chọn.
 5. Giữ seeded shuffle-bag và cửa sổ anti-repeat nguyên bản. Facing/spatial là eligibility bổ sung. Không có ứng viên thì giữ one-shot/pose cuối, ghi lý do; không tạo hay chờ thêm gameplay turn. Không cam kết mọi seed đều luôn có ứng viên.
 6. Pose và root XZ vẫn fade đúng số beat UI. Riêng quaternion Hips được phép hòa lâu hơn khi entry-offset cần: `max(requestedFadeBeats, 1.5*abs(entryDeltaDeg)/270 * max(180,BPM)/60)`. Với delta ≤45°, phần hòa bổ sung tối đa 0,75 beat; ở 120 BPM tương đương 0,375 s, ở 160 BPM 0,28125 s. Chỉ áp dụng khi cần; không kéo dài mọi fade, phrase clock hoặc turn. Đây là ngân sách **thành phần offset entry**, không phải trần tốc độ xoay tổng của motion nguồn.
 7. Quaternion slerp đường ngắn, smoothstep. Ngắt blend chụp pose/quaternion đang hiển thị; recovery pending được đánh giá đúng tại dueBeat trước khi commit. FREE/BEAT_WINDOW/PROTECTED giữ nguyên; protection không bị UI FREE bỏ qua.
@@ -40,17 +40,19 @@ So sánh 50 lượt, seed 20261018, 120 BPM, fade 0,35 beat, 120 Hz, cùng canon
 
 | Chỉ số | V2 baseline | V2.1 |
 |---|---:|---:|
-|Mẫu hướng trong ±45° stage-front|27,2083%|87,7917%|
+|Mẫu hướng trong ±45° stage-front|27,2083%|91,1583%|
 |Mẫu hướng quá 90°|50,5333%|0%|
-|Lệch hướng lớn nhất|179,9914°|78,2534°|
+|Lệch hướng lớn nhất|179,9914°|71,8724°|
 |Chênh entry heading lớn nhất|172,5°|44,1174°|
-|Bước heading giữa mẫu lớn nhất|132,5115°|5,2996°|
-|Root radius lớn nhất|1,008622|1,203905|
+|Bước heading giữa mẫu lớn nhất|132,5115°|5,4512°|
+|Root radius lớn nhất|1,008622|1,315612|
 |Số chuyển / entry ΔXZ|50 / 0|50 / 0|
 
 Radius ngẫu nhiên tăng so với V2 nhưng vẫn trong 1,35; không tuyên bố mọi độ di chuyển đều giảm. Root heading chiếu XZ cũng có thể nhạy với nghiêng thân; không đồng nhất bước heading với quaternion rotation 3D.
 
-29 test tập trung PASS: 13 test V2 nguyên trạng + 16 test V2.1. Ma trận 120/160 BPM × 0,15/0,35/1 beat × seed 20261018/42: **600 chuyển**, 50 mỗi kịch bản, đủ sáu phrase mỗi kịch bản, không blocked, ít nhất ba phrase spatial/facing hợp lệ tại mỗi boundary trước anti-repeat. Tỷ lệ chính diện ≥87,7556%; max radius 1,232792; bước quaternion 3D ≤7,974° ở 120 Hz. Test V2 auto/manual thêm 371 chuyển, max radius 1,342823. Đã test interruption, full-turn không hợp lệ, sát biên, calibration/orbit-reference, nguồn quay có chủ ý, BPM/turn/protection. Tập seed này không chứng minh mọi chuỗi vô hạn.
+Browser trên commit trung gian `d5bb239` phát hiện seed 315885701 hết ứng viên sau 16 chuyển: 111-groove đi tiếp sau boundary tới radius 1,265, còn 120-mickey bị chặn bởi group anti-repeat. Bản chốt kiểm thêm endpoint trong continuation reserve; giữ nguyên anti-repeat và path. Seed lỗi đã được thêm vào toàn ma trận hồi quy, không thay seed để che lỗi.
+
+35 test tập trung PASS: 13 test V2 nguyên trạng + 22 test V2.1. Ma trận 120/160 BPM × 0,15/0,35/1 beat × seed 20261018/42/315885701: **900 chuyển**, 50 mỗi kịch bản, đủ sáu phrase mỗi kịch bản, không blocked, ít nhất ba phrase spatial/facing hợp lệ tại mỗi boundary trước anti-repeat. Tỷ lệ chính diện ≥88,2111%; max radius 1,315612; bước quaternion 3D ≤8,924° ở 120 Hz. Test V2 auto/manual thêm 354 chuyển, max radius 1,344320. Đã test interruption, full-turn không hợp lệ, sát biên, calibration/orbit-reference, nguồn quay có chủ ý, BPM/turn/protection. Tập seed này không chứng minh mọi chuỗi vô hạn.
 
 | Cặp fixture | V2 entry / V2.1 entry | V2 fade travel / V2.1 fade travel |
 |---|---:|---:|
@@ -74,7 +76,7 @@ TypeScript/build PASS; ESLint không lỗi, một warning `_updateStyle` đã c�
 
 ## Giới hạn nghiệm thu
 
-Tốc độ twist nguồn 141_12 có thể ~562°/s tại reference120; tổng tốc độ heading trong blend đo đến ~843°/s tại160. Không sửa twist theo từng frame để ép mặt nhìn camera. Ngân sách entry-offset 270°/s không phải tuyên bố mọi motion dưới270. Root-quaternion blend riêng có nguy cơ contact/foot sliding; chưa contact IK, cần xem chân và thân trên WebGL, đặc biệt fade0,15 và nguồn141.
+Tốc độ twist nguồn 141_12 có thể ~562°/s tại reference120; tổng tốc độ heading trong blend đo đến ~864°/s tại160. Không sửa twist theo từng frame để ép mặt nhìn camera. Ngân sách entry-offset 270°/s không phải tuyên bố mọi motion dưới270. Root-quaternion blend riêng có nguy cơ contact/foot sliding; chưa contact IK, cần xem chân và thân trên WebGL, đặc biệt fade0,15 và nguồn141.
 
 Gate A: dữ liệu spatial PASS trong phạm vi thử. Gate B: heading/timing/đa dạng dữ liệu PASS; độ tự nhiên thị giác còn chờ WebGL/owner. Gate C: không có accepted mesh retarget hoặc iPhone PASS. Reference c1-casual-grace/c4-casual-boy vẫn chạy pipeline riêng; CMU stick skeleton không chứng minh chất lượng mesh.
 
