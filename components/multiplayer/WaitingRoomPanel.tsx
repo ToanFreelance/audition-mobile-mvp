@@ -263,7 +263,16 @@ const SONGS: readonly SongOption[] = [
   { id: "party-summer-night", title: "Party Summer Night", artist: "Audition", bpm: 96, duration: "02:18", difficulty: "Easy", playable: false, accent: "S" },
 ];
 
+// Host options must use runnable Stage Catalog IDs, not placeholder venue
+// names. RoomState/Supabase CAS keeps ownership of stage mutations and resets
+// guest Ready as before. Retain labels for already-persisted legacy rooms.
 const STAGES = [
+  { id: "bright-stage-v1", name: "Bright Stage", detail: "Sân khấu sáng", icon: "✦" },
+  { id: "neon-stage-v1", name: "Neon Stage", detail: "Sân khấu ánh sáng neon", icon: "◇" },
+  { id: "basketball-court-v1", name: "Basketball Court", detail: "Sân bóng rổ graffiti", icon: "🏀" },
+] as const;
+
+const LEGACY_STAGES = [
   { id: "studio-81", name: "Studio 81", detail: "Classic neon club", icon: "◫" },
   { id: "neon-club", name: "Neon Club", detail: "Blue & magenta arena", icon: "◇" },
   { id: "purple-hall", name: "Purple Hall", detail: "Deep violet showcase", icon: "✦" },
@@ -960,7 +969,7 @@ export default function WaitingRoomPanel({
   const stagePageCount = Math.max(1, Math.ceil(orderedParticipants.length / 2));
   const safeStagePage = Math.min(stagePage, stagePageCount - 1);
   const currentSong = SONGS.find(song => song.id === room.selectedSongId) ?? SONGS[0];
-  const currentStage = STAGES.find(stage => stage.id === room.selectedStageId) ?? STAGES[0];
+  const currentStage = [...STAGES, ...LEGACY_STAGES].find(stage => stage.id === room.selectedStageId) ?? STAGES[0];
   const filteredSongs = SONGS.filter(song =>
     !songSearch.trim()
     || `${song.title} ${song.artist} ${song.bpm}`.toLowerCase().includes(songSearch.trim().toLowerCase()),
