@@ -9,6 +9,7 @@ import { CORE_PHRASES, FAILING_PAIRS, FIXTURE_PHRASES, MOONWALK_PHRASE, SOURCE_P
 import { makeCanonicalRig, preparePhrase, SourceFlowEngine, type PreparedPhrase, type SourceMotion } from "@/lib/animation-flow-v2/engine";
 import { DemoBeatClock, TurnCursor } from "@/lib/animation-flow-v2/clock";
 import { PhraseBag } from "@/lib/animation-flow-v2/shuffle";
+import { CanvasSourcePreview } from "@/lib/animation-flow-v2/canvas-preview";
 import styles from "./animation-flow-v2.module.css";
 
 type View = "source" | "c1-casual-grace" | "c4-casual-boy";
@@ -16,6 +17,7 @@ type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
   beat: number; turn: number; bpm: number; seed: number; auto: boolean; audioState: string;
   view: View; referenceStatus: string; triggerCount: number; processedBoundaries: number[];
   referenceAnchor: number[] | null; measurementsDomain: string;
+  renderBackend: "webgl" | "canvas2d-projection";
 };
 type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void };
 const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {} };
@@ -34,6 +36,7 @@ export default function AnimationFlowV2() {
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   const [history, setHistory] = useState<{ a: string | null; b: string; policy: string; delayBeats: number }[]>([]);
   const [pair, setPair] = useState<string>(FAILING_PAIRS[0].id);
+  const [backend, setBackend] = useState<"webgl" | "canvas2d-projection">("webgl");
   const options = useRef({ bpm, fade, auto, view, policy });
   useEffect(() => { options.current = { bpm, fade, auto, view, policy }; }, [bpm, fade, auto, view, policy]);
 
@@ -50,9 +53,10 @@ export default function AnimationFlowV2() {
     const sources = new Map<string, SourceMotion>(), loading = new Map<string, Promise<SourceMotion>>();
     const scene = new T.Scene(); scene.background = new T.Color("#0c101a");
     const camera = new T.PerspectiveCamera(34, 1, 0.01, 30); camera.position.set(2.65, 1.9, 3.7);
-    let renderer: T.WebGLRenderer;
+    let renderer: T.WebGLRenderer | CanvasSourcePreview;
+    let renderBackend: "webgl" | "canvas2d-projection" = "webgl";
     try { renderer = new T.WebGLRenderer({ antialias: true, alpha: false }); }
-    catch { queueMicrotask(() => { setStatus("WebGL không khả dụng."); setError("Không tạo được WebGL renderer. Có thể xuất/đối chiếu dữ liệu qua kiểm thử nguồn."); }); return; }
+    catch { renderer = new CanvasSourcePreview(); renderBackend = "canvas2d-projection"; queueMicrotask(() => { if (!disposed) setBackend("canvas2d-projection"); }); }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.domElement.setAttribute("aria-label", "Sân thử chuyển động 3D"); element.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(0, 0.8, 0); controls.enableDamping = true; controls.enablePan = false; controls.minDistance = 2; controls.maxDistance = 8;
@@ -68,6 +72,7 @@ export default function AnimationFlowV2() {
     const grid = new T.GridHelper(3.6, 18, 0x454d68, 0x242c40); grid.position.y = -0.018; scene.add(grid);
     const body = new T.InstancedMesh(new T.CylinderGeometry(0.018, 0.026, 1, 7), new T.MeshStandardMaterial({ color: 0xc9bbff, metalness: 0.2, roughness: 0.45 }), 64);
     const joints = new T.InstancedMesh(new T.SphereGeometry(0.034, 10, 8), new T.MeshStandardMaterial({ color: 0xf0e8ff, roughness: 0.5 }), 64);
+    body.name = "QA-V2-bones"; joints.name = "QA-V2-joints";
     body.count = 0; joints.count = 0; body.frustumCulled = false; joints.frustumCulled = false; scene.add(body, joints);
     const trailPoints: T.Vector3[] = [];
     const trailGeometry = new T.BufferGeometry(); const trail = new T.Line(trailGeometry, new T.LineBasicMaterial({ color: 0x67d9b8, transparent: true, opacity: 0.55 })); scene.add(trail);
@@ -151,7 +156,7 @@ export default function AnimationFlowV2() {
       moonwalk: async () => {
         try { await prepare([MOONWALK_PHRASE]); if (disposed || !engine) return; engine.request(MOONWALK_PHRASE.id, currentBeat()); setStatus("Phrase Moonwalk riêng: giữ chuyển động trượt, không thuộc shuffle core."); } catch (e) { reportError(e); }
       },
-      export: () => download(new Blob([JSON.stringify({ schemaVersion: 2, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, tempoBasis: "testing-assumption", settings: options.current, transitions: engine?.history, processedBoundaries, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "reference path retains production controller timing", "technical exit markers await visual acceptance"] }, null, 2)], { type: "application/json" }), `animation-flow-v2-${runSeed}.json`),
+      export: () => download(new Blob([JSON.stringify({ schemaVersion: 2, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, tempoBasis: "testing-assumption", settings: options.current, transitions: engine?.history, processedBoundaries, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "reference path retains production controller timing", "technical exit markers await visual acceptance"] }, null, 2)], { type: "application/json" }), `animation-flow-v2-${runSeed}.json`),
       record: () => {
         if (recorder && recorder.state !== "inactive") { recorder.stop(); return; }
         if (!renderer.domElement.captureStream || typeof MediaRecorder === "undefined") { setError("Browser này không hỗ trợ ghi canvas; dùng xuất telemetry JSON."); return; }
@@ -206,7 +211,7 @@ export default function AnimationFlowV2() {
         if (isSource) drawRig(); else reference?.update(0, seconds, seconds * 1000);
         if (now - lastUi > 95) {
           const state = engine.snapshot();
-          const data: Telemetry = { ...state, beat, turn: turns.index + 1, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : "CMU-hidden; reference has separate referenceAnchor" };
+          const data: Telemetry = { ...state, beat, turn: turns.index + 1, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : "CMU-hidden; reference has separate referenceAnchor", renderBackend };
           element.dataset.telemetry = JSON.stringify(data);
           setTelemetry(data); setHistory(engine.history.slice(-8).reverse()); samples.push(data); if (samples.length > 12000) samples.shift();
           trailPoints.push(new T.Vector3(state.root[0], 0.004, state.root[2])); if (trailPoints.length > 180) trailPoints.shift(); trailGeometry.setFromPoints(trailPoints); lastUi = now;
@@ -237,11 +242,11 @@ export default function AnimationFlowV2() {
     <div className={styles.shell}>
       <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2</span></h1><p className={styles.lead}>Một vị trí sân. Nhiều động tác. Chuyển ở SPACE.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
-        {([["source", "Nguồn BVH · V2"], ["c1-casual-grace", "Tham chiếu nữ"], ["c4-casual-boy", "Tham chiếu nam"]] as const).map(([id, label]) => <button key={id} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
+        {([["source", "Nguồn BVH · V2"], ["c1-casual-grace", "Tham chiếu nữ"], ["c4-casual-boy", "Tham chiếu nam"]] as const).map(([id, label]) => <button key={id} disabled={id !== "source" && backend !== "webgl"} title={id !== "source" && backend !== "webgl" ? "Cần WebGL để xem mesh accepted" : undefined} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
       </div>
       <div className={styles.layout}>
         <section className={styles.stageCard}>
-          <div className={styles.stageHeader}><span><i className={ready ? styles.dot : styles.loadingDot} />{view === "source" ? "CMU · CANONICAL SKELETON" : "PUBLISHED · NHÂN VẬT HIỆN HÀNH"}</span><span>{bpm} BPM · {view === "source" ? "tempo giả định" : "controller gốc"}</span></div>
+          <div className={styles.stageHeader}><span><i className={ready ? styles.dot : styles.loadingDot} />{view === "source" ? backend === "webgl" ? "CMU · CANONICAL SKELETON" : "CMU · CHIẾU SKELETON 2D" : "PUBLISHED · NHÂN VẬT HIỆN HÀNH"}</span><span>{bpm} BPM · {view === "source" ? "tempo giả định" : "controller gốc"}</span></div>
           <div ref={host} className={styles.canvas} data-testid="animation-flow-stage" />
           <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = vùng root 1,35 · tâm xanh = stage anchor cố định · kéo để xoay camera" : "Đường tham chiếu giữ controller production (150 ms / tốc độ gốc). Chưa retarget sáu phrase CMU vào actor này."}</div>
           <div className={styles.rhythm}>
@@ -268,7 +273,7 @@ export default function AnimationFlowV2() {
       </section>
       <section className={styles.panel}><div className={styles.historyHeader}><div><p className={styles.eyebrow}>LỊCH SỬ CHUYỂN</p><p className={styles.muted}>Seed {seed} · {telemetry?.transitionCount ?? 0} chuyển · {telemetry?.audioState ?? "chưa bắt đầu"}</p></div><div className={styles.buttons}><button disabled={!ready} onClick={() => commands.current.export()}>Xuất JSON</button><button disabled={!ready} onClick={() => commands.current.record()}>{recording ? "Dừng / tải video" : "Ghi video sân"}</button></div></div><div className={styles.history}>{history.map((row, i) => <div key={`${row.b}-${history.length - i}`}><b>{row.a ?? "Bắt đầu"} → {row.b}</b><span>{row.policy} · đợi {row.delayBeats.toFixed(2)} beat</span></div>)}</div></section>
       <p className={styles.status} role="status">{status}</p>{error && <p className={styles.error} role="alert">{error}</p>}
-      <footer className={styles.footer}>Tooling V2 · tempo CMU chưa được xác nhận âm nhạc · marker exit là ứng viên QA · chưa có nghiệm thu retarget CMU hoặc iPhone thật. Gauge này chỉ mô phỏng, không chỉnh gauge gameplay.</footer>
+      <footer className={styles.footer}>{backend === "canvas2d-projection" && "WebGL bị vô hiệu hóa: đang dùng projection 2D để thử logic/telemetry, không tính WebGL hay mesh PASS. "}Tooling V2 · tempo CMU chưa được xác nhận âm nhạc · marker exit là ứng viên QA · chưa có nghiệm thu retarget CMU hoặc iPhone thật. Gauge này chỉ mô phỏng, không chỉnh gauge gameplay.</footer>
     </div>
   </main>;
 }

@@ -71,6 +71,8 @@ Số đo cùng là đơn vị cảnh nhưng V2 dùng canonical body/floor scale 
 
 ## Giới hạn
 
+- Browser cloud trong lượt triển khai trả `GL_RENDERER = Disabled` / `Error creating WebGL context`. Trang có projection Canvas 2D chỉ dành cho skeleton để kiểm logic/telemetry trong môi trường đó. Giao diện và JSON ghi rõ `renderBackend=canvas2d-projection`; tab mesh bị khóa nếu không có WebGL. Đây không phải software WebGL hay mesh validation.
+
 - Không retarget CMU vào c1/c4 trong task này. Tab mesh chỉ là reference hiện hành; quaternion-only hoặc BVH chạy đúng không chứng minh retarget PASS.
 - Foot/hand-contact và vận tốc chưa được bảo toàn bằng IK/inertialization; đổi heading và tư thế lai có thể vẫn cần tinh chỉnh sau khi xem video/owner test.
 - Đã loại raw loop seam bằng one-shot; pose có thể được giữ cuối phrase khi tắt auto hoặc đợi request.
