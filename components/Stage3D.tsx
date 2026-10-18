@@ -250,7 +250,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = hauntedClassroomPresentation ? 1.26 : basketballPresentation ? 1.13 : neonPresentation ? 1.22 : 1.28;
+    renderer.toneMappingExposure = hauntedClassroomPresentation ? 1.46 : basketballPresentation ? 1.13 : neonPresentation ? 1.22 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
     const diagnostics = diagnosticsRef.current;
@@ -264,17 +264,17 @@ export default function Stage3D({
         : basketballPresentation ? 0xfff6eb : neonPresentation ? 0x8f7add : 0xdceeff,
       hauntedClassroomPresentation ? 0x2e1646
         : basketballPresentation ? 0x7890b1 : neonPresentation ? 0x360845 : 0x737b9c,
-      hauntedClassroomPresentation ? 0.92
+      hauntedClassroomPresentation ? 1.32
         : basketballPresentation ? 1.42 : neonPresentation ? 0.64 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
       hauntedClassroomPresentation ? 0xb9beff
         : basketballPresentation ? 0xfff0df : neonPresentation ? 0xeee3ff : 0xfff3ff,
-      hauntedClassroomPresentation ? 0.96
+      hauntedClassroomPresentation ? 1.48
         : basketballPresentation ? 1.82 : neonPresentation ? 0.98 : 3.0,
     );
-    if (hauntedClassroomPresentation) key.position.set(-5, 8, 8);
+    if (hauntedClassroomPresentation) key.position.set(-5, 10, 9);
     else if (basketballPresentation) key.position.set(-10, 19, 15);
     else key.position.set(-2.5, 8, 8);
     scene.add(key);
@@ -439,7 +439,7 @@ export default function Stage3D({
         ? getNeonGameplayCameraFrame(frame, portrait)
         : basketballPresentation ? getBasketballGameplayCameraFrame(frame, portrait)
         : hauntedClassroomPresentation && portrait
-          ? { ...frame, fov: Math.max(43, frame.fov + 4),
+          ? { ...frame, fov: Math.max(48, frame.fov + 6),
               y: frame.y + 0.7, z: frame.z + 5.2,
               targetY: frame.targetY + 0.27 }
           : frame;
@@ -520,7 +520,7 @@ export default function Stage3D({
       const basketballPose = getBasketballPresentationPose(neonPose, basketballPresentation, portrait);
       const classroomPose: StageCameraPose = hauntedClassroomPresentation && portrait
         && basketballPose.preset === "gameplay_portrait_locked"
-        ? { ...basketballPose, fov: Math.max(43, basketballPose.fov + 4),
+        ? { ...basketballPose, fov: Math.max(48, basketballPose.fov + 6),
             y: basketballPose.y + 0.7, z: basketballPose.z + 5.2,
             targetY: basketballPose.targetY + 0.27 }
         : basketballPose;
