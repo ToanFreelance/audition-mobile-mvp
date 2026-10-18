@@ -1,0 +1,198 @@
+import * as THREE from "three";
+
+/**
+ * Haunted Classroom V1: self-contained original procedural textures.
+ * All Canvas textures are generated once when loading the environment.
+ * Never paint or upload textures per frame. No external files or fonts.
+ */
+function randGen(seed: number) {
+  let n = seed >>> 0;
+  return () => ((n = (Math.imul(n, 1664525) + 1013904223) >>> 0) / 4294967296);
+}
+function canvasTexture(w: number, h: number, seed: number, paint: (c: CanvasRenderingContext2D, r: () => number) => void) {
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const c = canvas.getContext("2d");
+  if (!c) throw new Error("Haunted classroom texture canvas unavailable");
+  paint(c, randGen(seed));
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+export function makeOldPlaster() {
+  return canvasTexture(1024, 512, 401, (c, r) => {
+    c.fillStyle = "#344256"; c.fillRect(0, 0, 1024, 512);
+    // Turquoise lower paint with ragged boundary and dried water damage.
+    c.fillStyle = "#254e53"; c.fillRect(0, 345, 1024, 167);
+    for (let i = 0; i < 1500; i++) {
+      const x = r() * 1024, y = r() * 512;
+      c.fillStyle = r() > .56 ? "rgba(4,9,24,.11)" : "rgba(169,164,139,.07)";
+      c.fillRect(x, y, 5+r()*34, r()*4+1);
+    }
+    for (let j = 0; j < 80; j++) {
+      const x = r()*1024, y = r()*512;
+      c.fillStyle = "rgba(13,20,25,.08)";
+      c.beginPath(); c.ellipse(x,y, 2+r()*45,1+r()*20,r()*6,0,2*Math.PI); c.fill();
+    }
+    c.fillStyle = "rgba(203,200,175,.08)";
+    c.fillRect(0,339,1024,7);
+  });
+}
+export function makeOldFloor() {
+  return canvasTexture(1024, 1024, 402, (c,r) => {
+    c.fillStyle = "#43313b"; c.fillRect(0,0,1024,1024);
+    const plank=77;
+    for(let row=0;row<14;row++){
+      const y=row*plank;
+      c.fillStyle="rgba(9,12,24,.63)"; c.fillRect(0,y,1024,4);
+      const offset=row%3===0 ? -290 : row%3===1 ? -520 : -90;
+      for(let x=offset;x<1100;x+=370){
+        const v=r();
+        const a=v>.5 ? [79,56,61] : [60,49,60];
+        const dr=Math.round((r()-.5)*29);
+        c.fillStyle="rgb("+(a[0]+dr)+","+(a[1]+dr)+","+(a[2]+dr)+")";
+        c.fillRect(x+4,y+5,365,70);
+        c.fillStyle="rgba(205,157,132,.14)";
+        c.fillRect(x+6,y+8,360,2);
+        for(let line=0;line<15;line++){
+          const ry=y+9+r()*58;
+          c.strokeStyle=r()>.5 ? "rgba(20,16,22,.24)" : "rgba(212,164,142,.11)";
+          c.lineWidth=.4+r()*1.5;
+          c.beginPath(); c.moveTo(x+10,ry);
+          c.bezierCurveTo(x+95,ry+3*r(),x+200,ry-4*r(),x+354,ry+(r()-.5)*4);
+          c.stroke();
+        }
+        // Scratched varnish
+        for(let i=0;i<23;i++){
+          c.strokeStyle="rgba(211,172,158,.10)";
+          c.lineWidth=.4+r();
+          const xx=x+r()*360, yy=y+8+r()*60;
+          c.beginPath(); c.moveTo(xx,yy); c.lineTo(xx+10+r()*42, yy+(r()-.5)*2); c.stroke();
+        }
+      }
+    }
+    for(let i=0;i<2400;i++){
+      c.fillStyle=r()>.5 ? "rgba(22,12,19,.12)" : "rgba(255,235,209,.07)";
+      c.fillRect(r()*1024,r()*1024, .3+r()*4,.3+r()*2);
+    }
+  });
+}
+export function makeChalkboard() {
+  return canvasTexture(1536, 768, 403, (c,r) => {
+    c.fillStyle="#102b31"; c.fillRect(0,0,1536,768);
+    for(let i=0;i<900;i++){
+      c.fillStyle=r()>.5 ? "rgba(218,229,225,.035)" : "rgba(1,8,10,.13)";
+      c.fillRect(r()*1536,r()*768,8+r()*190,r()*7+.5);
+    }
+    c.save();
+    c.globalAlpha=.55;
+    c.strokeStyle="#7e9aa6"; c.lineWidth=4; c.lineCap="round";
+    const ghost=(x:number,y:number,s:number)=>{
+      c.save();c.translate(x,y);c.scale(s,s);
+      c.beginPath();c.moveTo(-70,83);
+      c.bezierCurveTo(-91,33,-100,-60,-48,-91);
+      c.bezierCurveTo(15,-140,93,-77,82,-16);
+      c.lineTo(83,88);c.lineTo(53,67);c.lineTo(30,91);c.lineTo(3,69);
+      c.lineTo(-30,89);c.lineTo(-52,68);c.closePath();c.stroke();
+      c.beginPath();c.moveTo(-39,-22);c.lineTo(-10,2);c.moveTo(-10,-22);c.lineTo(-39,2);
+      c.moveTo(25,-22);c.lineTo(51,2);c.moveTo(51,-22);c.lineTo(25,2);c.stroke();
+      c.beginPath();c.arc(6,39,15,0,Math.PI);c.stroke();
+      c.beginPath();c.moveTo(-34,-123);c.lineTo(-14,-142);c.lineTo(10,-121);c.lineTo(32,-147);c.lineTo(53,-122);c.stroke();
+      c.restore();
+    };
+    ghost(1030,390,1.42);
+    ghost(380,400,.69);
+    c.beginPath();c.arc(220,220,76,0,2*Math.PI);c.moveTo(320,260);
+    c.lineTo(410,187);c.lineTo(470,216);c.stroke();
+    c.beginPath();c.moveTo(400,603);c.bezierCurveTo(630,535,710,644,849,603);
+    c.bezierCurveTo(970,556,1040,654,1220,616);c.stroke();
+    for(let i=0;i<43;i++){
+      const x=75+r()*1390,y=72+r()*604;
+      c.globalAlpha=.13+r()*.36;
+      c.beginPath();c.moveTo(x,y);c.lineTo(x+17+r()*47,y+(r()-.5)*36);c.stroke();
+    }
+    for(let i=0;i<16;i++){
+      const x=200+r()*1180,y=90+r()*580;
+      c.beginPath();c.moveTo(x,y-15);c.lineTo(x+4,y+3);c.lineTo(x+19,y+7);
+      c.lineTo(x-3,y+11);c.lineTo(x-15,y+3);c.closePath();c.stroke();
+    }
+    c.restore();
+    // Absolutely no lettering or national symbols in the stage texture.
+  });
+}
+export function makeGhostWindow() {
+  return canvasTexture(512, 1024, 404, (c,r) => {
+    const g=c.createLinearGradient(0,0,0,1024);
+    g.addColorStop(0,"#241633");g.addColorStop(.34,"#9b3c9a");
+    g.addColorStop(.65,"#772b80");g.addColorStop(1,"#211931");
+    c.fillStyle=g;c.fillRect(0,0,512,1024);
+    const moon=c.createRadialGradient(310,155,4,310,155,155);
+    moon.addColorStop(0,"rgba(251,198,239,.95)");
+    moon.addColorStop(.41,"rgba(236,151,221,.73)");
+    moon.addColorStop(.74,"rgba(211,95,194,.20)");
+    moon.addColorStop(1,"rgba(214,96,190,0)");
+    c.fillStyle=moon;c.fillRect(0,0,512,440);
+    c.fillStyle="rgba(239,185,237,.74)";
+    c.beginPath();c.arc(310,155,76,0,2*Math.PI);c.fill();
+    // Bent branches and scattered leaves
+    for(let branch=0;branch<10;branch++){
+      const x=branch%2 ? 512 : 0, y=95+r()*850;
+      c.strokeStyle="rgba(15,13,28,.74)";
+      c.lineWidth=5+r()*13;
+      c.beginPath();c.moveTo(x,y);c.bezierCurveTo(x+(x? -70:70),y-38,x+(x?-130:130),y-70,x+(x?-235:235),y-20-r()*90);c.stroke();
+      for(let k=0;k<10;k++){
+        c.fillStyle="rgba(10,16,28,.59)";
+        c.beginPath();c.ellipse(r()*512,r()*900,2+r()*10,3+r()*15,r()*6,0,2*Math.PI);c.fill();
+      }
+    }
+    // Uncanny figures are decals BEHIND glass, not actors in the room.
+    c.save();c.globalAlpha=.24;c.fillStyle="#c5e3f5";
+    for(const q of [{x:106,y:565,s:1},{x:425,y:680,s:.65}]){
+      c.save();c.translate(q.x,q.y);c.scale(q.s,q.s);
+      c.beginPath();c.ellipse(0,-66,39,55,0,0,2*Math.PI);c.fill();
+      c.beginPath();c.moveTo(-36,-24);c.bezierCurveTo(-91,30,-80,220,-98,247);
+      c.lineTo(91,247);c.bezierCurveTo(63,180,78,38,36,-24);c.closePath();c.fill();
+      c.restore();
+    }
+    c.restore();
+    c.fillStyle="rgba(205,191,240,.07)"; c.fillRect(0,0,512,1024);
+    for(let i=0;i<100;i++){
+      c.strokeStyle="rgba(255,220,242,.06)";c.lineWidth=.4+r();
+      const x=r()*512,y=r()*1024;c.beginPath();c.moveTo(x,y);c.lineTo(x+r()*60,y+r()*80);c.stroke();
+    }
+  });
+}
+export function makeSpeakerFace() {
+  return canvasTexture(256,512,405,(c,r)=>{
+    c.fillStyle="#0c0d19";c.fillRect(0,0,256,512);
+    for(let i=0;i<600;i++){c.fillStyle=r()>.5?"rgba(201,203,217,.04)":"rgba(0,0,0,.06)";
+      c.fillRect(r()*256,r()*512,1+r()*4,1+r()*5);}
+    const ring=(y:number,rad:number)=>{
+      const g=c.createRadialGradient(128,y,rad*.13,128,y,rad*1.16);
+      g.addColorStop(0,"#211331");
+      g.addColorStop(.5,"#3f245e");
+      g.addColorStop(.63,"#b271f0");
+      g.addColorStop(.78,"#e3aaff");
+      g.addColorStop(.86,"#38265f");
+      g.addColorStop(1,"#100f1c");
+      c.fillStyle=g;c.beginPath();c.arc(128,y,rad*1.16,0,2*Math.PI);c.fill();
+      c.fillStyle="#15111e";c.beginPath();c.arc(128,y,rad*.42,0,2*Math.PI);c.fill();
+      c.fillStyle="#a471d2";c.beginPath();c.arc(128,y,rad*.14,0,2*Math.PI);c.fill();
+    };
+    ring(148,90);ring(361,78);
+  });
+}
+export function makeSchoolPaper() {
+  return canvasTexture(256,256,406,(c,r)=>{
+    c.fillStyle="#c8bbaf";c.fillRect(0,0,256,256);
+    for(let y=19;y<245;y+=20){
+      c.strokeStyle="rgba(57,75,91,.20)";c.lineWidth=1;
+      c.beginPath();c.moveTo(18,y);c.lineTo(239,y);c.stroke();
+    }
+    for(let i=0;i<350;i++){
+      c.fillStyle=r()>.5?"rgba(35,22,30,.06)":"rgba(241,230,204,.13)";
+      c.fillRect(r()*256,r()*256,2+r()*15,r()*2+1);
+    }
+  });
+}
