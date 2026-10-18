@@ -174,6 +174,7 @@ export default function Stage3D({
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
   const neonPresentation = stageEntry.presentationProfileId === "neon-stage-v1";
   const basketballPresentation = stageEntry.presentationProfileId === "basketball-court-v1";
+  const hauntedClassroomPresentation = stageEntry.presentationProfileId === "classroom-v1";
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
   const cameraPresetRef = useRef(cameraPreset);
@@ -205,10 +206,11 @@ export default function Stage3D({
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(
-      basketballPresentation ? 0x91c7ed : neonPresentation ? 0x020517 : 0x1b2d49,
+      hauntedClassroomPresentation ? 0x111629
+        : basketballPresentation ? 0x91c7ed : neonPresentation ? 0x020517 : 0x1b2d49,
     );
-    scene.fog = basketballPresentation
-      ? new THREE.Fog(0x91c7ed, 42, 96)
+    scene.fog = hauntedClassroomPresentation ? new THREE.Fog(0x111629, 35, 66)
+      : basketballPresentation ? new THREE.Fog(0x91c7ed, 42, 96)
       : neonPresentation ? null : new THREE.FogExp2(0x6b7f9f, 0.01);
 
     const initialCameraFrame = getCharacterCameraFrame("center", false);
@@ -248,7 +250,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = basketballPresentation ? 1.13 : neonPresentation ? 1.22 : 1.28;
+    renderer.toneMappingExposure = hauntedClassroomPresentation ? 1.26 : basketballPresentation ? 1.13 : neonPresentation ? 1.22 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
     const diagnostics = diagnosticsRef.current;
@@ -258,16 +260,22 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      basketballPresentation ? 0xfff6eb : neonPresentation ? 0x8f7add : 0xdceeff,
-      basketballPresentation ? 0x7890b1 : neonPresentation ? 0x360845 : 0x737b9c,
-      basketballPresentation ? 1.42 : neonPresentation ? 0.64 : 2.2,
+      hauntedClassroomPresentation ? 0xa8b7f7
+        : basketballPresentation ? 0xfff6eb : neonPresentation ? 0x8f7add : 0xdceeff,
+      hauntedClassroomPresentation ? 0x2e1646
+        : basketballPresentation ? 0x7890b1 : neonPresentation ? 0x360845 : 0x737b9c,
+      hauntedClassroomPresentation ? 0.92
+        : basketballPresentation ? 1.42 : neonPresentation ? 0.64 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      basketballPresentation ? 0xfff0df : neonPresentation ? 0xeee3ff : 0xfff3ff,
-      basketballPresentation ? 1.82 : neonPresentation ? 0.98 : 3.0,
+      hauntedClassroomPresentation ? 0xb9beff
+        : basketballPresentation ? 0xfff0df : neonPresentation ? 0xeee3ff : 0xfff3ff,
+      hauntedClassroomPresentation ? 0.96
+        : basketballPresentation ? 1.82 : neonPresentation ? 0.98 : 3.0,
     );
-    if (basketballPresentation) key.position.set(-10, 19, 15);
+    if (hauntedClassroomPresentation) key.position.set(-5, 8, 8);
+    else if (basketballPresentation) key.position.set(-10, 19, 15);
     else key.position.set(-2.5, 8, 8);
     scene.add(key);
 
@@ -275,7 +283,7 @@ export default function Stage3D({
       const magentaRim = new THREE.DirectionalLight(0xff2fcb, 0.60);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
-    } else if (!basketballPresentation) {
+    } else if (!basketballPresentation && !hauntedClassroomPresentation) {
       const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
       coolFill.position.set(-4, 5, 7);
       scene.add(coolFill);
@@ -288,7 +296,7 @@ export default function Stage3D({
     const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
     accent.position.set(0, 8, 4.5);
     accent.target.position.set(0, 1.8, 0);
-    if (!neonPresentation && !basketballPresentation) scene.add(accent, accent.target);
+    if (!neonPresentation && !basketballPresentation && !hauntedClassroomPresentation) scene.add(accent, accent.target);
 
     const wall = new THREE.Mesh(new THREE.BoxGeometry(19, 8.5, 0.6), new THREE.MeshStandardMaterial({ color: 0x0c0b1c, roughness: .88, metalness: .15 }));
     wall.position.set(0, 4.2, -3.2);
@@ -429,7 +437,12 @@ export default function Stage3D({
       const frame = getCharacterCameraFrame(cameraPresetRef.current, portrait);
       return neonPresentation
         ? getNeonGameplayCameraFrame(frame, portrait)
-        : basketballPresentation ? getBasketballGameplayCameraFrame(frame, portrait) : frame;
+        : basketballPresentation ? getBasketballGameplayCameraFrame(frame, portrait)
+        : hauntedClassroomPresentation && portrait
+          ? { ...frame, fov: Math.max(43, frame.fov + 4),
+              y: frame.y + 0.7, z: frame.z + 5.2,
+              targetY: frame.targetY + 0.27 }
+          : frame;
     };
 
     let hasSized = false;
@@ -505,9 +518,15 @@ export default function Stage3D({
         );
       const neonPose = getNeonPresentationPose(basePose, neonPresentation, portrait);
       const basketballPose = getBasketballPresentationPose(neonPose, basketballPresentation, portrait);
+      const classroomPose: StageCameraPose = hauntedClassroomPresentation && portrait
+        && basketballPose.preset === "gameplay_portrait_locked"
+        ? { ...basketballPose, fov: Math.max(43, basketballPose.fov + 4),
+            y: basketballPose.y + 0.7, z: basketballPose.z + 5.2,
+            targetY: basketballPose.targetY + 0.27 }
+        : basketballPose;
       const pose = visualCompareMode && neonPresentation
         ? getNeonGoldenComparePose(neonPose)
-        : basketballPose;
+        : classroomPose;
       host.dataset.presentationCamera = pose.preset;
       const shotChanged = pose.preset !== lastPresentationCamera;
       // Match camera styles use continuous, authored rails. The solo legacy
