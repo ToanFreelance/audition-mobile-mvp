@@ -50,6 +50,21 @@ function getNeonGameplayCameraFrame(frame: ReturnType<typeof getCharacterCameraF
   };
 }
 
+// Only Basketball gets this portrait presentation framing; global gameplay
+// camera presets, cinematic clock and other accepted environments stay intact.
+function getBasketballGameplayCameraFrame(frame: ReturnType<typeof getCharacterCameraFrame>, portrait: boolean) {
+  if (!portrait) return frame;
+  return { ...frame, fov: Math.max(41, frame.fov + 3), y: frame.y + 0.35,
+    z: frame.z + 3.5, targetY: frame.targetY + 0.35 };
+}
+
+function getBasketballPresentationPose(pose: StageCameraPose, basketball: boolean, portrait: boolean): StageCameraPose {
+  if (!basketball || !portrait || pose.preset !== "gameplay_portrait_locked") return pose;
+  return { ...pose, ...getBasketballGameplayCameraFrame(
+    { fov: pose.fov, y: pose.y, z: pose.z, targetY: pose.targetY, targetZ: pose.targetZ }, portrait,
+  ) };
+}
+
 function getNeonPresentationPose(
   pose: StageCameraPose,
   neonPresentation: boolean,
@@ -412,7 +427,9 @@ export default function Stage3D({
 
     const cameraTarget = (portrait: boolean) => {
       const frame = getCharacterCameraFrame(cameraPresetRef.current, portrait);
-      return neonPresentation ? getNeonGameplayCameraFrame(frame, portrait) : frame;
+      return neonPresentation
+        ? getNeonGameplayCameraFrame(frame, portrait)
+        : basketballPresentation ? getBasketballGameplayCameraFrame(frame, portrait) : frame;
     };
 
     let hasSized = false;
@@ -487,9 +504,10 @@ export default function Stage3D({
           cameraPresetRef.current,
         );
       const neonPose = getNeonPresentationPose(basePose, neonPresentation, portrait);
+      const basketballPose = getBasketballPresentationPose(neonPose, basketballPresentation, portrait);
       const pose = visualCompareMode && neonPresentation
         ? getNeonGoldenComparePose(neonPose)
-        : neonPose;
+        : basketballPose;
       host.dataset.presentationCamera = pose.preset;
       const shotChanged = pose.preset !== lastPresentationCamera;
       // Match camera styles use continuous, authored rails. The solo legacy
