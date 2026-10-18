@@ -135,11 +135,11 @@ function wildStroke(c: CanvasRenderingContext2D, path: Path2D, fill: CanvasGradi
   c.lineJoin = "round";
   c.lineCap = "round";
   const strokes: Array<[string | CanvasGradient, number]> = [
-    ["#090712", width + 55],
-    ["#2a0e43", width + 40],
-    ["#f2ddee", width + 25],
-    ["#8048b2", width + 16],
-    ["#1a0c2e", width + 7],
+    ["#070514", width + 54],
+    ["#28103b", width + 40],
+    ["#f9eafa", width + 26],
+    ["#9f64d6", width + 16],
+    ["#1b0c30", width + 7],
     [fill, width],
   ];
   for (const [color, w] of strokes) { c.lineWidth = w; c.strokeStyle = color; c.stroke(path); }
@@ -150,10 +150,10 @@ function graffitiPiece(c: CanvasRenderingContext2D, rand: () => number, x: numbe
   c.rotate((rand() - .5) * .28);
   c.scale(scale, scale * (.84 + rand() * .3));
   const grad = c.createLinearGradient(-120, -100, 115, 100);
-  grad.addColorStop(0, index % 3 === 0 ? "#c69cff" : "#ad90f1");
-  grad.addColorStop(.30, index % 3 === 1 ? "#d6d1ff" : "#f5d7f5");
-  grad.addColorStop(.62, index % 2 ? "#88d8fc" : "#c6b1f0");
-  grad.addColorStop(1, "#6851a9");
+  grad.addColorStop(0, index % 3 === 0 ? "#dfbefe" : "#c6a8fa");
+  grad.addColorStop(.30, index % 3 === 1 ? "#f1e6ff" : "#f6e5fa");
+  grad.addColorStop(.62, index % 2 ? "#a5ecff" : "#dacaf6");
+  grad.addColorStop(1, "#7558ba");
   // One-of-three varied calligraphic paths, interlocking into one long mural.
   const p = new Path2D();
   if (index % 3 === 0) {
@@ -209,7 +209,7 @@ export function makeGraffitiWall() {
     c.stroke();
     c.restore();
     // Broad aerosol undercoats: magenta and cyan spray behind the letters.
-    for (let j = 0; j < 68; j++) {
+    for (let j = 0; j < 42; j++) {
       const x = 80 + rand() * 1880;
       const y = 135 + rand() * 255;
       c.save();
@@ -222,14 +222,18 @@ export function makeGraffitiWall() {
       c.fill();
       c.restore();
     }
-    // Seven large, varied calligraphic figures instead of 11 tiny repeats.
-    for (let i = 0; i < 7; i++) {
-      const x = 262 + i * 253 + (rand() - .5) * 35;
-      const y = 245 + 36 * Math.sin(i * 1.18);
-      graffitiPiece(c, rand, x, y, 1.17 + rand() * .30, i);
+    // Fewer, larger wildstyle silhouettes frame the central tag and reduce
+    // dense repetition at portrait iPhone display size.
+    for (let i = 0; i < 6; i++) {
+      const x = 270 + i * 302 + (rand() - .5) * 22;
+      const y = 236 + 26 * Math.sin(i * 1.2);
+      c.save();
+      c.globalAlpha = 0.83;
+      graffitiPiece(c, rand, x, y, 1.14 + rand() * .18, i);
+      c.restore();
     }
     // Nonrepeating intertwined swashes and arrows spanning multiple letters.
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < 13; i++) {
       const x = 100 + rand() * 1830, y = 130 + rand() * 260;
       c.save(); c.translate(x, y); c.rotate((rand() - .5) * 1.9);
       c.lineCap = "round";
@@ -244,6 +248,39 @@ export function makeGraffitiWall() {
       c.stroke();
       c.restore();
     }
+    // Main tag: readable lettering inside the wildstyle art (rather than an
+    // enormous clean billboard). Outline first, shaded pastel paint on top.
+    c.save();
+    c.translate(1024, 318);
+    c.rotate(-0.045);
+    c.textAlign = "center";
+    c.textBaseline = "alphabetic";
+    c.font = "italic 900 178px Impact, Arial Black, sans-serif";
+    c.lineJoin = "round";
+    c.lineCap = "round";
+    c.strokeStyle = "#10081d";
+    c.lineWidth = 31;
+    c.strokeText("AUDITION", 0, 0, 1140);
+    c.strokeStyle = "#56307e";
+    c.lineWidth = 20;
+    c.strokeText("AUDITION", 0, 0, 1140);
+    c.strokeStyle = "#f9e4f8";
+    c.lineWidth = 11;
+    c.strokeText("AUDITION", 0, 0, 1140);
+    const wordFill = c.createLinearGradient(0, -185, 0, 36);
+    wordFill.addColorStop(0, "#f8eafa");
+    wordFill.addColorStop(0.51, "#bdb3ff");
+    wordFill.addColorStop(1, "#77c8ef");
+    c.fillStyle = wordFill;
+    c.fillText("AUDITION", 0, 0, 1140);
+    // A small hand-painted highlight makes the title read as wall paint.
+    c.strokeStyle = "rgba(255,247,250,.64)";
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(-450, -122);
+    c.bezierCurveTo(-230, -149, 115, -130, 450, -160);
+    c.stroke();
+    c.restore();
     // Small tags on the margins avoid billboard-style headline text.
     c.save(); c.translate(47, 210); c.rotate(-.17);
     c.font = "italic 900 62px Impact, sans-serif";
@@ -265,10 +302,10 @@ export function makeGraffitiWall() {
     c.strokeStyle = "#382247"; c.lineWidth = 6;
     c.beginPath(); c.moveTo(-27,15); c.lineTo(-8,21); c.moveTo(13,15); c.lineTo(33,11); c.stroke();
     c.restore();
-    for (let i = 0; i < 155; i++) {
+    for (let i = 0; i < 91; i++) {
       splat(c, rand, 60 + rand() * 1920, 95 + rand() * 333, pink[i % pink.length], 8);
     }
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 67; i++) {
       const x = rand() * 2048, y = 330 + rand() * 117;
       c.globalAlpha = .3 + rand() * .6;
       c.fillStyle = pink[i % pink.length];
