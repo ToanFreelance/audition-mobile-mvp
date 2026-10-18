@@ -577,7 +577,8 @@ Planned catalog/content sequence:
 
 - `bright-stage-v1` — existing accepted Bright Stage;
 - `neon-stage-v1` — first new environment; based on the accepted P5.6 Waiting Room stage visual, redrawn/animated for gameplay presentation;
-- `football-field-v1` — planned sports environment;
+- `basketball-court-v1` — accepted owner iPhone V5 visual (2026-10-18); S2.5B Stage3D runtime and Host stage selection implemented on PR #21, pending runtime iPhone QA and explicit integration approval;
+- `football-field-v1` — a separate planned sports environment;
 - `classroom-v1` — planned classroom environment;
 - `cafe-v1` — planned cafe environment.
 
@@ -586,6 +587,8 @@ S2.5A Neon Stage V1 should reuse the Waiting Room's accepted neon composition/la
 The owner-approved concept `neon_audition_dance_arena.png` is the S2.5A visual source of truth. Required visual anchors are the curved overhead truss, cyan/violet fixture palette, large LED backdrop, curved multi-tier risers, glossy reflective floor, and central circular dance mark.
 
 Higgsfield 3D / animation generation may be used for editable blockout and motion-source exploration. Runtime Stage3D/WebAudio authority remains unchanged.
+
+**S2.5B — Basketball Court V1.** Owner accepted the isolated V5 prototype on 2026-10-18 (source: PR #20, commit `cffc2dcc`). PR #21 adapts the existing geometry and canvas textures into `BasketballCourtV1Environment` following `StageEnvironmentRuntime`, adds `basketball-court-v1` to Stage Catalog and the Host stage picker, and preserves Bright as default. This implementation is not yet on `development` until owner-approved merge. Stage3D iPhone/character framing, stable runtime load/fallback, resource cleanup, and GPU/FPS remain release gates. Existing RoomState/CAS/Realtime, WebAudio rhythm turns and Ready gate remain authoritative. Do not merge the isolated PR #20 lab route as a replacement for Stage3D.
 
 **S3 — Host Stage Selector** follows after the initial environment pack is accepted, so the selector exposes real runnable choices rather than placeholder entries.
 
