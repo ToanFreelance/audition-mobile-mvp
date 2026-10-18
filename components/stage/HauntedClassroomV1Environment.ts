@@ -200,6 +200,78 @@ export class HauntedClassroomV1Environment {
       shaft.rotation.y=-side*.17;
     }
 
+    // Warm candle cabinets, art-room storage and trailing vegetation on the
+    // edges recreate the lived-in haunted classroom depth of the reference.
+    // These pieces occupy side/back lanes, not the playable centre.
+    const cabinetBlue=mat(0x53637b,.69,.17);
+    const lockerDark=mat(0x293346,.76,.09);
+    const oxidizedMetal=mat(0x515562,.62,.22);
+    for(const side of [-1,1]){
+      const x=side*5.56;
+      const cabinet=box("DistressedSchoolLocker",x,1.52,-10.95,1.53,3.03,.96,cabinetBlue);
+      box("LockerRecessedPanel",x,1.71,-10.40,1.35,2.30,.10,lockerDark);
+      for(const shift of [-.30,.30])
+        for(const yy of [2.45,2.59,2.73])
+          box("VentSlots",x+shift,yy,-10.326,.34,.055,.04,darkWood);
+      box("LockerHandle",x+.43,1.17,-10.32,.085,.46,.09,oxidizedMetal);
+      // Thin copper candle shelf at the window reveals + torn papers.
+      box("WindowCandleShelf",side*7.42,2.02,-11.44,2.6,.13,.79,wornWood);
+      for(let k=0;k<6;k++){
+        const sx=side*7.42+(k-2.5)*.38;
+        const cyl=new THREE.Mesh(new THREE.CylinderGeometry(.085,.103,.20+k%3*.08,7),wax);
+        cyl.name="WindowSillCandles";cyl.position.set(sx,2.22,-11.12);root.add(cyl);
+        const tip=new THREE.Mesh(new THREE.ConeGeometry(.06,.15,6),flameMat);
+        tip.name="WarmCandleOnWindow";tip.position.set(sx,2.44+(k%3)*.04,-11.12);
+        root.add(tip);this.motions.push({object:tip,phase:k*.78+(side+1)*4.2,kind:"candle"});
+      }
+      // Hanging old photo/bulletin board: pure scenery, no script/text.
+      const board=box("TatteredNoticeBoard",side*6.28,7.93,-11.88,1.2,1.30,.11,darkWood);
+      box("DustyBlankPoster",side*6.28,7.95,-11.81,.91,1.03,.025,paper);
+      const blueInk=mat(0x6c768e);
+      box("DiagonalPosterDamage",side*6.30,7.89,-11.785,.75,.035,.022,blueInk);
+      // Twisting tendrils/ivy have individually shaded volumes, not a sticker.
+      const stem=mat(0x283e38,.97);
+      const leaves=[mat(0x345447,.94),mat(0x476856,.94),mat(0x4f6160,.94)];
+      for(let vine=0;vine<4;vine++){
+        const startX=side*(5.28+vine*.67);
+        const startY=8.95-vine*.10;
+        const z=-11.57+vine*.16;
+        let prev=xyz(startX,startY,z);
+        for(let seg=0;seg<9;seg++){
+          const end=xyz(startX + side*(Math.sin(seg*.74+vine)*.23),
+            startY-(seg+1)*(.35+vine*.017), z+seg*.045);
+          rod("IvyStem",prev,end,.023,stem);
+          if(seg%2===0){
+            const leaf=new THREE.Mesh(new THREE.SphereGeometry(.18,6,4),leaves[(vine+seg)%3]);
+            leaf.name="IvyLeaf";leaf.scale.set(.65,1.42,.26);
+            leaf.position.set(end.x+side*.11,end.y,end.z);leaf.rotation.z=side*.5;
+            root.add(leaf);
+          }
+          prev=end;
+        }
+      }
+      // Ceiling-to-window web diagonals remain static, low-cost line segments.
+      const webMat=new THREE.LineBasicMaterial({color:0xbfc6e2,transparent:true,opacity:.39});
+      const a=xyz(side*8.55,9.12,-11.58);
+      const b=xyz(side*7.18,8.85,-11.52);
+      const d=xyz(side*8.5,7.2,-11.58);
+      for(let n=0;n<7;n++){
+        const t=n/6;
+        const top=a.clone().lerp(b,t);
+        const bottom=a.clone().lerp(d,t);
+        const geo=new THREE.BufferGeometry().setFromPoints([top,bottom]);
+        const cob=new THREE.Line(geo,webMat);cob.name="FineWindowCobweb";root.add(cob);
+      }
+      for(let n=1;n<=5;n++){
+        const points:THREE.Vector3[]=[];
+        for(let j=0;j<=8;j++){
+          const u=j/8;
+          points.push(a.clone().lerp(b,u*n/6).lerp(d,u*(1-n/6)));
+        }
+        const web=new THREE.Line(new THREE.BufferGeometry().setFromPoints(points),webMat);
+        web.name="ArcWebThreads";root.add(web);
+      }
+    }
     // Chalkboard has its own authored texture: ghost/chalk symbols, NO text.
     const chalk= new THREE.MeshStandardMaterial({map:makeChalkboard(),roughness:.96});
     box("ChalkboardWoodFrame",0,4.9,-11.87,9.25,4.83,.24,wornWood);
