@@ -3,6 +3,7 @@ import type { StagePresentationCameraPreset } from "./stageCamera";
 import {
   makeOldPlaster, makeOldFloor, makeChalkboard,
   makeGhostWindow, makeSpeakerFace, makeSchoolPaper,
+  makeClassroomFloorReflections, makeWindowShaft,
 } from "./haunted-classroom-textures";
 
 /**
@@ -78,7 +79,7 @@ export class HauntedClassroomV1Environment {
     const mat=(color:number,roughness=.88,metalness=.02):Material=>
       new THREE.MeshStandardMaterial({color,roughness,metalness});
     const darkWood=mat(0x34252b,.75);
-    const wornWood=mat(0x725451,.77);
+    const wornWood=mat(0x86605e,.58);
     const metal=mat(0x68717b,.48,.44);
     const darkMetal=mat(0x1c1b29,.48,.32);
     const trim=mat(0x19212e);
@@ -89,7 +90,9 @@ export class HauntedClassroomV1Environment {
     const flameMat=new THREE.MeshBasicMaterial({color:0xffbf6d,toneMapped:false});
     const plaster=new THREE.MeshStandardMaterial({map:makeOldPlaster(),roughness:1});
     const woodTex=makeOldFloor();woodTex.wrapS=woodTex.wrapT=THREE.RepeatWrapping;woodTex.repeat.set(2,3);
-    const floorMat=new THREE.MeshStandardMaterial({map:woodTex,roughness:.58,metalness:.12});
+    const floorMat=new THREE.MeshStandardMaterial({
+      map:woodTex,roughness:.29,metalness:.13,
+    });
     const paperTex=new THREE.MeshStandardMaterial({map:makeSchoolPaper(),roughness:.94,side:THREE.DoubleSide});
 
     const box=(name:string,x:number,y:number,z:number,w:number,h:number,d:number,m:THREE.Material,parent:THREE.Group=root)=>{
@@ -113,26 +116,49 @@ export class HauntedClassroomV1Environment {
 
     // Room shell. Side walls are actual 3D volumes, but the front is open
     // for Stage3D's accepted gameplay camera and Match intro shots.
-    const floor=new THREE.Mesh(new THREE.PlaneGeometry(30,36),floorMat);
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(22,33),floorMat);
     floor.name="FlatPlayableSchoolFloor";
-    floor.rotation.x=-Math.PI/2;floor.position.set(0,-.035,2);root.add(floor);
-    box("RearWeatheredBlueWall",0,4.8,-12.5,26,9.9,.65,plaster);
+    floor.rotation.x=-Math.PI/2;floor.position.set(0,-.035,1.6);root.add(floor);
+    // Bring the side scenery inside the portrait frustum rather than having
+    // nearly the entire classroom clipped offscreen at +/-12.9 units.
+    const roomHalfWidth=9.05;
+    box("RearWeatheredBlueWall",0,4.8,-12.5,19.0,9.9,.65,plaster);
     for(const side of [-1,1]){
-      box("ThreeDimensionalClassroomSideWall",side*12.9,4.7,-2.3,.50,9.6,22,plaster);
-      box("TealDado",side*12.64,1.55,-2.3,.12,3.0,21,mat(0x244647));
-      box("DadoBorder",side*12.6,3.03,-2.3,.13,.15,21,trim);
+      box("ThreeDimensionalClassroomSideWall",side*roomHalfWidth,4.7,-2.3,.50,9.6,22,plaster);
+      box("TealDado",side*8.79,1.55,-2.3,.12,3.0,21,mat(0x376467));
+      box("DadoBorder",side*8.77,3.03,-2.3,.13,.15,21,trim);
     }
-    box("BackTealDado",0,1.55,-12.08,25.5,3.1,.12,mat(0x254a4d));
-    box("BackDadoStrip",0,3.10,-12.02,25.6,.16,.2,trim);
+    box("BackTealDado",0,1.55,-12.08,18.75,3.1,.12,mat(0x2e565f));
+    box("BackDadoStrip",0,3.10,-12.02,18.8,.16,.2,trim);
+    // Glossy, worn wood gets low-cost localized reflection decals instead of
+    // a screen-space reflection/postprocessing pipeline on mobile GPU.
+    const reflection=new THREE.Mesh(
+      new THREE.PlaneGeometry(20,30),
+      new THREE.MeshBasicMaterial({
+        map:makeClassroomFloorReflections(),transparent:true,opacity:.91,
+        depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,
+        toneMapped:false,
+      }),
+    );
+    reflection.name="MoonlitFloorReflections";
+    reflection.rotation.x=-Math.PI/2;reflection.position.set(0,.011,1.45);
+    root.add(reflection);
     // Structural ceiling panels, supports, and suspended flickering LEDs.
-    box("Ceiling",0,9.65,-1.0,26,.28,23,mat(0x242c43));
-    for(const x of [-8,0,8])box("CeilingBeam",x,9.25,-1,1.1,.9,23,mat(0x172136));
-    for(const z of [-8,-1.5,5.5])box("CeilingCrossBeam",0,9.28,z,25,.46,.60,mat(0x1b263e));
-    for(const x of [-8.3,0,8.3]){
+    box("Ceiling",0,9.65,-2.0,19.0,.28,21,mat(0x344057));
+    // Central overhead beam previously blocked the top third of iPhone view.
+    for(const x of [-6.9,6.9])box("CeilingBeam",x,9.27,-2.0,.62,.48,21,mat(0x202b3c));
+    for(const z of [-8,-2,4])box("CeilingCrossBeam",0,9.29,z,18.9,.33,.51,mat(0x29354b));
+    const tubeHalo=new THREE.MeshBasicMaterial({
+      color:0xb65aff,transparent:true,opacity:.22,depthWrite:false,
+      side:THREE.DoubleSide,toneMapped:false,
+    });
+    for(const x of [-6.3,0,6.3]){
       for(const z of [-7,0]){
-        box("FluorescentBlackHousing",x,8.88,z,3.5,.15,.53,trim);
-        box("FluorescentPurpleLight",x,8.79,z,3.21,.05,.29,violetGlow);
-        rod("SuspendedCeilingCable",xyz(x-1.2,8.88,z),xyz(x-1.2,9.4,z),.027,darkMetal);
+        box("FluorescentBlackHousing",x,8.93,z,3.15,.14,.47,trim);
+        box("FluorescentPurpleLight",x,8.82,z,2.94,.08,.21,violetGlow);
+        const glow=plane("FluorescentBloom",x,8.74,z,3.0,.36,tubeHalo);
+        glow.rotation.x=-Math.PI/2;
+        rod("SuspendedCeilingCable",xyz(x-1.2,8.91,z),xyz(x-1.2,9.4,z),.027,darkMetal);
       }
     }
 
@@ -151,26 +177,43 @@ export class HauntedClassroomV1Environment {
       for(const dy of [-h/2,0,h/2])box("DarkWoodMullion",0,dy,.17,w,.10,.13,frameMat,windowGroup);
       box("WeatheredWindowSill",0,-h/2-.20,.35,w+.7,.16,.69,wornWood,windowGroup);
     };
-    for(const x of [-8.9,8.9])putWindow("BackHauntedWindow",x,5.35,-11.98,3.6,5.6);
+    // V-shaped window bays remain honest 3D window assemblies, but are
+    // brought into the camera's narrow portrait frame for readable silhouettes.
     for(const side of [-1,1]){
-      // side-facing panes are visible while rotating the camera, with geometry.
-      for(const z of [-7,-1,4.4])putWindow("SideHauntedWindow",side*12.46,5.5,z,3.1,5.1,side===-1?Math.PI/2:-Math.PI/2);
+      putWindow("BackHauntedWindow",side*7.15,5.34,-11.92,3.15,5.68);
+      for(const z of [-7,-1,3.9]){
+        putWindow("SideHauntedWindow",side*8.69,5.39,z,3.0,5.50,
+          side===-1 ? Math.PI/2 : -Math.PI/2);
+      }
+      // Angled bay toward the audience, preserving the illusion of windows
+      // extending down the side corridors without leaving the gameplay view.
+      putWindow("AngledPortraitWindowBay",side*7.25,5.20,-5.3,2.5,5.25,
+        -side*.28);
+    }
+    const shaftMat=new THREE.MeshBasicMaterial({
+      map:makeWindowShaft(),transparent:true,opacity:.50,depthWrite:false,
+      side:THREE.DoubleSide,blending:THREE.AdditiveBlending,
+      toneMapped:false,
+    });
+    for(const side of [-1,1]){
+      const shaft=plane("MoonbeamsThroughDust",side*5.95,4.7,-5.05,3.1,7.2,shaftMat);
+      shaft.rotation.y=-side*.17;
     }
 
     // Chalkboard has its own authored texture: ghost/chalk symbols, NO text.
     const chalk= new THREE.MeshStandardMaterial({map:makeChalkboard(),roughness:.96});
-    box("ChalkboardWoodFrame",0,4.9,-11.87,10.6,4.85,.24,wornWood);
-    plane("NoTextChalkboard",0,4.91,-11.725,10.15,4.45,chalk);
-    box("ChalkTray",0,2.44,-11.48,11,.12,.48,darkWood);
+    box("ChalkboardWoodFrame",0,4.9,-11.87,9.25,4.83,.24,wornWood);
+    plane("NoTextChalkboard",0,4.91,-11.725,8.83,4.42,chalk);
+    box("ChalkTray",0,2.44,-11.48,9.5,.12,.48,darkWood);
     for(let i=0;i<8;i++)box("UsedWhiteChalk",(i-4)*.33,2.54,-11.23,.18,.08,.10,paper);
     // Neutral framed landscape art: no flags / lettering anywhere.
-    for(const x of [-6.2,6.4]){
+    for(const x of [-5.6,5.65]){
       box("LandscapePhotoFrame",x,8.20,-12.02,1.8,1.15,.17,wornWood);
       plane("AbstractMoonlitLandscape",x,8.20,-11.915,1.55,.92,
         new THREE.MeshBasicMaterial({color:x<0?0x25354f:0x293146}));
     }
     // Plain clock face made of geometry and hands.
-    const clock=new THREE.Group();clock.name="ClockWithoutLetters";clock.position.set(6.9,8.2,-11.8);root.add(clock);
+    const clock=new THREE.Group();clock.name="ClockWithoutLetters";clock.position.set(6.2,8.2,-11.8);root.add(clock);
     const clockRound=new THREE.Mesh(new THREE.CylinderGeometry(.52,.52,.09,32),trim);
     clockRound.rotation.x=Math.PI/2;clock.add(clockRound);
     glowDisc("ClockFace",0,0,.07,.43,paper,clock);
@@ -199,9 +242,10 @@ export class HauntedClassroomV1Environment {
 
     // Stage-safe blocking: props occupy the sides and back only.
     const deskPositions:[number,number,number][]=[
-      [-9.7,-6.2,-.3],[-6.9,-7.6,.15],[-10.2,-.4,.23],[-7.8,2.6,-.31],
-      [-9.4,7.2,.3], [9.3,-6.9,.28],[7.0,-7.4,-.17],
-      [9.5,-.2,-.26],[8.2,3.0,.19],[10.4,7.1,-.4],
+      [-7.2,-7.8,-.24],[-5.8,-6.7,.20],[-7.6,-2.0,.27],
+      [-6.6,1.6,-.32],[-7.45,6.4,.20],
+      [7.2,-7.8,.21],[5.85,-6.7,-.24],[7.5,-2.0,-.25],
+      [6.6,1.6,.28],[7.45,6.4,-.27],
     ];
     deskPositions.forEach(([x,z,r],i)=>{
       desk(x,z,r,i===3);
@@ -221,8 +265,9 @@ export class HauntedClassroomV1Environment {
       plane("HighSpeakerDriver",0,3.44,.427,1.17,1.04,speakerTexture,g);
       return g;
     };
-    for(const x of [-9.8,9.8])speaker(x,-8.2,1);
-    for(const x of [-6.7,6.7])speaker(x,-9.6,.7);
+    for(const x of [-7.0,7.0])speaker(x,-7.1,1.12);
+    for(const x of [-5.9,5.9])speaker(x,-9.25,.81);
+    for(const x of [-7.45,7.45])speaker(x,1.4,.77);
 
     const bookMat=[mat(0x604758),mat(0x596b76),mat(0x897166),mat(0x3c415d)];
     // Some books and papers at edges provide lived-in classroom scale.
@@ -232,7 +277,7 @@ export class HauntedClassroomV1Environment {
     };
     for(let i=0;i<35;i++){
       const side=i%2?-1:1;
-      const x=side*(6.5+(i*11%40)/10);
+      const x=side*(5.5+(i*11%23)/10);
       const z=-8+(i*17%150)/10;
       if(i<25)book(x,.1+(i%3)*.13,z,i);
       else{
@@ -243,9 +288,9 @@ export class HauntedClassroomV1Environment {
     }
     // Candle arrangements. Emissive candle flame, 2 actual point lights only.
     const candleLocations:[number,number,number][]=[
-      [-10.9,1.88,-9],[-9.5,1.82,-5.8],[-7.5,1.8,-7.4],
-      [10.8,1.78,-8.5],[9.0,1.75,-5],[7.25,1.81,-7.1],
-      [-10.7,.36,5.3],[10.7,.35,4.8],[-11.2,1.99,.3],[11.1,1.86,.1],
+      [-7.2,1.74,-8.0],[-6.5,1.79,-5.9],[-5.6,1.74,-7.2],
+      [7.2,1.74,-8.0],[6.5,1.79,-5.9],[5.6,1.74,-7.2],
+      [-7.5,.31,4.8],[7.5,.31,4.8],[-7.4,1.72,.4],[7.4,1.72,.4],
     ];
     candleLocations.forEach(([x,y,z],i)=>{
       const g=new THREE.Group();g.name="AnimatedCandle";g.position.set(x,y,z);root.add(g);
@@ -268,8 +313,8 @@ export class HauntedClassroomV1Environment {
       color:0xbdafcd,transparent:true,opacity:.57,roughness:.98,
       side:THREE.DoubleSide,depthWrite:false,
     });
-    for(const x of [-10.8,10.8]){
-      for(const z of [-9.6,-3.6]){
+    for(const x of [-7.8,7.8]){
+      for(const z of [-10.8,-3.8]){
         const g=new THREE.Group();g.position.set(x,7.5,z);root.add(g);
         g.name="HangingTornCurtain";
         const vertices:number[]=[];const uv:number[]=[];const indices:number[]=[];
@@ -297,7 +342,7 @@ export class HauntedClassroomV1Environment {
     const cobwebMat=new THREE.LineBasicMaterial({color:0x9ca6c7,transparent:true,opacity:.25});
     for(const side of [-1,1]){
       const points:number[]=[];
-      const ax=side*12.2,ay=9.2;
+      const ax=side*8.6,ay=9.2;
       for(let i=0;i<14;i++){
         const t=i/13,zz=-11.4+i*.38;
         points.push(ax,ay,zz, ax-side*(1.6+t),ay-(1.1+t*.45),zz+.6);
@@ -344,9 +389,9 @@ export class HauntedClassroomV1Environment {
       m.position.copy(p1).add(p2).multiplyScalar(.5);root.add(m);
     }
     const purpleFill=new THREE.PointLight(0x8e49da,4.1,20,2);
-    purpleFill.name="PurpleSpeakerAmbient";purpleFill.position.set(-8,4.6,-7);root.add(purpleFill);
+    purpleFill.name="PurpleSpeakerAmbient";purpleFill.position.set(-5.8,5.2,-6);root.add(purpleFill);
     const magentaFill=new THREE.PointLight(0xcf41ba,3.1,17,2);
-    magentaFill.name="MoonWindowFill";magentaFill.position.set(9,5.7,-7);root.add(magentaFill);
+    magentaFill.name="MoonWindowFill";magentaFill.position.set(5.8,5.7,-6);root.add(magentaFill);
     const danceFill=new THREE.PointLight(0x779ce9,2.2,13,2);
     danceFill.name="SoftDancerFill";danceFill.position.set(0,7.4,3);root.add(danceFill);
   }
