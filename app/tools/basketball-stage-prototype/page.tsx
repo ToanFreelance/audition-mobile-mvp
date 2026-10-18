@@ -80,8 +80,16 @@ function buildCourt(): CourtBuild {
     mesh.name = name;
     root.add(mesh);
   };
-  arc("OrangeKeyFrontArc", 0, 3.57, 4.78, 0, Math.PI, 0.078);
-  arc("DistantOuterArc", 0, -8.0, 17.5, 0.14, Math.PI - 0.28, 0.055);
+  // Restore the reference's two legible circular lines: rounded orange tip,
+  // plus the shallow inner key arc. Both stay over the flat dance floor.
+  arc("OrangeKeyFrontArc", 0, 3.57, 4.78, 0, Math.PI, 0.091);
+  arc("RestoredInnerFreeThrowArc", 0, 3.57, 4.15, Math.PI, Math.PI, 0.075);
+  arc("DistantOuterArc", 0, -8.0, 17.5, 0.14, Math.PI - 0.28, 0.065);
+  for (const side of [-1, 1]) {
+    for (let tick = 0; tick < 5; tick++) {
+      stripe(side * 5.12, -8.3 + tick * 1.55, 0.76, 0.12);
+    }
+  }
   stripe(-12.9, 6.1, 0.1, 23);
   stripe(12.9, 6.1, 0.1, 23);
   // Building faces are real extruded volumes, not a skybox image.
@@ -146,15 +154,57 @@ function buildCourt(): CourtBuild {
   // Basket board faces the playable court.
   beam("BasketPole", v(0, 0.01, -9.3), v(0, 5.5, -9.3), 0.14, 0x657682);
   beam("BasketArm", v(0, 5.35, -9.3), v(0, 5.15, -8.52), 0.12, 0x657682);
-  box("BasketBackboardTrim", 0, 4.95, -8.48, 3.12, 1.86, 0.14, 0xf17a30);
-  box("BasketBackboardWhite", 0, 4.95, -8.38, 2.95, 1.69, 0.045, 0xf8f2e6);
-  box("BasketBackboardBoxTop", 0, 4.84, -8.34, 0.81, 0.055, 0.055, 0xee7d35);
-  box("BasketBackboardBoxLeft", -0.395, 4.60, -8.34, 0.055, 0.54, 0.055, 0xee7d35);
-  box("BasketBackboardBoxRight", 0.395, 4.60, -8.34, 0.055, 0.54, 0.055, 0xee7d35);
-  const backboardPatina = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.66), new THREE.MeshBasicMaterial({ map: makeBackboardPatina(), transparent: true, depthWrite: false }));
-  backboardPatina.name = "SubtleBackboardPaintWeather";
-  backboardPatina.position.set(0, 4.95, -8.336);
-  root.add(backboardPatina);
+  // The previous white rectangle disappeared into the beige wall on iPhone.
+  // A back-facing solid slab, broad orange perimeter and curved fiberglass face
+  // match the silhouette and contrast of the approved basketball concept.
+  const boardOutline = new THREE.Shape();
+  boardOutline.moveTo(-1.52, -0.93);
+  boardOutline.lineTo(-1.88, -0.62);
+  boardOutline.quadraticCurveTo(-1.95, -0.55, -1.95, -0.40);
+  boardOutline.lineTo(-1.95, 0.27);
+  boardOutline.quadraticCurveTo(-1.92, 0.58, -1.67, 0.75);
+  boardOutline.quadraticCurveTo(0, 1.57, 1.67, 0.75);
+  boardOutline.quadraticCurveTo(1.92, 0.58, 1.95, 0.27);
+  boardOutline.lineTo(1.95, -0.40);
+  boardOutline.quadraticCurveTo(1.95, -0.55, 1.88, -0.62);
+  boardOutline.lineTo(1.52, -0.93);
+  boardOutline.closePath();
+  const boardSurface = new THREE.ShapeGeometry(boardOutline, 24);
+  const boardEdge = new THREE.Mesh(boardSurface, new THREE.MeshBasicMaterial({
+    color: 0xef7b32, toneMapped: false, side: THREE.DoubleSide,
+  }));
+  boardEdge.position.set(0, 4.98, -8.32);
+  boardEdge.name = "BasketBackboardOrangeOutline";
+  root.add(boardEdge);
+  const boardFace = new THREE.Mesh(boardSurface, new THREE.MeshBasicMaterial({
+    color: 0xf4efe5, toneMapped: false, side: THREE.DoubleSide,
+  }));
+  boardFace.position.set(0, 4.98, -8.309);
+  boardFace.scale.set(0.955, 0.944, 1);
+  boardFace.name = "BasketBackboardFiberglass";
+  root.add(boardFace);
+  // Match the patina geometry to the curved board rather than drawing dirt
+  // outside the silhouette; original decal plane looked like a gray rectangle.
+  const boardUvGeometry = boardSurface.clone();
+  const p = boardUvGeometry.getAttribute("position");
+  const uv = boardUvGeometry.getAttribute("uv");
+  for (let i = 0; i < p.count; i++) {
+    uv.setXY(i, (p.getX(i) + 1.96) / 3.92, (p.getY(i) + 0.95) / 2.55);
+  }
+  uv.needsUpdate = true;
+  const patina = new THREE.Mesh(boardUvGeometry, new THREE.MeshBasicMaterial({
+    map: makeBackboardPatina(), transparent: true, opacity: 0.31,
+    depthWrite: false, side: THREE.DoubleSide, toneMapped: false,
+  }));
+  patina.position.set(0, 4.98, -8.301);
+  patina.scale.copy(boardFace.scale);
+  patina.name = "SubtleBackboardPatina";
+  root.add(patina);
+  const targetOrange = 0xee762e;
+  box("BasketTargetTop", 0, 4.85, -8.275, 1.03, 0.065, 0.018, targetOrange);
+  box("BasketTargetLeft", -0.50, 4.55, -8.275, 0.065, 0.63, 0.018, targetOrange);
+  box("BasketTargetRight", 0.50, 4.55, -8.275, 0.065, 0.63, 0.018, targetOrange);
+  box("BasketTargetBottom", 0, 4.245, -8.275, 1.03, 0.061, 0.018, targetOrange);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.05, 7, 28), material(0xea6c22));
   rim.rotation.x = Math.PI / 2;
   rim.position.set(0, 4.13, -7.78);
@@ -245,17 +295,17 @@ export default function BasketballStagePrototypePage() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.07;
+    renderer.toneMappingExposure = 1.13;
     target.appendChild(renderer.domElement);
     renderer.domElement.style.display = "block";
     renderer.domElement.style.width = "100%";
     renderer.domElement.style.height = "100%";
     renderer.domElement.style.touchAction = "none";
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x98cdf0);
-    scene.fog = new THREE.Fog(0x98cdf0, 39, 95);
-    scene.add(new THREE.HemisphereLight(0xfff8ed, 0x8595aa, 1.35));
-    const sun = new THREE.DirectionalLight(0xfff1de, 1.65);
+    scene.background = new THREE.Color(0x91c7ed);
+    scene.fog = new THREE.Fog(0x91c7ed, 42, 96);
+    scene.add(new THREE.HemisphereLight(0xfff6eb, 0x7890b1, 1.42));
+    const sun = new THREE.DirectionalLight(0xfff0df, 1.82);
     sun.position.set(-10, 19, 15);
     scene.add(sun);
     let built: CourtBuild;
