@@ -69,12 +69,20 @@ const STEP_RECTS = [
 // and converge its contour toward a narrow 8-unit waist at each neck midpoint.
 // This geometry is in the approved 873×644 coordinate system.
 const NECK_MOUTH_RISE = 13;
-const NECK_WAIST_TOP = 203;
-const NECK_WAIST_BOTTOM = 211;
+// Reference zoom: a rounded U-shaped saddle, not two acute X tips.
+// Mouth spans ~40 source units; a 18-unit throat keeps a soft open channel.
+const NECK_WAIST_TOP = 198;
+const NECK_WAIST_BOTTOM = 216;
+const NECK_SADDLE_HALF_WIDTH = 2.5;
 function shellMouthInset(radius: number): number {
   // Position on the actual circular corner, so the connector and shell rim
   // meet with no discontinuity instead of attaching to an arbitrary X offset.
   return radius - Math.sqrt(radius * radius - NECK_MOUTH_RISE * NECK_MOUTH_RISE);
+}
+function mouthTangentSlope(radius: number): number {
+  // Match the derivative of the circle at the mouth. A horizontal first
+  // Bézier handle would kink sharply where the bubble shell meets its neck.
+  return Math.sqrt(radius * radius - NECK_MOUTH_RISE * NECK_MOUTH_RISE) / NECK_MOUTH_RISE;
 }
 
 /**
@@ -159,15 +167,22 @@ function Chrome({steps, progressPercent}: {steps: readonly Step[]; progressPerce
         const bottom1=left.y+left.height-left.radius+NECK_MOUTH_RISE;
         const bottom2=right.y+right.height-right.radius+NECK_MOUTH_RISE;
         const mid=(x1+x2)/2;
-        const handle=(x2-x1)*.23;
-        // Wide by each bubble mouth, pronounced symmetric pinch at midpoint.
-        // Paired outline paths never close or fill the hourglass interior.
-        const upper=`M ${x1} ${top1} C ${x1+handle} ${top1} ${mid-handle*.5} ${NECK_WAIST_TOP} ${mid} ${NECK_WAIST_TOP} C ${mid+handle*.5} ${NECK_WAIST_TOP} ${x2-handle} ${top2} ${x2} ${top2}`;
-        const lower=`M ${x1} ${bottom1} C ${x1+handle} ${bottom1} ${mid-handle*.5} ${NECK_WAIST_BOTTOM} ${mid} ${NECK_WAIST_BOTTOM} C ${mid+handle*.5} ${NECK_WAIST_BOTTOM} ${x2-handle} ${bottom2} ${x2} ${bottom2}`;
+        // Two round shoulders approach a short horizontal saddle in the
+        // middle. The saddle retains actual width and a smooth tangent so the
+        // contours form a water droplet neck, not an acute X-shaped notch.
+        const h=Math.min(2.4,(x2-x1)*.18);
+        const slopeL=mouthTangentSlope(left.radius);
+        const slopeR=mouthTangentSlope(right.radius);
+        const saddleL=mid-NECK_SADDLE_HALF_WIDTH;
+        const saddleR=mid+NECK_SADDLE_HALF_WIDTH;
+        const saddleEase=1.5;
+        const upper=`M ${x1} ${top1} C ${x1+h} ${top1+h*slopeL} ${saddleL-saddleEase} ${NECK_WAIST_TOP} ${saddleL} ${NECK_WAIST_TOP} H ${saddleR} C ${saddleR+saddleEase} ${NECK_WAIST_TOP} ${x2-h} ${top2+h*slopeR} ${x2} ${top2}`;
+        const lower=`M ${x1} ${bottom1} C ${x1+h} ${bottom1-h*slopeL} ${saddleL-saddleEase} ${NECK_WAIST_BOTTOM} ${saddleL} ${NECK_WAIST_BOTTOM} H ${saddleR} C ${saddleR+saddleEase} ${NECK_WAIST_BOTTOM} ${x2-h} ${bottom2-h*slopeR} ${x2} ${bottom2}`;
         const mouthGap=bottom1-top1;
         const waistGap=NECK_WAIST_BOTTOM-NECK_WAIST_TOP;
         return <g key={index} data-testid="preload-bubble-link"
-          data-mouth-gap={mouthGap} data-waist-gap={waistGap}>
+          data-mouth-gap={mouthGap} data-waist-gap={waistGap}
+          data-saddle-width={2*NECK_SADDLE_HALF_WIDTH}>
           <path d={upper} fill="none" stroke={`url(#c3-bubble-link-${index})`}
             strokeWidth="6" strokeLinecap="round" opacity=".84" filter="url(#c3-soft)"/>
           <path d={lower} fill="none" stroke={`url(#c3-bubble-link-${index})`}

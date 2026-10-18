@@ -352,13 +352,17 @@ test("C3 bubble-chain chrome joins every step; filled check and READY pill distr
     const waistGap = Number(await bridge.getAttribute("data-waist-gap"));
     expect(mouthGap, "wide bubble mouths").toBeGreaterThanOrEqual(35);
     expect(waistGap, "pinched droplet center").toBeGreaterThan(0);
-    expect(mouthGap / waistGap, "visibly tapered, not horizontal").toBeGreaterThan(4);
+    const ratio = mouthGap / waistGap;
+    expect(ratio, "neck narrows but does not pinch into an X").toBeGreaterThan(1.8);
+    expect(ratio, "reference has a soft open throat").toBeLessThan(3);
+    expect(Number(await bridge.getAttribute("data-saddle-width"))).toBeGreaterThanOrEqual(4);
+    expect(Number(await bridge.getAttribute("data-saddle-width"))).toBeLessThanOrEqual(7);
     const contours = bridge.locator("path");
     await expect(contours).toHaveCount(5);
     // A connected water-bubble outline has NO filled bridge and NO closed Z.
     for (const path of await contours.all()) {
       await expect(path).toHaveAttribute("fill", "none");
-      await expect(path).toHaveAttribute("d", /^M .* C .*$/);
+      await expect(path).toHaveAttribute("d", /^M .* C .* H .* C .*$/);
       const shape = await path.getAttribute("d");
       expect(shape).not.toMatch(/Z/i);
     }
