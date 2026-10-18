@@ -75,7 +75,10 @@ export default function AnimationFlowV2() {
     body.name = "QA-V2-bones"; joints.name = "QA-V2-joints";
     body.count = 0; joints.count = 0; body.frustumCulled = false; joints.frustumCulled = false; scene.add(body, joints);
     const trailPoints: T.Vector3[] = [];
-    const trailGeometry = new T.BufferGeometry(); const trail = new T.Line(trailGeometry, new T.LineBasicMaterial({ color: 0x67d9b8, transparent: true, opacity: 0.55 })); scene.add(trail);
+    const trailGeometry = new T.BufferGeometry();
+    const trailPositions = new T.BufferAttribute(new Float32Array(180 * 3), 3);
+    trailGeometry.setAttribute("position", trailPositions); trailGeometry.setDrawRange(0, 0);
+    const trail = new T.Line(trailGeometry, new T.LineBasicMaterial({ color: 0x67d9b8, transparent: true, opacity: 0.55 })); trail.frustumCulled = false; scene.add(trail);
     const resize = () => { const width = element.clientWidth, height = element.clientHeight; renderer.setSize(width, height, false); camera.aspect = width / Math.max(1, height); camera.updateProjectionMatrix(); };
     const observer = new ResizeObserver(resize); observer.observe(element); resize();
 
@@ -214,7 +217,9 @@ export default function AnimationFlowV2() {
           const data: Telemetry = { ...state, beat, turn: turns.index + 1, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : "CMU-hidden; reference has separate referenceAnchor", renderBackend };
           element.dataset.telemetry = JSON.stringify(data);
           setTelemetry(data); setHistory(engine.history.slice(-8).reverse()); samples.push(data); if (samples.length > 12000) samples.shift();
-          trailPoints.push(new T.Vector3(state.root[0], 0.004, state.root[2])); if (trailPoints.length > 180) trailPoints.shift(); trailGeometry.setFromPoints(trailPoints); lastUi = now;
+          trailPoints.push(new T.Vector3(state.root[0], 0.004, state.root[2])); if (trailPoints.length > 180) trailPoints.shift();
+          trailPoints.forEach((point, index) => trailPositions.setXYZ(index, point.x, point.y, point.z));
+          trailPositions.needsUpdate = true; trailGeometry.setDrawRange(0, trailPoints.length); lastUi = now;
         }
       }
       controls.update(); renderer.render(scene, camera);

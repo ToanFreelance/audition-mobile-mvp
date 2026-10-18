@@ -69,6 +69,23 @@ Phrase windows và exit markers là ứng viên kỹ thuật cần owner visual 
 
 Số đo cùng là đơn vị cảnh nhưng V2 dùng canonical body/floor scale mới; không coi đây là benchmark cùng scale cơ thể. Cột entry error và dịch trong fade là hai đại lượng khác nhau. Cặp Showdown chờ thêm 7,4 beat đến recovery; không được nói là đổi ngay ở SPACE. Dịch V2 còn lại là chuyển động cục bộ có chủ ý, không bị ép bằng 0. Script xuất `test-results/animation-flow-v2/data-validation.json` để review số liệu đầy đủ.
 
+## Browser QA ngày 18/10/2026
+
+Preview nhánh V2 được mở bằng Chrome cloud, commit `98305d3` (bản sau chỉ sửa dung lượng buffer trail và tài liệu). Source API tải được BVH; AudioContext được bật bằng nút Bắt đầu; export JSON và video hoạt động. Đây là **browser chức năng + projection 2D**, không phải nghiệm thu WebGL.
+
+| Kịch bản browser | Chuyển hoàn tất | Boundary đã xử lý | Max radius | Max entry ΔXZ |
+|---|---:|---:|---:|---:|
+| 120 BPM / fade 0,35 beat / auto / seed 20261018 | 65 | 65 | 1,00322 | 0 |
+| 160 BPM / fade 1 beat / auto / seed 328464878 | 44 | 44 | 0,97820 | 0 |
+| 160 BPM / fade 1 beat / 12 SPACE tay | 12 | 24 | 0,91818 | 0 |
+| 160 BPM / fixture PROTECTED rồi tiếp tục auto | 13 | 14 | 1,03524 | 0 |
+
+Mọi boundary của các file JSON đều đúng dãy `4,8,12,…`; mọi anchor `[0,0,0]`; không request bị từ chối. SPACE tay không tạo thêm turn. Fixture 85_10 → 89_03 bắt đầu visual tại beat 11,4 sau request beat 4 (đợi 7,4 beat); turn vẫn chạy. Bộ test dữ liệu kiểm ngắt giữa fade; 12 click browser không chứng minh click nhanh hơn duration fade.
+
+Browser bị lấy mẫu thưa: khoảng cách hai mẫu lớn nhất ~2,18 beat ở 120 BPM và ~2,88 beat ở 160 BPM (khoảng 1,1 giây). Bước XZ giữa các mẫu có thể ~0,994 / 1,104 đơn vị vì nguồn vẫn chạy qua khoảng trống đó. `maxFrameStep` là bước giữa các lần engine áp pose, bao gồm catch-up, **không phải phép đo teleport riêng hoặc vận tốc render**. Không được dùng các video thưa frame này để tuyên bố chuyển động nhìn mượt hay FPS PASS. Bộ đệm trail được cấp sẵn 180 điểm sau khi browser phát hiện cảnh báo geometry không tự tăng capacity.
+
+Video Canvas 2D dài khoảng 28,53 giây và JSON/screenshot nằm trong gói bằng chứng bàn giao. Cần owner chạy WebGL trên desktop/iPhone thật để duyệt pose, contact, heading, phrase và retarget riêng.
+
 ## Giới hạn
 
 - Browser cloud trong lượt triển khai trả `GL_RENDERER = Disabled` / `Error creating WebGL context`. Trang có projection Canvas 2D chỉ dành cho skeleton để kiểm logic/telemetry trong môi trường đó. Giao diện và JSON ghi rõ `renderBackend=canvas2d-projection`; tab mesh bị khóa nếu không có WebGL. Đây không phải software WebGL hay mesh validation.
