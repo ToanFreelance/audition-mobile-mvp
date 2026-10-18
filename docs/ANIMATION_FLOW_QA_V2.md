@@ -1,5 +1,7 @@
 # Animation Flow Demo V2
 
+Bản sửa hướng khán giả V2.1: xem [ANIMATION_FLOW_QA_V21.md](ANIMATION_FLOW_QA_V21.md). Các số đo bên dưới là baseline V2 lịch sử.
+
 Route cô lập: `/tools/animation-flow-qa-v2`. Baseline development: `4fd4202d3e89efd6c081318d13ddd9efb18e50f7`.
 
 ## Phạm vi

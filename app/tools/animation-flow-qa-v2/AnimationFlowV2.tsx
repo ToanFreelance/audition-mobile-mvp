@@ -10,6 +10,7 @@ import { makeCanonicalRig, preparePhrase, SourceFlowEngine, type PreparedPhrase,
 import { DemoBeatClock, TurnCursor } from "@/lib/animation-flow-v2/clock";
 import { PhraseBag } from "@/lib/animation-flow-v2/shuffle";
 import { CanvasSourcePreview } from "@/lib/animation-flow-v2/canvas-preview";
+import { INITIAL_CAMERA, STAGE_FRONT } from "@/lib/animation-flow-v2/heading";
 import styles from "./animation-flow-v2.module.css";
 
 type View = "source" | "c1-casual-grace" | "c4-casual-boy";
@@ -49,10 +50,11 @@ export default function AnimationFlowV2() {
     let referenceView: View = "source", referenceStatus = "Chưa tải", referenceEvent = 0;
     let triggerCount = 0, processedBoundaries: number[] = [], lastUi = 0, replayTarget: string | null = null;
     let samples: Telemetry[] = [], recorder: MediaRecorder | null = null;
+    const selectionEvents: { beat: number; eligibleIds: string[]; selected: string | null; decisions: unknown[] }[] = [];
     const clock = new DemoBeatClock(), turns = new TurnCursor();
     const sources = new Map<string, SourceMotion>(), loading = new Map<string, Promise<SourceMotion>>();
     const scene = new T.Scene(); scene.background = new T.Color("#0c101a");
-    const camera = new T.PerspectiveCamera(34, 1, 0.01, 30); camera.position.set(2.65, 1.9, 3.7);
+    const camera = new T.PerspectiveCamera(34, 1, 0.01, 30); camera.position.set(...INITIAL_CAMERA);
     let renderer: T.WebGLRenderer | CanvasSourcePreview;
     let renderBackend: "webgl" | "canvas2d-projection" = "webgl";
     try { renderer = new T.WebGLRenderer({ antialias: true, alpha: false }); }
@@ -70,6 +72,9 @@ export default function AnimationFlowV2() {
       ring.rotation.x = -Math.PI / 2; ring.position.y = -0.012; scene.add(ring);
     }
     const grid = new T.GridHelper(3.6, 18, 0x454d68, 0x242c40); grid.position.y = -0.018; scene.add(grid);
+    const stageFront = new T.ArrowHelper(new T.Vector3(Math.sin(STAGE_FRONT), 0, Math.cos(STAGE_FRONT)), new T.Vector3(0, .035, 0), .7, 0x60e3bb, .14, .09);
+    const dancerFront = new T.ArrowHelper(new T.Vector3(0, 0, 1), new T.Vector3(), .5, 0xffc56d, .12, .08);
+    stageFront.name = "QA-stage-front"; dancerFront.name = "QA-dancer-front"; scene.add(stageFront, dancerFront);
     const body = new T.InstancedMesh(new T.CylinderGeometry(0.018, 0.026, 1, 7), new T.MeshStandardMaterial({ color: 0xc9bbff, metalness: 0.2, roughness: 0.45 }), 64);
     const joints = new T.InstancedMesh(new T.SphereGeometry(0.034, 10, 8), new T.MeshStandardMaterial({ color: 0xf0e8ff, roughness: 0.5 }), 64);
     body.name = "QA-V2-bones"; joints.name = "QA-V2-joints";
@@ -119,11 +124,14 @@ export default function AnimationFlowV2() {
         if (engine.current?.phrase.spec.id === replayTarget) replayTarget = null;
         else { if (engine.pending?.id !== replayTarget) engine.request(replayTarget, beat); return; }
       }
-      const selected = bag.next(p => Boolean(engine!.placement(p.id)) && p.source !== engine!.current?.phrase.spec.source && p.group !== engine!.current?.phrase.spec.group);
+      const eligibleIds = CORE_PHRASES.filter(p => Boolean(engine!.placement(p.id)) && p.source !== engine!.current?.phrase.spec.source && p.group !== engine!.current?.phrase.spec.group).map(p => p.id);
+      const selected = bag.next(p => eligibleIds.includes(p.id));
+      selectionEvents.push({ beat, eligibleIds, selected: selected?.id ?? null, decisions: [...engine.placementDecisions.values()] });
+      if (selectionEvents.length > 12000) selectionEvents.shift();
       if (selected) {
         const accepted = engine.request(selected.id, beat);
-        setStatus(accepted ? "Đã nhận SPACE · phrase được căn entry và kiểm tra toàn đường đi." : "Phrase được hoãn vì đường đi vượt vùng sân; timeline vẫn chạy.");
-      } else setStatus("Chờ phrase phù hợp vùng sân / anti-repeat; timeline vẫn chạy.");
+        setStatus(accepted ? "Đã nhận SPACE · căn vị trí và hướng, kiểm tra toàn phrase." : "Hoãn visual: vị trí / hướng tại exit chưa tương thích; timeline vẫn chạy.");
+      } else setStatus("Không có phrase phù hợp vị trí / hướng / anti-repeat: giữ one-shot hiện tại; timeline vẫn chạy.");
     }
     function advance(beat: number) {
       if (!engine) return;
@@ -137,6 +145,7 @@ export default function AnimationFlowV2() {
       const random = new Uint32Array(1); crypto.getRandomValues(random); runSeed = random[0];
       setSeed(runSeed); bag = new PhraseBag(CORE_PHRASES, runSeed);
       clock.reset(audioSeconds()); turns.reset(); processedBoundaries = []; triggerCount = 0; samples = []; trailPoints.length = 0; replayTarget = null;
+      selectionEvents.length = 0;
       const first = bag.next(); if (first) engine.start(first.id, 0); setError(""); setStatus("Sáu phrase upright · đường root có giới hạn · không loop raw.");
       reference?.setGameActive(false); reference?.setGameActive(true); referenceSpace(0);
     }
@@ -159,7 +168,7 @@ export default function AnimationFlowV2() {
       moonwalk: async () => {
         try { await prepare([MOONWALK_PHRASE]); if (disposed || !engine) return; engine.request(MOONWALK_PHRASE.id, currentBeat()); setStatus("Phrase Moonwalk riêng: giữ chuyển động trượt, không thuộc shuffle core."); } catch (e) { reportError(e); }
       },
-      export: () => download(new Blob([JSON.stringify({ schemaVersion: 2, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, tempoBasis: "testing-assumption", settings: options.current, transitions: engine?.history, processedBoundaries, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "reference path retains production controller timing", "technical exit markers await visual acceptance"] }, null, 2)], { type: "application/json" }), `animation-flow-v2-${runSeed}.json`),
+      export: () => download(new Blob([JSON.stringify({ schemaVersion: 3, implementation: "2.1", sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, tempoBasis: "testing-assumption", settings: options.current, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "reference path retains production controller timing", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test", "angular velocity includes authored source rotation; sampled values depend on render cadence"] }, null, 2)], { type: "application/json" }), `animation-flow-v21-${runSeed}.json`),
       record: () => {
         if (recorder && recorder.state !== "inactive") { recorder.stop(); return; }
         if (!renderer.domElement.captureStream || typeof MediaRecorder === "undefined") { setError("Browser này không hỗ trợ ghi canvas; dùng xuất telemetry JSON."); return; }
@@ -186,6 +195,9 @@ export default function AnimationFlowV2() {
         }
       }
       body.count = segment; joints.count = joint; body.instanceMatrix.needsUpdate = true; joints.instanceMatrix.needsUpdate = true;
+      dancerFront.position.copy(engine.motionRoot.position); dancerFront.position.y = .04;
+      const front = new T.Vector3(0, 0, 1).applyQuaternion(engine.rig.bones[0].quaternion); front.y = 0;
+      dancerFront.setDirection(front.normalize());
     }
     async function selectReference(next: View) {
       const version = ++referenceVersion; reference?.dispose(); reference = null; referenceView = next;
@@ -211,6 +223,7 @@ export default function AnimationFlowV2() {
         advance(beat);
         if (referenceView !== config.view) void selectReference(config.view).catch(reportError);
         const isSource = config.view === "source"; body.visible = isSource; joints.visible = isSource; trail.visible = isSource;
+        stageFront.visible = isSource; dancerFront.visible = isSource;
         if (isSource) drawRig(); else reference?.update(0, seconds, seconds * 1000);
         if (now - lastUi > 95) {
           const state = engine.snapshot();
@@ -245,7 +258,7 @@ export default function AnimationFlowV2() {
   const currentSpec = CORE_PHRASES.find(p => p.id === telemetry?.current);
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2</span></h1><p className={styles.lead}>Một vị trí sân. Nhiều động tác. Chuyển ở SPACE.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.1</span></h1><p className={styles.lead}>Một vị trí sân. Nhiều động tác. Chuyển ở SPACE.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
         {([["source", "Nguồn BVH · V2"], ["c1-casual-grace", "Tham chiếu nữ"], ["c4-casual-boy", "Tham chiếu nam"]] as const).map(([id, label]) => <button key={id} disabled={id !== "source" && backend !== "webgl"} title={id !== "source" && backend !== "webgl" ? "Cần WebGL để xem mesh accepted" : undefined} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
       </div>
@@ -253,7 +266,8 @@ export default function AnimationFlowV2() {
         <section className={styles.stageCard}>
           <div className={styles.stageHeader}><span><i className={ready ? styles.dot : styles.loadingDot} />{view === "source" ? backend === "webgl" ? "CMU · CANONICAL SKELETON" : "CMU · CHIẾU SKELETON 2D" : "PUBLISHED · NHÂN VẬT HIỆN HÀNH"}</span><span>{bpm} BPM · {view === "source" ? "tempo giả định" : "controller gốc"}</span></div>
           <div ref={host} className={styles.canvas} data-testid="animation-flow-stage" />
-          <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = vùng root 1,35 · tâm xanh = stage anchor cố định · kéo để xoay camera" : "Đường tham chiếu giữ controller production (150 ms / tốc độ gốc). Chưa retarget sáu phrase CMU vào actor này."}</div>
+          <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = root 1,35 · mũi tên xanh = khán giả cố định · vàng = hướng Hips +Z · orbit không đổi hướng sân" : "Đường tham chiếu giữ controller production (150 ms / tốc độ gốc). Chưa retarget sáu phrase CMU vào actor này."}</div>
+          {view === "source" && <div className={styles.canvasCaption} data-testid="facing-indicator">Lệch hướng: {(telemetry?.orientation.facingErrorDeg ?? 0).toFixed(1)}° · {Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 45 ? "Chính diện" : Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 90 ? "Nghiêng" : "Quay lưng"} · {telemetry?.orientation.policy === "fixture-spatial-only" ? "Fixture: chỉ kiểm vị trí" : "Ưu tiên khán giả"}</div>}
           <div className={styles.rhythm}>
             <div className={styles.counters}><span>TURN <b data-testid="turn-counter">{telemetry?.turn ?? 1}</b></span><div className={styles.beats}>{[0, 1, 2, 3].map(n => <i key={n} data-active={Math.floor(telemetry?.beat ?? 0) % 4 === n}>{n + 1}</i>)}</div><span>{running ? "ĐANG CHẠY" : "TẠM DỪNG"}</span></div>
             <div className={styles.gauge} role="progressbar" aria-label="Gauge mô phỏng bốn beat" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}><div style={{ transform: `scaleX(${progress})` }} />{[1, 2, 3].map(n => <i key={n} style={{ left: `${n * 25}%` }} />)}</div>

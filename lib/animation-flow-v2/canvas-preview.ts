@@ -41,6 +41,16 @@ export class CanvasSourcePreview {
       draw.push({ z: p.z, paint() { ctx.beginPath(); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2); ctx.fillStyle = "#f1e7ff"; ctx.fill(); } });
     }
     draw.sort((a, b) => b.z - a.z).forEach(item => item.paint());
+    for (const [name, color] of [["QA-stage-front", "#60e3bb"], ["QA-dancer-front", "#ffc56d"]]) {
+      const arrow = scene.getObjectByName(name) as T.ArrowHelper | undefined;
+      if (!arrow?.visible) continue;
+      const origin = new T.Vector3().setFromMatrixPosition(arrow.matrixWorld);
+      const tip = new T.Vector3(0, name === "QA-stage-front" ? .7 : .5, 0).applyMatrix4(arrow.matrixWorld);
+      const a = project(origin), b = project(tip), angle = Math.atan2(b.y - a.y, b.x - a.x);
+      ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+      ctx.moveTo(b.x - 9 * Math.cos(angle - .5), b.y - 9 * Math.sin(angle - .5)); ctx.lineTo(b.x, b.y);
+      ctx.lineTo(b.x - 9 * Math.cos(angle + .5), b.y - 9 * Math.sin(angle + .5)); ctx.stroke();
+    }
     ctx.fillStyle = "#8992aa"; ctx.font = "10px Arial"; ctx.textAlign = "center";
     ctx.fillText("CHIẾU SKELETON 2D · WEBGL KHÔNG KHẢ DỤNG", width / 2, 22);
   }

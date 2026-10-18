@@ -16,9 +16,9 @@ export const CORE_PHRASES: readonly PhraseSpec[] = [
   { id: "111-groove", source: "111_05", label: "Groove · đổi chân", group: "casual-groove", start: 0.6, end: 3, policy: "FREE", exitMarkers: [0.8, 1.6, 2.4], referenceBpm: 120, tempoBasis: "testing-assumption", role: "core" },
   { id: "141-twist", source: "141_12", label: "Twist · nhấn thân", group: "twist", start: 0.6, end: 4.4, policy: "FREE", exitMarkers: [0.9, 1.8, 2.7, 3.8], referenceBpm: 120, tempoBasis: "testing-assumption", role: "core" },
   { id: "93-charleston", source: "93_03", label: "Charleston · điểm nhấn", group: "swing-footwork", start: 0.4, end: 3.5, policy: "BEAT_WINDOW", exitMarkers: [0.5, 1, 1.5, 2, 2.5, 3.1], referenceBpm: 120, tempoBasis: "testing-assumption", role: "core" },
-  { id: "143-party", source: "143_35", label: "Macarena · động tác tay", group: "party-arms", start: 1, end: 5.5, policy: "FREE", exitMarkers: [1, 2, 3, 4.5], referenceBpm: 120, tempoBasis: "testing-assumption", role: "core" },
+  { id: "143-party", source: "143_35", label: "Macarena · động tác tay", group: "party-arms", start: 1, end: 5, policy: "FREE", exitMarkers: [1, 2, 3, 4], referenceBpm: 120, tempoBasis: "testing-assumption", role: "core" },
   { id: "120-mickey", source: "120_06", label: "Mickey · nhịp chân", group: "casual-groove", start: 2.2, end: 5.4, policy: "FREE", exitMarkers: [0.8, 1.6, 2.4, 3.2], referenceBpm: 120, tempoBasis: "testing-assumption", role: "core" },
-  { id: "85-upright", source: "85_03", label: "Upright · break bước đứng", group: "upright-break", start: 10, end: 13.5, policy: "BEAT_WINDOW", exitMarkers: [0.5, 1, 1.5, 2, 2.5, 3, 3.5], referenceBpm: 120, tempoBasis: "testing-assumption", role: "core" },
+  { id: "85-upright", source: "85_03", label: "Upright · break bước đứng", group: "upright-break", start: 18, end: 20, policy: "BEAT_WINDOW", exitMarkers: [0.5, 1, 1.5, 2], referenceBpm: 120, tempoBasis: "testing-assumption", role: "core" },
 ];
 
 export const FAILING_PAIRS = [

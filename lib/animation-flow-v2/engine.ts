@@ -1,5 +1,6 @@
 import * as T from "three";
 import type { ExitPolicy, PhraseSpec } from "./catalog";
+import { calibrateForward, degrees, headingOf, HEADING_LIMITS, STAGE_FRONT, wrapAngle } from "./heading";
 
 export type SourceMotion = { clip: T.AnimationClip; skeleton: T.Skeleton };
 export type Pose = { root: T.Vector3; rotations: T.Quaternion[] };
@@ -7,18 +8,22 @@ type Sampler = { evaluate(t: number): ArrayLike<number> };
 export type PreparedPhrase = {
   spec: PhraseSpec; duration: number; clip: T.AnimationClip;
   translation: Sampler; rotations: Sampler[]; path: T.Vector3[];
-  sourceScale: number; floorReference: number;
+  sourceScale: number; floorReference: number; headings: number[];
 };
 export type CanonicalRig = { root: T.Bone; bones: T.Bone[]; names: string[]; scale: number };
 type Playback = { phrase: PreparedPhrase; startBeat: number; offset: T.Vector3; yaw: number };
-type Blend = { from: Playback | Pose; startBeat: number; durationBeats: number };
+type Blend = { from: Playback | Pose; startBeat: number; durationBeats: number; headingDurationBeats: number };
 export type TransitionRecord = {
   a: string | null; b: string; source: string; phrase: [number, number]; group: string;
   requestedBeat: number; visualStartBeat: number; delayBeats: number; policy: ExitPolicy;
   blendBeats: number; blendSeconds: number; entryDisplacement: number;
   before: number[]; after: number[]; afterBlend?: number[]; fadeTravelXZ?: number;
   interrupted?: boolean; stageAnchor: number[]; yaw: number; loopSeamWarning: string | null;
+  headingBlendBeats: number;
+  orientation: { outgoingHeadingDeg: number; incomingHeadingDeg: number; headingDeltaDeg: number; desiredHeadingDeg: number; maxPhraseFacingErrorDeg: number; predictedMaxYawDegPerSecond: number; predictedMaxQuaternionDegPerSecond: number; measuredMaxYawDegPerSecond: number; measuredMaxQuaternionDegPerSecond: number; policy: string };
 };
+export type PlacementDecision = { id: string; beat: number; rootXZ: number[]; evaluated: number; spatialRejected: number; continuationRejected: number; facingRejected: number; angularRejected: number; accepted: number; reason: string; selectedYawDeg: number | null };
+type Placement = { yaw: number; score: number; maxFacingError: number; maxYawSpeed: number; maxQuaternionSpeed: number };
 
 const Y = new T.Vector3(0, 1, 0);
 const clamp = T.MathUtils.clamp;
@@ -28,8 +33,7 @@ const interpolate = (a: Pose, b: Pose, t: number): Pose => ({
 });
 const smooth = (t: number) => { const x = clamp(t, 0, 1); return x * x * (3 - 2 * x); };
 export function rootYaw(q: T.Quaternion) {
-  const forward = new T.Vector3(0, 0, 1).applyQuaternion(q);
-  return Math.atan2(forward.x, forward.z);
+  return headingOf(q);
 }
 const interpolant = (track: T.KeyframeTrack): Sampler => {
   // createInterpolant is supplied by the concrete track type at runtime.
@@ -107,7 +111,12 @@ export function preparePhrase(spec: PhraseSpec, source: SourceMotion, canonical:
   const rootTrack = new T.VectorKeyframeTrack("motionRoot.position", times, roots);
   const tracks: T.KeyframeTrack[] = [rootTrack, ...canonical.names.map((name, i) => new T.QuaternionKeyframeTrack(name + ".quaternion", times, quaternionValues[i]))];
   const clip = new T.AnimationClip(spec.id, duration, tracks);
-  return { spec, duration, clip, translation: interpolant(rootTrack), rotations: tracks.slice(1).map(interpolant), path, sourceScale, floorReference };
+  const headings: number[] = [];
+  for (let i = 0; i < times.length; i++) {
+    const yaw = rootYaw(new T.Quaternion().fromArray(quaternionValues[0], i * 4));
+    headings.push(i === 0 ? yaw : headings[i - 1] + wrapAngle(yaw - headings[i - 1]));
+  }
+  return { spec, duration, clip, translation: interpolant(rootTrack), rotations: tracks.slice(1).map(interpolant), path, sourceScale, floorReference, headings };
 }
 
 export function safeExitTime(spec: PhraseSpec, localSeconds: number, duration: number, override?: ExitPolicy) {
@@ -141,8 +150,18 @@ export class SourceFlowEngine {
   maxRadius = 0;
   maxFrameStep = 0;
   rejectedRequests = 0;
+  readonly forwardCalibration;
+  readonly desiredHeading = STAGE_FRONT;
+  readonly placementDecisions = new Map<string, PlacementDecision>();
+  private orientationBeat: number | null = null;
+  private orientationQuaternion = new T.Quaternion();
+  private continuousHeading = 0;
+  maxFacingDeviationDeg = 0;
+  maxTransitionYawDegPerSecond = 0;
+  maxTransitionQuaternionDegPerSecond = 0;
 
   constructor(readonly rig: CanonicalRig, readonly phrases: Map<string, PreparedPhrase>) {
+    this.forwardCalibration = calibrateForward(rig.root, rig.bones);
     this.stageAnchor.name = "QA-V2-stable-stage-anchor";
     this.motionRoot.name = "QA-V2-localized-motion-root";
     this.rigRoot.name = "QA-V2-canonical-CMU-rig";
@@ -161,24 +180,78 @@ export class SourceFlowEngine {
   /** Test the ENTIRE path, not just its endpoint. Convex blends stay inside the same disc. */
   placement(id: string, at = this.pose.root, heading = rootYaw(this.pose.rotations[0])) {
     const phrase = this.phrases.get(id); if (!phrase) return null;
-    let best: { yaw: number; score: number } | null = null;
-    for (let step = 0; step < 48; step++) {
-      const yaw = heading + step * Math.PI / 24, q = new T.Quaternion().setFromAxisAngle(Y, yaw);
+    const fixture = phrase.spec.role === "fixture";
+    const decision: PlacementDecision = { id, beat: this.latestBeat, rootXZ: [at.x, at.z], evaluated: 0, spatialRejected: 0, continuationRejected: 0, facingRejected: 0, angularRejected: 0, accepted: 0, reason: "", selectedYawDeg: null };
+    const center = (Math.min(...phrase.headings) + Math.max(...phrase.headings)) / 2;
+    const candidates = fixture ? Array.from({length: 48}, (_, i) => heading + i * Math.PI / 24) : [heading - phrase.headings[0], this.desiredHeading - center, ...Array.from({length: 48}, (_, i) => this.desiredHeading + i * Math.PI / 24)];
+    let best: Placement | null = null;
+    for (const yaw of candidates) {
+      decision.evaluated++;
+      const q = new T.Quaternion().setFromAxisAngle(Y, yaw);
       let peak = 0, end = 0;
       for (const p of phrase.path) {
         const v = p.clone().applyQuaternion(q); const r = Math.hypot(v.x + at.x, v.z + at.z);
         peak = Math.max(peak, r); end = r;
       }
-      const angle = Math.abs(Math.atan2(Math.sin(yaw - heading), Math.cos(yaw - heading)));
-      const score = peak + end * 1.5 + angle * 0.045;
-      if (peak <= this.radius - 0.005 && (!best || score < best.score)) best = { yaw, score };
+      if (peak > this.radius - 0.005) { decision.spatialRejected++; continue; }
+      const boundaryPoint = new T.Vector3().fromArray(phrase.translation.evaluate(Math.min(phrase.duration, 4 * 60 / phrase.spec.referenceBpm))).applyQuaternion(q);
+      const boundaryRadius = Math.hypot(boundaryPoint.x + at.x, boundaryPoint.z + at.z);
+      if (!fixture && this.current && boundaryRadius > Math.max(1.05, Math.hypot(at.x, at.z) - 0.1)) { decision.continuationRejected++; continue; }
+      const boundaryHeading = phrase.headings[Math.min(phrase.headings.length - 1, Math.round(4 * 60 / phrase.spec.referenceBpm * 60))] + yaw;
+      const exitFacing = Math.abs(wrapAngle(boundaryHeading - this.desiredHeading));
+      const errors = phrase.headings.map(h => Math.abs(wrapAngle(h + yaw - this.desiredHeading)));
+      const maxFacingError = degrees(Math.max(...errors));
+      const entryError = degrees(errors[0]);
+      if (!fixture && (entryError > HEADING_LIMITS.entryDeg || maxFacingError > HEADING_LIMITS.phraseDeg)) { decision.facingRejected++; continue; }
+      const angle = Math.abs(wrapAngle(yaw + phrase.headings[0] - heading));
+      // Bound the rotation INTRODUCED by placement separately from authored twists.
+      // Larger entry changes require a different phrase, never a hidden 180° spin.
+      if (!fixture && this.current && degrees(angle) > HEADING_LIMITS.transitionHeadingDeltaDeg) { decision.angularRejected++; continue; }
+      const velocity = fixture || !this.current ? { maxYawSpeed: 0, maxQuaternionSpeed: 0 } : this.predictRotation(phrase, yaw);
+      decision.accepted++;
+      const rms = Math.sqrt(errors.reduce((sum, e) => sum + e * e, 0) / errors.length);
+      const score = fixture ? peak + end * 1.5 + angle * 0.045 : rms * 2 + exitFacing * 3 + angle * 0.3 + peak + end + boundaryRadius * 2;
+      if (!best || score < best.score) best = { yaw, score, maxFacingError, ...velocity };
     }
+    decision.selectedYawDeg = best ? degrees(wrapAngle(best.yaw)) : null;
+    decision.reason = best ? fixture ? "fixture-spatial-only" : "spatial-facing-angular-compatible" : decision.spatialRejected === decision.evaluated ? "stage-radius" : decision.angularRejected ? "transition-heading-delta" : decision.facingRejected ? "phrase-facing" : "continuation-space";
+    this.placementDecisions.set(id, decision);
     return best;
+  }
+  private rootRotation(p: Playback, beat: number) {
+    return new T.Quaternion().fromArray(p.phrase.rotations[0].evaluate(this.time(p, beat))).premultiply(new T.Quaternion().setFromAxisAngle(Y, p.yaw));
+  }
+  private headingBlendDuration(phrase: PreparedPhrase, yaw: number) {
+    if (phrase.spec.role === "fixture") return this.blendBeats;
+    const delta = degrees(Math.abs(wrapAngle(yaw + phrase.headings[0] - rootYaw(this.pose.rotations[0]))));
+    // Only root quaternion may outlast requested pose/XZ fade. This bounds the
+    // entry-offset contribution, NOT the authored source twist velocity. Reserve
+    // 180 BPM so changing tempo within the supported UI range cannot reset it.
+    return Math.max(this.blendBeats, 1.5 * delta / HEADING_LIMITS.transitionAddedYawDegPerSecond * Math.max(180, this.bpm) / 60);
+  }
+  private predictRotation(phrase: PreparedPhrase, yaw: number) {
+    // Reserve the full supported UI tempo range, including a BPM change mid-fade.
+    const duration = Math.max(this.headingBlendDuration(phrase, yaw), 1e-6), seconds = duration * 60 / Math.max(180, this.bpm);
+    const steps = Math.max(16, Math.ceil(seconds * 240));
+    const incoming = { phrase, yaw, offset: this.pose.root, startBeat: this.latestBeat };
+    let previous = this.pose.rotations[0], maxYawSpeed = 0, maxQuaternionSpeed = 0;
+    for (let i = 1; i <= steps; i++) {
+      const beat = this.latestBeat + duration * i / steps;
+      const outgoing = this.blend || !this.current ? this.pose.rotations[0].clone() : this.rootRotation(this.current, beat);
+      const q = outgoing.slerp(this.rootRotation(incoming, beat), smooth(i / steps));
+      maxYawSpeed = Math.max(maxYawSpeed, degrees(Math.abs(wrapAngle(rootYaw(q) - rootYaw(previous)))) / (seconds / steps));
+      maxQuaternionSpeed = Math.max(maxQuaternionSpeed, degrees(previous.angleTo(q)) / (seconds / steps)); previous = q;
+    }
+    return { maxYawSpeed, maxQuaternionSpeed };
   }
   start(id: string, beat = 0) {
     this.latestBeat = beat; this.pose.root.set(0, 0, 0);
     this.current = null; this.blend = null; this.pending = null; this.history.length = 0;
+    this.lastRecord = null;
     this.pathLength = 0; this.maxRadius = 0; this.maxFrameStep = 0; this.rejectedRequests = 0;
+    this.pose.rotations = this.rig.bones.map(() => new T.Quaternion());
+    this.orientationBeat = null; this.continuousHeading = 0; this.maxFacingDeviationDeg = 0;
+    this.maxTransitionYawDegPerSecond = 0; this.maxTransitionQuaternionDegPerSecond = 0; this.placementDecisions.clear();
     if (!this.commit(id, beat, beat, "FREE", true)) throw new Error("Phrase không vừa vùng sân.");
     this.update(beat); this.startedAt.copy(this.pose.root); this.previousRoot.copy(this.pose.root);
   }
@@ -200,43 +273,69 @@ export class SourceFlowEngine {
     const phrase = this.phrases.get(id); const place = this.placement(id);
     if (!phrase || !place) { this.rejectedRequests++; return false; }
     const before = clonePose(this.pose), previous = this.current;
-    if (this.lastRecord && this.blend && !this.lastRecord.afterBlend) this.lastRecord.interrupted = true;
+    if (this.lastRecord && this.blend) this.lastRecord.interrupted = true;
     const from = this.blend ? before : previous;
     this.current = { phrase, startBeat: beat, offset: before.root.clone(), yaw: place.yaw };
-    this.blend = initial || !from ? null : { from, startBeat: beat, durationBeats: this.blendBeats };
+    this.blend = initial || !from ? null : { from, startBeat: beat, durationBeats: this.blendBeats, headingDurationBeats: this.headingBlendDuration(phrase, place.yaw) };
     const entry = this.sample(this.current, beat);
     const record: TransitionRecord = {
       a: previous?.phrase.spec.id ?? null, b: id, source: phrase.spec.source,
       phrase: [phrase.spec.start, phrase.spec.end], group: phrase.spec.group,
       requestedBeat, visualStartBeat: beat, delayBeats: beat - requestedBeat, policy,
       blendBeats: this.blend?.durationBeats ?? 0, blendSeconds: (this.blend?.durationBeats ?? 0) * 60 / this.bpm,
+      headingBlendBeats: this.blend?.headingDurationBeats ?? 0,
       entryDisplacement: Math.hypot(entry.root.x - before.root.x, entry.root.z - before.root.z),
       before: before.root.toArray(), after: initial ? entry.root.toArray() : before.root.toArray(),
       stageAnchor: this.stageAnchor.position.toArray(), yaw: place.yaw, loopSeamWarning: null,
+      orientation: { outgoingHeadingDeg: degrees(rootYaw(before.rotations[0])), incomingHeadingDeg: degrees(rootYaw(entry.rotations[0])), headingDeltaDeg: degrees(wrapAngle(rootYaw(entry.rotations[0]) - rootYaw(before.rotations[0]))), desiredHeadingDeg: degrees(this.desiredHeading), maxPhraseFacingErrorDeg: place.maxFacingError, predictedMaxYawDegPerSecond: place.maxYawSpeed, predictedMaxQuaternionDegPerSecond: place.maxQuaternionSpeed, measuredMaxYawDegPerSecond: 0, measuredMaxQuaternionDegPerSecond: 0, policy: phrase.spec.role === "fixture" ? "fixture-spatial-only" : "audience-biased" },
     };
     this.history.push(record); this.lastRecord = record;
     this.apply(initial ? entry : before); return true;
   }
   update(beat: number) {
     if (!this.current) return;
+    if (this.pending && beat >= this.pending.dueBeat - 1e-7) {
+      const request = this.pending; this.pending = null;
+      // Evaluate the actual displayed blend at recovery before committing, not
+      // the unblended outgoing clip or a pose from the later catch-up frame.
+      this.update(request.dueBeat);
+      this.commit(request.id, request.dueBeat, request.requestedBeat, request.policy);
+    }
     this.latestBeat = beat;
+    const transitioning = Boolean(this.blend);
     let pose = this.sample(this.current, beat);
     if (this.blend) {
       const alpha = (beat - this.blend.startBeat) / this.blend.durationBeats;
       const from = "phrase" in this.blend.from ? this.sample(this.blend.from, beat) : this.blend.from;
-      pose = interpolate(from, pose, smooth(alpha));
-      if (alpha >= 1) {
-        if (this.lastRecord) { this.lastRecord.afterBlend = pose.root.toArray(); this.lastRecord.fadeTravelXZ = Math.hypot(pose.root.x - this.lastRecord.before[0], pose.root.z - this.lastRecord.before[2]); }
-        this.blend = null;
-      }
+      const headingAlpha = (beat - this.blend.startBeat) / this.blend.headingDurationBeats;
+      const rootRotation = from.rotations[0].clone().slerp(pose.rotations[0], smooth(headingAlpha));
+      pose = interpolate(from, pose, smooth(alpha)); pose.rotations[0] = rootRotation;
+      if (alpha >= 1 && this.lastRecord && !this.lastRecord.afterBlend) { this.lastRecord.afterBlend = pose.root.toArray(); this.lastRecord.fadeTravelXZ = Math.hypot(pose.root.x - this.lastRecord.before[0], pose.root.z - this.lastRecord.before[2]); }
+      if (alpha >= 1 && headingAlpha >= 1) this.blend = null;
     }
     this.apply(pose);
-    if (this.pending && beat >= this.pending.dueBeat - 1e-7) {
-      const request = this.pending; this.pending = null;
-      // Evaluate the outgoing path at its recorded exit, even after a dropped frame.
-      this.apply(this.sample(this.current, request.dueBeat));
-      if (this.commit(request.id, request.dueBeat, request.requestedBeat, request.policy)) this.update(beat);
+    this.observeOrientation(beat, transitioning);
+  }
+  private observeOrientation(beat: number, transitioning: boolean) {
+    const heading = rootYaw(this.pose.rotations[0]);
+    this.maxFacingDeviationDeg = Math.max(this.maxFacingDeviationDeg, degrees(Math.abs(wrapAngle(heading - this.desiredHeading))));
+    if (this.orientationBeat === null) this.continuousHeading = heading;
+    else if (beat > this.orientationBeat + 1e-9) {
+      const delta = wrapAngle(heading - rootYaw(this.orientationQuaternion));
+      this.continuousHeading += delta;
+      if (transitioning) {
+        const dt = (beat - this.orientationBeat) * 60 / this.bpm;
+        const yawSpeed = degrees(Math.abs(delta)) / dt;
+        const quaternionSpeed = degrees(this.orientationQuaternion.angleTo(this.pose.rotations[0])) / dt;
+        this.maxTransitionYawDegPerSecond = Math.max(this.maxTransitionYawDegPerSecond, yawSpeed);
+        this.maxTransitionQuaternionDegPerSecond = Math.max(this.maxTransitionQuaternionDegPerSecond, quaternionSpeed);
+        if (this.lastRecord) {
+          this.lastRecord.orientation.measuredMaxYawDegPerSecond = Math.max(this.lastRecord.orientation.measuredMaxYawDegPerSecond, yawSpeed);
+          this.lastRecord.orientation.measuredMaxQuaternionDegPerSecond = Math.max(this.lastRecord.orientation.measuredMaxQuaternionDegPerSecond, quaternionSpeed);
+        }
+      }
     }
+    this.orientationBeat = beat; this.orientationQuaternion.copy(this.pose.rotations[0]);
   }
   private apply(pose: Pose) {
     const step = Math.hypot(pose.root.x - this.pose.root.x, pose.root.z - this.pose.root.z);
@@ -262,6 +361,18 @@ export class SourceFlowEngine {
       heldAtEnd: Boolean(current && time >= current.phrase.duration),
       loopSeamWarning: null, rejectedRequests: this.rejectedRequests,
       transitionCount: Math.max(0, this.history.length - 1),
+      orientation: {
+        calibration: this.forwardCalibration, headingWrappedDeg: degrees(rootYaw(this.pose.rotations[0])),
+        headingUnwrappedSampledDeg: degrees(this.continuousHeading), desiredHeadingDeg: degrees(this.desiredHeading),
+        facingErrorDeg: degrees(wrapAngle(rootYaw(this.pose.rotations[0]) - this.desiredHeading)),
+        maxFacingDeviationDeg: this.maxFacingDeviationDeg,
+        maxTransitionYawDegPerSecond: this.maxTransitionYawDegPerSecond,
+        maxTransitionQuaternionDegPerSecond: this.maxTransitionQuaternionDegPerSecond,
+        sourceYawRangeUnwrappedDeg: current ? [degrees(Math.min(...current.phrase.headings)), degrees(Math.max(...current.phrase.headings))] : null,
+        policy: current?.phrase.spec.role === "fixture" ? "fixture-spatial-only" : "audience-biased",
+        placementDecisions: [...this.placementDecisions.values()], predictionBudgetBpm: Math.max(180, this.bpm),
+        headingBlendProgress: this.blend ? clamp((this.latestBeat - this.blend.startBeat) / this.blend.headingDurationBeats, 0, 1) : 1,
+      },
     };
   }
 }
