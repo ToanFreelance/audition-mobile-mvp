@@ -3,104 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { makeOldBrick, makeGraffitiWall, makeAsphalt, makePaint, makeBackboardPatina, installAmbientIvy } from "./stage-look";
 
 type CameraMode = "front" | "angle" | "wide";
-type CourtBuild = { root: THREE.Group; markers: THREE.Group };
-
-function makeCanvasTexture(draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void, w: number, h: number) {
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("2D texture canvas unavailable");
-  draw(ctx, w, h);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
-  return texture;
-}
-
-function brickTexture() {
-  return makeCanvasTexture((ctx, w, h) => {
-    ctx.fillStyle = "#c8a58e";
-    ctx.fillRect(0, 0, w, h);
-    const bw = 110;
-    const bh = 41;
-    for (let row = 0; row < Math.ceil(h / bh); row += 1) {
-      const shift = row % 2 ? bw / 2 : 0;
-      for (let x = -bw; x < w + bw; x += bw) {
-        const px = x + shift + 3;
-        const py = row * bh + 3;
-        const seed = Math.abs(Math.sin((row + 11) * 91.1 + x * 0.073));
-        const r = Math.round(148 + seed * 40);
-        const g = Math.round(62 + seed * 42);
-        const b = Math.round(44 + seed * 30);
-        ctx.fillStyle = "rgb(" + r + "," + g + "," + b + ")";
-        ctx.fillRect(px, py, bw - 5, bh - 5);
-        ctx.fillStyle = "rgba(245,220,198,0.13)";
-        ctx.fillRect(px + 5, py + 5, bw - 15, 2);
-        ctx.fillStyle = "rgba(58,31,31,0.12)";
-        ctx.fillRect(px + 3, py + bh - 11, bw - 11, 3);
-        if (seed > 0.84) {
-          ctx.fillStyle = "rgba(242,221,196,0.34)";
-          ctx.fillRect(px + 7, py + 6, 24 + seed * 27, 10);
-        }
-      }
-    }
-    for (let i = 0; i < 330; i += 1) {
-      const px = (Math.sin(i * 5.82) * 0.5 + 0.5) * w;
-      const py = (Math.cos(i * 13.4) * 0.5 + 0.5) * h;
-      ctx.fillStyle = i % 2 ? "rgba(40,27,20,0.13)" : "rgba(255,239,215,0.18)";
-      ctx.fillRect(px, py, (i % 8) + 2, (i % 4) + 2);
-    }
-  }, 1024, 512);
-}
-
-function graffitiTexture() {
-  return makeCanvasTexture((ctx, w, h) => {
-    ctx.clearRect(0, 0, w, h);
-    const inks = ["#8c30f9", "#f13ea7", "#24cff6", "#ff953c", "#c4a2ff", "#1c1435"];
-    for (let i = 0; i < 68; i += 1) {
-      const x = ((i * 137.8) % w);
-      const y = ((i * 71.7) % h);
-      ctx.beginPath();
-      ctx.ellipse(x, y, 20 + (i % 9) * 16, 9 + (i % 6) * 11, i * 0.19, 0, Math.PI * 2);
-      ctx.fillStyle = inks[i % inks.length] + "99";
-      ctx.fill();
-    }
-    ctx.save();
-    ctx.translate(w * 0.5, h * 0.61);
-    ctx.rotate(-0.045);
-    ctx.textAlign = "center";
-    ctx.lineJoin = "round";
-    ctx.font = "italic 900 198px Impact, Arial Black, sans-serif";
-    ctx.strokeStyle = "#171125";
-    ctx.lineWidth = 35;
-    ctx.strokeText("STREET DANCE", 0, 0, w * 0.89);
-    ctx.strokeStyle = "#fbeef9";
-    ctx.lineWidth = 15;
-    ctx.strokeText("STREET DANCE", 0, 0, w * 0.89);
-    const gradient = ctx.createLinearGradient(-480, -90, 420, 90);
-    gradient.addColorStop(0, "#ad83ff");
-    gradient.addColorStop(0.45, "#e5c5ff");
-    gradient.addColorStop(0.7, "#58dbff");
-    gradient.addColorStop(1, "#fe77b5");
-    ctx.fillStyle = gradient;
-    ctx.fillText("STREET DANCE", 0, 0, w * 0.89);
-    ctx.restore();
-    for (let i = 0; i < 35; i += 1) {
-      const x = (i * 223) % w;
-      const y = 35 + ((i * 127) % (h - 65));
-      ctx.strokeStyle = inks[(i + 1) % inks.length];
-      ctx.lineWidth = 3 + (i % 4) * 2;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + 21 + (i % 8) * 10, y - 21);
-      ctx.lineTo(x + 8, y + 20);
-      ctx.stroke();
-    }
-  }, 2048, 512);
-}
+type CourtBuild = { root: THREE.Group; markers: THREE.Group; animate: (seconds: number, enabled: boolean) => void };
 
 function buildCourt(): CourtBuild {
   const root = new THREE.Group();
@@ -127,14 +33,15 @@ function buildCourt(): CourtBuild {
     return mesh;
   };
   const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(31, 31), material(0x344d6c));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(31, 31), new THREE.MeshStandardMaterial({ map: makeAsphalt(), roughness: 0.99 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, -0.07, 0);
   floor.name = "FlatCourtFloor";
   root.add(floor);
-  box("TerracottaKey", 0, -0.021, -2.9, 9.6, 0.035, 13.1, 0xc85c37);
-  box("PaintedBackKey", 0, -0.019, -8.9, 9.6, 0.032, 1.1, 0xb74f33);
-  const chalk = 0xf8e5b0;
+  const weatheredOrange = new THREE.MeshStandardMaterial({ map: makePaint(), roughness: 0.98 });
+  box("TerracottaKey", 0, -0.021, -2.9, 9.6, 0.035, 13.1, 0xc85c37).material = weatheredOrange;
+  box("PaintedBackKey", 0, -0.019, -8.9, 9.6, 0.032, 1.1, 0xb74f33).material = weatheredOrange;
+  const chalk = 0xe4d6b7;
   const stripe = (x: number, z: number, width: number, depth: number) => box("CourtMark", x, 0.015, z, width, 0.015, depth, chalk);
   stripe(-4.8, -2.9, 0.11, 13.1);
   stripe(4.8, -2.9, 0.11, 13.1);
@@ -157,7 +64,7 @@ function buildCourt(): CourtBuild {
   stripe(-12.9, 6.1, 0.1, 23);
   stripe(12.9, 6.1, 0.1, 23);
   // Building faces are real extruded volumes, not a skybox image.
-  const brick = brickTexture();
+  const brick = makeOldBrick();
   const brickFace = new THREE.MeshStandardMaterial({ map: brick, roughness: 0.99 });
   const building = new THREE.Mesh(new THREE.BoxGeometry(29, 14, 3.1), brickFace);
   building.name = "RedBrickApartmentBuilding";
@@ -165,10 +72,10 @@ function buildCourt(): CourtBuild {
   root.add(building);
   box("LeftAlleyBlock", -16.8, 7.8, -13.9, 6.4, 15.5, 7, 0xbaa68c);
   box("RightAlleyBlock", 16.8, 8.8, -13.9, 6.4, 17.5, 7, 0xc77b62);
-  box("RearWallConcrete", 0, 2.25, -10.55, 30, 4.65, 0.7, 0xa98a75);
+  box("RearWallConcrete", 0, 2.25, -10.55, 30, 4.65, 0.7, 0xa98a75).material = brickFace;
   const graffiti = new THREE.Mesh(
     new THREE.PlaneGeometry(29.7, 3.8),
-    new THREE.MeshBasicMaterial({ map: graffitiTexture(), transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshStandardMaterial({ map: makeGraffitiWall(), roughness: 0.97, side: THREE.DoubleSide }),
   );
   graffiti.position.set(0, 2.0, -10.178);
   graffiti.name = "GraffitiMuralTextureOnWall";
@@ -210,6 +117,10 @@ function buildCourt(): CourtBuild {
     const t = i / 7;
     beam("DiagonalStairBaluster", v(11.0 - t * 4.7, 7.15 + t * 3.18, -10.13), v(11.0 - t * 4.7, 8.0 + t * 3.18, -10.13), 0.03, iron);
   }
+  // Patinated metal softens the prototype fire escape material.
+  const metal = new THREE.MeshStandardMaterial({ color: 0x35485c, metalness: 0.58, roughness: 0.58 });
+  const rawIron = material(iron);
+  root.traverse(node => { if (node instanceof THREE.Mesh && node.material === rawIron) node.material = metal; });
   // Basket board faces the playable court.
   beam("BasketPole", v(0, 0.01, -9.3), v(0, 5.5, -9.3), 0.14, 0x657682);
   beam("BasketArm", v(0, 5.35, -9.3), v(0, 5.15, -8.52), 0.12, 0x657682);
@@ -218,15 +129,30 @@ function buildCourt(): CourtBuild {
   box("BasketBackboardBoxTop", 0, 4.84, -8.34, 0.81, 0.055, 0.055, 0xee7d35);
   box("BasketBackboardBoxLeft", -0.395, 4.60, -8.34, 0.055, 0.54, 0.055, 0xee7d35);
   box("BasketBackboardBoxRight", 0.395, 4.60, -8.34, 0.055, 0.54, 0.055, 0xee7d35);
+  const backboardPatina = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.66), new THREE.MeshBasicMaterial({ map: makeBackboardPatina(), transparent: true, depthWrite: false }));
+  backboardPatina.name = "SubtleBackboardPaintWeather";
+  backboardPatina.position.set(0, 4.95, -8.336);
+  root.add(backboardPatina);
   const rim = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.05, 7, 28), material(0xea6c22));
   rim.rotation.x = Math.PI / 2;
   rim.position.set(0, 4.13, -7.78);
   rim.name = "BasketballRim";
   root.add(rim);
+  const net = new THREE.Group();
+  net.name = "AmbientHoopNetPivot";
+  net.position.set(0, 4.11, -7.78);
+  root.add(net);
   for (let i = 0; i < 12; i += 1) {
     const a = Math.PI * 2 * i / 12;
     const b = Math.PI * 2 * (i + 1) / 12;
-    beam("HoopNetThread", v(Math.cos(a) * 0.46, 4.11, -7.78 + Math.sin(a) * 0.46), v(Math.cos(b) * 0.29, 3.46, -7.78 + Math.sin(b) * 0.29), 0.014, 0xf6efe2);
+    const thread = beam(
+      "HoopNetThread",
+      v(Math.cos(a) * 0.46, 0, Math.sin(a) * 0.46),
+      v(Math.cos(b) * 0.29, -0.65, Math.sin(b) * 0.29),
+      0.014, 0xe6e1d9,
+    );
+    root.remove(thread);
+    net.add(thread);
   }
   const markers = new THREE.Group();
   markers.name = "FiveDancerPositionGuide";
@@ -247,7 +173,7 @@ function buildCourt(): CourtBuild {
   }
   markers.visible = false;
   root.add(markers);
-  return { root, markers };
+  return { root, markers, animate: installAmbientIvy(root, net) };
 }
 
 function disposeScene(root: THREE.Group) {
@@ -281,6 +207,8 @@ export default function BasketballStagePrototypePage() {
   const markersRef = useRef<THREE.Group | null>(null);
   const [mode, setMode] = useState<CameraMode>("front");
   const [showMarkers, setShowMarkers] = useState(false);
+  const [ambientEnabled, setAmbientEnabled] = useState(true);
+  const ambientRef = useRef(true);
   const [error, setError] = useState("");
   useEffect(() => {
     const target = host.current;
@@ -295,7 +223,7 @@ export default function BasketballStagePrototypePage() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.35));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.45;
+    renderer.toneMappingExposure = 1.22;
     target.appendChild(renderer.domElement);
     renderer.domElement.style.display = "block";
     renderer.domElement.style.width = "100%";
@@ -304,8 +232,8 @@ export default function BasketballStagePrototypePage() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x98cdf0);
     scene.fog = new THREE.Fog(0x98cdf0, 39, 95);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x7c7c9a, 2.5));
-    const sun = new THREE.DirectionalLight(0xffedd8, 2.3);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8798b6, 1.85));
+    const sun = new THREE.DirectionalLight(0xffefdf, 2.1);
     sun.position.set(-10, 19, 15);
     scene.add(sun);
     let built: CourtBuild;
@@ -318,6 +246,10 @@ export default function BasketballStagePrototypePage() {
       return;
     }
     scene.add(built.root);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      ambientRef.current = false;
+      setAmbientEnabled(false);
+    }
     markersRef.current = built.markers;
     built.markers.visible = showMarkers;
     const camera = new THREE.PerspectiveCamera(47, 1, 0.1, 130);
@@ -345,12 +277,16 @@ export default function BasketballStagePrototypePage() {
     observer.observe(target);
     resize();
     let raf = 0;
-    const frame = () => {
-      controls.update();
-      renderer.render(scene, camera);
+    const startTime = performance.now();
+    const frame = (time: number) => {
+      if (!document.hidden) {
+        built.animate((time - startTime) / 1000, ambientRef.current);
+        controls.update();
+        renderer.render(scene, camera);
+      }
       raf = window.requestAnimationFrame(frame);
     };
-    frame();
+    frame(startTime);
     return () => {
       window.cancelAnimationFrame(raf);
       observer.disconnect();
@@ -368,6 +304,7 @@ export default function BasketballStagePrototypePage() {
   useEffect(() => {
     if (markersRef.current) markersRef.current.visible = showMarkers;
   }, [showMarkers]);
+  useEffect(() => { ambientRef.current = ambientEnabled; }, [ambientEnabled]);
   useEffect(() => {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
@@ -401,6 +338,9 @@ export default function BasketballStagePrototypePage() {
           ))}
           <button onClick={() => setShowMarkers(value => !value)} aria-pressed={showMarkers} style={{ border: "1px solid rgba(255,255,255,.38)", borderRadius: 22, background: showMarkers ? "#91edee" : "rgba(16,31,49,.86)", color: showMarkers ? "#172b3b" : "#fff", padding: "10px 13px", fontWeight: 700, fontSize: 12 }}>
             {showMarkers ? "Ẩn 5 vị trí" : "Hiện 5 vị trí"}
+          </button>
+          <button onClick={() => setAmbientEnabled(value => !value)} aria-pressed={ambientEnabled} style={{ border: "1px solid rgba(255,255,255,.38)", borderRadius: 22, background: ambientEnabled ? "#91edee" : "rgba(16,31,49,.86)", color: ambientEnabled ? "#172b3b" : "#fff", padding: "10px 13px", fontWeight: 700, fontSize: 12 }}>
+            {ambientEnabled ? "Chuyển động: Bật" : "Chuyển động: Tắt"}
           </button>
         </div>
       </footer>
