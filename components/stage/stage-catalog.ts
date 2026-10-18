@@ -1,6 +1,7 @@
 export const STAGE_CATALOG_IDS = [
   "bright-stage-v1",
   "neon-stage-v1",
+  "basketball-court-v1",
   "football-field-v1",
   "classroom-v1",
   "cafe-v1",
@@ -11,6 +12,7 @@ export const STAGE_CATALOG_IDS = [
 export const STAGE_RUNTIME_ASSET_IDS = [
   "bright-stage-v1",
   "neon-stage-v1",
+  "basketball-court-v1",
   "performance-stage-v1",
   "neon-club-v3",
 ] as const;
@@ -18,6 +20,7 @@ export const STAGE_RUNTIME_ASSET_IDS = [
 export const STAGE_PRESENTATION_PROFILE_IDS = [
   "bright-stage-v1",
   "neon-stage-v1",
+  "basketball-court-v1",
   "performance-stage-v1",
   "neon-club-v3",
 ] as const;
@@ -61,8 +64,17 @@ export const STAGE_CATALOG: Readonly<Record<StageCatalogId, StageCatalogEntry>> 
     kind: "stage",
     runtimeAssetId: "neon-stage-v1",
     presentationProfileId: "neon-stage-v1",
-    selectable: false,
-    status: "planned",
+    selectable: true,
+    status: "active",
+  },
+  "basketball-court-v1": {
+    id: "basketball-court-v1",
+    displayName: "Basketball Court",
+    kind: "sports",
+    runtimeAssetId: "basketball-court-v1",
+    presentationProfileId: "basketball-court-v1",
+    selectable: true,
+    status: "active",
   },
   "football-field-v1": {
     id: "football-field-v1",
