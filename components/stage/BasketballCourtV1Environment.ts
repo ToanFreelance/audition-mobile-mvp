@@ -83,16 +83,33 @@ function buildCourt(): CourtBuild {
   stripe(0, -9.35, 9.7, 0.12);
   // Actual FIBA free-throw line spans 3.60 m, not the full 4.90 m lane.
   stripe(0, freeThrowZ, freeThrowDiameter, courtLineRadius * 2);
-  const arc = (name: string, x: number, z: number, radius: number, start: number, angle: number, thickness = 0.064) => {
-    const points: THREE.Vector3[] = [];
-    for (let i = 0; i <= 100; i += 1) {
-      const a = start + angle * i / 100;
-      points.push(v(x + Math.cos(a) * radius, 0.045, z + Math.sin(a) * radius));
+  // Court markings are PAINT at floor level, not raised cylinders. The lab
+  // previously used TubeGeometry with a raised center, producing floating
+  // segmented "pipes" in the physical-iPhone Stage3D capture.
+  const courtPaintMaterial = new THREE.MeshBasicMaterial({
+    color: chalk, side: THREE.DoubleSide, toneMapped: false,
+  });
+  const arc = (name: string, x: number, z: number, radius: number, start: number, angle: number, halfWidth = 0.064) => {
+    const segments = Math.max(2, Math.ceil(Math.abs(angle) / Math.PI * 120));
+    const vertices: number[] = [];
+    const indices: number[] = [];
+    for (let i = 0; i <= segments; i++) {
+      const a = start + angle * i / segments;
+      const cos = Math.cos(a), sin = Math.sin(a);
+      vertices.push(x + cos * (radius - halfWidth), 0.028, z + sin * (radius - halfWidth));
+      vertices.push(x + cos * (radius + halfWidth), 0.028, z + sin * (radius + halfWidth));
+      if (i < segments) {
+        const j = i * 2;
+        indices.push(j, j + 1, j + 2, j + 1, j + 3, j + 2);
+      }
     }
-    const curve = new THREE.CatmullRomCurve3(points);
-    const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 100, thickness, 4, false), material(chalk));
-    mesh.name = name;
-    root.add(mesh);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    const mark = new THREE.Mesh(geometry, courtPaintMaterial);
+    mark.name = name;
+    root.add(mark);
   };
   // Outline of the orange graphic apron is decorative, not a second
   // free-throw circle. The actual free-throw circle is the two matched
@@ -177,8 +194,12 @@ function buildCourt(): CourtBuild {
   const metal = new THREE.MeshStandardMaterial({ color: 0x35485c, metalness: 0.58, roughness: 0.58 });
   const rawIron = material(iron);
   root.traverse(node => { if (node instanceof THREE.Mesh && node.material === rawIron) node.material = metal; });
-  // Basket board faces the playable court.
-  beam("BasketPole", v(0, 0.01, -9.3), v(0, 5.5, -9.3), 0.14, 0x657682);
+  // The stage is calibrated against a FIBA 4.90 m restricted-area width.
+  // At that same scale, a regulation 3.05 m hoop is ~5.98 scene units high.
+  // The accepted lab rim was authored at 4.13, too near the 3.4-unit actor.
+  // Lift the basket assembly without scaling characters or moving the floor.
+  const hoopElevation = 3.05 * sceneUnitsPerMeter - 4.13;
+  beam("BasketPole", v(0, 0.01, -9.3), v(0, 5.5 + hoopElevation, -9.3), 0.14, 0x657682);
   beam("BasketArm", v(0, 5.35, -9.3), v(0, 5.15, -8.52), 0.12, 0x657682);
   // The previous white rectangle disappeared into the beige wall on iPhone.
   // A back-facing solid slab, broad orange perimeter and curved fiberglass face
@@ -251,6 +272,20 @@ function buildCourt(): CourtBuild {
     );
     root.remove(thread);
     net.add(thread);
+  }
+  // Move board, targets, metal bracket, rim and attached net as a single
+  // assembly. The pole alone remains anchored to the actual court surface.
+  const basketAssembly = new THREE.Group();
+  basketAssembly.name = "RegulationHeightBasketAssembly";
+  basketAssembly.position.y = hoopElevation;
+  root.add(basketAssembly);
+  for (const object of [...root.children]) {
+    if (object === basketAssembly || object.name === "BasketPole") continue;
+    if (object.name.startsWith("Basket")
+      || object.name === "SubtleBackboardPatina"
+      || object.name === "AmbientHoopNetPivot") {
+      basketAssembly.add(object);
+    }
   }
   return { root, animate: installAmbientIvy(root, net) };
 }
