@@ -63,5 +63,20 @@ export class GameplayPreview {
     this.timeMs = now; this.runtime.advance();
   }
   snapshot() { return { reference: "shared-multiplayer-qa-loop", current: this.turns.at(-1) ?? null, runtime: this.runtime.snapshot(), turnCount: this.turns.length }; }
+  /** Resolve the shared REST interval using the actual manifest/helpers, not a
+   * fixed wall-clock delay or an independent five-turn planner. */
+  resumeBeatAfterFinish(absoluteTurn:number) {
+    if(!describeSharedTurn(this.manifest,absoluteTurn).isFinish)throw Error('Expected canonical Finish turn');
+    let next=absoluteTurn+1;
+    while(describeSharedTurn(this.manifest,next).roomRest)next++;
+    const {spaceStartMs,bpmExact}=this.manifest.gameplay;
+    return targetSpaceMs(spaceStartMs,bpmExact,next)*bpmExact/60000;
+  }
   audioEnd() { this.runtime.markAudioEnded(); }
+  finishWindow(absoluteTurn:number) {
+    const {spaceStartMs,bpmExact}=this.manifest.gameplay;
+    const requestedBeat=targetSpaceMs(spaceStartMs,bpmExact,absoluteTurn)*bpmExact/60000;
+    const resumeBeat=this.resumeBeatAfterFinish(absoluteTurn);
+    return {requestedBeat,resumeBeat,totalBeats:resumeBeat-requestedBeat};
+  }
 }
