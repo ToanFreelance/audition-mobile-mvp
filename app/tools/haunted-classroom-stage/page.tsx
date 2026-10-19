@@ -33,7 +33,7 @@ export default function HauntedClassroomStagePreview() {
           maxWidth: 245,
         }}>
           <div style={{fontSize:10,letterSpacing:1.4,color:"#cf9cff",fontWeight:700}}>AUDITION / STAGE LAB</div>
-          <strong style={{fontSize:15}}>👻 Haunted Classroom V10</strong>
+          <strong style={{fontSize:15}}>👻 Haunted Classroom V11</strong>
           <div style={{fontSize:11,opacity:.85,marginTop:3}}>Three.js · S2.5C · Chưa tích hợp chọn sân</div>
         </div>}
         <button type="button" onClick={() => setShowHelp(v => !v)}
