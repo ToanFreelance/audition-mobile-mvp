@@ -88,7 +88,7 @@ test("P4.6A owner iPhone formation: horizontal 1–3, 3+1 and 3+2 rows on all st
       }
       if (stageId === "neon-stage-v1" && count === 5) {
         // Increase previous +/-3.36 to +/-3.60 only for Neon 5.
-        expect(actual.map(a => a.x)).toEqual([-3.6, 0, 3.6, -1.98, 1.98]);
+        actual.forEach((actor, index) => expect(actor.x).toBeCloseTo([-3.6, 0, 3.6, -1.98, 1.98][index], 6));
         expect(Math.max(...actual.map(a => Math.abs(a.x)))).toBeCloseTo(3.6, 6);
         const unchangedFour = getEnsembleFormation(stageId, P.slice(0, 4));
         expect(unchangedFour[0].x).toBeCloseTo(-2.5 * 1.12, 6);
