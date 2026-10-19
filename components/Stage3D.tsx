@@ -250,7 +250,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = hauntedClassroomPresentation ? 1.46 : basketballPresentation ? 1.13 : neonPresentation ? 1.22 : 1.28;
+    renderer.toneMappingExposure = hauntedClassroomPresentation ? 1.40 : basketballPresentation ? 1.13 : neonPresentation ? 1.22 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
     const diagnostics = diagnosticsRef.current;
@@ -260,18 +260,18 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      hauntedClassroomPresentation ? 0xa8b7f7
+      hauntedClassroomPresentation ? 0xc6c5f7
         : basketballPresentation ? 0xfff6eb : neonPresentation ? 0x8f7add : 0xdceeff,
-      hauntedClassroomPresentation ? 0x2e1646
+      hauntedClassroomPresentation ? 0x584164
         : basketballPresentation ? 0x7890b1 : neonPresentation ? 0x360845 : 0x737b9c,
-      hauntedClassroomPresentation ? 1.32
+      hauntedClassroomPresentation ? 1.62
         : basketballPresentation ? 1.42 : neonPresentation ? 0.64 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      hauntedClassroomPresentation ? 0xb9beff
+      hauntedClassroomPresentation ? 0xeadcf7
         : basketballPresentation ? 0xfff0df : neonPresentation ? 0xeee3ff : 0xfff3ff,
-      hauntedClassroomPresentation ? 1.48
+      hauntedClassroomPresentation ? 1.52
         : basketballPresentation ? 1.82 : neonPresentation ? 0.98 : 3.0,
     );
     if (hauntedClassroomPresentation) key.position.set(-5, 10, 9);
@@ -291,6 +291,30 @@ export default function Stage3D({
       const warmRim = new THREE.DirectionalLight(0xffb2dd, 0.75);
       warmRim.position.set(4, 4, -3);
       scene.add(warmRim);
+    }
+
+    // Classroom-only performer readability rig. The dark-room scene itself
+    // keeps its eerie purple windows; an isolated frontal softbox makes skin,
+    // hair and clothes visible in both portrait gameplay and owner iPhone QA.
+    // No shadows, bloom pipeline, renderer or gameplay-clock changes.
+    // Intentionally skipped on the environment-only comparison.
+    if (hauntedClassroomPresentation && !hideCharacter) {
+      const actorSoftbox = new THREE.SpotLight(
+        0xfff0eb, 30, 22, Math.PI / 6, 0.86, 1.15,
+      );
+      actorSoftbox.name = "HauntedClassroomActorFrontSoftbox";
+      actorSoftbox.position.set(1.2, 8.5, 9.0);
+      actorSoftbox.target.position.set(0, 1.65, 0.0);
+      actorSoftbox.castShadow = false;
+      scene.add(actorSoftbox, actorSoftbox.target);
+      const actorRim = new THREE.SpotLight(
+        0xceb0ff, 18, 19, Math.PI / 5, 0.82, 1.30,
+      );
+      actorRim.name = "HauntedClassroomActorVioletRim";
+      actorRim.position.set(-4.5, 7.6, -5.5);
+      actorRim.target.position.set(0, 1.7, 0.0);
+      actorRim.castShadow = false;
+      scene.add(actorRim, actorRim.target);
     }
 
     const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
