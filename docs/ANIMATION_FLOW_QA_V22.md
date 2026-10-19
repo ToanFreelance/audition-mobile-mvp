@@ -52,4 +52,51 @@ npm run build
 
 ## Giới hạn và bàn giao
 
-Các candidate mới được xem bằng projection skeleton và dữ liệu, chưa đủ chứng minh contact/retarget. Sáu V2.1 có owner demo acceptance theo phản hồi, không đồng nghĩa mesh production PASS. Foot sliding/stance change, nhất là thế rộng Finish và Moonwalk, vẫn cần owner WebGL/iPhone. Chưa có nhạc thật, chưa có physical iPhone PASS. Video ghi sân kèm HUD, export schema4 ghi toàn turn/judgement/selection/animation. Bằng chứng browser và deployment được cập nhật sau build Preview READY.
+Các candidate mới được xem bằng projection skeleton và dữ liệu, chưa đủ chứng minh contact/retarget. Sáu V2.1 có owner demo acceptance theo phản hồi, không đồng nghĩa mesh production PASS. Foot sliding/stance change, nhất là thế rộng Finish và Moonwalk, vẫn cần owner WebGL/iPhone. Chưa có nhạc thật, chưa có physical iPhone PASS. Video ghi sân kèm HUD, export schema4 ghi toàn turn/judgement/selection/animation.
+
+## Browser/deployment — 19/10/2026
+
+Commit implementation `69140fd533ee9ff99791c52e7b4799fd69505b1b`, Vercel deployment `dpl_6Je5TovNX3Hjop9DZUWhfZqwJoDD` READY; alias nhánh trỏ đúng deployment này khi kiểm tra. PR #19 OPEN/Draft/unmerged. URL QA chính giữ nguyên:
+
+https://audition-mobile-mvp-git-work-an-ec325b-toan-freelances-projects.vercel.app/tools/animation-flow-qa-v2
+
+Cloud Chrome không có WebGL: app tự báo `canvas2d-projection`, hai tab mesh reference disabled. Đã chạy UI thật:
+
+- 160 BPM /0,35 beat /seed42: từ L1 qua Finish38/62 đến turn72; history hiện cả `finish-arm-accent` và `finish-spell`; REST vẫn giữ Finish. HUD max radius1,1248, entry0.
+- 120 BPM /1 beat /seed1004594315: qua hai Finish đến turn69; history có Finish→ordinary recovery; HUD max radius1,2835, entry0.
+- Replay Finish riêng 120 BPM /0,15 beat: normal→90_33 window5–6,35, giữ pose cuối; HUD radius0,2549, heading cuối−1,4°. Ảnh chụp đã lưu.
+- Free Lab /120 BPM /0,15 beat: SPACE tay được nhận, history có141-twist→120-mickey. Chỉ quan sát UI/projection, không kiểm contact hoặc rotation snapping bằng WebGL.
+
+Đã bấm ghi/dừng video và exportJSON của phiên160. Browser download API trả path nhưng tệp không tồn tại trong thư mục trao đổi sau khi chờ; **không tính là đã giao video/JSON browser**. Ảnh chụp lưu thành công. Gói QA có JSON từ test engine, contact sheet và video tái hiện offline từ pose canonical, gắn nhãn rõ KHÔNG phải quay browser/WebGL. Các số đo browser ở trên là HUD quan sát trực tiếp, không suy ra từ video tái hiện.
+
+### Catalog window được đưa vào demo
+
+| Phrase | BVH | Window giây | Group |
+|---|---|---|---|
+|111-groove|111_05|0,6–3|casual-groove|
+|141-twist|141_12|0,6–4,4|twist|
+|93-charleston|93_03|0,4–3,5|swing-footwork|
+|143-party|143_35|1–5|party-arms|
+|120-mickey|120_06|2,2–5,4|casual-groove|
+|85-upright|85_03|18–20|upright-break|
+|55-lambada|55_02|9,5–12,7|lateral-sway|
+|55-bear|55_12|9–12,2|bear-groove|
+|85-toprock|85_11|2–5,2|upright-break|
+|93-fancy|93_08|0,5–3,7|swing-footwork|
+|94-knee-open|94_03|6–9,2|open-knee|
+|94-diagonal|94_06|7,5–10,7|diagonal-step|
+|94-point|94_08|19,5–22,7|point-step|
+|94-pulse|94_16|11,5–14,7|squat-pulse|
+|143-chicken|143_34|1–4,2|chicken-arms|
+|90-glide|90_32|3–4,2|glide|
+|finish-arm-accent|90_33|5–6,35|Finish riêng|
+|finish-spell|120_03|1–2,4|Finish riêng|
+
+Không nhận thêm55_25/113_04/120_05/120_07 vì vocabulary gần phrase đã chọn; không dùng floor/inversion85/88/89/90 hoặc ballet05 để đủ quota. Các take94 chưa rõ style, không đặt tên hip-hop/shuffle khi thiếu cơ sở. Gói review ghi lý do loại/chờ review từng nhóm candidate; không kết luận toàn bộ take kém chất lượng.
+
+### Owner iPhone acceptance còn mở
+
+1. Bấm Start ở120 và160, xem ít nhất hai Finish; xác nhận38→rest39–42→L6turn43 và Finish62.
+2. Duyệt16 ordinary và hai Finish riêng: hình thể, contact chân, thế rộng, độ khác biệt vocabulary, cảm giác nhấn nhạc khi phải chờ exit.
+3. Thửfade0,15/0,35/1, SPACE tay, background/foreground; không teleport, reset-center hoặc đổi lịch turn.
+4. Chỉ nghiệm thu CMU demo ở đây. C1/C4 production retarget, FPS/nhiệt/iPhone và bài nhạc thật vẫn cần bài test riêng; không được suy ra PASS.
