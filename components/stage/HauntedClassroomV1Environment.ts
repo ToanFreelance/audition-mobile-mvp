@@ -4,7 +4,7 @@ import {
   makeOldPlaster, makeOldFloor, makeChalkboard,
   makeGhostWindow, makeSpeakerFace, makeSchoolPaper,
   makeClassroomFloorReflections, makeWindowShaft,
-  makeHauntedCeilingPanels, makeHauntedFloorRoughness,
+  makeHauntedCeilingPanels, makeHauntedFloorRoughness, makePassingWindowGhost,
 } from "./haunted-classroom-textures";
 
 /**
@@ -19,6 +19,11 @@ const STAGE_ID = "classroom-v1";
 const PI2 = Math.PI * 2;
 type Material = THREE.MeshBasicMaterial | THREE.MeshStandardMaterial;
 type AnimationPart = { object: THREE.Object3D; phase: number; kind: "curtain" | "candle" | "wisp" };
+type CurtainGeometryMotion = { geometry: THREE.BufferGeometry; base: Float32Array; phase: number };
+type PassingGhostMotion = {
+  mesh: THREE.Mesh; material: THREE.MeshBasicMaterial;
+  phase: number; width: number; direction: number;
+};
 const xyz=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
 
 function flatRing(parent: THREE.Group, x:number, z:number, radius:number, width:number,
@@ -61,8 +66,9 @@ export class HauntedClassroomV1Environment {
   private disposed=false;
   private loaded=false;
   private motions:AnimationPart[]=[];
+  private curtainGeometry: CurtainGeometryMotion[]=[];
+  private passingGhosts: PassingGhostMotion[]=[];
   private candleGlow:THREE.PointLight[]=[];
-  private initializedAt=0;
 
   constructor(){this.root.name="HauntedClassroomV1Environment";}
 
@@ -199,7 +205,14 @@ export class HauntedClassroomV1Environment {
     }
 
     // Windows in far wall to preserve the central chalkboard silhouette.
-    const skyMat=new THREE.MeshBasicMaterial({map:makeGhostWindow(),side:THREE.DoubleSide,toneMapped:false});
+    const skyMat=new THREE.MeshBasicMaterial({
+      map:makeGhostWindow(),color:0xc5acc8,
+      side:THREE.DoubleSide,toneMapped:false,
+    });
+    // One shared alpha map, separate opacity per ghost to avoid synchronizing
+    // all appearances or allocating textures during the animation update.
+    const passingGhostTexture=makePassingWindowGhost();
+    let ghostWindowIndex=0;
     const frameMat=mat(0x2c242e,.68,.13);
     const glass=new THREE.MeshBasicMaterial({color:0xd5d2fa,transparent:true,opacity:.065,depthWrite:false});
     const putWindow=(name:string,x:number,y:number,z:number,w:number,h:number,angle=0)=>{
@@ -208,6 +221,21 @@ export class HauntedClassroomV1Environment {
       // Units measured in the window plane's own coordinates.
       box("OldWindowFrame",0,0,0,w+.5,h+.45,.22,frameMat,windowGroup);
       plane("MoonlitGhostWindow",0,0,.12,w,h,skyMat,windowGroup);
+      if (name !== "SideHauntedWindow") {
+        const material = new THREE.MeshBasicMaterial({
+          map:passingGhostTexture,transparent:true,opacity:0,
+          depthWrite:false,side:THREE.DoubleSide,toneMapped:false,
+          color:0xb8c5de,
+        });
+        const specter = plane("OccasionalCrossingSpecter",0,-.22,.129,
+          Math.min(1.16,w*.42),Math.min(2.62,h*.60),material,windowGroup);
+        specter.visible=false;
+        const index=ghostWindowIndex++;
+        this.passingGhosts.push({
+          mesh:specter,material,phase:index*9.25+4.5,
+          width:w,direction:index%2===0?1:-1,
+        });
+      }
       plane("GlassyDust",0,0,.135,w,h,glass,windowGroup);
       for(const dx of [-w/2,0,w/2])box("DarkWoodMullion",dx,0,.17,.13,h,.13,frameMat,windowGroup);
       for(const dy of [-h/2,0,h/2])box("DarkWoodMullion",0,dy,.17,w,.10,.13,frameMat,windowGroup);
@@ -227,7 +255,7 @@ export class HauntedClassroomV1Environment {
         -side*.28);
     }
     const shaftMat=new THREE.MeshBasicMaterial({
-      map:makeWindowShaft(),transparent:true,opacity:.50,depthWrite:false,
+      map:makeWindowShaft(),transparent:true,opacity:.21,depthWrite:false,
       side:THREE.DoubleSide,blending:THREE.AdditiveBlending,
       toneMapped:false,
     });
