@@ -17,6 +17,8 @@ import {
 import { createStageEnvironment } from "./stage/stage-runtime";
 import { getStagePresentationCameraPose, getMatchStageCameraPose, selectMatchCameraStyle, type StageCameraPose } from "./stage/stageCamera";
 import type { PerformanceDiagnostics } from "./diagnostics/performance-diagnostics";
+import { EnsembleActorGroup } from "./ensemble/EnsembleActorGroup";
+import { getEnsembleCameraPose, type EnsembleParticipant } from "./ensemble/formation";
 
 const COLORS = { pink: 0xff4fd8, cyan: 0x62d8ff, violet: 0x8c7dff, floor: 0x130f28 };
 const MOBILE_DPR_CAP = 1.25;
@@ -177,6 +179,11 @@ type Stage3DProps = {
   hideCharacter?: boolean;
   /** Isolated classroom visual QA only; not multiplayer participants or game state. */
   previewActorCount?: number;
+  /** Frozen MatchManifest/QA roster; metadata updates never remount the scene. */
+  ensembleParticipants?: readonly EnsembleParticipant[];
+  ensembleLocalParticipantId?: string;
+  /** Expensive instrumentation is disabled for regular gameplay. */
+  ensembleDiagnostics?: boolean;
   fixedPresentationTimeSeconds?: number;
   performanceDiagnostics?: PerformanceDiagnostics | null;
   /** Multiplayer entry: avoid the four-second solo cinematic shot sequence. */
@@ -199,6 +206,9 @@ export default function Stage3D({
   visualCompareMode = false,
   hideCharacter = false,
   previewActorCount,
+  ensembleParticipants,
+  ensembleLocalParticipantId,
+  ensembleDiagnostics = false,
   fixedPresentationTimeSeconds,
   performanceDiagnostics,
   skipIntroCamera = false,
@@ -213,6 +223,13 @@ export default function Stage3D({
   const hauntedClassroomPresentation = stageEntry.presentationProfileId === "classroom-v1";
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
+  const ensembleGroupRef = useRef<EnsembleActorGroup | null>(null);
+  const ensembleParticipantsRef = useRef(ensembleParticipants);
+  const ensembleLocalIdRef = useRef(ensembleLocalParticipantId);
+  const ensembleSignature = ensembleParticipants?.map(p =>
+    `${p.participantId}:${p.slotIndex}:${p.characterAssetId}`).join("|") ?? "";
+  ensembleParticipantsRef.current = ensembleParticipants;
+  ensembleLocalIdRef.current = ensembleLocalParticipantId;
   const previewActorCountRef = useRef(previewActorCount);
   previewActorCountRef.current = previewActorCount;
   const cameraPresetRef = useRef(cameraPreset);
@@ -456,15 +473,17 @@ export default function Stage3D({
       ? characterAssetId
       : selectedCharacter.characterAssetId;
 
+    const ensembleEnabled = !hideCharacter && Boolean(ensembleParticipantsRef.current?.length);
+    let ensemble: EnsembleActorGroup | null = null;
     let character: CharacterActor | null = null;
     let characterSettled = hideCharacter;
     let qaActorModelReady = false;
     let qaLastActorCount = -1;
     const qaFormationCopies: THREE.Object3D[] = [];
-    const qaFormationEnabled = hauntedClassroomPresentation && previewActorCount !== undefined;
+    const qaFormationEnabled = !ensembleEnabled && hauntedClassroomPresentation && previewActorCount !== undefined;
     const qaCount = () => qaFormationEnabled
       ? Math.min(5,Math.max(0,Math.floor(previewActorCountRef.current ?? 0))) : 1;
-    if (!hideCharacter) {
+    if (!hideCharacter && !ensembleEnabled) {
       character = CharacterActor.fromAssetId(runtimeCharacterAssetId);
       diagnostics?.actorCreated();
       characterRef.current = character;
@@ -531,6 +550,37 @@ export default function Stage3D({
       host.dataset.qaVisibleActors = String(count);
       host.dataset.qaFormationMode = "visual-clones";
     };
+
+    if (ensembleEnabled) {
+      host.dataset.characterSource = "ensemble";
+      ensemble = new EnsembleActorGroup(stage, stageEntry.id, {
+        onActorCreate: () => diagnostics?.actorCreated(),
+        onActorDispose: () => diagnostics?.actorDisposed(),
+        afterLoad: neonPresentation ? applyNeonCharacterFill : undefined,
+        onChange: state => {
+          host.dataset.ensembleCount = String(state.expected);
+          host.dataset.ensembleLoadedCount = String(state.loaded);
+          host.dataset.ensembleState = JSON.stringify(state);
+          characterRef.current = ensemble?.getLocalActor() ?? null;
+          // Never make a remote actor's GLB load part of the local gameplay
+          // reveal gate. The shared WebAudio timeline must keep advancing.
+          // Diagnostics still expose each remote actor's independent state.
+          const localState = state.actors.find(
+            item => item.participantId === ensembleLocalIdRef.current,
+          );
+          characterSettled = localState?.state === "loaded";
+          if (localState?.state === "error") {
+            onPresentationFailureRef.current?.("Không thể tải nhân vật local.");
+          }
+        },
+      });
+      ensembleGroupRef.current = ensemble;
+      ensemble.reconcile(
+        ensembleParticipantsRef.current ?? [],
+        ensembleLocalIdRef.current ?? "",
+        isPlayingRef.current,
+      );
+    }
 
     const cameraTarget = (portrait: boolean) => {
       const frame = getCharacterCameraFrame(cameraPresetRef.current, portrait);
@@ -619,9 +669,12 @@ export default function Stage3D({
         && basketballPose.preset === "gameplay_portrait_locked"
         ? { ...basketballPose, ...getHauntedClassroomFrame(basketballPose, portrait) }
         : basketballPose;
-      const pose = visualCompareMode && neonPresentation
+      const stagePose = visualCompareMode && neonPresentation
         ? getNeonGoldenComparePose(neonPose)
         : classroomPose;
+      const pose = ensemble
+        ? getEnsembleCameraPose(stageEntry.id, portrait, ensemble.count, stagePose)
+        : stagePose;
       host.dataset.presentationCamera = pose.preset;
       if (qaFormationEnabled) {
         // iPhone QA instrumentation: confirms the camera pose remains exactly
@@ -662,7 +715,16 @@ export default function Stage3D({
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
       character?.update(delta, t, songTimeMs);
+      ensemble?.update(delta, t, songTimeMs);
       syncQaFormation();
+      if (ensemble && ensembleDiagnostics && Math.floor(t * 2) !== Math.floor((t - delta) * 2)) {
+        host.dataset.ensembleCamera = [
+          pose.fov, pose.x, pose.y, pose.z,
+          pose.targetX, pose.targetY, pose.targetZ,
+        ].map(value => value.toFixed(2)).join(":");
+        host.dataset.ensembleDrawCalls =
+          `${renderer.info.render.calls}/${renderer.info.render.triangles}`;
+      }
       if (stageEnvironment.root.visible) {
         stageEnvironment.setPresentationCamera(pose.preset);
         stageEnvironment.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
@@ -704,6 +766,9 @@ export default function Stage3D({
       for (const clone of qaFormationCopies) stage.remove(clone);
       qaFormationCopies.length = 0;
       character?.dispose();
+      ensemble?.dispose();
+      if (ensembleGroupRef.current === ensemble) ensembleGroupRef.current = null;
+      if (ensemble) characterRef.current = null;
       stageEnvironment.dispose();
       if (character && characterRef.current === character) characterRef.current = null;
       disposeObjectResources(scene);
@@ -716,11 +781,25 @@ export default function Stage3D({
     };
   }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, skipIntroCamera, cinematicMatchId]);
 
+  // No scene remount for an updated roster: reconcile only actor identities
+  // and asset revisions while retaining stage, renderer and camera.
+  useEffect(() => {
+    const group = ensembleGroupRef.current;
+    if (!group || !ensembleParticipantsRef.current?.length) return;
+    group.reconcile(
+      ensembleParticipantsRef.current,
+      ensembleLocalIdRef.current ?? "",
+      isPlayingRef.current,
+    );
+    characterRef.current = group.getLocalActor();
+  }, [ensembleSignature, ensembleLocalParticipantId, isPlaying]);
+
   return (
     <div
       ref={hostRef}
       className="stage-3d"
       data-camera-preset={cameraPreset}
+      data-ensemble-qa={ensembleDiagnostics ? "1" : undefined}
       data-preview-actor-count={hauntedClassroomPresentation && previewActorCount !== undefined ? Math.min(5,Math.max(0,previewActorCount)) : undefined}
       data-selected-stage-id={selectedStageId ?? DEFAULT_STAGE_ID}
       data-stage-catalog-id={selectedStageEntry.id}
