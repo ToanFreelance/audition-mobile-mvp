@@ -20,7 +20,9 @@ type QaTelemetry = { stage: string; stageFallback: string; stageError: string;
 
 export default function EnsembleQaPanel() {
   const [stageId, setStageId] = useState<StageCatalogId>("bright-stage-v1");
-  const [count, setCount] = useState(5);
+  // Load one real actor first; avoid spawning five heavy skinned meshes while
+  // owners are still selecting a stage on a mobile GPU.
+  const [count, setCount] = useState(1);
   const [telemetry, setTelemetry] = useState<QaTelemetry>({
     stage: "loading", stageFallback: "?", stageError: "",
     camera: "loading", renderer: "loading", actor: null,

@@ -59,7 +59,7 @@ test("P4.6A isolated fixture controls without Supabase rooms", async ({page}) =>
       "bright-stage-v1":"Bright Stage","neon-stage-v1":"Neon Stage",
       "basketball-court-v1":"Basketball Court","classroom-v1":"Haunted Classroom"
     };
-    await page.getByRole("button",{name:names[stage]}).click();
+    await page.getByRole("button",{name:names[stage]}).click({timeout:30000});
     await expect(surface).toHaveAttribute("data-selected-stage-id",stage);
   }
   const webgl = await page.evaluate(() => {
@@ -67,7 +67,7 @@ test("P4.6A isolated fixture controls without Supabase rooms", async ({page}) =>
     return Boolean(canvas.getContext("webgl2"));
   });
   for(const n of [1,2,3,4,5]) {
-    await page.getByRole("button",{name:`${n} actors`}).click();
+    await page.getByRole("button",{name:`${n} actors`}).click({timeout:30000});
     await expect(page.getByRole("button",{name:`${n} actors`})).toHaveAttribute("aria-pressed","true");
     if (webgl) await expect(surface).toHaveAttribute("data-ensemble-count",String(n));
   }

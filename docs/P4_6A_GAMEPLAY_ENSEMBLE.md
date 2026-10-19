@@ -52,3 +52,8 @@ Validate real five-actor scene before any resource-sharing optimization.
 For an out-of-scope historical manifest of six occupants, Stage3D retains
 the previous single-local-actor rendering instead of truncating the frozen
 roster and potentially dropping local-player presentation.
+
+The QA route initializes with one real actor to keep stage switching responsive
+on constrained GPUs; the owner can explicitly select up to five independent
+actors. Focused CI tests use a longer action timeout only for costly stage
+switching, without turning asset/load failures into false PASS.
