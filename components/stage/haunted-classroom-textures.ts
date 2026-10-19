@@ -72,9 +72,32 @@ export function makeOldFloor() {
         }
       }
     }
-    for(let i=0;i<2400;i++){
-      c.fillStyle=r()>.5 ? "rgba(22,12,19,.12)" : "rgba(255,235,209,.07)";
-      c.fillRect(r()*1024,r()*1024, .3+r()*4,.3+r()*2);
+    // Dirty water blooms, uneven varnish, splitting joints and chalk dust:
+    // broad wear reads like aged planks instead of uniform procedural dots.
+    for(let i=0;i<125;i++){
+      const x=r()*1024,y=r()*1024;
+      const dark=r()>.42;
+      c.fillStyle=dark?"rgba(24,23,29,.12)":"rgba(185,163,147,.095)";
+      c.beginPath();c.ellipse(x,y,8+r()*58,1.3+r()*11,(r()-.5)*.25,0,Math.PI*2);c.fill();
+    }
+    for(let i=0;i<240;i++){
+      const x=r()*1024,y=r()*1024;
+      c.strokeStyle=r()>.45?"rgba(12,9,15,.27)":"rgba(221,194,174,.17)";
+      c.lineWidth=.45+r()*1.05;
+      c.beginPath();c.moveTo(x,y);
+      c.lineTo(x+20+r()*124,y+(r()-.5)*8);
+      c.stroke();
+    }
+    for(let i=0;i<28;i++){
+      const x=r()*1024,y=r()*1024;
+      c.fillStyle="rgba(19,17,24,.18)";
+      c.fillRect(x,y,4+r()*55,1+r()*3);
+      c.fillStyle="rgba(161,138,127,.08)";
+      c.fillRect(x+2,y+2,2+r()*24,1+r()*2);
+    }
+    for(let i=0;i<1100;i++){
+      c.fillStyle=r()>.5?"rgba(22,12,19,.13)":"rgba(255,235,209,.05)";
+      c.fillRect(r()*1024,r()*1024,.3+r()*4,.3+r()*2);
     }
   });
 }
@@ -124,16 +147,16 @@ export function makeChalkboard() {
 export function makeGhostWindow() {
   return canvasTexture(512, 1024, 404, (c,r) => {
     const g=c.createLinearGradient(0,0,0,1024);
-    g.addColorStop(0,"#32133d");g.addColorStop(.27,"#dd4ac2");
-    g.addColorStop(.65,"#a238a9");g.addColorStop(1,"#371c59");
+    g.addColorStop(0,"#160f2c");g.addColorStop(.27,"#79316f");
+    g.addColorStop(.65,"#622766");g.addColorStop(1,"#171326");
     c.fillStyle=g;c.fillRect(0,0,512,1024);
     const moon=c.createRadialGradient(310,155,4,310,155,155);
-    moon.addColorStop(0,"rgba(251,198,239,.95)");
-    moon.addColorStop(.41,"rgba(236,151,221,.73)");
-    moon.addColorStop(.74,"rgba(211,95,194,.20)");
+    moon.addColorStop(0,"rgba(230,171,218,.65)");
+    moon.addColorStop(.41,"rgba(199,129,183,.34)");
+    moon.addColorStop(.74,"rgba(125,59,133,.12)");
     moon.addColorStop(1,"rgba(214,96,190,0)");
     c.fillStyle=moon;c.fillRect(0,0,512,440);
-    c.fillStyle="rgba(239,185,237,.74)";
+    c.fillStyle="rgba(207,162,211,.52)";
     c.beginPath();c.arc(310,155,76,0,2*Math.PI);c.fill();
     // Bent branches and scattered leaves
     for(let branch=0;branch<10;branch++){
@@ -147,7 +170,7 @@ export function makeGhostWindow() {
       }
     }
     // Uncanny figures are decals BEHIND glass, not actors in the room.
-    c.save();c.globalAlpha=.56;c.fillStyle="#d9f1ff";
+    c.save();c.globalAlpha=.14;c.fillStyle="#d9e6ed";
     for(const q of [{x:106,y:565,s:1},{x:425,y:680,s:.65}]){
       c.save();c.translate(q.x,q.y);c.scale(q.s,q.s);
       c.beginPath();c.ellipse(0,-66,39,55,0,0,2*Math.PI);c.fill();
@@ -163,6 +186,35 @@ export function makeGhostWindow() {
     }
   });
 }
+/** Transparent specter that crosses a real window group behind its glass.
+ * The texture is shared by all window instances and disposed with the stage.
+ */
+export function makePassingWindowGhost() {
+  return canvasTexture(256, 512, 421, (c) => {
+    c.clearRect(0,0,256,512);
+    const haze=c.createRadialGradient(128,240,10,128,240,126);
+    haze.addColorStop(0,"rgba(206,215,231,.28)");
+    haze.addColorStop(.55,"rgba(151,164,197,.085)");
+    haze.addColorStop(1,"rgba(126,141,187,0)");
+    c.fillStyle=haze;c.fillRect(0,65,256,400);
+    const body=c.createLinearGradient(0,90,0,500);
+    body.addColorStop(0,"rgba(219,229,239,.73)");
+    body.addColorStop(.38,"rgba(181,199,219,.63)");
+    body.addColorStop(1,"rgba(132,145,184,0)");
+    c.fillStyle=body;
+    c.beginPath();c.ellipse(128,127,38,51,0,0,Math.PI*2);c.fill();
+    c.beginPath();c.moveTo(95,170);
+    c.bezierCurveTo(41,218,57,338,25,467);
+    c.bezierCurveTo(72,425,91,481,115,453);
+    c.bezierCurveTo(151,487,162,423,222,479);
+    c.bezierCurveTo(180,341,208,229,157,170);
+    c.closePath();c.fill();
+    c.fillStyle="rgba(29,26,54,.43)";
+    c.beginPath();c.ellipse(112,129,5,8,0,0,Math.PI*2);c.fill();
+    c.beginPath();c.ellipse(147,128,5,8,0,0,Math.PI*2);c.fill();
+  });
+}
+
 export function makeSpeakerFace() {
   return canvasTexture(256,512,405,(c,r)=>{
     c.fillStyle="#0c0d19";c.fillRect(0,0,256,512);
