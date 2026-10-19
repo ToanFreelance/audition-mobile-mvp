@@ -72,6 +72,37 @@ export function makeOldFloor() {
         }
       }
     }
+    // Distinct branching cracks along damaged plank ends, drawn into the
+    // albedo (no geometry protrusion or collision changes). Two-tone edges
+    // keep the cracks visible at mobile size without looking like black paint.
+    for(let crack=0;crack<48;crack++){
+      const sx=20+r()*985,sy=17+r()*982;
+      const direction=r()>.28 ? 1 : -1;
+      const steps=4+Math.floor(r()*5);
+      let x=sx,y=sy;
+      c.strokeStyle="rgba(14,12,19,.52)";
+      c.lineWidth=1.7+r()*1.6;
+      c.beginPath();c.moveTo(x,y);
+      const forks:Array<[number,number]>=[];
+      for(let j=0;j<steps;j++){
+        x+=direction*(7+r()*26);
+        y+=(r()-.52)*10;
+        c.lineTo(x,y);
+        if(j>1&&j%3===0)forks.push([x,y]);
+      }
+      c.stroke();
+      c.strokeStyle="rgba(205,172,160,.20)";
+      c.lineWidth=.9;
+      c.beginPath();c.moveTo(sx,sy+2);c.lineTo(x,y+1.4);c.stroke();
+      for(const [bx,by] of forks){
+        c.strokeStyle="rgba(18,13,19,.41)";
+        c.lineWidth=1.0+r()*1.1;
+        c.beginPath();c.moveTo(bx,by);
+        c.lineTo(bx+direction*(8+r()*19),by+(r()>.5?1:-1)*(7+r()*13));
+        c.lineTo(bx+direction*(13+r()*26),by+(r()-.5)*28);
+        c.stroke();
+      }
+    }
     // Dirty water blooms, uneven varnish, splitting joints and chalk dust:
     // broad wear reads like aged planks instead of uniform procedural dots.
     for(let i=0;i<125;i++){
@@ -124,8 +155,8 @@ export function makeChalkboard() {
       c.beginPath();c.moveTo(-34,-123);c.lineTo(-14,-142);c.lineTo(10,-121);c.lineTo(32,-147);c.lineTo(53,-122);c.stroke();
       c.restore();
     };
-    ghost(1030,390,1.42);
-    ghost(380,400,.69);
+    ghost(1190,425,1.12);
+    ghost(330,425,.68);
     c.beginPath();c.arc(220,220,76,0,2*Math.PI);c.moveTo(320,260);
     c.lineTo(410,187);c.lineTo(470,216);c.stroke();
     c.beginPath();c.moveTo(400,603);c.bezierCurveTo(630,535,710,644,849,603);
@@ -141,7 +172,58 @@ export function makeChalkboard() {
       c.lineTo(x-3,y+11);c.lineTo(x-15,y+3);c.closePath();c.stroke();
     }
     c.restore();
-    // Absolutely no lettering or national symbols in the stage texture.
+    // A legible English hand-chalk title. No country flags or foreign scripts.
+    c.save();
+    c.translate(758,270);
+    c.rotate(-.055);
+    c.textAlign="center";
+    c.textBaseline="middle";
+    c.font="italic 700 164px cursive, sans-serif";
+    c.lineJoin="round";
+    c.strokeStyle="rgba(221,229,219,.26)";
+    c.lineWidth=9;
+    c.strokeText("Dance Up",0,0,855);
+    c.fillStyle="rgba(230,228,218,.89)";
+    c.fillText("Dance Up",0,0,855);
+    c.globalAlpha=.29;
+    for(let i=0;i<68;i++){
+      c.fillStyle="#15343d";
+      c.fillRect(-411+r()*822,-64+r()*115,1+r()*11,1+r()*3);
+    }
+    c.restore();
+    // Asymmetric occult classroom doodles: staring eyes, crooked stars,
+    // cracked hearts, crescent and tangled hand-drawn spiral symbols.
+    c.save();c.strokeStyle="rgba(178,192,196,.64)";
+    c.lineWidth=5;c.lineCap="round";c.lineJoin="round";
+    const eye=(x:number,y:number,rx:number)=>{
+      c.beginPath();c.moveTo(x-rx,y);
+      c.quadraticCurveTo(x,y-rx*.62,x+rx,y);
+      c.quadraticCurveTo(x,y+rx*.62,x-rx,y);c.stroke();
+      c.beginPath();c.ellipse(x,y,rx*.16,rx*.24,.15,0,Math.PI*2);c.stroke();
+      for(let j=0;j<5;j++){const xx=x+(j-2)*rx*.36;
+        c.beginPath();c.moveTo(xx,y-rx*.18);c.lineTo(xx-5,y-rx*.50);c.stroke();}
+    };
+    eye(212,204,86);eye(1327,546,75);
+    const star=(x:number,y:number,outer:number)=>{
+      c.beginPath();
+      for(let j=0;j<10;j++){const a=j*Math.PI/5-1.5,rr=j%2?outer*.39:outer;
+        const px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;
+        if(j===0)c.moveTo(px,py);else c.lineTo(px,py);}
+      c.closePath();c.stroke();
+    };
+    star(1250,156,68);star(266,592,50);
+    c.beginPath();c.moveTo(636,517);
+    c.bezierCurveTo(566,440,544,552,637,628);
+    c.bezierCurveTo(728,550,710,445,636,517);c.stroke();
+    c.beginPath();c.moveTo(643,532);c.lineTo(619,557);c.lineTo(659,578);
+    c.lineTo(628,604);c.stroke();
+    for(let k=0;k<4;k++){
+      const x=1030+k*60,y=625+Math.sin(k)*18;
+      c.beginPath();c.arc(x,y,30+k*7,Math.PI*.17,Math.PI*1.63);c.stroke();
+    }
+    c.beginPath();c.arc(410,125,48,Math.PI*.36,Math.PI*1.70);
+    c.arc(429,113,39,Math.PI*1.57,Math.PI*.43,true);c.stroke();
+    c.restore();
   });
 }
 export function makeGhostWindow() {
@@ -169,16 +251,8 @@ export function makeGhostWindow() {
         c.beginPath();c.ellipse(r()*512,r()*900,2+r()*10,3+r()*15,r()*6,0,2*Math.PI);c.fill();
       }
     }
-    // Uncanny figures are decals BEHIND glass, not actors in the room.
-    c.save();c.globalAlpha=.14;c.fillStyle="#d9e6ed";
-    for(const q of [{x:106,y:565,s:1},{x:425,y:680,s:.65}]){
-      c.save();c.translate(q.x,q.y);c.scale(q.s,q.s);
-      c.beginPath();c.ellipse(0,-66,39,55,0,0,2*Math.PI);c.fill();
-      c.beginPath();c.moveTo(-36,-24);c.bezierCurveTo(-91,30,-80,220,-98,247);
-      c.lineTo(91,247);c.bezierCurveTo(63,180,78,38,36,-24);c.closePath();c.fill();
-      c.restore();
-    }
-    c.restore();
+    // No static people or ghosts in the sky texture: transient figures
+    // are only instantiated as real animated window objects.
     c.fillStyle="rgba(205,191,240,.07)"; c.fillRect(0,0,512,1024);
     for(let i=0;i<100;i++){
       c.strokeStyle="rgba(255,220,242,.06)";c.lineWidth=.4+r();
@@ -189,29 +263,72 @@ export function makeGhostWindow() {
 /** Transparent specter that crosses a real window group behind its glass.
  * The texture is shared by all window instances and disposed with the stage.
  */
+/** Long-haired woman in SIDE PROFILE behind the panes. A human figure
+ * rather than a front-facing cartoon ghost; translucent from dirty glass.
+ * All paths are original raster shapes made once during environment load.
+ */
 export function makePassingWindowGhost() {
-  return canvasTexture(256, 512, 421, (c) => {
+  return canvasTexture(256,512,421,(c)=>{
     c.clearRect(0,0,256,512);
-    const haze=c.createRadialGradient(128,240,10,128,240,126);
-    haze.addColorStop(0,"rgba(206,215,231,.28)");
-    haze.addColorStop(.55,"rgba(151,164,197,.085)");
-    haze.addColorStop(1,"rgba(126,141,187,0)");
-    c.fillStyle=haze;c.fillRect(0,65,256,400);
-    const body=c.createLinearGradient(0,90,0,500);
-    body.addColorStop(0,"rgba(219,229,239,.73)");
-    body.addColorStop(.38,"rgba(181,199,219,.63)");
-    body.addColorStop(1,"rgba(132,145,184,0)");
-    c.fillStyle=body;
-    c.beginPath();c.ellipse(128,127,38,51,0,0,Math.PI*2);c.fill();
-    c.beginPath();c.moveTo(95,170);
-    c.bezierCurveTo(41,218,57,338,25,467);
-    c.bezierCurveTo(72,425,91,481,115,453);
-    c.bezierCurveTo(151,487,162,423,222,479);
-    c.bezierCurveTo(180,341,208,229,157,170);
+    const mist=c.createRadialGradient(125,225,14,125,225,118);
+    mist.addColorStop(0,"rgba(168,176,204,.14)");
+    mist.addColorStop(.58,"rgba(143,139,171,.055)");
+    mist.addColorStop(1,"rgba(143,139,171,0)");
+    c.fillStyle=mist;c.fillRect(0,18,256,484);
+
+    // Dark, partially back-lit right-facing profile with long hanging hair.
+    c.save();
+    c.lineJoin="round";c.lineCap="round";
+    const shade=c.createLinearGradient(70,45,197,424);
+    shade.addColorStop(0,"rgba(30,23,45,.92)");
+    shade.addColorStop(.5,"rgba(41,30,54,.85)");
+    shade.addColorStop(1,"rgba(35,27,45,.48)");
+    c.fillStyle=shade;
+    // Long hair drapes down the left side to the middle of the body.
+    c.beginPath();c.moveTo(102,75);
+    c.bezierCurveTo(78,67,54,100,63,148);
+    c.bezierCurveTo(57,211,51,280,70,352);
+    c.bezierCurveTo(82,338,91,318,94,284);
+    c.bezierCurveTo(112,329,127,351,137,359);
+    c.bezierCurveTo(133,280,117,235,123,185);
+    c.bezierCurveTo(145,137,142,93,102,75);
     c.closePath();c.fill();
-    c.fillStyle="rgba(29,26,54,.43)";
-    c.beginPath();c.ellipse(112,129,5,8,0,0,Math.PI*2);c.fill();
-    c.beginPath();c.ellipse(147,128,5,8,0,0,Math.PI*2);c.fill();
+    // Face in side profile, nose to the right, chin and neck recessed.
+    c.beginPath();c.moveTo(112,84);
+    c.bezierCurveTo(143,83,159,101,161,127);
+    c.lineTo(172,141);c.lineTo(159,148);
+    c.bezierCurveTo(163,169,144,183,131,178);
+    c.lineTo(124,202);c.lineTo(97,198);
+    c.lineTo(98,158);
+    c.bezierCurveTo(84,133,89,103,112,84);
+    c.closePath();c.fill();
+    // Narrow torso, bowed shoulder and one arm held beside the hip.
+    c.beginPath();c.moveTo(111,190);
+    c.bezierCurveTo(154,183,163,218,158,260);
+    c.lineTo(148,340);c.lineTo(94,339);
+    c.bezierCurveTo(93,296,88,244,98,209);
+    c.closePath();c.fill();
+    c.beginPath();c.moveTo(150,210);
+    c.bezierCurveTo(174,251,176,286,164,331);
+    c.lineTo(152,348);c.lineTo(146,340);
+    c.bezierCurveTo(160,281,141,248,136,225);
+    c.closePath();c.fill();
+    // Separate shuffling legs and shoe silhouette: she walks, not floats.
+    c.beginPath();c.moveTo(100,333);c.lineTo(122,332);
+    c.lineTo(109,437);c.lineTo(130,453);
+    c.lineTo(126,464);c.lineTo(91,463);
+    c.lineTo(89,446);c.closePath();c.fill();
+    c.beginPath();c.moveTo(125,332);c.lineTo(147,329);
+    c.lineTo(156,430);c.lineTo(185,437);
+    c.lineTo(184,448);c.lineTo(148,452);
+    c.lineTo(138,436);c.closePath();c.fill();
+    // Subtle silver edge glancing through moonlit glass, not a glow sticker.
+    c.strokeStyle="rgba(188,179,217,.20)";c.lineWidth=3;
+    c.beginPath();c.moveTo(126,88);
+    c.bezierCurveTo(150,91,158,118,156,130);
+    c.lineTo(167,140);c.stroke();
+    c.beginPath();c.moveTo(99,205);c.bezierCurveTo(87,260,97,327,93,350);c.stroke();
+    c.restore();
   });
 }
 
