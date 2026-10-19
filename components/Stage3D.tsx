@@ -52,22 +52,21 @@ function getNeonGameplayCameraFrame(frame: ReturnType<typeof getCharacterCameraF
 }
 
 /**
- * S2.5C portrait preview framing, scoped to the Haunted Classroom only.
- * Larger dancer/rune circle for 1–3; preserve full five-person width for 4–5.
- * Never change the shared character camera presets or multiplayer clock.
+ * S2.5C fixed portrait composition for Haunted Classroom.
+ * Formation count changes positions of QA characters ONLY: FOV, camera
+ * position and target cannot branch based on the number of participants.
+ * Preserve the previously five-person-safe composition at every count.
  */
 function getHauntedClassroomFrame(
   frame: ReturnType<typeof getCharacterCameraFrame>,
   portrait: boolean,
-  actorCount: number,
 ) {
   if (!portrait) return frame;
-  const ensemble = actorCount >= 4;
   return {
     ...frame,
-    fov: ensemble ? Math.max(39, frame.fov + 1) : Math.max(36, frame.fov - 1),
-    y: frame.y + (ensemble ? .43 : .30),
-    z: frame.z + (ensemble ? 1.0 : -1.35),
+    fov: Math.max(39, frame.fov + 1),
+    y: frame.y + .43,
+    z: frame.z + 1.0,
     targetY: frame.targetY + .17,
     targetZ: frame.targetZ + .38,
   };
@@ -537,7 +536,7 @@ export default function Stage3D({
         ? getNeonGameplayCameraFrame(frame, portrait)
         : basketballPresentation ? getBasketballGameplayCameraFrame(frame, portrait)
         : hauntedClassroomPresentation
-          ? getHauntedClassroomFrame(frame, portrait, qaCount())
+          ? getHauntedClassroomFrame(frame, portrait)
           : frame;
     };
 
@@ -616,12 +615,20 @@ export default function Stage3D({
       const basketballPose = getBasketballPresentationPose(neonPose, basketballPresentation, portrait);
       const classroomPose: StageCameraPose = hauntedClassroomPresentation && portrait
         && basketballPose.preset === "gameplay_portrait_locked"
-        ? { ...basketballPose, ...getHauntedClassroomFrame(basketballPose, portrait, qaCount()) }
+        ? { ...basketballPose, ...getHauntedClassroomFrame(basketballPose, portrait) }
         : basketballPose;
       const pose = visualCompareMode && neonPresentation
         ? getNeonGoldenComparePose(neonPose)
         : classroomPose;
       host.dataset.presentationCamera = pose.preset;
+      if (qaFormationEnabled) {
+        // iPhone QA instrumentation: confirms the camera pose remains exactly
+        // unchanged while the owner switches between 0 and 5 actors.
+        host.dataset.qaCameraFrame = [
+          pose.fov, pose.x, pose.y, pose.z,
+          pose.targetX, pose.targetY, pose.targetZ,
+        ].map(value => value.toFixed(3)).join(":");
+      }
       const shotChanged = pose.preset !== lastPresentationCamera;
       // Match camera styles use continuous, authored rails. The solo legacy
       // retains hard cuts at its named cinematic shot boundaries.
