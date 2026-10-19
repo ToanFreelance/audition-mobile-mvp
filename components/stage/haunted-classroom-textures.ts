@@ -268,139 +268,150 @@ export function makeGhostWindow() {
  * All paths are original raster shapes made once during environment load.
  */
 /**
- * An original, natural-proportioned side-profile woman in a long black coat.
- * Quiet Ghost School-inspired figure, not a frontal cartoon icon.
- * Painted as a soft-edged shadow behind glass, without facial features,
- * glowing eyes, outline stickers or a floating/tapered ghost-tail.
+ * Filmic half-body passer-by behind the classroom windows.
  *
- * The canvas is created ONCE at environment load (never during RAF).
+ * A single, tall-haired adult side profile in a dark coat, viewed through
+ * murky glass. Her lower body is deliberately OUTSIDE the camera crop below
+ * the lower sash. We do not paint a floating ghost tail, eyes, or feet.
+ *
+ * An original Canvas asset drawn once at stage load, not a captured frame
+ * or someone else's copyrighted Audition character.
  */
 export function makePassingWindowGhost() {
-  return canvasTexture(512, 1024, 529, (c, r) => {
-    c.clearRect(0,0,512,1024);
-
-    // Very faint optical diffusion from filthy moonlit glass, localized
-    // behind the woman rather than a neon aura around her outline.
-    const haze=c.createRadialGradient(256,478,50,256,478,310);
-    haze.addColorStop(0,"rgba(31,25,43,.075)");
-    haze.addColorStop(.65,"rgba(45,37,59,.034)");
-    haze.addColorStop(1,"rgba(45,37,59,0)");
-    c.fillStyle=haze;c.fillRect(0,70,512,885);
-
-    const silhouette=c.createLinearGradient(176,126,344,906);
-    silhouette.addColorStop(0,"rgba(12,12,19,.97)");
-    silhouette.addColorStop(.43,"rgba(13,12,20,.96)");
-    silhouette.addColorStop(.82,"rgba(20,17,27,.93)");
-    silhouette.addColorStop(1,"rgba(22,18,30,.70)");
-    const hair=c.createLinearGradient(170,155,300,685);
-    hair.addColorStop(0,"rgba(6,6,13,.98)");
-    hair.addColorStop(.55,"rgba(10,9,16,.96)");
-    hair.addColorStop(1,"rgba(20,14,28,.80)");
-
+  return canvasTexture(512, 768, 511, (c, random) => {
+    c.clearRect(0, 0, 512, 768);
     c.save();
-    c.lineJoin="round"; c.lineCap="round";
+    c.lineCap="round";c.lineJoin="round";
+    // Local soft reflection in the glass, not neon outlining the figure.
+    const smog=c.createRadialGradient(239,389,48,239,389,258);
+    smog.addColorStop(0,"rgba(19,16,30,.07)");
+    smog.addColorStop(.57,"rgba(32,29,44,.032)");
+    smog.addColorStop(1,"rgba(32,29,44,0)");
+    c.fillStyle=smog;c.fillRect(10,10,492,738);
 
-    // Anatomical leg length instead of a chibi face + short tapered legs.
-    // Both feet remain planted on one ground plane outside the classroom.
-    c.fillStyle=silhouette;
-    // Far leg - back step.
-    c.beginPath();c.moveTo(225,617);
-    c.bezierCurveTo(209,681,198,754,189,843);
-    c.lineTo(172,906);c.quadraticCurveTo(174,924,190,930);
-    c.lineTo(227,927);c.quadraticCurveTo(237,918,229,908);
-    c.lineTo(229,881);c.lineTo(246,782);c.lineTo(270,672);
-    c.closePath();c.fill();
-    // Near leg - advancing, natural bent knee and heeled shoe.
-    c.beginPath();c.moveTo(271,621);
-    c.bezierCurveTo(287,676,288,749,302,801);
-    c.lineTo(336,873);c.lineTo(357,906);
-    c.quadraticCurveTo(359,924,342,927);
-    c.lineTo(295,925);c.quadraticCurveTo(284,918,286,909);
-    c.lineTo(285,884);c.lineTo(251,823);
-    c.bezierCurveTo(229,759,237,688,235,634);
-    c.closePath();c.fill();
+    const coat=c.createLinearGradient(136,360,382,655);
+    coat.addColorStop(0,"#101019");
+    coat.addColorStop(.43,"#201d28");
+    coat.addColorStop(.78,"#13131d");
+    coat.addColorStop(1,"#0c0e15");
+    const blackHair=c.createLinearGradient(135,70,339,540);
+    blackHair.addColorStop(0,"#09090d");
+    blackHair.addColorStop(.38,"#16131b");
+    blackHair.addColorStop(1,"#0c0d14");
+    const face=c.createLinearGradient(190,135,350,324);
+    face.addColorStop(0,"#241e28");
+    face.addColorStop(.6,"#322532");
+    face.addColorStop(1,"#18151f");
 
-    // Black long school-coat/dress with the shoulder, waist, hips and
-    // hem varying organically; no triangular "flying ghost" body.
-    c.beginPath();c.moveTo(229,326);
-    c.bezierCurveTo(201,332,190,357,185,390);
-    c.bezierCurveTo(181,444,185,501,192,551);
-    c.bezierCurveTo(190,589,178,654,169,704);
-    c.bezierCurveTo(205,724,232,707,252,715);
-    c.bezierCurveTo(276,716,312,719,331,699);
-    c.bezierCurveTo(312,643,307,594,310,553);
-    c.bezierCurveTo(315,492,323,428,312,374);
-    c.bezierCurveTo(306,345,282,323,257,325);
-    c.closePath();c.fill();
+    // Low, diffuse backlight created from the actual contour, not a sticker.
+    c.shadowColor="rgba(183,153,191,.19)";
+    c.shadowBlur=25;
+    c.shadowOffsetX=5;
 
-    // A slightly bent natural arm with hanging fingers.
-    c.beginPath();c.moveTo(292,357);
-    c.bezierCurveTo(318,375,328,421,324,472);
-    c.lineTo(315,564);c.bezierCurveTo(313,586,302,593,294,579);
-    c.lineTo(298,553);c.lineTo(294,478);
-    c.bezierCurveTo(282,433,277,393,292,357);
+    // Narrow woman in a long black cardigan / coat. Full-width clothing
+    // continues BELOW the crop; it never tapers to a ghost-like point.
+    c.fillStyle=coat;
+    c.beginPath();c.moveTo(184,321);
+    c.bezierCurveTo(152,325,125,354,116,400);
+    c.bezierCurveTo(110,484,125,552,120,644);
+    c.lineTo(107,768);c.lineTo(369,768);
+    c.bezierCurveTo(355,677,356,622,367,532);
+    c.bezierCurveTo(376,462,365,399,335,358);
+    c.bezierCurveTo(301,326,265,319,229,321);
     c.closePath();c.fill();
 
-    // Hair volume behind the face, following gravity down to waist.
-    c.fillStyle=hair;
-    c.beginPath();c.moveTo(244,155);
-    c.bezierCurveTo(204,154,176,187,179,238);
-    c.bezierCurveTo(165,294,181,349,171,417);
-    c.bezierCurveTo(174,474,164,527,159,603);
-    c.bezierCurveTo(180,592,198,563,204,539);
-    c.bezierCurveTo(205,570,211,606,220,632);
-    c.bezierCurveTo(239,593,248,531,246,481);
-    c.bezierCurveTo(261,422,266,367,276,323);
-    c.bezierCurveTo(298,275,313,214,289,180);
-    c.bezierCurveTo(275,163,261,156,244,155);
+    // Sleeve falling naturally by her hip, hand only partly visible.
+    c.beginPath();c.moveTo(142,360);
+    c.bezierCurveTo(119,394,114,467,137,520);
+    c.bezierCurveTo(148,565,156,613,152,648);
+    c.bezierCurveTo(151,682,164,702,177,696);
+    c.bezierCurveTo(185,684,177,659,181,633);
+    c.bezierCurveTo(189,555,185,463,189,396);
+    c.closePath();c.fill();
+    c.shadowBlur=0;c.shadowOffsetX=0;
+
+    // Neck and human adult profile, chin/nose facing right.
+    c.fillStyle=face;
+    c.beginPath();c.moveTo(226,294);
+    c.lineTo(229,358);c.lineTo(281,373);c.lineTo(288,301);
+    c.closePath();c.fill();
+    c.beginPath();c.moveTo(224,131);
+    c.bezierCurveTo(269,103,315,138,326,179);
+    c.bezierCurveTo(335,205,324,231,332,251);
+    c.lineTo(351,269);
+    c.quadraticCurveTo(355,278,344,283);
+    c.lineTo(332,285);
+    c.bezierCurveTo(336,304,317,316,302,318);
+    c.bezierCurveTo(293,326,290,346,278,346);
+    c.bezierCurveTo(250,337,234,307,219,283);
+    c.bezierCurveTo(201,236,203,164,224,131);
     c.closePath();c.fill();
 
-    // Narrow right-facing face: a realistic nose/chin contour, but NO
-    // visible eyes/mouth/makeup; the silhouette is the entire read.
-    c.fillStyle=silhouette;
-    c.beginPath();c.moveTo(249,169);
-    c.bezierCurveTo(287,169,312,199,313,237);
-    c.bezierCurveTo(312,254,313,264,322,274);
-    c.lineTo(339,289);c.quadraticCurveTo(339,295,329,299);
-    c.lineTo(315,299);
-    c.bezierCurveTo(320,316,302,335,283,334);
-    c.lineTo(268,366);c.lineTo(234,349);
-    c.bezierCurveTo(245,311,222,285,221,244);
-    c.bezierCurveTo(218,207,230,176,249,169);
+    // Realistic long, hanging straight hair with uneven individual locks.
+    // Heavy crown and curtain of hair obscuring facial details.
+    c.fillStyle=blackHair;
+    c.shadowColor="rgba(113,93,125,.16)";c.shadowBlur=12;
+    c.beginPath();c.moveTo(213,109);
+    c.bezierCurveTo(174,113,150,147,152,204);
+    c.bezierCurveTo(152,250,157,283,144,340);
+    c.bezierCurveTo(145,409,129,486,113,564);
+    c.bezierCurveTo(139,548,156,520,167,481);
+    c.bezierCurveTo(164,546,154,586,149,617);
+    c.bezierCurveTo(188,583,196,528,199,472);
+    c.bezierCurveTo(215,530,227,578,240,603);
+    c.bezierCurveTo(248,535,234,458,247,393);
+    c.bezierCurveTo(248,324,275,285,294,245);
+    c.bezierCurveTo(311,209,300,142,269,122);
+    c.bezierCurveTo(251,110,232,107,213,109);
     c.closePath();c.fill();
-
-    // A lock of hair falls over the cheek, broken edge makes the head
-    // less like a rigid icon while still covering identity details.
-    c.fillStyle=hair;
-    c.beginPath();c.moveTo(239,171);
-    c.bezierCurveTo(275,152,310,188,302,240);
-    c.bezierCurveTo(301,282,281,313,280,343);
-    c.bezierCurveTo(266,325,264,293,264,266);
-    c.bezierCurveTo(244,254,239,208,239,171);
+    // Parted bangs trail over the cheek, not a round cartoon head.
+    c.beginPath();c.moveTo(250,114);
+    c.bezierCurveTo(289,121,318,146,318,191);
+    c.bezierCurveTo(319,235,301,269,301,309);
+    c.bezierCurveTo(286,290,278,262,279,229);
+    c.bezierCurveTo(263,224,256,192,250,114);
     c.closePath();c.fill();
+    c.shadowBlur=0;
 
-    // Faint cloth folds/hair strays: nearly tone-on-tone, no bright outlines.
-    c.strokeStyle="rgba(110,104,119,.105)";
-    c.lineWidth=3;
-    for(let i=0;i<14;i++){
-      const x=184+r()*126;
-      const y=380+r()*245;
+    // Coated lapels are subtle tonal material changes, not contour lines.
+    const fabric=c.createLinearGradient(208,339,332,509);
+    fabric.addColorStop(0,"rgba(93,75,98,.37)");
+    fabric.addColorStop(.4,"rgba(57,44,62,.26)");
+    fabric.addColorStop(1,"rgba(18,15,24,0)");
+    c.fillStyle=fabric;
+    c.beginPath();c.moveTo(227,351);c.lineTo(283,374);
+    c.quadraticCurveTo(259,429,265,504);
+    c.quadraticCurveTo(235,430,227,351);c.fill();
+    c.beginPath();c.moveTo(305,348);c.lineTo(283,374);
+    c.quadraticCurveTo(300,414,294,485);
+    c.quadraticCurveTo(315,427,305,348);c.fill();
+
+    // Directional fabric folds from collar through the torso create actual
+    // visible clothing without making the person a clean vector pictogram.
+    for(let i=0;i<37;i++){
+      const x=142+random()*186, y=385+random()*215;
+      const length=25+random()*116;
+      c.strokeStyle=random()>.5
+        ?"rgba(141,120,150,.052)":"rgba(0,0,0,.13)";
+      c.lineWidth=.65+random()*1.9;
       c.beginPath();c.moveTo(x,y);
-      c.bezierCurveTo(x-5,y+34,x+5,y+71,x+(r()-.5)*15,y+106);
+      c.bezierCurveTo(x-11,y+length*.30,x+9,y+length*.62,x-4,y+length);
       c.stroke();
     }
-    c.strokeStyle="rgba(145,125,161,.10)";
-    c.lineWidth=2;
-    for(let i=0;i<9;i++){
-      const x=182+r()*53,y=243+r()*250;
+    // Fine hair flyaways break the artificial smoothness at the edges.
+    for(let i=0;i<25;i++){
+      const x=153+random()*76,y=162+random()*368;
+      c.strokeStyle="rgba(65,53,70,"+(0.13+random()*.17)+")";
+      c.lineWidth=.5+random()*1.1;
       c.beginPath();c.moveTo(x,y);
-      c.bezierCurveTo(x-10,y+50,x+3,y+100,x-9,y+150);c.stroke();
+      c.bezierCurveTo(x-9,y+47,x-13,y+80,x-15-random()*10,y+130);
+      c.stroke();
     }
+    // Tiny human neck shadow; intentionally no eyes/mouth or ghost face.
+    c.fillStyle="rgba(4,4,11,.19)";
+    c.beginPath();c.moveTo(283,314);c.quadraticCurveTo(272,339,252,346);
+    c.lineTo(281,353);c.closePath();c.fill();
     c.restore();
-
-    // Blur only a low-opacity copy beneath the sharp silhouette using a
-    // second compositing pass; avoids a cartoon stroke while preserving body.
-    // No Canvas2D filter dependency on Safari.
   });
 }
 
