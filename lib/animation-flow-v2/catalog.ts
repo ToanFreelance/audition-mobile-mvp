@@ -7,7 +7,7 @@ export type PhraseSpec = {
   exitMarkers: readonly number[];
   protectedRanges?: readonly (readonly [number, number])[];
   referenceBpm: number; tempoBasis: "testing-assumption";
-  role: "core" | "fixture" | "travel" | "finish";
+  role: "core" | "fixture" | "travel" | "finish" | "recovery" | "idle";
 };
 
 // Windows are source seconds. Reference tempo is deliberately marked assumed,
@@ -78,4 +78,12 @@ export const FINISH_PHRASES: readonly CuratedPhrase[] = [
   curated({ id: "finish-arm-accent", source: "90_33", label: "FINISH · thế rộng, tay vươn cao", group: "finish-accent", start: 5, end: 6.35, policy: "PROTECTED", protectedRanges: [[0, 1.35]], exitMarkers: [1.35], referenceBpm: 120, tempoBasis: "testing-assumption", role: "finish" }, "Finish / accent", ["wide-stance", "one-arm-up", "accent-hold"], "arm up wide leg roll; ONLY upright arm accent after roll, no inversion window"),
   curated({ id: "finish-spell", source: "120_03", label: "FINISH · mở tay nhấn nhạc", group: "finish-reach", start: 1, end: 2.4, policy: "PROTECTED", protectedRanges: [[0, 1.4]], exitMarkers: [1.4], referenceBpm: 120, tempoBasis: "testing-assumption", role: "finish" }, "Finish / expressive", ["upper-body-reach", "accent"], "Mickey cast spell; short upright opening, not whole take"),
 ];
-export const SOURCE_IDS = [...new Set([...NORMAL_PHRASES, ...FINISH_PHRASES, ...FIXTURE_PHRASES, MOONWALK_PHRASE].map(p => p.source))];
+/** Presentation only: authored closing sidestep and its settled standing tail.
+ * Kept outside the normal shuffle pool and production assets. */
+export const REST_PHRASES: readonly CuratedPhrase[] = [
+  curated({ id: "recover-wide", source: "83_01", label: "Hồi phục · thu chân ngang", group: "rest-recovery", start: 3, end: 4.05, policy: "PROTECTED", protectedRanges: [[0, 1.05]], exitMarkers: [1.05], referenceBpm: 120, tempoBasis: "testing-assumption", role: "recovery" }, "Recovery / authored sidestep", ["close-stance", "weight-transfer", "arms-down"], "large sidestep to right; closing step only, no new command"),
+  curated({ id: "recover-narrow", source: "83_01", label: "Hồi phục · về thế đứng", group: "rest-recovery", start: 3.65, end: 4.05, policy: "PROTECTED", protectedRanges: [[0, .4]], exitMarkers: [.4], referenceBpm: 120, tempoBasis: "testing-assumption", role: "recovery" }, "Recovery / authored sidestep", ["settle", "arms-down"], "large sidestep to right; final closing/settling section"),
+  curated({ id: "rest-standing", source: "83_01", label: "REST · đứng chuyển trọng lượng nhẹ", group: "rest-idle", start: 4.05, end: 5.2, policy: "FREE", exitMarkers: [], referenceBpm: 120, tempoBasis: "testing-assumption", role: "idle" }, "Standing / authored tail", ["standing", "small-arm-motion", "weight-shift"], "large sidestep to right; settled standing tail, demo-only closed seam"),
+];
+export const FINISH_RECOVERY: Readonly<Record<string, string>> = { "finish-arm-accent": "recover-wide", "finish-spell": "recover-narrow" };
+export const SOURCE_IDS = [...new Set([...NORMAL_PHRASES, ...FINISH_PHRASES, ...REST_PHRASES, ...FIXTURE_PHRASES, MOONWALK_PHRASE].map(p => p.source))];

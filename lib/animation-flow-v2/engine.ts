@@ -9,6 +9,7 @@ export type PreparedPhrase = {
   spec: PhraseSpec; duration: number; clip: T.AnimationClip;
   translation: Sampler; rotations: Sampler[]; path: T.Vector3[];
   sourceScale: number; floorReference: number; headings: number[];
+  recoveryAlignment?: { yaw: number; leadInSeconds: number; mirrored: boolean; rootShiftLocalXZ: number[]; maxEntryFootAdjustment: number };
 };
 export type CanonicalRig = { root: T.Bone; bones: T.Bone[]; names: string[]; scale: number };
 type Playback = { phrase: PreparedPhrase; startBeat: number; offset: T.Vector3; yaw: number };
@@ -20,6 +21,7 @@ export type TransitionRecord = {
   before: number[]; after: number[]; afterBlend?: number[]; fadeTravelXZ?: number;
   interrupted?: boolean; stageAnchor: number[]; yaw: number; loopSeamWarning: string | null;
   headingBlendBeats: number;
+  recoveryAlignment?: PreparedPhrase["recoveryAlignment"];
   orientation: { outgoingHeadingDeg: number; incomingHeadingDeg: number; headingDeltaDeg: number; desiredHeadingDeg: number; maxPhraseFacingErrorDeg: number; predictedMaxYawDegPerSecond: number; predictedMaxQuaternionDegPerSecond: number; measuredMaxYawDegPerSecond: number; measuredMaxQuaternionDegPerSecond: number; policy: string };
 };
 export type PlacementDecision = { id: string; beat: number; rootXZ: number[]; evaluated: number; spatialRejected: number; continuationRejected: number; facingRejected: number; angularRejected: number; accepted: number; reason: string; selectedYawDeg: number | null };
@@ -136,7 +138,7 @@ export class SourceFlowEngine {
   readonly history: TransitionRecord[] = [];
   readonly radius = 1.35;
   current: Playback | null = null;
-  pending: { id: string; requestedBeat: number; dueBeat: number; policy: ExitPolicy } | null = null;
+  pending: { id: string; requestedBeat: number; dueBeat: number; policy: ExitPolicy; blendBeats?: number } | null = null;
   blendBeats = 0.35;
   bpm = 120;
   policyOverride: ExitPolicy | undefined;
@@ -183,7 +185,7 @@ export class SourceFlowEngine {
     const fixture = phrase.spec.role === "fixture";
     const decision: PlacementDecision = { id, beat: this.latestBeat, rootXZ: [at.x, at.z], evaluated: 0, spatialRejected: 0, continuationRejected: 0, facingRejected: 0, angularRejected: 0, accepted: 0, reason: "", selectedYawDeg: null };
     const center = (Math.min(...phrase.headings) + Math.max(...phrase.headings)) / 2;
-    const candidates = fixture ? Array.from({length: 48}, (_, i) => heading + i * Math.PI / 24) : [heading - phrase.headings[0], this.desiredHeading - center, ...Array.from({length: 48}, (_, i) => this.desiredHeading + i * Math.PI / 24)];
+    const candidates = phrase.recoveryAlignment ? [phrase.recoveryAlignment.yaw] : phrase.spec.role === "idle" ? [heading - phrase.headings[0]] : fixture ? Array.from({length: 48}, (_, i) => heading + i * Math.PI / 24) : [heading - phrase.headings[0], this.desiredHeading - center, ...Array.from({length: 48}, (_, i) => this.desiredHeading + i * Math.PI / 24)];
     let best: Placement | null = null;
     for (const yaw of candidates) {
       decision.evaluated++;
@@ -198,13 +200,16 @@ export class SourceFlowEngine {
       const boundaryRadius = Math.hypot(boundaryPoint.x + at.x, boundaryPoint.z + at.z);
       // Reserve recovery space even if a rejected SPACE lets this one-shot run
       // to its end. Boundary-only checking stranded browser seed 315885701.
-      if (!fixture && this.current && Math.max(boundaryRadius, end) > Math.max(1.05, Math.hypot(at.x, at.z) - 0.1)) { decision.continuationRejected++; continue; }
+      if (!fixture && phrase.spec.role !== "recovery" && phrase.spec.role !== "idle" && this.current && Math.max(boundaryRadius, end) > Math.max(1.05, Math.hypot(at.x, at.z) - 0.1)) { decision.continuationRejected++; continue; }
       const boundaryHeading = phrase.headings[Math.min(phrase.headings.length - 1, Math.round(4 * 60 / phrase.spec.referenceBpm * 60))] + yaw;
       const exitFacing = Math.abs(wrapAngle(boundaryHeading - this.desiredHeading));
       const errors = phrase.headings.map(h => Math.abs(wrapAngle(h + yaw - this.desiredHeading)));
       const maxFacingError = degrees(Math.max(...errors));
       const entryError = degrees(errors[0]);
-      if (!fixture && (entryError > HEADING_LIMITS.entryDeg || maxFacingError > HEADING_LIMITS.phraseDeg)) { decision.facingRejected++; continue; }
+      // Standing inherits the actual heading (zero introduced yaw), rather than
+      // pivoting planted feet solely to re-enter the upright entry cone.
+      const entryLimit = phrase.spec.role === "idle" ? HEADING_LIMITS.phraseDeg : HEADING_LIMITS.entryDeg;
+      if (!fixture && (entryError > entryLimit || maxFacingError > HEADING_LIMITS.phraseDeg)) { decision.facingRejected++; continue; }
       const angle = Math.abs(wrapAngle(yaw + phrase.headings[0] - heading));
       // Bound the rotation INTRODUCED by placement separately from authored twists.
       // Larger entry changes require a different phrase, never a hidden 180° spin.
@@ -223,13 +228,13 @@ export class SourceFlowEngine {
   private rootRotation(p: Playback, beat: number) {
     return new T.Quaternion().fromArray(p.phrase.rotations[0].evaluate(this.time(p, beat))).premultiply(new T.Quaternion().setFromAxisAngle(Y, p.yaw));
   }
-  private headingBlendDuration(phrase: PreparedPhrase, yaw: number) {
+  private headingBlendDuration(phrase: PreparedPhrase, yaw: number, fade = this.blendBeats) {
     if (phrase.spec.role === "fixture") return this.blendBeats;
     const delta = degrees(Math.abs(wrapAngle(yaw + phrase.headings[0] - rootYaw(this.pose.rotations[0]))));
     // Only root quaternion may outlast requested pose/XZ fade. This bounds the
     // entry-offset contribution, NOT the authored source twist velocity. Reserve
     // 180 BPM so changing tempo within the supported UI range cannot reset it.
-    return Math.max(this.blendBeats, 1.5 * delta / HEADING_LIMITS.transitionAddedYawDegPerSecond * Math.max(180, this.bpm) / 60);
+    return Math.max(fade, 1.5 * delta / HEADING_LIMITS.transitionAddedYawDegPerSecond * Math.max(180, this.bpm) / 60);
   }
   private predictRotation(phrase: PreparedPhrase, yaw: number) {
     // Reserve the full supported UI tempo range, including a BPM change mid-fade.
@@ -257,7 +262,7 @@ export class SourceFlowEngine {
     if (!this.commit(id, beat, beat, "FREE", true)) throw new Error("Phrase không vừa vùng sân.");
     this.update(beat); this.startedAt.copy(this.pose.root); this.previousRoot.copy(this.pose.root);
   }
-  request(id: string, beat: number) {
+  request(id: string, beat: number, fade?: number) {
     this.update(beat);
     if (!this.current) return this.commit(id, beat, beat, "FREE");
     const time = this.time(this.current, beat);
@@ -266,10 +271,10 @@ export class SourceFlowEngine {
     if (dueBeat > beat + 1e-6) {
       // Coalesce repeated SPACE, but retain the first recovery deadline. A later
       // request can replace the target; it cannot postpone the exit forever.
-      this.pending = { id, requestedBeat: beat, dueBeat: this.pending?.dueBeat ?? dueBeat, policy: exit.policy };
+      this.pending = { id, requestedBeat: beat, dueBeat: this.pending?.dueBeat ?? dueBeat, policy: exit.policy, blendBeats: fade };
       return true;
     }
-    this.pending = null; return this.commit(id, beat, beat, exit.policy);
+    this.pending = null; return this.commit(id, beat, beat, exit.policy, false, fade);
   }
   /** Read-only recovery pose for expanded-pool selection; V2.1 scoring is unchanged. */
   private exitPose(beat: number) {
@@ -290,7 +295,7 @@ export class SourceFlowEngine {
     return this.placement(id, pose.root, rootYaw(pose.rotations[0]));
   }
   /** Check one known upcoming Finish without moving the dancer or gameplay clock. */
-  canFollowAt(id: string, nextIds: readonly string[], beat: number, nextBeat: number) {
+  canFollowAt(id: string, nextIds: readonly string[], beat: number, nextBeat: number, recovery?: Readonly<Record<string, string>>) {
     const { pose, due } = this.exitPose(beat), phrase = this.phrases.get(id);
     const place = this.placement(id, pose.root, rootYaw(pose.rotations[0]));
     if (!phrase || !place) return false;
@@ -298,16 +303,34 @@ export class SourceFlowEngine {
     const time = this.time(incoming, nextBeat);
     const exit = safeExitTime(phrase.spec, time, phrase.duration, this.policyOverride);
     const target = this.sample(incoming, nextBeat + (exit.localSeconds - time) * phrase.spec.referenceBpm / 60);
-    return nextIds.some(next => Boolean(this.placement(next, target.root, rootYaw(target.rotations[0]))));
+    return nextIds.some(next => {
+      const nextPlace = this.placement(next, target.root, rootYaw(target.rotations[0]));
+      if (!nextPlace) return false;
+      if (!recovery?.[next]) return true;
+      const nextPhrase = this.phrases.get(next)!;
+      const end = this.sample({ phrase: nextPhrase, startBeat: 0, offset: target.root, yaw: nextPlace.yaw }, nextPhrase.duration * nextPhrase.spec.referenceBpm / 60);
+      return Boolean(this.placement(recovery[next], end.root, rootYaw(end.rotations[0])));
+    });
   }
-  private commit(id: string, beat: number, requestedBeat: number, policy: ExitPolicy, initial = false) {
+  canFollowAtEnd(id: string, nextIds: readonly string[], beat: number) {
+    const { due } = this.exitPose(beat), phrase = this.phrases.get(id);
+    return Boolean(phrase && this.canFollowAt(id, nextIds, beat, due + phrase.duration * phrase.spec.referenceBpm / 60));
+  }
+  nextExitDelayAt(id: string, beat: number, nextBeat: number) {
+    const { due } = this.exitPose(beat), phrase = this.phrases.get(id);
+    if (!phrase) return Infinity;
+    const time = clamp((nextBeat - due) * 60 / phrase.spec.referenceBpm, 0, phrase.duration);
+    const exit = safeExitTime(phrase.spec, time, phrase.duration, this.policyOverride);
+    return (exit.localSeconds - time) * phrase.spec.referenceBpm / 60;
+  }
+  private commit(id: string, beat: number, requestedBeat: number, policy: ExitPolicy, initial = false, fade = this.blendBeats) {
     const phrase = this.phrases.get(id); const place = this.placement(id);
     if (!phrase || !place) { this.rejectedRequests++; return false; }
     const before = clonePose(this.pose), previous = this.current;
     if (this.lastRecord && this.blend) this.lastRecord.interrupted = true;
     const from = this.blend ? before : previous;
     this.current = { phrase, startBeat: beat, offset: before.root.clone(), yaw: place.yaw };
-    this.blend = initial || !from ? null : { from, startBeat: beat, durationBeats: this.blendBeats, headingDurationBeats: this.headingBlendDuration(phrase, place.yaw) };
+    this.blend = initial || !from ? null : { from, startBeat: beat, durationBeats: fade, headingDurationBeats: this.headingBlendDuration(phrase, place.yaw, fade) };
     const entry = this.sample(this.current, beat);
     const record: TransitionRecord = {
       a: previous?.phrase.spec.id ?? null, b: id, source: phrase.spec.source,
@@ -315,6 +338,7 @@ export class SourceFlowEngine {
       requestedBeat, visualStartBeat: beat, delayBeats: beat - requestedBeat, policy,
       blendBeats: this.blend?.durationBeats ?? 0, blendSeconds: (this.blend?.durationBeats ?? 0) * 60 / this.bpm,
       headingBlendBeats: this.blend?.headingDurationBeats ?? 0,
+      ...(phrase.recoveryAlignment ? { recoveryAlignment: phrase.recoveryAlignment } : {}),
       entryDisplacement: Math.hypot(entry.root.x - before.root.x, entry.root.z - before.root.z),
       before: before.root.toArray(), after: initial ? entry.root.toArray() : before.root.toArray(),
       stageAnchor: this.stageAnchor.position.toArray(), yaw: place.yaw, loopSeamWarning: null,
@@ -330,7 +354,7 @@ export class SourceFlowEngine {
       // Evaluate the actual displayed blend at recovery before committing, not
       // the unblended outgoing clip or a pose from the later catch-up frame.
       this.update(request.dueBeat);
-      this.commit(request.id, request.dueBeat, request.requestedBeat, request.policy);
+      this.commit(request.id, request.dueBeat, request.requestedBeat, request.policy, false, request.blendBeats);
     }
     this.latestBeat = beat;
     const transitioning = Boolean(this.blend);
@@ -375,6 +399,14 @@ export class SourceFlowEngine {
     this.pose = pose; this.motionRoot.position.copy(pose.root);
     this.rig.bones.forEach((b, i) => b.quaternion.copy(pose.rotations[i]));
     this.stageAnchor.updateMatrixWorld(true);
+    // Dedicated recovery/standing presentation: blended proportions must not
+    // push a foot below the demo floor. XZ and all authored rotations stay intact.
+    const fromRest = this.blend && "phrase" in this.blend.from && ["recovery", "idle"].includes(this.blend.from.phrase.spec.role);
+    if (this.current?.phrase.spec.role === "recovery" || this.current?.phrase.spec.role === "idle" || fromRest) {
+      let minimum = 0;
+      for (const bone of this.rig.bones) minimum = Math.min(minimum, bone.getWorldPosition(new T.Vector3()).y);
+      if (minimum < 0) { this.pose.root.y -= minimum; this.motionRoot.position.y = this.pose.root.y; this.stageAnchor.updateMatrixWorld(true); }
+    }
     this.maxRadius = Math.max(this.maxRadius, Math.hypot(pose.root.x, pose.root.z));
   }
   snapshot() {
@@ -382,7 +414,7 @@ export class SourceFlowEngine {
     return {
       current: current?.phrase.spec.id ?? null, previous: this.history.at(-1)?.a ?? null,
       source: current?.phrase.spec.source ?? null, sourcePhrase: current ? [current.phrase.spec.start, current.phrase.spec.end] : null,
-      sourceTime: current ? current.phrase.spec.start + time : 0,
+      sourceTime: current ? current.phrase.spec.start + Math.max(0, time - (current.phrase.recoveryAlignment?.leadInSeconds ?? 0)) : 0,
       root: this.pose.root.toArray(), stageAnchor: this.stageAnchor.position.toArray(),
       entryDisplacement: this.history.at(-1)?.entryDisplacement ?? 0,
       cumulativeDisplacement: Math.hypot(this.pose.root.x - this.startedAt.x, this.pose.root.z - this.startedAt.z),

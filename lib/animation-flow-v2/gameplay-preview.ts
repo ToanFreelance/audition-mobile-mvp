@@ -8,6 +8,11 @@ export type PreviewTurn = ReturnType<typeof describeSharedTurn> & {
   status: "NORMAL" | "FINISH" | "HIDDEN" | "REST";
   cycle: number; levelBudget: number; nextFinish: number; eligible: boolean;
 };
+/** Presentation label only. TurnCursor also counts the QA preroll boundary. */
+export function previewTurnCounter(mode: string, current: PreviewTurn | null | undefined, boundaryIndex: number) {
+  return mode === "gameplay" ? { label: "GAMEPLAY TURN (0-based)", value: current?.absoluteTurn ?? null }
+    : { label: "BEAT BOUNDARY (0-based)", value: boundaryIndex };
+}
 export function qaManifest(bpm: number, seed: number): MatchManifest {
   return {
     manifestVersion: 1, matchId: "animation-qa", roomId: "isolated-tool", roomRevision: 0,

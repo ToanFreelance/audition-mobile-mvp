@@ -12,16 +12,18 @@ import { PhraseBag } from "@/lib/animation-flow-v2/shuffle";
 import { CanvasSourcePreview } from "@/lib/animation-flow-v2/canvas-preview";
 import { INITIAL_CAMERA, STAGE_FRONT } from "@/lib/animation-flow-v2/heading";
 import styles from "./animation-flow-v2.module.css";
-import { NORMAL_PHRASES, FINISH_PHRASES, type PhraseSpec } from "@/lib/animation-flow-v2/catalog";
-import { GameplayPreview, type PreviewOutcome } from "@/lib/animation-flow-v2/gameplay-preview";
+import { NORMAL_PHRASES, FINISH_PHRASES, REST_PHRASES, type PhraseSpec } from "@/lib/animation-flow-v2/catalog";
+import { GameplayPreview, previewTurnCounter, type PreviewOutcome } from "@/lib/animation-flow-v2/gameplay-preview";
 import { SessionChoreography } from "@/lib/animation-flow-v2/session-choreography";
+import { closeStandingIdle, type FinishPresentation } from "@/lib/animation-flow-v2/finish-presentation";
 import { describeSharedTurn } from "@/multiplayer/determinism";
 import { FINISH_CHOREOGRAPHY } from "@/components/character/choreography";
 
 type View = "source" | "c1-casual-grace" | "c4-casual-boy";
 type Mode = "gameplay" | "lab" | "finish";
 type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
-  beat: number; turn: number; bpm: number; seed: number; auto: boolean; audioState: string;
+  beat: number; turn: number | null; beatBoundary: number; bpm: number; seed: number; auto: boolean; audioState: string;
+  finishPresentation: ReturnType<FinishPresentation["snapshot"]> | null;
   view: View; referenceStatus: string; triggerCount: number; processedBoundaries: number[];
   referenceAnchor: number[] | null; measurementsDomain: string;
   renderBackend: "webgl" | "canvas2d-projection";
@@ -109,14 +111,14 @@ export default function AnimationFlowV2() {
       loading.set(id, pending);
       try { return await pending; } finally { loading.delete(id); }
     }
-    async function prepare(specs: readonly PhraseSpec[] = [...NORMAL_PHRASES, ...FINISH_PHRASES]) {
+    async function prepare(specs: readonly PhraseSpec[] = [...NORMAL_PHRASES, ...FINISH_PHRASES, ...REST_PHRASES]) {
       const canonicalSource = await source("111_05");
       if (!engine) engine = new SourceFlowEngine(makeCanonicalRig(canonicalSource), new Map<string, PreparedPhrase>());
       const target = engine;
       for (const spec of specs) {
         if (target.phrases.has(spec.id)) continue;
         const motion = await source(spec.source);
-        target.phrases.set(spec.id, preparePhrase(spec, motion, target.rig, canonicalSource));
+        target.phrases.set(spec.id, closeStandingIdle(preparePhrase(spec, motion, target.rig, canonicalSource)));
       }
     }
     const audioSeconds = () => audio?.currentTime ?? 0;
@@ -146,7 +148,7 @@ export default function AnimationFlowV2() {
     }
     function createGameplay() {
       if (!engine) return;
-      choreography = new SessionChoreography(engine, runSeed);
+      choreography = new SessionChoreography(engine, runSeed, true);
       gameplay = new GameplayPreview(options.current.bpm, runSeed, (event, beat) => {
         triggerCount++;
         if (options.current.view === "source") {
@@ -162,11 +164,13 @@ export default function AnimationFlowV2() {
       if (config.mode === "gameplay" && gameplay?.manifest.gameplay.bpmExact !== config.bpm && beat === 0) createGameplay();
       for (const boundary of turns.consume(beat)) {
         processedBoundaries.push(boundary);
+        if (config.view === "source" && config.mode !== "lab") choreography?.update(boundary);
         if (config.mode === "gameplay") gameplay?.advance(boundary, config.auto, config.outcome);
         else { engine.update(boundary); if (config.mode === "lab" && config.auto) space(boundary, "auto");
-          if (config.mode === "finish" && replayTarget) { engine.request(replayTarget, boundary); replayTarget = null; } }
+          if (config.mode === "finish" && replayTarget) { if (engine.request(replayTarget, boundary)) choreography?.presentation?.begin(replayTarget, boundary, null); replayTarget = null; } }
       }
       if (config.mode === "gameplay") gameplay?.advance(beat, config.auto, config.outcome);
+      if (config.view === "source" && config.mode !== "lab") choreography?.update(beat);
       engine.update(beat);
     }
     async function resetRun() {
@@ -216,7 +220,7 @@ export default function AnimationFlowV2() {
         if (options.current.mode !== "lab") { setStatus("Chọn Free Animation Lab trước khi thử Moonwalk riêng."); return; }
         try { await prepare([MOONWALK_PHRASE]); if (disposed || !engine) return; engine.request(MOONWALK_PHRASE.id, currentBeat()); setStatus("Phrase Moonwalk riêng: giữ chuyển động trượt, không thuộc shuffle core."); } catch (e) { reportError(e); }
       },
-      export: () => download(new Blob([JSON.stringify({ schemaVersion: 4, implementation: "2.2", sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...FINISH_PHRASES], gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), `animation-flow-v22-${runSeed}.json`),
+      export: () => download(new Blob([JSON.stringify({ schemaVersion: 5, implementation: "2.2.1", sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...FINISH_PHRASES,...REST_PHRASES], gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), `animation-flow-v221-${runSeed}.json`),
       record: () => {
         if (recorder && recorder.state !== "inactive") { recorder.stop(); return; }
         if (!renderer.domElement.captureStream || typeof MediaRecorder === "undefined") { setError("Browser này không hỗ trợ ghi canvas; dùng xuất telemetry JSON."); return; }
@@ -275,7 +279,7 @@ export default function AnimationFlowV2() {
         if (isSource) drawRig(); else reference?.update(0, seconds, seconds * 1000);
         if (now - lastUi > 95) {
           const state = engine.snapshot();
-          const data: Telemetry = { ...state, gameplay: config.mode === "gameplay" ? gameplay?.snapshot() ?? null : null, mode: config.mode, beat, turn: turns.index + 1, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : "CMU-hidden; reference has separate referenceAnchor", renderBackend };
+          const data: Telemetry = { ...state, gameplay: config.mode === "gameplay" ? gameplay?.snapshot() ?? null : null, finishPresentation: choreography?.presentation?.snapshot() ?? null, mode: config.mode, beat, turn: previewTurnCounter(config.mode, gameplay?.snapshot().current, turns.index).value, beatBoundary: turns.index, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : "CMU-hidden; reference has separate referenceAnchor", renderBackend };
           element.dataset.telemetry = JSON.stringify(data);
           setTelemetry(data); setHistory(engine.history.slice(-8).reverse()); samples.push(data); if (samples.length > 12000) samples.shift();
           trailPoints.push(new T.Vector3(state.root[0], 0.004, state.root[2])); if (trailPoints.length > 180) trailPoints.shift();
@@ -314,12 +318,13 @@ export default function AnimationFlowV2() {
   }, []);
 
   const progress = telemetry ? telemetry.beat % 4 / 4 : 0;
-  const currentSpec = [...NORMAL_PHRASES,...FINISH_PHRASES].find(p => p.id === telemetry?.current);
+  const currentSpec = [...NORMAL_PHRASES,...FINISH_PHRASES,...REST_PHRASES].find(p => p.id === telemetry?.current);
   const gameplayRow = telemetry?.gameplay?.current;
+  const turnCounter = previewTurnCounter(mode, gameplayRow, telemetry?.beatBoundary ?? 0);
   const tempoLocked = mode === "gameplay" && (telemetry?.beat ?? 0) > 0;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2</span></h1><p className={styles.lead}>L1–9 → Finish → nghỉ → L6–9. {NORMAL_PHRASES.length} phrase + {FINISH_PHRASES.length} Finish để duyệt.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.1</span></h1><p className={styles.lead}>L1–9 → Finish → hồi phục / nghỉ → L6–9. {NORMAL_PHRASES.length} phrase + {FINISH_PHRASES.length} Finish để duyệt.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
@@ -337,8 +342,9 @@ export default function AnimationFlowV2() {
               <span>Global turn (0-based): {gameplayRow?.absoluteTurn ?? "—"} · trong cấp: {gameplayRow ? `${gameplayRow.sequenceIndex + 1}/${gameplayRow.levelBudget}` : "1/1"}</span>
               <span>Chu kỳ {gameplayRow?.cycle ?? 1} · Finish tiếp: {gameplayRow?.nextFinish ?? 38} · SPACE {auto ? `Auto ${outcome}` : "Manual visual"}</span>
               <span>Nhóm: {currentSpec?.group ?? "—"} · {currentSpec?.id ?? "—"}</span>
+              <span data-testid="finish-phase">Trình bày: {telemetry?.finishPresentation?.phase ?? "DANCE"}</span>
             </div>}
-            <div className={styles.counters}><span>TURN <b data-testid="turn-counter">{telemetry?.turn ?? 1}</b></span><div className={styles.beats}>{[0, 1, 2, 3].map(n => <i key={n} data-active={Math.floor(telemetry?.beat ?? 0) % 4 === n}>{n + 1}</i>)}</div><span>{running ? "ĐANG CHẠY" : "TẠM DỪNG"}</span></div>
+            <div className={styles.counters}><span>{turnCounter.label} <b data-testid="turn-counter">{turnCounter.value ?? "—"}</b></span><div className={styles.beats}>{[0, 1, 2, 3].map(n => <i key={n} data-active={Math.floor(telemetry?.beat ?? 0) % 4 === n}>{n + 1}</i>)}</div><span>{running ? "ĐANG CHẠY" : "TẠM DỪNG"}</span></div>
             <div className={styles.gauge} role="progressbar" aria-label="Gauge mô phỏng bốn beat" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}><div style={{ transform: `scaleX(${progress})` }} />{[1, 2, 3].map(n => <i key={n} style={{ left: `${n * 25}%` }} />)}</div>
             <button className={styles.space} disabled={!ready || !running || mode === "finish"} onClick={() => commands.current.space()}><span>SPACE</span><small>Thử visual, không nhập arrow / chấm điểm · giữ timeline</small></button>
           </div>
@@ -354,7 +360,7 @@ export default function AnimationFlowV2() {
             <label className={styles.checkbox}><input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} />{mode === "gameplay" ? "Auto command tại target gốc; bỏ qua HIDDEN / REST" : "Tự SPACE mỗi bốn beat (Lab)"}</label>
             {mode === "gameplay" && <label className={styles.control}>Kết quả tự động <select aria-label="Auto outcome" value={outcome} onChange={e => setOutcome(e.target.value as PreviewOutcome)}><option value="perfect">Perfect · nhập đúng arrow + SPACE</option><option value="miss">Miss · không nhập, runtime xử lý</option></select></label>}
           </section>
-          <section className={styles.panel}><p className={styles.eyebrow}>FINISH RIÊNG · CHƯA DUYỆT PRODUCTION</p><select aria-label="Finish candidate" value={finishPhrase} onChange={e => setFinishPhrase(e.target.value)}>{FINISH_PHRASES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(finishPhrase, true)}>Replay Finish · reset phiên riêng</button></div><p className={styles.muted}>Normal → Finish tại beat 4, giữ accent rồi pose cuối. Trong Gameplay chỉ phát Finish từ sự kiện L9 gốc.</p></section>
+          <section className={styles.panel}><p className={styles.eyebrow}>FINISH RIÊNG · CHƯA DUYỆT PRODUCTION</p><select aria-label="Finish candidate" value={finishPhrase} onChange={e => setFinishPhrase(e.target.value)}>{FINISH_PHRASES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(finishPhrase, true)}>Replay Finish · reset phiên riêng</button></div><p className={styles.muted}>Normal → Finish tại beat 4 → giữ 0,5 beat → thu chân → idle. Trong Gameplay chỉ phát Finish từ sự kiện L9 gốc.</p></section>
           <section className={styles.panel}><p className={styles.eyebrow}>CATALOG · {NORMAL_PHRASES.length} PHRASE</p><select aria-label="Phrase preview" value={previewPhrase} onChange={e => setPreviewPhrase(e.target.value)}>{NORMAL_PHRASES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(previewPhrase, false)}>Xem phrase · reset phiên riêng</button></div><p className={styles.muted}>Sáu phrase V2.1 giữ nguyên; mười phrase mới chờ duyệt pose/contact. Không gán style hip-hop cho nguồn Unknown.</p></section>
           <section className={styles.panel}><p className={styles.eyebrow}>ĐỐI CHỨNG LỖI CŨ</p><label className={styles.control}>Cặp xác định <select aria-label="Cặp lỗi" value={pair} onChange={e => setPair(e.target.value)}>{FAILING_PAIRS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.replay(pair)}>Phát lại cặp</button><button disabled={!ready || view !== "source"} onClick={() => void commands.current.moonwalk()}>Thử Moonwalk</button></div><p className={styles.muted}>Fixture ballet/floor chỉ để QA; không nằm trong pool ngẫu nhiên.</p></section>
         </aside>
