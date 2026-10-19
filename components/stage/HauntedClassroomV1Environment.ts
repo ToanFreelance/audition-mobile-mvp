@@ -4,6 +4,7 @@ import {
   makeOldPlaster, makeOldFloor, makeChalkboard,
   makeGhostWindow, makeSpeakerFace, makeSchoolPaper,
   makeClassroomFloorReflections, makeWindowShaft,
+  makeHauntedCeilingPanels, makeHauntedFloorRoughness,
 } from "./haunted-classroom-textures";
 
 /**
@@ -91,7 +92,8 @@ export class HauntedClassroomV1Environment {
     const plaster=new THREE.MeshStandardMaterial({map:makeOldPlaster(),roughness:1});
     const woodTex=makeOldFloor();woodTex.wrapS=woodTex.wrapT=THREE.RepeatWrapping;woodTex.repeat.set(2,3);
     const floorMat=new THREE.MeshStandardMaterial({
-      map:woodTex,roughness:.29,metalness:.13,
+      map:woodTex,roughnessMap:makeHauntedFloorRoughness(),
+      roughness:.42,metalness:.06,
     });
     const paperTex=new THREE.MeshStandardMaterial({map:makeSchoolPaper(),roughness:.94,side:THREE.DoubleSide});
 
@@ -135,7 +137,7 @@ export class HauntedClassroomV1Environment {
     const reflection=new THREE.Mesh(
       new THREE.PlaneGeometry(20,30),
       new THREE.MeshBasicMaterial({
-        map:makeClassroomFloorReflections(),transparent:true,opacity:.91,
+        map:makeClassroomFloorReflections(),transparent:true,opacity:.77,
         depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,
         toneMapped:false,
       }),
@@ -143,23 +145,57 @@ export class HauntedClassroomV1Environment {
     reflection.name="MoonlitFloorReflections";
     reflection.rotation.x=-Math.PI/2;reflection.position.set(0,.011,1.45);
     root.add(reflection);
-    // Structural ceiling panels, supports, and suspended flickering LEDs.
-    box("Ceiling",0,9.65,-2.0,19.0,.28,21,mat(0x344057));
-    // Central overhead beam previously blocked the top third of iPhone view.
-    for(const x of [-6.9,6.9])box("CeilingBeam",x,9.27,-2.0,.62,.48,21,mat(0x202b3c));
-    for(const z of [-8,-2,4])box("CeilingCrossBeam",0,9.29,z,18.9,.33,.51,mat(0x29354b));
-    const tubeHalo=new THREE.MeshBasicMaterial({
-      color:0xb65aff,transparent:true,opacity:.22,depthWrite:false,
-      side:THREE.DoubleSide,toneMapped:false,
+    // Smaller suspended ceiling assembly. The old 21-unit slab with deep,
+    // full-width cross-beams dominated the top third of the iPhone frame.
+    // This one retains real geometry and aging, but reads as a lit classroom.
+    const ceilingPanelMaterial=new THREE.MeshStandardMaterial({
+      map:makeHauntedCeilingPanels(),roughness:.82,metalness:.07,
     });
-    for(const x of [-6.3,0,6.3]){
-      for(const z of [-7,0]){
-        box("FluorescentBlackHousing",x,8.93,z,3.15,.14,.47,trim);
-        box("FluorescentPurpleLight",x,8.82,z,2.94,.08,.21,violetGlow);
-        const glow=plane("FluorescentBloom",x,8.74,z,3.0,.36,tubeHalo);
-        glow.rotation.x=-Math.PI/2;
-        rod("SuspendedCeilingCable",xyz(x-1.2,8.91,z),xyz(x-1.2,9.4,z),.027,darkMetal);
+    const ceilingRail=mat(0x465267,.60,.22);
+    const beamEdge=mat(0x6e7687,.63,.16);
+    const fixtureHousing=mat(0x34364b,.50,.27);
+    const warmTube=new THREE.MeshBasicMaterial({color:0xffd8ee,toneMapped:false});
+    const lampDiffuser=new THREE.MeshBasicMaterial({
+      color:0xeabaff,transparent:true,opacity:.26,depthWrite:false,
+      toneMapped:false,side:THREE.DoubleSide,
+    });
+    // Far end of the ceiling is anchored to the back wall; the front ends
+    // before the portrait camera so there are no wide black silhouettes.
+    for(let z=-10.8;z<=1.3;z+=2.02){
+      box("AgedCeilingTile",0,10.08,z,17.1,.16,1.94,ceilingPanelMaterial);
+      box("CeilingTileEdge",0,9.97,z-1.0,17.1,.045,.045,ceilingRail);
+    }
+    for(const x of [-8.60,8.60]){
+      box("SlimCeilingPerimeter",x,9.98,-4.90,.25,.20,14.95,ceilingRail);
+      box("CeilingInnerHighlight",x-Math.sign(x)*.15,9.93,-4.90,.035,.075,14.95,beamEdge);
+    }
+    for(const z of [-10.3,-5.0,.3]){
+      box("SlimCrossSupport",0,9.88,z,17.1,.17,.24,ceilingRail);
+    }
+    // Two columns of slim off-white/pink fluorescent fixtures.
+    // Diffusers are visible in perspective; the old purple strips appeared
+    // disconnected from the ceiling and gave no ambient illumination.
+    for(const x of [-4.65,4.65]) {
+      for(const z of [-8.25,-2.25]){
+        const g=new THREE.Group();
+        g.name="PremiumSuspendedClassroomFixture";
+        g.position.set(x,9.54,z);
+        root.add(g);
+        box("BrushedSteelLampHousing",0,0,0,3.22,.19,.65,fixtureHousing,g);
+        box("FrostedTubeCore",0,-.115,.018,2.86,.055,.31,warmTube,g);
+        const diffuser=plane("LampDiffuserSoftGlow",0,-.159,.043,3.14,.47,lampDiffuser,g);
+        diffuser.rotation.x=-Math.PI/2;
+        for(const sx of [-1.26,1.26]){
+          rod("LampHangingCable",xyz(sx,.035,0),xyz(sx,.54,0),.021,darkMetal,g);
+        }
+        box("TubeMetalEndCap",-1.52,-.09,0,.10,.15,.56,ceilingRail,g);
+        box("TubeMetalEndCap",1.52,-.09,0,.10,.15,.56,ceilingRail,g);
       }
+    }
+    // Coved violet accents at the side/wall seam, never over the dancer.
+    const coveGlow=new THREE.MeshBasicMaterial({color:0xaf7be5,toneMapped:false});
+    for(const side of [-1,1]){
+      box("IndirectWallCove",side*8.36,9.28,-5.3,.09,.075,13.5,coveGlow);
     }
 
     // Windows in far wall to preserve the central chalkboard silhouette.
@@ -460,12 +496,12 @@ export class HauntedClassroomV1Environment {
       m.rotation.set(-Math.PI/2,0,Math.atan2(p2.z-p1.z,p2.x-p1.x));
       m.position.copy(p1).add(p2).multiplyScalar(.5);root.add(m);
     }
-    const purpleFill=new THREE.PointLight(0x8e49da,4.1,20,2);
+    const purpleFill=new THREE.PointLight(0xa477f0,4.3,20,2);
     purpleFill.name="PurpleSpeakerAmbient";purpleFill.position.set(-5.8,5.2,-6);root.add(purpleFill);
-    const magentaFill=new THREE.PointLight(0xcf41ba,3.1,17,2);
+    const magentaFill=new THREE.PointLight(0xe37ed4,3.3,17,2);
     magentaFill.name="MoonWindowFill";magentaFill.position.set(5.8,5.7,-6);root.add(magentaFill);
-    const danceFill=new THREE.PointLight(0x779ce9,2.2,13,2);
-    danceFill.name="SoftDancerFill";danceFill.position.set(0,7.4,3);root.add(danceFill);
+    const danceFill=new THREE.PointLight(0xb9b9ed,3.6,14,2);
+    danceFill.name="SoftDancerFill";danceFill.position.set(0,6.3,5.0);root.add(danceFill);
   }
 
   update(renderTimeSeconds:number,_songTimeMs:number,_bpm:number,_isPlaying:boolean) {
