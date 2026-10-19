@@ -57,3 +57,7 @@ The QA route initializes with one real actor to keep stage switching responsive
 on constrained GPUs; the owner can explicitly select up to five independent
 actors. Focused CI tests use a longer action timeout only for costly stage
 switching, without turning asset/load failures into false PASS.
+
+Gameplay presentation readiness waits for the stage and LOCAL actor only;
+remote asset loading/errors are reported independently and cannot delay the
+shared WebAudio timeline or hold the local entry curtain closed.

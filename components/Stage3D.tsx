@@ -562,9 +562,16 @@ export default function Stage3D({
           host.dataset.ensembleLoadedCount = String(state.loaded);
           host.dataset.ensembleState = JSON.stringify(state);
           characterRef.current = ensemble?.getLocalActor() ?? null;
-          characterSettled = state.expected > 0
-            && state.loaded === state.expected && state.failed === 0;
-          if (state.failed > 0) onPresentationFailureRef.current?.("Một hoặc nhiều nhân vật 3D tải thất bại.");
+          // Never make a remote actor's GLB load part of the local gameplay
+          // reveal gate. The shared WebAudio timeline must keep advancing.
+          // Diagnostics still expose each remote actor's independent state.
+          const localState = state.actors.find(
+            item => item.participantId === ensembleLocalIdRef.current,
+          );
+          characterSettled = localState?.state === "loaded";
+          if (localState?.state === "error") {
+            onPresentationFailureRef.current?.("Không thể tải nhân vật local.");
+          }
         },
       });
       ensembleGroupRef.current = ensemble;
