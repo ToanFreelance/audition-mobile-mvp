@@ -229,16 +229,18 @@ export function makeChalkboard() {
 export function makeGhostWindow() {
   return canvasTexture(512, 1024, 404, (c,r) => {
     const g=c.createLinearGradient(0,0,0,1024);
-    g.addColorStop(0,"#160f2c");g.addColorStop(.27,"#79316f");
-    g.addColorStop(.65,"#622766");g.addColorStop(1,"#171326");
+    // V12: dark outdoor night, not a luminous pink skybox. Keep a restrained
+    // centre band lighter than the near-black figure for silhouette contrast.
+    g.addColorStop(0,"#100e1c");g.addColorStop(.27,"#33233e");
+    g.addColorStop(.65,"#292035");g.addColorStop(1,"#0d101c");
     c.fillStyle=g;c.fillRect(0,0,512,1024);
     const moon=c.createRadialGradient(310,155,4,310,155,155);
-    moon.addColorStop(0,"rgba(230,171,218,.65)");
-    moon.addColorStop(.41,"rgba(199,129,183,.34)");
-    moon.addColorStop(.74,"rgba(125,59,133,.12)");
-    moon.addColorStop(1,"rgba(214,96,190,0)");
+    moon.addColorStop(0,"rgba(150,126,164,.21)");
+    moon.addColorStop(.41,"rgba(131,109,151,.105)");
+    moon.addColorStop(.74,"rgba(81,66,105,.035)");
+    moon.addColorStop(1,"rgba(64,56,89,0)");
     c.fillStyle=moon;c.fillRect(0,0,512,440);
-    c.fillStyle="rgba(207,162,211,.52)";
+    c.fillStyle="rgba(144,131,167,.15)";
     c.beginPath();c.arc(310,155,76,0,2*Math.PI);c.fill();
     // Bent branches and scattered leaves
     for(let branch=0;branch<10;branch++){
@@ -253,9 +255,9 @@ export function makeGhostWindow() {
     }
     // No static people or ghosts in the sky texture: transient figures
     // are only instantiated as real animated window objects.
-    c.fillStyle="rgba(205,191,240,.07)"; c.fillRect(0,0,512,1024);
+    c.fillStyle="rgba(97,82,119,.025)"; c.fillRect(0,0,512,1024);
     for(let i=0;i<100;i++){
-      c.strokeStyle="rgba(255,220,242,.06)";c.lineWidth=.4+r();
+      c.strokeStyle="rgba(160,147,171,.045)";c.lineWidth=.4+r();
       const x=r()*512,y=r()*1024;c.beginPath();c.moveTo(x,y);c.lineTo(x+r()*60,y+r()*80);c.stroke();
     }
   });
@@ -492,10 +494,10 @@ export function makeWindowShaft() {
   return canvasTexture(256,512,410,(c,r)=>{
     c.clearRect(0,0,256,512);
     const g=c.createLinearGradient(0,0,0,512);
-    g.addColorStop(0,"rgba(242,125,255,.0)");
-    g.addColorStop(.24,"rgba(232,124,255,.19)");
-    g.addColorStop(.63,"rgba(195,108,244,.13)");
-    g.addColorStop(1,"rgba(187,99,246,0)");
+    g.addColorStop(0,"rgba(127,111,162,0)");
+    g.addColorStop(.24,"rgba(143,119,176,.085)");
+    g.addColorStop(.63,"rgba(104,86,146,.065)");
+    g.addColorStop(1,"rgba(95,74,129,0)");
     c.fillStyle=g;
     c.beginPath();c.moveTo(75,0);c.lineTo(170,0);c.lineTo(255,512);
     c.lineTo(0,512);c.closePath();c.fill();
