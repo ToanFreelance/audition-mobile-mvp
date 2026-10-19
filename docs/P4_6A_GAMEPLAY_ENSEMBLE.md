@@ -113,3 +113,17 @@ actors change from +/-1.848 to +/-1.980. This remains inside the existing
 change; camera and Z remain unchanged. A symmetric two-rear/two-front layout
 is proposed for four players but **not implemented** pending owner selection.
 Hardware silhouette/performance acceptance remains open.
+
+## P4.6A accepted 4-person symmetric formation (2026-10-19)
+Owner approved **two in the rear + two in front** as the replacement for the
+visually unbalanced 3+1 arrangement. For four people only, immutable
+participant slots are mapped in order to rear (-2.50, 0.45), rear (+2.50,
+0.45), front (-1.05, 1.95), front (+1.05, 1.95), before applying each accepted
+stage's existing X scale and Z offset. Front means greater positive Z toward
+the gameplay camera. Both rows center at X=0 and stagger to avoid silhouettes
+overlapping. The 1–3 and 5-person formations are unchanged, including the
+owner-accepted Neon 5-only xScale=1.20.
+Only presentation formation positions and deterministic tests were updated;
+no changes to camera/renderer, stage art, character actor identity/mixer,
+animation flow, WebAudio/gameplay or RoomState/Supabase. Owner iPhone
+re-evaluation of the new 4-person layout remains required.

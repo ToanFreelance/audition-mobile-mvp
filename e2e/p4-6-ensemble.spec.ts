@@ -29,7 +29,7 @@ test("P4.6A deterministic identities, nonintersecting layouts and ground contact
     }
   }
 });
-test("P4.6A owner iPhone formation: horizontal 1–3, 3+1 and 3+2 rows on all stages", () => {
+test("P4.6A owner iPhone formation: horizontal 1–3, symmetric 2+2 and 3+2 on all stages", () => {
   // In stage-space, positive Z is closer to the audience-facing camera.
   const scale: Readonly<Record<string, number>> = {
     "bright-stage-v1": 1,
@@ -47,14 +47,14 @@ test("P4.6A owner iPhone formation: horizontal 1–3, 3+1 and 3+2 rows on all st
     1: [0],
     2: [-1.55, 1.55],
     3: [-2.35, 0, 2.35],
-    4: [-2.50, 0, 2.50, 1.25],
+    4: [-2.50, 2.50, -1.05, 1.05],
     5: [-3.00, 0, 3.00, -1.65, 1.65],
   };
   const expectedZ: Readonly<Record<number, readonly number[]>> = {
     1: [0.25],
     2: [0.50, 0.50],
     3: [0.55, 0.55, 0.55],
-    4: [0.45, 0.45, 0.45, 1.90],
+    4: [0.45, 0.45, 1.95, 1.95],
     5: [0.45, 0.45, 0.45, 1.95, 1.95],
   };
   for (const stageId of SELECTABLE_STAGE_IDS) {
@@ -75,8 +75,17 @@ test("P4.6A owner iPhone formation: horizontal 1–3, 3+1 and 3+2 rows on all st
           for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThan(2.3);
         }
       } else {
-        const rear = actual.slice(0, 3);
-        const front = actual.slice(3);
+        const rearCount = count === 4 ? 2 : 3;
+        const rear = actual.slice(0, rearCount);
+        const front = actual.slice(rearCount);
+        expect(front).toHaveLength(2);
+        if (count === 4) {
+          // Both rows straddle world X=0; no single performer off-center.
+          expect(rear[0].x + rear[1].x).toBeCloseTo(0, 6);
+          expect(front[0].x + front[1].x).toBeCloseTo(0, 6);
+          expect(rear[0].x).toBeLessThan(front[0].x);
+          expect(front[1].x).toBeLessThan(rear[1].x);
+        }
         expect(new Set(rear.map(a => a.z)).size).toBe(1);
         expect(new Set(front.map(a => a.z)).size).toBe(1);
         expect(front.every(a => a.z > rear[0].z + 1.4)).toBe(true);

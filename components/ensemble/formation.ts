@@ -16,8 +16,8 @@ export type FormationPlacement = EnsembleParticipant & Readonly<{
 }>;
 
 // Stage-space formation, viewed from the audience (camera at positive Z):
-// 1–3: a single evenly spaced row; 4: three behind + one in front;
-// 5: three behind + two in front. Front row has *larger* Z.
+// 1–3: a single evenly spaced row; 4: symmetric two rear + two front;
+// 5: three rear + two front. Front row has *larger* Z.
 // Front performers sit between rear silhouettes, rather than directly in
 // front of a rear actor. This prevents the depth rows from hiding each other.
 // Single-player placement and portrait camera are unchanged.
@@ -25,8 +25,9 @@ const POSITIONS: Readonly<Record<number, ReadonlyArray<readonly [number, number]
   1: [[0, 0.25]],
   2: [[-1.55, 0.50], [1.55, 0.50]],
   3: [[-2.35, 0.55], [0, 0.55], [2.35, 0.55]],
-  // Three rear actors, one front actor between center and right rear.
-  4: [[-2.50, 0.45], [0, 0.45], [2.50, 0.45], [1.25, 1.90]],
+  // Owner-approved 2+2: rear pair wider, front pair centered in the gaps.
+  // Stage-space clearance is >2 units even for the unscaled Bright/Classroom.
+  4: [[-2.50, 0.45], [2.50, 0.45], [-1.05, 1.95], [1.05, 1.95]],
   // Three rear actors, two front actors in the left/right gaps.
   5: [[-3.00, 0.45], [0, 0.45], [3.00, 0.45], [-1.65, 1.95], [1.65, 1.95]],
 };
