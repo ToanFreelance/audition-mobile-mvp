@@ -615,6 +615,30 @@ export class HauntedClassroomV1Environment {
     magentaFill.name="MoonWindowFill";magentaFill.position.set(5.8,5.7,-6);root.add(magentaFill);
     const danceFill=new THREE.PointLight(0xb9b9ed,3.6,14,2);
     danceFill.name="SoftDancerFill";danceFill.position.set(0,6.3,5.0);root.add(danceFill);
+    // Reuse existing perimeter lights for an almost imperceptible irregular
+    // moonlight fluctuation (no new dynamic lights, shadows or timers).
+    this.ambientLamps.push(purpleFill,magentaFill);
+    // One batched dust cloud: sparse motes visible only around the rear/side
+    // windows. No dust placed across a dancer's face or gameplay HUD.
+    const positions:number[]=[];
+    for(let i=0;i<44;i++){
+      positions.push(
+        Math.sin(i*2.71)*7.15,
+        .7+((i*37)%61)/10,
+        -8.9+((i*23)%57)/10,
+      );
+    }
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
+    const attr=geometry.getAttribute("position") as THREE.BufferAttribute;
+    attr.setUsage(THREE.DynamicDrawUsage);
+    const motes=new THREE.Points(geometry,new THREE.PointsMaterial({
+      color:0xd3badd,size:.065,transparent:true,opacity:.28,
+      depthWrite:false,depthTest:true,sizeAttenuation:true,
+    }));
+    motes.name="SubtleClassroomFloatingDust";
+    motes.frustumCulled=false;root.add(motes);
+    this.dust={geometry,base:new Float32Array(positions)};
   }
 
   update(renderTimeSeconds:number,_songTimeMs:number,_bpm:number,_isPlaying:boolean) {
@@ -671,6 +695,26 @@ export class HauntedClassroomV1Environment {
       ghost.mesh.position.y=-.18+Math.sin(elapsed*6.1)*.014;
       ghost.mesh.rotation.z=Math.sin(elapsed*2.5)*.003;
     }
+    // Low amplitude: lighting breathes, never strobes or steals dancer focus.
+    for(let i=0;i<this.ambientLamps.length;i++){
+      const base=i===0?4.3:3.3;
+      const slow=Math.sin(t*.43+i*1.97)*.035;
+      const drift=Math.sin(t*.137+i*2.71)*.020;
+      this.ambientLamps[i].intensity=base*(1+slow+drift);
+    }
+    if(this.dust){
+      const attr=this.dust.geometry.getAttribute("position") as THREE.BufferAttribute;
+      const initial=this.dust.base;
+      for(let i=0;i<attr.count;i++){
+        const j=i*3;
+        attr.setXYZ(i,
+          initial[j]+Math.sin(t*.13+i*.83)*.10,
+          initial[j+1]+Math.sin(t*.18+i*1.46)*.23,
+          initial[j+2]+Math.cos(t*.11+i*.64)*.09,
+        );
+      }
+      attr.needsUpdate=true;
+    }
     for(let i=0;i<this.candleGlow.length;i++)
       this.candleGlow[i].intensity=2.0+.20*Math.sin(t*5.8+i*2.3);
   }
@@ -699,6 +743,6 @@ export class HauntedClassroomV1Environment {
     if(this.disposed)return;this.disposed=true;
     disposeTree(this.root);this.root.removeFromParent();this.root.clear();
     this.motions=[];this.curtainGeometry=[];this.passingGhosts=[];
-    this.candleGlow=[];this.loaded=false;
+    this.candleGlow=[];this.ambientLamps=[];this.dust=null;this.loaded=false;
   }
 }
