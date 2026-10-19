@@ -21,8 +21,8 @@ test("S2 Stage Catalog keeps Bright Stage V1 as the accepted runnable default", 
     selectable: true,
     status: "active",
   });
-  expect(SELECTABLE_STAGE_IDS).toEqual(["bright-stage-v1", "neon-stage-v1", "basketball-court-v1"]);
-  expect(selectableStageCatalogEntries().map(entry => entry.id)).toEqual(["bright-stage-v1", "neon-stage-v1", "basketball-court-v1"]);
+  expect(SELECTABLE_STAGE_IDS).toEqual(["bright-stage-v1", "neon-stage-v1", "basketball-court-v1", "classroom-v1"]);
+  expect(selectableStageCatalogEntries().map(entry => entry.id)).toEqual(["bright-stage-v1", "neon-stage-v1", "basketball-court-v1", "classroom-v1"]);
 });
 
 test("S2 Stage Catalog reserves the S2.5 environment pack without exposing unfinished content", () => {
@@ -52,7 +52,17 @@ test("S2 Stage Catalog reserves the S2.5 environment pack without exposing unfin
     status: "active",
   });
 
-  for (const id of ["football-field-v1", "classroom-v1", "cafe-v1"] as const) {
+  expect(STAGE_CATALOG["classroom-v1"]).toEqual({
+    id: "classroom-v1",
+    displayName: "Haunted Classroom",
+    kind: "classroom",
+    runtimeAssetId: "classroom-v1",
+    presentationProfileId: "classroom-v1",
+    selectable: true,
+    status: "active",
+  });
+
+  for (const id of ["football-field-v1", "cafe-v1"] as const) {
     expect(STAGE_CATALOG[id].status).toBe("planned");
     expect(STAGE_CATALOG[id].selectable).toBe(false);
     expect(STAGE_CATALOG[id].runtimeAssetId).toBeNull();
@@ -70,6 +80,7 @@ test("S2 Stage Catalog preserves legacy runtime assets without making them selec
     "bright-stage-v1",
     "neon-stage-v1",
     "basketball-court-v1",
+    "classroom-v1",
     "performance-stage-v1",
     "neon-club-v3",
   ]);

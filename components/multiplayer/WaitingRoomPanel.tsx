@@ -270,6 +270,7 @@ const STAGES = [
   { id: "bright-stage-v1", name: "Bright Stage", detail: "Sân khấu sáng", icon: "✦" },
   { id: "neon-stage-v1", name: "Neon Stage", detail: "Sân khấu ánh sáng neon", icon: "◇" },
   { id: "basketball-court-v1", name: "Basketball Court", detail: "Sân bóng rổ graffiti", icon: "🏀" },
+  { id: "classroom-v1", name: "Haunted Classroom", detail: "Lớp học ma · Cửa sổ đêm", icon: "👻" },
 ] as const;
 
 const LEGACY_STAGES = [

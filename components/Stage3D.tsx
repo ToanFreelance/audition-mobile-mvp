@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { clone as cloneSkinnedActor } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 import type { CharacterPresentationEvent } from "./character/character-types";
@@ -49,6 +50,38 @@ function getNeonGameplayCameraFrame(frame: ReturnType<typeof getCharacterCameraF
     targetY: frame.targetY + 0.20,
   };
 }
+
+/**
+ * S2.5C fixed portrait composition for Haunted Classroom.
+ * Formation count changes positions of QA characters ONLY: FOV, camera
+ * position and target cannot branch based on the number of participants.
+ * Preserve the previously five-person-safe composition at every count.
+ */
+function getHauntedClassroomFrame(
+  frame: ReturnType<typeof getCharacterCameraFrame>,
+  portrait: boolean,
+) {
+  if (!portrait) return frame;
+  return {
+    ...frame,
+    // A small (~5–8%) widening so the windows and desks on both sides
+    // remain visible, WITHOUT switching pose at actor counts 1/3/4/5.
+    fov: Math.max(40, frame.fov + 2),
+    y: frame.y + .43,
+    z: frame.z + 1.85,
+    targetY: frame.targetY + .17,
+    targetZ: frame.targetZ + .38,
+  };
+}
+
+// Center-out formation inside the marked circle, for stage-lab QA only.
+const HAUNTED_PREVIEW_POSITIONS: Readonly<Record<number, ReadonlyArray<readonly [number, number]>>> = {
+  1: [[0, .5]],
+  2: [[-1.15, .65], [1.15, .65]],
+  3: [[0, .42], [-1.5, .81], [1.5, .81]],
+  4: [[-.77, .43], [.77, .43], [-2.18, 1.03], [2.18, 1.03]],
+  5: [[0, .35], [-1.28, .78], [1.28, .78], [-2.50, 1.2], [2.50, 1.2]],
+};
 
 // Only Basketball gets this portrait presentation framing; global gameplay
 // camera presets, cinematic clock and other accepted environments stay intact.
@@ -142,6 +175,8 @@ type Stage3DProps = {
   characterAssetId?: CharacterAssetId;
   visualCompareMode?: boolean;
   hideCharacter?: boolean;
+  /** Isolated classroom visual QA only; not multiplayer participants or game state. */
+  previewActorCount?: number;
   fixedPresentationTimeSeconds?: number;
   performanceDiagnostics?: PerformanceDiagnostics | null;
   /** Multiplayer entry: avoid the four-second solo cinematic shot sequence. */
@@ -163,6 +198,7 @@ export default function Stage3D({
   characterAssetId,
   visualCompareMode = false,
   hideCharacter = false,
+  previewActorCount,
   fixedPresentationTimeSeconds,
   performanceDiagnostics,
   skipIntroCamera = false,
@@ -174,8 +210,11 @@ export default function Stage3D({
   const stageEntry = resolveRuntimeStageCatalogEntry(selectedStageId);
   const neonPresentation = stageEntry.presentationProfileId === "neon-stage-v1";
   const basketballPresentation = stageEntry.presentationProfileId === "basketball-court-v1";
+  const hauntedClassroomPresentation = stageEntry.presentationProfileId === "classroom-v1";
   const hostRef = useRef<HTMLDivElement | null>(null);
   const characterRef = useRef<CharacterActor | null>(null);
+  const previewActorCountRef = useRef(previewActorCount);
+  previewActorCountRef.current = previewActorCount;
   const cameraPresetRef = useRef(cameraPreset);
   const isPlayingRef = useRef(isPlaying);
   const getSongTimeMsRef = useRef(getSongTimeMs);
@@ -205,10 +244,11 @@ export default function Stage3D({
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(
-      basketballPresentation ? 0x91c7ed : neonPresentation ? 0x020517 : 0x1b2d49,
+      hauntedClassroomPresentation ? 0x111629
+        : basketballPresentation ? 0x91c7ed : neonPresentation ? 0x020517 : 0x1b2d49,
     );
-    scene.fog = basketballPresentation
-      ? new THREE.Fog(0x91c7ed, 42, 96)
+    scene.fog = hauntedClassroomPresentation ? new THREE.Fog(0x111629, 35, 66)
+      : basketballPresentation ? new THREE.Fog(0x91c7ed, 42, 96)
       : neonPresentation ? null : new THREE.FogExp2(0x6b7f9f, 0.01);
 
     const initialCameraFrame = getCharacterCameraFrame("center", false);
@@ -248,7 +288,7 @@ export default function Stage3D({
     renderer.setSize(host.clientWidth, host.clientHeight, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = basketballPresentation ? 1.13 : neonPresentation ? 1.22 : 1.28;
+    renderer.toneMappingExposure = hauntedClassroomPresentation ? 1.40 : basketballPresentation ? 1.13 : neonPresentation ? 1.22 : 1.28;
     renderer.domElement.className = "stage-3d-canvas";
     host.appendChild(renderer.domElement);
     const diagnostics = diagnosticsRef.current;
@@ -258,16 +298,22 @@ export default function Stage3D({
     scene.add(stage);
 
     scene.add(new THREE.HemisphereLight(
-      basketballPresentation ? 0xfff6eb : neonPresentation ? 0x8f7add : 0xdceeff,
-      basketballPresentation ? 0x7890b1 : neonPresentation ? 0x360845 : 0x737b9c,
-      basketballPresentation ? 1.42 : neonPresentation ? 0.64 : 2.2,
+      hauntedClassroomPresentation ? 0xc6c5f7
+        : basketballPresentation ? 0xfff6eb : neonPresentation ? 0x8f7add : 0xdceeff,
+      hauntedClassroomPresentation ? 0x584164
+        : basketballPresentation ? 0x7890b1 : neonPresentation ? 0x360845 : 0x737b9c,
+      hauntedClassroomPresentation ? 1.62
+        : basketballPresentation ? 1.42 : neonPresentation ? 0.64 : 2.2,
     ));
 
     const key = new THREE.DirectionalLight(
-      basketballPresentation ? 0xfff0df : neonPresentation ? 0xeee3ff : 0xfff3ff,
-      basketballPresentation ? 1.82 : neonPresentation ? 0.98 : 3.0,
+      hauntedClassroomPresentation ? 0xeadcf7
+        : basketballPresentation ? 0xfff0df : neonPresentation ? 0xeee3ff : 0xfff3ff,
+      hauntedClassroomPresentation ? 1.52
+        : basketballPresentation ? 1.82 : neonPresentation ? 0.98 : 3.0,
     );
-    if (basketballPresentation) key.position.set(-10, 19, 15);
+    if (hauntedClassroomPresentation) key.position.set(-5, 10, 9);
+    else if (basketballPresentation) key.position.set(-10, 19, 15);
     else key.position.set(-2.5, 8, 8);
     scene.add(key);
 
@@ -275,7 +321,7 @@ export default function Stage3D({
       const magentaRim = new THREE.DirectionalLight(0xff2fcb, 0.60);
       magentaRim.position.set(5, 5, -2);
       scene.add(magentaRim);
-    } else if (!basketballPresentation) {
+    } else if (!basketballPresentation && !hauntedClassroomPresentation) {
       const coolFill = new THREE.DirectionalLight(0x91dcff, 1.25);
       coolFill.position.set(-4, 5, 7);
       scene.add(coolFill);
@@ -285,10 +331,34 @@ export default function Stage3D({
       scene.add(warmRim);
     }
 
+    // Classroom-only performer readability rig. The dark-room scene itself
+    // keeps its eerie purple windows; an isolated frontal softbox makes skin,
+    // hair and clothes visible in both portrait gameplay and owner iPhone QA.
+    // No shadows, bloom pipeline, renderer or gameplay-clock changes.
+    // Intentionally skipped on the environment-only comparison.
+    if (hauntedClassroomPresentation && !hideCharacter) {
+      const actorSoftbox = new THREE.SpotLight(
+        0xfff0eb, 30, 22, Math.PI / 6, 0.86, 1.15,
+      );
+      actorSoftbox.name = "HauntedClassroomActorFrontSoftbox";
+      actorSoftbox.position.set(1.2, 8.5, 9.0);
+      actorSoftbox.target.position.set(0, 1.65, 0.0);
+      actorSoftbox.castShadow = false;
+      scene.add(actorSoftbox, actorSoftbox.target);
+      const actorRim = new THREE.SpotLight(
+        0xceb0ff, 18, 19, Math.PI / 5, 0.82, 1.30,
+      );
+      actorRim.name = "HauntedClassroomActorVioletRim";
+      actorRim.position.set(-4.5, 7.6, -5.5);
+      actorRim.target.position.set(0, 1.7, 0.0);
+      actorRim.castShadow = false;
+      scene.add(actorRim, actorRim.target);
+    }
+
     const accent = new THREE.SpotLight(COLORS.pink, 38, 22, Math.PI / 7, 0.58, 1.1);
     accent.position.set(0, 8, 4.5);
     accent.target.position.set(0, 1.8, 0);
-    if (!neonPresentation && !basketballPresentation) scene.add(accent, accent.target);
+    if (!neonPresentation && !basketballPresentation && !hauntedClassroomPresentation) scene.add(accent, accent.target);
 
     const wall = new THREE.Mesh(new THREE.BoxGeometry(19, 8.5, 0.6), new THREE.MeshStandardMaterial({ color: 0x0c0b1c, roughness: .88, metalness: .15 }));
     wall.position.set(0, 4.2, -3.2);
@@ -388,6 +458,12 @@ export default function Stage3D({
 
     let character: CharacterActor | null = null;
     let characterSettled = hideCharacter;
+    let qaActorModelReady = false;
+    let qaLastActorCount = -1;
+    const qaFormationCopies: THREE.Object3D[] = [];
+    const qaFormationEnabled = hauntedClassroomPresentation && previewActorCount !== undefined;
+    const qaCount = () => qaFormationEnabled
+      ? Math.min(5,Math.max(0,Math.floor(previewActorCountRef.current ?? 0))) : 1;
     if (!hideCharacter) {
       character = CharacterActor.fromAssetId(runtimeCharacterAssetId);
       diagnostics?.actorCreated();
@@ -410,6 +486,7 @@ export default function Stage3D({
           return;
         }
         characterSettled = true;
+        qaActorModelReady = true;
         if (neonPresentation) applyNeonCharacterFill(character.root);
         host.dataset.characterSource = result.source;
         host.dataset.characterIdle = result.idleClip ?? "static";
@@ -425,11 +502,44 @@ export default function Stage3D({
       host.dataset.characterSource = "hidden";
     }
 
+    // QA-only arrangement: one real CharacterActor/mixer and up to four
+    // lightweight SkeletonUtils visual clones. No extra GLB loads, schedulers,
+    // network participants or animation mixers; selection does not remount scene.
+    const syncQaFormation = () => {
+      if (!qaFormationEnabled || !character || !qaActorModelReady) return;
+      const count = qaCount();
+      if (count === qaLastActorCount) return;
+      qaLastActorCount = count;
+      character.root.visible = count > 0;
+      const positions = HAUNTED_PREVIEW_POSITIONS[Math.max(1,count)] ?? HAUNTED_PREVIEW_POSITIONS[1];
+      if (count > 0) {
+        character.root.position.set(positions[0][0], CHARACTER_STAGE_POSITION.y, positions[0][1]);
+      }
+      while (qaFormationCopies.length < Math.max(0,count-1)) {
+        const clone = cloneSkinnedActor(character.root);
+        clone.name = "HauntedClassroomQaFormationCopy";
+        stage.add(clone);
+        qaFormationCopies.push(clone);
+      }
+      for (let i = 0; i < qaFormationCopies.length; i++) {
+        const clone = qaFormationCopies[i];
+        clone.visible = i < count-1;
+        if (clone.visible) clone.position.set(
+          positions[i+1][0], CHARACTER_STAGE_POSITION.y, positions[i+1][1],
+        );
+      }
+      host.dataset.qaVisibleActors = String(count);
+      host.dataset.qaFormationMode = "visual-clones";
+    };
+
     const cameraTarget = (portrait: boolean) => {
       const frame = getCharacterCameraFrame(cameraPresetRef.current, portrait);
       return neonPresentation
         ? getNeonGameplayCameraFrame(frame, portrait)
-        : basketballPresentation ? getBasketballGameplayCameraFrame(frame, portrait) : frame;
+        : basketballPresentation ? getBasketballGameplayCameraFrame(frame, portrait)
+        : hauntedClassroomPresentation
+          ? getHauntedClassroomFrame(frame, portrait)
+          : frame;
     };
 
     let hasSized = false;
@@ -505,10 +615,22 @@ export default function Stage3D({
         );
       const neonPose = getNeonPresentationPose(basePose, neonPresentation, portrait);
       const basketballPose = getBasketballPresentationPose(neonPose, basketballPresentation, portrait);
+      const classroomPose: StageCameraPose = hauntedClassroomPresentation && portrait
+        && basketballPose.preset === "gameplay_portrait_locked"
+        ? { ...basketballPose, ...getHauntedClassroomFrame(basketballPose, portrait) }
+        : basketballPose;
       const pose = visualCompareMode && neonPresentation
         ? getNeonGoldenComparePose(neonPose)
-        : basketballPose;
+        : classroomPose;
       host.dataset.presentationCamera = pose.preset;
+      if (qaFormationEnabled) {
+        // iPhone QA instrumentation: confirms the camera pose remains exactly
+        // unchanged while the owner switches between 0 and 5 actors.
+        host.dataset.qaCameraFrame = [
+          pose.fov, pose.x, pose.y, pose.z,
+          pose.targetX, pose.targetY, pose.targetZ,
+        ].map(value => value.toFixed(3)).join(":");
+      }
       const shotChanged = pose.preset !== lastPresentationCamera;
       // Match camera styles use continuous, authored rails. The solo legacy
       // retains hard cuts at its named cinematic shot boundaries.
@@ -540,6 +662,7 @@ export default function Stage3D({
       camera.lookAt(cameraLookTarget);
       camera.updateProjectionMatrix();
       character?.update(delta, t, songTimeMs);
+      syncQaFormation();
       if (stageEnvironment.root.visible) {
         stageEnvironment.setPresentationCamera(pose.preset);
         stageEnvironment.update(t, songTimeMs, bpmRef.current, isPlayingRef.current);
@@ -576,6 +699,10 @@ export default function Stage3D({
       observer.disconnect();
       diagnostics?.unbindRenderer(renderer);
       if (character) diagnostics?.actorDisposed();
+      // The visual copies share geometry and materials with the loaded actor;
+      // detach them before disposing the authoritative CharacterActor resources.
+      for (const clone of qaFormationCopies) stage.remove(clone);
+      qaFormationCopies.length = 0;
       character?.dispose();
       stageEnvironment.dispose();
       if (character && characterRef.current === character) characterRef.current = null;
@@ -594,6 +721,7 @@ export default function Stage3D({
       ref={hostRef}
       className="stage-3d"
       data-camera-preset={cameraPreset}
+      data-preview-actor-count={hauntedClassroomPresentation && previewActorCount !== undefined ? Math.min(5,Math.max(0,previewActorCount)) : undefined}
       data-selected-stage-id={selectedStageId ?? DEFAULT_STAGE_ID}
       data-stage-catalog-id={selectedStageEntry.id}
       data-visual-compare-mode={visualCompareMode ? "1" : "0"}

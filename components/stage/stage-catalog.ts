@@ -13,6 +13,7 @@ export const STAGE_RUNTIME_ASSET_IDS = [
   "bright-stage-v1",
   "neon-stage-v1",
   "basketball-court-v1",
+  "classroom-v1",
   "performance-stage-v1",
   "neon-club-v3",
 ] as const;
@@ -21,6 +22,7 @@ export const STAGE_PRESENTATION_PROFILE_IDS = [
   "bright-stage-v1",
   "neon-stage-v1",
   "basketball-court-v1",
+  "classroom-v1",
   "performance-stage-v1",
   "neon-club-v3",
 ] as const;
@@ -87,12 +89,12 @@ export const STAGE_CATALOG: Readonly<Record<StageCatalogId, StageCatalogEntry>> 
   },
   "classroom-v1": {
     id: "classroom-v1",
-    displayName: "Classroom",
+    displayName: "Haunted Classroom",
     kind: "classroom",
-    runtimeAssetId: null,
-    presentationProfileId: null,
-    selectable: false,
-    status: "planned",
+    runtimeAssetId: "classroom-v1",
+    presentationProfileId: "classroom-v1",
+    selectable: true, // S2.5C V12 owner-accepted on iPhone; Host selection approved.
+    status: "active",
   },
   "cafe-v1": {
     id: "cafe-v1",
