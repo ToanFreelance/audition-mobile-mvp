@@ -42,4 +42,27 @@ Lịch production không sửa: Finish38/62/86/110; REST39–42 thuộcL6; visib
 
 Max root radius1,338545<1,35; entryΔXZ0; anchor[0,0,0]; max facing deviation83,9021° trên cả phiên; max root step3D0,035819/60Hz; floor minimum−3,3e−16≈0; max knee flexion131,915°. Contact proxy liên tục cao nhất0,060316unit, còn rủi ro cần xem bằng mắt. Proxy: foot/toe landmark trong0,01unit sàn canonical được tính là gần contact; đây là phép sàng lọc, không phải lực tiếp xúc. Ngưỡng0,01 là đơn vị cảnh theo body scale1,65, không tự quy đổi thành bằng chứng vật lý iPhone.
 
-TypeScript/build đạt, ESLint0lỗi/1warning có sẵn ởCanvasSourcePreview.52test cũ đã đạt; lần chạy69test chung đầu tiên lộ6ca seed315885701 không vào idle do cone entry60°. Đã sửa bằng kiểm tra recovery→idle và tiếp tụcheading không đưa yaw mới.17test mới sau sửa đạt; lần chạy cuối toàn69 và browser được ghi tiếp ở mục dưới.
+Lần cuối **69/69 PASS (2,1phút)**:13V2+22V2.1+17V2.2+17V2.2.1. TypeScript đạt, ESLint0lỗi/1warning có sẵn ởCanvasSourcePreview. Lần chạy chung đầu tiên lộ6ca seed315885701 không vào idle do cone entry60°; đã sửa bằng kiểm tra recovery→idle và tiếp tục heading không đưa yaw mới. Không giảm ngưỡng radius hoặc bỏ test cũ.
+
+## Browser và Preview
+
+Implementation commit `df0e9f1cb714e3bea23ad3374b12d1347a578c56`, deployment `dpl_AjvDfcRyFWbwBuBs7yiPwgZBbn3A` READY trên alias nhánh cũ. Build Vercel là bằng chứng build hoàn tất; build cục bộ đã compile/TypeScript thành công nhưng log dừng tại prerender12/24, không dùng log đó để khẳng định full local build PASS.
+
+Chrome cloud ở160BPM/fade0,35/seed42 chạy tới absolute126, đã qua Finish38/62/86/110. DOM quan sát absolute44/122/126 đều khớp nhãn Gameplay Turn44/122/126; history có rest-standing→dance tại L6. Replay Finish riêng chạy qua recovery và hơn60vòng standing idle, root radius0,7690, vẫn chuyển động. Có video browser720×840 vớiHUD và ảnh replay sau recovery. Browser chỉ có `canvas2d-projection`; tab accepted mesh bị disabled. Video không chứng minh WebGL, iPhone FPS hoặc tốc độ playback theo thời lượng media; dùng beat/turn được ghi trênHUD làm mốc. Cloud có một lần timeout điều khiển chuột; không dùng phiên đó làm performance PASS.
+
+Tải JSON qua browser không tạo được file; telemetry DOM được lưu riêng và đánh dấu là các snapshot quan sát, không giả thành toàn bộ export. JSON test có đầy đủ every-turn/event/transition; video tái hiện data cũng được gắn nhãn riêng với video quay browser.
+
+| So sánh | V2.2 | V2.2.1 trong ma trận |
+|---|---|---|
+| Giữ final Finish trướcL6 |14,8–17,3beat|0,5beat rồi recovery|
+| Hold120BPM |7,40–8,65s|0,25s|
+| Hold160BPM |5,55–6,49s|0,1875s|
+| Finish visual delay |0–2,4beat|0 ở48Finish đã thử|
+| Stage radius |≤1,35|1,338545 max; không so hai random path như cải thiện nhân quả|
+| Bốn fixture cũ entryΔXZ |0|0; fade travel0,018365/0,018365/0,049204/0,020575 không đổi|
+
+URL chủ sở hữu: https://audition-mobile-mvp-git-work-an-ec325b-toan-freelances-projects.vercel.app/tools/animation-flow-qa-v2?seed=42
+
+Files thay đổi: `catalog.ts`, `engine.ts`, `session-choreography.ts`, `gameplay-preview.ts`, `finish-presentation.ts`(mới), `recovery-alignment.ts`(mới), `AnimationFlowV2.tsx`, test `animation-flow-v221-recovery.spec.ts`(mới), tài liệu này. Phần logic nằm dưới`lib/animation-flow-v2`, UI dướiroutecôlập; không sửa production.
+
+Owner iPhone cần xem cả hai Finish ở120/160 vàfade0,15/0,35/1: accent đọc rõ, bước handoff không quá nhanh, chân không trượt, thế đứng thoải mái, idle đủ sống và L6 vào tự nhiên. Đặc biệt xem recovery mirror/narrow và những đoạn dancer còn lệch hướng khoảng60°; idle cố ý không xoay chân tại chỗ để ép lại camera. Chưa ghi nhận iPhone acceptance cho bản này.
