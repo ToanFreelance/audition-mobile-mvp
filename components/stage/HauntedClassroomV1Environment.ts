@@ -214,7 +214,7 @@ export class HauntedClassroomV1Environment {
 
     // Windows in far wall to preserve the central chalkboard silhouette.
     const skyMat=new THREE.MeshBasicMaterial({
-      map:makeGhostWindow(),color:0xc5acc8,
+      map:makeGhostWindow(),color:0xc3bed0,
       side:THREE.DoubleSide,toneMapped:false,
     });
     // A single shared, original upper-body photographic-style shadow texture.
@@ -224,7 +224,10 @@ export class HauntedClassroomV1Environment {
     let ghostWindowIndex=0;
     let centralGhostIndex=0;
     const frameMat=mat(0x2c242e,.68,.13);
-    const glass=new THREE.MeshBasicMaterial({color:0xd5d2fa,transparent:true,opacity:.065,depthWrite:false});
+    // Grey-violet dust on the glass, no glowing pink lacquer.
+    const glass=new THREE.MeshBasicMaterial({
+      color:0x62546f,transparent:true,opacity:.085,depthWrite:false,
+    });
     const putWindow=(name:string,x:number,y:number,z:number,w:number,h:number,angle=0)=>{
       const windowGroup=new THREE.Group();windowGroup.name=name;
       windowGroup.position.set(x,y,z);windowGroup.rotation.y=angle;root.add(windowGroup);
@@ -232,11 +235,11 @@ export class HauntedClassroomV1Environment {
       box("OldWindowFrame",0,0,0,w+.5,h+.45,.22,frameMat,windowGroup);
       const sky = plane("MoonlitGhostWindow",0,0,.12,w,h,skyMat,windowGroup);
       sky.renderOrder = 0;
-      // The hero windows behind the dance line keep some cold moonlight
-      // so that a black-clothed figure has an actual visible silhouette.
+      // Tiny retained moonlight allows the black-haired visitor to read
+      // against the very dark outdoors. Never flood-fill the hero windows.
       if (name === "CentralHauntedWindow") {
         const faintMoonlitGlass = new THREE.MeshBasicMaterial({
-          color:0xb77da9,transparent:true,opacity:.13,depthWrite:false,
+          color:0x74657e,transparent:true,opacity:.055,depthWrite:false,
           side:THREE.DoubleSide,toneMapped:false,
         });
         const moonLayer=plane("CentralWindowMoonlitSilhouetteContrast",
@@ -314,7 +317,7 @@ export class HauntedClassroomV1Environment {
       putWindow("CentralHauntedWindow",x,5.55,-11.88,2.74,5.6);
     }
     const shaftMat=new THREE.MeshBasicMaterial({
-      map:makeWindowShaft(),transparent:true,opacity:.21,depthWrite:false,
+      map:makeWindowShaft(),transparent:true,opacity:.085,depthWrite:false,
       side:THREE.DoubleSide,blending:THREE.AdditiveBlending,
       toneMapped:false,
     });
