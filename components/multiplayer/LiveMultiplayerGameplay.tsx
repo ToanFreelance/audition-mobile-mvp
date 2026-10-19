@@ -289,8 +289,11 @@ export default function LiveMultiplayerGameplay(props: {
     : DEFAULT_CHARACTER_ASSET_ID;
   const characterAssetId = isCharacterAssetId(characterCandidate)
     ? characterCandidate : DEFAULT_CHARACTER_ASSET_ID;
-  const ensembleParticipants = useMemo<readonly EnsembleParticipant[]>(() =>
-    props.manifest.participants.slice(0, 5).map(participant => {
+  // P4.6A is explicitly a 1–5 formation. Preserve the existing local-only
+  // rendering on historical six-occupant matches rather than hiding the local
+  // player when their participantId would be truncated from the roster.
+  const ensembleParticipants = useMemo<readonly EnsembleParticipant[] | undefined>(() =>
+    props.manifest.participants.length > 5 ? undefined : props.manifest.participants.map(participant => {
       const candidate = avatarCharacterAssetId(participant.avatar);
       return {
         participantId: participant.participantId,

@@ -108,6 +108,9 @@ export class EnsembleActorGroup {
         entry = { actor, assetId: placement.characterAssetId, placement, state: "loading" };
         this.entries.set(placement.participantId, entry);
         this.stage.add(actor.root);
+        // A new participant joining while gameplay is active must inherit the
+        // current presentation state without resetting other actors' mixers.
+        actor.setGameActive(active);
         this.options.onActorCreate?.();
         const pending = entry;
         void actor.load().then(result => {

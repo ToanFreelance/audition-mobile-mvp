@@ -59,8 +59,16 @@ test("P4.6A isolated fixture controls without Supabase rooms", async ({page}) =>
     await page.getByRole("button",{name:names[stage]}).click();
     await expect(surface).toHaveAttribute("data-selected-stage-id",stage);
   }
+  const webgl = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    return Boolean(canvas.getContext("webgl2"));
+  });
   for(const n of [1,2,3,4,5]) {
     await page.getByRole("button",{name:`${n} actors`}).click();
-    await expect(surface).toHaveAttribute("data-ensemble-count",String(n));
+    await expect(page.getByRole("button",{name:`${n} actors`})).toHaveAttribute("aria-pressed","true");
+    if (webgl) await expect(surface).toHaveAttribute("data-ensemble-count",String(n));
   }
+  if (!webgl) test.info().annotations.push({
+    type:"hardware-limit",description:"WebGL2 unavailable: cannot assert real mesh/mixer state",
+  });
 });

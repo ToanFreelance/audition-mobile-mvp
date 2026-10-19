@@ -47,3 +47,7 @@ reuse downloaded files, but parsed GLB/mixer and associated render resources
 are currently actor-owned. Five skinned actors may be costly on iPhone.
 No global graphics-quality reductions were applied.
 Validate real five-actor scene before any resource-sharing optimization.
+
+For an out-of-scope historical manifest of six occupants, Stage3D retains
+the previous single-local-actor rendering instead of truncating the frozen
+roster and potentially dropping local-player presentation.
