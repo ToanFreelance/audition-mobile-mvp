@@ -15,17 +15,20 @@ export type FormationPlacement = EnsembleParticipant & Readonly<{
   z: number;
 }>;
 
-// Center-out, shallow-stagger layout: side actors have a clear silhouette,
-// and the back pair is not directly behind the central performer.
-// P4.6A iPhone visual correction: 4–5 actor lineups must use the available
-// lateral dance floor; do not widen the camera (which shrinks every actor).
-// One-to-three-player layouts retain their previously accepted positions.
+// Stage-space formation, viewed from the audience (camera at positive Z):
+// 1–3: a single evenly spaced row; 4: three behind + one in front;
+// 5: three behind + two in front. Front row has *larger* Z.
+// Front performers sit between rear silhouettes, rather than directly in
+// front of a rear actor. This prevents the depth rows from hiding each other.
+// Single-player placement and portrait camera are unchanged.
 const POSITIONS: Readonly<Record<number, ReadonlyArray<readonly [number, number]>>> = {
   1: [[0, 0.25]],
-  2: [[-1.15, 0.50], [1.15, 0.50]],
-  3: [[0, 0.35], [-1.55, 0.80], [1.55, 0.80]],
-  4: [[-1.02, 0.35], [1.02, 0.35], [-3.05, 1.00], [3.05, 1.00]],
-  5: [[0, 0.30], [-1.68, 0.70], [1.68, 0.70], [-3.35, 1.15], [3.35, 1.15]],
+  2: [[-1.55, 0.50], [1.55, 0.50]],
+  3: [[-2.35, 0.55], [0, 0.55], [2.35, 0.55]],
+  // Three rear actors, one front actor between center and right rear.
+  4: [[-2.50, 0.45], [0, 0.45], [2.50, 0.45], [1.25, 1.90]],
+  // Three rear actors, two front actors in the left/right gaps.
+  5: [[-3.00, 0.45], [0, 0.45], [3.00, 0.45], [-1.65, 1.95], [1.65, 1.95]],
 };
 
 const PROFILES: Readonly<Record<string, Readonly<{
@@ -35,7 +38,9 @@ const PROFILES: Readonly<Record<string, Readonly<{
   cameraExtraZ: number;
 }>>> = {
   "bright-stage-v1": { scaleX: 1, zOffset: 0, floorY: 0.02, cameraExtraZ: 1.3 },
-  "neon-stage-v1": { scaleX: 0.94, zOffset: 2, floorY: 0.02, cameraExtraZ: 1.5 },
+  // Owner iPhone QA: remove the prior 0.94 horizontal squeeze for 3/5 actors.
+  // Neon has safe lateral space in the accepted stage artwork.
+  "neon-stage-v1": { scaleX: 1.12, zOffset: 2, floorY: 0.02, cameraExtraZ: 1.5 },
   "basketball-court-v1": { scaleX: 1.08, zOffset: 0, floorY: 0.02, cameraExtraZ: 1.3 },
   "classroom-v1": { scaleX: 1, zOffset: 0, floorY: 0.02, cameraExtraZ: 1.0 },
 };

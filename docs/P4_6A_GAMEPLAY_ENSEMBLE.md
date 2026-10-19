@@ -79,3 +79,26 @@ the smallest horizontal adjacent gap is 1.570 (Neon).
 This improves spacing by construction but does not claim cleared props,
 animation envelopes, stage occlusion, real iPhone frame rates, or owner visual
 acceptance. Owner to retest 4/5 actors across the four stages.
+
+## P4.6A iPhone row-formation follow-up (2026-10-19, supersedes earlier spacing layout)
+Owner reported three performers still clustered on every stage and five in
+Neon still crowded. Apply one row to counts 1–3, three rear + one front to 4,
+and three rear + two front to 5. Camera sits at positive world-Z, so **front
+actors must have greater Z**, not smaller. The front four-player slot is offset
+between rear center/right to avoid direct overlap. The two five-player front
+slots align with the rear left/center and center/right gaps.
+
+| Count | X slots (pre stage scale) | Z slots (pre stage offset) |
+|---|---|---|
+| 1 | 0 | 0.25 |
+| 2 | -1.55, +1.55 | both 0.50 |
+| 3 | -2.35, 0, +2.35 | all 0.55 |
+| 4 | -2.50, 0, +2.50, +1.25 | back x3 at 0.45; front at 1.90 |
+| 5 | -3.00, 0, +3.00, -1.65, +1.65 | back x3 at 0.45; front x2 at 1.95 |
+
+Neon scaleX is now 1.12 instead of 0.94; its stage-specific Z offset +2
+remains intact. Bright/Classroom remain x1.00, Basketball x1.08. No change
+to stage/environment art, camera, character actors, mixers, WebAudio or
+network/gameplay protocol. The earlier 4–5 single-row spacing note above is
+historical and no longer current. Owner iPhone visual/animation clearance
+and mobile GPU/FPS acceptance still require a new hardware test.

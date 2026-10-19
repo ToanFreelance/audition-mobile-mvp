@@ -29,48 +29,67 @@ test("P4.6A deterministic identities, nonintersecting layouts and ground contact
     }
   }
 });
-test("P4.6A iPhone 4–5 actors use stage width while preserving solo/three-player layout", () => {
-  // Owner physical iPhone observation: previous five-player centers were only
-  // +/-2.50 world X (Bright/Classroom), leaving unused safe lateral margins.
-  // Minimum adjacent horizontal clearance matters more than depth-only offset.
-  const expectedWidthByStage: Readonly<Record<string, { four: number; five: number }>> = {
-    "bright-stage-v1": { four: 6.10, five: 6.70 },
-    "neon-stage-v1": { four: 6.10 * 0.94, five: 6.70 * 0.94 },
-    "basketball-court-v1": { four: 6.10 * 1.08, five: 6.70 * 1.08 },
-    "classroom-v1": { four: 6.10, five: 6.70 },
+test("P4.6A owner iPhone formation: horizontal 1–3, 3+1 and 3+2 rows on all stages", () => {
+  // In stage-space, positive Z is closer to the audience-facing camera.
+  const scale: Readonly<Record<string, number>> = {
+    "bright-stage-v1": 1,
+    "neon-stage-v1": 1.12,
+    "basketball-court-v1": 1.08,
+    "classroom-v1": 1,
   };
-  const priorPositions: Readonly<Record<number, readonly number[]>> = {
+  const zOffset: Readonly<Record<string, number>> = {
+    "bright-stage-v1": 0,
+    "neon-stage-v1": 2,
+    "basketball-court-v1": 0,
+    "classroom-v1": 0,
+  };
+  const expectedX: Readonly<Record<number, readonly number[]>> = {
     1: [0],
-    2: [-1.15, 1.15],
-    3: [0, -1.55, 1.55],
+    2: [-1.55, 1.55],
+    3: [-2.35, 0, 2.35],
+    4: [-2.50, 0, 2.50, 1.25],
+    5: [-3.00, 0, 3.00, -1.65, 1.65],
   };
-  const stageScale: Readonly<Record<string, number>> = {
-    "bright-stage-v1": 1, "neon-stage-v1": 0.94,
-    "basketball-court-v1": 1.08, "classroom-v1": 1,
+  const expectedZ: Readonly<Record<number, readonly number[]>> = {
+    1: [0.25],
+    2: [0.50, 0.50],
+    3: [0.55, 0.55, 0.55],
+    4: [0.45, 0.45, 0.45, 1.90],
+    5: [0.45, 0.45, 0.45, 1.95, 1.95],
   };
-
   for (const stageId of SELECTABLE_STAGE_IDS) {
-    for (const count of [1, 2, 3]) {
-      expect(getEnsembleFormation(stageId, P.slice(0, count)).map(actor => actor.x))
-        .toEqual(priorPositions[count].map(x => x * stageScale[stageId]));
-    }
-    for (const count of [4, 5]) {
-      const lineup = getEnsembleFormation(stageId, P.slice(0, count));
-      const xs = lineup.map(actor => actor.x).sort((a, b) => a - b);
-      const gap = xs.slice(1).map((x, index) => x - xs[index]);
-      const expected = count === 4
-        ? expectedWidthByStage[stageId].four
-        : expectedWidthByStage[stageId].five;
-      expect(xs.at(-1)! - xs[0]).toBeCloseTo(expected, 6);
-      expect(Math.min(...gap)).toBeGreaterThan(1.55);
-      // Reserve peripheral space for props and edge-safe iPhone portrait shots.
-      expect(Math.max(...xs.map(x => Math.abs(x)))).toBeLessThan(3.75);
-      expect(lineup.every(actor => actor.y === 0.02)).toBe(true);
-      // Z staging, participant identities and order are unchanged by widening.
-      expect(lineup.map(actor => actor.participantId)).toEqual(P.slice(0, count).map(p => p.participantId));
-      expect(lineup.map(actor => actor.z)).toEqual(
-        getEnsembleFormation(stageId, [...P.slice(0, count)].reverse()).map(actor => actor.z),
-      );
+    for (let count = 1; count <= 5; count++) {
+      const group = P.slice(0, count);
+      const actual = getEnsembleFormation(stageId, group);
+      expect(actual.map(a => a.x)).toEqual(expectedX[count].map(v => v * scale[stageId]));
+      expect(actual.map(a => a.z)).toEqual(expectedZ[count].map(v => v + zOffset[stageId]));
+      expect(actual.map(a => a.y)).toEqual(group.map(() => 0.02));
+      // Stable identity and formation order irrespective of input order.
+      expect(getEnsembleFormation(stageId, [...group].reverse())).toEqual(actual);
+      if (count <= 3) {
+        expect(new Set(actual.map(a => a.z)).size).toBe(1);
+        if (count > 1) {
+          const xs = actual.map(a => a.x).sort((a, b) => a - b);
+          for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThan(2.3);
+        }
+      } else {
+        const rear = actual.slice(0, 3);
+        const front = actual.slice(3);
+        expect(new Set(rear.map(a => a.z)).size).toBe(1);
+        expect(new Set(front.map(a => a.z)).size).toBe(1);
+        expect(front.every(a => a.z > rear[0].z + 1.4)).toBe(true);
+        // Stagger the forward row into silhouette gaps; never hide a rear performer.
+        for (const frontActor of front) {
+          const nearestRearX = Math.min(...rear.map(a => Math.abs(a.x - frontActor.x)));
+          expect(nearestRearX).toBeGreaterThan(1.20);
+        }
+      }
+      // Keep actor centers inside the previously owner-tested +/-3.62 stage envelope.
+      expect(Math.max(...actual.map(a => Math.abs(a.x)))).toBeLessThan(3.62);
+      for (let i = 0; i < actual.length; i++)
+        for (let j = i + 1; j < actual.length; j++)
+          expect(Math.hypot(actual[i].x - actual[j].x, actual[i].z - actual[j].z))
+            .toBeGreaterThan(1.80);
     }
   }
 });
