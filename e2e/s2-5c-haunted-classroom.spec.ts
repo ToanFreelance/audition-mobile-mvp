@@ -16,13 +16,16 @@ test("S2.5C haunted classroom resolves to the real Three.js runtime but cannot y
   instance.dispose();
 });
 
-test("Haunted Classroom Stage3D QA starts empty and can show/hide the actor", async ({ page }) => {
+test("Haunted Classroom Stage3D QA selects zero through five preview actors without multiplayer", async ({ page }) => {
   await page.goto("/tools/haunted-classroom-stage");
   const surface = page.locator('[data-selected-stage-id="classroom-v1"]');
   await expect(surface).toBeVisible();
-  await expect(page.getByRole("button", { name: /Hiện nhân vật/ })).toBeVisible();
-  await page.getByRole("button", { name: /Hiện nhân vật/ }).click();
-  await expect(page.getByRole("button", { name: /Ẩn nhân vật/ })).toBeVisible();
-  await page.getByRole("button", { name: /Ẩn nhân vật/ }).click();
-  await expect(page.getByRole("button", { name: /Hiện nhân vật/ })).toBeVisible();
+  await expect(surface).toHaveAttribute("data-preview-actor-count", "1");
+  for (const count of [0, 2, 3, 4, 5, 1]) {
+    await page.getByRole("button", {
+      name: count === 0 ? "Sân trống" : `${count} nhân vật`,
+    }).click();
+    await expect(surface).toHaveAttribute("data-preview-actor-count", String(count));
+  }
+  await expect(surface).toHaveAttribute("data-stage-catalog-id", "classroom-v1");
 });
