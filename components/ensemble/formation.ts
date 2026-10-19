@@ -66,10 +66,15 @@ export function getEnsembleFormation(
   }
   const layout = POSITIONS[sorted.length];
   const stage = profile(stageId);
+  // Owner iPhone visual follow-up: only five-person Neon needs a little
+  // more shoulder clearance. Keep 1–4 actor formations and every other
+  // stage profile untouched; never widen the camera or move environment props.
+  const xScale = stageId === "neon-stage-v1" && sorted.length === 5
+    ? 1.20 : stage.scaleX;
   return sorted.map((person, formationSlot) => ({
     ...person,
     formationSlot,
-    x: layout[formationSlot][0] * stage.scaleX,
+    x: layout[formationSlot][0] * xScale,
     y: stage.floorY,
     z: layout[formationSlot][1] + stage.zOffset,
   }));

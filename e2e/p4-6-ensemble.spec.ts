@@ -61,7 +61,9 @@ test("P4.6A owner iPhone formation: horizontal 1–3, 3+1 and 3+2 rows on all st
     for (let count = 1; count <= 5; count++) {
       const group = P.slice(0, count);
       const actual = getEnsembleFormation(stageId, group);
-      expect(actual.map(a => a.x)).toEqual(expectedX[count].map(v => v * scale[stageId]));
+      const appliedScale = stageId === "neon-stage-v1" && count === 5
+        ? 1.20 : scale[stageId];
+      expect(actual.map(a => a.x)).toEqual(expectedX[count].map(v => v * appliedScale));
       expect(actual.map(a => a.z)).toEqual(expectedZ[count].map(v => v + zOffset[stageId]));
       expect(actual.map(a => a.y)).toEqual(group.map(() => 0.02));
       // Stable identity and formation order irrespective of input order.
@@ -83,6 +85,13 @@ test("P4.6A owner iPhone formation: horizontal 1–3, 3+1 and 3+2 rows on all st
           const nearestRearX = Math.min(...rear.map(a => Math.abs(a.x - frontActor.x)));
           expect(nearestRearX).toBeGreaterThan(1.20);
         }
+      }
+      if (stageId === "neon-stage-v1" && count === 5) {
+        // Increase previous +/-3.36 to +/-3.60 only for Neon 5.
+        expect(actual.map(a => a.x)).toEqual([-3.6, 0, 3.6, -1.98, 1.98]);
+        expect(Math.max(...actual.map(a => Math.abs(a.x)))).toBeCloseTo(3.6, 6);
+        const unchangedFour = getEnsembleFormation(stageId, P.slice(0, 4));
+        expect(unchangedFour[0].x).toBeCloseTo(-2.5 * 1.12, 6);
       }
       // Keep actor centers inside the previously owner-tested +/-3.62 stage envelope.
       expect(Math.max(...actual.map(a => Math.abs(a.x)))).toBeLessThan(3.62);

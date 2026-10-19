@@ -102,3 +102,14 @@ to stage/environment art, camera, character actors, mixers, WebAudio or
 network/gameplay protocol. The earlier 4–5 single-row spacing note above is
 historical and no longer current. Owner iPhone visual/animation clearance
 and mobile GPU/FPS acceptance still require a new hardware test.
+
+## P4.6A Neon five-person spacing follow-up (2026-10-19)
+Owner's iPhone visual test confirms four-person 3+1 looks compositionally
+unbalanced, and five-person Neon still needs slightly more shoulder clearance.
+For **five-person Neon only**, effective scaleX increases from 1.12 to 1.20
+(+7.14%). Outer actor centers change from +/-3.36 to +/-3.60; forward
+actors change from +/-1.848 to +/-1.980. This remains inside the existing
++/-3.62 tested actor-center envelope. Other counts and other stages do not
+change; camera and Z remain unchanged. A symmetric two-rear/two-front layout
+is proposed for four players but **not implemented** pending owner selection.
+Hardware silhouette/performance acceptance remains open.
