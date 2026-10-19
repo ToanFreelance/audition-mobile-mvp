@@ -271,6 +271,35 @@ export class SourceFlowEngine {
     }
     this.pending = null; return this.commit(id, beat, beat, exit.policy);
   }
+  /** Read-only recovery pose for expanded-pool selection; V2.1 scoring is unchanged. */
+  private exitPose(beat: number) {
+    if (!this.current) return { pose: clonePose(this.pose), due: beat };
+    const time = this.time(this.current, beat);
+    const exit = safeExitTime(this.current.phrase.spec, time, this.current.phrase.duration, this.policyOverride);
+    const due = this.pending?.dueBeat ?? beat + (exit.localSeconds - time) * this.current.phrase.spec.referenceBpm / 60;
+    let pose = this.sample(this.current, due);
+    if (this.blend) {
+      const from = "phrase" in this.blend.from ? this.sample(this.blend.from, due) : this.blend.from;
+      const rotation = from.rotations[0].clone().slerp(pose.rotations[0], smooth((due - this.blend.startBeat) / this.blend.headingDurationBeats));
+      pose = interpolate(from, pose, smooth((due - this.blend.startBeat) / this.blend.durationBeats)); pose.rotations[0] = rotation;
+    }
+    return { pose, due };
+  }
+  placementAtExit(id: string, beat: number) {
+    const { pose } = this.exitPose(beat);
+    return this.placement(id, pose.root, rootYaw(pose.rotations[0]));
+  }
+  /** Check one known upcoming Finish without moving the dancer or gameplay clock. */
+  canFollowAt(id: string, nextIds: readonly string[], beat: number, nextBeat: number) {
+    const { pose, due } = this.exitPose(beat), phrase = this.phrases.get(id);
+    const place = this.placement(id, pose.root, rootYaw(pose.rotations[0]));
+    if (!phrase || !place) return false;
+    const incoming = { phrase, startBeat: due, offset: pose.root, yaw: place.yaw };
+    const time = this.time(incoming, nextBeat);
+    const exit = safeExitTime(phrase.spec, time, phrase.duration, this.policyOverride);
+    const target = this.sample(incoming, nextBeat + (exit.localSeconds - time) * phrase.spec.referenceBpm / 60);
+    return nextIds.some(next => Boolean(this.placement(next, target.root, rootYaw(target.rotations[0]))));
+  }
   private commit(id: string, beat: number, requestedBeat: number, policy: ExitPolicy, initial = false) {
     const phrase = this.phrases.get(id); const place = this.placement(id);
     if (!phrase || !place) { this.rejectedRequests++; return false; }

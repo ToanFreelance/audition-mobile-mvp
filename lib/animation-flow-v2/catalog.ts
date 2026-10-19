@@ -7,7 +7,7 @@ export type PhraseSpec = {
   exitMarkers: readonly number[];
   protectedRanges?: readonly (readonly [number, number])[];
   referenceBpm: number; tempoBasis: "testing-assumption";
-  role: "core" | "fixture" | "travel";
+  role: "core" | "fixture" | "travel" | "finish";
 };
 
 // Windows are source seconds. Reference tempo is deliberately marked assumed,
@@ -45,4 +45,37 @@ export const MOONWALK_PHRASE: PhraseSpec = {
   start: 3, end: 4.2, policy: "BEAT_WINDOW", exitMarkers: [1.2], referenceBpm: 120,
   tempoBasis: "testing-assumption", role: "travel",
 };
-export const SOURCE_IDS = [...new Set([...CORE_PHRASES, ...FIXTURE_PHRASES, MOONWALK_PHRASE].map(p => p.source))];
+export type CuratedPhrase = PhraseSpec & {
+  style: string; tags: readonly string[]; openingGroup: string;
+  acceptance: "owner-demo-v21" | "technical-preview-pending";
+  provenance: { sourceUrl: string; indexDescription: string; licenseUrl: string; credit: string };
+};
+function curated(spec: PhraseSpec, style: string, tags: string[], description: string, accepted = false): CuratedPhrase {
+  return { ...spec, style, tags, openingGroup: spec.group, acceptance: accepted ? "owner-demo-v21" : "technical-preview-pending",
+    provenance: { sourceUrl: `https://raw.githubusercontent.com/una-dinosauria/cmu-mocap/${SOURCE_PIN}/data/${spec.source.split("_")[0].padStart(3, "0")}/${spec.source}.bvh`, indexDescription: description,
+      licenseUrl: "https://mocap.cs.cmu.edu/", credit: "CMU Graphics Lab, NSF EIA-0196217; Bruce Hahne BVH, mirror una-dinosauria/cmu-mocap. Research/product use permitted; do not resell raw or converted motion data." } };
+}
+const extra = (id: string, source: string, label: string, group: string, start: number, end: number, style: string, tags: string[], description: string) =>
+  curated({ id, source, label, group, start, end, policy: "BEAT_WINDOW", exitMarkers: [end - start], referenceBpm: 120, tempoBasis: "testing-assumption", role: "core" }, style, tags, description);
+/** Six V2.1 windows stay unchanged above. New windows are technical candidates, not production approvals. */
+export const NORMAL_PHRASES: readonly CuratedPhrase[] = [
+  ...CORE_PHRASES.map((p, i) => curated(p,
+    ["Casual / Groove", "Casual / Groove", "Footwork / Swing", "Party", "Casual / Groove", "Street / upright"][i],
+    [["step-change"], ["torso-twist"], ["heel-toe", "charleston"], ["arm-sequence"], ["kick-step"], ["upright-return"]][i],
+    ["Dance", "Dance, Twist", "charleston_01", "Macarena Dance", "Mickey Dance", "UpRightSequence"][i], true)),
+  extra("55-lambada", "55_02", "Lambada · nhún hông", "lateral-sway", 9.5, 12.7, "Casual / Social accent", ["hip-sway", "raised-elbow"], "lambada dance"),
+  extra("55-bear", "55_12", "Bear groove · nhún vai", "bear-groove", 9, 12.2, "Party", ["elbow-pump", "wide-bounce"], "dancing bear (human subject)"),
+  extra("85-toprock", "85_11", "Toprock · bước chéo", "upright-break", 2, 5.2, "Street / upright", ["cross-step", "arm-open"], "UpRightSequence"),
+  extra("93-fancy", "93_08", "Charleston · chân chéo nhanh", "swing-footwork", .5, 3.7, "Footwork / Swing", ["cross-kick", "quick-feet"], "xtra fancY charleston"),
+  extra("94-knee-open", "94_03", "Mở tay · nâng gối", "open-knee", 6, 9.2, "Footwork / descriptive", ["knee-lift", "wide-arms"], "Unknown; descriptive label from skeleton inspection, not verified dance style"),
+  extra("94-diagonal", "94_06", "Tay chéo · đổi chân", "diagonal-step", 7.5, 10.7, "Energetic / descriptive", ["diagonal-reach", "single-leg-step"], "Unknown; descriptive label from skeleton inspection"),
+  extra("94-point", "94_08", "Chỉ tay · bước ngang", "point-step", 19.5, 22.7, "Casual / descriptive", ["point-high", "side-step"], "Unknown; descriptive label from skeleton inspection"),
+  extra("94-pulse", "94_16", "Nhún thấp · mở thân", "squat-pulse", 11.5, 14.7, "Energetic / descriptive", ["upright-pulse", "arm-expand"], "Unknown; descriptive label from skeleton inspection"),
+  extra("143-chicken", "143_34", "Chicken · nhấn khuỷu tay", "chicken-arms", 1, 4.2, "Party", ["elbow-flap", "hands-close"], "Chicken Dance"),
+  curated({ ...MOONWALK_PHRASE, id: "90-glide", role: "core" }, "Special upright travel", ["moonwalk", "backward-glide"], "moonwalk"),
+];
+export const FINISH_PHRASES: readonly CuratedPhrase[] = [
+  curated({ id: "finish-arm-accent", source: "90_33", label: "FINISH · thế rộng, tay vươn cao", group: "finish-accent", start: 5, end: 6.35, policy: "PROTECTED", protectedRanges: [[0, 1.35]], exitMarkers: [1.35], referenceBpm: 120, tempoBasis: "testing-assumption", role: "finish" }, "Finish / accent", ["wide-stance", "one-arm-up", "accent-hold"], "arm up wide leg roll; ONLY upright arm accent after roll, no inversion window"),
+  curated({ id: "finish-spell", source: "120_03", label: "FINISH · mở tay nhấn nhạc", group: "finish-reach", start: 1, end: 2.4, policy: "PROTECTED", protectedRanges: [[0, 1.4]], exitMarkers: [1.4], referenceBpm: 120, tempoBasis: "testing-assumption", role: "finish" }, "Finish / expressive", ["upper-body-reach", "accent"], "Mickey cast spell; short upright opening, not whole take"),
+];
+export const SOURCE_IDS = [...new Set([...NORMAL_PHRASES, ...FINISH_PHRASES, ...FIXTURE_PHRASES, MOONWALK_PHRASE].map(p => p.source))];
