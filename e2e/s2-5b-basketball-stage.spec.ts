@@ -7,10 +7,10 @@ import {
   DEFAULT_STAGE_ID, SELECTABLE_STAGE_IDS, resolveRuntimeStageCatalogEntry,
 } from "../components/stage/stage-catalog";
 
-test("S2.5B exposes exactly Bright, Neon and accepted Basketball Court", () => {
+test("S2.5B preserves accepted Basketball Court alongside later accepted stages", () => {
   expect(DEFAULT_STAGE_ID).toBe("bright-stage-v1");
   expect(SELECTABLE_STAGE_IDS).toEqual([
-    "bright-stage-v1", "neon-stage-v1", "basketball-court-v1",
+    "bright-stage-v1", "neon-stage-v1", "basketball-court-v1", "classroom-v1",
   ]);
   const entry = resolveRuntimeStageCatalogEntry("basketball-court-v1");
   expect(entry.runtimeAssetId).toBe("basketball-court-v1");
