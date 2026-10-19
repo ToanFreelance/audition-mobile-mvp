@@ -24,6 +24,7 @@ type PassingGhostMotion = {
   mesh: THREE.Mesh; material: THREE.MeshBasicMaterial;
   phase: number; width: number; direction: number;
 };
+type DustMotion = { geometry: THREE.BufferGeometry; base: Float32Array };
 const xyz=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
 
 function flatRing(parent: THREE.Group, x:number, z:number, radius:number, width:number,
@@ -69,6 +70,8 @@ export class HauntedClassroomV1Environment {
   private curtainGeometry: CurtainGeometryMotion[]=[];
   private passingGhosts: PassingGhostMotion[]=[];
   private candleGlow:THREE.PointLight[]=[];
+  private ambientLamps: THREE.PointLight[]=[];
+  private dust: DustMotion | null = null;
 
   constructor(){this.root.name="HauntedClassroomV1Environment";}
 
@@ -220,7 +223,8 @@ export class HauntedClassroomV1Environment {
       windowGroup.position.set(x,y,z);windowGroup.rotation.y=angle;root.add(windowGroup);
       // Units measured in the window plane's own coordinates.
       box("OldWindowFrame",0,0,0,w+.5,h+.45,.22,frameMat,windowGroup);
-      plane("MoonlitGhostWindow",0,0,.12,w,h,skyMat,windowGroup);
+      const sky = plane("MoonlitGhostWindow",0,0,.12,w,h,skyMat,windowGroup);
+      sky.renderOrder = 0;
       if (name !== "SideHauntedWindow") {
         const material = new THREE.MeshBasicMaterial({
           map:passingGhostTexture,transparent:true,opacity:0,
@@ -230,6 +234,8 @@ export class HauntedClassroomV1Environment {
         const specter = plane("LongHairedSideProfileBehindGlass",0,-.18,.129,
           Math.min(1.12,w*.38),Math.min(3.22,h*.66),material,windowGroup);
         specter.visible=false;
+        specter.renderOrder=1;
+        specter.frustumCulled=false;
         const index=ghostWindowIndex++;
         const direction=index%2===0?1:-1;
         // Walk direction and profile orientation always agree.
@@ -240,7 +246,8 @@ export class HauntedClassroomV1Environment {
           width:w,direction,
         });
       }
-      plane("GlassyDust",0,0,.135,w,h,glass,windowGroup);
+      const glassLayer=plane("GlassyDust",0,0,.158,w,h,glass,windowGroup);
+      glassLayer.renderOrder=2;
       for(const dx of [-w/2,0,w/2])box("DarkWoodMullion",dx,0,.17,.13,h,.13,frameMat,windowGroup);
       for(const dy of [-h/2,0,h/2])box("DarkWoodMullion",0,dy,.17,w,.10,.13,frameMat,windowGroup);
       box("WeatheredWindowSill",0,-h/2-.20,.35,w+.7,.16,.69,wornWood,windowGroup);
@@ -478,7 +485,9 @@ export class HauntedClassroomV1Environment {
     // Curtains hang inside the INNER edges of the rear/angled windows,
     // instead of out at x=±7.8 where mobile portrait cropped both sheets.
     for(const side of [-1,1]){
-      for(const bay of [{x:6.18,z:-11.25},{x:6.32,z:-5.42}]){
+      // The angled bay is in front of the window plane at z=-5.3;
+      // position its fabric towards the playable room to avoid z fighting.
+      for(const bay of [{x:6.18,z:-11.14},{x:6.32,z:-4.91}]){
         const x=side*bay.x,z=bay.z;
         const g=new THREE.Group();g.position.set(x,8.02,z);root.add(g);
         g.name="PortraitVisibleTornWindowCurtain";
@@ -504,6 +513,11 @@ export class HauntedClassroomV1Environment {
         const position=geo.getAttribute("position") as THREE.BufferAttribute;
         position.setUsage(THREE.DynamicDrawUsage);
         const m=new THREE.Mesh(geo,cloth);m.name="TornMoonlitCurtain";
+        // Deforming vertices leave the initial bounding sphere and Three.js
+        // intermittently culls the entire curtain at mobile portrait edges.
+        // Render order is stable relative to ghost/glass translucent layers.
+        m.frustumCulled=false;
+        m.renderOrder=4;
         g.add(m);
         this.curtainGeometry.push({
           geometry:geo,base:new Float32Array(position.array),phase:x*.37+z*.31,
@@ -638,18 +652,24 @@ export class HauntedClassroomV1Environment {
     for(const ghost of this.passingGhosts){
       // Four distinct 15–18s spacings in a deterministic 63s cycle.
       const elapsed=((t+ghost.phase)%63+63)%63;
-      const duration=3.65;
+      // More like a barely perceived person beyond the windows: slow passage
+      // with a brief hesitation and darker, less sprite-like translucency.
+      const duration=4.3;
       const active=elapsed<duration;
       ghost.mesh.visible=active;
       if(!active){ghost.material.opacity=0;continue;}
       const progress=elapsed/duration;
-      const fade=Math.min(1,elapsed/.62,(duration-elapsed)/.73);
-      ghost.material.opacity=.69*Math.max(0,fade);
+      const eased=progress<.46
+        ? progress*.95
+        : progress<.66 ? .437+(progress-.46)*.33
+          : .503+(progress-.66)*1.46;
+      const fade=Math.min(1,elapsed/.92,(duration-elapsed)/.86);
+      ghost.material.opacity=.37*Math.max(0,fade);
       const travel=Math.max(.35,ghost.width*.5-.68);
-      ghost.mesh.position.x=ghost.direction*(progress*2-1)*travel;
-      // Small gait bob, no floating vertical path or face-on motion.
-      ghost.mesh.position.y=-.18+Math.sin(elapsed*9.2)*.022;
-      ghost.mesh.rotation.z=Math.sin(elapsed*4.6)*.007;
+      ghost.mesh.position.x=ghost.direction*(Math.min(1,eased)*2-1)*travel;
+      // A tiny step bob, NOT vertical floating motion.
+      ghost.mesh.position.y=-.18+Math.sin(elapsed*6.1)*.014;
+      ghost.mesh.rotation.z=Math.sin(elapsed*2.5)*.003;
     }
     for(let i=0;i<this.candleGlow.length;i++)
       this.candleGlow[i].intensity=2.0+.20*Math.sin(t*5.8+i*2.3);
