@@ -601,9 +601,41 @@ export class HauntedClassroomV1Environment {
     // Large objects never move; only sub-degree cloth, flames and wisps.
     const t=Number.isFinite(renderTimeSeconds)?renderTimeSeconds:0;
     for(const {object,phase,kind} of this.motions){
-      if(kind==="curtain")object.rotation.z=Math.sin(t*.60+phase)*.017;
+      if(kind==="curtain")object.rotation.z=Math.sin(t*.63+phase)*.024;
       else if(kind==="candle")object.scale.set(1+Math.sin(t*5.7+phase)*.07,1+Math.sin(t*7+phase)*.14,1);
       else if(kind==="wisp")object.position.y=.11+Math.sin(t*.81+phase)*.08;
+    }
+    // The lower half of each fabric sheet bends and trails behind the upper
+    // edge. This is true mesh movement, not a rigid panel rocking as one piece.
+    // Fixed arrays + buffer updates; no geometry allocation inside the frame.
+    for(const curtain of this.curtainGeometry){
+      const attr=curtain.geometry.getAttribute("position") as THREE.BufferAttribute;
+      const original=curtain.base;
+      for(let i=0;i<attr.count;i++){
+        const idx=i*3;
+        const distance=Math.min(1,Math.max(0,-original[idx+1]/3.55));
+        const loose=distance*distance;
+        const u=original[idx];
+        attr.setXYZ(i,
+          original[idx]+loose*.20*Math.sin(t*.94+curtain.phase+distance*2.1+u*.64),
+          original[idx+1],
+          original[idx+2]+loose*.25*Math.sin(t*.71+curtain.phase+distance*3.2+u*.83),
+        );
+      }
+      attr.needsUpdate=true;
+    }
+    // One specter crosses the windows at a time, about every 9 seconds.
+    // Positions and fades derive from presentation time only: no setTimeout,
+    // no Math.random, no influence on WebAudio / global gameplay turns.
+    for(const ghost of this.passingGhosts){
+      const elapsed=((t+ghost.phase)%36+36)%36;
+      const active=elapsed<2.6;
+      ghost.mesh.visible=active;
+      if(!active)continue;
+      const fade=Math.max(0,Math.min(1,elapsed/.45,(2.6-elapsed)/.55));
+      ghost.material.opacity=.42*fade;
+      ghost.mesh.position.x=ghost.direction*((elapsed/2.6)-.5)*(ghost.width+.8);
+      ghost.mesh.position.y=-.20+Math.sin(elapsed*1.7+ghost.phase)*.05;
     }
     for(let i=0;i<this.candleGlow.length;i++)
       this.candleGlow[i].intensity=2.0+.20*Math.sin(t*5.8+i*2.3);
@@ -632,6 +664,7 @@ export class HauntedClassroomV1Environment {
   dispose(){
     if(this.disposed)return;this.disposed=true;
     disposeTree(this.root);this.root.removeFromParent();this.root.clear();
-    this.motions=[];this.candleGlow=[];this.loaded=false;
+    this.motions=[];this.curtainGeometry=[];this.passingGhosts=[];
+    this.candleGlow=[];this.loaded=false;
   }
 }
