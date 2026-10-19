@@ -64,9 +64,11 @@ function getHauntedClassroomFrame(
   if (!portrait) return frame;
   return {
     ...frame,
-    fov: Math.max(39, frame.fov + 1),
+    // A small (~5–8%) widening so the windows and desks on both sides
+    // remain visible, WITHOUT switching pose at actor counts 1/3/4/5.
+    fov: Math.max(40, frame.fov + 2),
     y: frame.y + .43,
-    z: frame.z + 1.0,
+    z: frame.z + 1.85,
     targetY: frame.targetY + .17,
     targetZ: frame.targetZ + .38,
   };
