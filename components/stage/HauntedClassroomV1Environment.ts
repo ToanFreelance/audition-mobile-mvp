@@ -1,11 +1,10 @@
 import * as THREE from "three";
-import { createWindowWalker, type WindowWalker } from "./HauntedWindowWalker";
 import type { StagePresentationCameraPreset } from "./stageCamera";
 import {
   makeOldPlaster, makeOldFloor, makeChalkboard,
   makeGhostWindow, makeSpeakerFace, makeSchoolPaper,
   makeClassroomFloorReflections, makeWindowShaft,
-  makeHauntedCeilingPanels, makeHauntedFloorRoughness,
+  makeHauntedCeilingPanels, makeHauntedFloorRoughness, makePassingWindowGhost,
 } from "./haunted-classroom-textures";
 
 /**
@@ -22,9 +21,9 @@ type Material = THREE.MeshBasicMaterial | THREE.MeshStandardMaterial;
 type AnimationPart = { object: THREE.Object3D; phase: number; kind: "curtain" | "candle" | "wisp" };
 type CurtainGeometryMotion = { geometry: THREE.BufferGeometry; base: Float32Array; phase: number };
 type PassingGhostMotion = {
-  walker: WindowWalker;
+  figure: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>;
   phase: number; width: number; direction: number;
-  period: number; peakOpacity: number; groundY: number;
+  period: number; peakOpacity: number;
 };
 type DustMotion = { geometry: THREE.BufferGeometry; base: Float32Array };
 const xyz=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
@@ -218,8 +217,10 @@ export class HauntedClassroomV1Environment {
       map:makeGhostWindow(),color:0xc5acc8,
       side:THREE.DoubleSide,toneMapped:false,
     });
-    // A physically articulated, dark-clothed HUMAN crosses the glass.
-    // No 2D moving sprite, glowing cartoon eyes, or floating ghost billboard.
+    // A single shared, original upper-body photographic-style shadow texture.
+    // It is not a full-body rig or a free-floating cartoon ghost: the lower
+    // torso is hidden behind the solid sash and dirty window panes.
+    const visitorTexture=makePassingWindowGhost();
     let ghostWindowIndex=0;
     let centralGhostIndex=0;
     const frameMat=mat(0x2c242e,.68,.13);
@@ -243,33 +244,47 @@ export class HauntedClassroomV1Environment {
         moonLayer.renderOrder=0;
       }
       if (name !== "SideHauntedWindow") {
-        // Give the woman a physical ground line at the sill. She walks
-        // behind the exterior window, NOT suspended halfway up the pane.
-        const groundY=-h/2+.19;
-        const walkway = plane("ShadowedCorridorGrounding",
-          0,groundY-.07,.162,w,.19,
-          new THREE.MeshBasicMaterial({
-            color:0x171622,transparent:true,opacity:.44,depthWrite:false,
-            side:THREE.DoubleSide,toneMapped:false,
-          }),windowGroup);
-        walkway.renderOrder=0;
-        const walker=createWindowWalker();
-        walker.root.position.set(0,groundY,.222);
-        walker.root.visible=false;
-        windowGroup.add(walker.root);
-        const index=ghostWindowIndex++;
+        // Half-length human is seen outside: head, long hair, coat, shoulders
+        // and torso. The body continues BELOW the window ledge off-camera,
+        // so there are deliberately NO visible walking legs or levitation.
+        const lowerSash=-h/2+.17;
         const isHero=name==="CentralHauntedWindow";
+        const index=ghostWindowIndex++;
         const heroIndex=isHero?centralGhostIndex++:-1;
         const direction=(isHero?heroIndex:index)%2===0?1:-1;
-        walker.root.scale.x=direction;
+        const personMaterial=new THREE.MeshBasicMaterial({
+          map:visitorTexture,color:0xffffff,transparent:true,opacity:0,
+          depthWrite:false,depthTest:true,side:THREE.DoubleSide,
+          toneMapped:false,alphaTest:.012,
+        });
+        const figure=new THREE.Mesh(
+          new THREE.PlaneGeometry(Math.min(1.50,w*.54),2.86),
+          personMaterial,
+        );
+        figure.name="CinematicHalfBodyWomanBeyondWindow";
+        figure.position.set(0,lowerSash+1.43,.227);
+        figure.scale.x=direction;
+        figure.renderOrder=1;
+        figure.frustumCulled=false;
+        figure.visible=false;
+        windowGroup.add(figure);
+        // Existing timed, alternating central-window system stays locked.
         const stagger=isHero
           ? [2,9,16][heroIndex%3]
           : [6,24,42,60][index%4];
         this.passingGhosts.push({
-          walker,phase:-stagger,
-          width:w,direction,period:isHero?21:72,
-          peakOpacity:isHero?.90:.50,groundY,
+          figure,phase:-stagger,width:w,direction,
+          period:isHero?21:72,peakOpacity:isHero?.80:.43,
         });
+        // Subtle opaque lower ledge hides the figure's cropped coat and
+        // gives a concrete visual reason only the upper body is visible.
+        const darkWindowSash=new THREE.MeshBasicMaterial({
+          color:0x1e1925,transparent:true,opacity:.90,depthWrite:false,
+          side:THREE.DoubleSide,toneMapped:false,
+        });
+        const occluder=plane("LowerSashConcealsOutsideBody",
+          0,lowerSash-.13,.350,w,.34,darkWindowSash,windowGroup);
+        occluder.renderOrder=3;
       }
       // A little physical gap between painted sky, volumetric person and
       // glass. Occlusion from the old glass/mullions remains depth-correct.
@@ -729,29 +744,22 @@ export class HauntedClassroomV1Environment {
     // No timers, random events, WebAudio access or gameplay interaction.
     for(const ghost of this.passingGhosts){
       const elapsed=((t+ghost.phase)%ghost.period+ghost.period)%ghost.period;
-      const duration=4.6; // deliberate human walking pace, not a fast flying icon
+      const duration=4.2;
       const active=elapsed<duration;
-      const person=ghost.walker;
-      person.root.visible=active;
-      if(!active)continue;
+      ghost.figure.visible=active;
+      if(!active){ghost.figure.material.opacity=0;continue;}
       const progress=elapsed/duration;
-      // Gentle acceleration and deceleration as a person enters/exits sight.
-      const eased=progress*progress*(3-2*progress);
-      const fade=Math.max(0,Math.min(1,elapsed/.85,(duration-elapsed)/.8));
-      for(const material of person.materials) {
-        material.opacity=ghost.peakOpacity*fade;
-      }
-      const travel=Math.max(.25,ghost.width*.50-.42);
-      person.root.position.x=ghost.direction*(eased*2-1)*travel;
-      person.root.position.y=ghost.groundY; // fixed shoes-on-floor elevation
-      // Opposing hip/shoulder strides. Subtle natural head/hair drift,
-      // with no vertical bobbing of the whole human and no ghost-hover pose.
-      const stride=Math.sin(elapsed*7.4);
-      person.legs[0].rotation.z=.21*stride;
-      person.legs[1].rotation.z=-.21*stride;
-      person.arms[0].rotation.z=-.13*stride;
-      person.arms[1].rotation.z=.13*stride;
-      person.hair.rotation.z=Math.sin(elapsed*4.0)*.021;
+      // Human crossing pace: mostly linear, eased only at the edges of the
+      // visible pane. No vertical bob, no rotation, no cartoon leg animation.
+      const eased=progress<.15
+        ? progress*.83
+        : progress>.85
+          ? .875+(progress-.85)*.8333333333
+          : .125+(progress-.15)*1.0714285714;
+      const fade=Math.max(0,Math.min(1,elapsed/.67,(duration-elapsed)/.67));
+      ghost.figure.material.opacity=ghost.peakOpacity*fade;
+      const halfRange=Math.max(.27,(ghost.width-ghost.figure.geometry.parameters.width)*.5);
+      ghost.figure.position.x=ghost.direction*(eased*2-1)*halfRange;
     }
     // Low amplitude: lighting breathes, never strobes or steals dancer focus.
     for(let i=0;i<this.ambientLamps.length;i++){
