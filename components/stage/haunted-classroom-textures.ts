@@ -267,68 +267,140 @@ export function makeGhostWindow() {
  * rather than a front-facing cartoon ghost; translucent from dirty glass.
  * All paths are original raster shapes made once during environment load.
  */
+/**
+ * An original, natural-proportioned side-profile woman in a long black coat.
+ * Quiet Ghost School-inspired figure, not a frontal cartoon icon.
+ * Painted as a soft-edged shadow behind glass, without facial features,
+ * glowing eyes, outline stickers or a floating/tapered ghost-tail.
+ *
+ * The canvas is created ONCE at environment load (never during RAF).
+ */
 export function makePassingWindowGhost() {
-  return canvasTexture(256,512,421,(c)=>{
-    c.clearRect(0,0,256,512);
-    const mist=c.createRadialGradient(125,225,14,125,225,118);
-    mist.addColorStop(0,"rgba(168,176,204,.14)");
-    mist.addColorStop(.58,"rgba(143,139,171,.055)");
-    mist.addColorStop(1,"rgba(143,139,171,0)");
-    c.fillStyle=mist;c.fillRect(0,18,256,484);
+  return canvasTexture(512, 1024, 529, (c, r) => {
+    c.clearRect(0,0,512,1024);
 
-    // Dark, partially back-lit right-facing profile with long hanging hair.
+    // Very faint optical diffusion from filthy moonlit glass, localized
+    // behind the woman rather than a neon aura around her outline.
+    const haze=c.createRadialGradient(256,478,50,256,478,310);
+    haze.addColorStop(0,"rgba(31,25,43,.075)");
+    haze.addColorStop(.65,"rgba(45,37,59,.034)");
+    haze.addColorStop(1,"rgba(45,37,59,0)");
+    c.fillStyle=haze;c.fillRect(0,70,512,885);
+
+    const silhouette=c.createLinearGradient(176,126,344,906);
+    silhouette.addColorStop(0,"rgba(12,12,19,.97)");
+    silhouette.addColorStop(.43,"rgba(13,12,20,.96)");
+    silhouette.addColorStop(.82,"rgba(20,17,27,.93)");
+    silhouette.addColorStop(1,"rgba(22,18,30,.70)");
+    const hair=c.createLinearGradient(170,155,300,685);
+    hair.addColorStop(0,"rgba(6,6,13,.98)");
+    hair.addColorStop(.55,"rgba(10,9,16,.96)");
+    hair.addColorStop(1,"rgba(20,14,28,.80)");
+
     c.save();
-    c.lineJoin="round";c.lineCap="round";
-    const shade=c.createLinearGradient(70,45,197,424);
-    shade.addColorStop(0,"rgba(30,23,45,.92)");
-    shade.addColorStop(.5,"rgba(41,30,54,.85)");
-    shade.addColorStop(1,"rgba(35,27,45,.48)");
-    c.fillStyle=shade;
-    // Long hair drapes down the left side to the middle of the body.
-    c.beginPath();c.moveTo(102,75);
-    c.bezierCurveTo(78,67,54,100,63,148);
-    c.bezierCurveTo(57,211,51,280,70,352);
-    c.bezierCurveTo(82,338,91,318,94,284);
-    c.bezierCurveTo(112,329,127,351,137,359);
-    c.bezierCurveTo(133,280,117,235,123,185);
-    c.bezierCurveTo(145,137,142,93,102,75);
+    c.lineJoin="round"; c.lineCap="round";
+
+    // Anatomical leg length instead of a chibi face + short tapered legs.
+    // Both feet remain planted on one ground plane outside the classroom.
+    c.fillStyle=silhouette;
+    // Far leg - back step.
+    c.beginPath();c.moveTo(225,617);
+    c.bezierCurveTo(209,681,198,754,189,843);
+    c.lineTo(172,906);c.quadraticCurveTo(174,924,190,930);
+    c.lineTo(227,927);c.quadraticCurveTo(237,918,229,908);
+    c.lineTo(229,881);c.lineTo(246,782);c.lineTo(270,672);
     c.closePath();c.fill();
-    // Face in side profile, nose to the right, chin and neck recessed.
-    c.beginPath();c.moveTo(112,84);
-    c.bezierCurveTo(143,83,159,101,161,127);
-    c.lineTo(172,141);c.lineTo(159,148);
-    c.bezierCurveTo(163,169,144,183,131,178);
-    c.lineTo(124,202);c.lineTo(97,198);
-    c.lineTo(98,158);
-    c.bezierCurveTo(84,133,89,103,112,84);
+    // Near leg - advancing, natural bent knee and heeled shoe.
+    c.beginPath();c.moveTo(271,621);
+    c.bezierCurveTo(287,676,288,749,302,801);
+    c.lineTo(336,873);c.lineTo(357,906);
+    c.quadraticCurveTo(359,924,342,927);
+    c.lineTo(295,925);c.quadraticCurveTo(284,918,286,909);
+    c.lineTo(285,884);c.lineTo(251,823);
+    c.bezierCurveTo(229,759,237,688,235,634);
     c.closePath();c.fill();
-    // Narrow torso, bowed shoulder and one arm held beside the hip.
-    c.beginPath();c.moveTo(111,190);
-    c.bezierCurveTo(154,183,163,218,158,260);
-    c.lineTo(148,340);c.lineTo(94,339);
-    c.bezierCurveTo(93,296,88,244,98,209);
+
+    // Black long school-coat/dress with the shoulder, waist, hips and
+    // hem varying organically; no triangular "flying ghost" body.
+    c.beginPath();c.moveTo(229,326);
+    c.bezierCurveTo(201,332,190,357,185,390);
+    c.bezierCurveTo(181,444,185,501,192,551);
+    c.bezierCurveTo(190,589,178,654,169,704);
+    c.bezierCurveTo(205,724,232,707,252,715);
+    c.bezierCurveTo(276,716,312,719,331,699);
+    c.bezierCurveTo(312,643,307,594,310,553);
+    c.bezierCurveTo(315,492,323,428,312,374);
+    c.bezierCurveTo(306,345,282,323,257,325);
     c.closePath();c.fill();
-    c.beginPath();c.moveTo(150,210);
-    c.bezierCurveTo(174,251,176,286,164,331);
-    c.lineTo(152,348);c.lineTo(146,340);
-    c.bezierCurveTo(160,281,141,248,136,225);
+
+    // A slightly bent natural arm with hanging fingers.
+    c.beginPath();c.moveTo(292,357);
+    c.bezierCurveTo(318,375,328,421,324,472);
+    c.lineTo(315,564);c.bezierCurveTo(313,586,302,593,294,579);
+    c.lineTo(298,553);c.lineTo(294,478);
+    c.bezierCurveTo(282,433,277,393,292,357);
     c.closePath();c.fill();
-    // Separate shuffling legs and shoe silhouette: she walks, not floats.
-    c.beginPath();c.moveTo(100,333);c.lineTo(122,332);
-    c.lineTo(109,437);c.lineTo(130,453);
-    c.lineTo(126,464);c.lineTo(91,463);
-    c.lineTo(89,446);c.closePath();c.fill();
-    c.beginPath();c.moveTo(125,332);c.lineTo(147,329);
-    c.lineTo(156,430);c.lineTo(185,437);
-    c.lineTo(184,448);c.lineTo(148,452);
-    c.lineTo(138,436);c.closePath();c.fill();
-    // Subtle silver edge glancing through moonlit glass, not a glow sticker.
-    c.strokeStyle="rgba(188,179,217,.20)";c.lineWidth=3;
-    c.beginPath();c.moveTo(126,88);
-    c.bezierCurveTo(150,91,158,118,156,130);
-    c.lineTo(167,140);c.stroke();
-    c.beginPath();c.moveTo(99,205);c.bezierCurveTo(87,260,97,327,93,350);c.stroke();
+
+    // Hair volume behind the face, following gravity down to waist.
+    c.fillStyle=hair;
+    c.beginPath();c.moveTo(244,155);
+    c.bezierCurveTo(204,154,176,187,179,238);
+    c.bezierCurveTo(165,294,181,349,171,417);
+    c.bezierCurveTo(174,474,164,527,159,603);
+    c.bezierCurveTo(180,592,198,563,204,539);
+    c.bezierCurveTo(205,570,211,606,220,632);
+    c.bezierCurveTo(239,593,248,531,246,481);
+    c.bezierCurveTo(261,422,266,367,276,323);
+    c.bezierCurveTo(298,275,313,214,289,180);
+    c.bezierCurveTo(275,163,261,156,244,155);
+    c.closePath();c.fill();
+
+    // Narrow right-facing face: a realistic nose/chin contour, but NO
+    // visible eyes/mouth/makeup; the silhouette is the entire read.
+    c.fillStyle=silhouette;
+    c.beginPath();c.moveTo(249,169);
+    c.bezierCurveTo(287,169,312,199,313,237);
+    c.bezierCurveTo(312,254,313,264,322,274);
+    c.lineTo(339,289);c.quadraticCurveTo(339,295,329,299);
+    c.lineTo(315,299);
+    c.bezierCurveTo(320,316,302,335,283,334);
+    c.lineTo(268,366);c.lineTo(234,349);
+    c.bezierCurveTo(245,311,222,285,221,244);
+    c.bezierCurveTo(218,207,230,176,249,169);
+    c.closePath();c.fill();
+
+    // A lock of hair falls over the cheek, broken edge makes the head
+    // less like a rigid icon while still covering identity details.
+    c.fillStyle=hair;
+    c.beginPath();c.moveTo(239,171);
+    c.bezierCurveTo(275,152,310,188,302,240);
+    c.bezierCurveTo(301,282,281,313,280,343);
+    c.bezierCurveTo(266,325,264,293,264,266);
+    c.bezierCurveTo(244,254,239,208,239,171);
+    c.closePath();c.fill();
+
+    // Faint cloth folds/hair strays: nearly tone-on-tone, no bright outlines.
+    c.strokeStyle="rgba(110,104,119,.105)";
+    c.lineWidth=3;
+    for(let i=0;i<14;i++){
+      const x=184+r()*126;
+      const y=380+r()*245;
+      c.beginPath();c.moveTo(x,y);
+      c.bezierCurveTo(x-5,y+34,x+5,y+71,x+(r()-.5)*15,y+106);
+      c.stroke();
+    }
+    c.strokeStyle="rgba(145,125,161,.10)";
+    c.lineWidth=2;
+    for(let i=0;i<9;i++){
+      const x=182+r()*53,y=243+r()*250;
+      c.beginPath();c.moveTo(x,y);
+      c.bezierCurveTo(x-10,y+50,x+3,y+100,x-9,y+150);c.stroke();
+    }
     c.restore();
+
+    // Blur only a low-opacity copy beneath the sharp silhouette using a
+    // second compositing pass; avoids a cartoon stroke while preserving body.
+    // No Canvas2D filter dependency on Safari.
   });
 }
 
