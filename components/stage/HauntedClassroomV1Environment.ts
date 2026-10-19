@@ -227,13 +227,17 @@ export class HauntedClassroomV1Environment {
           depthWrite:false,side:THREE.DoubleSide,toneMapped:false,
           color:0xb8c5de,
         });
-        const specter = plane("OccasionalCrossingSpecter",0,-.22,.129,
-          Math.min(1.16,w*.42),Math.min(2.62,h*.60),material,windowGroup);
+        const specter = plane("LongHairedSideProfileBehindGlass",0,-.18,.129,
+          Math.min(1.12,w*.38),Math.min(3.22,h*.66),material,windowGroup);
         specter.visible=false;
         const index=ghostWindowIndex++;
+        const direction=index%2===0?1:-1;
+        // Walk direction and profile orientation always agree.
+        specter.scale.x=direction;
+        const stagger=[8,23,38,53][index%4];
         this.passingGhosts.push({
-          mesh:specter,material,phase:index*9.25+4.5,
-          width:w,direction:index%2===0?1:-1,
+          mesh:specter,material,phase:-stagger,
+          width:w,direction,
         });
       }
       plane("GlassyDust",0,0,.135,w,h,glass,windowGroup);
@@ -471,17 +475,21 @@ export class HauntedClassroomV1Environment {
       color:0xbdafcd,transparent:true,opacity:.57,roughness:.98,
       side:THREE.DoubleSide,depthWrite:false,
     });
-    for(const x of [-7.8,7.8]){
-      for(const z of [-10.8,-3.8]){
-        const g=new THREE.Group();g.position.set(x,7.5,z);root.add(g);
-        g.name="HangingTornCurtain";
+    // Curtains hang inside the INNER edges of the rear/angled windows,
+    // instead of out at x=±7.8 where mobile portrait cropped both sheets.
+    for(const side of [-1,1]){
+      for(const bay of [{x:6.18,z:-11.25},{x:6.32,z:-5.42}]){
+        const x=side*bay.x,z=bay.z;
+        const g=new THREE.Group();g.position.set(x,8.02,z);root.add(g);
+        g.name="PortraitVisibleTornWindowCurtain";
+        box("WornCurtainRail",0,.03,0,1.85,.07,.09,metal,g);
         const vertices:number[]=[];const uv:number[]=[];const indices:number[]=[];
         const columns=9,rows=15;
         for(let iy=0;iy<=rows;iy++){
           for(let ix=0;ix<=columns;ix++){
             const u=ix/columns,t=iy/rows;
-            const drop=2.75+(Math.sin(u*12+x)*.19)+ (u>.58?.68:0);
-            vertices.push((u-.5)*2.0+Math.sin(t*5+u*7)*.075,-drop*t,Math.sin(u*15+t*9)*.10);
+            const drop=2.74+(Math.sin(u*12+x)*.17)+ (u>.58?.48:0);
+            vertices.push((u-.5)*1.58+Math.sin(t*5+u*7)*.064,-drop*t,Math.sin(u*15+t*9)*.085);
             uv.push(u,t);
             if(ix<columns&&iy<rows){
               const q=iy*(columns+1)+ix;
@@ -628,14 +636,20 @@ export class HauntedClassroomV1Environment {
     // Positions and fades derive from presentation time only: no setTimeout,
     // no Math.random, no influence on WebAudio / global gameplay turns.
     for(const ghost of this.passingGhosts){
-      const elapsed=((t+ghost.phase)%36+36)%36;
-      const active=elapsed<2.6;
+      // Four distinct 15–18s spacings in a deterministic 63s cycle.
+      const elapsed=((t+ghost.phase)%63+63)%63;
+      const duration=3.65;
+      const active=elapsed<duration;
       ghost.mesh.visible=active;
-      if(!active)continue;
-      const fade=Math.max(0,Math.min(1,elapsed/.45,(2.6-elapsed)/.55));
-      ghost.material.opacity=.42*fade;
-      ghost.mesh.position.x=ghost.direction*((elapsed/2.6)-.5)*(ghost.width+.8);
-      ghost.mesh.position.y=-.20+Math.sin(elapsed*1.7+ghost.phase)*.05;
+      if(!active){ghost.material.opacity=0;continue;}
+      const progress=elapsed/duration;
+      const fade=Math.min(1,elapsed/.62,(duration-elapsed)/.73);
+      ghost.material.opacity=.69*Math.max(0,fade);
+      const travel=Math.max(.35,ghost.width*.5-.68);
+      ghost.mesh.position.x=ghost.direction*(progress*2-1)*travel;
+      // Small gait bob, no floating vertical path or face-on motion.
+      ghost.mesh.position.y=-.18+Math.sin(elapsed*9.2)*.022;
+      ghost.mesh.rotation.z=Math.sin(elapsed*4.6)*.007;
     }
     for(let i=0;i<this.candleGlow.length;i++)
       this.candleGlow[i].intensity=2.0+.20*Math.sin(t*5.8+i*2.3);
