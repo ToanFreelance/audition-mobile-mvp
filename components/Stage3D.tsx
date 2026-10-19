@@ -463,8 +463,8 @@ export default function Stage3D({
         ? getNeonGameplayCameraFrame(frame, portrait)
         : basketballPresentation ? getBasketballGameplayCameraFrame(frame, portrait)
         : hauntedClassroomPresentation && portrait
-          ? { ...frame, fov: Math.max(48, frame.fov + 6),
-              y: frame.y + 0.7, z: frame.z + 5.2,
+          ? { ...frame, fov: Math.max(41, frame.fov + 4),
+              y: frame.y + 0.55, z: frame.z + 3.5,
               targetY: frame.targetY + 0.27 }
           : frame;
     };
@@ -544,8 +544,8 @@ export default function Stage3D({
       const basketballPose = getBasketballPresentationPose(neonPose, basketballPresentation, portrait);
       const classroomPose: StageCameraPose = hauntedClassroomPresentation && portrait
         && basketballPose.preset === "gameplay_portrait_locked"
-        ? { ...basketballPose, fov: Math.max(48, basketballPose.fov + 6),
-            y: basketballPose.y + 0.7, z: basketballPose.z + 5.2,
+        ? { ...basketballPose, fov: Math.max(41, basketballPose.fov + 4),
+            y: basketballPose.y + 0.55, z: basketballPose.z + 3.5,
             targetY: basketballPose.targetY + 0.27 }
         : basketballPose;
       const pose = visualCompareMode && neonPresentation
