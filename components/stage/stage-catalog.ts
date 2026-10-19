@@ -93,7 +93,7 @@ export const STAGE_CATALOG: Readonly<Record<StageCatalogId, StageCatalogEntry>> 
     kind: "classroom",
     runtimeAssetId: "classroom-v1",
     presentationProfileId: "classroom-v1",
-    selectable: false, // Isolated S2.5C iPhone visual gate; NOT Host-selectable yet.
+    selectable: true, // S2.5C V12 owner-accepted on iPhone; Host selection approved.
     status: "active",
   },
   "cafe-v1": {
