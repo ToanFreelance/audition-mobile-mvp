@@ -71,6 +71,8 @@ export class HauntedClassroomV1Environment {
   private passingGhosts: PassingGhostMotion[]=[];
   private candleGlow:THREE.PointLight[]=[];
   private ambientLamps: THREE.PointLight[]=[];
+  private speakerRings: Array<{ material: THREE.MeshBasicMaterial; phase: number }>=[];
+  private driftMist: Array<{ mesh: THREE.Mesh; baseX: number; phase: number }>=[];
   private dust: DustMotion | null = null;
 
   constructor(){this.root.name="HauntedClassroomV1Environment";}
@@ -229,10 +231,10 @@ export class HauntedClassroomV1Environment {
         const material = new THREE.MeshBasicMaterial({
           map:passingGhostTexture,transparent:true,opacity:0,
           depthWrite:false,side:THREE.DoubleSide,toneMapped:false,
-          color:0xb8c5de,
+          color:0xffffff,
         });
         const specter = plane("LongHairedSideProfileBehindGlass",0,-.18,.129,
-          Math.min(1.12,w*.38),Math.min(3.22,h*.66),material,windowGroup);
+          Math.min(1.46,w*.58),Math.min(3.57,h*.72),material,windowGroup);
         specter.visible=false;
         specter.renderOrder=1;
         specter.frustumCulled=false;
@@ -240,7 +242,9 @@ export class HauntedClassroomV1Environment {
         const direction=index%2===0?1:-1;
         // Walk direction and profile orientation always agree.
         specter.scale.x=direction;
-        const stagger=[8,23,38,53][index%4];
+        // Roughly one occurrence every 7–9 seconds across visible windows;
+        // each window itself remains quiet for most of the 34-second cycle.
+        const stagger=[4,12,20,29][index%4];
         this.passingGhosts.push({
           mesh:specter,material,phase:-stagger,
           width:w,direction,
@@ -430,6 +434,19 @@ export class HauntedClassroomV1Environment {
       g.position.set(x,0,z);g.scale.setScalar(scale);root.add(g);
       box("BlackSpeakerBody",0,1.42,0,1.55,2.85,.85,darkMetal,g);
       plane("PurpleSpeakerFace",0,1.44,.445,1.42,2.66,speakerTexture,g);
+      // Animated lilac driver rims: the prior speaker faces were a single
+      // static CanvasTexture, so the "pulse" could not be perceived on iPhone.
+      for (const [j,yy,rr] of [[0,1.98,.26],[1,.92,.24]] as const) {
+        const ringMaterial=new THREE.MeshBasicMaterial({
+          color:0xd2a4ff,transparent:true,opacity:.38,depthWrite:false,
+          side:THREE.DoubleSide,toneMapped:false,
+        });
+        const ring=new THREE.Mesh(new THREE.RingGeometry(rr*.77,rr,24),ringMaterial);
+        ring.name="AmbientSpeakerDriverHalo";
+        ring.position.set(0,yy,.468);
+        g.add(ring);
+        this.speakerRings.push({ material:ringMaterial,phase:this.speakerRings.length*.61+j*.5 });
+      }
       box("StackedSpeakerUnit",0,3.44,0,1.3,1.12,.82,darkMetal,g);
       plane("HighSpeakerDriver",0,3.44,.427,1.17,1.04,speakerTexture,g);
       return g;
@@ -588,6 +605,7 @@ export class HauntedClassroomV1Environment {
       m.name="FlatReflectedVioletStrip";
       m.rotation.x=-Math.PI/2;m.position.set(x,.025,-5+i*.8);
       root.add(m);
+      this.driftMist.push({mesh:m,baseX:x,phase:i*.91});
     }
     // Worn chalk-paint summoning-circle motif, FLAT and broken up to avoid tubes.
     const chalkPaint=new THREE.MeshBasicMaterial({color:0xc3a1aa,transparent:true,opacity:.41,depthWrite:false,side:THREE.DoubleSide});
@@ -621,7 +639,7 @@ export class HauntedClassroomV1Environment {
     // One batched dust cloud: sparse motes visible only around the rear/side
     // windows. No dust placed across a dancer's face or gameplay HUD.
     const positions:number[]=[];
-    for(let i=0;i<44;i++){
+    for(let i=0;i<96;i++){
       positions.push(
         Math.sin(i*2.71)*7.15,
         .7+((i*37)%61)/10,
@@ -633,7 +651,7 @@ export class HauntedClassroomV1Environment {
     const attr=geometry.getAttribute("position") as THREE.BufferAttribute;
     attr.setUsage(THREE.DynamicDrawUsage);
     const motes=new THREE.Points(geometry,new THREE.PointsMaterial({
-      color:0xd3badd,size:.065,transparent:true,opacity:.28,
+      color:0xe8d4ff,size:.135,transparent:true,opacity:.49,
       depthWrite:false,depthTest:true,sizeAttenuation:true,
     }));
     motes.name="SubtleClassroomFloatingDust";
@@ -675,10 +693,10 @@ export class HauntedClassroomV1Environment {
     // no Math.random, no influence on WebAudio / global gameplay turns.
     for(const ghost of this.passingGhosts){
       // Four distinct 15–18s spacings in a deterministic 63s cycle.
-      const elapsed=((t+ghost.phase)%63+63)%63;
-      // More like a barely perceived person beyond the windows: slow passage
-      // with a brief hesitation and darker, less sprite-like translucency.
-      const duration=4.3;
+      const elapsed=((t+ghost.phase)%34+34)%34;
+      // Long-haired human in black clothes, walking across one window.
+      // Dark enough to read clearly, yet softened by dirty glass.
+      const duration=3.8;
       const active=elapsed<duration;
       ghost.mesh.visible=active;
       if(!active){ghost.material.opacity=0;continue;}
@@ -688,7 +706,7 @@ export class HauntedClassroomV1Environment {
         : progress<.66 ? .437+(progress-.46)*.33
           : .503+(progress-.66)*1.46;
       const fade=Math.min(1,elapsed/.92,(duration-elapsed)/.86);
-      ghost.material.opacity=.37*Math.max(0,fade);
+      ghost.material.opacity=.80*Math.max(0,fade);
       const travel=Math.max(.35,ghost.width*.5-.68);
       ghost.mesh.position.x=ghost.direction*(Math.min(1,eased)*2-1)*travel;
       // A tiny step bob, NOT vertical floating motion.
@@ -698,9 +716,18 @@ export class HauntedClassroomV1Environment {
     // Low amplitude: lighting breathes, never strobes or steals dancer focus.
     for(let i=0;i<this.ambientLamps.length;i++){
       const base=i===0?4.3:3.3;
-      const slow=Math.sin(t*.43+i*1.97)*.035;
-      const drift=Math.sin(t*.137+i*2.71)*.020;
+      const slow=Math.sin(t*.73+i*1.97)*.085;
+      const drift=Math.sin(t*.17+i*2.71)*.035;
       this.ambientLamps[i].intensity=base*(1+slow+drift);
+    }
+    // Visible but small non-flashing ambient motions; all are derived from
+    // Stage3D presentation seconds, never from audio/gameplay state.
+    for (const ring of this.speakerRings) {
+      const pulse=.5+.5*Math.sin(t*2.65+ring.phase);
+      ring.material.opacity=.25+.43*pulse;
+    }
+    for (const mist of this.driftMist) {
+      mist.mesh.position.x=mist.baseX+.23*Math.sin(t*.30+mist.phase);
     }
     if(this.dust){
       const attr=this.dust.geometry.getAttribute("position") as THREE.BufferAttribute;
@@ -743,6 +770,7 @@ export class HauntedClassroomV1Environment {
     if(this.disposed)return;this.disposed=true;
     disposeTree(this.root);this.root.removeFromParent();this.root.clear();
     this.motions=[];this.curtainGeometry=[];this.passingGhosts=[];
-    this.candleGlow=[];this.ambientLamps=[];this.dust=null;this.loaded=false;
+    this.candleGlow=[];this.ambientLamps=[];this.speakerRings=[];
+    this.driftMist=[];this.dust=null;this.loaded=false;
   }
 }
