@@ -76,9 +76,20 @@ export class CharacterActor implements CharacterPresentation {
       const publishedDancePromise = loadPublishedDanceRelease();
       const gltf = await loadIsolatedGltf(this.loader, this.assetUrl);
       const model = gltf.scene;
+      // A stage/roster switch may dispose this actor while GLB bytes are in
+      // flight. Never continue expensive retargeting for an abandoned actor.
+      const canceled = () => this.disposed || version !== this.loadVersion;
+      if (canceled()) {
+        disposeObjectResources(model);
+        return null;
+      }
       normalizeHumanoid(model);
       const skinnedMesh = findPrimarySkinnedMesh(model);
       const publishedDance = await publishedDancePromise;
+      if (canceled()) {
+        disposeObjectResources(model);
+        return null;
+      }
       const catalogEntry = getCharacterCatalogEntryByAssetUrl(this.assetUrl);
       let clips: THREE.AnimationClip[];
 
@@ -87,11 +98,19 @@ export class CharacterActor implements CharacterPresentation {
         // Quaternius clip pool through the accepted C1 retarget adapter.
         const sourceGltf = await loadIsolatedGltf(this.loader, HUMAN_CHARACTER_ASSET_URL);
         try {
+          if (canceled()) {
+            disposeObjectResources(model);
+            return null;
+          }
           const sourceMesh = findPrimarySkinnedMesh(sourceGltf.scene);
           const baseClips = await loadHumanAnimationLibrary(sourceMesh, {
             skipLegacyNormalDanceMocap: publishedDance !== null,
             skipLegacyFinishMocap: Boolean(publishedDance?.finalSourceClips.length),
           });
+          if (canceled()) {
+            disposeObjectResources(model);
+            return null;
+          }
           const canonicalClips = publishedDance
             ? applyPublishedDanceRelease(baseClips, publishedDance).clips
             : baseClips;
