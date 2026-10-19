@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createStageEnvironment } from "../components/stage/stage-runtime";
 import { DEFAULT_STAGE_ID, resolveRuntimeStageCatalogEntry, SELECTABLE_STAGE_IDS, STAGE_CATALOG } from "../components/stage/stage-catalog";
 
@@ -19,7 +21,16 @@ test("S2.5C accepted Haunted Classroom V12 is selectable and resolves to real Th
   expect(SELECTABLE_STAGE_IDS).toEqual([
     "bright-stage-v1", "neon-stage-v1", "basketball-court-v1", "classroom-v1",
   ]);
+});
 
+test("Host stage picker presents classroom and retains the existing CAS stage mutation flow", () => {
+  const ui = readFileSync(join(process.cwd(), "components/multiplayer/WaitingRoomPanel.tsx"), "utf8");
+  expect(ui).toContain('id: "classroom-v1"');
+  expect(ui).toContain('name: "Haunted Classroom"');
+  expect(ui).toContain('data-testid={`stage-option-${stage.id}`}');
+  expect(ui).toContain('action: "stage"');
+  expect(ui).toContain("stageId: stageDraft");
+  expect(ui).toContain("changeStage(current, current.hostParticipantId, stageDraft)");
 });
 
 test("Haunted Classroom Stage3D QA selects zero through five preview actors without multiplayer", async ({ page }) => {
