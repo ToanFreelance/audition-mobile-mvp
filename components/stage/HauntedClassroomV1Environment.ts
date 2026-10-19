@@ -72,6 +72,7 @@ export class HauntedClassroomV1Environment {
   private candleGlow:THREE.PointLight[]=[];
   private ambientLamps: THREE.PointLight[]=[];
   private speakerRings: Array<{ material: THREE.MeshBasicMaterial; phase: number }>=[];
+  private overheadGlow: { tubes: THREE.MeshBasicMaterial; diffuser: THREE.MeshBasicMaterial } | null = null;
   private driftMist: Array<{ mesh: THREE.Mesh; baseX: number; phase: number }>=[];
   private dust: DustMotion | null = null;
 
@@ -167,7 +168,7 @@ export class HauntedClassroomV1Environment {
     const fixtureHousing=mat(0x34364b,.50,.27);
     const warmTube=new THREE.MeshBasicMaterial({color:0xffd8ee,toneMapped:false});
     const lampDiffuser=new THREE.MeshBasicMaterial({
-      color:0xeabaff,transparent:true,opacity:.26,depthWrite:false,
+      color:0xeabaff,transparent:true,opacity:.32,depthWrite:false,
       toneMapped:false,side:THREE.DoubleSide,
     });
     // Far end of the ceiling is anchored to the back wall; the front ends
@@ -183,6 +184,7 @@ export class HauntedClassroomV1Environment {
     for(const z of [-10.3,-5.0,.3]){
       box("SlimCrossSupport",0,9.88,z,17.1,.17,.24,ceilingRail);
     }
+    this.overheadGlow={tubes:warmTube,diffuser:lampDiffuser};
     // Two columns of slim off-white/pink fluorescent fixtures.
     // Diffusers are visible in perspective; the old purple strips appeared
     // disconnected from the ceiling and gave no ambient illumination.
@@ -727,7 +729,14 @@ export class HauntedClassroomV1Environment {
       ring.material.opacity=.25+.43*pulse;
     }
     for (const mist of this.driftMist) {
-      mist.mesh.position.x=mist.baseX+.23*Math.sin(t*.30+mist.phase);
+      mist.mesh.position.x=mist.baseX+.32*Math.sin(t*.37+mist.phase);
+    }
+    // The lights visibly breathe every few seconds. No hard flashes or
+    // strobing during rhythm play; only existing diffuse fixture materials.
+    if(this.overheadGlow) {
+      const fluctuation=.5+.5*Math.sin(t*.90+Math.sin(t*.19)*.8);
+      this.overheadGlow.tubes.color.setRGB(.94,.68+.25*fluctuation,.92);
+      this.overheadGlow.diffuser.opacity=.27+.21*fluctuation;
     }
     if(this.dust){
       const attr=this.dust.geometry.getAttribute("position") as THREE.BufferAttribute;
@@ -771,6 +780,6 @@ export class HauntedClassroomV1Environment {
     disposeTree(this.root);this.root.removeFromParent();this.root.clear();
     this.motions=[];this.curtainGeometry=[];this.passingGhosts=[];
     this.candleGlow=[];this.ambientLamps=[];this.speakerRings=[];
-    this.driftMist=[];this.dust=null;this.loaded=false;
+    this.overheadGlow=null;this.driftMist=[];this.dust=null;this.loaded=false;
   }
 }
