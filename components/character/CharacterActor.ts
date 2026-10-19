@@ -16,6 +16,35 @@ import { retargetQuaterniusClipsToMixamo } from "./mixamo-character-adapter";
 
 export const DEFAULT_CHARACTER_ASSET_URL = resolveCharacterAssetUrl(DEFAULT_CHARACTER_ASSET_ID);
 
+/**
+ * P4.6A download deduplication: identical GLB requests share only immutable
+ * binary bytes. Every CharacterActor parses its OWN model/materials/skeleton
+ * and keeps a distinct mixer/controller, so disposal never invalidates peers.
+ * The cache holds no GPU resources and does not change THREE.Cache globally.
+ */
+const glbBytes = new Map<string, Promise<ArrayBuffer>>();
+function cachedGlbBytes(url: string): Promise<ArrayBuffer> {
+  const existing = glbBytes.get(url);
+  if (existing) return existing;
+  const request = fetch(url).then(response => {
+    if (!response.ok) throw new Error(`GLB fetch failed (${response.status}): ${url}`);
+    return response.arrayBuffer();
+  }).catch(error => {
+    glbBytes.delete(url);
+    throw error;
+  });
+  glbBytes.set(url, request);
+  return request;
+}
+
+async function loadIsolatedGltf(loader: GLTFLoader, url: string) {
+  const bytes = await cachedGlbBytes(url);
+  // GLTFLoader.parseAsync needs the original URL directory for any external
+  // buffer/texture references, matching GLTFLoader.loadAsync's path behavior.
+  const directory = url.slice(0, url.lastIndexOf("/") + 1);
+  return loader.parseAsync(bytes.slice(0), directory);
+}
+
 export class CharacterActor implements CharacterPresentation {
   readonly root = new THREE.Group();
 
@@ -45,7 +74,7 @@ export class CharacterActor implements CharacterPresentation {
 
     try {
       const publishedDancePromise = loadPublishedDanceRelease();
-      const gltf = await this.loader.loadAsync(this.assetUrl);
+      const gltf = await loadIsolatedGltf(this.loader, this.assetUrl);
       const model = gltf.scene;
       normalizeHumanoid(model);
       const skinnedMesh = findPrimarySkinnedMesh(model);
@@ -56,7 +85,7 @@ export class CharacterActor implements CharacterPresentation {
       if (catalogEntry?.animationProfile === "mixamo-c1") {
         // Mixamo-based starter characters consume the canonical published
         // Quaternius clip pool through the accepted C1 retarget adapter.
-        const sourceGltf = await this.loader.loadAsync(HUMAN_CHARACTER_ASSET_URL);
+        const sourceGltf = await loadIsolatedGltf(this.loader, HUMAN_CHARACTER_ASSET_URL);
         try {
           const sourceMesh = findPrimarySkinnedMesh(sourceGltf.scene);
           const baseClips = await loadHumanAnimationLibrary(sourceMesh, {

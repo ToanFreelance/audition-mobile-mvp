@@ -45,6 +45,9 @@ test("P4.6A production entry stays manifest-scoped; no clock or protocol edits",
   expect(source).toContain("avatarCharacterAssetId(participant.avatar)");
   const stage=readFileSync(join(process.cwd(),"components/Stage3D.tsx"),"utf8");
   expect(stage).toContain("ensemble?.update(delta, t, songTimeMs)");
+  const actor = readFileSync(join(process.cwd(),"components/character/CharacterActor.ts"),"utf8");
+  expect(actor).toContain("cachedGlbBytes");
+  expect(actor).toContain("bytes.slice(0)"); // each actor owns an isolated parsed model
 });
 test("P4.6A isolated fixture controls without Supabase rooms", async ({page}) => {
   await page.goto("/tools/p4-6-ensemble-qa");

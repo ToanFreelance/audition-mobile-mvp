@@ -42,9 +42,10 @@ Use physical iPhone for silhouette, foot contact, occlusion, frame time,
 thermal and battery validation. Browser-only/CI results cannot clear that gate.
 
 ## Current constraints
-Actor GLB/retarget processing happens independently; HTTP browser cache may
-reuse downloaded files, but parsed GLB/mixer and associated render resources
-are currently actor-owned. Five skinned actors may be costly on iPhone.
+GLB network requests are deduplicated per asset URL through a small
+in-memory binary Promise cache; each CharacterActor still parses an isolated
+GLB, skeleton, mixer and controller. There is NO unsafe shared-GPU disposal.
+Retarget CPU cost and five skinned actors remain potential iPhone bottlenecks.
 No global graphics-quality reductions were applied.
 Validate real five-actor scene before any resource-sharing optimization.
 
