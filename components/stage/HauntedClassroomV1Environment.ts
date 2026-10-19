@@ -387,6 +387,28 @@ export class HauntedClassroomV1Environment {
       desk(x,z,r,i===3);
       chair(x+(i%2?.55:-.33),z+1.18,r+(i%2?.3:-.2));
     });
+    // Background classroom disorder behind the dancer (z <= -7.1).
+    // Keep the main dance area z > -4.6 and actor eye line unobstructed.
+    const abandonedBackRows: Array<[number,number,number]> = [
+      [-3.18,-8.25,-.58], [3.09,-8.05,.49],
+      [-1.62,-10.08,.25], [1.79,-10.26,-.68],
+    ];
+    abandonedBackRows.forEach(([x,z,angle],i)=>{
+      const d=desk(x,z,angle,i===1);
+      d.rotation.z=i===1?.11:i===2?-.045:0;
+      chair(x+(i%2?-.43:.52),z+.98,angle+(i%2?-.48:.37));
+    });
+    // One visibly toppled chair at the side of the rear row.
+    const toppled=new THREE.Group();
+    toppled.name="ToppledSchoolChair";
+    toppled.position.set(4.3,.59,-9.7);
+    toppled.rotation.z=-1.18;
+    toppled.rotation.y=.35;
+    root.add(toppled);
+    box("ToppledWoodSeat",0,.68,0,.92,.12,.81,wornWood,toppled);
+    box("ToppledBack",0,1.28,-.4,.9,.91,.12,wornWood,toppled);
+    for(const dx of [-.37,.37])for(const dz of [-.33,.33])
+      rod("ToppledChairLeg",xyz(dx,-.22,dz),xyz(dx,.63,dz),.038,metal,toppled);
     // Teacher podium and cabinet sit behind the chalkboard, not on dance floor.
     box("TeacherCabinet",0,1.0,-10.72,4.0,1.9,1.15,mat(0x354956,.85));
     for(const x of [-1.2,0,1.2])box("CabinetDoor",x,.94,-10.08,1.08,1.53,.09,mat(0x42556b));
@@ -471,8 +493,14 @@ export class HauntedClassroomV1Environment {
         geo.setAttribute("position",new THREE.Float32BufferAttribute(vertices,3));
         geo.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2));geo.setIndex(indices);
         geo.computeVertexNormals();
+        const position=geo.getAttribute("position") as THREE.BufferAttribute;
+        position.setUsage(THREE.DynamicDrawUsage);
         const m=new THREE.Mesh(geo,cloth);m.name="TornMoonlitCurtain";
-        g.add(m);this.motions.push({object:g,phase:x+z,kind:"curtain"});
+        g.add(m);
+        this.curtainGeometry.push({
+          geometry:geo,base:new Float32Array(position.array),phase:x*.37+z*.31,
+        });
+        this.motions.push({object:g,phase:x+z,kind:"curtain"});
       }
     }
     const cobwebMat=new THREE.LineBasicMaterial({color:0x9ca6c7,transparent:true,opacity:.25});
@@ -485,6 +513,41 @@ export class HauntedClassroomV1Environment {
       }
       const line=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute("position",new THREE.Float32BufferAttribute(points,3)),cobwebMat);
       line.name="CornerCobwebs";root.add(line);
+    }
+
+    // Delicate fan-shaped cobwebs along the windows and ceiling/chalkboard
+    // corners. Batched lines per region are clearer than random wall scratches.
+    const agedWeb=new THREE.LineBasicMaterial({
+      color:0xd0c8d8,transparent:true,opacity:.43,depthWrite:false,
+    });
+    const webFan=(x:number,y:number,z:number,side:number,span=1.15)=>{
+      const positions:number[]=[];
+      const webPoint=(radius:number,angle:number)=>{
+        return xyz(x+side*Math.cos(angle)*radius*span,
+          y-Math.sin(angle)*radius*span*.78,z);
+      };
+      for(let spoke=0;spoke<=9;spoke++){
+        const a=spoke*(Math.PI/2)/9;
+        const tip=webPoint(1,a);
+        positions.push(x,y,z,tip.x,tip.y,tip.z);
+      }
+      for(let ring=1;ring<=5;ring++){
+        const r=ring/5;
+        for(let spoke=0;spoke<9;spoke++){
+          const a0=spoke*(Math.PI/2)/9,a1=(spoke+1)*(Math.PI/2)/9;
+          const p0=webPoint(r,a0),p1=webPoint(r,a1);
+          positions.push(p0.x,p0.y,p0.z,p1.x,p1.y,p1.z);
+        }
+      }
+      const geom=new THREE.BufferGeometry();
+      geom.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
+      const lines=new THREE.LineSegments(geom,agedWeb);
+      lines.name="AgedWindowCornerCobweb";root.add(lines);
+    };
+    for(const side of [-1,1]){
+      webFan(side*8.28,8.88,-11.49,-side,1.45);
+      webFan(side*5.00,7.46,-11.47,side,1.02);
+      webFan(side*8.27,9.08,-4.0,-side,.95);
     }
 
     // Animated wisp hoops and thin stage mist are presentation-only visual FX.
