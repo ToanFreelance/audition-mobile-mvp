@@ -61,3 +61,21 @@ switching, without turning asset/load failures into false PASS.
 Gameplay presentation readiness waits for the stage and LOCAL actor only;
 remote asset loading/errors are reported independently and cannot delay the
 shared WebAudio timeline or hold the local entry curtain closed.
+
+## P4.6A iPhone formation spacing follow-up (2026-10-19)
+Owner iPhone captures showed that all five actual actors load on every
+accepted venue, but the four- and five-player groups crowded the center despite
+clear lateral stage space. This is a formation-slot spacing issue, not a camera,
+stage-geometry, character identity or animation issue.
+
+Only counts 4 and 5 have wider world-X positions; one-to-three actors, Z
+stagger, floor height, camera profiles, scene art and runtime ownership are
+unchanged. Four: inner +/-1.02, outer +/-3.05 versus +/-0.80 and +/-2.15.
+Five: inner +/-1.68, outer +/-3.35 versus +/-1.30 and +/-2.50.
+Existing stage-specific X scales continue to apply: Bright 1.00, Neon 0.94,
+Basketball 1.08, Classroom 1.00. Max five-player X is 3.618 (Basketball);
+the smallest horizontal adjacent gap is 1.570 (Neon).
+
+This improves spacing by construction but does not claim cleared props,
+animation envelopes, stage occlusion, real iPhone frame rates, or owner visual
+acceptance. Owner to retest 4/5 actors across the four stages.

@@ -29,6 +29,52 @@ test("P4.6A deterministic identities, nonintersecting layouts and ground contact
     }
   }
 });
+test("P4.6A iPhone 4–5 actors use stage width while preserving solo/three-player layout", () => {
+  // Owner physical iPhone observation: previous five-player centers were only
+  // +/-2.50 world X (Bright/Classroom), leaving unused safe lateral margins.
+  // Minimum adjacent horizontal clearance matters more than depth-only offset.
+  const expectedWidthByStage: Readonly<Record<string, { four: number; five: number }>> = {
+    "bright-stage-v1": { four: 6.10, five: 6.70 },
+    "neon-stage-v1": { four: 6.10 * 0.94, five: 6.70 * 0.94 },
+    "basketball-court-v1": { four: 6.10 * 1.08, five: 6.70 * 1.08 },
+    "classroom-v1": { four: 6.10, five: 6.70 },
+  };
+  const priorPositions: Readonly<Record<number, readonly number[]>> = {
+    1: [0],
+    2: [-1.15, 1.15],
+    3: [0, -1.55, 1.55],
+  };
+  const stageScale: Readonly<Record<string, number>> = {
+    "bright-stage-v1": 1, "neon-stage-v1": 0.94,
+    "basketball-court-v1": 1.08, "classroom-v1": 1,
+  };
+
+  for (const stageId of SELECTABLE_STAGE_IDS) {
+    for (const count of [1, 2, 3]) {
+      expect(getEnsembleFormation(stageId, P.slice(0, count)).map(actor => actor.x))
+        .toEqual(priorPositions[count].map(x => x * stageScale[stageId]));
+    }
+    for (const count of [4, 5]) {
+      const lineup = getEnsembleFormation(stageId, P.slice(0, count));
+      const xs = lineup.map(actor => actor.x).sort((a, b) => a - b);
+      const gap = xs.slice(1).map((x, index) => x - xs[index]);
+      const expected = count === 4
+        ? expectedWidthByStage[stageId].four
+        : expectedWidthByStage[stageId].five;
+      expect(xs.at(-1)! - xs[0]).toBeCloseTo(expected, 6);
+      expect(Math.min(...gap)).toBeGreaterThan(1.55);
+      // Reserve peripheral space for props and edge-safe iPhone portrait shots.
+      expect(Math.max(...xs.map(x => Math.abs(x)))).toBeLessThan(3.75);
+      expect(lineup.every(actor => actor.y === 0.02)).toBe(true);
+      // Z staging, participant identities and order are unchanged by widening.
+      expect(lineup.map(actor => actor.participantId)).toEqual(P.slice(0, count).map(p => p.participantId));
+      expect(lineup.map(actor => actor.z)).toEqual(
+        getEnsembleFormation(stageId, [...P.slice(0, count)].reverse()).map(actor => actor.z),
+      );
+    }
+  }
+});
+
 test("P4.6A camera changes for ensemble only and stays count/stage deterministic", () => {
   const solo = getStagePresentationCameraPose(1000,false,true,"center");
   for (const stage of SELECTABLE_STAGE_IDS) {

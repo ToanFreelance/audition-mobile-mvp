@@ -17,12 +17,15 @@ export type FormationPlacement = EnsembleParticipant & Readonly<{
 
 // Center-out, shallow-stagger layout: side actors have a clear silhouette,
 // and the back pair is not directly behind the central performer.
+// P4.6A iPhone visual correction: 4–5 actor lineups must use the available
+// lateral dance floor; do not widen the camera (which shrinks every actor).
+// One-to-three-player layouts retain their previously accepted positions.
 const POSITIONS: Readonly<Record<number, ReadonlyArray<readonly [number, number]>>> = {
   1: [[0, 0.25]],
   2: [[-1.15, 0.50], [1.15, 0.50]],
   3: [[0, 0.35], [-1.55, 0.80], [1.55, 0.80]],
-  4: [[-0.80, 0.35], [0.80, 0.35], [-2.15, 1.00], [2.15, 1.00]],
-  5: [[0, 0.30], [-1.30, 0.70], [1.30, 0.70], [-2.50, 1.15], [2.50, 1.15]],
+  4: [[-1.02, 0.35], [1.02, 0.35], [-3.05, 1.00], [3.05, 1.00]],
+  5: [[0, 0.30], [-1.68, 0.70], [1.68, 0.70], [-3.35, 1.15], [3.35, 1.15]],
 };
 
 const PROFILES: Readonly<Record<string, Readonly<{
