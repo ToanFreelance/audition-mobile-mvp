@@ -253,3 +253,46 @@ export function makeWindowShaft() {
     }
   });
 }
+
+
+/** Aged painted acoustic ceiling. Tonal separation is subtle, not noisy. */
+export function makeHauntedCeilingPanels() {
+  return canvasTexture(512, 512, 519, (c, r) => {
+    c.fillStyle="#596779"; c.fillRect(0,0,512,512);
+    for(let i=0;i<800;i++){
+      const x=r()*512,y=r()*512;
+      c.fillStyle=r()>.5?"rgba(214,205,212,.06)":"rgba(22,26,47,.07)";
+      c.fillRect(x,y,8+r()*65,.5+r()*4);
+    }
+    // Broad damp patches, no sharp repeated tiling symbols.
+    for(let i=0;i<28;i++){
+      const x=r()*512,y=r()*512;
+      c.fillStyle="rgba(25,28,49,.075)";
+      c.beginPath();c.ellipse(x,y,10+r()*40,6+r()*15,r()*3,0,2*Math.PI);c.fill();
+    }
+    for(let i=0;i<8;i++){
+      c.strokeStyle="rgba(201,194,199,.085)";c.lineWidth=1+r();
+      const y=r()*512;c.beginPath();c.moveTo(0,y);
+      c.bezierCurveTo(170,y-15,365,y+19,512,y-11);c.stroke();
+    }
+  });
+}
+
+/** Grayscale PBR map; gives worn varnish patches real roughness variation. */
+export function makeHauntedFloorRoughness() {
+  const texture=canvasTexture(512,512,520,(c,r)=>{
+    c.fillStyle="#888888";c.fillRect(0,0,512,512);
+    for(let i=0;i<780;i++){
+      const x=r()*512,y=r()*512;
+      c.fillStyle=r()>.55?"rgba(240,240,240,.13)":"rgba(14,14,14,.09)";
+      c.fillRect(x,y,5+r()*78,.8+r()*5);
+    }
+    for(let i=0;i<32;i++){
+      c.fillStyle="rgba(235,235,235,.14)";
+      c.beginPath();c.ellipse(r()*512,r()*512,6+r()*28,1+r()*9,r()*2,0,2*Math.PI);c.fill();
+    }
+  });
+  texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
+  texture.repeat.set(2,3);
+  return texture;
+}
