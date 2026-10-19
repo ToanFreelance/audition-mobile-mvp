@@ -21,11 +21,16 @@ test("Haunted Classroom Stage3D QA selects zero through five preview actors with
   const surface = page.locator('[data-selected-stage-id="classroom-v1"]');
   await expect(surface).toBeVisible();
   await expect(surface).toHaveAttribute("data-preview-actor-count", "1");
+  // The camera pose must be identical for every 0–5 formation. This catches
+  // the V7 split that widened the shot whenever count reached 4.
+  await expect(surface).toHaveAttribute("data-qa-camera-frame", /.+:.+:.+/);
+  const initialCamera = await surface.getAttribute("data-qa-camera-frame");
   for (const count of [0, 2, 3, 4, 5, 1]) {
     await page.getByRole("button", {
       name: count === 0 ? "Sân trống" : `${count} nhân vật`,
     }).click();
     await expect(surface).toHaveAttribute("data-preview-actor-count", String(count));
+    await expect(surface).toHaveAttribute("data-qa-camera-frame", initialCamera!);
   }
   await expect(surface).toHaveAttribute("data-stage-catalog-id", "classroom-v1");
 });
