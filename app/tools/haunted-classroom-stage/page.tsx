@@ -33,7 +33,7 @@ export default function HauntedClassroomStagePreview() {
           maxWidth: 245,
         }}>
           <div style={{fontSize:10,letterSpacing:1.4,color:"#cf9cff",fontWeight:700}}>AUDITION / STAGE LAB</div>
-          <strong style={{fontSize:15}}>👻 Haunted Classroom V8</strong>
+          <strong style={{fontSize:15}}>👻 Haunted Classroom V9</strong>
           <div style={{fontSize:11,opacity:.85,marginTop:3}}>Three.js · S2.5C · Chưa tích hợp chọn sân</div>
         </div>}
         <button type="button" onClick={() => setShowHelp(v => !v)}
@@ -52,7 +52,7 @@ export default function HauntedClassroomStagePreview() {
           fontSize:11, color:"#f3e6ff",textAlign:"center",
           background:"rgba(21,12,35,.81)",borderRadius:12,padding:"5px 10px",
         }}>
-          Đội hình 0–5 người · Bản sao tĩnh để xem bố cục
+          Đội hình 0–5 người · Camera cố định · Bản sao chỉ để xem bố cục
         </div>
         <div role="group" aria-label="Chọn số nhân vật thử nghiệm" style={{
           pointerEvents:"auto",display:"flex",justifyContent:"center",gap:5,
