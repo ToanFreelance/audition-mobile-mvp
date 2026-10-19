@@ -23,6 +23,7 @@ type CurtainGeometryMotion = { geometry: THREE.BufferGeometry; base: Float32Arra
 type PassingGhostMotion = {
   mesh: THREE.Mesh; material: THREE.MeshBasicMaterial;
   phase: number; width: number; direction: number;
+  period: number; peakOpacity: number;
 };
 type DustMotion = { geometry: THREE.BufferGeometry; base: Float32Array };
 const xyz=(x:number,y:number,z:number)=>new THREE.Vector3(x,y,z);
@@ -220,6 +221,7 @@ export class HauntedClassroomV1Environment {
     // all appearances or allocating textures during the animation update.
     const passingGhostTexture=makePassingWindowGhost();
     let ghostWindowIndex=0;
+    let centralGhostIndex=0;
     const frameMat=mat(0x2c242e,.68,.13);
     const glass=new THREE.MeshBasicMaterial({color:0xd5d2fa,transparent:true,opacity:.065,depthWrite:false});
     const putWindow=(name:string,x:number,y:number,z:number,w:number,h:number,angle=0)=>{
@@ -229,6 +231,17 @@ export class HauntedClassroomV1Environment {
       box("OldWindowFrame",0,0,0,w+.5,h+.45,.22,frameMat,windowGroup);
       const sky = plane("MoonlitGhostWindow",0,0,.12,w,h,skyMat,windowGroup);
       sky.renderOrder = 0;
+      // The hero windows behind the dance line keep some cold moonlight
+      // so that a black-clothed figure has an actual visible silhouette.
+      if (name === "CentralHauntedWindow") {
+        const faintMoonlitGlass = new THREE.MeshBasicMaterial({
+          color:0xb77da9,transparent:true,opacity:.13,depthWrite:false,
+          side:THREE.DoubleSide,toneMapped:false,
+        });
+        const moonLayer=plane("CentralWindowMoonlitSilhouetteContrast",
+          0,0,.124,w,h,faintMoonlitGlass,windowGroup);
+        moonLayer.renderOrder=0;
+      }
       if (name !== "SideHauntedWindow") {
         const material = new THREE.MeshBasicMaterial({
           map:passingGhostTexture,transparent:true,opacity:0,
@@ -241,15 +254,21 @@ export class HauntedClassroomV1Environment {
         specter.renderOrder=1;
         specter.frustumCulled=false;
         const index=ghostWindowIndex++;
-        const direction=index%2===0?1:-1;
-        // Walk direction and profile orientation always agree.
+        const isHero=name==="CentralHauntedWindow";
+        const heroIndex=isHero?centralGhostIndex++:-1;
+        const direction=(isHero?heroIndex:index)%2===0?1:-1;
+        // Side profile always faces the walking direction.
         specter.scale.x=direction;
-        // Roughly one occurrence every 7–9 seconds across visible windows;
-        // each window itself remains quiet for most of the 34-second cycle.
-        const stagger=[4,12,20,29][index%4];
+        // Three central panes alternate in a deterministic 21s loop:
+        // a readable crossing roughly every seven seconds in portrait.
+        // Peripheral windows remain slower ambient background events.
+        const stagger=isHero
+          ? [2,9,16][heroIndex%3]
+          : [6,24,42,60][index%4];
         this.passingGhosts.push({
           mesh:specter,material,phase:-stagger,
-          width:w,direction,
+          width:w,direction,period:isHero?21:72,
+          peakOpacity:isHero?.82:.45,
         });
       }
       const glassLayer=plane("GlassyDust",0,0,.158,w,h,glass,windowGroup);
@@ -270,6 +289,12 @@ export class HauntedClassroomV1Environment {
       // extending down the side corridors without leaving the gameplay view.
       putWindow("AngledPortraitWindowBay",side*7.25,5.20,-5.3,2.5,5.25,
         -side*.28);
+    }
+    // Mobile-first hero background: replace the giant centre chalkboard
+    // with three full-height, independently animated moonlit windows.
+    // They remain in view for 1–5 QA dancers without widening the camera.
+    for(const x of [-3.02,0,3.02]){
+      putWindow("CentralHauntedWindow",x,5.55,-11.88,2.74,5.6);
     }
     const shaftMat=new THREE.MeshBasicMaterial({
       map:makeWindowShaft(),transparent:true,opacity:.21,depthWrite:false,
@@ -353,12 +378,15 @@ export class HauntedClassroomV1Environment {
         web.name="ArcWebThreads";root.add(web);
       }
     }
-    // Chalkboard has its own authored texture: ghost/chalk symbols, NO text.
-    const chalk= new THREE.MeshStandardMaterial({map:makeChalkboard(),roughness:.96});
-    box("ChalkboardWoodFrame",0,4.9,-11.87,9.25,4.83,.24,wornWood);
-    plane("NoTextChalkboard",0,4.91,-11.725,8.83,4.42,chalk);
-    box("ChalkTray",0,2.44,-11.48,9.5,.12,.48,darkWood);
-    for(let i=0;i<8;i++)box("UsedWhiteChalk",(i-4)*.33,2.54,-11.23,.18,.08,.10,paper);
+    // Retain the owner's "Dance Up" chalkboard as a modest prop below
+    // the windows, NOT as the dominant background. Small enough to leave
+    // all three panes, their silhouettes and curtains unobstructed.
+    const chalk=new THREE.MeshStandardMaterial({map:makeChalkboard(),roughness:.96});
+    box("DanceUpSmallBlackboardFrame",0,1.95,-11.68,4.10,1.48,.20,wornWood);
+    plane("DanceUpSmallChalkboard",0,1.95,-11.555,3.82,1.28,chalk);
+    box("SmallChalkTray",0,1.14,-11.42,4.22,.10,.28,darkWood);
+    for(let i=0;i<5;i++)
+      box("OldChalkStub",(i-2)*.27,1.24,-11.25,.12,.06,.09,paper);
     // Neutral framed landscape art: no flags / lettering anywhere.
     for(const x of [-5.6,5.65]){
       box("LandscapePhotoFrame",x,8.20,-12.02,1.8,1.15,.17,wornWood);
@@ -501,14 +529,17 @@ export class HauntedClassroomV1Environment {
       color:0xbdafcd,transparent:true,opacity:.57,roughness:.98,
       side:THREE.DoubleSide,depthWrite:false,
     });
-    // Curtains hang inside the INNER edges of the rear/angled windows,
-    // instead of out at x=±7.8 where mobile portrait cropped both sheets.
+    // Keep central hero-window drapes visible even in close portrait crops.
+    // All drapes are independent deformable 3D meshes with the same safe
+    // explicit layering/culling behavior established in V6.
     for(const side of [-1,1]){
-      // The angled bay is in front of the window plane at z=-5.3;
-      // position its fabric towards the playable room to avoid z fighting.
-      for(const bay of [{x:6.18,z:-11.14},{x:6.32,z:-4.91}]){
+      for(const bay of [
+        {x:4.12,z:-11.08,y:8.30},
+        {x:6.18,z:-11.14,y:8.02},
+        {x:6.32,z:-4.91,y:8.02},
+      ]){
         const x=side*bay.x,z=bay.z;
-        const g=new THREE.Group();g.position.set(x,8.02,z);root.add(g);
+        const g=new THREE.Group();g.position.set(x,bay.y,z);root.add(g);
         g.name="PortraitVisibleTornWindowCurtain";
         box("WornCurtainRail",0,.03,0,1.85,.07,.09,metal,g);
         const vertices:number[]=[];const uv:number[]=[];const indices:number[]=[];
@@ -690,12 +721,12 @@ export class HauntedClassroomV1Environment {
       }
       attr.needsUpdate=true;
     }
-    // One specter crosses the windows at a time, about every 9 seconds.
-    // Positions and fades derive from presentation time only: no setTimeout,
-    // no Math.random, no influence on WebAudio / global gameplay turns.
+    // Long-haired human silhouettes on a deterministic presentation loop;
+    // active centre panes take turns so a crossing is visible roughly every
+    // seven seconds, while peripheral windows are infrequent ambience.
+    // No timers, random events, WebAudio access or gameplay interaction.
     for(const ghost of this.passingGhosts){
-      // Four distinct 15–18s spacings in a deterministic 63s cycle.
-      const elapsed=((t+ghost.phase)%34+34)%34;
+      const elapsed=((t+ghost.phase)%ghost.period+ghost.period)%ghost.period;
       // Long-haired human in black clothes, walking across one window.
       // Dark enough to read clearly, yet softened by dirty glass.
       const duration=3.8;
@@ -708,7 +739,7 @@ export class HauntedClassroomV1Environment {
         : progress<.66 ? .437+(progress-.46)*.33
           : .503+(progress-.66)*1.46;
       const fade=Math.min(1,elapsed/.92,(duration-elapsed)/.86);
-      ghost.material.opacity=.80*Math.max(0,fade);
+      ghost.material.opacity=ghost.peakOpacity*Math.max(0,fade);
       const travel=Math.max(.35,ghost.width*.5-.68);
       ghost.mesh.position.x=ghost.direction*(Math.min(1,eased)*2-1)*travel;
       // A tiny step bob, NOT vertical floating motion.
