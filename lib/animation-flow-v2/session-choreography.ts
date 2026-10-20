@@ -15,6 +15,21 @@ export class SessionChoreography {
   private sustainHighLevelDance = false;
   private readonly bridgeBag: PhraseBag;
   private readonly bridgeFadeCapBeats = .35;
+  /** Opt-in curated upright Break clips; never replaces normal accepted catalog. */
+  private experimentalPhrases: readonly PhraseSpec[] = [];
+  private experimentalSpaceBag: PhraseBag | null = null;
+  private experimentalBridgeBag: PhraseBag | null = null;
+  readonly experimentalSelections: { beat: number; id: string; kind: "space" | "bridge" }[] = [];
+  setExperimentalPhrases(phrases: readonly PhraseSpec[]) {
+    // Only prepared, uniquely identified experimental core clips can play.
+    this.experimentalPhrases = phrases.filter(p =>
+      p.id.startsWith("break-") && p.role === "core" && p.policy === "FREE"
+      && this.engine.phrases.has(p.id));
+    this.experimentalSpaceBag = this.experimentalPhrases.length
+      ? new PhraseBag(this.experimentalPhrases, (this.bag.seed ^ 0x45585041) >>> 0) : null;
+    this.experimentalBridgeBag = this.experimentalPhrases.length
+      ? new PhraseBag(this.experimentalPhrases, (this.bag.seed ^ 0x42524944) >>> 0) : null;
+  }
   /** Style chapters advance only on actual successful SPACE judgements. */
   private activeStyle: ModernFamily = "pop";
   private spacesInStyle = 0;
@@ -59,8 +74,12 @@ export class SessionChoreography {
           eligible(p) && isModernFamily(currentFamily) && phraseFamily(p) === currentFamily;
         const differentMotion = (p: PhraseSpec) =>
           sameFamily(p) && p.source !== current.phrase.spec.source && p.group !== current.phrase.spec.group;
-        const next = this.bridgeBag.next(differentMotion)
+        const extraBridge = this.experimentalBridgeBag && current.phrase.spec.id.startsWith("break-")
+          ? this.experimentalBridgeBag.next(p => differentMotion(p)) : null;
+        const next = (current.phrase.spec.id.startsWith("break-") ? extraBridge : null)
+          ?? this.bridgeBag.next(differentMotion)
           ?? this.bridgeBag.next(sameFamily)
+          ?? extraBridge
           ?? (isModernFamily(currentFamily) && this.engine.placement(current.phrase.spec.id)
             ? current.phrase.spec : null);
         const accepted = Boolean(next && this.engine.request(next.id, scheduled, bridgeFade, true)
@@ -72,7 +91,11 @@ export class SessionChoreography {
           reason: accepted ? (next?.id === current.phrase.spec.id ? "same-style-repeat" : "same-style-dance-bridge")
             : "no-same-style-compatible-bridge"
         });
-        if (accepted) continue;
+        if (accepted) {
+          if (next?.id.startsWith("break-"))
+            this.experimentalSelections.push({ beat: scheduled, id: next.id, kind: "bridge" });
+          continue;
+        }
         // Never report a rejected bridge as motion continuity PASS. Fall back to
         // the existing living idle, but expose the root cause in telemetry.
         const idle = this.engine.phrases.get("rest-standing");
@@ -111,7 +134,8 @@ export class SessionChoreography {
       // Explicit deterministic fallback remains the old protected accent path.
     }
     const current = this.engine.current?.phrase.spec;
-    const pool = finish ? FINISH_PHRASES : NORMAL_PHRASES;
+    const pool: readonly (typeof NORMAL_PHRASES)[number][] = finish
+      ? FINISH_PHRASES : [...NORMAL_PHRASES, ...this.experimentalPhrases.map(p => p as (typeof NORMAL_PHRASES)[number])];
     const immediate = this.instantGameplay && !finish;
     const compatible = (p: (typeof NORMAL_PHRASES)[number]) =>
       (!finish || !this.finishChoice || this.finishChoice === FLARE_SPEC.id || p.id === this.finishChoice)
@@ -140,8 +164,14 @@ export class SessionChoreography {
     let eligible = immediate ? preferred.find(group => group.length > 0) ?? [] : strict;
     const timely = finishNext && this.presentation && !immediate
       ? eligible.filter(p => this.engine.nextExitDelayAt(p.id, beat, beat + 4) <= .35) : [];
+    // Every third successful Street SPACE can choose a newly screened break
+    // phrase. The standard bag is not consumed when this opt-in pool wins.
+    const tryExperimental = immediate && desiredFamily === "street"
+      && this.spacesInStyle % 3 === 1 && this.experimentalSpaceBag
+      ? this.experimentalSpaceBag.next(p => eligible.some(e => e.id === p.id)) : null;
     let chosen = finish ? eligible.find(p => p.id !== this.previousFinish) ?? eligible[0]
-      : (timely.length ? this.bag.next(p => timely.some(e => e.id === p.id)) : null)
+      : tryExperimental
+        ?? (timely.length ? this.bag.next(p => timely.some(e => e.id === p.id)) : null)
         ?? this.bag.next(p => eligible.some(e => e.id === p.id));
     if (immediate && !chosen) {
       // Preserve successful SPACE when shufflebag anti-repeat exhausts the
@@ -158,6 +188,8 @@ export class SessionChoreography {
       else this.presentation.resume(beat);
     }
     if (accepted && finish) this.previousFinish = chosen!.id;
+    if (accepted && chosen?.id.startsWith("break-"))
+      this.experimentalSelections.push({ beat, id: chosen.id, kind: "space" });
     const chosenFamily = chosen ? phraseFamily(chosen) : null;
     const styleChanged = Boolean(accepted && immediate && isModernFamily(chosenFamily)
       && chosenFamily !== this.activeStyle);

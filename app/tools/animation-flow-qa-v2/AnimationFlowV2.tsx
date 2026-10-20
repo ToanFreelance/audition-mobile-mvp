@@ -12,7 +12,7 @@ import { PhraseBag } from "@/lib/animation-flow-v2/shuffle";
 import { CanvasSourcePreview } from "@/lib/animation-flow-v2/canvas-preview";
 import { INITIAL_CAMERA, STAGE_FRONT } from "@/lib/animation-flow-v2/heading";
 import styles from "./animation-flow-v2.module.css";
-import { NORMAL_PHRASES, FINISH_PHRASES, REST_PHRASES, DANCE_REVIEW_CANDIDATES, type PhraseSpec } from "@/lib/animation-flow-v2/catalog";
+import { NORMAL_PHRASES, FINISH_PHRASES, REST_PHRASES, DANCE_REVIEW_CANDIDATES, type CuratedPhrase, type PhraseSpec } from "@/lib/animation-flow-v2/catalog";
 import { GameplayPreview, previewTurnCounter, type PreviewOutcome } from "@/lib/animation-flow-v2/gameplay-preview";
 import { SessionChoreography } from "@/lib/animation-flow-v2/session-choreography";
 import { closeStandingIdle, type FinishPresentation } from "@/lib/animation-flow-v2/finish-presentation";
@@ -21,6 +21,7 @@ import { FLARE_SPEC, FLARE_RISE_SPEC, FlareLibrary } from "@/lib/animation-flow-
 import type { FlareSource } from "@/lib/animation-flow-v2/flare-source";
 import { FINISH_CHOREOGRAPHY } from "@/components/character/choreography";
 import { OWNER_CURATION_DIRECTIONS, proposeReviewSegments, type CurationSlot, type ActivitySample } from "@/lib/animation-flow-v2/clip-curation";
+import { EXPERIMENTAL_SOURCES, analyzeExperimentalSource, type IntakeRejection } from "@/lib/animation-flow-v2/experimental-dance";
 
 type View = "source" | "c1-casual-grace" | "c4-casual-boy";
 type Mode = "gameplay" | "lab" | "finish";
@@ -32,8 +33,8 @@ type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
   renderBackend: "webgl" | "canvas2d-projection";
   gameplay: ReturnType<GameplayPreview["snapshot"]> | null; mode: Mode;
 };
-type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void> };
-const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {} };
+type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void> };
+const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {}, enableBreakdance: async () => {} };
 const f = (n: number | undefined) => (n ?? 0).toFixed(4);
 
 export default function AnimationFlowV2({ catalogReview = false }: { catalogReview?: boolean } = {}) {
@@ -45,6 +46,9 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   const [status, setStatus] = useState("Đang chuẩn bị choreography và Finish…");
   const [mode, setMode] = useState<Mode>(catalogReview ? "lab" : "gameplay"), [outcome, setOutcome] = useState<PreviewOutcome>("perfect");
   const [candidateId, setCandidateId] = useState(DANCE_REVIEW_CANDIDATES[0].id);
+  const [experimentalLoading, setExperimentalLoading] = useState(false);
+  const [experimentalCount, setExperimentalCount] = useState(0);
+  const [experimentalRejected, setExperimentalRejected] = useState<IntakeRejection[]>([]);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
   const [curationSlots, setCurationSlots] = useState<Record<string, CurationSlot[]>>({});
   const curationRef = useRef<Record<string, CurationSlot[]>>({});
@@ -74,6 +78,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     let samples: Telemetry[] = [], recorder: MediaRecorder | null = null;
     let gameplay: GameplayPreview | null = null, choreography: SessionChoreography | null = null;
     let flare:FlareLibrary|undefined,flareReplayResume:number|null=null,flareSourceStatus="Chưa tải";
+    let experimentalSpecs: CuratedPhrase[] = [], expansionLoading = false;
+    const experimentalErrors: IntakeRejection[] = [];
     // Raw CMU source viewer: separate from stage-bounded choreography engine.
     let rawReviewGroup: T.Group | null = null;
     let rawReviewMixer: T.AnimationMixer | null = null, rawReviewSource: SourceMotion | null = null;
@@ -273,6 +279,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       if (!engine) return;
       choreography = new SessionChoreography(engine, runSeed, true,flare);
       choreography.instantGameplay = true;
+      choreography.setExperimentalPhrases(experimentalSpecs);
       engine.loopIdle = true;
       choreography.finishChoice=options.current.finishPhrase;
       gameplay = new GameplayPreview(options.current.bpm, runSeed, (event, beat) => {
@@ -323,6 +330,50 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       reference?.setGameActive(false); reference?.setGameActive(true); referenceSpace(0);
     }
     commands.current = {
+      enableBreakdance: async () => {
+        if (!engine || catalogReview || expansionLoading) return;
+        expansionLoading = true; setExperimentalLoading(true); setError("");
+        try {
+          if (audio?.state === "running") { await audio.suspend(); setRunning(false); }
+          const canonical = await source("111_05");
+          let prepared = 0;
+          for (const sourceId of EXPERIMENTAL_SOURCES) {
+            setStatus("Đang thẩm định BVH " + sourceId + "…");
+            try {
+              const raw = await source(sourceId);
+              const screening = analyzeExperimentalSource(sourceId, raw);
+              experimentalErrors.push(...screening.rejected);
+              for (const spec of screening.accepted) {
+                try {
+                  const phrase = closeStandingIdle(preparePhrase(spec, raw, engine.rig, canonical));
+                  // Never admit impossible long stage trajectories. The
+                  // existing per-SPACE placement check is still mandatory.
+                  const span = Math.max(...phrase.path.map(p => Math.hypot(p.x, p.z)));
+                  if (span > engine.radius * 1.55) throw Error("source-root-travel-too-wide");
+                  engine.phrases.set(spec.id, phrase);
+                  experimentalSpecs.push(spec); prepared++;
+                } catch (error) {
+                  experimentalErrors.push({ source: sourceId, id: spec.id,
+                    start: spec.start, end: spec.end, reason: String(error) });
+                }
+              }
+            } catch (error) {
+              experimentalErrors.push({ source: sourceId, id: sourceId,
+                start: 0, end: 0, reason: "source-load-or-parse: " + String(error) });
+            }
+          }
+          if (disposed || !engine) return;
+          setExperimentalRejected([...experimentalErrors]);
+          setExperimentalCount(prepared);
+          await resetRun(); // Recreate the session/bags; do not add synthetic turns.
+          setStatus(prepared
+            ? "Đã nạp " + prepared + " đoạn Break đứng vào Gameplay Preview thử nghiệm. "
+              + experimentalErrors.length + " đoạn không đạt an toàn; xem JSON."
+            : "Chưa đoạn nào đạt bộ lọc SPACE đứng an toàn. "
+              + experimentalErrors.length + " cảnh báo; Gameplay cũ được giữ nguyên.");
+        } catch (error) { reportError(error); }
+        finally { expansionLoading = false; if (!disposed) setExperimentalLoading(false); }
+      },
       toggle: async () => { try {
         if (catalogReview && rawReviewFinished && rawReviewId) {
           if (rawReviewWindow) await commands.current.previewSegment(rawReviewId, rawReviewWindow.start, rawReviewWindow.end);
@@ -417,7 +468,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         if (options.current.mode !== "lab") { setStatus("Chọn Free Animation Lab trước khi thử Moonwalk riêng."); return; }
         try { await prepare([MOONWALK_PHRASE]); if (disposed || !engine) return; engine.request(MOONWALK_PHRASE.id, currentBeat()); setStatus("Phrase Moonwalk riêng: giữ chuyển động trượt, không thuộc shuffle core."); } catch (e) { reportError(e); }
       },
-      export: () => download(new Blob([JSON.stringify({ schemaVersion: 7, implementation: "2.2.6", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], catalogReview, ownerCurationDirections: OWNER_CURATION_DIRECTIONS, curationSegments: curationRef.current, rawSourceReview: rawReviewSource && rawReviewId ? { id: rawReviewId, source: rawReviewSource.clip.name, fullDurationSeconds: rawReviewSource.clip.duration, sourcePlayback: "full-BVH-original-clip", noGameplayStageBound: true, autoStopAtEnd: true } : null, reviewerFeedback: reviewRef.current, gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), catalogReview ? `dance-catalog-review-v226-${runSeed}.json` : `animation-flow-v226-${runSeed}.json`),
+      export: () => download(new Blob([JSON.stringify({ schemaVersion: 7, implementation: "2.2.6", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], catalogReview, experimentalPhrases: experimentalSpecs, experimentalRejections: experimentalErrors, experimentalSelections: choreography?.experimentalSelections, ownerCurationDirections: OWNER_CURATION_DIRECTIONS, curationSegments: curationRef.current, rawSourceReview: rawReviewSource && rawReviewId ? { id: rawReviewId, source: rawReviewSource.clip.name, fullDurationSeconds: rawReviewSource.clip.duration, sourcePlayback: "full-BVH-original-clip", noGameplayStageBound: true, autoStopAtEnd: true } : null, reviewerFeedback: reviewRef.current, gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), catalogReview ? `dance-catalog-review-v226-${runSeed}.json` : `animation-flow-v226-${runSeed}.json`),
       record: () => {
         if (recorder && recorder.state !== "inactive") { recorder.stop(); return; }
         if (!renderer.domElement.captureStream || typeof MediaRecorder === "undefined") { setError("Browser này không hỗ trợ ghi canvas; dùng xuất telemetry JSON."); return; }
@@ -703,7 +754,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.6</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.8</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
@@ -738,6 +789,19 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             <label className={styles.control}>Exit policy <select aria-label="Exit policy" value={policy} disabled={view !== "source"} onChange={e => setPolicy(e.target.value as typeof policy)}><option value="metadata">Theo phrase metadata</option><option value="FREE">FREE · nếu không trong protected phase</option><option value="BEAT_WINDOW">BEAT_WINDOW</option><option value="PROTECTED">PROTECTED · thử chờ marker</option></select></label>
             <label className={styles.checkbox}><input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} />{mode === "gameplay" ? "Auto command tại target gốc; bỏ qua HIDDEN / REST" : "Tự SPACE mỗi bốn beat (Lab)"}</label>
             {mode === "gameplay" && <label className={styles.control}>Kết quả tự động <select aria-label="Auto outcome" value={outcome} onChange={e => setOutcome(e.target.value as PreviewOutcome)}><option value="perfect">Perfect · nhập đúng arrow + SPACE</option><option value="miss">Miss · không nhập, runtime xử lý</option></select></label>}
+          </section>
+          <section className={styles.panel} data-testid="breakdance-expansion">
+            <p className={styles.eyebrow}>V2.2.8 · STREET / BREAK · THỬ NGHIỆM</p>
+            <h2>Chơi thử các đoạn đã chọn</h2>
+            <p className={styles.muted}>85_12 tách nhiều đoạn; 85_14 và 90_28 chỉ cho vào pool thường nếu toàn đoạn vượt kiểm tra tư thế đứng, tiếp đất và giới hạn đường di chuyển. 85_04 vẫn là Finish candidate, Flare mặc định không đổi.</p>
+            <div className={styles.buttons}>
+              <button className={styles.primary} disabled={!ready || experimentalLoading || experimentalCount > 0}
+                onClick={() => void commands.current.enableBreakdance()}>
+                {experimentalLoading ? "Đang tải và kiểm tra BVH…" : experimentalCount > 0 ? "Đã nạp thư viện thử nghiệm" : "Nạp Breakdance vào Gameplay thử"}
+              </button>
+            </div>
+            <p className={styles.muted} data-testid="breakdance-intake-count">Được phép thử: {experimentalCount} đoạn · loại/hoãn: {experimentalRejected.length} đoạn.</p>
+            <p className={styles.muted}>Bấm nạp sẽ bắt đầu phiên mới. Nếu 0 đoạn đạt, game giữ nguyên 11 phrase Street/Pop. Những đoạn Floor/Flips không được cắt ngang bằng SPACE; xem lý do loại trong JSON.</p>
           </section>
           <section className={styles.panel}><p className={styles.eyebrow}>FINISH RIÊNG · CHƯA DUYỆT PRODUCTION</p><select aria-label="Finish candidate" value={finishPhrase} onChange={e => setFinishPhrase(e.target.value)}>{[FLARE_SPEC,...FINISH_PHRASES].map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(FLARE_SPEC.id, true)}>Replay Flare Finish</button><button disabled={!ready} onClick={() => void commands.current.preview(finishPhrase, true)}>Xem Finish đã chọn</button></div><p className={styles.muted}>Flare mặc định trong Gameplay. Replay reset một phiên riêng: beat 4 → Flare nhiều vòng → đứng dậy → dance ở beat 24. Hai Finish cũ giữ recovery/idle V2.2.1.</p></section>
           <section className={styles.panel}><p className={styles.eyebrow}>CATALOG · {NORMAL_PHRASES.length} PHRASE</p><select aria-label="Phrase preview" value={previewPhrase} onChange={e => setPreviewPhrase(e.target.value)}>{NORMAL_PHRASES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(previewPhrase, false)}>Xem phrase · reset phiên riêng</button></div><p className={styles.muted}>Sáu phrase V2.1 giữ nguyên; mười phrase mới chờ duyệt pose/contact. Không gán style hip-hop cho nguồn Unknown.</p></section>

@@ -29,6 +29,7 @@ export const PHRASE_DANCE_FAMILY: Readonly<Record<string, DanceFamily>> = {
 };
 export const DEFAULT_STYLE_RUN_SPACES = 3;
 export function phraseFamily(phrase: Pick<PhraseSpec, "id"> | null | undefined): DanceFamily | null {
+  if (phrase?.id.startsWith("break-85-") || phrase?.id.startsWith("break-90-")) return "street";
   return phrase ? PHRASE_DANCE_FAMILY[phrase.id] ?? null : null;
 }
 export function isModernFamily(family: DanceFamily | null): family is ModernFamily {
