@@ -10,6 +10,7 @@ import type { FlareSource } from "../lib/animation-flow-v2/flare-source";
 import { SessionChoreography } from "../lib/animation-flow-v2/session-choreography";
 import { GameplayPreview } from "../lib/animation-flow-v2/gameplay-preview";
 import { describeSharedTurn } from "../multiplayer/determinism";
+import { isModernFamily, phraseFamily } from "../lib/animation-flow-v2/style-policy";
 
 const source: FlareSource = JSON.parse(readFileSync("public/qa/animation-flow-v2/flare-source.json", "utf8"));
 const clips = new Map<string, SourceMotion>();
@@ -62,6 +63,7 @@ for (const bpm of [110, 120, 160, 200]) for (const fade of [.15, .35, 1]) {
       flares: flares.map(h => h.flare), maxRadius: engine.maxRadius,
       finish: game.turns.filter(t => t.isFinish).map(t => t.absoluteTurn) });
     expect(rejected).toEqual([]);
+    expect(selected.filter(s => s.accepted).every(s => isModernFamily(s.selected ? phraseFamily({id:s.selected}) : null))).toBe(true);
     expect(delayed).toEqual([]);
     expect(normal.length).toBeGreaterThan(5);
     expect(engine.history.every(h => h.entryDisplacement < 1e-6)).toBe(true);
@@ -125,6 +127,8 @@ test("V2.2.4 L6–L9 stays in dance across HIDDEN, with no synthetic judgements"
     const actualSpace = game.judgements.filter(j => j.judgement === "perfect");
     const selected = session.selections.filter(e => e.accepted);
     expect(bridge.length).toBeGreaterThan(1);
+    expect(bridge.every(e => e.accepted && phraseFamily({id:e.previous}) === phraseFamily({id:e.next}))).toBe(true);
+    expect(session.selections.filter(s => !s.finish && s.accepted).every(s => isModernFamily(s.selected ? phraseFamily({id:s.selected}) : null))).toBe(true);
     expect(bridge.filter(e => !e.accepted)).toEqual([]);
     expect(bridge.every(e => engine.history.some(h =>
       h.b === e.next && Math.abs(h.visualStartBeat - e.beat) < 1e-6))).toBe(true);

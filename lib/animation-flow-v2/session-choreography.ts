@@ -3,17 +3,21 @@ import { SourceFlowEngine } from "./engine";
 import { PhraseBag } from "./shuffle";
 import { FinishPresentation } from "./finish-presentation";
 import { FlareLibrary, FLARE_SPEC } from "./flare-performance";
+import { DEFAULT_STYLE_RUN_SPACES, isModernFamily, otherModernFamily, phraseFamily, type ModernFamily } from "./style-policy";
 /** Visual consumer only; cannot create or advance a gameplay turn. */
 export class SessionChoreography {
   readonly bag: PhraseBag;
-  readonly selections: { beat: number; absoluteTurn: number | null; finish: boolean; eligibleIds: string[]; selected: string | null; accepted: boolean }[] = [];
-  readonly continuityEvents: { beat: number; previous: string; next: string; accepted: boolean; reason: string; kind?: "dance-bridge" | "living-idle"; requestedAtBeat?: number }[] = [];
+  readonly selections: { beat: number; absoluteTurn: number | null; finish: boolean; eligibleIds: string[]; selected: string | null; accepted: boolean; danceFamily?: string | null; styleChanged?: boolean }[] = [];
+  readonly continuityEvents: { beat: number; previous: string; next: string; accepted: boolean; reason: string; kind?: "dance-bridge" | "living-idle"; requestedAtBeat?: number; danceFamily?: string | null }[] = [];
   /** Opt-in: only the actual Gameplay Preview uses immediate successful-SPACE transitions. */
   instantGameplay = false;
   /** Only levels 6–9 sustain ordinary dance between valid SPACE commands. */
   private sustainHighLevelDance = false;
   private readonly bridgeBag: PhraseBag;
   private readonly bridgeFadeCapBeats = .35;
+  /** Style chapters advance only on actual successful SPACE judgements. */
+  private activeStyle: ModernFamily = "pop";
+  private spacesInStyle = 0;
   private previousFinish: string | null = null;
   readonly presentation: FinishPresentation | null;
   finishChoice: string | null;
@@ -48,17 +52,25 @@ export class SessionChoreography {
       const eligible = (p: PhraseSpec) =>
         p.id !== current.phrase.spec.id && Boolean(this.engine.placement(p.id));
       if (this.sustainHighLevelDance) {
-        const differentStyle = (p: PhraseSpec) =>
-          eligible(p) && p.source !== current.phrase.spec.source && p.group !== current.phrase.spec.group;
-        const next = this.bridgeBag.next(differentStyle)
-          ?? this.bridgeBag.next(eligible)
-          ?? (this.engine.placement(current.phrase.spec.id) ? current.phrase.spec : null);
+        const currentFamily = phraseFamily(current.phrase.spec);
+        // HIDDEN bridges must remain in the same style as the active dance.
+        // A same-source repeat is preferable to an abrupt swing/social jump.
+        const sameFamily = (p: PhraseSpec) =>
+          eligible(p) && isModernFamily(currentFamily) && phraseFamily(p) === currentFamily;
+        const differentMotion = (p: PhraseSpec) =>
+          sameFamily(p) && p.source !== current.phrase.spec.source && p.group !== current.phrase.spec.group;
+        const next = this.bridgeBag.next(differentMotion)
+          ?? this.bridgeBag.next(sameFamily)
+          ?? (isModernFamily(currentFamily) && this.engine.placement(current.phrase.spec.id)
+            ? current.phrase.spec : null);
         const accepted = Boolean(next && this.engine.request(next.id, scheduled, bridgeFade, true)
           && this.engine.current?.phrase.spec.id === next.id && !this.engine.pending);
         this.continuityEvents.push({
           beat: scheduled, requestedAtBeat: beat, previous: current.phrase.spec.id,
           next: next?.id ?? "none", accepted, kind: "dance-bridge",
-          reason: accepted ? "pre-end-continuous-dance" : "no-spatial-facing-compatible-bridge"
+          danceFamily: currentFamily,
+          reason: accepted ? (next?.id === current.phrase.spec.id ? "same-style-repeat" : "same-style-dance-bridge")
+            : "no-same-style-compatible-bridge"
         });
         if (accepted) continue;
         // Never report a rejected bridge as motion continuity PASS. Fall back to
@@ -107,22 +119,57 @@ export class SessionChoreography {
       && (!finish || !this.presentation || this.engine.canFollowAtEnd(p.id, [FINISH_RECOVERY[p.id]], beat))
       && (!finishNext || this.engine.canFollowAt(p.id, FINISH_PHRASES.map(f => f.id), beat, beat + 4, this.presentation ? FINISH_RECOVERY : undefined));
     const strict = pool.filter(p => (finish || (p.source !== current?.source && p.group !== current?.group)) && compatible(p));
-    // Do not silently swallow a successful SPACE just because anti-repeat
-    // restrictions exhaust the currently spatially safe candidates.
-    const eligible = immediate && strict.length === 0
-      ? pool.filter(p => p.id !== current?.id && compatible(p)) : strict;
+    // Street/Pop chapters: a real SPACE may change family only after a
+    // coherent run; HIDDEN continuations never advance the chapter.
+    const desiredFamily = immediate && this.spacesInStyle >= DEFAULT_STYLE_RUN_SPACES
+      ? otherModernFamily(this.activeStyle) : this.activeStyle;
+    const strictModern = strict.filter(p => isModernFamily(phraseFamily(p)));
+    const looseModern = immediate ? pool.filter(p => p.id !== current?.id
+      && isModernFamily(phraseFamily(p)) && compatible(p)) : [];
+    const inFamily = (items: readonly (typeof NORMAL_PHRASES)[number][], family: ModernFamily) =>
+      items.filter(p => phraseFamily(p) === family);
+    const preferred = [
+      inFamily(strictModern, desiredFamily),
+      inFamily(strictModern, this.activeStyle),
+      inFamily(looseModern, desiredFamily),
+      inFamily(looseModern, this.activeStyle),
+      strictModern, looseModern
+    ];
+    // Never fall back to Swing, Lambada or novelty even when spatial
+    // placement or anti-repeat constraints narrow the candidate set.
+    let eligible = immediate ? preferred.find(group => group.length > 0) ?? [] : strict;
     const timely = finishNext && this.presentation && !immediate
       ? eligible.filter(p => this.engine.nextExitDelayAt(p.id, beat, beat + 4) <= .35) : [];
-    const chosen = finish ? eligible.find(p => p.id !== this.previousFinish) ?? eligible[0]
-      : (timely.length ? this.bag.next(p => timely.some(e => e.id === p.id)) : null) ?? this.bag.next(p => eligible.some(e => e.id === p.id));
+    let chosen = finish ? eligible.find(p => p.id !== this.previousFinish) ?? eligible[0]
+      : (timely.length ? this.bag.next(p => timely.some(e => e.id === p.id)) : null)
+        ?? this.bag.next(p => eligible.some(e => e.id === p.id));
+    if (immediate && !chosen) {
+      // Preserve successful SPACE when shufflebag anti-repeat exhausts the
+      // preferred family. Try other eligible *modern* tiers, never legacy.
+      for (const tier of preferred.slice(1)) {
+        if (!tier.length) continue;
+        const alternative = this.bag.next(p => tier.some(candidate => candidate.id === p.id));
+        if (alternative) { chosen = alternative; eligible = tier; break; }
+      }
+    }
     const accepted = Boolean(chosen && this.engine.request(chosen.id, beat, undefined, immediate));
     if (accepted && this.presentation) {
       if (finish) this.presentation.begin(chosen!.id, beat, absoluteTurn);
       else this.presentation.resume(beat);
     }
     if (accepted && finish) this.previousFinish = chosen!.id;
+    const chosenFamily = chosen ? phraseFamily(chosen) : null;
+    const styleChanged = Boolean(accepted && immediate && isModernFamily(chosenFamily)
+      && chosenFamily !== this.activeStyle);
+    if (accepted && immediate && isModernFamily(chosenFamily)) {
+      if (chosenFamily !== this.activeStyle) {
+        this.activeStyle = chosenFamily;
+        this.spacesInStyle = 1;
+      } else this.spacesInStyle++;
+    }
     if (accepted) this.sustainHighLevelDance = !finish && level !== undefined && level >= 6;
-    this.selections.push({ beat, absoluteTurn, finish, eligibleIds: eligible.map(p => p.id), selected: chosen?.id ?? null, accepted });
+    this.selections.push({ beat, absoluteTurn, finish, eligibleIds: eligible.map(p => p.id),
+      selected: chosen?.id ?? null, accepted, danceFamily: chosenFamily, styleChanged });
     return accepted;
   }
   manual(beat: number, status: string | undefined, level?: number) {

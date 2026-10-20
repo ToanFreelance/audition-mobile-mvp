@@ -207,7 +207,7 @@ export default function AnimationFlowV2() {
       setSeed(runSeed); bag = new PhraseBag(CORE_PHRASES, runSeed);
       clock.reset(audioSeconds()); turns.reset(); processedBoundaries = []; triggerCount = 0; samples = []; trailPoints.length = 0; replayTarget = null;flareReplayResume=null;
       selectionEvents.length = 0;
-      const first = bag.next(); if (first) engine.start(options.current.mode === "gameplay" ? "143-party" : first.id, 0);
+      const first = bag.next(); if (first) engine.start(options.current.mode === "gameplay" ? "141-twist" : first.id, 0);
       createGameplay(); setError(""); setStatus("QA loop · shared multiplayer · 4 beat/turn · Finish không kết thúc phiên.");
       reference?.setGameActive(false); reference?.setGameActive(true); referenceSpace(0);
     }
@@ -353,7 +353,7 @@ export default function AnimationFlowV2() {
   const tempoLocked = (mode === "gameplay" || mode === "finish") && (telemetry?.beat ?? 0) > 0;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.4</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.5</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
