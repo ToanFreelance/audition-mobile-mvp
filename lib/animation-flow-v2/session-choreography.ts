@@ -1,4 +1,4 @@
-import { FINISH_PHRASES, FINISH_RECOVERY, NORMAL_PHRASES } from "./catalog";
+import { FINISH_PHRASES, FINISH_RECOVERY, NORMAL_PHRASES, type PhraseSpec } from "./catalog";
 import { SourceFlowEngine } from "./engine";
 import { PhraseBag } from "./shuffle";
 import { FinishPresentation } from "./finish-presentation";
@@ -45,10 +45,10 @@ export class SessionChoreography {
       if (scheduled > deadline + 1e-7) return;
       // Advance at the exact end/bridge instant even when RAF is very late.
       this.engine.update(scheduled);
-      const eligible = (p: (typeof NORMAL_PHRASES)[number]) =>
+      const eligible = (p: PhraseSpec) =>
         p.id !== current.phrase.spec.id && Boolean(this.engine.placement(p.id));
       if (this.sustainHighLevelDance) {
-        const differentStyle = (p: (typeof NORMAL_PHRASES)[number]) =>
+        const differentStyle = (p: PhraseSpec) =>
           eligible(p) && p.source !== current.phrase.spec.source && p.group !== current.phrase.spec.group;
         const next = this.bridgeBag.next(differentStyle)
           ?? this.bridgeBag.next(eligible)
