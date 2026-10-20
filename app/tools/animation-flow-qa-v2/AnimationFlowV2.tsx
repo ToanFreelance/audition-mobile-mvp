@@ -161,6 +161,8 @@ export default function AnimationFlowV2() {
     function createGameplay() {
       if (!engine) return;
       choreography = new SessionChoreography(engine, runSeed, true,flare);
+      choreography.instantGameplay = true;
+      engine.loopIdle = true;
       choreography.finishChoice=options.current.finishPhrase;
       gameplay = new GameplayPreview(options.current.bpm, runSeed, (event, beat) => {
         triggerCount++;
@@ -174,7 +176,9 @@ export default function AnimationFlowV2() {
       if (!engine) return;
       const config = options.current;
       if(choreography)choreography.finishChoice=config.finishPhrase;
-      engine.bpm = config.bpm; engine.blendBeats = config.fade; engine.policyOverride = config.policy === "metadata" ? undefined : config.policy;
+      engine.bpm = config.bpm; engine.blendBeats = config.fade;
+      // Exit overrides are laboratory diagnostics; Gameplay SPACE stays immediate.
+      engine.policyOverride = config.mode === "lab" && config.policy !== "metadata" ? config.policy : undefined;
       if (config.mode === "gameplay" && gameplay?.manifest.gameplay.bpmExact !== config.bpm && beat === 0) createGameplay();
       for (const boundary of turns.consume(beat)) {
         processedBoundaries.push(boundary);
@@ -244,7 +248,7 @@ export default function AnimationFlowV2() {
         if (options.current.mode !== "lab") { setStatus("Chọn Free Animation Lab trước khi thử Moonwalk riêng."); return; }
         try { await prepare([MOONWALK_PHRASE]); if (disposed || !engine) return; engine.request(MOONWALK_PHRASE.id, currentBeat()); setStatus("Phrase Moonwalk riêng: giữ chuyển động trượt, không thuộc shuffle core."); } catch (e) { reportError(e); }
       },
-      export: () => download(new Blob([JSON.stringify({ schemaVersion: 6, implementation: "2.2.2", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), `animation-flow-v222-${runSeed}.json`),
+      export: () => download(new Blob([JSON.stringify({ schemaVersion: 6, implementation: "2.2.3", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), `animation-flow-v222-${runSeed}.json`),
       record: () => {
         if (recorder && recorder.state !== "inactive") { recorder.stop(); return; }
         if (!renderer.domElement.captureStream || typeof MediaRecorder === "undefined") { setError("Browser này không hỗ trợ ghi canvas; dùng xuất telemetry JSON."); return; }
@@ -349,7 +353,7 @@ export default function AnimationFlowV2() {
   const tempoLocked = (mode === "gameplay" || mode === "finish") && (telemetry?.beat ?? 0) > 0;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.2</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.3</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
@@ -378,8 +382,8 @@ export default function AnimationFlowV2() {
           <section className={styles.panel}><p className={styles.eyebrow}>ĐANG TRÌNH BÀY</p><h2>{view === "source" ? currentSpec?.label ?? telemetry?.current ?? "Chuẩn bị…" : view === "c1-casual-grace" ? "Casual Grace" : "Casual Boy"}</h2><div className={styles.sourceId}>{view === "source" ? telemetry?.source ?? "—" : view}</div>{telemetry?.finishPresentation?.flare && <p className={styles.muted}>Rig Mixamo → CMU · {backend} · entry/đứng dậy thử nghiệm</p>}<p className={styles.muted}>{view === "source" ? `Phrase ${telemetry?.sourcePhrase?.map(n => n.toFixed(2)).join("–") ?? "—"} giây nguồn · ${telemetry?.policy ?? "FREE"}` : telemetry?.referenceStatus ?? "Chưa tải"}</p>{telemetry?.pending && view === "source" && <p className={styles.pending}>Đã nhận SPACE · đợi exit tại beat {telemetry.pending.dueBeat.toFixed(2)}</p>}<p className={styles.muted} data-testid="presentation-phase">Pha: {telemetry?.finishPresentation?.phase ?? "DANCE"}{telemetry?.finishPresentation?.flare && ` · vòng ${telemetry.finishPresentation.completedLoops}/${telemetry.finishPresentation.loopCount} · còn ${telemetry.finishPresentation.remainingBeats?.toFixed(2)} beat · ${telemetry.finishPresentation.playbackRate?.toFixed(3)}×`}</p><p className={styles.muted}>Trước: {view === "source" ? telemetry?.previous ?? "—" : "xem đường published hiện hành"}</p></section>
           <section className={styles.panel}>
             <div className={styles.buttons}><button className={styles.primary} disabled={!ready} onClick={() => void commands.current.toggle()}>{running ? "Tạm dừng" : "Bắt đầu"}</button><button disabled={!ready} onClick={() => void commands.current.reset()}>Lượt ngẫu nhiên mới</button></div>
-            <label className={styles.control}>BPM <strong>{bpm}</strong><input aria-label="BPM" disabled={tempoLocked} type="range" min={80} max={180} step={1} value={bpm} onChange={e => setBpm(+e.target.value)} /></label>
-            <div className={styles.presets}><button disabled={tempoLocked} onClick={() => setBpm(120)}>120 BPM</button><button disabled={tempoLocked} onClick={() => setBpm(160)}>160 BPM</button></div>
+            <label className={styles.control}>BPM <strong>{bpm}</strong><input aria-label="BPM" disabled={tempoLocked} type="range" min={80} max={200} step={1} value={bpm} onChange={e => setBpm(+e.target.value)} /></label>
+            <div className={styles.presets}>{[110,120,160,200].map(rate=><button key={rate} disabled={tempoLocked} onClick={() => setBpm(rate)}>{rate} BPM</button>)}</div>
             <label className={styles.control}>Crossfade <select aria-label="Crossfade" value={fade} disabled={view !== "source"} onChange={e => setFade(+e.target.value)}>{[0.15, 0.35, 0.7, 1].map(v => <option key={v} value={v}>{v} beat · {(v * 60 / bpm).toFixed(3)} giây</option>)}</select></label>
             <label className={styles.control}>Exit policy <select aria-label="Exit policy" value={policy} disabled={view !== "source"} onChange={e => setPolicy(e.target.value as typeof policy)}><option value="metadata">Theo phrase metadata</option><option value="FREE">FREE · nếu không trong protected phase</option><option value="BEAT_WINDOW">BEAT_WINDOW</option><option value="PROTECTED">PROTECTED · thử chờ marker</option></select></label>
             <label className={styles.checkbox}><input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} />{mode === "gameplay" ? "Auto command tại target gốc; bỏ qua HIDDEN / REST" : "Tự SPACE mỗi bốn beat (Lab)"}</label>

@@ -64,15 +64,15 @@ export class FinishPresentation {
   private readonly idleSource: PreparedPhrase | undefined;
   private lastBeat=0;
   constructor(readonly engine: SourceFlowEngine, readonly flare?: FlareLibrary) { this.recoverySources = new Map([...engine.phrases].filter(([,p])=>p.spec.role==='recovery')); this.idleSource=engine.phrases.get('rest-standing'); }
-  requestFlare(beat:number,turn:number|null,resumeBeat:number) {
+  requestFlare(beat:number,turn:number|null,resumeBeat:number,immediateGameplay=false) {
     const reject=(reason:string)=>{this.flareAttempts.push({beat,turn,resumeBeat,accepted:false,reason});return false;};
     if(!this.flare)return reject('source-unavailable');
     this.engine.update(beat);
-    const wallStart=performance.now(),exit=this.engine.displayedAtExit(beat),phrase=this.flare.prepare(exit.pose,beat,exit.due,resumeBeat,this.engine.bpm);
+    const wallStart=performance.now(),exit=this.engine.displayedAtExit(beat,immediateGameplay),phrase=this.flare.prepare(exit.pose,beat,exit.due,resumeBeat,this.engine.bpm);
     if(!phrase)return reject('insufficient-loop-budget-or-rate');
     if(phrase.flare!.bodyEnvelopeRadius>1.79)return reject('body-envelope-outside-1.8-stage');
     this.engine.phrases.set(FLARE_SPEC.id,phrase);
-    if(!this.engine.placementAtExit(FLARE_SPEC.id,beat)||!this.engine.request(FLARE_SPEC.id,beat,.001))return reject('stage-root-path');
+    if(!this.engine.placementAtExit(FLARE_SPEC.id,beat,immediateGameplay)||!this.engine.request(FLARE_SPEC.id,beat,.001,immediateGameplay))return reject('stage-root-path');
     this.flareAttempts.push({beat,turn,resumeBeat,accepted:true,reason:'full-path-body-envelope-and-timing-compatible',preparationWallMs:performance.now()-wallStart});
     this.begin(FLARE_SPEC.id,beat,turn);return true;
   }

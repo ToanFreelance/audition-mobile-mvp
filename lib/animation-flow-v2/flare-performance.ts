@@ -51,7 +51,12 @@ export class FlareLibrary {
    * The resulting one-shot contains cyclic source sampling, not mixer restarts. */
   prepare(before:Pose,requestedBeat:number,visualStartBeat:number,resumeBeat:number,bpm:number):PreparedPhrase|null {
     const available=(resumeBeat-visualStartBeat)*60/bpm;
-    const entrySeconds=1.85,dismountSeconds=1.4,readySeconds=.1,loopSeconds=available-entrySeconds-dismountSeconds-readySeconds;
+    // Reserve one *musical beat* for visible standing/weight-shift idle before L6.
+    // At 180–200 BPM scale only the authored entry/dismount timings modestly:
+    // this preserves natural loop rate rather than dropping Flare entirely.
+    const tempoScale=Math.min(1,160/bpm);
+    const entrySeconds=1.85*tempoScale,dismountSeconds=1.4*tempoScale,readySeconds=60/bpm;
+    const loopSeconds=available-entrySeconds-dismountSeconds-readySeconds;
     const loopCount=Math.round(loopSeconds),playbackRate=loopCount/loopSeconds;
     if(loopCount<2||playbackRate<.85||playbackRate>1.15)return null;
     const yaw=rootYaw(before.rotations[0]),inv=new T.Quaternion().setFromAxisAngle(Y,-yaw);
@@ -117,15 +122,27 @@ export class FlareLibrary {
     };
     const total=available,frames=Math.ceil(total*120),times:number[]=[],roots:number[]=[],values=this.engine.rig.names.map(()=>[] as number[]),path:T.Vector3[]=[],headings:number[]=[];
     const lowPose=rise(0),standing=rise(this.rise.duration),floorPose=flare(0);
+    const idle=this.engine.phrases.get("rest-standing");
+    const idleStart=idle?sample(idle,0):null;
+    const idleYaw=idleStart?rootYaw(standing.rotations[0])-rootYaw(idleStart.rotations[0]):0;
+    const idleYawQ=new T.Quaternion().setFromAxisAngle(Y,idleYaw);
+    const livingIdle=(seconds:number):Pose=>{
+      if(!idle||!idleStart)return copy(standing);
+      const p=sample(idle,seconds%idle.duration);
+      p.root.sub(idleStart.root).applyQuaternion(idleYawQ).add(standing.root);
+      p.rotations[0].premultiply(idleYawQ);
+      return blend(standing,p,ease(seconds/Math.min(.16,readySeconds*.5)));
+    };
     for(let f=0;f<=frames;f++){
       const t=f===frames?total:f/120;let p:Pose;
-      if(t<.75)p=bridge(localBefore,standing,t/.75,true);
-      else if(t<1.45)p=rise(this.rise.duration*(1-(t-.75)/.7));
-      else if(t<entrySeconds)p=bridge(lowPose,floorPose,(t-1.45)/.4);
+      const entryT=t/tempoScale, dismountT=(t-entrySeconds-loopSeconds)/tempoScale;
+      if(t<entrySeconds&&entryT<.75)p=bridge(localBefore,standing,entryT/.75,true);
+      else if(t<entrySeconds&&entryT<1.45)p=rise(this.rise.duration*(1-(entryT-.75)/.7));
+      else if(t<entrySeconds)p=bridge(lowPose,floorPose,(entryT-1.45)/.4);
       else if(t<entrySeconds+loopSeconds)p=flare((t-entrySeconds)*playbackRate);
-      else if(t<entrySeconds+loopSeconds+.5)p=bridge(floorPose,lowPose,(t-entrySeconds-loopSeconds)/.5);
-      else if(t<entrySeconds+loopSeconds+1.2)p=rise(this.rise.duration*(t-entrySeconds-loopSeconds-.5)/.7);
-      else p=copy(standing);
+      else if(dismountT<.5)p=bridge(floorPose,lowPose,dismountT/.5);
+      else if(dismountT<1.2)p=rise(this.rise.duration*(dismountT-.5)/.7);
+      else p=livingIdle(Math.max(0,t-entrySeconds-loopSeconds-1.2*tempoScale));
       apply(p);const min=Math.min(...bones.map(b=>b.getWorldPosition(new T.Vector3()).y));p.root.y-=Math.min(0,min);apply(p);
       minimumFloorY=Math.min(minimumFloorY,...bones.map(b=>b.getWorldPosition(new T.Vector3()).y));
       for(const b of bones){const v=b.getWorldPosition(new T.Vector3()).applyAxisAngle(Y,yaw).add(new T.Vector3(origin.x,0,origin.z));bodyEnvelopeRadius=Math.max(bodyEnvelopeRadius,Math.hypot(v.x,v.z));}

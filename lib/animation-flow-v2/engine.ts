@@ -143,6 +143,8 @@ export class SourceFlowEngine {
   current: Playback | null = null;
   pending: { id: string; requestedBeat: number; dueBeat: number; policy: ExitPolicy; blendBeats?: number } | null = null;
   blendBeats = 0.35;
+  /** Gameplay-only living idle. Free Animation Lab retains one-shot behavior. */
+  loopIdle = false;
   bpm = 120;
   policyOverride: ExitPolicy | undefined;
   private blend: Blend | null = null;
@@ -173,7 +175,14 @@ export class SourceFlowEngine {
     this.stageAnchor.add(this.motionRoot); this.motionRoot.add(this.rigRoot); this.rigRoot.add(rig.root);
     this.pose = { root: new T.Vector3(), rotations: rig.bones.map(() => new T.Quaternion()) };
   }
-  private time(p: Playback, beat: number) { return clamp((beat - p.startBeat) * 60 / p.phrase.spec.referenceBpm, 0, p.phrase.duration); }
+  private time(p: Playback, beat: number) {
+    const elapsed = Math.max(0, (beat - p.startBeat) * 60 / p.phrase.spec.referenceBpm);
+    // Only the authored, seam-closed rest-standing tail loops in Gameplay Preview.
+    // Never loop an ordinary dance, protected motion, or the Flare composite.
+    if (this.loopIdle && p.phrase.spec.role === "idle" && p.phrase.duration > 0)
+      return elapsed % p.phrase.duration;
+    return clamp(elapsed, 0, p.phrase.duration);
+  }
   private sample(p: Playback, beat: number): Pose {
     const t = this.time(p, beat), yaw = new T.Quaternion().setFromAxisAngle(Y, p.yaw);
     const root = new T.Vector3().fromArray(p.phrase.translation.evaluate(t)).applyQuaternion(yaw);
@@ -268,11 +277,22 @@ export class SourceFlowEngine {
     if (!this.commit(id, beat, beat, "FREE", true)) throw new Error("Phrase không vừa vùng sân.");
     this.update(beat); this.startedAt.copy(this.pose.root); this.previousRoot.copy(this.pose.root);
   }
-  request(id: string, beat: number, fade?: number) {
+  request(id: string, beat: number, fade?: number, immediateGameplay = false) {
     this.update(beat);
     if (!this.current) return this.commit(id, beat, beat, "FREE");
     const time = this.time(this.current, beat);
-    const exit = safeExitTime(this.current.phrase.spec, time, this.current.phrase.duration, this.policyOverride);
+    const outgoing = this.current.phrase.spec;
+    const incomingRole = this.phrases.get(id)?.spec.role;
+    const protectedNow = outgoing.protectedRanges?.some(([start, end]) => time >= start && time < end) ?? false;
+    // A successful normal SPACE owns its visual start time. This policy is
+    // explicitly opted into by Gameplay Preview; protected/Flare/fixture paths
+    // and Free Animation Lab keep their authored safe-exit contract.
+    const direct = immediateGameplay && !protectedNow
+      && (outgoing.role === "core" || outgoing.role === "idle")
+      && (incomingRole === "core" || incomingRole === "idle"
+        || (incomingRole === "finish" && Boolean(this.phrases.get(id)?.flare)));
+    const exit = direct ? { localSeconds: time, policy: "FREE" as ExitPolicy }
+      : safeExitTime(outgoing, time, this.current.phrase.duration, this.policyOverride);
     const dueBeat = beat + (exit.localSeconds - time) * this.current.phrase.spec.referenceBpm / 60;
     if (dueBeat > beat + 1e-6) {
       // Coalesce repeated SPACE, but retain the first recovery deadline. A later
@@ -296,8 +316,24 @@ export class SourceFlowEngine {
     }
     return { pose, due };
   }
-  displayedAtExit(beat: number) { const out=this.exitPose(beat); return {pose:clonePose(out.pose),due:out.due}; }
-  placementAtExit(id: string, beat: number) {
+  displayedAtExit(beat: number, immediateGameplay = false) {
+    if (immediateGameplay && this.current
+      && (this.current.phrase.spec.role === "core" || this.current.phrase.spec.role === "idle")
+      && !(this.current.phrase.spec.protectedRanges?.some(([a, b]) => {
+        const t = this.time(this.current!, beat); return t >= a && t < b;
+      }) ?? false)) {
+      this.update(beat);
+      return { pose: clonePose(this.pose), due: beat };
+    }
+    const out = this.exitPose(beat);
+    return { pose: clonePose(out.pose), due: out.due };
+  }
+  placementAtExit(id: string, beat: number, immediateGameplay = false) {
+    if (immediateGameplay && this.current
+      && (this.current.phrase.spec.role === "core" || this.current.phrase.spec.role === "idle")) {
+      this.update(beat);
+      return this.placement(id); // Evaluate the actually displayed SPACE pose.
+    }
     const { pose } = this.exitPose(beat);
     return this.placement(id, pose.root, rootYaw(pose.rotations[0]));
   }
