@@ -167,7 +167,7 @@ export default function AnimationFlowV2() {
       gameplay = new GameplayPreview(options.current.bpm, runSeed, (event, beat) => {
         triggerCount++;
         if (options.current.view === "source") {
-          const accepted = choreography!.select(beat, event.absoluteTurn, event.isFinish, !event.isFinish && describeSharedTurn(gameplay!.manifest, event.absoluteTurn + 1).isFinish,event.isFinish?gameplay!.resumeBeatAfterFinish(event.absoluteTurn):undefined);
+          const accepted = choreography!.select(beat, event.absoluteTurn, event.isFinish, !event.isFinish && describeSharedTurn(gameplay!.manifest, event.absoluteTurn + 1).isFinish,event.isFinish?gameplay!.resumeBeatAfterFinish(event.absoluteTurn):undefined,event.level);
           setStatus(accepted ? `${event.isFinish ? "FINISH" : "Perfect"} · global turn ${event.absoluteTurn}` : "Không có placement phù hợp; giữ pose, timeline vẫn chạy. Xem JSON.");
         } else reference?.handlePresentationEvent({ kind: "dance", eventId: ++referenceEvent, absoluteTurn: event.absoluteTurn, level: event.level, isFinish: event.isFinish, judgement: "perfect", choreographyId: event.isFinish ? FINISH_CHOREOGRAPHY : `dance-0${event.absoluteTurn % 8 + 1}` as "dance-01", actionStartSongTimeMs: audioSeconds() * 1000 });
       });
@@ -218,7 +218,7 @@ export default function AnimationFlowV2() {
         if (options.current.mode === "gameplay") {
           const row = gameplay?.snapshot().current;
           const reserved = row && gameplay && describeSharedTurn(gameplay.manifest, row.absoluteTurn + 1).isFinish;
-          if (!choreography?.manual(beat, reserved ? "FINISH_PREP" : row?.status)) setStatus("SPACE tay chỉ thử visual; FINISH / REST / HIDDEN và lượt chuẩn bị Finish giữ choreography.");
+          if (!choreography?.manual(beat, reserved ? "FINISH_PREP" : row?.status, row?.level)) setStatus("SPACE tay chỉ thử visual; FINISH / REST / HIDDEN và lượt chuẩn bị Finish giữ choreography.");
         } else if (options.current.mode === "lab") space(beat, "manual");
       } },
       mode: async next => { if (audio?.state === "running") await audio.suspend(); setRunning(false); setMode(next); options.current.mode = next; if (next === "gameplay") { setAuto(true); options.current.auto = true; setOutcome("perfect"); options.current.outcome = "perfect"; } await resetRun(); },
@@ -353,7 +353,7 @@ export default function AnimationFlowV2() {
   const tempoLocked = (mode === "gameplay" || mode === "finish") && (telemetry?.beat ?? 0) > 0;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.3</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.4</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}>DEMO CÔ LẬP</span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">

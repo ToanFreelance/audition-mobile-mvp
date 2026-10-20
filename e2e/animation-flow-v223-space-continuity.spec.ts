@@ -40,7 +40,7 @@ function prepare(bpm: number, fade: number, seed = 42) {
   const game = new GameplayPreview(bpm, seed, (event, beat) => {
     session.select(beat, event.absoluteTurn, event.isFinish,
       !event.isFinish && describeSharedTurn(game.manifest, event.absoluteTurn + 1).isFinish,
-      event.isFinish ? game.resumeBeatAfterFinish(event.absoluteTurn) : undefined);
+      event.isFinish ? game.resumeBeatAfterFinish(event.absoluteTurn) : undefined, event.level);
   });
   return { engine, session, game };
 }
@@ -103,6 +103,56 @@ test("Immediate gameplay flag cannot interrupt a protected Finish", () => {
   expect(engine.pending).not.toBeNull();
   expect(engine.pending!.dueBeat).toBeGreaterThan(1);
 });
+
+test("V2.2.4 L6–L9 stays in dance across HIDDEN, with no synthetic judgements", () => {
+  for (const bpm of [110, 120, 160, 200]) for (const fade of [.15, .35, 1]) {
+    const { engine, session, game } = prepare(bpm, fade);
+    const paused: {beat:number; id:string; level:number}[] = [];
+    for (let beat = 0; beat <= 280; beat += .25) {
+      game.advance(beat, true, "perfect");
+      session.update(beat);
+      engine.update(beat);
+      const last = game.judgements.at(-1);
+      if (!last || last.level < 6 || last.isFinish || last.judgement !== "perfect") continue;
+      const lastBeat = last.atSongTimeMs * bpm / 60000;
+      // The first 0.4 beat after the judgement belongs to the outgoing crossfade.
+      if (beat > lastBeat + .4 && beat < lastBeat + 7.6) {
+        if (engine.current?.phrase.spec.role === "idle" || engine.snapshot().heldAtEnd)
+          paused.push({beat, id:engine.current?.phrase.spec.id ?? "none",level:last.level});
+      }
+    }
+    const bridge = session.continuityEvents.filter(e => e.kind === "dance-bridge");
+    const actualSpace = game.judgements.filter(j => j.judgement === "perfect");
+    const selected = session.selections.filter(e => e.accepted);
+    expect(bridge.length).toBeGreaterThan(1);
+    expect(bridge.filter(e => !e.accepted)).toEqual([]);
+    expect(bridge.every(e => engine.history.some(h =>
+      h.b === e.next && Math.abs(h.visualStartBeat - e.beat) < 1e-6))).toBe(true);
+    expect(paused).toEqual([]);
+    expect(selected.length).toBe(actualSpace.length);
+    expect(engine.maxRadius).toBeLessThanOrEqual(1.35);
+    expect(engine.history.every(h => h.entryDisplacement < 1e-6)).toBe(true);
+    results.push({case:"sustained-high-level-dance",bpm,fade,bridges:bridge.length,
+      paused,judgements:actualSpace.length,realSelections:selected.length,maxRadius:engine.maxRadius});
+  }
+});
+
+test("Sparse updates catch up pre-end choreography bridges at source beats", () => {
+  const { engine, session, game } = prepare(160, .35);
+  for (let beat = 0; beat <= 290; beat += 4.75) {
+    game.advance(beat, true, "perfect");
+    session.update(beat);
+    engine.update(beat);
+  }
+  const bridge = session.continuityEvents.filter(e => e.kind === "dance-bridge");
+  expect(bridge.length).toBeGreaterThan(1);
+  expect(bridge.every(e => e.accepted)).toBe(true);
+  expect(bridge.every(e => engine.history.some(h =>
+    h.b === e.next && Math.abs(h.visualStartBeat - e.beat) < 1e-6))).toBe(true);
+  expect(game.turns.filter(t => t.isFinish).map(t => t.absoluteTurn)).toEqual([38,62]);
+  expect(engine.maxRadius).toBeLessThanOrEqual(1.35);
+});
+
 test.afterAll(() => {
   mkdirSync("test-results/animation-flow-v223", { recursive: true });
   writeFileSync("test-results/animation-flow-v223/immediate-space-validation.json", JSON.stringify(results, null, 2));
