@@ -20,6 +20,7 @@ import { describeSharedTurn, firstFinishTurn } from "@/multiplayer/determinism";
 import { FLARE_SPEC, FLARE_RISE_SPEC, FlareLibrary } from "@/lib/animation-flow-v2/flare-performance";
 import type { FlareSource } from "@/lib/animation-flow-v2/flare-source";
 import { FINISH_CHOREOGRAPHY } from "@/components/character/choreography";
+import { OWNER_CURATION_DIRECTIONS, proposeReviewSegments, type CurationSlot, type ActivitySample } from "@/lib/animation-flow-v2/clip-curation";
 
 type View = "source" | "c1-casual-grace" | "c4-casual-boy";
 type Mode = "gameplay" | "lab" | "finish";
@@ -31,8 +32,8 @@ type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
   renderBackend: "webgl" | "canvas2d-projection";
   gameplay: ReturnType<GameplayPreview["snapshot"]> | null; mode: Mode;
 };
-type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void> };
-const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, mode: async () => {}, preview: async () => {} };
+type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void> };
+const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {} };
 const f = (n: number | undefined) => (n ?? 0).toFixed(4);
 
 export default function AnimationFlowV2({ catalogReview = false }: { catalogReview?: boolean } = {}) {
@@ -45,6 +46,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   const [mode, setMode] = useState<Mode>(catalogReview ? "lab" : "gameplay"), [outcome, setOutcome] = useState<PreviewOutcome>("perfect");
   const [candidateId, setCandidateId] = useState(DANCE_REVIEW_CANDIDATES[0].id);
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [curationSlots, setCurationSlots] = useState<Record<string, CurationSlot[]>>({});
+  const curationRef = useRef<Record<string, CurationSlot[]>>({});
   const [reviewVerdicts, setReviewVerdicts] = useState<Record<string, "keep-candidate" | "retrim" | "reject">>({});
   const reviewRef = useRef<{ notes: Record<string, string>; verdicts: Record<string, "keep-candidate" | "retrim" | "reject"> }>({ notes: {}, verdicts: {} });
   const [previewPhrase, setPreviewPhrase] = useState(NORMAL_PHRASES[0].id), [finishPhrase, setFinishPhrase] = useState(FLARE_SPEC.id);
@@ -53,7 +56,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   const [seed, setSeed] = useState(20261018);
   const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
   /** Full native BVH playback state; never affects Gameplay Preview/SourceFlowEngine. */
-  const [rawReview, setRawReview] = useState<{ id: string; elapsed: number; duration: number; complete: boolean; sourceBpm: number } | null>(null);
+  const [rawReview, setRawReview] = useState<{ id: string; elapsed: number; duration: number; complete: boolean; sourceBpm: number; window?: {start:number;end:number} } | null>(null);
   const [history, setHistory] = useState<{ a: string | null; b: string; policy: string; delayBeats: number }[]>([]);
   const [pair, setPair] = useState<string>(FAILING_PAIRS[0].id);
   const [backend, setBackend] = useState<"webgl" | "canvas2d-projection">("webgl");
@@ -77,6 +80,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     let rawReviewScale = 1, rawReviewFloorY = 0;
     let rawReviewId: string | null = null, rawReviewFinished = false;
     let rawReviewStartBeat = 0;
+    let rawReviewWindow: { start: number; end: number } | null = null;
     const videoCanvas = document.createElement("canvas"); videoCanvas.width = 720; videoCanvas.height = 840;
     const selectionEvents: { beat: number; eligibleIds: string[]; selected: string | null; decisions: unknown[] }[] = [];
     const clock = new DemoBeatClock(), turns = new TurnCursor();
@@ -133,7 +137,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       rawReviewMixer?.stopAllAction();
       if (rawReviewGroup) scene.remove(rawReviewGroup);
       rawReviewGroup = null; rawReviewMixer = null; rawReviewSource = null;
-      rawReviewId = null; rawReviewFinished = false;
+      rawReviewId = null; rawReviewFinished = false; rawReviewWindow = null;
       body.count = 0; joints.count = 0;
       delete element.dataset.reviewBoneCount;
       delete element.dataset.reviewVisibleHeightMeters;
@@ -187,7 +191,37 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       group.updateMatrixWorld(true);
       rawReviewGroup = group; rawReviewMixer = mixer;
       rawReviewSource = motion; rawReviewId = candidate.id;
-      rawReviewFinished = false; rawReviewStartBeat = 0;
+      rawReviewFinished = false; rawReviewStartBeat = 0; rawReviewWindow = null;
+      if (OWNER_CURATION_DIRECTIONS[candidate.source] && !curationRef.current[candidate.source]) {
+        const tracked = motion.skeleton.bones.filter(b =>
+          ["Hips", "Head", "LeftHand", "RightHand", "LeftFoot", "RightFoot", "LeftUpLeg", "RightUpLeg"].includes(b.name));
+        const hips = motion.skeleton.bones[0];
+        const head = motion.skeleton.bones.find(b => b.name === "Head") ?? tracked.at(-1) ?? hips;
+        const previous = new Map<string, T.Vector3>(), activity: ActivitySample[] = [];
+        const point = new T.Vector3(), hp = new T.Vector3(), pp = new T.Vector3();
+        const stride = .15;
+        for (let time = 0; time <= motion.clip.duration; time += stride) {
+          mixer.setTime(time);
+          group.updateMatrixWorld(true);
+          hips.getWorldPosition(hp); head.getWorldPosition(pp);
+          let change = 0;
+          for (const bone of tracked) {
+            bone.getWorldPosition(point);
+            const prev = previous.get(bone.name);
+            if (prev) change += point.distanceTo(prev);
+            previous.set(bone.name, point.clone());
+          }
+          activity.push({
+            time, energy: change / (Math.max(tallest, 1) * Math.max(tracked.length, 1)),
+            upright: pp.y - hp.y > tallest * .18
+          });
+        }
+        const cuts = proposeReviewSegments(candidate.source, motion.clip.duration, activity);
+        const next = { ...curationRef.current, [candidate.source]: cuts };
+        curationRef.current = next;
+        if (!disposed) setCurationSlots(next);
+      }
+      mixer.setTime(0);
       setRawReview({ id, elapsed: 0, duration: motion.clip.duration, complete: false, sourceBpm: options.current.bpm });
       return true;
     }
@@ -291,7 +325,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     commands.current = {
       toggle: async () => { try {
         if (catalogReview && rawReviewFinished && rawReviewId) {
-          await commands.current.preview(rawReviewId, false);
+          if (rawReviewWindow) await commands.current.previewSegment(rawReviewId, rawReviewWindow.start, rawReviewWindow.end);
+          else await commands.current.preview(rawReviewId, false);
           return;
         }
         if (audio?.state === "running") { await audio.suspend(); setRunning(false); }
@@ -342,6 +377,29 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           if (!catalogReview) await ensureAudio();
         } catch (e) { reportError(e); }
       },
+      previewSegment: async (id, start, end) => {
+        try {
+          const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
+          if (!catalogReview || !candidate) return;
+          if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) {
+            setError("Khoảng cắt không hợp lệ: start phải nhỏ hơn end."); return;
+          }
+          if (audio?.state === "running") await audio.suspend();
+          await ensureAudio(); // User-gesture-safe Safari audio resume
+          const ok = await loadFullRawReview(id);
+          if (!ok || !rawReviewSource || !rawReviewMixer) return;
+          if (end > rawReviewSource.clip.duration + 1e-5) {
+            setError("Mốc kết thúc vượt thời lượng nguồn."); return;
+          }
+          rawReviewWindow = { start, end };
+          rawReviewMixer.setTime(start);
+          clock.reset(audioSeconds()); rawReviewStartBeat = 0;
+          setError("");
+          setStatus("CHỈ PHÁT ĐOẠN THỬ " + candidate.source + " · "
+            + start.toFixed(2) + "–" + end.toFixed(2)
+            + "s · không tự động thêm vào Gameplay.");
+        } catch (e) { reportError(e); }
+      },
       replay: async id => {
         try {
           const p = FAILING_PAIRS.find(p => p.id === id); if (!p) return;
@@ -359,7 +417,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         if (options.current.mode !== "lab") { setStatus("Chọn Free Animation Lab trước khi thử Moonwalk riêng."); return; }
         try { await prepare([MOONWALK_PHRASE]); if (disposed || !engine) return; engine.request(MOONWALK_PHRASE.id, currentBeat()); setStatus("Phrase Moonwalk riêng: giữ chuyển động trượt, không thuộc shuffle core."); } catch (e) { reportError(e); }
       },
-      export: () => download(new Blob([JSON.stringify({ schemaVersion: 7, implementation: "2.2.6", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], catalogReview, rawSourceReview: rawReviewSource && rawReviewId ? { id: rawReviewId, source: rawReviewSource.clip.name, fullDurationSeconds: rawReviewSource.clip.duration, sourcePlayback: "full-BVH-original-clip", noGameplayStageBound: true, autoStopAtEnd: true } : null, reviewerFeedback: reviewRef.current, gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), catalogReview ? `dance-catalog-review-v226-${runSeed}.json` : `animation-flow-v226-${runSeed}.json`),
+      export: () => download(new Blob([JSON.stringify({ schemaVersion: 7, implementation: "2.2.6", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], catalogReview, ownerCurationDirections: OWNER_CURATION_DIRECTIONS, curationSegments: curationRef.current, rawSourceReview: rawReviewSource && rawReviewId ? { id: rawReviewId, source: rawReviewSource.clip.name, fullDurationSeconds: rawReviewSource.clip.duration, sourcePlayback: "full-BVH-original-clip", noGameplayStageBound: true, autoStopAtEnd: true } : null, reviewerFeedback: reviewRef.current, gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), catalogReview ? `dance-catalog-review-v226-${runSeed}.json` : `animation-flow-v226-${runSeed}.json`),
       record: () => {
         if (recorder && recorder.state !== "inactive") { recorder.stop(); return; }
         if (!renderer.domElement.captureStream || typeof MediaRecorder === "undefined") { setError("Browser này không hỗ trợ ghi canvas; dùng xuất telemetry JSON."); return; }
@@ -458,8 +516,10 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         if (catalogReview) {
           if (rawReviewMixer && rawReviewSource && rawReviewGroup && rawReviewId) {
             const fullDuration = rawReviewSource.clip.duration;
-            const sourceSeconds = Math.min(fullDuration,
-              Math.max(0, (beat - rawReviewStartBeat) * 60 / 120));
+            const start = rawReviewWindow?.start ?? 0;
+            const end = rawReviewWindow?.end ?? fullDuration;
+            const sourceSeconds = Math.min(end,
+              Math.max(start, start + (beat - rawReviewStartBeat) * 60 / 120));
             rawReviewMixer.setTime(sourceSeconds);
             // Render the ORIGINAL pose in the same readable QA body/joint
             // primitives as the previously accepted short-clip viewer.
@@ -467,13 +527,15 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             drawRawReviewRig();
             if (now - lastUi > 95) setRawReview({
               id: rawReviewId, elapsed: sourceSeconds, duration: fullDuration,
-              complete: rawReviewFinished || sourceSeconds >= fullDuration,
-              sourceBpm: config.bpm
+              complete: rawReviewFinished || sourceSeconds >= end,
+              sourceBpm: config.bpm, window: rawReviewWindow ?? undefined
             });
-            if (sourceSeconds >= fullDuration && !rawReviewFinished) {
+            if (sourceSeconds >= end && !rawReviewFinished) {
               rawReviewFinished = true;
-              setStatus("ĐÃ PHÁT HẾT TOÀN BỘ nguồn " + rawReviewSource.clip.name
-                + " (" + fullDuration.toFixed(2) + "s). Nhấn Phát lại để xem từ đầu.");
+              setStatus(rawReviewWindow
+                ? "ĐÃ PHÁT HẾT ĐOẠN " + start.toFixed(2) + "–" + end.toFixed(2) + "s. Có thể chỉnh mốc và phát lại."
+                : "ĐÃ PHÁT HẾT TOÀN BỘ nguồn " + rawReviewSource.clip.name
+                  + " (" + fullDuration.toFixed(2) + "s). Nhấn Phát lại để xem từ đầu.");
               if (audio?.state === "running") void audio.suspend().then(() => {
                 if (!disposed) setRunning(false);
               }).catch(reportError);
@@ -538,10 +600,21 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     reviewRef.current.notes = next;
     setReviewNotes(next);
   };
+  const curationDirection = OWNER_CURATION_DIRECTIONS[candidate.source];
+  const selectedCuration = curationSlots[candidate.source] ?? [];
+  const modifyCurationWindow = (index: number, field: "start" | "end", value: number) => {
+    if (!Number.isFinite(value)) return;
+    const next = { ...curationRef.current,
+      [candidate.source]: (curationRef.current[candidate.source] ?? []).map((window, i) =>
+        i === index ? { ...window, [field]: Math.max(0, value) } : window)
+    };
+    curationRef.current = next;
+    setCurationSlots(next);
+  };
   if (catalogReview) return <main className={styles.page}>
     <div className={styles.shell}>
       <header className={styles.header}>
-        <div><p className={styles.eyebrow}>AUDITION / ANIMATION FLOW V2.2.6.2</p>
+        <div><p className={styles.eyebrow}>AUDITION / ANIMATION FLOW V2.2.7</p>
           <h1>Dance Catalog <span>Preview</span></h1>
           <p className={styles.lead}>Duyệt từng take Street / Hip-hop / Break nguyên bản trên iPhone. Sáu take CMU phát nguyên bản từ frame đầu tới frame cuối, không cắt 3,2 giây. Chưa qua trim/contact QA, chưa nằm trong Gameplay.</p>
         </div><span className={styles.qa}>REVIEW CÔ LẬP</span>
@@ -556,7 +629,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             <div className={styles.counters}>
               <span>NGUỒN <b>{rawReview?.id ?? "Chưa phát"}</b></span>
               <span data-testid="raw-source-duration">{rawReview ? `${rawReview.elapsed.toFixed(1)} / ${rawReview.duration.toFixed(1)} giây nguồn` : "Chưa tải BVH"}</span>
-              <span>{rawReview?.complete ? "ĐÃ HẾT TOÀN BỘ CLIP" : running ? "ĐANG PHÁT" : "TẠM DỪNG"}</span>
+              <span>{rawReview?.complete ? rawReview.window ? "ĐÃ HẾT ĐOẠN" : "ĐÃ HẾT TOÀN BỘ CLIP" : running ? "ĐANG PHÁT" : "TẠM DỪNG"}</span>
             </div>
             <div className={styles.gauge} role="progressbar" aria-label="Tiến độ toàn bộ BVH gốc" aria-valuemin={0} aria-valuemax={100} aria-valuenow={rawReview ? Math.round(rawReview.elapsed / rawReview.duration * 100) : 0}>
               <div style={{transform: `scaleX(${rawReview ? Math.min(1, rawReview.elapsed / rawReview.duration) : 0})`}} />
@@ -575,6 +648,36 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             <label className={styles.control}>BPM thử (tốc độ giả định) <strong>{bpm}</strong><input aria-label="BPM" type="range" min={80} max={200} step={1} value={bpm} onChange={e => setBpm(+e.target.value)} /></label>
             <div className={styles.presets}>{[110,120,160,200].map(rate => <button key={rate} onClick={() => setBpm(rate)}>{rate} BPM</button>)}</div>
           </section>
+          {curationDirection && <section className={styles.panel} data-testid="owner-curation-panel">
+            <p className={styles.eyebrow}>PHÂN LOẠI VÀ MỐC CẮT THEO CHỦ DỰ ÁN</p>
+            <h2>{curationDirection.role === "finish-candidate" ? "Finish candidate" :
+              curationDirection.role === "street-dance-candidate" ? "Dance · nhiều đoạn" :
+              "Breakdance / floor · chỉ khi an toàn"}</h2>
+            <p className={styles.muted}>{curationDirection.description}</p>
+            <p className={styles.muted}>Lưu ý kỹ thuật: {curationDirection.safety}</p>
+            {selectedCuration.length === 0 && <p className={styles.muted}>Nhấn Phát toàn bộ nguồn để phân tích chuyển động và tạo các mốc cắt thăm dò theo điểm ít chuyển động. Đây chưa phải ranh giới đã kiểm chứng.</p>}
+            {selectedCuration.map((window, index) => <div key={window.id} style={{ marginBottom: "1rem" }} data-testid="curation-segment">
+              <p className={styles.muted}><strong>{window.id}</strong> · ứng viên {index + 1}/{selectedCuration.length} · {window.selectionBasis === "motion-energy-valley" ? "mốc ít chuyển động dự kiến" : "toàn bộ nguồn"}</p>
+              <div className={styles.buttons}>
+                <label className={styles.control}>Bắt đầu (giây)
+                  <input aria-label={window.id + " start"} type="number" min={0} step={.05}
+                    max={rawReview?.duration ?? undefined} value={window.start}
+                    onChange={e => modifyCurationWindow(index, "start", Number(e.target.value))} />
+                </label>
+                <label className={styles.control}>Kết thúc (giây)
+                  <input aria-label={window.id + " end"} type="number" min={0} step={.05}
+                    max={rawReview?.duration ?? undefined} value={window.end}
+                    onChange={e => modifyCurationWindow(index, "end", Number(e.target.value))} />
+                </label>
+              </div>
+              <div className={styles.buttons}>
+                <button disabled={!ready || rawReview?.id !== candidateId || window.end <= window.start || window.end > (rawReview?.duration ?? 0)}
+                  onClick={() => void commands.current.previewSegment(candidateId, window.start, window.end)}>Phát thử đoạn {index + 1}</button>
+              </div>
+              <p className={styles.muted}>Chưa xác minh safe exit / foot contact. Không được tự động thêm vào NORMAL/FINISH pool.</p>
+            </div>)}
+            {selectedCuration.length > 0 && <p className={styles.muted}>Có {selectedCuration.length} mốc thăm dò. Hãy chỉnh ranh giới khi xem trên iPhone, ghi chú và xuất JSON; mốc đề xuất không được tính là animation đã nghiệm thu.</p>}
+          </section>}
           <section className={styles.panel}>
             <p className={styles.eyebrow}>ĐÁNH GIÁ ỨNG VIÊN · CHƯA PHẢI ACCEPTED ASSET</p>
             <div className={styles.buttons}>
