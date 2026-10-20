@@ -13,6 +13,16 @@ test("V2.2.6.1 full-source review does not clamp BVH to 3.2s", async ({ page }) 
   expect(match).not.toBeNull();
   expect(Number(match![2])).toBeGreaterThan(3.2);
   await expect(page.getByRole("progressbar", { name: "Tiến độ toàn bộ BVH gốc" })).toBeVisible();
+  // Regression for tiny raw SkeletonHelper introduced in V2.2.6.1.
+  // The catalog uses the same shaded 3D bone/joint meshes as the old short-clip
+  // viewer, scaled from the *actual* source rig's measured height.
+  const stage = page.getByTestId("animation-flow-stage");
+  await expect(stage).toHaveAttribute("data-review-bone-count", /[0-9]+/);
+  const jointCount = Number(await stage.getAttribute("data-review-bone-count"));
+  const displayHeight = Number(await stage.getAttribute("data-review-visible-height-meters"));
+  expect(jointCount).toBeGreaterThan(20);
+  expect(displayHeight).toBeGreaterThan(1.35);
+  expect(displayHeight).toBeLessThan(1.95);
 });
 
 test("Full-review candidate IDs never enter normal gameplay pool", () => {

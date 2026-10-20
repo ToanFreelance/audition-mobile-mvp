@@ -72,8 +72,9 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     let gameplay: GameplayPreview | null = null, choreography: SessionChoreography | null = null;
     let flare:FlareLibrary|undefined,flareReplayResume:number|null=null,flareSourceStatus="Chưa tải";
     // Raw CMU source viewer: separate from stage-bounded choreography engine.
-    let rawReviewGroup: T.Group | null = null, rawReviewHelper: T.SkeletonHelper | null = null;
+    let rawReviewGroup: T.Group | null = null;
     let rawReviewMixer: T.AnimationMixer | null = null, rawReviewSource: SourceMotion | null = null;
+    let rawReviewScale = 1, rawReviewFloorY = 0;
     let rawReviewId: string | null = null, rawReviewFinished = false;
     let rawReviewStartBeat = 0;
     const videoCanvas = document.createElement("canvas"); videoCanvas.width = 720; videoCanvas.height = 840;
@@ -88,17 +89,20 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     catch { renderer = new CanvasSourcePreview(); renderBackend = "canvas2d-projection"; queueMicrotask(() => { if (!disposed) setBackend("canvas2d-projection"); }); }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); renderer.outputColorSpace = T.SRGBColorSpace;
     renderer.domElement.setAttribute("aria-label", "Sân thử chuyển động 3D"); element.appendChild(renderer.domElement);
-    const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(0, 0.8, 0); controls.enableDamping = true; controls.enablePan = false; controls.minDistance = 2; controls.maxDistance = 8;
+    const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(0, catalogReview ? 0.85 : 0.8, 0); controls.enableDamping = true; controls.enablePan = false; controls.minDistance = 2; controls.maxDistance = 8;
+    // Review viewport is a medium shot, never the fixed wide-stage camera.
+    // Keep game-preview camera exactly as before.
+    if (catalogReview) { camera.position.set(0, 1.45, 4.25); controls.minDistance = 2.5; controls.maxDistance = 6.5; camera.lookAt(controls.target); }
     scene.add(new T.HemisphereLight(0xdbdeff, 0x20243d, 2.8));
     const key = new T.DirectionalLight(0xffffff, 3); key.position.set(2, 4, 3); scene.add(key);
     const rim = new T.DirectionalLight(0x9776ff, 2); rim.position.set(-3, 2, -2); scene.add(rim);
     const floor = new T.Mesh(new T.CircleGeometry(1.8, 96), new T.MeshStandardMaterial({ color: 0x1c2233, roughness: 0.65 }));
-    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.025; scene.add(floor);
+    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.025; floor.visible = !catalogReview; scene.add(floor);
     for (const [radius, color] of [[1.35, 0xa78bfa], [0.14, 0x60e3bb]] as const) {
       const ring = new T.Mesh(new T.RingGeometry(radius - 0.007, radius + 0.007, 96), new T.MeshBasicMaterial({ color, side: T.DoubleSide }));
-      ring.rotation.x = -Math.PI / 2; ring.position.y = -0.012; scene.add(ring);
+      ring.rotation.x = -Math.PI / 2; ring.position.y = -0.012; ring.visible = !catalogReview; scene.add(ring);
     }
-    const grid = new T.GridHelper(3.6, 18, 0x454d68, 0x242c40); grid.position.y = -0.018; scene.add(grid);
+    const grid = new T.GridHelper(3.6, 18, 0x454d68, 0x242c40); grid.position.y = -0.018; grid.visible = !catalogReview; scene.add(grid);
     const stageFront = new T.ArrowHelper(new T.Vector3(Math.sin(STAGE_FRONT), 0, Math.cos(STAGE_FRONT)), new T.Vector3(0, .035, 0), .7, 0x60e3bb, .14, .09);
     const dancerFront = new T.ArrowHelper(new T.Vector3(0, 0, 1), new T.Vector3(), .5, 0xffc56d, .12, .08);
     stageFront.name = "QA-stage-front"; dancerFront.name = "QA-dancer-front"; scene.add(stageFront, dancerFront);
@@ -127,18 +131,20 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     }
     function clearRawReview() {
       rawReviewMixer?.stopAllAction();
-      if (rawReviewHelper) {
-        scene.remove(rawReviewHelper);
-        rawReviewHelper.geometry.dispose();
-        const materials = Array.isArray(rawReviewHelper.material) ? rawReviewHelper.material : [rawReviewHelper.material];
-        for (const material of materials) material.dispose();
-      }
       if (rawReviewGroup) scene.remove(rawReviewGroup);
-      rawReviewGroup = null; rawReviewHelper = null; rawReviewMixer = null;
-      rawReviewSource = null; rawReviewId = null; rawReviewFinished = false;
+      rawReviewGroup = null; rawReviewMixer = null; rawReviewSource = null;
+      rawReviewId = null; rawReviewFinished = false;
+      body.count = 0; joints.count = 0;
+      delete element.dataset.reviewBoneCount;
+      delete element.dataset.reviewVisibleHeightMeters;
+      delete element.dataset.reviewDisplayScale;
       if (!disposed) setRawReview(null);
     }
-    /** Audition full original BVH, not a 3.2s phrase or 1.35m gameplay fitting. */
+    /**
+     * Full original BVH with the *same readable bone/joint rendering* as the
+     * previous QA viewer. Normalize DISPLAY ONLY from actual raw-bone bounds.
+     * No crop, stage placement constraints, retarget or source-key modification.
+     */
     async function loadFullRawReview(id: string) {
       const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
       if (!candidate) return false;
@@ -148,22 +154,38 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       clearRawReview();
       const rootBone = motion.skeleton.bones[0];
       const group = new T.Group();
-      group.name = "CMU-review-source-" + candidate.source;
-      // CMU BVH positions use centimetre-scale; keep the full source locomotion
-      // on the original rig, but follow XZ for a readable single-dancer view.
-      group.scale.setScalar(.01);
+      group.name = "CMU-review-original-rig-" + candidate.source;
       group.add(rootBone);
-      scene.add(group);
-      const helper = new T.SkeletonHelper(rootBone);
-      helper.name = "CMU-full-source-skeleton";
-      scene.add(helper);
+      scene.add(group); // Bone objects are invisible; review meshes render separately.
       const mixer = new T.AnimationMixer(rootBone);
       const action = mixer.clipAction(motion.clip);
       action.setLoop(T.LoopOnce, 1);
       action.clampWhenFinished = true;
       action.play();
+      // Sample a few *source* poses to derive a stable readable height;
+      // do not tie display size to raw centimetre units or arena radius.
+      const sampleTimes = [0, .3, .8, 1.5, 2.5].map(t => Math.min(t, motion.clip.duration));
+      let tallest = 0, firstFloor = 0;
+      const pt = new T.Vector3();
+      for (let index = 0; index < sampleTimes.length; index++) {
+        mixer.setTime(sampleTimes[index]);
+        group.updateMatrixWorld(true);
+        let minY = Infinity, maxY = -Infinity;
+        for (const bone of motion.skeleton.bones) {
+          bone.getWorldPosition(pt);
+          minY = Math.min(minY, pt.y); maxY = Math.max(maxY, pt.y);
+        }
+        if (index === 0) firstFloor = minY;
+        tallest = Math.max(tallest, maxY - minY);
+      }
+      if (!Number.isFinite(tallest) || tallest < 1e-4) throw new Error("BVH không có skeleton đủ chiều cao: " + candidate.source);
+      rawReviewScale = T.MathUtils.clamp(1.7 / tallest, .002, .2);
+      rawReviewFloorY = firstFloor;
+      element.dataset.reviewVisibleHeightMeters = (rawReviewScale * tallest).toFixed(3);
+      element.dataset.reviewDisplayScale = rawReviewScale.toFixed(6);
       mixer.setTime(0);
-      rawReviewGroup = group; rawReviewHelper = helper; rawReviewMixer = mixer;
+      group.updateMatrixWorld(true);
+      rawReviewGroup = group; rawReviewMixer = mixer;
       rawReviewSource = motion; rawReviewId = candidate.id;
       rawReviewFinished = false; rawReviewStartBeat = 0;
       setRawReview({ id, elapsed: 0, duration: motion.clip.duration, complete: false, sourceBpm: options.current.bpm });
@@ -368,6 +390,42 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       const front = new T.Vector3(0, 0, 1).applyQuaternion(engine.rig.bones[0].quaternion); front.y = 0;
       dancerFront.setDirection(front.normalize());
     }
+    /** Big, shaded QA bone/joint meshes, identical visual primitives to drawRig(). */
+    function drawRawReviewRig() {
+      if (!rawReviewSource || !rawReviewGroup) { body.count = 0; joints.count = 0; return; }
+      rawReviewGroup.updateMatrixWorld(true);
+      const bones = rawReviewSource.skeleton.bones;
+      const hips = bones[0].getWorldPosition(new T.Vector3());
+      const centerX = hips.x, centerZ = hips.z;
+      const read = (bone: T.Bone, output: T.Vector3) => {
+        bone.getWorldPosition(output);
+        output.set(
+          (output.x - centerX) * rawReviewScale,
+          (output.y - rawReviewFloorY) * rawReviewScale,
+          (output.z - centerZ) * rawReviewScale
+        );
+      };
+      let segment = 0, joint = 0;
+      for (const bone of bones) {
+        read(bone, p);
+        matrix.position.copy(p); matrix.quaternion.identity();
+        matrix.scale.setScalar(bone.name === "Head" ? 1.8 : 1);
+        matrix.updateMatrix(); joints.setMatrixAt(joint++, matrix.matrix);
+        if (bone.parent && (bone.parent as T.Bone).isBone) {
+          read(bone.parent as T.Bone, q);
+          const length = p.distanceTo(q);
+          if (length > .004) {
+            matrix.position.copy(p).add(q).multiplyScalar(.5);
+            matrix.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), q.clone().sub(p).normalize());
+            matrix.scale.set(1.2, length, 1.2);
+            matrix.updateMatrix(); body.setMatrixAt(segment++, matrix.matrix);
+          }
+        }
+      }
+      body.count = segment; joints.count = joint;
+      body.instanceMatrix.needsUpdate = true; joints.instanceMatrix.needsUpdate = true;
+      element.dataset.reviewBoneCount = String(joint);
+    }
     async function selectReference(next: View) {
       const version = ++referenceVersion; reference?.dispose(); reference = null; referenceView = next;
       if (next === "source") return;
@@ -392,8 +450,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         advance(beat);
         if (referenceView !== config.view) void selectReference(config.view).catch(reportError);
         const isSource = config.view === "source";
-        body.visible = isSource && !catalogReview;
-        joints.visible = isSource && !catalogReview;
+        body.visible = isSource && (!catalogReview || rawReviewSource !== null);
+        joints.visible = isSource && (!catalogReview || rawReviewSource !== null);
         trail.visible = isSource && !catalogReview;
         stageFront.visible = isSource && !catalogReview;
         dancerFront.visible = isSource && !catalogReview;
@@ -403,10 +461,10 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             const sourceSeconds = Math.min(fullDuration,
               Math.max(0, (beat - rawReviewStartBeat) * 60 / 120));
             rawReviewMixer.setTime(sourceSeconds);
-            const rawRoot = rawReviewSource.skeleton.bones[0];
-            // Camera follows horizontal locomotion for SOURCE AUDITION ONLY.
-            // Original Y/rotations remain unchanged, unlike stage-bounded gameplay.
-            rawReviewGroup.position.set(-rawRoot.position.x * .01, 0, -rawRoot.position.z * .01);
+            // Render the ORIGINAL pose in the same readable QA body/joint
+            // primitives as the previously accepted short-clip viewer.
+            // Recenter only XZ in display-space; retain captured Y/jumps.
+            drawRawReviewRig();
             if (now - lastUi > 95) setRawReview({
               id: rawReviewId, elapsed: sourceSeconds, duration: fullDuration,
               complete: rawReviewFinished || sourceSeconds >= fullDuration,
@@ -483,7 +541,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   if (catalogReview) return <main className={styles.page}>
     <div className={styles.shell}>
       <header className={styles.header}>
-        <div><p className={styles.eyebrow}>AUDITION / ANIMATION FLOW V2.2.6.1</p>
+        <div><p className={styles.eyebrow}>AUDITION / ANIMATION FLOW V2.2.6.2</p>
           <h1>Dance Catalog <span>Preview</span></h1>
           <p className={styles.lead}>Duyệt từng take Street / Hip-hop / Break nguyên bản trên iPhone. Sáu take CMU phát nguyên bản từ frame đầu tới frame cuối, không cắt 3,2 giây. Chưa qua trim/contact QA, chưa nằm trong Gameplay.</p>
         </div><span className={styles.qa}>REVIEW CÔ LẬP</span>
@@ -493,7 +551,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         <section className={styles.stageCard}>
           <div className={styles.stageHeader}><span><i className={ready ? styles.dot : styles.loadingDot} />{backend === "webgl" ? "CMU SKELETON / WEBGL" : "CMU SKELETON / 2D FALLBACK"}</span><span>{bpm} BPM · tempo giả định</span></div>
           <div ref={host} className={styles.canvas} data-testid="animation-flow-stage" />
-          <div className={styles.canvasCaption}>Nguồn BVH đầy đủ · máy quay theo root XZ (không cắt chuyển động) · đánh giá các đoạn nhảy, tiếp đất và đứng chờ trong source. Vòng sân chỉ mang tính tham khảo, không áp giới hạn gameplay lên nguồn thô.</div>
+          <div className={styles.canvasCaption}>Nguồn BVH đầy đủ · máy quay theo root XZ (không cắt chuyển động) · đánh giá các đoạn nhảy, tiếp đất và đứng chờ trong source. Đã ẩn vòng sân của Gameplay; kích thước skeleton tự căn theo chiều cao BVH (chỉ phần hiển thị).</div>
           <div className={styles.rhythm}>
             <div className={styles.counters}>
               <span>NGUỒN <b>{rawReview?.id ?? "Chưa phát"}</b></span>
@@ -532,7 +590,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           </section>
           <section className={styles.panel}><p className={styles.eyebrow}>THÔNG SỐ KIỂM TRA</p>
             <p className={styles.muted}>Engine: {telemetry?.current ?? "—"} · Exit {telemetry?.policy ?? "—"} · heldAtEnd {String(telemetry?.heldAtEnd ?? false)}</p>
-            <p className={styles.muted}>Root radius max {f(telemetry?.maxRadius)} / 1,3500 · entry ΔXZ {f(telemetry?.entryDisplacement)} · backend {backend}</p>
+            <p className={styles.muted}>Khung nhìn: toàn thân cỡ 1,7m · {rawReview ? "bone/joint 3D rõ nét" : "chưa chọn source"} · backend {backend}. Không đo root radius gameplay ở chế độ nguồn.</p>
           </section>
         </aside>
       </div>
