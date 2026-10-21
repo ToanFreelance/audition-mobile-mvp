@@ -1,4 +1,4 @@
-import { FINISH_PHRASES, FINISH_RECOVERY, NORMAL_PHRASES, type PhraseSpec } from "./catalog";
+import { FINISH_PHRASES, FINISH_RECOVERY, FANCY_FOOTWORK_FINISH, NORMAL_PHRASES, type PhraseSpec } from "./catalog";
 import { SourceFlowEngine } from "./engine";
 import { PhraseBag } from "./shuffle";
 import { FinishPresentation } from "./finish-presentation";
@@ -137,9 +137,13 @@ export class SessionChoreography {
     const pool: readonly (typeof NORMAL_PHRASES)[number][] = finish
       ? FINISH_PHRASES : [...NORMAL_PHRASES, ...this.experimentalPhrases.map(p => p as (typeof NORMAL_PHRASES)[number])];
     const immediate = this.instantGameplay && !finish;
+    // Owner-selected QA Finish is fired at the actual successful Finish beat
+    // when the outgoing phrase is not protected; it never shifts global turns.
+    const fancyImmediate = this.instantGameplay && finish
+      && this.finishChoice === FANCY_FOOTWORK_FINISH.id;
     const compatible = (p: (typeof NORMAL_PHRASES)[number]) =>
       (!finish || !this.finishChoice || this.finishChoice === FLARE_SPEC.id || p.id === this.finishChoice)
-      && Boolean(this.engine.placementAtExit(p.id, beat, immediate))
+      && Boolean(this.engine.placementAtExit(p.id, beat, immediate || fancyImmediate))
       && (!finish || !this.presentation || this.engine.canFollowAtEnd(p.id, [FINISH_RECOVERY[p.id]], beat))
       && (!finishNext || this.engine.canFollowAt(p.id, FINISH_PHRASES.map(f => f.id), beat, beat + 4, this.presentation ? FINISH_RECOVERY : undefined));
     const strict = pool.filter(p => (finish || (p.source !== current?.source && p.group !== current?.group)) && compatible(p));
@@ -189,7 +193,7 @@ export class SessionChoreography {
         if (alternative) { chosen = alternative; eligible = tier; break; }
       }
     }
-    const accepted = Boolean(chosen && this.engine.request(chosen.id, beat, undefined, immediate));
+    const accepted = Boolean(chosen && this.engine.request(chosen.id, beat, undefined, immediate || fancyImmediate));
     if (accepted && this.presentation) {
       if (finish) this.presentation.begin(chosen!.id, beat, absoluteTurn);
       else this.presentation.resume(beat);

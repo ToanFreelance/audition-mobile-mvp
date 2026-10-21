@@ -290,7 +290,7 @@ export class SourceFlowEngine {
     const direct = immediateGameplay && !protectedNow
       && (outgoing.role === "core" || outgoing.role === "idle")
       && (incomingRole === "core" || incomingRole === "idle"
-        || (incomingRole === "finish" && Boolean(this.phrases.get(id)?.flare)));
+        || (incomingRole === "finish" && (Boolean(this.phrases.get(id)?.flare) || id === "finish-85-04")));
     const exit = direct ? { localSeconds: time, policy: "FREE" as ExitPolicy }
       : safeExitTime(outgoing, time, this.current.phrase.duration, this.policyOverride);
     const dueBeat = beat + (exit.localSeconds - time) * this.current.phrase.spec.referenceBpm / 60;

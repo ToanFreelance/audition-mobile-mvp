@@ -85,7 +85,19 @@ export const DANCE_REVIEW_CANDIDATES: readonly CuratedPhrase[] = [
   curated({ id: "candidate-85-14", source: "85_14", label: "Break Flips · thử tách dance an toàn", group: "floor-special-survey", start: .2, end: 3.4, policy: "PROTECTED", protectedRanges: [[0,3.2]], exitMarkers: [3.2], referenceBpm: 120, tempoBasis: "testing-assumption", role: "fixture" }, "Special / acrobatic (not ordinary)", ["flip", "protected", "not-random"], "CMU #85 BreakSequencewithFlips; owner requested segmentation if possible; keep protected floor/flip until safe exits proven"),
   curated({ id: "candidate-90-28", source: "90_28", label: "Breakdance · dance candidate (floor-protected)", group: "floor-special-survey", start: .2, end: 3.4, policy: "PROTECTED", protectedRanges: [[0,3.2]], exitMarkers: [3.2], referenceBpm: 120, tempoBasis: "testing-assumption", role: "fixture" }, "Special / breakdance (not ordinary)", ["floor", "protected", "not-random"], "CMU #90 breakdance; owner selected as dance candidate; protected floor motion pending safe SPACE exit validation"),
 ];
+/** Owner-directed 85_04 Finish candidate. The 0.2–4.2sec QA cut is provisional;
+ * never treat this as approved choreography, nor replace the Flare default. */
+export const FANCY_FOOTWORK_FINISH: CuratedPhrase = curated({
+  id: "finish-85-04", source: "85_04",
+  label: "FINISH · Fancy Footwork (85_04 · thử nghiệm)",
+  group: "finish-fancy-footwork", start: .2, end: 4.2,
+  policy: "PROTECTED", protectedRanges: [[0, 4]],
+  exitMarkers: [4], referenceBpm: 120, tempoBasis: "testing-assumption",
+  role: "finish",
+}, "Breakdance / owner-selected Finish", ["footwork", "finish-preview", "source-85-04"],
+"Owner selected full 85_04 for Finish; first QA excerpt 0.2–4.2sec is a provisional presentation window, not a validated cut.");
 export const FINISH_PHRASES: readonly CuratedPhrase[] = [
+  FANCY_FOOTWORK_FINISH,
   curated({ id: "finish-arm-accent", source: "90_33", label: "FINISH · thế rộng, tay vươn cao", group: "finish-accent", start: 5, end: 6.35, policy: "PROTECTED", protectedRanges: [[0, 1.35]], exitMarkers: [1.35], referenceBpm: 120, tempoBasis: "testing-assumption", role: "finish" }, "Finish / accent", ["wide-stance", "one-arm-up", "accent-hold"], "arm up wide leg roll; ONLY upright arm accent after roll, no inversion window"),
   curated({ id: "finish-spell", source: "120_03", label: "FINISH · mở tay nhấn nhạc", group: "finish-reach", start: 1, end: 2.4, policy: "PROTECTED", protectedRanges: [[0, 1.4]], exitMarkers: [1.4], referenceBpm: 120, tempoBasis: "testing-assumption", role: "finish" }, "Finish / expressive", ["upper-body-reach", "accent"], "Mickey cast spell; short upright opening, not whole take"),
 ];
@@ -96,5 +108,5 @@ export const REST_PHRASES: readonly CuratedPhrase[] = [
   curated({ id: "recover-narrow", source: "83_01", label: "Hồi phục · về thế đứng", group: "rest-recovery", start: 3.65, end: 4.05, policy: "PROTECTED", protectedRanges: [[0, .4]], exitMarkers: [.4], referenceBpm: 120, tempoBasis: "testing-assumption", role: "recovery" }, "Recovery / authored sidestep", ["settle", "arms-down"], "large sidestep to right; final closing/settling section"),
   curated({ id: "rest-standing", source: "83_01", label: "REST · đứng chuyển trọng lượng nhẹ", group: "rest-idle", start: 4.05, end: 5.2, policy: "FREE", exitMarkers: [], referenceBpm: 120, tempoBasis: "testing-assumption", role: "idle" }, "Standing / authored tail", ["standing", "small-arm-motion", "weight-shift"], "large sidestep to right; settled standing tail, demo-only closed seam"),
 ];
-export const FINISH_RECOVERY: Readonly<Record<string, string>> = { "finish-arm-accent": "recover-wide", "finish-spell": "recover-narrow" };
+export const FINISH_RECOVERY: Readonly<Record<string, string>> = { "finish-arm-accent": "recover-wide", "finish-spell": "recover-narrow", "finish-85-04": "recover-narrow" };
 export const SOURCE_IDS = [...new Set([...NORMAL_PHRASES, ...FINISH_PHRASES, ...REST_PHRASES, ...FIXTURE_PHRASES, MOONWALK_PHRASE, ...DANCE_REVIEW_CANDIDATES].map(p => p.source))];

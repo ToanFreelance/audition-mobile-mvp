@@ -12,7 +12,7 @@ import { PhraseBag } from "@/lib/animation-flow-v2/shuffle";
 import { CanvasSourcePreview } from "@/lib/animation-flow-v2/canvas-preview";
 import { INITIAL_CAMERA, STAGE_FRONT } from "@/lib/animation-flow-v2/heading";
 import styles from "./animation-flow-v2.module.css";
-import { NORMAL_PHRASES, FINISH_PHRASES, REST_PHRASES, DANCE_REVIEW_CANDIDATES, type CuratedPhrase, type PhraseSpec } from "@/lib/animation-flow-v2/catalog";
+import { NORMAL_PHRASES, FINISH_PHRASES, REST_PHRASES, DANCE_REVIEW_CANDIDATES, FANCY_FOOTWORK_FINISH, type CuratedPhrase, type PhraseSpec } from "@/lib/animation-flow-v2/catalog";
 import { GameplayPreview, previewTurnCounter, type PreviewOutcome } from "@/lib/animation-flow-v2/gameplay-preview";
 import { SessionChoreography } from "@/lib/animation-flow-v2/session-choreography";
 import { closeStandingIdle, type FinishPresentation } from "@/lib/animation-flow-v2/finish-presentation";
@@ -33,8 +33,8 @@ type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
   renderBackend: "webgl" | "canvas2d-projection";
   gameplay: ReturnType<GameplayPreview["snapshot"]> | null; mode: Mode;
 };
-type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void> };
-const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {}, enableBreakdance: async () => {} };
+type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void>; selectFinish(id: string): Promise<void> };
+const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {}, enableBreakdance: async () => {}, selectFinish: async () => {} };
 const f = (n: number | undefined) => (n ?? 0).toFixed(4);
 
 export default function AnimationFlowV2({ catalogReview = false }: { catalogReview?: boolean } = {}) {
@@ -57,6 +57,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   const [reviewVerdicts, setReviewVerdicts] = useState<Record<string, "keep-candidate" | "retrim" | "reject">>({});
   const reviewRef = useRef<{ notes: Record<string, string>; verdicts: Record<string, "keep-candidate" | "retrim" | "reject"> }>({ notes: {}, verdicts: {} });
   const [previewPhrase, setPreviewPhrase] = useState(NORMAL_PHRASES[0].id), [finishPhrase, setFinishPhrase] = useState(FLARE_SPEC.id);
+  const [finishLoading, setFinishLoading] = useState(false);
   const [running, setRunning] = useState(false), [ready, setReady] = useState(false);
   const [recording, setRecording] = useState(false), [error, setError] = useState("");
   const [seed, setSeed] = useState(20261018);
@@ -80,7 +81,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     let samples: Telemetry[] = [], recorder: MediaRecorder | null = null;
     let gameplay: GameplayPreview | null = null, choreography: SessionChoreography | null = null;
     let flare:FlareLibrary|undefined,flareReplayResume:number|null=null,flareSourceStatus="Chưa tải";
-    let experimentalSpecs: CuratedPhrase[] = [], expansionLoading = false;
+    let experimentalSpecs: CuratedPhrase[] = [], expansionLoading = false, finishLoadBusy = false;
     const experimentalErrors: IntakeRejection[] = [];
     // Raw CMU source viewer: separate from stage-bounded choreography engine.
     let rawReviewGroup: T.Group | null = null;
@@ -233,7 +234,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       setRawReview({ id, elapsed: 0, duration: motion.clip.duration, complete: false, sourceBpm: options.current.bpm });
       return true;
     }
-    async function prepare(specs: readonly PhraseSpec[] = [...NORMAL_PHRASES, ...FINISH_PHRASES, ...REST_PHRASES]) {
+    async function prepare(specs: readonly PhraseSpec[] = [...NORMAL_PHRASES, ...FINISH_PHRASES.filter(p => p.id !== FANCY_FOOTWORK_FINISH.id), ...REST_PHRASES]) {
       const canonicalSource = await source("111_05");
       if (!engine) engine = new SourceFlowEngine(makeCanonicalRig(canonicalSource), new Map<string, PreparedPhrase>());
       const target = engine;
@@ -332,6 +333,34 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       reference?.setGameActive(false); reference?.setGameActive(true); referenceSpace(0);
     }
     commands.current = {
+      selectFinish: async id => {
+        if (!engine || catalogReview || ![FLARE_SPEC,...FINISH_PHRASES].some(p => p.id === id)) return;
+        if (finishLoadBusy) return;
+        finishLoadBusy = true; setFinishLoading(true); setError("");
+        try {
+          if (audio?.state === "running") { await audio.suspend(); setRunning(false); }
+          if (id === FANCY_FOOTWORK_FINISH.id && !engine.phrases.has(id)) {
+            setStatus("Đang tải nguồn 85_04 và dựng Finish + Recovery để thử nghiệm…");
+            await prepare([FANCY_FOOTWORK_FINISH]);
+          }
+          if (disposed || !engine) return;
+          options.current.finishPhrase = id;
+          setFinishPhrase(id);
+          // Selecting a Finish should arm the actual shared Gameplay preview,
+          // not leave users in isolated FINISH/LAB mode by surprise.
+          options.current.mode = "gameplay";
+          setMode("gameplay");
+          options.current.view = "source";
+          setView("source");
+          options.current.auto = true;
+          setAuto(true);
+          await resetRun(); // Selected Finish is armed for the next actual shared Finish event.
+          if (!disposed) setStatus(id === FANCY_FOOTWORK_FINISH.id
+            ? "Đã chọn FINISH 85_04 · bản cắt QA 0,2–4,2s + hồi phục/idle; nhấn Bắt đầu để xem tại lượt Finish thật. Flare không bị thay."
+            : "Đã chọn " + id + " · nhấn Bắt đầu để kiểm tra Finish.");
+        } catch (err) { reportError(err); }
+        finally { finishLoadBusy = false; if (!disposed) setFinishLoading(false); }
+      },
       enableBreakdance: async () => {
         if (!engine || catalogReview || expansionLoading) return;
         expansionLoading = true; setExperimentalLoading(true); setError("");
@@ -413,6 +442,10 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           setMode(finish ? "finish" : "lab"); options.current.mode = finish ? "finish" : "lab";
           setView("source"); options.current.view = "source"; setAuto(false); options.current.auto = false;
           const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
+          if (id === FANCY_FOOTWORK_FINISH.id && !engine?.phrases.has(id)) {
+            setStatus("Đang chuẩn bị Finish 85_04 từ BVH gốc…");
+            await prepare([FANCY_FOOTWORK_FINISH]);
+          }
           if (candidate && catalogReview) {
             // Resume inside the original user gesture, BEFORE remote BVH load.
             // iOS Safari may otherwise refuse a late AudioContext.resume().
@@ -437,7 +470,9 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             await resetRun(); if (!engine) return;
             engine.start(finish ? "143-party" : id); replayTarget = finish ? id : null;
             setStatus(finish
-              ? "REPLAY FINISH RIÊNG · normal → Finish beat 4, Flare về dance beat 24."
+              ? id === FANCY_FOOTWORK_FINISH.id
+                ? "PREVIEW FINISH 85_04 · bắt đầu ở beat 4 → full đoạn QA → recovery → idle; chỉ AUDIO END kết thúc game."
+                : "REPLAY FINISH RIÊNG · normal → Finish beat 4, Flare về dance beat 24."
               : "PREVIEW PHRASE RIÊNG · one-shot rồi giữ pose cuối.");
           }
           if (!catalogReview) await ensureAudio();
@@ -642,7 +677,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       runSeed = requestedSeed && /^\d{1,10}$/.test(requestedSeed) ? Number(requestedSeed) >>> 0 : random[0];
       bag = new PhraseBag(CORE_PHRASES, runSeed); setSeed(runSeed);
       scene.add(engine.stageAnchor); engine.start(catalogReview ? "141-twist" : "143-party"); if (!catalogReview) createGameplay(); setReady(true);
-      setStatus(catalogReview ? "Sáu nguồn BVH thăm dò đã sẵn danh sách; chỉ tải nguồn được chọn khi nhấn Xem." : `${NORMAL_PHRASES.length} phrase thường + ${FINISH_PHRASES.length} Finish sẵn sàng. Bấm Bắt đầu: QA loop dùng lịch shared multiplayer gốc.`);
+      setStatus(catalogReview ? "Sáu nguồn BVH thăm dò đã sẵn danh sách; chỉ tải nguồn được chọn khi nhấn Xem." : `${NORMAL_PHRASES.length} phrase thường + 2 Finish cũ + Flare; 85_04 chọn để tải thử. Bấm Bắt đầu: lịch shared multiplayer gốc.`);
     }).catch(reportError);
     return () => {
       disposed = true; commands.current = { ...emptyCommands }; cancelAnimationFrame(raf); observer.disconnect(); window.removeEventListener("keydown", onKey);
@@ -770,7 +805,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.8.3</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.9</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
@@ -828,7 +863,17 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             })}
             <p className={styles.muted}>Bấm nạp sẽ bắt đầu phiên mới. Nếu 0 đoạn đạt, game giữ nguyên 10 phrase Street/Pop. Những đoạn Floor/Flips không được cắt ngang bằng SPACE; xem lý do loại trong JSON.</p>
           </section>
-          <section className={styles.panel}><p className={styles.eyebrow}>FINISH RIÊNG · CHƯA DUYỆT PRODUCTION</p><select aria-label="Finish candidate" value={finishPhrase} onChange={e => setFinishPhrase(e.target.value)}>{[FLARE_SPEC,...FINISH_PHRASES].map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(FLARE_SPEC.id, true)}>Replay Flare Finish</button><button disabled={!ready} onClick={() => void commands.current.preview(finishPhrase, true)}>Xem Finish đã chọn</button></div><p className={styles.muted}>Flare mặc định trong Gameplay. Replay reset một phiên riêng: beat 4 → Flare nhiều vòng → đứng dậy → dance ở beat 24. Hai Finish cũ giữ recovery/idle V2.2.1.</p></section>
+          <section className={styles.panel} data-testid="finish-choice-panel">
+            <p className={styles.eyebrow}>V2.2.9 · FINISH CANDIDATE · CHƯA DUYỆT PRODUCTION</p>
+            <p className={styles.muted}><strong>85_04 Fancy Footwork</strong> đã có trong lựa chọn Finish thử nghiệm. Chọn 85_04 sẽ tải BVH và reset phiên QA; khi chạy Gameplay, nó sẽ xuất hiện tại lượt Finish. Flare vẫn là mặc định.</p>
+            <select aria-label="Finish candidate" value={finishPhrase} disabled={!ready || finishLoading} onChange={e => void commands.current.selectFinish(e.target.value)}>{[FLARE_SPEC,...FINISH_PHRASES].map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select>
+            <p className={styles.muted} data-testid="finish-active-choice">{finishLoading ? "Đang tải/chuẩn bị 85_04…" : "Finish đang chọn: " + ([FLARE_SPEC,...FINISH_PHRASES].find(p => p.id === finishPhrase)?.label ?? finishPhrase)}</p>
+            <div className={styles.buttons}>
+              <button disabled={!ready || finishLoading} onClick={() => void commands.current.preview(FLARE_SPEC.id, true)}>Replay Flare Finish</button>
+              <button disabled={!ready || finishLoading} onClick={() => void commands.current.preview(finishPhrase, true)}>Xem Finish đã chọn</button>
+            </div>
+            <p className={styles.muted}>85_04 dùng đoạn QA đầu 0,2–4,2 giây nguồn, sau đó Recovery → Idle trong REST; mốc cắt chưa phải bản cuối. Replay riêng ở beat 4. Không thêm global turn hay tự kết thúc game.</p>
+          </section>
           <section className={styles.panel}><p className={styles.eyebrow}>CATALOG · {NORMAL_PHRASES.length} PHRASE</p><select aria-label="Phrase preview" value={previewPhrase} onChange={e => setPreviewPhrase(e.target.value)}>{NORMAL_PHRASES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(previewPhrase, false)}>Xem phrase · reset phiên riêng</button></div><p className={styles.muted}>Sáu phrase V2.1 giữ nguyên; mười phrase mới chờ duyệt pose/contact. Không gán style hip-hop cho nguồn Unknown.</p></section>
           <section className={styles.panel}><p className={styles.eyebrow}>ĐỐI CHỨNG LỖI CŨ</p><label className={styles.control}>Cặp xác định <select aria-label="Cặp lỗi" value={pair} onChange={e => setPair(e.target.value)}>{FAILING_PAIRS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.replay(pair)}>Phát lại cặp</button><button disabled={!ready || view !== "source"} onClick={() => void commands.current.moonwalk()}>Thử Moonwalk</button></div><p className={styles.muted}>Fixture ballet/floor chỉ để QA; không nằm trong pool ngẫu nhiên.</p></section>
         </aside>
