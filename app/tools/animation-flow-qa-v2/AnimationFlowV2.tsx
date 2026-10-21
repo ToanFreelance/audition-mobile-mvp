@@ -16,7 +16,7 @@ import { NORMAL_PHRASES, FINISH_PHRASES, REST_PHRASES, DANCE_REVIEW_CANDIDATES, 
 import { GameplayPreview, previewTurnCounter, type PreviewOutcome } from "@/lib/animation-flow-v2/gameplay-preview";
 import { SessionChoreography } from "@/lib/animation-flow-v2/session-choreography";
 import { closeStandingIdle, type FinishPresentation } from "@/lib/animation-flow-v2/finish-presentation";
-import { describeSharedTurn, firstFinishTurn } from "@/multiplayer/determinism";
+import { describeSharedTurn, firstFinishTurn, isSharedLastNormalBeforeFinish } from "@/multiplayer/determinism";
 import { FLARE_SPEC, FLARE_RISE_SPEC, FlareLibrary } from "@/lib/animation-flow-v2/flare-performance";
 import { rankFancyFinishWindows } from "@/lib/animation-flow-v2/fancy-finish-window";
 import type { FlareSource } from "@/lib/animation-flow-v2/flare-source";
@@ -373,6 +373,12 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
               ? "FINISH chưa vào engine. Xem lỗi ngay cạnh Preview."
               : "Không có placement phù hợp; giữ pose, timeline vẫn chạy. Xem JSON.");
         } else reference?.handlePresentationEvent({ kind: "dance", eventId: ++referenceEvent, absoluteTurn: event.absoluteTurn, level: event.level, isFinish: event.isFinish, judgement: "perfect", choreographyId: event.isFinish ? FINISH_CHOREOGRAPHY : `dance-0${event.absoluteTurn % 8 + 1}` as "dance-01", actionStartSongTimeMs: audioSeconds() * 1000 });
+      }, (event, beat) => {
+        if (!isSharedLastNormalBeforeFinish(gameplay!.manifest, event.absoluteTurn)) return;
+        const idled = choreography?.idleAfterLastL9Miss(beat) ?? false;
+        setGameplayFinishReport("L9 NORMAL MISS · HIDDEN → FINISH BỊ KHÓA → REST · "
+          + (idled ? "living idle" : "idle-placement-unavailable"));
+        setStatus("Miss NORMAL cuối L9: không cho phép Finish; global turn vẫn chạy đúng lịch.");
       });
     }
     function advance(beat: number) {
@@ -918,7 +924,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.11</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.12</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted+" "+styles.labIntro}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
@@ -976,8 +982,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = root 1,35 · mũi tên xanh = khán giả cố định · vàng = hướng Hips +Z · orbit không đổi hướng sân" : "Đường tham chiếu giữ controller production (150 ms / tốc độ gốc). Chưa retarget sáu phrase CMU vào actor này."}</div>
           {view === "source" && <div className={styles.canvasCaption} data-testid="facing-indicator">{telemetry?.samplingDomain ? "Flare: hướng Hips khi chống sàn không phải hướng đứng" : `Lệch hướng: ${(telemetry?.orientation.facingErrorDeg ?? 0).toFixed(1)}°`} · {Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 45 ? "Chính diện" : Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 90 ? "Nghiêng" : "Quay lưng"} · {telemetry?.orientation.policy === "fixture-spatial-only" ? "Fixture: chỉ kiểm vị trí" : "Ưu tiên khán giả"}</div>}
           <div className={styles.rhythm}>
-            {mode === "gameplay" && <div className={styles.gameplayHud} data-testid="gameplay-hud" data-finish={gameplayRow?.isFinish}>
-              <strong>{gameplayRow ? `L${gameplayRow.level} · ${gameplayRow.status === "FINISH" ? "FINISH ⇄ MŨI TÊN ĐẢO" : gameplayRow.status}` : "L1 · CHUẨN BỊ 4 BEAT"}</strong>
+            {mode === "gameplay" && <div className={styles.gameplayHud} data-testid="gameplay-hud" data-finish={gameplayRow?.status === "FINISH"}>
+              <strong>{gameplayRow ? `L${gameplayRow.level} · ${gameplayRow.status === "FINISH" ? "FINISH ⇄ MŨI TÊN ĐẢO" : gameplayRow.status === "FINISH_BLOCKED" ? "FINISH BỊ KHÓA · NORMAL MISS" : gameplayRow.status}` : "L1 · CHUẨN BỊ 4 BEAT"}</strong>
               <span>Global turn (0-based): {gameplayRow?.absoluteTurn ?? "—"} · trong cấp: {gameplayRow ? `${gameplayRow.sequenceIndex + 1}/${gameplayRow.levelBudget}` : "1/1"}</span>
               <span>Chu kỳ {gameplayRow?.cycle ?? 1} · Finish tiếp: {gameplayRow?.nextFinish ?? 38} · SPACE {auto ? `Auto ${outcome}` : "Manual visual"}</span>
               <span>Nhóm: {currentSpec?.group ?? "—"} · {currentSpec?.id ?? "—"}</span>

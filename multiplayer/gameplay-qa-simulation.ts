@@ -120,6 +120,16 @@ export function runP45GameplayQa(): P45QaResult {
   const finish = describeSharedTurn(manifest, finishTurn);
   const finishSuccess = createClient("human-host");
   const finishMiss = createClient("bot-2");
+  // The L9 final NORMAL at Finish-2 is now mandatory for each player's Finish
+  // eligibility. Seed a genuine Perfect there before evaluating the Finish
+  // success vs Finish Miss outcomes; jumping directly to Finish would miss
+  // the final NORMAL and intentionally forfeit Finish.
+  const finalNormal = describeSharedTurn(manifest, finishTurn - 2);
+  for (const client of [finishSuccess, finishMiss]) {
+    client.setSongTimeMs(finalNormal.targetSpaceMs);
+    client.runtime.advance();
+    completeCurrentAtTarget(client);
+  }
   finishSuccess.setSongTimeMs(finish.targetSpaceMs);
   finishMiss.setSongTimeMs(finish.targetSpaceMs);
   finishSuccess.runtime.advance();

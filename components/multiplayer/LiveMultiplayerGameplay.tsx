@@ -291,8 +291,22 @@ export default function LiveMultiplayerGameplay(props: {
   const judgementEvent = props.presentationJudgement?.matchId === props.manifest.matchId
     && props.presentationJudgement.participantId === props.participantId
     ? props.presentationJudgement : null;
-  const characterEvent = useMemo(() => judgementEvent
-    ? createCharacterPresentationEvent(
+  const characterEvent = useMemo(() => {
+    if (!judgementEvent) return null;
+    // On L9's last NORMAL Miss, the character must enter authored living
+    // idle IMMEDIATELY and remain idle during reserved HIDDEN+Finish+REST.
+    // Other players keep their own independent choreography/Finish.
+    if (judgementEvent.judgement === "miss"
+      && isSharedLastNormalBeforeFinish(props.manifest, judgementEvent.absoluteTurn)) {
+      return {
+        kind: "idle" as const, reason: "l9-last-normal-miss" as const,
+        eventId: judgementEvent.absoluteTurn + 1,
+        absoluteTurn: judgementEvent.absoluteTurn,
+        level: judgementEvent.level, isFinish: false,
+        actionStartSongTimeMs: judgementEvent.atSongTimeMs,
+      };
+    }
+    return createCharacterPresentationEvent(
       judgementEvent.absoluteTurn + 1, judgementEvent.judgement,
       {
         atMs: judgementEvent.atSongTimeMs,
@@ -301,7 +315,8 @@ export default function LiveMultiplayerGameplay(props: {
         isFinish: judgementEvent.isFinish,
       },
       props.manifest.gameplay.seed,
-    ) : null, [judgementEvent, props.manifest.gameplay.seed]);
+    );
+  }, [judgementEvent, props.manifest, props.manifest.gameplay.seed]);
 
   useEffect(() => {
     if (!judgementEvent || lastJudgementTurnRef.current === judgementEvent.absoluteTurn) return;

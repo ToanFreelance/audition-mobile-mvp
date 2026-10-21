@@ -5,7 +5,7 @@ import { MultiplayerGameplayRuntime, type MultiplayerGameplayJudgementEvent } fr
 import type { MatchManifest } from "../../multiplayer/types";
 export type PreviewOutcome = "perfect" | "miss";
 export type PreviewTurn = ReturnType<typeof describeSharedTurn> & {
-  status: "NORMAL" | "FINISH" | "HIDDEN" | "REST";
+  status: "NORMAL" | "FINISH" | "FINISH_BLOCKED" | "HIDDEN" | "REST";
   cycle: number; levelBudget: number; nextFinish: number; eligible: boolean;
 };
 /** Presentation label only. TurnCursor also counts the QA preroll boundary. */
@@ -31,11 +31,15 @@ export class GameplayPreview {
   readonly judgements: MultiplayerGameplayJudgementEvent[] = [];
   private timeMs = 0;
   private nextTurn = 0;
-  constructor(bpm: number, seed: number, readonly onDance: (event: MultiplayerGameplayJudgementEvent, beat: number) => void) {
+  constructor(bpm: number, seed: number,
+    readonly onDance: (event: MultiplayerGameplayJudgementEvent, beat: number) => void,
+    readonly onMiss?: (event: MultiplayerGameplayJudgementEvent, beat: number) => void) {
     this.manifest = qaManifest(bpm, seed);
     this.runtime = new MultiplayerGameplayRuntime(this.manifest, "qa", { onJudgement: event => {
       this.judgements.push(event);
-      if (event.judgement !== "miss" && event.judgement !== "bad") this.onDance(event, event.atSongTimeMs * bpm / 60000);
+      const beat = event.atSongTimeMs * bpm / 60000;
+      if (event.judgement === "miss") this.onMiss?.(event, beat);
+      else if (event.judgement !== "bad") this.onDance(event, beat);
     } });
     this.runtime.setTimeSource(() => this.timeMs); this.runtime.start();
   }
@@ -50,7 +54,9 @@ export class GameplayPreview {
       const eligible = state.activeCommandTurn === this.nextTurn && state.commandVisible && !shared.roomRest;
       const first = firstFinishTurn(this.manifest), repeat = repeatCycleTurns(this.manifest);
       this.turns.push({ ...shared, eligible,
-        status: shared.roomRest ? "REST" : shared.isFinish ? "FINISH" : eligible ? "NORMAL" : "HIDDEN",
+        status: shared.roomRest ? "REST"
+          : shared.isFinish ? eligible ? "FINISH" : "FINISH_BLOCKED"
+          : eligible ? "NORMAL" : "HIDDEN",
         cycle: this.nextTurn <= first ? 1 : 2 + Math.floor((this.nextTurn - first - 1) / repeat),
         levelBudget: this.manifest.gameplay.sequenceCounts[shared.level - 1],
         nextFinish: this.nextTurn <= first ? first : first + Math.ceil((this.nextTurn - first) / repeat) * repeat });

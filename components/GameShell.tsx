@@ -129,7 +129,15 @@ export default function GameShell() {
     },
     onJudgement: (value, streak, meta) => {
       setPerfectStreak(streak);
-      setCharacterEvent(createCharacterPresentationEvent(++characterEventSequence.current, value, meta, seed));
+      const eventId=++characterEventSequence.current;
+      const lastL9NormalMiss = value === "miss" && meta.level === 9 && !meta.isFinish
+        && runtime.currentTurn?.sequenceIndex
+          === (activeChart.soloSettings?.sequenceCounts[8] ?? 6) - 3;
+      setCharacterEvent(lastL9NormalMiss
+        ? { kind: "idle", reason: "l9-last-normal-miss", eventId,
+            absoluteTurn: meta.absoluteTurn, level: meta.level, isFinish: false,
+            actionStartSongTimeMs: meta.atMs }
+        : createCharacterPresentationEvent(eventId, value, meta, seed));
       if (judgementTimer.current) window.clearTimeout(judgementTimer.current);
       setJudgement(value);
       judgementTimer.current = window.setTimeout(() => setJudgement(null), 1000);

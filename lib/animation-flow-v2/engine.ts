@@ -232,13 +232,14 @@ export class SourceFlowEngine {
       // remain authoritative. No bypass for CORE/SPACE or old Finishes.
       const protectedFancyFinish = phrase.spec.id === "finish-85-04"
         && phrase.spec.role === "finish" && phrase.spec.policy === "PROTECTED";
-      const finishExitError = degrees(Math.abs(wrapAngle(
-        phrase.headings[phrase.headings.length - 1] + yaw - this.desiredHeading)));
+      // This protected floor-spinning Finish's non-upright dismount Hips yaw
+      // is NOT a reliable audience-facing measure; the dynamic recovery is
+      // responsible for returning to an upright facing. Keep strict ENTRY
+      // facing, introduced angular change, entire root path and stage limits.
+      // All other Finish/CORE/SPACE rules stay untouched.
       if (!fixture && !phrase.flare
         && (entryError > entryLimit
-          || (protectedFancyFinish
-            ? finishExitError > HEADING_LIMITS.phraseDeg
-            : maxFacingError > HEADING_LIMITS.phraseDeg))) {
+          || (!protectedFancyFinish && maxFacingError > HEADING_LIMITS.phraseDeg))) {
         decision.facingRejected++; continue;
       }
       const angle = Math.abs(wrapAngle(yaw + phrase.headings[0] - heading));

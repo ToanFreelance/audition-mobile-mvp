@@ -220,6 +220,17 @@ export class SessionChoreography {
       selected: chosen?.id ?? null, accepted, danceFamily: chosenFamily, styleChanged });
     return accepted;
   }
+  /** Local last-L9-NORMAL Miss: choreography becomes idle without a new turn. */
+  idleAfterLastL9Miss(beat: number) {
+    this.sustainHighLevelDance = false;
+    this.engine.update(beat);
+    const previous = this.engine.current?.phrase.spec.id ?? "none";
+    const accepted = this.engine.request("rest-standing", beat, .35, true);
+    this.continuityEvents.push({ beat, requestedAtBeat: beat, previous,
+      next: "rest-standing", accepted, kind: "living-idle",
+      reason: accepted ? "last-L9-normal-miss-no-finish" : "last-L9-miss-idle-placement-unavailable" });
+    return accepted;
+  }
   manual(beat: number, status: string | undefined, level?: number) {
     if (status !== "NORMAL" || this.presentation?.snapshot().active || this.engine.current?.phrase.spec.role === "finish" || this.engine.pending?.id.startsWith("finish-")) return false;
     return this.select(beat, null, false, false, undefined, level);

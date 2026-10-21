@@ -188,6 +188,49 @@ export class RhythmRuntime {
     });
     this.setCountdown(null);
     this.visible = false; this.commandIndex = 0; this.awaitingSpace = false;
+    // Owner L9 close: last NORMAL (Finish-2) → one HIDDEN (Finish-1)
+    // → canonical Finish. Suppression remains within the original six L9
+    // global slots. If this last NORMAL is Miss, withhold Finish for THIS
+    // player and remain idle through the pre-existing rest; clock unchanged.
+    const twoAhead = this.appearances[this.appearanceIndex + 2];
+    const threeAhead = this.appearances[this.appearanceIndex + 3];
+    const lastL9Normal = !previous.isFinish && previous.level === 9
+      && twoAhead?.level === 9 && twoAhead.isFinish;
+    if (lastL9Normal) {
+      const finishTurn = previous.absoluteTurn + 2;
+      if (judgement === 'miss') {
+        const plan = planAfterFinish(finishTurn, this.lastTurn, this.settings);
+        this.hiddenFromTurn = previous.absoluteTurn;
+        this.penaltyCount = 0;
+        this.final = plan.finalFinish;
+        if (plan.finalFinish) { this.beginEnding(); return; }
+        this.cycle++; this.appearances = soloCycle(6, this.settings); this.appearanceIndex = 0;
+        const resumeTurn = plan.nextAbsoluteTurn;
+        this.setTurn(resumeTurn, this.target(resumeTurn - 1));
+        this.setPhase('post-finish-rest'); this.emitCommand();
+        return;
+      }
+      this.appearanceIndex += 2; // consume reserved hidden, no new turn
+      this.hiddenFromTurn = previous.absoluteTurn;
+      this.penaltyCount = 0;
+      this.setTurn(finishTurn, this.target(finishTurn - 1));
+      this.setPhase('command-hidden'); this.emitCommand();
+      return;
+    }
+    // Reserve a guaranteed final L9 normal. Without this exception a success
+    // or Miss on the preceding ordinary turn could suppress the final NORMAL.
+    const nextIsFinalL9Normal = !previous.isFinish && previous.level === 9
+      && threeAhead?.level === 9 && threeAhead.isFinish;
+    if (nextIsFinalL9Normal) {
+      this.appearanceIndex++;
+      this.hiddenFromTurn = previous.absoluteTurn;
+      this.penaltyCount = 0;
+      this.setTurn(previous.absoluteTurn + 1, atMs);
+      this.visible = true;
+      this.setPhase('playing-command'); this.emitCommand();
+      return;
+    }
+
     // Finish is a shared global-turn event. Its post-Finish rest is identical
     // for every player outcome; judgement may change player state but never the
     // room/global command schedule.
