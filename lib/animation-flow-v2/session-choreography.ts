@@ -166,9 +166,16 @@ export class SessionChoreography {
       ? eligible.filter(p => this.engine.nextExitDelayAt(p.id, beat, beat + 4) <= .35) : [];
     // Every third successful Street SPACE can choose a newly screened break
     // phrase. The standard bag is not consumed when this opt-in pool wins.
-    const tryExperimental = immediate && desiredFamily === "street"
-      && this.spacesInStyle % 3 === 1 && this.experimentalSpaceBag
-      ? this.experimentalSpaceBag.next(p => eligible.some(e => e.id === p.id)) : null;
+    // V2.2.8 bug: the experimental bag was filtered through the FIRST
+    // non-empty ordinary tier, often Pop-only; it could stay loaded forever
+    // without ever being selected. Check spatial eligibility independently.
+    const availableBreaks = immediate && desiredFamily === "street"
+      ? this.experimentalPhrases.filter(p => p.id !== current?.id
+        && p.source !== current?.source && compatible(p)) : [];
+    const preferBreak = this.activeStyle !== "street" || this.spacesInStyle % 2 === 0;
+    const tryExperimental = preferBreak && availableBreaks.length && this.experimentalSpaceBag
+      ? this.experimentalSpaceBag.next(p => availableBreaks.some(e => e.id === p.id)) : null;
+    if (tryExperimental) eligible = availableBreaks as (typeof NORMAL_PHRASES)[number][];
     let chosen = finish ? eligible.find(p => p.id !== this.previousFinish) ?? eligible[0]
       : tryExperimental
         ?? (timely.length ? this.bag.next(p => timely.some(e => e.id === p.id)) : null)
