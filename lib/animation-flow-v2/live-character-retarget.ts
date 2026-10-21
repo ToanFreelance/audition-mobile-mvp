@@ -45,19 +45,19 @@ function ancestorDepth(node: THREE.Object3D) {
   return count;
 }
 function findSkinned(root: THREE.Object3D) {
-  let first: THREE.SkinnedMesh | null = null, count = 0, triangles = 0;
+  const skinnedMeshes: THREE.SkinnedMesh[] = []; let triangles = 0;
   root.traverse(obj => {
     if (!(obj as THREE.Mesh).isMesh) return;
     const mesh=obj as THREE.Mesh;
     const verts=mesh.geometry?.getAttribute("position")?.count ?? 0;
     triangles+=Math.floor((mesh.geometry?.index?.count ?? verts)/3);
     if ((obj as THREE.SkinnedMesh).isSkinnedMesh) {
-      count++;
-      first ??=obj as THREE.SkinnedMesh;
+      skinnedMeshes.push(obj as THREE.SkinnedMesh);
     }
   });
-  if (!first) throw new Error("GLB accepted không có SkinnedMesh; không dùng fallback làm QA PASS.");
-  return { mesh:first, count, triangles };
+  const mesh = skinnedMeshes[0];
+  if (!mesh) throw new Error("GLB accepted không có SkinnedMesh; không dùng fallback làm QA PASS.");
+  return { mesh, count:skinnedMeshes.length, triangles };
 }
 function anatomicalBasis(find: (name:string)=>THREE.Bone) {
   const hips=find("Hips").getWorldPosition(new THREE.Vector3());
