@@ -417,7 +417,7 @@ export class SourceFlowEngine {
     const localIdleEnd = new T.Vector3()
       .fromArray(idle.translation.evaluate(idleTargetSeconds)).applyQuaternion(turn);
     const fractions = [0,.125,.25,.375,.5,.625,.75,.875,1] as const;
-    const goals = fractions.map(fraction => ({
+    const goals: Array<{target:T.Vector3; fraction:number}> = fractions.map(fraction => ({
       target: origin.clone().multiplyScalar(1-fraction), fraction
     }));
     // The Fancy clip itself has substantial authored XZ travel. Some source
