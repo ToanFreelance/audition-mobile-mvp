@@ -770,7 +770,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.8.2</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.8.3</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
@@ -807,9 +807,9 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             {mode === "gameplay" && <label className={styles.control}>Kết quả tự động <select aria-label="Auto outcome" value={outcome} onChange={e => setOutcome(e.target.value as PreviewOutcome)}><option value="perfect">Perfect · nhập đúng arrow + SPACE</option><option value="miss">Miss · không nhập, runtime xử lý</option></select></label>}
           </section>
           <section className={styles.panel} data-testid="breakdance-expansion">
-            <p className={styles.eyebrow}>V2.2.8 · STREET / BREAK · THỬ NGHIỆM</p>
+            <p className={styles.eyebrow}>V2.2.8.3 · STREET / BREAK · THỬ NGHIỆM</p>
             <h2>Chơi thử các đoạn đã chọn</h2>
-            <p className={styles.muted}>85_12 tách nhiều đoạn; 85_14 và 90_28 chỉ cho vào pool thường nếu toàn đoạn vượt kiểm tra tư thế đứng, tiếp đất và giới hạn đường di chuyển. 85_04 vẫn là Finish candidate, Flare mặc định không đổi.</p>
+            <p className={styles.muted}>85_12 tách nhiều đoạn; 85_14 và 90_28 dùng ngưỡng tư thế theo tỷ lệ BVH nguồn, tìm đoạn nhảy có chuyển động và điểm vào/ra an toàn. Những đoạn lộn/chống tay không thể cắt bằng SPACE vẫn được giữ trong Catalog. 85_04 vẫn là Finish candidate, Flare mặc định không đổi.</p>
             <div className={styles.buttons}>
               <button className={styles.primary} disabled={!ready || experimentalLoading || experimentalCount > 0}
                 onClick={() => void commands.current.enableBreakdance()}>

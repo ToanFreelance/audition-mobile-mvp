@@ -8,7 +8,11 @@ import { proposeReviewSegments, type ActivitySample, OWNER_CURATION_DIRECTIONS }
 export type IntakeRejection = { source: string; id: string; reason: string; start: number; end: number };
 export type IntakeResult = { accepted: CuratedPhrase[]; rejected: IntakeRejection[] };
 export const EXPERIMENTAL_SOURCES = ["85_12", "85_14", "90_28"] as const;
-type Frame = { time: number; energy: number; posture: boolean; entrySafe: boolean };
+type Frame = {
+  time: number; energy: number;
+  headAboveHips: number; lowerFootBelowHips: number; upperFootBelowHips: number;
+  posture: boolean; entrySafe: boolean;
+};
 
 /**
  * Scan the ENTIRE original take and find actual safely enterable/exitable
@@ -58,19 +62,38 @@ export function analyzeExperimentalSource(sourceId: string, motion: SourceMotion
         previous.set(bone.name, point.clone());
       }
       const normalizedEnergy = energy / (height * Math.max(1, tracked.length));
-      const headClearance = headPos.y - rootPos.y;
-      const lowFoot = Math.min(leftPos.y, rightPos.y);
-      const highFoot = Math.max(leftPos.y, rightPos.y);
-      // Inside: upright upper body and at least one foot beneath pelvis.
-      // This accepts standing footwork while rejecting inversions/handstands.
-      const posture = headClearance > height * .24 && lowFoot < rootPos.y - height * .1;
-      // Boundaries: both feet grounded under pelvis and a reliably upright torso.
-      const entrySafe = headClearance > height * .34 && highFoot < rootPos.y - height * .07;
-      frames.push({ time, energy: normalizedEnergy, posture, entrySafe });
-      activity.push({ time, energy: normalizedEnergy, upright: posture });
+      const headAboveHips = headPos.y - rootPos.y;
+      const lowerFootBelowHips = rootPos.y - Math.min(leftPos.y, rightPos.y);
+      const upperFootBelowHips = rootPos.y - Math.max(leftPos.y, rightPos.y);
+      // First pass records actual geometry. A global skeleton-height ratio
+      // erroneously classified 90_28's authentic standing pose as unsafe:
+      // source head/hips ≈7.5 units vs total bone height ≈24 units.
+      frames.push({ time, energy: normalizedEnergy, headAboveHips,
+        lowerFootBelowHips, upperFootBelowHips, posture: false, entrySafe: false });
       if (time >= duration) break;
     }
   } finally { action.stop(); mixer.stopAllAction(); }
+  // Calibrate against the source's OWN upright anatomy, not a rigid
+  // head/hips fraction of the entire body envelope. The upper quantile
+  // remains valid when a break/flip includes inverted samples.
+  const quantile = (values: number[], fraction: number) => {
+    const ordered = values.filter(v => Number.isFinite(v) && v > 0).sort((a, b) => a - b);
+    return ordered.length ? ordered[Math.floor((ordered.length - 1) * fraction)] : 0;
+  };
+  const torsoReference = quantile(frames.map(f => f.headAboveHips), .95);
+  const legReference = quantile(frames.map(f => f.lowerFootBelowHips), .9);
+  // Reject nonsensical/inverted-only takes rather than divide by a tiny
+  // reference and accidentally classify a floor move as free-interruptible.
+  if (torsoReference < .01 || legReference < .01)
+    return { accepted: [], rejected: [{ source: sourceId, id: sourceId,
+      start: 0, end: duration, reason: "missing-valid-source-anatomy" }] };
+  for (const frame of frames) {
+    frame.posture = frame.headAboveHips > torsoReference * .23
+      && frame.lowerFootBelowHips > legReference * .08;
+    frame.entrySafe = frame.headAboveHips > torsoReference * .65
+      && frame.upperFootBelowHips > legReference * .075;
+    activity.push({ time: frame.time, energy: frame.energy, upright: frame.posture });
+  }
   const surveys = proposeReviewSegments(sourceId, duration, activity);
   const accepted: CuratedPhrase[] = [], rejected: IntakeRejection[] = [];
   const target = OWNER_CURATION_DIRECTIONS[sourceId]?.targetSlots ?? 1;
@@ -93,15 +116,18 @@ export function analyzeExperimentalSource(sourceId: string, motion: SourceMotion
         if (window.slice(0, 3).some(p => !p.entrySafe)
           || window.slice(-3).some(p => !p.entrySafe)) continue;
         const motionEnergy = window.reduce((sum, p) => sum + p.energy, 0) / window.length;
-        if (motionEnergy < .0015) continue; // reject motionless standing
-        const score = Math.min(length, 3.2) + Math.min(motionEnergy * 10, .6);
+        const activeFraction = window.filter(p => p.energy > .003).length / window.length;
+        if (motionEnergy < .0015 || activeFraction < .38) continue;
+        // Prefer a visibly dancing segment to a long initial standstill.
+        const score = activeFraction * 5 + Math.min(length, 3.2) * .35
+          + Math.min(motionEnergy * 10, .6);
         if (!best || score > best.score)
           best = { start: inSurvey[first].time, end: inSurvey[last].time, score };
       }
     }
     if (!best) {
       rejected.push({ source: sourceId, id: survey.id, start: survey.start,
-        end: survey.end, reason: "no-2s-upright-dance-with-safe-entry-exit-in-chapter; floor-or-short-movement-retained-in-catalog" });
+        end: survey.end, reason: "no-2s-moving-dance-with-source-calibrated-safe-entry-exit-in-chapter; floor-or-inversion-retained-in-catalog" });
       continue;
     }
     // Stable source-section IDs, even if an earlier chapter was rejected.
