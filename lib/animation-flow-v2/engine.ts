@@ -481,6 +481,93 @@ export class SourceFlowEngine {
     return accepted;
   }
 
+  /**
+   * Recovery→dance staging inside the ALREADY ASSIGNED post-Finish REST.
+   * Every candidate is inspected using the original spatial/facing gates.
+   * Repositioning is a continuous root/pose blend, never an extra command,
+   * teleport, time shift or score/turn change.
+   */
+  stageForPostFinishDance(startBeat: number, resumeBeat: number,
+    candidateIds: readonly string[]): string | null {
+    const key="post-finish-dance-ready";
+    const idle=this.phrases.get("rest-standing");
+    if (!idle || !this.current || this.current.phrase.spec.role!=="idle"
+      || this.pending || !this.loopIdle || resumeBeat-startBeat < .35
+      || !candidateIds.length) return null;
+    this.update(startBeat);
+    const durationBeats=resumeBeat-startBeat;
+    const fadeBeats=Math.max(.15,durationBeats-.12);
+    const seconds=fadeBeats*60/this.bpm;
+    const origin=this.pose.root.clone(), heading=rootYaw(this.pose.rotations[0]);
+    const change=Math.abs(wrapAngle(this.desiredHeading-heading));
+    if (degrees(change)/seconds>HEADING_LIMITS.transitionAddedYawDegPerSecond)
+      return null;
+    const endSeconds=durationBeats*60/idle.spec.referenceBpm;
+    const endTime=endSeconds%idle.duration;
+    const rootAtEnd=new T.Quaternion().fromArray(idle.rotations[0].evaluate(endTime));
+    const yaw=wrapAngle(this.desiredHeading-rootYaw(rootAtEnd));
+    const q=new T.Quaternion().setFromAxisAngle(Y,yaw);
+    const localEnd=new T.Vector3().fromArray(idle.translation.evaluate(endTime))
+      .applyQuaternion(q);
+    const targets:T.Vector3[]=[origin.clone()];
+    for(const fraction of [.15,.3,.45,.6,.75,.9,1])
+      targets.push(origin.clone().multiplyScalar(1-fraction));
+    // Small search around centre is needed for dance phrases with asymmetric
+    // authored roots. Search deterministic near-centre goals after the closest
+    // centreward options; never expand the existing 1.35m stage disc.
+    for(const radius of [.25,.5])for(let i=0;i<8;i++){
+      const angle=i*Math.PI/4;
+      targets.push(new T.Vector3(Math.sin(angle)*radius,origin.y,
+        Math.cos(angle)*radius));
+    }
+    let chosen:{id:string;root:T.Vector3;offset:T.Vector3;peak:number}|null=null;
+    let stageRejected=0,travelRejected=0,danceRejected=0;
+    for(const target of targets) {
+      const offset=target.clone().sub(localEnd);
+      const peak=Math.max(...idle.path.map(p=>{
+        const point=p.clone().applyQuaternion(q).add(offset);
+        return Math.hypot(point.x,point.z);
+      }));
+      if(peak>this.radius-.005){stageRejected++;continue;}
+      const travel=Math.hypot(target.x-origin.x,target.z-origin.z);
+      if(travel/seconds>1.35){travelRejected++;continue;}
+      for(const id of candidateIds){
+        const phrase=this.phrases.get(id);
+        if(!phrase||phrase.spec.role!=="core")continue;
+        if(this.placement(id,target,this.desiredHeading)){
+          chosen={id,root:target,offset,peak};break;
+        }
+        danceRejected++;
+      }
+      if(chosen)break;
+    }
+    if(!chosen) {
+      this.placementDecisions.set(key,{
+        id:key,beat:startBeat,rootXZ:[origin.x,origin.z],
+        evaluated:targets.length,spatialRejected:stageRejected,
+        continuationRejected:travelRejected+danceRejected,
+        facingRejected:0,angularRejected:0,accepted:0,
+        reason:danceRejected?"no-compatible-dance-from-rest":
+          stageRejected?"stage-radius":"insufficient-rest-blend-time",
+        selectedYawDeg:null
+      });
+      return null;
+    }
+    const place:Placement={yaw,score:chosen.peak,maxFacingError:degrees(change),
+      maxYawSpeed:degrees(change)/seconds,maxQuaternionSpeed:degrees(change)/seconds};
+    const accepted=this.commit("rest-standing",startBeat,startBeat,"FREE",
+      false,fadeBeats,place,true,chosen.offset);
+    this.placementDecisions.set(key,{
+      id:key,beat:startBeat,rootXZ:[chosen.root.x,chosen.root.z],
+      evaluated:targets.length,spatialRejected:stageRejected,
+      continuationRejected:travelRejected+danceRejected,
+      facingRejected:0,angularRejected:0,accepted:accepted?1:0,
+      reason:accepted?"rest-dance-entry-prepared":"rest-dance-prep-rejected",
+      selectedYawDeg:accepted?degrees(wrapAngle(yaw)):null
+    });
+    return accepted?chosen.id:null;
+  }
+
   /** Check one known upcoming Finish without moving the dancer or gameplay clock. */
   canFollowAt(id: string, nextIds: readonly string[], beat: number, nextBeat: number, recovery?: Readonly<Record<string, string>>) {
     const { pose, due } = this.exitPose(beat), phrase = this.phrases.get(id);

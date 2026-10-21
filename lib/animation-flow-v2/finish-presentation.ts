@@ -141,7 +141,14 @@ export class FinishPresentation {
       }
       c.phrase = id;
       this.event(id === "rest-standing" ? "REST_IDLE" : "RECOVERY", due);
-      const p = this.engine.phrases.get(id)!; c.next = due + p.duration * p.spec.referenceBpm / 60;
+      const p = this.engine.phrases.get(id)!;
+      // Living idle is ALREADY looped by SourceFlowEngine during Gameplay.
+      // Re-requesting it every 2.3 beats resets its playback, can interrupt
+      // planned REST→dance preparation and strand subsequent NORMAL commands.
+      // Keep the presentation cycle active until the next valid SPACE,
+      // but never create a duplicate idle transition/turn.
+      c.next = id === "rest-standing"
+        ? null : due + p.duration * p.spec.referenceBpm / 60;
     }
     this.engine.update(beat);
   }

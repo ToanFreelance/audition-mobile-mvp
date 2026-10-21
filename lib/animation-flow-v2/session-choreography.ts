@@ -8,13 +8,16 @@ import { DEFAULT_STYLE_RUN_SPACES, isModernFamily, isPlayableModernPhrase, other
 export class SessionChoreography {
   readonly bag: PhraseBag;
   readonly selections: { beat: number; absoluteTurn: number | null; finish: boolean; eligibleIds: string[]; selected: string | null; accepted: boolean; danceFamily?: string | null; styleChanged?: boolean }[] = [];
-  readonly continuityEvents: { beat: number; previous: string; next: string; accepted: boolean; reason: string; kind?: "dance-bridge" | "living-idle" | "finish-ready"; requestedAtBeat?: number; danceFamily?: string | null }[] = [];
+  readonly continuityEvents: { beat: number; previous: string; next: string; accepted: boolean; reason: string; kind?: "dance-bridge" | "living-idle" | "finish-ready" | "dance-ready"; requestedAtBeat?: number; danceFamily?: string | null }[] = [];
   /** Opt-in: only the actual Gameplay Preview uses immediate successful-SPACE transitions. */
   instantGameplay = false;
   /** Only levels 6–9 sustain ordinary dance between valid SPACE commands. */
   private sustainHighLevelDance = false;
   /** L9 HIDDEN preparation, visual-only, scheduled by a successful NORMAL. */
   private pendingFancyFinishReady: { startBeat: number; finishBeat: number } | null = null;
+  /** Per-Finish visual staging, only within its existing REST budget. */
+  private postFinishResumeBeat: number | null = null;
+  private postFinishResumePhrase: string | null = null;
   private readonly bridgeBag: PhraseBag;
   private readonly bridgeFadeCapBeats = .35;
   /** Opt-in curated upright Break clips; never replaces normal accepted catalog. */
@@ -69,6 +72,34 @@ export class SessionChoreography {
       if (accepted) this.sustainHighLevelDance = false;
     }
     this.presentation?.update(beat);
+    // The old Finish recovery placed the dancer in an edge-facing idle. At
+    // subsequent valid SPACE judgements every dance could be rejected by
+    // strict root-path / entry-facing placement, leaving it idle indefinitely.
+    // Prepare the NEXT dance from within the already-budgeted REST, not from
+    // the next NORMAL beat, while honoring the same stage/facing constraints.
+    const activePhase=this.presentation?.snapshot().phase;
+    if (this.instantGameplay && this.postFinishResumeBeat !== null
+      && this.postFinishResumePhrase === null && activePhase === "REST_IDLE"
+      && beat < this.postFinishResumeBeat - .35
+      && this.engine.current?.phrase.spec.role === "idle"
+      && !this.engine.pending
+      && this.engine.snapshot().blendProgress >= 1
+      && this.engine.snapshot().orientation.headingBlendProgress >= 1) {
+      const ids=[
+        ...NORMAL_PHRASES.filter(isPlayableModernPhrase).map(p=>p.id),
+        ...this.experimentalPhrases.filter(isPlayableModernPhrase).map(p=>p.id)
+      ];
+      const selected=this.engine.stageForPostFinishDance(
+        beat,this.postFinishResumeBeat,ids);
+      this.continuityEvents.push({
+        beat,previous:"rest-standing",next:selected??"none",
+        accepted:Boolean(selected),kind:"dance-ready",
+        reason:selected?"rest-dance-entry-prepared":
+          (this.engine.placementDecisions.get("post-finish-dance-ready")?.reason
+            ?? "rest-dance-preparation-pending")
+      });
+      if(selected)this.postFinishResumePhrase=selected;
+    }
     if (!this.instantGameplay || this.presentation?.snapshot().active) return;
     const deadline = beforeJudgement ? beat - 1e-6 : beat;
     for (let guard = 0; guard < 24; guard++) {
@@ -209,6 +240,17 @@ export class SessionChoreography {
       : tryExperimental
         ?? (timely.length ? this.bag.next(p => timely.some(e => e.id === p.id)) : null)
         ?? this.bag.next(p => eligible.some(e => e.id === p.id));
+    // The first NORMAL after Fancy Finish has a verified dance-ready
+    // endpoint from REST. Use it instead of random bag placement to guarantee
+    // a smooth visual resumption exactly at the successful SPACE beat.
+    if(immediate && !finish && this.postFinishResumePhrase
+      && this.postFinishResumeBeat !== null
+      && beat >= this.postFinishResumeBeat - 1e-5) {
+      const prepared=pool.find(p=>p.id===this.postFinishResumePhrase);
+      if(prepared && compatible(prepared)){
+        chosen=prepared;eligible=[prepared];
+      }
+    }
     if (immediate && !chosen) {
       // Preserve successful SPACE when shufflebag anti-repeat exhausts the
       // preferred family. Try other eligible *modern* tiers, never legacy.
@@ -233,6 +275,15 @@ export class SessionChoreography {
     if (accepted && this.presentation) {
       if (finish) this.presentation.begin(chosen!.id, beat, absoluteTurn);
       else this.presentation.resume(beat);
+    }
+    if (accepted && finish && chosen?.id === FANCY_FOOTWORK_FINISH.id
+      && resumeBeat !== undefined) {
+      this.postFinishResumeBeat=resumeBeat;
+      this.postFinishResumePhrase=null;
+    }
+    if (accepted && !finish && this.postFinishResumeBeat !== null) {
+      this.postFinishResumeBeat=null;
+      this.postFinishResumePhrase=null;
     }
     if (accepted && finish) this.previousFinish = chosen!.id;
     if (accepted && chosen?.id.startsWith("break-"))
@@ -262,6 +313,8 @@ export class SessionChoreography {
   /** Local last-L9-NORMAL Miss: choreography becomes idle without a new turn. */
   idleAfterLastL9Miss(beat: number) {
     this.pendingFancyFinishReady = null;
+    this.postFinishResumeBeat = null;
+    this.postFinishResumePhrase = null;
     this.sustainHighLevelDance = false;
     this.engine.update(beat);
     const previous = this.engine.current?.phrase.spec.id ?? "none";

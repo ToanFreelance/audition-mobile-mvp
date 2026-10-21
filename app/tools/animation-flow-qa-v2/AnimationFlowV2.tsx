@@ -352,6 +352,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       choreography.setExperimentalPhrases(experimentalSpecs);
       engine.loopIdle = true;
       choreography.finishChoice=options.current.finishPhrase;
+      let awaitingDanceAfterFinish = false;
       gameplay = new GameplayPreview(options.current.bpm, runSeed, (event, beat) => {
         triggerCount++;
         if (options.current.view === "source") {
@@ -359,6 +360,21 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             !event.isFinish && describeSharedTurn(gameplay!.manifest, event.absoluteTurn + 1).isFinish,
             event.isFinish ? gameplay!.resumeBeatAfterFinish(event.absoluteTurn) : undefined,
             event.level, isSharedLastNormalBeforeFinish(gameplay!.manifest, event.absoluteTurn));
+          // The full QA acceptance is FINISH followed by renewed dance.
+          // A stale Finish PASS must not mask a later L6/L8 idle lock.
+          const afterRest = !event.isFinish && awaitingDanceAfterFinish
+            && event.absoluteTurn > firstFinishTurn(gameplay!.manifest);
+          if(afterRest) {
+            const selected=choreography!.selections.at(-1);
+            const started=engine!.history.findLast(h=>
+              h.b===selected?.selected && Math.abs(h.visualStartBeat-beat)<1e-4);
+            const staged=choreography!.continuityEvents.findLast(e=>
+              e.kind==="dance-ready" && e.beat<=beat && e.beat>beat-5);
+            if(started) awaitingDanceAfterFinish=false;
+            setGameplayFinishReport(started
+              ? `SAU FINISH · ĐÃ NHẢY LẠI ${started.b} · turn ${event.absoluteTurn} · beat ${beat.toFixed(2)} · REST prep ${staged?.accepted?"OK":"không có"}`
+              : `SAU FINISH · CHƯA QUAY LẠI DANCE · turn ${event.absoluteTurn} · ${engine!.placementDecisions.get("post-finish-dance-ready")?.reason??"no-compatible-SPACE-phrase"}`);
+          }
           if (event.isFinish) {
             const selected=choreography!.selections.at(-1);
             const chosen=selected?.selected ?? "none";
@@ -371,6 +387,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
               : options.current.finishPhrase===FANCY_FOOTWORK_FINISH.id
                 ? " · HIDDEN prep: chưa thực hiện" : "";
             const facing=engine!.snapshot().orientation.facingErrorDeg;
+            awaitingDanceAfterFinish=Boolean(accepted&&placed);
             setGameplayFinishReport(accepted && placed
               ? `FINISH TURN ${event.absoluteTurn} · ĐÃ PHÁT ${chosen} · beat ${placed.visualStartBeat.toFixed(2)}${preflight}`
               : `FINISH TURN ${event.absoluteTurn} · KHÔNG PHÁT ${options.current.finishPhrase} · ${placement?.reason ?? (selected?.accepted ? "visual-not-started" : "no eligible placement/recovery")}${preflight} · lệch hướng ${facing.toFixed(1)}°`);
@@ -932,7 +949,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.14</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.15</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted+" "+styles.labIntro}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
