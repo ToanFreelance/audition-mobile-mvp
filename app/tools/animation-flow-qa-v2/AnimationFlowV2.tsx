@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import * as T from "three";
 import { BVHLoader } from "three/examples/jsm/loaders/BVHLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { CharacterActor, disposeObjectResources } from "@/components/character/CharacterActor";
+import { disposeObjectResources } from "@/components/character/CharacterActor";
+import { LiveCmuMeshPreview } from "@/lib/animation-flow-v2/live-character-retarget";
 import { CORE_PHRASES, FAILING_PAIRS, FIXTURE_PHRASES, MOONWALK_PHRASE, SOURCE_PIN, type ExitPolicy } from "@/lib/animation-flow-v2/catalog";
 import { makeCanonicalRig, preparePhrase, SourceFlowEngine, type PreparedPhrase, type SourceMotion } from "@/lib/animation-flow-v2/engine";
 import { DemoBeatClock, TurnCursor } from "@/lib/animation-flow-v2/clock";
@@ -20,7 +21,6 @@ import { describeSharedTurn, firstFinishTurn, isSharedLastNormalBeforeFinish } f
 import { FLARE_SPEC, FLARE_RISE_SPEC, FlareLibrary } from "@/lib/animation-flow-v2/flare-performance";
 import { rankFancyFinishWindows } from "@/lib/animation-flow-v2/fancy-finish-window";
 import type { FlareSource } from "@/lib/animation-flow-v2/flare-source";
-import { FINISH_CHOREOGRAPHY } from "@/components/character/choreography";
 import { OWNER_CURATION_DIRECTIONS, proposeReviewSegments, type CurationSlot, type ActivitySample } from "@/lib/animation-flow-v2/clip-curation";
 import { EXPERIMENTAL_SOURCES, analyzeExperimentalSource, type IntakeRejection } from "@/lib/animation-flow-v2/experimental-dance";
 
@@ -80,8 +80,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     const element: HTMLDivElement = hostElement;
     let disposed = false, raf = 0, audio: AudioContext | null = null;
     let engine: SourceFlowEngine | null = null, bag = new PhraseBag(CORE_PHRASES, 20261018);
-    let runSeed = 20261018, reference: CharacterActor | null = null, referenceVersion = 0;
-    let referenceView: View = "source", referenceStatus = "Chưa tải", referenceEvent = 0;
+    let runSeed = 20261018, reference: LiveCmuMeshPreview | null = null, referenceVersion = 0;
+    let referenceView: View = "source", referenceStatus = "Chưa tải";
     let triggerCount = 0, processedBoundaries: number[] = [], lastUi = 0, replayTarget: string | null = null;
     let samples: Telemetry[] = [], recorder: MediaRecorder | null = null;
     let gameplay: GameplayPreview | null = null, choreography: SessionChoreography | null = null;
@@ -324,13 +324,9 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     const download = (blob: Blob, name: string) => { const a = document.createElement("a"); const url = URL.createObjectURL(blob); a.href = url; a.download = name; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); };
     const reportError = (e: unknown) => { if (!disposed) setError(e instanceof Error ? e.message : String(e)); };
     async function ensureAudio() { if (!audio) { audio = new AudioContext(); clock.reset(audio.currentTime); clock.setBpm(options.current.bpm, audio.currentTime); } await audio.resume(); if (!disposed) setRunning(true); }
-    function referenceSpace(beat: number) {
-      reference?.handlePresentationEvent({ kind: "dance", eventId: ++referenceEvent, absoluteTurn: Math.floor(beat / 4), level: 4, isFinish: false, judgement: "perfect", choreographyId: `dance-0${referenceEvent % 8 + 1}` as "dance-01", actionStartSongTimeMs: audioSeconds() * 1000 });
-    }
     function space(beat: number, trigger: "auto" | "manual") {
       if (!engine) return; triggerCount++;
       if (trigger === "manual") replayTarget = null;
-      if (options.current.view !== "source") { referenceSpace(beat); return; }
       if (replayTarget && trigger === "auto") {
         if (engine.current?.phrase.spec.id === replayTarget) replayTarget = null;
         else { if (engine.pending?.id !== replayTarget) engine.request(replayTarget, beat); return; }
@@ -355,7 +351,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       let awaitingDanceAfterFinish = false;
       gameplay = new GameplayPreview(options.current.bpm, runSeed, (event, beat) => {
         triggerCount++;
-        if (options.current.view === "source") {
+        {
           const accepted = choreography!.select(beat, event.absoluteTurn, event.isFinish,
             !event.isFinish && describeSharedTurn(gameplay!.manifest, event.absoluteTurn + 1).isFinish,
             event.isFinish ? gameplay!.resumeBeatAfterFinish(event.absoluteTurn) : undefined,
@@ -397,7 +393,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             : event.isFinish
               ? "FINISH chưa vào engine. Xem lỗi ngay cạnh Preview."
               : "Không có placement phù hợp; giữ pose, timeline vẫn chạy. Xem JSON.");
-        } else reference?.handlePresentationEvent({ kind: "dance", eventId: ++referenceEvent, absoluteTurn: event.absoluteTurn, level: event.level, isFinish: event.isFinish, judgement: "perfect", choreographyId: event.isFinish ? FINISH_CHOREOGRAPHY : `dance-0${event.absoluteTurn % 8 + 1}` as "dance-01", actionStartSongTimeMs: audioSeconds() * 1000 });
+        }
       }, (event, beat) => {
         if (!isSharedLastNormalBeforeFinish(gameplay!.manifest, event.absoluteTurn)) return;
         const idled = choreography?.idleAfterLastL9Miss(beat) ?? false;
@@ -429,10 +425,10 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         }
         // Consume exact authoritative targets before sampling the final visual
         // pose. A sparse frame must not idle past an unprocessed L6 command.
-        if (config.view === "source" && config.mode !== "lab") choreography?.update(boundary);
+        if (config.mode !== "lab") choreography?.update(boundary);
       }
       if (config.mode === "gameplay") gameplay?.advance(beat, config.auto, config.outcome);
-      if (config.view === "source" && config.mode !== "lab") choreography?.update(beat);
+      if (config.mode !== "lab") choreography?.update(beat);
       engine.update(beat);
     }
     async function resetRun() {
@@ -443,7 +439,6 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       selectionEvents.length = 0;
       const first = bag.next(); if (catalogReview) engine.start("141-twist", 0); else if (first) engine.start(options.current.mode === "gameplay" ? "141-twist" : first.id, 0);
       if (!catalogReview) createGameplay(); setError(""); setStatus(catalogReview ? "Dance Review · chọn nguồn để tải BVH và phát clip thử nghiệm." : "QA loop · shared multiplayer · 4 beat/turn · Finish không kết thúc phiên.");
-      reference?.setGameActive(false); reference?.setGameActive(true); referenceSpace(0);
     }
     commands.current = {
       selectFinish: async id => {
@@ -466,8 +461,6 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           // not leave users in isolated FINISH/LAB mode by surprise.
           options.current.mode = "gameplay";
           setMode("gameplay");
-          options.current.view = "source";
-          setView("source");
           options.current.auto = true;
           setAuto(true);
           await resetRun(); // Selected Finish is armed for the next actual shared Finish event.
@@ -570,7 +563,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             finally { if (!disposed) setFinishLoading(false); }
           }
           setMode(finish ? "finish" : "lab"); options.current.mode = finish ? "finish" : "lab";
-          setView("source"); options.current.view = "source";
+          // Keep the chosen mesh for exactly this Finish audition.
+          // CMU timing, not published CharacterActor playback, remains active.
           setAuto(false); options.current.auto = false;
           const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
           if (candidate && catalogReview) {
@@ -662,7 +656,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         if (options.current.mode !== "lab") { setStatus("Chọn Free Animation Lab trước khi thử Moonwalk riêng."); return; }
         try { await prepare([MOONWALK_PHRASE]); if (disposed || !engine) return; engine.request(MOONWALK_PHRASE.id, currentBeat()); setStatus("Phrase Moonwalk riêng: giữ chuyển động trượt, không thuộc shuffle core."); } catch (e) { reportError(e); }
       },
-      export: () => download(new Blob([JSON.stringify({ schemaVersion: 7, implementation: "2.2.6", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], catalogReview, fancyFinishWindow: finishWindowRef.current, experimentalPhrases: experimentalSpecs, experimentalRejections: experimentalErrors, experimentalSelections: choreography?.experimentalSelections, ownerCurationDirections: OWNER_CURATION_DIRECTIONS, curationSegments: curationRef.current, rawSourceReview: rawReviewSource && rawReviewId ? { id: rawReviewId, source: rawReviewSource.clip.name, fullDurationSeconds: rawReviewSource.clip.duration, sourcePlayback: "full-BVH-original-clip", noGameplayStageBound: true, autoStopAtEnd: true } : null, reviewerFeedback: reviewRef.current, gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), catalogReview ? `dance-catalog-review-v226-${runSeed}.json` : `animation-flow-v226-${runSeed}.json`),
+      export: () => download(new Blob([JSON.stringify({ schemaVersion: 7, implementation: "2.2.6", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], catalogReview, fancyFinishWindow: finishWindowRef.current, experimentalPhrases: experimentalSpecs, experimentalRejections: experimentalErrors, experimentalSelections: choreography?.experimentalSelections, ownerCurationDirections: OWNER_CURATION_DIRECTIONS, curationSegments: curationRef.current, rawSourceReview: rawReviewSource && rawReviewId ? { id: rawReviewId, source: rawReviewSource.clip.name, fullDurationSeconds: rawReviewSource.clip.duration, sourcePlayback: "full-BVH-original-clip", noGameplayStageBound: true, autoStopAtEnd: true } : null, reviewerFeedback: reviewRef.current, gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton + live QA retarget to accepted Mixamo rig (unapproved)", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), catalogReview ? `dance-catalog-review-v226-${runSeed}.json` : `animation-flow-v226-${runSeed}.json`),
       record: () => {
         if (recorder && recorder.state !== "inactive") { recorder.stop(); return; }
         if (!renderer.domElement.captureStream || typeof MediaRecorder === "undefined") { setError("Browser này không hỗ trợ ghi canvas; dùng xuất telemetry JSON."); return; }
@@ -730,14 +724,25 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       element.dataset.reviewBoneCount = String(joint);
     }
     async function selectReference(next: View) {
-      const version = ++referenceVersion; reference?.dispose(); reference = null; referenceView = next;
-      if (next === "source") return;
-      referenceStatus = "Đang tải actor/published clips…";
-      const actor = CharacterActor.fromAssetId(next); reference = actor; scene.add(actor.root); actor.setGameActive(true);
-      const result = await actor.load();
-      if (disposed || version !== referenceVersion) { actor.dispose(); return; }
-      referenceStatus = result?.source === "gltf" ? "Actor GLTF · published/fallback qua đường hiện hành" : "FALLBACK — không tính character PASS";
-      referenceSpace(currentBeat());
+      const version = ++referenceVersion;
+      reference?.dispose(); reference = null; referenceView = next;
+      if (next === "source") { referenceStatus = "Nguồn CMU canonical"; return; }
+      if (!engine) return;
+      referenceStatus = "Đang tải GLB + bone mapping CMU → Mixamo…";
+      try {
+        // This explicitly bypasses CharacterActor's published animation mixer:
+        // the authoritative SourceFlowEngine owns EVERY pose and transition.
+        const actor = await LiveCmuMeshPreview.load(next, engine);
+        if (disposed || version !== referenceVersion) { actor.dispose(); return; }
+        reference = actor; scene.add(actor.root); actor.update(engine);
+        referenceStatus = `GLB thật · CMU→Mixamo QA · ${actor.diagnostics.bonePairs} bones · ${actor.diagnostics.triangles} triangles · ${actor.diagnostics.skinnedMeshes} skinned mesh`;
+        if (!disposed) setStatus("Đã gắn " + (next === "c1-casual-grace" ? "Casual Grace" : "Casual Boy") +
+          " vào cùng Animation Flow V2; SPACE, Finish và REST không đổi.");
+      } catch (cause) {
+        if (disposed || version !== referenceVersion) return;
+        referenceStatus = "LỖI rig/retarget · " + (cause instanceof Error ? cause.message : String(cause));
+        reportError(cause); // Do not show a fake fallback as rig PASS.
+      }
     }
     const onKey = (event: KeyboardEvent) => {
       if (event.code !== "Space" || event.repeat || (event.target as HTMLElement)?.closest("input,select,button,textarea")) return;
@@ -752,7 +757,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       if (engine) {
         advance(beat);
         if (referenceView !== config.view) void selectReference(config.view).catch(reportError);
-        const isSource = config.view === "source";
+        const isSource = config.view === "source" || (!reference && !catalogReview);
         body.visible = isSource && (!catalogReview || rawReviewSource !== null);
         joints.visible = isSource && (!catalogReview || rawReviewSource !== null);
         trail.visible = isSource && !catalogReview;
@@ -787,10 +792,10 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             }
           }
         } else if (isSource) drawRig();
-        else reference?.update(0, seconds, seconds * 1000);
+        else reference?.update(engine);
         if (now - lastUi > 95) {
           const state = engine.snapshot();
-          const data: Telemetry = { ...state, gameplay: config.mode === "gameplay" ? gameplay?.snapshot() ?? null : null, finishPresentation: choreography?.presentation?.snapshot() ?? null, mode: config.mode, beat, turn: previewTurnCounter(config.mode, gameplay?.snapshot().current, turns.index).value, beatBoundary: turns.index, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : "CMU-hidden; reference has separate referenceAnchor", renderBackend };
+          const data: Telemetry = { ...state, gameplay: config.mode === "gameplay" ? gameplay?.snapshot() ?? null : null, finishPresentation: choreography?.presentation?.snapshot() ?? null, mode: config.mode, beat, turn: previewTurnCounter(config.mode, gameplay?.snapshot().current, turns.index).value, beatBoundary: turns.index, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : "CMU-live-retarget-on-accepted-skinned-GLB", renderBackend };
           element.dataset.telemetry = JSON.stringify(data);
           setTelemetry(data); setHistory(engine.history.slice(-8).reverse());
           if (!catalogReview) setExperimentalPlayed(choreography?.experimentalSelections.length ?? 0); samples.push(data); if (samples.length > 12000) samples.shift();
@@ -800,7 +805,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         }
       }
       controls.update(); renderer.render(scene, camera);
-      if(options.current.view==='source')choreography?.presentation?.markRendered(currentBeat());
+      choreography?.presentation?.markRendered(currentBeat());
       if (recorder?.state === "recording") {
         const ctx = videoCanvas.getContext("2d");
         if (ctx) {
@@ -809,7 +814,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           ctx.fillStyle = row?.isFinish ? "#ff646d" : "#f0e8ff"; ctx.font = "bold 24px sans-serif";
           ctx.fillText(row ? `L${row.level} · TURN ${row.absoluteTurn} · ${row.status} · ${row.sequenceIndex + 1}/${row.levelBudget}` : `${options.current.mode.toUpperCase()} · QA ISOLATED`, 22, 35);
           ctx.fillStyle = "#c9bbff"; ctx.font = "18px sans-serif"; ctx.fillText(`${options.current.bpm} BPM · beat ${beat.toFixed(2)} · ${engine?.snapshot().current ?? ""}`, 22, 68);
-          ctx.fillText(`${renderBackend} · synthetic AudioContext QA loop`, 22, 790); ctx.fillText("CMU source skeleton · NOT accepted mesh / iPhone validation", 22, 820);
+          ctx.fillText(`${renderBackend} · synthetic AudioContext QA loop`, 22, 790); ctx.fillText(config.view === "source" ? "CMU canonical skeleton" : "QA LIVE CMU→Mixamo · NOT production approved", 22, 820);
         }
       }
     }
@@ -949,15 +954,15 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.15</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.16</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted+" "+styles.labIntro}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
-        {([["source", "Nguồn BVH · V2"], ["c1-casual-grace", "Tham chiếu nữ"], ["c4-casual-boy", "Tham chiếu nam"]] as const).map(([id, label]) => <button key={id} disabled={id !== "source" && backend !== "webgl"} title={id !== "source" && backend !== "webgl" ? "Cần WebGL để xem mesh accepted" : undefined} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
+        {([["source", "Nguồn BVH · V2"], ["c1-casual-grace", "Grace · CMU→Mesh"], ["c4-casual-boy", "Boy · CMU→Mesh"]] as const).map(([id, label]) => <button key={id} disabled={id !== "source" && backend !== "webgl"} title={id !== "source" && backend !== "webgl" ? "Cần WebGL để xem mesh accepted" : undefined} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
       </div>
       <div className={styles.layout}>
         <section className={styles.stageCard}>
-          <div className={styles.stageHeader}><span><i className={ready ? styles.dot : styles.loadingDot} />{view === "source" ? backend === "webgl" ? "CMU · CANONICAL SKELETON" : "CMU · CHIẾU SKELETON 2D" : "PUBLISHED · NHÂN VẬT HIỆN HÀNH"}</span><span>{bpm} BPM · {view === "source" ? "tempo giả định" : "controller gốc"}</span></div>
+          <div className={styles.stageHeader}><span><i className={ready ? styles.dot : styles.loadingDot} />{view === "source" ? backend === "webgl" ? "CMU · CANONICAL SKELETON" : "CMU · CHIẾU SKELETON 2D" : "REAL GLB · LIVE CMU RETARGET QA"}</span><span>{bpm} BPM · {view === "source" ? "tempo giả định" : "cùng đồng hồ CMU"}</span></div>
           <div className={styles.quickDock} data-testid="preview-control-dock" role="group" aria-label="Điều khiển ngay tại Preview">
             <div className={styles.quickRow} data-testid="finish-choice-panel">
               <label className={styles.quickLabel}>FINISH
@@ -1004,7 +1009,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
               && <p className={styles.quickMeta} data-testid="gameplay-finish-report">{gameplayFinishReport}</p>}
           </div>
           <div ref={host} className={styles.canvas} data-testid="animation-flow-stage" />
-          <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = root 1,35 · mũi tên xanh = khán giả cố định · vàng = hướng Hips +Z · orbit không đổi hướng sân" : "Đường tham chiếu giữ controller production (150 ms / tốc độ gốc). Chưa retarget sáu phrase CMU vào actor này."}</div>
+          <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = root 1,35 · mũi tên xanh = khán giả cố định · vàng = hướng Hips +Z · orbit không đổi hướng sân" : "Mesh thật dùng cùng animation và global beat của bộ xương CMU; retarget QA chưa được duyệt production. Kiểm tra méo khớp, chân trượt và tiếp đất."}</div>
           {view === "source" && <div className={styles.canvasCaption} data-testid="facing-indicator">{telemetry?.samplingDomain ? "Flare: hướng Hips khi chống sàn không phải hướng đứng" : `Lệch hướng: ${(telemetry?.orientation.facingErrorDeg ?? 0).toFixed(1)}°`} · {Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 45 ? "Chính diện" : Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 90 ? "Nghiêng" : "Quay lưng"} · {telemetry?.orientation.policy === "fixture-spatial-only" ? "Fixture: chỉ kiểm vị trí" : "Ưu tiên khán giả"}</div>}
           <div className={styles.rhythm}>
             {mode === "gameplay" && <div className={styles.gameplayHud} data-testid="gameplay-hud" data-finish={gameplayRow?.status === "FINISH"}>
@@ -1020,12 +1025,12 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           </div>
         </section>
         <aside className={styles.sidebar}>
-          <section className={styles.panel}><p className={styles.eyebrow}>ĐANG TRÌNH BÀY</p><h2>{view === "source" ? currentSpec?.label ?? telemetry?.current ?? "Chuẩn bị…" : view === "c1-casual-grace" ? "Casual Grace" : "Casual Boy"}</h2><div className={styles.sourceId}>{view === "source" ? telemetry?.source ?? "—" : view}</div>{telemetry?.finishPresentation?.flare && <p className={styles.muted}>Rig Mixamo → CMU · {backend} · entry/đứng dậy thử nghiệm</p>}<p className={styles.muted}>{view === "source" ? `Phrase ${telemetry?.sourcePhrase?.map(n => n.toFixed(2)).join("–") ?? "—"} giây nguồn · ${telemetry?.policy ?? "FREE"}` : telemetry?.referenceStatus ?? "Chưa tải"}</p>{telemetry?.pending && view === "source" && <p className={styles.pending}>Đã nhận SPACE · đợi exit tại beat {telemetry.pending.dueBeat.toFixed(2)}</p>}<p className={styles.muted} data-testid="presentation-phase">Pha: {telemetry?.finishPresentation?.phase ?? "DANCE"}{telemetry?.finishPresentation?.flare && ` · vòng ${telemetry.finishPresentation.completedLoops}/${telemetry.finishPresentation.loopCount} · còn ${telemetry.finishPresentation.remainingBeats?.toFixed(2)} beat · ${telemetry.finishPresentation.playbackRate?.toFixed(3)}×`}</p><p className={styles.muted}>Trước: {view === "source" ? telemetry?.previous ?? "—" : "xem đường published hiện hành"}</p></section>
+          <section className={styles.panel}><p className={styles.eyebrow}>ĐANG TRÌNH BÀY</p><h2>{view === "source" ? currentSpec?.label ?? telemetry?.current ?? "Chuẩn bị…" : view === "c1-casual-grace" ? "Casual Grace" : "Casual Boy"}</h2><div className={styles.sourceId}>{telemetry?.source ?? "—"}</div>{telemetry?.finishPresentation?.flare && <p className={styles.muted}>Rig Mixamo → CMU · {backend} · entry/đứng dậy thử nghiệm</p>}<p className={styles.muted}>{view === "source" ? `Phrase ${telemetry?.sourcePhrase?.map(n => n.toFixed(2)).join("–") ?? "—"} giây nguồn · ${telemetry?.policy ?? "FREE"}` : `${telemetry?.referenceStatus ?? "Chưa tải"} · Đang chạy ${telemetry?.current ?? "—"}`}</p>{telemetry?.pending && view === "source" && <p className={styles.pending}>Đã nhận SPACE · đợi exit tại beat {telemetry.pending.dueBeat.toFixed(2)}</p>}<p className={styles.muted} data-testid="presentation-phase">Pha: {telemetry?.finishPresentation?.phase ?? "DANCE"}{telemetry?.finishPresentation?.flare && ` · vòng ${telemetry.finishPresentation.completedLoops}/${telemetry.finishPresentation.loopCount} · còn ${telemetry.finishPresentation.remainingBeats?.toFixed(2)} beat · ${telemetry.finishPresentation.playbackRate?.toFixed(3)}×`}</p><p className={styles.muted}>Trước: {telemetry?.previous ?? "—"}</p></section>
           <details className={styles.panel+" "+styles.advancedPanel}><summary>Cài đặt nâng cao · crossfade / exit / auto</summary>
             <label className={styles.control}>BPM <strong>{bpm}</strong><input aria-label="BPM" disabled={tempoLocked} type="range" min={80} max={200} step={1} value={bpm} onChange={e => setBpm(+e.target.value)} /></label>
             <div className={styles.presets}>{[110,120,160,200].map(rate=><button key={rate} disabled={tempoLocked} onClick={() => setBpm(rate)}>{rate} BPM</button>)}</div>
-            <label className={styles.control}>Crossfade <select aria-label="Crossfade" value={fade} disabled={view !== "source"} onChange={e => setFade(+e.target.value)}>{[0.15, 0.35, 0.7, 1].map(v => <option key={v} value={v}>{v} beat · {(v * 60 / bpm).toFixed(3)} giây</option>)}</select></label>
-            <label className={styles.control}>Exit policy <select aria-label="Exit policy" value={policy} disabled={view !== "source"} onChange={e => setPolicy(e.target.value as typeof policy)}><option value="metadata">Theo phrase metadata</option><option value="FREE">FREE · nếu không trong protected phase</option><option value="BEAT_WINDOW">BEAT_WINDOW</option><option value="PROTECTED">PROTECTED · thử chờ marker</option></select></label>
+            <label className={styles.control}>Crossfade <select aria-label="Crossfade" value={fade} disabled={false} onChange={e => setFade(+e.target.value)}>{[0.15, 0.35, 0.7, 1].map(v => <option key={v} value={v}>{v} beat · {(v * 60 / bpm).toFixed(3)} giây</option>)}</select></label>
+            <label className={styles.control}>Exit policy <select aria-label="Exit policy" value={policy} disabled={false} onChange={e => setPolicy(e.target.value as typeof policy)}><option value="metadata">Theo phrase metadata</option><option value="FREE">FREE · nếu không trong protected phase</option><option value="BEAT_WINDOW">BEAT_WINDOW</option><option value="PROTECTED">PROTECTED · thử chờ marker</option></select></label>
             <label className={styles.checkbox}><input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} />{mode === "gameplay" ? "Auto command tại target gốc; bỏ qua HIDDEN / REST" : "Tự SPACE mỗi bốn beat (Lab)"}</label>
             {mode === "gameplay" && <label className={styles.control}>Kết quả tự động <select aria-label="Auto outcome" value={outcome} onChange={e => setOutcome(e.target.value as PreviewOutcome)}><option value="perfect">Perfect · nhập đúng arrow + SPACE</option><option value="miss">Miss · không nhập, runtime xử lý</option></select></label>}
           </details>
