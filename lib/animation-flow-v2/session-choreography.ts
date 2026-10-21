@@ -8,11 +8,13 @@ import { DEFAULT_STYLE_RUN_SPACES, isModernFamily, isPlayableModernPhrase, other
 export class SessionChoreography {
   readonly bag: PhraseBag;
   readonly selections: { beat: number; absoluteTurn: number | null; finish: boolean; eligibleIds: string[]; selected: string | null; accepted: boolean; danceFamily?: string | null; styleChanged?: boolean }[] = [];
-  readonly continuityEvents: { beat: number; previous: string; next: string; accepted: boolean; reason: string; kind?: "dance-bridge" | "living-idle"; requestedAtBeat?: number; danceFamily?: string | null }[] = [];
+  readonly continuityEvents: { beat: number; previous: string; next: string; accepted: boolean; reason: string; kind?: "dance-bridge" | "living-idle" | "finish-ready"; requestedAtBeat?: number; danceFamily?: string | null }[] = [];
   /** Opt-in: only the actual Gameplay Preview uses immediate successful-SPACE transitions. */
   instantGameplay = false;
   /** Only levels 6–9 sustain ordinary dance between valid SPACE commands. */
   private sustainHighLevelDance = false;
+  /** L9 HIDDEN preparation, visual-only, scheduled by a successful NORMAL. */
+  private pendingFancyFinishReady: { startBeat: number; finishBeat: number } | null = null;
   private readonly bridgeBag: PhraseBag;
   private readonly bridgeFadeCapBeats = .35;
   /** Opt-in curated upright Break clips; never replaces normal accepted catalog. */
@@ -50,6 +52,22 @@ export class SessionChoreography {
    * Schedule at the SOURCE beat, not the RAF frame, to survive sparse frames.
    */
   private sustain(beat: number, beforeJudgement = false) {
+    // Correct heading/pose at the EXACT first beat of the already-budgeted
+    // pre-Finish HIDDEN slot. Never gate on RAF delivery speed, and never
+    // generate a separate SPACE, judgement or replacement global turn.
+    const ready = this.pendingFancyFinishReady;
+    if (ready && beat >= ready.startBeat - 1e-6) {
+      this.pendingFancyFinishReady = null;
+      const previous = this.engine.current?.phrase.spec.id ?? "none";
+      const accepted = this.engine.stageForFancyFinish(ready.startBeat, ready.finishBeat);
+      this.continuityEvents.push({
+        beat:ready.startBeat,requestedAtBeat:beat,previous,
+        next:"rest-standing",accepted,kind:"finish-ready",
+        reason:accepted ? "hidden-beat-authoritative-facing-anticipation"
+          : "finish-ready-placement-unavailable"
+      });
+      if (accepted) this.sustainHighLevelDance = false;
+    }
     this.presentation?.update(beat);
     if (!this.instantGameplay || this.presentation?.snapshot().active) return;
     const deadline = beforeJudgement ? beat - 1e-6 : beat;
@@ -121,7 +139,9 @@ export class SessionChoreography {
     });
   }
   update(beat: number) { this.sustain(beat); }
-  select(beat: number, absoluteTurn: number | null, finish = false, finishNext = false, resumeBeat?: number, level?: number) {
+  select(beat: number, absoluteTurn: number | null, finish = false,
+    finishNext = false, resumeBeat?: number, level?: number,
+    preFinishHiddenNext = false) {
     // Catch up every pre-end bridge *before* the incoming judgement; never
     // synthesize a bridge right on top of a new successful SPACE.
     this.sustain(beat, true);
@@ -198,7 +218,18 @@ export class SessionChoreography {
         if (alternative) { chosen = alternative; eligible = tier; break; }
       }
     }
-    const accepted = Boolean(chosen && this.engine.request(chosen.id, beat, undefined, immediate || fancyImmediate));
+    const requested = Boolean(chosen
+      && this.engine.request(chosen.id, beat, undefined, immediate || fancyImmediate));
+    // A protected Fancy Finish cannot claim "played" from a QUEUED request.
+    // Its red-command success must correspond to an actual visual start at
+    // this exact judgement beat; otherwise retain the global Finish slot and
+    // report the failure, without quietly starting it later during REST.
+    const playedNow = !fancyImmediate || Boolean(chosen && this.engine.history.some(h =>
+      h.b === chosen.id && Math.abs(h.requestedBeat - beat) < 1e-5
+      && Math.abs(h.visualStartBeat - beat) < 1e-5));
+    if (fancyImmediate && requested && !playedNow
+      && this.engine.pending?.id === chosen?.id) this.engine.pending = null;
+    const accepted = requested && playedNow;
     if (accepted && this.presentation) {
       if (finish) this.presentation.begin(chosen!.id, beat, absoluteTurn);
       else this.presentation.resume(beat);
@@ -216,12 +247,17 @@ export class SessionChoreography {
       } else this.spacesInStyle++;
     }
     if (accepted) this.sustainHighLevelDance = !finish && level !== undefined && level >= 6;
+    if (accepted && !finish && preFinishHiddenNext
+      && this.finishChoice === FANCY_FOOTWORK_FINISH.id) {
+      this.pendingFancyFinishReady = { startBeat:beat + 4, finishBeat:beat + 8 };
+    }
     this.selections.push({ beat, absoluteTurn, finish, eligibleIds: eligible.map(p => p.id),
       selected: chosen?.id ?? null, accepted, danceFamily: chosenFamily, styleChanged });
     return accepted;
   }
   /** Local last-L9-NORMAL Miss: choreography becomes idle without a new turn. */
   idleAfterLastL9Miss(beat: number) {
+    this.pendingFancyFinishReady = null;
     this.sustainHighLevelDance = false;
     this.engine.update(beat);
     const previous = this.engine.current?.phrase.spec.id ?? "none";

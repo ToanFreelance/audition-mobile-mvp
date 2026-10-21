@@ -6,11 +6,14 @@ import { FINISH_PHRASES, FANCY_FOOTWORK_FINISH, NORMAL_PHRASES } from "../lib/an
 import { SessionChoreography } from "../lib/animation-flow-v2/session-choreography";
 import type { SourceFlowEngine } from "../lib/animation-flow-v2/engine";
 
-test("Actual production shared planner: L9 normal 37 directly precedes Finish 38", () => {
+test("Actual production shared planner: L9 NORMAL36 → HIDDEN37 → FINISH38", () => {
   for (const bpm of [110,120,160,200]) {
     const manifest=qaManifest(bpm,42);
     expect(firstFinishTurn(manifest)).toBe(38);
     expect(DEFAULT_SOLO_SETTINGS.sequenceCounts[8]).toBe(6);
+    expect(describeSharedTurn(manifest,36)).toMatchObject({
+      level:9,sequenceIndex:3,isFinish:false,roomRest:false
+    });
     expect(describeSharedTurn(manifest,37)).toMatchObject({
       level:9,sequenceIndex:4,isFinish:false,roomRest:false
     });
@@ -20,7 +23,8 @@ test("Actual production shared planner: L9 normal 37 directly precedes Finish 38
     expect(describeSharedTurn(manifest,39).roomRest).toBe(true);
     const game=new GameplayPreview(bpm,42,()=>{});
     game.advance(44*4,true,"perfect");
-    expect(game.turns[37].status).toBe("NORMAL");
+    expect(game.turns[36].status).toBe("NORMAL");
+    expect(game.turns[37].status).toBe("HIDDEN");
     expect(game.turns[38].status).toBe("FINISH");
     expect(game.turns.slice(39,43).map(t=>t.status)).toEqual(["REST","REST","REST","REST"]);
     expect(game.judgements.filter(j=>j.isFinish).map(j=>j.absoluteTurn)).toContain(38);
@@ -29,15 +33,16 @@ test("Actual production shared planner: L9 normal 37 directly precedes Finish 38
 
 test("Fancy Finish is not vetoed by UNALIGNED catalog recovery when dynamic alignment owns the handoff",()=>{
   const requests:{id:string;beat:number;immediate:boolean}[]=[];
+  const history:{b:string;requestedBeat:number;visualStartBeat:number}[]=[];
   const mock={
     current:{phrase:{spec:NORMAL_PHRASES.find(p=>p.role==="core")!,duration:4},startBeat:0},
-    pending:null,
+    pending:null,history,
     phrases:new Map([...FINISH_PHRASES].map(p=>[p.id,{spec:p,duration:5}])),
     update:()=>{},
     placementAtExit:(id:string)=>id===FANCY_FOOTWORK_FINISH.id?{score:0,yaw:0}:null,
     canFollowAtEnd:()=>false, // stale catalogue recovery must NOT reject 85_04
     request:(id:string,beat:number,_fade:number|undefined,immediate:boolean)=>{
-      requests.push({id,beat,immediate});return true;
+      requests.push({id,beat,immediate});history.push({b:id,requestedBeat:beat,visualStartBeat:beat});return true;
     },
     snapshot:()=>({root:[0,0,0]})
   } as unknown as SourceFlowEngine;

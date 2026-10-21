@@ -354,6 +354,88 @@ export class SourceFlowEngine {
     const { pose } = this.exitPose(beat);
     return this.placement(id, pose.root, rootYaw(pose.rotations[0]));
   }
+  /**
+   * Beat-authoritative preparation WITHIN the existing L9 HIDDEN slot.
+   * The last NORMAL can end at any authored root heading; replaying a protected
+   * 85_04 Finish from that pose without preparation fails the entry-facing
+   * gate (or would introduce an abrupt yaw pivot).
+   *
+   * Blend from the DISPLAYED pose to the already-prepared living idle,
+   * orienting its endpoint toward the fixed audience across the hidden four
+   * beats. This is one visual transition, NOT a new player command/turn.
+   * No root recentering, no changed stage radius, no forced incoming Finish.
+   */
+  stageForFancyFinish(hiddenStartBeat: number, finishBeat: number) {
+    const idle = this.phrases.get("rest-standing");
+    if (!idle || !this.current || !(finishBeat > hiddenStartBeat + .25)) return false;
+    this.update(hiddenStartBeat);
+    const outgoing = this.current;
+    const outgoingTime = this.time(outgoing, hiddenStartBeat);
+    // An authored protected ground contact is NEVER interrupted merely to
+    // make the next Finish eligible; surface the reason instead.
+    if (outgoing.phrase.spec.protectedRanges?.some(([a,b]) =>
+      outgoingTime >= a && outgoingTime < b)) {
+      this.placementDecisions.set("finish-ready-idle", {
+        id:"finish-ready-idle",beat:hiddenStartBeat,
+        rootXZ:[this.pose.root.x,this.pose.root.z],
+        evaluated:1,spatialRejected:0,continuationRejected:1,
+        facingRejected:0,angularRejected:0,accepted:0,
+        reason:"protected-outgoing-contact",selectedYawDeg:null
+      });
+      return false;
+    }
+    const durationBeats = finishBeat - hiddenStartBeat;
+    const idleElapsed = durationBeats * 60 / idle.spec.referenceBpm;
+    const idleTargetSeconds = this.loopIdle && idle.duration > 0
+      ? idleElapsed % idle.duration : Math.min(idleElapsed, idle.duration);
+    const targetRoot = new T.Quaternion().fromArray(idle.rotations[0].evaluate(idleTargetSeconds));
+    const yaw = wrapAngle(this.desiredHeading - rootYaw(targetRoot));
+    const origin = this.pose.root;
+    const q = new T.Quaternion().setFromAxisAngle(Y, yaw);
+    // The entire standing source path stays within the SAME locked stage.
+    const peak = Math.max(...idle.path.map(p => {
+      const rotated = p.clone().applyQuaternion(q);
+      return Math.hypot(origin.x + rotated.x, origin.z + rotated.z);
+    }));
+    if (peak > this.radius - .005) {
+      this.placementDecisions.set("finish-ready-idle", {
+        id:"finish-ready-idle",beat:hiddenStartBeat,rootXZ:[origin.x,origin.z],
+        evaluated:1,spatialRejected:1,continuationRejected:0,facingRejected:0,
+        angularRejected:0,accepted:0,reason:"stage-radius",selectedYawDeg:null
+      });
+      return false;
+    }
+    const beforeHeading = rootYaw(this.pose.rotations[0]);
+    const targetHeading = rootYaw(targetRoot) + yaw;
+    const change = Math.abs(wrapAngle(targetHeading - beforeHeading));
+    const turnSeconds = (durationBeats - .15) * 60 / this.bpm;
+    if (turnSeconds <= 0 || degrees(change) / turnSeconds > HEADING_LIMITS.transitionAddedYawDegPerSecond) {
+      this.placementDecisions.set("finish-ready-idle", {
+        id:"finish-ready-idle",beat:hiddenStartBeat,rootXZ:[origin.x,origin.z],
+        evaluated:1,spatialRejected:0,continuationRejected:0,facingRejected:0,
+        angularRejected:1,accepted:0,reason:"turn-rate",selectedYawDeg:null
+      });
+      return false;
+    }
+    const forced: Placement = {
+      yaw,score:peak,maxFacingError:degrees(change),
+      maxYawSpeed:degrees(change)/turnSeconds,maxQuaternionSpeed:degrees(change)/turnSeconds
+    };
+    // Snapshot the outgoing displayed body pose to avoid blending from an
+    // ordinary one-shot that has already clamped/looped during HIDDEN.
+    const accepted=this.commit("rest-standing",hiddenStartBeat,hiddenStartBeat,
+      "FREE",false,Math.max(.15,durationBeats - .15),forced,true);
+    this.placementDecisions.set("finish-ready-idle", {
+      id:"finish-ready-idle",beat:hiddenStartBeat,
+      rootXZ:[origin.x,origin.z],evaluated:1,spatialRejected:0,
+      continuationRejected:0,facingRejected:0,angularRejected:0,
+      accepted:accepted?1:0,
+      reason:accepted?"hidden-facing-prepared":"idle-commit-rejected",
+      selectedYawDeg:accepted?degrees(wrapAngle(yaw)):null
+    });
+    return accepted;
+  }
+
   /** Check one known upcoming Finish without moving the dancer or gameplay clock. */
   canFollowAt(id: string, nextIds: readonly string[], beat: number, nextBeat: number, recovery?: Readonly<Record<string, string>>) {
     const { pose, due } = this.exitPose(beat), phrase = this.phrases.get(id);
@@ -383,12 +465,15 @@ export class SourceFlowEngine {
     const exit = safeExitTime(phrase.spec, time, phrase.duration, this.policyOverride);
     return (exit.localSeconds - time) * phrase.spec.referenceBpm / 60;
   }
-  private commit(id: string, beat: number, requestedBeat: number, policy: ExitPolicy, initial = false, fade = this.blendBeats) {
-    const phrase = this.phrases.get(id); const place = this.placement(id);
+  private commit(id: string, beat: number, requestedBeat: number, policy: ExitPolicy,
+    initial = false, fade = this.blendBeats, forcedPlacement?: Placement,
+    blendFromDisplayedPose = false) {
+    const phrase = this.phrases.get(id);
+    const place = forcedPlacement ?? this.placement(id);
     if (!phrase || !place) { this.rejectedRequests++; return false; }
     const before = clonePose(this.pose), previous = this.current;
     if (this.lastRecord && this.blend) this.lastRecord.interrupted = true;
-    const from = this.blend ? before : previous;
+    const from = blendFromDisplayedPose || this.blend ? before : previous;
     this.current = { phrase, startBeat: beat, offset: before.root.clone(), yaw: place.yaw };
     const entry = this.sample(this.current, beat);
     // A .35-beat fade at 200 BPM is 105ms: enough for a mathematical

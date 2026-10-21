@@ -34,7 +34,10 @@ test("Perfect/Miss schedules match; success suppression consumes slots; only AUD
   for(let beat=0;beat<=456;beat+=.1){a.advance(beat,true,"perfect");b.advance(beat,true,"miss");}
   expect(a.turns.map(t=>[t.absoluteTurn,t.level,t.sequenceIndex,t.isFinish,t.roomRest])).toEqual(b.turns.map(t=>[t.absoluteTurn,t.level,t.sequenceIndex,t.isFinish,t.roomRest]));
   expect(a.turns[15].status).toBe("NORMAL");expect(a.turns[16].status).toBe("HIDDEN");expect(a.turns[43]).toMatchObject({status:"NORMAL",level:6,sequenceIndex:4});
-  expect(a.judgements.filter(e=>e.isFinish).map(e=>e.absoluteTurn)).toEqual([38,62,86,110]);expect(b.judgements.filter(e=>e.isFinish).map(e=>e.absoluteTurn)).toEqual([38,62,86,110]);
+  expect(a.judgements.filter(e=>e.isFinish).map(e=>e.absoluteTurn)).toEqual([38,62,86,110]);// A client that misses its LAST L9 NORMAL forfeits its own Finish;
+  // canonical Finish turns remain in the shared manifest nonetheless.
+  expect(b.judgements.filter(e=>e.isFinish)).toHaveLength(0);
+  expect(b.turns.filter(t=>t.isFinish).every(t=>t.status==="FINISH_BLOCKED")).toBe(true);
   expect(a.snapshot().runtime.audioEnded).toBe(false);a.audioEnd();a.advance(999,true,"perfect");expect(a.snapshot().runtime.audioEnded).toBe(true);expect(a.turns).toHaveLength(113);
   results.push({case:"perfect-miss-timeline",perfect:a.turns,miss:b.turns,perfectJudgements:a.judgements,missJudgements:b.judgements});
 });
