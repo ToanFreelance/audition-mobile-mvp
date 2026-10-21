@@ -247,7 +247,11 @@ export class SessionChoreography {
       } else this.spacesInStyle++;
     }
     if (accepted) this.sustainHighLevelDance = !finish && level !== undefined && level >= 6;
-    if (accepted && !finish && preFinishHiddenNext
+    // A successful PLAYER judgement owns the right to attempt Finish.
+    // Selecting a compatible visual NORMAL phrase may still fail because of
+    // randomized stage placement; that is not a gameplay Miss and MUST NOT
+    // prevent the HIDDEN preparation of the rightful Finish.
+    if (!finish && preFinishHiddenNext
       && this.finishChoice === FANCY_FOOTWORK_FINISH.id) {
       this.pendingFancyFinishReady = { startBeat:beat + 4, finishBeat:beat + 8 };
     }

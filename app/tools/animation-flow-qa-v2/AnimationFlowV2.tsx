@@ -364,10 +364,10 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             const chosen=selected?.selected ?? "none";
             const placement=engine!.placementDecisions.get(options.current.finishPhrase);
             const placed=engine!.history.findLast(h=>h.b===chosen&&Math.abs(h.requestedBeat-beat)<1e-4);
-            const staged=choreography!.continuityEvents.findLast(e=>e.kind==="finish-ready");
+            const staged=choreography!.continuityEvents.findLast(e=>e.kind==="finish-ready" && Math.abs(e.beat-(beat-4))<1e-4);
             const stageReason=engine!.placementDecisions.get("finish-ready-idle")?.reason;
             const preflight=staged
-              ? ` · HIDDEN prep: ${staged.accepted ? "OK" : (stageReason ?? "FAIL")}`
+              ? ` · HIDDEN prep: ${staged.accepted ? (stageReason ?? "OK") : (stageReason ?? "FAIL")}`
               : options.current.finishPhrase===FANCY_FOOTWORK_FINISH.id
                 ? " · HIDDEN prep: chưa thực hiện" : "";
             const facing=engine!.snapshot().orientation.facingErrorDeg;
@@ -932,7 +932,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.13</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.14</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted+" "+styles.labIntro}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">

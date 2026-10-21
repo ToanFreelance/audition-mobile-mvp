@@ -83,3 +83,39 @@ test("Successful L9 NORMAL schedules staging at HIDDEN without consuming another
   flow.update(8);
   expect(choreo.engine.snapshot().current).toBe("rest-standing");
 });
+
+test("Actual 85_04 remains eligible after HIDDEN staging from several off-centre outgoing poses",()=>{
+  for(const bpm of [120,200]){
+    for(const x of [.2,.45,.7]){
+      const flow=makeEngine(bpm);
+      // Test setup deliberately simulates the common random-choreography
+      // drift towards the outside of the SAME stage circle, without any
+      // change to the 85_04 source, global clock or stage radius.
+      const internal=flow as unknown as {
+        current: {offset:T.Vector3} | null
+      };
+      expect(internal.current).not.toBeNull();
+      internal.current!.offset.x+=x;
+      flow.update(4);
+      if(Math.hypot(flow.motionRoot.position.x,flow.motionRoot.position.z)>1.33)continue;
+      const before=flow.motionRoot.position.clone();
+      const stage=flow.stageForFancyFinish(4,8);
+      expect(stage,`bpm=${bpm} shift=${x} decision=${JSON.stringify(flow.placementDecisions.get("finish-ready-idle"))}`).toBe(true);
+      expect(flow.motionRoot.position.distanceTo(before)).toBeLessThan(1e-5);
+      let previous=flow.motionRoot.position.clone();
+      for(let i=1;i<=80;i++){
+        flow.update(4+i*.05);
+        expect(flow.motionRoot.position.distanceTo(previous)).toBeLessThan(.12);
+        expect(Math.hypot(flow.motionRoot.position.x,flow.motionRoot.position.z)).toBeLessThanOrEqual(1.35+1e-5);
+        previous.copy(flow.motionRoot.position);
+      }
+      const decision=flow.placementDecisions.get("finish-ready-idle");
+      expect(decision?.accepted).toBe(1);
+      expect(flow.placementAtExit("finish-85-04",8,true)).not.toBeNull();
+      expect(flow.request("finish-85-04",8,undefined,true)).toBe(true);
+      expect(flow.history.at(-1)).toMatchObject({
+        b:"finish-85-04",requestedBeat:8,visualStartBeat:8,delayBeats:0
+      });
+    }
+  }
+});

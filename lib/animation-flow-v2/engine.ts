@@ -384,32 +384,22 @@ export class SourceFlowEngine {
       });
       return false;
     }
+    const finish = this.phrases.get("finish-85-04");
+    if (!finish) return false;
     const durationBeats = finishBeat - hiddenStartBeat;
+    const seconds = (durationBeats - .15) * 60 / this.bpm;
     const idleElapsed = durationBeats * 60 / idle.spec.referenceBpm;
     const idleTargetSeconds = this.loopIdle && idle.duration > 0
       ? idleElapsed % idle.duration : Math.min(idleElapsed, idle.duration);
     const targetRoot = new T.Quaternion().fromArray(idle.rotations[0].evaluate(idleTargetSeconds));
     const yaw = wrapAngle(this.desiredHeading - rootYaw(targetRoot));
-    const origin = this.pose.root;
-    const q = new T.Quaternion().setFromAxisAngle(Y, yaw);
-    // The entire standing source path stays within the SAME locked stage.
-    const peak = Math.max(...idle.path.map(p => {
-      const rotated = p.clone().applyQuaternion(q);
-      return Math.hypot(origin.x + rotated.x, origin.z + rotated.z);
-    }));
-    if (peak > this.radius - .005) {
-      this.placementDecisions.set("finish-ready-idle", {
-        id:"finish-ready-idle",beat:hiddenStartBeat,rootXZ:[origin.x,origin.z],
-        evaluated:1,spatialRejected:1,continuationRejected:0,facingRejected:0,
-        angularRejected:0,accepted:0,reason:"stage-radius",selectedYawDeg:null
-      });
-      return false;
-    }
+    const turn = new T.Quaternion().setFromAxisAngle(Y, yaw);
+    const origin = this.pose.root.clone();
     const beforeHeading = rootYaw(this.pose.rotations[0]);
-    const targetHeading = rootYaw(targetRoot) + yaw;
-    const change = Math.abs(wrapAngle(targetHeading - beforeHeading));
-    const turnSeconds = (durationBeats - .15) * 60 / this.bpm;
-    if (turnSeconds <= 0 || degrees(change) / turnSeconds > HEADING_LIMITS.transitionAddedYawDegPerSecond) {
+    const change = Math.abs(wrapAngle(this.desiredHeading - beforeHeading));
+    // The duration and transition-heading limits are unchanged. No instant
+    // pivot, even if the outgoing dance faces away from the audience.
+    if (seconds <= 0 || degrees(change) / seconds > HEADING_LIMITS.transitionAddedYawDegPerSecond) {
       this.placementDecisions.set("finish-ready-idle", {
         id:"finish-ready-idle",beat:hiddenStartBeat,rootXZ:[origin.x,origin.z],
         evaluated:1,spatialRejected:0,continuationRejected:0,facingRejected:0,
@@ -417,20 +407,75 @@ export class SourceFlowEngine {
       });
       return false;
     }
+    // V2.2.13 staged rest-standing at the CURRENT root offset. Depending on
+    // the random L9 preceding dance, this stranded the actor near the edge,
+    // and the 85_04 finish PATH then could not fit the unchanged 1.35m disc.
+    // Preflight the *next* Finish from its actual hidden-end pose; choose the
+    // nearest feasible destination along the radial return-to-stage-centre.
+    // This moves continuously through the EXISTING hidden 4 beats, not via
+    // a new turn, a root teleport, or any change to the stage bound.
+    const localIdleEnd = new T.Vector3()
+      .fromArray(idle.translation.evaluate(idleTargetSeconds)).applyQuaternion(turn);
+    const fractions = [0,.125,.25,.375,.5,.625,.75,.875,1] as const;
+    const goals = fractions.map(fraction => ({
+      target: origin.clone().multiplyScalar(1-fraction), fraction
+    }));
+    // The Fancy clip itself has substantial authored XZ travel. Some source
+    // footprints fit in a *nearby* offset but not directly on the radius
+    // towards centre. Consider a small deterministic radial lattice ONLY if
+    // the shortest in-place/centreward return did not fit. The same strict
+    // stage, speed, and facing gates apply to every candidate.
+    for (const radius of [.35,.65]) for (let i=0;i<8;i++) {
+      const angle=i*Math.PI/4;
+      goals.push({target:new T.Vector3(Math.sin(angle)*radius,origin.y,
+        Math.cos(angle)*radius),fraction:2});
+    }
+    let selected: { offset: T.Vector3; target: T.Vector3; peak: number; fraction: number } | null = null;
+    let spatialRejected=0,finishRejected=0,movementRejected=0;
+    for (const {target,fraction} of goals) {
+      const offset = target.clone().sub(localIdleEnd);
+      const peak=Math.max(...idle.path.map(p=>{
+        const v=p.clone().applyQuaternion(turn);
+        return Math.hypot(offset.x+v.x,offset.z+v.z);
+      }));
+      if (peak > this.radius-.005) { spatialRejected++; continue; }
+      const travel = Math.hypot(target.x-origin.x,target.z-origin.z);
+      if (travel / seconds > 1.35) { movementRejected++; continue; }
+      // The chosen endpoint must genuinely admit the selected Finish. A
+      // feasible idle alone is NOT proof of a playable Fancy Finish.
+      if (!this.placement("finish-85-04",target,this.desiredHeading)) {
+        finishRejected++; continue;
+      }
+      selected={offset,target,peak,fraction}; break;
+    }
+    if (!selected) {
+      this.placementDecisions.set("finish-ready-idle", {
+        id:"finish-ready-idle",beat:hiddenStartBeat,rootXZ:[origin.x,origin.z],
+        evaluated:goals.length,spatialRejected,
+        continuationRejected:finishRejected+movementRejected,
+        facingRejected:0,angularRejected:0,accepted:0,
+        reason:finishRejected ? "finish-placement-after-hidden"
+          : spatialRejected ? "stage-radius" : "hidden-return-speed",
+        selectedYawDeg:null
+      });
+      return false;
+    }
     const forced: Placement = {
-      yaw,score:peak,maxFacingError:degrees(change),
-      maxYawSpeed:degrees(change)/turnSeconds,maxQuaternionSpeed:degrees(change)/turnSeconds
+      yaw,score:selected.peak,maxFacingError:degrees(change),
+      maxYawSpeed:degrees(change)/seconds,maxQuaternionSpeed:degrees(change)/seconds
     };
-    // Snapshot the outgoing displayed body pose to avoid blending from an
-    // ordinary one-shot that has already clamped/looped during HIDDEN.
+    // Blend from the exact displayed pose into the chosen standing endpoint.
+    // The original engine always used before.root as playback offset; that
+    // prevented any continuous return towards the stage centre.
     const accepted=this.commit("rest-standing",hiddenStartBeat,hiddenStartBeat,
-      "FREE",false,Math.max(.15,durationBeats - .15),forced,true);
+      "FREE",false,Math.max(.15,durationBeats-.15),forced,true,selected.offset);
     this.placementDecisions.set("finish-ready-idle", {
       id:"finish-ready-idle",beat:hiddenStartBeat,
-      rootXZ:[origin.x,origin.z],evaluated:1,spatialRejected:0,
-      continuationRejected:0,facingRejected:0,angularRejected:0,
-      accepted:accepted?1:0,
-      reason:accepted?"hidden-facing-prepared":"idle-commit-rejected",
+      rootXZ:[selected.target.x,selected.target.z],evaluated:goals.length,
+      spatialRejected,continuationRejected:finishRejected+movementRejected,
+      facingRejected:0,angularRejected:0,accepted:accepted?1:0,
+      reason:accepted ? (selected.fraction ? "hidden-finish-ready-recentered"
+        : "hidden-finish-ready-in-place") : "idle-commit-rejected",
       selectedYawDeg:accepted?degrees(wrapAngle(yaw)):null
     });
     return accepted;
@@ -467,14 +512,14 @@ export class SourceFlowEngine {
   }
   private commit(id: string, beat: number, requestedBeat: number, policy: ExitPolicy,
     initial = false, fade = this.blendBeats, forcedPlacement?: Placement,
-    blendFromDisplayedPose = false) {
+    blendFromDisplayedPose = false, destinationOffset?: T.Vector3) {
     const phrase = this.phrases.get(id);
     const place = forcedPlacement ?? this.placement(id);
     if (!phrase || !place) { this.rejectedRequests++; return false; }
     const before = clonePose(this.pose), previous = this.current;
     if (this.lastRecord && this.blend) this.lastRecord.interrupted = true;
     const from = blendFromDisplayedPose || this.blend ? before : previous;
-    this.current = { phrase, startBeat: beat, offset: before.root.clone(), yaw: place.yaw };
+    this.current = { phrase, startBeat: beat, offset: destinationOffset?.clone() ?? before.root.clone(), yaw: place.yaw };
     const entry = this.sample(this.current, beat);
     // A .35-beat fade at 200 BPM is 105ms: enough for a mathematical
     // quaternion interpolation, but visibly snaps between unrelated
