@@ -17,7 +17,7 @@ import type { Direction } from "../../game/types";
 import { isCharacterAssetId, DEFAULT_CHARACTER_ASSET_ID } from "../character/character-catalog";
 import { createCharacterPresentationEvent } from "../character/choreography";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
-import { describeSharedTurn } from "../../multiplayer/determinism";
+import { describeSharedTurn, isSharedLastNormalBeforeFinish } from "../../multiplayer/determinism";
 import { acceptLiveScoreSnapshot, type LiveScoreSnapshot } from "../../multiplayer/live-score";
 import type { MultiplayerRoomTransport } from "../../multiplayer/transport";
 import type {
