@@ -171,7 +171,7 @@ export class SessionChoreography {
     // without ever being selected. Check spatial eligibility independently.
     const availableBreaks = immediate && desiredFamily === "street"
       ? this.experimentalPhrases.filter(p => p.id !== current?.id
-        && p.source !== current?.source && compatible(p)) : [];
+        && p.source !== current?.source && compatible(p as (typeof NORMAL_PHRASES)[number])) : [];
     const preferBreak = this.activeStyle !== "street" || this.spacesInStyle % 2 === 0;
     const tryExperimental = preferBreak && availableBreaks.length && this.experimentalSpaceBag
       ? this.experimentalSpaceBag.next(p => availableBreaks.some(e => e.id === p.id)) : null;
