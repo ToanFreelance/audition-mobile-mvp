@@ -1,0 +1,1071 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import * as T from "three";
+import { BVHLoader } from "three/examples/jsm/loaders/BVHLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { disposeObjectResources } from "@/components/character/CharacterActor";
+import { LiveCmuMeshPreview } from "@/lib/animation-flow-v2/live-character-retarget";
+import { CORE_PHRASES, FAILING_PAIRS, FIXTURE_PHRASES, MOONWALK_PHRASE, SOURCE_PIN, type ExitPolicy } from "@/lib/animation-flow-v2/catalog";
+import { makeCanonicalRig, preparePhrase, SourceFlowEngine, type PreparedPhrase, type SourceMotion } from "@/lib/animation-flow-v2/engine";
+import { DemoBeatClock, TurnCursor } from "@/lib/animation-flow-v2/clock";
+import { PhraseBag } from "@/lib/animation-flow-v2/shuffle";
+import { CanvasSourcePreview } from "@/lib/animation-flow-v2/canvas-preview";
+import { INITIAL_CAMERA, STAGE_FRONT } from "@/lib/animation-flow-v2/heading";
+import styles from "./animation-flow-v2.module.css";
+import { NORMAL_PHRASES, FINISH_PHRASES, REST_PHRASES, DANCE_REVIEW_CANDIDATES, FANCY_FOOTWORK_FINISH, type CuratedPhrase, type PhraseSpec } from "@/lib/animation-flow-v2/catalog";
+import { GameplayPreview, previewTurnCounter, type PreviewOutcome } from "@/lib/animation-flow-v2/gameplay-preview";
+import { SessionChoreography } from "@/lib/animation-flow-v2/session-choreography";
+import { closeStandingIdle, type FinishPresentation } from "@/lib/animation-flow-v2/finish-presentation";
+import { describeSharedTurn, firstFinishTurn, isSharedLastNormalBeforeFinish } from "@/multiplayer/determinism";
+import { FLARE_SPEC, FLARE_RISE_SPEC, FlareLibrary } from "@/lib/animation-flow-v2/flare-performance";
+import { rankFancyFinishWindows } from "@/lib/animation-flow-v2/fancy-finish-window";
+import type { FlareSource } from "@/lib/animation-flow-v2/flare-source";
+import { OWNER_CURATION_DIRECTIONS, proposeReviewSegments, type CurationSlot, type ActivitySample } from "@/lib/animation-flow-v2/clip-curation";
+import { EXPERIMENTAL_SOURCES, analyzeExperimentalSource, type IntakeRejection } from "@/lib/animation-flow-v2/experimental-dance";
+
+type View = "source" | "c1-casual-grace" | "c4-casual-boy";
+type Mode = "gameplay" | "lab" | "finish";
+type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
+  beat: number; turn: number | null; beatBoundary: number; bpm: number; seed: number; auto: boolean; audioState: string;
+  finishPresentation: ReturnType<FinishPresentation["snapshot"]> | null;
+  view: View; referenceStatus: string; triggerCount: number; processedBoundaries: number[];
+  referenceAnchor: number[] | null; measurementsDomain: string;
+  renderBackend: "webgl" | "canvas2d-projection";
+  gameplay: ReturnType<GameplayPreview["snapshot"]> | null; mode: Mode;
+};
+type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void>; selectFinish(id: string): Promise<void> };
+const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {}, enableBreakdance: async () => {}, selectFinish: async () => {} };
+const f = (n: number | undefined) => (n ?? 0).toFixed(4);
+
+export default function AnimationFlowV2({ catalogReview = false }: { catalogReview?: boolean } = {}) {
+  const host = useRef<HTMLDivElement>(null);
+  const commands = useRef<Commands>({ ...emptyCommands });
+  const [bpm, setBpm] = useState(120), [fade, setFade] = useState(0.35);
+  const [auto, setAuto] = useState(!catalogReview), [view, setView] = useState<View>("source");
+  const [policy, setPolicy] = useState<"metadata" | ExitPolicy>("metadata");
+  const [status, setStatus] = useState("Đang chuẩn bị choreography và Finish…");
+  const [mode, setMode] = useState<Mode>(catalogReview ? "lab" : "gameplay"), [outcome, setOutcome] = useState<PreviewOutcome>("perfect");
+  const [candidateId, setCandidateId] = useState(DANCE_REVIEW_CANDIDATES[0].id);
+  const [experimentalLoading, setExperimentalLoading] = useState(false);
+  const [experimentalCount, setExperimentalCount] = useState(0);
+  const [experimentalRejected, setExperimentalRejected] = useState<IntakeRejection[]>([]);
+  const [experimentalSourceCounts, setExperimentalSourceCounts] = useState<Record<string, { accepted: number; rejected: number; note?: string }>>({});
+  const [experimentalPlayed, setExperimentalPlayed] = useState(0);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [curationSlots, setCurationSlots] = useState<Record<string, CurationSlot[]>>({});
+  const curationRef = useRef<Record<string, CurationSlot[]>>({});
+  const [reviewVerdicts, setReviewVerdicts] = useState<Record<string, "keep-candidate" | "retrim" | "reject">>({});
+  const reviewRef = useRef<{ notes: Record<string, string>; verdicts: Record<string, "keep-candidate" | "retrim" | "reject"> }>({ notes: {}, verdicts: {} });
+  const [previewPhrase, setPreviewPhrase] = useState(NORMAL_PHRASES[0].id), [finishPhrase, setFinishPhrase] = useState(FLARE_SPEC.id);
+  const [finishLoading, setFinishLoading] = useState(false);
+  const [finishPreviewError, setFinishPreviewError] = useState("");
+  const [gameplayFinishReport, setGameplayFinishReport] = useState("");
+  const [finishWindow, setFinishWindow] = useState<{start:number;end:number;sourceDuration:number;activeFraction:number}|null>(null);
+  const finishWindowRef = useRef<{start:number;end:number;sourceDuration:number;activeFraction:number}|null>(null);
+  const [running, setRunning] = useState(false), [ready, setReady] = useState(false);
+  const [recording, setRecording] = useState(false), [error, setError] = useState("");
+  const [seed, setSeed] = useState(20261018);
+  const [telemetry, setTelemetry] = useState<Telemetry | null>(null);
+  /** Full native BVH playback state; never affects Gameplay Preview/SourceFlowEngine. */
+  const [rawReview, setRawReview] = useState<{ id: string; elapsed: number; duration: number; complete: boolean; sourceBpm: number; window?: {start:number;end:number} } | null>(null);
+  const [history, setHistory] = useState<{ a: string | null; b: string; policy: string; delayBeats: number }[]>([]);
+  const [pair, setPair] = useState<string>(FAILING_PAIRS[0].id);
+  const [backend, setBackend] = useState<"webgl" | "canvas2d-projection">("webgl");
+  const options = useRef({ bpm, fade, auto, view, policy, mode, outcome, finishPhrase });
+  useEffect(() => { options.current = { bpm, fade, auto, view, policy, mode, outcome, finishPhrase }; }, [bpm, fade, auto, view, policy, mode, outcome, finishPhrase]);
+
+  useEffect(() => {
+    const hostElement = host.current; if (!hostElement) return;
+    const element: HTMLDivElement = hostElement;
+    let disposed = false, raf = 0, audio: AudioContext | null = null;
+    let engine: SourceFlowEngine | null = null, bag = new PhraseBag(CORE_PHRASES, 20261018);
+    let runSeed = 20261018, reference: LiveCmuMeshPreview | null = null, referenceVersion = 0;
+    let referenceView: View = "source", referenceStatus = "Chưa tải";
+    let triggerCount = 0, processedBoundaries: number[] = [], lastUi = 0, replayTarget: string | null = null;
+    let samples: Telemetry[] = [], recorder: MediaRecorder | null = null;
+    let gameplay: GameplayPreview | null = null, choreography: SessionChoreography | null = null;
+    let flare:FlareLibrary|undefined,flareReplayResume:number|null=null,flareSourceStatus="Chưa tải";
+    let experimentalSpecs: CuratedPhrase[] = [], expansionLoading = false, finishLoadBusy = false;
+    const experimentalErrors: IntakeRejection[] = [];
+    // Raw CMU source viewer: separate from stage-bounded choreography engine.
+    let rawReviewGroup: T.Group | null = null;
+    let rawReviewMixer: T.AnimationMixer | null = null, rawReviewSource: SourceMotion | null = null;
+    let rawReviewScale = 1, rawReviewFloorY = 0;
+    let rawReviewId: string | null = null, rawReviewFinished = false;
+    let rawReviewStartBeat = 0;
+    let rawReviewWindow: { start: number; end: number } | null = null;
+    const videoCanvas = document.createElement("canvas"); videoCanvas.width = 720; videoCanvas.height = 840;
+    const selectionEvents: { beat: number; eligibleIds: string[]; selected: string | null; decisions: unknown[] }[] = [];
+    const clock = new DemoBeatClock(), turns = new TurnCursor();
+    const sources = new Map<string, SourceMotion>(), loading = new Map<string, Promise<SourceMotion>>();
+    const scene = new T.Scene(); scene.background = new T.Color("#0c101a");
+    const camera = new T.PerspectiveCamera(34, 1, 0.01, 30); camera.position.set(...INITIAL_CAMERA);
+    let renderer: T.WebGLRenderer | CanvasSourcePreview;
+    let renderBackend: "webgl" | "canvas2d-projection" = "webgl";
+    try { renderer = new T.WebGLRenderer({ antialias: true, alpha: false }); }
+    catch { renderer = new CanvasSourcePreview(); renderBackend = "canvas2d-projection"; queueMicrotask(() => { if (!disposed) setBackend("canvas2d-projection"); }); }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); renderer.outputColorSpace = T.SRGBColorSpace;
+    renderer.domElement.setAttribute("aria-label", "Sân thử chuyển động 3D"); element.appendChild(renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement); controls.target.set(0, catalogReview ? 0.85 : 0.8, 0); controls.enableDamping = true; controls.enablePan = false; controls.minDistance = 2; controls.maxDistance = 8;
+    // Review viewport is a medium shot, never the fixed wide-stage camera.
+    // Keep game-preview camera exactly as before.
+    if (catalogReview) { camera.position.set(0, 1.45, 4.25); controls.minDistance = 2.5; controls.maxDistance = 6.5; camera.lookAt(controls.target); }
+    scene.add(new T.HemisphereLight(0xdbdeff, 0x20243d, 2.8));
+    const key = new T.DirectionalLight(0xffffff, 3); key.position.set(2, 4, 3); scene.add(key);
+    const rim = new T.DirectionalLight(0x9776ff, 2); rim.position.set(-3, 2, -2); scene.add(rim);
+    const floor = new T.Mesh(new T.CircleGeometry(1.8, 96), new T.MeshStandardMaterial({ color: 0x1c2233, roughness: 0.65 }));
+    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.025; floor.visible = !catalogReview; scene.add(floor);
+    for (const [radius, color] of [[1.35, 0xa78bfa], [0.14, 0x60e3bb]] as const) {
+      const ring = new T.Mesh(new T.RingGeometry(radius - 0.007, radius + 0.007, 96), new T.MeshBasicMaterial({ color, side: T.DoubleSide }));
+      ring.rotation.x = -Math.PI / 2; ring.position.y = -0.012; ring.visible = !catalogReview; scene.add(ring);
+    }
+    const grid = new T.GridHelper(3.6, 18, 0x454d68, 0x242c40); grid.position.y = -0.018; grid.visible = !catalogReview; scene.add(grid);
+    const stageFront = new T.ArrowHelper(new T.Vector3(Math.sin(STAGE_FRONT), 0, Math.cos(STAGE_FRONT)), new T.Vector3(0, .035, 0), .7, 0x60e3bb, .14, .09);
+    const dancerFront = new T.ArrowHelper(new T.Vector3(0, 0, 1), new T.Vector3(), .5, 0xffc56d, .12, .08);
+    stageFront.name = "QA-stage-front"; dancerFront.name = "QA-dancer-front"; scene.add(stageFront, dancerFront);
+    const body = new T.InstancedMesh(new T.CylinderGeometry(0.018, 0.026, 1, 7), new T.MeshStandardMaterial({ color: 0xc9bbff, metalness: 0.2, roughness: 0.45 }), 64);
+    const joints = new T.InstancedMesh(new T.SphereGeometry(0.034, 10, 8), new T.MeshStandardMaterial({ color: 0xf0e8ff, roughness: 0.5 }), 64);
+    body.name = "QA-V2-bones"; joints.name = "QA-V2-joints";
+    body.count = 0; joints.count = 0; body.frustumCulled = false; joints.frustumCulled = false; scene.add(body, joints);
+    const trailPoints: T.Vector3[] = [];
+    const trailGeometry = new T.BufferGeometry();
+    const trailPositions = new T.BufferAttribute(new Float32Array(180 * 3), 3);
+    trailGeometry.setAttribute("position", trailPositions); trailGeometry.setDrawRange(0, 0);
+    const trail = new T.Line(trailGeometry, new T.LineBasicMaterial({ color: 0x67d9b8, transparent: true, opacity: 0.55 })); trail.frustumCulled = false; scene.add(trail);
+    const resize = () => { const width = element.clientWidth, height = element.clientHeight; renderer.setSize(width, height, false); camera.aspect = width / Math.max(1, height); camera.updateProjectionMatrix(); };
+    const observer = new ResizeObserver(resize); observer.observe(element); resize();
+
+    async function source(id: string): Promise<SourceMotion> {
+      if (sources.has(id)) return sources.get(id)!;
+      if (loading.has(id)) return loading.get(id)!;
+      const pending = (async () => {
+        const response = await fetch(`/api/animation-flow-qa-v2/source/${id}`, { cache: "force-cache" });
+        if (!response.ok) throw new Error(`Không tải được ${id} (${response.status}).`);
+        const result = new BVHLoader().parse(await response.text()); sources.set(id, result); return result;
+      })();
+      loading.set(id, pending);
+      try { return await pending; } finally { loading.delete(id); }
+    }
+    function clearRawReview() {
+      rawReviewMixer?.stopAllAction();
+      if (rawReviewGroup) scene.remove(rawReviewGroup);
+      rawReviewGroup = null; rawReviewMixer = null; rawReviewSource = null;
+      rawReviewId = null; rawReviewFinished = false; rawReviewWindow = null;
+      body.count = 0; joints.count = 0;
+      delete element.dataset.reviewBoneCount;
+      delete element.dataset.reviewVisibleHeightMeters;
+      delete element.dataset.reviewDisplayScale;
+      if (!disposed) setRawReview(null);
+    }
+    /**
+     * Full original BVH with the *same readable bone/joint rendering* as the
+     * previous QA viewer. Normalize DISPLAY ONLY from actual raw-bone bounds.
+     * No crop, stage placement constraints, retarget or source-key modification.
+     */
+    async function loadFullRawReview(id: string) {
+      const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
+      if (!candidate) return false;
+      const motion = await source(candidate.source);
+      if (disposed) return false;
+      if (!(motion.clip.duration > 0)) throw new Error("BVH thiếu duration: " + candidate.source);
+      clearRawReview();
+      const rootBone = motion.skeleton.bones[0];
+      const group = new T.Group();
+      group.name = "CMU-review-original-rig-" + candidate.source;
+      group.add(rootBone);
+      scene.add(group); // Bone objects are invisible; review meshes render separately.
+      const mixer = new T.AnimationMixer(rootBone);
+      const action = mixer.clipAction(motion.clip);
+      action.setLoop(T.LoopOnce, 1);
+      action.clampWhenFinished = true;
+      action.play();
+      // Sample a few *source* poses to derive a stable readable height;
+      // do not tie display size to raw centimetre units or arena radius.
+      const sampleTimes = [0, .3, .8, 1.5, 2.5].map(t => Math.min(t, motion.clip.duration));
+      let tallest = 0, firstFloor = 0;
+      const pt = new T.Vector3();
+      for (let index = 0; index < sampleTimes.length; index++) {
+        mixer.setTime(sampleTimes[index]);
+        group.updateMatrixWorld(true);
+        let minY = Infinity, maxY = -Infinity;
+        for (const bone of motion.skeleton.bones) {
+          bone.getWorldPosition(pt);
+          minY = Math.min(minY, pt.y); maxY = Math.max(maxY, pt.y);
+        }
+        if (index === 0) firstFloor = minY;
+        tallest = Math.max(tallest, maxY - minY);
+      }
+      if (!Number.isFinite(tallest) || tallest < 1e-4) throw new Error("BVH không có skeleton đủ chiều cao: " + candidate.source);
+      rawReviewScale = T.MathUtils.clamp(1.7 / tallest, .002, .2);
+      rawReviewFloorY = firstFloor;
+      element.dataset.reviewVisibleHeightMeters = (rawReviewScale * tallest).toFixed(3);
+      element.dataset.reviewDisplayScale = rawReviewScale.toFixed(6);
+      mixer.setTime(0);
+      group.updateMatrixWorld(true);
+      rawReviewGroup = group; rawReviewMixer = mixer;
+      rawReviewSource = motion; rawReviewId = candidate.id;
+      rawReviewFinished = false; rawReviewStartBeat = 0; rawReviewWindow = null;
+      if (OWNER_CURATION_DIRECTIONS[candidate.source] && !curationRef.current[candidate.source]) {
+        const tracked = motion.skeleton.bones.filter(b =>
+          ["Hips", "Head", "LeftHand", "RightHand", "LeftFoot", "RightFoot", "LeftUpLeg", "RightUpLeg"].includes(b.name));
+        const hips = motion.skeleton.bones[0];
+        const head = motion.skeleton.bones.find(b => b.name === "Head") ?? tracked.at(-1) ?? hips;
+        const previous = new Map<string, T.Vector3>(), activity: ActivitySample[] = [];
+        const point = new T.Vector3(), hp = new T.Vector3(), pp = new T.Vector3();
+        const stride = .15;
+        for (let time = 0; time <= motion.clip.duration; time += stride) {
+          mixer.setTime(time);
+          group.updateMatrixWorld(true);
+          hips.getWorldPosition(hp); head.getWorldPosition(pp);
+          let change = 0;
+          for (const bone of tracked) {
+            bone.getWorldPosition(point);
+            const prev = previous.get(bone.name);
+            if (prev) change += point.distanceTo(prev);
+            previous.set(bone.name, point.clone());
+          }
+          activity.push({
+            time, energy: change / (Math.max(tallest, 1) * Math.max(tracked.length, 1)),
+            upright: pp.y - hp.y > tallest * .18
+          });
+        }
+        const cuts = proposeReviewSegments(candidate.source, motion.clip.duration, activity);
+        const next = { ...curationRef.current, [candidate.source]: cuts };
+        curationRef.current = next;
+        if (!disposed) setCurationSlots(next);
+      }
+      mixer.setTime(0);
+      setRawReview({ id, elapsed: 0, duration: motion.clip.duration, complete: false, sourceBpm: options.current.bpm });
+      return true;
+    }
+    async function prepare(specs: readonly PhraseSpec[] = [...NORMAL_PHRASES, ...FINISH_PHRASES.filter(p => p.id !== FANCY_FOOTWORK_FINISH.id), ...REST_PHRASES]) {
+      const canonicalSource = await source("111_05");
+      if (!engine) engine = new SourceFlowEngine(makeCanonicalRig(canonicalSource), new Map<string, PreparedPhrase>());
+      const target = engine;
+      for (const spec of specs) {
+        if (target.phrases.has(spec.id)) continue;
+        const motion = await source(spec.source);
+        target.phrases.set(spec.id, closeStandingIdle(preparePhrase(spec, motion, target.rig, canonicalSource)));
+      }
+    }
+    /**
+     * The previous 0.2–4.2s trial discarded the most interesting footage,
+     * then entered idle. Rank long ACTIVE source intervals, leaving at least
+     * four shared beats for recovery / living idle before the next L6.
+     * The catalog metadata remains a QA fallback and Flare is untouched.
+     */
+    async function prepareFancyFinish() {
+      if (!engine) throw Error("Engine chưa sẵn sàng cho Finish.");
+      const sourceMotion = await source(FANCY_FOOTWORK_FINISH.source);
+      const referenceMotion = await source("111_05");
+      // Take the remaining Finish→L6 window from the REAL shared manifest.
+      // Never assume that REST is a fixed number of beats across settings.
+      if (!gameplay) throw Error("Không có shared gameplay manifest để tính REST của Finish.");
+      const budget = gameplay.finishWindow(firstFinishTurn(gameplay.manifest)).totalBeats;
+      const candidates = rankFancyFinishWindows(sourceMotion,budget,120);
+      if (!candidates.length) throw Error("85_04 chưa tìm được một đoạn Finish dài, có chuyển động và điểm đầu/cuối phù hợp.");
+      let chosen: typeof candidates[number] | null = null;
+      const failures: string[] = [];
+      for (const window of candidates) {
+        try {
+          const duration = window.end - window.start;
+          const spec = {
+            ...FANCY_FOOTWORK_FINISH, start: window.start, end: window.end,
+            exitMarkers: [duration],
+            protectedRanges: [[0,duration]] as [number,number][],
+          };
+          const phrase = preparePhrase(spec,sourceMotion,engine.rig,referenceMotion);
+          // Preserve the authored source path. Never compress/teleport its XZ
+          // to force it into the 1.35m stage. Incompatible alternatives are
+          // skipped rather than silently accepted.
+          const first = phrase.path[0];
+          const localPathRadius = Math.max(...phrase.path.map(p =>
+            Math.hypot(p.x-first.x,p.z-first.z)));
+          if (localPathRadius > engine.radius * 1.45) {
+            failures.push("root-travel: " + window.start.toFixed(2));
+            continue;
+          }
+          engine.phrases.set(spec.id,phrase);
+          // Test a genuine isolated Finish entry at the stage origin. A
+          // source interval that passes root travel but fails full facing /
+          // placement cannot be advertised as playable in the QA viewer.
+          engine.start(spec.id, 0);
+          const state=engine.snapshot();
+          if(state.current!==spec.id)throw Error("Finish candidate chưa được engine nhận.");
+          chosen = window;
+          break;
+        } catch(error) {failures.push(String(error));}
+      }
+      if(!chosen) {
+        engine.phrases.delete(FANCY_FOOTWORK_FINISH.id);
+        // Preserve a usable QA stage after candidate evaluation fails.
+        engine.start("141-twist",0);
+        throw Error("85_04 có BVH nhưng các đoạn Finish dài chưa qua kiểm tra stage/facing. "
+          + failures.slice(0,3).join("; "));
+      }
+      const windowData={start:chosen.start,end:chosen.end,
+        sourceDuration:chosen.sourceDuration,activeFraction:chosen.activeFraction};
+      finishWindowRef.current=windowData;
+      if(!disposed)setFinishWindow(windowData);
+      return chosen;
+    }
+    async function prepareFlare(){
+      if(!engine)return;
+      try{
+        const response=await fetch('/qa/animation-flow-v2/flare-source.json',{cache:'force-cache'});
+        if(!response.ok)throw Error(`Flare ${response.status}`);
+        const data:FlareSource=await response.json(),base=await source('111_05'),rise=preparePhrase(FLARE_RISE_SPEC,await source(FLARE_RISE_SPEC.source),engine.rig,base);
+        flare=new FlareLibrary(data,engine,rise);flareSourceStatus='GLB kehel · Mixamo → CMU · thử nghiệm';
+      }catch(e){flareSourceStatus=`Flare không tải được: ${String(e)}; dùng Finish cũ dự phòng.`;}
+    }
+    const audioSeconds = () => audio?.currentTime ?? 0;
+    const currentBeat = () => clock.beat(audioSeconds());
+    const download = (blob: Blob, name: string) => { const a = document.createElement("a"); const url = URL.createObjectURL(blob); a.href = url; a.download = name; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000); };
+    const reportError = (e: unknown) => { if (!disposed) setError(e instanceof Error ? e.message : String(e)); };
+    async function ensureAudio() { if (!audio) { audio = new AudioContext(); clock.reset(audio.currentTime); clock.setBpm(options.current.bpm, audio.currentTime); } await audio.resume(); if (!disposed) setRunning(true); }
+    function space(beat: number, trigger: "auto" | "manual") {
+      if (!engine) return; triggerCount++;
+      if (trigger === "manual") replayTarget = null;
+      if (replayTarget && trigger === "auto") {
+        if (engine.current?.phrase.spec.id === replayTarget) replayTarget = null;
+        else { if (engine.pending?.id !== replayTarget) engine.request(replayTarget, beat); return; }
+      }
+      const eligibleIds = CORE_PHRASES.filter(p => Boolean(engine!.placement(p.id)) && p.source !== engine!.current?.phrase.spec.source && p.group !== engine!.current?.phrase.spec.group).map(p => p.id);
+      const selected = bag.next(p => eligibleIds.includes(p.id));
+      selectionEvents.push({ beat, eligibleIds, selected: selected?.id ?? null, decisions: [...engine.placementDecisions.values()] });
+      if (selectionEvents.length > 12000) selectionEvents.shift();
+      if (selected) {
+        const accepted = engine.request(selected.id, beat);
+        setStatus(accepted ? "Đã nhận SPACE · căn vị trí và hướng, kiểm tra toàn phrase." : "Hoãn visual: vị trí / hướng tại exit chưa tương thích; timeline vẫn chạy.");
+      } else setStatus("Không có phrase phù hợp vị trí / hướng / anti-repeat: giữ one-shot hiện tại; timeline vẫn chạy.");
+    }
+    function createGameplay() {
+      if (!engine) return;
+      setGameplayFinishReport("");
+      choreography = new SessionChoreography(engine, runSeed, true,flare);
+      choreography.instantGameplay = true;
+      choreography.setExperimentalPhrases(experimentalSpecs);
+      engine.loopIdle = true;
+      choreography.finishChoice=options.current.finishPhrase;
+      let awaitingDanceAfterFinish = false;
+      gameplay = new GameplayPreview(options.current.bpm, runSeed, (event, beat) => {
+        triggerCount++;
+        {
+          const accepted = choreography!.select(beat, event.absoluteTurn, event.isFinish,
+            !event.isFinish && describeSharedTurn(gameplay!.manifest, event.absoluteTurn + 1).isFinish,
+            event.isFinish ? gameplay!.resumeBeatAfterFinish(event.absoluteTurn) : undefined,
+            event.level, isSharedLastNormalBeforeFinish(gameplay!.manifest, event.absoluteTurn));
+          // The full QA acceptance is FINISH followed by renewed dance.
+          // A stale Finish PASS must not mask a later L6/L8 idle lock.
+          const afterRest = !event.isFinish && awaitingDanceAfterFinish
+            && event.absoluteTurn > firstFinishTurn(gameplay!.manifest);
+          if(afterRest) {
+            const selected=choreography!.selections.at(-1);
+            const started=engine!.history.findLast(h=>
+              h.b===selected?.selected && Math.abs(h.visualStartBeat-beat)<1e-4);
+            const staged=choreography!.continuityEvents.findLast(e=>
+              e.kind==="dance-ready" && e.beat<=beat && e.beat>beat-5);
+            if(started) awaitingDanceAfterFinish=false;
+            setGameplayFinishReport(started
+              ? `SAU FINISH · ĐÃ NHẢY LẠI ${started.b} · turn ${event.absoluteTurn} · beat ${beat.toFixed(2)} · REST prep ${staged?.accepted?"OK":"không có"}`
+              : `SAU FINISH · CHƯA QUAY LẠI DANCE · turn ${event.absoluteTurn} · ${engine!.placementDecisions.get("post-finish-dance-ready")?.reason??"no-compatible-SPACE-phrase"}`);
+          }
+          if (event.isFinish) {
+            const selected=choreography!.selections.at(-1);
+            const chosen=selected?.selected ?? "none";
+            const placement=engine!.placementDecisions.get(options.current.finishPhrase);
+            const placed=engine!.history.findLast(h=>h.b===chosen&&Math.abs(h.requestedBeat-beat)<1e-4);
+            const staged=choreography!.continuityEvents.findLast(e=>e.kind==="finish-ready" && Math.abs(e.beat-(beat-4))<1e-4);
+            const stageReason=engine!.placementDecisions.get("finish-ready-idle")?.reason;
+            const preflight=staged
+              ? ` · HIDDEN prep: ${staged.accepted ? (stageReason ?? "OK") : (stageReason ?? "FAIL")}`
+              : options.current.finishPhrase===FANCY_FOOTWORK_FINISH.id
+                ? " · HIDDEN prep: chưa thực hiện" : "";
+            const facing=engine!.snapshot().orientation.facingErrorDeg;
+            awaitingDanceAfterFinish=Boolean(accepted&&placed);
+            setGameplayFinishReport(accepted && placed
+              ? `FINISH TURN ${event.absoluteTurn} · ĐÃ PHÁT ${chosen} · beat ${placed.visualStartBeat.toFixed(2)}${preflight}`
+              : `FINISH TURN ${event.absoluteTurn} · KHÔNG PHÁT ${options.current.finishPhrase} · ${placement?.reason ?? (selected?.accepted ? "visual-not-started" : "no eligible placement/recovery")}${preflight} · lệch hướng ${facing.toFixed(1)}°`);
+          }
+          setStatus(accepted
+            ? `${event.isFinish ? "FINISH" : "Perfect"} · global turn ${event.absoluteTurn}`
+            : event.isFinish
+              ? "FINISH chưa vào engine. Xem lỗi ngay cạnh Preview."
+              : "Không có placement phù hợp; giữ pose, timeline vẫn chạy. Xem JSON.");
+        }
+      }, (event, beat) => {
+        if (!isSharedLastNormalBeforeFinish(gameplay!.manifest, event.absoluteTurn)) return;
+        const idled = choreography?.idleAfterLastL9Miss(beat) ?? false;
+        setGameplayFinishReport("L9 NORMAL MISS · HIDDEN → FINISH BỊ KHÓA → REST · "
+          + (idled ? "living idle" : "idle-placement-unavailable"));
+        setStatus("Miss NORMAL cuối L9: không cho phép Finish; global turn vẫn chạy đúng lịch.");
+      });
+    }
+    function advance(beat: number) {
+      if (!engine) return;
+      const config = options.current;
+      if(choreography)choreography.finishChoice=config.finishPhrase;
+      engine.bpm = config.bpm; engine.blendBeats = config.fade;
+      // Exit overrides are laboratory diagnostics; Gameplay SPACE stays immediate.
+      engine.policyOverride = config.mode === "lab" && config.policy !== "metadata" ? config.policy : undefined;
+      if (config.mode === "gameplay" && gameplay?.manifest.gameplay.bpmExact !== config.bpm && beat === 0) createGameplay();
+      for (const boundary of turns.consume(beat)) {
+        processedBoundaries.push(boundary);
+        if (config.mode === "gameplay") gameplay?.advance(boundary, config.auto, config.outcome);
+        else { engine.update(boundary); if (config.mode === "lab" && config.auto) space(boundary, "auto");
+          if (config.mode === "finish" && replayTarget) {
+            if(replayTarget===FLARE_SPEC.id&&gameplay){
+              flareReplayResume=boundary+gameplay.finishWindow(firstFinishTurn(gameplay.manifest)).totalBeats;
+              if(!choreography?.presentation?.requestFlare(boundary,null,flareReplayResume))setStatus('Flare không đủ điều kiện; xem nguồn và không gian trong JSON.');
+            }else if (engine.request(replayTarget, boundary)) choreography?.presentation?.begin(replayTarget, boundary, null);
+            replayTarget = null;
+          }
+          if(config.mode==='finish'&&flareReplayResume!==null&&boundary>=flareReplayResume){choreography?.select(flareReplayResume,null);flareReplayResume=null;}
+        }
+        // Consume exact authoritative targets before sampling the final visual
+        // pose. A sparse frame must not idle past an unprocessed L6 command.
+        if (config.mode !== "lab") choreography?.update(boundary);
+      }
+      if (config.mode === "gameplay") gameplay?.advance(beat, config.auto, config.outcome);
+      if (config.mode !== "lab") choreography?.update(beat);
+      engine.update(beat);
+    }
+    async function resetRun() {
+      if (!engine) return;
+      const random = new Uint32Array(1); crypto.getRandomValues(random); runSeed = random[0];
+      setSeed(runSeed); bag = new PhraseBag(CORE_PHRASES, runSeed);
+      clock.reset(audioSeconds()); turns.reset(); processedBoundaries = []; triggerCount = 0; samples = []; trailPoints.length = 0; replayTarget = null;flareReplayResume=null; rawReviewStartBeat = 0;
+      selectionEvents.length = 0;
+      const first = bag.next(); if (catalogReview) engine.start("141-twist", 0); else if (first) engine.start(options.current.mode === "gameplay" ? "141-twist" : first.id, 0);
+      if (!catalogReview) createGameplay(); setError(""); setStatus(catalogReview ? "Dance Review · chọn nguồn để tải BVH và phát clip thử nghiệm." : "QA loop · shared multiplayer · 4 beat/turn · Finish không kết thúc phiên.");
+    }
+    commands.current = {
+      selectFinish: async id => {
+        if (!engine || catalogReview || ![FLARE_SPEC,...FINISH_PHRASES].some(p => p.id === id)) return;
+        setFinishPreviewError("");
+        if (finishLoadBusy) return;
+        finishLoadBusy = true; setFinishLoading(true); setError("");
+        try {
+          if (audio?.state === "running") { await audio.suspend(); setRunning(false); }
+          if (id === FANCY_FOOTWORK_FINISH.id
+            && (!engine.phrases.has(id) || !finishWindowRef.current)) {
+            setStatus("Đang đọc full source 85_04 và tìm đoạn Finish biểu diễn dài…");
+            await prepareFancyFinish();
+          }
+          if (disposed || !engine) return;
+          options.current.finishPhrase = id;
+          setFinishPhrase(id);
+          if (id !== FANCY_FOOTWORK_FINISH.id) {finishWindowRef.current=null;setFinishWindow(null);}
+          // Selecting a Finish should arm the actual shared Gameplay preview,
+          // not leave users in isolated FINISH/LAB mode by surprise.
+          options.current.mode = "gameplay";
+          setMode("gameplay");
+          options.current.auto = true;
+          setAuto(true);
+          await resetRun(); // Selected Finish is armed for the next actual shared Finish event.
+          if (!disposed) setStatus(id === FANCY_FOOTWORK_FINISH.id
+            ? "Đã chuẩn bị FINISH 85_04 từ đoạn chuyển động dài của source + hồi phục/idle. Bấm Xem Finish bên cạnh Preview. Flare không đổi."
+            : "Đã chọn " + id + " · nhấn Bắt đầu để kiểm tra Finish.");
+        } catch (err) {
+          const message=err instanceof Error?err.message:String(err);
+          if(!disposed)setFinishPreviewError("Không thể chuẩn bị Finish 85_04: "+message);
+          reportError(err);
+        }
+        finally { finishLoadBusy = false; if (!disposed) setFinishLoading(false); }
+      },
+      enableBreakdance: async () => {
+        if (!engine || catalogReview || expansionLoading) return;
+        expansionLoading = true; setExperimentalLoading(true); setError("");
+        // A retry should not double-count previous failures or stale phrases.
+        for (const spec of experimentalSpecs) engine.phrases.delete(spec.id);
+        experimentalSpecs = [];
+        experimentalErrors.length = 0;
+        setExperimentalCount(0); setExperimentalRejected([]);
+        setExperimentalSourceCounts({}); setExperimentalPlayed(0);
+        try {
+          if (audio?.state === "running") { await audio.suspend(); setRunning(false); }
+          const canonical = await source("111_05");
+          let prepared = 0;
+          const counts: Record<string, {accepted: number; rejected: number; note?: string}> = {};
+          for (const sourceId of EXPERIMENTAL_SOURCES) {
+            let admittedFromSource = 0;
+            setStatus("Đang thẩm định BVH " + sourceId + "…");
+            try {
+              const raw = await source(sourceId);
+              const screening = analyzeExperimentalSource(sourceId, raw);
+              experimentalErrors.push(...screening.rejected);
+              for (const spec of screening.accepted) {
+                try {
+                  const phrase = closeStandingIdle(preparePhrase(spec, raw, engine.rig, canonical));
+                  // Never admit impossible long stage trajectories. The
+                  // existing per-SPACE placement check is still mandatory.
+                  const span = Math.max(...phrase.path.map(p => Math.hypot(p.x, p.z)));
+                  if (span > engine.radius * 1.55) throw Error("source-root-travel-too-wide");
+                  engine.phrases.set(spec.id, phrase);
+                  experimentalSpecs.push(spec); prepared++; admittedFromSource++;
+                } catch (error) {
+                  experimentalErrors.push({ source: sourceId, id: spec.id,
+                    start: spec.start, end: spec.end, reason: String(error) });
+                }
+              }
+            } catch (error) {
+              experimentalErrors.push({ source: sourceId, id: sourceId,
+                start: 0, end: 0, reason: "source-load-or-parse: " + String(error) });
+            }
+            const relevant = experimentalErrors.filter(e => e.source === sourceId);
+            counts[sourceId] = {
+              accepted: admittedFromSource, rejected: relevant.length,
+              note: relevant.map(e => e.reason).slice(0, 2).join(" | ") || undefined
+            };
+            if (!disposed) setExperimentalSourceCounts({...counts});
+          }
+          if (disposed || !engine) return;
+          setExperimentalRejected([...experimentalErrors]);
+          setExperimentalCount(prepared); setExperimentalSourceCounts({...counts});
+          await resetRun(); // Recreate the session/bags; do not add synthetic turns.
+          setStatus(prepared
+            ? "Đã nạp " + prepared + " đoạn Break; bấm Bắt đầu để xem trong Street chapter. "
+              + experimentalErrors.length + " đoạn không đạt; xem chi tiết từng nguồn."
+            : "0 đoạn được nạp. Các nguồn không đạt cổng kiểm tra; xem lý do theo 85_12 / 85_14 / 90_28 ở bên dưới. Gameplay cũ vẫn nguyên.");
+        } catch (error) { reportError(error); }
+        finally { expansionLoading = false; if (!disposed) setExperimentalLoading(false); }
+      },
+      toggle: async () => { try {
+        if (catalogReview && rawReviewFinished && rawReviewId) {
+          if (rawReviewWindow) await commands.current.previewSegment(rawReviewId, rawReviewWindow.start, rawReviewWindow.end);
+          else await commands.current.preview(rawReviewId, false);
+          return;
+        }
+        if (audio?.state === "running") { await audio.suspend(); setRunning(false); }
+        else await ensureAudio();
+      } catch (e) { reportError(e); } },
+      reset: async () => { await resetRun(); },
+      space: () => { if (audio?.state === "running") { const beat = currentBeat(); advance(beat);
+        if (options.current.mode === "gameplay") {
+          const row = gameplay?.snapshot().current;
+          const reserved = row && gameplay && describeSharedTurn(gameplay.manifest, row.absoluteTurn + 1).isFinish;
+          if (!choreography?.manual(beat, reserved ? "FINISH_PREP" : row?.status, row?.level)) setStatus("SPACE tay chỉ thử visual; FINISH / REST / HIDDEN và lượt chuẩn bị Finish giữ choreography.");
+        } else if (options.current.mode === "lab") space(beat, "manual");
+      } },
+      mode: async next => { if (audio?.state === "running") await audio.suspend(); setRunning(false); setMode(next); options.current.mode = next; if (next === "gameplay") { setAuto(true); options.current.auto = true; setOutcome("perfect"); options.current.outcome = "perfect"; } await resetRun(); },
+      preview: async (id, finish) => {
+        try {
+          setFinishPreviewError("");
+          if (audio?.state === "running") await audio.suspend(); setRunning(false);
+          // Cache miss and missing source-window metadata must be repaired
+          // together. A stale prepped 4s phrase must never masquerade as V2.2.10.
+          if (finish && id === FANCY_FOOTWORK_FINISH.id
+            && (!engine?.phrases.has(id) || !finishWindowRef.current)) {
+            setFinishLoading(true);
+            setStatus("Đang chuẩn bị Finish dài 85_04…");
+            try { await prepareFancyFinish(); }
+            finally { if (!disposed) setFinishLoading(false); }
+          }
+          setMode(finish ? "finish" : "lab"); options.current.mode = finish ? "finish" : "lab";
+          // Keep the chosen mesh for exactly this Finish audition.
+          // CMU timing, not published CharacterActor playback, remains active.
+          setAuto(false); options.current.auto = false;
+          const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
+          if (candidate && catalogReview) {
+            await ensureAudio(); // iOS user-gesture-safe audio start before fetch
+            setStatus("Đang tải toàn bộ BVH " + candidate.source + "…");
+            const loaded = await loadFullRawReview(id);
+            if (!loaded || disposed) return;
+            clock.reset(audioSeconds()); turns.reset(); processedBoundaries = [];
+            rawReviewStartBeat = 0; setError("");
+            setStatus("TOÀN BỘ SOURCE " + candidate.source + " · "
+              + rawReviewSource!.clip.duration.toFixed(2)
+              + "s nguồn · xem từ đầu tới cuối, hết sẽ tự dừng.");
+            return;
+          }
+          if (candidate) {
+            setStatus("Đang tải nguồn BVH ứng viên " + candidate.source + "…");
+            await prepare([candidate]);
+          }
+          if (disposed || !engine) return;
+          await resetRun();
+          if (!engine) return;
+          if (finish && id !== FLARE_SPEC.id) {
+            // Deterministic isolated audition: START THE SELECTED FINISH.
+            // Previously a random 143-party was started and a single
+            // engine.request(id) was attempted at the next boundary; the
+            // request could fail spatial/heading checks and was silently lost.
+            // No shared Gameplay turn or Finish budget is touched here.
+            engine.start(id,0);
+            choreography?.presentation?.begin(id,0,null);
+            choreography?.update(0);
+            const recorded=engine.history.some(h=>h.b===id&&h.visualStartBeat===0);
+            if(!recorded||choreography?.presentation?.snapshot().finish!==id)
+              throw Error("Finish chưa bắt đầu tại beat 0; không phát animation khác thay thế.");
+            replayTarget=null;
+            setStatus("ĐANG PHÁT FINISH " + id + " từ beat 0 · "
+              + engine.phrases.get(id)!.duration.toFixed(2)
+              + " giây nguồn → hồi phục → idle.");
+          } else {
+            engine.start(finish ? "143-party" : id);
+            replayTarget=finish?id:null;
+            setStatus(finish
+              ? "Replay Flare riêng · entry → flare → dismount → nghỉ."
+              : "Preview phrase riêng · one-shot rồi giữ pose cuối.");
+          }
+          await ensureAudio();
+        } catch(e) {
+          const message=e instanceof Error?e.message:String(e);
+          if(!disposed&&finish)setFinishPreviewError("Không thể phát Finish đã chọn: "+message);
+          reportError(e);
+        }
+      },
+      previewSegment: async (id, start, end) => {
+        try {
+          const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
+          if (!catalogReview || !candidate) return;
+          if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) {
+            setError("Khoảng cắt không hợp lệ: start phải nhỏ hơn end."); return;
+          }
+          if (audio?.state === "running") await audio.suspend();
+          await ensureAudio(); // User-gesture-safe Safari audio resume
+          const ok = await loadFullRawReview(id);
+          if (!ok || !rawReviewSource || !rawReviewMixer) return;
+          if (end > rawReviewSource.clip.duration + 1e-5) {
+            setError("Mốc kết thúc vượt thời lượng nguồn."); return;
+          }
+          rawReviewWindow = { start, end };
+          rawReviewMixer.setTime(start);
+          clock.reset(audioSeconds()); rawReviewStartBeat = 0;
+          setError("");
+          setStatus("CHỈ PHÁT ĐOẠN THỬ " + candidate.source + " · "
+            + start.toFixed(2) + "–" + end.toFixed(2)
+            + "s · không tự động thêm vào Gameplay.");
+        } catch (e) { reportError(e); }
+      },
+      replay: async id => {
+        try {
+          const p = FAILING_PAIRS.find(p => p.id === id); if (!p) return;
+          if (audio?.state === "running") await audio.suspend(); setRunning(false); setStatus("Đang tải fixture đối chứng…");
+          setMode("lab"); options.current.mode = "lab";
+          await prepare(FIXTURE_PHRASES.filter(s => s.source === p.a || s.source === p.b));
+          if (disposed || !engine) return;
+          clock.reset(audioSeconds()); turns.reset(); processedBoundaries = []; samples = []; triggerCount = 0; trailPoints.length = 0;
+          engine.start("fixture-" + p.a); replayTarget = "fixture-" + p.b;
+          setView("source"); options.current.view = "source"; setAuto(true); options.current.auto = true;
+          setStatus("Đối chứng: SPACE ở beat 4; floor/inversion đợi recovery marker."); await ensureAudio();
+        } catch (e) { reportError(e); }
+      },
+      moonwalk: async () => {
+        if (options.current.mode !== "lab") { setStatus("Chọn Free Animation Lab trước khi thử Moonwalk riêng."); return; }
+        try { await prepare([MOONWALK_PHRASE]); if (disposed || !engine) return; engine.request(MOONWALK_PHRASE.id, currentBeat()); setStatus("Phrase Moonwalk riêng: giữ chuyển động trượt, không thuộc shuffle core."); } catch (e) { reportError(e); }
+      },
+      export: () => download(new Blob([JSON.stringify({ schemaVersion: 7, implementation: "2.2.6", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], catalogReview, fancyFinishWindow: finishWindowRef.current, experimentalPhrases: experimentalSpecs, experimentalRejections: experimentalErrors, experimentalSelections: choreography?.experimentalSelections, ownerCurationDirections: OWNER_CURATION_DIRECTIONS, curationSegments: curationRef.current, rawSourceReview: rawReviewSource && rawReviewId ? { id: rawReviewId, source: rawReviewSource.clip.name, fullDurationSeconds: rawReviewSource.clip.duration, sourcePlayback: "full-BVH-original-clip", noGameplayStageBound: true, autoStopAtEnd: true } : null, reviewerFeedback: reviewRef.current, gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton + live QA retarget to accepted Mixamo rig (unapproved)", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), catalogReview ? `dance-catalog-review-v226-${runSeed}.json` : `animation-flow-v226-${runSeed}.json`),
+      record: () => {
+        if (recorder && recorder.state !== "inactive") { recorder.stop(); return; }
+        if (!renderer.domElement.captureStream || typeof MediaRecorder === "undefined") { setError("Browser này không hỗ trợ ghi canvas; dùng xuất telemetry JSON."); return; }
+        const chunks: BlobPart[] = [], stream = videoCanvas.captureStream(30);
+        const mimeType = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/mp4"].find(type => MediaRecorder.isTypeSupported(type));
+        try {
+          recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+          recorder.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
+          recorder.onstop = () => { stream.getTracks().forEach(t => t.stop()); if (!disposed) { setRecording(false); download(new Blob(chunks, { type: recorder!.mimeType }), `animation-flow-v2-${runSeed}.${recorder!.mimeType.includes("mp4") ? "mp4" : "webm"}`); } };
+          recorder.start(); setRecording(true);
+        } catch (e) { stream.getTracks().forEach(t => t.stop()); reportError(e); }
+      },
+    };
+
+    const matrix = new T.Object3D(), p = new T.Vector3(), q = new T.Vector3();
+    function drawRig() {
+      if (!engine) return;
+      let segment = 0, joint = 0;
+      for (const bone of engine.rig.bones) {
+        bone.getWorldPosition(p); matrix.position.copy(p); matrix.quaternion.identity(); matrix.scale.setScalar(bone.name === "Head" ? 1.8 : 1); matrix.updateMatrix(); joints.setMatrixAt(joint++, matrix.matrix);
+        if (bone.parent && (bone.parent as T.Bone).isBone) {
+          bone.parent.getWorldPosition(q); const length = p.distanceTo(q);
+          if (length > 0.005) { matrix.position.copy(p).add(q).multiplyScalar(0.5); matrix.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), q.clone().sub(p).normalize()); matrix.scale.set(1, length, 1); matrix.updateMatrix(); body.setMatrixAt(segment++, matrix.matrix); }
+        }
+      }
+      body.count = segment; joints.count = joint; body.instanceMatrix.needsUpdate = true; joints.instanceMatrix.needsUpdate = true;
+      dancerFront.position.copy(engine.motionRoot.position); dancerFront.position.y = .04;
+      const front = new T.Vector3(0, 0, 1).applyQuaternion(engine.rig.bones[0].quaternion); front.y = 0;
+      dancerFront.setDirection(front.normalize());
+    }
+    /** Big, shaded QA bone/joint meshes, identical visual primitives to drawRig(). */
+    function drawRawReviewRig() {
+      if (!rawReviewSource || !rawReviewGroup) { body.count = 0; joints.count = 0; return; }
+      rawReviewGroup.updateMatrixWorld(true);
+      const bones = rawReviewSource.skeleton.bones;
+      const hips = bones[0].getWorldPosition(new T.Vector3());
+      const centerX = hips.x, centerZ = hips.z;
+      const read = (bone: T.Bone, output: T.Vector3) => {
+        bone.getWorldPosition(output);
+        output.set(
+          (output.x - centerX) * rawReviewScale,
+          (output.y - rawReviewFloorY) * rawReviewScale,
+          (output.z - centerZ) * rawReviewScale
+        );
+      };
+      let segment = 0, joint = 0;
+      for (const bone of bones) {
+        read(bone, p);
+        matrix.position.copy(p); matrix.quaternion.identity();
+        matrix.scale.setScalar(bone.name === "Head" ? 1.8 : 1);
+        matrix.updateMatrix(); joints.setMatrixAt(joint++, matrix.matrix);
+        if (bone.parent && (bone.parent as T.Bone).isBone) {
+          read(bone.parent as T.Bone, q);
+          const length = p.distanceTo(q);
+          if (length > .004) {
+            matrix.position.copy(p).add(q).multiplyScalar(.5);
+            matrix.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), q.clone().sub(p).normalize());
+            matrix.scale.set(1.2, length, 1.2);
+            matrix.updateMatrix(); body.setMatrixAt(segment++, matrix.matrix);
+          }
+        }
+      }
+      body.count = segment; joints.count = joint;
+      body.instanceMatrix.needsUpdate = true; joints.instanceMatrix.needsUpdate = true;
+      element.dataset.reviewBoneCount = String(joint);
+    }
+    async function selectReference(next: View) {
+      const version = ++referenceVersion;
+      reference?.dispose(); reference = null; referenceView = next;
+      if (next === "source") { referenceStatus = "Nguồn CMU canonical"; return; }
+      if (!engine) return;
+      referenceStatus = "Đang tải GLB + bone mapping CMU → Mixamo…";
+      try {
+        // This explicitly bypasses CharacterActor's published animation mixer:
+        // the authoritative SourceFlowEngine owns EVERY pose and transition.
+        const actor = await LiveCmuMeshPreview.load(next, engine);
+        if (disposed || version !== referenceVersion) { actor.dispose(); return; }
+        reference = actor; scene.add(actor.root); actor.update(engine);
+        referenceStatus = `GLB thật · CMU→Mixamo QA · ${actor.diagnostics.bonePairs} bones · ${actor.diagnostics.triangles} triangles · ${actor.diagnostics.skinnedMeshes} skinned mesh`;
+        if (!disposed) setStatus("Đã gắn " + (next === "c1-casual-grace" ? "Casual Grace" : "Casual Boy") +
+          " vào cùng Animation Flow V2; SPACE, Finish và REST không đổi.");
+      } catch (cause) {
+        if (disposed || version !== referenceVersion) return;
+        referenceStatus = "LỖI rig/retarget · " + (cause instanceof Error ? cause.message : String(cause));
+        reportError(cause); // Do not show a fake fallback as rig PASS.
+      }
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || event.repeat || (event.target as HTMLElement)?.closest("input,select,button,textarea")) return;
+      event.preventDefault(); commands.current.space();
+    };
+    window.addEventListener("keydown", onKey);
+    function render(now: number) {
+      if (disposed) return; raf = requestAnimationFrame(render);
+      const config = options.current, seconds = audioSeconds();
+      if (config.bpm !== clock.bpm) clock.setBpm(config.bpm, seconds);
+      const beat = clock.beat(seconds);
+      if (engine) {
+        advance(beat);
+        if (referenceView !== config.view) void selectReference(config.view).catch(reportError);
+        const isSource = config.view === "source" || (!reference && !catalogReview);
+        body.visible = isSource && (!catalogReview || rawReviewSource !== null);
+        joints.visible = isSource && (!catalogReview || rawReviewSource !== null);
+        trail.visible = isSource && !catalogReview;
+        stageFront.visible = isSource && !catalogReview;
+        dancerFront.visible = isSource && !catalogReview;
+        if (catalogReview) {
+          if (rawReviewMixer && rawReviewSource && rawReviewGroup && rawReviewId) {
+            const fullDuration = rawReviewSource.clip.duration;
+            const start = rawReviewWindow?.start ?? 0;
+            const end = rawReviewWindow?.end ?? fullDuration;
+            const sourceSeconds = Math.min(end,
+              Math.max(start, start + (beat - rawReviewStartBeat) * 60 / 120));
+            rawReviewMixer.setTime(sourceSeconds);
+            // Render the ORIGINAL pose in the same readable QA body/joint
+            // primitives as the previously accepted short-clip viewer.
+            // Recenter only XZ in display-space; retain captured Y/jumps.
+            drawRawReviewRig();
+            if (now - lastUi > 95) setRawReview({
+              id: rawReviewId, elapsed: sourceSeconds, duration: fullDuration,
+              complete: rawReviewFinished || sourceSeconds >= end,
+              sourceBpm: config.bpm, window: rawReviewWindow ?? undefined
+            });
+            if (sourceSeconds >= end && !rawReviewFinished) {
+              rawReviewFinished = true;
+              setStatus(rawReviewWindow
+                ? "ĐÃ PHÁT HẾT ĐOẠN " + start.toFixed(2) + "–" + end.toFixed(2) + "s. Có thể chỉnh mốc và phát lại."
+                : "ĐÃ PHÁT HẾT TOÀN BỘ nguồn " + rawReviewSource.clip.name
+                  + " (" + fullDuration.toFixed(2) + "s). Nhấn Phát lại để xem từ đầu.");
+              if (audio?.state === "running") void audio.suspend().then(() => {
+                if (!disposed) setRunning(false);
+              }).catch(reportError);
+            }
+          }
+        } else if (isSource) drawRig();
+        else reference?.update(engine);
+        if (now - lastUi > 95) {
+          const state = engine.snapshot();
+          const data: Telemetry = { ...state, gameplay: config.mode === "gameplay" ? gameplay?.snapshot() ?? null : null, finishPresentation: choreography?.presentation?.snapshot() ?? null, mode: config.mode, beat, turn: previewTurnCounter(config.mode, gameplay?.snapshot().current, turns.index).value, beatBoundary: turns.index, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : "CMU-live-retarget-on-accepted-skinned-GLB", renderBackend };
+          element.dataset.telemetry = JSON.stringify(data);
+          setTelemetry(data); setHistory(engine.history.slice(-8).reverse());
+          if (!catalogReview) setExperimentalPlayed(choreography?.experimentalSelections.length ?? 0); samples.push(data); if (samples.length > 12000) samples.shift();
+          trailPoints.push(new T.Vector3(state.root[0], 0.004, state.root[2])); if (trailPoints.length > 180) trailPoints.shift();
+          trailPoints.forEach((point, index) => trailPositions.setXYZ(index, point.x, point.y, point.z));
+          trailPositions.needsUpdate = true; trailGeometry.setDrawRange(0, trailPoints.length); lastUi = now;
+        }
+      }
+      controls.update(); renderer.render(scene, camera);
+      choreography?.presentation?.markRendered(currentBeat());
+      if (recorder?.state === "recording") {
+        const ctx = videoCanvas.getContext("2d");
+        if (ctx) {
+          ctx.fillStyle = "#0c101a"; ctx.fillRect(0, 0, 720, 840); ctx.drawImage(renderer.domElement, 0, 100, 720, 660);
+          const row = options.current.mode === "gameplay" ? gameplay?.snapshot().current : null;
+          ctx.fillStyle = row?.isFinish ? "#ff646d" : "#f0e8ff"; ctx.font = "bold 24px sans-serif";
+          ctx.fillText(row ? `L${row.level} · TURN ${row.absoluteTurn} · ${row.status} · ${row.sequenceIndex + 1}/${row.levelBudget}` : `${options.current.mode.toUpperCase()} · QA ISOLATED`, 22, 35);
+          ctx.fillStyle = "#c9bbff"; ctx.font = "18px sans-serif"; ctx.fillText(`${options.current.bpm} BPM · beat ${beat.toFixed(2)} · ${engine?.snapshot().current ?? ""}`, 22, 68);
+          ctx.fillText(`${renderBackend} · synthetic AudioContext QA loop`, 22, 790); ctx.fillText(config.view === "source" ? "CMU canonical skeleton" : "QA LIVE CMU→Mixamo · NOT production approved", 22, 820);
+        }
+      }
+    }
+    raf = requestAnimationFrame(render);
+    void prepare(catalogReview ? [NORMAL_PHRASES[1]] : undefined).then(() => catalogReview ? undefined : prepareFlare()).then(() => {
+      if (disposed || !engine) return;
+      const requestedSeed = new URLSearchParams(window.location.search).get("seed");
+      const random = new Uint32Array(1); crypto.getRandomValues(random);
+      runSeed = requestedSeed && /^\d{1,10}$/.test(requestedSeed) ? Number(requestedSeed) >>> 0 : random[0];
+      bag = new PhraseBag(CORE_PHRASES, runSeed); setSeed(runSeed);
+      scene.add(engine.stageAnchor); engine.start(catalogReview ? "141-twist" : "143-party"); if (!catalogReview) createGameplay(); setReady(true);
+      setStatus(catalogReview ? "Sáu nguồn BVH thăm dò đã sẵn danh sách; chỉ tải nguồn được chọn khi nhấn Xem." : `${NORMAL_PHRASES.length} phrase thường + 2 Finish cũ + Flare; 85_04 chọn để tải thử. Bấm Bắt đầu: lịch shared multiplayer gốc.`);
+    }).catch(reportError);
+    return () => {
+      disposed = true; commands.current = { ...emptyCommands }; cancelAnimationFrame(raf); observer.disconnect(); window.removeEventListener("keydown", onKey);
+      if (recorder?.state === "recording") recorder.stop(); void audio?.close(); reference?.dispose(); controls.dispose();
+      clearRawReview(); disposeObjectResources(scene); renderer.dispose(); renderer.domElement.remove();
+    };
+  }, []);
+
+  const progress = telemetry ? telemetry.beat % 4 / 4 : 0;
+  const currentSpec = [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES].find(p => p.id === telemetry?.current);
+  const gameplayRow = telemetry?.gameplay?.current;
+  const turnCounter = previewTurnCounter(mode, gameplayRow, telemetry?.beatBoundary ?? 0);
+  const tempoLocked = (mode === "gameplay" || mode === "finish") && (telemetry?.beat ?? 0) > 0;
+  const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === candidateId) ?? DANCE_REVIEW_CANDIDATES[0];
+  const markCandidate = (verdict: "keep-candidate" | "retrim" | "reject") => {
+    const next = { ...reviewVerdicts, [candidateId]: verdict };
+    reviewRef.current.verdicts = next;
+    setReviewVerdicts(next);
+  };
+  const noteCandidate = (note: string) => {
+    const next = { ...reviewNotes, [candidateId]: note };
+    reviewRef.current.notes = next;
+    setReviewNotes(next);
+  };
+  const curationDirection = OWNER_CURATION_DIRECTIONS[candidate.source];
+  const selectedCuration = curationSlots[candidate.source] ?? [];
+  const modifyCurationWindow = (index: number, field: "start" | "end", value: number) => {
+    if (!Number.isFinite(value)) return;
+    const next = { ...curationRef.current,
+      [candidate.source]: (curationRef.current[candidate.source] ?? []).map((window, i) =>
+        i === index ? { ...window, [field]: Math.max(0, value) } : window)
+    };
+    curationRef.current = next;
+    setCurationSlots(next);
+  };
+  if (catalogReview) return <main className={styles.page}>
+    <div className={styles.shell}>
+      <header className={styles.header}>
+        <div><p className={styles.eyebrow}>AUDITION / ANIMATION FLOW V2.2.7</p>
+          <h1>Dance Catalog <span>Preview</span></h1>
+          <p className={styles.lead}>Duyệt từng take Street / Hip-hop / Break nguyên bản trên iPhone. Sáu take CMU phát nguyên bản từ frame đầu tới frame cuối, không cắt 3,2 giây. Chưa qua trim/contact QA, chưa nằm trong Gameplay.</p>
+        </div><span className={styles.qa}>REVIEW CÔ LẬP</span>
+      </header>
+      <p className={styles.muted}>Chọn nguồn → Xem / phát lại → đánh giá và ghi chú → Xuất JSON. Đánh giá lưu tạm trên trang này, không đồng nghĩa thêm animation vào production. Đang xem skeleton CMU, không phải mesh đã accepted.</p>
+      <div className={styles.layout}>
+        <section className={styles.stageCard}>
+          <div className={styles.stageHeader}><span><i className={ready ? styles.dot : styles.loadingDot} />{backend === "webgl" ? "CMU SKELETON / WEBGL" : "CMU SKELETON / 2D FALLBACK"}</span><span>{bpm} BPM · tempo giả định</span></div>
+          <div ref={host} className={styles.canvas} data-testid="animation-flow-stage" />
+          <div className={styles.canvasCaption}>Nguồn BVH đầy đủ · máy quay theo root XZ (không cắt chuyển động) · đánh giá các đoạn nhảy, tiếp đất và đứng chờ trong source. Đã ẩn vòng sân của Gameplay; kích thước skeleton tự căn theo chiều cao BVH (chỉ phần hiển thị).</div>
+          <div className={styles.rhythm}>
+            <div className={styles.counters}>
+              <span>NGUỒN <b>{rawReview?.id ?? "Chưa phát"}</b></span>
+              <span data-testid="raw-source-duration">{rawReview ? `${rawReview.elapsed.toFixed(1)} / ${rawReview.duration.toFixed(1)} giây nguồn` : "Chưa tải BVH"}</span>
+              <span>{rawReview?.complete ? rawReview.window ? "ĐÃ HẾT ĐOẠN" : "ĐÃ HẾT TOÀN BỘ CLIP" : running ? "ĐANG PHÁT" : "TẠM DỪNG"}</span>
+            </div>
+            <div className={styles.gauge} role="progressbar" aria-label="Tiến độ toàn bộ BVH gốc" aria-valuemin={0} aria-valuemax={100} aria-valuenow={rawReview ? Math.round(rawReview.elapsed / rawReview.duration * 100) : 0}>
+              <div style={{transform: `scaleX(${rawReview ? Math.min(1, rawReview.elapsed / rawReview.duration) : 0})`}} />
+            </div>
+          </div>
+        </section>
+        <aside className={styles.sidebar}>
+          <section className={styles.panel}>
+            <p className={styles.eyebrow}>6 NGUỒN MOCAP THĂM DÒ · CHƯA DUYỆT</p>
+            <label className={styles.control}>Chọn clip <select aria-label="Nguồn motion ứng viên" value={candidateId} onChange={e => setCandidateId(e.target.value)}>{DANCE_REVIEW_CANDIDATES.map(p => <option key={p.id} value={p.id}>{p.label} · {p.source}</option>)}</select></label>
+            <h2>{candidate.label}</h2>
+            <p className={styles.muted}>{candidate.style} · CMU {candidate.source} · {rawReview?.id === candidate.id ? `${rawReview.duration.toFixed(2)} giây toàn bộ source` : "chưa tải thời lượng gốc"} · phát toàn bộ file gốc</p>
+            <p className={styles.muted}>Nguồn: {candidate.provenance.indexDescription}. Nguồn có lộn/chống tay được phân loại Special, tuyệt đối không mặc định thành SPACE thường. Nội dung gốc có thể chứa cả đứng chờ và nhiều kiểu chuyển động; chưa lựa chọn subclip đẹp.</p>
+            <p className={styles.muted}><a href={candidate.provenance.sourceUrl} target="_blank" rel="noreferrer">Xem BVH gốc</a> · <a href="https://mocap.cs.cmu.edu/search.php?subjectnumber=85" target="_blank" rel="noreferrer">Chỉ mục CMU</a></p>
+            <div className={styles.buttons}><button className={styles.primary} disabled={!ready} onClick={() => void commands.current.preview(candidateId, false)}>{rawReview?.id === candidateId && rawReview.complete ? "Phát lại từ đầu" : "Phát toàn bộ nguồn"}</button><button disabled={!ready} onClick={() => void commands.current.toggle()}>{running ? "Tạm dừng" : rawReview?.complete ? "Phát lại" : "Tiếp tục"}</button></div>
+            <label className={styles.control}>BPM thử (tốc độ giả định) <strong>{bpm}</strong><input aria-label="BPM" type="range" min={80} max={200} step={1} value={bpm} onChange={e => setBpm(+e.target.value)} /></label>
+            <div className={styles.presets}>{[110,120,160,200].map(rate => <button key={rate} onClick={() => setBpm(rate)}>{rate} BPM</button>)}</div>
+          </section>
+          {curationDirection && <section className={styles.panel} data-testid="owner-curation-panel">
+            <p className={styles.eyebrow}>PHÂN LOẠI VÀ MỐC CẮT THEO CHỦ DỰ ÁN</p>
+            <h2>{curationDirection.role === "finish-candidate" ? "Finish candidate" :
+              curationDirection.role === "street-dance-candidate" ? "Dance · nhiều đoạn" :
+              "Breakdance / floor · chỉ khi an toàn"}</h2>
+            <p className={styles.muted}>{curationDirection.description}</p>
+            <p className={styles.muted}>Lưu ý kỹ thuật: {curationDirection.safety}</p>
+            {selectedCuration.length === 0 && <p className={styles.muted}>Nhấn Phát toàn bộ nguồn để phân tích chuyển động và tạo các mốc cắt thăm dò theo điểm ít chuyển động. Đây chưa phải ranh giới đã kiểm chứng.</p>}
+            {selectedCuration.map((window, index) => <div key={window.id} style={{ marginBottom: "1rem" }} data-testid="curation-segment">
+              <p className={styles.muted}><strong>{window.id}</strong> · ứng viên {index + 1}/{selectedCuration.length} · {window.selectionBasis === "motion-energy-valley" ? "mốc ít chuyển động dự kiến" : "toàn bộ nguồn"}</p>
+              <div className={styles.buttons}>
+                <label className={styles.control}>Bắt đầu (giây)
+                  <input aria-label={window.id + " start"} type="number" min={0} step={.05}
+                    max={rawReview?.duration ?? undefined} value={window.start}
+                    onChange={e => modifyCurationWindow(index, "start", Number(e.target.value))} />
+                </label>
+                <label className={styles.control}>Kết thúc (giây)
+                  <input aria-label={window.id + " end"} type="number" min={0} step={.05}
+                    max={rawReview?.duration ?? undefined} value={window.end}
+                    onChange={e => modifyCurationWindow(index, "end", Number(e.target.value))} />
+                </label>
+              </div>
+              <div className={styles.buttons}>
+                <button disabled={!ready || rawReview?.id !== candidateId || window.end <= window.start || window.end > (rawReview?.duration ?? 0)}
+                  onClick={() => void commands.current.previewSegment(candidateId, window.start, window.end)}>Phát thử đoạn {index + 1}</button>
+              </div>
+              <p className={styles.muted}>Chưa xác minh safe exit / foot contact. Không được tự động thêm vào NORMAL/FINISH pool.</p>
+            </div>)}
+            {selectedCuration.length > 0 && <p className={styles.muted}>Có {selectedCuration.length} mốc thăm dò. Hãy chỉnh ranh giới khi xem trên iPhone, ghi chú và xuất JSON; mốc đề xuất không được tính là animation đã nghiệm thu.</p>}
+          </section>}
+          <section className={styles.panel}>
+            <p className={styles.eyebrow}>ĐÁNH GIÁ ỨNG VIÊN · CHƯA PHẢI ACCEPTED ASSET</p>
+            <div className={styles.buttons}>
+              <button aria-pressed={reviewVerdicts[candidateId] === "keep-candidate"} onClick={() => markCandidate("keep-candidate")}>Giữ để xem kỹ</button>
+              <button aria-pressed={reviewVerdicts[candidateId] === "retrim"} onClick={() => markCandidate("retrim")}>Cần cắt / sửa</button>
+              <button aria-pressed={reviewVerdicts[candidateId] === "reject"} onClick={() => markCandidate("reject")}>Loại</button>
+            </div>
+            <label className={styles.control}>Ghi chú (foot contact, phong cách, clip dài/ngắn)
+              <textarea aria-label="Ghi chú motion" rows={3} value={reviewNotes[candidateId] ?? ""} onChange={e => noteCandidate(e.target.value)} placeholder="Ví dụ: cần lấy đoạn 4–7 giây, phần đầu vẫn đứng chờ..." />
+            </label>
+            <p className={styles.muted}>Đánh giá đã ghi tạm: {Object.keys(reviewVerdicts).length}/6. Hãy xuất file trước khi rời trang hoặc tải lại.</p>
+            <div className={styles.buttons}><button className={styles.primary} disabled={!ready} onClick={() => commands.current.export()}>Xuất JSON đánh giá</button><a href="/tools/animation-flow-qa-v2">Quay về Gameplay QA</a></div>
+          </section>
+          <section className={styles.panel}><p className={styles.eyebrow}>THÔNG SỐ KIỂM TRA</p>
+            <p className={styles.muted}>Engine: {telemetry?.current ?? "—"} · Exit {telemetry?.policy ?? "—"} · heldAtEnd {String(telemetry?.heldAtEnd ?? false)}</p>
+            <p className={styles.muted}>Khung nhìn: toàn thân cỡ 1,7m · {rawReview ? "bone/joint 3D rõ nét" : "chưa chọn source"} · backend {backend}. Không đo root radius gameplay ở chế độ nguồn.</p>
+          </section>
+        </aside>
+      </div>
+      <p className={styles.status} role="status">{status}</p>{error && <p className={styles.error} role="alert">{error}</p>}
+      <p className={styles.muted}>Lưu ý: BVH mới chỉ được xác nhận tồn tại ở CMU/source-pin. Việc preview thành công không xác nhận động tác đẹp, có quyền phân phối mesh/motion thô, hay đã đạt yêu cầu production. Flare Finish và pool Gameplay không thay đổi.</p>
+    </div>
+  </main>;
+  return <main className={styles.page}>
+    <div className={styles.shell}>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.16</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
+      <p className={styles.muted+" "+styles.labIntro}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
+      <div className={styles.tabs} role="group" aria-label="Đường phát animation">
+        {([["source", "Nguồn BVH · V2"], ["c1-casual-grace", "Grace · CMU→Mesh"], ["c4-casual-boy", "Boy · CMU→Mesh"]] as const).map(([id, label]) => <button key={id} disabled={id !== "source" && backend !== "webgl"} title={id !== "source" && backend !== "webgl" ? "Cần WebGL để xem mesh accepted" : undefined} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
+      </div>
+      <div className={styles.layout}>
+        <section className={styles.stageCard}>
+          <div className={styles.stageHeader}><span><i className={ready ? styles.dot : styles.loadingDot} />{view === "source" ? backend === "webgl" ? "CMU · CANONICAL SKELETON" : "CMU · CHIẾU SKELETON 2D" : "REAL GLB · LIVE CMU RETARGET QA"}</span><span>{bpm} BPM · {view === "source" ? "tempo giả định" : "cùng đồng hồ CMU"}</span></div>
+          <div className={styles.quickDock} data-testid="preview-control-dock" role="group" aria-label="Điều khiển ngay tại Preview">
+            <div className={styles.quickRow} data-testid="finish-choice-panel">
+              <label className={styles.quickLabel}>FINISH
+                <select aria-label="Finish candidate" value={finishPhrase} disabled={!ready || finishLoading}
+                  onChange={e => void commands.current.selectFinish(e.target.value)}>
+                  {[FLARE_SPEC,...FINISH_PHRASES].map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </label>
+              <label className={styles.quickBpm}>BPM
+                <select aria-label="BPM nhanh" value={bpm} disabled={tempoLocked}
+                  onChange={e => setBpm(Number(e.target.value))}>
+                  {[110,120,160,200].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className={styles.quickActions}>
+              <button className={styles.primary} disabled={!ready || finishLoading}
+                onClick={() => void commands.current.preview(finishPhrase,true)}>
+                {finishLoading ? "Đang tải…" : "▶ Xem Finish"}
+              </button>
+              <button disabled={!ready} onClick={() => void commands.current.toggle()}>
+                {running ? "Ⅱ Tạm dừng" : "▶ Bắt đầu"}
+              </button>
+              <button disabled={!ready} onClick={() => void commands.current.reset()}>↻ Lượt mới</button>
+              <button disabled={!ready || experimentalLoading || experimentalCount > 0}
+                onClick={() => void commands.current.enableBreakdance()}>
+                {experimentalLoading ? "Đang nạp…" : experimentalCount ? "Break đã nạp" : "+ Breakdance"}
+              </button>
+            </div>
+            <div className={styles.quickMeta} data-testid="finish-active-choice">
+              {finishLoading ? "Đang chuẩn bị 85_04…" : finishPhrase === FANCY_FOOTWORK_FINISH.id
+                ? finishWindow
+                  ? `Fancy Footwork 85_04 · nguồn ${finishWindow.start.toFixed(1)}–${finishWindow.end.toFixed(1)}s / ${finishWindow.sourceDuration.toFixed(1)}s · hồi phục/idle trong REST`
+                  : "85_04 · chưa tải đoạn dài"
+                : "Finish mặc định: " + ([FLARE_SPEC,...FINISH_PHRASES].find(p => p.id===finishPhrase)?.label ?? finishPhrase)}
+              {" · Break " + experimentalCount + " nạp / " + experimentalPlayed + " phát"}
+            </div>
+            {mode === "finish" && <div className={styles.quickMeta} data-testid="finish-visual-status">
+              Đang phát: {telemetry?.current ?? "—"} · Pha: {telemetry?.finishPresentation?.phase ?? "chưa bắt đầu"}
+              · Beat {telemetry?.beat?.toFixed(1) ?? "—"}
+            </div>}
+            {finishPreviewError && <p className={styles.error} role="alert" data-testid="finish-error">{finishPreviewError}</p>}
+            {gameplayFinishReport && mode==="gameplay"
+              && <p className={styles.quickMeta} data-testid="gameplay-finish-report">{gameplayFinishReport}</p>}
+          </div>
+          <div ref={host} className={styles.canvas} data-testid="animation-flow-stage" />
+          <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = root 1,35 · mũi tên xanh = khán giả cố định · vàng = hướng Hips +Z · orbit không đổi hướng sân" : "Mesh thật dùng cùng animation và global beat của bộ xương CMU; retarget QA chưa được duyệt production. Kiểm tra méo khớp, chân trượt và tiếp đất."}</div>
+          {view === "source" && <div className={styles.canvasCaption} data-testid="facing-indicator">{telemetry?.samplingDomain ? "Flare: hướng Hips khi chống sàn không phải hướng đứng" : `Lệch hướng: ${(telemetry?.orientation.facingErrorDeg ?? 0).toFixed(1)}°`} · {Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 45 ? "Chính diện" : Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 90 ? "Nghiêng" : "Quay lưng"} · {telemetry?.orientation.policy === "fixture-spatial-only" ? "Fixture: chỉ kiểm vị trí" : "Ưu tiên khán giả"}</div>}
+          <div className={styles.rhythm}>
+            {mode === "gameplay" && <div className={styles.gameplayHud} data-testid="gameplay-hud" data-finish={gameplayRow?.status === "FINISH"}>
+              <strong>{gameplayRow ? `L${gameplayRow.level} · ${gameplayRow.status === "FINISH" ? "FINISH ⇄ MŨI TÊN ĐẢO" : gameplayRow.status === "FINISH_BLOCKED" ? "FINISH BỊ KHÓA · NORMAL MISS" : gameplayRow.status}` : "L1 · CHUẨN BỊ 4 BEAT"}</strong>
+              <span>Global turn (0-based): {gameplayRow?.absoluteTurn ?? "—"} · trong cấp: {gameplayRow ? `${gameplayRow.sequenceIndex + 1}/${gameplayRow.levelBudget}` : "1/1"}</span>
+              <span>Chu kỳ {gameplayRow?.cycle ?? 1} · Finish tiếp: {gameplayRow?.nextFinish ?? 38} · SPACE {auto ? `Auto ${outcome}` : "Manual visual"}</span>
+              <span>Nhóm: {currentSpec?.group ?? "—"} · {currentSpec?.id ?? "—"}</span>
+              <span data-testid="finish-phase">Trình bày: {telemetry?.finishPresentation?.phase ?? "DANCE"}</span>{telemetry?.finishPresentation?.flare && <span data-testid="flare-progress">Vòng {telemetry.finishPresentation.completedLoops}/{telemetry.finishPresentation.loopCount} · {telemetry.finishPresentation.playbackRate?.toFixed(3)}× · còn {telemetry.finishPresentation.remainingBeats?.toFixed(2)} beat tới L6</span>}
+            </div>}
+            <div className={styles.counters}><span>{turnCounter.label} <b data-testid="turn-counter">{turnCounter.value ?? "—"}</b></span><div className={styles.beats}>{[0, 1, 2, 3].map(n => <i key={n} data-active={Math.floor(telemetry?.beat ?? 0) % 4 === n}>{n + 1}</i>)}</div><span>{running ? "ĐANG CHẠY" : "TẠM DỪNG"}</span></div>
+            <div className={styles.gauge} role="progressbar" aria-label="Gauge mô phỏng bốn beat" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}><div style={{ transform: `scaleX(${progress})` }} />{[1, 2, 3].map(n => <i key={n} style={{ left: `${n * 25}%` }} />)}</div>
+            <button className={styles.space} disabled={!ready || !running || mode === "finish"} onClick={() => commands.current.space()}><span>SPACE</span><small>Thử visual, không nhập arrow / chấm điểm · giữ timeline</small></button>
+          </div>
+        </section>
+        <aside className={styles.sidebar}>
+          <section className={styles.panel}><p className={styles.eyebrow}>ĐANG TRÌNH BÀY</p><h2>{view === "source" ? currentSpec?.label ?? telemetry?.current ?? "Chuẩn bị…" : view === "c1-casual-grace" ? "Casual Grace" : "Casual Boy"}</h2><div className={styles.sourceId}>{telemetry?.source ?? "—"}</div>{telemetry?.finishPresentation?.flare && <p className={styles.muted}>Rig Mixamo → CMU · {backend} · entry/đứng dậy thử nghiệm</p>}<p className={styles.muted}>{view === "source" ? `Phrase ${telemetry?.sourcePhrase?.map(n => n.toFixed(2)).join("–") ?? "—"} giây nguồn · ${telemetry?.policy ?? "FREE"}` : `${telemetry?.referenceStatus ?? "Chưa tải"} · Đang chạy ${telemetry?.current ?? "—"}`}</p>{telemetry?.pending && view === "source" && <p className={styles.pending}>Đã nhận SPACE · đợi exit tại beat {telemetry.pending.dueBeat.toFixed(2)}</p>}<p className={styles.muted} data-testid="presentation-phase">Pha: {telemetry?.finishPresentation?.phase ?? "DANCE"}{telemetry?.finishPresentation?.flare && ` · vòng ${telemetry.finishPresentation.completedLoops}/${telemetry.finishPresentation.loopCount} · còn ${telemetry.finishPresentation.remainingBeats?.toFixed(2)} beat · ${telemetry.finishPresentation.playbackRate?.toFixed(3)}×`}</p><p className={styles.muted}>Trước: {telemetry?.previous ?? "—"}</p></section>
+          <details className={styles.panel+" "+styles.advancedPanel}><summary>Cài đặt nâng cao · crossfade / exit / auto</summary>
+            <label className={styles.control}>BPM <strong>{bpm}</strong><input aria-label="BPM" disabled={tempoLocked} type="range" min={80} max={200} step={1} value={bpm} onChange={e => setBpm(+e.target.value)} /></label>
+            <div className={styles.presets}>{[110,120,160,200].map(rate=><button key={rate} disabled={tempoLocked} onClick={() => setBpm(rate)}>{rate} BPM</button>)}</div>
+            <label className={styles.control}>Crossfade <select aria-label="Crossfade" value={fade} disabled={false} onChange={e => setFade(+e.target.value)}>{[0.15, 0.35, 0.7, 1].map(v => <option key={v} value={v}>{v} beat · {(v * 60 / bpm).toFixed(3)} giây</option>)}</select></label>
+            <label className={styles.control}>Exit policy <select aria-label="Exit policy" value={policy} disabled={false} onChange={e => setPolicy(e.target.value as typeof policy)}><option value="metadata">Theo phrase metadata</option><option value="FREE">FREE · nếu không trong protected phase</option><option value="BEAT_WINDOW">BEAT_WINDOW</option><option value="PROTECTED">PROTECTED · thử chờ marker</option></select></label>
+            <label className={styles.checkbox}><input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} />{mode === "gameplay" ? "Auto command tại target gốc; bỏ qua HIDDEN / REST" : "Tự SPACE mỗi bốn beat (Lab)"}</label>
+            {mode === "gameplay" && <label className={styles.control}>Kết quả tự động <select aria-label="Auto outcome" value={outcome} onChange={e => setOutcome(e.target.value as PreviewOutcome)}><option value="perfect">Perfect · nhập đúng arrow + SPACE</option><option value="miss">Miss · không nhập, runtime xử lý</option></select></label>}
+          </details>
+          <details className={styles.panel+" "+styles.advancedPanel} data-testid="breakdance-expansion"><summary>Breakdance · nguồn và thống kê ({experimentalCount} nạp / {experimentalPlayed} phát)</summary>
+            <p className={styles.eyebrow}>V2.2.8.3 · STREET / BREAK · THỬ NGHIỆM</p>
+            <h2>Chơi thử các đoạn đã chọn</h2>
+            <p className={styles.muted}>85_12 tách nhiều đoạn; 85_14 và 90_28 dùng ngưỡng tư thế theo tỷ lệ BVH nguồn, tìm đoạn nhảy có chuyển động và điểm vào/ra an toàn. Những đoạn lộn/chống tay không thể cắt bằng SPACE vẫn được giữ trong Catalog. 85_04 vẫn là Finish candidate, Flare mặc định không đổi.</p>
+            <div className={styles.buttons}>
+              <button className={styles.primary} disabled={!ready || experimentalLoading || experimentalCount > 0}
+                onClick={() => void commands.current.enableBreakdance()}>
+                {experimentalLoading ? "Đang tải và kiểm tra BVH…" : experimentalCount > 0 ? "Đã nạp thư viện thử nghiệm" : "Nạp Breakdance vào Gameplay thử"}
+              </button>
+            </div>
+            <p className={styles.muted} data-testid="breakdance-intake-count">
+              Đã nạp vào engine: <strong>{experimentalCount}</strong> · đã phát trong Gameplay: <strong>{experimentalPlayed}</strong> · loại/hoãn: {experimentalRejected.length}.
+            </p>
+            {EXPERIMENTAL_SOURCES.map(sourceId => {
+              const report = experimentalSourceCounts[sourceId];
+              return <p key={sourceId} className={styles.muted} data-testid={"break-source-" + sourceId}>
+                <strong>{sourceId}</strong>: {report ? report.accepted + " nạp / " + report.rejected + " loại" : "chưa kiểm tra"}
+                {report?.note ? " · " + report.note : ""}
+              </p>;
+            })}
+            <p className={styles.muted}>Bấm nạp sẽ bắt đầu phiên mới. Nếu 0 đoạn đạt, game giữ nguyên 10 phrase Street/Pop. Những đoạn Floor/Flips không được cắt ngang bằng SPACE; xem lý do loại trong JSON.</p>
+          </details>
+          <details className={styles.panel+" "+styles.advancedPanel}><summary>Catalog · {NORMAL_PHRASES.length} phrase</summary><select aria-label="Phrase preview" value={previewPhrase} onChange={e => setPreviewPhrase(e.target.value)}>{NORMAL_PHRASES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(previewPhrase, false)}>Xem phrase · reset phiên riêng</button></div><p className={styles.muted}>Sáu phrase V2.1 giữ nguyên; mười phrase mới chờ duyệt pose/contact. Không gán style hip-hop cho nguồn Unknown.</p></details>
+          <details className={styles.panel+" "+styles.advancedPanel}><summary>Đối chứng lỗi cũ / Moonwalk</summary><label className={styles.control}>Cặp xác định <select aria-label="Cặp lỗi" value={pair} onChange={e => setPair(e.target.value)}>{FAILING_PAIRS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.replay(pair)}>Phát lại cặp</button><button disabled={!ready || view !== "source"} onClick={() => void commands.current.moonwalk()}>Thử Moonwalk</button></div><p className={styles.muted}>Fixture ballet/floor chỉ để QA; không nằm trong pool ngẫu nhiên.</p></details>
+        </aside>
+      </div>
+      <section className={styles.measurements} aria-label="Đo không gian">
+        {[["ROOT X / Z", view === "source" ? `${f(telemetry?.root[0])} / ${f(telemetry?.root[2])}` : "không đo Hips"], ["ANCHOR X / Z", view === "source" ? `${f(telemetry?.stageAnchor[0])} / ${f(telemetry?.stageAnchor[2])}` : telemetry?.referenceAnchor ? `${f(telemetry.referenceAnchor[0])} / ${f(telemetry.referenceAnchor[2])}` : "chưa tải"], ["ENTRY ΔXZ", view === "source" ? f(telemetry?.entryDisplacement) : "không áp dụng"], ["ĐỘ LỆCH TỪ ĐẦU", view === "source" ? f(telemetry?.cumulativeDisplacement) : "không áp dụng"], ["BÁN KÍNH LỚN NHẤT", view === "source" ? f(telemetry?.maxRadius) : "không áp dụng"], ["LOOP SEAM", view === "source" ? currentSpec?.id === FLARE_SPEC.id ? "Flare · pha liên tục" : currentSpec?.role === "idle" ? "Idle · seam đóng" : telemetry?.heldAtEnd ? "Giữ pose cuối" : "One-shot · không loop" : "controller gốc"]].map(([label, value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}
+      </section>
+      <section className={styles.panel}><div className={styles.historyHeader}><div><p className={styles.eyebrow}>LỊCH SỬ CHUYỂN</p><p className={styles.muted}>Seed {seed} · {telemetry?.transitionCount ?? 0} chuyển · {telemetry?.audioState ?? "chưa bắt đầu"}</p></div><div className={styles.buttons}><button disabled={!ready} onClick={() => commands.current.export()}>Xuất JSON</button><button disabled={!ready} onClick={() => commands.current.record()}>{recording ? "Dừng / tải video" : "Ghi video sân"}</button></div></div><div className={styles.history}>{history.map((row, i) => <div key={`${row.b}-${history.length - i}`}><b>{row.a ?? "Bắt đầu"} → {row.b}</b><span>{row.policy} · đợi {row.delayBeats.toFixed(2)} beat</span></div>)}</div></section>
+      <p className={styles.status} role="status">{status}</p>{error && <p className={styles.error} role="alert">{error}</p>}
+      <p className={styles.muted}>Flare: <a href="https://sketchfab.com/3d-models/kabal-flair-d001bbb3ba2b40909af9a71383afffdb" target="_blank" rel="noreferrer">Kabal_Flair — kehel</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>. Trích motion từ GLB chủ dự án gửi; đổi rig, sửa seam và thêm entry/dismount. Không dùng mesh Kabal, chưa duyệt production.</p><footer className={styles.footer}>{backend === "canvas2d-projection" && "WebGL bị vô hiệu hóa: đang dùng projection 2D để thử logic/telemetry, không tính WebGL hay mesh PASS. "}Tooling V2 · tempo CMU chưa được xác nhận âm nhạc · marker exit là ứng viên QA · chưa có nghiệm thu retarget CMU hoặc iPhone thật. Gauge này chỉ mô phỏng, không chỉnh gauge gameplay.</footer>
+    </div>
+  </main>;
+}

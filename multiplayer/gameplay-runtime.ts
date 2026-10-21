@@ -9,7 +9,7 @@ import {
   zoneExitMs,
 } from "../game/solo-easy";
 import type { Direction, GameStats, Judgement } from "../game/types";
-import { describeSharedTurn } from "./determinism";
+import { describeSharedTurn, isSharedLastNormalBeforeFinish, isSharedPreFinishHiddenTurn } from "./determinism";
 import type { MatchManifest } from "./types";
 
 export type MultiplayerGameplayJudgementEvent = {
@@ -45,6 +45,8 @@ export type MultiplayerGameplaySnapshot = {
   completedDirections: number;
   awaitingSpace: boolean;
   hiddenThroughTurn: number;
+  /** Local, outcome-dependent veto; does NOT modify global Finish timing. */
+  finishDeniedTurn: number | null;
   revealAtSongTimeMs: number;
   gaugePercent: number;
   timingDeltaMs: number;
@@ -79,6 +81,7 @@ export class MultiplayerGameplayRuntime {
   private awaitingSpace = false;
   private commandVisible = false;
   private hiddenThroughTurn = -1;
+  private finishDeniedTurn: number | null = null;
   private revealAtSongTimeMs = 0;
   private resolvedActiveTurn = false;
   private lastJudgement: Judgement | null = null;
@@ -134,6 +137,7 @@ export class MultiplayerGameplayRuntime {
     this.awaitingSpace = false;
     this.commandVisible = false;
     this.hiddenThroughTurn = -1;
+    this.finishDeniedTurn = null;
     this.resolvedActiveTurn = false;
     this.lastJudgement = null;
     this.judgementAtSongTimeMs = null;
@@ -175,6 +179,8 @@ export class MultiplayerGameplayRuntime {
     }
     const active = this.activeSharedTurn();
     this.commandVisible = !active.roomRest
+      && !isSharedPreFinishHiddenTurn(this.manifest, this.activeCommandTurn)
+      && !(active.isFinish && this.finishDeniedTurn === this.activeCommandTurn)
       && this.activeCommandTurn > this.hiddenThroughTurn
       && now >= this.revealAtSongTimeMs;
   }
@@ -270,6 +276,27 @@ export class MultiplayerGameplayRuntime {
       commandHash: active.commandHash,
     });
 
+    // Owner-authorized L9 closing sequence:
+    // NORMAL (Finish-2) → HIDDEN (Finish-1) → FINISH.
+    // The Miss veto is LOCAL ONLY; it never alters the shared turn budget,
+    // target epoch, deterministic command or any other player's Finish.
+    if (isSharedLastNormalBeforeFinish(this.manifest, this.activeCommandTurn)) {
+      const finishTurn = this.activeCommandTurn + 2;
+      if (judgement === "miss") {
+        this.finishDeniedTurn = finishTurn;
+        const resume = finishTurn + this.manifest.gameplay.finishRestTurns + 1;
+        this.hiddenThroughTurn = Math.max(this.hiddenThroughTurn, resume - 1);
+        this.moveToActiveTurn(resume, targetSpaceMs(
+          this.manifest.gameplay.spaceStartMs, this.manifest.gameplay.bpmExact, resume - 1));
+      } else {
+        this.finishDeniedTurn = null;
+        this.hiddenThroughTurn = Math.max(this.hiddenThroughTurn, finishTurn - 1);
+        this.moveToActiveTurn(finishTurn, targetSpaceMs(
+          this.manifest.gameplay.spaceStartMs, this.manifest.gameplay.bpmExact, finishTurn - 1));
+      }
+      return;
+    }
+
     if (active.isFinish) {
       const nextTurn = this.activeCommandTurn + this.manifest.gameplay.finishRestTurns + 1;
       const lastRestTurn = nextTurn - 1;
@@ -281,7 +308,11 @@ export class MultiplayerGameplayRuntime {
       return;
     }
 
-    const requestedHidden = judgement === "miss"
+    // The preceding NORMAL must never consume the reserved L9 final NORMAL.
+    // Earlier Miss suppression remains unchanged and still consumes budget.
+    const guaranteeFinalNormal = isSharedLastNormalBeforeFinish(
+      this.manifest, this.activeCommandTurn + 1);
+    const requestedHidden = guaranteeFinalNormal ? 0 : judgement === "miss"
       ? missPenaltyTurns(active.level)
       : successHiddenTurns(active.level);
     let nextTurn = this.activeCommandTurn + 1;
@@ -353,6 +384,7 @@ export class MultiplayerGameplayRuntime {
       completedDirections: this.commandIndex,
       awaitingSpace: this.awaitingSpace,
       hiddenThroughTurn: this.hiddenThroughTurn,
+      finishDeniedTurn: this.finishDeniedTurn,
       revealAtSongTimeMs: this.revealAtSongTimeMs,
       gaugePercent,
       timingDeltaMs: now - active.targetSpaceMs,
