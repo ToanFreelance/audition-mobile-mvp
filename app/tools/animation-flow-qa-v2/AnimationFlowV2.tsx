@@ -60,6 +60,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   const [previewPhrase, setPreviewPhrase] = useState(NORMAL_PHRASES[0].id), [finishPhrase, setFinishPhrase] = useState(FLARE_SPEC.id);
   const [finishLoading, setFinishLoading] = useState(false);
   const [finishPreviewError, setFinishPreviewError] = useState("");
+  const [gameplayFinishReport, setGameplayFinishReport] = useState("");
   const [finishWindow, setFinishWindow] = useState<{start:number;end:number;sourceDuration:number;activeFraction:number}|null>(null);
   const finishWindowRef = useRef<{start:number;end:number;sourceDuration:number;activeFraction:number}|null>(null);
   const [running, setRunning] = useState(false), [ready, setReady] = useState(false);
@@ -345,6 +346,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     }
     function createGameplay() {
       if (!engine) return;
+      setGameplayFinishReport("");
       choreography = new SessionChoreography(engine, runSeed, true,flare);
       choreography.instantGameplay = true;
       choreography.setExperimentalPhrases(experimentalSpecs);
@@ -353,8 +355,23 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       gameplay = new GameplayPreview(options.current.bpm, runSeed, (event, beat) => {
         triggerCount++;
         if (options.current.view === "source") {
-          const accepted = choreography!.select(beat, event.absoluteTurn, event.isFinish, !event.isFinish && describeSharedTurn(gameplay!.manifest, event.absoluteTurn + 1).isFinish,event.isFinish?gameplay!.resumeBeatAfterFinish(event.absoluteTurn):undefined,event.level);
-          setStatus(accepted ? `${event.isFinish ? "FINISH" : "Perfect"} · global turn ${event.absoluteTurn}` : "Không có placement phù hợp; giữ pose, timeline vẫn chạy. Xem JSON.");
+          const accepted = choreography!.select(beat, event.absoluteTurn, event.isFinish,
+            !event.isFinish && describeSharedTurn(gameplay!.manifest, event.absoluteTurn + 1).isFinish,
+            event.isFinish ? gameplay!.resumeBeatAfterFinish(event.absoluteTurn) : undefined,event.level);
+          if (event.isFinish) {
+            const selected=choreography!.selections.at(-1);
+            const chosen=selected?.selected ?? "none";
+            const placement=engine!.placementDecisions.get(options.current.finishPhrase);
+            const placed=engine!.history.findLast(h=>h.b===chosen&&Math.abs(h.requestedBeat-beat)<1e-4);
+            setGameplayFinishReport(accepted
+              ? `FINISH TURN ${event.absoluteTurn} · ĐÃ NHẬN ${chosen} · visual beat ${placed?.visualStartBeat.toFixed(2) ?? "đang chờ safe exit"}`
+              : `FINISH TURN ${event.absoluteTurn} · KHÔNG PHÁT ${options.current.finishPhrase} · ${placement?.reason ?? "no eligible placement/recovery"}`);
+          }
+          setStatus(accepted
+            ? `${event.isFinish ? "FINISH" : "Perfect"} · global turn ${event.absoluteTurn}`
+            : event.isFinish
+              ? "FINISH chưa vào engine. Xem lỗi ngay cạnh Preview."
+              : "Không có placement phù hợp; giữ pose, timeline vẫn chạy. Xem JSON.");
         } else reference?.handlePresentationEvent({ kind: "dance", eventId: ++referenceEvent, absoluteTurn: event.absoluteTurn, level: event.level, isFinish: event.isFinish, judgement: "perfect", choreographyId: event.isFinish ? FINISH_CHOREOGRAPHY : `dance-0${event.absoluteTurn % 8 + 1}` as "dance-01", actionStartSongTimeMs: audioSeconds() * 1000 });
       });
     }
@@ -901,7 +918,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.10.1</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.11</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted+" "+styles.labIntro}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
@@ -952,6 +969,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
               · Beat {telemetry?.beat?.toFixed(1) ?? "—"}
             </div>}
             {finishPreviewError && <p className={styles.error} role="alert" data-testid="finish-error">{finishPreviewError}</p>}
+            {gameplayFinishReport && mode==="gameplay"
+              && <p className={styles.quickMeta} data-testid="gameplay-finish-report">{gameplayFinishReport}</p>}
           </div>
           <div ref={host} className={styles.canvas} data-testid="animation-flow-stage" />
           <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = root 1,35 · mũi tên xanh = khán giả cố định · vàng = hướng Hips +Z · orbit không đổi hướng sân" : "Đường tham chiếu giữ controller production (150 ms / tốc độ gốc). Chưa retarget sáu phrase CMU vào actor này."}</div>

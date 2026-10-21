@@ -389,8 +389,28 @@ export class SourceFlowEngine {
     if (this.lastRecord && this.blend) this.lastRecord.interrupted = true;
     const from = this.blend ? before : previous;
     this.current = { phrase, startBeat: beat, offset: before.root.clone(), yaw: place.yaw };
-    this.blend = initial || !from ? null : { from, startBeat: beat, durationBeats: fade, headingDurationBeats: this.headingBlendDuration(phrase, place.yaw, fade) };
     const entry = this.sample(this.current, beat);
+    // A .35-beat fade at 200 BPM is 105ms: enough for a mathematical
+    // quaternion interpolation, but visibly snaps between unrelated
+    // full-body dance poses. Make CORE SPACE fades pose-sensitive in
+    // presentation time only. Never delay the SPACE/turn/clip start, and
+    // never modify protected Finish/Flare or recovery transitions.
+    const ordinaryDanceHandoff = !initial
+      && phrase.spec.role === "core"
+      && (previous?.phrase.spec.role === "core" || previous?.phrase.spec.role === "idle");
+    const jointAngles = ordinaryDanceHandoff
+      ? before.rotations.slice(1).map((q, i) => q.angleTo(entry.rotations[i + 1]))
+        .filter(Number.isFinite).sort((a, b) => a - b) : [];
+    const p75 = jointAngles.length
+      ? jointAngles[Math.floor((jointAngles.length - 1) * .75)] : 0;
+    const minFadeSeconds = ordinaryDanceHandoff
+      ? T.MathUtils.clamp(.14 + p75 * .075, .14, .245) : 0;
+    const effectiveFadeBeats = ordinaryDanceHandoff
+      ? Math.max(fade, Math.min(.9, minFadeSeconds * this.bpm / 60)) : fade;
+    this.blend = initial || !from ? null : {
+      from, startBeat: beat, durationBeats: effectiveFadeBeats,
+      headingDurationBeats: this.headingBlendDuration(phrase, place.yaw, effectiveFadeBeats)
+    };
     const record: TransitionRecord = {
       a: previous?.phrase.spec.id ?? null, b: id, source: phrase.spec.source,
       phrase: [phrase.spec.start, phrase.spec.end], group: phrase.spec.group,

@@ -144,7 +144,12 @@ export class SessionChoreography {
     const compatible = (p: (typeof NORMAL_PHRASES)[number]) =>
       (!finish || !this.finishChoice || this.finishChoice === FLARE_SPEC.id || p.id === this.finishChoice)
       && Boolean(this.engine.placementAtExit(p.id, beat, immediate || fancyImmediate))
-      && (!finish || !this.presentation || this.engine.canFollowAtEnd(p.id, [FINISH_RECOVERY[p.id]], beat))
+      // Fancy Finish's recovery is generated/mirrored FROM THE DISPLAYED
+      // FINAL POSE by FinishPresentation.alignRecovery(), not from the
+      // unaligned catalog recovery used by canFollowAtEnd(). Testing the
+      // unaligned version rejects valid Fancy clips before request().
+      && (!finish || !this.presentation || fancyImmediate
+        || this.engine.canFollowAtEnd(p.id, [FINISH_RECOVERY[p.id]], beat))
       && (!finishNext || this.engine.canFollowAt(p.id, FINISH_PHRASES.map(f => f.id), beat, beat + 4, this.presentation ? FINISH_RECOVERY : undefined));
     const strict = pool.filter(p => (finish || (p.source !== current?.source && p.group !== current?.group)) && compatible(p));
     // Street/Pop chapters: a real SPACE may change family only after a
