@@ -224,7 +224,23 @@ export class SourceFlowEngine {
       // An explicitly calibrated power move has authored inversion/roll. Hips
       // projected yaw there is not anatomical upright facing. Entry/exit are
       // baked from/to standing, with zero placement-introduced heading.
-      if (!fixture && !phrase.flare && (entryError > entryLimit || maxFacingError > HEADING_LIMITS.phraseDeg)) { decision.facingRejected++; continue; }
+      // 85_04 is an explicitly PROTECTED owner-selected Finish with full-body
+      // turns/rolls. Hips +Z is NOT an anatomical front during those spins.
+      // Preserve the strict entry facing and re-entry cone at its grounded
+      // exit, but do not reject the protected middle as an ordinary upright
+      // Street phrase. All stage-radius and initial transition yaw checks
+      // remain authoritative. No bypass for CORE/SPACE or old Finishes.
+      const protectedFancyFinish = phrase.spec.id === "finish-85-04"
+        && phrase.spec.role === "finish" && phrase.spec.policy === "PROTECTED";
+      const finishExitError = degrees(Math.abs(wrapAngle(
+        phrase.headings[phrase.headings.length - 1] + yaw - this.desiredHeading)));
+      if (!fixture && !phrase.flare
+        && (entryError > entryLimit
+          || (protectedFancyFinish
+            ? finishExitError > HEADING_LIMITS.phraseDeg
+            : maxFacingError > HEADING_LIMITS.phraseDeg))) {
+        decision.facingRejected++; continue;
+      }
       const angle = Math.abs(wrapAngle(yaw + phrase.headings[0] - heading));
       // Bound the rotation INTRODUCED by placement separately from authored twists.
       // Larger entry changes require a different phrase, never a hidden 180° spin.
