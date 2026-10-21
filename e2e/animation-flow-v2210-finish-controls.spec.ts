@@ -52,5 +52,16 @@ test("iPhone Preview has Finish/BPM/Play/Break controls next to stage, with adva
   await expect(advanced).toBeVisible();
   await expect(page.getByTestId("breakdance-expansion")).toBeVisible();
   await dock.getByRole("combobox",{name:"Finish candidate"}).selectOption(FANCY_FOOTWORK_FINISH.id);
-  await expect(dock.getByTestId("finish-active-choice")).toContainText("Fancy Footwork",{timeout:90000});
+  // Selecting must confirm a real prepared long window, not merely update the
+  // dropdown text; V2.2.10 iPhone video showed '85_04 chưa tải đoạn dài'.
+  await expect(dock.getByTestId("finish-active-choice"))
+    .toContainText(/Fancy Footwork 85_04 · nguồn [0-9.]+–[0-9.]+s/, {timeout:90000});
+  await expect(dock.getByTestId("finish-active-choice")).not.toContainText("chưa tải");
+  await dock.getByRole("button",{name:/Xem Finish/}).click();
+  await expect(dock.getByTestId("finish-visual-status"))
+    .toContainText("finish-85-04",{timeout:12000});
+  await expect(dock.getByTestId("finish-visual-status"))
+    .toContainText("FINISH_ACCENT",{timeout:12000});
+  await expect(dock.getByTestId("finish-error")).toHaveCount(0);
+  await expect(stage).toHaveAttribute("data-telemetry", /"current":"finish-85-04"/);
 });

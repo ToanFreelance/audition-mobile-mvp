@@ -59,6 +59,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   const reviewRef = useRef<{ notes: Record<string, string>; verdicts: Record<string, "keep-candidate" | "retrim" | "reject"> }>({ notes: {}, verdicts: {} });
   const [previewPhrase, setPreviewPhrase] = useState(NORMAL_PHRASES[0].id), [finishPhrase, setFinishPhrase] = useState(FLARE_SPEC.id);
   const [finishLoading, setFinishLoading] = useState(false);
+  const [finishPreviewError, setFinishPreviewError] = useState("");
   const [finishWindow, setFinishWindow] = useState<{start:number;end:number;sourceDuration:number;activeFraction:number}|null>(null);
   const finishWindowRef = useRef<{start:number;end:number;sourceDuration:number;activeFraction:number}|null>(null);
   const [running, setRunning] = useState(false), [ready, setReady] = useState(false);
@@ -285,12 +286,23 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             continue;
           }
           engine.phrases.set(spec.id,phrase);
+          // Test a genuine isolated Finish entry at the stage origin. A
+          // source interval that passes root travel but fails full facing /
+          // placement cannot be advertised as playable in the QA viewer.
+          engine.start(spec.id, 0);
+          const state=engine.snapshot();
+          if(state.current!==spec.id)throw Error("Finish candidate chưa được engine nhận.");
           chosen = window;
           break;
         } catch(error) {failures.push(String(error));}
       }
-      if(!chosen)throw Error("85_04 dài hơn đã tải nhưng chưa vừa vùng sân / điểm kết thúc. "
-        + failures.slice(0,2).join("; "));
+      if(!chosen) {
+        engine.phrases.delete(FANCY_FOOTWORK_FINISH.id);
+        // Preserve a usable QA stage after candidate evaluation fails.
+        engine.start("141-twist",0);
+        throw Error("85_04 có BVH nhưng các đoạn Finish dài chưa qua kiểm tra stage/facing. "
+          + failures.slice(0,3).join("; "));
+      }
       const windowData={start:chosen.start,end:chosen.end,
         sourceDuration:chosen.sourceDuration,activeFraction:chosen.activeFraction};
       finishWindowRef.current=windowData;
@@ -388,11 +400,13 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     commands.current = {
       selectFinish: async id => {
         if (!engine || catalogReview || ![FLARE_SPEC,...FINISH_PHRASES].some(p => p.id === id)) return;
+        setFinishPreviewError("");
         if (finishLoadBusy) return;
         finishLoadBusy = true; setFinishLoading(true); setError("");
         try {
           if (audio?.state === "running") { await audio.suspend(); setRunning(false); }
-          if (id === FANCY_FOOTWORK_FINISH.id && !engine.phrases.has(id)) {
+          if (id === FANCY_FOOTWORK_FINISH.id
+            && (!engine.phrases.has(id) || !finishWindowRef.current)) {
             setStatus("Đang đọc full source 85_04 và tìm đoạn Finish biểu diễn dài…");
             await prepareFancyFinish();
           }
@@ -412,7 +426,11 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           if (!disposed) setStatus(id === FANCY_FOOTWORK_FINISH.id
             ? "Đã chuẩn bị FINISH 85_04 từ đoạn chuyển động dài của source + hồi phục/idle. Bấm Xem Finish bên cạnh Preview. Flare không đổi."
             : "Đã chọn " + id + " · nhấn Bắt đầu để kiểm tra Finish.");
-        } catch (err) { reportError(err); }
+        } catch (err) {
+          const message=err instanceof Error?err.message:String(err);
+          if(!disposed)setFinishPreviewError("Không thể chuẩn bị Finish 85_04: "+message);
+          reportError(err);
+        }
         finally { finishLoadBusy = false; if (!disposed) setFinishLoading(false); }
       },
       enableBreakdance: async () => {
@@ -492,45 +510,69 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       mode: async next => { if (audio?.state === "running") await audio.suspend(); setRunning(false); setMode(next); options.current.mode = next; if (next === "gameplay") { setAuto(true); options.current.auto = true; setOutcome("perfect"); options.current.outcome = "perfect"; } await resetRun(); },
       preview: async (id, finish) => {
         try {
+          setFinishPreviewError("");
           if (audio?.state === "running") await audio.suspend(); setRunning(false);
-          setMode(finish ? "finish" : "lab"); options.current.mode = finish ? "finish" : "lab";
-          setView("source"); options.current.view = "source"; setAuto(false); options.current.auto = false;
-          const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
-          if (id === FANCY_FOOTWORK_FINISH.id && !engine?.phrases.has(id)) {
-            setStatus("Đang tìm đoạn Finish dài từ toàn bộ BVH 85_04…");
-            await prepareFancyFinish();
+          // Cache miss and missing source-window metadata must be repaired
+          // together. A stale prepped 4s phrase must never masquerade as V2.2.10.
+          if (finish && id === FANCY_FOOTWORK_FINISH.id
+            && (!engine?.phrases.has(id) || !finishWindowRef.current)) {
+            setFinishLoading(true);
+            setStatus("Đang chuẩn bị Finish dài 85_04…");
+            try { await prepareFancyFinish(); }
+            finally { if (!disposed) setFinishLoading(false); }
           }
+          setMode(finish ? "finish" : "lab"); options.current.mode = finish ? "finish" : "lab";
+          setView("source"); options.current.view = "source";
+          setAuto(false); options.current.auto = false;
+          const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
           if (candidate && catalogReview) {
-            // Resume inside the original user gesture, BEFORE remote BVH load.
-            // iOS Safari may otherwise refuse a late AudioContext.resume().
-            await ensureAudio();
+            await ensureAudio(); // iOS user-gesture-safe audio start before fetch
             setStatus("Đang tải toàn bộ BVH " + candidate.source + "…");
-            const loaded = await loadFullRawReview(id); // raw rig, no clip trimming
+            const loaded = await loadFullRawReview(id);
             if (!loaded || disposed) return;
-            // Reset the *review* AudioContext beat origin; global Gameplay
-            // scheduling is never started on this isolated page.
             clock.reset(audioSeconds()); turns.reset(); processedBoundaries = [];
-            rawReviewStartBeat = 0;
-            setError("");
+            rawReviewStartBeat = 0; setError("");
             setStatus("TOÀN BỘ SOURCE " + candidate.source + " · "
               + rawReviewSource!.clip.duration.toFixed(2)
-              + "s nguồn · xem từ đầu tới cuối, hết sẽ tự dừng. Không phải clip gameplay.");
-          } else {
-            if (candidate) {
-              setStatus("Đang tải nguồn BVH ứng viên " + candidate.source + "…");
-              await prepare([candidate]);
-            }
-            if (disposed || !engine) return;
-            await resetRun(); if (!engine) return;
-            engine.start(finish ? "143-party" : id); replayTarget = finish ? id : null;
-            setStatus(finish
-              ? id === FANCY_FOOTWORK_FINISH.id
-                ? "PREVIEW FINISH 85_04 · biểu diễn dài từ toàn bộ BVH → recovery → living idle; không kéo dài REST."
-                : "REPLAY FINISH RIÊNG · normal → Finish beat 4, Flare về dance beat 24."
-              : "PREVIEW PHRASE RIÊNG · one-shot rồi giữ pose cuối.");
+              + "s nguồn · xem từ đầu tới cuối, hết sẽ tự dừng.");
+            return;
           }
-          if (!catalogReview) await ensureAudio();
-        } catch (e) { reportError(e); }
+          if (candidate) {
+            setStatus("Đang tải nguồn BVH ứng viên " + candidate.source + "…");
+            await prepare([candidate]);
+          }
+          if (disposed || !engine) return;
+          await resetRun();
+          if (!engine) return;
+          if (finish && id !== FLARE_SPEC.id) {
+            // Deterministic isolated audition: START THE SELECTED FINISH.
+            // Previously a random 143-party was started and a single
+            // engine.request(id) was attempted at the next boundary; the
+            // request could fail spatial/heading checks and was silently lost.
+            // No shared Gameplay turn or Finish budget is touched here.
+            engine.start(id,0);
+            choreography?.presentation?.begin(id,0,null);
+            choreography?.update(0);
+            const recorded=engine.history.some(h=>h.b===id&&h.visualStartBeat===0);
+            if(!recorded||choreography?.presentation?.snapshot().finish!==id)
+              throw Error("Finish chưa bắt đầu tại beat 0; không phát animation khác thay thế.");
+            replayTarget=null;
+            setStatus("ĐANG PHÁT FINISH " + id + " từ beat 0 · "
+              + engine.phrases.get(id)!.duration.toFixed(2)
+              + " giây nguồn → hồi phục → idle.");
+          } else {
+            engine.start(finish ? "143-party" : id);
+            replayTarget=finish?id:null;
+            setStatus(finish
+              ? "Replay Flare riêng · entry → flare → dismount → nghỉ."
+              : "Preview phrase riêng · one-shot rồi giữ pose cuối.");
+          }
+          await ensureAudio();
+        } catch(e) {
+          const message=e instanceof Error?e.message:String(e);
+          if(!disposed&&finish)setFinishPreviewError("Không thể phát Finish đã chọn: "+message);
+          reportError(e);
+        }
       },
       previewSegment: async (id, start, end) => {
         try {
@@ -859,7 +901,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.10</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.10.1</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted+" "+styles.labIntro}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
@@ -905,6 +947,11 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
                 : "Finish mặc định: " + ([FLARE_SPEC,...FINISH_PHRASES].find(p => p.id===finishPhrase)?.label ?? finishPhrase)}
               {" · Break " + experimentalCount + " nạp / " + experimentalPlayed + " phát"}
             </div>
+            {mode === "finish" && <div className={styles.quickMeta} data-testid="finish-visual-status">
+              Đang phát: {telemetry?.current ?? "—"} · Pha: {telemetry?.finishPresentation?.phase ?? "chưa bắt đầu"}
+              · Beat {telemetry?.beat?.toFixed(1) ?? "—"}
+            </div>}
+            {finishPreviewError && <p className={styles.error} role="alert" data-testid="finish-error">{finishPreviewError}</p>}
           </div>
           <div ref={host} className={styles.canvas} data-testid="animation-flow-stage" />
           <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = root 1,35 · mũi tên xanh = khán giả cố định · vàng = hướng Hips +Z · orbit không đổi hướng sân" : "Đường tham chiếu giữ controller production (150 ms / tốc độ gốc). Chưa retarget sáu phrase CMU vào actor này."}</div>
