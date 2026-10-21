@@ -25,5 +25,5 @@ test("Finish selector exposes 85_04 while keeping Flare default on isolated Game
   await expect(page.getByTestId("finish-active-choice")).toContainText("Fancy Footwork", { timeout: 90000 });
   await expect(page.getByTestId("finish-active-choice")).not.toContainText("Đang tải");
   // This is only a selector/load smoke gate, not real iPhone choreography QA.
-  await expect(page.getByRole("button", { name: "Xem Finish đã chọn" })).toBeEnabled();
+  await expect(page.getByTestId("preview-control-dock").getByRole("button", { name: /Xem Finish/ })).toBeEnabled();
 });

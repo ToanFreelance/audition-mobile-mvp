@@ -86,5 +86,5 @@ test("New Break pool is explicitly opt-in on the isolated QA route",async({page}
   await expect(panel.getByTestId("break-source-85_12")).toContainText("chưa kiểm tra");
   await expect(panel.getByTestId("break-source-85_14")).toContainText("chưa kiểm tra");
   await expect(panel.getByTestId("break-source-90_28")).toContainText("chưa kiểm tra");
-  await expect(panel.getByRole("button",{name:"Nạp Breakdance vào Gameplay thử"})).toBeEnabled();
+  await expect(page.getByTestId("preview-control-dock").getByRole("button",{name:"+ Breakdance"})).toBeEnabled();
 });

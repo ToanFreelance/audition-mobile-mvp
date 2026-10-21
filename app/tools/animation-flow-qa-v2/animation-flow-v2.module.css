@@ -2,3 +2,35 @@
 .gameplayHud { display: grid; gap: 6px; padding: 12px; margin-bottom: 12px; border: 1px solid #62548b; border-radius: 12px; color: #eae2ff; font-size: 12px; }
 .gameplayHud strong { font-size: 18px; }
 .gameplayHud[data-finish="true"] { border-color: #ff646d; color: #ff8d95; background: #361720; }
+
+/* V2.2.10 — actionable controls adjacent to the iPhone preview */
+.quickDock{padding:11px 13px 9px;background:#191d2b;border-bottom:1px solid #323247;display:grid;gap:9px}
+.quickRow{display:grid;grid-template-columns:minmax(0,1fr) 86px;gap:8px}
+.quickLabel,.quickBpm{display:grid;gap:4px;min-width:0;color:#b9acce;font-size:10px;font-weight:750;letter-spacing:.045em}
+.quickLabel select,.quickBpm select{width:100%;min-width:0;background:#29253a;border:1px solid #605578;color:#efeafa;border-radius:8px;padding:9px 8px;font-size:12px;min-height:41px;text-overflow:ellipsis}
+.quickActions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.page .quickActions button{min-width:0;padding:7px 4px;min-height:40px;font-size:10px;line-height:1.2}
+.quickMeta{font-size:10px;line-height:1.4;color:#ab9dc4;overflow-wrap:anywhere}
+.advancedPanel{min-width:0}.advancedPanel summary{cursor:pointer;color:#d9cdeb;font-size:12px;font-weight:700;padding:3px 0;list-style:revert}
+.advancedPanel[open] summary{margin-bottom:11px}
+.labIntro{color:#808499}
+@media(max-width:520px){
+  .page{padding:10px 9px 26px}
+  .header{margin-bottom:9px;align-items:center}
+  .header h1{font-size:24px;margin:0 0 2px}
+  .header .lead{display:none}
+  .eyebrow{margin-bottom:5px}
+  .tabs{margin-bottom:7px;padding:3px}
+  .tabs button{min-height:33px;padding:6px 3px;font-size:9px}
+  .labIntro{display:none}
+  .canvas{height:min(44dvh,380px)}
+  .canvasCaption{padding:2px 8px 5px}
+  .rhythm{padding:9px}
+  .gameplayHud{padding:7px;gap:3px;margin-bottom:6px;font-size:10px}
+  .gameplayHud strong{font-size:14px}
+  .quickDock{padding:8px 9px;gap:7px}
+  .quickMeta{font-size:9px}
+  .quickActions{gap:5px}
+  .page .quickActions button{font-size:9px;min-height:42px;padding:6px 3px}
+  .quickLabel select,.quickBpm select{font-size:11px}
+}

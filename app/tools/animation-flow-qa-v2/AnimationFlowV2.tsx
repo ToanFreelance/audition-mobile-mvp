@@ -18,6 +18,7 @@ import { SessionChoreography } from "@/lib/animation-flow-v2/session-choreograph
 import { closeStandingIdle, type FinishPresentation } from "@/lib/animation-flow-v2/finish-presentation";
 import { describeSharedTurn, firstFinishTurn } from "@/multiplayer/determinism";
 import { FLARE_SPEC, FLARE_RISE_SPEC, FlareLibrary } from "@/lib/animation-flow-v2/flare-performance";
+import { rankFancyFinishWindows } from "@/lib/animation-flow-v2/fancy-finish-window";
 import type { FlareSource } from "@/lib/animation-flow-v2/flare-source";
 import { FINISH_CHOREOGRAPHY } from "@/components/character/choreography";
 import { OWNER_CURATION_DIRECTIONS, proposeReviewSegments, type CurationSlot, type ActivitySample } from "@/lib/animation-flow-v2/clip-curation";
@@ -58,6 +59,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   const reviewRef = useRef<{ notes: Record<string, string>; verdicts: Record<string, "keep-candidate" | "retrim" | "reject"> }>({ notes: {}, verdicts: {} });
   const [previewPhrase, setPreviewPhrase] = useState(NORMAL_PHRASES[0].id), [finishPhrase, setFinishPhrase] = useState(FLARE_SPEC.id);
   const [finishLoading, setFinishLoading] = useState(false);
+  const [finishWindow, setFinishWindow] = useState<{start:number;end:number;sourceDuration:number;activeFraction:number}|null>(null);
+  const finishWindowRef = useRef<{start:number;end:number;sourceDuration:number;activeFraction:number}|null>(null);
   const [running, setRunning] = useState(false), [ready, setReady] = useState(false);
   const [recording, setRecording] = useState(false), [error, setError] = useState("");
   const [seed, setSeed] = useState(20261018);
@@ -244,6 +247,56 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         target.phrases.set(spec.id, closeStandingIdle(preparePhrase(spec, motion, target.rig, canonicalSource)));
       }
     }
+    /**
+     * The previous 0.2–4.2s trial discarded the most interesting footage,
+     * then entered idle. Rank long ACTIVE source intervals, leaving at least
+     * four shared beats for recovery / living idle before the next L6.
+     * The catalog metadata remains a QA fallback and Flare is untouched.
+     */
+    async function prepareFancyFinish() {
+      if (!engine) throw Error("Engine chưa sẵn sàng cho Finish.");
+      const sourceMotion = await source(FANCY_FOOTWORK_FINISH.source);
+      const referenceMotion = await source("111_05");
+      // Take the remaining Finish→L6 window from the REAL shared manifest.
+      // Never assume that REST is a fixed number of beats across settings.
+      if (!gameplay) throw Error("Không có shared gameplay manifest để tính REST của Finish.");
+      const budget = gameplay.finishWindow(firstFinishTurn(gameplay.manifest)).totalBeats;
+      const candidates = rankFancyFinishWindows(sourceMotion,budget,120);
+      if (!candidates.length) throw Error("85_04 chưa tìm được một đoạn Finish dài, có chuyển động và điểm đầu/cuối phù hợp.");
+      let chosen: typeof candidates[number] | null = null;
+      const failures: string[] = [];
+      for (const window of candidates) {
+        try {
+          const duration = window.end - window.start;
+          const spec = {
+            ...FANCY_FOOTWORK_FINISH, start: window.start, end: window.end,
+            exitMarkers: [duration],
+            protectedRanges: [[0,duration]] as [number,number][],
+          };
+          const phrase = preparePhrase(spec,sourceMotion,engine.rig,referenceMotion);
+          // Preserve the authored source path. Never compress/teleport its XZ
+          // to force it into the 1.35m stage. Incompatible alternatives are
+          // skipped rather than silently accepted.
+          const first = phrase.path[0];
+          const localPathRadius = Math.max(...phrase.path.map(p =>
+            Math.hypot(p.x-first.x,p.z-first.z)));
+          if (localPathRadius > engine.radius * 1.45) {
+            failures.push("root-travel: " + window.start.toFixed(2));
+            continue;
+          }
+          engine.phrases.set(spec.id,phrase);
+          chosen = window;
+          break;
+        } catch(error) {failures.push(String(error));}
+      }
+      if(!chosen)throw Error("85_04 dài hơn đã tải nhưng chưa vừa vùng sân / điểm kết thúc. "
+        + failures.slice(0,2).join("; "));
+      const windowData={start:chosen.start,end:chosen.end,
+        sourceDuration:chosen.sourceDuration,activeFraction:chosen.activeFraction};
+      finishWindowRef.current=windowData;
+      if(!disposed)setFinishWindow(windowData);
+      return chosen;
+    }
     async function prepareFlare(){
       if(!engine)return;
       try{
@@ -340,12 +393,13 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         try {
           if (audio?.state === "running") { await audio.suspend(); setRunning(false); }
           if (id === FANCY_FOOTWORK_FINISH.id && !engine.phrases.has(id)) {
-            setStatus("Đang tải nguồn 85_04 và dựng Finish + Recovery để thử nghiệm…");
-            await prepare([FANCY_FOOTWORK_FINISH]);
+            setStatus("Đang đọc full source 85_04 và tìm đoạn Finish biểu diễn dài…");
+            await prepareFancyFinish();
           }
           if (disposed || !engine) return;
           options.current.finishPhrase = id;
           setFinishPhrase(id);
+          if (id !== FANCY_FOOTWORK_FINISH.id) {finishWindowRef.current=null;setFinishWindow(null);}
           // Selecting a Finish should arm the actual shared Gameplay preview,
           // not leave users in isolated FINISH/LAB mode by surprise.
           options.current.mode = "gameplay";
@@ -356,7 +410,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           setAuto(true);
           await resetRun(); // Selected Finish is armed for the next actual shared Finish event.
           if (!disposed) setStatus(id === FANCY_FOOTWORK_FINISH.id
-            ? "Đã chọn FINISH 85_04 · bản cắt QA 0,2–4,2s + hồi phục/idle; nhấn Bắt đầu để xem tại lượt Finish thật. Flare không bị thay."
+            ? "Đã chuẩn bị FINISH 85_04 từ đoạn chuyển động dài của source + hồi phục/idle. Bấm Xem Finish bên cạnh Preview. Flare không đổi."
             : "Đã chọn " + id + " · nhấn Bắt đầu để kiểm tra Finish.");
         } catch (err) { reportError(err); }
         finally { finishLoadBusy = false; if (!disposed) setFinishLoading(false); }
@@ -443,8 +497,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           setView("source"); options.current.view = "source"; setAuto(false); options.current.auto = false;
           const candidate = DANCE_REVIEW_CANDIDATES.find(p => p.id === id);
           if (id === FANCY_FOOTWORK_FINISH.id && !engine?.phrases.has(id)) {
-            setStatus("Đang chuẩn bị Finish 85_04 từ BVH gốc…");
-            await prepare([FANCY_FOOTWORK_FINISH]);
+            setStatus("Đang tìm đoạn Finish dài từ toàn bộ BVH 85_04…");
+            await prepareFancyFinish();
           }
           if (candidate && catalogReview) {
             // Resume inside the original user gesture, BEFORE remote BVH load.
@@ -471,7 +525,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
             engine.start(finish ? "143-party" : id); replayTarget = finish ? id : null;
             setStatus(finish
               ? id === FANCY_FOOTWORK_FINISH.id
-                ? "PREVIEW FINISH 85_04 · bắt đầu ở beat 4 → full đoạn QA → recovery → idle; chỉ AUDIO END kết thúc game."
+                ? "PREVIEW FINISH 85_04 · biểu diễn dài từ toàn bộ BVH → recovery → living idle; không kéo dài REST."
                 : "REPLAY FINISH RIÊNG · normal → Finish beat 4, Flare về dance beat 24."
               : "PREVIEW PHRASE RIÊNG · one-shot rồi giữ pose cuối.");
           }
@@ -518,7 +572,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         if (options.current.mode !== "lab") { setStatus("Chọn Free Animation Lab trước khi thử Moonwalk riêng."); return; }
         try { await prepare([MOONWALK_PHRASE]); if (disposed || !engine) return; engine.request(MOONWALK_PHRASE.id, currentBeat()); setStatus("Phrase Moonwalk riêng: giữ chuyển động trượt, không thuộc shuffle core."); } catch (e) { reportError(e); }
       },
-      export: () => download(new Blob([JSON.stringify({ schemaVersion: 7, implementation: "2.2.6", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], catalogReview, experimentalPhrases: experimentalSpecs, experimentalRejections: experimentalErrors, experimentalSelections: choreography?.experimentalSelections, ownerCurationDirections: OWNER_CURATION_DIRECTIONS, curationSegments: curationRef.current, rawSourceReview: rawReviewSource && rawReviewId ? { id: rawReviewId, source: rawReviewSource.clip.name, fullDurationSeconds: rawReviewSource.clip.duration, sourcePlayback: "full-BVH-original-clip", noGameplayStageBound: true, autoStopAtEnd: true } : null, reviewerFeedback: reviewRef.current, gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), catalogReview ? `dance-catalog-review-v226-${runSeed}.json` : `animation-flow-v226-${runSeed}.json`),
+      export: () => download(new Blob([JSON.stringify({ schemaVersion: 7, implementation: "2.2.6", flareSourceStatus, flareSource:flare?.retarget.diagnostics, sourcePin: SOURCE_PIN, seed: runSeed, view: options.current.view, renderBackend, clockMode: "synthetic-AudioContext-QA-loop-no-real-song", tempoBasis: "testing-assumption", settings: options.current, catalog: [...NORMAL_PHRASES,...DANCE_REVIEW_CANDIDATES,FLARE_SPEC,...FINISH_PHRASES,...REST_PHRASES], catalogReview, fancyFinishWindow: finishWindowRef.current, experimentalPhrases: experimentalSpecs, experimentalRejections: experimentalErrors, experimentalSelections: choreography?.experimentalSelections, ownerCurationDirections: OWNER_CURATION_DIRECTIONS, curationSegments: curationRef.current, rawSourceReview: rawReviewSource && rawReviewId ? { id: rawReviewId, source: rawReviewSource.clip.name, fullDurationSeconds: rawReviewSource.clip.duration, sourcePlayback: "full-BVH-original-clip", noGameplayStageBound: true, autoStopAtEnd: true } : null, reviewerFeedback: reviewRef.current, gameplayTurns: gameplay?.turns, judgements: gameplay?.judgements, choreographySelections: choreography?.selections, continuityEvents: choreography?.continuityEvents, finishPresentation: choreography?.presentation?.snapshot(), finishPresentationEvents: choreography?.presentation?.events, flareAttempts:choreography?.presentation?.flareAttempts, transitions: engine?.history, processedBoundaries, selectionEvents, samples, snapshot: engine?.snapshot(), referenceStatus, limitations: ["CMU canonical skeleton, not accepted-character retarget", "shared multiplayer schedule, not duration-dependent Solo ending planner", "no Music Config selected; no real-song acceptance", "technical exit markers await visual acceptance", "fixture-spatial-only replay is not a facing acceptance test"] }, null, 2)], { type: "application/json" }), catalogReview ? `dance-catalog-review-v226-${runSeed}.json` : `animation-flow-v226-${runSeed}.json`),
       record: () => {
         if (recorder && recorder.state !== "inactive") { recorder.stop(); return; }
         if (!renderer.domElement.captureStream || typeof MediaRecorder === "undefined") { setError("Browser này không hỗ trợ ghi canvas; dùng xuất telemetry JSON."); return; }
@@ -805,15 +859,53 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   </main>;
   return <main className={styles.page}>
     <div className={styles.shell}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.9</span></h1><p className={styles.lead}>L1–9 → Flare liên hoàn trong REST → đứng dậy → L6. {NORMAL_PHRASES.length} phrase thường, giữ hai Finish cũ để so sánh.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>AUDITION / MOTION LAB</p><h1>Animation Flow <span>V2.2.10</span></h1><p className={styles.lead}>Điều khiển ngay cạnh khung nhân vật · Finish / Breakdance / nhịp. Flare vẫn là mặc định.</p></div><span className={styles.qa}><a href="/tools/animation-flow-qa-v2/catalog">Dance Catalog Review ↗</a></span></header>
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
-      <p className={styles.muted}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
+      <p className={styles.muted+" "+styles.labIntro}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
         {([["source", "Nguồn BVH · V2"], ["c1-casual-grace", "Tham chiếu nữ"], ["c4-casual-boy", "Tham chiếu nam"]] as const).map(([id, label]) => <button key={id} disabled={id !== "source" && backend !== "webgl"} title={id !== "source" && backend !== "webgl" ? "Cần WebGL để xem mesh accepted" : undefined} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
       </div>
       <div className={styles.layout}>
         <section className={styles.stageCard}>
           <div className={styles.stageHeader}><span><i className={ready ? styles.dot : styles.loadingDot} />{view === "source" ? backend === "webgl" ? "CMU · CANONICAL SKELETON" : "CMU · CHIẾU SKELETON 2D" : "PUBLISHED · NHÂN VẬT HIỆN HÀNH"}</span><span>{bpm} BPM · {view === "source" ? "tempo giả định" : "controller gốc"}</span></div>
+          <div className={styles.quickDock} data-testid="preview-control-dock" role="group" aria-label="Điều khiển ngay tại Preview">
+            <div className={styles.quickRow} data-testid="finish-choice-panel">
+              <label className={styles.quickLabel}>FINISH
+                <select aria-label="Finish candidate" value={finishPhrase} disabled={!ready || finishLoading}
+                  onChange={e => void commands.current.selectFinish(e.target.value)}>
+                  {[FLARE_SPEC,...FINISH_PHRASES].map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </label>
+              <label className={styles.quickBpm}>BPM
+                <select aria-label="BPM nhanh" value={bpm} disabled={tempoLocked}
+                  onChange={e => setBpm(Number(e.target.value))}>
+                  {[110,120,160,200].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className={styles.quickActions}>
+              <button className={styles.primary} disabled={!ready || finishLoading}
+                onClick={() => void commands.current.preview(finishPhrase,true)}>
+                {finishLoading ? "Đang tải…" : "▶ Xem Finish"}
+              </button>
+              <button disabled={!ready} onClick={() => void commands.current.toggle()}>
+                {running ? "Ⅱ Tạm dừng" : "▶ Bắt đầu"}
+              </button>
+              <button disabled={!ready} onClick={() => void commands.current.reset()}>↻ Lượt mới</button>
+              <button disabled={!ready || experimentalLoading || experimentalCount > 0}
+                onClick={() => void commands.current.enableBreakdance()}>
+                {experimentalLoading ? "Đang nạp…" : experimentalCount ? "Break đã nạp" : "+ Breakdance"}
+              </button>
+            </div>
+            <div className={styles.quickMeta} data-testid="finish-active-choice">
+              {finishLoading ? "Đang chuẩn bị 85_04…" : finishPhrase === FANCY_FOOTWORK_FINISH.id
+                ? finishWindow
+                  ? `Fancy Footwork 85_04 · nguồn ${finishWindow.start.toFixed(1)}–${finishWindow.end.toFixed(1)}s / ${finishWindow.sourceDuration.toFixed(1)}s · hồi phục/idle trong REST`
+                  : "85_04 · chưa tải đoạn dài"
+                : "Finish mặc định: " + ([FLARE_SPEC,...FINISH_PHRASES].find(p => p.id===finishPhrase)?.label ?? finishPhrase)}
+              {" · Break " + experimentalCount + " nạp / " + experimentalPlayed + " phát"}
+            </div>
+          </div>
           <div ref={host} className={styles.canvas} data-testid="animation-flow-stage" />
           <div className={styles.canvasCaption}>{view === "source" ? "Vòng tím = root 1,35 · mũi tên xanh = khán giả cố định · vàng = hướng Hips +Z · orbit không đổi hướng sân" : "Đường tham chiếu giữ controller production (150 ms / tốc độ gốc). Chưa retarget sáu phrase CMU vào actor này."}</div>
           {view === "source" && <div className={styles.canvasCaption} data-testid="facing-indicator">{telemetry?.samplingDomain ? "Flare: hướng Hips khi chống sàn không phải hướng đứng" : `Lệch hướng: ${(telemetry?.orientation.facingErrorDeg ?? 0).toFixed(1)}°`} · {Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 45 ? "Chính diện" : Math.abs(telemetry?.orientation.facingErrorDeg ?? 0) <= 90 ? "Nghiêng" : "Quay lưng"} · {telemetry?.orientation.policy === "fixture-spatial-only" ? "Fixture: chỉ kiểm vị trí" : "Ưu tiên khán giả"}</div>}
@@ -832,16 +924,15 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         </section>
         <aside className={styles.sidebar}>
           <section className={styles.panel}><p className={styles.eyebrow}>ĐANG TRÌNH BÀY</p><h2>{view === "source" ? currentSpec?.label ?? telemetry?.current ?? "Chuẩn bị…" : view === "c1-casual-grace" ? "Casual Grace" : "Casual Boy"}</h2><div className={styles.sourceId}>{view === "source" ? telemetry?.source ?? "—" : view}</div>{telemetry?.finishPresentation?.flare && <p className={styles.muted}>Rig Mixamo → CMU · {backend} · entry/đứng dậy thử nghiệm</p>}<p className={styles.muted}>{view === "source" ? `Phrase ${telemetry?.sourcePhrase?.map(n => n.toFixed(2)).join("–") ?? "—"} giây nguồn · ${telemetry?.policy ?? "FREE"}` : telemetry?.referenceStatus ?? "Chưa tải"}</p>{telemetry?.pending && view === "source" && <p className={styles.pending}>Đã nhận SPACE · đợi exit tại beat {telemetry.pending.dueBeat.toFixed(2)}</p>}<p className={styles.muted} data-testid="presentation-phase">Pha: {telemetry?.finishPresentation?.phase ?? "DANCE"}{telemetry?.finishPresentation?.flare && ` · vòng ${telemetry.finishPresentation.completedLoops}/${telemetry.finishPresentation.loopCount} · còn ${telemetry.finishPresentation.remainingBeats?.toFixed(2)} beat · ${telemetry.finishPresentation.playbackRate?.toFixed(3)}×`}</p><p className={styles.muted}>Trước: {view === "source" ? telemetry?.previous ?? "—" : "xem đường published hiện hành"}</p></section>
-          <section className={styles.panel}>
-            <div className={styles.buttons}><button className={styles.primary} disabled={!ready} onClick={() => void commands.current.toggle()}>{running ? "Tạm dừng" : "Bắt đầu"}</button><button disabled={!ready} onClick={() => void commands.current.reset()}>Lượt ngẫu nhiên mới</button></div>
+          <details className={styles.panel+" "+styles.advancedPanel}><summary>Cài đặt nâng cao · crossfade / exit / auto</summary>
             <label className={styles.control}>BPM <strong>{bpm}</strong><input aria-label="BPM" disabled={tempoLocked} type="range" min={80} max={200} step={1} value={bpm} onChange={e => setBpm(+e.target.value)} /></label>
             <div className={styles.presets}>{[110,120,160,200].map(rate=><button key={rate} disabled={tempoLocked} onClick={() => setBpm(rate)}>{rate} BPM</button>)}</div>
             <label className={styles.control}>Crossfade <select aria-label="Crossfade" value={fade} disabled={view !== "source"} onChange={e => setFade(+e.target.value)}>{[0.15, 0.35, 0.7, 1].map(v => <option key={v} value={v}>{v} beat · {(v * 60 / bpm).toFixed(3)} giây</option>)}</select></label>
             <label className={styles.control}>Exit policy <select aria-label="Exit policy" value={policy} disabled={view !== "source"} onChange={e => setPolicy(e.target.value as typeof policy)}><option value="metadata">Theo phrase metadata</option><option value="FREE">FREE · nếu không trong protected phase</option><option value="BEAT_WINDOW">BEAT_WINDOW</option><option value="PROTECTED">PROTECTED · thử chờ marker</option></select></label>
             <label className={styles.checkbox}><input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} />{mode === "gameplay" ? "Auto command tại target gốc; bỏ qua HIDDEN / REST" : "Tự SPACE mỗi bốn beat (Lab)"}</label>
             {mode === "gameplay" && <label className={styles.control}>Kết quả tự động <select aria-label="Auto outcome" value={outcome} onChange={e => setOutcome(e.target.value as PreviewOutcome)}><option value="perfect">Perfect · nhập đúng arrow + SPACE</option><option value="miss">Miss · không nhập, runtime xử lý</option></select></label>}
-          </section>
-          <section className={styles.panel} data-testid="breakdance-expansion">
+          </details>
+          <details className={styles.panel+" "+styles.advancedPanel} data-testid="breakdance-expansion"><summary>Breakdance · nguồn và thống kê ({experimentalCount} nạp / {experimentalPlayed} phát)</summary>
             <p className={styles.eyebrow}>V2.2.8.3 · STREET / BREAK · THỬ NGHIỆM</p>
             <h2>Chơi thử các đoạn đã chọn</h2>
             <p className={styles.muted}>85_12 tách nhiều đoạn; 85_14 và 90_28 dùng ngưỡng tư thế theo tỷ lệ BVH nguồn, tìm đoạn nhảy có chuyển động và điểm vào/ra an toàn. Những đoạn lộn/chống tay không thể cắt bằng SPACE vẫn được giữ trong Catalog. 85_04 vẫn là Finish candidate, Flare mặc định không đổi.</p>
@@ -862,20 +953,9 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
               </p>;
             })}
             <p className={styles.muted}>Bấm nạp sẽ bắt đầu phiên mới. Nếu 0 đoạn đạt, game giữ nguyên 10 phrase Street/Pop. Những đoạn Floor/Flips không được cắt ngang bằng SPACE; xem lý do loại trong JSON.</p>
-          </section>
-          <section className={styles.panel} data-testid="finish-choice-panel">
-            <p className={styles.eyebrow}>V2.2.9 · FINISH CANDIDATE · CHƯA DUYỆT PRODUCTION</p>
-            <p className={styles.muted}><strong>85_04 Fancy Footwork</strong> đã có trong lựa chọn Finish thử nghiệm. Chọn 85_04 sẽ tải BVH và reset phiên QA; khi chạy Gameplay, nó sẽ xuất hiện tại lượt Finish. Flare vẫn là mặc định.</p>
-            <select aria-label="Finish candidate" value={finishPhrase} disabled={!ready || finishLoading} onChange={e => void commands.current.selectFinish(e.target.value)}>{[FLARE_SPEC,...FINISH_PHRASES].map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select>
-            <p className={styles.muted} data-testid="finish-active-choice">{finishLoading ? "Đang tải/chuẩn bị 85_04…" : "Finish đang chọn: " + ([FLARE_SPEC,...FINISH_PHRASES].find(p => p.id === finishPhrase)?.label ?? finishPhrase)}</p>
-            <div className={styles.buttons}>
-              <button disabled={!ready || finishLoading} onClick={() => void commands.current.preview(FLARE_SPEC.id, true)}>Replay Flare Finish</button>
-              <button disabled={!ready || finishLoading} onClick={() => void commands.current.preview(finishPhrase, true)}>Xem Finish đã chọn</button>
-            </div>
-            <p className={styles.muted}>85_04 dùng đoạn QA đầu 0,2–4,2 giây nguồn, sau đó Recovery → Idle trong REST; mốc cắt chưa phải bản cuối. Replay riêng ở beat 4. Không thêm global turn hay tự kết thúc game.</p>
-          </section>
-          <section className={styles.panel}><p className={styles.eyebrow}>CATALOG · {NORMAL_PHRASES.length} PHRASE</p><select aria-label="Phrase preview" value={previewPhrase} onChange={e => setPreviewPhrase(e.target.value)}>{NORMAL_PHRASES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(previewPhrase, false)}>Xem phrase · reset phiên riêng</button></div><p className={styles.muted}>Sáu phrase V2.1 giữ nguyên; mười phrase mới chờ duyệt pose/contact. Không gán style hip-hop cho nguồn Unknown.</p></section>
-          <section className={styles.panel}><p className={styles.eyebrow}>ĐỐI CHỨNG LỖI CŨ</p><label className={styles.control}>Cặp xác định <select aria-label="Cặp lỗi" value={pair} onChange={e => setPair(e.target.value)}>{FAILING_PAIRS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.replay(pair)}>Phát lại cặp</button><button disabled={!ready || view !== "source"} onClick={() => void commands.current.moonwalk()}>Thử Moonwalk</button></div><p className={styles.muted}>Fixture ballet/floor chỉ để QA; không nằm trong pool ngẫu nhiên.</p></section>
+          </details>
+          <details className={styles.panel+" "+styles.advancedPanel}><summary>Catalog · {NORMAL_PHRASES.length} phrase</summary><select aria-label="Phrase preview" value={previewPhrase} onChange={e => setPreviewPhrase(e.target.value)}>{NORMAL_PHRASES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.preview(previewPhrase, false)}>Xem phrase · reset phiên riêng</button></div><p className={styles.muted}>Sáu phrase V2.1 giữ nguyên; mười phrase mới chờ duyệt pose/contact. Không gán style hip-hop cho nguồn Unknown.</p></details>
+          <details className={styles.panel+" "+styles.advancedPanel}><summary>Đối chứng lỗi cũ / Moonwalk</summary><label className={styles.control}>Cặp xác định <select aria-label="Cặp lỗi" value={pair} onChange={e => setPair(e.target.value)}>{FAILING_PAIRS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label><div className={styles.buttons}><button disabled={!ready} onClick={() => void commands.current.replay(pair)}>Phát lại cặp</button><button disabled={!ready || view !== "source"} onClick={() => void commands.current.moonwalk()}>Thử Moonwalk</button></div><p className={styles.muted}>Fixture ballet/floor chỉ để QA; không nằm trong pool ngẫu nhiên.</p></details>
         </aside>
       </div>
       <section className={styles.measurements} aria-label="Đo không gian">
