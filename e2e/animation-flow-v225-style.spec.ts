@@ -9,8 +9,8 @@ import {
 test("All 16 QA phrases have explicit non-production dance families", () => {
   expect(() => assertCompleteStyleCatalog()).not.toThrow();
   expect(NORMAL_PHRASES).toHaveLength(16);
-  expect(MODERN_GAMEPLAY_PHRASES).toHaveLength(11);
-  expect(LEGACY_QA_PHRASES).toHaveLength(5);
+  expect(MODERN_GAMEPLAY_PHRASES).toHaveLength(10);
+  expect(LEGACY_QA_PHRASES).toHaveLength(6);
   expect(new Set([...MODERN_GAMEPLAY_PHRASES, ...LEGACY_QA_PHRASES].map(p => p.id)).size).toBe(16);
   expect(MODERN_GAMEPLAY_PHRASES.every(p => isModernFamily(phraseFamily(p)))).toBe(true);
 });
@@ -22,7 +22,9 @@ test("Swing, social and novelty are retained in QA catalog, never default gamepl
   }
   expect(MODERN_GAMEPLAY_PHRASES.map(p => p.id)).toContain("85-toprock");
   expect(MODERN_GAMEPLAY_PHRASES.map(p => p.id)).toContain("141-twist");
-  expect(MODERN_GAMEPLAY_PHRASES.map(p => p.id)).toContain("90-glide");
+  expect(MODERN_GAMEPLAY_PHRASES.map(p => p.id)).not.toContain("90-glide");
+  expect(LEGACY_QA_PHRASES.map(p => p.id)).toContain("90-glide");
+  expect(NORMAL_PHRASES.find(p => p.id === "90-glide")?.role).toBe("travel");
 });
 
 test("Only modern Street and Pop families form gameplay chapters", () => {
@@ -31,7 +33,7 @@ test("Only modern Street and Pop families form gameplay chapters", () => {
     if (family) out[family] = (out[family] ?? 0) + 1;
     return out;
   }, {} as Record<string, number>);
-  expect(familyCounts).toEqual({ pop: 5, street: 6 });
+  expect(familyCounts).toEqual({ pop: 5, street: 5 });
   expect(DEFAULT_STYLE_RUN_SPACES).toBe(3);
   expect(otherModernFamily("street")).toBe("pop");
   expect(otherModernFamily("pop")).toBe("street");

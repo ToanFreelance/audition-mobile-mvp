@@ -17,8 +17,8 @@ test("V2.2.6 adds six verified-source surveys, not six approved animations", () 
 test("Review clip sources cannot leak to gameplay shuffle or Finish/REST", () => {
   const ids = new Set(NORMAL_PHRASES.map(p => p.id));
   expect(NORMAL_PHRASES).toHaveLength(16);
-  expect(MODERN_GAMEPLAY_PHRASES).toHaveLength(11);
-  expect(LEGACY_QA_PHRASES).toHaveLength(5);
+  expect(MODERN_GAMEPLAY_PHRASES).toHaveLength(10);
+  expect(LEGACY_QA_PHRASES).toHaveLength(6);
   expect(DANCE_REVIEW_CANDIDATES.every(p => !ids.has(p.id))).toBe(true);
   expect(DANCE_REVIEW_CANDIDATES.filter(p => p.role === "fixture").map(p => p.source)).toEqual(["85_14","90_28"]);
   expect(DANCE_REVIEW_CANDIDATES.filter(p => p.role === "fixture").every(p => p.policy === "PROTECTED")).toBe(true);

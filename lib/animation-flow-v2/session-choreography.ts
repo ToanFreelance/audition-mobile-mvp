@@ -3,7 +3,7 @@ import { SourceFlowEngine } from "./engine";
 import { PhraseBag } from "./shuffle";
 import { FinishPresentation } from "./finish-presentation";
 import { FlareLibrary, FLARE_SPEC } from "./flare-performance";
-import { DEFAULT_STYLE_RUN_SPACES, isModernFamily, otherModernFamily, phraseFamily, type ModernFamily } from "./style-policy";
+import { DEFAULT_STYLE_RUN_SPACES, isModernFamily, isPlayableModernPhrase, otherModernFamily, phraseFamily, type ModernFamily } from "./style-policy";
 /** Visual consumer only; cannot create or advance a gameplay turn. */
 export class SessionChoreography {
   readonly bag: PhraseBag;
@@ -71,7 +71,7 @@ export class SessionChoreography {
         // HIDDEN bridges must remain in the same style as the active dance.
         // A same-source repeat is preferable to an abrupt swing/social jump.
         const sameFamily = (p: PhraseSpec) =>
-          eligible(p) && isModernFamily(currentFamily) && phraseFamily(p) === currentFamily;
+          eligible(p) && isPlayableModernPhrase(p) && isModernFamily(currentFamily) && phraseFamily(p) === currentFamily;
         const differentMotion = (p: PhraseSpec) =>
           sameFamily(p) && p.source !== current.phrase.spec.source && p.group !== current.phrase.spec.group;
         const extraBridge = this.experimentalBridgeBag && current.phrase.spec.id.startsWith("break-")
@@ -147,9 +147,9 @@ export class SessionChoreography {
     // coherent run; HIDDEN continuations never advance the chapter.
     const desiredFamily = immediate && this.spacesInStyle >= DEFAULT_STYLE_RUN_SPACES
       ? otherModernFamily(this.activeStyle) : this.activeStyle;
-    const strictModern = strict.filter(p => isModernFamily(phraseFamily(p)));
+    const strictModern = strict.filter(isPlayableModernPhrase);
     const looseModern = immediate ? pool.filter(p => p.id !== current?.id
-      && isModernFamily(phraseFamily(p)) && compatible(p)) : [];
+      && isPlayableModernPhrase(p) && compatible(p)) : [];
     const inFamily = (items: readonly (typeof NORMAL_PHRASES)[number][], family: ModernFamily) =>
       items.filter(p => phraseFamily(p) === family);
     const preferred = [

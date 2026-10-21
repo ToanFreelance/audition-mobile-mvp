@@ -72,7 +72,7 @@ export const NORMAL_PHRASES: readonly CuratedPhrase[] = [
   extra("94-point", "94_08", "Chỉ tay · bước ngang", "point-step", 19.5, 22.7, "Casual / descriptive", ["point-high", "side-step"], "Unknown; descriptive label from skeleton inspection"),
   extra("94-pulse", "94_16", "Nhún thấp · mở thân", "squat-pulse", 11.5, 14.7, "Energetic / descriptive", ["upright-pulse", "arm-expand"], "Unknown; descriptive label from skeleton inspection"),
   extra("143-chicken", "143_34", "Chicken · nhấn khuỷu tay", "chicken-arms", 1, 4.2, "Party", ["elbow-flap", "hands-close"], "Chicken Dance"),
-  curated({ ...MOONWALK_PHRASE, id: "90-glide", role: "core" }, "Special upright travel", ["moonwalk", "backward-glide"], "moonwalk"),
+  curated({ ...MOONWALK_PHRASE, id: "90-glide", role: "travel", label: "Moonwalk · đoạn đi lùi ngắn (Lab)" }, "Special upright travel", ["moonwalk", "backward-glide"], "moonwalk"),
 ];
 /** V2.2.6: verified CMU source IDs, but NOT verified dance windows or gameplay assets.
  * Each 3.2s opening excerpt is a first-pass SURVEY ONLY. No source is

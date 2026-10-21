@@ -35,8 +35,16 @@ export function phraseFamily(phrase: Pick<PhraseSpec, "id"> | null | undefined):
 export function isModernFamily(family: DanceFamily | null): family is ModernFamily {
   return family === "street" || family === "pop";
 }
-export const MODERN_GAMEPLAY_PHRASES = NORMAL_PHRASES.filter(p => isModernFamily(phraseFamily(p)));
-export const LEGACY_QA_PHRASES = NORMAL_PHRASES.filter(p => !isModernFamily(phraseFamily(p)));
+/**
+ * A motion may stylistically be Street without being a complete dance phrase:
+ * 90-glide is just 1.2 source seconds of backward travel. Only core phrases
+ * enter the SPACE/hidden-turn dance shuffle. Travel remains available in Lab.
+ */
+export function isPlayableModernPhrase(p: Pick<PhraseSpec, "id" | "role">): boolean {
+  return p.role === "core" && isModernFamily(phraseFamily(p));
+}
+export const MODERN_GAMEPLAY_PHRASES = NORMAL_PHRASES.filter(isPlayableModernPhrase);
+export const LEGACY_QA_PHRASES = NORMAL_PHRASES.filter(p => !isPlayableModernPhrase(p));
 export function otherModernFamily(family: ModernFamily): ModernFamily {
   return family === "street" ? "pop" : "street";
 }
