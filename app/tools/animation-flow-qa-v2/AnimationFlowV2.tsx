@@ -6,6 +6,7 @@ import { BVHLoader } from "three/examples/jsm/loaders/BVHLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { disposeObjectResources } from "@/components/character/CharacterActor";
 import { LiveCmuMeshPreview } from "@/lib/animation-flow-v2/live-character-retarget";
+import { MODULAR_QA_SLOTS, type ModularQaGender, type ModularQaSlot, type ModularQaAssetFiles } from "@/lib/animation-flow-v2/modular-qa-assets";
 import { CORE_PHRASES, FAILING_PAIRS, FIXTURE_PHRASES, MOONWALK_PHRASE, SOURCE_PIN, type ExitPolicy } from "@/lib/animation-flow-v2/catalog";
 import { makeCanonicalRig, preparePhrase, SourceFlowEngine, type PreparedPhrase, type SourceMotion } from "@/lib/animation-flow-v2/engine";
 import { DemoBeatClock, TurnCursor } from "@/lib/animation-flow-v2/clock";
@@ -24,7 +25,7 @@ import type { FlareSource } from "@/lib/animation-flow-v2/flare-source";
 import { OWNER_CURATION_DIRECTIONS, proposeReviewSegments, type CurationSlot, type ActivitySample } from "@/lib/animation-flow-v2/clip-curation";
 import { EXPERIMENTAL_SOURCES, analyzeExperimentalSource, type IntakeRejection } from "@/lib/animation-flow-v2/experimental-dance";
 
-type View = "source" | "c1-casual-grace" | "c4-casual-boy";
+type View = "source" | "c1-casual-grace" | "c4-casual-boy" | "modular-female" | "modular-male";
 type Mode = "gameplay" | "lab" | "finish";
 type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
   beat: number; turn: number | null; beatBoundary: number; bpm: number; seed: number; auto: boolean; audioState: string;
@@ -34,8 +35,8 @@ type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
   renderBackend: "webgl" | "canvas2d-projection";
   gameplay: ReturnType<GameplayPreview["snapshot"]> | null; mode: Mode;
 };
-type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void>; selectFinish(id: string): Promise<void> };
-const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {}, enableBreakdance: async () => {}, selectFinish: async () => {} };
+type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; assetsChanged(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void>; selectFinish(id: string): Promise<void> };
+const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, assetsChanged: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {}, enableBreakdance: async () => {}, selectFinish: async () => {} };
 const f = (n: number | undefined) => (n ?? 0).toFixed(4);
 
 export default function AnimationFlowV2({ catalogReview = false }: { catalogReview?: boolean } = {}) {
@@ -43,6 +44,15 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
   const commands = useRef<Commands>({ ...emptyCommands });
   const [bpm, setBpm] = useState(120), [fade, setFade] = useState(0.35);
   const [auto, setAuto] = useState(!catalogReview), [view, setView] = useState<View>("source");
+  const modularFiles = useRef<Record<ModularQaGender,ModularQaAssetFiles>>({female:{equipment:{}},male:{equipment:{}}});
+  const [modularLabels,setModularLabels] = useState<Record<ModularQaGender,Record<string,string>>>({female:{},male:{}});
+  const setModularFile = (gender: ModularQaGender, slot: "base" | ModularQaSlot, file?: File) => {
+    if (slot === "base") modularFiles.current[gender].base = file;
+    else if (file) modularFiles.current[gender].equipment[slot] = file;
+    else delete modularFiles.current[gender].equipment[slot];
+    setModularLabels(old => ({...old,[gender]:{...old[gender],[slot]:file?.name ?? ""}}));
+    commands.current.assetsChanged();
+  };
   const [policy, setPolicy] = useState<"metadata" | ExitPolicy>("metadata");
   const [status, setStatus] = useState("Đang chuẩn bị choreography và Finish…");
   const [mode, setMode] = useState<Mode>(catalogReview ? "lab" : "gameplay"), [outcome, setOutcome] = useState<PreviewOutcome>("perfect");
@@ -728,22 +738,28 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       reference?.dispose(); reference = null; referenceView = next;
       if (next === "source") { referenceStatus = "Nguồn CMU canonical"; return; }
       if (!engine) return;
-      referenceStatus = "Đang tải GLB + bone mapping CMU → Mixamo…";
+      const modularGender: ModularQaGender | null = next === "modular-female" ? "female" : next === "modular-male" ? "male" : null;
+      const qaAssets = modularGender ? modularFiles.current[modularGender] : undefined;
+      const sourceAssetId = next === "modular-female" ? "c1-casual-grace" : next === "modular-male" ? "c4-casual-boy" : next;
+      referenceStatus = modularGender ? "Đang kiểm tra GLB modular + bind pose..." : "Đang tải GLB + bone mapping CMU → Mixamo…";
       try {
         // This explicitly bypasses CharacterActor's published animation mixer:
         // the authoritative SourceFlowEngine owns EVERY pose and transition.
-        const actor = await LiveCmuMeshPreview.load(next, engine);
+        const actor = await LiveCmuMeshPreview.load(sourceAssetId, engine, qaAssets);
         if (disposed || version !== referenceVersion) { actor.dispose(); return; }
         reference = actor; scene.add(actor.root); actor.update(engine);
-        referenceStatus = `GLB thật · CMU→Mixamo QA · ${actor.diagnostics.bonePairs} bones · ${actor.diagnostics.triangles} triangles · ${actor.diagnostics.skinnedMeshes} skinned mesh`;
-        if (!disposed) setStatus("Đã gắn " + (next === "c1-casual-grace" ? "Casual Grace" : "Casual Boy") +
-          " vào cùng Animation Flow V2; SPACE, Finish và REST không đổi.");
+        referenceStatus = (actor.diagnostics.qaModular
+          ? "MODULAR QA GLB · " + actor.diagnostics.bonePairs + " bones · " + actor.diagnostics.triangles + " triangles · equipped: " + (actor.diagnostics.equippedSlots.join(", ") || "chưa có")
+          : "GLB thật · CMU→Mixamo QA · " + actor.diagnostics.bonePairs + " bones · " + actor.diagnostics.triangles + " triangles · " + actor.diagnostics.skinnedMeshes + " skinned mesh");
+        if (!disposed) setStatus((modularGender ? "Modular " + modularGender : (next === "c1-casual-grace" ? "Casual Grace" : "Casual Boy")) +
+          " dùng cùng SourceFlowEngine. Chưa nghiệm thu visual, floor contact hay Shop.");
       } catch (cause) {
         if (disposed || version !== referenceVersion) return;
         referenceStatus = "LỖI rig/retarget · " + (cause instanceof Error ? cause.message : String(cause));
         reportError(cause); // Do not show a fake fallback as rig PASS.
       }
     }
+    commands.current.assetsChanged = () => { referenceView = "source"; };
     const onKey = (event: KeyboardEvent) => {
       if (event.code !== "Space" || event.repeat || (event.target as HTMLElement)?.closest("input,select,button,textarea")) return;
       event.preventDefault(); commands.current.space();
@@ -795,7 +811,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
         else reference?.update(engine);
         if (now - lastUi > 95) {
           const state = engine.snapshot();
-          const data: Telemetry = { ...state, gameplay: config.mode === "gameplay" ? gameplay?.snapshot() ?? null : null, finishPresentation: choreography?.presentation?.snapshot() ?? null, mode: config.mode, beat, turn: previewTurnCounter(config.mode, gameplay?.snapshot().current, turns.index).value, beatBoundary: turns.index, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : "CMU-live-retarget-on-accepted-skinned-GLB", renderBackend };
+          const data: Telemetry = { ...state, gameplay: config.mode === "gameplay" ? gameplay?.snapshot() ?? null : null, finishPresentation: choreography?.presentation?.snapshot() ?? null, mode: config.mode, beat, turn: previewTurnCounter(config.mode, gameplay?.snapshot().current, turns.index).value, beatBoundary: turns.index, bpm: config.bpm, seed: runSeed, auto: config.auto, audioState: audio?.state ?? "chưa bắt đầu", view: config.view, referenceStatus, triggerCount, processedBoundaries: [...processedBoundaries], referenceAnchor: reference?.root.position.toArray() ?? null, measurementsDomain: config.view === "source" ? "canonical-CMU" : config.view.startsWith("modular-") ? "QA-modular-uploaded-GLB-live-CMU" : "CMU-live-retarget-on-accepted-skinned-GLB", renderBackend };
           element.dataset.telemetry = JSON.stringify(data);
           setTelemetry(data); setHistory(engine.history.slice(-8).reverse());
           if (!catalogReview) setExperimentalPlayed(choreography?.experimentalSelections.length ?? 0); samples.push(data); if (samples.length > 12000) samples.shift();
@@ -958,7 +974,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       <div className={styles.tabs} role="group" aria-label="Chế độ QA"><button aria-pressed={mode === "gameplay"} disabled={!ready} onClick={() => void commands.current.mode("gameplay")}>Gameplay Preview · reset phiên</button><button aria-pressed={mode === "lab"} disabled={!ready} onClick={() => void commands.current.mode("lab")}>Free Animation Lab · V2.1</button></div>
       <p className={styles.muted+" "+styles.labIntro}>QA loop · AudioContext tổng hợp, không phát bài hát thật / Music Config. BPM khóa sau khi bắt đầu Gameplay; reset phiên để đổi BPM. Lịch shared multiplayer, không dùng Solo ending planner theo độ dài bài.</p>
       <div className={styles.tabs} role="group" aria-label="Đường phát animation">
-        {([["source", "Nguồn BVH · V2"], ["c1-casual-grace", "Grace · CMU→Mesh"], ["c4-casual-boy", "Boy · CMU→Mesh"]] as const).map(([id, label]) => <button key={id} disabled={id !== "source" && backend !== "webgl"} title={id !== "source" && backend !== "webgl" ? "Cần WebGL để xem mesh accepted" : undefined} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
+        {([["source", "Nguồn BVH · V2"], ["c1-casual-grace", "Grace · CMU→Mesh"], ["c4-casual-boy", "Boy · CMU→Mesh"], ["modular-female", "Nữ Modular QA"], ["modular-male", "Nam Modular QA"]] as const).map(([id, label]) => <button key={id} disabled={id !== "source" && backend !== "webgl"} title={id !== "source" && backend !== "webgl" ? "Cần WebGL để xem mesh accepted" : undefined} aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
       </div>
       <div className={styles.layout}>
         <section className={styles.stageCard}>
@@ -1025,7 +1041,23 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
           </div>
         </section>
         <aside className={styles.sidebar}>
-          <section className={styles.panel}><p className={styles.eyebrow}>ĐANG TRÌNH BÀY</p><h2>{view === "source" ? currentSpec?.label ?? telemetry?.current ?? "Chuẩn bị…" : view === "c1-casual-grace" ? "Casual Grace" : "Casual Boy"}</h2><div className={styles.sourceId}>{telemetry?.source ?? "—"}</div>{telemetry?.finishPresentation?.flare && <p className={styles.muted}>Rig Mixamo → CMU · {backend} · entry/đứng dậy thử nghiệm</p>}<p className={styles.muted}>{view === "source" ? `Phrase ${telemetry?.sourcePhrase?.map(n => n.toFixed(2)).join("–") ?? "—"} giây nguồn · ${telemetry?.policy ?? "FREE"}` : `${telemetry?.referenceStatus ?? "Chưa tải"} · Đang chạy ${telemetry?.current ?? "—"}`}</p>{telemetry?.pending && view === "source" && <p className={styles.pending}>Đã nhận SPACE · đợi exit tại beat {telemetry.pending.dueBeat.toFixed(2)}</p>}<p className={styles.muted} data-testid="presentation-phase">Pha: {telemetry?.finishPresentation?.phase ?? "DANCE"}{telemetry?.finishPresentation?.flare && ` · vòng ${telemetry.finishPresentation.completedLoops}/${telemetry.finishPresentation.loopCount} · còn ${telemetry.finishPresentation.remainingBeats?.toFixed(2)} beat · ${telemetry.finishPresentation.playbackRate?.toFixed(3)}×`}</p><p className={styles.muted}>Trước: {telemetry?.previous ?? "—"}</p></section>
+          <details className={styles.panel+" "+styles.advancedPanel} open data-testid="modular-character-upload">
+            <summary>Modular Character · 2 base GLB + equipment (QA-only)</summary>
+            <p className={styles.muted}>Chọn file .glb trên iPhone. Nữ/Nam dùng chung CMU clock như Grace/Boy; không lưu file lên server. Base phải có body/innerwear + đúng 1 SkinnedMesh + rig Mixamo. Trang phục phải skin trên cùng template/rest pose, không chỉ trùng tên xương. Nếu không hợp lệ sẽ báo LỖI, không fallback.</p>
+            {(["female","male"] as const).map(gender => <div key={gender} data-testid={"modular-"+gender}>
+              <strong>{gender === "female" ? "Nữ (female-base-v1)" : "Nam (male-base-v1)"}</strong>
+              <label className={styles.control}>Base GLB
+                <input type="file" accept=".glb,model/gltf-binary" aria-label={"Modular "+gender+" base GLB"} onChange={e => setModularFile(gender,"base",e.target.files?.[0])} />
+              </label>
+              <div className={styles.muted} data-testid={"modular-"+gender+"-base-filename"}>{modularLabels[gender].base || "Chưa chọn base GLB"}</div>
+              {MODULAR_QA_SLOTS.map(slot => <label className={styles.control} key={slot}>
+                {slot} (GLB)
+                <input type="file" accept=".glb,model/gltf-binary" aria-label={"Modular "+gender+" "+slot+" GLB"} onChange={e => setModularFile(gender,slot,e.target.files?.[0])} />
+              </label>)}
+            </div>)}
+            <p className={styles.muted}>Sau khi chọn file, chuyển sang tab Nữ/Nam Modular QA. Thay file khi đang xem sẽ reload riêng actor QA (không reset beat/seed). Với hairstyle/headwear chưa skin, cần chuẩn Head socket; file không đủ điều kiện sẽ bị từ chối.</p>
+          </details>
+          <section className={styles.panel}><p className={styles.eyebrow}>ĐANG TRÌNH BÀY</p><h2>{view === "source" ? currentSpec?.label ?? telemetry?.current ?? "Chuẩn bị…" : view === "c1-casual-grace" ? "Casual Grace" : view === "c4-casual-boy" ? "Casual Boy" : view === "modular-female" ? "Female Modular QA" : "Male Modular QA"}</h2><div className={styles.sourceId}>{telemetry?.source ?? "—"}</div>{telemetry?.finishPresentation?.flare && <p className={styles.muted}>Rig Mixamo → CMU · {backend} · entry/đứng dậy thử nghiệm</p>}<p className={styles.muted}>{view === "source" ? `Phrase ${telemetry?.sourcePhrase?.map(n => n.toFixed(2)).join("–") ?? "—"} giây nguồn · ${telemetry?.policy ?? "FREE"}` : `${telemetry?.referenceStatus ?? "Chưa tải"} · Đang chạy ${telemetry?.current ?? "—"}`}</p>{telemetry?.pending && view === "source" && <p className={styles.pending}>Đã nhận SPACE · đợi exit tại beat {telemetry.pending.dueBeat.toFixed(2)}</p>}<p className={styles.muted} data-testid="presentation-phase">Pha: {telemetry?.finishPresentation?.phase ?? "DANCE"}{telemetry?.finishPresentation?.flare && ` · vòng ${telemetry.finishPresentation.completedLoops}/${telemetry.finishPresentation.loopCount} · còn ${telemetry.finishPresentation.remainingBeats?.toFixed(2)} beat · ${telemetry.finishPresentation.playbackRate?.toFixed(3)}×`}</p><p className={styles.muted}>Trước: {telemetry?.previous ?? "—"}</p></section>
           <details className={styles.panel+" "+styles.advancedPanel}><summary>Cài đặt nâng cao · crossfade / exit / auto</summary>
             <label className={styles.control}>BPM <strong>{bpm}</strong><input aria-label="BPM" disabled={tempoLocked} type="range" min={80} max={200} step={1} value={bpm} onChange={e => setBpm(+e.target.value)} /></label>
             <div className={styles.presets}>{[110,120,160,200].map(rate=><button key={rate} disabled={tempoLocked} onClick={() => setBpm(rate)}>{rate} BPM</button>)}</div>
