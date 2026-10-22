@@ -35,7 +35,7 @@ type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
   renderBackend: "webgl" | "canvas2d-projection";
   gameplay: ReturnType<GameplayPreview["snapshot"]> | null; mode: Mode;
 };
-type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; assetsChanged(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void>; selectFinish(id: string): Promise<void> };
+type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; assetsChanged?(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void>; selectFinish(id: string): Promise<void> };
 const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, assetsChanged: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {}, enableBreakdance: async () => {}, selectFinish: async () => {} };
 const f = (n: number | undefined) => (n ?? 0).toFixed(4);
 
