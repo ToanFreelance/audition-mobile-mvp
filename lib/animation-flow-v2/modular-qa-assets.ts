@@ -112,6 +112,14 @@ export class ModularQaEquipment {
     }
   }
 
+  unequip(slot: ModularQaSlot) {
+    const previous = this.attachments.get(slot);
+    if (!previous) return;
+    previous.removeFromParent();
+    disposeMeshesOnly(previous);
+    this.attachments.delete(slot);
+  }
+
   slots(): ModularQaSlot[] { return [...this.attachments.keys()]; }
   dispose() {
     for (const root of this.attachments.values()) {
