@@ -35,7 +35,7 @@ type Telemetry = ReturnType<SourceFlowEngine["snapshot"]> & {
   renderBackend: "webgl" | "canvas2d-projection";
   gameplay: ReturnType<GameplayPreview["snapshot"]> | null; mode: Mode;
 };
-type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; assetsChanged?(): void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void>; selectFinish(id: string): Promise<void> };
+type Commands = { toggle(): Promise<void>; reset(): Promise<void>; space(): void; replay(id: string): Promise<void>; moonwalk(): Promise<void>; export(): void; record(): void; assetsChanged?(): void; equipmentChanged?(gender: ModularQaGender,slot: ModularQaSlot,file?:File):void; mode(mode: Mode): Promise<void>; preview(id: string, finish: boolean): Promise<void>; previewSegment(id: string, start: number, end: number): Promise<void>; enableBreakdance(): Promise<void>; selectFinish(id: string): Promise<void> };
 const emptyCommands: Commands = { toggle: async () => {}, reset: async () => {}, space: () => {}, replay: async () => {}, moonwalk: async () => {}, export: () => {}, record: () => {}, assetsChanged: () => {}, mode: async () => {}, preview: async () => {}, previewSegment: async () => {}, enableBreakdance: async () => {}, selectFinish: async () => {} };
 const f = (n: number | undefined) => (n ?? 0).toFixed(4);
 
@@ -51,7 +51,8 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     else if (file) modularFiles.current[gender].equipment[slot] = file;
     else delete modularFiles.current[gender].equipment[slot];
     setModularLabels(old => ({...old,[gender]:{...old[gender],[slot]:file?.name ?? ""}}));
-    commands.current.assetsChanged?.();
+    if (slot === "base") commands.current.assetsChanged?.();
+    else commands.current.equipmentChanged?.(gender,slot,file);
   };
   const [policy, setPolicy] = useState<"metadata" | ExitPolicy>("metadata");
   const [status, setStatus] = useState("Đang chuẩn bị choreography và Finish…");
@@ -760,6 +761,21 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
       }
     }
     commands.current.assetsChanged = () => { referenceView = "source"; };
+    commands.current.equipmentChanged = (gender,slot,file) => {
+      const active=reference;
+      if (!active || options.current.view !== "modular-"+gender || !active.diagnostics.qaModular) return;
+      void active.setQaEquipment(slot,file).then(() => {
+        if (disposed || reference !== active) return;
+        referenceStatus = "MODULAR QA · " + active.diagnostics.bonePairs + " bones · equipped: " +
+          (active.diagnostics.equippedSlots.join(", ") || "chưa có");
+        setStatus("Đã đổi " + slot + " trực tiếp trên base " + gender +
+          "; không reset SourceFlowEngine, beat, seed hay actor.");
+      }).catch(err => {
+        if (disposed || reference !== active) return;
+        referenceStatus = "LỖI item " + slot + ": " + String(err);
+        reportError(err);
+      });
+    };
     const onKey = (event: KeyboardEvent) => {
       if (event.code !== "Space" || event.repeat || (event.target as HTMLElement)?.closest("input,select,button,textarea")) return;
       event.preventDefault(); commands.current.space();
@@ -1055,7 +1071,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
                 <input type="file" accept=".glb,model/gltf-binary" aria-label={"Modular "+gender+" "+slot+" GLB"} onChange={e => setModularFile(gender,slot,e.target.files?.[0])} />
               </label>)}
             </div>)}
-            <p className={styles.muted}>Sau khi chọn file, chuyển sang tab Nữ/Nam Modular QA. Thay file khi đang xem sẽ reload riêng actor QA (không reset beat/seed). Với hairstyle/headwear chưa skin, cần chuẩn Head socket; file không đủ điều kiện sẽ bị từ chối.</p>
+            <p className={styles.muted}>Sau khi chọn file, chuyển sang tab Nữ/Nam Modular QA. Thay base sẽ reload riêng actor QA; thay từng garment khi đang xem sẽ cập nhật trực tiếp trên base hiện tại (không reset beat/seed/SourceFlowEngine). Với hairstyle/headwear chưa skin, cần chuẩn Head socket; file không đủ điều kiện sẽ bị từ chối.</p>
           </details>
           <section className={styles.panel}><p className={styles.eyebrow}>ĐANG TRÌNH BÀY</p><h2>{view === "source" ? currentSpec?.label ?? telemetry?.current ?? "Chuẩn bị…" : view === "c1-casual-grace" ? "Casual Grace" : view === "c4-casual-boy" ? "Casual Boy" : view === "modular-female" ? "Female Modular QA" : "Male Modular QA"}</h2><div className={styles.sourceId}>{telemetry?.source ?? "—"}</div>{telemetry?.finishPresentation?.flare && <p className={styles.muted}>Rig Mixamo → CMU · {backend} · entry/đứng dậy thử nghiệm</p>}<p className={styles.muted}>{view === "source" ? `Phrase ${telemetry?.sourcePhrase?.map(n => n.toFixed(2)).join("–") ?? "—"} giây nguồn · ${telemetry?.policy ?? "FREE"}` : `${telemetry?.referenceStatus ?? "Chưa tải"} · Đang chạy ${telemetry?.current ?? "—"}`}</p>{telemetry?.pending && view === "source" && <p className={styles.pending}>Đã nhận SPACE · đợi exit tại beat {telemetry.pending.dueBeat.toFixed(2)}</p>}<p className={styles.muted} data-testid="presentation-phase">Pha: {telemetry?.finishPresentation?.phase ?? "DANCE"}{telemetry?.finishPresentation?.flare && ` · vòng ${telemetry.finishPresentation.completedLoops}/${telemetry.finishPresentation.loopCount} · còn ${telemetry.finishPresentation.remainingBeats?.toFixed(2)} beat · ${telemetry.finishPresentation.playbackRate?.toFixed(3)}×`}</p><p className={styles.muted}>Trước: {telemetry?.previous ?? "—"}</p></section>
           <details className={styles.panel+" "+styles.advancedPanel}><summary>Cài đặt nâng cao · crossfade / exit / auto</summary>
