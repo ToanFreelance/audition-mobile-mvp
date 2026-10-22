@@ -189,6 +189,14 @@ export class LiveCmuMeshPreview {
     }
   }
 
+  /** Swap one QA garment without rebuilding this actor, base rig or CMU engine. */
+  async setQaEquipment(slot: ModularQaSlot, file?: File) {
+    if (this.disposed || !this.equipment) throw Error("Chưa chọn modular base GLB.");
+    if (file) await this.equipment.equip(slot,file);
+    else this.equipment.unequip(slot);
+    this.diagnostics.equippedSlots=this.equipment.slots();
+  }
+
   /** One pose per render frame, using ONLY SourceFlowEngine's sampled pose. */
   update(engine: SourceFlowEngine) {
     if(this.disposed)return;
