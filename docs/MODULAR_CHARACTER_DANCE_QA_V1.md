@@ -24,7 +24,7 @@ Open `/tools/animation-flow-qa-v2` on the modular work branch Preview; expand **
 - Files are read in memory by the browser; nothing is uploaded to Supabase/GitHub by this route.
 - New base requires exactly one true SkinnedMesh, joint weights and core humanoid bones.
 - Each garment must be a true skinned GLB; all required bone names and inverse bind matrices must match the base. Incompatible assets surface an error and **do not fallback to Grace/Boy and claim modular PASS**.
-- Changing QA assets reloads the actor only. SourceFlowEngine/beat/seed remain unmodified.
+- Changing the base GLB reloads only the QA actor. Changing an equipment GLB updates the same actor/rig in place. SourceFlowEngine/beat/seed remain unmodified.
 - Grace/Boy tabs remain reference controls and do not imply modular clothing.
 
 ## Gate checklist
@@ -36,3 +36,6 @@ D. **Performance**: 5 independent players, hardware iPhone Safari, load time, FP
 E. **Production gating**: owner approves art/QA before updating Character Catalog, starting Shop/Inventory DB work, removing migration fallback, changing published assets or merging.
 
 Known caveats: independent Tripo/Meshy auto-rigs will likely FAIL the shared inverse bind check; Blender template skin-transfer is required. Pose deformation, body intersection and iPhone resource usage are not proven by simple GLB loading.
+## Verified cloud QA (2026-10-22)
+
+Vercel build on the dedicated branch and TypeScript PASS at commit a77ea8d. Browser smoke on 390x844 Chromium/WebGL: accepted Grace GLB supplied through the iPhone-style File API loads into the female modular QA tab, a copied same-template GLB attaches as an artificial top test, Boy GLB as a bottom is correctly rejected due to mismatched inverse bind matrix at hips, switching back to accepted Grace keeps working. After playback started, seed remained identical and beats rose continuously (5.12 → 6.62 → 8.02 → 9.94); 0 page errors. The copied GLB is **only a binding-path fixture, not a wearable shirt**. No new high-fidelity female/male body GLB or real modular garment has yet been delivered or visually accepted; no Breakdance contact acceptance. iPhone physical QA outstanding. Existing production actors and PR #19 are untouched.
