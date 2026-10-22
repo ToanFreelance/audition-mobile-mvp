@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { resolveCharacterAssetUrl, type CharacterAssetId } from "@/components/character/character-catalog";
 import { disposeObjectResources } from "@/components/character/CharacterActor";
 import type { SourceFlowEngine } from "./engine";
+import { ModularQaEquipment, readQaGlb, validateModularBase, type ModularQaAssetFiles, type ModularQaSlot } from "./modular-qa-assets";
 
 /**
  * ISOLATED QA LIVE adapter: project the exact displayed CMU canonical pose
@@ -35,6 +36,7 @@ export type LiveCmuMeshDiagnostics = {
   assetId: CharacterAssetId;
   bonePairs: number; skinnedMeshes: number; triangles: number;
   assetUrl: string; source: "CMU-canonical-displayed-pose";
+  qaModular: boolean; equippedSlots: ModularQaSlot[];
 };
 function canonicalName(name: string) {
   return name.replace(/^mixamorig[:_]?/i, "").replace(/[^a-z0-9]/gi, "").toLowerCase();
@@ -81,13 +83,16 @@ export class LiveCmuMeshPreview {
   private readonly align: THREE.Quaternion;
   private readonly inverseAlign: THREE.Quaternion;
   private disposed=false;
+  private readonly equipment: ModularQaEquipment | null;
 
   private constructor(
     readonly assetId: CharacterAssetId,
     model: THREE.Object3D, pairs: Pair[],
     align: THREE.Quaternion, diagnostics: LiveCmuMeshDiagnostics,
+    equipment: ModularQaEquipment | null,
   ) {
     this.model=model;
+    this.equipment=equipment;
     this.pairs=pairs;
     this.align=align;
     this.inverseAlign=align.clone().invert();
@@ -96,12 +101,16 @@ export class LiveCmuMeshPreview {
     this.root.name="CMU-live-retarget-"+assetId;
   }
 
-  static async load(assetId: CharacterAssetId, engine: SourceFlowEngine) {
+  static async load(assetId: CharacterAssetId, engine: SourceFlowEngine, qaAssets?: ModularQaAssetFiles) {
     const assetUrl=resolveCharacterAssetUrl(assetId);
-    const gltf=await new GLTFLoader().loadAsync(assetUrl);
+    if (qaAssets && !qaAssets.base) throw Error("Chưa nạp base GLB mới. Không dùng Grace/Boy làm modular giả.");
+    const gltf=qaAssets?.base
+      ? { scene: await readQaGlb(qaAssets.base) }
+      : await new GLTFLoader().loadAsync(assetUrl);
     const model=gltf.scene;
     try {
       const {mesh,count,triangles}=findSkinned(model);
+      if (qaAssets) validateModularBase(model);
       mesh.skeleton.pose();
       model.updateMatrixWorld(true);
       const box=new THREE.Box3().setFromObject(model);
@@ -160,10 +169,20 @@ export class LiveCmuMeshPreview {
         "LeftUpLeg","RightUpLeg","LeftLeg","RightLeg","LeftFoot","RightFoot"];
       for(const name of required)if(!pairs.some(p=>p.source.name===name))
         throw Error("Retarget mapping thiếu xương "+name);
+      const equipment=qaAssets ? new ModularQaEquipment(model,mesh) : null;
+      const equippedSlots: ModularQaSlot[]=[];
+      if (equipment && qaAssets) {
+        for (const [slot,file] of Object.entries(qaAssets.equipment) as [ModularQaSlot,File | undefined][]) {
+          if (!file) continue;
+          await equipment.equip(slot,file);
+          equippedSlots.push(slot);
+        }
+      }
       const stats:LiveCmuMeshDiagnostics={assetId,bonePairs:pairs.length,
-        skinnedMeshes:count,triangles,assetUrl,
-        source:"CMU-canonical-displayed-pose"};
-      return new LiveCmuMeshPreview(assetId,model,pairs,align,stats);
+        skinnedMeshes:count,triangles,
+        assetUrl:qaAssets?.base ? "local-file:"+qaAssets.base.name : assetUrl,
+        source:"CMU-canonical-displayed-pose", qaModular:Boolean(qaAssets), equippedSlots};
+      return new LiveCmuMeshPreview(assetId,model,pairs,align,stats,equipment);
     } catch(error){
       disposeObjectResources(model);
       throw error;
@@ -192,6 +211,7 @@ export class LiveCmuMeshPreview {
     if(this.disposed)return;
     this.disposed=true;
     this.root.removeFromParent();
+    this.equipment?.dispose();
     disposeObjectResources(this.model);
   }
 }
