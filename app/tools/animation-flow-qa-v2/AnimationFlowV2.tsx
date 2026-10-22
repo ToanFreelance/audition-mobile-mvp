@@ -51,7 +51,7 @@ export default function AnimationFlowV2({ catalogReview = false }: { catalogRevi
     else if (file) modularFiles.current[gender].equipment[slot] = file;
     else delete modularFiles.current[gender].equipment[slot];
     setModularLabels(old => ({...old,[gender]:{...old[gender],[slot]:file?.name ?? ""}}));
-    commands.current.assetsChanged();
+    commands.current.assetsChanged?.();
   };
   const [policy, setPolicy] = useState<"metadata" | ExitPolicy>("metadata");
   const [status, setStatus] = useState("Đang chuẩn bị choreography và Finish…");
