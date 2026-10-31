@@ -20,7 +20,7 @@ export type EyeView = "front" | "left" | "right" | "close";
 
 // Immutable verified upload derived from the owner's Claude V2 modular checkpoint.
 // Geometry / UV unchanged; 3 original textures resized for the iPhone QA preview.
-const ASSET_URL = "https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/568256ac-c18f-4d72-9188-84db7f5cdba0.glb";
+const ASSET_URL = "https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/8fabdabb-c844-40e2-8d53-a8da6a490378.glb";
 const CENTERS = [
   new THREE.Vector2(-0.1203, 0.5174),
   new THREE.Vector2(0.1185, 0.5172),
@@ -151,33 +151,6 @@ function materialForIris(mesh: THREE.Mesh, index: number): IrisUniforms {
   return eye;
 }
 
-function materialForLashes(mesh: THREE.Mesh) {
-  const material = (mesh.material as THREE.MeshStandardMaterial).clone();
-  const control = { value: 1 };
-  material.onBeforeCompile = shader => {
-    shaderWithWorldPosition(shader);
-    shader.uniforms.uLashContrast = control;
-    shader.fragmentShader = "uniform float uLashContrast;\n" + shader.fragmentShader;
-    shader.fragmentShader = shader.fragmentShader.replace(
-      "#include <map_fragment>",
-      "#include <map_fragment>\n" + [
-        "// Head atlas still contains the source eyelashes. This is a preview",
-        "// of lash contrast, not interchangeable lash geometry.",
-        "float eyeX = min(abs(vFaceWorld.x - (-0.12)), abs(vFaceWorld.x - 0.12));",
-        "float xMask = 1.0 - smoothstep(0.06,0.096,eyeX);",
-        "float topMask = smoothstep(0.529,0.551,vFaceWorld.y) * (1.0 - smoothstep(0.590,0.615,vFaceWorld.y));",
-        "float zMask = smoothstep(0.20,0.267,vFaceWorld.z);",
-        "float darkness = 1.0 - smoothstep(0.11,0.38,dot(diffuseColor.rgb,vec3(.30,.59,.11)));",
-        "float lashMask = xMask * topMask * zMask * darkness;",
-        "diffuseColor.rgb *= 1.0 + lashMask * (uLashContrast - 1.0);",
-      ].join("\n")
-    );
-  };
-  material.customProgramCacheKey = () => "audition-real-lash-contrast-v1";
-  mesh.material = material;
-  return control;
-}
-
 function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): PreviewScene {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -202,7 +175,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): Prev
   let model: THREE.Group | null = null;
   const morphs: MorphMesh[] = [];
   const iris: IrisUniforms[] = [];
-  let lashControl: { value: number } | null = null;
+  const lashNodes: THREE.Mesh[] = [];
   let disposed = false;
   const render = () => { if (!disposed) renderer.render(scene, camera); };
   const aim = (v: EyeView) => {
@@ -236,9 +209,10 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): Prev
       control.radius.value = draft.irisScale;
       control.pupil.value = draft.pupilScale;
     }
-    if (lashControl) {
-      lashControl.value = { natural: 1, doll: 0.84, dramatic: 0.55, none: 2.4 }[draft.lashStyleId];
+    for (const lash of lashNodes) {
+      lash.visible = draft.lashStyleId !== "none" && lash.name.includes("_" + draft.lashStyleId + "_V12");
     }
+    host.dataset.lashModule = draft.lashStyleId;
     render();
   };
 
@@ -273,9 +247,14 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): Prev
         worldPositions[i * 3 + 2] = vector.z;
       }
       morphs.push({ mesh: object, original, worldPositions, inverse: object.matrixWorld.clone().invert() });
+      if (object.name.startsWith("Eyelashes_") && object.name.endsWith("_V12")) {
+        // Six separate geometry modules, two eyes for each of the three style variants.
+        object.visible = false;
+        lashNodes.push(object);
+      }
       if (object.name === "Eye_L_OcularSurface_V1") iris[0] = materialForIris(object, 0);
       if (object.name === "Eye_R_OcularSurface_V1") iris[1] = materialForIris(object, 1);
-      if (object.name === "Head_Base_Protected") lashControl = materialForLashes(object);
+      // Keep original baked eyelashes in the atlas unchanged until source mesh separation passes QA.
     });
     ready(true);
     if (currentDraft) apply(currentDraft);
@@ -328,9 +307,9 @@ export default function RealHeadPreview({ draft, view }: { draft: EyeDraft; view
   useEffect(() => instanceRef.current?.aim(view), [view]);
   return (
     <div className={styles.viewport} ref={hostRef} data-testid="eye-preview" data-preview-status={state}>
-      {state === "loading" && <div className={styles.previewNote}>Đang tải đầu thật của Claude V2 (15,2 MB)…</div>}
+      {state === "loading" && <div className={styles.previewNote}>Đang tải GLB Claude V2 + lông mi 3D (15,3 MB)…</div>}
       {state === "error" && <div className={styles.fallback}>Không thể tải GLB thật hoặc WebGL không khả dụng. Kiểm tra kết nối và tải lại.</div>}
-      {state === "ready" && <span className={styles.viewportCaption}>CLAUDE V2 · GLB THẬT · TEXTURE MOBILE</span>}
+      {state === "ready" && <span className={styles.viewportCaption}>CLAUDE V2 · 6 MESH LÔNG MI 3D · QA V1.2</span>}
     </div>
   );
 }

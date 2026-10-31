@@ -100,7 +100,7 @@ export default function FacialModularEyeV1Page() {
                 </button>
               ))}
             </div>
-            <p className={styles.disclaimer}>Đang dùng GLB modular thật từ Claude V2. Lớp màng mí trên vẫn chưa được sửa; iris và hình dáng là thử nghiệm vật liệu/biến dạng cục bộ. Kiểu lông mi hiện chỉ điều chỉnh độ đậm trên atlas thật, chưa hoán đổi mesh lông mi. Không ghi vào Character Catalog.</p>
+            <p className={styles.disclaimer}>Đang dùng GLB modular thật từ Claude V2. Lớp màng mí trên chưa được sửa; ứng viên tái dựng hiện chưa đạt QA. Iris và kích thước mắt vẫn ở chế độ thử nghiệm. Ba kiểu Natural, Doll và Dramatic có 6 mesh lông mi 3D riêng; tùy chọn None ẩn phần 3D bổ sung. Những sợi lông mi gốc còn dính trong atlas/HeadBase và chưa thể ẩn sạch. Không ghi vào Character Catalog.</p>
           </section>
 
           <section className={styles.controls} aria-label="Eye customization controls">
@@ -138,7 +138,7 @@ export default function FacialModularEyeV1Page() {
               <RangeField label="Đồng tử" value={draft.pupilScale} min={0.25} max={0.52} step={0.01} onChange={v => patch("pupilScale", v)} />
             </div>
 
-            <div className={styles.sectionHeading}><span>04</span><h2>Lông mi · độ đậm atlas thật</h2></div>
+            <div className={styles.sectionHeading}><span>04</span><h2>Lông mi · 3D variants</h2></div>
             <div className={styles.lashGroup} role="group" aria-label="Kiểu lông mi">
               {LASHES.map(style => (
                 <button type="button" key={style.id} aria-pressed={draft.lashStyleId === style.id}

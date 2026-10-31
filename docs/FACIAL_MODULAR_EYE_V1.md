@@ -30,3 +30,27 @@ Route: `/tools/facial-modular-eye-v1`
 - Existing Playwright control-state tests; Vercel deployment build confirms compilation.
 - Owner physical iPhone screenshots for default, blue iris, eyeSize 0.85/1.15, none/dramatic lash intensity, front and 3/4.
 - Future milestone: reconstruct eyelid bridge/occlusion and actual eyelash mesh from the GLB via an artist-reviewed mesh pipeline. Do not integrate this experimental preview into playable characters.
+
+---
+
+## V1.2 — real geometry eyelash variants (independent QA checkpoint)
+
+- Full geometry candidate: six named eyelash meshes (left/right × natural/doll/dramatic), 528 new triangles and no degenerate triangles in new modules.
+- iPhone optimized GLB URL: `https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/8fabdabb-c844-40e2-8d53-a8da6a490378.glb`.
+- GLB SHA-256: `502ca471fca0c406204801c5b06e4ae7d8bc27b8439e6a15147ba6bbe004a185`, 15,269,648 bytes.
+- Runtime explicitly hides all six variant meshes after GLTF import, then shows only the requested style for both eyes; 'None' hides all added variant meshes.
+- Current source atlas still contains original lashes, so 'None' **does not fully remove eyelashes**. It hides only the V1.2 modular additions. That limitation remains visible in the UI, not concealed.
+- The source upper eyelid bridge is untouched. A trial thin-rim reconstruction was rendered but rejected because it produced bright gaps/artificial border. That trial is not used in the app.
+- Real appearance of upper/lower eyelashes, visual quality and iPhone stability require owner QA; no production Character Catalog integration.
+
+### Validation actually run
+
+- GLB structural parse and byte-length consistency: PASS.
+- All six new mesh positions/normals finite, norm length 1, nondegenerate triangles: PASS.
+- Khronos glTF Validator on mobile candidate: 0 errors, 5 inherited tangent-space warnings, 6 informational notices about unused lash UV (because material uses no map).
+- Custom CPU unlit render visually distinguishes Natural, Doll, Dramatic; not a substitute for Three.js PBR/iPhone QA.
+- Build/TypeScript validation: check Preview deployment for the exact commit.
+
+### Locked scope
+
+No changes to Waiting Room, gameplay, WebAudio, Supabase, Character Catalog, facial head base geometry, or protected source GLB. Experimental branch and Draft PR #24 only.
