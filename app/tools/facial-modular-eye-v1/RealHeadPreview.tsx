@@ -12,6 +12,7 @@ export type IrisPatternId = "classic" | "heart" | "star" | "sparkle" | "spiral";
 export type EyeDraft = {
   eyeShapeId: EyeShapeId;
   irisPatternId: IrisPatternId;
+  blinkEnabled: boolean;
   irisStyleId: "natural" | "radiant" | "velvet" | "crystal";
   irisColor: string;
   eyeScale: number;
@@ -44,6 +45,7 @@ type MorphMesh = {
   original: Float32Array;
   worldPositions: Float32Array;
   inverse: THREE.Matrix4;
+  affected: Uint32Array;
 };
 type PreviewScene = {
   dispose: () => void;
@@ -65,7 +67,7 @@ const SHAPE_PROFILE: Record<EyeShapeId, { open: number; outerLift: number; inner
   playful: { open: 0.96, outerLift: 0.009, innerLift: 0, brow: 0.004, winkRight: 0.72 },
 };
 
-function deformEyes(parts: MorphMesh[], draft: EyeDraft) {
+function deformEyes(parts: MorphMesh[], draft: EyeDraft, blink = 0) {
   const profile = SHAPE_PROFILE[draft.eyeShapeId];
   const scaleX = draft.eyeScale * draft.eyeWidth;
   const scaleY = draft.eyeScale * draft.eyeHeight;
@@ -73,7 +75,8 @@ function deformEyes(parts: MorphMesh[], draft: EyeDraft) {
   for (const part of parts) {
     const attr = part.mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
     const output = attr.array as Float32Array;
-    for (let i = 0; i < attr.count; i += 1) {
+    if (part.affected.length === 0) continue;
+    for (const i of part.affected) {
       const k = 3 * i;
       const x = part.worldPositions[k];
       const y = part.worldPositions[k + 1];
@@ -104,7 +107,7 @@ function deformEyes(parts: MorphMesh[], draft: EyeDraft) {
       const outer = THREE.MathUtils.clamp(localX * Math.sign(cx), -1, 1);
       const outerWeight = (outer + 1) * 0.5;
       const upperLidWeight = smoothstep(0.006, 0.035, y - cy);
-      const open = profile.open * (profile.winkRight && cx > 0 ? profile.winkRight : 1);
+      const open = profile.open * (1 - 0.91 * blink) * (profile.winkRight && cx > 0 ? profile.winkRight : 1);
       const cornerLift = profile.outerLift * outerWeight + profile.innerLift * (1 - outerWeight);
       const nextY = y + (
         (y - cy) * (scaleY * open - 1) +
@@ -120,13 +123,19 @@ function deformEyes(parts: MorphMesh[], draft: EyeDraft) {
   }
 }
 
-function shaderWithWorldPosition(shader: { vertexShader: string; fragmentShader: string }) {
-  shader.vertexShader = "varying vec3 vFaceWorld;\\n".replace("\\n", "\n") + shader.vertexShader;
+function shaderWithRestPosition(shader: { vertexShader: string; fragmentShader: string }) {
+  // Stable source-geometry coordinates: decorations move WITH the ocular mesh
+  // when the editor deforms eyes, instead of drifting in world space.
+  shader.vertexShader = [
+    "attribute vec3 aEyeRestPosition;",
+    "varying vec3 vFaceRest;",
+    shader.vertexShader,
+  ].join("\n");
   shader.vertexShader = shader.vertexShader.replace(
     "#include <worldpos_vertex>",
-    "#include <worldpos_vertex>\\nvFaceWorld = (modelMatrix * vec4(position, 1.0)).xyz;".replace("\\n", "\n")
+    "#include <worldpos_vertex>\nvFaceRest = (modelMatrix * vec4(aEyeRestPosition, 1.0)).xyz;"
   );
-  shader.fragmentShader = "varying vec3 vFaceWorld;\\n".replace("\\n", "\n") + shader.fragmentShader;
+  shader.fragmentShader = "varying vec3 vFaceRest;\n" + shader.fragmentShader;
 }
 
 function materialForIris(mesh: THREE.Mesh, index: number): IrisUniforms {
@@ -140,7 +149,7 @@ function materialForIris(mesh: THREE.Mesh, index: number): IrisUniforms {
     pattern: { value: 0 },
   };
   material.onBeforeCompile = shader => {
-    shaderWithWorldPosition(shader);
+    shaderWithRestPosition(shader);
     shader.uniforms.uIrisTint = eye.tint;
     shader.uniforms.uIrisStyle = eye.style;
     shader.uniforms.uIrisPupil = eye.pupil;
@@ -154,11 +163,11 @@ function materialForIris(mesh: THREE.Mesh, index: number): IrisUniforms {
       "#include <map_fragment>",
       "#include <map_fragment>\n" + [
         "// Apply color and iris style directly to the existing GLB UV atlas surface.",
-        "vec2 irisDelta = vFaceWorld.xy - uIrisCenter;",
+        "vec2 irisDelta = vFaceRest.xy - uIrisCenter;",
         "float irisDist = length(irisDelta);",
         "float irisR = 0.029 * uIrisRadius;",
         "float irisMask = 1.0 - smoothstep(irisR * 0.90, irisR * 1.02, irisDist);",
-        "float frontMask = smoothstep(0.235, 0.262, vFaceWorld.z);",
+        "float frontMask = smoothstep(0.235, 0.262, vFaceRest.z);",
         "float brightness = dot(diffuseColor.rgb, vec3(0.299,0.587,0.114));",
         "float preserveHighlight = 1.0 - smoothstep(0.54, 0.82, brightness);",
         "float angle = atan(irisDelta.y, irisDelta.x);",
@@ -172,40 +181,82 @@ function materialForIris(mesh: THREE.Mesh, index: number): IrisUniforms {
         // Preserve owner-approved dark pupil and highlight silhouette from real texture.
         "float pupilExpansion = 1.0 - smoothstep(irisR * uIrisPupil * 0.93, irisR * uIrisPupil * 1.10, irisDist);",
         "diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.008,0.006,0.010), pupilExpansion * frontMask * preserveHighlight * 0.75);",
-        "// Optional whimsical patterns remain inside the existing iris surface.",
-        "vec2 p = irisDelta / max(irisR, 0.00001);",
-        "float a = atan(p.y, p.x);",
-        "float r = length(p);",
-        "float maskPattern = 0.0;",
-        "vec3 patternColor = vec3(1.0, 0.76, 0.85);",
-        "if (uIrisPattern > 0.5 && uIrisPattern < 1.5) {",
-        "  vec2 hp = vec2(p.x / 0.47, (p.y + 0.08) / 0.47);",
-        "  float q = dot(hp,hp)-1.0;",
-        "  float h = q*q*q - hp.x*hp.x*hp.y*hp.y*hp.y;",
-        "  maskPattern = 1.0 - smoothstep(-0.14, 0.09, h);",
-        "} else if (uIrisPattern > 1.5 && uIrisPattern < 2.5) {",
-        "  float starEdge = 0.34 + 0.14 * cos(5.0 * a);",
-        "  maskPattern = 1.0 - smoothstep(starEdge-0.035, starEdge+0.035, r);",
-        "  patternColor = vec3(1.0,0.86,0.45);",
-        "} else if (uIrisPattern > 2.5 && uIrisPattern < 3.5) {",
-        "  float sparkle = max(1.0 - smoothstep(0.025,0.11,abs(p.x)),1.0 - smoothstep(0.025,0.11,abs(p.y)));",
-        "  maskPattern = sparkle * (1.0 - smoothstep(0.35,0.78,r));",
-        "  patternColor = vec3(0.69,0.92,1.0);",
-        "} else if (uIrisPattern > 3.5) {",
-        "  float spiral = sin(a * 3.0 + r * 38.0);",
-        "  maskPattern = smoothstep(0.55,0.85,spiral) * smoothstep(0.17,0.30,r) * (1.0-smoothstep(0.77,0.94,r));",
-        "  patternColor = vec3(0.95,0.72,1.0);",
+        // In fantasy mode erase the ORIGINAL textured iris + pupil before drawing
+        // one standalone symbol. No second shell, no old iris visible underneath.
+        "if (uIrisPattern > 0.5) {",
+        "  vec2 p = irisDelta / max(irisR, 0.00001);",
+        "  float radiusP = length(p);",
+        "  float angleP = atan(p.y, p.x);",
+        "  float cover = (1.0 - smoothstep(0.0278, 0.0320, irisDist)) * frontMask;",
+        "  vec3 cleanSclera = vec3(0.84, 0.805, 0.805);",
+        "  diffuseColor.rgb = mix(diffuseColor.rgb, cleanSclera, cover);",
+        "  float icon = 0.0;",
+        "  if (uIrisPattern < 1.5) {",
+        "    // Parametric heart SDF, rendered where the real iris used to be.",
+        "    vec2 hp = vec2(p.x * 1.52, (p.y + 0.075) * 1.52);",
+        "    float q = dot(hp,hp) - 1.0;",
+        "    float heart = q*q*q - hp.x*hp.x*hp.y*hp.y*hp.y;",
+        "    icon = 1.0 - smoothstep(-0.10, 0.055, heart);",
+        "  } else if (uIrisPattern < 2.5) {",
+        "    // Five-point star takes the place of the iris, not an overlay.",
+        "    float edgeStar = 0.53 + 0.24 * cos(5.0 * (angleP - 1.5707963));",
+        "    icon = 1.0 - smoothstep(edgeStar - 0.040, edgeStar + 0.040, radiusP);",
+        "  } else if (uIrisPattern < 3.5) {",
+        "    // Four-ray sparkle silhouette with central jewel.",
+        "    float xRay = (1.0 - smoothstep(0.035, 0.17, abs(p.x))) * (1.0 - smoothstep(0.34, 0.82, abs(p.y)));",
+        "    float yRay = (1.0 - smoothstep(0.035, 0.17, abs(p.y))) * (1.0 - smoothstep(0.34, 0.82, abs(p.x)));",
+        "    float jewel = 1.0 - smoothstep(0.19,0.24,radiusP);",
+        "    icon = max(jewel,max(xRay,yRay));",
+        "  } else {",
+        "    // Spiral graphic; show the full pattern, without an old iris circle.",
+        "    float spiralRidge = sin(angleP * 3.0 + radiusP * 28.0);",
+        "    icon = smoothstep(0.60, 0.86, spiralRidge) * smoothstep(0.10, 0.18, radiusP) * (1.0 - smoothstep(0.75, 0.88, radiusP));",
+        "  }",
+        "  vec3 iconColor = uIrisTint;",
+        "  if (uIrisPattern > 1.5 && uIrisPattern < 2.5) iconColor = mix(uIrisTint, vec3(1.0,0.78,0.28), 0.35);",
+        "  if (uIrisPattern > 2.5 && uIrisPattern < 3.5) iconColor = mix(uIrisTint, vec3(0.75,0.91,1.0),0.55);",
+        "  vec3 contrastColor = mix(iconColor, vec3(0.07,0.018,0.07), 0.20);",
+        "  diffuseColor.rgb = mix(diffuseColor.rgb, contrastColor, icon * cover);",
         "}",
-        "diffuseColor.rgb = mix(diffuseColor.rgb, patternColor, maskPattern * frontMask * irisMask * preserveHighlight * 0.72);",
+
       ].join("\n")
     );
   };
-  material.customProgramCacheKey = () => "audition-real-iris-shader-v1";
+  material.customProgramCacheKey = () => "audition-real-iris-shader-v14-rest-anchored";
   mesh.material = material;
   return eye;
 }
 
-function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): PreviewScene {
+const ASSET_CACHE_NAME = "audition-face-lab-glb-v12-502ca471";
+
+async function fetchCachedGLB(): Promise<{ bytes: ArrayBuffer; source: "cache" | "network" }> {
+  // CacheStorage stores the entire immutable GLB within THIS preview origin.
+  // It is best-effort (Safari may evict); HTTP cache is still used as fallback.
+  const request = new Request(ASSET_URL, { mode: "cors", cache: "force-cache" });
+  let storage: Cache | null = null;
+  if (typeof caches !== "undefined") {
+    try {
+      storage = await caches.open(ASSET_CACHE_NAME);
+      const hit = await storage.match(request);
+      if (hit) return { bytes: await hit.arrayBuffer(), source: "cache" };
+    } catch (error) {
+      console.warn("[Eye Lab] Cache unavailable; continuing with CDN", error);
+    }
+  }
+  const response = await fetch(request);
+  if (!response.ok) throw new Error("GLB CDN returned " + response.status);
+  if (storage) {
+    // Persist in parallel with parsing so saving 15 MB doesn't stall first preview.
+    void storage.put(request, response.clone()).then(async () => {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.filter(name => name.startsWith("audition-face-lab-glb-") && name !== ASSET_CACHE_NAME)
+        .map(name => caches.delete(name)));
+    }).catch(error => console.warn("[Eye Lab] GLB cache write skipped", error));
+  }
+  return { bytes: await response.arrayBuffer(), source: "network" };
+}
+
+function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cacheInfo: (source: "cache" | "network") => void): PreviewScene {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -245,6 +296,47 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): Prev
   const iris: IrisUniforms[] = [];
   const lashNodes: THREE.Mesh[] = [];
   let disposed = false;
+  let blinkAmount = 0;
+  let blinkTimeout: ReturnType<typeof setTimeout> | null = null;
+  let blinkFrame: number | null = null;
+  const scheduleBlink = () => {
+    if (disposed || !model) return;
+    blinkTimeout = window.setTimeout(() => {
+      blinkTimeout = null;
+      if (disposed) return;
+      if (!currentDraft?.blinkEnabled || document.hidden) {
+        scheduleBlink();
+        return;
+      }
+      const begin = performance.now();
+      let previousFrame = -1000;
+      const duration = 310;
+      const step = (now: number) => {
+        if (disposed || !model) return;
+        if (!currentDraft?.blinkEnabled) {
+          blinkAmount = 0;
+          deformEyes(morphs, currentDraft!, 0);
+          render();
+          blinkFrame = null;
+          scheduleBlink();
+          return;
+        }
+        const progress = Math.min((now - begin) / duration, 1);
+        if (progress === 1 || now - previousFrame >= 30) {
+          previousFrame = now;
+          blinkAmount = progress === 1 ? 0 : Math.pow(Math.sin(Math.PI * progress), 2);
+          deformEyes(morphs, currentDraft, blinkAmount);
+          render();
+        }
+        if (progress < 1) blinkFrame = requestAnimationFrame(step);
+        else {
+          blinkFrame = null;
+          scheduleBlink();
+        }
+      };
+      blinkFrame = requestAnimationFrame(step);
+    }, 6000 + Math.random() * 4200);
+  };
   const render = () => { if (!disposed) renderer.render(scene, camera); };
   controls.addEventListener("change", render);
   const fitToHost = () => {
@@ -281,7 +373,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): Prev
   const apply = (draft: EyeDraft) => {
     currentDraft = draft;
     if (!model) return;
-    deformEyes(morphs, draft);
+    deformEyes(morphs, draft, blinkAmount);
     for (const control of iris) {
       if (!control) continue;
       control.tint.value.set(draft.irisColor);
@@ -298,7 +390,11 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): Prev
   };
 
   const loader = new GLTFLoader();
-  void loader.loadAsync(ASSET_URL).then(gltf => {
+  void fetchCachedGLB().then(async ({ bytes, source }) => {
+    const gltf = await loader.parseAsync(bytes, "");
+    cacheInfo(source);
+    return gltf;
+  }).then(gltf => {
     if (disposed) {
       gltf.scene.traverse(o => {
         if (o instanceof THREE.Mesh) {
@@ -327,7 +423,26 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): Prev
         worldPositions[i * 3 + 1] = vector.y;
         worldPositions[i * 3 + 2] = vector.z;
       }
-      morphs.push({ mesh: object, original, worldPositions, inverse: object.matrixWorld.clone().invert() });
+      // Precompute only vertices in the eye influence volume. This avoids
+      // resculpting the entire head on each occasional 310ms blink on iPhone.
+      const affectedIndices: number[] = [];
+      for (let i = 0; i < positions.count; i += 1) {
+        const k = i * 3;
+        for (const center of CENTERS) {
+          const dx = (worldPositions[k] - center.x) / 0.093;
+          const dy = (worldPositions[k + 1] - center.y) / 0.077;
+          const dz = (worldPositions[k + 2] - 0.271) / 0.085;
+          if (dx * dx + dy * dy + 0.23 * dz * dz < 1.05) {
+            affectedIndices.push(i);
+            break;
+          }
+        }
+      }
+      morphs.push({ mesh: object, original, worldPositions, inverse: object.matrixWorld.clone().invert(),
+        affected: new Uint32Array(affectedIndices) });
+      if (object.name === "Eye_L_OcularSurface_V1" || object.name === "Eye_R_OcularSurface_V1") {
+        object.geometry.setAttribute("aEyeRestPosition", new THREE.BufferAttribute(original.slice(), 3));
+      }
       if (object.name.startsWith("Eyelashes_") && object.name.endsWith("_V12")) {
         // Six separate geometry modules, two eyes for each of the three style variants.
         object.visible = false;
@@ -340,6 +455,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): Prev
     ready(true);
     if (currentDraft) apply(currentDraft);
     render();
+    scheduleBlink();
   }).catch(error => {
     if (disposed) return;
     console.warn("[Facial Eye Lab] GLB upload unavailable", error);
@@ -350,6 +466,8 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void): Prev
     apply, aim,
     dispose: () => {
       disposed = true;
+      if (blinkTimeout !== null) window.clearTimeout(blinkTimeout);
+      if (blinkFrame !== null) cancelAnimationFrame(blinkFrame);
       resize.disconnect();
       controls.removeEventListener("change", render);
       controls.dispose();
@@ -374,11 +492,12 @@ export default function RealHeadPreview({ draft, view, resetToken }: { draft: Ey
   const hostRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<PreviewScene | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
+  const [cacheSource, setCacheSource] = useState<"cache" | "network" | null>(null);
   useEffect(() => {
     if (!hostRef.current) return;
     let instance: PreviewScene | null = null;
     try {
-      instance = mountScene(hostRef.current, ok => setState(ok ? "ready" : "error"));
+      instance = mountScene(hostRef.current, ok => setState(ok ? "ready" : "error"), setCacheSource);
       instanceRef.current = instance;
     } catch (error) {
       console.warn("[Facial Eye Lab] WebGL unavailable", error);
@@ -392,7 +511,7 @@ export default function RealHeadPreview({ draft, view, resetToken }: { draft: Ey
     <div className={styles.viewport} ref={hostRef} data-testid="eye-preview" data-preview-status={state}>
       {state === "loading" && <div className={styles.previewNote}>Đang tải GLB Claude V2 + lông mi 3D (15,3 MB)…</div>}
       {state === "error" && <div className={styles.fallback}>Không thể tải GLB thật hoặc WebGL không khả dụng. Kiểm tra kết nối và tải lại.</div>}
-      {state === "ready" && <span className={styles.viewportCaption}>1 ngón xoay · 2 ngón kéo/zoom · chuột cuộn zoom</span>}
+      {state === "ready" && <span className={styles.viewportCaption}>1 ngón xoay · 2 ngón kéo/zoom · {cacheSource === "cache" ? "GLB từ browser cache" : "GLB từ CDN"}</span>}
     </div>
   );
 }

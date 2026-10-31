@@ -12,6 +12,7 @@ type CameraView = EyeView;
 const DEFAULT: EyeDraft = {
   eyeShapeId: "neutral",
   irisPatternId: "classic",
+  blinkEnabled: true,
   irisStyleId: "natural",
   irisColor: "#94613f",
   eyeScale: 1,
@@ -69,7 +70,7 @@ export default function FacialModularEyeV1Page() {
   const [view, setView] = useState<CameraView>("front");
   const [copied, setCopied] = useState(false);
   const [cameraResetToken, setCameraResetToken] = useState(0);
-  const patch = (key: keyof EyeDraft, value: string | number) =>
+  const patch = (key: keyof EyeDraft, value: string | number | boolean) =>
     setDraft(previous => ({ ...previous, [key]: value }));
   const exportDraft = () => JSON.stringify({ schemaVersion: 1, type: "eye-module-poc", ...draft }, null, 2);
   const copy = async () => {
@@ -108,8 +109,11 @@ export default function FacialModularEyeV1Page() {
               ))}
             </div>
             <div className={styles.previewHint}>
-              <span>☝️ Xoay · 🤏 Phóng to/thu nhỏ · ✌️ Kéo vị trí</span>
-              <button type="button" onClick={() => setCameraResetToken(value => value + 1)}>Reset camera</button>
+              <span>☝️ Xoay · 🤏 Zoom · ✌️ Kéo</span>
+              <div className={styles.previewActions}>
+                <button type="button" aria-pressed={draft.blinkEnabled} aria-label="Chớp mắt tự nhiên" onClick={() => patch("blinkEnabled", !draft.blinkEnabled)}>Chớp mắt {draft.blinkEnabled ? "ON" : "OFF"}</button>
+                <button type="button" onClick={() => setCameraResetToken(value => value + 1)}>Reset camera</button>
+              </div>
             </div>
           </section>
 
@@ -129,6 +133,7 @@ export default function FacialModularEyeV1Page() {
             </div>
 
             <div className={styles.sectionHeading}><span>02</span><h2>Hoa văn tròng mắt</h2></div>
+            <p className={styles.sectionDescription}>Hoa văn fantasy thay thế iris cũ, không vẽ chồng lên tròng mắt.</p>
             <div className={styles.patternGrid}>
               {PATTERNS.map(pattern => (
                 <button type="button" key={pattern.id} aria-pressed={draft.irisPatternId === pattern.id}
@@ -188,7 +193,7 @@ export default function FacialModularEyeV1Page() {
             <details className={styles.dataPanel}><summary>Dữ liệu cấu hình hiện tại</summary><pre>{exportDraft()}</pre></details>
             <details className={styles.technicalNote}>
               <summary>Giới hạn hiện tại của bản demo</summary>
-              <p>Đầu thật Claude V2, shader đổi iris và 6 mesh lông mi 3D. Các dáng mắt vui, buồn, giận… đang là biến dạng hình học vùng mắt trong viewer, chưa phải topology/morph targets sản xuất. Lớp màng mí lỗi của asset gốc chưa được sửa. Lông mi có sẵn trong texture HeadBase vẫn còn khi chọn None. Không thay đổi Character Catalog hoặc gameplay.</p>
+              <p>Đầu thật Claude V2: hoa văn thay iris trên cùng bề mặt mắt; chớp mắt định kỳ là prototype, chưa phải blink rig hoàn chỉnh. GLB được cache trong trình duyệt (Safari có thể xóa). Có 6 mesh lông mi 3D. Các dáng mắt vui, buồn, giận… đang là biến dạng hình học vùng mắt trong viewer, chưa phải topology/morph targets sản xuất. Lớp màng mí lỗi của asset gốc chưa được sửa. Lông mi có sẵn trong texture HeadBase vẫn còn khi chọn None. Không thay đổi Character Catalog hoặc gameplay.</p>
             </details>
           </section>
         </div>

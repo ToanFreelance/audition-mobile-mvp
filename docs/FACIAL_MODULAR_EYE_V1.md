@@ -86,3 +86,31 @@ No changes to Waiting Room, gameplay, WebAudio, Supabase, Character Catalog, fac
 - Expression geometry is not rig/blink safe. Extreme values and oblique views require iPhone visual QA for clipping and skin discontinuities.
 - No changes to gameplay, Character Catalog, multiplayer, global clock or production assets; preview on Draft PR only.
 - Owner iPhone review is required for preset changes, scroll-sticky layout, orbit, pinch, two-finger pan, and eye macro views.
+
+---
+## V1.4 — exclusive fantasy iris, source anchor, optional blink and browser cache
+
+### GLB origin and caching
+- CloudFront serves immutable Claude V2 mobile GLB (15,269,648 bytes). The demo does NOT fetch its model from Supabase Storage.
+- CORS fetch of versioned asset; same-origin CacheStorage key audition-face-lab-glb-v12-502ca471; GLTFLoader.parseAsync uses ArrayBuffer from cache.
+- Initial page load may fetch via CDN; next load on same Preview origin reads CacheStorage if present. Browser HTTP force-cache is fallback.
+- CacheStorage writes are best-effort and asynchronous. Safari/private browsing/storage pressure can evict entries. Storage is per origin (different Preview hostname = different cache); there is no guarantee of zero downloads on every visit.
+- Asset URL and cache key version must change together when GLB changes. Old face-lab caches deleted on successful new write.
+- No localStorage for >15MB binary and no new Supabase egress.
+
+### Iris shape and anchor
+- Current fantasy heart/star/sparkle/spiral shaders replace the old iris and pupil texture by first filling the old iris footprint with a neutral sclera-like color, then rendering the selected symbol in the same material on the original eye surface.
+- Normal/classic mode restores source iris behavior.
+- Eye shader now interpolates undeformed/source positions as an extra attribute so iris and fantasy symbol are anchored to the actual mesh as the viewer deforms its shape. No extra eye shell or replacement eyeball.
+- This is a shader preview; actual upper eyelid membrane defect remains unresolved.
+
+### Periodic blink
+- Optional blink toggle, enabled by default; roughly 310ms closure/reopen at intervals from 6 to 10.2 seconds.
+- Uses local eye region geometry deformation with bounded falloff, not production rig or verified blendshape blink.
+- Only precomputed affected vertices are updated per blink (not the entire head), with 30ms minimum animation update cadence.
+- Visibility pause, frame cancel, timeout cleanup on preview unmount. No gameplay or WebAudio changes.
+
+### QA required
+- Build, TypeScript, focused UI tests for toggle + reset.
+- Owner iPhone: compare Classic vs Heart/Star: icon must replace iris; change eye size and spacing while symbol remains in place; verify blink and cache hit caption after reopening the same Preview URL.
+- Source GLB preserved; no production/catalog/multiplayer changes; PR #24 Draft only.

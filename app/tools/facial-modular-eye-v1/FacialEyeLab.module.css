@@ -101,3 +101,12 @@
   .rangeGrid { column-gap: 15px; }
   .viewControl button { padding: 10px; flex: 1; }
 }
+
+/* V1.4: compact camera/blink controls remain visible while editing on iPhone. */
+.previewActions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.previewActions button[aria-pressed="true"] { border-color: #a27add; background: #5b3579; }
+@media (max-width: 560px) {
+  .previewHint { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .previewActions { width: 100%; justify-content: flex-start; }
+  .previewActions button { flex: 1; }
+}
