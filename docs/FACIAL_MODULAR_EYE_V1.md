@@ -54,3 +54,35 @@ Route: `/tools/facial-modular-eye-v1`
 ### Locked scope
 
 No changes to Waiting Room, gameplay, WebAudio, Supabase, Character Catalog, facial head base geometry, or protected source GLB. Experimental branch and Draft PR #24 only.
+
+
+---
+
+## V1.3 — expressive eye presets + persistent mobile preview + direct 3D gestures
+
+### Comparative game references
+- The Sims 4: facial presets, direct manipulation, eyelid/eyelash/blink compatibility: https://cdn-assets-ts4.pulse.ea.com/Guide/TheSims4_Players_Guide.pdf and https://forums.ea.com/blog/the-sims-game-info-hub-en/summary-of-updates-to-sims%E2%80%99-eye-blinking/13174182
+- Black Desert Mobile: face shaping, iris/lens, lash and makeup: https://www.world.blackdesertm.com/Ocean/News/Detail?boardNo=152
+- Miitopia: dozens of eye options and layered makeup for whimsical styles: https://play.nintendo.com/news-tips/tips-tricks/tips-and-tricks-make-mii-characters/
+- inZOI Studio: expression and pose presets: https://support.playinzoi.com/hc/en-us/articles/44423795432729-What-is-the-Studio
+
+### Modular responsibilities
+1. Eye shape and expression presets: neutral, joyful, sad, angry, surprised, playful.
+2. Iris styles and iris patterns: natural/radiant/velvet/crystal; classic/heart/star/sparkle/spiral.
+3. Separate iris color, pupil/iris dimensions and lash module.
+4. Viewport orbit, pinch zoom, two-finger pan, wheel zoom.
+
+### V1.3 implementation
+- Uses original V1.2 real Claude V2 GLB and 6 true lash meshes; does NOT create fake/overlapping eyeballs.
+- Shape presets use bounded falloff-driven localized vertex deformation: eye aperture, outer/inner-corner lift and eyebrow shift. These are VIEWER PROTOTYPES, not production-ready blink shape keys or genuine new artist-authored eye geometry.
+- Whimsical iris patterns render via shader on EXISTING ocular surface, not overlapping 3D layers.
+- OrbitControls: one-finger rotate, two-finger dolly+pan, mouse drag rotate, secondary mouse pan, wheel zoom. Reset camera re-applies view preset. Event listeners cleaned on unmount.
+- On mobile, sticky compact preview remains visible while user scrolls settings. Long disclosure moves below controls.
+- Existing 4 view presets, color options, 6 sliders and 3 lash styles remain.
+
+### Known issues and review gates
+- The original false upper-lid membrane remains UNSOLVED. Do not reintroduce the rejected lid bridge patch.
+- Atlas lashes remain in HeadBase even with None; current added lash geometry is independently selectable, not full replacement.
+- Expression geometry is not rig/blink safe. Extreme values and oblique views require iPhone visual QA for clipping and skin discontinuities.
+- No changes to gameplay, Character Catalog, multiplayer, global clock or production assets; preview on Draft PR only.
+- Owner iPhone review is required for preset changes, scroll-sticky layout, orbit, pinch, two-finger pan, and eye macro views.
