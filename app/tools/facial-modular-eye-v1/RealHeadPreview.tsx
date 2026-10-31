@@ -297,7 +297,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
   const lashNodes: THREE.Mesh[] = [];
   let disposed = false;
   let blinkAmount = 0;
-  let blinkTimeout: ReturnType<typeof setTimeout> | null = null;
+  let blinkTimeout: number | null = null;
   let blinkFrame: number | null = null;
   const scheduleBlink = () => {
     if (disposed || !model) return;
