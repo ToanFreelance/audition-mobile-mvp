@@ -1,0 +1,75 @@
+.page {
+  min-height: 100svh;
+  padding: max(24px, env(safe-area-inset-top)) 18px max(42px, env(safe-area-inset-bottom));
+  color: #f8f4ff;
+  background: radial-gradient(ellipse at 18% 4%, rgba(125, 77, 221, .19), transparent 42%), #0e0b17;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.shell { max-width: 1240px; margin: 0 auto; }
+.header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.overline { font-size: 11px; letter-spacing: .18em; color: #c2a9fa; font-weight: 750; margin: 0 0 11px; }
+.header h1 { font-weight: 780; font-size: clamp(27px, 4.5vw, 42px); letter-spacing: -.045em; line-height: 1.08; margin: 0; }
+.header h1 em { font-size: 12px; font-style: normal; color: #bba9fb; vertical-align: top; border: 1px solid #594f87; padding: 3px 7px; border-radius: 8px; margin-left: 7px; }
+.header p:not(.overline) { color: #a9a3bb; margin: 12px 0 0; line-height: 1.45; max-width: 640px; font-size: 13px; }
+.experimentBadge { font-size: 10px; font-weight: 800; color: #d7c6f9; background: rgba(127, 95, 186, .18); padding: 9px 12px; border: 1px solid #544875; border-radius: 999px; white-space: nowrap; }
+.layout { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(360px, 1fr); gap: 20px; align-items: start; }
+.previewPanel, .controls { border: 1px solid #352d44; background: rgba(26, 21, 37, .9); border-radius: 22px; overflow: hidden; box-shadow: 0 20px 70px rgba(0,0,0,.2); }
+.previewPanel { position: sticky; top: 24px; }
+.previewTop { padding: 19px 20px 15px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.previewTop strong { font-size: 14px; }
+.previewTop span { font-size: 11px; color: #b0a6c6; }
+.viewport { position: relative; width: 100%; height: clamp(390px, 47vw, 570px); overflow: hidden; background: #151224; }
+.canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+.viewportCaption { position: absolute; bottom: 14px; left: 14px; right: 14px; text-align: center; pointer-events: none; font-size: 9px; font-weight: 800; letter-spacing: .08em; color: #ccc4db; text-shadow: 0 1px 4px #000; }
+.previewNote { position: absolute; inset: 0; display: grid; place-items: center; color: #b6afd0; font-size: 13px; }
+.fallback { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 34px; color: #d9cce8; background: radial-gradient(ellipse at center,#45304b,#171424); font-size: 13px; }
+.fallback strong { font-size: 17px; }
+.viewControl { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 16px 16px 8px; }
+.viewControl button, .lashGroup button { color: #b9b0ca; background: #221a30; border: 1px solid #40354e; border-radius: 10px; padding: 11px 14px; min-height: 43px; cursor: pointer; font-weight: 700; font-size: 12px; }
+.viewControl button[aria-pressed="true"], .lashGroup button[aria-pressed="true"] { color: #fff; background: #5a397f; border-color: #af86ee; }
+.disclaimer { font-size: 11px; line-height: 1.5; color: #a99ebc; padding: 0 19px 17px; margin: 0; }
+.controls { padding: 23px; }
+.sectionHeading { display: flex; align-items: center; gap: 11px; margin: 12px 0 14px; }
+.sectionHeading:not(:first-child) { border-top: 1px solid #3b2d49; padding-top: 23px; margin-top: 24px; }
+.sectionHeading span { color: #bf9ef4; font-size: 11px; font-weight: 900; letter-spacing: .1em; }
+.sectionHeading h2 { font-size: 16px; margin: 0; font-weight: 750; }
+.presetGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.preset, .selectedPreset { text-align: left; padding: 14px 14px 13px; border: 1px solid #3e344c; border-radius: 13px; color: #eee7f4; background: #211b2d; cursor: pointer; min-height: 95px; }
+.selectedPreset { border-color: #bd8ff7; background: #3c2853; box-shadow: inset 0 0 0 1px rgba(216, 176, 255, .19); }
+.preset strong, .selectedPreset strong { display: inline-block; font-size: 14px; margin: 0 0 9px 9px; vertical-align: middle; }
+.preset small, .selectedPreset small { display: block; font-size: 10px; line-height: 1.35; color: #aaa0bd; }
+.presetDot { display: inline-block; width: 18px; height: 18px; border: 4px solid #2a1521; box-shadow: 0 0 0 2px #c9abed; border-radius: 50%; vertical-align: middle; }
+.swatches { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.swatch, .activeSwatch { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; border: 3px solid #2c2536; cursor: pointer; }
+.activeSwatch { outline: 2px solid #d2aeff; outline-offset: 2px; }
+.colorCustom { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; color: #bbb2cb; font-size: 11px; font-weight: 700; }
+.colorCustom input { width: 38px; height: 35px; border: 0; padding: 0; background: transparent; cursor: pointer; }
+.rangeGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; row-gap: 19px; }
+.rangeField { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rangeField span { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; }
+.rangeField strong { font-weight: 650; color: #d7cfe4; }
+.rangeField output { color: #d2a9fe; font-variant-numeric: tabular-nums; }
+.rangeField input { width: 100%; height: 24px; accent-color: #b784f7; cursor: pointer; touch-action: pan-x; }
+.lashGroup { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 26px; }
+.actions button { flex: 1; min-width: 135px; background: #32233f; border: 1px solid #694d88; border-radius: 11px; padding: 13px; color: #eee6f5; font-weight: 730; font-size: 12px; cursor: pointer; }
+.actions button:last-child { background: #8760b4; border-color: #b685e6; color: #fff; }
+.dataPanel { margin-top: 15px; border: 1px solid #3c3449; border-radius: 10px; padding: 11px 13px; color: #afa5be; font-size: 12px; }
+.dataPanel summary { cursor: pointer; }
+.dataPanel pre { overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #dbc7e7; font-size: 11px; line-height: 1.6; }
+@media (max-width: 880px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .previewPanel { position: static; }
+  .viewport { height: clamp(320px, 76vw, 480px); }
+}
+@media (max-width: 560px) {
+  .page { padding: max(17px, env(safe-area-inset-top)) 12px max(28px, env(safe-area-inset-bottom)); }
+  .header { align-items: flex-start; flex-direction: column; gap: 11px; margin-bottom: 16px; }
+  .header p:not(.overline) { font-size: 12px; }
+  .experimentBadge { font-size: 9px; }
+  .previewTop { padding: 14px 15px 10px; }
+  .viewport { height: min(78vw, 415px); min-height: 300px; }
+  .controls { padding: 17px 15px 20px; }
+  .rangeGrid { column-gap: 15px; }
+  .viewControl button { padding: 10px; flex: 1; }
+}
