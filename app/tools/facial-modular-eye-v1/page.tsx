@@ -15,6 +15,7 @@ const DEFAULT: EyeDraft = {
   blinkEnabled: true,
   irisStyleId: "natural",
   irisColor: "#94613f",
+  symbolColor: "#ffd16b",
   eyeScale: 1,
   eyeWidth: 1,
   eyeHeight: 1,
@@ -46,6 +47,7 @@ const PATTERNS: { id: IrisPatternId; icon: string; label: string }[] = [
   { id: "spiral", icon: "◎", label: "Xoáy" },
 ];
 const COLORS = ["#94613f", "#b77a35", "#668ab1", "#7f65aa", "#438b87", "#7b5846"];
+const SYMBOL_COLORS = ["#ffd16b", "#f59cb9", "#a3dff4", "#c9a6ff", "#79e0b4", "#ffffff", "#242132"];
 const LASHES: { id: LashStyle; label: string }[] = [
   { id: "natural", label: "Natural" },
   { id: "doll", label: "Doll" },
@@ -88,7 +90,7 @@ export default function FacialModularEyeV1Page() {
         <header className={styles.header}>
           <div>
             <p className={styles.overline}>AUDITION MOBILE · CHARACTER LAB</p>
-            <h1>Modular Eye Studio <em>V1.3</em></h1>
+            <h1>Modular Eye Studio <em>V1.5</em></h1>
             <p>Chọn dáng mắt, cảm xúc, hoa văn và lông mi trên GLB Claude V2; quan sát trực tiếp khi chỉnh.</p>
           </div>
           <div className={styles.experimentBadge}>ISOLATED EXPERIMENT</div>
@@ -133,7 +135,7 @@ export default function FacialModularEyeV1Page() {
             </div>
 
             <div className={styles.sectionHeading}><span>02</span><h2>Hoa văn tròng mắt</h2></div>
-            <p className={styles.sectionDescription}>Hoa văn fantasy thay thế iris cũ, không vẽ chồng lên tròng mắt.</p>
+            <p className={styles.sectionDescription}>Hoa văn fantasy giữ nền iris theo màu đã chọn; ngôi sao, trái tim có màu biểu tượng độc lập ở mục 05.</p>
             <div className={styles.patternGrid}>
               {PATTERNS.map(pattern => (
                 <button type="button" key={pattern.id} aria-pressed={draft.irisPatternId === pattern.id}
@@ -168,7 +170,24 @@ export default function FacialModularEyeV1Page() {
                 onChange={event => patch("irisColor", event.target.value)} /></label>
             </div>
 
-            <div className={styles.sectionHeading}><span>05</span><h2>Thông số chi tiết</h2></div>
+            {draft.irisPatternId !== "classic" && (
+              <div className={styles.symbolPalette} aria-label="Màu biểu tượng độc lập">
+                <div className={styles.sectionHeading}><span>05</span><h2>Màu biểu tượng {PATTERNS.find(pattern => pattern.id === draft.irisPatternId)?.label}</h2></div>
+                <p className={styles.sectionDescription}>Màu biểu tượng riêng, không làm đổi màu iris. Màu iris ở mục 04 vẫn được giữ.</p>
+                <div className={styles.swatches}>
+                  {SYMBOL_COLORS.map(color => (
+                    <button type="button" key={color} aria-label={"Màu biểu tượng " + color}
+                      aria-pressed={draft.symbolColor === color}
+                      className={draft.symbolColor === color ? styles.activeSwatch : styles.swatch}
+                      style={{ backgroundColor: color }} onClick={() => patch("symbolColor", color)} />
+                  ))}
+                  <label className={styles.colorCustom}>Tùy chỉnh <input type="color" aria-label="Chọn màu biểu tượng" value={draft.symbolColor}
+                    onChange={event => patch("symbolColor", event.target.value)} /></label>
+                </div>
+              </div>
+            )}
+
+            <div className={styles.sectionHeading}><span>06</span><h2>Thông số chi tiết</h2></div>
             <div className={styles.rangeGrid}>
               <RangeField label="Kích thước mắt" value={draft.eyeScale} min={0.8} max={1.25} step={0.01} onChange={v => patch("eyeScale", v)} />
               <RangeField label="Chiều rộng" value={draft.eyeWidth} min={0.8} max={1.25} step={0.01} onChange={v => patch("eyeWidth", v)} />
@@ -178,7 +197,7 @@ export default function FacialModularEyeV1Page() {
               <RangeField label="Đồng tử" value={draft.pupilScale} min={0.25} max={0.52} step={0.01} onChange={v => patch("pupilScale", v)} />
             </div>
 
-            <div className={styles.sectionHeading}><span>06</span><h2>Lông mi · 3D variants</h2></div>
+            <div className={styles.sectionHeading}><span>07</span><h2>Lông mi · 3D variants</h2></div>
             <div className={styles.lashGroup} role="group" aria-label="Kiểu lông mi">
               {LASHES.map(style => (
                 <button type="button" key={style.id} aria-pressed={draft.lashStyleId === style.id}
@@ -193,7 +212,7 @@ export default function FacialModularEyeV1Page() {
             <details className={styles.dataPanel}><summary>Dữ liệu cấu hình hiện tại</summary><pre>{exportDraft()}</pre></details>
             <details className={styles.technicalNote}>
               <summary>Giới hạn hiện tại của bản demo</summary>
-              <p>Đầu thật Claude V2: hoa văn thay iris trên cùng bề mặt mắt; chớp mắt định kỳ là prototype, chưa phải blink rig hoàn chỉnh. GLB được cache trong trình duyệt (Safari có thể xóa). Có 6 mesh lông mi 3D. Các dáng mắt vui, buồn, giận… đang là biến dạng hình học vùng mắt trong viewer, chưa phải topology/morph targets sản xuất. Lớp màng mí lỗi của asset gốc chưa được sửa. Lông mi có sẵn trong texture HeadBase vẫn còn khi chọn None. Không thay đổi Character Catalog hoặc gameplay.</p>
+              <p>Đầu thật Claude V2: iris và biểu tượng có hai màu độc lập trên cùng bề mặt mắt; chớp mắt định kỳ là prototype, chưa phải blink rig hoàn chỉnh. GLB được cache trong trình duyệt (Safari có thể xóa). Có 6 mesh lông mi 3D. Các dáng mắt vui, buồn, giận… đang là biến dạng hình học vùng mắt trong viewer, chưa phải topology/morph targets sản xuất. Lớp màng mí lỗi của asset gốc chưa được sửa. Lông mi có sẵn trong texture HeadBase vẫn còn khi chọn None. Không thay đổi Character Catalog hoặc gameplay.</p>
             </details>
           </section>
         </div>

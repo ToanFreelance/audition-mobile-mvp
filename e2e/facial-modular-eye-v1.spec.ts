@@ -13,6 +13,10 @@ test.describe("Facial Modular Eye V1 isolated demo", () => {
     await page.getByRole("button", { name: "Chớp mắt tự nhiên" }).click();
     await expect(page.getByRole("button", { name: "Chớp mắt tự nhiên" })).toHaveAttribute("aria-pressed", "false");
     await expect(page.getByRole("button", { name: /Trái tim/ })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Màu iris #668ab1" }).click();
+    await page.getByRole("button", { name: "Màu biểu tượng #f59cb9" }).click();
+    await expect(page.getByRole("button", { name: "Màu iris #668ab1" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Màu biểu tượng #f59cb9" })).toHaveAttribute("aria-pressed", "true");
 
     await page.getByRole("button", { name: /Radiant/ }).click();
     await expect(page.getByRole("button", { name: /Radiant/ })).toHaveAttribute("aria-pressed", "true");
@@ -29,6 +33,8 @@ test.describe("Facial Modular Eye V1 isolated demo", () => {
     await page.getByText("Dữ liệu cấu hình hiện tại").click();
     await expect(page.locator("pre")).toContainText('"eyeShapeId": "joyful"');
     await expect(page.locator("pre")).toContainText('"irisPatternId": "heart"');
+    await expect(page.locator("pre")).toContainText('"irisColor": "#668ab1"');
+    await expect(page.locator("pre")).toContainText('"symbolColor": "#f59cb9"');
     await expect(page.locator("pre")).toContainText('"blinkEnabled": false');
     await expect(page.locator("pre")).toContainText('"irisStyleId": "radiant"');
     await expect(page.locator("pre")).toContainText('"lashStyleId": "dramatic"');

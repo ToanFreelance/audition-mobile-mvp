@@ -114,3 +114,50 @@ No changes to Waiting Room, gameplay, WebAudio, Supabase, Character Catalog, fac
 - Build, TypeScript, focused UI tests for toggle + reset.
 - Owner iPhone: compare Classic vs Heart/Star: icon must replace iris; change eye size and spacing while symbol remains in place; verify blink and cache hit caption after reopening the same Preview URL.
 - Source GLB preserved; no production/catalog/multiplayer changes; PR #24 Draft only.
+
+---
+## V1.5 — independent iris / symbol colors and research on real eye sets
+
+### Owner correction
+- In V1.4, fantasy modes rendered the selected symbol over a neutral white sclera-colored iris fill.
+- In V1.5, keep the ORIGINAL GLB eye surface and rest coordinates, shade the iris disk with the independently selected irisColor, use a subtle radial tint + limbal border, then draw the symbol using separate symbolColor. No second mesh or false eye shell.
+- Pattern selector Classic retains natural iris treatment. Fantasy selector retains selected irisColor and user-picked symbolColor independently even when changing iris pattern.
+- Added conditional symbol swatches and color picker only when the selected iris pattern is not Classic.
+- Existing blink, local vertex changes, cache and touch controls unchanged.
+
+### Research: actual interchangeable eye sets, not slider combinations
+- VRoid Studio official face editor has an Eyes Sets category combining irises, highlights, scleras, eyeliner and eyelashes as a set. Official source: https://vroid.pixiv.help/hc/en-us/articles/4406164546969-How-to-edit-faces
+- VRoid Studio v2.3.0 (Jul 2025) added 20 eye presets and separate iris, highlight, sclera, eyelid, eyeliner and eyelash variants: https://vroid.pixiv.help/hc/en-us/articles/48894106876825--v2-3-0-Added-new-presets-3D-thumbnails-for-custom-items-Jul-24th-2025
+- Reallusion Character Creator maintains HD eyeball/cornea/iris mechanics and detachable eyelashes; CC Eye contains eyeball mesh and texture, CC Eyelash is a replaceable component: https://www.reallusion.com/character-creator/hd-eyes-eyelashes.html and https://www.reallusion.com/content/spec/default.html?p=cta
+- Infinity Nikki's makeup library illustrates collection-sized thematic makeup and contact lenses (not a technical GLB interchange standard): https://infinitynikki.th.gl/db/makeup
+
+### Proposed true EyeSet Catalog — designs to author, NOT built/imported
+| Eye set ID | Art direction | Actual assets required |
+|---|---|---|
+| graceful-almond | Soft almond eye, understated natural makeup | Sculpted lid + sclera/ocular + subtle lashes + iris |
+| sweet-doll | Big round doll eye, dense curled lashes | Separate eyelid aperture, ocular, lash meshes |
+| sleepy-soft | Hooded / sleepy eyes, shorter lashes | Different mesh eye aperture + rig-safe blink profile |
+| fox-fierce | Sharp outer corner, winged liner, swept lashes | New eyelid rim/skin transition and independent lash |
+| sparkling-fantasy | Anime wide eye, colorful iris, decorative highlight | Custom iris material, lid silhouette, independent lash |
+| celestial-cosmic | Moon/galaxy contact lens with fine highlights | Licensed/original iris textures + ocular materials + natural lid |
+
+### Actual interchange contract proposal (not runtime implementation)
+EyeSet = {
+ id: string;
+ version: number;
+ compatibleHeadBaseId: string;
+ ocularMeshAssetId: string;
+ eyelidMorphProfileId: string;
+ eyelashMeshAssetId: string;
+ irisMaterialProfileId: string;
+ eyebrowOrEyeLineProfileId?: string;
+ blinkProfileId: string;
+}
+
+True swap acceptance: new asset identity and different GLB geometry/shape, aligned common anchors, no z-fighting or exposed seams at the head base, proper blink and expressions at all tested camera angles, PBR visual QA on iPhone. Current preview's face-region modifiers are NOT equivalent to real EyeSet swapping. Any source game/marketplace eye assets must be original or appropriately licensed; do not copy proprietary character assets.
+
+### QA
+- Vercel Next.js/TypeScript on exact branch head.
+- Focused Playwright verifies selecting Heart and independently changing irisColor to blue and symbolColor to pink, JSON contract holds both.
+- Owner iPhone must verify the iris is never flat white in fantasy modes, the symbol color changes independently and remains anchored while adjusting eye size/spacing and blinking.
+- Source GLB and remaining upper-lid membrane defect unchanged. Draft PR #24.

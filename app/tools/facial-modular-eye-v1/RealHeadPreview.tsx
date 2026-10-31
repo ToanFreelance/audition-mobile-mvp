@@ -15,6 +15,7 @@ export type EyeDraft = {
   blinkEnabled: boolean;
   irisStyleId: "natural" | "radiant" | "velvet" | "crystal";
   irisColor: string;
+  symbolColor: string;
   eyeScale: number;
   eyeWidth: number;
   eyeHeight: number;
@@ -34,6 +35,7 @@ const CENTERS = [
 ];
 type IrisUniforms = {
   tint: { value: THREE.Color };
+  symbolTint: { value: THREE.Color };
   style: { value: number };
   pupil: { value: number };
   radius: { value: number };
@@ -142,6 +144,7 @@ function materialForIris(mesh: THREE.Mesh, index: number): IrisUniforms {
   const material = (mesh.material as THREE.MeshStandardMaterial).clone();
   const eye: IrisUniforms = {
     tint: { value: new THREE.Color("#94613f") },
+    symbolTint: { value: new THREE.Color("#ffd16b") },
     style: { value: 0 },
     pupil: { value: 0.38 },
     radius: { value: 1 },
@@ -151,13 +154,14 @@ function materialForIris(mesh: THREE.Mesh, index: number): IrisUniforms {
   material.onBeforeCompile = shader => {
     shaderWithRestPosition(shader);
     shader.uniforms.uIrisTint = eye.tint;
+    shader.uniforms.uSymbolTint = eye.symbolTint;
     shader.uniforms.uIrisStyle = eye.style;
     shader.uniforms.uIrisPupil = eye.pupil;
     shader.uniforms.uIrisRadius = eye.radius;
     shader.uniforms.uIrisCenter = eye.center;
     shader.uniforms.uIrisPattern = eye.pattern;
     shader.fragmentShader =
-      "uniform vec3 uIrisTint;\nuniform float uIrisStyle;\nuniform float uIrisPupil;\nuniform float uIrisRadius;\nuniform vec2 uIrisCenter;\nuniform float uIrisPattern;\n"
+      "uniform vec3 uIrisTint;\nuniform vec3 uSymbolTint;\nuniform float uIrisStyle;\nuniform float uIrisPupil;\nuniform float uIrisRadius;\nuniform vec2 uIrisCenter;\nuniform float uIrisPattern;\n"
       + shader.fragmentShader;
     shader.fragmentShader = shader.fragmentShader.replace(
       "#include <map_fragment>",
@@ -181,48 +185,50 @@ function materialForIris(mesh: THREE.Mesh, index: number): IrisUniforms {
         // Preserve owner-approved dark pupil and highlight silhouette from real texture.
         "float pupilExpansion = 1.0 - smoothstep(irisR * uIrisPupil * 0.93, irisR * uIrisPupil * 1.10, irisDist);",
         "diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.008,0.006,0.010), pupilExpansion * frontMask * preserveHighlight * 0.75);",
-        // In fantasy mode erase the ORIGINAL textured iris + pupil before drawing
-        // one standalone symbol. No second shell, no old iris visible underneath.
+        // Fantasy mode preserves the chosen iris color and draws an independent
+        // symbol tint on the SAME ocular mesh (not another shell or white iris).
         "if (uIrisPattern > 0.5) {",
         "  vec2 p = irisDelta / max(irisR, 0.00001);",
         "  float radiusP = length(p);",
         "  float angleP = atan(p.y, p.x);",
-        "  float cover = (1.0 - smoothstep(0.0278, 0.0320, irisDist)) * frontMask;",
-        "  vec3 cleanSclera = vec3(0.84, 0.805, 0.805);",
-        "  diffuseColor.rgb = mix(diffuseColor.rgb, cleanSclera, cover);",
+        "  float cover = (1.0 - smoothstep(0.87, 1.015, radiusP)) * frontMask;",
+        "  float sourceDetail = clamp(brightness * 2.25, 0.0, 1.0);",
+        "  float radialShade = mix(1.16, 0.66, smoothstep(0.22, 1.0, radiusP));",
+        "  float radialFibers = sin(angleP * 59.0 + radiusP * 28.0) * 0.055;",
+        "  vec3 selectedIris = uIrisTint * (radialShade + radialFibers + 0.22 * sourceDetail);",
+        "  float limbal = smoothstep(0.80, 0.98, radiusP);",
+        "  selectedIris = mix(selectedIris, selectedIris * 0.43, limbal);",
+        "  // Replace source-pupil imprint but retain small glints from the source.",
+        "  diffuseColor.rgb = mix(diffuseColor.rgb, selectedIris, cover);",
         "  float icon = 0.0;",
         "  if (uIrisPattern < 1.5) {",
-        "    // Parametric heart SDF, rendered where the real iris used to be.",
         "    vec2 hp = vec2(p.x * 1.52, (p.y + 0.075) * 1.52);",
         "    float q = dot(hp,hp) - 1.0;",
         "    float heart = q*q*q - hp.x*hp.x*hp.y*hp.y*hp.y;",
         "    icon = 1.0 - smoothstep(-0.10, 0.055, heart);",
         "  } else if (uIrisPattern < 2.5) {",
-        "    // Five-point star takes the place of the iris, not an overlay.",
         "    float edgeStar = 0.53 + 0.24 * cos(5.0 * (angleP - 1.5707963));",
         "    icon = 1.0 - smoothstep(edgeStar - 0.040, edgeStar + 0.040, radiusP);",
         "  } else if (uIrisPattern < 3.5) {",
-        "    // Four-ray sparkle silhouette with central jewel.",
         "    float xRay = (1.0 - smoothstep(0.035, 0.17, abs(p.x))) * (1.0 - smoothstep(0.34, 0.82, abs(p.y)));",
         "    float yRay = (1.0 - smoothstep(0.035, 0.17, abs(p.y))) * (1.0 - smoothstep(0.34, 0.82, abs(p.x)));",
-        "    float jewel = 1.0 - smoothstep(0.19,0.24,radiusP);",
-        "    icon = max(jewel,max(xRay,yRay));",
+        "    float jewel = 1.0 - smoothstep(0.19, 0.24, radiusP);",
+        "    icon = max(jewel, max(xRay, yRay));",
         "  } else {",
-        "    // Spiral graphic; show the full pattern, without an old iris circle.",
         "    float spiralRidge = sin(angleP * 3.0 + radiusP * 28.0);",
         "    icon = smoothstep(0.60, 0.86, spiralRidge) * smoothstep(0.10, 0.18, radiusP) * (1.0 - smoothstep(0.75, 0.88, radiusP));",
         "  }",
-        "  vec3 iconColor = uIrisTint;",
-        "  if (uIrisPattern > 1.5 && uIrisPattern < 2.5) iconColor = mix(uIrisTint, vec3(1.0,0.78,0.28), 0.35);",
-        "  if (uIrisPattern > 2.5 && uIrisPattern < 3.5) iconColor = mix(uIrisTint, vec3(0.75,0.91,1.0),0.55);",
-        "  vec3 contrastColor = mix(iconColor, vec3(0.07,0.018,0.07), 0.20);",
-        "  diffuseColor.rgb = mix(diffuseColor.rgb, contrastColor, icon * cover);",
+        "  // Symbol color is independent from the iris palette.",
+        "  vec3 symbolFill = uSymbolTint * (0.86 + 0.14 * max(0.0, dot(uSymbolTint, vec3(0.299,0.587,0.114))));",
+        "  diffuseColor.rgb = mix(diffuseColor.rgb, symbolFill, icon * cover);",
+        "  float glint = smoothstep(0.77, 0.96, brightness) * cover * (1.0 - icon * 0.85);",
+        "  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.95), glint * 0.40);",
         "}",
 
       ].join("\n")
     );
   };
-  material.customProgramCacheKey = () => "audition-real-iris-shader-v14-rest-anchored";
+  material.customProgramCacheKey = () => "audition-real-iris-shader-v15-two-tone";
   mesh.material = material;
   return eye;
 }
@@ -377,6 +383,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
     for (const control of iris) {
       if (!control) continue;
       control.tint.value.set(draft.irisColor);
+      control.symbolTint.value.set(draft.symbolColor);
       control.style.value = ["natural", "radiant", "velvet", "crystal"].indexOf(draft.irisStyleId);
       control.radius.value = draft.irisScale;
       control.pupil.value = draft.pupilScale;
