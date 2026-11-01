@@ -4,9 +4,9 @@
  * Do NOT register in production Character Catalog before owner visual acceptance.
  */
 export const EYE_SET_PACK_URL =
-  "https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/c5fb69e0-0b87-4bbb-9fd2-77e6e122c931.glb";
-export const EYE_SET_PACK_SHA256 = "7221dac79642b283f85740c3ca3053d49f19f52aabf29a6296fb091c0f265cf2";
-export const EYE_SET_PACK_CACHE_NAME = "audition-eye-set-pack-v192-7221dac79642";
+  "https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/0d4500f1-242f-4d8d-aa47-5fb7e764d2b5.glb";
+export const EYE_SET_PACK_SHA256 = "a80088aed5356e2b1b7344f347d77e9c240fdd1ae0755c3771b9de12d31869e4";
+export const EYE_SET_PACK_CACHE_NAME = "audition-eye-set-pack-v193-a80088aed535";
 
 export const EYE_SETS = [
   { id: "natural", label: "Tự nhiên", subtitle: "Mắt hạnh nhân · nâu ấm", color: "#bd713d", lashStyleId: "natural", eyeShapeId: "neutral", irisPatternId: "classic" },

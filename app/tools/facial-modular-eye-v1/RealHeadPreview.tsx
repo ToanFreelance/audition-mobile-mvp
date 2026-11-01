@@ -374,7 +374,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
     }
     for (const node of eyeSetNodes) {
       const active = isSet && node.name.startsWith("EyeSet_" + draft.eyeSetId + "_");
-      const lashVariant = node.name.includes("_Lashes_V1");
+      const lashVariant = node.name.includes("_Lashes_V1") || node.name.includes("_LashFan_V193");
       node.visible = active && (!lashVariant || draft.lashStyleId !== "none");
     }
     for (const lash of lashNodes) {
