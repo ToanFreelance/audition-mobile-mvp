@@ -245,3 +245,21 @@ True swap acceptance: new asset identity and different GLB geometry/shape, align
 ### Known risk
 - The owner-reported dirty fringe at irisScale 76% is *not necessarily fully solved by the new pack* because the source head/upper eyelid bridge could still contain baked fragments. The new pack eliminates old iris map **on the ocular variants**; it does not rebuild the old bridge geometry.
 - This is asset-level modular selection, NOT full anatomy (eyelid face-skin, rig blink, bone weights) replacement. Do not merge into production or Character Catalog without art QA/owner approval.
+
+
+---
+## V1.9 — Concept-first Cute Eye Art Pass (2026-11-01)
+
+**Trạng thái: PARTIALLY READY / NOT VISUALLY ACCEPTED.** Concept chín bộ đã được owner duyệt; đây là bản triển khai/QA, không phải concept mới. PR #24 tiếp tục Draft, không merge và chưa tích hợp Character Catalog.
+
+- Baseline kiểm tra trước khi sửa: `5a8b3620075cf9606feaa21aefe012631880057e`, base `development`.
+- Root cause viền bẩn: phân tách ocular V1.8 chưa kín; nhiều mảnh bề mặt iris/eye vẫn thuộc HeadBase, cộng với bridge mí gốc 220 tam giác. Render tách từng lớp chứng minh thay map ocular đơn thuần không xử lý được chúng.
+- Tái phân vùng vùng mắt, tái dựng ocular/mí có chung biên; chín bộ có L/R Skin + Lids + Ocular + Lashes riêng, 72 node V1.9. Geometry ngoài vùng mắt được giữ; bản gốc ở scene thư viện để so sánh.
+- Iris/sclera mới dùng texture sRGB sạch và material unlit, tránh bị xỉn do PBR/tone mapping. Mí nguồn vẫn dùng shading da gốc ở ngoài vùng sửa. Không tăng exposure toàn cảnh. Chỉnh nâng cao vẽ lại một texture sạch trên đúng bộ đã chọn, giữ hai màu độc lập, Star/Heart và irisScale.
+- GLB: `Female_head_EyeSetPack_9_V19.glb`, 31.376.604 bytes, SHA-256 `1da1e04c67d3441e7223224830a20aed69e67d5ea6c625025defdd2f9042367f`.
+- URL: https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/8a013292-3625-4598-8abc-fd26d1d1ad66.glb
+- CORS `*`, MIME `model/gltf-binary`, download checksum trùng asset QA. Cache key mới `audition-eye-set-pack-v19-1da1e04c67d3`; StrictMode dùng chung fetch đang tải. Chọn bộ không tải lại GLB.
+- Default glTF scene chỉ chứa Natural; runtime đọc thêm scene thư viện một lần. Blender importer cũng tạo các node V1.8 không được scene tham chiếu, nên script render cô lập bằng extras `version=1.9`, không dựa vào tên trùng. Trong `.blend`, các node legacy được đổi tên rõ ràng và ẩn; ảnh được tạo từ đúng tám module đang chọn.
+- QA kỹ thuật: Khronos validator 0 errors/24 tangent warnings; geometry/indices/UV/embedded images PASS; TypeScript, ESLint và Next build PASS; 8/8 Playwright UI PASS, WebGL runtime smoke PASS trên SwiftShader với GLB thật. Không gọi Chromium mobile simulation là iPhone acceptance.
+- QA hình ảnh: render lại GLB đã xuất bằng Blender/Cycles CPU, contact sheet chín bộ, so với ảnh owner, mặt chính diện, 3/4 trái/phải, macro và blink đại diện. Chưa tự nghiệm thu độ giống concept: còn dấu vết mí/mi nguồn, shading đường nối và lông mi chưa đủ mềm/phân nhóm như concept. Blink vẫn là prototype cục bộ, chưa phải rig sản xuất.
+- Báo cáo chi tiết: `docs/eye-pack-v19/QA_VI.md`; manifest: `docs/eye-pack-v19/asset-manifest.json`; quy trình tái tạo/QA: `scripts/eye-pack-v19/README.md`.

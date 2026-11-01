@@ -1,4 +1,13 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+
+test.beforeEach(async ({ page }) => {
+  if (process.env.EYE_QA_GLB_BYTES) {
+    // Real final asset bytes; intercept transport only on restricted QA hosts.
+    const body = readFileSync(process.env.EYE_QA_GLB_BYTES);
+    await page.route("**/*.glb", route => route.fulfill({ body, contentType: "model/gltf-binary" }));
+  }
+});
 
 test.describe("Facial Modular Eye V1 isolated demo", () => {
   test("preset, color, lash and size controls update the configuration", async ({ page }) => {
@@ -8,11 +17,11 @@ test.describe("Facial Modular Eye V1 isolated demo", () => {
 
     await page.getByRole("button", { name: /Mắt vui/ }).click();
     await expect(page.getByRole("button", { name: /Mắt vui/ })).toHaveAttribute("aria-pressed", "true");
-    await page.getByRole("button", { name: /Trái tim/ }).click();
+    await page.getByRole("group", { name: "Hoa văn iris", exact: true }).getByRole("button", { name: /Trái tim/ }).click();
     await expect(page.getByRole("button", { name: "Chớp mắt tự nhiên" })).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Chớp mắt tự nhiên" }).click();
     await expect(page.getByRole("button", { name: "Chớp mắt tự nhiên" })).toHaveAttribute("aria-pressed", "false");
-    await expect(page.getByRole("button", { name: /Trái tim/ })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("group", { name: "Hoa văn iris", exact: true }).getByRole("button", { name: /Trái tim/ })).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Màu iris #668ab1" }).click();
     await page.getByRole("button", { name: "Màu biểu tượng #f59cb9" }).click();
     await expect(page.getByRole("button", { name: "Màu iris #668ab1" })).toHaveAttribute("aria-pressed", "true");
@@ -51,7 +60,7 @@ test.describe("Facial Modular Eye V1 isolated demo", () => {
     await page.getByRole("button", { name: "Khôi phục mặc định" }).click();
     await expect(page.getByRole("button", { name: "Chớp mắt tự nhiên" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByRole("slider", { name: "Kích thước mắt" })).toHaveValue("1");
-    await expect(page.getByRole("button", { name: /Natural/ }).first()).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("group", { name: "Kiểu lông mi", exact: true }).getByRole("button", { name: "Natural", exact: true })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("preview view controls switch without navigating to gameplay", async ({ page }) => {

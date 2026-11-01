@@ -7,6 +7,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import styles from "./FacialEyeLab.module.css";
 import { EYE_SET_PACK_URL, EYE_SET_PACK_CACHE_NAME, getEyeSet } from "./EyeSetCatalog";
 import type { EyeSetId } from "./EyeSetCatalog";
+import { createEyePainter } from "./EyeTextureV19";
 
 export type EyeShapeId = "neutral" | "joyful" | "sad" | "angry" | "surprised" | "playful";
 export type IrisPatternId = "classic" | "heart" | "star" | "sparkle" | "spiral";
@@ -38,16 +39,11 @@ const CENTERS = [
   new THREE.Vector2(0.1185, 0.5172),
 ];
 type IrisUniforms = {
-  tint: { value: THREE.Color };
-  symbolTint: { value: THREE.Color };
-  style: { value: number };
-  pupil: { value: number };
-  radius: { value: number };
-  center: { value: THREE.Vector2 };
-  pattern: { value: number };
   mesh: THREE.Mesh;
   sourceMaterial: THREE.Material;
-  cosmeticMaterial: THREE.MeshStandardMaterial;
+  cosmeticMaterial: THREE.MeshBasicMaterial;
+  sourceUv?: Float32Array;
+  cleanUv?: Float32Array;
 };
 type MorphMesh = {
   mesh: THREE.Mesh;
@@ -55,6 +51,7 @@ type MorphMesh = {
   worldPositions: Float32Array;
   inverse: THREE.Matrix4;
   affected: Uint32Array;
+  lashRoots?: Float32Array;
 };
 type PreviewScene = {
   dispose: () => void;
@@ -82,14 +79,23 @@ function deformEyes(parts: MorphMesh[], draft: EyeDraft, blink = 0) {
   const scaleY = draft.eyeScale * draft.eyeHeight;
   const dest = new THREE.Vector3();
   for (const part of parts) {
+    if (!part.mesh.visible) continue;
     const attr = part.mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
     const output = attr.array as Float32Array;
     if (part.affected.length === 0) continue;
     for (const i of part.affected) {
       const k = 3 * i;
-      const x = part.worldPositions[k];
-      const y = part.worldPositions[k + 1];
-      const z = part.worldPositions[k + 2];
+      let x = part.worldPositions[k];
+      let y = part.worldPositions[k + 1];
+      let z = part.worldPositions[k + 2];
+      if (part.lashRoots && draft.lashStyleId !== "none") {
+        const lengths = { natural: 0.90, doll: 1.12, dramatic: 1.25 };
+        const authoredStyle = getEyeSet(draft.eyeSetId)?.lashStyleId ?? "natural";
+        const factor = lengths[draft.lashStyleId] / lengths[authoredStyle];
+        x = part.lashRoots[k] + (x - part.lashRoots[k]) * factor;
+        y = part.lashRoots[k + 1] + (y - part.lashRoots[k + 1]) * factor;
+        z = part.lashRoots[k + 2] + (z - part.lashRoots[k + 2]) * factor;
+      }
       let weight = 0;
       let cx = 0;
       let cy = 0;
@@ -132,130 +138,36 @@ function deformEyes(parts: MorphMesh[], draft: EyeDraft, blink = 0) {
   }
 }
 
-function shaderWithRestPosition(shader: { vertexShader: string; fragmentShader: string }) {
-  // Stable source-geometry coordinates: decorations move WITH the ocular mesh
-  // when the editor deforms eyes, instead of drifting in world space.
-  shader.vertexShader = [
-    "attribute vec3 aEyeRestPosition;",
-    "varying vec3 vFaceRest;",
-    shader.vertexShader,
-  ].join("\n");
-  shader.vertexShader = shader.vertexShader.replace(
-    "#include <worldpos_vertex>",
-    "#include <worldpos_vertex>\nvFaceRest = (modelMatrix * vec4(aEyeRestPosition, 1.0)).xyz;"
-  );
-  shader.fragmentShader = "varying vec3 vFaceRest;\n" + shader.fragmentShader;
-}
-
-function materialForIris(mesh: THREE.Mesh, index: number): IrisUniforms {
-  // The source GLB atlas contains a complete baked pupil and limbal ring.
-  // Recoloring or hiding it with a radial band leaves a dirty outer ring when
-  // irisScale shrinks. Keep the owner's original at defaults, but use a
-  // clean, map-free ocular material for EVERY customized iris appearance.
-  // No second cornea/iris geometry is introduced.
-  const sourceMaterial = mesh.material as THREE.MeshStandardMaterial;
-  const cosmeticMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    roughness: 0.4,
-    metalness: 0,
+function materialForIris(mesh: THREE.Mesh, painter: ReturnType<typeof createEyePainter>): IrisUniforms {
+  const sourceMaterial = mesh.material as THREE.Material;
+  const isVariant = mesh.name.startsWith("EyeSet_");
+  // Original ocular shares the face material. Never change its tone mapping.
+  if (isVariant) sourceMaterial.toneMapped = false;
+  const cosmeticMaterial = new THREE.MeshBasicMaterial({
+    map: painter.texture,
     side: sourceMaterial.side,
+    toneMapped: false,
   });
-  const eye: IrisUniforms = {
-    tint: { value: new THREE.Color("#94613f") },
-    symbolTint: { value: new THREE.Color("#ffd16b") },
-    style: { value: 0 },
-    pupil: { value: 0.38 },
-    radius: { value: 1 },
-    center: { value: CENTERS[index] },
-    pattern: { value: 0 },
-    mesh,
-    sourceMaterial,
-    cosmeticMaterial,
-  };
-  cosmeticMaterial.onBeforeCompile = shader => {
-    shaderWithRestPosition(shader);
-    shader.uniforms.uIrisTint = eye.tint;
-    shader.uniforms.uSymbolTint = eye.symbolTint;
-    shader.uniforms.uIrisStyle = eye.style;
-    shader.uniforms.uIrisPupil = eye.pupil;
-    shader.uniforms.uIrisRadius = eye.radius;
-    shader.uniforms.uIrisCenter = eye.center;
-    shader.uniforms.uIrisPattern = eye.pattern;
-    shader.fragmentShader = [
-      "uniform vec3 uIrisTint;",
-      "uniform vec3 uSymbolTint;",
-      "uniform float uIrisStyle;",
-      "uniform float uIrisPupil;",
-      "uniform float uIrisRadius;",
-      "uniform vec2 uIrisCenter;",
-      "uniform float uIrisPattern;",
-      shader.fragmentShader,
-    ].join("\n");
-    const eyeCode = [
-      // "Entire ocular surface" instead of "old iris footprint" is intentional:
-      // the baked source iris isn't circular and the normal map also contains
-      // iris detail. The separate material uses neither the old atlas nor normals.
-      "vec2 centerDelta = vFaceRest.xy - uIrisCenter;",
-      "float irisRadius = 0.0295 * uIrisRadius;",
-      "vec2 irisUv = centerDelta / max(irisRadius, 0.00001);",
-      "float irisDistance = length(irisUv);",
-      "float irisAngle = atan(irisUv.y, irisUv.x);",
-      "float eyeFront = smoothstep(0.225, 0.255, vFaceRest.z);",
-      "float eyelidShade = smoothstep(0.52, 0.62, vFaceRest.y) * 0.12;",
-      "vec3 cleanSclera = vec3(0.78, 0.745, 0.76) * (1.0 - eyelidShade);",
-      "diffuseColor.rgb = cleanSclera;",
-      // Strong but clean outer border, soft fashionable gradient, restrained fibers.
-      "float irisDisk = (1.0 - smoothstep(0.987, 1.008, irisDistance)) * eyeFront;",
-      "float ringOuter = smoothstep(0.875, 0.970, irisDistance);",
-      "float ringInner = 1.0 - smoothstep(0.13, 0.25, irisDistance);",
-      "float shade = mix(1.14, 0.75, smoothstep(0.10, 0.97, irisDistance));",
-      "float styleFibers = uIrisStyle < 0.5 ? 0.018 : uIrisStyle < 1.5 ? 0.083 : uIrisStyle < 2.5 ? 0.009 : 0.065;",
-      "float fibers = sin(irisAngle * 78.0 + irisDistance * 20.0) * styleFibers;",
-      "vec3 irisBase = uIrisTint * max(0.18, shade + fibers);",
-      "irisBase = mix(irisBase, irisBase * 0.30, ringOuter);",
-      "irisBase *= 1.0 - 0.11 * ringInner;",
-      "diffuseColor.rgb = mix(diffuseColor.rgb, irisBase, irisDisk);",
-      "if (uIrisPattern < 0.5) {",
-      "  float pupil = (1.0 - smoothstep(uIrisPupil * 0.85, uIrisPupil * 1.04, irisDistance)) * irisDisk;",
-      "  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.009, 0.006, 0.013), pupil);",
-      "} else {",
-      // Existing V1.5 independent icon palette, source-anchored on the same mesh.
-      "  float icon = 0.0;",
-      "  if (uIrisPattern < 1.5) {",
-      "    vec2 hp = vec2(irisUv.x * 1.52, (irisUv.y + 0.075) * 1.52);",
-      "    float q = dot(hp,hp) - 1.0;",
-      "    float heart = q*q*q - hp.x*hp.x*hp.y*hp.y*hp.y;",
-      "    icon = 1.0 - smoothstep(-0.10, 0.055, heart);",
-      "  } else if (uIrisPattern < 2.5) {",
-      "    float sector = abs(mod(irisAngle + 1.5707963 + 0.6283185, 1.256637) - 0.6283185);",
-      "    float starEdge = mix(0.33, 0.73, 1.0 - sector / 0.6283185);",
-      "    icon = 1.0 - smoothstep(starEdge - 0.022, starEdge + 0.022, irisDistance);",
-      "  } else if (uIrisPattern < 3.5) {",
-      "    float rayX = (1.0 - smoothstep(0.03, 0.15, abs(irisUv.x))) * (1.0 - smoothstep(0.31, 0.83, abs(irisUv.y)));",
-      "    float rayY = (1.0 - smoothstep(0.03, 0.15, abs(irisUv.y))) * (1.0 - smoothstep(0.31, 0.83, abs(irisUv.x)));",
-      "    float jewel = 1.0 - smoothstep(0.17, 0.22, irisDistance);",
-      "    icon = max(jewel, max(rayX, rayY));",
-      "  } else {",
-      "    float spiralRidge = sin(irisAngle * 3.0 + irisDistance * 28.0);",
-      "    icon = smoothstep(0.60, 0.86, spiralRidge) * smoothstep(0.10, 0.18, irisDistance) * (1.0 - smoothstep(0.75, 0.88, irisDistance));",
-      "  }",
-      "  diffuseColor.rgb = mix(diffuseColor.rgb, uSymbolTint, icon * irisDisk);",
-      "}",
-      // Two clean compact highlights. No baked ghost glints / black old pupil.
-      "float gleam1 = 1.0 - smoothstep(0.90, 1.02, length((irisUv - vec2(-0.31, 0.39)) / vec2(0.17, 0.095)));",
-      "float gleam2 = 1.0 - smoothstep(0.89, 1.03, length((irisUv - vec2(0.33, -0.33)) / vec2(0.058, 0.045)));",
-      "float glintMask = max(gleam1 * 0.78, gleam2 * 0.38) * irisDisk;",
-      "diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), glintMask);",
-    ].join("\n");
-    shader.fragmentShader = shader.fragmentShader.replace("#include <map_fragment>", "#include <map_fragment>\n" + eyeCode);
-  };
-  cosmeticMaterial.customProgramCacheKey = () => "audition-eye-clean-surface-v17";
-  // Leave the accepted original material active until a user actually customizes.
-  mesh.material = sourceMaterial;
-  return eye;
+  let sourceUv: Float32Array | undefined;
+  let cleanUv: Float32Array | undefined;
+  if (!isVariant) {
+    const uv = mesh.geometry.getAttribute("uv");
+    const position = mesh.geometry.getAttribute("position");
+    sourceUv = new Float32Array(uv.count * 2);
+    cleanUv = new Float32Array(uv.count * 2);
+    const center = CENTERS[mesh.name.includes("_L_") ? 0 : 1];
+    const point = new THREE.Vector3();
+    for (let i = 0; i < uv.count; i++) {
+      sourceUv[i * 2] = uv.getX(i); sourceUv[i * 2 + 1] = uv.getY(i);
+      point.fromBufferAttribute(position, i).applyMatrix4(mesh.matrixWorld);
+      cleanUv[i * 2] = 0.5 + (point.x - center.x) * 0.255 / 0.0291;
+      cleanUv[i * 2 + 1] = 0.5 - (point.y - center.y) * 0.255 / 0.0291;
+    }
+  }
+  return { mesh, sourceMaterial, cosmeticMaterial, sourceUv, cleanUv };
 }
 
-function useOriginalIris(draft: EyeDraft): boolean {
+function isOriginalIris(draft: EyeDraft): boolean {
   return draft.irisPatternId === "classic" &&
     draft.irisStyleId === "natural" &&
     draft.irisScale === 1 &&
@@ -264,8 +176,15 @@ function useOriginalIris(draft: EyeDraft): boolean {
 }
 
 const ASSET_CACHE_NAME = EYE_SET_PACK_CACHE_NAME;
+let pendingAsset: Promise<{ bytes: ArrayBuffer; source: "cache" | "network" }> | null = null;
 
-async function fetchCachedGLB(): Promise<{ bytes: ArrayBuffer; source: "cache" | "network" }> {
+function fetchCachedGLB(): Promise<{ bytes: ArrayBuffer; source: "cache" | "network" }> {
+  // React StrictMode can mount twice before the first fetch resolves.
+  pendingAsset ??= loadCachedGLB().catch(error => { pendingAsset = null; throw error; });
+  return pendingAsset;
+}
+
+async function loadCachedGLB(): Promise<{ bytes: ArrayBuffer; source: "cache" | "network" }> {
   // CacheStorage stores the entire immutable GLB within THIS preview origin.
   // It is best-effort (Safari may evict); HTTP cache is still used as fallback.
   const request = new Request(ASSET_URL, { mode: "cors", cache: "force-cache" });
@@ -285,7 +204,7 @@ async function fetchCachedGLB(): Promise<{ bytes: ArrayBuffer; source: "cache" |
     // Persist in parallel with parsing so saving 15 MB doesn't stall first preview.
     void storage.put(request, response.clone()).then(async () => {
       const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.filter(name => name.startsWith("audition-face-lab-glb-") && name !== ASSET_CACHE_NAME)
+      await Promise.all(cacheNames.filter(name => (name.startsWith("audition-face-lab-glb-") || name.startsWith("audition-eye-set-pack-")) && name !== ASSET_CACHE_NAME)
         .map(name => caches.delete(name)));
     }).catch(error => console.warn("[Eye Lab] GLB cache write skipped", error));
   }
@@ -330,6 +249,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
   let model: THREE.Group | null = null;
   const morphs: MorphMesh[] = [];
   const iris: IrisUniforms[] = [];
+  const painter = createEyePainter();
   const variantIris = new Map<string, IrisUniforms>();
   const eyeSetNodes: THREE.Mesh[] = [];
   const lashNodes: THREE.Mesh[] = [];
@@ -337,6 +257,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
   let blinkAmount = 0;
   let blinkTimeout: number | null = null;
   let blinkFrame: number | null = null;
+  const render = () => { if (!disposed) renderer.render(scene, camera); };
   const scheduleBlink = () => {
     if (disposed || !model) return;
     blinkTimeout = window.setTimeout(() => {
@@ -364,6 +285,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
           previousFrame = now;
           blinkAmount = progress === 1 ? 0 : Math.pow(Math.sin(Math.PI * progress), 2);
           deformEyes(morphs, currentDraft, blinkAmount);
+          host.dataset.blinkAmount = blinkAmount.toFixed(3);
           render();
         }
         if (progress < 1) blinkFrame = requestAnimationFrame(step);
@@ -375,7 +297,6 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
       blinkFrame = requestAnimationFrame(step);
     }, 6000 + Math.random() * 4200);
   };
-  const render = () => { if (!disposed) renderer.render(scene, camera); };
   controls.addEventListener("change", render);
   const fitToHost = () => {
     const width = Math.max(1, host.clientWidth);
@@ -411,46 +332,52 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
   const apply = (draft: EyeDraft) => {
     currentDraft = draft;
     if (!model) return;
-    deformEyes(morphs, draft, blinkAmount);
     const selectedSet = getEyeSet(draft.eyeSetId);
     const isSet = selectedSet !== undefined;
+    if (draft.eyeSetCustomized || (!isSet && !isOriginalIris(draft))) painter.draw(draft);
     for (const control of [...iris, ...variantIris.values()]) {
       if (!control) continue;
-      control.tint.value.set(draft.irisColor);
-      control.symbolTint.value.set(draft.symbolColor);
-      control.style.value = ["natural", "radiant", "velvet", "crystal"].indexOf(draft.irisStyleId);
-      control.radius.value = draft.irisScale;
-      control.pupil.value = draft.pupilScale;
-      control.pattern.value = ["classic", "heart", "star", "sparkle", "spiral"].indexOf(draft.irisPatternId);
       const variant = control.mesh.name.startsWith("EyeSet_");
       control.mesh.material = variant
         ? (draft.eyeSetCustomized ? control.cosmeticMaterial : control.sourceMaterial)
-        : (useOriginalIris(draft) ? control.sourceMaterial : control.cosmeticMaterial);
+        : (isOriginalIris(draft) ? control.sourceMaterial : control.cosmeticMaterial);
+      if (!variant && control.sourceUv && control.cleanUv) {
+        control.mesh.geometry.setAttribute("uv", new THREE.BufferAttribute(
+          isOriginalIris(draft) ? control.sourceUv : control.cleanUv, 2));
+      }
       if (!variant) control.mesh.visible = !isSet;
     }
     for (const node of eyeSetNodes) {
       const active = isSet && node.name.startsWith("EyeSet_" + draft.eyeSetId + "_");
       const lashVariant = node.name.includes("_Lashes_V1");
-      node.visible = active && (!lashVariant ||
-        (!draft.eyeSetCustomized || draft.lashStyleId === selectedSet?.lashStyleId));
+      node.visible = active && (!lashVariant || draft.lashStyleId !== "none");
     }
     for (const lash of lashNodes) {
-      const overrideLash = isSet && draft.eyeSetCustomized &&
-        draft.lashStyleId !== selectedSet?.lashStyleId;
-      lash.visible = (overrideLash || !isSet) &&
-        draft.lashStyleId !== "none" && lash.name.includes("_" + draft.lashStyleId + "_V12");
+      lash.visible = !isSet && draft.lashStyleId !== "none" &&
+        lash.name.includes("_" + draft.lashStyleId + "_V12");
     }
+    model.traverse(node => {
+      if (node.name === "Head_Base_Protected") node.visible = !isSet;
+      if (node.name === "Head_Base_Protected_ConceptV19") node.visible = isSet;
+      if (node.name.includes("UpperLidBridge_ISSUE")) node.visible = !isSet;
+    });
+    host.dataset.visibleModules = String(eyeSetNodes.filter(node => node.visible).length);
+    deformEyes(morphs, draft, blinkAmount);
     host.dataset.eyeSet = draft.eyeSetId;
+    const head = model.getObjectByName("Head_Base_Protected_ConceptV19") as THREE.Mesh | undefined;
+    host.dataset.skinToneMapped = String((head?.material as THREE.Material | undefined)?.toneMapped);
     host.dataset.lashModule = draft.lashStyleId;
     render();
   };
 
   const loader = new GLTFLoader();
   void fetchCachedGLB().then(async ({ bytes, source }) => {
+    if (disposed) return null;
     const gltf = await loader.parseAsync(bytes, "");
     cacheInfo(source);
     return gltf;
   }).then(gltf => {
+    if (!gltf) return;
     if (disposed) {
       gltf.scene.traverse(o => {
         if (o instanceof THREE.Mesh) {
@@ -461,6 +388,11 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
       return;
     }
     model = gltf.scene;
+    // V1.9 default scene is a clean standalone Natural look. Load the library
+    // scene once, then resolve actual modules in-place without another fetch.
+    for (const library of gltf.scenes) {
+      if (library !== model) model.add(...library.children.slice());
+    }
     scene.add(model);
     model.updateMatrixWorld(true);
     model.traverse(object => {
@@ -495,7 +427,8 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
         }
       }
       morphs.push({ mesh: object, original, worldPositions, inverse: object.matrixWorld.clone().invert(),
-        affected: new Uint32Array(affectedIndices) });
+        affected: new Uint32Array(affectedIndices),
+        lashRoots: object.geometry.getAttribute("_lash_root")?.array as Float32Array | undefined });
       if (object.name === "Eye_L_OcularSurface_V1" || object.name === "Eye_R_OcularSurface_V1") {
         object.geometry.setAttribute("aEyeRestPosition", new THREE.BufferAttribute(original.slice(), 3));
       }
@@ -504,19 +437,18 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
         object.visible = false;
         lashNodes.push(object);
       }
-      if (object.name === "Eye_L_OcularSurface_V1") iris[0] = materialForIris(object, 0);
-      if (object.name === "Eye_R_OcularSurface_V1") iris[1] = materialForIris(object, 1);
+      if (object.name === "Eye_L_OcularSurface_V1") iris[0] = materialForIris(object, painter);
+      if (object.name === "Eye_R_OcularSurface_V1") iris[1] = materialForIris(object, painter);
       const variantMatch = /^EyeSet_(natural|joyful|sad|playful|angry|doll|idol|star|heart)_([LR])_Ocular_V1$/.exec(object.name);
       if (variantMatch) {
-        const sideIndex = variantMatch[2] === "L" ? 0 : 1;
         object.geometry.setAttribute("aEyeRestPosition", new THREE.BufferAttribute(original.slice(), 3));
-        variantIris.set(variantMatch[1] + "_" + variantMatch[2], materialForIris(object, sideIndex));
+        variantIris.set(variantMatch[1] + "_" + variantMatch[2], materialForIris(object, painter));
       }
       if (object.name.startsWith("EyeSet_")) {
         object.visible = false;
         eyeSetNodes.push(object);
       }
-      // Keep original baked eyelashes in the atlas unchanged until source mesh separation passes QA.
+      // V1.9 skin/ocular fragments and source bridge were rebuilt in the asset.
     });
     ready(true);
     if (currentDraft) apply(currentDraft);
@@ -549,6 +481,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
         });
         scene.remove(model);
       }
+      painter.dispose();
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
     },
@@ -568,7 +501,7 @@ export default function RealHeadPreview({ draft, view, resetToken }: { draft: Ey
       instanceRef.current = instance;
     } catch (error) {
       console.warn("[Facial Eye Lab] WebGL unavailable", error);
-      setState("error");
+      queueMicrotask(() => setState("error"));
     }
     return () => { instanceRef.current = null; instance?.dispose(); };
   }, []);
@@ -576,9 +509,9 @@ export default function RealHeadPreview({ draft, view, resetToken }: { draft: Ey
   useEffect(() => instanceRef.current?.aim(view), [view, resetToken]);
   return (
     <div className={styles.viewport} ref={hostRef} data-testid="eye-preview" data-preview-status={state}>
-      {state === "loading" && <div className={styles.previewNote}>Đang tải GLB Claude V2 + lông mi 3D (15,3 MB)…</div>}
+      {state === "loading" && <div className={styles.previewNote}>Đang tải bộ mắt V1.9…</div>}
       {state === "error" && <div className={styles.fallback}>Không thể tải GLB thật hoặc WebGL không khả dụng. Kiểm tra kết nối và tải lại.</div>}
-      {state === "ready" && <span className={styles.viewportCaption}>1 ngón xoay · 2 ngón kéo/zoom · {cacheSource === "cache" ? "GLB từ browser cache" : "GLB từ CDN"}</span>}
+      {state === "ready" && <span className={styles.viewportCaption}>1 ngón xoay · 2 ngón kéo/zoom · {cacheSource === "cache" ? "GLB từ browser cache" : "GLB phiên bản mới"}</span>}
     </div>
   );
 }
