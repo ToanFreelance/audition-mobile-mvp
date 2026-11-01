@@ -110,3 +110,27 @@
   .previewActions { width: 100%; justify-content: flex-start; }
   .previewActions button { flex: 1; }
 }
+
+/* EyeSet Pack V1: asset preview selector; no changes to production UI. */
+.eyeSetGrid { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap:9px; }
+.eyeSetCard,.eyeSetSelected { display:flex; flex-direction:column; align-items:center; gap:5px; min-height:126px;
+  border:1px solid #554262; border-radius:14px; padding:12px 8px 9px; color:#f0e4f7; background:#281e35; cursor:pointer; }
+.eyeSetSelected { border-color:#d5a4ff; background:#503568; box-shadow:inset 0 0 0 1px #a56dd5; }
+.eyeSetIllustration { width:75px; height:52px; display:flex; align-items:center; justify-content:center; }
+.eyeSetSclera { width:69px; height:38px; background: #ecdee2; border:3px solid #3c2138; border-radius: 75% 15% 70% 25% / 75% 20% 65% 20%; transform:rotate(-3deg);
+  display:flex;align-items:center;justify-content:center; box-shadow:0 2px 8px #140c13; }
+.eyeSetIris { display:grid;place-items:center; width:32px;height:32px;border-radius:50%; border:3px solid #34202e;
+  box-shadow:inset 0 0 5px #0008, 1px 1px 4px #fff9; color:#ffdf84; font-size:18px; line-height:1; text-shadow:0 1px 2px #000; }
+.eyeSetCard strong,.eyeSetSelected strong { font-size:12px; }
+.eyeSetCard small,.eyeSetSelected small { display:block;color:#bdafc9;font-size:9px;text-align:center;line-height:1.35; }
+.eyeSetInfo { display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 1px 0; color:#baaacd;font-size:11px; }
+.eyeSetInfo button { color:#e5cbfa; padding:9px 10px; border-radius:10px;background:#3a2c49;border:1px solid #765b91;cursor:pointer;font-weight:700;font-size:10px; }
+@media(max-width:560px) {
+ .eyeSetGrid {gap:6px;}
+ .eyeSetCard,.eyeSetSelected {min-height:115px;padding:8px 4px;}
+ .eyeSetCard strong,.eyeSetSelected strong {font-size:11px;}
+ .eyeSetIllustration{width:65px;height:47px;}
+ .eyeSetSclera{width:61px;height:33px;}
+ .eyeSetIris{width:27px;height:27px;}
+ .eyeSetInfo {flex-direction:column;align-items:flex-start;}
+}

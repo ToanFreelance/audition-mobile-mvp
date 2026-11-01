@@ -4,12 +4,16 @@ import { useState } from "react";
 import RealHeadPreview from "./RealHeadPreview";
 import type { EyeDraft, EyeShapeId, IrisPatternId, EyeView } from "./RealHeadPreview";
 import styles from "./FacialEyeLab.module.css";
+import { EYE_SETS } from "./EyeSetCatalog";
+import type { EyeSetId } from "./EyeSetCatalog";
 
 type IrisStyle = EyeDraft["irisStyleId"];
 type LashStyle = EyeDraft["lashStyleId"];
 type CameraView = EyeView;
 
 const DEFAULT: EyeDraft = {
+  eyeSetId: "natural",
+  eyeSetCustomized: false,
   eyeShapeId: "neutral",
   irisPatternId: "classic",
   blinkEnabled: true,
@@ -73,7 +77,35 @@ export default function FacialModularEyeV1Page() {
   const [copied, setCopied] = useState(false);
   const [cameraResetToken, setCameraResetToken] = useState(0);
   const patch = (key: keyof EyeDraft, value: string | number | boolean) =>
-    setDraft(previous => ({ ...previous, [key]: value }));
+    setDraft(previous => ({
+      ...previous,
+      [key]: value,
+      eyeSetCustomized: key === "blinkEnabled" ? previous.eyeSetCustomized : true,
+    }));
+  const selectEyeSet = (id: EyeSetId) => {
+    const set = EYE_SETS.find(item => item.id === id);
+    if (!set) {
+      setDraft(previous => ({ ...DEFAULT, blinkEnabled: previous.blinkEnabled, eyeSetId: "original", eyeSetCustomized: false }));
+      return;
+    }
+    setDraft(previous => ({
+      ...previous,
+      eyeSetId: set.id,
+      eyeSetCustomized: false,
+      eyeShapeId: "neutral",
+      irisPatternId: set.irisPatternId,
+      irisStyleId: "natural",
+      irisColor: set.color,
+      symbolColor: set.id === "heart" ? "#ffa3ca" : "#ffd16b",
+      eyeScale: 1,
+      eyeWidth: 1,
+      eyeHeight: 1,
+      eyeSpacing: 1,
+      irisScale: 1,
+      pupilScale: 0.38,
+      lashStyleId: set.lashStyleId,
+    }));
+  };
   const exportDraft = () => JSON.stringify({ schemaVersion: 1, type: "eye-module-poc", ...draft }, null, 2);
   const copy = async () => {
     try {
@@ -90,8 +122,8 @@ export default function FacialModularEyeV1Page() {
         <header className={styles.header}>
           <div>
             <p className={styles.overline}>AUDITION MOBILE · CHARACTER LAB</p>
-            <h1>Modular Eye Studio <em>V1.7</em></h1>
-            <p>Chọn dáng mắt, cảm xúc, hoa văn và lông mi trên GLB Claude V2; quan sát trực tiếp khi chỉnh.</p>
+            <h1>Modular Eye Studio <em>V1.8</em></h1>
+            <p>9 bộ mắt 3D theo concept đã duyệt, đổi trực tiếp trên đầu Claude V2. Có thể chỉnh nâng cao sau khi chọn bộ.</p>
           </div>
           <div className={styles.experimentBadge}>ISOLATED EXPERIMENT</div>
         </header>
@@ -120,6 +152,30 @@ export default function FacialModularEyeV1Page() {
           </section>
 
           <section className={styles.controls} aria-label="Eye customization controls">
+            <div className={styles.sectionHeading}><span>00</span><h2>Bộ mắt 3D · Eye Asset Pack</h2></div>
+            <p className={styles.sectionDescription}>Chọn bộ sẽ thay đổi mesh mắt, texture PBR và cặp lông mi trên chính GLB. Các bộ được dựng mới từ concept đã chấp nhận, không lấy nguyên texture của Audition cũ.</p>
+            <div className={styles.eyeSetGrid} role="group" aria-label="Bộ mắt 3D">
+              {EYE_SETS.map(set => (
+                <button type="button" key={set.id}
+                  aria-pressed={draft.eyeSetId === set.id && !draft.eyeSetCustomized}
+                  className={draft.eyeSetId === set.id && !draft.eyeSetCustomized ? styles.eyeSetSelected : styles.eyeSetCard}
+                  onClick={() => selectEyeSet(set.id)}>
+                  <span aria-hidden="true" className={styles.eyeSetIllustration}>
+                    <span className={styles.eyeSetSclera}>
+                      <span className={styles.eyeSetIris} style={{ background: set.color }}>
+                        {set.id === "star" ? "★" : set.id === "heart" ? "♥" : set.id === "idol" ? "✦" : "●"}
+                      </span>
+                    </span>
+                  </span>
+                  <strong>{set.label}</strong><small>{set.subtitle}</small>
+                </button>
+              ))}
+            </div>
+            <div className={styles.eyeSetInfo}>
+              <span>{draft.eyeSetCustomized ? "Đang tùy chỉnh từ bộ " + draft.eyeSetId : "Đang dùng asset: " + draft.eyeSetId}</span>
+              <button type="button" onClick={() => selectEyeSet("original")}>Xem mắt Claude V2 gốc</button>
+            </div>
+
             <div className={styles.sectionHeading}><span>01</span><h2>Dáng mắt và biểu cảm</h2></div>
             <p className={styles.sectionDescription}>Preset chỉnh vùng mí và da quanh mắt trên GLB thật. Đây là shape preview, chưa phải blink morph đã nghiệm thu.</p>
             <div className={styles.shapeGrid}>
@@ -212,7 +268,7 @@ export default function FacialModularEyeV1Page() {
             <details className={styles.dataPanel}><summary>Dữ liệu cấu hình hiện tại</summary><pre>{exportDraft()}</pre></details>
             <details className={styles.technicalNote}>
               <summary>Giới hạn hiện tại của bản demo</summary>
-              <p>Đầu thật Claude V2: ở chế độ tùy chỉnh iris sử dụng material mắt sạch (không dùng atlas/normal map iris gốc) và hai màu độc lập, phong cách mắt Audition; chớp mắt định kỳ là prototype, chưa phải blink rig hoàn chỉnh. GLB được cache trong trình duyệt (Safari có thể xóa). Có 6 mesh lông mi 3D. Các dáng mắt vui, buồn, giận… đang là biến dạng hình học vùng mắt trong viewer, chưa phải topology/morph targets sản xuất. Lỗi hình học mí/bridge của GLB gốc chưa được sửa; đây là bản chỉnh shader và vật liệu cho demo, không sao chép texture game Audition. Lông mi có sẵn trong texture HeadBase vẫn còn khi chọn None. Không thay đổi Character Catalog hoặc gameplay.</p>
+              <p>Đầu thật Claude V2 với 9 cặp mesh mắt, 9 texture PBR riêng và các node lông mi theo EyeSet. Khi chỉnh thông số nâng cao, preview dùng material custom trên mesh EyeSet đang chọn (không tạo mắt giả). chớp mắt định kỳ là prototype, chưa phải blink rig hoàn chỉnh. GLB được cache trong trình duyệt (Safari có thể xóa). Có 6 mesh lông mi 3D. Các dáng mắt vui, buồn, giận… đang là biến dạng hình học vùng mắt trong viewer, chưa phải topology/morph targets sản xuất. Lỗi hình học mí/bridge của GLB gốc chưa được sửa; đây là bản chỉnh shader và vật liệu cho demo, không sao chép texture game Audition. Lông mi có sẵn trong texture HeadBase vẫn còn khi chọn None. Không thay đổi Character Catalog hoặc gameplay.</p>
             </details>
           </section>
         </div>

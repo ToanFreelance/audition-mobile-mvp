@@ -5,11 +5,15 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import styles from "./FacialEyeLab.module.css";
+import { EYE_SET_PACK_URL, EYE_SET_PACK_CACHE_NAME, getEyeSet } from "./EyeSetCatalog";
+import type { EyeSetId } from "./EyeSetCatalog";
 
 export type EyeShapeId = "neutral" | "joyful" | "sad" | "angry" | "surprised" | "playful";
 export type IrisPatternId = "classic" | "heart" | "star" | "sparkle" | "spiral";
 
 export type EyeDraft = {
+  eyeSetId: EyeSetId;
+  eyeSetCustomized: boolean;
   eyeShapeId: EyeShapeId;
   irisPatternId: IrisPatternId;
   blinkEnabled: boolean;
@@ -28,7 +32,7 @@ export type EyeView = "front" | "left" | "right" | "close";
 
 // Immutable verified upload derived from the owner's Claude V2 modular checkpoint.
 // Geometry / UV unchanged; 3 original textures resized for the iPhone QA preview.
-const ASSET_URL = "https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/8fabdabb-c844-40e2-8d53-a8da6a490378.glb";
+const ASSET_URL = EYE_SET_PACK_URL;
 const CENTERS = [
   new THREE.Vector2(-0.1203, 0.5174),
   new THREE.Vector2(0.1185, 0.5172),
@@ -259,7 +263,7 @@ function useOriginalIris(draft: EyeDraft): boolean {
     draft.irisColor.toLowerCase() === "#94613f";
 }
 
-const ASSET_CACHE_NAME = "audition-face-lab-glb-v12-502ca471";
+const ASSET_CACHE_NAME = EYE_SET_PACK_CACHE_NAME;
 
 async function fetchCachedGLB(): Promise<{ bytes: ArrayBuffer; source: "cache" | "network" }> {
   // CacheStorage stores the entire immutable GLB within THIS preview origin.
@@ -326,6 +330,8 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
   let model: THREE.Group | null = null;
   const morphs: MorphMesh[] = [];
   const iris: IrisUniforms[] = [];
+  const variantIris = new Map<string, IrisUniforms>();
+  const eyeSetNodes: THREE.Mesh[] = [];
   const lashNodes: THREE.Mesh[] = [];
   let disposed = false;
   let blinkAmount = 0;
@@ -406,19 +412,35 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
     currentDraft = draft;
     if (!model) return;
     deformEyes(morphs, draft, blinkAmount);
-    for (const control of iris) {
+    const selectedSet = getEyeSet(draft.eyeSetId);
+    const isSet = selectedSet !== undefined;
+    for (const control of [...iris, ...variantIris.values()]) {
       if (!control) continue;
       control.tint.value.set(draft.irisColor);
       control.symbolTint.value.set(draft.symbolColor);
       control.style.value = ["natural", "radiant", "velvet", "crystal"].indexOf(draft.irisStyleId);
       control.radius.value = draft.irisScale;
       control.pupil.value = draft.pupilScale;
-      control.mesh.material = useOriginalIris(draft) ? control.sourceMaterial : control.cosmeticMaterial;
       control.pattern.value = ["classic", "heart", "star", "sparkle", "spiral"].indexOf(draft.irisPatternId);
+      const variant = control.mesh.name.startsWith("EyeSet_");
+      control.mesh.material = variant
+        ? (draft.eyeSetCustomized ? control.cosmeticMaterial : control.sourceMaterial)
+        : (useOriginalIris(draft) ? control.sourceMaterial : control.cosmeticMaterial);
+      if (!variant) control.mesh.visible = !isSet;
+    }
+    for (const node of eyeSetNodes) {
+      const active = isSet && node.name.startsWith("EyeSet_" + draft.eyeSetId + "_");
+      const lashVariant = node.name.includes("_Lashes_V1");
+      node.visible = active && (!lashVariant ||
+        (!draft.eyeSetCustomized || draft.lashStyleId === selectedSet?.lashStyleId));
     }
     for (const lash of lashNodes) {
-      lash.visible = draft.lashStyleId !== "none" && lash.name.includes("_" + draft.lashStyleId + "_V12");
+      const overrideLash = isSet && draft.eyeSetCustomized &&
+        draft.lashStyleId !== selectedSet?.lashStyleId;
+      lash.visible = (overrideLash || !isSet) &&
+        draft.lashStyleId !== "none" && lash.name.includes("_" + draft.lashStyleId + "_V12");
     }
+    host.dataset.eyeSet = draft.eyeSetId;
     host.dataset.lashModule = draft.lashStyleId;
     render();
   };
@@ -484,6 +506,16 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
       }
       if (object.name === "Eye_L_OcularSurface_V1") iris[0] = materialForIris(object, 0);
       if (object.name === "Eye_R_OcularSurface_V1") iris[1] = materialForIris(object, 1);
+      const variantMatch = /^EyeSet_(natural|joyful|sad|playful|angry|doll|idol|star|heart)_([LR])_Ocular_V1$/.exec(object.name);
+      if (variantMatch) {
+        const sideIndex = variantMatch[2] === "L" ? 0 : 1;
+        object.geometry.setAttribute("aEyeRestPosition", new THREE.BufferAttribute(original.slice(), 3));
+        variantIris.set(variantMatch[1] + "_" + variantMatch[2], materialForIris(object, sideIndex));
+      }
+      if (object.name.startsWith("EyeSet_")) {
+        object.visible = false;
+        eyeSetNodes.push(object);
+      }
       // Keep original baked eyelashes in the atlas unchanged until source mesh separation passes QA.
     });
     ready(true);
@@ -506,7 +538,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
       controls.removeEventListener("change", render);
       controls.dispose();
       if (model) {
-        for (const control of iris) control?.cosmeticMaterial.dispose();
+        for (const control of [...iris, ...variantIris.values()]) control?.cosmeticMaterial.dispose();
         model.traverse(o => {
           if (!(o instanceof THREE.Mesh)) return;
           o.geometry.dispose();

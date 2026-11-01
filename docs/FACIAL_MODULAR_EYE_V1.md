@@ -212,3 +212,36 @@ True swap acceptance: new asset identity and different GLB geometry/shape, align
 - Check irisColor and symbolColor independent, blink and camera gestures still work, no new seams/hole at eyelid boundary. Existing Claude V2 upper-lid bridge remains a separate unresolved issue.
 - Vercel Next.js build + TypeScript, focused UI Playwright regression test where available. Build PASS alone is not visual acceptance.
 - Work branch PR #24 Draft; no Supabase, gameplay, Character Catalog, WebAudio or source GLB geometry changes.
+
+---
+## V1.8 — OWNER-APPROVED 9 EYESET ASSET PACK, real GLB on Claude V2
+
+**Owner reference:** approved Eye Asset Pack concept (9 named looks: Tự nhiên / Tươi cười / Buồn / Tinh nghịch / Giận dữ / Búp bê / Thần tượng / Ngôi sao / Trái tim). Do not redraw or reapprove the sketch. This is ORIGINAL stylized game art inspired by the approved visual; it is not copied T3/VTC proprietary artwork.
+
+### Real asset
+- Asset: `Female_head_EyeSetPack_9_v1_mobile.glb` (16,320,012 bytes).
+- SHA-256: `68934293d6c8af5581664c94170355b6a7dda7787c168ac1fe111aa4ee3a8aba`.
+- CDN URL: https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/fe9ad0e8-19b8-4b63-a083-255b50255fcc.glb
+- Blender QA collage: https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/bfa316d5-4f6d-4059-9c30-f25cc6e47a09.jpg
+- Original GLB and original five-part HeadBase/Eye/UpperLidBridge geometry and texture remain unchanged inside the pack. Added eighteen separate ocular meshes (two per set), each with independent UV coordinate mapping/rest-space geometry, nine separate baked eye textures and nine PBR materials. There are eighteen separately named EyeSet lash nodes (two per set) referencing the source three actual 3D lash mesh families. Total meshes 29; scene nodes 47.
+- Nine textures use newly generated sRGB colors, gradients, limbal rim, pupils/highlights or thematic icon details. The whole ocular surface is textured, so source atlas iris/pupil cannot be read through the new EyeSet material. Only the old upper eyelid bridge/face skin remain and still need separate reconstruction.
+- Some EyeSet variants have small, tapered center-aperture geometry adjustments; face skin / eyelid boundary must remain untouched. These are QA variants, NOT production-safe retargeted facial morphs or artist-sculpted complete eyelid meshes.
+- Model includes unused variants by default: **runtime must set every `EyeSet_*` node hidden until selected.** The isolated demo controls visibility. External generic GLB viewers may display all variants at once if not configured; this is an authoring pack, not a game-ready skinned avatar.
+
+### Demo architecture
+- `EyeSetCatalog.ts` is the standalone catalog mapping nine IDs to proper embedded GLB mesh/texture identities and matching lash family. Do NOT extend production Character Catalog in this PR.
+- `RealHeadPreview` resolves the new GLB once via CDN/Cache Storage (versioned key), then switches visible ocular and lash modules in-place. Other EyeSet meshes remain hidden. No 15 MB redownload on every selection.
+- Previous mouse orbit, mobile pinch, blink, color/pattern controls, slider and sticky view remain.
+- Advanced sliders can continue editing the chosen EyeSet: editor toggles the selected real mesh to its existing clean shader material and uses its current geometry (visually distinct original EyeSet texture may be replaced by the editable treatment). Selecting another packaged set resets overrides and restores that set's own authored material. This limitation is communicated in UI.
+- Original Claude V2 eye option included as a baseline and rollback.
+
+### QA actually run
+- Re-import 47 GLB mesh objects in Blender. Rendered all nine looks using Blender Cycles CPU in 840x330 close-up, each isolated via named EyeSet visibility.
+- Khronos glTF Validator: **0 errors, 5 inherited tangent-space warnings, 6 info messages** about unused original lash UV. No new validation errors.
+- GitHub Vercel Next.js build and TypeScript on exact work commit to be verified.
+- UI Playwright test added for nine choices/selection/advanced override state; not a substitute for visual WebGL QA.
+- Owner physical iPhone acceptance is required for 9 sets, blink, eye seam, line around iris, 3/4 profile, pinch/zoom and mobile performance.
+
+### Known risk
+- The owner-reported dirty fringe at irisScale 76% is *not necessarily fully solved by the new pack* because the source head/upper eyelid bridge could still contain baked fragments. The new pack eliminates old iris map **on the ocular variants**; it does not rebuild the old bridge geometry.
+- This is asset-level modular selection, NOT full anatomy (eyelid face-skin, rig blink, bone weights) replacement. Do not merge into production or Character Catalog without art QA/owner approval.

@@ -78,4 +78,26 @@ test.describe("Facial Modular Eye V1 isolated demo", () => {
     expect(bounds!.y + bounds!.height).toBeLessThan(844);
     await expect(page.getByRole("slider", { name: "Kích thước mắt" })).toBeVisible();
   });
+
+  test("nine actual EyeSet selections preserve module identity and advanced overrides", async ({ page }) => {
+    await page.goto("/tools/facial-modular-eye-v1");
+    const eyeSets = page.getByRole("group", { name: "Bộ mắt 3D" });
+    await expect(eyeSets.locator("button")).toHaveCount(9);
+    const star = eyeSets.getByRole("button", { name: /Ngôi sao/ });
+    await star.click();
+    await expect(star).toHaveAttribute("aria-pressed", "true");
+    await page.getByText("Dữ liệu cấu hình hiện tại").click();
+    await expect(page.locator("pre")).toContainText('"eyeSetId": "star"');
+    await expect(page.locator("pre")).toContainText('"eyeSetCustomized": false');
+    await page.getByRole("button", { name: "Màu iris #668ab1" }).click();
+    await expect(page.locator("pre")).toContainText('"eyeSetCustomized": true');
+    await expect(page.locator("pre")).toContainText('"eyeSetId": "star"');
+    const doll = eyeSets.getByRole("button", { name: /Búp bê/ });
+    await doll.click();
+    await expect(doll).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("pre")).toContainText('"eyeSetId": "doll"');
+    await expect(page.locator("pre")).toContainText('"eyeSetCustomized": false');
+    await page.getByRole("button", { name: "Xem mắt Claude V2 gốc" }).click();
+    await expect(page.locator("pre")).toContainText('"eyeSetId": "original"');
+  });
 });
