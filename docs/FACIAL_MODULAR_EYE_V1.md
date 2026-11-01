@@ -161,3 +161,28 @@ True swap acceptance: new asset identity and different GLB geometry/shape, align
 - Focused Playwright verifies selecting Heart and independently changing irisColor to blue and symbolColor to pink, JSON contract holds both.
 - Owner iPhone must verify the iris is never flat white in fantasy modes, the symbol color changes independently and remains anchored while adjusting eye size/spacing and blinking.
 - Source GLB and remaining upper-lid membrane defect unchanged. Draft PR #24.
+
+---
+## V1.6 — shrinking iris source-pupil cleanup; old Audition PC eye catalog evidence
+
+### Root cause and narrow shader fix
+- In V1.5, irisScale only altered the drawn iris/pupil shader mask; the source Claude V2 atlas still carries a FULL-SIZE dark pupil and limbal ring. Reducing irisRadius exposed the source dark details outside the smaller colored iris.
+- V1.6 keeps the default Classic iris unchanged at 100% size. On shrink or fantasy mode, it covers the original source iris/pupil footprint in **rest-position eye coordinates**, then draws one newly sized iris, dark limbal ring and (Classic only) a pupil. Fantasy uses the same newly sized iris background and separate symbol color. No new shell, duplicate iris plane, geometry refactor or GPU loader changes.
+- The neutral sclera replacement in the exposed annulus is a shader approximation and MUST be checked for a pale ring/seam against actual source sclera under iPhone PBR. Do not treat build PASS as visual approval. Eye artifact root source geometry and eyelid bridge remain unchanged.
+- Default blink behavior and CacheStorage cache key remain unchanged.
+- Manual iPhone regression: Classic and Star/Heart at irisScale 0.76, 0.85, 1.00, 1.18; check residual dark pupil, rings, highlight, blink, 3/4 view.
+
+### Original Audition (PC): documented appearance items — avoid assumptions about underlying mesh tech
+- VTC official character creation screenshot shows a selectable **face** category in creation workflow (historic PC interface): https://au.vtc.vn/su-kien/game-nhay-pc-545
+- VTC official 2023 guide says characters can change eye, nose, mouth styles: https://au.vtc.vn/su-kien/game-thoi-trang-anime-40430
+- Audition PC avatar shop has **Face** inventory category; period promotional screenshot (MobyGames): https://www.mobygames.com/game/86544/audition-online/promo/group-18438/image-191518/
+- Concrete official examples (later releases, NOT necessarily in initial 2006 version):
+  - **Ánh mắt Ác Quỷ** female/male, 2023 fashion week: https://au.vtc.vn/tin-cong-dong/denim-on-denim-thoi-thuong-chiem-song-audition-fashion-week-ngay-thu-hai-40129
+  - **Mắt cầu vồng Green Candy** male/female, Mar 2024: https://au.vtc.vn/tin-su-kien-web/audition-fashion-week-nao-loan-giua-tuan-voi-phong-cach-y2k-43108
+  - **Make up mắt tím White Daisy** male/female, Jul 2023: https://au.vtc.vn/tin-cong-dong/phong-cach-hoc-duong-quay-tro-lai-audition-fashion-week-trong-ngay-cuoi-40599
+- Evidence supports collectible face/eye **looks** and inventory items, not proof each original cosmetic was a distinct skeletal eye mesh or interchangeable geometry contract.
+- Proposed Audition-inspired ORIGINAL EyeSet catalog direction: Default Audition, Devil Gaze, Candy Rainbow, Violet Daisy, Angel Eyes, manga Doll; original modeling/textures and compatibility contracts required. Research references are NOT an authorization to copy proprietary game art.
+
+### Validation
+- Regress UI state test irisScale=0.76 for Heart mode and JSON value. Pixel/real GPU QA still required; this test does not visually verify absence of the baked pupil.
+- Vercel build/TypeScript on exact SHA; owner iPhone confirmation remains required. PR #24 Draft, work branch only.

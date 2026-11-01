@@ -27,6 +27,10 @@ test.describe("Facial Modular Eye V1 isolated demo", () => {
     await page.getByRole("button", { name: "Dramatic" }).click();
     await expect(page.getByRole("button", { name: "Dramatic" })).toHaveAttribute("aria-pressed", "true");
 
+    // Regression: reduced iris must not reveal the source GLB's old dark pupil.
+    // Control-state test is NOT a pixel-level WebGL guarantee; physical iPhone QA is still mandatory.
+    await page.getByRole("slider", { name: "Độ lớn iris" }).fill("0.76");
+    await expect(page.getByRole("slider", { name: "Độ lớn iris" })).toHaveValue("0.76");
     await page.getByRole("slider", { name: "Kích thước mắt" }).fill("1.15");
     await expect(page.getByRole("slider", { name: "Kích thước mắt" })).toHaveValue("1.15");
 
@@ -39,6 +43,7 @@ test.describe("Facial Modular Eye V1 isolated demo", () => {
     await expect(page.locator("pre")).toContainText('"irisStyleId": "radiant"');
     await expect(page.locator("pre")).toContainText('"lashStyleId": "dramatic"');
     await expect(page.locator("pre")).toContainText('"eyeScale": 1.15');
+    await expect(page.locator("pre")).toContainText('"irisScale": 0.76');
 
     await page.getByRole("button", { name: "Khôi phục mặc định" }).click();
     await expect(page.getByRole("button", { name: "Chớp mắt tự nhiên" })).toHaveAttribute("aria-pressed", "true");
