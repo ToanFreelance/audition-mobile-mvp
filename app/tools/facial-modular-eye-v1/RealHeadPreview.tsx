@@ -31,8 +31,7 @@ export type EyeDraft = {
 };
 export type EyeView = "front" | "left" | "right" | "close";
 
-// Immutable verified upload derived from the owner's Claude V2 modular checkpoint.
-// Geometry / UV unchanged; 3 original textures resized for the iPhone QA preview.
+// Immutable upload of the reconstructed Claude V2 eye modules.
 const ASSET_URL = EYE_SET_PACK_URL;
 const CENTERS = [
   new THREE.Vector2(-0.1203, 0.5174),
@@ -52,6 +51,12 @@ type MorphMesh = {
   inverse: THREE.Matrix4;
   affected: Uint32Array;
   lashRoots?: Float32Array;
+  anatomicalBlink: boolean;
+  blinkDelta?: Float32Array;
+  blinkArc?: Float32Array;
+  restNormals?: Float32Array;
+  blinkNormals?: Float32Array;
+  arcNormals?: Float32Array;
 };
 type PreviewScene = {
   dispose: () => void;
@@ -96,6 +101,12 @@ function deformEyes(parts: MorphMesh[], draft: EyeDraft, blink = 0) {
         y = part.lashRoots[k + 1] + (y - part.lashRoots[k + 1]) * factor;
         z = part.lashRoots[k + 2] + (z - part.lashRoots[k + 2]) * factor;
       }
+      if (part.blinkDelta) {
+        const arc = 4 * blink * (1 - blink);
+        x += part.blinkDelta[k] * blink + (part.blinkArc?.[k] ?? 0) * arc;
+        y += part.blinkDelta[k + 1] * blink + (part.blinkArc?.[k + 1] ?? 0) * arc;
+        z += part.blinkDelta[k + 2] * blink + (part.blinkArc?.[k + 2] ?? 0) * arc;
+      }
       let weight = 0;
       let cx = 0;
       let cy = 0;
@@ -112,9 +123,8 @@ function deformEyes(parts: MorphMesh[], draft: EyeDraft, blink = 0) {
         }
       }
       if (weight < 0.00001) {
-        output[k] = part.original[k];
-        output[k + 1] = part.original[k + 1];
-        output[k + 2] = part.original[k + 2];
+        dest.set(x, y, z).applyMatrix4(part.inverse);
+        output[k] = dest.x; output[k + 1] = dest.y; output[k + 2] = dest.z;
         continue;
       }
       const nextX = x + (x - cx) * (scaleX - 1) * weight + cx * (draft.eyeSpacing - 1) * weight;
@@ -122,7 +132,7 @@ function deformEyes(parts: MorphMesh[], draft: EyeDraft, blink = 0) {
       const outer = THREE.MathUtils.clamp(localX * Math.sign(cx), -1, 1);
       const outerWeight = (outer + 1) * 0.5;
       const upperLidWeight = smoothstep(0.006, 0.035, y - cy);
-      const open = profile.open * (1 - 0.91 * blink) * (profile.winkRight && cx > 0 ? profile.winkRight : 1);
+      const open = profile.open * (part.anatomicalBlink ? 1 : 1 - 0.91 * blink) * (profile.winkRight && cx > 0 ? profile.winkRight : 1);
       const cornerLift = profile.outerLift * outerWeight + profile.innerLift * (1 - outerWeight);
       const nextY = y + (
         (y - cy) * (scaleY * open - 1) +
@@ -135,6 +145,20 @@ function deformEyes(parts: MorphMesh[], draft: EyeDraft, blink = 0) {
       output[k + 2] = dest.z;
     }
     attr.needsUpdate = true;
+    if (part.restNormals && part.blinkNormals) {
+      const normal = part.mesh.geometry.getAttribute("normal") as THREE.BufferAttribute;
+      const values = normal.array as Float32Array;
+      const arc = 4 * blink * (1 - blink);
+      for (let k = 0; k < values.length; k += 3) {
+        dest.set(
+          part.restNormals[k] + part.blinkNormals[k] * blink + (part.arcNormals?.[k] ?? 0) * arc,
+          part.restNormals[k + 1] + part.blinkNormals[k + 1] * blink + (part.arcNormals?.[k + 1] ?? 0) * arc,
+          part.restNormals[k + 2] + part.blinkNormals[k + 2] * blink + (part.arcNormals?.[k + 2] ?? 0) * arc,
+        ).normalize();
+        values[k] = dest.x; values[k + 1] = dest.y; values[k + 2] = dest.z;
+      }
+      normal.needsUpdate = true;
+    }
   }
 }
 
@@ -275,6 +299,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
         if (!currentDraft?.blinkEnabled) {
           blinkAmount = 0;
           deformEyes(morphs, currentDraft!, 0);
+          host.dataset.blinkAmount = "0.000";
           render();
           blinkFrame = null;
           scheduleBlink();
@@ -358,13 +383,16 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
     }
     model.traverse(node => {
       if (node.name === "Head_Base_Protected") node.visible = !isSet;
-      if (node.name === "Head_Base_Protected_ConceptV19") node.visible = isSet;
+      if (node.name === "Head_Base_Protected_ConceptV191") node.visible = isSet;
       if (node.name.includes("UpperLidBridge_ISSUE")) node.visible = !isSet;
     });
     host.dataset.visibleModules = String(eyeSetNodes.filter(node => node.visible).length);
+    if (!draft.blinkEnabled) blinkAmount = 0;
+    host.dataset.blinkAmount = blinkAmount.toFixed(3);
     deformEyes(morphs, draft, blinkAmount);
     host.dataset.eyeSet = draft.eyeSetId;
-    const head = model.getObjectByName("Head_Base_Protected_ConceptV19") as THREE.Mesh | undefined;
+    host.dataset.blinkProfile = isSet ? "anatomical-lid-v191" : "legacy-local-rest";
+    const head = model.getObjectByName("Head_Base_Protected_ConceptV191") as THREE.Mesh | undefined;
     host.dataset.skinToneMapped = String((head?.material as THREE.Material | undefined)?.toneMapped);
     host.dataset.lashModule = draft.lashStyleId;
     render();
@@ -388,7 +416,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
       return;
     }
     model = gltf.scene;
-    // V1.9 default scene is a clean standalone Natural look. Load the library
+    // V1.9.1 default scene is a standalone Natural look. Load the library
     // scene once, then resolve actual modules in-place without another fetch.
     for (const library of gltf.scenes) {
       if (library !== model) model.add(...library.children.slice());
@@ -426,9 +454,31 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
           }
         }
       }
+      const anatomicalBlink = object.userData.version === "1.9.1";
+      const targets = object.geometry.morphAttributes.position;
+      const targetNormals = object.geometry.morphAttributes.normal;
+      const worldDelta = (attribute: THREE.BufferAttribute | THREE.InterleavedBufferAttribute | undefined) => {
+        if (!attribute) return undefined;
+        const array = new Float32Array(original.length);
+        const linear = new THREE.Matrix3().setFromMatrix4(object.matrixWorld);
+        for (let i = 0; i < attribute.count; i++) {
+          vector.fromBufferAttribute(attribute, i).applyMatrix3(linear);
+          array[i * 3] = vector.x; array[i * 3 + 1] = vector.y; array[i * 3 + 2] = vector.z;
+        }
+        return array;
+      };
+      // Exported glTF targets are applied before the existing bounded sliders.
+      // Native weights stay zero so they cannot be applied twice by the GPU.
+      object.morphTargetInfluences?.fill(0);
       morphs.push({ mesh: object, original, worldPositions, inverse: object.matrixWorld.clone().invert(),
-        affected: new Uint32Array(affectedIndices),
-        lashRoots: object.geometry.getAttribute("_lash_root")?.array as Float32Array | undefined });
+        affected: anatomicalBlink && targets ? new Uint32Array(Array.from({ length: positions.count }, (_, i) => i)) : new Uint32Array(affectedIndices),
+        lashRoots: object.geometry.getAttribute("_lash_root")?.array as Float32Array | undefined,
+        anatomicalBlink,
+        blinkDelta: anatomicalBlink ? worldDelta(targets?.[0]) : undefined,
+        blinkArc: anatomicalBlink ? worldDelta(targets?.[1]) : undefined,
+        restNormals: targetNormals ? new Float32Array(object.geometry.getAttribute("normal").array as ArrayLike<number>) : undefined,
+        blinkNormals: targetNormals?.[0]?.array as Float32Array | undefined,
+        arcNormals: targetNormals?.[1]?.array as Float32Array | undefined });
       if (object.name === "Eye_L_OcularSurface_V1" || object.name === "Eye_R_OcularSurface_V1") {
         object.geometry.setAttribute("aEyeRestPosition", new THREE.BufferAttribute(original.slice(), 3));
       }
@@ -448,7 +498,7 @@ function mountScene(host: HTMLDivElement, ready: (value: boolean) => void, cache
         object.visible = false;
         eyeSetNodes.push(object);
       }
-      // V1.9 skin/ocular fragments and source bridge were rebuilt in the asset.
+      // Local source eye/bridge fragments are replaced in the V1.9.1 asset.
     });
     ready(true);
     if (currentDraft) apply(currentDraft);
@@ -509,7 +559,7 @@ export default function RealHeadPreview({ draft, view, resetToken }: { draft: Ey
   useEffect(() => instanceRef.current?.aim(view), [view, resetToken]);
   return (
     <div className={styles.viewport} ref={hostRef} data-testid="eye-preview" data-preview-status={state}>
-      {state === "loading" && <div className={styles.previewNote}>Đang tải bộ mắt V1.9…</div>}
+      {state === "loading" && <div className={styles.previewNote}>Đang tải bộ mắt V1.9.1…</div>}
       {state === "error" && <div className={styles.fallback}>Không thể tải GLB thật hoặc WebGL không khả dụng. Kiểm tra kết nối và tải lại.</div>}
       {state === "ready" && <span className={styles.viewportCaption}>1 ngón xoay · 2 ngón kéo/zoom · {cacheSource === "cache" ? "GLB từ browser cache" : "GLB phiên bản mới"}</span>}
     </div>

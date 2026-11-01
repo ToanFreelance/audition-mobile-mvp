@@ -178,8 +178,10 @@ def make_lids(skin,skin_rest,outer,outer_n,cx,cy,p,c):
   t=(xy[:,0]-cx)*sign/hw;ut,lb=contour(p,t,cx,cy);edge=ut*(1-amount)+(lb+.22*(ut-lb))*amount
   crease=np.exp(-((xy[:,1]-edge-.009)/.0028)**2)*np.maximum(0,1-t*t)**.6;pose[:,2]-=.00055*crease
   if amount:
-   dist=np.maximum.reduce([abs(xy[:,0]-cx)-hw,xy[:,1]-ut,lb-xy[:,1]]);cover=1-smooth(.005,.014,dist);diff=cap-pose[:,2]
-   pose[:,2]+=.5*(diff+np.sqrt(diff*diff+.0002**2))*cover
+   dist=np.maximum.reduce([abs(xy[:,0]-cx)-hw,xy[:,1]-ut,lb-xy[:,1]]);cover=1-smooth(.003,.014,dist)
+   # Moving skin follows the SAME ocular cap in its footprint. A lower-bound
+   # clamp alone permits overshoots, which become swollen highlights at closure.
+   pose[:,2]=pose[:,2]*(1-cover)+cap*cover
   pose[inner,2]=cap[inner];pose[oids,2]=outer[:,2]
  rest_ids=np.setdiff1d(np.arange(len(points)),np.r_[inner,oids]);order=np.r_[inner,rest_ids,oids];inv=np.empty(len(order),int);inv[order]=np.arange(len(order))
  return points[order],half[order],closed[order],inv[faces],uv[order],len(inner)
@@ -238,14 +240,17 @@ for ident,p in PROFILES.items():
    width=(.0041 if upper else .00055)*np.maximum(0,1-ts*ts)**.43
    if upper:width*=.74+.34*(ts+1)/2
    if ident=='angry' and upper:width*=1.12
-   ribbon(*paths,width,paths[0]);rt=[-.67,-.44,-.23,-.04,.14,.31,.46,.59,.70,.79,.86,.92,.97] if upper else [.14,.38,.62,.82,.94]
-   for t in rt:
-    rs=root(t,upper);rh=root(t,upper,.5);rc=root(t,upper,1);v=(t+1)/2;length=(.006+.014*v**1.7)*p['lash']*(1 if upper else .27);dy=1 if upper else -1
+   ribbon(*paths,width,paths[0]);rt=[-.72,-.43,-.18,.08,.12,.20,.45,.49,.56,.76,.79,.87,.94,.97] if upper else [.14,.38,.62,.82,.94]
+   for j,t in enumerate(rt):
+    cluster=(j-3)%3 if upper and j>=3 else 0
+    length_factor=[1.,.78,.92][cluster] if upper else 1.
+    rs=root(t,upper);rh=root(t,upper,.5);rc=root(t,upper,1);v=(t+1)/2;length=(.006+.014*v**1.7)*p['lash']*(1 if upper else .27)*length_factor;dy=1 if upper else -1
     outward=(.20+1.25*v*v)*(1 if ident!='doll' else .76);p1=np.array([sign*(.08+.30*v),dy*(.50-.66*v),.18])*length;tip=np.array([sign*outward,dy*(.98-.55*v),.18])*length;p2=tip-np.array([sign*.48,dy*(.20+.48*v),-.02])*length
     path=[];mid=[];end=[]
     for u in np.linspace(0,1,13):
      vec=3*(1-u)**2*u*p1+3*(1-u)*u*u*p2+u**3*tip;cv=vec.copy();cv[1]*=.30 if upper else .45;cv[2]+=.001*u;path.append(rs+vec);mid.append(rh+(vec+cv)/2);end.append(rc+cv)
-    widths=(.0037 if upper else .001)*p['lash']*(1-np.linspace(0,1,13))**.82;widths[-1]=.000015;ribbon(path,mid,end,widths,[rs]*13)
+    root_factor=[1.18,.82,1.][cluster] if upper else 1.
+    widths=(.0037 if upper else .001)*p['lash']*root_factor*(1-np.linspace(0,1,13))**.82;widths[-1]=.000015;ribbon(path,mid,end,widths,[rs]*13)
   pts,hpts,cpts=map(np.array,[pts,hpts,cpts]);nid=g.add_mesh(f'EyeSet_{ident}_{side}_Lashes_V1',pts,orient(pts,faces),np.zeros((len(pts),2)),lashmat,extras={**meta,'role':'Lashes'});newnodes.append(nid);g.mesh(nid)['attributes']['_LASH_ROOT']=g.add_array(np.array(roots));add_morph(nid,pts,hpts,cpts)
 natural=[n for n in newnodes if g.j['nodes'][n]['extras']['eyeSetId']=='natural']
 g.j['scenes']=[{'name':'Natural_V191_Default','nodes':[cleanhead,*natural]},{'name':'EyeSet_V191_Library','nodes':list(range(11))+[n for n in newnodes if n not in natural]}];g.j['scene']=0

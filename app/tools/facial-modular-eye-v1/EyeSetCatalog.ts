@@ -4,9 +4,9 @@
  * Do NOT register in production Character Catalog before owner visual acceptance.
  */
 export const EYE_SET_PACK_URL =
-  "https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/8a013292-3625-4598-8abc-fd26d1d1ad66.glb";
-export const EYE_SET_PACK_SHA256 = "1da1e04c67d3441e7223224830a20aed69e67d5ea6c625025defdd2f9042367f";
-export const EYE_SET_PACK_CACHE_NAME = "audition-eye-set-pack-v19-1da1e04c67d3";
+  "https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/93c65212-1de0-486d-bf4f-9cbf08c58554.glb";
+export const EYE_SET_PACK_SHA256 = "312c0c4fdf74de9c366258d1442039db12c7c82ffa13d6d4fe407854853d9ac4";
+export const EYE_SET_PACK_CACHE_NAME = "audition-eye-set-pack-v191-312c0c4fdf74";
 
 export const EYE_SETS = [
   { id: "natural", label: "Tự nhiên", subtitle: "Mắt hạnh nhân · nâu ấm", color: "#bd713d", lashStyleId: "natural", eyeShapeId: "neutral", irisPatternId: "classic" },
@@ -27,7 +27,7 @@ export function getEyeSet(id: EyeSetId) {
 }
 
 export function eyeSetNodeName(id: Exclude<EyeSetId, "original">, side: "L" | "R", role: "Ocular" | "Lashes" | "Lids" | "Skin") {
-  return `EyeSet_${id}_${side}_${role}_${role === "Lids" || role === "Skin" ? "V19" : "V1"}`;
+  return `EyeSet_${id}_${side}_${role}_${role === "Lids" || role === "Skin" ? "V191" : "V1"}`;
 }
 
-export const EYE_SET_BLINK_PROFILE = "local-rest-v19-prototype";
+export const EYE_SET_BLINK_PROFILE = "anatomical-lid-v191";

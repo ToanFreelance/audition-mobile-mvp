@@ -263,3 +263,19 @@ True swap acceptance: new asset identity and different GLB geometry/shape, align
 - QA kỹ thuật: Khronos validator 0 errors/24 tangent warnings; geometry/indices/UV/embedded images PASS; TypeScript, ESLint và Next build PASS; 8/8 Playwright UI PASS, WebGL runtime smoke PASS trên SwiftShader với GLB thật. Không gọi Chromium mobile simulation là iPhone acceptance.
 - QA hình ảnh: render lại GLB đã xuất bằng Blender/Cycles CPU, contact sheet chín bộ, so với ảnh owner, mặt chính diện, 3/4 trái/phải, macro và blink đại diện. Chưa tự nghiệm thu độ giống concept: còn dấu vết mí/mi nguồn, shading đường nối và lông mi chưa đủ mềm/phân nhóm như concept. Blink vẫn là prototype cục bộ, chưa phải rig sản xuất.
 - Báo cáo chi tiết: `docs/eye-pack-v19/QA_VI.md`; manifest: `docs/eye-pack-v19/asset-manifest.json`; quy trình tái tạo/QA: `scripts/eye-pack-v19/README.md`.
+
+---
+## V1.9.1 — tái dựng dáng mắt, mí và biểu cảm theo concept (2026-11-01)
+
+**PARTIALLY READY / NOT VISUALLY ACCEPTED.** Đã sửa asset Claude V2 thật cho cả chín bộ, không phải một vòng đổi màu. Chưa tự nhận owner nghiệm thu.
+
+- Baseline xác minh: V1.9 tại `6c204f60fb83fbcaea622db29bc701a39760ef40`; PR #24 Draft/open, cùng nhánh `work/facial-modular-eye-demo-v1`, base `development`.
+- Root cause: V1.9 dùng chung cung hạnh nhân và biến đổi độ mở/đuôi, iris nhỏ tương đối, nét mi/eyeliner sắc và quan hệ mày gần nhau. Bridge gốc **ẩn trong EyeSet mode**, chỉ giữ ở rollback; không gán nhầm nó là nguồn silhouette đang hoạt động.
+- Dựng riêng upper/lower contour theo landmark concept, canthi, collar nối đúng biên Claude, cap ocular lồi từ fit nguồn, mày cục bộ và mi cong phân nhóm. Giữ 452.201 tam giác đầu chung ngoài hai vùng mắt, UV/texture nguồn hợp lệ.
+- 9×8 module thật; 18 hình học mí khác nhau; 36 mesh mí/mi có morph POSITION+NORMAL `Blink` và `BlinkArc`. Ocular giữ hình, mí che ocular khi chớp. Giữ nguyên từng byte chín PNG/material iris V1.9.
+- GLB `Female_head_EyeSetPack_9_V191.glb`, 43.159.064 bytes; SHA-256 `312c0c4fdf74de9c366258d1442039db12c7c82ffa13d6d4fe407854853d9ac4`.
+- URL: https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/93c65212-1de0-486d-bf4f-9cbf08c58554.glb
+- Cache key `audition-eye-set-pack-v191-312c0c4fdf74`; URL CDN tải về đúng SHA, MIME/CORS hợp lệ. Không thêm Supabase Storage hoặc binary vào JS.
+- QA thật: 75 PNG cuối sau re-import GLB, 18 PNG baseline, 14 PNG isolation; contact ba cột concept/trước/sau, đủ chín bộ/toàn mặt/macro/3⁄4 và sáu bộ blink. Khronos 0 errors/24 tangent warnings/24 infos; topology/UV/14 ảnh nhúng PASS; 90 kiểm tra pose và 54 depth probes không lộ ocular trong miền test. Blender roundtrip 84 mesh/36 morph meshes PASS. TypeScript, ESLint, Next build, 8/8 Playwright và 13 nhóm WebGL runtime PASS trên Chromium/SwiftShader.
+- Giới hạn mỹ thuật: mi còn mảnh/nhọn, shading hốc mắt và vệt sáng khi nhắm mí chưa mềm như concept; blink chức năng PASS nhưng hình ảnh mí đóng PARTIALLY READY. Chưa test Safari/iPhone vật lý hoặc GPU/RAM/thermal. Không coi build PASS là visual PASS.
+- Tài liệu: `docs/eye-pack-v191/QA_VI.md`, `asset-manifest.json`, `CHANGED_FILES.txt`; quy trình tái tạo: `scripts/eye-pack-v191/README.md`. GLB/packed `.blend`/textures/ảnh QA bàn giao riêng. Không merge, không tích hợp Character Catalog production.
