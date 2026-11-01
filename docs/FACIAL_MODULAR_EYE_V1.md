@@ -186,3 +186,29 @@ True swap acceptance: new asset identity and different GLB geometry/shape, align
 ### Validation
 - Regress UI state test irisScale=0.76 for Heart mode and JSON value. Pixel/real GPU QA still required; this test does not visually verify absence of the baked pupil.
 - Vercel build/TypeScript on exact SHA; owner iPhone confirmation remains required. PR #24 Draft, work branch only.
+
+
+---
+
+## V1.7 — Clean ocular material, Audition-inspired iris style (2026-11-01)
+
+### Root cause
+- V1.6 used a radial source-iris cleanup mask against the old GLB atlas, while the source atlas **and normal/roughness maps remained active** on the ocular surface.
+- The baked source iris is not a uniform circular disk. When irisScale is reduced (~0.76–0.85), fragments in the sclera annulus can still show old pupil/ring shading or normal-detail artifacts.
+- User physical iPhone screenshot (2026-11-01) explicitly rejected the dirty ring after V1.6.
+
+### Focused implementation
+- Keep the original Claude V2 **source material** untouched for the original Classic iris at the default color/size/pupil/style.
+- For every customized iris (scale/color/style/pupil/decorative pattern), switch the existing ocular mesh to a **separate, map-free MeshStandardMaterial**. This material does NOT sample source base-color atlas, source normal map or source metallic/roughness map. The old pupil/limbal ring cannot leak through the material when the iris is reduced.
+- Generate ONE clean sclera and stylized fashion-game iris using a shader on that same existing ocular mesh (no second geometry, no overlapping cornea shell). Use a crisp limbal ring, smooth color gradient, restrained fiber pattern, single pupil for Classic and simple two-glint highlights.
+- Retain independently selectable irisColor / symbolColor, fantasy icon, iris radius, pupil scale, geometry-rest-space anchor, local blink, OrbitControls, sticky mobile layout, cached GLB and L/R eyelash variants.
+- Stylization is **original Audition-inspired lookdev**; does not copy assets/textures from VTC/T3.
+- Material switch happens in-place (not GLB reload); previously accepted default asset original remains available.
+- On scene disposal, dispose additional cosmetic material. Original shared GLB textures are unaffected.
+
+### Acceptance gates
+- Compare original Classic at 100%, custom Classic at 0.76/0.83/0.85/1.00/1.18 and Star/Heart at 0.76/0.83/1.00, front and 3/4 views on physical iPhone.
+- Sclera around iris must be clean, without ghost pupil, jagged black fringe, white rings or iris double-exposure.
+- Check irisColor and symbolColor independent, blink and camera gestures still work, no new seams/hole at eyelid boundary. Existing Claude V2 upper-lid bridge remains a separate unresolved issue.
+- Vercel Next.js build + TypeScript, focused UI Playwright regression test where available. Build PASS alone is not visual acceptance.
+- Work branch PR #24 Draft; no Supabase, gameplay, Character Catalog, WebAudio or source GLB geometry changes.

@@ -90,7 +90,7 @@ export default function FacialModularEyeV1Page() {
         <header className={styles.header}>
           <div>
             <p className={styles.overline}>AUDITION MOBILE · CHARACTER LAB</p>
-            <h1>Modular Eye Studio <em>V1.5</em></h1>
+            <h1>Modular Eye Studio <em>V1.7</em></h1>
             <p>Chọn dáng mắt, cảm xúc, hoa văn và lông mi trên GLB Claude V2; quan sát trực tiếp khi chỉnh.</p>
           </div>
           <div className={styles.experimentBadge}>ISOLATED EXPERIMENT</div>
@@ -212,7 +212,7 @@ export default function FacialModularEyeV1Page() {
             <details className={styles.dataPanel}><summary>Dữ liệu cấu hình hiện tại</summary><pre>{exportDraft()}</pre></details>
             <details className={styles.technicalNote}>
               <summary>Giới hạn hiện tại của bản demo</summary>
-              <p>Đầu thật Claude V2: iris và biểu tượng có hai màu độc lập trên cùng bề mặt mắt; chớp mắt định kỳ là prototype, chưa phải blink rig hoàn chỉnh. GLB được cache trong trình duyệt (Safari có thể xóa). Có 6 mesh lông mi 3D. Các dáng mắt vui, buồn, giận… đang là biến dạng hình học vùng mắt trong viewer, chưa phải topology/morph targets sản xuất. Lớp màng mí lỗi của asset gốc chưa được sửa. Lông mi có sẵn trong texture HeadBase vẫn còn khi chọn None. Không thay đổi Character Catalog hoặc gameplay.</p>
+              <p>Đầu thật Claude V2: ở chế độ tùy chỉnh iris sử dụng material mắt sạch (không dùng atlas/normal map iris gốc) và hai màu độc lập, phong cách mắt Audition; chớp mắt định kỳ là prototype, chưa phải blink rig hoàn chỉnh. GLB được cache trong trình duyệt (Safari có thể xóa). Có 6 mesh lông mi 3D. Các dáng mắt vui, buồn, giận… đang là biến dạng hình học vùng mắt trong viewer, chưa phải topology/morph targets sản xuất. Lỗi hình học mí/bridge của GLB gốc chưa được sửa; đây là bản chỉnh shader và vật liệu cho demo, không sao chép texture game Audition. Lông mi có sẵn trong texture HeadBase vẫn còn khi chọn None. Không thay đổi Character Catalog hoặc gameplay.</p>
             </details>
           </section>
         </div>

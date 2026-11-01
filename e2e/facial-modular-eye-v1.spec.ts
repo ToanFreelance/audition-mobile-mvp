@@ -31,6 +31,9 @@ test.describe("Facial Modular Eye V1 isolated demo", () => {
     // Control-state test is NOT a pixel-level WebGL guarantee; physical iPhone QA is still mandatory.
     await page.getByRole("slider", { name: "Độ lớn iris" }).fill("0.76");
     await expect(page.getByRole("slider", { name: "Độ lớn iris" })).toHaveValue("0.76");
+    // Switching the cosmetic renderer must not reset the independent palettes.
+    await expect(page.getByRole("button", { name: "Màu iris #668ab1" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: "Màu biểu tượng #f59cb9" })).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("slider", { name: "Kích thước mắt" }).fill("1.15");
     await expect(page.getByRole("slider", { name: "Kích thước mắt" })).toHaveValue("1.15");
 
