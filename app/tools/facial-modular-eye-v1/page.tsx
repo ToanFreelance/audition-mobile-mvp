@@ -122,7 +122,7 @@ export default function FacialModularEyeV1Page() {
         <header className={styles.header}>
           <div>
             <p className={styles.overline}>AUDITION MOBILE · CHARACTER LAB</p>
-            <h1>Modular Eye Studio <em>V1.9.1</em></h1>
+            <h1>Modular Eye Studio <em>V1.9.2</em></h1>
             <p>9 bộ mắt 3D theo concept đã duyệt, đổi trực tiếp trên đầu Claude V2. Có thể chỉnh nâng cao sau khi chọn bộ.</p>
           </div>
           <div className={styles.experimentBadge}>ISOLATED EXPERIMENT</div>
@@ -263,7 +263,7 @@ export default function FacialModularEyeV1Page() {
             <details className={styles.dataPanel}><summary>Dữ liệu cấu hình hiện tại</summary><pre>{exportDraft()}</pre></details>
             <details className={styles.technicalNote}>
               <summary>Giới hạn hiện tại của bản demo</summary>
-              <p>Chín EyeSet V1.9.1 có đường mí, dáng mắt và lông mi riêng; giữ màu iris V1.9. Mí khép bằng biến dạng được lưu trong GLB. Chỉnh nâng cao tạo texture sạch trên bộ đang chọn. Trình duyệt có thể tự xóa cache. Bộ mắt gốc được giữ để so sánh. Đây là bản thử đang chờ nghiệm thu hình ảnh.</p>
+              <p>Chín EyeSet V1.9.2 có đường mí, dáng mắt và lông mi riêng; giữ màu iris V1.9. Mí khép bằng biến dạng được lưu trong GLB. Chỉnh nâng cao tạo texture sạch trên bộ đang chọn. Trình duyệt có thể tự xóa cache. Bộ mắt gốc được giữ để so sánh. Đây là bản thử đang chờ nghiệm thu hình ảnh.</p>
             </details>
           </section>
         </div>
