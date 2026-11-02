@@ -40,7 +40,7 @@ for look in ('natural','doll'):
     if nm.startswith('EyeSet_'):
       ob.hide_render=not nm.startswith('EyeSet_'+look+'_')
     elif nm.startswith('Head_Base_Protected'):
-      ob.hide_render=nm.startswith('Head_Base_Protected.') and not nm.startswith('Head_Base_Protected_ConceptV191')
+      ob.hide_render=not nm.startswith('Head_Base_Protected_ConceptV191')
   lids=[o for o in meshes if o.name.startswith('EyeSet_'+look+'_') and '_Lids_' in o.name]
   assert len(lids)==2, (look,[o.name for o in lids])
   center=sum((o.matrix_world@Vector(v.co) for o in lids for v in o.data.vertices), Vector((0,0,0)))
