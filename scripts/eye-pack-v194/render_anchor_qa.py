@@ -16,6 +16,9 @@ scene=bpy.context.scene
 scene.render.engine='CYCLES'
 scene.cycles.device='CPU'
 scene.cycles.samples=12
+# Ubuntu Blender package may lack OpenImageDenoiser: never request OIDN.
+for layer in scene.view_layers:
+    layer.cycles.use_denoising=False
 scene.render.resolution_x=880
 scene.render.resolution_y=560
 scene.render.resolution_percentage=100
