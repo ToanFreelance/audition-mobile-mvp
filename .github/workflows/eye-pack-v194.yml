@@ -1,0 +1,84 @@
+name: Eye Asset Pack V1.9.4 — isolated candidate QA
+on:
+  push:
+    branches:
+      - work/facial-modular-eye-demo-v1
+    paths:
+      - scripts/eye-pack-v194/**
+      - .github/workflows/eye-pack-v194.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-anchor-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install geometry dependencies
+        run: python -m pip install numpy scipy
+      - name: Compile and synthetic geometry test
+        run: |
+          python -m py_compile scripts/eye-pack-v194/reconstruct_eye_region.py
+          python scripts/eye-pack-v194/test_synthetic.py
+      - name: Retrieve immutable V1.9.3 source (no Supabase egress)
+        run: |
+          mkdir -p qa/eye-v194
+          curl --fail --location --retry 3 --retry-delay 3 \
+            'https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/0d4500f1-242f-4d8d-aa47-5fb7e764d2b5.glb' \
+            --output qa/eye-v194/source_v193.glb
+          echo 'a80088aed5356e2b1b7344f347d77e9c240fdd1ae0755c3771b9de12d31869e4  qa/eye-v194/source_v193.glb' | sha256sum --check
+      - name: Reconstruct real GLB candidate
+        run: |
+          python scripts/eye-pack-v194/reconstruct_eye_region.py \
+            qa/eye-v194/source_v193.glb qa/eye-v194/eye_v194_candidate.glb
+      - name: Khronos glTF Validator (source and candidate)
+        run: |
+          mkdir -p "$RUNNER_TEMP/eye-gltf-validator"
+          cd "$RUNNER_TEMP/eye-gltf-validator"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund gltf-validator
+          node - "${GITHUB_WORKSPACE}/qa/eye-v194" <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          const validator=require('gltf-validator');
+          (async()=>{
+            const dir=process.argv[2];
+            for (const [label,fn] of [['source','source_v193.glb'],['candidate','eye_v194_candidate.glb']]) {
+              const bytes=new Uint8Array(fs.readFileSync(path.join(dir,fn)));
+              const result=await validator.validateBytes(bytes,{uri:fn,maxIssues:500});
+              fs.writeFileSync(path.join(dir,label+'_validator.json'),JSON.stringify(result,null,2));
+              const counts=result.issues?.numErrors??0;
+              console.log(label,'validator errors:',counts,'warnings:',result.issues?.numWarnings??0);
+              if(counts)process.exitCode=1;
+            }
+          })().catch(e=>{console.error(e);process.exitCode=1});
+          NODE
+      - name: Install Blender for real GLB PBR reimport/render
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y blender
+      - name: Same-camera baseline and candidate render (Natural/Doll)
+        run: |
+          blender -b -t 2 --python scripts/eye-pack-v194/render_anchor_qa.py -- \
+            qa/eye-v194/source_v193.glb qa/eye-v194/before
+          blender -b -t 2 --python scripts/eye-pack-v194/render_anchor_qa.py -- \
+            qa/eye-v194/eye_v194_candidate.glb qa/eye-v194/after
+      - name: Preserve review artifacts — NO PREVIEW DEPLOYMENT
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eye-v194-candidate-${{ github.sha }}
+          path: |
+            qa/eye-v194/*.json
+            qa/eye-v194/*.glb
+            qa/eye-v194/before/*.png
+            qa/eye-v194/after/*.png
+            qa/eye-v194/before/*.json
+            qa/eye-v194/after/*.json
+          retention-days: 7
+          if-no-files-found: warn
