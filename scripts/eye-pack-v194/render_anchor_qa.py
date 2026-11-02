@@ -20,6 +20,8 @@ scene.render.resolution_x=880
 scene.render.resolution_y=560
 scene.render.resolution_percentage=100
 scene.render.image_settings.file_format='PNG'
+if scene.world is None:
+    scene.world=bpy.data.worlds.new('EyeQAWorld')
 scene.world.color=(.30,.30,.30)
 camera_data=bpy.data.cameras.new('EyeQA_Orthographic')
 cam=bpy.data.objects.new('EyeQA_Camera',camera_data)
