@@ -64,7 +64,6 @@ jobs:
           sudo apt-get install -y blender python3-numpy
       - name: Same-camera baseline and candidate render (Natural/Doll)
         run: |
-          export PYTHONPATH="$(python -c 'import site; print(site.getsitepackages()[0])'):$PYTHONPATH"
           blender -b -t 2 --python scripts/eye-pack-v194/render_anchor_qa.py -- \
             qa/eye-v194/source_v193.glb qa/eye-v194/before
           blender -b -t 2 --python scripts/eye-pack-v194/render_anchor_qa.py -- \
