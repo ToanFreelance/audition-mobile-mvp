@@ -37,7 +37,7 @@ type Stage = {
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
   renderer: THREE.WebGLRenderer;
-  vrmMaterials?: Array<{ update: () => void }>;
+  vrmMaterials?: Array<{ update: (delta: number) => void }>;
   model: THREE.Group | null;
   animationId: number;
   mixer: THREE.AnimationMixer | null;
@@ -203,7 +203,7 @@ export default function CharacterStyleABV1() {
       if (qaRunner && qaRunner.getMode() !== "off") qaRunner.update(delta);
       else stage.mixer?.update(delta);
       controls.update();
-      for (const material of stage.vrmMaterials ?? []) material.update();
+      // MToonMaterial.update(delta) requires a finite delta: omitting it poisons\n      // the UV-animation offsets with NaN, making VRM textures render black.\n      for (const material of stage.vrmMaterials ?? []) material.update(delta);
       renderer.render(scene, camera);
     };
     tick();
@@ -342,7 +342,7 @@ export default function CharacterStyleABV1() {
             return;
           }
           const model = gltf.scene;
-          const vrmData = gltf.userData.vrm as { materials?: Array<{ update: () => void }> } | undefined;
+          const vrmData = gltf.userData.vrm as { materials?: Array<{ update: (delta: number) => void }> } | undefined;
           stage.vrmMaterials = vrmData?.materials;
           model.updateMatrixWorld(true);
           const textures = new Set<THREE.Texture>();
