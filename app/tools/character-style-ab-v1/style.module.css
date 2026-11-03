@@ -118,3 +118,19 @@
   overflow-wrap: anywhere;
   margin: 12px 0 0;
 }
+
+
+/* Retina and fidelity comparison: visual-lab only. */
+.qualityTitle { margin: 17px 0 9px; color: #eed5ff; font-size: 12px; font-weight: 750; }
+.qualityGrid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
+.qualityButton, .qualityActive {
+  border: 1px solid #6d587e; background: #3b2d4b; color: #f0e1f7;
+  padding: 11px 4px; border-radius: 10px; font-size: 11px;
+  cursor: pointer; min-height: 43px;
+}
+.qualityActive { background: #8457a4; border-color: #eac1ff; color: #fff; font-weight: 800; }
+.qualityInfo {
+  margin-top: 10px; color: #c5eccd; border: 1px solid #547663;
+  background: #1b302b; border-radius: 9px; font-size: 11px; padding: 8px;
+  overflow-wrap: anywhere; line-height: 1.5;
+}

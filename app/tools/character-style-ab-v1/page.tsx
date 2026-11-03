@@ -11,6 +11,7 @@ import { rebuildModularPreview, disposeOverlay, type EyeLook, type HairLook, typ
 type CharacterKey = "soft" | "fashion";
 type CameraKey = "full" | "front" | "left" | "right" | "face";
 type SourceStatus = "loading" | "ready" | "error";
+type RenderQuality = "smooth" | "sharp" | "ultra";
 
 const ASSETS: Record<CharacterKey, { label: string; description: string; path: string }> = {
   soft: {
@@ -37,6 +38,7 @@ type Stage = {
   model: THREE.Group | null;
   animationId: number;
   mixer: THREE.AnimationMixer | null;
+  resize?: () => void;
   clock: THREE.Clock;
 };
 
@@ -57,6 +59,10 @@ function disposeTree(object: THREE.Object3D) {
       material.dispose();
     }
   });
+}
+
+function rendererMaxAnisotropy(renderer: THREE.WebGLRenderer): number {
+  return Math.max(1, renderer.capabilities.getMaxAnisotropy());
 }
 
 function setCamera(stage: Stage, view: CameraKey) {
@@ -82,6 +88,7 @@ export default function CharacterStyleABV1() {
   const qaRunnerRef = useRef<CharacterAnimationQa | null>(null);
   const baseFacingRef = useRef(0);
   const localFilenameRef = useRef<string>("");
+  const qualityRef = useRef<RenderQuality>("sharp");
   const localUrlRef = useRef<string | null>(null);
   const [character, setCharacter] = useState<CharacterKey>("soft");
   const [cameraView, setCameraView] = useState<CameraKey>("full");
@@ -98,6 +105,9 @@ export default function CharacterStyleABV1() {
   const [autoRotate, setAutoRotate] = useState(false);
   const [flip, setFlip] = useState(false);
   const [softLighting, setSoftLighting] = useState(true);
+  const [quality, setQuality] = useState<RenderQuality>("sharp");
+  const [qualityInfo, setQualityInfo] = useState("Đang đo framebuffer WebGL…");
+  const [textureInfo, setTextureInfo] = useState("Chưa đọc texture.");
   const [localUrl, setLocalUrl] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -119,7 +129,7 @@ export default function CharacterStyleABV1() {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.25;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.1));
     renderer.setClearAlpha(0);
     host.appendChild(renderer.domElement);
 
@@ -165,10 +175,19 @@ export default function CharacterStyleABV1() {
     const resize = () => {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
+      const preset = qualityRef.current;
+      const ratioCap = preset === "ultra" ? 3 : preset === "sharp" ? 2.1 : 1.4;
+      const budget = preset === "ultra" ? 3_600_000 : preset === "sharp" ? 2_500_000 : 1_400_000;
+      const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, ratioCap, Math.sqrt(budget / (width * height))));
+      renderer.setPixelRatio(dpr);
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+      setQualityInfo("DPR " + dpr.toFixed(2) + " / " + (window.devicePixelRatio || 1).toFixed(2) +
+        " · Canvas " + Math.round(size.x) + "×" + Math.round(size.y) + " px");
     };
+    stage.resize = resize;
     const observer = new ResizeObserver(resize);
     observer.observe(host);
     resize();
@@ -186,6 +205,7 @@ export default function CharacterStyleABV1() {
 
     return () => {
       observer.disconnect();
+      stage.resize = undefined;
       cancelAnimationFrame(stage.animationId);
       stage.mixer?.stopAllAction();
       qaRunnerRef.current?.dispose();
@@ -218,6 +238,11 @@ export default function CharacterStyleABV1() {
     if (!stage) return;
     stage.renderer.toneMappingExposure = softLighting ? 1.25 : 0.98;
   }, [softLighting]);
+
+  useEffect(() => {
+    qualityRef.current = quality;
+    stageRef.current?.resize?.();
+  }, [quality]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -255,7 +280,13 @@ export default function CharacterStyleABV1() {
     const eyeState = result.irisMaterialCount
       ? "Iris material: " + result.irisMaterialCount + " (đổi màu trực tiếp)"
       : "Iris mesh chưa tách riêng: chỉ minh họa hiệu ứng mắt";
-    setCatalogStatus(eyeState + " · Tóc: " + result.hairMaterialCount + " material · Trang phục: " + result.outfitMaterialCount + " material");
+    const skinned = outfitLook === "premium"
+      ? result.skinnedGarments
+        ? "Premium SkinnedMesh: " + result.skinnedGarments + " / " + result.skinnedSources + " nguồn"
+        : "Không có garment SkinnedMesh được nhận diện, chỉ thay material"
+      : "Basic (không gắn lớp skin)";
+    setCatalogStatus(eyeState + " · Tóc: " + result.hairMaterialCount +
+      " material · Trang phục: " + result.outfitMaterialCount + " material · " + skinned);
   }, [status, character, eyeLook, hairLook, outfitLook, glasses, reloadKey]);
 
   useEffect(() => {
@@ -301,6 +332,33 @@ export default function CharacterStyleABV1() {
           }
           const model = gltf.scene;
           model.updateMatrixWorld(true);
+          const textures = new Set<THREE.Texture>();
+          let nativeSkinnedCount = 0;
+          model.traverse((object) => {
+            if (object instanceof THREE.SkinnedMesh) nativeSkinnedCount++;
+            if (!(object instanceof THREE.Mesh)) return;
+            const mats = Array.isArray(object.material) ? object.material : [object.material];
+            for (const mat of mats) {
+              const m = mat as THREE.Material & {
+                map?: THREE.Texture; normalMap?: THREE.Texture;
+                emissiveMap?: THREE.Texture; roughnessMap?: THREE.Texture;
+              };
+              for (const tex of [m.map, m.normalMap, m.emissiveMap, m.roughnessMap]) {
+                if (tex) {
+                  textures.add(tex);
+                  tex.anisotropy = Math.min(4, rendererMaxAnisotropy(stage.renderer));
+                  tex.needsUpdate = true;
+                }
+              }
+            }
+          });
+          let maxDimension = 0;
+          for (const tex of textures) {
+            const image = tex.image as { width?: number; height?: number } | null;
+            if (image?.width && image?.height) maxDimension = Math.max(maxDimension, image.width, image.height);
+          }
+          setTextureInfo(nativeSkinnedCount + " SkinnedMesh nguồn · " + textures.size + " textures" +
+            (maxDimension ? " · tối đa " + maxDimension + " px" : " · chưa đọc được kích thước"));
           const bounds = new THREE.Box3().setFromObject(model);
           const dimensions = bounds.getSize(new THREE.Vector3());
           if (!Number.isFinite(dimensions.y) || dimensions.y <= 0) {
@@ -394,7 +452,7 @@ export default function CharacterStyleABV1() {
       <div className={styles.shell}>
         <header className={styles.header}>
           <div className={styles.eyebrow}>AUDITION MOBILE MVP • ISOLATED STYLE LAB</div>
-          <h1>Character B — Modular <span>Prototype V1.2</span></h1>
+          <h1>Character B — Modular <span>Prototype V1.3</span></h1>
           <p>Thử <b>Fashion B × Soft Anime A</b>, thay đổi mắt, tóc, outfit Basic/Premium và kính trên nhân vật 3D thật. Các lớp vật phẩm đang ở mức thử nghiệm visual.</p>
         </header>
 
@@ -450,11 +508,25 @@ export default function CharacterStyleABV1() {
                 <label><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> Tự xoay 360°</label>
                 <label><input type="checkbox" checked={flip} onChange={(e) => setFlip(e.target.checked)} /> Đảo mặt trước / sau</label>
               </div>
+              <div className={styles.qualityTitle}>Chất lượng hiển thị / Retina</div>
+              <div className={styles.qualityGrid}>
+                {([
+                  ["smooth", "Mượt"], ["sharp", "Sắc nét"], ["ultra", "Ultra"],
+                ] as [RenderQuality, string][]).map(([id, label]) => (
+                  <button type="button" key={id}
+                    aria-pressed={quality === id}
+                    className={quality === id ? styles.qualityActive : styles.qualityButton}
+                    onClick={() => setQuality(id)}>{label}</button>
+                ))}
+              </div>
+              <div className={styles.qualityInfo} role="status">{qualityInfo}</div>
+              <div className={styles.qualityInfo}>{textureInfo}</div>
+              <p className={styles.fine}>Ultra chỉ dành cho QA chất lượng: nếu nóng máy hoặc giảm FPS, chọn Sắc nét hoặc Mượt.</p>
             </div>
 
             <div className={styles.section}>
               <h2>04 — Modular Look Catalog (visual)</h2>
-              <p className={styles.description}>Chọn vật phẩm để xem sự khác biệt Basic / Premium. Không thực hiện mua hàng, không thay đổi dữ liệu tài khoản.</p>
+              <p className={styles.description}>Basic / Premium dùng chung skeleton VRoid; lớp Premium thử nghiệm là SkinnedMesh kế thừa skin weights của trang phục gốc. Không thực hiện mua hàng.</p>
               <div className={styles.presetLabel}>Mắt / Iris</div>
               <div className={styles.presetGrid}>
                 {([["natural", "Natural"], ["doll", "Doll • tím"], ["idol", "Idol • xanh"]] as [EyeLook, string][]).map(([key, label]) =>
@@ -469,7 +541,7 @@ export default function CharacterStyleABV1() {
               </div>
               <div className={styles.presetLabel}>Outfit</div>
               <div className={styles.presetGrid}>
-                {([["basic", "Basic"], ["premium", "Premium"]] as [OutfitLook, string][]).map(([key, label]) =>
+                {([["basic", "Basic"], ["premium", "Premium • Skinned"]] as [OutfitLook, string][]).map(([key, label]) =>
                   <button type="button" key={key} className={outfitLook === key ? styles.presetActive : styles.presetChoice} onClick={() => setOutfitLook(key)} aria-pressed={outfitLook === key}>{label}</button>
                 )}
               </div>

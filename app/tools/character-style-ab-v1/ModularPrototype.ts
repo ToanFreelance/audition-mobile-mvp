@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { buildSkinnedWardrobe, disposeSkinnedWardrobe } from "./SkinnedWardrobe";
 
 /**
  * An isolated, removable visual sample for testing the future Fashion B catalog UX.
@@ -21,6 +22,8 @@ export type ModularResult = {
   irisMaterialCount: number;
   hairMaterialCount: number;
   outfitMaterialCount: number;
+  skinnedSources: number;
+  skinnedGarments: number;
 };
 
 const EYE_COLOR: Record<EyeLook, number | null> = {
@@ -46,19 +49,6 @@ function sphere(
     new THREE.MeshStandardMaterial({ color, metalness, roughness }),
   );
 }
-function cylinder(
-  top: number,
-  bottom: number,
-  height: number,
-  color: number,
-  metalness = 0.05,
-): THREE.Mesh {
-  return new THREE.Mesh(
-    new THREE.CylinderGeometry(top, bottom, height, 20),
-    new THREE.MeshStandardMaterial({ color, metalness, roughness: 0.46 }),
-  );
-}
-
 function faceLocator(root: THREE.Group): { x: number; y: number; z: number } {
   root.updateMatrixWorld(true);
   let headBone: THREE.Bone | undefined;
@@ -197,44 +187,11 @@ function addPonytail(group: THREE.Group, fit: AccessoryFit) {
   }
 }
 
-function addPremiumShell(group: THREE.Group) {
-  // Real 3D removable outer pieces. NOT skinned or fitted to a production garment.
-  const jacketLeft = cylinder(0.15, 0.16, 0.51, 0xd7b1f9);
-  const jacketRight = cylinder(0.15, 0.16, 0.51, 0xc695f3);
-  jacketLeft.position.set(-0.36, 1.88, 0.012);
-  jacketRight.position.set(0.36, 1.88, 0.012);
-  jacketLeft.rotation.z = -0.17;
-  jacketRight.rotation.z = 0.17;
-  group.add(jacketLeft, jacketRight);
-  for (const sign of [-1, 1]) {
-    const lapel = new THREE.Mesh(
-      new THREE.BoxGeometry(0.11, 0.41, 0.035),
-      new THREE.MeshStandardMaterial({
-        color: sign < 0 ? 0xdfbbfa : 0xb48bdb,
-        roughness: 0.42,
-        metalness: 0.09,
-      }),
-    );
-    lapel.position.set(sign * 0.14, 1.94, 0.245);
-    lapel.rotation.z = -sign * 0.20;
-    group.add(lapel);
-  }
-  const belt = new THREE.Mesh(
-    new THREE.TorusGeometry(0.27, 0.015, 8, 56),
-    new THREE.MeshStandardMaterial({ color: 0xffe3ad, metalness: 0.70, roughness: 0.25 }),
-  );
-  belt.rotation.x = Math.PI / 2;
-  belt.position.set(0, 1.55, 0);
-  group.add(belt);
-  for (const sign of [-1, 1]) {
-    const charm = sphere(0.035, 0xffd6e7, 0.75, 0.23);
-    charm.position.set(sign * 0.12, 1.55, 0.28);
-    group.add(charm);
-  }
-}
-
 export function disposeOverlay(group: THREE.Group | null) {
   if (!group) return;
+  // Premium overlays are sibling SkinnedMeshes on the original VRoid rig.
+  // Their geometry/materials are disposable; the shared skeleton is not.
+  disposeSkinnedWardrobe(group.userData.skinnedWardrobe as THREE.SkinnedMesh[] | undefined);
   const headParts = group.userData.headParts as THREE.Group | undefined;
   if (headParts) {
     headParts.parent?.remove(headParts);
@@ -278,7 +235,8 @@ export function rebuildModularPreview(
     if (fit.bone) fit.bone.attach(headParts);
     group.userData.headParts = headParts;
   }
-  if (look.outfit === "premium") addPremiumShell(group);
+  const wardrobe = look.outfit === "premium" ? buildSkinnedWardrobe(model) : null;
+  if (wardrobe) group.userData.skinnedWardrobe = wardrobe.overlays;
 
   // Differentiated, detachable sparkle decals. Source VRM iris tint is only
   // applied when GLTFLoader exposes a dedicated iris/pupil material.
@@ -292,5 +250,10 @@ export function rebuildModularPreview(
   }
 
   model.add(group);
-  return { group, ...stats };
+  return {
+    group,
+    ...stats,
+    skinnedSources: wardrobe?.sourceSkinnedMeshes ?? 0,
+    skinnedGarments: wardrobe?.skinnedGarments ?? 0,
+  };
 }
