@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import styles from "./style.module.css";
+import { rebuildModularPreview, disposeOverlay, type EyeLook, type HairLook, type OutfitLook } from "./ModularPrototype";
 
 type CharacterKey = "soft" | "fashion";
 type CameraKey = "full" | "front" | "left" | "right" | "face";
@@ -76,12 +77,18 @@ export default function CharacterStyleABV1() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<Stage | null>(null);
   const uploadRef = useRef<HTMLInputElement | null>(null);
+  const overlayRef = useRef<THREE.Group | null>(null);
   const localUrlRef = useRef<string | null>(null);
   const [character, setCharacter] = useState<CharacterKey>("soft");
   const [cameraView, setCameraView] = useState<CameraKey>("full");
   const [status, setStatus] = useState<SourceStatus>("loading");
   const [message, setMessage] = useState("Đang khởi tạo WebGL2…");
   const [assetName, setAssetName] = useState<string>("");
+  const [eyeLook, setEyeLook] = useState<EyeLook>("natural");
+  const [hairLook, setHairLook] = useState<HairLook>("classic");
+  const [outfitLook, setOutfitLook] = useState<OutfitLook>("basic");
+  const [glasses, setGlasses] = useState(false);
+  const [catalogStatus, setCatalogStatus] = useState("Mở model B để thử các vật phẩm modular.");
   const [autoRotate, setAutoRotate] = useState(false);
   const [flip, setFlip] = useState(false);
   const [softLighting, setSoftLighting] = useState(true);
@@ -212,6 +219,19 @@ export default function CharacterStyleABV1() {
 
   useEffect(() => {
     const stage = stageRef.current;
+    if (!stage?.model || status !== "ready") return;
+    const result = rebuildModularPreview(stage.model, overlayRef.current, {
+      eye: eyeLook, hair: hairLook, outfit: outfitLook, glasses,
+    });
+    overlayRef.current = result.group;
+    const eyeState = result.irisMaterialCount
+      ? "Iris material: " + result.irisMaterialCount + " (đổi màu trực tiếp)"
+      : "Iris mesh chưa tách riêng: chỉ minh họa hiệu ứng mắt";
+    setCatalogStatus(eyeState + " · Tóc: " + result.hairMaterialCount + " material · Trang phục: " + result.outfitMaterialCount + " material");
+  }, [status, character, eyeLook, hairLook, outfitLook, glasses, reloadKey]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
     if (!stage) return;
     let canceled = false;
     setStatus("loading");
@@ -219,6 +239,8 @@ export default function CharacterStyleABV1() {
     setMessage("Đang nạp mesh VRM mới (không dùng Claude/EyePack cũ)…");
     stage.mixer?.stopAllAction();
     stage.mixer = null;
+    disposeOverlay(overlayRef.current);
+    overlayRef.current = null;
     if (stage.model) {
       stage.scene.remove(stage.model);
       disposeTree(stage.model);
@@ -327,8 +349,8 @@ export default function CharacterStyleABV1() {
       <div className={styles.shell}>
         <header className={styles.header}>
           <div className={styles.eyebrow}>AUDITION MOBILE MVP • ISOLATED STYLE LAB</div>
-          <h1>Character Style A+B <span>Demo V1</span></h1>
-          <p>Thử phong cách <b>Mature Fashion × Soft Anime</b> trên nhân vật VRoid hoàn toàn tách biệt với base Claude V2 và EyePack cũ.</p>
+          <h1>Character B — Modular <span>Prototype V1</span></h1>
+          <p>Thử <b>Fashion B × Soft Anime A</b>, thay đổi mắt, tóc, outfit Basic/Premium và kính trên nhân vật 3D thật. Các lớp vật phẩm đang ở mức thử nghiệm visual.</p>
         </header>
 
         <div className={styles.layout}>
@@ -386,7 +408,31 @@ export default function CharacterStyleABV1() {
             </div>
 
             <div className={styles.section}>
-              <h2>04 — Tệp 3D khác</h2>
+              <h2>04 — Modular Look Catalog (visual)</h2>
+              <p className={styles.description}>Chọn vật phẩm để xem sự khác biệt Basic / Premium. Không thực hiện mua hàng, không thay đổi dữ liệu tài khoản.</p>
+              <div className={styles.presetLabel}>Mắt / Iris</div>
+              <div className={styles.presetGrid}>
+                {([["natural", "Natural"], ["doll", "Doll • tím"], ["idol", "Idol • xanh"]] as [EyeLook, string][]).map(([key, label]) =>
+                  <button type="button" key={key} className={eyeLook === key ? styles.presetActive : styles.presetChoice} onClick={() => setEyeLook(key)} aria-pressed={eyeLook === key}>{label}</button>
+                )}
+              </div>
+              <div className={styles.presetLabel}>Tóc</div>
+              <div className={styles.presetGrid}>
+                {([["classic", "Classic"], ["pony", "Ponytail"]] as [HairLook, string][]).map(([key, label]) =>
+                  <button type="button" key={key} className={hairLook === key ? styles.presetActive : styles.presetChoice} onClick={() => setHairLook(key)} aria-pressed={hairLook === key}>{label}</button>
+                )}
+              </div>
+              <div className={styles.presetLabel}>Outfit</div>
+              <div className={styles.presetGrid}>
+                {([["basic", "Basic"], ["premium", "Premium"]] as [OutfitLook, string][]).map(([key, label]) =>
+                  <button type="button" key={key} className={outfitLook === key ? styles.presetActive : styles.presetChoice} onClick={() => setOutfitLook(key)} aria-pressed={outfitLook === key}>{label}</button>
+                )}
+              </div>
+              <label className={styles.accessorySwitch}><input type="checkbox" checked={glasses} onChange={(e) => setGlasses(e.target.checked)} /> Kính thời trang ✨</label>
+              <p className={styles.catalogStatus} role="status">{catalogStatus}</p>
+            </div>
+            <div className={styles.section}>
+              <h2>05 — Tệp 3D khác</h2>
               <input ref={uploadRef} accept=".vrm,.glb" type="file" className={styles.hidden} onChange={selectFile} />
               <button className={styles.uploadButton} type="button" onClick={() => uploadRef.current?.click()}>
                 Mở VRM / GLB của bạn
@@ -396,7 +442,7 @@ export default function CharacterStyleABV1() {
 
             <div className={styles.notice}>
               <strong>Phạm vi demo</strong>
-              <p>Đây là bản thử phong cách trên hai sample VRoid mới, chưa phải nhân vật độc quyền đã sculpt lại. EyeSet modular, blink và outfit tùy biến sẽ được dựng trên base được bạn chốt; không có thay đổi gameplay hoặc Character Catalog.</p>
+              <p>Demo này dùng model VRoid sample B, overlay 3D tháo/lắp được và tùy chỉnh màu material. Đây chưa phải bộ mắt/áo quần production được fit &amp; skinned chuẩn; không thay gameplay hoặc Character Catalog.</p>
             </div>
           </aside>
         </div>
