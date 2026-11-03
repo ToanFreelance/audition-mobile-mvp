@@ -133,7 +133,7 @@ type AccessoryFit = { bone: THREE.Bone | null; x: number; y: number; front: numb
 /** VRM0 faces -Z. Position headwear relative to the skeleton, not scene origin. */
 function fitAccessories(root: THREE.Group): AccessoryFit {
   const anchor = faceLocator(root);
-  let bone: THREE.Bone | null = null;
+  let bone: THREE.Bone | undefined;
   root.traverse((object) => {
     if (object instanceof THREE.Bone && /J_Bip_C_Head|(?:^|[_-])head$/i.test(object.name)) bone = object;
   });
@@ -145,7 +145,7 @@ function fitAccessories(root: THREE.Group): AccessoryFit {
   const bounds = new THREE.Box3().setFromObject(root);
   const unit = THREE.MathUtils.clamp(bounds.getSize(new THREE.Vector3()).y / 2.65, 0.75, 1.3);
   return {
-    bone, x: anchor.x, y: anchor.y,
+    bone: bone ?? null, x: anchor.x, y: anchor.y,
     front: p.z - 0.205 * unit, rear: p.z + 0.19 * unit, unit,
   };
 }
