@@ -109,7 +109,7 @@ export default function CharacterStyleABV1() {
   const [flip, setFlip] = useState(false);
   const [softLighting, setSoftLighting] = useState(true);
   const [quality, setQuality] = useState<RenderQuality>("sharp");
-  const [materialMode, setMaterialMode] = useState<MaterialMode>("mtoon");
+  const [materialMode, setMaterialMode] = useState<MaterialMode>("legacy");
   const [qualityInfo, setQualityInfo] = useState("Đang đo framebuffer WebGL…");
   const [textureInfo, setTextureInfo] = useState("Chưa đọc texture.");
   const [localUrl, setLocalUrl] = useState<string | null>(null);
@@ -465,7 +465,7 @@ export default function CharacterStyleABV1() {
       <div className={styles.shell}>
         <header className={styles.header}>
           <div className={styles.eyebrow}>AUDITION MOBILE MVP • ISOLATED STYLE LAB</div>
-          <h1>Character B — Modular <span>Prototype V1.4</span></h1>
+          <h1>Character B — Modular <span>Prototype V1.4.2</span></h1>
           <p>Thử <b>Fashion B × Soft Anime A</b>, thay đổi mắt, tóc, outfit Basic/Premium và kính trên nhân vật 3D thật. Các lớp vật phẩm đang ở mức thử nghiệm visual.</p>
         </header>
 
@@ -524,11 +524,11 @@ export default function CharacterStyleABV1() {
               <div className={styles.qualityTitle}>VRM Material Fidelity</div>
               <div className={styles.qualityGrid}>
                 <button type="button" className={materialMode === "mtoon" ? styles.qualityActive : styles.qualityButton}
-                  aria-pressed={materialMode === "mtoon"} onClick={() => setMaterialMode("mtoon")}>VRM MToon</button>
+                  aria-pressed={materialMode === "mtoon"} onClick={() => setMaterialMode("mtoon")}>MToon (QA)</button>
                 <button type="button" className={materialMode === "legacy" ? styles.qualityActive : styles.qualityButton}
-                  aria-pressed={materialMode === "legacy"} onClick={() => setMaterialMode("legacy")}>glTF cũ</button>
+                  aria-pressed={materialMode === "legacy"} onClick={() => setMaterialMode("legacy")}>glTF ổn định</button>
               </div>
-              <p className={styles.fine}>So sánh MToon chính thức của pixiv với loader glTF cũ, ở cùng camera và ánh sáng. Chuyển chế độ sẽ nạp lại VRM.</p>
+              <p className={styles.fine}>Mặc định glTF ổn định, gần bản visual trước đây bạn đã chấp nhận. MToon chỉ để thử nghiệm shading, có thể tối màu với vài material VRoid. Chuyển chế độ sẽ nạp lại avatar.</p>
               <div className={styles.qualityTitle}>Chất lượng hiển thị / Retina</div>
               <div className={styles.qualityGrid}>
                 {([

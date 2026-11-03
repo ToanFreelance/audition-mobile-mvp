@@ -36,7 +36,6 @@ const HAIR_COLOR: Record<HairLook, number | null> = {
   classic: null,
   pony: 0xa65c79,
 };
-const PREMIUM_COLOR = 0xb98aff;
 const ORIGINAL_COLOR = "__abOriginalColor";
 
 function sphere(
@@ -111,7 +110,7 @@ function applyMaterialLooks(root: THREE.Group, look: ModularLook) {
         if (HAIR_COLOR[look.hair] !== null) material.color.setHex(HAIR_COLOR[look.hair] as number);
       } else if (/cloth|outfit|shirt|jacket|hood|skirt|dress|pants|uniform|tops|bottoms|socks|shoes/i.test(combined)) {
         outfitMaterialCount++;
-        if (look.outfit === "premium") material.color.setHex(PREMIUM_COLOR);
+        // Premium has its own skinned garment materials: leave Basic color untouched.
       }
       material.needsUpdate = true;
     }

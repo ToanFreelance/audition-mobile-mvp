@@ -35,18 +35,60 @@ function isGarment(mesh: THREE.SkinnedMesh, material: THREE.Material) {
     CLOTH.test(mesh.name) && !BLOCKED.test(mesh.name) && !BLOCKED.test(m);
 }
 
-function makePremiumMaterial(original: THREE.Material, isBottom: boolean): THREE.Material {
-  const result = original.clone();
-  result.name = original.name + "_AB_V14_NewCut";
-  const surface = result as THREE.Material & { color?: THREE.Color; emissive?: THREE.Color; emissiveIntensity?: number };
-  // Fashion-purple and soft ivory; keep source texture for UV continuity.
-  if (surface.color) surface.color.setHex(isBottom ? 0xc8a3f8 : 0xf3dcff);
-  if (surface.emissive) surface.emissive.multiplyScalar(0.25);
-  result.side = THREE.FrontSide;
-  result.depthWrite = true;
-  result.polygonOffset = false;
-  result.needsUpdate = true;
-  return result;
+function premiumFabric(original: THREE.Material, isBottom: boolean): THREE.MeshStandardMaterial {
+  // Keep source texture's alpha/details while replacing dark cloth colors with
+  // pastel fabric. Do not compound a second tint over the VRM MToon shader.
+  const originalMap = (original as THREE.Material & { map?: THREE.Texture }).map;
+  const size = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas2D required for garment material");
+  const base = isBottom ? [157, 115, 197] : [223, 200, 246];
+  const originalPixels = document.createElement("canvas");
+  originalPixels.width = size; originalPixels.height = size;
+  const baseCtx = originalPixels.getContext("2d", { willReadFrequently: true });
+  let sourceImage: ImageData | null = null;
+  if (baseCtx && originalMap?.image) {
+    try {
+      baseCtx.drawImage(originalMap.image as CanvasImageSource, 0, 0, size, size);
+      sourceImage = baseCtx.getImageData(0, 0, size, size);
+    } catch { sourceImage = null; }
+  }
+  const image = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const idx = (y * size + x) * 4;
+    const detail = sourceImage
+      ? [sourceImage.data[idx], sourceImage.data[idx + 1], sourceImage.data[idx + 2]]
+      : base;
+    const weave = ((x + y) % 13 === 0 ? 5 : 0) + ((x - y + size) % 17 === 0 ? -3 : 0);
+    for (let c = 0; c < 3; c++) {
+      image.data[idx + c] = THREE.MathUtils.clamp(
+        base[c] * 0.77 + detail[c] * 0.23 + weave, 0, 255,
+      );
+    }
+    image.data[idx + 3] = sourceImage ? sourceImage.data[idx + 3] : 255;
+  }
+  ctx.putImageData(image, 0, 0);
+  const map = new THREE.CanvasTexture(canvas);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.flipY = originalMap?.flipY ?? false;
+  map.wrapS = originalMap?.wrapS ?? THREE.ClampToEdgeWrapping;
+  map.wrapT = originalMap?.wrapT ?? THREE.ClampToEdgeWrapping;
+  map.needsUpdate = true;
+  return new THREE.MeshStandardMaterial({
+    name: (original.name || "Garment") + "_AB_V142_PastelFabric",
+    map,
+    color: 0xffffff,
+    roughness: 0.74,
+    metalness: 0.03,
+    side: original.side,
+    transparent: original.transparent,
+    alphaTest: original.alphaTest,
+    opacity: original.opacity,
+    emissive: 0x10091a,
+    emissiveIntensity: 0.08,
+  });
 }
 
 function getGroups(geom: THREE.BufferGeometry, materialCount: number): THREE.BufferGeometry["groups"] {
@@ -69,37 +111,35 @@ function referencedIndices(geom: THREE.BufferGeometry, groups: THREE.BufferGeome
 function morphCut(geom: THREE.BufferGeometry, groups: THREE.BufferGeometry["groups"], isBottom: boolean): number {
   const used = referencedIndices(geom, groups);
   if (!used.length) return 0;
-  const source = geom.getAttribute("position");
-  const pos = source.clone();
+  const pos = geom.getAttribute("position").clone();
   geom.setAttribute("position", pos);
-
   let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   for (const i of used) {
     const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-    minY = Math.min(minY,y); maxY=Math.max(maxY,y);
-    minX = Math.min(minX,x); maxX=Math.max(maxX,x);
-    minZ = Math.min(minZ,z); maxZ=Math.max(maxZ,z);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
   }
-  const dx = Math.max(0.1, maxX-minX);
-  const dz = Math.max(0.1, maxZ-minZ);
-  const centerX=(minX+maxX)/2, centerZ=(minZ+maxZ)/2, dy=Math.max(0.01,maxY-minY);
+  const dy = Math.max(0.001, maxY-minY), centerX=(minX+maxX)/2, centerZ=(minZ+maxZ)/2;
+  const shortened = isBottom ? (dy > 0.85 ? 0.36 : dy > 0.44 ? 0.13 : 0.035) : 0.0;
   let altered = 0;
-  for(const i of used) {
-    const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+  for (const i of used) {
+    const x=pos.getX(i), y=pos.getY(i), z=pos.getZ(i);
     const t=THREE.MathUtils.clamp((y-minY)/dy,0,1);
-    // Bottoms: geometric flared hem. Tops: shaped, padded fashion shoulders
-    // and cinched waist. These are ACTUAL vertex-coordinate changes.
-    const flare = isBottom ? 0.34*Math.pow(1-t,2.4) :
-      0.22*Math.pow(t,4.0)-0.085*Math.exp(-Math.pow((t-0.22)/0.22,2));
-    const spreadX=(x-centerX)/dx;
-    const spreadZ=(z-centerZ)/dz;
-    pos.setXYZ(i,x+spreadX*dx*flare,y,z+spreadZ*dz*flare);
-    if(Math.abs(flare)>0.008) altered++;
+    let factor: number, newY=y;
+    if (isBottom) {
+      newY = y + dy*shortened*Math.pow(1-t,2);
+      factor = 1 + 0.075*Math.pow(1-t,2.2);
+    } else {
+      const shoulder = Math.pow(t,5);
+      const waist = Math.exp(-Math.pow((t-0.25)/0.22,2));
+      factor = 1 + 0.045*shoulder - 0.027*waist;
+    }
+    const newX=centerX+(x-centerX)*factor, newZ=centerZ+(z-centerZ)*factor;
+    pos.setXYZ(i,newX,newY,newZ);
+    if(Math.abs(newY-y)>0.0005||Math.abs(newX-x)>0.0005||Math.abs(newZ-z)>0.0005) altered++;
   }
-  pos.needsUpdate = true;
-  geom.computeVertexNormals();
-  geom.computeBoundingSphere();
-  geom.computeBoundingBox();
+  pos.needsUpdate=true; geom.computeVertexNormals(); geom.computeBoundingSphere(); geom.computeBoundingBox();
   return altered;
 }
 
@@ -122,7 +162,12 @@ export function buildSkinnedWardrobe(root: THREE.Group): WardrobeResult {
     srcMats.forEach((mat,index) => { if(isGarment(source,mat)) matched.add(index); });
     if(!matched.size) continue;
     const groups=getGroups(originalGeom,srcMats.length);
-    const selected=groups.filter(group=>matched.has(group.materialIndex??0));
+    // MToon may supply a duplicate outline pass. Swap only the visible
+    // clothing surface, while hiding the original matching outline groups.
+    const selected=groups.filter(group=>{
+      const index=group.materialIndex??0;
+      return matched.has(index)&&!(srcMats[index] as THREE.Material & { isOutline?: boolean }).isOutline;
+    });
     if(!selected.length) continue;
     const kept=groups.filter(group=>!matched.has(group.materialIndex??0));
     const isBottom=selected.some(g=>/(bottom|skirt|pant|dress)/i.test(srcMats[g.materialIndex??0]?.name??""));
@@ -137,8 +182,10 @@ export function buildSkinnedWardrobe(root: THREE.Group): WardrobeResult {
     premium.name=source.name+"_V14_ReplacementOutfit";
     premium.geometry=premiumGeom;
     premium.material=Array.isArray(source.material)
-      ? srcMats.map((m)=>makePremiumMaterial(m,isBottom))
-      : makePremiumMaterial(srcMats[0],isBottom);
+      ? srcMats.map((m,i)=>matched.has(i)&&!(m as THREE.Material & { isOutline?: boolean }).isOutline
+          ? premiumFabric(m,/(bottom|skirt|pant|dress)/i.test(m.name??""))
+          : new THREE.MeshStandardMaterial({visible:false}))
+      : premiumFabric(srcMats[0],isBottom);
     premium.skeleton=source.skeleton;
     premium.bindMode=source.bindMode;
     premium.bindMatrix.copy(source.bindMatrix);
@@ -171,7 +218,7 @@ export function disposeSkinnedWardrobe(pieces: WardrobeResult["pieces"] | undefi
     premium.parent?.remove(premium);
     premium.geometry.dispose();
     const mats=Array.isArray(premium.material)?premium.material:[premium.material];
-    mats.forEach(m=>m.dispose());
+    mats.forEach(m=>{ (m as THREE.MeshStandardMaterial).map?.dispose(); m.dispose(); });
     source.geometry=originalGeometry;
     source.visible=originalVisible;
     filteredGeometry?.dispose();
