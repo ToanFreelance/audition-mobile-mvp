@@ -24,6 +24,7 @@ export type ModularResult = {
   outfitMaterialCount: number;
   skinnedSources: number;
   skinnedGarments: number;
+  alteredVertices: number;
 };
 
 const EYE_COLOR: Record<EyeLook, number | null> = {
@@ -191,7 +192,7 @@ export function disposeOverlay(group: THREE.Group | null) {
   if (!group) return;
   // Premium overlays are sibling SkinnedMeshes on the original VRoid rig.
   // Their geometry/materials are disposable; the shared skeleton is not.
-  disposeSkinnedWardrobe(group.userData.skinnedWardrobe as THREE.SkinnedMesh[] | undefined);
+  disposeSkinnedWardrobe(group.userData.skinnedWardrobe as ReturnType<typeof buildSkinnedWardrobe>["pieces"] | undefined);
   const headParts = group.userData.headParts as THREE.Group | undefined;
   if (headParts) {
     headParts.parent?.remove(headParts);
@@ -236,7 +237,7 @@ export function rebuildModularPreview(
     group.userData.headParts = headParts;
   }
   const wardrobe = look.outfit === "premium" ? buildSkinnedWardrobe(model) : null;
-  if (wardrobe) group.userData.skinnedWardrobe = wardrobe.overlays;
+  if (wardrobe) group.userData.skinnedWardrobe = wardrobe.pieces;
 
   // Differentiated, detachable sparkle decals. Source VRM iris tint is only
   // applied when GLTFLoader exposes a dedicated iris/pupil material.
@@ -255,5 +256,6 @@ export function rebuildModularPreview(
     ...stats,
     skinnedSources: wardrobe?.sourceSkinnedMeshes ?? 0,
     skinnedGarments: wardrobe?.skinnedGarments ?? 0,
+    alteredVertices: wardrobe?.alteredVertexCount ?? 0,
   };
 }

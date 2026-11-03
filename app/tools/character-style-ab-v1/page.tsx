@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { VRMLoaderPlugin } from "@pixiv/three-vrm";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import styles from "./style.module.css";
 import { CharacterAnimationQa, QA_MOTIONS, type QaMotion } from "./AnimationQa";
@@ -12,6 +13,7 @@ type CharacterKey = "soft" | "fashion";
 type CameraKey = "full" | "front" | "left" | "right" | "face";
 type SourceStatus = "loading" | "ready" | "error";
 type RenderQuality = "smooth" | "sharp" | "ultra";
+type MaterialMode = "mtoon" | "legacy";
 
 const ASSETS: Record<CharacterKey, { label: string; description: string; path: string }> = {
   soft: {
@@ -35,6 +37,7 @@ type Stage = {
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
   renderer: THREE.WebGLRenderer;
+  vrmMaterials?: Array<{ update: () => void }>;
   model: THREE.Group | null;
   animationId: number;
   mixer: THREE.AnimationMixer | null;
@@ -106,6 +109,7 @@ export default function CharacterStyleABV1() {
   const [flip, setFlip] = useState(false);
   const [softLighting, setSoftLighting] = useState(true);
   const [quality, setQuality] = useState<RenderQuality>("sharp");
+  const [materialMode, setMaterialMode] = useState<MaterialMode>("mtoon");
   const [qualityInfo, setQualityInfo] = useState("Đang đo framebuffer WebGL…");
   const [textureInfo, setTextureInfo] = useState("Chưa đọc texture.");
   const [localUrl, setLocalUrl] = useState<string | null>(null);
@@ -199,6 +203,7 @@ export default function CharacterStyleABV1() {
       if (qaRunner && qaRunner.getMode() !== "off") qaRunner.update(delta);
       else stage.mixer?.update(delta);
       controls.update();
+      for (const material of stage.vrmMaterials ?? []) material.update();
       renderer.render(scene, camera);
     };
     tick();
@@ -282,7 +287,7 @@ export default function CharacterStyleABV1() {
       : "Iris mesh chưa tách riêng: chỉ minh họa hiệu ứng mắt";
     const skinned = outfitLook === "premium"
       ? result.skinnedGarments
-        ? "Premium SkinnedMesh: " + result.skinnedGarments + " / " + result.skinnedSources + " nguồn"
+        ? "Premium Outfit SWAP: " + result.skinnedGarments + " bộ phận / " + result.skinnedSources + " nguồn · " + result.alteredVertices + " vertices đổi form"
         : "Không có garment SkinnedMesh được nhận diện, chỉ thay material"
       : "Basic (không gắn lớp skin)";
     setCatalogStatus(eyeState + " · Tóc: " + result.hairMaterialCount +
@@ -298,6 +303,7 @@ export default function CharacterStyleABV1() {
     setMessage("Đang nạp mesh VRM mới (không dùng Claude/EyePack cũ)…");
     stage.mixer?.stopAllAction();
     stage.mixer = null;
+    stage.vrmMaterials = undefined;
     qaRunnerRef.current?.dispose();
     qaRunnerRef.current = null;
     setQaMotion("off");
@@ -311,6 +317,11 @@ export default function CharacterStyleABV1() {
     }
     const loader = new GLTFLoader();
     loader.setCrossOrigin("anonymous");
+    // Official pixiv VRM0/MToon importer. The legacy button restores the
+    // old GLTFLoader path for an apples-to-apples material fidelity comparison.
+    if (materialMode === "mtoon") {
+      loader.register((parser) => new VRMLoaderPlugin(parser));
+    }
 
     const paths = localUrl
       ? [localUrl]
@@ -331,6 +342,8 @@ export default function CharacterStyleABV1() {
             return;
           }
           const model = gltf.scene;
+          const vrmData = gltf.userData.vrm as { materials?: Array<{ update: () => void }> } | undefined;
+          stage.vrmMaterials = vrmData?.materials;
           model.updateMatrixWorld(true);
           const textures = new Set<THREE.Texture>();
           let nativeSkinnedCount = 0;
@@ -413,7 +426,7 @@ export default function CharacterStyleABV1() {
     return () => {
       canceled = true;
     };
-  }, [character, localUrl, reloadKey]);
+  }, [character, localUrl, reloadKey, materialMode]);
 
   const selectFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
@@ -452,7 +465,7 @@ export default function CharacterStyleABV1() {
       <div className={styles.shell}>
         <header className={styles.header}>
           <div className={styles.eyebrow}>AUDITION MOBILE MVP • ISOLATED STYLE LAB</div>
-          <h1>Character B — Modular <span>Prototype V1.3</span></h1>
+          <h1>Character B — Modular <span>Prototype V1.4</span></h1>
           <p>Thử <b>Fashion B × Soft Anime A</b>, thay đổi mắt, tóc, outfit Basic/Premium và kính trên nhân vật 3D thật. Các lớp vật phẩm đang ở mức thử nghiệm visual.</p>
         </header>
 
@@ -508,6 +521,14 @@ export default function CharacterStyleABV1() {
                 <label><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> Tự xoay 360°</label>
                 <label><input type="checkbox" checked={flip} onChange={(e) => setFlip(e.target.checked)} /> Đảo mặt trước / sau</label>
               </div>
+              <div className={styles.qualityTitle}>VRM Material Fidelity</div>
+              <div className={styles.qualityGrid}>
+                <button type="button" className={materialMode === "mtoon" ? styles.qualityActive : styles.qualityButton}
+                  aria-pressed={materialMode === "mtoon"} onClick={() => setMaterialMode("mtoon")}>VRM MToon</button>
+                <button type="button" className={materialMode === "legacy" ? styles.qualityActive : styles.qualityButton}
+                  aria-pressed={materialMode === "legacy"} onClick={() => setMaterialMode("legacy")}>glTF cũ</button>
+              </div>
+              <p className={styles.fine}>So sánh MToon chính thức của pixiv với loader glTF cũ, ở cùng camera và ánh sáng. Chuyển chế độ sẽ nạp lại VRM.</p>
               <div className={styles.qualityTitle}>Chất lượng hiển thị / Retina</div>
               <div className={styles.qualityGrid}>
                 {([
@@ -526,7 +547,7 @@ export default function CharacterStyleABV1() {
 
             <div className={styles.section}>
               <h2>04 — Modular Look Catalog (visual)</h2>
-              <p className={styles.description}>Basic / Premium dùng chung skeleton VRoid; lớp Premium thử nghiệm là SkinnedMesh kế thừa skin weights của trang phục gốc. Không thực hiện mua hàng.</p>
+              <p className={styles.description}>Basic và Premium có silhouette khác nhau. Premium ẩn bề mặt áo/quần Basic được thay, dùng geometry sửa form với skeleton và skin weights nguồn. Chưa phải asset Premium độc lập có thể bán.</p>
               <div className={styles.presetLabel}>Mắt / Iris</div>
               <div className={styles.presetGrid}>
                 {([["natural", "Natural"], ["doll", "Doll • tím"], ["idol", "Idol • xanh"]] as [EyeLook, string][]).map(([key, label]) =>
@@ -541,7 +562,7 @@ export default function CharacterStyleABV1() {
               </div>
               <div className={styles.presetLabel}>Outfit</div>
               <div className={styles.presetGrid}>
-                {([["basic", "Basic"], ["premium", "Premium • Skinned"]] as [OutfitLook, string][]).map(([key, label]) =>
+                {([["basic", "Basic"], ["premium", "Premium • Swap"]] as [OutfitLook, string][]).map(([key, label]) =>
                   <button type="button" key={key} className={outfitLook === key ? styles.presetActive : styles.presetChoice} onClick={() => setOutfitLook(key)} aria-pressed={outfitLook === key}>{label}</button>
                 )}
               </div>
@@ -567,7 +588,7 @@ export default function CharacterStyleABV1() {
               <p className={styles.qaDetails} role="status">{qaDetails}</p>
               <p className={styles.fine}>
                 Facial QA chỉ hoạt động với morph có thật trong VRM. Nếu thiếu morph, chọn bài test sẽ không tạo biểu cảm giả.
-                Outfit Premium hiện là geometry thử nghiệm, chưa phải quần áo SkinnedMesh.
+                Outfit Premium là hình học mới dựa trên trang phục VRM nguồn, có skinning thật; vẫn cần asset artist độc lập trước khi triển khai shop.
               </p>
             </div>
             <div className={styles.section}>
