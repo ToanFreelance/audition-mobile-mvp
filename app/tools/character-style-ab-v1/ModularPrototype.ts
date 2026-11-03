@@ -128,45 +128,73 @@ function applyMaterialLooks(root: THREE.Group, look: ModularLook) {
   return { irisMaterialCount, hairMaterialCount, outfitMaterialCount };
 }
 
-function addGlasses(group: THREE.Group, head: { x:number;y:number;z:number }) {
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0xf5d7ff,
-    metalness: 0.75,
-    roughness: 0.2,
+type AccessoryFit = { bone: THREE.Bone | null; x: number; y: number; front: number; rear: number; unit: number };
+
+/** VRM0 faces -Z. Position headwear relative to the skeleton, not scene origin. */
+function fitAccessories(root: THREE.Group): AccessoryFit {
+  const anchor = faceLocator(root);
+  let bone: THREE.Bone | null = null;
+  root.traverse((object) => {
+    if (object instanceof THREE.Bone && /J_Bip_C_Head|(?:^|[_-])head$/i.test(object.name)) bone = object;
   });
-  for (const sign of [-1, 1]) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.119, 0.010, 8, 48), mat.clone());
-    ring.scale.y = 0.73;
-    ring.position.set(head.x + sign * 0.13, head.y - 0.018, head.z + 0.022);
-    group.add(ring);
+  const p = new THREE.Vector3(anchor.x, anchor.y - 0.105, 0);
+  if (bone) {
+    bone.getWorldPosition(p);
+    root.worldToLocal(p);
   }
-  const bridge = cylinder(0.008, 0.008, 0.09, 0xf5d7ff);
-  bridge.rotation.z = Math.PI / 2;
-  bridge.position.set(head.x, head.y - 0.012, head.z + 0.02);
-  group.add(bridge);
-  for (const sign of [-1, 1]) {
-    const hinge = cylinder(0.008, 0.008, 0.13, 0xf5d7ff);
-    hinge.rotation.z = Math.PI / 2;
-    hinge.position.set(head.x + sign * 0.245, head.y - 0.025, head.z + 0.013);
-    group.add(hinge);
-  }
-  mat.dispose();
+  const bounds = new THREE.Box3().setFromObject(root);
+  const unit = THREE.MathUtils.clamp(bounds.getSize(new THREE.Vector3()).y / 2.65, 0.75, 1.3);
+  return {
+    bone, x: anchor.x, y: anchor.y,
+    front: p.z - 0.205 * unit, rear: p.z + 0.19 * unit, unit,
+  };
 }
 
-function addPonytail(group: THREE.Group, head: { x:number;y:number;z:number }) {
-  const hair = new THREE.MeshStandardMaterial({ color: 0x8a3f65, roughness: 0.73 });
-  const path = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(head.x, head.y + 0.19, head.z - 0.24),
-    new THREE.Vector3(head.x + 0.17, head.y + 0.06, head.z - 0.37),
-    new THREE.Vector3(head.x + 0.20, head.y - 0.19, head.z - 0.40),
-    new THREE.Vector3(head.x + 0.17, head.y - 0.40, head.z - 0.38),
-    new THREE.Vector3(head.x + 0.23, head.y - 0.63, head.z - 0.36),
-  ]);
-  const thick = new THREE.Mesh(new THREE.TubeGeometry(path, 30, 0.10, 10, false), hair);
-  group.add(thick);
-  const band = sphere(0.075, 0xf0b2eb, 0.15, 0.32);
-  band.position.set(head.x, head.y + 0.18, head.z - 0.24);
-  group.add(band);
+function addGlasses(group: THREE.Group, fit: AccessoryFit) {
+  const s = fit.unit, y = fit.y, z = fit.front - 0.028 * s;
+  const metal = new THREE.MeshStandardMaterial({ color: 0xe1c7eb, metalness: 0.55, roughness: 0.25 });
+  for (const sign of [-1, 1]) {
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.092*s, 0.006*s, 7, 48), metal);
+    rim.scale.y = 0.72;
+    rim.position.set(fit.x + sign*0.101*s, y, z);
+    group.add(rim);
+    const side = new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(
+      new THREE.Vector3(fit.x+sign*0.190*s,y,z),
+      new THREE.Vector3(fit.x+sign*0.22*s,y-0.013*s,z+0.105*s)), 6, 0.004*s, 5, false), metal);
+    group.add(side);
+  }
+  group.add(new THREE.Mesh(new THREE.TubeGeometry(
+    new THREE.QuadraticBezierCurve3(
+      new THREE.Vector3(fit.x-0.012*s,y,z),
+      new THREE.Vector3(fit.x,y+0.024*s,z-0.009*s),
+      new THREE.Vector3(fit.x+0.012*s,y,z)),
+    10, 0.005*s, 5, false), metal));
+}
+
+/** Compact rear ponytail: three slim strands and ribbon behind the skull (+Z). */
+function addPonytail(group: THREE.Group, fit: AccessoryFit) {
+  const s = fit.unit, x = fit.x, y = fit.y+0.17*s, z = fit.rear+0.035*s;
+  const hair = new THREE.MeshStandardMaterial({ color: 0x884568, roughness: 0.76 });
+  for (let n=0; n<3; n++) {
+    const side=n-1;
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(x+side*0.025*s, y, z),
+      new THREE.Vector3(x+side*0.050*s+0.025*s, y-0.13*s, z+0.08*s),
+      new THREE.Vector3(x+side*0.065*s+0.045*s, y-0.31*s, z+0.12*s),
+      new THREE.Vector3(x+side*0.065*s+0.020*s, y-0.48*s, z+0.16*s),
+    ]);
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 20, (n===1?0.033:0.026)*s, 8, false), hair));
+  }
+  const band=sphere(0.044*s,0xeec9ef,0.20,0.38);
+  band.position.set(x,y,z);group.add(band);
+  for (const sign of [-1,1]) {
+    const bow=new THREE.Mesh(new THREE.SphereGeometry(0.045*s,12,8),
+      new THREE.MeshStandardMaterial({color:0xcaa0df,roughness:0.5}));
+    bow.scale.set(1.25,0.55,0.38);
+    bow.position.set(x+sign*0.055*s,y,z-0.015*s);
+    bow.rotation.z=sign*0.42;
+    group.add(bow);
+  }
 }
 
 function addPremiumShell(group: THREE.Group) {
@@ -207,6 +235,16 @@ function addPremiumShell(group: THREE.Group) {
 
 export function disposeOverlay(group: THREE.Group | null) {
   if (!group) return;
+  const headParts = group.userData.headParts as THREE.Group | undefined;
+  if (headParts) {
+    headParts.parent?.remove(headParts);
+    headParts.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.geometry.dispose();
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach((material) => material.dispose());
+    });
+  }
   group.parent?.remove(group);
   group.traverse((object) => {
     if (!(object instanceof THREE.Mesh)) return;
@@ -228,8 +266,18 @@ export function rebuildModularPreview(
   group.userData.modularPreviewOverlay = true;
   const head = faceLocator(model);
 
-  if (look.glasses) addGlasses(group, head);
-  if (look.hair === "pony") addPonytail(group, head);
+  if (look.glasses || look.hair === "pony") {
+    const fit = fitAccessories(model);
+    const headParts = new THREE.Group();
+    headParts.name = "AB_head_accessories_V11";
+    headParts.userData.modularPreviewOverlay = true;
+    if (look.glasses) addGlasses(headParts, fit);
+    if (look.hair === "pony") addPonytail(headParts, fit);
+    model.add(headParts);
+    model.updateMatrixWorld(true);
+    if (fit.bone) fit.bone.attach(headParts);
+    group.userData.headParts = headParts;
+  }
   if (look.outfit === "premium") addPremiumShell(group);
 
   // Differentiated, detachable sparkle decals. Source VRM iris tint is only
