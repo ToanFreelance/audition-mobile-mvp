@@ -75,7 +75,7 @@ export function buildSkinnedWardrobe(root: THREE.Group): WardrobeResult {
     const geometry = source.geometry.clone();
     if (materials.length > 1) {
       const valid = new Set(matched);
-      const groups = geometry.groups.filter((group) => valid.has(group.materialIndex));
+      const groups = geometry.groups.filter((group) => valid.has(group.materialIndex ?? 0));
       if (!groups.length) {
         geometry.dispose();
         continue;
