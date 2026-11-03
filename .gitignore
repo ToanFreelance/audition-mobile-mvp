@@ -11,3 +11,8 @@ playwright-report
 test-results
 *.tsbuildinfo
 game/generated-rhythm.ts
+
+# Isolated Fashion A+B procedural QA assets generated at build time
+scripts/fashion-ab-demo/FashionAB_*_DanceRig_V1.glb
+scripts/fashion-ab-demo/BUILD_MANIFEST.json
+public/tools/fashion-ab-dance-v1/*.glb

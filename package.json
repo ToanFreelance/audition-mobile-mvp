@@ -6,7 +6,7 @@
     "dev": "next dev",
     "predev": "node scripts/analyze-rhythm.mjs",
     "build": "next build",
-    "prebuild": "node scripts/analyze-rhythm.mjs",
+    "prebuild": "node scripts/analyze-rhythm.mjs && node scripts/fashion-ab-demo/generate.mjs",
     "start": "next start",
     "lint": "eslint . --quiet && node scripts/verify-c3-lint-tdz.mjs",
     "test:qa": "playwright test",
@@ -17,7 +17,8 @@
     "test:qa:lobby:fast": "playwright test e2e/s2-stage-catalog.spec.ts e2e/s2-5a-neon-stage.spec.ts e2e/lobby-preload-handoff.spec.ts e2e/preload-mobile-memory.spec.ts e2e/published-animation-identity.spec.ts e2e/lobby-all-clients-loaded.spec.ts e2e/lobby-start-freeze.spec.ts e2e/lobby-presence.spec.ts e2e/lobby-stage-identity.spec.ts e2e/multiplayer-start-protocol.spec.ts e2e/multiplayer-transport.spec.ts --project=desktop --workers=1",
     "visual:neon:diff": "node scripts/neon-stage-visual-diff.mjs",
     "lint:fix": "eslint . --fix",
-    "lint:report": "eslint ."
+    "lint:report": "eslint .",
+    "fashion:assets": "node scripts/fashion-ab-demo/generate.mjs"
   },
   "dependencies": {
     "@audio/beat": "^2.1.3",
