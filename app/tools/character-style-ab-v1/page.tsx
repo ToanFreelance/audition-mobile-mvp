@@ -1,0 +1,411 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import styles from "./style.module.css";
+
+type CharacterKey = "soft" | "fashion";
+type CameraKey = "full" | "front" | "left" | "right" | "face";
+type SourceStatus = "loading" | "ready" | "error";
+
+const ASSETS: Record<CharacterKey, { label: string; description: string; path: string }> = {
+  soft: {
+    label: "Soft Mature",
+    description: "VRoid AvatarSample_A • dáng trưởng thành, mặt anime mềm",
+    path: "AvatarSample_A.vrm",
+  },
+  fashion: {
+    label: "Fashion Idol",
+    description: "VRoid AvatarSample_B • outfit street-fashion, màu tím",
+    path: "AvatarSample_B.vrm",
+  },
+};
+const SOURCES = [
+  "https://raw.githubusercontent.com/madjin/vrm-samples/master/vroid/stable/",
+  "https://cdn.jsdelivr.net/gh/madjin/vrm-samples@master/vroid/stable/",
+];
+
+type Stage = {
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  controls: OrbitControls;
+  renderer: THREE.WebGLRenderer;
+  model: THREE.Group | null;
+  animationId: number;
+  mixer: THREE.AnimationMixer | null;
+  clock: THREE.Clock;
+};
+
+function disposeTree(object: THREE.Object3D) {
+  object.traverse((node) => {
+    if (!(node instanceof THREE.Mesh)) return;
+    node.geometry?.dispose();
+    const mats = Array.isArray(node.material) ? node.material : [node.material];
+    for (const material of mats) {
+      if (!material) continue;
+      const record = material as THREE.Material & {
+        map?: THREE.Texture; normalMap?: THREE.Texture; emissiveMap?: THREE.Texture;
+        metalnessMap?: THREE.Texture; roughnessMap?: THREE.Texture; alphaMap?: THREE.Texture;
+      };
+      for (const key of ["map", "normalMap", "emissiveMap", "metalnessMap", "roughnessMap", "alphaMap"] as const) {
+        record[key]?.dispose();
+      }
+      material.dispose();
+    }
+  });
+}
+
+function setCamera(stage: Stage, view: CameraKey) {
+  const { camera, controls } = stage;
+  const poses: Record<CameraKey, { position: [number, number, number]; target: [number, number, number] }> = {
+    full: { position: [0, 1.42, 5.7], target: [0, 1.36, 0] },
+    front: { position: [0, 1.73, 3.3], target: [0, 1.67, 0] },
+    left: { position: [2.3, 1.85, 2.9], target: [0, 1.78, 0] },
+    right: { position: [-2.3, 1.85, 2.9], target: [0, 1.78, 0] },
+    face: { position: [0, 2.37, 1.46], target: [0, 2.34, 0] },
+  };
+  const pose = poses[view];
+  camera.position.set(...pose.position);
+  controls.target.set(...pose.target);
+  controls.update();
+}
+
+export default function CharacterStyleABV1() {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<Stage | null>(null);
+  const uploadRef = useRef<HTMLInputElement | null>(null);
+  const localUrlRef = useRef<string | null>(null);
+  const [character, setCharacter] = useState<CharacterKey>("soft");
+  const [cameraView, setCameraView] = useState<CameraKey>("full");
+  const [status, setStatus] = useState<SourceStatus>("loading");
+  const [message, setMessage] = useState("Đang khởi tạo WebGL2…");
+  const [assetName, setAssetName] = useState<string>("");
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [flip, setFlip] = useState(false);
+  const [softLighting, setSoftLighting] = useState(true);
+  const [localUrl, setLocalUrl] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const host = viewportRef.current;
+    if (!host) return;
+    const testCanvas = document.createElement("canvas");
+    if (!testCanvas.getContext("webgl2")) {
+      setMessage("Thiết bị không hỗ trợ WebGL2.");
+      setStatus("error");
+      return;
+    }
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.04, 100);
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true, alpha: true, powerPreference: "high-performance",
+    });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.setClearAlpha(0);
+    host.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.enablePan = false;
+    controls.minDistance = 0.7;
+    controls.maxDistance = 8;
+    controls.maxPolarAngle = Math.PI * 0.88;
+    controls.autoRotateSpeed = 0.6;
+
+    const hemi = new THREE.HemisphereLight(0xfff3ff, 0x48395c, 2.0);
+    scene.add(hemi);
+    const key = new THREE.DirectionalLight(0xffffff, 2.5);
+    key.position.set(3.5, 5, 5);
+    scene.add(key);
+    const fill = new THREE.DirectionalLight(0xe8b7ff, 1.35);
+    fill.position.set(-4, 2, -3);
+    scene.add(fill);
+
+    const stageDisk = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.25, 1.34, 0.12, 64),
+      new THREE.MeshStandardMaterial({ color: 0x30243e, metalness: 0.25, roughness: 0.7 }),
+    );
+    stageDisk.position.y = -0.12;
+    scene.add(stageDisk);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.27, 0.012, 8, 80),
+      new THREE.MeshBasicMaterial({ color: 0xcda2ff }),
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = -0.046;
+    scene.add(ring);
+
+    const stage: Stage = {
+      scene, camera, controls, renderer, model: null, mixer: null, clock: new THREE.Clock(),
+      animationId: 0,
+    };
+    stageRef.current = stage;
+    setCamera(stage, "full");
+
+    const resize = () => {
+      const width = Math.max(1, host.clientWidth);
+      const height = Math.max(1, host.clientHeight);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(host);
+    resize();
+
+    const tick = () => {
+      stage.animationId = requestAnimationFrame(tick);
+      stage.mixer?.update(Math.min(stage.clock.getDelta(), 0.05));
+      controls.update();
+      renderer.render(scene, camera);
+    };
+    tick();
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(stage.animationId);
+      stage.mixer?.stopAllAction();
+      controls.dispose();
+      if (stage.model) {
+        scene.remove(stage.model);
+        disposeTree(stage.model);
+      }
+      stageDisk.geometry.dispose();
+      (stageDisk.material as THREE.Material).dispose();
+      ring.geometry.dispose();
+      (ring.material as THREE.Material).dispose();
+      renderer.dispose();
+      renderer.domElement.remove();
+      stageRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    stage.controls.autoRotate = autoRotate;
+  }, [autoRotate]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    stage.renderer.toneMappingExposure = softLighting ? 1.25 : 0.98;
+  }, [softLighting]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    if (stage.model) stage.model.rotation.y = flip ? Math.PI : 0;
+  }, [flip]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (stage) setCamera(stage, cameraView);
+  }, [cameraView, status]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    let canceled = false;
+    setStatus("loading");
+    setAssetName("");
+    setMessage("Đang nạp mesh VRM mới (không dùng Claude/EyePack cũ)…");
+    stage.mixer?.stopAllAction();
+    stage.mixer = null;
+    if (stage.model) {
+      stage.scene.remove(stage.model);
+      disposeTree(stage.model);
+      stage.model = null;
+    }
+    const loader = new GLTFLoader();
+    loader.setCrossOrigin("anonymous");
+
+    const paths = localUrl
+      ? [localUrl]
+      : SOURCES.map((prefix) => prefix + ASSETS[character].path);
+
+    const load = (index: number) => {
+      if (canceled) return;
+      if (index >= paths.length) {
+        setStatus("error");
+        setMessage("Không tải được nguồn VRM. Bạn có thể chọn tệp .vrm/.glb trên thiết bị để xem thử.");
+        return;
+      }
+      loader.load(
+        paths[index],
+        (gltf) => {
+          if (canceled) {
+            disposeTree(gltf.scene);
+            return;
+          }
+          const model = gltf.scene;
+          model.updateMatrixWorld(true);
+          const bounds = new THREE.Box3().setFromObject(model);
+          const dimensions = bounds.getSize(new THREE.Vector3());
+          if (!Number.isFinite(dimensions.y) || dimensions.y <= 0) {
+            setMessage("Tệp không chứa mesh 3D hợp lệ.");
+            setStatus("error");
+            return;
+          }
+          const scale = 2.65 / dimensions.y;
+          model.scale.setScalar(scale);
+          model.position.set(
+            -(bounds.min.x + bounds.max.x) * 0.5 * scale,
+            -bounds.min.y * scale,
+            -(bounds.min.z + bounds.max.z) * 0.5 * scale,
+          );
+          const root = new THREE.Group();
+          root.add(model);
+          root.rotation.y = flip ? Math.PI : 0;
+          stage.scene.add(root);
+          stage.model = root;
+          if (gltf.animations.length > 0) {
+            const mixer = new THREE.AnimationMixer(model);
+            const idle = gltf.animations.find((clip) => /idle/i.test(clip.name)) ?? gltf.animations[0];
+            mixer.clipAction(idle).play();
+            stage.mixer = mixer;
+          }
+          setStatus("ready");
+          setMessage("Đang xem mesh 3D thật • dùng một ngón để xoay, hai ngón để zoom");
+          setAssetName(localUrl ? "Tệp VRM/GLB tải lên" : ASSETS[character].label);
+        },
+        (event) => {
+          if (!canceled && event.total) {
+            const percent = Math.min(100, Math.round(event.loaded / event.total * 100));
+            setMessage("Đang tải nhân vật 3D: " + percent + "%");
+          }
+        },
+        () => load(index + 1),
+      );
+    };
+    load(0);
+    return () => {
+      canceled = true;
+    };
+  }, [character, localUrl, reloadKey]);
+
+  const selectFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    if (!/\.(vrm|glb)$/i.test(file.name)) {
+      setStatus("error");
+      setMessage("Chỉ hỗ trợ .vrm hoặc .glb.");
+      return;
+    }
+    if (localUrlRef.current) URL.revokeObjectURL(localUrlRef.current);
+    const url = URL.createObjectURL(file);
+    localUrlRef.current = url;
+    setLocalUrl(url);
+    setReloadKey((value) => value + 1);
+  }, []);
+
+  useEffect(() => () => {
+    if (localUrlRef.current) URL.revokeObjectURL(localUrlRef.current);
+  }, []);
+
+  const pickCharacter = (id: CharacterKey) => {
+    if (localUrlRef.current) {
+      URL.revokeObjectURL(localUrlRef.current);
+      localUrlRef.current = null;
+      setLocalUrl(null);
+    }
+    setCharacter(id);
+    setFlip(false);
+    setCameraView("full");
+    setReloadKey((value) => value + 1);
+  };
+
+  return (
+    <main className={styles.page}>
+      <div className={styles.shell}>
+        <header className={styles.header}>
+          <div className={styles.eyebrow}>AUDITION MOBILE MVP • ISOLATED STYLE LAB</div>
+          <h1>Character Style A+B <span>Demo V1</span></h1>
+          <p>Thử phong cách <b>Mature Fashion × Soft Anime</b> trên nhân vật VRoid hoàn toàn tách biệt với base Claude V2 và EyePack cũ.</p>
+        </header>
+
+        <div className={styles.layout}>
+          <section className={styles.viewer} aria-label="Trình xem nhân vật 3D">
+            <div ref={viewportRef} className={styles.canvas} />
+            <div className={styles.viewerTop}>
+              <span className={styles.live}>● WEBGL2 • REAL 3D</span>
+              <span className={styles.viewerName}>{assetName || "VRoid Character Candidate"}</span>
+            </div>
+            <div className={styles.viewerBottom}>
+              {status === "loading" && <span className={styles.loader} aria-hidden="true" />}
+              <span>{message}</span>
+              {status === "error" && <button type="button" onClick={() => setReloadKey((value) => value + 1)}>Thử tải lại</button>}
+            </div>
+          </section>
+
+          <aside className={styles.panel}>
+            <div className={styles.section}>
+              <h2>01 — Chọn hướng khuôn mặt</h2>
+              <div className={styles.twoChoices}>
+                {(Object.keys(ASSETS) as CharacterKey[]).map((id) => (
+                  <button key={id} type="button" onClick={() => pickCharacter(id)}
+                    className={character === id && !localUrl ? styles.activeChoice : styles.choice}>
+                    <strong>{ASSETS[id].label}</strong>
+                    <small>{id === "soft" ? "Ưu tiên mặt • dịu, trưởng thành" : "Ưu tiên outfit • street-fashion"}</small>
+                  </button>
+                ))}
+              </div>
+              <p className={styles.description}>{localUrl ? "Đang xem tệp bạn vừa chọn." : ASSETS[character].description}</p>
+            </div>
+
+            <div className={styles.section}>
+              <h2>02 — Góc nhìn</h2>
+              <div className={styles.cameraGrid}>
+                {([
+                  ["full", "Toàn thân"], ["front", "Chính diện"], ["left", "3/4 trái"],
+                  ["right", "3/4 phải"], ["face", "Cận mặt"],
+                ] as [CameraKey, string][]).map(([key, label]) => (
+                  <button key={key} type="button" aria-pressed={cameraView === key}
+                    className={cameraView === key ? styles.selectedCamera : styles.cameraButton}
+                    onClick={() => { setCameraView(key); stageRef.current && setCamera(stageRef.current, key); }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.section}>
+              <h2>03 — Hiển thị</h2>
+              <div className={styles.toggleList}>
+                <label><input type="checkbox" checked={softLighting} onChange={(e) => setSoftLighting(e.target.checked)} /> Ánh sáng Soft Anime</label>
+                <label><input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} /> Tự xoay 360°</label>
+                <label><input type="checkbox" checked={flip} onChange={(e) => setFlip(e.target.checked)} /> Đảo mặt trước / sau</label>
+              </div>
+            </div>
+
+            <div className={styles.section}>
+              <h2>04 — Tệp 3D khác</h2>
+              <input ref={uploadRef} accept=".vrm,.glb" type="file" className={styles.hidden} onChange={selectFile} />
+              <button className={styles.uploadButton} type="button" onClick={() => uploadRef.current?.click()}>
+                Mở VRM / GLB của bạn
+              </button>
+              <p className={styles.fine}>File được xem trực tiếp trên thiết bị, không upload lên server của game.</p>
+            </div>
+
+            <div className={styles.notice}>
+              <strong>Phạm vi demo</strong>
+              <p>Đây là bản thử phong cách trên hai sample VRoid mới, chưa phải nhân vật độc quyền đã sculpt lại. EyeSet modular, blink và outfit tùy biến sẽ được dựng trên base được bạn chốt; không có thay đổi gameplay hoặc Character Catalog.</p>
+            </div>
+          </aside>
+        </div>
+
+        <footer className={styles.footer}>
+          <span>3D source: VRoid Studio AvatarSample_A/B by pixiv — dùng làm visual prototype.</span>
+          <a href="https://vroid.pixiv.help/hc/en-us/articles/4402394424089-VRoidPreset-A-Z" target="_blank" rel="noreferrer">Điều kiện sử dụng VRoid</a>
+        </footer>
+      </div>
+    </main>
+  );
+}
