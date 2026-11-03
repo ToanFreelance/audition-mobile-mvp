@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import styles from "./style.module.css";
+import { CharacterAnimationQa, QA_MOTIONS, type QaMotion } from "./AnimationQa";
 import { rebuildModularPreview, disposeOverlay, type EyeLook, type HairLook, type OutfitLook } from "./ModularPrototype";
 
 type CharacterKey = "soft" | "fashion";
@@ -78,6 +79,9 @@ export default function CharacterStyleABV1() {
   const stageRef = useRef<Stage | null>(null);
   const uploadRef = useRef<HTMLInputElement | null>(null);
   const overlayRef = useRef<THREE.Group | null>(null);
+  const qaRunnerRef = useRef<CharacterAnimationQa | null>(null);
+  const baseFacingRef = useRef(0);
+  const localFilenameRef = useRef<string>("");
   const localUrlRef = useRef<string | null>(null);
   const [character, setCharacter] = useState<CharacterKey>("soft");
   const [cameraView, setCameraView] = useState<CameraKey>("full");
@@ -89,6 +93,8 @@ export default function CharacterStyleABV1() {
   const [outfitLook, setOutfitLook] = useState<OutfitLook>("basic");
   const [glasses, setGlasses] = useState(false);
   const [catalogStatus, setCatalogStatus] = useState("Mở model B để thử các vật phẩm modular.");
+  const [qaMotion, setQaMotion] = useState<QaMotion>("off");
+  const [qaDetails, setQaDetails] = useState("Chưa nạp rig để kiểm tra.");
   const [autoRotate, setAutoRotate] = useState(false);
   const [flip, setFlip] = useState(false);
   const [softLighting, setSoftLighting] = useState(true);
@@ -169,7 +175,10 @@ export default function CharacterStyleABV1() {
 
     const tick = () => {
       stage.animationId = requestAnimationFrame(tick);
-      stage.mixer?.update(Math.min(stage.clock.getDelta(), 0.05));
+      const delta = Math.min(stage.clock.getDelta(), 0.05);
+      const qaRunner = qaRunnerRef.current;
+      if (qaRunner && qaRunner.getMode() !== "off") qaRunner.update(delta);
+      else stage.mixer?.update(delta);
       controls.update();
       renderer.render(scene, camera);
     };
@@ -179,6 +188,10 @@ export default function CharacterStyleABV1() {
       observer.disconnect();
       cancelAnimationFrame(stage.animationId);
       stage.mixer?.stopAllAction();
+      qaRunnerRef.current?.dispose();
+      qaRunnerRef.current = null;
+      disposeOverlay(overlayRef.current);
+      overlayRef.current = null;
       controls.dispose();
       if (stage.model) {
         scene.remove(stage.model);
@@ -209,13 +222,28 @@ export default function CharacterStyleABV1() {
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    if (stage.model) stage.model.rotation.y = flip ? Math.PI : 0;
+    if (stage.model) stage.model.rotation.y = baseFacingRef.current + (flip ? Math.PI : 0);
   }, [flip]);
 
   useEffect(() => {
     const stage = stageRef.current;
     if (stage) setCamera(stage, cameraView);
   }, [cameraView, status]);
+
+  useEffect(() => {
+    qaRunnerRef.current?.setMode(qaMotion);
+  }, [qaMotion, status]);
+
+  const selectQaMotion = (mode: QaMotion) => {
+    setQaMotion(mode);
+    qaRunnerRef.current?.setMode(mode);
+    if (mode !== "off") {
+      const group = QA_MOTIONS.find((entry) => entry.id === mode)?.group;
+      const view: CameraKey = group === "face" ? "face" : group === "head" ? "front" : "full";
+      setCameraView(view);
+      if (stageRef.current) setCamera(stageRef.current, view);
+    }
+  };
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -239,6 +267,10 @@ export default function CharacterStyleABV1() {
     setMessage("Đang nạp mesh VRM mới (không dùng Claude/EyePack cũ)…");
     stage.mixer?.stopAllAction();
     stage.mixer = null;
+    qaRunnerRef.current?.dispose();
+    qaRunnerRef.current = null;
+    setQaMotion("off");
+    setQaDetails("Đang phân tích skeleton và facial morph…");
     disposeOverlay(overlayRef.current);
     overlayRef.current = null;
     if (stage.model) {
@@ -285,9 +317,21 @@ export default function CharacterStyleABV1() {
           );
           const root = new THREE.Group();
           root.add(model);
-          root.rotation.y = flip ? Math.PI : 0;
+          // VRM 0.x is authored facing -Z. The preview camera is at +Z.
+          // Normalizing at the outer root fixes both VRoid samples while
+          // retaining the "Đảo mặt trước / sau" diagnostic toggle.
+          const sourceIsVrm = !localUrl ||
+            /\.vrm$/i.test(localFilenameRef.current) ||
+            Boolean((gltf.parser as unknown as {
+              json?: { extensions?: Record<string, unknown> };
+            }).json?.extensions?.VRM);
+          baseFacingRef.current = sourceIsVrm ? Math.PI : 0;
+          root.rotation.y = baseFacingRef.current + (flip ? Math.PI : 0);
           stage.scene.add(root);
           stage.model = root;
+          const qaRunner = new CharacterAnimationQa(model, gltf.parser);
+          qaRunnerRef.current = qaRunner;
+          setQaDetails(qaRunner.summary);
           if (gltf.animations.length > 0) {
             const mixer = new THREE.AnimationMixer(model);
             const idle = gltf.animations.find((clip) => /idle/i.test(clip.name)) ?? gltf.animations[0];
@@ -316,6 +360,7 @@ export default function CharacterStyleABV1() {
   const selectFile = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.currentTarget.files?.[0];
     if (!file) return;
+    localFilenameRef.current = file.name;
     if (!/\.(vrm|glb)$/i.test(file.name)) {
       setStatus("error");
       setMessage("Chỉ hỗ trợ .vrm hoặc .glb.");
@@ -349,7 +394,7 @@ export default function CharacterStyleABV1() {
       <div className={styles.shell}>
         <header className={styles.header}>
           <div className={styles.eyebrow}>AUDITION MOBILE MVP • ISOLATED STYLE LAB</div>
-          <h1>Character B — Modular <span>Prototype V1</span></h1>
+          <h1>Character B — Modular <span>Prototype V1.2</span></h1>
           <p>Thử <b>Fashion B × Soft Anime A</b>, thay đổi mắt, tóc, outfit Basic/Premium và kính trên nhân vật 3D thật. Các lớp vật phẩm đang ở mức thử nghiệm visual.</p>
         </header>
 
@@ -432,7 +477,29 @@ export default function CharacterStyleABV1() {
               <p className={styles.catalogStatus} role="status">{catalogStatus}</p>
             </div>
             <div className={styles.section}>
-              <h2>05 — Tệp 3D khác</h2>
+              <h2>05 — Animation QA (cục bộ)</h2>
+              <p className={styles.description}>
+                Kiểm tra mesh khi mặt, cổ, tay và chân chuyển động. Animation QA độc lập với gameplay, không ảnh hưởng WebAudio.
+              </p>
+              <div className={styles.qaGrid}>
+                {QA_MOTIONS.map(({ id, name }) => (
+                  <button key={id} type="button" aria-pressed={qaMotion === id}
+                    disabled={status !== "ready"}
+                    className={qaMotion === id ? styles.qaActive : styles.qaButton}
+                    onClick={() => selectQaMotion(id)}>{name}</button>
+                ))}
+              </div>
+              <button type="button" className={styles.qaReset}
+                disabled={status !== "ready"}
+                onClick={() => selectQaMotion("off")}>■ Dừng / Reset Pose</button>
+              <p className={styles.qaDetails} role="status">{qaDetails}</p>
+              <p className={styles.fine}>
+                Facial QA chỉ hoạt động với morph có thật trong VRM. Nếu thiếu morph, chọn bài test sẽ không tạo biểu cảm giả.
+                Outfit Premium hiện là geometry thử nghiệm, chưa phải quần áo SkinnedMesh.
+              </p>
+            </div>
+            <div className={styles.section}>
+              <h2>06 — Tệp 3D khác</h2>
               <input ref={uploadRef} accept=".vrm,.glb" type="file" className={styles.hidden} onChange={selectFile} />
               <button className={styles.uploadButton} type="button" onClick={() => uploadRef.current?.click()}>
                 Mở VRM / GLB của bạn

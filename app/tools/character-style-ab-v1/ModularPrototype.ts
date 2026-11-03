@@ -151,16 +151,16 @@ function fitAccessories(root: THREE.Group): AccessoryFit {
 }
 
 function addGlasses(group: THREE.Group, fit: AccessoryFit) {
-  const s = fit.unit, y = fit.y, z = fit.front - 0.028 * s;
+  const s = fit.unit, y = fit.y, z = fit.front - 0.017 * s;
   const metal = new THREE.MeshStandardMaterial({ color: 0xe1c7eb, metalness: 0.55, roughness: 0.25 });
   for (const sign of [-1, 1]) {
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.092*s, 0.006*s, 7, 48), metal);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.071*s, 0.005*s, 7, 48), metal);
     rim.scale.y = 0.72;
-    rim.position.set(fit.x + sign*0.101*s, y, z);
+    rim.position.set(fit.x + sign*0.084*s, y, z);
     group.add(rim);
     const side = new THREE.Mesh(new THREE.TubeGeometry(new THREE.LineCurve3(
-      new THREE.Vector3(fit.x+sign*0.190*s,y,z),
-      new THREE.Vector3(fit.x+sign*0.22*s,y-0.013*s,z+0.105*s)), 6, 0.004*s, 5, false), metal);
+      new THREE.Vector3(fit.x+sign*0.153*s,y,z),
+      new THREE.Vector3(fit.x+sign*0.179*s,y-0.013*s,z+0.070*s)), 6, 0.0035*s, 5, false), metal);
     group.add(side);
   }
   group.add(new THREE.Mesh(new THREE.TubeGeometry(
@@ -168,7 +168,7 @@ function addGlasses(group: THREE.Group, fit: AccessoryFit) {
       new THREE.Vector3(fit.x-0.012*s,y,z),
       new THREE.Vector3(fit.x,y+0.024*s,z-0.009*s),
       new THREE.Vector3(fit.x+0.012*s,y,z)),
-    10, 0.005*s, 5, false), metal));
+    10, 0.0045*s, 5, false), metal));
 }
 
 /** Compact rear ponytail: three slim strands and ribbon behind the skull (+Z). */
