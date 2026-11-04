@@ -13,7 +13,7 @@ import sys
 import urllib.request
 
 HERE = pathlib.Path(__file__).resolve().parents[2]
-OUT = HERE / "public/characters/unified-heroine-v1/unified-heroine-v1.glb"
+OUT = HERE / "public/characters/unified-heroine-v1/unified-heroine-v1-a41bb9e659e5.glb"
 ROOT = "https://raw.githubusercontent.com/madjin/vrm-samples/master/vroid/stable/"
 CDN = "https://cdn.jsdelivr.net/gh/madjin/vrm-samples@master/vroid/stable/"
 SOURCE_DIR = pathlib.Path(os.environ.get("UNIFIED_HEROINE_SOURCE_DIR", "/tmp/unified-heroine-sources"))
@@ -339,6 +339,10 @@ def main():
     out.parent.mkdir(parents=True,exist_ok=True)
     merged_bin=compact_gltf(a, merged_bin)
     result=glb_encode(a,merged_bin)
+    # Content-addressed URL: changing the GLB requires a new filename.
+    expected_tag=out.stem.rsplit("-",1)[-1]
+    if TARGET is None and not hashlib.sha256(result).hexdigest().startswith(expected_tag):
+        raise RuntimeError("GLB hash changed: update immutable filename and viewer URL")
     out.write_bytes(result)
     data_digest=hashlib.sha256(result).hexdigest()
     manifest={"output":str(out),"size":len(result),"sha256":data_digest,

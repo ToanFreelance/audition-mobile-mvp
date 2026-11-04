@@ -30,3 +30,11 @@ Uses Python standard library, downloads two original 15 MB VRMs when not cached.
 - Viewer reports XHR download percentage, guards against stalled transfer (40-second idle watchdog), exposes error and manual retry, and preserves single actor/mixer during look swaps.
 - Chromium/SwiftShader mobile QA: forced asset request failure -> error UI -> retry success -> Premium + dance with stable actor UUID, no page exceptions. Blender 5.0.1 reimport PASS. Owner iPhone physical Safari still pending.
 - Preview assets may require Vercel SSO because previews are deployment-protected. No production Catalog changes.
+
+## Owner iPhone visual correction V1.1
+- Hair swap toggles Hair001 and UHV1_FashionPonytail_Skinned parent groups; source hairs are group children.
+- Glasses are reduced to measured eye spacing; hair clips are small bone-attached barrettes rather than elevated halo rings.
+- Cross-step dance now uses outward hip separation and single-direction knee flexion, preserving the existing eight-beat demonstration.
+- GLB is content-hashed at a41bb9e659e5 and served with a targeted Vercel immutable browser-cache header.
+- Each unique Preview hostname has a separate browser cache; a stable branch preview alias is preferred across builds. iOS may evict cached files.
+- No Supabase Storage requests for this character asset. Owner physical iPhone visual acceptance pending.

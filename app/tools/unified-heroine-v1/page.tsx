@@ -10,7 +10,7 @@ type Hair="classic"|"pony";
 type Eye="natural"|"doll"|"idol"|"heart";
 type Stage={root:T.Group|null;scene:T.Scene;camera:T.PerspectiveCamera;renderer:T.WebGLRenderer;orbit:OrbitControls;
 mixer:T.AnimationMixer|null;action:T.AnimationAction|null;rest:Map<T.Bone,T.Quaternion>;frame:number;accessory:T.Group|null};
-const source="/characters/unified-heroine-v1/unified-heroine-v1.glb";
+const source="/characters/unified-heroine-v1/unified-heroine-v1-a41bb9e659e5.glb";
 const angles:Record<View,{p:[number,number,number];t:[number,number,number]}> = {
 full:{p:[0,1.43,5.8],t:[0,1.36,0]},front:{p:[0,1.7,3.5],t:[0,1.62,0]},
 left:{p:[2.5,1.7,2.8],t:[0,1.61,0]},right:{p:[-2.5,1.7,2.8],t:[0,1.61,0]},
@@ -18,13 +18,16 @@ face:{p:[0,2.3,1.4],t:[0,2.34,0]}};
 function camera(r:Stage,k:View){r.camera.position.set(...angles[k].p);r.orbit.target.set(...angles[k].t);r.orbit.update();}
 function appearance(root:T.Group,outfit:Opt,hair:Hair,eye:Eye){
 const color:{[K in Eye]:number|null}={natural:null,doll:0xd6a8fc,idol:0xb28afa,heart:0xf5a2c7};
+// The source hair meshes are children of GLTF Groups, not named leaf meshes.
+const classic=root.getObjectByName("Hair001");
+const fashion=root.getObjectByName("UHV1_FashionPonytail_Skinned");
+if(classic)classic.visible=hair==="classic";
+if(fashion)fashion.visible=hair==="pony";
 root.traverse(n=>{
  if(!(n instanceof T.Mesh))return;
  const materials=Array.isArray(n.material)?n.material:[n.material];
  const basic=materials.some(m=>/(Tops_|Bottoms_|Shoes_)/.test(m.name)&&!/UHV1_FashionIdol/.test(m.name));
  if(n.name.startsWith("UHV1_Premium"))n.visible=outfit==="premium";
- else if(n.name.startsWith("UHV1_FashionPonytail"))n.visible=hair==="pony";
- else if(n.name==="Hair001")n.visible=hair==="classic";
  else if(n.name.startsWith("UHV1_Basic")||basic)n.visible=outfit==="basic";
  for(const m of materials){
   const mat=m as T.MeshStandardMaterial;
@@ -36,6 +39,7 @@ root.traverse(n=>{
  }
 });
 }
+
 function danceSetup(root:T.Group){
 const map=new Map<string,T.Bone>();root.traverse(n=>{if(n instanceof T.Bone&&!map.has(n.name))map.set(n.name,n);});
 const wanted=["J_Bip_C_Hips","J_Bip_C_Spine","J_Bip_C_Chest","J_Bip_C_Head","J_Bip_L_UpperArm","J_Bip_R_UpperArm","J_Bip_L_LowerArm","J_Bip_R_LowerArm","J_Bip_L_UpperLeg","J_Bip_R_UpperLeg","J_Bip_L_LowerLeg","J_Bip_R_LowerLeg"];
@@ -49,7 +53,9 @@ wanted.forEach((name,i)=>{
   const side=/J_Bip_R_/.test(name)?-1:1;
   const e=i<4?new T.Euler(.08*s,.09*Math.sin(t*Math.PI),.09*s):
    i<8?new T.Euler(side*(.15+.20*s),side*.08*s,side*.27*c):
-   new T.Euler(side*.30*s,side*.045*s,side*.05*c);
+   // Maintain lateral clearance on cross-steps and avoid reverse knee bends.
+   i<10?new T.Euler(side*.23*s,side*.025*s,-side*.06):
+   new T.Euler(.11+side*.09*s,0,0);
   const q=base.clone().multiply(new T.Quaternion().setFromEuler(e));
   vals.push(q.x,q.y,q.z,q.w);
  });
@@ -68,11 +74,18 @@ if(!r.root||(!glasses&&!ribbon))return;
 let bone:T.Bone|null=null;r.root.traverse(n=>{if(n instanceof T.Bone&&n.name==="J_Bip_C_Head")bone=n;});
 if(!bone)return;
 const group=new T.Group(),mat=new T.MeshStandardMaterial({color:0xe7c9fb,metalness:.65,roughness:.3});
-if(glasses)for(const s of [-1,1]){
- const rim=new T.Mesh(new T.TorusGeometry(.065,.004,8,32),mat);rim.scale.y=.7;rim.position.set(s*.085,.075,-.16);group.add(rim);
+if(glasses){
+ for(const side of [-1,1]){
+  const rim=new T.Mesh(new T.TorusGeometry(.032,.0028,8,32),mat);
+  rim.scale.y=.78;rim.position.set(side*.043,.062,-.085);group.add(rim);
+ }
+ const bridge=new T.Mesh(new T.CylinderGeometry(.002,.002,.023,8),mat);
+ bridge.rotation.z=Math.PI/2;bridge.position.set(0,.061,-.087);group.add(bridge);
 }
-if(ribbon)for(const s of [-1,1]){
- const clip=new T.Mesh(new T.TorusGeometry(.031,.006,8,24),mat);clip.scale.y=.55;clip.position.set(s*.14,.20,-.04);group.add(clip);
+if(ribbon)for(const side of [-1,1]){
+ // Flat barrettes following the side bangs instead of floating halo rings.
+ const clip=new T.Mesh(new T.BoxGeometry(.027,.007,.004),mat);
+ clip.rotation.z=side*.36;clip.position.set(side*.084,.111,-.085);group.add(clip);
 }
 (bone as T.Bone).add(group);r.accessory=group;
 }

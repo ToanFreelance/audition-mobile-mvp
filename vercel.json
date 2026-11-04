@@ -1,0 +1,10 @@
+{
+  "headers": [
+    {
+      "source": "/characters/unified-heroine-v1/unified-heroine-v1-a41bb9e659e5.glb",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}
