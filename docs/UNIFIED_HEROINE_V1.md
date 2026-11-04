@@ -23,3 +23,10 @@ Uses Python standard library, downloads two original 15 MB VRMs when not cached.
 - Short demo dance track is local-only, never controls gameplay WebAudio.
 - Mobile rendering, outfit swapping while dancing, visual Golden Reference match and owner physical iPhone acceptance pending.
 - Terms of the original pixiv VRoid sample require recheck before production distribution.
+
+## V1 mobile loading reliability (2026-11-04)
+- The GLB is generated into public/characters/unified-heroine-v1/unified-heroine-v1.glb by prebuild and is not committed as binary to Git.
+- The builder prunes unreferenced glTF accessors/materials/images/texture data without recompressing or downsampling any live VRoid textures. Candidate size changed from 30,424,992 bytes to 17,708,688 bytes.
+- Viewer reports XHR download percentage, guards against stalled transfer (40-second idle watchdog), exposes error and manual retry, and preserves single actor/mixer during look swaps.
+- Chromium/SwiftShader mobile QA: forced asset request failure -> error UI -> retry success -> Premium + dance with stable actor UUID, no page exceptions. Blender 5.0.1 reimport PASS. Owner iPhone physical Safari still pending.
+- Preview assets may require Vercel SSO because previews are deployment-protected. No production Catalog changes.

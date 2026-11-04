@@ -67,6 +67,91 @@ def glb_encode(model,binchunk):
     total = 12+8+len(j)+8+len(binchunk)
     return struct.pack("<4sII",b"glTF",2,total)+struct.pack("<I4s",len(j),b"JSON")+j+struct.pack("<I4s",len(binchunk),b"BIN\x00")+binchunk
 
+def compact_gltf(model, source):
+    """Remove unused donor geometry/images without recompressing any used texture."""
+    def subset(collection, used):
+        old = model.get(collection, [])
+        ids = sorted(used)
+        assert all(0 <= i < len(old) for i in ids), (collection, ids)
+        mapping = {old_id: new_id for new_id, old_id in enumerate(ids)}
+        model[collection] = [old[i] for i in ids]
+        return mapping
+    # Material references are owned by live mesh primitives, not the unused donor face.
+    meshes = [p for mesh in model["meshes"] for p in mesh["primitives"]]
+    material_map = subset("materials", {p["material"] for p in meshes if "material" in p})
+    for p in meshes:
+        if "material" in p: p["material"] = material_map[p["material"]]
+    tex_slots = []
+    for m in model["materials"]:
+        pbr = m.get("pbrMetallicRoughness", {})
+        tex_slots += [x for x in (
+            pbr.get("baseColorTexture"), pbr.get("metallicRoughnessTexture"),
+            m.get("normalTexture"), m.get("occlusionTexture"),
+            m.get("emissiveTexture")) if x is not None]
+    texture_map = subset("textures", {t["index"] for t in tex_slots})
+    for t in tex_slots: t["index"] = texture_map[t["index"]]
+    tex = model["textures"]
+    image_map = subset("images", {x["source"] for x in tex if "source" in x})
+    sampler_map = subset("samplers", {x["sampler"] for x in tex if "sampler" in x})
+    for t in tex:
+        if "source" in t: t["source"] = image_map[t["source"]]
+        if "sampler" in t: t["sampler"] = sampler_map[t["sampler"]]
+    accessor_used = set()
+    for p in meshes:
+        accessor_used.update(p["attributes"].values())
+        if "indices" in p: accessor_used.add(p["indices"])
+        for target in p.get("targets", []): accessor_used.update(target.values())
+    for skin in model.get("skins", []):
+        if "inverseBindMatrices" in skin: accessor_used.add(skin["inverseBindMatrices"])
+    for animation in model.get("animations", []):
+        for sampler in animation["samplers"]:
+            accessor_used.update((sampler["input"], sampler["output"]))
+    accessor_map = subset("accessors", accessor_used)
+    for p in meshes:
+        p["attributes"] = {k: accessor_map[v] for k, v in p["attributes"].items()}
+        if "indices" in p: p["indices"] = accessor_map[p["indices"]]
+        for target in p.get("targets", []):
+            for key in target: target[key] = accessor_map[target[key]]
+    for skin in model.get("skins", []):
+        if "inverseBindMatrices" in skin:
+            skin["inverseBindMatrices"] = accessor_map[skin["inverseBindMatrices"]]
+    for animation in model.get("animations", []):
+        for sampler in animation["samplers"]:
+            sampler["input"] = accessor_map[sampler["input"]]
+            sampler["output"] = accessor_map[sampler["output"]]
+    views = set()
+    for accessor in model["accessors"]:
+        if "bufferView" in accessor: views.add(accessor["bufferView"])
+        if "sparse" in accessor:
+            for key in ("indices", "values"):
+                views.add(accessor["sparse"][key]["bufferView"])
+    for im in model["images"]:
+        if "bufferView" in im: views.add(im["bufferView"])
+    old_views = model["bufferViews"]
+    remap = {i: j for j, i in enumerate(sorted(views))}
+    output = bytearray()
+    new_views = []
+    for i in sorted(views):
+        view = copy.deepcopy(old_views[i])
+        start = view.get("byteOffset", 0)
+        end = start + view["byteLength"]
+        assert 0 <= start <= end <= len(source), (i, start, end, len(source))
+        output.extend(bytes((-len(output)) % 4))
+        view["byteOffset"] = len(output)
+        view["buffer"] = 0
+        output.extend(source[start:end])
+        new_views.append(view)
+    model["bufferViews"] = new_views
+    for accessor in model["accessors"]:
+        if "bufferView" in accessor: accessor["bufferView"] = remap[accessor["bufferView"]]
+        if "sparse" in accessor:
+            for key in ("indices", "values"):
+                accessor["sparse"][key]["bufferView"] = remap[accessor["sparse"][key]["bufferView"]]
+    for im in model["images"]:
+        if "bufferView" in im: im["bufferView"] = remap[im["bufferView"]]
+    assert len(output) < len(source), "compaction did not remove any dead bytes"
+    return bytes(output)
+
 def main():
     A, ab = parse(source("A"))
     B, bb = parse(source("B"))
@@ -252,6 +337,7 @@ def main():
     }
     out = pathlib.Path(TARGET) if TARGET else OUT
     out.parent.mkdir(parents=True,exist_ok=True)
+    merged_bin=compact_gltf(a, merged_bin)
     result=glb_encode(a,merged_bin)
     out.write_bytes(result)
     data_digest=hashlib.sha256(result).hexdigest()

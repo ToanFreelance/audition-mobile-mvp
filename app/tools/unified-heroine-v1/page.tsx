@@ -82,8 +82,11 @@ const [status,setStatus]=useState("Đang tải GLB hợp nhất…"),[stats,setS
 const [uuid,setUuid]=useState(""),[view,setView]=useState<View>("full");
 const [outfit,setOutfit]=useState<Opt>("basic"),[hair,setHair]=useState<Hair>("classic"),[eye,setEye]=useState<Eye>("natural");
 const [glasses,setGlasses]=useState(false),[ribbon,setRibbon]=useState(false),[play,setPlay]=useState(false);
+const [loadError,setLoadError]=useState(false),[retry,setRetry]=useState(0);
 useEffect(()=>{
 const el=viewport.current;if(!el)return;
+setUuid("");setPlay(false);setLoadError(false);
+setStatus("Đang kết nối để tải GLB…");setStats("17,7 MB · Kiểm tra kết nối và quyền truy cập Vercel Preview");
 const scene=new T.Scene();scene.background=new T.Color(0x120d23);
 const cam=new T.PerspectiveCamera(33,1,.05,50);
 const renderer=new T.WebGLRenderer({antialias:true,powerPreference:"high-performance"});
@@ -105,8 +108,21 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2,Math.sqrt(2800000/(
 renderer.setSize(w,h,true);cam.aspect=w/h;cam.updateProjectionMatrix();};
 window.addEventListener("resize",resize);resize();camera(r,"full");
 const clock=new T.Clock();let alive=true;
+let watchdog:ReturnType<typeof setTimeout>|null=null;
+const failLoad=(message:string)=>{
+ if(!alive||r.root)return;
+ if(watchdog)clearTimeout(watchdog);
+ setLoadError(true);setStatus("Không tải được GLB");
+ setStats(message);
+};
+const armWatchdog=()=>{
+ if(watchdog)clearTimeout(watchdog);
+ watchdog=setTimeout(()=>failLoad("Không nhận được dữ liệu trong 40 giây. Kiểm tra 4G/SSO rồi nhấn Thử lại."),40000);
+};
+armWatchdog();
 const tick=()=>{if(!alive)return;r.mixer?.update(Math.min(clock.getDelta(),.065));orbit.update();renderer.render(scene,cam);r.frame=requestAnimationFrame(tick);};tick();
 new GLTFLoader().load(source,g=>{
+if(watchdog)clearTimeout(watchdog);
 if(!alive)return;
 const root=g.scene,box=new T.Box3().setFromObject(root),h=box.getSize(new T.Vector3()).y;
 const scale=2.62/Math.max(h,.01);
@@ -116,12 +132,22 @@ let meshes=0,skins=0,bones=0,morphs=0;
 root.traverse(n=>{if(n instanceof T.Mesh){meshes++;if(n instanceof T.SkinnedMesh)skins++;morphs+=n.morphTargetInfluences?.length??0;}if(n instanceof T.Bone)bones++;});
 const d=danceSetup(root);r.mixer=d.mixer;r.action=d.action;r.rest=d.rest;
 appearance(root,"basic","classic","natural");
-setUuid(root.uuid);setStatus("VRoid A face × Fashion Idol B · Real GLB");
+setLoadError(false);setUuid(root.uuid);setStatus("VRoid A face × Fashion Idol B · Real GLB");
 setStats(meshes+" meshes · "+skins+" skinned · "+bones+" bones · "+morphs+" morph weights · "+d.channels+" dance channels");
-},undefined,e=>{if(alive){setStatus("Lỗi tải GLB");setStats(String(e));}});
-return()=>{alive=false;cancelAnimationFrame(r.frame);window.removeEventListener("resize",resize);headGear(r,false,false);
+},event=>{
+if(!alive||r.root)return;
+armWatchdog();
+if(event.lengthComputable&&event.total>0){
+ const percent=Math.min(100,Math.floor(100*event.loaded/event.total));
+ setStatus(percent>=100?"Đã tải xong GLB · đang giải mã và dựng nhân vật…":"Đang tải GLB · "+percent+"%");
+ setStats((event.loaded/1048576).toFixed(1)+" / "+(event.total/1048576).toFixed(1)+" MiB · mạng hiện tại");
+}else{
+ setStatus("Đang tải GLB · "+(event.loaded/1048576).toFixed(1)+" MiB");
+}
+},e=>failLoad("Tải GLB lỗi: "+String(e)+". Kiểm tra SSO và thử lại."));
+return()=>{alive=false;if(watchdog)clearTimeout(watchdog);cancelAnimationFrame(r.frame);window.removeEventListener("resize",resize);headGear(r,false,false);
 orbit.dispose();r.mixer?.stopAllAction();renderer.dispose();renderer.domElement.remove();runtime.current=null;};
-},[]);
+},[retry]);
 useEffect(()=>{if(runtime.current?.root)appearance(runtime.current.root,outfit,hair,eye)},[outfit,hair,eye,uuid]);
 useEffect(()=>{if(runtime.current)headGear(runtime.current,glasses,ribbon)},[glasses,ribbon,uuid]);
 const changeCamera=(k:View)=>{setView(k);if(runtime.current)camera(runtime.current,k);};
@@ -134,7 +160,10 @@ return <main className={styles.page}>
 <p>Một khuôn mặt Soft Mature, kết hợp mesh tóc/trang phục Fashion Idol trên armature hợp nhất. Không sử dụng nhân vật procedural.</p></header>
 <div className={styles.layout}>
 <section className={styles.viewer}><div className={styles.viewport} ref={viewport}/><div className={styles.tag}>● REAL GLB · VRoid sample A+B</div>
-<div className={styles.info}><strong>{status}</strong><small>{stats}</small></div></section>
+<div className={styles.info}>
+ <strong role="status">{status}</strong><small>{stats}</small>
+ {loadError&&<button type="button" className={styles.retry} onClick={()=>setRetry(n=>n+1)}>↻ Thử tải lại GLB</button>}
+ </div></section>
 <aside className={styles.panel}>
 <section><h2>01 · Camera</h2><div className={styles.grid}>{([["full","Full Body"],["front","Front"],["left","3/4 Left"],["right","3/4 Right"],["face","Face Close-up"]] as [View,string][]).map(([k,label])=><button key={k} onClick={()=>changeCamera(k)} aria-pressed={view===k} className={view===k?styles.on:styles.off}>{label}</button>)}</div><small>Rotate / pinch zoom · iPhone portrait</small></section>
 <section><h2>02 · Outfit</h2><div className={styles.grid}>{([["basic","Basic Soft"],["premium","Premium Fashion"]] as [Opt,string][]).map(([k,label])=><button key={k} onClick={()=>setOutfit(k)} aria-pressed={outfit===k} className={outfit===k?styles.on:styles.off}>{label}</button>)}</div><small>Mesh garment A/B thật. Premium còn cần artist fit và sculpt.</small></section>
