@@ -88,6 +88,7 @@ const scene=new T.Scene();scene.background=new T.Color(0x120d23);
 const cam=new T.PerspectiveCamera(33,1,.05,50);
 const renderer=new T.WebGLRenderer({antialias:true,powerPreference:"high-performance"});
 renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.4;
+renderer.domElement.style.display="block";
 el.appendChild(renderer.domElement);
 const orbit=new OrbitControls(cam,renderer.domElement);orbit.enableDamping=true;orbit.minDistance=.75;orbit.maxDistance=9;
 scene.add(new T.HemisphereLight(0xffe9ff,0x494062,2.5));
@@ -99,7 +100,9 @@ const r:Stage={root:null,scene,camera:cam,renderer,orbit,mixer:null,action:null,
 runtime.current=r;
 const resize=()=>{const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2,Math.sqrt(2800000/(w*h))));
-renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();};
+// Retina backing-store pixels differ from CSS pixels. Keep canvas CSS
+// dimensions equal to its viewport or iPhone clips the centered actor.
+renderer.setSize(w,h,true);cam.aspect=w/h;cam.updateProjectionMatrix();};
 window.addEventListener("resize",resize);resize();camera(r,"full");
 const clock=new T.Clock();let alive=true;
 const tick=()=>{if(!alive)return;r.mixer?.update(Math.min(clock.getDelta(),.065));orbit.update();renderer.render(scene,cam);r.frame=requestAnimationFrame(tick);};tick();
