@@ -10,6 +10,7 @@ export const UNIFIED_EYE_ASSETS = [
   {id:"idol", label:"Thần tượng", color:"#50b8ff", description:"Xanh sapphire · lấp lánh", expression:"joy"},
   {id:"star", label:"Ngôi sao", color:"#d299ff", description:"Tím sáng · sao vàng", expression:"sparkle"},
   {id:"heart", label:"Trái tim", color:"#f983b8", description:"Hồng tím · biểu tượng tim", expression:"joy"},
+  {id:"premium-idol", label:"✦ Premium Idol", color:"#e3b6ff", description:"2048px crystalline iris · physical clearcoat", expression:"joy"},
 ] as const;
 
 export type UnifiedEyeAssetId = (typeof UNIFIED_EYE_ASSETS)[number]["id"];
@@ -28,10 +29,13 @@ const EXPRESSIONS:Record<UnifiedEyeAssetId,{joy:number,surprised:number}>={
  idol:{joy:.16,surprised:.05},
  star:{joy:.06,surprised:.08},
  heart:{joy:.20,surprised:0},
+ "premium-idol":{joy:.13,surprised:.06},
 };
 
 export class UnifiedEyePack {
  private irisMats:IrisMaterial[]=[];
+ private premiumSlots:Array<{mesh:THREE.Mesh,index:number,source:IrisMaterial,physical:THREE.MeshPhysicalMaterial}>=[];
+
  private originals=new Map<IrisMaterial,{map:THREE.Texture|null,color:THREE.Color}>();
  private faceMorphs:MorphMesh[]=[];
  private originalMorphs=new Map<MorphMesh,Map<string,number>>();
@@ -50,8 +54,27 @@ export class UnifiedEyePack {
   root.traverse(o=>{
     if(!(o instanceof THREE.Mesh))return;
     const all=Array.isArray(o.material)?o.material:[o.material];
-    for(const material of all){
-      if(/EyeIris/i.test(material.name))mats.add(material as IrisMaterial);
+    for(const [index,material] of all.entries()){
+      if(!/EyeIris/i.test(material.name))continue;
+      const base=material as IrisMaterial;
+      mats.add(base);
+      const physical=new THREE.MeshPhysicalMaterial({
+        color:base.color.clone(),map:base.map,alphaMap:base.alphaMap,
+        opacity:base.opacity,transparent:base.transparent,alphaTest:base.alphaTest,
+        side:base.side,depthWrite:base.depthWrite,depthTest:base.depthTest,
+        roughness:.21,metalness:0
+      });
+      physical.name=base.name+"_PremiumIdolV1";
+      physical.roughness=.21;
+      physical.metalness=0;
+      physical.clearcoat=.83;
+      physical.clearcoatRoughness=.07;
+      physical.iridescence=.22;
+      physical.iridescenceIOR=1.38;
+      physical.iridescenceThicknessRange=[200,360];
+      physical.emissive.set("#38244f");
+      physical.emissiveIntensity=.10;
+      this.premiumSlots.push({mesh:o,index,source:base,physical});
     }
     const m=o as MorphMesh;
     if(m.morphTargetDictionary && m.morphTargetInfluences && Object.keys(m.morphTargetDictionary).some(n=>n==="Blink"||n==="Joy")){
@@ -70,6 +93,21 @@ export class UnifiedEyePack {
   this.report("READY · iris mesh + morph keys");
  }
 
+ private restoreMaterials(){
+   for(const slot of this.premiumSlots){
+     if(Array.isArray(slot.mesh.material))slot.mesh.material[slot.index]=slot.source;
+     else slot.mesh.material=slot.source;
+   }
+ }
+ private assignPremium(texture:THREE.Texture){
+   for(const slot of this.premiumSlots){
+     slot.physical.map=texture;
+     slot.physical.color.set("#ffffff");
+     slot.physical.needsUpdate=true;
+     if(Array.isArray(slot.mesh.material))slot.mesh.material[slot.index]=slot.physical;
+     else slot.mesh.material=slot.physical;
+   }
+ }
  private report(status:string){
    if(!this.destroyed)this.onReport({assetId:this.selected,status,loaded:this.cache.size,morphMeshes:this.faceMorphs.length});
  }
@@ -111,6 +149,7 @@ export class UnifiedEyePack {
    const token=++this.serial;
    this.selected=id;
    this.expression(id);
+   if(id!=="premium-idol")this.restoreMaterials();
    if(id==="natural"){
      for(const m of this.irisMats){
        const o=this.originals.get(m)!;
@@ -123,6 +162,11 @@ export class UnifiedEyePack {
    try{
      const tex=await this.texture(id);
      if(this.destroyed||token!==this.serial)return;
+     if(id==="premium-idol"){
+       this.assignPremium(tex);
+       this.report("ACTIVE · PREMIUM physical iris + clearcoat · 2048×1024");
+       return;
+     }
      for(const m of this.irisMats){
        m.map=tex;
        m.color.setRGB(1,1,1);
@@ -152,10 +196,12 @@ export class UnifiedEyePack {
    }
  }
  public getDiagnostics(){
-   return {selected:this.selected,irisMaterials:this.irisMats.length,morphMeshes:this.faceMorphs.length,cachedAssets:this.cache.size};
+   return {selected:this.selected,irisMaterials:this.irisMats.length,premiumSkinnedMaterialSlots:this.premiumSlots.length,morphMeshes:this.faceMorphs.length,cachedAssets:this.cache.size};
  }
  public dispose(){
    this.destroyed=true;this.serial++;
+   this.restoreMaterials();
+   for(const slot of this.premiumSlots)slot.physical.dispose();
    for(const m of this.irisMats){
      const o=this.originals.get(m);
      if(!o)continue;
