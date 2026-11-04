@@ -16,3 +16,7 @@ game/generated-rhythm.ts
 scripts/fashion-ab-demo/FashionAB_*_DanceRig_V1.glb
 scripts/fashion-ab-demo/BUILD_MANIFEST.json
 public/tools/fashion-ab-dance-v1/*.glb
+
+# Unified Heroine candidate generated from original VRoid samples during prebuild
+public/characters/unified-heroine-v1/*.glb
+public/characters/unified-heroine-v1/build-manifest.json
