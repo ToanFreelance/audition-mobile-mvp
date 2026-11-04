@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "predev": "node scripts/analyze-rhythm.mjs",
+    "predev": "node scripts/analyze-rhythm.mjs && node scripts/unified-heroine-v1/materialize_spider_queen_fang.mjs",
     "build": "next build",
-    "prebuild": "node scripts/analyze-rhythm.mjs && node scripts/fashion-ab-demo/generate.mjs && python3 scripts/unified-heroine-v1/build_unified.py && node scripts/unified-heroine-v1/build_eye_pack.mjs && node scripts/unified-heroine-v1/build_premium_idol_eye.mjs",
+    "prebuild": "node scripts/analyze-rhythm.mjs && node scripts/fashion-ab-demo/generate.mjs && python3 scripts/unified-heroine-v1/build_unified.py && node scripts/unified-heroine-v1/build_eye_pack.mjs && node scripts/unified-heroine-v1/build_premium_idol_eye.mjs && node scripts/unified-heroine-v1/materialize_spider_queen_fang.mjs",
     "start": "next start",
     "lint": "eslint . --quiet && node scripts/verify-c3-lint-tdz.mjs",
     "test:qa": "playwright test",
@@ -21,7 +21,8 @@
     "fashion:assets": "node scripts/fashion-ab-demo/generate.mjs",
     "unified:assets": "python3 scripts/unified-heroine-v1/build_unified.py",
     "unified:eyes": "node scripts/unified-heroine-v1/build_eye_pack.mjs",
-    "unified:premium-eye": "node scripts/unified-heroine-v1/build_premium_idol_eye.mjs"
+    "unified:premium-eye": "node scripts/unified-heroine-v1/build_premium_idol_eye.mjs",
+    "unified:spider-fang": "node scripts/unified-heroine-v1/materialize_spider_queen_fang.mjs"
   },
   "dependencies": {
     "@audio/beat": "^2.1.3",
