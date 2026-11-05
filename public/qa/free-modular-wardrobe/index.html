@@ -84,7 +84,7 @@ footer{text-align:center;color:#a7b0c9;font-size:10px;line-height:1.6;padding:15
 <label class="slot"><span>Giày</span><select id="shoes"><option value="1">Ankle Boots</option><option value="2">High Tops</option><option value="3">Block Heels</option><option value="4">Ankle Boots v2</option><option value="5">Sneakers</option></select></label>
 <label class="slot"><span>Phụ kiện</span><select id="accessory"><option value="0">Không</option><option value="1">Ribbon</option><option value="2">Hair Band</option><option value="3">Belt</option><option value="4">Belt + Ribbon</option><option value="5">Pony Hair Band</option></select></label>
 </div>
-<div class="quick" id="quick" hidden><button id="street">Streetwear</button><button id="casual">Casual Mix</button><button id="preset">Preset #2</button></div>
+<div class="quick" id="quick" hidden><button id="street">Bộ gốc #4</button><button id="casual">Casual Mix</button><button id="preset">Preset #2</button></div>
 <div class="empty" id="male-empty" hidden><div class="male-icon">♂</div><b>Inventory riêng cho nam</b><p>Hiển thị C4 Casual Boy để kiểm tra góc nhìn. ZIP bạn gửi là <strong>asset nữ</strong>; quần áo, body, tóc nữ không thể trang bị cho nhân vật nam.</p><small>Chưa có bộ modular nam để kiểm thử thay trang phục.</small></div>
 <div class="notice"><b>Giới hạn QA</b><p>Đây là modular tĩnh: preset glTF không chứa rig / skinning / animation. Có thể xuất hiện clipping khi phối đồ. Chưa phải Shop backend, không lưu inventory và chưa xác minh FPS iPhone.</p></div>
 </aside>
@@ -97,7 +97,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 const $=id=>document.getElementById(id);
 const names=['','longwaveblouse','lowtwinhood','straightlongshirt','bobcoat','ponytshirt'];
 const slots=['body','face','hair','top','bottom','shoes','accessory'];
-const looks={street:{body:3,face:3,hair:4,top:2,bottom:1,shoes:5,accessory:2},casual:{body:3,face:3,hair:1,top:5,bottom:2,shoes:3,accessory:3},preset:{body:2,face:3,hair:2,top:2,bottom:2,shoes:2,accessory:2}};
+const looks={street:{body:4,face:4,hair:4,top:4,bottom:4,shoes:4,accessory:4},casual:{body:3,face:3,hair:1,top:5,bottom:2,shoes:3,accessory:3},preset:{body:2,face:3,hair:2,top:2,bottom:2,shoes:2,accessory:2}};
 const parts={
 hair:{1:['longwaveback','longwavefront','longwaveleft','longwaveright'],2:['lowtwinbackleft','lowtwinbackright','lowtwinfront','lowtwinleft','lowtwinright'],3:['longstraightback','longstraightfront','longstraightleft','longstraightright'],4:['bobback','bobfront','bobleft','bobright'],5:['ponyback','ponyfront','ponyleft','ponyright']},
 top:{1:['blouse','button','button.001','button.002','button.003','button.004','button.005'],2:['sweat','hood'],3:['shirt','button','button.001','button.002','button.003','button.004','button.005'],4:['coat','necktie','button'],5:['tshirt']},
@@ -131,13 +131,21 @@ function resize(){const w=stage.clientWidth,h=stage.clientHeight;camera.aspect=w
 new ResizeObserver(resize).observe(stage);resize();
 function tick(){requestAnimationFrame(tick);controls.update();renderer.render(scene,camera)}tick();
 function addMeshes(root,names,group){
- if(!root)return;
+ // GLTFLoader represents multi-primitive nodes as THREE.Group, not THREE.Mesh.
+ // Clone the named node as a whole so body, clothes and outline primitives survive.
+ if(!root)return 0;
  const wanted=new Set(names);
  root.updateWorldMatrix(true,true);
- root.traverse(o=>{if(!o.isMesh||!wanted.has(o.name))return;
+ let count=0;
+ root.traverse(o=>{
+   if(!wanted.has(o.name)||!(o.isMesh||o.isGroup))return;
    o.updateWorldMatrix(true,false);
-   const clone=o.clone();o.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);group.add(clone);
+   const clone=o.clone(true);
+   o.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);
+   group.add(clone);
+   count++;
  });
+ return count;
 }
 function makeActor(){
  scene.remove(actor);
@@ -208,7 +216,7 @@ async function upload(file){
     imported[i].updateWorldMatrix(true,true);
    }
    models=imported;loaded=true;gender='female';
-   applySelections(looks.street);refresh();status('Đã nạp 5 preset NỮ · Có thể phối đồ');
+   applySelections(looks.street);refresh();status('Đã nạp ZIP · Đang mặc bộ gốc #4. Hãy thử đổi từng món.');
   }finally{for(const url of urls.values())URL.revokeObjectURL(url)}
  }catch(e){status('Không thể đọc ZIP: '+(e.message||e))}
  finally{busy=false}
