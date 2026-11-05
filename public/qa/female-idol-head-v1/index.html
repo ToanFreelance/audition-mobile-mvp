@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Audition • Female Idol Head Sculpt QA V1</title>
+<title>Audition • Female Head V1 Rejected QA Archive</title>
 <style>
 :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}body{margin:0;background:#0d1020;color:#f7f5ff}
@@ -97,7 +97,7 @@ body.gameplay-qa nav button{opacity:.55;cursor:not-allowed}body.gameplay-qa asid
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.js" defer></script>
 </head>
 <body>
-<header><div><div class="eyebrow">AUDITION MOBILE MVP · CHARACTER LAB</div><h1>Female Idol Head · 3D Sculpt V1</h1><p class="subtitle">Tái dựng mặt anime light + cute idol bằng mesh thật · iPhone QA</p></div><span class="chip">REAL HEAD MESH QA · NO MERGE</span></header>
+<header><div><div class="eyebrow">AUDITION MOBILE MVP · CHARACTER LAB</div><h1>Female Head V1 — Rejected</h1><p class="subtitle">Bản V1 không đạt concept · Lưu để đối chiếu lỗi, không dùng làm baseline</p></div><span class="chip">REJECTED · QA ONLY</span></header>
 <nav aria-label="Giới tính nhân vật">
 <button id="gender-female" aria-selected="true">♀ Nữ<small>Trang phục nữ • 5 presets</small></button>
 <button id="gender-male" aria-selected="false">♂ Nam<small>C4 Casual Boy • đồ nam riêng</small></button>
@@ -133,11 +133,11 @@ body.gameplay-qa nav button{opacity:.55;cursor:not-allowed}body.gameplay-qa asid
 <div id="design-info" class="design-info" hidden><span class="style-pill" id="design-pill">BASIC</span><br><b id="design-title">Everyday Pop</b><div id="design-desc">Tủ đồ nữ • Prototype 3D</div></div>
 <div class="empty" id="male-empty" hidden><div class="male-icon">♂</div><b>Inventory riêng cho nam</b><p>Hiển thị C4 Casual Boy để kiểm tra góc nhìn. ZIP bạn gửi là <strong>asset nữ</strong>; quần áo, body, tóc nữ không thể trang bị cho nhân vật nam.</p><small>Chưa có bộ modular nam để kiểm thử thay trang phục.</small></div>
 <div class="face-sculpt-panel" id="face-sculpt-panel" hidden>
-<div class="face-sculpt-heading"><b>✨ Female Idol Head V1 — 3D Geometry</b><span>CONCEPT LOCKED</span></div>
-<p>Mesh đầu/mặt được chỉnh trực tiếp trên <code>skin_s</code>: má mềm, hàm tròn, cằm ngắn, mũi gọn, môi nhẹ, mắt cân lại. Màu da và má hồng cũng được xử lý trên UV thật. Chưa thay model production.</p>
+<div class="face-sculpt-heading"><b>⚠️ V1 không đạt visual acceptance</b><span>REJECTED</span></div>
+<p>Bản V1 làm phồng má/hàm, nhợt màu da và khiến mắt/miệng biến dạng. Theo kết quả iPhone, đây là phương án <b>không được chấp nhận</b>. Mặt gốc được đặt mặc định an toàn; V1 chỉ giữ để xem lỗi. Không áp dụng V1 vào Character Catalog hoặc gameplay.</p>
 <div class="face-sculpt-actions">
-<button id="face-new" aria-pressed="true">Mặt Idol mới</button>
-<button id="face-old" aria-pressed="false">Mặt gốc</button>
+<button id="face-new" aria-pressed="false">V1 lỗi · so sánh</button>
+<button id="face-old" aria-pressed="true">Mặt gốc an toàn</button>
 </div>
 <div class="face-sculpt-metrics" id="face-sculpt-metrics">Sculpt đang chờ tải ZIP…</div>
 <div class="face-sculpt-hint">Chọn một mặt, dùng <b>Zoom mặt</b> và <b>Góc 3/4</b> để so sánh. Chỉ được đổi mặt khi chưa vào Gameplay QA.</div>
@@ -226,7 +226,7 @@ let fpsFrames=0,fpsElapsed=0;
 const recolorCache=new Map();
 const eyeAtlasCache=new Map();
 let selectedEye='doll';let dollParts=0;
-let useIdolFace=true, sculptedVertices=0, sculptedFaceParts=0;
+let useIdolFace=false, sculptedVertices=0, sculptedFaceParts=0;
 const faceSkinTextureCache=new Map();
 const EYE_STYLES={
  original:{label:'Mắt gốc',desc:'UV và hình học mắt nguyên bản để đối chiếu.'},
@@ -915,7 +915,7 @@ function updateIdolFacePanel(){
  $('face-new').setAttribute('aria-pressed',String(useIdolFace));
  $('face-old').setAttribute('aria-pressed',String(!useIdolFace));
  $('face-sculpt-metrics').textContent=useIdolFace&&allow?
-  'IDOL V1 · '+sculptedVertices.toLocaleString()+' vertices sculpted · '+sculptedFaceParts+' face mesh parts · eyes & wardrobe modular':
+  'REJECTED IDOL V1 · '+sculptedVertices.toLocaleString()+' vertices sculpted · '+sculptedFaceParts+' face mesh parts · eyes & wardrobe modular':
   'Mặt gốc · Geometry/skin texture chưa chỉnh sửa';
 }
 function changeHeadMode(next){
@@ -925,7 +925,7 @@ function changeHeadMode(next){
  $('face').value='4';
  makeActor();syncEyeUI();updateIdolFacePanel();
  faceCamera(true);
- status(next?'Đang xem 3D FACE IDOL V1 · vertex sculpt + skin UV mới':'Đang so sánh mặt Face S gốc · không chỉnh sửa');
+ status(next?'⚠️ V1 LỖI / REJECTED · Chỉ so sánh, không dùng làm baseline':'Mặt gốc · Đã khôi phục hình học & texture nguyên bản');
 }
 $('face-new').onclick=()=>changeHeadMode(true);
 $('face-old').onclick=()=>changeHeadMode(false);
@@ -1189,10 +1189,10 @@ async function upload(file){
     imported[i].updateWorldMatrix(true,true);
    }
    models=imported;loaded=true;gender='female';activeDesign='basic';
-   useIdolFace=true;selectedEye='doll';
+   useIdolFace=false;selectedEye='original';
    applySelections(looks.basic);refresh();
    faceCamera(true);
-   status('Đã nạp ZIP · Đang xem MẶT IDOL MỚI V1 · Zoom/so sánh với mặt gốc');
+   status('V1 đã bị loại · Hiển thị mặt gốc an toàn. Không dùng V1 làm baseline.');
   }finally{for(const url of urls.values())URL.revokeObjectURL(url)}
  }catch(e){status('Không thể đọc ZIP: '+(e.message||e))}
  finally{busy=false}
