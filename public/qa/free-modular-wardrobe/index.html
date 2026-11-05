@@ -23,10 +23,10 @@ nav button[aria-selected=true]{border-color:#afa3ff;background:linear-gradient(1
 .shell{display:grid;grid-template-columns:minmax(0,1fr) 345px;gap:10px;padding:0 12px}
 .stage{position:relative;height:min(75dvh,740px);min-height:370px;overflow:hidden;border:1px solid #3b4264;border-radius:19px;background:radial-gradient(ellipse at 50% 30%,#3b4069,#1a2036 62%,#101324)}
 .stage canvas{width:100%;height:100%;display:block;touch-action:none}
-.stage-top{position:absolute;left:14px;top:14px;pointer-events:none;font-size:11px;font-weight:bold;text-shadow:0 1px 4px #07091a}
+.stage-top{position:absolute;left:14px;top:14px;right:108px;pointer-events:none;font-size:11px;font-weight:bold;text-shadow:0 1px 4px #07091a}
 .stage-top small{font-weight:normal;display:block;margin-top:5px;color:#d2d5f1}
-.stage-actions{position:absolute;bottom:12px;left:10px;right:10px;display:flex;justify-content:center;gap:10px}
-.stage-actions button{font-size:12px;background:#161d36d9;padding:9px 13px}
+.stage-actions{position:absolute;top:12px;right:10px;display:flex;flex-direction:column;gap:7px}
+.stage-actions button{font-size:11px;background:#161d36e8;padding:8px 9px;min-width:88px}
 aside{background:#1b2036;border:1px solid #3c4360;border-radius:19px;padding:15px}
 .panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
 .panel-head h2{font-size:18px;margin:0}.panel-head span{font-size:10px;color:#b7a3fc}
@@ -42,8 +42,15 @@ aside{background:#1b2036;border:1px solid #3c4360;border-radius:19px;padding:15p
 .slot{display:flex;flex-direction:column;gap:5px;min-width:0}
 .slot span{font-size:11px;color:#d5dbfb}
 .slot select{background:#292f4a;border:1px solid #5d6488;border-radius:9px;padding:8px 7px;min-height:40px;min-width:0;width:100%;font-size:12px}
-.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:13px}
-.quick button{font-size:10px;padding:11px 4px;background:#473b7f}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:8px 0 15px}
+.quick button{min-height:72px;text-align:left;font-size:14px;font-weight:750;padding:11px;background:linear-gradient(135deg,#323e65,#29304e);border:1px solid #616a93}
+.quick button small{display:block;margin-top:6px;font-weight:400;font-size:10px;color:#c4cee2;line-height:1.35}
+.quick button#premium{background:linear-gradient(135deg,#543c74,#283a5e);border-color:#9478bd}
+.quick button[aria-pressed=true]{outline:2px solid #a3edec;outline-offset:1px}
+.design-info{border:1px solid #404c70;background:#222944;border-radius:11px;padding:10px 12px;font-size:11px;line-height:1.45;color:#d2daf4;margin:0 0 14px}
+.design-info b{color:#fbf4ff}
+.style-pill{display:inline-block;border-radius:30px;background:#464075;color:#f3eaff;font-size:9px;letter-spacing:.06em;padding:4px 8px;margin-bottom:6px}
+
 .empty{text-align:center;padding:28px 14px}.empty .male-icon{color:#b8b6ff;font-size:49px;margin-bottom:8px}
 .notice{background:#292633;border-color:#645139;margin-top:14px}
 .notice b{font-size:12px;color:#ffda9f}.notice p{margin-bottom:0}
@@ -84,9 +91,13 @@ footer{text-align:center;color:#a7b0c9;font-size:10px;line-height:1.6;padding:15
 <label class="slot"><span>Giày</span><select id="shoes"><option value="1">Ankle Boots</option><option value="2">High Tops</option><option value="3">Block Heels</option><option value="4">Ankle Boots v2</option><option value="5">Sneakers</option></select></label>
 <label class="slot"><span>Phụ kiện</span><select id="accessory"><option value="0">Không</option><option value="1">Ribbon</option><option value="2">Hair Band</option><option value="3">Belt</option><option value="4">Belt + Ribbon</option><option value="5">Pony Hair Band</option></select></label>
 </div>
-<div class="quick" id="quick" hidden><button id="street">Bộ gốc #4</button><button id="casual">Casual Mix</button><button id="preset">Preset #2</button></div>
+<div class="quick" id="quick" hidden>
+<button id="basic" aria-pressed="false">✦ BASIC<small>Everyday Pop · Áo, short, sneaker, thêu mới</small></button>
+<button id="premium" aria-pressed="false">✧ PREMIUM<small>Neon Idol · Coat, layer 3D, dây xích, kim loại</small></button>
+</div>
+<div id="design-info" class="design-info" hidden><span class="style-pill" id="design-pill">BASIC</span><br><b id="design-title">Everyday Pop</b><div id="design-desc">Tủ đồ nữ • Prototype 3D</div></div>
 <div class="empty" id="male-empty" hidden><div class="male-icon">♂</div><b>Inventory riêng cho nam</b><p>Hiển thị C4 Casual Boy để kiểm tra góc nhìn. ZIP bạn gửi là <strong>asset nữ</strong>; quần áo, body, tóc nữ không thể trang bị cho nhân vật nam.</p><small>Chưa có bộ modular nam để kiểm thử thay trang phục.</small></div>
-<div class="notice"><b>Giới hạn QA</b><p>Đây là modular tĩnh: preset glTF không chứa rig / skinning / animation. Có thể xuất hiện clipping khi phối đồ. Chưa phải Shop backend, không lưu inventory và chưa xác minh FPS iPhone.</p></div>
+<div class="notice"><b>Giới hạn QA</b><p>Hai outfit dùng lại body/garment từ preset nữ CC0, kết hợp bảng màu tùy chỉnh và các chi tiết 3D mới tự dựng. Không phải áo/quần được model lại hoàn toàn; chưa rig/skin, chưa có dance animation. Thử phối thủ công có thể clipping. Không phải Shop/Inventory backend.</p></div>
 </aside>
 </div>
 <footer>Nhân vật chỉ gồm NAM và NỮ. Mỗi giới tính có danh mục trang phục riêng, không chia sẻ đồ. QA route độc lập, không đổi gameplay, WebAudio hoặc Supabase.</footer>
@@ -97,7 +108,20 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 const $=id=>document.getElementById(id);
 const names=['','longwaveblouse','lowtwinhood','straightlongshirt','bobcoat','ponytshirt'];
 const slots=['body','face','hair','top','bottom','shoes','accessory'];
-const looks={street:{body:4,face:4,hair:4,top:4,bottom:4,shoes:4,accessory:4},casual:{body:3,face:3,hair:1,top:5,bottom:2,shoes:3,accessory:3},preset:{body:2,face:3,hair:2,top:2,bottom:2,shoes:2,accessory:2}};
+// Two new QA outfit designs. Male wardrobe remains completely separate.
+const looks={
+ basic:{body:5,face:4,hair:5,top:5,bottom:5,shoes:5,accessory:0},
+ premium:{body:4,face:4,hair:1,top:4,bottom:4,shoes:4,accessory:3}
+};
+const palettes={
+ basic:{top:'#fff1e0',bottom:'#86c3f0',shoes:'#f3edf9'},
+ premium:{top:'#7254ae',bottom:'#3a385d',shoes:'#222b54'}
+};
+const fashionCopy={
+ basic:{tag:'BASIC · STARTER',title:'Everyday Pop',desc:'T-shirt đào kem + short xanh denim + sneaker trắng. Bổ sung logo nổi, túi áo, sọc quần và điểm nhấn giày tạo từ mesh 3D riêng.'},
+ premium:{tag:'PREMIUM · IDOL',title:'Neon Idol',desc:'Coat tím sâu + boots đêm + layered waist panels, lapel kim loại, chuỗi hạt, mini bag và khuyên tai 3D mới.'},
+ custom:{tag:'CUSTOM · MIX',title:'Tự phối đồ',desc:'Bạn đã thay một item riêng. Chi tiết thiết kế của bộ trọn gói tạm ẩn để không gây xuyên mesh khi phối thủ công.'}
+};
 const parts={
 hair:{1:['longwaveback','longwavefront','longwaveleft','longwaveright'],2:['lowtwinbackleft','lowtwinbackright','lowtwinfront','lowtwinleft','lowtwinright'],3:['longstraightback','longstraightfront','longstraightleft','longstraightright'],4:['bobback','bobfront','bobleft','bobright'],5:['ponyback','ponyfront','ponyleft','ponyright']},
 top:{1:['blouse','button','button.001','button.002','button.003','button.004','button.005'],2:['sweat','hood'],3:['shirt','button','button.001','button.002','button.003','button.004','button.005'],4:['coat','necktie','button'],5:['tshirt']},
@@ -125,14 +149,60 @@ const controls=new OrbitControls(camera,renderer.domElement);
 controls.target.set(0,.9,0);
 controls.enableDamping=true;controls.minDistance=1.6;controls.maxDistance=7;controls.update();
 let actor=new THREE.Group();scene.add(actor);
-let gender='female',accepted={},models={},loaded=false,busy=false;
+let gender='female',accepted={},models={},loaded=false,busy=false,activeDesign='basic';
+const recolorCache=new Map();
 function status(text){$('status').textContent=text}
 function resize(){const w=stage.clientWidth,h=stage.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)}
 new ResizeObserver(resize).observe(stage);resize();
 function tick(){requestAnimationFrame(tick);controls.update();renderer.render(scene,camera)}tick();
-function addMeshes(root,names,group){
- // GLTFLoader represents multi-primitive nodes as THREE.Group, not THREE.Mesh.
- // Clone the named node as a whole so body, clothes and outline primitives survive.
+function recolorMap(source,color){
+ const cacheKey=source.uuid+'-'+color;
+ if(recolorCache.has(cacheKey))return recolorCache.get(cacheKey);
+ const image=source.image;
+ if(!image?.width||!image?.height)return source;
+ const canvas=document.createElement('canvas');
+ const ratio=Math.min(1,768/Math.max(image.width,image.height));
+ canvas.width=Math.max(16,Math.round(image.width*ratio));
+ canvas.height=Math.max(16,Math.round(image.height*ratio));
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});
+ if(!ctx)return source;
+ ctx.drawImage(image,0,0,canvas.width,canvas.height);
+ const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+ const p=pixels.data;
+ const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
+ for(let i=0;i<p.length;i+=4){
+   if(p[i+3]===0)continue;
+   const brightness=Math.max(.48,Math.min(1.36,(p[i]*.25+p[i+1]*.65+p[i+2]*.1)/90));
+   p[i]=Math.min(255,Math.round(rgb[0]*brightness));
+   p[i+1]=Math.min(255,Math.round(rgb[1]*brightness));
+   p[i+2]=Math.min(255,Math.round(rgb[2]*brightness));
+ }
+ ctx.putImageData(pixels,0,0);
+ const tex=new THREE.CanvasTexture(canvas);
+ tex.colorSpace=THREE.SRGBColorSpace;
+ tex.flipY=source.flipY;
+ tex.wrapS=source.wrapS;tex.wrapT=source.wrapT;
+ tex.anisotropy=2;
+ recolorCache.set(cacheKey,tex);
+ return tex;
+}
+function recolorNode(root,color){
+ root.traverse(obj=>{
+   if(!obj.isMesh)return;
+   const paint=material=>{
+     const copy=material.clone();
+     if(copy.map){
+       copy.map=recolorMap(copy.map,color);
+       copy.color.set('#ffffff');
+     }else if(copy.color)copy.color.set(color);
+     copy.roughness=.61;copy.metalness=.08;copy.needsUpdate=true;
+     return copy;
+   };
+   obj.material=Array.isArray(obj.material)?obj.material.map(paint):paint(obj.material);
+ });
+}
+function addMeshes(root,names,group,color){
+ // glTF primitive groups must be cloned with their children intact.
  if(!root)return 0;
  const wanted=new Set(names);
  root.updateWorldMatrix(true,true);
@@ -142,10 +212,67 @@ function addMeshes(root,names,group){
    o.updateWorldMatrix(true,false);
    const clone=o.clone(true);
    o.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);
+   if(color)recolorNode(clone,color);
    group.add(clone);
    count++;
  });
  return count;
+}
+function fashionExtras(design,target){
+ const metal=new THREE.MeshStandardMaterial({color:0xe7d5ff,metalness:.76,roughness:.2});
+ const pearl=new THREE.MeshStandardMaterial({color:0x79f5e7,metalness:.46,roughness:.23,emissive:0x183a43,emissiveIntensity:.24});
+ const gloss=new THREE.MeshPhysicalMaterial({color:0x46305f,metalness:.32,roughness:.32,clearcoat:.75,clearcoatRoughness:.2,side:THREE.DoubleSide});
+ const rose=new THREE.MeshStandardMaterial({color:0xff9cbf,metalness:.25,roughness:.32});
+ const cream=new THREE.MeshStandardMaterial({color:0xffffff,metalness:.1,roughness:.44});
+ const add=(name,geometry,material,x=0,y=0,z=0)=>{
+   const piece=new THREE.Mesh(geometry,material);
+   piece.name=name;
+   piece.position.set(x,y,z);
+   target.add(piece);
+   return piece;
+ };
+ const panel=(name,coords,z,material)=>{
+   const shape=new THREE.Shape();
+   shape.moveTo(coords[0][0],coords[0][1]);
+   for(const [x,y] of coords.slice(1))shape.lineTo(x,y);
+   shape.closePath();
+   return add(name,new THREE.ExtrudeGeometry(shape,{depth:.01,bevelEnabled:true,bevelSize:.002,bevelThickness:.002,bevelSegments:1}),material,0,0,z);
+ };
+ const chain=(name,points,material,radius=.004)=>{
+   const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
+   return add(name,new THREE.TubeGeometry(curve,24,radius,6,false),material);
+ };
+ const crystal=(name,x,y,z,r,material)=>{
+   const piece=add(name,new THREE.OctahedronGeometry(r,0),material,x,y,z);piece.scale.set(.85,1.2,.55);
+ };
+ if(design==='basic'){
+   panel('basic-starter-pocket',[[.055,1.16],[.118,1.16],[.112,1.09],[.07,1.09]],.124,cream);
+   panel('basic-pocket-topstitch',[[.054,1.166],[.117,1.166],[.117,1.158],[.054,1.158]],.136,rose);
+   crystal('basic-chest-embroidery',-.056,1.112,.133,.021,rose);
+   for(const s of [-1,1]){
+     const x=s*.152;
+     panel('basic-shorts-tape-'+s,[[x-.012,.94],[x+.012,.94],[x+.012,.81],[x-.012,.81]],.12,cream);
+     const stripe=add('basic-sneaker-caps-'+s,new THREE.BoxGeometry(.07,.015,.016),rose,s*.147,.082,.195);
+     stripe.rotation.z=s*.08;
+   }
+ }else if(design==='premium'){
+   panel('premium-left-lapel',[[-.145,1.3],[-.028,1.2],[-.086,1.035],[-.178,1.19]],.145,gloss);
+   panel('premium-right-lapel',[[.14,1.3],[.014,1.19],[.082,1.035],[.176,1.19]],.146,metal);
+   panel('premium-asymmetric-layer-left',[[-.205,.975],[-.06,.95],[-.084,.67],[-.225,.75]],.147,gloss);
+   panel('premium-asymmetric-layer-right',[[.052,.97],[.19,.98],[.222,.785],[.08,.74]],.146,gloss);
+   chain('premium-waist-chain',[[-.185,.978,.18],[-.11,.892,.184],[0,.866,.192],[.13,.914,.178],[.2,.961,.165]],metal,.0045);
+   chain('premium-skirt-neon-edge',[[-.224,.753,.166],[-.15,.7,.169],[-.088,.673,.16]],pearl,.004);
+   for(const s of [-1,1]){
+     add('premium-shoulder-stud-'+s,new THREE.SphereGeometry(.018,10,8),pearl,s*.145,1.255,.155);
+     add('premium-earring-'+s,new THREE.TorusGeometry(.019,.0045,6,18),metal,s*.087,1.356,.08);
+     const cuff=add('premium-boot-ring-'+s,new THREE.TorusGeometry(.04,.006,6,20),pearl,s*.13,.16,.03);
+     cuff.rotation.x=Math.PI/2;
+   }
+   const bag=add('premium-mini-bag',new THREE.BoxGeometry(.09,.11,.043),gloss,.215,.88,.10);
+   bag.rotation.z=-.08;
+   crystal('premium-bag-emblem',.215,.9,.13,.023,pearl);
+   crystal('premium-waist-gem',0,.978,.195,.023,rose);
+ }
 }
 function makeActor(){
  scene.remove(actor);
@@ -154,9 +281,11 @@ function makeActor(){
   const v=Object.fromEntries(slots.map(id=>[id,+$(id).value]));
   addMeshes(models[v.body],['skin_d','skin_s'],actor);
   addMeshes(models[v.face],['eyeballs_d','eyebrow_d','eyelash_d','teethlower_d','teethupper_d','tongue_d','eyeballs_s','eyebrow_s','eyelash_s','teethlower_s','teethupper_s','tongue_s','toungue_s'],actor);
+  const palette=palettes[activeDesign];
   for(const slot of ['hair','top','bottom','shoes','accessory']){
-   if(v[slot])addMeshes(models[v[slot]],parts[slot][v[slot]]||[],actor);
+   if(v[slot])addMeshes(models[v[slot]],parts[slot][v[slot]]||[],actor,palette?.[slot]);
   }
+  if(activeDesign==='basic'||activeDesign==='premium')fashionExtras(activeDesign,actor);
  }else if(accepted[gender]) actor.add(accepted[gender].clone(true));
  const b=new THREE.Box3().setFromObject(actor);
  if(!b.isEmpty()){
@@ -168,6 +297,16 @@ function makeActor(){
  }
  scene.add(actor);
 }
+function showDesign(){
+ const isWardrobe=gender==='female'&&loaded;
+ $('design-info').hidden=!isWardrobe;
+ if(!isWardrobe)return;
+ const info=fashionCopy[activeDesign];
+ $('design-pill').textContent=info.tag;
+ $('design-title').textContent=info.title;
+ $('design-desc').textContent=info.desc;
+ for(const mode of ['basic','premium'])$(mode).setAttribute('aria-pressed',String(mode===activeDesign));
+}
 function refresh(){
  $('gender-female').setAttribute('aria-selected',String(gender==='female'));
  $('gender-male').setAttribute('aria-selected',String(gender==='male'));
@@ -178,15 +317,29 @@ function refresh(){
  $('uploaded').hidden=gender!=='female'||!loaded;
  $('items').hidden=gender!=='female'||!loaded;
  $('quick').hidden=gender!=='female'||!loaded;
+ showDesign();
  makeActor();
 }
 $('gender-female').onclick=()=>{gender='female';refresh()};
 $('gender-male').onclick=()=>{gender='male';refresh()};
 $('front').onclick=()=>{camera.position.set(0,1.16,3.65);controls.target.set(0,.9,0);controls.update()};
 $('spin').onclick=()=>{controls.autoRotate=!controls.autoRotate;$('spin').textContent=controls.autoRotate?'Dừng xoay':'Tự xoay'};
-for(const id of slots)$(id).onchange=()=>{if(gender==='female'&&loaded)makeActor()};
-function apply(name){if(gender!=='female'||!loaded)return;for(const [k,v]of Object.entries(looks[name]))$(k).value=v;makeActor()}
-for(const name of ['street','casual','preset'])$(name).onclick=()=>apply(name);
+for(const id of slots)$(id).onchange=()=>{
+ if(gender==='female'&&loaded){
+   activeDesign='custom';
+   showDesign();
+   status('Đang tự phối đồ nữ · Các phụ kiện thiết kế độc quyền tạm ẩn');
+   makeActor();
+ }
+};
+function apply(name){
+ if(gender!=='female'||!loaded||!looks[name])return;
+ activeDesign=name;
+ for(const [k,v]of Object.entries(looks[name]))$(k).value=v;
+ showDesign();makeActor();
+ status(name==='basic'?'Đang xem BASIC – Everyday Pop': 'Đang xem PREMIUM – Neon Idol');
+}
+for(const name of ['basic','premium'])$(name).onclick=()=>apply(name);
 async function upload(file){
  if(!file||busy)return;
  if(!file.name.toLowerCase().endsWith('.zip'))return status('Chọn file ZIP hợp lệ');
@@ -215,8 +368,8 @@ async function upload(file){
     imported[i]=(await loader.parseAsync(new TextDecoder().decode(source),'virtual/preset'+i+'/')).scene;
     imported[i].updateWorldMatrix(true,true);
    }
-   models=imported;loaded=true;gender='female';
-   applySelections(looks.street);refresh();status('Đã nạp ZIP · Đang mặc bộ gốc #4. Hãy thử đổi từng món.');
+   models=imported;loaded=true;gender='female';activeDesign='basic';
+   applySelections(looks.basic);refresh();status('Đã nạp ZIP · BASIC Everyday Pop. Bấm PREMIUM để so sánh.');
   }finally{for(const url of urls.values())URL.revokeObjectURL(url)}
  }catch(e){status('Không thể đọc ZIP: '+(e.message||e))}
  finally{busy=false}
@@ -232,7 +385,7 @@ async function boot(){
     loader.loadAsync('/characters/c4-casual-boy/character.glb')
   ]);
   accepted={female:female.scene,male:male.scene};
-  applySelections(looks.street);
+  applySelections(looks.basic);
   refresh();
   status('Sẵn sàng · Chọn ZIP để phối trang phục nữ');
  }catch(e){status('Không tải được nhân vật tham chiếu: '+(e.message||e))}
