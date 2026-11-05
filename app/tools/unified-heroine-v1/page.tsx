@@ -6,12 +6,13 @@ import {OrbitControls} from "three/examples/jsm/controls/OrbitControls.js";
 import styles from "./style.module.css";
 import {UnifiedEyePack,UNIFIED_EYE_ASSETS,type UnifiedEyeAssetId} from "./UnifiedEyePack";
 import {SpiderQueenFangAccessory} from "./SpiderQueenFangAccessory";
+import {HeroineStudioDepth,type HeroineLightingPreset} from "./HeroineStudioDepth";
 type View="full"|"front"|"left"|"right"|"face"|"eyes"|"mouth";
 type Opt="basic"|"premium";
 type Hair="classic"|"pony";
 type Eye=UnifiedEyeAssetId;
 type Stage={root:T.Group|null;scene:T.Scene;camera:T.PerspectiveCamera;renderer:T.WebGLRenderer;orbit:OrbitControls;
-mixer:T.AnimationMixer|null;action:T.AnimationAction|null;eyePack:UnifiedEyePack|null;rest:Map<T.Bone,T.Quaternion>;frame:number;accessory:T.Group|null;fangAccessory:SpiderQueenFangAccessory|null};
+mixer:T.AnimationMixer|null;action:T.AnimationAction|null;eyePack:UnifiedEyePack|null;lighting:HeroineStudioDepth;rest:Map<T.Bone,T.Quaternion>;frame:number;accessory:T.Group|null;fangAccessory:SpiderQueenFangAccessory|null};
 const source="/characters/unified-heroine-v1/unified-heroine-v1-a41bb9e659e5.glb";
 const angles:Record<View,{p:[number,number,number];t:[number,number,number]}> = {
 full:{p:[0,1.43,5.8],t:[0,1.36,0]},front:{p:[0,1.7,3.5],t:[0,1.62,0]},
@@ -91,6 +92,7 @@ const [loadError,setLoadError]=useState(false),[retry,setRetry]=useState(0);
 const [eyeStatus,setEyeStatus]=useState("Chưa tải Eye Pack"),[autoBlink,setAutoBlink]=useState(false);
 const [fang,setFang]=useState(false),[fangSmile,setFangSmile]=useState(false);
 const [fangStatus,setFangStatus]=useState("Spider Queen Fang · chưa trang bị");
+const [lightingPreset,setLightingPreset]=useState<HeroineLightingPreset>("original");
 useEffect(()=>{
 const el=viewport.current;if(!el)return;
 setUuid("");setPlay(false);setLoadError(false);
@@ -107,7 +109,8 @@ scene.add(new T.HemisphereLight(0xffe9ff,0x494062,2.5));
 const l=new T.PointLight(a[3],a[4]);l.position.set(a[0],a[1],a[2]);scene.add(l);});
 const floor=new T.Mesh(new T.CircleGeometry(1.25,64),new T.MeshStandardMaterial({color:0x4c3659,roughness:.45}));
 floor.rotation.x=-Math.PI/2;floor.position.y=-.025;scene.add(floor);
-const r:Stage={root:null,scene,camera:cam,renderer,orbit,mixer:null,action:null,eyePack:null,rest:new Map(),frame:0,accessory:null,fangAccessory:null};
+const lighting=new HeroineStudioDepth(scene,renderer,window.innerWidth<=600);
+const r:Stage={root:null,scene,camera:cam,renderer,orbit,mixer:null,action:null,eyePack:null,lighting,rest:new Map(),frame:0,accessory:null,fangAccessory:null};
 runtime.current=r;
 const resize=()=>{const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2,Math.sqrt(2800000/(w*h))));
@@ -136,6 +139,7 @@ const root=g.scene,box=new T.Box3().setFromObject(root),h=box.getSize(new T.Vect
 const scale=2.62/Math.max(h,.01);
 root.scale.setScalar(scale);root.position.set(-box.getCenter(new T.Vector3()).x*scale,-box.min.y*scale,0);
 root.rotation.y=Math.PI;scene.add(root);r.root=root;
+lighting.attachActor(root);
 let meshes=0,skins=0,bones=0,morphs=0;
 root.traverse(n=>{if(n instanceof T.Mesh){meshes++;if(n instanceof T.SkinnedMesh)skins++;morphs+=n.morphTargetInfluences?.length??0;}if(n instanceof T.Bone)bones++;});
 const d=danceSetup(root);r.mixer=d.mixer;r.action=d.action;r.rest=d.rest;
@@ -162,7 +166,7 @@ if(event.lengthComputable&&event.total>0){
 }
 },e=>failLoad("Tải GLB lỗi: "+String(e)+". Kiểm tra SSO và thử lại."));
 return()=>{alive=false;if(watchdog)clearTimeout(watchdog);cancelAnimationFrame(r.frame);window.removeEventListener("resize",resize);headGear(r,false,false);
-orbit.dispose();r.mixer?.stopAllAction();r.fangAccessory?.dispose();r.eyePack?.dispose();renderer.dispose();renderer.domElement.remove();runtime.current=null;};
+orbit.dispose();r.mixer?.stopAllAction();r.fangAccessory?.dispose();r.eyePack?.dispose();lighting.dispose();renderer.dispose();renderer.domElement.remove();runtime.current=null;};
 },[retry]);
 useEffect(()=>{if(runtime.current?.root)appearance(runtime.current.root,outfit,hair)},[outfit,hair,uuid]);
 useEffect(()=>{const p=runtime.current?.eyePack;if(p)void p.select(eye).catch(e=>setEyeStatus("Eye asset load error: "+String(e)))},[eye,uuid]);
@@ -172,6 +176,7 @@ useEffect(()=>{const module=runtime.current?.fangAccessory;
  if(module)void module.equip(fang).catch(e=>setFangStatus("Fang load error: "+String(e)));
 },[fang,uuid]);
 useEffect(()=>{runtime.current?.fangAccessory?.setMouthOpen(fangSmile)},[fangSmile,fang,uuid]);
+useEffect(()=>{runtime.current?.lighting.setPreset(lightingPreset)},[lightingPreset,uuid]);
 const changeCamera=(k:View)=>{setView(k);if(runtime.current)camera(runtime.current,k);};
 const toggle=()=>{const r=runtime.current;if(!r?.action||!r.mixer)return;
 if(play){r.action.stop();r.mixer.stopAllAction();r.rest.forEach((q,b)=>b.quaternion.copy(q));setPlay(false);}
@@ -188,6 +193,14 @@ return <main className={styles.page}>
  </div></section>
 <aside className={styles.panel}>
 <section><h2>01 · Camera</h2><div className={styles.grid}>{([["full","Full Body"],["front","Front"],["left","3/4 Left"],["right","3/4 Right"],["face","Face Close-up"],["eyes","Eye Macro"],["mouth","Mouth Macro"]] as [View,string][]).map(([k,label])=><button key={k} onClick={()=>changeCamera(k)} aria-pressed={view===k} className={view===k?styles.on:styles.off}>{label}</button>)}</div><small>Rotate / pinch zoom · iPhone portrait</small></section>
+<section><h2>01A · Lighting Depth QA</h2>
+<div className={styles.grid}>
+ {([["original","Original (Current)"],["studio","Studio 3D Depth"]] as [HeroineLightingPreset,string][]).map(([preset,label])=>
+  <button key={preset} onClick={()=>setLightingPreset(preset)}
+   aria-pressed={lightingPreset===preset} className={lightingPreset===preset?styles.on:styles.off}>{label}</button>)}
+</div>
+<small>Studio dùng key/fill/rim có hướng, bóng tóc trên mặt và giảm exposure. Bật/tắt trực tiếp trên cùng actor, cùng camera. Chỉ là QA ánh sáng; không sửa mesh, morph, gameplay. Ở iPhone nên so sánh cả Face Close-up và 3/4.</small>
+</section>
 <section><h2>02 · Outfit</h2><div className={styles.grid}>{([["basic","Basic Soft"],["premium","Premium Fashion"]] as [Opt,string][]).map(([k,label])=><button key={k} onClick={()=>setOutfit(k)} aria-pressed={outfit===k} className={outfit===k?styles.on:styles.off}>{label}</button>)}</div><small>Mesh garment A/B thật. Premium còn cần artist fit và sculpt.</small></section>
 <section><h2>03 · Eye Pack V1 / Hair</h2><div className={styles.grid}>{UNIFIED_EYE_ASSETS.map(k=><button key={k.id} onClick={()=>setEye(k.id)} aria-pressed={eye===k.id} className={eye===k.id?styles.on:styles.off}>{k.label}</button>)}</div>
 <p className={styles.eyeStats} role="status">{eyeStatus}</p>
