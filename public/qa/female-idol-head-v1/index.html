@@ -1,0 +1,1219 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Audition • Female Idol Head Sculpt QA V1</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#0d1020;color:#f7f5ff}
+header,nav,.shell,footer{max-width:1150px;margin:auto}
+header{padding:16px 14px 10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.eyebrow{color:#b2aaff;font-size:10px;letter-spacing:.13em;font-weight:750}
+h1{margin:5px 0;font-size:22px;letter-spacing:-.02em}p{line-height:1.5}
+.subtitle{color:#abb8d6;font-size:12px;margin:5px 0}
+.chip{font-size:10px;border-radius:99px;background:#483469;padding:7px 10px;white-space:nowrap}
+nav{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:3px 12px 12px}
+button,select{font:inherit;color:#f5f5ff;cursor:pointer}
+button{background:#222943;border:1px solid #4b527e;border-radius:11px;padding:10px}
+button:disabled{opacity:.4;cursor:not-allowed}
+nav button{text-align:left;font-size:16px;line-height:1.35}
+nav button small{display:block;color:#b7c1dd;font-size:10px;margin-top:4px}
+nav button[aria-selected=true]{border-color:#afa3ff;background:linear-gradient(120deg,#403176,#27335c);box-shadow:inset 0 0 0 1px #7561be}
+.shell{display:grid;grid-template-columns:minmax(0,1fr) 345px;gap:10px;padding:0 12px}
+.stage{position:relative;height:min(75dvh,740px);min-height:370px;overflow:hidden;border:1px solid #3b4264;border-radius:19px;background:radial-gradient(ellipse at 50% 30%,#3b4069,#1a2036 62%,#101324)}
+.stage canvas{width:100%;height:100%;display:block;touch-action:none}
+.stage-top{position:absolute;left:14px;top:14px;right:108px;pointer-events:none;font-size:11px;font-weight:bold;text-shadow:0 1px 4px #07091a}
+.stage-top small{font-weight:normal;display:block;margin-top:5px;color:#d2d5f1}
+.stage-actions{position:absolute;top:12px;right:10px;display:flex;flex-direction:column;gap:7px}
+.stage-actions button{font-size:11px;background:#161d36e8;padding:8px 9px;min-width:88px}
+aside{background:#1b2036;border:1px solid #3c4360;border-radius:19px;padding:15px}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.panel-head h2{font-size:18px;margin:0}.panel-head span{font-size:10px;color:#b7a3fc}
+.status{font-size:11px;color:#b5d4cb;line-height:1.4;min-height:35px;padding:9px 0}
+.upload,.empty,.notice{border:1px solid #4d4d7c;background:#282743;border-radius:13px;padding:14px;margin:7px 0 14px}
+.upload b,.empty b{font-size:13px}.upload p,.empty p,.notice p{color:#c9cde3;font-size:12px;margin:8px 0;line-height:1.5}
+.file-button{display:block;background:#715ce4;color:white;text-align:center;border-radius:11px;padding:13px 7px;font-size:13px;font-weight:bold;margin:12px 0 8px;cursor:pointer}
+.file-button input,.small-upload input{display:none}
+.upload small,.empty small{color:#c6c2dd;font-size:10px;line-height:1.5}
+.small-upload{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:11px;color:#9dd6c6}
+.small-upload label{border:1px solid #5d5f84;border-radius:8px;padding:8px;cursor:pointer;color:#eee}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.slot{display:flex;flex-direction:column;gap:5px;min-width:0}
+.slot span{font-size:11px;color:#d5dbfb}
+.slot select{background:#292f4a;border:1px solid #5d6488;border-radius:9px;padding:8px 7px;min-height:40px;min-width:0;width:100%;font-size:12px}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:8px 0 15px}
+.quick button{min-height:72px;text-align:left;font-size:14px;font-weight:750;padding:11px;background:linear-gradient(135deg,#323e65,#29304e);border:1px solid #616a93}
+.quick button small{display:block;margin-top:6px;font-weight:400;font-size:10px;color:#c4cee2;line-height:1.35}
+.quick button#premium{background:linear-gradient(135deg,#543c74,#283a5e);border-color:#9478bd}
+.quick button[aria-pressed=true]{outline:2px solid #a3edec;outline-offset:1px}
+.design-info{border:1px solid #404c70;background:#222944;border-radius:11px;padding:10px 12px;font-size:11px;line-height:1.45;color:#d2daf4;margin:0 0 14px}
+.design-info b{color:#fbf4ff}
+.style-pill{display:inline-block;border-radius:30px;background:#464075;color:#f3eaff;font-size:9px;letter-spacing:.06em;padding:4px 8px;margin-bottom:6px}
+
+.empty{text-align:center;padding:28px 14px}.empty .male-icon{color:#b8b6ff;font-size:49px;margin-bottom:8px}
+.notice{background:#292633;border-color:#645139;margin-top:14px}
+.notice b{font-size:12px;color:#ffda9f}.notice p{margin-bottom:0}
+footer{text-align:center;color:#a7b0c9;font-size:10px;line-height:1.6;padding:15px 20px 28px}
+[hidden]{display:none!important}
+.face-sculpt-panel{border:1px solid #826ac4;background:linear-gradient(135deg,#292448,#1e2a43);border-radius:14px;padding:13px;margin:12px 0}
+.face-sculpt-heading{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.face-sculpt-heading b{font-size:14px;color:#fff1ff}
+.face-sculpt-heading span{color:#e1c5ff;font-size:10px;letter-spacing:.05em}
+.face-sculpt-panel p{font-size:11px;line-height:1.5;color:#d5d0eb}
+.face-sculpt-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.face-sculpt-actions button{min-height:47px;background:#383456;font-size:12px}
+.face-sculpt-actions button[aria-pressed=true]{border-color:#b6eeea;background:#5d4e8d;box-shadow:inset 0 0 0 1px #a8ece8}
+.face-sculpt-actions button:disabled{opacity:.5}
+.face-sculpt-metrics{font-size:10px;color:#b1e3d4;margin-top:9px}
+.face-sculpt-hint{font-size:10px;color:#c9c5e8;line-height:1.5;margin-top:7px}
+.eye-panel{border:1px solid #72619b;border-radius:14px;background:#25233e;padding:12px;margin:12px 0}
+.eye-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:8px}.eye-heading b{font-size:14px}.eye-heading span{font-size:10px;color:#cdb6ff}
+.eye-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.eye-choice{display:flex;flex-direction:column;align-items:center;gap:5px;border-radius:10px;background:#333052;border:1px solid #625783;min-height:70px;padding:8px 4px}
+.eye-choice[aria-pressed=true]{border-color:#9ceeea;background:#463c74;box-shadow:0 0 0 1px #9ceeea}
+.eye-preview{display:flex;gap:3px;align-items:center;justify-content:center;height:23px}
+.eye-dot{width:22px;height:22px;border-radius:50%;border:2px solid #221d2c;box-shadow:0 0 0 1px #dac9e9, inset 0 2px 4px #fff7}
+.eye-choice small{font-size:10px;text-align:center;line-height:1.3;color:#f2eafa}
+.eye-note{font-size:11px;color:#c5c2e5;line-height:1.5;margin:9px 0 0}
+.eye-lock{margin-top:8px;color:#fbe3a3;font-size:10px}
+.eye-choice:disabled{opacity:.55;cursor:not-allowed}
+.doll-compare{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:11px}
+.doll-compare button{background:#503a75;border-color:#866ab0;padding:9px 10px;font-size:11px}
+.doll-compare span{font-size:10px;color:#acdecb;flex:1}
+
+.rig-panel{border:1px solid #506892;border-radius:14px;background:#202942;padding:13px;margin:12px 0 14px}
+.rig-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.rig-head b{font-size:14px}.rig-head span{color:#9cdecb;font-size:10px}
+.rig-panel p{font-size:11px;color:#c4d2e8;line-height:1.52;margin:10px 0}
+.rig-actions{display:flex;gap:8px}.rig-actions button{width:100%;background:#594cc6;font-size:12px;font-weight:700;min-height:47px}
+.rig-actions #leave-dance{background:#4b3659;border-color:#a3789b}
+.rig-utility{display:flex;align-items:center;justify-content:space-between;padding:10px 0 0;color:#bdc6e8;font-size:12px}
+.rig-utility label{display:flex;gap:7px;align-items:center}.rig-utility input{accent-color:#a6eddf}
+.rig-lock{color:#ffe4a4;background:#443849;border:1px solid #a9855b;padding:10px;border-radius:10px;font-size:11px;line-height:1.5;margin-top:10px}
+body.gameplay-qa nav button{opacity:.55;cursor:not-allowed}body.gameplay-qa aside .file-button{opacity:.45;pointer-events:none}
+@media(max-width:760px){header{padding-top:12px}h1{font-size:20px}.shell{display:flex;flex-direction:column}.stage{height:48dvh;min-height:315px;max-height:490px}aside{padding:14px}.chip{font-size:9px}footer{padding-bottom:max(26px,env(safe-area-inset-bottom))}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.js" defer></script>
+</head>
+<body>
+<header><div><div class="eyebrow">AUDITION MOBILE MVP · CHARACTER LAB</div><h1>Female Idol Head · 3D Sculpt V1</h1><p class="subtitle">Tái dựng mặt anime light + cute idol bằng mesh thật · iPhone QA</p></div><span class="chip">REAL HEAD MESH QA · NO MERGE</span></header>
+<nav aria-label="Giới tính nhân vật">
+<button id="gender-female" aria-selected="true">♀ Nữ<small>Trang phục nữ • 5 presets</small></button>
+<button id="gender-male" aria-selected="false">♂ Nam<small>C4 Casual Boy • đồ nam riêng</small></button>
+</nav>
+<div class="shell">
+<section class="stage" id="stage">
+<div class="stage-top">3D CHARACTER VIEWER<small>Vuốt để xoay · chụm để phóng to</small></div>
+<div class="stage-actions"><button id="front">Toàn thân</button><button id="face-zoom">Zoom mặt</button><button id="spin">Tự xoay</button></div>
+</section>
+<aside>
+<div class="panel-head"><h2 id="panel-title">Tủ đồ nữ</h2><span id="panel-kind">FEMALE · CC0 ASSET QA</span></div>
+<div class="status" id="status" role="status">Đang tải nhân vật gốc…</div>
+<div class="upload" id="upload">
+<b>📦 Nạp mẫu nữ để tạo skeleton thử nghiệm</b>
+<p>Chọn <strong>presets.zip</strong> hoặc <strong>audition_free_modular_qa.zip</strong> từ ứng dụng <b>Tệp (Files)</b> trên iPhone. Không cần Mac hay máy chủ.</p>
+<label class="file-button">Chọn ZIP từ iPhone<input id="zip" type="file" accept=".zip,application/zip"></label>
+<small>ZIP chỉ được giải nén ngay trong trình duyệt. Trước khi chọn ZIP, preview hiển thị nhân vật C1 gốc, không phải mẫu miễn phí.</small>
+</div>
+<div class="small-upload" id="uploaded" hidden><label>Đổi ZIP nữ<input id="zip-again" type="file" accept=".zip,application/zip"></label><span>● 5 preset nữ đã nạp</span></div>
+<div class="grid" id="items" hidden>
+<label class="slot"><span>Body nữ</span><select id="body"><option value="1">Female base 1</option><option value="2">Female base 2</option><option value="3">Female base 3</option><option value="4">Female base 4</option><option value="5">Female base 5</option></select></label>
+<label class="slot"><span>Diện mạo</span><select id="face"><option value="3">Face D</option><option value="4">Face S</option></select></label>
+<label class="slot"><span>Tóc</span><select id="hair"><option value="1">Long Wave</option><option value="2">Low Twin</option><option value="3">Long Straight</option><option value="4">Bob</option><option value="5">Ponytail</option></select></label>
+<label class="slot"><span>Áo / khoác</span><select id="top"><option value="1">Blouse</option><option value="2">Hoodie</option><option value="3">Shirt</option><option value="4">Coat</option><option value="5">T-shirt</option></select></label>
+<label class="slot"><span>Quần / váy</span><select id="bottom"><option value="1">Short Skirt</option><option value="2">Shorts</option><option value="3">Long Skirt</option><option value="4">Shorts + Coat</option><option value="5">Dolphin Pants</option></select></label>
+<label class="slot"><span>Giày</span><select id="shoes"><option value="1">Ankle Boots</option><option value="2">High Tops</option><option value="3">Block Heels</option><option value="4">Ankle Boots v2</option><option value="5">Sneakers</option></select></label>
+<label class="slot"><span>Phụ kiện</span><select id="accessory"><option value="0">Không</option><option value="1">Ribbon</option><option value="2">Hair Band</option><option value="3">Belt</option><option value="4">Belt + Ribbon</option><option value="5">Pony Hair Band</option></select></label>
+</div>
+<div class="quick" id="quick" hidden>
+<button id="basic" aria-pressed="false">✦ BASIC<small>Everyday Pop · Áo, short, sneaker, thêu mới</small></button>
+<button id="premium" aria-pressed="false">✧ PREMIUM<small>Neon Idol · Coat, layer 3D, dây xích, kim loại</small></button>
+</div>
+<div id="design-info" class="design-info" hidden><span class="style-pill" id="design-pill">BASIC</span><br><b id="design-title">Everyday Pop</b><div id="design-desc">Tủ đồ nữ • Prototype 3D</div></div>
+<div class="empty" id="male-empty" hidden><div class="male-icon">♂</div><b>Inventory riêng cho nam</b><p>Hiển thị C4 Casual Boy để kiểm tra góc nhìn. ZIP bạn gửi là <strong>asset nữ</strong>; quần áo, body, tóc nữ không thể trang bị cho nhân vật nam.</p><small>Chưa có bộ modular nam để kiểm thử thay trang phục.</small></div>
+<div class="face-sculpt-panel" id="face-sculpt-panel" hidden>
+<div class="face-sculpt-heading"><b>✨ Female Idol Head V1 — 3D Geometry</b><span>CONCEPT LOCKED</span></div>
+<p>Mesh đầu/mặt được chỉnh trực tiếp trên <code>skin_s</code>: má mềm, hàm tròn, cằm ngắn, mũi gọn, môi nhẹ, mắt cân lại. Màu da và má hồng cũng được xử lý trên UV thật. Chưa thay model production.</p>
+<div class="face-sculpt-actions">
+<button id="face-new" aria-pressed="true">Mặt Idol mới</button>
+<button id="face-old" aria-pressed="false">Mặt gốc</button>
+</div>
+<div class="face-sculpt-metrics" id="face-sculpt-metrics">Sculpt đang chờ tải ZIP…</div>
+<div class="face-sculpt-hint">Chọn một mặt, dùng <b>Zoom mặt</b> và <b>Góc 3/4</b> để so sánh. Chỉ được đổi mặt khi chưa vào Gameplay QA.</div>
+</div>
+<div class="eye-panel" id="eye-panel" hidden>
+<div class="eye-heading"><b>👁 Mắt modular</b><span>Idol baseline · violet</span></div>
+<div class="eye-grid" id="eye-grid" role="group" aria-label="Chọn mắt nữ theo concept">
+<button class="eye-choice" data-eye="natural" aria-pressed="true"><span class="eye-preview"><i class="eye-dot" style="background:radial-gradient(circle at 32% 28%,#fff,#a96838 34%,#59302d 77%)"></i><i class="eye-dot" style="background:#b77a4a"></i></span><small>Tự nhiên</small></button>
+<button class="eye-choice" data-eye="smile" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#ad6b44"></i><i class="eye-dot" style="background:#ad6b44"></i></span><small>Tươi cười</small></button>
+<button class="eye-choice" data-eye="sad" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#a487bf"></i><i class="eye-dot" style="background:#a487bf"></i></span><small>Buồn</small></button>
+<button class="eye-choice" data-eye="mischief" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#2dcccf"></i><i class="eye-dot" style="background:#2dcccf"></i></span><small>Tinh nghịch</small></button>
+<button class="eye-choice" data-eye="angry" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#d83549"></i><i class="eye-dot" style="background:#d83549"></i></span><small>Giận dữ</small></button>
+<button class="eye-choice" data-eye="doll" aria-pressed="true"><span class="eye-preview"><i class="eye-dot" style="background:#bd77ed"></i><i class="eye-dot" style="background:#bd77ed"></i></span><small>Búp bê ✦</small></button>
+<button class="eye-choice" data-eye="idol" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#287adf"></i><i class="eye-dot" style="background:#287adf"></i></span><small>Thần tượng</small></button>
+<button class="eye-choice" data-eye="star" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#9956d3"></i><i class="eye-dot" style="background:#9956d3"></i></span><small>Ngôi sao ★</small></button>
+<button class="eye-choice" data-eye="heart" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#ec608f"></i><i class="eye-dot" style="background:#ec608f"></i></span><small>Trái tim ♥</small></button>
+</div>
+<p class="eye-note" id="eye-desc">Búp bê Premium: iris nhiều lớp, highlight + eyeliner, eyelash fan, crease và wetline 3D. Đây là bản sculpt thủ tục gắn lên mắt Face S của model, không phải asset Blender cuối cùng.</p>
+<div class="doll-compare"><button id="compare-original">So sánh mắt gốc</button><button id="doll-quarter">Góc 3/4</button><span id="doll-mesh-count">DOLL: Chưa nạp model</span></div>
+<div class="eye-lock" id="eye-lock" hidden>🔒 Đang Gameplay QA: không được thay mắt.</div>
+</div>
+<div class="rig-panel">
+<div class="rig-head"><b>🦴 Rig + Dance Test</b><span id="rig-stats">Chưa có skinning</span></div>
+<p>Nhân vật nữ được auto-rig thử bằng skeleton và skin weights trong trình duyệt. Chọn Basic/Premium ở chế độ chuẩn bị, sau đó vào gameplay QA để khóa loadout và xem xương biến dạng khi nhảy.</p>
+<div class="rig-actions"><button id="enter-dance" disabled>Bắt đầu gameplay QA</button><button id="leave-dance" hidden>Thoát gameplay QA</button></div>
+<div class="rig-utility"><label><input id="show-bones" type="checkbox"> Hiện xương</label><span id="fps">FPS: —</span></div>
+<div id="rig-lock" class="rig-lock" hidden>🔒 GAMEPLAY QA — Đã khóa diện mạo / trang phục. Thoát để chỉnh tại Inventory.</div>
+</div>
+<div class="notice"><b>Giới hạn kỹ thuật</b><p>Female Idol Head V1 thực sự chỉnh hình học <code>skin_s</code> và texture da trên asset tải từ ZIP. Mức độ giống concept cần chủ nhân kiểm tra trên iPhone; đây là bản sculpt thủ tục đầu tiên, chưa phải mesh được chỉnh tay trong Blender, chưa có morph biểu cảm. Giữ rig QA, outfit modular, gameplay-lock; chưa cập nhật GLB production.</p></div>
+</aside>
+</div>
+<footer>Nam và nữ có wardrobe riêng. Bản thử chỉ auto-rig NỮ vì ZIP chưa có male modular rig. Khi ở Gameplay QA mọi item/diện mạo bị khóa. Không sửa gameplay, WebAudio, RoomState hoặc Supabase thật.</footer>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const $=id=>document.getElementById(id);
+const names=['','longwaveblouse','lowtwinhood','straightlongshirt','bobcoat','ponytshirt'];
+const slots=['body','face','hair','top','bottom','shoes','accessory'];
+// Two new QA outfit designs. Male wardrobe remains completely separate.
+const looks={
+ basic:{body:5,face:4,hair:5,top:5,bottom:5,shoes:5,accessory:0},
+ premium:{body:4,face:4,hair:1,top:4,bottom:4,shoes:4,accessory:3}
+};
+const palettes={
+ basic:{top:'#fff1e0',bottom:'#86c3f0',shoes:'#f3edf9'},
+ premium:{top:'#7254ae',bottom:'#3a385d',shoes:'#222b54'}
+};
+const fashionCopy={
+ basic:{tag:'BASIC · STARTER',title:'Everyday Pop',desc:'T-shirt đào kem + short xanh denim + sneaker trắng. Bổ sung logo nổi, túi áo, sọc quần và điểm nhấn giày tạo từ mesh 3D riêng.'},
+ premium:{tag:'PREMIUM · IDOL',title:'Neon Idol',desc:'Coat tím sâu + boots đêm + layered waist panels, lapel kim loại, chuỗi hạt, mini bag và khuyên tai 3D mới.'},
+ custom:{tag:'CUSTOM · MIX',title:'Tự phối đồ',desc:'Bạn đã thay một item riêng. Chi tiết thiết kế của bộ trọn gói tạm ẩn để không gây xuyên mesh khi phối thủ công.'}
+};
+const parts={
+hair:{1:['longwaveback','longwavefront','longwaveleft','longwaveright'],2:['lowtwinbackleft','lowtwinbackright','lowtwinfront','lowtwinleft','lowtwinright'],3:['longstraightback','longstraightfront','longstraightleft','longstraightright'],4:['bobback','bobfront','bobleft','bobright'],5:['ponyback','ponyfront','ponyleft','ponyright']},
+top:{1:['blouse','button','button.001','button.002','button.003','button.004','button.005'],2:['sweat','hood'],3:['shirt','button','button.001','button.002','button.003','button.004','button.005'],4:['coat','necktie','button'],5:['tshirt']},
+bottom:{1:['skirt'],2:['shorts'],3:['longskirt'],4:['shorts'],5:['dolphin']},
+shoes:{1:['ankleboots'],2:['hightops'],3:['lowblockheel'],4:['ankleboots'],5:['sneakers']},
+accessory:{1:['ribbon'],2:['lowhairband'],3:['belt','buckle'],4:['belt','buckle','ribbon'],5:['ponyhairband']}
+};
+const stage=$('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.65));
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.35;
+renderer.domElement.setAttribute('aria-label','Nhân vật 3D');
+stage.prepend(renderer.domElement);
+const scene=new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xffffff,0x8d93ba,2.4));
+const key=new THREE.DirectionalLight(0xffffff,3.3);key.position.set(3,5,5);scene.add(key);
+const rim=new THREE.DirectionalLight(0xaaa0ff,1.7);rim.position.set(-3,2,-4);scene.add(rim);
+const floor=new THREE.Mesh(new THREE.CircleGeometry(1.3,64),new THREE.MeshBasicMaterial({color:0x7666d1,transparent:true,opacity:.16,depthWrite:false}));
+floor.rotation.x=-Math.PI/2;floor.position.y=-.025;scene.add(floor);
+const camera=new THREE.PerspectiveCamera(32,1,.05,100);
+camera.position.set(0,1.04,4.2);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,.85,0);
+controls.enableDamping=true;controls.minDistance=1.6;controls.maxDistance=7;controls.update();
+let actor=new THREE.Group();scene.add(actor);
+let gender='female',accepted={},models={},loaded=false,busy=false,activeDesign='basic';
+let inGameplayQa=false,rigData=null,mixer=null,action=null,skeletonHelper=null,lastSkinnedCount=0,lastVertexCount=0;
+const QA_BPM=110;
+const qaClock=new THREE.Clock();
+let fpsFrames=0,fpsElapsed=0;
+const recolorCache=new Map();
+const eyeAtlasCache=new Map();
+let selectedEye='doll';let dollParts=0;
+let useIdolFace=true, sculptedVertices=0, sculptedFaceParts=0;
+const faceSkinTextureCache=new Map();
+const EYE_STYLES={
+ original:{label:'Mắt gốc',desc:'UV và hình học mắt nguyên bản để đối chiếu.'},
+ natural:{label:'Tự nhiên',base:'#ac7149',rim:'#4c2930',pupil:'#25171c',desc:'Nâu mật ong, đồng tử tròn và highlight dịu.'},
+ smile:{label:'Tươi cười',base:'#af7548',rim:'#603743',pupil:'#291a23',desc:'Nâu ấm, ánh sáng mềm; hình mí cười chưa được sculpt.'},
+ sad:{label:'Buồn',base:'#997baa',rim:'#4f456f',pupil:'#2c2541',desc:'Tím xám dịu; mí buồn chưa được sculpt.'},
+ mischief:{label:'Tinh nghịch',base:'#28b7b9',rim:'#166576',pupil:'#142d41',desc:'Iris xanh ngọc nổi bật; dáng mắt tinh nghịch chưa được sculpt.'},
+ angry:{label:'Giận dữ',base:'#d0444d',rim:'#642735',pupil:'#250e1e',desc:'Iris đỏ; mí cau giận dữ chưa được sculpt.'},
+ doll:{label:'Búp bê Premium',base:'#b978e0',rim:'#51265f',pupil:'#402052',desc:'Iris lavender đa tầng, limbal ring đậm, đồng tử tím mượt, điểm sáng 3D, mi dày cong, eye crease và wetline; dựa trên Face S.'},
+ idol:{label:'Thần tượng',base:'#257fe6',rim:'#1a3d90',pupil:'#12235a',desc:'Xanh idol có sparkling highlights.'},
+ star:{label:'Ngôi sao',base:'#a263db',rim:'#4f328a',pupil:'#ffe071',desc:'Đồng tử ngôi sao vàng trên iris tím.'},
+ heart:{label:'Trái tim',base:'#ed668e',rim:'#9e355e',pupil:'#ffb0c6',desc:'Đồng tử hình trái tim hồng trên iris ruby.'}
+};
+function status(text){$('status').textContent=text}
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)}
+new ResizeObserver(resize).observe(stage);resize();
+function tick(){
+ requestAnimationFrame(tick);
+ const delta=Math.min(qaClock.getDelta(),.05);
+ if(mixer)mixer.update(delta);
+ controls.update();
+ renderer.render(scene,camera);
+ fpsFrames++;fpsElapsed+=delta;
+ if(fpsElapsed>=1){
+   $('fps').textContent='FPS: '+Math.round(fpsFrames/fpsElapsed);
+   fpsFrames=0;fpsElapsed=0;
+ }
+}tick();
+function recolorMap(source,color){
+ const cacheKey=source.uuid+'-'+color;
+ if(recolorCache.has(cacheKey))return recolorCache.get(cacheKey);
+ const image=source.image;
+ if(!image?.width||!image?.height)return source;
+ const canvas=document.createElement('canvas');
+ const ratio=Math.min(1,768/Math.max(image.width,image.height));
+ canvas.width=Math.max(16,Math.round(image.width*ratio));
+ canvas.height=Math.max(16,Math.round(image.height*ratio));
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});
+ if(!ctx)return source;
+ ctx.drawImage(image,0,0,canvas.width,canvas.height);
+ const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+ const p=pixels.data;
+ const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
+ for(let i=0;i<p.length;i+=4){
+   if(p[i+3]===0)continue;
+   const brightness=Math.max(.48,Math.min(1.36,(p[i]*.25+p[i+1]*.65+p[i+2]*.1)/90));
+   p[i]=Math.min(255,Math.round(rgb[0]*brightness));
+   p[i+1]=Math.min(255,Math.round(rgb[1]*brightness));
+   p[i+2]=Math.min(255,Math.round(rgb[2]*brightness));
+ }
+ ctx.putImageData(pixels,0,0);
+ const tex=new THREE.CanvasTexture(canvas);
+ tex.colorSpace=THREE.SRGBColorSpace;
+ tex.flipY=source.flipY;
+ tex.wrapS=source.wrapS;tex.wrapT=source.wrapT;
+ tex.anisotropy=2;
+ recolorCache.set(cacheKey,tex);
+ return tex;
+}
+function recolorNode(root,color){
+ root.traverse(obj=>{
+   if(!obj.isMesh)return;
+   const paint=material=>{
+     const copy=material.clone();
+     if(copy.map){
+       copy.map=recolorMap(copy.map,color);
+       copy.color.set('#ffffff');
+     }else if(copy.color)copy.color.set(color);
+     copy.roughness=.61;copy.metalness=.08;copy.needsUpdate=true;
+     return copy;
+   };
+   obj.material=Array.isArray(obj.material)?obj.material.map(paint):paint(obj.material);
+ });
+}
+function addMeshes(root,names,group,color){
+ // glTF primitive groups must be cloned with their children intact.
+ if(!root)return 0;
+ const wanted=new Set(names);
+ root.updateWorldMatrix(true,true);
+ let count=0;
+ root.traverse(o=>{
+   if(!wanted.has(o.name)||!(o.isMesh||o.isGroup))return;
+   o.updateWorldMatrix(true,false);
+   const clone=o.clone(true);
+   o.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);
+   if(color)recolorNode(clone,color);
+   group.add(clone);
+   count++;
+ });
+ return count;
+}
+function fashionExtras(design,target){
+ const metal=new THREE.MeshStandardMaterial({color:0xe7d5ff,metalness:.76,roughness:.2});
+ const pearl=new THREE.MeshStandardMaterial({color:0x79f5e7,metalness:.46,roughness:.23,emissive:0x183a43,emissiveIntensity:.24});
+ const gloss=new THREE.MeshPhysicalMaterial({color:0x46305f,metalness:.32,roughness:.32,clearcoat:.75,clearcoatRoughness:.2,side:THREE.DoubleSide});
+ const rose=new THREE.MeshStandardMaterial({color:0xff9cbf,metalness:.25,roughness:.32});
+ const cream=new THREE.MeshStandardMaterial({color:0xffffff,metalness:.1,roughness:.44});
+ const add=(name,geometry,material,x=0,y=0,z=0)=>{
+   const piece=new THREE.Mesh(geometry,material);
+   piece.name=name;
+   piece.position.set(x,y,z);
+   target.add(piece);
+   return piece;
+ };
+ const panel=(name,coords,z,material)=>{
+   const shape=new THREE.Shape();
+   shape.moveTo(coords[0][0],coords[0][1]);
+   for(const [x,y] of coords.slice(1))shape.lineTo(x,y);
+   shape.closePath();
+   return add(name,new THREE.ExtrudeGeometry(shape,{depth:.01,bevelEnabled:true,bevelSize:.002,bevelThickness:.002,bevelSegments:1}),material,0,0,z);
+ };
+ const chain=(name,points,material,radius=.004)=>{
+   const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p)));
+   return add(name,new THREE.TubeGeometry(curve,24,radius,6,false),material);
+ };
+ const crystal=(name,x,y,z,r,material)=>{
+   const piece=add(name,new THREE.OctahedronGeometry(r,0),material,x,y,z);piece.scale.set(.85,1.2,.55);
+ };
+ if(design==='basic'){
+   panel('basic-starter-pocket',[[.055,1.16],[.118,1.16],[.112,1.09],[.07,1.09]],.124,cream);
+   panel('basic-pocket-topstitch',[[.054,1.166],[.117,1.166],[.117,1.158],[.054,1.158]],.136,rose);
+   crystal('basic-chest-embroidery',-.056,1.112,.133,.021,rose);
+   for(const s of [-1,1]){
+     const x=s*.152;
+     panel('basic-shorts-tape-'+s,[[x-.012,.94],[x+.012,.94],[x+.012,.81],[x-.012,.81]],.12,cream);
+     const stripe=add('basic-sneaker-caps-'+s,new THREE.BoxGeometry(.07,.015,.016),rose,s*.147,.082,.195);
+     stripe.rotation.z=s*.08;
+   }
+ }else if(design==='premium'){
+   panel('premium-left-lapel',[[-.145,1.3],[-.028,1.2],[-.086,1.035],[-.178,1.19]],.145,gloss);
+   panel('premium-right-lapel',[[.14,1.3],[.014,1.19],[.082,1.035],[.176,1.19]],.146,metal);
+   panel('premium-asymmetric-layer-left',[[-.205,.975],[-.06,.95],[-.084,.67],[-.225,.75]],.147,gloss);
+   panel('premium-asymmetric-layer-right',[[.052,.97],[.19,.98],[.222,.785],[.08,.74]],.146,gloss);
+   chain('premium-waist-chain',[[-.185,.978,.18],[-.11,.892,.184],[0,.866,.192],[.13,.914,.178],[.2,.961,.165]],metal,.0045);
+   chain('premium-skirt-neon-edge',[[-.224,.753,.166],[-.15,.7,.169],[-.088,.673,.16]],pearl,.004);
+   for(const s of [-1,1]){
+     add('premium-shoulder-stud-'+s,new THREE.SphereGeometry(.018,10,8),pearl,s*.145,1.255,.155);
+     add('premium-earring-'+s,new THREE.TorusGeometry(.019,.0045,6,18),metal,s*.087,1.356,.08);
+     const cuff=add('premium-boot-ring-'+s,new THREE.TorusGeometry(.04,.006,6,20),pearl,s*.13,.16,.03);
+     cuff.rotation.x=Math.PI/2;
+   }
+   const bag=add('premium-mini-bag',new THREE.BoxGeometry(.09,.11,.043),gloss,.215,.88,.10);
+   bag.rotation.z=-.08;
+   crystal('premium-bag-emblem',.215,.9,.13,.023,pearl);
+   crystal('premium-waist-gem',0,.978,.195,.023,rose);
+ }
+}
+
+/* QA-only procedural human skeleton. Bind rest pose in meters; no gameplay authority. */
+function makeQaRig(parent){
+ const bones={};const ordered=[];
+ const bone=(name,p,x,y,z)=>{
+   const b=new THREE.Bone();b.name='QA_'+name;b.position.set(x,y,z);
+   if(p)p.add(b);else parent.add(b);
+   bones[name]=b;ordered.push(b);return b;
+ };
+ const hips=bone('Hips',null,0,.905,0);
+ const spine=bone('Spine',hips,0,.16,0);
+ const chest=bone('Chest',spine,0,.155,0);
+ const neck=bone('Neck',chest,0,.105,0);
+ bone('Head',neck,0,.125,0);
+ for(const side of ['L','R']){
+   const s=side==='L'?-1:1;
+   const shoulder=bone(side+'Shoulder',chest,s*.17,.015,0);
+   const upper=bone(side+'UpperArm',shoulder,s*.142,-.095,0);
+   const lower=bone(side+'Forearm',upper,s*.145,-.145,0);
+   bone(side+'Hand',lower,s*.064,-.065,0);
+   const thigh=bone(side+'Thigh',hips,s*.112,-.087,0);
+   const shin=bone(side+'Shin',thigh,s*.011,-.34,0);
+   const ankle=bone(side+'Ankle',shin,0,-.345,0);
+   bone(side+'Foot',ankle,0,-.075,.065);
+ }
+ return {hips,bones,ordered,skeleton:new THREE.Skeleton(ordered)};
+}
+function jointWeights(x,y,z,slot,name,rig){
+ const weights=[];
+ const add=(key,w)=>{if(w>.0001)weights.push([rig.ordered.indexOf(rig.bones[key]),w])};
+ const interp=(a,b,t)=>{const u=Math.max(0,Math.min(1,t));add(a,1-u);add(b,u)};
+ const prefix=x<0?'L':'R',dist=Math.abs(x);
+ const hair=slot==='hair'||slot==='face'||/hair|lash|eye|teeth|tongue|ribbon/i.test(name);
+ if(hair){add('Head',1)}
+ else if(slot==='shoes'){interp(prefix+'Ankle',prefix+'Foot',Math.max(0,Math.min(1,(.18-y)/.14)))}
+ else if(slot==='accessory'){
+   if(/belt|buckle|bag|chain/i.test(name))add('Hips',1);
+   else if(y>1.28)add('Head',1);
+   else add('Chest',1);
+ }
+ else if(slot==='bottom'){
+   if(y>.91)add('Hips',1);
+   else if(y>.76)interp('Hips',prefix+'Thigh',(.91-y)/.15);
+   else if(y>.49)interp(prefix+'Thigh',prefix+'Shin',(.76-y)/.27);
+   else if(y>.17)interp(prefix+'Shin',prefix+'Ankle',(.49-y)/.32);
+   else add(prefix+'Ankle',1);
+ }else if(dist>.175&&y>.81&&y<1.3){
+   // Arms spread in the supplied A-pose; sleeve and arm surface follows humerus/forearm.
+   if(dist<.33)interp('Chest',prefix+'UpperArm',(dist-.175)/.155);
+   else if(dist<.44)interp(prefix+'UpperArm',prefix+'Forearm',(dist-.33)/.11);
+   else interp(prefix+'Forearm',prefix+'Hand',(dist-.44)/.09);
+ }else if(slot==='top'||slot==='extra'){
+   if(y<.83)interp('Hips','Spine',Math.max(0,(y-.60)/.23));
+   else if(y<1.02)interp('Hips','Spine',(y-.83)/.19);
+   else if(y<1.23)interp('Spine','Chest',(y-1.02)/.21);
+   else if(y<1.34)interp('Chest','Neck',(y-1.23)/.11);
+   else add('Head',1);
+ }else if(y>1.4){add('Head',1)}
+ else if(y>1.32){interp('Neck','Head',(y-1.32)/.08)}
+ else if(y>1.18){interp('Chest','Neck',(y-1.18)/.14)}
+ else if(y>.98){interp('Spine','Chest',(y-.98)/.20)}
+ else if(y>.83){interp('Hips','Spine',(y-.83)/.15)}
+ else if(y>.67){interp('Hips',prefix+'Thigh',(.83-y)/.16)}
+ else if(y>.44){interp(prefix+'Thigh',prefix+'Shin',(.67-y)/.23)}
+ else if(y>.15){interp(prefix+'Shin',prefix+'Ankle',(.44-y)/.29)}
+ else interp(prefix+'Ankle',prefix+'Foot',Math.max(0,(.15-y)/.12));
+ const total=weights.reduce((sum,item)=>sum+item[1],0)||1;
+ return weights.slice(0,4).map(([i,w])=>[i,w/total]);
+}
+
+function hexRgb(hex){return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16))}
+function drawStar(ctx,cx,cy,outer,inner){
+ ctx.beginPath();
+ for(let i=0;i<10;i++){
+   const a=-Math.PI/2+i*Math.PI/5;
+   const r=i%2?inner:outer;
+   const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+   if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+ }
+ ctx.closePath();
+}
+function drawHeart(ctx,x,y,r){
+ ctx.beginPath();
+ ctx.moveTo(x,y+r*.77);
+ ctx.bezierCurveTo(x-r*1.4,y-r*.3,x-r*.7,y-r*1.3,x,y-r*.48);
+ ctx.bezierCurveTo(x+r*.7,y-r*1.3,x+r*1.4,y-r*.3,x,y+r*.77);
+ ctx.closePath();
+}
+function paintIris(ctx,cx,cy,r,styleKey){
+ const cfg=EYE_STYLES[styleKey];
+ const base=hexRgb(cfg.base);
+ ctx.save();
+ // Redraw only the existing two iris disks of Face S's UV atlas. The surrounding skin and lashes remain untouched.
+ ctx.beginPath();ctx.arc(cx,cy,r+3,0,Math.PI*2);ctx.clip();
+ const grad=ctx.createRadialGradient(cx-r*.14,cy-r*.18,r*.04,cx,cy,r);
+ grad.addColorStop(0,'#faf1ff');
+ grad.addColorStop(.15,cfg.base);
+ grad.addColorStop(.72,cfg.base);
+ grad.addColorStop(.9,cfg.rim);
+ grad.addColorStop(1,'#1b1429');
+ ctx.fillStyle=grad;ctx.fillRect(cx-r-4,cy-r-4,2*r+8,2*r+8);
+ // Concentric rings and iris fibers add the anime iris look while keeping iris circular in the UV.
+ ctx.strokeStyle=cfg.rim;ctx.lineWidth=8;ctx.beginPath();ctx.arc(cx,cy,r*.89,0,Math.PI*2);ctx.stroke();
+ for(let i=0;i<44;i++){
+   const a=(i/44)*Math.PI*2;
+   const start=r*(.37+(i%5)*.018),end=r*(.69+(i%7)*.021);
+   ctx.strokeStyle=i%3?'rgba(255,255,255,.14)':'rgba(22,12,47,.19)';
+   ctx.lineWidth=2.5;ctx.beginPath();
+   ctx.moveTo(cx+Math.cos(a)*start,cy+Math.sin(a)*start);
+   ctx.lineTo(cx+Math.cos(a+.03)*end,cy+Math.sin(a+.03)*end);ctx.stroke();
+ }
+ const pupilR=(styleKey==='doll'? .34: .28)*r;
+ ctx.fillStyle=cfg.pupil;
+ ctx.beginPath();ctx.arc(cx,cy,pupilR,0,2*Math.PI);ctx.fill();
+ if(styleKey==='star'){
+   ctx.fillStyle='#ffe17d';drawStar(ctx,cx,cy,r*.36,r*.15);ctx.fill();
+   ctx.strokeStyle='#fff8d0';ctx.lineWidth=3;ctx.stroke();
+ }else if(styleKey==='heart'){
+   ctx.fillStyle='#ffb0d1';drawHeart(ctx,cx,cy,r*.39);ctx.fill();
+   ctx.strokeStyle='#fff4fa';ctx.lineWidth=3;ctx.stroke();
+ }
+ // Strong white anime eye highlights; avoid concealing the center pupil.
+ ctx.fillStyle='rgba(255,255,255,.96)';
+ ctx.beginPath();ctx.ellipse(cx-r*.39,cy-r*.45,r*.18,r*.23,-.35,0,2*Math.PI);ctx.fill();
+ ctx.beginPath();ctx.arc(cx+r*.40,cy+r*.27,r*.085,0,2*Math.PI);ctx.fill();
+ if(['idol','star','heart','doll','mischief'].includes(styleKey)){
+   for(let i=0;i<6;i++){
+     const a=i*Math.PI*2/6+.35;
+     const x=cx+Math.cos(a)*r*.63,y=cy+Math.sin(a)*r*.64;
+     ctx.fillStyle=i%2?'#ffffff':'#ffe5a4';drawStar(ctx,x,y,4.3,1.9);ctx.fill();
+   }
+ }
+ if(styleKey==='sad'){
+   ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=3;
+   ctx.beginPath();ctx.arc(cx+r*.24,cy+r*.3,r*.13,.1,Math.PI*.8);ctx.stroke();
+ }
+ if(styleKey==='smile'){
+   ctx.fillStyle='rgba(255,240,205,.65)';ctx.beginPath();ctx.arc(cx+r*.25,cy-r*.14,10,0,2*Math.PI);ctx.fill();
+ }
+ ctx.restore();
+}
+
+/* Premium Doll iris, painted only inside the verified Face S iris UV islands.
+   Source atlas 1024x1024: centers (0.238,0.758) & (0.757,0.758), iris radius ~0.116.
+   This does NOT replace the accepted character's head or its original textures. */
+function premiumDollTexture(source){
+ const key=source.uuid+'|premium-doll-v1';
+ if(eyeAtlasCache.has(key))return eyeAtlasCache.get(key);
+ const image=source.image;
+ if(!image?.width||!image?.height)return source;
+ const canvas=document.createElement('canvas');
+ canvas.width=image.width;canvas.height=image.height;
+ const ctx=canvas.getContext('2d');
+ if(!ctx)return source;
+ ctx.drawImage(image,0,0,canvas.width,canvas.height);
+ function drawIris(cx,cy,r){
+   ctx.save();
+   ctx.beginPath();ctx.arc(cx,cy,r*.99,0,2*Math.PI);ctx.clip();
+   // Dark outer limbal ring / pearlescent body / deep pupil from concept.
+   const g=ctx.createRadialGradient(cx-r*.16,cy-r*.13,r*.025,cx,cy,r);
+   g.addColorStop(0,'#472454');
+   g.addColorStop(.19,'#6a3479');
+   g.addColorStop(.35,'#ad69c5');
+   g.addColorStop(.59,'#d99ef0');
+   g.addColorStop(.72,'#aa65c4');
+   g.addColorStop(.85,'#80469c');
+   g.addColorStop(.91,'#492452');
+   g.addColorStop(.97,'#23132d');
+   g.addColorStop(1,'#190d26');
+   ctx.fillStyle=g;ctx.fillRect(cx-r,cy-r,r*2,r*2);
+   // Indigo violet iris limbal rings create lens depth.
+   for(const [ratio,width,color] of [
+     [.945,r*.07,'#24102d'],[.865,r*.025,'rgba(246,199,255,.56)'],
+     [.735,r*.018,'rgba(98,42,121,.8)'],[.38,r*.045,'rgba(51,26,75,.40)']
+   ]){
+     ctx.beginPath();ctx.arc(cx,cy,r*ratio,0,Math.PI*2);
+     ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();
+   }
+   // Detailed radial iris strands, varied in length, not a flat radial fill.
+   const strokes=128;
+   for(let i=0;i<strokes;i++){
+     const a=i*2*Math.PI/strokes;
+     const length=0.22+0.05*Math.sin(i*2.37);
+     const inner=.38+0.035*Math.cos(i*.91);
+     const outer=Math.min(.78,inner+length);
+     const dark=i%3===0;
+     ctx.strokeStyle=dark?'rgba(55,22,81,.26)':'rgba(255,211,253,.39)';
+     ctx.lineWidth=dark?1.15:1.65;
+     ctx.beginPath();
+     ctx.moveTo(cx+r*inner*Math.cos(a),cy+r*inner*Math.sin(a));
+     ctx.quadraticCurveTo(cx+r*(inner+outer)/2*Math.cos(a+.017),cy+r*(inner+outer)/2*Math.sin(a+.017),
+                          cx+r*outer*Math.cos(a+.026),cy+r*outer*Math.sin(a+.026));
+     ctx.stroke();
+   }
+   // Luminous lower iris in the Doll concept.
+   const glow=ctx.createRadialGradient(cx,cy+r*.63,r*.025,cx,cy+r*.63,r*.55);
+   glow.addColorStop(0,'rgba(255,205,251,.88)');
+   glow.addColorStop(.32,'rgba(241,165,252,.39)');
+   glow.addColorStop(1,'rgba(255,174,242,0)');
+   ctx.fillStyle=glow;ctx.fillRect(cx-r,cy-r,2*r,2*r);
+   // Round deep violet pupil with a soft secondary inner glow.
+   const pg=ctx.createRadialGradient(cx-r*.06,cy-r*.075,r*.03,cx,cy,r*.36);
+   pg.addColorStop(0,'#482254');pg.addColorStop(.6,'#51225f');pg.addColorStop(.85,'#34133e');pg.addColorStop(1,'#280f31');
+   ctx.beginPath();ctx.arc(cx,cy,r*.34,0,Math.PI*2);ctx.fillStyle=pg;ctx.fill();
+   ctx.lineWidth=r*.024;ctx.strokeStyle='rgba(248,185,247,.38)';ctx.stroke();
+   // Dominant white glint, smaller stars and three rose-white sparkles.
+   ctx.fillStyle='#fffdfd';
+   ctx.beginPath();ctx.ellipse(cx+r*.32,cy-r*.38,r*.165,r*.19,-.13,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle='rgba(255,246,255,.9)';
+   ctx.beginPath();ctx.ellipse(cx-r*.32,cy-r*.51,r*.076,r*.09,-.4,0,Math.PI*2);ctx.fill();
+   const glints=[[-.35,.46,.055],[.32,.53,.04],[.13,.66,.035],[-.58,-.03,.03]];
+   for(const [x,y,sz] of glints){
+     ctx.fillStyle=sz>.045?'#fff5ff':'#ffd9f6';
+     ctx.beginPath();ctx.arc(cx+r*x,cy+r*y,r*sz,0,2*Math.PI);ctx.fill();
+   }
+   ctx.restore();
+ }
+ const r=canvas.width*.117;
+ drawIris(.238*canvas.width,.758*canvas.height,r);
+ drawIris(.757*canvas.width,.758*canvas.height,r);
+ const tex=new THREE.CanvasTexture(canvas);
+ tex.name='PremiumDoll_Iris_1024';
+ tex.flipY=source.flipY;tex.colorSpace=THREE.SRGBColorSpace;
+ tex.wrapS=source.wrapS;tex.wrapT=source.wrapT;
+ tex.anisotropy=4;tex.minFilter=THREE.LinearMipmapLinearFilter;
+ tex.needsUpdate=true;
+ eyeAtlasCache.set(key,tex);
+ return tex;
+}
+/* 3D eyelid/lash detailing anchored to measured original Eye S geometry.
+   On original female presets 4/5 the two centers are at x ±0.037, y 1.428;
+   upper eyeliner surface z follows measured eyelash vertex cloud.
+   Every mesh below receives HEAD skin weights through makeSkinnedPiece. */
+function makePremiumDollParts(target){
+ const liner=new THREE.MeshStandardMaterial({color:0x261326,roughness:.52,metalness:.05,side:THREE.DoubleSide});
+ const softLiner=new THREE.MeshStandardMaterial({color:0x54304e,roughness:.69,metalness:0,transparent:true,opacity:.74,depthWrite:false});
+ const shadow=new THREE.MeshBasicMaterial({color:0xe9a5d3,transparent:true,opacity:.24,side:THREE.DoubleSide,depthWrite:false});
+ const wetline=new THREE.MeshBasicMaterial({color:0xf8caeb,transparent:true,opacity:.84,depthWrite:false});
+ const light=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.85,depthWrite:false});
+ const roseGlint=new THREE.MeshBasicMaterial({color:0xf9d6fb,transparent:true,opacity:.71,depthWrite:false});
+ function mesh(name,geo,mat){
+   const m=new THREE.Mesh(geo,mat);m.name='PremiumDoll_'+name;target.add(m);return m;
+ }
+ function tube(name,points,r,mat){
+   const curve=new THREE.CatmullRomCurve3(points);
+   return mesh(name,new THREE.TubeGeometry(curve,Math.max(14,points.length*5),r,6,false),mat);
+ }
+ function ribbon(name,lower,upper,mat){
+   const arr=[];const indices=[];
+   for(let i=0;i<lower.length;i++){
+     arr.push(...lower[i].toArray(),...upper[i].toArray());
+     if(i<lower.length-1){
+       const a=2*i,b=a+1,d=a+2,e=a+3;
+       indices.push(a,b,d,b,e,d);
+     }
+   }
+   const geo=new THREE.BufferGeometry();
+   geo.setAttribute('position',new THREE.Float32BufferAttribute(arr,3));
+   geo.setIndex(indices);geo.computeVertexNormals();
+   return mesh(name,geo,mat);
+ }
+ function taperedFan(name,root,tip,width,mat){
+   const v=[new THREE.Vector3(root.x-width,root.y-.0004,root.z),
+            new THREE.Vector3(root.x+width,root.y+.0005,root.z+.0005),
+            new THREE.Vector3(tip.x,tip.y,tip.z)];
+   const geo=new THREE.BufferGeometry();
+   geo.setAttribute('position',new THREE.Float32BufferAttribute(v.flatMap(p=>p.toArray()),3));
+   geo.setIndex([0,1,2]);geo.computeVertexNormals();
+   return mesh(name,geo,mat);
+ }
+ const xAbs=[.018,.024,.032,.039,.047,.056,.065,.072];
+ const upperY=[1.4305,1.4368,1.4417,1.4432,1.4421,1.4391,1.4355,1.4378];
+ const upperZ=[.0685,.075,.079,.0808,.078,.072,.064,.054];
+ const lowerY=[1.427,1.417,1.4126,1.4107,1.412,1.418,1.423,1.43];
+ const lowerZ=[.068,.070,.073,.075,.073,.067,.06,.052];
+ let count=0;
+ for(const side of [-1,1]){
+   const eye=side<0?'Left':'Right';
+   const pos=(i,y,z)=>new THREE.Vector3(side*xAbs[i],y,z);
+   const upper=xAbs.map((_,i)=>pos(i,upperY[i],upperZ[i]+.0014));
+   const lower=xAbs.map((_,i)=>pos(i,lowerY[i],lowerZ[i]+.0013));
+   // Deep eyeliner and gently recessed eye crease, with violet shadow above upper lid.
+   tube(eye+'_upper_liner',upper,.00155,liner);count++;
+   tube(eye+'_lower_wetline',lower.slice(1,-1),.00064,wetline);count++;
+   const crease=upper.slice(1,-1).map((p,i)=>new THREE.Vector3(p.x,p.y+.0073,p.z-.0054-(i%2)*.0008));
+   tube(eye+'_soft_crease',crease,.00069,softLiner);count++;
+   const shadowLower=upper.slice(1,-1).map(p=>new THREE.Vector3(p.x,p.y+.0018,p.z-.002));
+   const shadowUpper=upper.slice(1,-1).map(p=>new THREE.Vector3(p.x,p.y+.0105,p.z-.0076));
+   ribbon(eye+'_soft_lid_shadow',shadowLower,shadowUpper,shadow);count++;
+   // Symmetric but slightly graduated hand-like lash fan at the outer corners.
+   const lashIndices=[3,4,5,6];
+   for(let k=0;k<lashIndices.length;k++){
+     const i=lashIndices[k];
+     const root=upper[i];
+     const len=[.0055,.0072,.0082,.010][k];
+     const tip=new THREE.Vector3(root.x+side*(.0025+k*.0018),root.y+len,root.z+.0025);
+     taperedFan(eye+'_fan_upper_'+k,root,tip,.00165-k*.00014,liner);count++;
+   }
+   const outer=upper[upper.length-1];
+   taperedFan(eye+'_soft_wing',upper[6],new THREE.Vector3(outer.x+side*.004,outer.y+.005,outer.z+.002),.0016,liner);count++;
+   // Small lower lashes, spaced as in the Doll concept.
+   for(let k=0;k<3;k++){
+     const i=k+3,r=lower[i];
+     taperedFan(eye+'_lower_lash_'+k,r,new THREE.Vector3(r.x+side*.0025,r.y-.0036-k*.00035,r.z+.0009),.00082,softLiner);count++;
+   }
+   // Corneal glints project slightly above the actual eyeball front surface.
+   const g1=mesh(eye+'_glint_main',new THREE.SphereGeometry(.003,12,8),light);
+   g1.position.set(side*.032,1.437,.0695);g1.scale.set(1.1,1.25,.24);count++;
+   const g2=mesh(eye+'_glint_small',new THREE.SphereGeometry(.0015,10,6),roseGlint);
+   g2.position.set(side*.045,1.419,.0701);g2.scale.set(1,1,.3);count++;
+ }
+ return count;
+}
+
+function eyeTexture(source,styleKey){
+ if(styleKey==='original')return source;
+ if(styleKey==='doll')return premiumDollTexture(source);
+ const cacheKey=source.uuid+'|'+styleKey;
+ if(eyeAtlasCache.has(cacheKey))return eyeAtlasCache.get(cacheKey);
+ const image=source.image;
+ if(!image?.width||!image?.height)return source;
+ // Face S texture: two iris centers at approx (240, 784), (780, 784) on the 1024² atlas.
+ const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+ const ctx=canvas.getContext('2d');if(!ctx)return source;
+ ctx.drawImage(image,0,0,canvas.width,canvas.height);
+ for(const px of [.238,.757])paintIris(ctx,px*canvas.width,.758*canvas.height,canvas.width*.116,styleKey);
+ const tex=new THREE.CanvasTexture(canvas);
+ tex.name='QA_AnimeEye_'+styleKey;
+ tex.flipY=source.flipY;
+ tex.colorSpace=THREE.SRGBColorSpace;
+ tex.wrapS=source.wrapS;tex.wrapT=source.wrapT;
+ tex.magFilter=THREE.LinearFilter;
+ tex.minFilter=THREE.LinearMipmapLinearFilter;
+ tex.anisotropy=2;
+ tex.needsUpdate=true;
+ eyeAtlasCache.set(cacheKey,tex);
+ return tex;
+}
+function applyEyeMaterial(skinned,partName){
+ // Only Face S has the two circular iris UV areas proven from the user's uploaded glTF.
+ if(!/^eyeballs_s$/i.test(partName))return;
+ const replace=m=>{
+   const copy=m.clone();
+   if(copy.map)copy.map=eyeTexture(copy.map,selectedEye);
+   copy.needsUpdate=true;
+   return copy;
+ };
+ skinned.material=Array.isArray(skinned.material)?skinned.material.map(replace):replace(skinned.material);
+ skinned.userData.qaOwnedMaterial=true;
+}
+function syncEyeUI(){
+ const visible=loaded&&gender==='female';
+ $('eye-panel').hidden=!visible;
+ $('eye-lock').hidden=!inGameplayQa;
+ for(const button of document.querySelectorAll('[data-eye]')){
+   button.disabled=inGameplayQa;
+   button.setAttribute('aria-pressed',String(button.dataset.eye===selectedEye));
+ }
+ $('compare-original').disabled=inGameplayQa;
+ $('doll-quarter').disabled=false;
+ $('compare-original').textContent=selectedEye==='original'?'Khôi phục Búp bê Premium':'So sánh mắt gốc';
+ $('doll-mesh-count').textContent=selectedEye==='doll'&&loaded?'DOLL · '+dollParts+' mô-đun 3D':'DOLL · Texture QA';
+ const d=EYE_STYLES[selectedEye];
+ if(d)$('eye-desc').textContent=d.label+': '+d.desc+(selectedEye==='doll'?' Gắn trực tiếp vào mesh mắt Face S.':' Các kiểu khác vẫn là texture QA.');
+}
+for(const b of document.querySelectorAll('[data-eye]')){
+ b.onclick=()=>{
+   if(inGameplayQa||gender!=='female'||!loaded)return;
+   selectedEye=b.dataset.eye;
+   if($('face').value!=='4'){
+     $('face').value='4'; // Face S is the only validated atlas in this prototype.
+   }
+   syncEyeUI();
+   makeActor();
+   status('Mắt '+EYE_STYLES[selectedEye].label+' đã được trang bị trong Inventory QA');
+ };
+}
+function faceCamera(quarter){
+ controls.autoRotate=false;$('spin').textContent='Tự xoay';
+ controls.minDistance=.39;
+ camera.position.set(quarter?.38:0,1.53,quarter?.79:.67);
+ controls.target.set(0,1.53,0);
+ controls.update();
+}
+$('face-zoom').onclick=()=>faceCamera(false);
+$('doll-quarter').onclick=()=>faceCamera(true);
+$('compare-original').onclick=()=>{
+ if(inGameplayQa||gender!=='female'||!loaded)return;
+ selectedEye=selectedEye==='doll'?'original':'doll';
+ $('face').value='4';
+ makeActor();syncEyeUI();faceCamera(false);
+ status(selectedEye==='doll'?'DOLL PREMIUM • Iris và 3D lash/eyelid bật':'Đang so sánh mắt Face S nguyên bản (không chỉnh sửa)');
+};
+
+
+/* Idol Head V1: all dimensions are actual preset4/5 glTF scene coordinates, in meters.
+   Character geometry is copied and edited locally, never modifying source assets.
+   Neck transition y=1.285..1.335 is intentionally preserved for shared body/rig. */
+function faceSmooth(a,b,x){
+ const t=Math.max(0,Math.min(1,(x-a)/(b-a)));
+ return t*t*(3-2*t);
+}
+function faceGauss(x,c,s){
+ const a=(x-c)/s;return Math.exp(-a*a);
+}
+function sculptFemaleIdolGeometry(geo,partName){
+ if(!useIdolFace)return 0;
+ if(!['skin_s','eyeballs_s','eyelash_s','eyebrow_s'].includes(partName))return 0;
+ const pos=geo.getAttribute('position');if(!pos)return 0;
+ let count=0;
+ for(let i=0;i<pos.count;i++){
+   const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);
+   let nx=x,ny=y,nz=z;
+   if(partName==='skin_s'){
+     // Geometry deformation, not image-plane overlays.
+     const head=faceSmooth(1.301,1.334,y)*(1-faceSmooth(1.518,1.563,y));
+     const face=faceSmooth(-.065,.028,z);
+     const lateral=Math.min(1,Math.abs(x)/.07);
+     // Softer idol cheeks: natural cheekbone projection + side volume.
+     const cheek=faceGauss(y,1.394,.045)*faceGauss(Math.abs(x),.060,.033);
+     nx+=x*.078*cheek*head;
+     nz+=.0057*cheek*face*head;
+     // Turn the pointed lower jaw into a soft oval without moving the neck seam.
+     const jaw=faceGauss(y,1.351,.031)*faceGauss(Math.abs(x),.045,.053);
+     nx+=x*.145*jaw*head;
+     const lowerJaw=faceGauss(y,1.338,.022)*faceGauss(Math.abs(x),.028,.045);
+     nx+=x*.055*lowerJaw*head;
+     // Shorter, gentler chin profile; no sudden jump in the throat area.
+     const chin=faceGauss(y,1.335,.018)*faceGauss(x,0,.047)*face;
+     ny+=.0075*chin*head;
+     nz-=.0034*chin*head;
+     // Nose bridge and tip of original head are excessively pronounced.
+     // Keep nostrils and bridge, reduce forward tip projection locally.
+     const nose=faceGauss(x,0,.017)*faceGauss(y,1.386,.023)*faceSmooth(.069,.099,z);
+     nz-=.0194*nose*head;
+     const bridge=faceGauss(x,0,.018)*faceGauss(y,1.419,.017)*faceSmooth(.062,.089,z);
+     nz-=.0035*bridge*head;
+     // Soft mouth/upper-lip region: subtler puckering and lifted neutral expression.
+     const lip=faceGauss(x,0,.034)*faceGauss(y,1.359,.013)*faceSmooth(.048,.076,z);
+     nz-=.0034*lip*head;
+     const corner=faceGauss(Math.abs(x),.023,.01)*faceGauss(y,1.361,.014)*face;
+     ny+=.0023*corner*head;
+     // Mild forehead rounding; leave hairline and brow attachment stable.
+     const forehead=faceGauss(y,1.475,.045)*faceGauss(x,0,.067)*face;
+     nz+=.0017*forehead*head;
+   }else{
+     // The independent eyes/brows/lashes remain modular.
+     // Slightly refine eye spacing and lift without turning them into flat stickers.
+     const side=x<0?-1:1;
+     const center=side*.038;
+     nx=center+(x-center)*(partName==='eyebrow_s'?1.02:1.055);
+     const baseY=partName==='eyebrow_s'?1.462:1.429;
+     ny=baseY+(y-baseY)*1.045+.0017;
+     nz=z-.0012;
+   }
+   if(Math.abs(nx-x)+Math.abs(ny-y)+Math.abs(nz-z)>.000001){
+     pos.setXYZ(i,nx,ny,nz);count++;
+   }
+ }
+ if(count){
+   pos.needsUpdate=true;
+   geo.computeVertexNormals();
+ }
+ return count;
+}
+/* Creates a recolored SKIN texture; blush is placed at UV locations measured from
+   the original glTF skin_s positions, rather than a screen-space overlay.
+   Texture remains attached to the same UV map and follows head animation. */
+function makeIdolSkinAtlas(source){
+ const key=source.uuid+'-idol-head-v1';
+ if(faceSkinTextureCache.has(key))return faceSkinTextureCache.get(key);
+ const img=source.image;
+ if(!img?.width||!img?.height)return source;
+ const canvas=document.createElement('canvas');
+ const scale=Math.min(1,1536/Math.max(img.width,img.height));
+ canvas.width=Math.max(32,Math.round(img.width*scale));
+ canvas.height=Math.max(32,Math.round(img.height*scale));
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});
+ if(!ctx)return source;
+ ctx.drawImage(img,0,0,canvas.width,canvas.height);
+ const pix=ctx.getImageData(0,0,canvas.width,canvas.height);
+ const p=pix.data;
+ for(let i=0;i<p.length;i+=4){
+   if(p[i+3]<180)continue; // keep transparent UV atlas checkerboard
+   const r=p[i],g=p[i+1],b=p[i+2];
+   if(r>g*1.08 && r>b*1.10 && g>55 && r>95){
+     // Soft peach-idol complexion, retain original texture's micro-shading.
+     p[i]=Math.round(r*.29+241*.71);
+     p[i+1]=Math.round(g*.29+191*.71);
+     p[i+2]=Math.round(b*.29+185*.71);
+   }
+ }
+ ctx.putImageData(pix,0,0);
+ // Face S UV face-island centers derived from preset skin_s vertices:
+ // cheeks at UV (0.266,0.265)/(0.353,0.266), directly below the eyes.
+ ctx.save();
+ ctx.globalCompositeOperation='source-atop';
+ function blush(u,v,rx,ry,alpha){
+   const x=u*canvas.width,y=v*canvas.height;
+   ctx.save();
+   ctx.translate(x,y);ctx.scale(1,ry/rx);
+   const g=ctx.createRadialGradient(0,0,0,0,0,rx*canvas.width);
+   g.addColorStop(0,'rgba(242,117,158,'+alpha+')');
+   g.addColorStop(.43,'rgba(247,159,182,'+(alpha*.52)+')');
+   g.addColorStop(1,'rgba(251,192,205,0)');
+   ctx.fillStyle=g;ctx.fillRect(-rx*canvas.width,-rx*canvas.width,2*rx*canvas.width,2*rx*canvas.width);
+   ctx.restore();
+ }
+ blush(.259,.277,.029,.019,.27);
+ blush(.361,.277,.029,.019,.27);
+ ctx.restore();
+ const texture=new THREE.CanvasTexture(canvas);
+ texture.name='FemaleIdol_Skin_UV_V1';
+ texture.flipY=source.flipY;texture.colorSpace=THREE.SRGBColorSpace;
+ texture.wrapS=source.wrapS;texture.wrapT=source.wrapT;
+ texture.minFilter=THREE.LinearMipmapLinearFilter;
+ texture.magFilter=THREE.LinearFilter;texture.anisotropy=2;
+ texture.needsUpdate=true;
+ faceSkinTextureCache.set(key,texture);
+ return texture;
+}
+function applyIdolSkinMaterial(mesh){
+ const apply=m=>{
+   const copy=m.clone();
+   if(copy.map)copy.map=makeIdolSkinAtlas(copy.map);
+   if(copy.color)copy.color.set('#ffffff');
+   if('roughness'in copy)copy.roughness=.78;
+   if('metalness'in copy)copy.metalness=0;
+   copy.needsUpdate=true;
+   return copy;
+ };
+ mesh.material=Array.isArray(mesh.material)?mesh.material.map(apply):apply(mesh.material);
+ mesh.userData.qaOwnedMaterial=true;
+}
+function updateIdolFacePanel(){
+ const allow=loaded&&gender==='female';
+ $('face-sculpt-panel').hidden=!allow;
+ for(const key of ['face-new','face-old'])$(key).disabled=inGameplayQa;
+ $('face-new').setAttribute('aria-pressed',String(useIdolFace));
+ $('face-old').setAttribute('aria-pressed',String(!useIdolFace));
+ $('face-sculpt-metrics').textContent=useIdolFace&&allow?
+  'IDOL V1 · '+sculptedVertices.toLocaleString()+' vertices sculpted · '+sculptedFaceParts+' face mesh parts · eyes & wardrobe modular':
+  'Mặt gốc · Geometry/skin texture chưa chỉnh sửa';
+}
+function changeHeadMode(next){
+ if(!loaded||gender!=='female'||inGameplayQa||useIdolFace===next)return;
+ useIdolFace=next;
+ selectedEye='doll';
+ $('face').value='4';
+ makeActor();syncEyeUI();updateIdolFacePanel();
+ faceCamera(true);
+ status(next?'Đang xem 3D FACE IDOL V1 · vertex sculpt + skin UV mới':'Đang so sánh mặt Face S gốc · không chỉnh sửa');
+}
+$('face-new').onclick=()=>changeHeadMode(true);
+$('face-old').onclick=()=>changeHeadMode(false);
+
+function makeSkinnedPiece(source,slot,partName,target,rig,color){
+ const geometry=source.geometry.clone();
+ const transformed=sculptFemaleIdolGeometry(geometry,partName);
+ if(transformed){sculptedVertices+=transformed;sculptedFaceParts++}
+ const skinned=new THREE.SkinnedMesh(geometry,source.material);
+ source.updateWorldMatrix(true,false);
+ source.matrixWorld.decompose(skinned.position,skinned.quaternion,skinned.scale);
+ skinned.name='QA_Skin_'+partName;
+ skinned.frustumCulled=false;
+ const pos=geometry.getAttribute('position');
+ const idx=new Uint16Array(pos.count*4), weights=new Float32Array(pos.count*4);
+ const local=new THREE.Vector3(),world=new THREE.Vector3();
+ for(let i=0;i<pos.count;i++){
+   local.fromBufferAttribute(pos,i);
+   world.copy(local).applyMatrix4(source.matrixWorld);
+   const w=jointWeights(world.x,world.y,world.z,slot,partName,rig);
+   for(let k=0;k<4;k++){idx[i*4+k]=w[k]?.[0]??0;weights[i*4+k]=w[k]?.[1]??0}
+ }
+ geometry.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(idx,4));
+ geometry.setAttribute('skinWeight',new THREE.Float32BufferAttribute(weights,4));
+ if(color){recolorNode(skinned,color);skinned.userData.qaOwnedMaterial=true}
+ if(slot==='face')applyEyeMaterial(skinned,partName);
+ if(slot==='body'&&partName==='skin_s'&&useIdolFace)applyIdolSkinMaterial(skinned);
+ target.add(skinned);
+ rig.pieces.push(skinned);
+ rig.vertices+=pos.count;
+}
+function addQaSkinnedParts(root,names,target,rig,slot,color){
+ if(!root)return;
+ const wanted=new Set(names);
+ root.updateWorldMatrix(true,true);
+ root.traverse(node=>{
+   if(!wanted.has(node.name)||!(node.isMesh||node.isGroup))return;
+   node.traverse(child=>{
+     if(child.isMesh)makeSkinnedPiece(child,slot,node.name,target,rig,color);
+   });
+ });
+}
+function makeRiggedAvatar(selectedDesign){
+ const rig=makeQaRig(actor);rig.pieces=[];rig.vertices=0;dollParts=0;
+ sculptedVertices=0;sculptedFaceParts=0;
+ const v=Object.fromEntries(slots.map(id=>[id,+$(id).value]));
+ addQaSkinnedParts(models[v.body],['skin_d','skin_s'],actor,rig,'body',null);
+ addQaSkinnedParts(models[v.face],['eyeballs_d','eyebrow_d','eyelash_d','teethlower_d','teethupper_d','tongue_d','eyeballs_s','eyebrow_s','eyelash_s','teethlower_s','teethupper_s','tongue_s','toungue_s'],actor,rig,'face',null);
+ if(!useIdolFace&&selectedEye==='doll'&&v.face===4){
+   const detailGroup=new THREE.Group();
+   dollParts=makePremiumDollParts(detailGroup);
+   detailGroup.updateWorldMatrix(true,true);
+   // Every detail is a real skinned mesh; head motion stays synchronized with the base.
+   detailGroup.traverse(part=>{
+     if(part.isMesh)makeSkinnedPiece(part,'face',part.name,actor,rig,null);
+   });
+ }
+ const palette=palettes[selectedDesign];
+ for(const slot of ['hair','top','bottom','shoes','accessory']){
+   if(v[slot])addQaSkinnedParts(models[v[slot]],parts[slot][v[slot]]||[],actor,rig,slot,palette?.[slot]);
+ }
+ // Design trim must follow the same rig, not float in world space.
+ if(selectedDesign==='basic'||selectedDesign==='premium'){
+   const temp=new THREE.Group();
+   fashionExtras(selectedDesign,temp);
+   temp.updateWorldMatrix(true,true);
+   for(const mesh of [...temp.children])if(mesh.isMesh)makeSkinnedPiece(mesh,'extra',mesh.name,actor,rig,null);
+ }
+ actor.updateWorldMatrix(true,true);
+ rig.skeleton.calculateInverses();
+ for(const mesh of rig.pieces)mesh.bind(rig.skeleton);
+ return rig;
+}
+function makeQaClip(rig,name){
+ const isDance=name==='QA_Dance_110';
+ const duration=4*60/QA_BPM;
+ const samples=12;
+ const times=Array.from({length:samples+1},(_,i)=>i*duration/samples);
+ const move=(joint,fn)=>{
+   const bone=rig.bones[joint];
+   const vals=[];
+   const euler=new THREE.Euler();
+   const quat=new THREE.Quaternion();
+   for(const t of times){
+     const phase=2*Math.PI*t/duration;
+     const angles=fn(phase,t);
+     euler.set(...angles,'XYZ');quat.setFromEuler(euler);
+     vals.push(quat.x,quat.y,quat.z,quat.w);
+   }
+   return new THREE.QuaternionKeyframeTrack(bone.uuid+'.quaternion',times,vals);
+ };
+ const s=Math.sin,c=Math.cos;
+ const tracks=[
+  move('Hips',p=>isDance?[.065*s(p),.07*s(p),.045*s(p)]:[0,.014*s(p),.01*s(p)]),
+  move('Spine',p=>isDance?[.07*c(p),-.04*s(p),-.065*s(p)]:[.015*s(p),0,0]),
+  move('Chest',p=>isDance?[.06*c(p),.035*s(p),.038*s(p)]:[.008*c(p),0,0]),
+  move('Head',p=>[.022*c(p),isDance?.07*s(p):.018*s(p),0]),
+  move('LUpperArm',p=>isDance?[.19*s(p),-.08*c(p),.19+.22*s(p)]:[.015*s(p),0,.008*s(p)]),
+  move('RUpperArm',p=>isDance?[-.19*s(p),.08*c(p),-.19-.22*s(p)]:[.015*s(p),0,-.008*s(p)]),
+  move('LForearm',p=>isDance?[-.31-.18*c(p),.10*s(p),.08*c(p)]:[0,0,0]),
+  move('RForearm',p=>isDance?[-.31+.18*c(p),-.10*s(p),-.08*c(p)]:[0,0,0]),
+  move('LThigh',p=>isDance?[.32*s(p),.03*c(p),.045*s(p)]:[.01*s(p),0,0]),
+  move('RThigh',p=>isDance?[-.32*s(p),-.03*c(p),-.045*s(p)]:[-.01*s(p),0,0]),
+  move('LShin',p=>isDance?[.11+.20*Math.max(0,-s(p)),0,0]:[0,0,0]),
+  move('RShin',p=>isDance?[.11+.20*Math.max(0,s(p)),0,0]:[0,0,0]),
+ ];
+ return new THREE.AnimationClip(name,duration,tracks);
+}
+function startQaAction(name){
+ if(!mixer||!rigData)return;
+ if(action){action.stop();action=null}
+ const clip=makeQaClip(rigData,name);
+ action=mixer.clipAction(clip);
+ action.setLoop(THREE.LoopRepeat,Infinity);
+ action.play();
+}
+function updateRigUI(){
+ $('enter-dance').disabled=!(loaded&&gender==='female'&&!busy)||inGameplayQa;
+ $('enter-dance').hidden=inGameplayQa;
+ $('leave-dance').hidden=!inGameplayQa;
+ $('rig-lock').hidden=!inGameplayQa;
+ document.body.classList.toggle('gameplay-qa',inGameplayQa);
+ $('gender-female').disabled=inGameplayQa;
+ $('gender-male').disabled=inGameplayQa;
+ for(const id of slots)$(id).disabled=inGameplayQa;
+ $('zip').disabled=inGameplayQa;
+ $('zip-again').disabled=inGameplayQa;
+ for(const id of ['basic','premium'])$(id).disabled=inGameplayQa;
+ syncEyeUI();
+ updateIdolFacePanel();
+ $('rig-stats').textContent=rigData?(rigData.ordered.length+' bones · '+lastSkinnedCount+' skins · '+lastVertexCount.toLocaleString()+' vertices'):'Chưa có skinning';
+}
+$('enter-dance').onclick=()=>{
+ if(!loaded||gender!=='female'||busy||!rigData)return;
+ inGameplayQa=true;updateRigUI();
+ startQaAction('QA_Dance_110');
+ status('🔒 GAMEPLAY QA · Loadout '+activeDesign+' đã khóa, clip nhảy skeletal 110 BPM đang chạy');
+};
+$('leave-dance').onclick=()=>{
+ inGameplayQa=false;updateRigUI();
+ startQaAction('QA_Idle');
+ status('Đã thoát Gameplay QA · Có thể chỉnh diện mạo trong Inventory test');
+};
+$('show-bones').onchange=()=>{
+ if(skeletonHelper)skeletonHelper.visible=$('show-bones').checked;
+};
+
+function makeActor(){
+ if(inGameplayQa)return; // Appearance is immutable while in Gameplay QA.
+ if(action){action.stop();action=null}
+ if(mixer){mixer.stopAllAction();mixer.uncacheRoot(actor);mixer=null}
+ if(skeletonHelper){scene.remove(skeletonHelper);skeletonHelper.dispose();skeletonHelper=null}
+ const old=actor;
+ scene.remove(old);
+ old.traverse(obj=>{
+   if(obj.isSkinnedMesh){
+     obj.geometry.dispose();
+     if(obj.userData.qaOwnedMaterial){
+       if(Array.isArray(obj.material))for(const m of obj.material)m.dispose();
+       else obj.material.dispose();
+     }
+   }
+ });
+ actor=new THREE.Group();
+ rigData=null;
+ if(gender==='female'&&loaded){
+   rigData=makeRiggedAvatar(activeDesign);
+   lastSkinnedCount=rigData.pieces.length;
+   lastVertexCount=rigData.vertices;
+ }else if(accepted[gender])actor.add(accepted[gender].clone(true));
+ const b=new THREE.Box3().setFromObject(actor);
+ if(!b.isEmpty()){
+   const size=b.getSize(new THREE.Vector3());
+   const center=b.getCenter(new THREE.Vector3());
+   const scale=1.7/Math.max(size.y,.1);
+   actor.scale.setScalar(scale);
+   actor.position.set(-center.x*scale,-b.min.y*scale,-center.z*scale);
+ }
+ scene.add(actor);
+ if(rigData){
+   skeletonHelper=new THREE.SkeletonHelper(actor);
+   skeletonHelper.visible=$('show-bones').checked;
+   scene.add(skeletonHelper);
+   mixer=new THREE.AnimationMixer(actor);
+   startQaAction('QA_Idle');
+ }
+ updateRigUI();
+}
+function showDesign(){
+ const isWardrobe=gender==='female'&&loaded;
+ $('design-info').hidden=!isWardrobe;
+ if(!isWardrobe)return;
+ const info=fashionCopy[activeDesign];
+ $('design-pill').textContent=info.tag;
+ $('design-title').textContent=info.title;
+ $('design-desc').textContent=info.desc;
+ for(const mode of ['basic','premium'])$(mode).setAttribute('aria-pressed',String(mode===activeDesign));
+}
+function refresh(){
+ $('gender-female').setAttribute('aria-selected',String(gender==='female'));
+ $('gender-male').setAttribute('aria-selected',String(gender==='male'));
+ $('panel-title').textContent=gender==='female'?'Tủ đồ nữ':'Tủ đồ nam';
+ $('panel-kind').textContent=gender==='female'?'FEMALE · CC0 ASSET QA':'MALE · C4 CHARACTER';
+ $('male-empty').hidden=gender!=='male';
+ $('upload').hidden=gender!=='female'||loaded;
+ $('uploaded').hidden=gender!=='female'||!loaded;
+ $('items').hidden=gender!=='female'||!loaded;
+ $('quick').hidden=gender!=='female'||!loaded;
+ showDesign();
+ syncEyeUI();
+ makeActor();
+ updateIdolFacePanel();
+}
+$('gender-female').onclick=()=>{if(inGameplayQa)return;gender='female';refresh()};
+$('gender-male').onclick=()=>{if(inGameplayQa)return;gender='male';refresh()};
+$('front').onclick=()=>{camera.position.set(0,1.04,4.2);controls.target.set(0,.85,0);controls.update()};
+$('spin').onclick=()=>{controls.autoRotate=!controls.autoRotate;$('spin').textContent=controls.autoRotate?'Dừng xoay':'Tự xoay'};
+for(const id of slots)$(id).onchange=()=>{
+ if(gender==='female'&&loaded){
+   if(inGameplayQa)return;
+   activeDesign='custom';
+   showDesign();
+   status('Đang tự phối đồ nữ · Các phụ kiện thiết kế độc quyền tạm ẩn');
+   makeActor();
+ }
+};
+function apply(name){
+ if(gender!=='female'||!loaded||inGameplayQa||!looks[name])return;
+ activeDesign=name;
+ for(const [k,v]of Object.entries(looks[name]))$(k).value=v;
+ showDesign();makeActor();
+ status(name==='basic'?'Đang xem BASIC – Everyday Pop': 'Đang xem PREMIUM – Neon Idol');
+}
+for(const name of ['basic','premium'])$(name).onclick=()=>apply(name);
+async function upload(file){
+ if(!file||busy||inGameplayQa)return;
+ if(!file.name.toLowerCase().endsWith('.zip'))return status('Chọn file ZIP hợp lệ');
+ if(!window.fflate)return status('Không tải được ZIP decoder, hãy kiểm tra kết nối mạng');
+ busy=true;status('Đang giải nén ZIP trên iPhone…');
+ try{
+  const entries=window.fflate.unzipSync(new Uint8Array(await file.arrayBuffer()));
+  const data=new Map();
+  for(const [path,buffer] of Object.entries(entries)){
+   const normalized=path.replaceAll('\\','/').replace(/^.*?(?=preset[1-5]\/)/,'');
+   if(/^preset[1-5]\//.test(normalized))data.set(normalized,buffer);
+  }
+  const urls=new Map();
+  try{
+   for(const [path,buffer]of data){
+    urls.set(path,URL.createObjectURL(new Blob([buffer],{type:path.endsWith('.png')?'image/png':'application/octet-stream'})));
+   }
+   const manager=new THREE.LoadingManager();
+   manager.setURLModifier(url=>urls.get(url.replace(/^virtual\//,''))||url);
+   const loader=new GLTFLoader(manager);
+   const imported={};
+   for(let i=1;i<=5;i++){
+    status('Đang dựng preset nữ '+i+'/5…');
+    const source=data.get('preset'+i+'/'+names[i]+'.gltf');
+    if(!source)throw Error('Thiếu preset nữ '+i+' trong ZIP');
+    imported[i]=(await loader.parseAsync(new TextDecoder().decode(source),'virtual/preset'+i+'/')).scene;
+    imported[i].updateWorldMatrix(true,true);
+   }
+   models=imported;loaded=true;gender='female';activeDesign='basic';
+   useIdolFace=true;selectedEye='doll';
+   applySelections(looks.basic);refresh();
+   faceCamera(true);
+   status('Đã nạp ZIP · Đang xem MẶT IDOL MỚI V1 · Zoom/so sánh với mặt gốc');
+  }finally{for(const url of urls.values())URL.revokeObjectURL(url)}
+ }catch(e){status('Không thể đọc ZIP: '+(e.message||e))}
+ finally{busy=false}
+}
+function applySelections(values){for(const [k,v]of Object.entries(values))$(k).value=v}
+$('zip').onchange=e=>{void upload(e.target.files?.[0]);e.target.value=''};
+$('zip-again').onchange=e=>{void upload(e.target.files?.[0]);e.target.value=''};
+async function boot(){
+ try{
+  const loader=new GLTFLoader();
+  const [female,male]=await Promise.all([
+    loader.loadAsync('/characters/c1-casual-grace/character.glb'),
+    loader.loadAsync('/characters/c4-casual-boy/character.glb')
+  ]);
+  accepted={female:female.scene,male:male.scene};
+  applySelections(looks.basic);
+  refresh();
+  status('Sẵn sàng · Chọn ZIP để phối trang phục nữ');
+ }catch(e){status('Không tải được nhân vật tham chiếu: '+(e.message||e))}
+}
+boot();
+</script>
+</body>
+</html>
