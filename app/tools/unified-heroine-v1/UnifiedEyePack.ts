@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import sculpt from "./dark-idol-eye-v1-sculpt.json";
+import {DarkIdolLashOverlay} from "./DarkIdolLashOverlay";
 
 /**
  * Isolated, runtime-ready proof of modular eyes on the same VRoid SkinnedMesh.
@@ -11,6 +13,7 @@ export const UNIFIED_EYE_ASSETS = [
   {id:"star", label:"Ngôi sao", color:"#d299ff", description:"Tím sáng · sao vàng", expression:"sparkle"},
   {id:"heart", label:"Trái tim", color:"#f983b8", description:"Hồng tím · biểu tượng tim", expression:"joy"},
   {id:"premium-idol", label:"✦ Premium Idol", color:"#e3b6ff", description:"2048px crystalline iris · physical clearcoat", expression:"joy"},
+  {id:"dark-idol", label:"✧ Dark Idol Sculpt", color:"#8f4b8b", description:"Blender-sculpt native lashes & eyeline + new iris", expression:"neutral"},
 ] as const;
 
 export type UnifiedEyeAssetId = (typeof UNIFIED_EYE_ASSETS)[number]["id"];
@@ -30,10 +33,16 @@ const EXPRESSIONS:Record<UnifiedEyeAssetId,{joy:number,surprised:number}>={
  star:{joy:.06,surprised:.08},
  heart:{joy:.20,surprised:0},
  "premium-idol":{joy:.13,surprised:.06},
+ "dark-idol":{joy:.04,surprised:0},
 };
 
 export class UnifiedEyePack {
  private irisMats:IrisMaterial[]=[];
+ private sculptSlots:Array<{position:THREE.BufferAttribute,original:Float32Array,entries:number[][]}>=[];
+ private sculptActive=false;
+ private darkLashes:DarkIdolLashOverlay;
+ private faceSkinSlots:Array<{mesh:THREE.Mesh,index:number,source:THREE.Material,custom:THREE.MeshStandardMaterial}>=[];
+ private faceSkinTexture:Promise<THREE.Texture>|null=null;
  private premiumSlots:Array<{mesh:THREE.Mesh,index:number,source:IrisMaterial,physical:THREE.MeshPhysicalMaterial}>=[];
 
  private originals=new Map<IrisMaterial,{map:THREE.Texture|null,color:THREE.Color}>();
@@ -50,6 +59,7 @@ export class UnifiedEyePack {
 
  constructor(root:THREE.Group,onReport:(event:EyeReport)=>void){
   this.onReport=onReport;
+  this.darkLashes=new DarkIdolLashOverlay(root);
   const mats=new Set<IrisMaterial>();
   root.traverse(o=>{
     if(!(o instanceof THREE.Mesh))return;
@@ -76,6 +86,24 @@ export class UnifiedEyePack {
       physical.emissiveIntensity=.10;
       this.premiumSlots.push({mesh:o,index,source:base,physical});
     }
+    if(o instanceof THREE.SkinnedMesh){
+      const matching=all.find(m=>/FaceEyelash|FaceEyeline/i.test(m.name));
+      const key=matching?.name.includes("FaceEyelash")?"eyelash":matching?.name.includes("FaceEyeline")?"eyeline":null;
+      const attribute=o.geometry.getAttribute("position");
+      if(key&&attribute instanceof THREE.BufferAttribute&&attribute.count===sculpt.faceVertexCount){
+        this.sculptSlots.push({
+          position:attribute,
+          original:Float32Array.from(attribute.array),
+          entries:sculpt.vertices[key] as number[][]
+        });
+      }
+    }
+    for(const [index,material] of all.entries()){
+      if(!/Face_00_SKIN/.test(material.name) || !(material instanceof THREE.MeshStandardMaterial))continue;
+      const custom=material.clone();
+      custom.name=material.name+"_DarkIdolMakeup";
+      this.faceSkinSlots.push({mesh:o,index,source:material,custom});
+    }
     const m=o as MorphMesh;
     if(m.morphTargetDictionary && m.morphTargetInfluences && Object.keys(m.morphTargetDictionary).some(n=>n==="Blink"||n==="Joy")){
       this.faceMorphs.push(m);
@@ -93,6 +121,51 @@ export class UnifiedEyePack {
   this.report("READY · iris mesh + morph keys");
  }
 
+ private setNativeSculpt(enabled:boolean){
+   if(this.sculptActive===enabled)return;
+   this.sculptActive=enabled;
+   for(const slot of this.sculptSlots){
+     const array=slot.position.array as Float32Array;
+     array.set(slot.original);
+     if(enabled){
+       for(const [index,dx,dy,dz] of slot.entries){
+         const i=index*3;
+         if(i+2>=array.length)continue;
+         array[i]+=dx;array[i+1]+=dy;array[i+2]+=dz;
+       }
+     }
+     slot.position.needsUpdate=true;
+   }
+ }
+ private restoreFaceSkin(){
+   for(const slot of this.faceSkinSlots){
+     if(Array.isArray(slot.mesh.material))slot.mesh.material[slot.index]=slot.source;
+     else slot.mesh.material=slot.source;
+   }
+ }
+ private async loadFaceMakeup():Promise<THREE.Texture>{
+   if(!this.faceSkinTexture){
+     this.faceSkinTexture=new Promise<THREE.Texture>((resolve,reject)=>{
+       new THREE.TextureLoader().load(
+         UNIFIED_EYE_ASSET_ROOT+"/face-dark-idol-makeup-v1.png",tex=>{
+           tex.flipY=false;
+           tex.colorSpace=THREE.SRGBColorSpace;
+           tex.anisotropy=4;
+           tex.needsUpdate=true;
+           resolve(tex);
+         },undefined,reject);
+     }).catch(e=>{this.faceSkinTexture=null;throw e});
+   }
+   return await this.faceSkinTexture;
+ }
+ private assignFaceMakeup(tex:THREE.Texture){
+   for(const slot of this.faceSkinSlots){
+     slot.custom.map=tex;
+     slot.custom.needsUpdate=true;
+     if(Array.isArray(slot.mesh.material))slot.mesh.material[slot.index]=slot.custom;
+     else slot.mesh.material=slot.custom;
+   }
+ }
  private restoreMaterials(){
    for(const slot of this.premiumSlots){
      if(Array.isArray(slot.mesh.material))slot.mesh.material[slot.index]=slot.source;
@@ -149,7 +222,10 @@ export class UnifiedEyePack {
    const token=++this.serial;
    this.selected=id;
    this.expression(id);
-   if(id!=="premium-idol")this.restoreMaterials();
+   this.setNativeSculpt(id==="dark-idol");
+   this.darkLashes.setRequested(id==="dark-idol");
+   if(id!=="dark-idol")this.restoreFaceSkin();
+   if(id!=="premium-idol"&&id!=="dark-idol")this.restoreMaterials();
    if(id==="natural"){
      for(const m of this.irisMats){
        const o=this.originals.get(m)!;
@@ -160,11 +236,23 @@ export class UnifiedEyePack {
    }
    this.report("Loading "+id+" · texture asset");
    try{
-     const tex=await this.texture(id);
+     const [tex,faceTex]=await Promise.all([
+       this.texture(id),
+       id==="dark-idol"?this.loadFaceMakeup():Promise.resolve(null),
+       id==="dark-idol"?this.darkLashes.ensureLoaded():Promise.resolve(),
+     ]);
      if(this.destroyed||token!==this.serial)return;
-     if(id==="premium-idol"){
+     if(faceTex)this.assignFaceMakeup(faceTex);
+     if(id==="premium-idol"||id==="dark-idol"){
+       for(const slot of this.premiumSlots){
+         slot.physical.clearcoat=id==="dark-idol"?.65:.83;
+         slot.physical.emissiveIntensity=id==="dark-idol"?.025:.10;
+         slot.physical.roughness=id==="dark-idol"?.27:.21;
+       }
        this.assignPremium(tex);
-       this.report("ACTIVE · PREMIUM physical iris + clearcoat · 2048×1024");
+       this.report(id==="dark-idol"
+         ?"ACTIVE · Dark Idol Blender sculpt + 3D fitted lash morphs + UV makeup + iris · 57 face morphs retained"
+         :"ACTIVE · PREMIUM physical iris + clearcoat · 2048×1024");
        return;
      }
      for(const m of this.irisMats){
@@ -194,12 +282,23 @@ export class UnifiedEyePack {
      this.elapsed+=delta;
      if(this.elapsed>=2.7){this.elapsed=0;this.blinkOnce()}
    }
+   const primary=this.faceMorphs.find(m=>m.morphTargetDictionary.Blink!==undefined);
+   if(primary){
+     const lookup=primary.morphTargetDictionary;
+     const values=primary.morphTargetInfluences;
+     this.darkLashes.syncMorph(values[lookup.Blink]??0,lookup.Joy!==undefined?(values[lookup.Joy]??0):0);
+   }
  }
  public getDiagnostics(){
-   return {selected:this.selected,irisMaterials:this.irisMats.length,premiumSkinnedMaterialSlots:this.premiumSlots.length,morphMeshes:this.faceMorphs.length,cachedAssets:this.cache.size};
+   return {selected:this.selected,darkLashes:this.darkLashes.diagnostics(),faceMakeupSlots:this.faceSkinSlots.length,sculptedVertices:this.sculptSlots.reduce((n,x)=>n+x.entries.length,0),sculptActive:this.sculptActive,irisMaterials:this.irisMats.length,premiumSkinnedMaterialSlots:this.premiumSlots.length,morphMeshes:this.faceMorphs.length,cachedAssets:this.cache.size};
  }
  public dispose(){
    this.destroyed=true;this.serial++;
+   this.setNativeSculpt(false);
+   this.darkLashes.dispose();
+   this.restoreFaceSkin();
+   for(const slot of this.faceSkinSlots)slot.custom.dispose();
+   this.faceSkinTexture?.then(t=>t.dispose()).catch(()=>{});
    this.restoreMaterials();
    for(const slot of this.premiumSlots)slot.physical.dispose();
    for(const m of this.irisMats){
