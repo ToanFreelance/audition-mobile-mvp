@@ -56,6 +56,17 @@ aside{background:#1b2036;border:1px solid #3c4360;border-radius:19px;padding:15p
 .notice b{font-size:12px;color:#ffda9f}.notice p{margin-bottom:0}
 footer{text-align:center;color:#a7b0c9;font-size:10px;line-height:1.6;padding:15px 20px 28px}
 [hidden]{display:none!important}
+.eye-panel{border:1px solid #72619b;border-radius:14px;background:#25233e;padding:12px;margin:12px 0}
+.eye-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:8px}.eye-heading b{font-size:14px}.eye-heading span{font-size:10px;color:#cdb6ff}
+.eye-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.eye-choice{display:flex;flex-direction:column;align-items:center;gap:5px;border-radius:10px;background:#333052;border:1px solid #625783;min-height:70px;padding:8px 4px}
+.eye-choice[aria-pressed=true]{border-color:#9ceeea;background:#463c74;box-shadow:0 0 0 1px #9ceeea}
+.eye-preview{display:flex;gap:3px;align-items:center;justify-content:center;height:23px}
+.eye-dot{width:22px;height:22px;border-radius:50%;border:2px solid #221d2c;box-shadow:0 0 0 1px #dac9e9, inset 0 2px 4px #fff7}
+.eye-choice small{font-size:10px;text-align:center;line-height:1.3;color:#f2eafa}
+.eye-note{font-size:11px;color:#c5c2e5;line-height:1.5;margin:9px 0 0}
+.eye-lock{margin-top:8px;color:#fbe3a3;font-size:10px}
+.eye-choice:disabled{opacity:.55;cursor:not-allowed}
 .rig-panel{border:1px solid #506892;border-radius:14px;background:#202942;padding:13px;margin:12px 0 14px}
 .rig-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.rig-head b{font-size:14px}.rig-head span{color:#9cdecb;font-size:10px}
 .rig-panel p{font-size:11px;color:#c4d2e8;line-height:1.52;margin:10px 0}
@@ -79,7 +90,7 @@ body.gameplay-qa nav button{opacity:.55;cursor:not-allowed}body.gameplay-qa asid
 <div class="shell">
 <section class="stage" id="stage">
 <div class="stage-top">3D CHARACTER VIEWER<small>Vuốt để xoay · chụm để phóng to</small></div>
-<div class="stage-actions"><button id="front">Chính diện</button><button id="spin">Tự xoay</button></div>
+<div class="stage-actions"><button id="front">Toàn thân</button><button id="face-zoom">Zoom mặt</button><button id="spin">Tự xoay</button></div>
 </section>
 <aside>
 <div class="panel-head"><h2 id="panel-title">Tủ đồ nữ</h2><span id="panel-kind">FEMALE · CC0 ASSET QA</span></div>
@@ -106,6 +117,22 @@ body.gameplay-qa nav button{opacity:.55;cursor:not-allowed}body.gameplay-qa asid
 </div>
 <div id="design-info" class="design-info" hidden><span class="style-pill" id="design-pill">BASIC</span><br><b id="design-title">Everyday Pop</b><div id="design-desc">Tủ đồ nữ • Prototype 3D</div></div>
 <div class="empty" id="male-empty" hidden><div class="male-icon">♂</div><b>Inventory riêng cho nam</b><p>Hiển thị C4 Casual Boy để kiểm tra góc nhìn. ZIP bạn gửi là <strong>asset nữ</strong>; quần áo, body, tóc nữ không thể trang bị cho nhân vật nam.</p><small>Chưa có bộ modular nam để kiểm thử thay trang phục.</small></div>
+<div class="eye-panel" id="eye-panel" hidden>
+<div class="eye-heading"><b>👁 Eye Asset Pack · 9 kiểu</b><span>Anime eye UV prototype</span></div>
+<div class="eye-grid" id="eye-grid" role="group" aria-label="Chọn mắt nữ theo concept">
+<button class="eye-choice" data-eye="natural" aria-pressed="true"><span class="eye-preview"><i class="eye-dot" style="background:radial-gradient(circle at 32% 28%,#fff,#a96838 34%,#59302d 77%)"></i><i class="eye-dot" style="background:#b77a4a"></i></span><small>Tự nhiên</small></button>
+<button class="eye-choice" data-eye="smile" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#ad6b44"></i><i class="eye-dot" style="background:#ad6b44"></i></span><small>Tươi cười</small></button>
+<button class="eye-choice" data-eye="sad" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#a487bf"></i><i class="eye-dot" style="background:#a487bf"></i></span><small>Buồn</small></button>
+<button class="eye-choice" data-eye="mischief" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#2dcccf"></i><i class="eye-dot" style="background:#2dcccf"></i></span><small>Tinh nghịch</small></button>
+<button class="eye-choice" data-eye="angry" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#d83549"></i><i class="eye-dot" style="background:#d83549"></i></span><small>Giận dữ</small></button>
+<button class="eye-choice" data-eye="doll" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#bd77ed"></i><i class="eye-dot" style="background:#bd77ed"></i></span><small>Búp bê</small></button>
+<button class="eye-choice" data-eye="idol" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#287adf"></i><i class="eye-dot" style="background:#287adf"></i></span><small>Thần tượng</small></button>
+<button class="eye-choice" data-eye="star" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#9956d3"></i><i class="eye-dot" style="background:#9956d3"></i></span><small>Ngôi sao ★</small></button>
+<button class="eye-choice" data-eye="heart" aria-pressed="false"><span class="eye-preview"><i class="eye-dot" style="background:#ec608f"></i><i class="eye-dot" style="background:#ec608f"></i></span><small>Trái tim ♥</small></button>
+</div>
+<p class="eye-note" id="eye-desc">Chọn kiểu mắt, nhấn “Zoom mặt” để so sánh. Bản thử dùng texture iris/pupil/highlight trên mesh mắt gốc; chưa sculpt mí mắt hoặc biểu cảm theo concept.</p>
+<div class="eye-lock" id="eye-lock" hidden>🔒 Đang Gameplay QA: không được thay mắt.</div>
+</div>
 <div class="rig-panel">
 <div class="rig-head"><b>🦴 Rig + Dance Test</b><span id="rig-stats">Chưa có skinning</span></div>
 <p>Nhân vật nữ được auto-rig thử bằng skeleton và skin weights trong trình duyệt. Chọn Basic/Premium ở chế độ chuẩn bị, sau đó vào gameplay QA để khóa loadout và xem xương biến dạng khi nhảy.</p>
@@ -171,6 +198,19 @@ const QA_BPM=110;
 const qaClock=new THREE.Clock();
 let fpsFrames=0,fpsElapsed=0;
 const recolorCache=new Map();
+const eyeAtlasCache=new Map();
+let selectedEye='natural';
+const EYE_STYLES={
+ natural:{label:'Tự nhiên',base:'#ac7149',rim:'#4c2930',pupil:'#25171c',desc:'Nâu mật ong, đồng tử tròn và highlight dịu.'},
+ smile:{label:'Tươi cười',base:'#af7548',rim:'#603743',pupil:'#291a23',desc:'Nâu ấm, ánh sáng mềm; hình mí cười chưa được sculpt.'},
+ sad:{label:'Buồn',base:'#997baa',rim:'#4f456f',pupil:'#2c2541',desc:'Tím xám dịu; mí buồn chưa được sculpt.'},
+ mischief:{label:'Tinh nghịch',base:'#28b7b9',rim:'#166576',pupil:'#142d41',desc:'Iris xanh ngọc nổi bật; dáng mắt tinh nghịch chưa được sculpt.'},
+ angry:{label:'Giận dữ',base:'#d0444d',rim:'#642735',pupil:'#250e1e',desc:'Iris đỏ; mí cau giận dữ chưa được sculpt.'},
+ doll:{label:'Búp bê',base:'#b36fde',rim:'#5a3a92',pupil:'#29133f',desc:'Iris tím sáng, đồng tử lớn, nhiều highlight.'},
+ idol:{label:'Thần tượng',base:'#257fe6',rim:'#1a3d90',pupil:'#12235a',desc:'Xanh idol có sparkling highlights.'},
+ star:{label:'Ngôi sao',base:'#a263db',rim:'#4f328a',pupil:'#ffe071',desc:'Đồng tử ngôi sao vàng trên iris tím.'},
+ heart:{label:'Trái tim',base:'#ed668e',rim:'#9e355e',pupil:'#ffb0c6',desc:'Đồng tử hình trái tim hồng trên iris ruby.'}
+};
 function status(text){$('status').textContent=text}
 function resize(){const w=stage.clientWidth,h=stage.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)}
 new ResizeObserver(resize).observe(stage);resize();
@@ -374,6 +414,142 @@ function jointWeights(x,y,z,slot,name,rig){
  const total=weights.reduce((sum,item)=>sum+item[1],0)||1;
  return weights.slice(0,4).map(([i,w])=>[i,w/total]);
 }
+
+function hexRgb(hex){return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16))}
+function drawStar(ctx,cx,cy,outer,inner){
+ ctx.beginPath();
+ for(let i=0;i<10;i++){
+   const a=-Math.PI/2+i*Math.PI/5;
+   const r=i%2?inner:outer;
+   const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+   if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+ }
+ ctx.closePath();
+}
+function drawHeart(ctx,x,y,r){
+ ctx.beginPath();
+ ctx.moveTo(x,y+r*.77);
+ ctx.bezierCurveTo(x-r*1.4,y-r*.3,x-r*.7,y-r*1.3,x,y-r*.48);
+ ctx.bezierCurveTo(x+r*.7,y-r*1.3,x+r*1.4,y-r*.3,x,y+r*.77);
+ ctx.closePath();
+}
+function paintIris(ctx,cx,cy,r,styleKey){
+ const cfg=EYE_STYLES[styleKey];
+ const base=hexRgb(cfg.base);
+ ctx.save();
+ // Redraw only the existing two iris disks of Face S's UV atlas. The surrounding skin and lashes remain untouched.
+ ctx.beginPath();ctx.arc(cx,cy,r+3,0,Math.PI*2);ctx.clip();
+ const grad=ctx.createRadialGradient(cx-r*.14,cy-r*.18,r*.04,cx,cy,r);
+ grad.addColorStop(0,'#faf1ff');
+ grad.addColorStop(.15,cfg.base);
+ grad.addColorStop(.72,cfg.base);
+ grad.addColorStop(.9,cfg.rim);
+ grad.addColorStop(1,'#1b1429');
+ ctx.fillStyle=grad;ctx.fillRect(cx-r-4,cy-r-4,2*r+8,2*r+8);
+ // Concentric rings and iris fibers add the anime iris look while keeping iris circular in the UV.
+ ctx.strokeStyle=cfg.rim;ctx.lineWidth=8;ctx.beginPath();ctx.arc(cx,cy,r*.89,0,Math.PI*2);ctx.stroke();
+ for(let i=0;i<44;i++){
+   const a=(i/44)*Math.PI*2;
+   const start=r*(.37+(i%5)*.018),end=r*(.69+(i%7)*.021);
+   ctx.strokeStyle=i%3?'rgba(255,255,255,.14)':'rgba(22,12,47,.19)';
+   ctx.lineWidth=2.5;ctx.beginPath();
+   ctx.moveTo(cx+Math.cos(a)*start,cy+Math.sin(a)*start);
+   ctx.lineTo(cx+Math.cos(a+.03)*end,cy+Math.sin(a+.03)*end);ctx.stroke();
+ }
+ const pupilR=(styleKey==='doll'? .34: .28)*r;
+ ctx.fillStyle=cfg.pupil;
+ ctx.beginPath();ctx.arc(cx,cy,pupilR,0,2*Math.PI);ctx.fill();
+ if(styleKey==='star'){
+   ctx.fillStyle='#ffe17d';drawStar(ctx,cx,cy,r*.36,r*.15);ctx.fill();
+   ctx.strokeStyle='#fff8d0';ctx.lineWidth=3;ctx.stroke();
+ }else if(styleKey==='heart'){
+   ctx.fillStyle='#ffb0d1';drawHeart(ctx,cx,cy,r*.39);ctx.fill();
+   ctx.strokeStyle='#fff4fa';ctx.lineWidth=3;ctx.stroke();
+ }
+ // Strong white anime eye highlights; avoid concealing the center pupil.
+ ctx.fillStyle='rgba(255,255,255,.96)';
+ ctx.beginPath();ctx.ellipse(cx-r*.39,cy-r*.45,r*.18,r*.23,-.35,0,2*Math.PI);ctx.fill();
+ ctx.beginPath();ctx.arc(cx+r*.40,cy+r*.27,r*.085,0,2*Math.PI);ctx.fill();
+ if(['idol','star','heart','doll','mischief'].includes(styleKey)){
+   for(let i=0;i<6;i++){
+     const a=i*Math.PI*2/6+.35;
+     const x=cx+Math.cos(a)*r*.63,y=cy+Math.sin(a)*r*.64;
+     ctx.fillStyle=i%2?'#ffffff':'#ffe5a4';drawStar(ctx,x,y,4.3,1.9);ctx.fill();
+   }
+ }
+ if(styleKey==='sad'){
+   ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=3;
+   ctx.beginPath();ctx.arc(cx+r*.24,cy+r*.3,r*.13,.1,Math.PI*.8);ctx.stroke();
+ }
+ if(styleKey==='smile'){
+   ctx.fillStyle='rgba(255,240,205,.65)';ctx.beginPath();ctx.arc(cx+r*.25,cy-r*.14,10,0,2*Math.PI);ctx.fill();
+ }
+ ctx.restore();
+}
+function eyeTexture(source,styleKey){
+ if(styleKey==='original')return source;
+ const cacheKey=source.uuid+'|'+styleKey;
+ if(eyeAtlasCache.has(cacheKey))return eyeAtlasCache.get(cacheKey);
+ const image=source.image;
+ if(!image?.width||!image?.height)return source;
+ // Face S texture: two iris centers at approx (240, 784), (780, 784) on the 1024² atlas.
+ const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+ const ctx=canvas.getContext('2d');if(!ctx)return source;
+ ctx.drawImage(image,0,0,canvas.width,canvas.height);
+ for(const px of [.238,.757])paintIris(ctx,px*canvas.width,.758*canvas.height,canvas.width*.116,styleKey);
+ const tex=new THREE.CanvasTexture(canvas);
+ tex.name='QA_AnimeEye_'+styleKey;
+ tex.flipY=source.flipY;
+ tex.colorSpace=THREE.SRGBColorSpace;
+ tex.wrapS=source.wrapS;tex.wrapT=source.wrapT;
+ tex.magFilter=THREE.LinearFilter;
+ tex.minFilter=THREE.LinearMipmapLinearFilter;
+ tex.anisotropy=2;
+ tex.needsUpdate=true;
+ eyeAtlasCache.set(cacheKey,tex);
+ return tex;
+}
+function applyEyeMaterial(skinned,partName){
+ // Only Face S has the two circular iris UV areas proven from the user's uploaded glTF.
+ if(!/^eyeballs_s$/i.test(partName))return;
+ const replace=m=>{
+   const copy=m.clone();
+   if(copy.map)copy.map=eyeTexture(copy.map,selectedEye);
+   copy.needsUpdate=true;
+   return copy;
+ };
+ skinned.material=Array.isArray(skinned.material)?skinned.material.map(replace):replace(skinned.material);
+ skinned.userData.qaOwnedMaterial=true;
+}
+function syncEyeUI(){
+ const visible=loaded&&gender==='female';
+ $('eye-panel').hidden=!visible;
+ $('eye-lock').hidden=!inGameplayQa;
+ for(const button of document.querySelectorAll('[data-eye]')){
+   button.disabled=inGameplayQa;
+   button.setAttribute('aria-pressed',String(button.dataset.eye===selectedEye));
+ }
+ const d=EYE_STYLES[selectedEye];
+ if(d)$('eye-desc').textContent=d.label+': '+d.desc+' Thiết kế QA dựa trên texture UV, chưa thay hình học mí mắt/lông mi. Trong Gameplay QA không thể đổi mắt.';
+}
+for(const b of document.querySelectorAll('[data-eye]')){
+ b.onclick=()=>{
+   if(inGameplayQa||gender!=='female'||!loaded)return;
+   selectedEye=b.dataset.eye;
+   if($('face').value!=='4'){
+     $('face').value='4'; // Face S is the only validated atlas in this prototype.
+   }
+   syncEyeUI();
+   makeActor();
+   status('Mắt '+EYE_STYLES[selectedEye].label+' đã được trang bị trong Inventory QA');
+ };
+}
+$('face-zoom').onclick=()=>{
+ camera.position.set(0,1.52,2.15);
+ controls.target.set(0,1.40,0);
+ controls.update();
+};
+
 function makeSkinnedPiece(source,slot,partName,target,rig,color){
  const geometry=source.geometry.clone();
  const skinned=new THREE.SkinnedMesh(geometry,source.material);
@@ -393,6 +569,7 @@ function makeSkinnedPiece(source,slot,partName,target,rig,color){
  geometry.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(idx,4));
  geometry.setAttribute('skinWeight',new THREE.Float32BufferAttribute(weights,4));
  if(color){recolorNode(skinned,color);skinned.userData.qaOwnedMaterial=true}
+ if(slot==='face')applyEyeMaterial(skinned,partName);
  target.add(skinned);
  rig.pieces.push(skinned);
  rig.vertices+=pos.count;
@@ -484,6 +661,7 @@ function updateRigUI(){
  $('zip').disabled=inGameplayQa;
  $('zip-again').disabled=inGameplayQa;
  for(const id of ['basic','premium'])$(id).disabled=inGameplayQa;
+ syncEyeUI();
  $('rig-stats').textContent=rigData?(rigData.ordered.length+' bones · '+lastSkinnedCount+' skins · '+lastVertexCount.toLocaleString()+' vertices'):'Chưa có skinning';
 }
 $('enter-dance').onclick=()=>{
@@ -563,6 +741,7 @@ function refresh(){
  $('items').hidden=gender!=='female'||!loaded;
  $('quick').hidden=gender!=='female'||!loaded;
  showDesign();
+ syncEyeUI();
  makeActor();
 }
 $('gender-female').onclick=()=>{if(inGameplayQa)return;gender='female';refresh()};
