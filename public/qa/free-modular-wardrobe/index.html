@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Audition • Free Modular Wardrobe QA</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#0d1020;color:#f7f5ff}
+header,nav,.shell,footer{max-width:1150px;margin:auto}
+header{padding:16px 14px 10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.eyebrow{color:#b2aaff;font-size:10px;letter-spacing:.13em;font-weight:750}
+h1{margin:5px 0;font-size:22px;letter-spacing:-.02em}p{line-height:1.5}
+.subtitle{color:#abb8d6;font-size:12px;margin:5px 0}
+.chip{font-size:10px;border-radius:99px;background:#483469;padding:7px 10px;white-space:nowrap}
+nav{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:3px 12px 12px}
+button,select{font:inherit;color:#f5f5ff;cursor:pointer}
+button{background:#222943;border:1px solid #4b527e;border-radius:11px;padding:10px}
+button:disabled{opacity:.4;cursor:not-allowed}
+nav button{text-align:left;font-size:16px;line-height:1.35}
+nav button small{display:block;color:#b7c1dd;font-size:10px;margin-top:4px}
+nav button[aria-selected=true]{border-color:#afa3ff;background:linear-gradient(120deg,#403176,#27335c);box-shadow:inset 0 0 0 1px #7561be}
+.shell{display:grid;grid-template-columns:minmax(0,1fr) 345px;gap:10px;padding:0 12px}
+.stage{position:relative;height:min(75dvh,740px);min-height:370px;overflow:hidden;border:1px solid #3b4264;border-radius:19px;background:radial-gradient(ellipse at 50% 30%,#3b4069,#1a2036 62%,#101324)}
+.stage canvas{width:100%;height:100%;display:block;touch-action:none}
+.stage-top{position:absolute;left:14px;top:14px;pointer-events:none;font-size:11px;font-weight:bold;text-shadow:0 1px 4px #07091a}
+.stage-top small{font-weight:normal;display:block;margin-top:5px;color:#d2d5f1}
+.stage-actions{position:absolute;bottom:12px;left:10px;right:10px;display:flex;justify-content:center;gap:10px}
+.stage-actions button{font-size:12px;background:#161d36d9;padding:9px 13px}
+aside{background:#1b2036;border:1px solid #3c4360;border-radius:19px;padding:15px}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.panel-head h2{font-size:18px;margin:0}.panel-head span{font-size:10px;color:#b7a3fc}
+.status{font-size:11px;color:#b5d4cb;line-height:1.4;min-height:35px;padding:9px 0}
+.upload,.empty,.notice{border:1px solid #4d4d7c;background:#282743;border-radius:13px;padding:14px;margin:7px 0 14px}
+.upload b,.empty b{font-size:13px}.upload p,.empty p,.notice p{color:#c9cde3;font-size:12px;margin:8px 0;line-height:1.5}
+.file-button{display:block;background:#715ce4;color:white;text-align:center;border-radius:11px;padding:13px 7px;font-size:13px;font-weight:bold;margin:12px 0 8px;cursor:pointer}
+.file-button input,.small-upload input{display:none}
+.upload small,.empty small{color:#c6c2dd;font-size:10px;line-height:1.5}
+.small-upload{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:11px;color:#9dd6c6}
+.small-upload label{border:1px solid #5d5f84;border-radius:8px;padding:8px;cursor:pointer;color:#eee}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.slot{display:flex;flex-direction:column;gap:5px;min-width:0}
+.slot span{font-size:11px;color:#d5dbfb}
+.slot select{background:#292f4a;border:1px solid #5d6488;border-radius:9px;padding:8px 7px;min-height:40px;min-width:0;width:100%;font-size:12px}
+.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:13px}
+.quick button{font-size:10px;padding:11px 4px;background:#473b7f}
+.empty{text-align:center;padding:28px 14px}.empty .male-icon{color:#b8b6ff;font-size:49px;margin-bottom:8px}
+.notice{background:#292633;border-color:#645139;margin-top:14px}
+.notice b{font-size:12px;color:#ffda9f}.notice p{margin-bottom:0}
+footer{text-align:center;color:#a7b0c9;font-size:10px;line-height:1.6;padding:15px 20px 28px}
+[hidden]{display:none!important}
+@media(max-width:760px){header{padding-top:12px}h1{font-size:20px}.shell{display:flex;flex-direction:column}.stage{height:48dvh;min-height:315px;max-height:490px}aside{padding:14px}.chip{font-size:9px}footer{padding-bottom:max(26px,env(safe-area-inset-bottom))}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.js" defer></script>
+</head>
+<body>
+<header><div><div class="eyebrow">AUDITION MOBILE MVP · CHARACTER LAB</div><h1>Modular Wardrobe QA</h1><p class="subtitle">Thử trang phục, tóc, diện mạo trên iPhone</p></div><span class="chip">DEMO · NO MERGE</span></header>
+<nav aria-label="Giới tính nhân vật">
+<button id="gender-female" aria-selected="true">♀ Nữ<small>Trang phục nữ • 5 presets</small></button>
+<button id="gender-male" aria-selected="false">♂ Nam<small>C4 Casual Boy • đồ nam riêng</small></button>
+</nav>
+<div class="shell">
+<section class="stage" id="stage">
+<div class="stage-top">3D CHARACTER VIEWER<small>Vuốt để xoay · chụm để phóng to</small></div>
+<div class="stage-actions"><button id="front">Chính diện</button><button id="spin">Tự xoay</button></div>
+</section>
+<aside>
+<div class="panel-head"><h2 id="panel-title">Tủ đồ nữ</h2><span id="panel-kind">FEMALE · CC0 ASSET QA</span></div>
+<div class="status" id="status" role="status">Đang tải nhân vật gốc…</div>
+<div class="upload" id="upload">
+<b>📦 Mở bộ mẫu nữ miễn phí</b>
+<p>Chọn <strong>presets.zip</strong> hoặc <strong>audition_free_modular_qa.zip</strong> từ ứng dụng <b>Tệp (Files)</b> trên iPhone. Không cần Mac hay máy chủ.</p>
+<label class="file-button">Chọn ZIP từ iPhone<input id="zip" type="file" accept=".zip,application/zip"></label>
+<small>ZIP chỉ được giải nén ngay trong trình duyệt. Trước khi chọn ZIP, preview hiển thị nhân vật C1 gốc, không phải mẫu miễn phí.</small>
+</div>
+<div class="small-upload" id="uploaded" hidden><label>Đổi ZIP nữ<input id="zip-again" type="file" accept=".zip,application/zip"></label><span>● 5 preset nữ đã nạp</span></div>
+<div class="grid" id="items" hidden>
+<label class="slot"><span>Body nữ</span><select id="body"><option value="1">Female base 1</option><option value="2">Female base 2</option><option value="3">Female base 3</option><option value="4">Female base 4</option><option value="5">Female base 5</option></select></label>
+<label class="slot"><span>Diện mạo</span><select id="face"><option value="3">Face D</option><option value="4">Face S</option></select></label>
+<label class="slot"><span>Tóc</span><select id="hair"><option value="1">Long Wave</option><option value="2">Low Twin</option><option value="3">Long Straight</option><option value="4">Bob</option><option value="5">Ponytail</option></select></label>
+<label class="slot"><span>Áo / khoác</span><select id="top"><option value="1">Blouse</option><option value="2">Hoodie</option><option value="3">Shirt</option><option value="4">Coat</option><option value="5">T-shirt</option></select></label>
+<label class="slot"><span>Quần / váy</span><select id="bottom"><option value="1">Short Skirt</option><option value="2">Shorts</option><option value="3">Long Skirt</option><option value="4">Shorts + Coat</option><option value="5">Dolphin Pants</option></select></label>
+<label class="slot"><span>Giày</span><select id="shoes"><option value="1">Ankle Boots</option><option value="2">High Tops</option><option value="3">Block Heels</option><option value="4">Ankle Boots v2</option><option value="5">Sneakers</option></select></label>
+<label class="slot"><span>Phụ kiện</span><select id="accessory"><option value="0">Không</option><option value="1">Ribbon</option><option value="2">Hair Band</option><option value="3">Belt</option><option value="4">Belt + Ribbon</option><option value="5">Pony Hair Band</option></select></label>
+</div>
+<div class="quick" id="quick" hidden><button id="street">Streetwear</button><button id="casual">Casual Mix</button><button id="preset">Preset #2</button></div>
+<div class="empty" id="male-empty" hidden><div class="male-icon">♂</div><b>Inventory riêng cho nam</b><p>Hiển thị C4 Casual Boy để kiểm tra góc nhìn. ZIP bạn gửi là <strong>asset nữ</strong>; quần áo, body, tóc nữ không thể trang bị cho nhân vật nam.</p><small>Chưa có bộ modular nam để kiểm thử thay trang phục.</small></div>
+<div class="notice"><b>Giới hạn QA</b><p>Đây là modular tĩnh: preset glTF không chứa rig / skinning / animation. Có thể xuất hiện clipping khi phối đồ. Chưa phải Shop backend, không lưu inventory và chưa xác minh FPS iPhone.</p></div>
+</aside>
+</div>
+<footer>Nhân vật chỉ gồm NAM và NỮ. Mỗi giới tính có danh mục trang phục riêng, không chia sẻ đồ. QA route độc lập, không đổi gameplay, WebAudio hoặc Supabase.</footer>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const $=id=>document.getElementById(id);
+const names=['','longwaveblouse','lowtwinhood','straightlongshirt','bobcoat','ponytshirt'];
+const slots=['body','face','hair','top','bottom','shoes','accessory'];
+const looks={street:{body:3,face:3,hair:4,top:2,bottom:1,shoes:5,accessory:2},casual:{body:3,face:3,hair:1,top:5,bottom:2,shoes:3,accessory:3},preset:{body:2,face:3,hair:2,top:2,bottom:2,shoes:2,accessory:2}};
+const parts={
+hair:{1:['longwaveback','longwavefront','longwaveleft','longwaveright'],2:['lowtwinbackleft','lowtwinbackright','lowtwinfront','lowtwinleft','lowtwinright'],3:['longstraightback','longstraightfront','longstraightleft','longstraightright'],4:['bobback','bobfront','bobleft','bobright'],5:['ponyback','ponyfront','ponyleft','ponyright']},
+top:{1:['blouse','button','button.001','button.002','button.003','button.004','button.005'],2:['sweat','hood'],3:['shirt','button','button.001','button.002','button.003','button.004','button.005'],4:['coat','necktie','button'],5:['tshirt']},
+bottom:{1:['skirt'],2:['shorts'],3:['longskirt'],4:['shorts'],5:['dolphin']},
+shoes:{1:['ankleboots'],2:['hightops'],3:['lowblockheel'],4:['ankleboots'],5:['sneakers']},
+accessory:{1:['ribbon'],2:['lowhairband'],3:['belt','buckle'],4:['belt','buckle','ribbon'],5:['ponyhairband']}
+};
+const stage=$('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.65));
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.35;
+renderer.domElement.setAttribute('aria-label','Nhân vật 3D');
+stage.prepend(renderer.domElement);
+const scene=new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xffffff,0x8d93ba,2.4));
+const key=new THREE.DirectionalLight(0xffffff,3.3);key.position.set(3,5,5);scene.add(key);
+const rim=new THREE.DirectionalLight(0xaaa0ff,1.7);rim.position.set(-3,2,-4);scene.add(rim);
+const floor=new THREE.Mesh(new THREE.CircleGeometry(1.3,64),new THREE.MeshBasicMaterial({color:0x7666d1,transparent:true,opacity:.16,depthWrite:false}));
+floor.rotation.x=-Math.PI/2;floor.position.y=-.025;scene.add(floor);
+const camera=new THREE.PerspectiveCamera(32,1,.05,100);
+camera.position.set(0,1.16,3.65);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,.9,0);
+controls.enableDamping=true;controls.minDistance=1.6;controls.maxDistance=7;controls.update();
+let actor=new THREE.Group();scene.add(actor);
+let gender='female',accepted={},models={},loaded=false,busy=false;
+function status(text){$('status').textContent=text}
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false)}
+new ResizeObserver(resize).observe(stage);resize();
+function tick(){requestAnimationFrame(tick);controls.update();renderer.render(scene,camera)}tick();
+function addMeshes(root,names,group){
+ if(!root)return;
+ const wanted=new Set(names);
+ root.updateWorldMatrix(true,true);
+ root.traverse(o=>{if(!o.isMesh||!wanted.has(o.name))return;
+   o.updateWorldMatrix(true,false);
+   const clone=o.clone();o.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);group.add(clone);
+ });
+}
+function makeActor(){
+ scene.remove(actor);
+ actor=new THREE.Group();
+ if(gender==='female'&&loaded){
+  const v=Object.fromEntries(slots.map(id=>[id,+$(id).value]));
+  addMeshes(models[v.body],['skin_d','skin_s'],actor);
+  addMeshes(models[v.face],['eyeballs_d','eyebrow_d','eyelash_d','teethlower_d','teethupper_d','tongue_d','eyeballs_s','eyebrow_s','eyelash_s','teethlower_s','teethupper_s','tongue_s','toungue_s'],actor);
+  for(const slot of ['hair','top','bottom','shoes','accessory']){
+   if(v[slot])addMeshes(models[v[slot]],parts[slot][v[slot]]||[],actor);
+  }
+ }else if(accepted[gender]) actor.add(accepted[gender].clone(true));
+ const b=new THREE.Box3().setFromObject(actor);
+ if(!b.isEmpty()){
+   const size=b.getSize(new THREE.Vector3());
+   const center=b.getCenter(new THREE.Vector3());
+   const scale=1.7/Math.max(size.y,.1);
+   actor.scale.setScalar(scale);
+   actor.position.set(-center.x*scale,-b.min.y*scale,-center.z*scale);
+ }
+ scene.add(actor);
+}
+function refresh(){
+ $('gender-female').setAttribute('aria-selected',String(gender==='female'));
+ $('gender-male').setAttribute('aria-selected',String(gender==='male'));
+ $('panel-title').textContent=gender==='female'?'Tủ đồ nữ':'Tủ đồ nam';
+ $('panel-kind').textContent=gender==='female'?'FEMALE · CC0 ASSET QA':'MALE · C4 CHARACTER';
+ $('male-empty').hidden=gender!=='male';
+ $('upload').hidden=gender!=='female'||loaded;
+ $('uploaded').hidden=gender!=='female'||!loaded;
+ $('items').hidden=gender!=='female'||!loaded;
+ $('quick').hidden=gender!=='female'||!loaded;
+ makeActor();
+}
+$('gender-female').onclick=()=>{gender='female';refresh()};
+$('gender-male').onclick=()=>{gender='male';refresh()};
+$('front').onclick=()=>{camera.position.set(0,1.16,3.65);controls.target.set(0,.9,0);controls.update()};
+$('spin').onclick=()=>{controls.autoRotate=!controls.autoRotate;$('spin').textContent=controls.autoRotate?'Dừng xoay':'Tự xoay'};
+for(const id of slots)$(id).onchange=()=>{if(gender==='female'&&loaded)makeActor()};
+function apply(name){if(gender!=='female'||!loaded)return;for(const [k,v]of Object.entries(looks[name]))$(k).value=v;makeActor()}
+for(const name of ['street','casual','preset'])$(name).onclick=()=>apply(name);
+async function upload(file){
+ if(!file||busy)return;
+ if(!file.name.toLowerCase().endsWith('.zip'))return status('Chọn file ZIP hợp lệ');
+ if(!window.fflate)return status('Không tải được ZIP decoder, hãy kiểm tra kết nối mạng');
+ busy=true;status('Đang giải nén ZIP trên iPhone…');
+ try{
+  const entries=window.fflate.unzipSync(new Uint8Array(await file.arrayBuffer()));
+  const data=new Map();
+  for(const [path,buffer] of Object.entries(entries)){
+   const normalized=path.replaceAll('\\','/').replace(/^.*?(?=preset[1-5]\/)/,'');
+   if(/^preset[1-5]\//.test(normalized))data.set(normalized,buffer);
+  }
+  const urls=new Map();
+  try{
+   for(const [path,buffer]of data){
+    urls.set(path,URL.createObjectURL(new Blob([buffer],{type:path.endsWith('.png')?'image/png':'application/octet-stream'})));
+   }
+   const manager=new THREE.LoadingManager();
+   manager.setURLModifier(url=>urls.get(url.replace(/^virtual\//,''))||url);
+   const loader=new GLTFLoader(manager);
+   const imported={};
+   for(let i=1;i<=5;i++){
+    status('Đang dựng preset nữ '+i+'/5…');
+    const source=data.get('preset'+i+'/'+names[i]+'.gltf');
+    if(!source)throw Error('Thiếu preset nữ '+i+' trong ZIP');
+    imported[i]=(await loader.parseAsync(new TextDecoder().decode(source),'virtual/preset'+i+'/')).scene;
+    imported[i].updateWorldMatrix(true,true);
+   }
+   models=imported;loaded=true;gender='female';
+   applySelections(looks.street);refresh();status('Đã nạp 5 preset NỮ · Có thể phối đồ');
+  }finally{for(const url of urls.values())URL.revokeObjectURL(url)}
+ }catch(e){status('Không thể đọc ZIP: '+(e.message||e))}
+ finally{busy=false}
+}
+function applySelections(values){for(const [k,v]of Object.entries(values))$(k).value=v}
+$('zip').onchange=e=>{void upload(e.target.files?.[0]);e.target.value=''};
+$('zip-again').onchange=e=>{void upload(e.target.files?.[0]);e.target.value=''};
+async function boot(){
+ try{
+  const loader=new GLTFLoader();
+  const [female,male]=await Promise.all([
+    loader.loadAsync('/characters/c1-casual-grace/character.glb'),
+    loader.loadAsync('/characters/c4-casual-boy/character.glb')
+  ]);
+  accepted={female:female.scene,male:male.scene};
+  applySelections(looks.street);
+  refresh();
+  status('Sẵn sàng · Chọn ZIP để phối trang phục nữ');
+ }catch(e){status('Không tải được nhân vật tham chiếu: '+(e.message||e))}
+}
+boot();
+</script>
+</body>
+</html>
