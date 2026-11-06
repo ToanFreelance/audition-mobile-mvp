@@ -120,10 +120,12 @@ const shaderEye=[
 "shiftedHsv.x=fract(baseHsv.x+hueDelta*irisCoverage*uEyeOpacity);",
 "diffuseColor.rgb=eyeHsvToRgb(shiftedHsv);",
 "if(uEyePattern!=0){",
-// Measured dark-pupil centroid from the owner GLB: |x| ~0.116, local z ~-0.515.
-// GLB node turns local -Z into screen-up. Reverse local Z to draw the heart upright.
+// Owner iPhone visual QA: former -0.515 places both motifs slightly above pupil center.
+// In this imported head, increasing local Z shifts the motif down on screen.
 "float motifScale=uEyePattern==1?0.0180:0.0190;",
-"vec2 p=vec2((ax-0.116)/motifScale,(-0.515-vEyeLocal.z)/motifScale);",
+"float motifCenterX=0.1160;",
+"float motifCenterZ=-0.5080;",
+"vec2 p=vec2((ax-motifCenterX)/motifScale,(motifCenterZ-vEyeLocal.z)/motifScale);",
 "float symbol=uEyePattern==1?starShape(p):heartShape(p);",
 // Avoid depth-clipping a motif into a misleading pair of lobes.
 "float symbolGate=irisCoverage;",
