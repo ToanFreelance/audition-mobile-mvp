@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Audition · Female Origin Eye QA V1</title>
+<title>Audition · Female Origin Eye Shape QA V2</title>
 <style>
 :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}body{margin:0;background:#130f26;color:#f7f1ff}
@@ -23,6 +23,13 @@ label.file input{display:none}
 #looks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
 #looks button{font-size:11px;line-height:1.3;min-height:66px;padding:6px 2px}
 .dot{display:block;margin:0 auto 5px;border:2px solid #e7d8ff;border-radius:50%;width:26px;height:26px;box-shadow:inset 0 2px 6px #ffffff91}
+.shape-panel{border:1px solid #766193;background:#312746;border-radius:11px;margin:12px 0 3px;padding:12px}
+.shape-panel h3{font-size:12px;margin:0 0 7px}.shape-panel .shape-brief{font-size:11px;color:#d6c8e9;line-height:1.5;margin:5px 0 9px;min-height:35px}
+.shape-panel .shape-row{display:flex;align-items:center;gap:9px}
+.shape-panel input[type=range]{flex:1;min-width:0;accent-color:#b59afe;height:34px}
+.shape-panel output{font-size:11px;min-width:34px;text-align:right;color:#ddf6f4}
+.shape-panel button{font-size:11px;padding:8px 11px;margin-top:6px}
+.shape-panel small{display:block;color:#c8b9da;font-size:10px;line-height:1.55;margin-top:8px}
 .actions{display:flex;gap:7px;margin-top:10px}.actions button{flex:1;font-size:11px;padding:10px 5px}
 .notice{border:1px solid #70586d;background:#362838;color:#f0d0ca;border-radius:10px;padding:10px;margin-top:13px;font-size:11px;line-height:1.5}
 #metrics{font-size:10px;color:#bcb1d5;margin-top:8px}footer{font-size:10px;text-align:center;color:#b8adcc;padding:14px}
@@ -30,8 +37,8 @@ label.file input{display:none}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head><body>
-<header><div class="tag">AUDITION MOBILE MVP · ISOLATED QA</div><h1>Female Origin · Eye System V1</h1>
-<p class="sub">Thử màu iris, ngôi sao, trái tim trực tiếp trên mesh 3D của GLB gốc. Không đổi gameplay, model runtime hay dữ liệu.</p></header>
+<header><div class="tag">AUDITION MOBILE MVP · ISOLATED QA</div><h1>Female Origin · Eye Shape QA V2</h1>
+<p class="sub">9 kiểu mắt theo Eye Asset Pack: đổi màu iris và thử biến dạng hình học 3D cục bộ ở mí mắt/lông mày. Không tác động nhân vật runtime hay gameplay.</p></header>
 <main><section id="stage">
 <div class="overlay">GLB thật · vuốt xoay / chụm zoom</div>
 <div class="camera"><button id="front">Chính diện</button><button id="quarter">3/4</button><button id="zoom">Zoom mắt</button></div>
@@ -52,9 +59,17 @@ label.file input{display:none}
 <button data-look="star" disabled><span class="dot" style="background:#aa6cde">★</span>Ngôi sao</button>
 <button data-look="heart" disabled><span class="dot" style="background:#e96da6">♥</span>Trái tim</button>
 </div>
+<section class="shape-panel" aria-label="Thử hình dáng mắt">
+<h3>3 · Dáng mắt 3D theo concept (QA)</h3>
+<p class="shape-brief" id="shape-brief">Nạp GLB để thử độ mở của mí và góc lông mày.</p>
+<label for="shape-strength" class="info">Độ mạnh biểu cảm</label>
+<div class="shape-row"><input id="shape-strength" type="range" min="0" max="100" step="5" value="75" disabled><output id="shape-number" for="shape-strength">75%</output></div>
+<button id="eye-blink" type="button" disabled>Thử nháy mắt (chưa đóng kín)</button>
+<small>Thay đổi vị trí vertices quanh mí/lông mày của GLB bằng GPU shader; không thay iris mesh hoặc tạo lại model. Nhấn “Mắt gốc” để so sánh hình học chưa biến dạng.</small>
+</section>
 <div class="actions"><button id="orig" disabled aria-pressed="false">Mắt gốc</button><button id="variant" disabled aria-pressed="true">Mắt đã chọn</button></div>
 <div id="metrics">GLB gốc chưa được mở.</div>
-<div class="notice"><b>Phạm vi V1:</b> Đây là thử nghiệm shader màu/pattern trên bề mặt mắt 3D, chưa phải 9 hình học mắt khác nhau. Blink, dáng mí, mi và biểu cảm chưa thay đổi; cần retopology/blendshapes để triển khai đầy đủ.</div>
+<div class="notice"><b>Phạm vi V2:</b> Đây là thử nghiệm hình dáng mí/lông mày trên <b>mesh GLB gốc</b> bằng vertex shader, không phải retopology, shape keys hay 9 eye mesh riêng. Blink chỉ thử độ dịch chuyển mí, chưa phải nhắm mắt hoàn chỉnh. Chưa được chốt làm asset sản xuất.</div>
 </aside></main>
 <footer>QA riêng biệt · source GLB không bị ghi đè · chưa đạt owner acceptance</footer>
 <script type="module">
@@ -67,8 +82,21 @@ sad:["Buồn / lavender","#9d79c4",0],playful:["Tinh nghịch / xanh ngọc","#2
 angry:["Giận dữ / đỏ ruby","#d7465a",0],doll:["Búp bê / violet","#b16be9",0],
 idol:["Thần tượng / xanh dương","#3679ec",0],star:["Ngôi sao / tím","#aa6cde",1],
 heart:["Trái tim / hồng","#e96da6",2]};
+// Experimental local-space expression presets calibrated for Female_anime_origin.glb.
+// These are NOT the source-of-truth character catalog or exported sculpt blendshapes.
+const SHAPES={
+ natural:{lid:0,lower:0,brow:0,tilt:0,asym:0,desc:"Tự nhiên — giữ đường mí và lông mày như GLB gốc."},
+ joyful:{lid:0.70,lower:0.25,brow:0.18,tilt:-0.08,asym:0,desc:"Tươi cười — hạ mí trên, nâng mí dưới nhẹ để mắt cong thành nụ cười."},
+ sad:{lid:0.36,lower:0.10,brow:0.22,tilt:-0.72,asym:0,desc:"Buồn — khóe ngoài mí trễ, đầu mày nhướng lên tạo cảm giác u sầu."},
+ playful:{lid:0.67,lower:0.08,brow:0.12,tilt:0.12,asym:0.90,desc:"Tinh nghịch — một mắt híp rõ hơn mắt còn lại, lông mày hơi nghiêng."},
+ angry:{lid:0.60,lower:0.24,brow:-0.15,tilt:0.92,asym:0,desc:"Giận dữ — hạ đầu mày và mí trên, thu khe mắt ở khóe trong."},
+ doll:{lid:-0.17,lower:-0.09,brow:0.13,tilt:0,asym:0,desc:"Búp bê — mí hơi mở rộng, lông mày mềm; giữ hiệu ứng iris violet."},
+ idol:{lid:-0.04,lower:-0.04,brow:0.08,tilt:0,asym:0,desc:"Thần tượng — mắt mở sáng, tập trung sắc xanh và độ bóng iris."},
+ star:{lid:-0.06,lower:-0.03,brow:0.10,tilt:0,asym:0,desc:"Ngôi sao — mắt mở sáng, motif căn giữa đồng tử trên iris tím."},
+ heart:{lid:-0.08,lower:-0.02,brow:0.11,tilt:0,asym:0,desc:"Trái tim — mắt mở sáng, motif căn giữa đồng tử trên iris hồng."}
+};
 const stage=document.querySelector("#stage"),status=document.querySelector("#status");
-const uniforms={uEyeTint:{value:new THREE.Color("#b16be9")},uEyeOpacity:{value:0},uEyePattern:{value:0}};
+const uniforms={uEyeTint:{value:new THREE.Color("#b16be9")},uEyeOpacity:{value:0},uEyePattern:{value:0},uLidDrop:{value:0},uLowerLift:{value:0},uBrowLift:{value:0},uEyeTilt:{value:0},uEyeAsym:{value:0},uEyeBlink:{value:0}};
 const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:"high-performance"});
 renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));
 renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -133,29 +161,69 @@ const shaderEye=[
 "float symbolOpacity=uEyePattern==1?0.76:0.86;",
 "diffuseColor.rgb=mix(diffuseColor.rgb,motif,symbol*symbolGate*symbolOpacity*uEyeOpacity);",
 "}","}"].join("\n");
+// Local GLB has +Y face-forward; -Z is screen-up after model node rotation.
+// Masks are restricted to frontal upper lid / brows, preserving the eyeball and rear skull.
+const shapeVertexUniforms=[
+"uniform float uLidDrop;","uniform float uLowerLift;","uniform float uBrowLift;",
+"uniform float uEyeTilt;","uniform float uEyeAsym;","uniform float uEyeBlink;"
+].join("\n");
+const shapeVertexDeform=[
+"{",
+"float localAx=abs(position.x);",
+"float socketX=smoothstep(0.040,0.066,localAx)*(1.0-smoothstep(0.185,0.228,localAx));",
+"float lidMask=socketX*exp(-pow((position.z+0.558)/0.021,2.0))*smoothstep(0.219,0.241,position.y);",
+"float lowerMask=socketX*exp(-pow((position.z+0.464)/0.015,2.0))*smoothstep(0.174,0.204,position.y);",
+"float browMask=socketX*exp(-pow((position.z+0.646)/0.015,2.0))*smoothstep(0.231,0.267,position.y);",
+"float inner=1.0-smoothstep(0.068,0.185,localAx);",
+"float selectedCorner=uEyeTilt>=0.0?inner:(1.0-inner);",
+"float selectedEye=position.x<0.0?1.0:mix(1.0,0.38,uEyeAsym);",
+"float upperDrop=(uLidDrop*0.025+abs(uEyeTilt)*selectedCorner*0.012)*selectedEye+uEyeBlink*0.039;",
+"transformed.z+=upperDrop*lidMask;",
+"transformed.z-=(uLowerLift*0.010+uEyeBlink*0.009)*lowerMask;",
+"transformed.z+=(uEyeTilt*inner*0.010-uBrowLift*0.018)*browMask;",
+"}"
+].join("\n");
 function patchMaterial(mat){
  if(!mat?.isMeshStandardMaterial)return mat;
  const copy=mat.clone();
  copy.onBeforeCompile=(s)=>{
   s.uniforms.uEyeTint=uniforms.uEyeTint;s.uniforms.uEyeOpacity=uniforms.uEyeOpacity;
   s.uniforms.uEyePattern=uniforms.uEyePattern;
-  s.vertexShader=s.vertexShader.replace("#include <common>","#include <common>\nvarying vec3 vEyeLocal;");
-  s.vertexShader=s.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvEyeLocal=position;");
+  for(const k of ["uLidDrop","uLowerLift","uBrowLift","uEyeTilt","uEyeAsym","uEyeBlink"])s.uniforms[k]=uniforms[k];
+  s.vertexShader=s.vertexShader.replace("#include <common>","#include <common>\nvarying vec3 vEyeLocal;\n"+shapeVertexUniforms);
+  s.vertexShader=s.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvEyeLocal=position;\n"+shapeVertexDeform);
   s.fragmentShader=s.fragmentShader.replace("#include <common>",shaderCommon);
   s.fragmentShader=s.fragmentShader.replace("#include <map_fragment>",shaderEye);
  };
- copy.customProgramCacheKey=()=>"female-origin-eye-shader-v1";
+ copy.customProgramCacheKey=()=>"female-origin-eye-shape-v2";
  copy.needsUpdate=true;return copy;
+}
+let blinkStarted=-1;
+function applyShape(){
+ const preset=SHAPES[current];
+ const strength=Number(document.querySelector("#shape-strength").value)/100;
+ const amount=before?0:strength;
+ uniforms.uLidDrop.value=preset.lid*amount;
+ uniforms.uLowerLift.value=preset.lower*amount;
+ uniforms.uBrowLift.value=preset.brow*amount;
+ uniforms.uEyeTilt.value=preset.tilt*amount;
+ uniforms.uEyeAsym.value=preset.asym*amount;
+ document.querySelector("#shape-number").textContent=Math.round(strength*100)+"%";
+ document.querySelector("#shape-brief").textContent=before
+   ?"Đang đối chiếu hình học mắt nguyên bản của GLB (không biến dạng)."
+   :preset.desc;
+ if(before){blinkStarted=-1;uniforms.uEyeBlink.value=0;}
 }
 function setStyle(id,original=false){
  if(!styles[id])return;
  current=id;before=original;
  const s=styles[id];uniforms.uEyeTint.value.set(s[1]);
  uniforms.uEyeOpacity.value=original?0:1.0;uniforms.uEyePattern.value=original?0:s[2];
+ applyShape();
  document.querySelectorAll("[data-look]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.look===id&&!original)));
  document.querySelector("#orig").setAttribute("aria-pressed",String(original));
  document.querySelector("#variant").setAttribute("aria-pressed",String(!original));
- if(model)status.textContent=original?"Đang hiển thị iris nguyên bản.":"Đã áp dụng "+s[0]+" (không nạp lại GLB).";
+ if(model)status.textContent=original?"Đang hiển thị mắt nguyên bản (không đổi iris hoặc shape).":"Đã áp dụng "+s[0]+" · shape QA GPU · không nạp lại GLB.";
 }
 function dispose(){
  if(!model)return;scene.remove(model);
@@ -168,6 +236,11 @@ document.querySelector("#variant").addEventListener("click",()=>setStyle(current
 document.querySelector("#front").addEventListener("click",()=>lookAt("front"));
 document.querySelector("#quarter").addEventListener("click",()=>lookAt("quarter"));
 document.querySelector("#zoom").addEventListener("click",()=>lookAt("zoom"));
+document.querySelector("#shape-strength").addEventListener("input",applyShape);
+document.querySelector("#eye-blink").addEventListener("click",()=>{
+ if(!model||before)return;
+ blinkStarted=performance.now();
+});
 document.querySelector("#file").addEventListener("change",async e=>{
  const f=e.target.files?.[0];if(!f||busy)return;busy=true;
  status.textContent="Đang đọc và giải mã GLB tại thiết bị…";
@@ -185,11 +258,18 @@ document.querySelector("#file").addEventListener("change",async e=>{
   if(!compatible)throw Error("Không tìm thấy material 3D tương thích.");
   dispose();model=gltf.scene;scene.add(model);
   document.querySelectorAll("[data-look]").forEach(b=>b.disabled=false);
-  document.querySelector("#orig").disabled=false;document.querySelector("#variant").disabled=false;
+  document.querySelector("#orig").disabled=false;document.querySelector("#variant").disabled=false;document.querySelector("#shape-strength").disabled=false;document.querySelector("#eye-blink").disabled=false;
   document.querySelector("#metrics").textContent=count+" mesh · "+Math.round(triangles).toLocaleString("vi-VN")+" tam giác · "+(f.size/1048576).toFixed(1)+" MiB";
   lookAt("front");setStyle(current);
  }catch(err){status.textContent="Không thể mở GLB: "+(err?.message||String(err));console.error(err);}
  finally{busy=false;e.target.value="";}
 });
-renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)});
+renderer.setAnimationLoop(()=>{
+ if(blinkStarted>=0){
+  const phase=(performance.now()-blinkStarted)/650;
+  uniforms.uEyeBlink.value=phase>=1?0:Math.pow(Math.sin(Math.PI*Math.max(0,phase)),2);
+  if(phase>=1)blinkStarted=-1;
+ }
+ controls.update();renderer.render(scene,camera);
+});
 </script></body></html>
