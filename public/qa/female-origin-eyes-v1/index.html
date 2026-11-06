@@ -96,8 +96,8 @@ function lookAt(angle){
 const shaderCommon=[
 "#include <common>","varying vec3 vEyeLocal;","uniform vec3 uEyeTint;","uniform float uEyeOpacity;",
 "uniform int uEyePattern;",
-"float heartShape(vec2 p){p.y+=0.23;float x=p.x,y=p.y;float f=pow(x*x+y*y-1.0,3.0)-x*x*y*y*y;return 1.0-smoothstep(-0.08,0.10,f);}",
-"float starShape(vec2 p){float a=atan(p.y,p.x);float r=length(p);float lim=0.61+0.34*cos(5.0*a);return 1.0-smoothstep(lim-0.09,lim+0.04,r);}",
+"float heartShape(vec2 p){p.y+=0.18;p.x*=1.05;float x=p.x,y=p.y;float f=pow(x*x+y*y-1.0,3.0)-x*x*y*y*y;return 1.0-smoothstep(-0.05,0.06,f);}",
+"float starShape(vec2 p){float a=atan(p.y,p.x)-1.5707963;float wave=acos(clamp(cos(5.0*a),-1.0,1.0))/3.14159265;float edge=mix(0.90,0.42,wave);float r=length(p);return 1.0-smoothstep(edge-0.045,edge+0.045,r);}",
 // Hue shift preserves the authored iris saturation and value (light/dark detail).
 "vec3 eyeRgbToHsv(vec3 c){vec4 K=vec4(0.0,-1.0/3.0,2.0/3.0,-1.0);vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));float d=q.x-min(q.w,q.y);return vec3(abs(q.z+(q.w-q.y)/(6.0*d+1e-10)),d/(q.x+1e-10),q.x);}",
 "vec3 eyeHsvToRgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0);return c.z*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),c.y);}"
@@ -120,12 +120,16 @@ const shaderEye=[
 "shiftedHsv.x=fract(baseHsv.x+hueDelta*irisCoverage*uEyeOpacity);",
 "diffuseColor.rgb=eyeHsvToRgb(shiftedHsv);",
 "if(uEyePattern!=0){",
-// Small, translucent motifs only: decorative pigment inside the original 3D iris.
-"vec2 p=vec2((ax-0.116)/0.011,(vEyeLocal.z+0.512)/0.0115);",
+// Measured dark-pupil centroid from the owner GLB: |x| ~0.116, local z ~-0.515.
+// GLB node turns local -Z into screen-up. Reverse local Z to draw the heart upright.
+"float motifScale=uEyePattern==1?0.0180:0.0190;",
+"vec2 p=vec2((ax-0.116)/motifScale,(-0.515-vEyeLocal.z)/motifScale);",
 "float symbol=uEyePattern==1?starShape(p):heartShape(p);",
-"float symbolGate=irisCoverage*smoothstep(0.197,0.223,vEyeLocal.y);",
-"vec3 motif=uEyePattern==1?vec3(1.0,0.72,0.16):vec3(1.0,0.24,0.52);",
-"diffuseColor.rgb=mix(diffuseColor.rgb,motif,symbol*symbolGate*0.40*uEyeOpacity);",
+// Avoid depth-clipping a motif into a misleading pair of lobes.
+"float symbolGate=irisCoverage;",
+"vec3 motif=uEyePattern==1?vec3(1.0,0.77,0.27):vec3(1.0,0.50,0.76);",
+"float symbolOpacity=uEyePattern==1?0.76:0.86;",
+"diffuseColor.rgb=mix(diffuseColor.rgb,motif,symbol*symbolGate*symbolOpacity*uEyeOpacity);",
 "}","}"].join("\n");
 function patchMaterial(mat){
  if(!mat?.isMeshStandardMaterial)return mat;
