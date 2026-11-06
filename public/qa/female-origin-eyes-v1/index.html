@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Audition · Female Origin Eye QA V1</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#130f26;color:#f7f1ff}
+header,main,footer{max-width:1060px;margin:auto}header{padding:18px 14px 11px}h1{font-size:21px;margin:4px 0}
+p{line-height:1.5}.tag{font-size:10px;letter-spacing:.12em;color:#bbabff;font-weight:700}
+.sub,.info{font-size:12px;color:#cec5df;margin:7px 0}main{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:11px;padding:0 12px}
+#stage{position:relative;min-height:350px;height:min(75dvh,680px);border:1px solid #544271;border-radius:15px;overflow:hidden;background:radial-gradient(circle at 40% 38%,#493d67,#201934 65%,#17112c)}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.overlay{position:absolute;top:12px;left:12px;pointer-events:none;color:#f1e9ff;font-size:11px;text-shadow:0 1px 4px #130f26}
+.camera{position:absolute;right:9px;top:9px;display:flex;flex-direction:column;gap:6px}
+button,label.file{border:1px solid #6e598b;background:#302748;color:#fff;border-radius:10px;padding:10px;font:inherit;cursor:pointer}
+button[aria-pressed=true]{background:#6952a1;border-color:#acebe5}
+button:disabled{opacity:.4;cursor:not-allowed}
+.camera button{font-size:11px;padding:8px;background:#241b3dda}
+aside{background:#241d39;border:1px solid #54476d;padding:13px;border-radius:15px}h2{font-size:14px;margin:0 0 9px}
+label.file{display:block;background:#6850bc;text-align:center;font-weight:700;font-size:13px;margin-bottom:9px}
+label.file input{display:none}
+#status{min-height:32px;font-size:11px;color:#a7f1dc;white-space:pre-wrap;line-height:1.5}
+.sep{height:1px;background:#524365;margin:14px 0}
+#looks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+#looks button{font-size:11px;line-height:1.3;min-height:66px;padding:6px 2px}
+.dot{display:block;margin:0 auto 5px;border:2px solid #e7d8ff;border-radius:50%;width:26px;height:26px;box-shadow:inset 0 2px 6px #ffffff91}
+.actions{display:flex;gap:7px;margin-top:10px}.actions button{flex:1;font-size:11px;padding:10px 5px}
+.notice{border:1px solid #70586d;background:#362838;color:#f0d0ca;border-radius:10px;padding:10px;margin-top:13px;font-size:11px;line-height:1.5}
+#metrics{font-size:10px;color:#bcb1d5;margin-top:8px}footer{font-size:10px;text-align:center;color:#b8adcc;padding:14px}
+@media(max-width:760px){main{display:flex;flex-direction:column}#stage{height:49dvh;min-height:325px;max-height:480px}footer{padding-bottom:max(22px,env(safe-area-inset-bottom))}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+</head><body>
+<header><div class="tag">AUDITION MOBILE MVP · ISOLATED QA</div><h1>Female Origin · Eye System V1</h1>
+<p class="sub">Thử màu iris, ngôi sao, trái tim trực tiếp trên mesh 3D của GLB gốc. Không đổi gameplay, model runtime hay dữ liệu.</p></header>
+<main><section id="stage">
+<div class="overlay">GLB thật · vuốt xoay / chụm zoom</div>
+<div class="camera"><button id="front">Chính diện</button><button id="quarter">3/4</button><button id="zoom">Zoom mắt</button></div>
+</section><aside>
+<h2>1 · Chọn đầu nhân vật</h2>
+<label class="file">Nạp Female_anime_origin.glb<input id="file" type="file" accept=".glb,model/gltf-binary"></label>
+<p class="info">Dùng ứng dụng Tệp (Files) trên iPhone. File chỉ ở trong trình duyệt, không gửi tới máy chủ/Supabase.</p>
+<div id="status" role="status" aria-live="polite">Chưa nạp GLB.</div>
+<div class="sep"></div><h2>2 · Chọn kiểu iris thử nghiệm</h2>
+<div id="looks">
+<button data-look="natural" disabled><span class="dot" style="background:#a96835"></span>Tự nhiên</button>
+<button data-look="joyful" disabled><span class="dot" style="background:#d78b46"></span>Tươi cười</button>
+<button data-look="sad" disabled><span class="dot" style="background:#9d79c4"></span>Buồn</button>
+<button data-look="playful" disabled><span class="dot" style="background:#24bcca"></span>Tinh nghịch</button>
+<button data-look="angry" disabled><span class="dot" style="background:#d7465a"></span>Giận dữ</button>
+<button data-look="doll" disabled><span class="dot" style="background:#b16be9"></span>Búp bê</button>
+<button data-look="idol" disabled><span class="dot" style="background:#3679ec"></span>Thần tượng</button>
+<button data-look="star" disabled><span class="dot" style="background:#aa6cde">★</span>Ngôi sao</button>
+<button data-look="heart" disabled><span class="dot" style="background:#e96da6">♥</span>Trái tim</button>
+</div>
+<div class="actions"><button id="orig" disabled aria-pressed="false">Mắt gốc</button><button id="variant" disabled aria-pressed="true">Mắt đã chọn</button></div>
+<div id="metrics">GLB gốc chưa được mở.</div>
+<div class="notice"><b>Phạm vi V1:</b> Đây là thử nghiệm shader màu/pattern trên bề mặt mắt 3D, chưa phải 9 hình học mắt khác nhau. Blink, dáng mí, mi và biểu cảm chưa thay đổi; cần retopology/blendshapes để triển khai đầy đủ.</div>
+</aside></main>
+<footer>QA riêng biệt · source GLB không bị ghi đè · chưa đạt owner acceptance</footer>
+<script type="module">
+import * as THREE from "three";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+const styles={
+natural:["Tự nhiên / nâu","#a96835",0],joyful:["Tươi cười / nâu mật ong","#d78b46",0],
+sad:["Buồn / lavender","#9d79c4",0],playful:["Tinh nghịch / xanh ngọc","#24bcca",0],
+angry:["Giận dữ / đỏ ruby","#d7465a",0],doll:["Búp bê / violet","#b16be9",0],
+idol:["Thần tượng / xanh dương","#3679ec",0],star:["Ngôi sao / tím","#aa6cde",1],
+heart:["Trái tim / hồng","#e96da6",2]};
+const stage=document.querySelector("#stage"),status=document.querySelector("#status");
+const uniforms={uEyeTint:{value:new THREE.Color("#b16be9")},uEyeOpacity:{value:0},uEyePattern:{value:0}};
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:"high-performance"});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+stage.prepend(renderer.domElement);
+const scene=new THREE.Scene();
+scene.add(new THREE.HemisphereLight("#f5eeff","#695173",2));
+const light=new THREE.DirectionalLight("#fff1df",3);light.position.set(-1.5,2,3);scene.add(light);
+const rim=new THREE.DirectionalLight("#ad9bff",1.5);rim.position.set(1,1,-2);scene.add(rim);
+const camera=new THREE.PerspectiveCamera(36,1,.01,20);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.enablePan=false;controls.minDistance=.27;controls.maxDistance=3.5;
+let model=null,current="doll",before=false,busy=false;
+function resize(){const w=Math.max(stage.clientWidth,1),h=Math.max(stage.clientHeight,1);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+new ResizeObserver(resize).observe(stage);resize();
+function lookAt(angle){
+ if(!model)return;
+ const b=new THREE.Box3().setFromObject(model),c=b.getCenter(new THREE.Vector3()),s=b.getSize(new THREE.Vector3());
+ const y=c.y+s.y*.08;controls.target.set(c.x,y,c.z);
+ if(angle==="zoom")camera.position.set(c.x,y,c.z+Math.max(.39,s.y*.69));
+ else if(angle==="quarter")camera.position.set(c.x+s.y*.48,y+s.y*.04,c.z+s.y*1.35);
+ else camera.position.set(c.x,y,c.z+s.y*1.52);
+ camera.lookAt(controls.target);controls.update();
+}
+const shaderCommon=[
+"#include <common>","varying vec3 vEyeLocal;","uniform vec3 uEyeTint;","uniform float uEyeOpacity;",
+"uniform int uEyePattern;",
+"float heartShape(vec2 p){p.y+=0.23;float x=p.x,y=p.y;float f=pow(x*x+y*y-1.0,3.0)-x*x*y*y*y;return 1.0-smoothstep(-0.08,0.10,f);}",
+"float starShape(vec2 p){float a=atan(p.y,p.x);float r=length(p);float lim=0.61+0.34*cos(5.0*a);return 1.0-smoothstep(lim-0.09,lim+0.04,r);}"
+].join("\n");
+const shaderEye=[
+"#include <map_fragment>","{",
+"float ax=abs(vEyeLocal.x);",
+"float ell=length(vec2((ax-0.116)/0.064,(vEyeLocal.z+0.509)/0.058));",
+"float region=(1.0-smoothstep(0.70,1.04,ell))*smoothstep(0.177,0.202,vEyeLocal.y);",
+"vec3 base=diffuseColor.rgb;",
+"float violet=smoothstep(0.012,0.065,base.b-base.g)*smoothstep(0.008,0.055,base.r-base.g);",
+"float iris=region*violet;float lum=dot(base,vec3(.25,.62,.13));",
+"vec3 tint=uEyeTint*(0.40+2.20*lum);",
+"diffuseColor.rgb=mix(base,tint,iris*uEyeOpacity);",
+"if(uEyePattern!=0){",
+"vec2 p=vec2((ax-0.116)/0.017,(vEyeLocal.z+0.512)/0.018);",
+"float symbol=uEyePattern==1?starShape(p):heartShape(p);",
+"float gate=region*smoothstep(0.197,0.223,vEyeLocal.y);",
+"vec3 pigment=uEyePattern==1?vec3(1.0,.70,.12):vec3(1.0,.18,.43);",
+"diffuseColor.rgb=mix(diffuseColor.rgb,pigment,symbol*gate*.90*uEyeOpacity);",
+"}","}"].join("\n");
+function patchMaterial(mat){
+ if(!mat?.isMeshStandardMaterial)return mat;
+ const copy=mat.clone();
+ copy.onBeforeCompile=(s)=>{
+  s.uniforms.uEyeTint=uniforms.uEyeTint;s.uniforms.uEyeOpacity=uniforms.uEyeOpacity;
+  s.uniforms.uEyePattern=uniforms.uEyePattern;
+  s.vertexShader=s.vertexShader.replace("#include <common>","#include <common>\nvarying vec3 vEyeLocal;");
+  s.vertexShader=s.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvEyeLocal=position;");
+  s.fragmentShader=s.fragmentShader.replace("#include <common>",shaderCommon);
+  s.fragmentShader=s.fragmentShader.replace("#include <map_fragment>",shaderEye);
+ };
+ copy.customProgramCacheKey=()=>"female-origin-eye-shader-v1";
+ copy.needsUpdate=true;return copy;
+}
+function setStyle(id,original=false){
+ if(!styles[id])return;
+ current=id;before=original;
+ const s=styles[id];uniforms.uEyeTint.value.set(s[1]);
+ uniforms.uEyeOpacity.value=original?0:.89;uniforms.uEyePattern.value=original?0:s[2];
+ document.querySelectorAll("[data-look]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.look===id&&!original)));
+ document.querySelector("#orig").setAttribute("aria-pressed",String(original));
+ document.querySelector("#variant").setAttribute("aria-pressed",String(!original));
+ if(model)status.textContent=original?"Đang hiển thị iris nguyên bản.":"Đã áp dụng "+s[0]+" (không nạp lại GLB).";
+}
+function dispose(){
+ if(!model)return;scene.remove(model);
+ model.traverse(o=>{if(!o.isMesh)return;o.geometry?.dispose();const mats=Array.isArray(o.material)?o.material:[o.material];for(const m of mats){for(const k of ["map","normalMap","roughnessMap","metalnessMap","aoMap","emissiveMap"])m?.[k]?.dispose();m?.dispose();}});
+ model=null;
+}
+document.querySelectorAll("[data-look]").forEach(b=>b.addEventListener("click",()=>setStyle(b.dataset.look)));
+document.querySelector("#orig").addEventListener("click",()=>setStyle(current,true));
+document.querySelector("#variant").addEventListener("click",()=>setStyle(current,false));
+document.querySelector("#front").addEventListener("click",()=>lookAt("front"));
+document.querySelector("#quarter").addEventListener("click",()=>lookAt("quarter"));
+document.querySelector("#zoom").addEventListener("click",()=>lookAt("zoom"));
+document.querySelector("#file").addEventListener("change",async e=>{
+ const f=e.target.files?.[0];if(!f||busy)return;busy=true;
+ status.textContent="Đang đọc và giải mã GLB tại thiết bị…";
+ try{
+  if(!f.name.toLowerCase().endsWith(".glb"))throw Error("Chỉ hỗ trợ file GLB.");
+  const gltf=await new GLTFLoader().parseAsync(await f.arrayBuffer(),"");
+  let count=0,triangles=0,compatible=0;
+  gltf.scene.traverse(o=>{
+   if(!o.isMesh)return;count++;
+   triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;
+   const old=Array.isArray(o.material)?o.material:[o.material];
+   const next=old.map(m=>{const patched=patchMaterial(m);if(patched!==m)compatible++;return patched;});
+   o.material=Array.isArray(o.material)?next:next[0];
+  });
+  if(!compatible)throw Error("Không tìm thấy material 3D tương thích.");
+  dispose();model=gltf.scene;scene.add(model);
+  document.querySelectorAll("[data-look]").forEach(b=>b.disabled=false);
+  document.querySelector("#orig").disabled=false;document.querySelector("#variant").disabled=false;
+  document.querySelector("#metrics").textContent=count+" mesh · "+Math.round(triangles).toLocaleString("vi-VN")+" tam giác · "+(f.size/1048576).toFixed(1)+" MiB";
+  lookAt("front");setStyle(current);
+ }catch(err){status.textContent="Không thể mở GLB: "+(err?.message||String(err));console.error(err);}
+ finally{busy=false;e.target.value="";}
+});
+renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)});
+</script></body></html>
