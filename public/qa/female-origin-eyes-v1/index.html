@@ -97,35 +97,35 @@ const shaderCommon=[
 "#include <common>","varying vec3 vEyeLocal;","uniform vec3 uEyeTint;","uniform float uEyeOpacity;",
 "uniform int uEyePattern;",
 "float heartShape(vec2 p){p.y+=0.23;float x=p.x,y=p.y;float f=pow(x*x+y*y-1.0,3.0)-x*x*y*y*y;return 1.0-smoothstep(-0.08,0.10,f);}",
-"float starShape(vec2 p){float a=atan(p.y,p.x);float r=length(p);float lim=0.61+0.34*cos(5.0*a);return 1.0-smoothstep(lim-0.09,lim+0.04,r);}"
+"float starShape(vec2 p){float a=atan(p.y,p.x);float r=length(p);float lim=0.61+0.34*cos(5.0*a);return 1.0-smoothstep(lim-0.09,lim+0.04,r);}",
+// Hue shift preserves the authored iris saturation and value (light/dark detail).
+"vec3 eyeRgbToHsv(vec3 c){vec4 K=vec4(0.0,-1.0/3.0,2.0/3.0,-1.0);vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));float d=q.x-min(q.w,q.y);return vec3(abs(q.z+(q.w-q.y)/(6.0*d+1e-10)),d/(q.x+1e-10),q.x);}",
+"vec3 eyeHsvToRgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0);return c.z*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),c.y);}"
 ].join("\n");
 const shaderEye=[
 "#include <map_fragment>","{",
-// Preserve the original 3D eye mesh, pupil, rim and baked highlights.
 "float ax=abs(vEyeLocal.x);",
 "float eyeEll=length(vec2((ax-0.116)/0.064,(vEyeLocal.z+0.509)/0.058));",
-"float eyeRegion=(1.0-smoothstep(0.70,1.04,eyeEll))*smoothstep(0.177,0.202,vEyeLocal.y);",
+// Spatial bounds only stop face/eyelid leaks; DO NOT shrink the iris itself.
+"float eyeRegion=(1.0-smoothstep(0.87,1.15,eyeEll))*smoothstep(0.177,0.202,vEyeLocal.y);",
 "vec3 base=diffuseColor.rgb;",
-"float violet=smoothstep(0.012,0.065,base.b-base.g)*smoothstep(0.008,0.055,base.r-base.g);",
-// Constrain tint to the middle iris band; avoid expanding the apparent iris size.
-"float irisR=length(vec2((ax-0.116)/0.033,(vEyeLocal.z+0.509)/0.036));",
-"float innerBand=1.0-smoothstep(0.63,0.91,irisR);",
-"float pupilGuard=smoothstep(0.16,0.32,irisR);",
-"float rimGuard=1.0-smoothstep(0.61,0.82,irisR);",
-"float luminance=dot(base,vec3(0.2126,0.7152,0.0722));",
-"float highlightGuard=1.0-smoothstep(0.56,0.84,luminance);",
-"float shadowGuard=smoothstep(0.045,0.16,luminance);",
-"float tintWeight=eyeRegion*violet*innerBand*pupilGuard*rimGuard*highlightGuard*shadowGuard;",
-// Retain the original light/dark variation while shifting iris hue.
-"vec3 tint=clamp(uEyeTint*(0.34+1.58*luminance),vec3(0.0),vec3(1.0));",
-"diffuseColor.rgb=mix(base,tint,clamp(tintWeight*uEyeOpacity,0.0,0.72));",
+"vec3 baseHsv=eyeRgbToHsv(base);",
+"float violetHue=smoothstep(0.675,0.725,baseHsv.x)*(1.0-smoothstep(0.90,0.98,baseHsv.x));",
+"float pigment=violetHue*smoothstep(0.12,0.24,baseHsv.y);",
+// Hue coverage includes the original dark, saturated outer iris. White reflections stay untouched.
+"float irisCoverage=clamp(eyeRegion*pigment,0.0,1.0);",
+"float targetHue=eyeRgbToHsv(uEyeTint).x;",
+"float hueDelta=fract(targetHue-baseHsv.x+0.5)-0.5;",
+"vec3 shiftedHsv=baseHsv;",
+"shiftedHsv.x=fract(baseHsv.x+hueDelta*irisCoverage*uEyeOpacity);",
+"diffuseColor.rgb=eyeHsvToRgb(shiftedHsv);",
 "if(uEyePattern!=0){",
-// Smaller translucent motifs replace large sticker-like shapes.
+// Small, translucent motifs only: decorative pigment inside the original 3D iris.
 "vec2 p=vec2((ax-0.116)/0.011,(vEyeLocal.z+0.512)/0.0115);",
 "float symbol=uEyePattern==1?starShape(p):heartShape(p);",
-"float symbolGate=eyeRegion*violet*(1.0-smoothstep(0.37,0.60,irisR))*smoothstep(0.197,0.223,vEyeLocal.y);",
-"vec3 pigment=uEyePattern==1?vec3(1.0,0.72,0.16):vec3(1.0,0.24,0.52);",
-"diffuseColor.rgb=mix(diffuseColor.rgb,pigment,symbol*symbolGate*0.48*uEyeOpacity);",
+"float symbolGate=irisCoverage*smoothstep(0.197,0.223,vEyeLocal.y);",
+"vec3 motif=uEyePattern==1?vec3(1.0,0.72,0.16):vec3(1.0,0.24,0.52);",
+"diffuseColor.rgb=mix(diffuseColor.rgb,motif,symbol*symbolGate*0.40*uEyeOpacity);",
 "}","}"].join("\n");
 function patchMaterial(mat){
  if(!mat?.isMeshStandardMaterial)return mat;
@@ -145,7 +145,7 @@ function setStyle(id,original=false){
  if(!styles[id])return;
  current=id;before=original;
  const s=styles[id];uniforms.uEyeTint.value.set(s[1]);
- uniforms.uEyeOpacity.value=original?0:.68;uniforms.uEyePattern.value=original?0:s[2];
+ uniforms.uEyeOpacity.value=original?0:1.0;uniforms.uEyePattern.value=original?0:s[2];
  document.querySelectorAll("[data-look]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.look===id&&!original)));
  document.querySelector("#orig").setAttribute("aria-pressed",String(original));
  document.querySelector("#variant").setAttribute("aria-pressed",String(!original));
