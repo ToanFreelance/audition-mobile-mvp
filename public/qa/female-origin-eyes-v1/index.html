@@ -170,6 +170,8 @@ const shapeVertexUniforms=[
 const shapeVertexDeform=[
 "{",
 "float localAx=abs(position.x);",
+// Skip expensive local eye masks for ~84% of original vertices (head/skull/neck).
+"if(localAx>0.035 && localAx<0.235 && position.z< -0.43 && position.z> -0.67 && position.y>0.16){",
 "float socketX=smoothstep(0.040,0.066,localAx)*(1.0-smoothstep(0.185,0.228,localAx));",
 "float lidMask=socketX*exp(-pow((position.z+0.558)/0.021,2.0))*smoothstep(0.219,0.241,position.y);",
 "float lowerMask=socketX*exp(-pow((position.z+0.464)/0.015,2.0))*smoothstep(0.174,0.204,position.y);",
@@ -181,7 +183,7 @@ const shapeVertexDeform=[
 "transformed.z+=upperDrop*lidMask;",
 "transformed.z-=(uLowerLift*0.010+uEyeBlink*0.009)*lowerMask;",
 "transformed.z+=(uEyeTilt*inner*0.010-uBrowLift*0.018)*browMask;",
-"}"
+"}","}"
 ].join("\n");
 function patchMaterial(mat){
  if(!mat?.isMeshStandardMaterial)return mat;
