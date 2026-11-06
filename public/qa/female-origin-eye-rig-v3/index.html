@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Audition · Female Origin Eye Rig V3 · Real Morph Targets</title>
+<title>Audition · Female Eye Rig V3 · iPhone local builder</title>
 <style>
 :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}body{margin:0;background:#130f26;color:#f7f1ff}
@@ -38,14 +38,14 @@ label.file input{display:none}
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head><body>
 <header><div class="tag">AUDITION MOBILE MVP · ISOLATED QA</div><h1>Female Origin · Eye Rig V3</h1>
-<p class="sub">7 morph targets POSITION thật lưu trong GLB, kết hợp 9 kiểu iris theo concept. Đây là QA riêng, không thay đổi gameplay.</p></header>
+<p class="sub">7 morph targets thật: dùng GLB V3 có sẵn hoặc dựng trực tiếp từ GLB gốc trong bộ nhớ iPhone. Không cần tải file 49 MB từ ChatGPT, không thay đổi gameplay.</p></header>
 <main><section id="stage">
 <div class="overlay">GLB thật · vuốt xoay / chụm zoom</div>
 <div class="camera"><button id="front">Chính diện</button><button id="quarter">3/4</button><button id="zoom">Zoom mắt</button></div>
 </section><aside>
 <h2>1 · Chọn đầu nhân vật</h2>
-<label class="file">Nạp Female_anime_eye_rig_v3_QA.glb<input id="file" type="file" aria-label="Chọn file đầu nhân vật GLB"></label>
-<p class="info">Tải file GLB V3 từ cuộc trò chuyện, lưu trong Tệp (Files) trên iPhone rồi chọn ở đây. File chỉ được đọc trong trình duyệt; không gửi tới Supabase.</p>
+<label class="file">Chọn Female_anime_origin.glb (đã có trên iPhone)<input id="file" type="file" aria-label="Chọn file đầu nhân vật GLB"></label>
+<p class="info">Chọn file Female_anime_origin.glb đã có trong Tệp (Files). Trang tự dựng 7 morph targets trong bộ nhớ iPhone, không cần tải file V3 lớn. Nếu đã có GLB V3 thì vẫn mở được. Không upload lên server.</p>
 <div id="status" role="status" aria-live="polite">Chưa nạp GLB.</div>
 <div class="sep"></div><h2>2 · Chọn kiểu iris thử nghiệm</h2>
 <div id="looks">
@@ -61,15 +61,15 @@ label.file input{display:none}
 </div>
 <section class="shape-panel" aria-label="Thử hình dáng mắt">
 <h3>3 · Morph Targets 3D thực (QA)</h3>
-<p class="shape-brief" id="shape-brief">Nạp GLB V3 có các morph target thực để thử biểu cảm.</p>
+<p class="shape-brief" id="shape-brief">Chọn GLB gốc hoặc GLB V3: trang sẽ chuẩn bị 7 morph targets.</p>
 <label for="shape-strength" class="info">Độ mạnh biểu cảm</label>
 <div class="shape-row"><input id="shape-strength" type="range" min="0" max="100" step="5" value="75" disabled><output id="shape-number" for="shape-strength">75%</output></div>
 <button id="eye-blink" type="button" disabled>Thử nháy mắt V3 (chưa nghiệm thu)</button>
-<small>Điều khiển các morphTargetInfluences thật của mesh trong GLB V3. Nhấn “Mắt gốc” để đặt toàn bộ weights về 0. Chưa retopology; Blink giới hạn 78% trong QA vì geometry gốc có rủi ro tự cắt.</small>
+<small>Morph targets là các BufferAttributes POSITION thật: được đọc từ GLB V3 hoặc tạo từ GLB gốc ngay trong bộ nhớ trình duyệt. Nhấn “Mắt gốc” đặt weight=0. Chưa retopology; Blink giới hạn 78% vì geometry có rủi ro tự cắt.</small>
 </section>
 <div class="actions"><button id="orig" disabled aria-pressed="false">Mắt gốc</button><button id="variant" disabled aria-pressed="true">Mắt đã chọn</button></div>
 <div id="metrics">GLB gốc chưa được mở.</div>
-<div class="notice"><b>Phạm vi V2:</b> GLB V3 có <b>7 morph targets lưu trực tiếp trong glTF</b>, không dùng vertex shader V2 để tạo biểu cảm. Do mesh gốc gồm nhiều mảnh rời, hình học vẫn có nguy cơ gập méo ở biểu cảm mạnh. Chưa phải sculpt/retopology được artist chấp nhận hay blink đóng kín, không tích hợp Character Catalog.</div>
+<div class="notice"><b>Phạm vi V2:</b> Chế độ GLB gốc dựng <b>7 morph target POSITION trong bộ nhớ iPhone</b> (chế độ GLB V3 đọc 7 target đã lưu). Không dùng shader V2 để biến dạng. Mesh gốc gồm nhiều mảnh rời nên có nguy cơ gập méo ở biểu cảm mạnh. Chưa phải sculpt/retopology được duyệt và chưa tích hợp Character Catalog.</div>
 </aside></main>
 <footer>QA riêng biệt · source GLB không bị ghi đè · chưa đạt owner acceptance</footer>
 <script type="module">
@@ -222,27 +222,92 @@ document.querySelector("#eye-blink").addEventListener("click",()=>{
  if(!model||before)return;
  blinkStarted=performance.now();
 });
+// V3 browser authoring: port of build_eye_rig_v3.py produce_targets (original head local coordinates).
+// Generates real Three.js BufferGeometry POSITION morphTargetsRelative attributes, NOT shader deformation.
+// Designed for the one approved Female_anime_origin.glb only, 292645 vertices.
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const smooth=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t)};
+async function generateEyeMorphTargets(mesh){
+ const g=mesh.geometry,p=g.getAttribute("position");
+ if(!p||p.itemSize!==3||p.count!==292645)throw Error("Model không đúng Female_anime_origin.glb (số vertices không khớp).");
+ if(g.morphAttributes.position?.length)throw Error("GLB đã có morph targets không tương thích với V3.");
+ const data=REQUIRED_MORPHS.map(()=>new Float32Array(p.count*3));
+ const totals=new Uint32Array(REQUIRED_MORPHS.length);
+ for(let start=0;start<p.count;start+=4096){
+  const end=Math.min(start+4096,p.count);
+  for(let i=start;i<end;i++){
+   const x0=p.getX(i),y=p.getY(i),z=p.getZ(i),x=Math.abs(x0);
+   const xmask=smooth(.055,.078,x)*(1-smooth(.195,.227,x));
+   if(xmask<1e-9)continue;
+   const eyeU=clamp((x-.052)/.158,0,1),inner=1-eyeU,outer=eyeU;
+   const m=clamp((x-.126)/.095,-1,1),middle=1-m*m;
+   const upperCurve=-.557+.032*((x-.131)/.095)**2;
+   const lowerCurve=-.454-.044*((x-.132)/.095)**2;
+   const browCurve=-.653+.021*((x-.138)/.110)**2;
+   const top=xmask*Math.exp(-.5*((z-upperCurve)/.026)**2)*smooth(.195,.235,y);
+   const bottom=xmask*Math.exp(-.5*((z-lowerCurve)/.023)**2)*smooth(.171,.205,y);
+   const brow=xmask*Math.exp(-.5*((z-browCurve)/.017)**2)*smooth(.208,.249,y);
+   if(top+bottom+brow<1e-8)continue;
+   const mid=Math.max(0,middle),playfulSide=x0<0?1:.27,idx=i*3;
+   // Per-look [upper, lower, brow]; sign and mask match Python V3 GLB.
+   const shape=[
+    [.010+.039*Math.max(.10,middle),.007+.016*mid,-.004,1],
+    [.006+.033*outer,.004+.004*outer,-.028*inner+.008*outer,1],
+    [.005+.049*Math.max(.20,middle),.004+.017*Math.max(.2,middle),-.007*outer+.005*inner,playfulSide],
+    [.008+.029*inner,.004+.010*inner,.027*inner-.009*outer,1],
+    [-.006-.004*mid,-.002-.003*mid,-.003,1],
+    [-.004,-.002,-.003,1],
+    [.039+.022*mid,.016+.007*mid,0,1]
+   ];
+   for(let k=0;k<shape.length;k++){
+    const [ua,la,ba,side]=shape[k],u=ua*side*top,l=la*side*bottom;
+    const dz=u-l+ba*side*brow,dy=.08*u+.10*l+(k===6?.005*top:0);
+    if(Math.max(Math.abs(dz),Math.abs(dy))<.000002)continue;
+    data[k][idx+1]=dy;data[k][idx+2]=dz;totals[k]++;
+   }
+  }
+  if(start%32768===0 || end===p.count)status.textContent="Đang tạo morph targets trên iPhone: "+Math.round(end/p.count*100)+"%";
+  await new Promise(resolve=>requestAnimationFrame(resolve));
+ }
+ g.morphAttributes.position=data.map((arr,index)=>{
+  const attr=new THREE.Float32BufferAttribute(arr,3);
+  attr.name=REQUIRED_MORPHS[index];return attr;
+ });
+ g.morphTargetsRelative=true;
+ mesh.updateMorphTargets();
+ const ok=REQUIRED_MORPHS.every(name=>Object.hasOwn(mesh.morphTargetDictionary,name));
+ if(!ok||mesh.morphTargetInfluences?.length!==7)throw Error("Không thể tạo morphTargetInfluences V3.");
+ for(const material of (Array.isArray(mesh.material)?mesh.material:[mesh.material]))if(material)material.needsUpdate=true;
+ return [...totals];
+}
+
 document.querySelector("#file").addEventListener("change",async e=>{
  const f=e.target.files?.[0];if(!f||busy)return;busy=true;
  status.textContent="Đang đọc và giải mã GLB tại thiết bị…";
  try{
   if(!f.name.toLowerCase().endsWith(".glb"))throw Error("Chỉ hỗ trợ file GLB.");
   const gltf=await new GLTFLoader().parseAsync(await f.arrayBuffer(),"");
-  let count=0,triangles=0,compatible=0,candidate=null;
+  let count=0,triangles=0,compatible=0,candidate=null,originalMesh=null,originGenerated=false;
   gltf.scene.traverse(o=>{
    if(!o.isMesh)return;count++;
    triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;
    if(o.morphTargetDictionary && REQUIRED_MORPHS.every(name=>Object.hasOwn(o.morphTargetDictionary,name)) && o.morphTargetInfluences?.length>=7)candidate=o;
+   else if(o.geometry.getAttribute("position")?.count===292645&&!o.geometry.morphAttributes.position?.length) originalMesh=o;
    const old=Array.isArray(o.material)?o.material:[o.material];
    const next=old.map(m=>{const patched=patchMaterial(m);if(patched!==m)compatible++;return patched;});
    o.material=Array.isArray(o.material)?next:next[0];
   });
   if(!compatible)throw Error("GLB không có material 3D tương thích.");
-  if(!candidate)throw Error("File này chưa có 7 morph targets V3. Hãy chọn Female_anime_eye_rig_v3_QA.glb, không phải Female_anime_origin.glb.");
+  if(!candidate&&originalMesh){
+   status.textContent="Đã mở GLB gốc; bắt đầu xây 7 morph targets trên iPhone…";
+   await generateEyeMorphTargets(originalMesh);
+   candidate=originalMesh;originGenerated=true;
+  }
+  if(!candidate)throw Error("Vui lòng chọn Female_anime_origin.glb gốc hoặc GLB V3 QA tương thích.");
   dispose();model=gltf.scene;morphMesh=candidate;scene.add(model);
   document.querySelectorAll("[data-look]").forEach(b=>b.disabled=false);
   document.querySelector("#orig").disabled=false;document.querySelector("#variant").disabled=false;document.querySelector("#shape-strength").disabled=false;document.querySelector("#eye-blink").disabled=false;
-  document.querySelector("#metrics").textContent=count+" mesh · "+Math.round(triangles).toLocaleString("vi-VN")+" tam giác · "+(f.size/1048576).toFixed(1)+" MiB · "+REQUIRED_MORPHS.length+" morph targets";
+  document.querySelector("#metrics").textContent=count+" mesh · "+Math.round(triangles).toLocaleString("vi-VN")+" tam giác · "+(f.size/1048576).toFixed(1)+" MiB · "+REQUIRED_MORPHS.length+" morph targets · "+(originGenerated?"tạo tại iPhone":"đọc từ GLB V3");
   lookAt("front");setStyle(current);
  }catch(err){status.textContent="Không thể mở GLB: "+(err?.message||String(err));console.error(err);}
  finally{busy=false;e.target.value="";}

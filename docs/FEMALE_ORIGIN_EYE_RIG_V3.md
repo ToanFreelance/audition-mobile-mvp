@@ -7,7 +7,7 @@ The owner-provided original 44.7 MB Female_anime_origin.glb was processed offlin
 
 Input base positions, UVs, indices, materials, normal textures, and facial surface are retained. Eye iris/pupil hue remapping plus Star/Heart pattern from V1.4 is preserved as an optional *fragment-only* shader.
 
-This QA viewer is an isolated new route \`/qa/female-origin-eye-rig-v3/\`. Older V1/V2 route is kept unchanged. The preview loads the V3 GLB **only via the owner iPhone Files input**; source and generated binary are not committed or transferred to Supabase.
+This QA viewer is an isolated new route \`/qa/female-origin-eye-rig-v3/\`. Older V1/V2 route is kept unchanged. The preview accepts the owner-original GLB already present in iPhone Files and **generates 7 real Three.js BufferGeometry POSITION morph targets locally in memory** using a browser port of the V3 authoring formulas; alternatively accepts the prebuilt V3 GLB if available. No generated binary upload to Supabase or GitHub.
 
 ## QA and constraints
 Sparse glTF accessors validated for all 7 targets (indices ordered, finite deltas, unchanged source binary chunk). Mesh ~292,645 vertices / ~499,762 triangles. Original head is a highly fragmented source mesh (~4,383 connected geometric components despite one glTF mesh), not a retopologized facial rig. A geometry test identified inverted triangles in several full-strength morphs, especially EyeBlink. **Blink preview is capped at 78%** and **is NOT a proven full eyelid closure**. Do not approve, merge, or use this asset in Character Catalog or gameplay until Blender sculpt/retopology and independent artist visual QA resolve topology, eyelid overlap, normal shading and iPhone performance.
@@ -22,3 +22,6 @@ Shape presets are exploratory but are visibly stronger than V2 shader-only offse
 
 ## Acceptance
 Require: successful iPhone GLB import, distinct eyelid silhouettes for joyful/sad/angry/playful at 100% from original, natural 3/4 look, no eyelashes or eyelids clipping, blink/closure validation, acceptable FPS. These are **not yet PASS**. Before production, produce proper separated lid topology and approved Blender morph targets; this V3 is only a feasibility artifact.
+
+## iPhone download failure workaround (2026-11-06)
+Owner's iPhone ChatGPT download of the ~49 MB V3 artifact failed before import. The GLB file was inspected on disk (49,362,388 bytes, SHA-256 20547ad7f1ad1e959476d115d471bdf463485af7f624b687d2bbb54a09d95e37; 7 targets verified). To avoid relying on that download, QA now accepts the original GLB already held by the owner. Client-side generation uses the Python V3 formulas and constructs true Three.js relative morph attributes; these targets are in memory, **not persisted to the source GLB**. This differs from downloading the authored V3 GLB while preserving its morph influence behavior. Physical iPhone memory/performance and appearance still need validation.
