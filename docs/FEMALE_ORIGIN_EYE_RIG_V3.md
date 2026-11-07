@@ -25,3 +25,14 @@ Require: successful iPhone GLB import, distinct eyelid silhouettes for joyful/sa
 
 ## iPhone download failure workaround (2026-11-06)
 Owner's iPhone ChatGPT download of the ~49 MB V3 artifact failed before import. The GLB file was inspected on disk (49,362,388 bytes, SHA-256 20547ad7f1ad1e959476d115d471bdf463485af7f624b687d2bbb54a09d95e37; 7 targets verified). To avoid relying on that download, QA now accepts the original GLB already held by the owner. Client-side generation uses the Python V3 formulas and constructs true Three.js relative morph attributes; these targets are in memory, **not persisted to the source GLB**. This differs from downloading the authored V3 GLB while preserving its morph influence behavior. Physical iPhone memory/performance and appearance still need validation.
+
+
+## Eye Rig V3.1 — 2026-11-07: smooth eyelid falloff (experimental)
+
+**Root cause:** V3's narrow Gaussian upper/lower lid masks and hard lateral corner blend caused high surface-normal distortion and folded triangles near inner eyeliner corners. Owner iPhone images at 75% showed kinked smile/playful/angry lids. Continuing to multiply strength was unsafe.
+
+**Implementation:** Isolated `eye-morph-v31.js` creates the same seven real THREE.BufferGeometry POSITION morph targets at run time from `Female_anime_origin.glb`. The old inline V3 generator is replaced. Upper-lid transition sigma increases from 0.026 to 0.050; lower from 0.023 to 0.041; eye corner smoothstep is expanded. Calibrated maximum displacement is scaled to 90% of newly defined target amounts. Eye iris HSV / star / heart code is UNCHANGED. The old V3 prebaked GLB is rejected to prevent stale morphs from being shown as V3.1. No binary download or Supabase upload.
+
+**Actual validation:** With the owner source GLB (292,645 vertices, 499,762 triangles), original V3 full-weight triangle inversions: Smile 289, Sad 12, Playful 255, Angry 92, Doll 0, Idol 0, Blink 1344. New V3.1: Smile 4, Sad 5, Playful 3, Angry 5, Doll 0, Idol 0, Blink 5 (1.0 morph weight, tests count triangles whose normals reverse relative to the base). At 100% smile normal change p95 decreases from 43.9° to 35.9°. JS and Python positions agree to <=3.0e-8. Offscreen VTK geometry renders were inspected; **not equivalent to iPhone WebGL QA**. Zero-inversion acceptance is NOT achieved, even though reduction is significant.
+
+**Risks:** This is still source-specific procedural sculpting on a fragmented mesh, NOT retopology, a Blender-based eyelid rig, proof that eyelashes have anatomically correct attachments, or a full Blink. Full skin/eyelash collision QA and owner iPhone acceptance remain pending. Existing Blink preview remains capped at 78%. Do not merge into development/main or modify Character Catalog until owner approves and a proper retopo pass is available.
