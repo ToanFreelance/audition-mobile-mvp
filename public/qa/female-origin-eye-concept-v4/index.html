@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Audition · Eye Concept V4 · Fixed Pose QA</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#130f26;color:#f7f1ff}
+header,main,footer{max-width:1060px;margin:auto}header{padding:18px 14px 11px}h1{font-size:21px;margin:4px 0}
+p{line-height:1.5}.tag{font-size:10px;letter-spacing:.12em;color:#bbabff;font-weight:700}
+.sub,.info{font-size:12px;color:#cec5df;margin:7px 0}main{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:11px;padding:0 12px}
+#stage{position:relative;min-height:350px;height:min(75dvh,680px);border:1px solid #544271;border-radius:15px;overflow:hidden;background:radial-gradient(circle at 40% 38%,#493d67,#201934 65%,#17112c)}
+#stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.overlay{position:absolute;top:12px;left:12px;pointer-events:none;color:#f1e9ff;font-size:11px;text-shadow:0 1px 4px #130f26}
+.camera{position:absolute;right:9px;top:9px;display:flex;flex-direction:column;gap:6px}
+button,label.file{border:1px solid #6e598b;background:#302748;color:#fff;border-radius:10px;padding:10px;font:inherit;cursor:pointer}
+button[aria-pressed=true]{background:#6952a1;border-color:#acebe5}
+button:disabled{opacity:.4;cursor:not-allowed}
+.camera button{font-size:11px;padding:8px;background:#241b3dda}
+aside{background:#241d39;border:1px solid #54476d;padding:13px;border-radius:15px}h2{font-size:14px;margin:0 0 9px}
+label.file{display:block;background:#6850bc;text-align:center;font-weight:700;font-size:13px;margin-bottom:9px}
+label.file input{display:none}
+#status{min-height:32px;font-size:11px;color:#a7f1dc;white-space:pre-wrap;line-height:1.5}
+.sep{height:1px;background:#524365;margin:14px 0}
+#looks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+#looks button{font-size:11px;line-height:1.3;min-height:66px;padding:6px 2px}
+.dot{display:block;margin:0 auto 5px;border:2px solid #e7d8ff;border-radius:50%;width:26px;height:26px;box-shadow:inset 0 2px 6px #ffffff91}
+.shape-panel{border:1px solid #766193;background:#312746;border-radius:11px;margin:12px 0 3px;padding:12px}
+.shape-panel h3{font-size:12px;margin:0 0 7px}.shape-panel .shape-brief{font-size:11px;color:#d6c8e9;line-height:1.5;margin:5px 0 9px;min-height:35px}
+.shape-panel .shape-row{display:flex;align-items:center;gap:9px}
+.shape-panel input[type=range]{flex:1;min-width:0;accent-color:#b59afe;height:34px}
+.shape-panel output{font-size:11px;min-width:34px;text-align:right;color:#ddf6f4}
+.shape-panel button{font-size:11px;padding:8px 11px;margin-top:6px}
+.shape-panel small{display:block;color:#c8b9da;font-size:10px;line-height:1.55;margin-top:8px}
+.actions{display:flex;gap:7px;margin-top:10px}.actions button{flex:1;font-size:11px;padding:10px 5px}
+.notice{border:1px solid #70586d;background:#362838;color:#f0d0ca;border-radius:10px;padding:10px;margin-top:13px;font-size:11px;line-height:1.5}
+#metrics{font-size:10px;color:#bcb1d5;margin-top:8px}footer{font-size:10px;text-align:center;color:#b8adcc;padding:14px}
+@media(max-width:760px){main{display:flex;flex-direction:column}#stage{height:49dvh;min-height:325px;max-height:480px}footer{padding-bottom:max(22px,env(safe-area-inset-bottom))}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
+</head><body>
+<header><div class="tag">AUDITION MOBILE MVP · ISOLATED QA</div><h1>Female Origin · Eye Concept V4</h1>
+<p class="sub">9 kiểu mắt = 9 pose cố định, chỉ bấm chọn kiểu để duyệt. Không còn thanh Strength 0–100%. Không ảnh hưởng gameplay.</p></header>
+<main><section id="stage">
+<div class="overlay">GLB thật · vuốt xoay / chụm zoom</div>
+<div class="camera"><button id="front">Chính diện</button><button id="quarter">3/4</button><button id="zoom">Zoom mắt</button></div>
+</section><aside>
+<h2>1 · Chọn đầu nhân vật</h2>
+<label class="file">Chọn Female_anime_origin.glb (đã có trên iPhone)<input id="file" type="file" aria-label="Chọn file đầu nhân vật GLB"></label>
+<p class="info">Chọn Female_anime_origin.glb gốc trên iPhone. Trang dựng 8 pose mắt riêng; Tự nhiên giữ mesh gốc. Không cần tải GLB mới hoặc upload lên server.</p>
+<div id="status" role="status" aria-live="polite">Chưa nạp GLB.</div>
+<div class="sep"></div><h2>2 · Chọn kiểu mắt hoàn chỉnh</h2>
+<div id="looks">
+<button data-look="natural" disabled><span class="dot" style="background:#a96835"></span>Tự nhiên</button>
+<button data-look="joyful" disabled><span class="dot" style="background:#d78b46"></span>Tươi cười</button>
+<button data-look="sad" disabled><span class="dot" style="background:#9d79c4"></span>Buồn</button>
+<button data-look="playful" disabled><span class="dot" style="background:#24bcca"></span>Tinh nghịch</button>
+<button data-look="angry" disabled><span class="dot" style="background:#d7465a"></span>Giận dữ</button>
+<button data-look="doll" disabled><span class="dot" style="background:#b16be9"></span>Búp bê</button>
+<button data-look="idol" disabled><span class="dot" style="background:#3679ec"></span>Thần tượng</button>
+<button data-look="star" disabled><span class="dot" style="background:#aa6cde">★</span>Ngôi sao</button>
+<button data-look="heart" disabled><span class="dot" style="background:#e96da6">♥</span>Trái tim</button>
+</div>
+<p id="concept-note" class="info">Mỗi kiểu có một pose mí/lông mày, màu iris và motif cố định. Chọn kiểu để xem kết quả.</p>
+<div id="metrics">GLB gốc chưa được mở.</div>
+<div class="notice"><b>Concept V4:</b> 8 pose POSITION độc lập và 1 baseline Tự nhiên. Chưa retopology Blender; một số tam giác vẫn có thể gấp nhẹ. Đây là QA để duyệt concept, <b>chưa phải final art</b>. Không tích hợp Character Catalog.</div>
+</aside></main>
+<footer>QA riêng biệt · source GLB không bị ghi đè · chưa đạt owner acceptance</footer>
+<script type="module">
+import * as THREE from "three";
+import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+import {createConceptEyeMorphs,CONCEPT_EYE_MORPHS} from "./eye-morph-concept-v4.js";
+const styles={
+natural:["Tự nhiên / nâu","#a96835",0],joyful:["Tươi cười / nâu mật ong","#d78b46",0],
+sad:["Buồn / lavender","#9d79c4",0],playful:["Tinh nghịch / xanh ngọc","#24bcca",0],
+angry:["Giận dữ / đỏ ruby","#d7465a",0],doll:["Búp bê / violet","#b16be9",0],
+idol:["Thần tượng / xanh dương","#3679ec",0],star:["Ngôi sao / tím","#aa6cde",1],
+heart:["Trái tim / hồng","#e96da6",2]};
+// Experimental local-space expression presets calibrated for Female_anime_origin.glb.
+// These are NOT the source-of-truth character catalog or exported sculpt blendshapes.
+// Named glTF morph targets authored into the owner GLB (not shader offsets).
+const LOOK_DESCRIPTIONS={
+ natural:"Tự nhiên — baseline của mắt, iris nâu.",
+ joyful:"Tươi cười — mí cười cong, không kéo thành mắt buồn ngủ.",
+ sad:"Buồn — khóe ngoài rũ, đầu mày mềm.",
+ playful:"Tinh nghịch — mắt híp bất đối xứng.",
+ angry:"Giận dữ — ánh mắt sắc, không bóp dẹt mí.",
+ doll:"Búp bê — mắt mở tròn, iris violet.",
+ idol:"Thần tượng — mắt sáng, iris xanh.",
+ star:"Ngôi sao — mắt long lanh, motif giữa con ngươi.",
+ heart:"Trái tim — mắt long lanh, motif giữa con ngươi."
+};
+const stage=document.querySelector("#stage"),status=document.querySelector("#status");
+const uniforms={uEyeTint:{value:new THREE.Color("#b16be9")},uEyeOpacity:{value:0},uEyePattern:{value:0}};
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:"high-performance"});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+stage.prepend(renderer.domElement);
+const scene=new THREE.Scene();
+scene.add(new THREE.HemisphereLight("#f5eeff","#695173",2));
+const light=new THREE.DirectionalLight("#fff1df",3);light.position.set(-1.5,2,3);scene.add(light);
+const rim=new THREE.DirectionalLight("#ad9bff",1.5);rim.position.set(1,1,-2);scene.add(rim);
+const camera=new THREE.PerspectiveCamera(36,1,.01,20);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.enablePan=false;controls.minDistance=.27;controls.maxDistance=3.5;
+let model=null,morphMesh=null,current="doll",busy=false;
+function resize(){const w=Math.max(stage.clientWidth,1),h=Math.max(stage.clientHeight,1);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+new ResizeObserver(resize).observe(stage);resize();
+function lookAt(angle){
+ if(!model)return;
+ const b=new THREE.Box3().setFromObject(model),c=b.getCenter(new THREE.Vector3()),s=b.getSize(new THREE.Vector3());
+ const y=c.y+s.y*.08;controls.target.set(c.x,y,c.z);
+ if(angle==="zoom")camera.position.set(c.x,y,c.z+Math.max(.39,s.y*.69));
+ else if(angle==="quarter")camera.position.set(c.x+s.y*.48,y+s.y*.04,c.z+s.y*1.35);
+ else camera.position.set(c.x,y,c.z+s.y*1.52);
+ camera.lookAt(controls.target);controls.update();
+}
+const shaderCommon=[
+"#include <common>","varying vec3 vEyeLocal;","uniform vec3 uEyeTint;","uniform float uEyeOpacity;",
+"uniform int uEyePattern;",
+"float heartShape(vec2 p){p.y+=0.18;p.x*=1.05;float x=p.x,y=p.y;float f=pow(x*x+y*y-1.0,3.0)-x*x*y*y*y;return 1.0-smoothstep(-0.05,0.06,f);}",
+"float starShape(vec2 p){float a=atan(p.y,p.x)-1.5707963;float wave=acos(clamp(cos(5.0*a),-1.0,1.0))/3.14159265;float edge=mix(0.90,0.42,wave);float r=length(p);return 1.0-smoothstep(edge-0.045,edge+0.045,r);}",
+// Hue shift preserves the authored iris saturation and value (light/dark detail).
+"vec3 eyeRgbToHsv(vec3 c){vec4 K=vec4(0.0,-1.0/3.0,2.0/3.0,-1.0);vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));float d=q.x-min(q.w,q.y);return vec3(abs(q.z+(q.w-q.y)/(6.0*d+1e-10)),d/(q.x+1e-10),q.x);}",
+"vec3 eyeHsvToRgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0);return c.z*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),c.y);}"
+].join("\n");
+const shaderEye=[
+"#include <map_fragment>","{",
+"float ax=abs(vEyeLocal.x);",
+"float eyeEll=length(vec2((ax-0.116)/0.064,(vEyeLocal.z+0.509)/0.058));",
+// Spatial bounds only stop face/eyelid leaks; DO NOT shrink the iris itself.
+"float eyeRegion=(1.0-smoothstep(0.87,1.15,eyeEll))*smoothstep(0.177,0.202,vEyeLocal.y);",
+"vec3 base=diffuseColor.rgb;",
+"vec3 baseHsv=eyeRgbToHsv(base);",
+"float violetHue=smoothstep(0.675,0.725,baseHsv.x)*(1.0-smoothstep(0.90,0.98,baseHsv.x));",
+"float pigment=violetHue*smoothstep(0.12,0.24,baseHsv.y);",
+// Hue coverage includes the original dark, saturated outer iris. White reflections stay untouched.
+"float irisCoverage=clamp(eyeRegion*pigment,0.0,1.0);",
+"float targetHue=eyeRgbToHsv(uEyeTint).x;",
+"float hueDelta=fract(targetHue-baseHsv.x+0.5)-0.5;",
+"vec3 shiftedHsv=baseHsv;",
+"shiftedHsv.x=fract(baseHsv.x+hueDelta*irisCoverage*uEyeOpacity);",
+"diffuseColor.rgb=eyeHsvToRgb(shiftedHsv);",
+"if(uEyePattern!=0){",
+// Owner iPhone visual QA: former -0.515 places both motifs slightly above pupil center.
+// In this imported head, increasing local Z shifts the motif down on screen.
+"float motifScale=uEyePattern==1?0.0180:0.0190;",
+"float motifCenterX=0.1160;",
+"float motifCenterZ=-0.5080;",
+"vec2 p=vec2((ax-motifCenterX)/motifScale,(motifCenterZ-vEyeLocal.z)/motifScale);",
+"float symbol=uEyePattern==1?starShape(p):heartShape(p);",
+// Avoid depth-clipping a motif into a misleading pair of lobes.
+"float symbolGate=irisCoverage;",
+"vec3 motif=uEyePattern==1?vec3(1.0,0.77,0.27):vec3(1.0,0.50,0.76);",
+"float symbolOpacity=uEyePattern==1?0.76:0.86;",
+"diffuseColor.rgb=mix(diffuseColor.rgb,motif,symbol*symbolGate*symbolOpacity*uEyeOpacity);",
+"}","}"].join("\n");
+// Local GLB has +Y face-forward; -Z is screen-up after model node rotation.
+// Masks are restricted to frontal upper lid / brows, preserving the eyeball and rear skull.
+function patchMaterial(mat){
+ if(!mat?.isMeshStandardMaterial)return mat;
+ const copy=mat.clone();
+ copy.onBeforeCompile=(s)=>{
+  s.uniforms.uEyeTint=uniforms.uEyeTint;s.uniforms.uEyeOpacity=uniforms.uEyeOpacity;
+  s.uniforms.uEyePattern=uniforms.uEyePattern;
+  // The GLB contains REAL glTF POSITION morph targets; do not deform vertices here.
+  s.vertexShader=s.vertexShader.replace("#include <common>","#include <common>\nvarying vec3 vEyeLocal;");
+  s.vertexShader=s.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvEyeLocal=position;");
+  s.fragmentShader=s.fragmentShader.replace("#include <common>",shaderCommon);
+  s.fragmentShader=s.fragmentShader.replace("#include <map_fragment>",shaderEye);
+ };
+ copy.customProgramCacheKey=()=>"female-origin-eye-rig-v3";
+ copy.needsUpdate=true;return copy;
+}
+const POSE_STYLES=["joyful","sad","playful","angry","doll","idol","star","heart"];
+function setStyle(id){
+ if(!styles[id])return;
+ current=id;
+ const look=styles[id];
+ uniforms.uEyeTint.value.set(look[1]);
+ uniforms.uEyeOpacity.value=1.0;
+ uniforms.uEyePattern.value=look[2];
+ if(morphMesh){
+  const weights=morphMesh.morphTargetInfluences;
+  weights.fill(0);
+  const index=POSE_STYLES.indexOf(id);
+  if(index>=0){
+   const morph=CONCEPT_EYE_MORPHS[index];
+   weights[morphMesh.morphTargetDictionary[morph]]=1;
+  }
+ }
+ document.querySelectorAll("[data-look]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.look===id)));
+ document.querySelector("#concept-note").textContent=LOOK_DESCRIPTIONS[id]+" · Pose cố định, không chỉnh Strength.";
+ if(model)status.textContent="Đã chọn "+look[0]+" · pose cố định (không tải lại GLB).";
+}
+function dispose(){
+ if(!model)return;scene.remove(model);
+ model.traverse(o=>{if(!o.isMesh)return;o.geometry?.dispose();const mats=Array.isArray(o.material)?o.material:[o.material];for(const m of mats){for(const k of ["map","normalMap","roughnessMap","metalnessMap","aoMap","emissiveMap"])m?.[k]?.dispose();m?.dispose();}});
+ model=null;morphMesh=null;
+}
+document.querySelectorAll("[data-look]").forEach(b=>b.addEventListener("click",()=>setStyle(b.dataset.look)));
+document.querySelector("#front").addEventListener("click",()=>lookAt("front"));
+document.querySelector("#quarter").addEventListener("click",()=>lookAt("quarter"));
+document.querySelector("#zoom").addEventListener("click",()=>lookAt("zoom"));
+// Eye geometry builder is now independently testable in eye-morph-v31.js.
+document.querySelector("#file").addEventListener("change",async e=>{
+ const f=e.target.files?.[0];if(!f||busy)return;busy=true;
+ status.textContent="Đang đọc và giải mã GLB tại thiết bị…";
+ try{
+  if(!f.name.toLowerCase().endsWith(".glb"))throw Error("Chỉ hỗ trợ file GLB.");
+  const gltf=await new GLTFLoader().parseAsync(await f.arrayBuffer(),"");
+  let count=0,triangles=0,compatible=0,candidate=null,originalMesh=null,originGenerated=false;
+  gltf.scene.traverse(o=>{
+   if(!o.isMesh)return;count++;
+   triangles+=(o.geometry.index?.count||o.geometry.attributes.position.count)/3;
+   if(o.geometry.morphAttributes.position?.length)candidate=o;
+   else if(o.geometry.getAttribute("position")?.count===292645&&!o.geometry.morphAttributes.position?.length) originalMesh=o;
+   const old=Array.isArray(o.material)?o.material:[o.material];
+   const next=old.map(m=>{const patched=patchMaterial(m);if(patched!==m)compatible++;return patched;});
+   o.material=Array.isArray(o.material)?next:next[0];
+  });
+  if(!compatible)throw Error("GLB không có material 3D tương thích.");
+  if(candidate)throw Error("Hãy chọn Female_anime_origin.glb gốc chưa có morph targets.");
+  if(originalMesh){
+   status.textContent="Đang tạo morph V3.1 làm mượt trên iPhone…";
+   await createConceptEyeMorphs(originalMesh,THREE,pct=>{status.textContent="Đang tạo Eye Concept V4: "+pct+"%";});
+   candidate=originalMesh;originGenerated=true;
+  }
+  if(!candidate)throw Error("Hãy chọn đúng Female_anime_origin.glb gốc.");
+  dispose();model=gltf.scene;morphMesh=candidate;scene.add(model);
+  document.querySelectorAll("[data-look]").forEach(b=>b.disabled=false);
+  // Nine eye style buttons are now the only pose controls.
+  document.querySelector("#metrics").textContent=count+" mesh · "+Math.round(triangles).toLocaleString("vi-VN")+" tam giác · "+(f.size/1048576).toFixed(1)+" MiB · 8 pose cố định";
+  lookAt("front");setStyle(current);
+ }catch(err){status.textContent="Không thể mở GLB: "+(err?.message||String(err));console.error(err);}
+ finally{busy=false;e.target.value="";}
+});
+renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)});
+</script></body></html>
