@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Audition · Golden Eye V7 · Independent Iris Textures</title>
+<title>Audition · Golden Eye V7.1 · Iris Orientation &amp; Light</title>
 <style>
 :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}body{margin:0;background:#130f26;color:#f7f1ff}
@@ -37,8 +37,8 @@ label.file input{display:none}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head><body>
-<header><div class="tag">AUDITION MOBILE MVP · ISOLATED QA</div><h1>Female Origin · Golden Eye V7</h1>
-<p class="sub">Golden Eye V7: 9 vật liệu iris riêng 512px theo 2 ảnh reference đã chốt + 8 pose mí/lông mày cố định. Không dùng ảnh mắt bị crop, không có slider Strength.</p></header>
+<header><div class="tag">AUDITION MOBILE MVP · ISOLATED QA</div><h1>Female Origin · Golden Eye V7.1</h1>
+<p class="sub">Golden Eye V7.1: sửa hướng dọc iris và làm sáng sắc tố của 9 mẫu mắt; giữ nguyên Golden Concept, shape mí và GLB gốc. Không có slider Strength.</p></header>
 <main><section id="stage">
 <div class="overlay">GLB thật · vuốt xoay / chụm zoom</div>
 <div class="camera"><button id="front">Chính diện</button><button id="quarter">3/4</button><button id="zoom">Zoom mắt</button></div>
@@ -62,7 +62,7 @@ label.file input{display:none}
 <button id="compare-original" type="button" aria-pressed="false" style="width:100%;margin-top:10px">So sánh với iris gốc (nhấn bật/tắt)</button>
 <p id="concept-note" class="info">Mỗi nút thay mẫu iris, đồng tử, vân và phản quang; đồng thời áp pose mí cố định. Ưu tiên Tinh nghịch: hai mắt mở cân đối, không nháy một bên.</p>
 <div id="metrics">GLB gốc chưa được mở.</div>
-<div class="notice"><b>Golden V7 — QA:</b> 9 iris được dựng thành texture độc lập độ phân giải 512px/mẫu, tái tạo theo cả Golden Head và Iris Pack bạn đã duyệt. Không crop cả mắt, lông mi hoặc da từ ảnh reference. <b>Giới hạn:</b> mắt vẫn dựa vào hình học/UV gốc và local projection; chưa retopo thành eyeball/iris tách rời hay kiểm chứng được độ giống 100%. Đây chỉ là QA, không tích hợp gameplay/Character Catalog.</div>
+<div class="notice"><b>Golden V7.1 — QA:</b> 9 iris được dựng thành texture độc lập độ phân giải 512px/mẫu, tái tạo theo cả Golden Head và Iris Pack bạn đã duyệt. Không crop cả mắt, lông mi hoặc da từ ảnh reference. <b>Giới hạn:</b> mắt vẫn dựa vào hình học/UV gốc và local projection; chưa retopo thành eyeball/iris tách rời hay kiểm chứng được độ giống 100%. Đây chỉ là QA, không tích hợp gameplay/Character Catalog.</div>
 </aside></main>
 <footer>QA riêng biệt · source GLB không bị ghi đè · chưa đạt owner acceptance</footer>
 <script type="module">
@@ -70,7 +70,7 @@ import * as THREE from "three";
 import {GLTFLoader} from "three/addons/loaders/GLTFLoader.js";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 import {createGoldenEyeMorphsV7,GOLDEN_EYE_MORPHS_V7} from "./eye-morph-golden-v7.js";
-import {goldenV7Common,goldenV7Fragment,GOLDEN_V7_IDS} from "./eye-iris-golden-v7.js";
+import {goldenV7Common,goldenV7Fragment,goldenV7Emissive,GOLDEN_V7_IDS} from "./eye-iris-golden-v7.js?v=71";
 const styles={
 natural:["Tự nhiên / nâu","#a96835",0],joyful:["Tươi cười / nâu mật ong","#d78b46",0],
 sad:["Buồn / lavender","#9d79c4",0],playful:["Tinh nghịch / xanh ngọc","#24bcca",0],
@@ -141,8 +141,9 @@ function patchMaterial(mat){
   s.vertexShader=s.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvEyeLocal=position;");
   s.fragmentShader=s.fragmentShader.replace("#include <common>",shaderCommon);
   s.fragmentShader=s.fragmentShader.replace("#include <map_fragment>",shaderEye);
+  s.fragmentShader=s.fragmentShader.replace("#include <emissivemap_fragment>",goldenV7Emissive);
  };
- copy.customProgramCacheKey=()=>"female-golden-v7-independent-iris-atlas";
+ copy.customProgramCacheKey=()=>"female-golden-v71-eye-up-and-light";
  copy.needsUpdate=true;return copy;
 }
 const POSE_STYLES=["joyful","sad","playful","angry","doll","idol","star","heart"];
@@ -164,7 +165,7 @@ function setStyle(id){
  }
  document.querySelectorAll("[data-look]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.look===id)));
  document.querySelector("#concept-note").textContent=LOOK_DESCRIPTIONS[id]+" · Texture iris + pose mí cố định theo Golden.";
- if(model)status.textContent="Đã chọn "+look[0]+" · iris riêng 512px + mí 3D (không tải lại GLB).";
+ if(model)status.textContent="Đã chọn "+look[0]+" · iris V7.1 đúng chiều/sáng hơn + mí 3D (không tải lại GLB).";
 }
 function dispose(){
  if(!model)return;scene.remove(model);
@@ -179,7 +180,7 @@ document.querySelector("#compare-original").addEventListener("click",e=>{
  const active=e.currentTarget.getAttribute("aria-pressed")==="true";
  e.currentTarget.setAttribute("aria-pressed",String(!active));
  uniforms.uGoldenV7Enabled.value=active?1:0;
- status.textContent=active?"Đang dùng Golden V7 iris.":"Đang đối chiếu iris nguyên bản trong GLB.";
+ status.textContent=active?"Đang dùng Golden V7.1 iris (đúng chiều, sáng hơn).":"Đang đối chiếu iris nguyên bản trong GLB.";
 });
 // Eye geometry builder is now independently testable in eye-morph-v31.js.
 document.querySelector("#file").addEventListener("change",async e=>{

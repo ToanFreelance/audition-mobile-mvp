@@ -13,6 +13,8 @@ export const goldenV7Common=[
 "uniform float uGoldenV7Ready;",
 "uniform float uGoldenV7Enabled;",
 "uniform int uGoldenV7Style;",
+"// Fragment-local values reused after PBR lighting is assembled.",
+"vec3 goldenV7IrisEmission=vec3(0.);",
 "vec3 irisRgbToHsv(vec3 c){",
 " vec4 K=vec4(0.,-1./3.,2./3.,-1.);",
 " vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));",
@@ -42,8 +44,10 @@ export const goldenV7Fragment=[
 "    // Source-specific, symmetric eye-space map. Both eyes use the SAME artwork;",
 "    // sign-preserving x keeps star/heart upright and reflection glints consistent.",
 "    float eyeSide=vEyeLocal.x<0.?-1.:1.;",
+"    // The GLB uses LOWER z at the upper lid. Atlas PNG/SVG top must match that lid.",
+"    // V7 had the opposite sign and displayed bottom fan glow at the top of the iris.",
 "    vec2 eyeArt=vec2((vEyeLocal.x-eyeSide*.119)/.051,",
-"                     (vEyeLocal.z+.509)/.051);",
+"                     -(vEyeLocal.z+.509)/.051);",
 "    eyeArt=clamp(eyeArt,vec2(-.965),vec2(.965));",
 "    vec2 within=eyeArt*.5+.5;",
 "    float variant=float(uGoldenV7Style);",
@@ -51,10 +55,22 @@ export const goldenV7Fragment=[
 "    float atlasRow=floor(variant/3.);",
 "    // Image rows run from top to bottom; GL texture coordinates run bottom to top.",
 "    vec2 atlasUv=(vec2(atlasColumn,2.-atlasRow)+within)/3.;",
+"    // The SVG atlas is tagged sRGB by TextureLoader; WebGL samples it as linear.",
+"    // Gently lift midtones in linear space without adjusting the face/skin colors.",
 "    vec3 irisArtwork=texture2D(uGoldenV7Atlas,atlasUv).rgb;",
-"    // Keep the lighting and 3D curvature of the original mesh, not a 2D overlay.",
-"    diffuseColor.rgb=mix(source,irisArtwork,coverage);",
+"    vec3 liftedIris=mix(irisArtwork,sqrt(max(irisArtwork,vec3(0.))),.22);",
+"    // Small eye-only emissive fill retains the gradient under ACES filmic shading.",
+"    goldenV7IrisEmission=liftedIris*coverage*.26;",
+"    diffuseColor.rgb=mix(source,liftedIris,coverage);",
 "  }",
 " }",
 "}"
+].join("\n");
+
+
+// MeshStandardMaterial defines totalEmissiveRadiance before emissivemap_fragment.
+// This is eye-only; face, eyebrows and lashes keep their existing lighting.
+export const goldenV7Emissive=[
+"#include <emissivemap_fragment>",
+"totalEmissiveRadiance += goldenV7IrisEmission;"
 ].join("\n");
