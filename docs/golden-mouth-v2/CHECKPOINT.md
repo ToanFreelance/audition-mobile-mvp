@@ -13,7 +13,21 @@ Có Basis và M01_Natural_EXPERIMENTAL, textures gốc được pack trong Blend
 Source script tại checkpoint này tái tạo delta và render iteration 1.
 Evidence: `docs/golden-mouth-v2/evidence/iteration-01/`.
 
-Ngày: 2026-11-09 (Asia/Ho_Chi_Minh). Chỉ M01; chưa đạt visual gate.
+Ngày: 2026-11-08 (Asia/Ho_Chi_Minh). Chỉ M01; chưa có owner acceptance.
+
+## Checkpoint 2 — native M01 trung tính
+
+Iteration 2 giảm hạ khóe từ .010 xuống .0055 và nén nhẹ chiều cao môi trên.
+6025 đỉnh đổi; giữ nguyên vertex IDs, triangles, UV và texture. Sparse package
+được xuất từ shape key và evaluated split normals của Blender. Đã xác minh
+vertex order importer khớp GLB; vùng mắt V8 và vùng miệng không giao nhau.
+Sáu góc Cycles native đã xem: tốt hơn V1 về khối/liền mặt, không thấy patch hay
+môi dây; màu khóe và độ đầy môi dưới vẫn khác Golden. Chưa có owner acceptance.
+
+`.blend` iteration 2 đã lưu thành công, 51719297 bytes:
+`libfile_8c7edd0bc63c8191880baca7a6cb33a7` (`M01-Native-V2-Iteration-02.blend`).
+Chạy script với `--sculpt --iteration 2`; iteration 1 tái tạo bằng `--iteration 1`.
+WebGL2 đang kiểm tra; Chromium đầy đủ lỗi socket EPERM, không phải PASS.
 
 - Nhánh: `work/female-golden-mouth-v1-qa`; PR #26 OPEN/Draft, base Golden Eye V8.
 - HEAD kiểm tra trước sửa: `3ff6acce9b10d2ac0fc514a55213f6d923742d54`.
