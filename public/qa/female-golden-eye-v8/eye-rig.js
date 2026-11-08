@@ -50,6 +50,49 @@ export function createScleraGeometry(THREE,meta,style,side){
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(faces);g.computeVertexNormals();return g;
 }
 
+
+function smoothStep01(value){const t=Math.max(0,Math.min(1,value));return t*t*(3-2*t);}
+function sampleLidZ(points,x){
+ for(let i=1;i<points.length;i++){
+  const a=points[i-1],b=points[i];
+  if(x<=b[0]){const t=Math.max(0,Math.min(1,(x-a[0])/Math.max(.000001,b[0]-a[0])));return a[1]+(b[1]-a[1])*t;}
+ }
+ return points[points.length-1][1];
+}
+// Relative GPU morph: close the existing textured eyelid rims without scaling,
+// recoloring or distorting either independent curved iris cap.
+export function updateBlinkTarget(meta,styleIndex,openPositions,relativeTarget){
+ relativeTarget.fill(0);
+ const contour=meta.targetContours[styleIndex],lower=contour.slice(0,8);
+ const upper=[contour[0],...contour.slice(8).reverse(),contour[7]];
+ const cx=meta.eyeCenter[0],cy=meta.eyeCenter[1],cz=meta.eyeCenter[2],radius=meta.eyeRadius;
+ let moved=0;
+ for(let i=0;i<openPositions.length;i+=3){
+  const x=Math.abs(openPositions[i]),y=openPositions[i+1],z=openPositions[i+2];
+  if(x<.045||x>.215||y<.155||z<-.605||z>-.425)continue;
+  const weight=smoothStep01((x-.045)/.022)*smoothStep01((.215-x)/.023)*smoothStep01((y-.155)/.042);
+  if(weight<.0001)continue;
+  const up=sampleLidZ(upper,x),lo=sampleLidZ(lower,x),gap=Math.max(0,up-lo);
+  if(gap<.004)continue;
+  const closed=lo+.30*gap; // upper lid moves 70%, lower lid 30%
+  let shift=0;
+  if(z>=up)shift=(closed-up)*smoothStep01((up+.045-z)/.045);
+  else if(z<=lo)shift=(closed-lo)*smoothStep01((z-lo+.038)/.038);
+  else shift=closed-z;
+  const dz=shift*weight;
+  if(Math.abs(dz)<.00001)continue;
+  relativeTarget[i+2]=dz;
+  // Follow the spherical ocular surface at the rim to avoid iris penetration.
+  const newZ=z+dz,radial=(x-cx)**2+(newZ-cz)**2;
+  if(radial<radius*radius){
+   const front=cy+Math.sqrt(radius*radius-radial)+.007;
+   relativeTarget[i+1]=Math.max(0,front-y)*weight*smoothStep01(Math.abs(dz)/.012);
+  }
+  moved++;
+ }
+ return moved;
+}
+
 export function createEyeRig(THREE,source,data,atlas) {
  const {meta,boundary,remove,indices,poses}=data,original=source.geometry;
  if(original.attributes.position.count!==meta.vertexCount||original.index?.count!==meta.triangleCount*3||original.morphAttributes.position?.length)throw Error('Hình học không đúng GLB nguyên bản đã kiểm tra.');
@@ -64,6 +107,10 @@ export function createEyeRig(THREE,source,data,atlas) {
  for(const face of boundary.faces)faces.push(...face);
  work.setIndex(faces);work.computeBoundingSphere();work.computeBoundingBox();
  const basis=work.attributes.position.array.slice();
+ // Preallocate one morph target. Animation only adjusts its GPU influence.
+ work.morphTargetsRelative=true;
+ work.morphAttributes.position=[new THREE.BufferAttribute(new Float32Array(basis.length),3)];
+ let blinkAmount=0;
  const originalNormals=original.attributes.normal.array,affected=new Set(indices);
  const group=new THREE.Group();group.name='GoldenEyeV8Rig';source.add(group);
  const white=new THREE.MeshStandardMaterial({color:0xf5eef3,roughness:.32,metalness:0});
@@ -90,10 +137,21 @@ export function createEyeRig(THREE,source,data,atlas) {
    for(let i=0;i<meta.vertexCount;i++)if(!affected.has(i)){n[i*3]=originalNormals[i*3];n[i*3+1]=originalNormals[i*3+1];n[i*3+2]=originalNormals[i*3+2];}
    normalCache.set(k,n.slice());
   }
+  const blinkAttr=work.morphAttributes.position[0];
+  updateBlinkTarget(meta,k,a,blinkAttr.array);blinkAttr.needsUpdate=true;
   eyes.forEach(({pivot,iris,ball},i)=>{pivot.rotation.z=meta.gazeYaw[k];iris.geometry=irisGeometries[k];ball.geometry=scleraGeometries[i][k];});
+  blinkAmount=0;
   setOriginal(false);
  }
- function setOriginal(enabled){originalVisible=enabled;source.geometry=enabled?original:work;group.visible=!enabled;}
- function dispose(){source.geometry=original;source.remove(group);work.dispose();scleraGeometries.flat().forEach(g=>g.dispose());irisGeometries.forEach(g=>g.dispose());white.dispose();irisMaterial.dispose();normalCache.clear();}
- return {setStyle,setOriginal,dispose,get state(){return{style:meta.styles[current],original:originalVisible,gazeYaw:eyes.map(e=>e.pivot.rotation.z),sourceGeometry:original.uuid,workingGeometry:work.uuid};}};
+ function setBlink(amount){
+  blinkAmount=Math.max(0,Math.min(1,amount));
+  if(source.morphTargetInfluences?.length)source.morphTargetInfluences[0]=originalVisible?0:blinkAmount;
+  eyes.forEach(({iris,ball})=>{iris.visible=ball.visible=blinkAmount<.98;});
+ }
+ function setOriginal(enabled){
+  originalVisible=enabled;source.geometry=enabled?original:work;
+  source.updateMorphTargets();group.visible=!enabled;setBlink(enabled?0:blinkAmount);
+ }
+ function dispose(){source.geometry=original;source.updateMorphTargets();source.remove(group);work.dispose();scleraGeometries.flat().forEach(g=>g.dispose());irisGeometries.forEach(g=>g.dispose());white.dispose();irisMaterial.dispose();normalCache.clear();}
+ return {setStyle,setOriginal,setBlink,dispose,get state(){return{style:meta.styles[current],original:originalVisible,blink:blinkAmount,blinkTargetCount:work.morphAttributes.position[0].count,gazeYaw:eyes.map(e=>e.pivot.rotation.z),sourceGeometry:original.uuid,workingGeometry:work.uuid};}};
 }
