@@ -154,3 +154,9 @@ Chỉ owner mới chốt visual acceptance. Không merge.
 - Sclera và iris ở góc liếc trái cực đại cần kiểm thực tế xem có vượt viền mắt.
 - Chi phí 3 morph attributes trên iPhone và khả năng chuyển đổi shader khi so sánh model gốc chưa đo FPS/memory.
 - PR #25 vẫn Draft; không merge `development`/`main`, không sửa multiplayer/gameplay/WebAudio/Character Catalog.
+
+### Bổ sung sửa GPU cache (08/11/2026)
+
+Kiểm tra trực tiếp mã nguồn `WebGLMorphtargets.js` của Three.js r180 cho thấy morph target được đóng gói thành `DataArrayTexture` cache theo `BufferGeometry` và số lượng morph targets. `BufferAttribute.needsUpdate` **không tự làm mới dữ liệu texture morph** sau lần render đầu.
+
+Đã bổ sung `work.dispose()` ngay trong `setStyle` **sau khi cập nhật morph arrays**, để nhận sự kiện dispose, huỷ cache texture/geometry GPU cũ và upload lại mảng hiện tại vào lần render kế tiếp; vẫn tái sử dụng cùng `BufferGeometry`/actor/model trong RAM. Không dispose ở `setBlink`, `setExpression` hoặc `setGaze`; mỗi animation frame chỉ cập nhật trọng số và góc xoay. Chưa chứng minh trên iPhone thật, cần owner QA thực tế.
