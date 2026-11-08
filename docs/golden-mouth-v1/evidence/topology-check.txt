@@ -1,0 +1,3 @@
+patch minimum doubled triangle area: 2.8852166997781683e-08
+cavity minimum doubled triangle area: 5.3734262086237456e-09
+PASS: disjoint eye/mouth cuts, exact stitched boundary, closed cavity seam, positive triangle areas, 9 distinct poses, invariant outer ring

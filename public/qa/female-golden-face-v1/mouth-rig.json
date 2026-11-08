@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "sourceSha256": "b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90",
+  "vertexCount": 292645,
+  "sourceTriangleCount": 499762,
+  "center": [
+    0,
+    0.263,
+    -0.335
+  ],
+  "cutEllipse": [
+    0.091,
+    0.057
+  ],
+  "styles": [
+    {
+      "id": "natural",
+      "label": "Tự nhiên",
+      "width": 0.034,
+      "up": 0.0006,
+      "down": 0.0006,
+      "raise_": 0,
+      "skew": 0,
+      "depth": 0.002,
+      "lip": 0.0065
+    },
+    {
+      "id": "soft-smile",
+      "label": "Mỉm cười",
+      "width": 0.053,
+      "up": 0.0003,
+      "down": 0.0003,
+      "raise_": 0.011,
+      "skew": 0,
+      "depth": 0.003,
+      "lip": 0.0095
+    },
+    {
+      "id": "bright-smile",
+      "label": "Cười rạng rỡ",
+      "width": 0.063,
+      "up": 0.007,
+      "down": 0.033,
+      "raise_": 0.014,
+      "skew": 0,
+      "depth": 0.001,
+      "lip": 0.009
+    },
+    {
+      "id": "playful-smirk",
+      "label": "Tinh nghịch",
+      "width": 0.049,
+      "up": 0.0008,
+      "down": 0.0013,
+      "raise_": 0.007,
+      "skew": -0.011,
+      "depth": 0.003,
+      "lip": 0.008
+    },
+    {
+      "id": "cute-pout",
+      "label": "Chu môi",
+      "width": 0.023,
+      "up": 0.001,
+      "down": 0.0015,
+      "raise_": 0,
+      "skew": 0,
+      "depth": 0.018,
+      "lip": 0.015
+    },
+    {
+      "id": "surprised",
+      "label": "Ngạc nhiên",
+      "width": 0.02,
+      "up": 0.018,
+      "down": 0.029,
+      "raise_": 0,
+      "skew": 0,
+      "depth": 0.007,
+      "lip": 0.006
+    },
+    {
+      "id": "shy",
+      "label": "Ngại ngùng",
+      "width": 0.03,
+      "up": 0.0006,
+      "down": 0.0006,
+      "raise_": -0.0025,
+      "skew": 0.0017,
+      "depth": 0.003,
+      "lip": 0.0055
+    },
+    {
+      "id": "idol-smile",
+      "label": "Thần tượng",
+      "width": 0.053,
+      "up": 0.0045,
+      "down": 0.021,
+      "raise_": 0.009,
+      "skew": 0,
+      "depth": 0.002,
+      "lip": 0.0095
+    },
+    {
+      "id": "blow-kiss",
+      "label": "Hôn gió",
+      "width": 0.019,
+      "up": 0.0016,
+      "down": 0.0024,
+      "raise_": -0.001,
+      "skew": 0,
+      "depth": 0.029,
+      "lip": 0.017
+    }
+  ],
+  "removedTriangles": 9430,
+  "boundaryVertices": 570,
+  "patchVertices": 3200,
+  "patchTriangles": 6144,
+  "packageBytes": 992258
+}

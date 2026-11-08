@@ -1,0 +1,22 @@
+{
+  "pass": true,
+  "combinations": 81,
+  "switchCycles": 30,
+  "objects": 11,
+  "triangles": 507755,
+  "checks": [
+    "actual GLB source hash",
+    "9 eyes × 9 mouths",
+    "mouth changes preserve complete eye state",
+    "eye changes preserve complete mouth state",
+    "concurrent blink/expression/mouth interpolation",
+    "static weights restored",
+    "fixed mouth geometry IDs",
+    "finite positions/normals/morphs",
+    "valid indices",
+    "original geometry restored",
+    "dispose restores source and removes rigs"
+  ],
+  "webgl": "not tested by Node; requires GPU browser",
+  "iphone": "owner pending"
+}
