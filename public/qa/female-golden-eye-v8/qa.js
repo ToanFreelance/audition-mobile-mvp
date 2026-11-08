@@ -14,6 +14,23 @@ const key=new THREE.DirectionalLight('#fff1df',3);key.position.set(-1.5,2,3);sce
 const rim=new THREE.DirectionalLight('#ad9bff',1.5);rim.position.set(1,1,-2);scene.add(rim);
 const camera=new THREE.PerspectiveCamera(36,1,.01,20);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.minDistance=.35;controls.maxDistance=3.5;
 let model=null,rig=null,current='natural',busy=false,quarter=false,zoom=false,loads=0;
+let blinkStart=-1,nextBlinkAt=0,showingOriginal=false;
+const BLINK_CLOSE_MS=120,BLINK_HOLD_MS=40,BLINK_OPEN_MS=170;
+const BLINK_TOTAL_MS=BLINK_CLOSE_MS+BLINK_HOLD_MS+BLINK_OPEN_MS;
+function smooth01(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
+function scheduleNextBlink(now){nextBlinkAt=now+2600+Math.random()*2600;}
+function animateBlink(now){
+ if(!rig||busy||showingOriginal)return;
+ if(blinkStart<0 && now>=nextBlinkAt)blinkStart=now;
+ if(blinkStart<0)return;
+ const elapsed=now-blinkStart;
+ if(elapsed>=BLINK_TOTAL_MS){rig.setBlink(0);blinkStart=-1;scheduleNextBlink(now);return;}
+ let amount=1;
+ if(elapsed<BLINK_CLOSE_MS)amount=smooth01(elapsed/BLINK_CLOSE_MS);
+ else if(elapsed>=BLINK_CLOSE_MS+BLINK_HOLD_MS)
+  amount=1-smooth01((elapsed-BLINK_CLOSE_MS-BLINK_HOLD_MS)/BLINK_OPEN_MS);
+ rig.setBlink(amount);
+}
 function resize(){const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(stage);resize();
 function view(){if(!model)return;const yaw=quarter?Math.PI/5:0,d=zoom?.72:1.38;controls.target.set(0,zoom?.515:.56,zoom?.15:.02);camera.position.copy(controls.target).add(new THREE.Vector3(Math.sin(yaw)*d,0,Math.cos(yaw)*d));camera.lookAt(controls.target);controls.update();}
@@ -22,8 +39,8 @@ async function getResources(){
  if(!resources)resources=Promise.all([loadRigData(),new THREE.TextureLoader().loadAsync('./approved-iris-atlas.webp').then(t=>{t.colorSpace=THREE.SRGBColorSpace;t.flipY=true;t.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());return t;})]).catch(e=>{resources=null;throw e;});
  return resources;
 }
-function controlsEnabled(enabled){document.querySelectorAll('[data-look],#compare-original').forEach(b=>b.disabled=!enabled);}
-function setStyle(id){if(!rig||busy)return;current=id;rig.setStyle(id);document.querySelector('#compare-original').setAttribute('aria-pressed','false');document.querySelectorAll('[data-look]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.look===id)));document.querySelector('#concept-note').textContent=descriptions[id];status.textContent='Đã chọn '+descriptions[id]+' Không tải lại GLB.';}
+function controlsEnabled(enabled){document.querySelectorAll('[data-look],#compare-original,#blink-now').forEach(b=>b.disabled=!enabled);}
+function setStyle(id){if(!rig||busy)return;current=id;rig.setStyle(id);showingOriginal=false;blinkStart=-1;scheduleNextBlink(performance.now());document.querySelector('#compare-original').setAttribute('aria-pressed','false');document.querySelectorAll('[data-look]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.look===id)));document.querySelector('#concept-note').textContent=descriptions[id];status.textContent='Đã chọn '+descriptions[id]+' Không tải lại GLB.';}
 function disposeModel(root){
  if(!root)return;const maps=new Set(),materials=new Set(),geometries=new Set();
  root.traverse(o=>{if(o.isMesh){geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material])){materials.add(m);for(const v of Object.values(m))if(v?.isTexture)maps.add(v);}}});
@@ -51,10 +68,14 @@ document.querySelector('#file').addEventListener('change',async e=>{
  finally{busy=false;e.target.value='';}
 });
 document.querySelectorAll('[data-look]').forEach(b=>b.addEventListener('click',()=>setStyle(b.dataset.look)));
-document.querySelector('#compare-original').addEventListener('click',e=>{if(!rig)return;const original=e.currentTarget.getAttribute('aria-pressed')!=='true';rig.setOriginal(original);e.currentTarget.setAttribute('aria-pressed',String(original));status.textContent=original?'Model gốc: khôi phục toàn bộ hình học, iris và chân mày.':'Đang xem Golden Eye V8 · '+descriptions[current];});
+document.querySelector('#compare-original').addEventListener('click',e=>{if(!rig)return;const original=e.currentTarget.getAttribute('aria-pressed')!=='true';rig.setOriginal(original);showingOriginal=original;blinkStart=-1;if(!original)scheduleNextBlink(performance.now());e.currentTarget.setAttribute('aria-pressed',String(original));status.textContent=original?'Model gốc: khôi phục toàn bộ hình học, iris và chân mày.':'Đang xem Golden Eye V8 · '+descriptions[current];});
+document.querySelector('#blink-now').addEventListener('click',()=>{
+ if(!rig||busy||showingOriginal)return;
+ rig.setBlink(0);blinkStart=performance.now();
+});
 document.querySelector('#front').addEventListener('click',()=>{quarter=false;view();});document.querySelector('#quarter').addEventListener('click',()=>{quarter=true;view();});document.querySelector('#zoom').addEventListener('click',e=>{zoom=!zoom;e.currentTarget.setAttribute('aria-pressed',String(zoom));view();});
 renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();status.textContent='WebGL bị gián đoạn. Đợi khôi phục hoặc mở lại trang.';});
 renderer.domElement.addEventListener('webglcontextrestored',()=>{status.textContent='WebGL đã khôi phục.';});
-renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});
+renderer.setAnimationLoop((time)=>{animateBlink(time);controls.update();renderer.render(scene,camera);});
 // Read-only diagnostics for focused automation; no other app state is exposed.
-Object.defineProperty(window,'goldenEyeV8',{get:()=>({loads,busy,rig:rig?.state,renderer:renderer.info.render,programs:renderer.info.programs?.map(p=>({runnable:p.diagnostics?.runnable}))})});
+Object.defineProperty(window,'goldenEyeV8',{get:()=>({loads,busy,rig:rig?.state,blinkActive:blinkStart>=0,renderer:renderer.info.render,programs:renderer.info.programs?.map(p=>({runnable:p.diagnostics?.runnable}))})});
