@@ -15,13 +15,29 @@ const rim=new THREE.DirectionalLight('#ad9bff',1.5);rim.position.set(1,1,-2);sce
 const camera=new THREE.PerspectiveCamera(36,1,.01,20);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.minDistance=.35;controls.maxDistance=3.5;
 let model=null,rig=null,current='natural',busy=false,quarter=false,zoom=false,loads=0;
 let blinkStart=-1,nextBlinkAt=0,showingOriginal=false;
+let motionStart=-1,motionOnce=false;
+const MOTION_CYCLE_MS=5300;
+const expressionStyles=new Set(['joyful','sad','angry','doll']);
+const motionDescriptions={
+ natural:'Nhìn nhẹ hai bên khi bật diễn hoạt; dáng mắt Golden không đổi.',
+ joyful:'Mí bình thường → nở nụ cười → trở lại bình thường.',
+ sad:'Mí và chân mày bình thường → buồn dịu → trở lại bình thường.',
+ playful:'Cả hai tròng mắt liếc phải → trái → phải, không kéo méo iris.',
+ angry:'Mí và chân mày bình thường → giận dữ → trở lại bình thường.',
+ doll:'Mí bình thường → mở to tròn → trở lại bình thường.',
+ idol:'Liếc rất nhẹ để tạo cảm giác mắt sống động.',
+ star:'Liếc nhẹ, ngôi sao luôn cùng xoay với iris 3D.',
+ heart:'Liếc nhẹ, trái tim luôn cùng xoay với iris 3D.'
+};
+const autoBlink=()=>document.querySelector('#auto-blink').checked;
+const autoMotion=()=>document.querySelector('#auto-motion').checked;
 const BLINK_CLOSE_MS=120,BLINK_HOLD_MS=40,BLINK_OPEN_MS=170;
 const BLINK_TOTAL_MS=BLINK_CLOSE_MS+BLINK_HOLD_MS+BLINK_OPEN_MS;
 function smooth01(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
 function scheduleNextBlink(now){nextBlinkAt=now+2600+Math.random()*2600;}
 function animateBlink(now){
  if(!rig||busy||showingOriginal)return;
- if(blinkStart<0 && now>=nextBlinkAt)blinkStart=now;
+ if(blinkStart<0 && autoBlink() && now>=nextBlinkAt)blinkStart=now;
  if(blinkStart<0)return;
  const elapsed=now-blinkStart;
  if(elapsed>=BLINK_TOTAL_MS){rig.setBlink(0);blinkStart=-1;scheduleNextBlink(now);return;}
@@ -31,6 +47,48 @@ function animateBlink(now){
   amount=1-smooth01((elapsed-BLINK_CLOSE_MS-BLINK_HOLD_MS)/BLINK_OPEN_MS);
  rig.setBlink(amount);
 }
+function lerp(a,b,t){return a+(b-a)*smooth01(t);}
+function stopMotion(){
+ motionStart=-1;motionOnce=false;
+ if(rig){rig.setExpression(0);rig.resetGaze();}
+}
+function restartMotion(now){
+ motionStart=now;motionOnce=false;
+ if(!rig)return;
+ rig.setBlink(0);rig.resetGaze();
+ rig.setExpression(expressionStyles.has(current)?1:0);
+}
+function animateMotion(now){
+ if(!rig||busy||showingOriginal||motionStart<0)return;
+ let elapsed=now-motionStart;
+ if(elapsed>=MOTION_CYCLE_MS && motionOnce){
+  if(autoMotion()){motionOnce=false;motionStart=now;elapsed=0;}
+  else {stopMotion();return;}
+ }
+ const t=elapsed%MOTION_CYCLE_MS;
+ if(expressionStyles.has(current)){
+  let neutral=1;
+  if(t>=700 && t<1250)neutral=1-smooth01((t-700)/550);
+  else if(t>=1250 && t<2650)neutral=0;
+  else if(t>=2650 && t<3350)neutral=smooth01((t-2650)/700);
+  rig.setExpression(neutral);
+  rig.resetGaze();
+ }else if(current==='playful'){
+  // Whole 3D iris + highlight turns as one; both pivots use identical yaw.
+  let yaw=-.25;
+  if(t>=650 && t<1300)yaw=lerp(-.25,.21,(t-650)/650);
+  else if(t>=1300 && t<2100)yaw=.21;
+  else if(t>=2100 && t<2750)yaw=lerp(.21,-.25,(t-2100)/650);
+  else if(t>=3750 && t<4250)yaw=lerp(-.25,0,(t-3750)/500);
+  else if(t>=4250)yaw=0;
+  rig.setExpression(0);
+  rig.setGaze(yaw);
+ }else{
+  // Subtle life for neutral / idol / star / heart, no altered texture.
+  rig.setExpression(0);
+  rig.setGaze(.055*Math.sin(t/MOTION_CYCLE_MS*Math.PI*2));
+ }
+}
 function resize(){const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
 new ResizeObserver(resize).observe(stage);resize();
 function view(){if(!model)return;const yaw=quarter?Math.PI/5:0,d=zoom?.72:1.38;controls.target.set(0,zoom?.515:.56,zoom?.15:.02);camera.position.copy(controls.target).add(new THREE.Vector3(Math.sin(yaw)*d,0,Math.cos(yaw)*d));camera.lookAt(controls.target);controls.update();}
@@ -39,8 +97,18 @@ async function getResources(){
  if(!resources)resources=Promise.all([loadRigData(),new THREE.TextureLoader().loadAsync('./approved-iris-atlas.webp').then(t=>{t.colorSpace=THREE.SRGBColorSpace;t.flipY=true;t.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());return t;})]).catch(e=>{resources=null;throw e;});
  return resources;
 }
-function controlsEnabled(enabled){document.querySelectorAll('[data-look],#compare-original,#blink-now').forEach(b=>b.disabled=!enabled);}
-function setStyle(id){if(!rig||busy)return;current=id;rig.setStyle(id);showingOriginal=false;blinkStart=-1;scheduleNextBlink(performance.now());document.querySelector('#compare-original').setAttribute('aria-pressed','false');document.querySelectorAll('[data-look]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.look===id)));document.querySelector('#concept-note').textContent=descriptions[id];status.textContent='Đã chọn '+descriptions[id]+' Không tải lại GLB.';}
+function controlsEnabled(enabled){document.querySelectorAll('[data-look],#compare-original,#blink-now,#motion-now,#auto-blink,#auto-motion').forEach(b=>b.disabled=!enabled);}
+function setStyle(id){
+ if(!rig||busy)return;
+ current=id;rig.setStyle(id);showingOriginal=false;blinkStart=-1;
+ const now=performance.now();scheduleNextBlink(now);
+ if(autoMotion())restartMotion(now);else stopMotion();
+ document.querySelector('#compare-original').setAttribute('aria-pressed','false');
+ document.querySelectorAll('[data-look]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.look===id)));
+ document.querySelector('#concept-note').textContent=descriptions[id];
+ document.querySelector('#motion-note').textContent=motionDescriptions[id]+' Iris/hoa văn giữ nguyên preset.';
+ status.textContent='Đã chọn '+descriptions[id]+' Không tải lại GLB.';
+}
 function disposeModel(root){
  if(!root)return;const maps=new Set(),materials=new Set(),geometries=new Set();
  root.traverse(o=>{if(o.isMesh){geometries.add(o.geometry);for(const m of(Array.isArray(o.material)?o.material:[o.material])){materials.add(m);for(const v of Object.values(m))if(v?.isTexture)maps.add(v);}}});
@@ -68,14 +136,33 @@ document.querySelector('#file').addEventListener('change',async e=>{
  finally{busy=false;e.target.value='';}
 });
 document.querySelectorAll('[data-look]').forEach(b=>b.addEventListener('click',()=>setStyle(b.dataset.look)));
-document.querySelector('#compare-original').addEventListener('click',e=>{if(!rig)return;const original=e.currentTarget.getAttribute('aria-pressed')!=='true';rig.setOriginal(original);showingOriginal=original;blinkStart=-1;if(!original)scheduleNextBlink(performance.now());e.currentTarget.setAttribute('aria-pressed',String(original));status.textContent=original?'Model gốc: khôi phục toàn bộ hình học, iris và chân mày.':'Đang xem Golden Eye V8 · '+descriptions[current];});
+document.querySelector('#compare-original').addEventListener('click',e=>{if(!rig)return;const original=e.currentTarget.getAttribute('aria-pressed')!=='true';rig.setOriginal(original);showingOriginal=original;blinkStart=-1;
+ if(original){motionStart=-1;motionOnce=false;}
+ else{const now=performance.now();scheduleNextBlink(now);if(autoMotion())restartMotion(now);else stopMotion();}e.currentTarget.setAttribute('aria-pressed',String(original));status.textContent=original?'Model gốc: khôi phục toàn bộ hình học, iris và chân mày.':'Đang xem Golden Eye V8 · '+descriptions[current];});
 document.querySelector('#blink-now').addEventListener('click',()=>{
  if(!rig||busy||showingOriginal)return;
- rig.setBlink(0);blinkStart=performance.now();
+ rig.setBlink(0);blinkStart=performance.now(); // Works with auto-blink unchecked.
+});
+document.querySelector('#auto-blink').addEventListener('change',e=>{
+ blinkStart=-1;if(rig)rig.setBlink(0);
+ if(e.target.checked)scheduleNextBlink(performance.now());
+});
+document.querySelector('#auto-motion').addEventListener('change',e=>{
+ if(!rig||showingOriginal)return;
+ if(e.target.checked)restartMotion(performance.now());else stopMotion();
+});
+document.querySelector('#motion-now').addEventListener('click',()=>{
+ if(!rig||busy||showingOriginal)return;
+ restartMotion(performance.now());motionOnce=true; // One full cycle, even if auto is OFF.
+});
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden||!rig)return;
+ blinkStart=-1;rig.setBlink(0);scheduleNextBlink(performance.now());
+ if(autoMotion()&&!showingOriginal)restartMotion(performance.now());
 });
 document.querySelector('#front').addEventListener('click',()=>{quarter=false;view();});document.querySelector('#quarter').addEventListener('click',()=>{quarter=true;view();});document.querySelector('#zoom').addEventListener('click',e=>{zoom=!zoom;e.currentTarget.setAttribute('aria-pressed',String(zoom));view();});
 renderer.domElement.addEventListener('webglcontextlost',e=>{e.preventDefault();status.textContent='WebGL bị gián đoạn. Đợi khôi phục hoặc mở lại trang.';});
 renderer.domElement.addEventListener('webglcontextrestored',()=>{status.textContent='WebGL đã khôi phục.';});
-renderer.setAnimationLoop((time)=>{animateBlink(time);controls.update();renderer.render(scene,camera);});
+renderer.setAnimationLoop((time)=>{animateBlink(time);animateMotion(time);controls.update();renderer.render(scene,camera);});
 // Read-only diagnostics for focused automation; no other app state is exposed.
-Object.defineProperty(window,'goldenEyeV8',{get:()=>({loads,busy,rig:rig?.state,blinkActive:blinkStart>=0,renderer:renderer.info.render,programs:renderer.info.programs?.map(p=>({runnable:p.diagnostics?.runnable}))})});
+Object.defineProperty(window,'goldenEyeV8',{get:()=>({loads,busy,rig:rig?.state,blinkActive:blinkStart>=0,autoBlink:autoBlink(),autoMotion:autoMotion(),motionActive:motionStart>=0,renderer:renderer.info.render,programs:renderer.info.programs?.map(p=>({runnable:p.diagnostics?.runnable}))})});
