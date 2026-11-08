@@ -68,3 +68,36 @@ Owner cần kiểm:
 6. Chuyển kiểu không nạp lại GLB; nút so sánh trả về cả mí và chân mày gốc; zoom/rotate/load lại hoạt động.
 
 Chỉ owner mới chốt visual acceptance. Không merge.
+
+
+## Bổ sung Golden Eye V8 — Blink QA (08/11/2026)
+
+**Quyết định owner:** 9 kiểu mắt Golden Eye V8 đã được chủ dự án chấp nhận sau iPhone QA. Phần nháy mắt là thay đổi mới, **chưa được owner nghiệm thu**.
+
+### Vấn đề / nguyên nhân
+
+- V8 chỉ có pose mở mắt cố định; không có trạng thái eyelid closure hoặc thời gian nháy.
+- Iris là cap cong độc lập: không được giải quyết nháy mắt bằng cách scale iris/nhãn cầu, phủ màu đơn giản hoặc chuyển preset khác.
+- Geometry quanh mắt có hàng chục nghìn đỉnh nên cập nhật toàn bộ CPU mỗi frame là không phù hợp iPhone.
+
+### Thay đổi
+
+- `public/qa/female-golden-eye-v8/eye-rig.js`: một relative GPU morph target trên mesh mặt đang có texture/UV gốc, tính lại **chỉ khi đổi kiểu mắt**. Nội suy dọc theo viền mí của từng preset (mí trên 70%, mí dưới 30%); giữ độ sâu vùng mí phía trước nhãn cầu. `setBlink(0..1)` chỉ cập nhật morph influence, không tạo lại scene/mesh, không kéo méo iris. Khi đóng hoàn toàn, ẩn phần iris/sclera sau đường mí khép; `setOriginal` vẫn khôi phục hình học gốc.
+- `public/qa/female-golden-eye-v8/qa.js`: nháy tự động cách nhau ngẫu nhiên 2,6–5,2 giây (120 ms khép, 40 ms giữ, 170 ms mở) và nút `Nháy thử`. Chuyển style/reset so sánh gốc dừng nháy đang diễn ra. Không tải lại GLB.
+- `public/qa/female-golden-eye-v8/index.html`: nút nháy thử và trạng thái nghiệm thu đúng (Golden V8 được chốt, blink chờ iPhone).
+- `scripts/golden-eye-v8/verify.mjs`: bổ sung assert morph target, delta mí hai chiều và influence 0/0.75/1 trên cả 9 preset.
+
+### Kiểm tra thực sự đã chạy
+
+- Parse cú pháp JS cho `eye-rig.js` và `qa.js`: PASS trong môi trường JavaScript độc lập.
+- Unit test hình học helper với contour thật từ `eye-rig.json`, mẫu đỉnh mí trên/dưới hai mắt, cả 9 preset: PASS, hướng biến dạng hợp lý, ngoài vùng mắt không di chuyển.
+- SHA của `eye-rig.json` không đổi; atlas iris, GLB gốc và dữ liệu patch/gzip **không sửa**.
+- Vercel Preview Git deployment cho code blink: READY (xác minh qua Vercel).
+- **Chưa chạy** `verify.mjs` với Node+Three và GLB thật vì môi trường QA cục bộ không có `three` dependency; chưa có ảnh chụp WebGL/iPhone hoặc QA Safari cho animation mới. Không tuyên bố full regression PASS.
+
+### Rủi ro / tiêu chí owner iPhone
+
+- Kiểm cả 9 kiểu, đặc biệt Tươi cười, Tinh nghịch, Búp bê: độ kín mí, chân mi và highlight khi nháy.
+- Thử Chính diện + góc 3/4; theo dõi xuyên iris/sclera và đường mí đóng có đứt/gãy không.
+- Thử nút nháy khi vừa đổi kiểu; kiểm so sánh gốc, tải lại model, memory/FPS Safari.
+- Không áp dụng vào gameplay, Waiting Room, Character Catalog, WebAudio hoặc Supabase; không merge.
