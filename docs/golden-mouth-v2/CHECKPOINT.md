@@ -1,5 +1,14 @@
 # Golden Mouth V2 — checkpoint 0: import nguồn
 
+## Trạng thái bàn giao M01
+
+Iteration 2 là bản cuối; native sculpt + sparse geometry + Cycles comparison đủ sáu góc.
+WebGL2 headless shell/SwiftShader PASS thật: 18 lựa chọn, 7 program link, framebuffer,
+original position/normal restore, eye weights giữ nguyên. Regression V8 PASS.
+Internal visual integration PASS có giới hạn; fidelity chưa hoàn toàn giống Golden,
+chưa iPhone/owner acceptance. Xem `QA_VI.md` và evidence để tiếp tục.
+Không làm M03/M06 trước owner chấp nhận M01. Không merge PR #26.
+
 ## Checkpoint 1 — thử biến dạng native surface
 
 Blender Cycles CPU đã render front, trái/phải 35°, profile, mouth và clay thật.

@@ -100,6 +100,7 @@ for name, loc, energy, size in [('Key',(-1.5,-2,2),75,2),('Fill',(1.5,-1,1),45,2
 bpy.ops.object.camera_add(); camera=bpy.context.object; scene.camera=camera
 camera.data.type='ORTHO'
 clay=bpy.data.materials.new('NeutralClay'); clay.use_nodes=True
+clay.use_fake_user=True
 bs=clay.node_tree.nodes.get('Principled BSDF'); bs.inputs['Base Color'].default_value=(.5,.5,.5,1)
 bs.inputs['Roughness'].default_value=.7
 views={'front':(0,.51,.94),'left35':(-35,.51,.94),'right35':(35,.51,.94),

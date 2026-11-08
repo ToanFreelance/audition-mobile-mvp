@@ -1,0 +1,110 @@
+{
+  "pass": true,
+  "checks": [
+    "source SHA-256",
+    "nine finite poses",
+    "nine GPU blink deltas",
+    "three weighted morph targets",
+    "neutral to emotion + sclera aperture blend",
+    "0.75/100% blink morph weights",
+    "conjugate gaze overrides",
+    "valid indices",
+    "forward iris winding",
+    "conjugate gaze > 0.02",
+    "exact original restore",
+    "30 switches reuse geometry",
+    "disposal"
+  ],
+  "styles": [
+    {
+      "style": "natural",
+      "vertices": 297148,
+      "triangles": 491354,
+      "gaze": [
+        0,
+        0
+      ],
+      "irisRadius": 0.052
+    },
+    {
+      "style": "joyful",
+      "vertices": 297148,
+      "triangles": 491354,
+      "gaze": [
+        0,
+        0
+      ],
+      "irisRadius": 0.049
+    },
+    {
+      "style": "sad",
+      "vertices": 297148,
+      "triangles": 491354,
+      "gaze": [
+        0,
+        0
+      ],
+      "irisRadius": 0.052
+    },
+    {
+      "style": "playful",
+      "vertices": 297148,
+      "triangles": 491354,
+      "gaze": [
+        -0.25,
+        -0.25
+      ],
+      "irisRadius": 0.048
+    },
+    {
+      "style": "angry",
+      "vertices": 297148,
+      "triangles": 491354,
+      "gaze": [
+        0,
+        0
+      ],
+      "irisRadius": 0.05
+    },
+    {
+      "style": "doll",
+      "vertices": 297148,
+      "triangles": 491354,
+      "gaze": [
+        0,
+        0
+      ],
+      "irisRadius": 0.058
+    },
+    {
+      "style": "idol",
+      "vertices": 297148,
+      "triangles": 491354,
+      "gaze": [
+        0,
+        0
+      ],
+      "irisRadius": 0.055
+    },
+    {
+      "style": "star",
+      "vertices": 297148,
+      "triangles": 491354,
+      "gaze": [
+        0,
+        0
+      ],
+      "irisRadius": 0.054
+    },
+    {
+      "style": "heart",
+      "vertices": 297148,
+      "triangles": 491354,
+      "gaze": [
+        0,
+        0
+      ],
+      "irisRadius": 0.054
+    }
+  ]
+}

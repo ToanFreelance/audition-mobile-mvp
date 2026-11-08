@@ -18,6 +18,8 @@ skin=material('SkinPatch',texture=asset/'female-golden-face-v1/mouth-skin.webp',
 white=material('Sclera',(.91,.87,.90,1),.32);iris=material('ApprovedIris',texture=asset/'female-golden-eye-v8/approved-iris-atlas.webp',rough=.45);pn=iris.node_tree.nodes.get('Principled BSDF');tx=next(n for n in iris.node_tree.nodes if n.type=='TEX_IMAGE');iris.node_tree.links.new(tx.outputs['Color'],pn.inputs['Emission Color']);pn.inputs['Emission Strength'].default_value=.32
 mats={'source':source,'sclera':white,'iris':iris,'LipsAndPerioralSkin':skin,'FixedSkinStitch':bridge,'RecessedClosedMouthCavity':material('Cavity',(.031,.006,.012,1),.95),'UpperDentalArch':material('Teeth',(.98,.91,.83,1),.32),'TongueInsideCavity':material('Tongue',(.51,.13,.17,1),.55)}
 objects=[]
+if 'NeutralClay' not in bpy.data.materials:
+ clay=material('NeutralClay',(.5,.5,.5,1),.7)
 for style in styles:
  name,view=(style.split(':')+["front"])[:2]
  for ob in objects:
