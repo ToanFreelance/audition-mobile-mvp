@@ -101,3 +101,56 @@ Chỉ owner mới chốt visual acceptance. Không merge.
 - Thử Chính diện + góc 3/4; theo dõi xuyên iris/sclera và đường mí đóng có đứt/gãy không.
 - Thử nút nháy khi vừa đổi kiểu; kiểm so sánh gốc, tải lại model, memory/FPS Safari.
 - Không áp dụng vào gameplay, Waiting Room, Character Catalog, WebAudio hoặc Supabase; không merge.
+
+
+## Golden Eye V8 — Animation Motion QA (08/11/2026)
+
+**Owner yêu cầu:** checkbox auto blink và biểu cảm động; Tinh nghịch liếc hai bên; Tươi cười/Giận dữ/Buồn chuyển từ bình thường sang cảm xúc rồi trở lại. Golden Eye V8 đã được owner chốt từ iPhone; **animation mới vẫn chờ owner QA**.
+
+### Nguyên nhân / thiết kế
+
+- Bản Blink QA trước chỉ có nhịp blink tự động + nút nháy thử, không có checkbox tắt bật; chín pose contour đều là ảnh tĩnh, không có parameter blend từ tự nhiên sang biểu cảm.
+- Không được scale toàn nhãn cầu hoặc chuyển geometry CPU mỗi frame (mesh đầu gần 300k vertices); không được phá iris Golden đã duyệt.
+- Thêm **3 relative GPU morph targets** cho mesh mặt: (0) blink của pose hiện tại, (1) delta mí+mày trở về Tự nhiên, (2) blink của pose Tự nhiên. Các trọng số được đặt trực tiếp trên `morphTargetInfluences`:
+  - `targetBlink = blink * (1-neutral)`
+  - `neutralExpression = neutral`
+  - `neutralBlink = blink * neutral`
+- Sclera/aperture có GPU morph riêng để theo viền mí khi đổi biểu cảm. Iris cap là mesh 3D riêng, không biến dạng và không thay artwork; các preset được tạo lại morph attributes **chỉ một lần khi đổi kiểu**, không ở mỗi frame.
+- `setGaze` xoay hai pivot iris cùng yaw; `resetGaze` trả về yaw Golden của preset (đặc biệt Tinh nghịch -0.25).
+
+### Chuyển động / điều khiển
+
+- Checkbox **Tự động chớp mắt** (mặc định bật), giữ nhịp ngẫu nhiên 2,6–5,2 giây; tắt checkbox dừng auto nhưng nút **Nháy thử** vẫn hoạt động.
+- Checkbox **Tự động diễn hoạt biểu cảm / hướng nhìn** (mặc định bật); tắt trả lập tức về đúng preset tĩnh Golden đã duyệt.
+- Nút **Phát 1 lượt** kích hoạt một vòng demo ngay cả khi auto biểu cảm đã tắt.
+- Chu kỳ 5,3 giây:
+  - Tươi cười / Buồn / Giận dữ: biểu cảm Tự nhiên → chuyển 550 ms → giữ 1,4 s → về Tự nhiên 700 ms → nghỉ.
+  - Búp bê: bình thường → tròn ngạc nhiên → bình thường.
+  - Tinh nghịch: cùng liếc phải → trái → phải → giữa, iris và highlight xoay đồng bộ.
+  - Tự nhiên, Thần tượng, Ngôi sao, Trái tim: liếc nhẹ, không sửa iris.
+- Khi biểu cảm về Tự nhiên, chỉ contour mí/mày thay đổi; màu iris và họa tiết đặc trưng vẫn theo preset đã chọn (để bảo vệ Golden Iris).
+- Không có slider Strength; đổi kiểu, bật/tắt và nút so sánh gốc không tải lại GLB.
+
+### Tệp thay đổi
+
+1. `public/qa/female-golden-eye-v8/eye-rig.js`: morph pose biểu cảm, sclera và gaze API.
+2. `public/qa/female-golden-eye-v8/qa.js`: 2 checkbox, trình tự chu kỳ và nút phát lại, lifecycle / pause.
+3. `public/qa/female-golden-eye-v8/index.html`: UI mobile-first.
+4. `scripts/golden-eye-v8/verify.mjs`: kiểm tra phối hợp trọng số 3 morph targets và gaze đồng bộ.
+5. `docs/golden-eye-v8/QA_VI.md`: báo cáo này.
+
+### Validation đã thực sự chạy
+
+- Parse cú pháp JavaScript `eye-rig.js` và `qa.js`: PASS.
+- Test mô phỏng rig với đối tượng Three.js tương thích tối thiểu, dùng 9 style metadata thật: 3 morph weights tại neutral=0.5/blink=0.8 là (0.4, 0.5, 0.4), sclera morph theo neutral=0.5, hai mắt cùng yaw; PASS.
+- Chuyển qua lại 30 lần không tạo geometry mới; restore original/dispose: PASS trong harness mô phỏng.
+- Giao diện kiểm tra có đủ 2 checkbox + 2 nút nháy/phát + chú thích: PASS.
+- `eye-rig.json`, ảnh iris atlas và hai file patch nén không thay đổi. File Female_anime_origin.glb chủ dự án giữ cục bộ trên iPhone, không upload Supabase.
+- Chưa chạy full `verify.mjs` với GLB + Three.js thật, chưa có bằng chứng WebGL shader compile/animation trên Safari thật; animation vẫn cần iPhone visual QA.
+
+### Rủi ro còn lại
+
+- Nét mi/nếp mí gốc có phần baked; interpolated morph có thể gây xuyên mí/nháy không khép kín ở góc 3/4.
+- Sclera và iris ở góc liếc trái cực đại cần kiểm thực tế xem có vượt viền mắt.
+- Chi phí 3 morph attributes trên iPhone và khả năng chuyển đổi shader khi so sánh model gốc chưa đo FPS/memory.
+- PR #25 vẫn Draft; không merge `development`/`main`, không sửa multiplayer/gameplay/WebAudio/Character Catalog.
