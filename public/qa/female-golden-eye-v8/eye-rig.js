@@ -192,6 +192,12 @@ export function createEyeRig(THREE,source,data,atlas) {
    neutral[j+2]=poses[0][i*3+2]-d[i*3+2];
   }
   neutralAttr.needsUpdate=true;
+  // Three.js r180 packs morph attributes into a cached DataArrayTexture.
+  // Changing BufferAttribute.needsUpdate alone does NOT refresh that texture.
+  // Dispose the GPU resources when switching presets; the SAME geometry object
+  // is re-uploaded once on next render. No new model, scene, mesh or per-frame IO.
+  // WebGLMorphtargets removes its cached morph texture on geometry.dispose().
+  work.dispose();
   eyes.forEach(({pivot,iris,ball},i)=>{
    pivot.rotation.z=meta.gazeYaw[k];iris.geometry=irisGeometries[k];
    ball.geometry=scleraGeometries[i][k];ball.updateMorphTargets();
