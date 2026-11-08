@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--source', required=True)
 parser.add_argument('--output', required=True)
 parser.add_argument('--render', nargs='*', default=[])
+parser.add_argument('--sculpt', action='store_true')
 args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:])
 source = Path(args.source).resolve()
 out = Path(args.output).resolve(); out.mkdir(parents=True, exist_ok=True)
@@ -26,6 +27,30 @@ sculpt = head.shape_key_add(name='M01_Natural_EXPERIMENTAL', from_mix=False)
 p = np.empty((len(mesh.vertices), 3), dtype=np.float32)
 mesh.vertices.foreach_get('co', p.ravel())
 np.save(out / 'source_blender_positions.npy', p)
+
+# Proportional deformation of the EXISTING lip/philtrum/chin surface.
+# Coordinates refer to the imported native mesh; no analytical replacement surface.
+def smooth(a,b,x):
+    t=np.clip((x-a)/(b-a),0,1)
+    return t*t*t*(t*(t*6-15)+10)
+x,h,depth=p.T
+front=smooth(.17,.22,depth)
+radial=np.sqrt((x/.115)**2+((h-.335)/.085)**2)
+support=(1-smooth(.60,1,radial))*front
+lipband=1-smooth(.023,.052,np.abs(h-.335))
+q=p.copy()
+q[:,0]-=.22*x*(1-smooth(.052,.105,np.abs(x)))*lipband*front
+# Lower original upturned corners without pulling down the central Cupid bow.
+corner=.010*np.minimum((np.abs(x)/.052)**2,1)
+q[:,1]+=(-.28*(h-.335)-corner)*support*lipband
+# Very restrained reduction in native lower-lip projection; keeps native rolls.
+lower=np.exp(-((h-.320)/.012)**2)*np.exp(-(x/.040)**4)*front
+q[:,2]-=.0015*lower
+changed=np.linalg.norm(q-p,axis=1)>1e-8
+sculpt.data.foreach_set('co',q.ravel())
+sculpt.value=1 if args.sculpt else 0
+np.savez_compressed(out/'m01-native-delta.npz',indices=np.flatnonzero(changed),
+                   delta=(q-p)[changed],basis=p[changed])
 
 scene = bpy.context.scene
 scene.render.engine = 'CYCLES'; scene.cycles.device = 'CPU'
@@ -51,8 +76,10 @@ views={'front':(0,.51,.94),'left35':(-35,.51,.94),'right35':(35,.51,.94),
        'profile':(90,.51,.94),'mouth':(0,.34,.24),'clay':(0,.34,.24)}
 report={'source':str(source),'sha256':EXPECTED,'blender':bpy.app.version_string,
         'vertices':len(mesh.vertices),'triangles':len(mesh.polygons),
-        'method':'Native topology, editable Basis/M01 shape keys; sculpt not yet authored',
-        'stage':'IMPORTED_CHECKPOINT','visual_gate':'NOT_EVALUATED',
+        'method':'Controlled proportional deformation of native surface in Blender shape key; no retopology',
+        'iteration':1,'changed_vertices':int(changed.sum()),
+        'maximum_displacement':float(np.linalg.norm(q-p,axis=1).max()),
+        'stage':'SCULPT_EXPERIMENT' if args.sculpt else 'ORIGINAL_REFERENCE','visual_gate':'NOT_EVALUATED',
         'command':sys.argv,'eyes':'No V8 files modified; original import only'}
 (out/'checkpoint.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
 bpy.ops.wm.save_as_mainfile(filepath=str(out/'m01-native.blend'),compress=True)
@@ -62,5 +89,5 @@ for view in args.render:
     camera.rotation_euler=(Vector((0,0,height))-camera.location).to_track_quat('-Z','Y').to_euler()
     camera.data.ortho_scale=scale
     scene.view_layers[0].material_override=clay if view=='clay' else None
-    scene.render.filepath=str(out/f'original-{view}.png')
+    scene.render.filepath=str(out/f'{"v2" if args.sculpt else "original"}-{view}.png')
     bpy.ops.render.render(write_still=True)

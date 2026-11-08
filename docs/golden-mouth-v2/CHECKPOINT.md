@@ -1,5 +1,18 @@
 # Golden Mouth V2 — checkpoint 0: import nguồn
 
+## Checkpoint 1 — thử biến dạng native surface
+
+Blender Cycles CPU đã render front, trái/phải 35°, profile, mouth và clay thật.
+6030 đỉnh thay đổi; toàn bộ vertex identity, 499762 tam giác và UV được giữ.
+Chưa đạt M01: không còn patch/strip nhưng khóe hơi trễ và môi trên hơi chúm.
+Không đưa lên route QA. V8 vẫn nguyên vẹn.
+
+`.blend` iteration 1 đã lưu thành công, 51721558 bytes:
+`libfile_40c4cab9ef148191bb33f527c5b42aab` (`m01-native.blend`).
+Có Basis và M01_Natural_EXPERIMENTAL, textures gốc được pack trong Blender.
+Source script tại checkpoint này tái tạo delta và render iteration 1.
+Evidence: `docs/golden-mouth-v2/evidence/iteration-01/`.
+
 Ngày: 2026-11-09 (Asia/Ho_Chi_Minh). Chỉ M01; chưa đạt visual gate.
 
 - Nhánh: `work/female-golden-mouth-v1-qa`; PR #26 OPEN/Draft, base Golden Eye V8.
