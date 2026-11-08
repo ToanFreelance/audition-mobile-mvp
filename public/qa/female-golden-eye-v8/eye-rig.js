@@ -107,15 +107,38 @@ export function createEyeRig(THREE,source,data,atlas) {
  for(const face of boundary.faces)faces.push(...face);
  work.setIndex(faces);work.computeBoundingSphere();work.computeBoundingBox();
  const basis=work.attributes.position.array.slice();
- // Preallocate one morph target. Animation only adjusts its GPU influence.
+ // Three small, independent GPU controls: blink, neutral expression, neutral blink.
+ // Neutral is a second POSE, not a second GLB or an iris texture replacement.
+ // Morph weights per frame: blink*(1-neutral), neutral, blink*neutral.
  work.morphTargetsRelative=true;
- work.morphAttributes.position=[new THREE.BufferAttribute(new Float32Array(basis.length),3)];
- let blinkAmount=0;
+ work.morphAttributes.position=Array.from({length:3},()=>new THREE.BufferAttribute(new Float32Array(basis.length),3));
+ const neutralPositions=basis.slice();
+ for(let i=0;i<indices.length;i++){
+  const j=indices[i]*3;
+  neutralPositions[j]+=poses[0][i*3];
+  neutralPositions[j+1]+=poses[0][i*3+1];
+  neutralPositions[j+2]+=poses[0][i*3+2];
+ }
+ updateBlinkTarget(meta,0,neutralPositions,work.morphAttributes.position[2].array);
+ let blinkAmount=0,neutralAmount=0;
  const originalNormals=original.attributes.normal.array,affected=new Set(indices);
  const group=new THREE.Group();group.name='GoldenEyeV8Rig';source.add(group);
  const white=new THREE.MeshStandardMaterial({color:0xf5eef3,roughness:.32,metalness:0});
  const irisMaterial=new THREE.MeshStandardMaterial({map:atlas,emissiveMap:atlas,emissive:0xffffff,emissiveIntensity:.32,roughness:.45,metalness:0});
  const scleraGeometries=[-1,1].map(side=>meta.styles.map((_,k)=>createScleraGeometry(THREE,meta,k,side)));
+ // The white of the eye must follow the changing lid aperture, otherwise
+ // it can poke through the normal expression during the blend.
+ for(let side=0;side<2;side++){
+  const natural=scleraGeometries[side][0].attributes.position.array;
+  for(const geometry of scleraGeometries[side]){
+   const from=geometry.attributes.position.array;
+   if(from.length!==natural.length)throw Error('Eye aperture topology differs between presets.');
+   const delta=new Float32Array(from.length);
+   for(let i=0;i<from.length;i++)delta[i]=natural[i]-from[i];
+   geometry.morphTargetsRelative=true;
+   geometry.morphAttributes.position=[new THREE.BufferAttribute(delta,3)];
+  }
+ }
  const irisGeometries=meta.irisRadii.map((r,k)=>createIrisGeometry(THREE,r,meta.eyeRadius,k));
  const eyes=[-1,1].map((side,i)=>{
   const anchor=new THREE.Group();anchor.name=side<0?'EyeScreenLeft':'EyeScreenRight';anchor.position.set(side*meta.eyeCenter[0],meta.eyeCenter[1],meta.eyeCenter[2]);
@@ -124,6 +147,28 @@ export function createEyeRig(THREE,source,data,atlas) {
  });
  let current=0,originalVisible=false;
  const normalCache=new Map();
+ function applyWeights(){
+  const w=originalVisible?0:neutralAmount,b=originalVisible?0:blinkAmount;
+  if(source.morphTargetInfluences?.length===3){
+   source.morphTargetInfluences[0]=b*(1-w);
+   source.morphTargetInfluences[1]=w;
+   source.morphTargetInfluences[2]=b*w;
+  }
+  eyes.forEach(({ball,iris})=>{
+   if(ball.morphTargetInfluences?.length)ball.morphTargetInfluences[0]=w;
+   iris.visible=ball.visible=b<.98;
+  });
+ }
+ function setExpression(neutral){
+  neutralAmount=Math.max(0,Math.min(1,neutral));
+  applyWeights();
+ }
+ function setGaze(yaw){
+  if(!Number.isFinite(yaw))return;
+  const clamped=Math.max(-.27,Math.min(.25,yaw));
+  eyes.forEach(({pivot})=>{pivot.rotation.z=clamped;});
+ }
+ function resetGaze(){setGaze(meta.gazeYaw[current]);}
  function setStyle(id){
   const k=meta.styles.indexOf(id);if(k<0)throw Error('Kiểu mắt không hợp lệ.');current=k;
   const a=work.attributes.position.array;a.set(basis);const d=poses[k];
@@ -137,21 +182,37 @@ export function createEyeRig(THREE,source,data,atlas) {
    for(let i=0;i<meta.vertexCount;i++)if(!affected.has(i)){n[i*3]=originalNormals[i*3];n[i*3+1]=originalNormals[i*3+1];n[i*3+2]=originalNormals[i*3+2];}
    normalCache.set(k,n.slice());
   }
-  const blinkAttr=work.morphAttributes.position[0];
+  const blinkAttr=work.morphAttributes.position[0],neutralAttr=work.morphAttributes.position[1];
   updateBlinkTarget(meta,k,a,blinkAttr.array);blinkAttr.needsUpdate=true;
-  eyes.forEach(({pivot,iris,ball},i)=>{pivot.rotation.z=meta.gazeYaw[k];iris.geometry=irisGeometries[k];ball.geometry=scleraGeometries[i][k];});
-  blinkAmount=0;
+  const neutral=neutralAttr.array;neutral.fill(0);
+  for(let i=0;i<indices.length;i++){
+   const j=indices[i]*3;
+   neutral[j]=poses[0][i*3]-d[i*3];
+   neutral[j+1]=poses[0][i*3+1]-d[i*3+1];
+   neutral[j+2]=poses[0][i*3+2]-d[i*3+2];
+  }
+  neutralAttr.needsUpdate=true;
+  eyes.forEach(({pivot,iris,ball},i)=>{
+   pivot.rotation.z=meta.gazeYaw[k];iris.geometry=irisGeometries[k];
+   ball.geometry=scleraGeometries[i][k];ball.updateMorphTargets();
+  });
+  blinkAmount=0;neutralAmount=0;
   setOriginal(false);
  }
  function setBlink(amount){
   blinkAmount=Math.max(0,Math.min(1,amount));
-  if(source.morphTargetInfluences?.length)source.morphTargetInfluences[0]=originalVisible?0:blinkAmount;
-  eyes.forEach(({iris,ball})=>{iris.visible=ball.visible=blinkAmount<.98;});
+  applyWeights();
  }
  function setOriginal(enabled){
   originalVisible=enabled;source.geometry=enabled?original:work;
-  source.updateMorphTargets();group.visible=!enabled;setBlink(enabled?0:blinkAmount);
+  source.updateMorphTargets();group.visible=!enabled;
+  if(enabled){blinkAmount=0;neutralAmount=0;}
+  applyWeights();
  }
  function dispose(){source.geometry=original;source.updateMorphTargets();source.remove(group);work.dispose();scleraGeometries.flat().forEach(g=>g.dispose());irisGeometries.forEach(g=>g.dispose());white.dispose();irisMaterial.dispose();normalCache.clear();}
- return {setStyle,setOriginal,setBlink,dispose,get state(){return{style:meta.styles[current],original:originalVisible,blink:blinkAmount,blinkTargetCount:work.morphAttributes.position[0].count,gazeYaw:eyes.map(e=>e.pivot.rotation.z),sourceGeometry:original.uuid,workingGeometry:work.uuid};}};
+ return {setStyle,setOriginal,setBlink,setExpression,setGaze,resetGaze,dispose,get state(){return{
+  style:meta.styles[current],original:originalVisible,blink:blinkAmount,neutral:neutralAmount,
+  morphCount:work.morphAttributes.position.length,blinkTargetCount:work.morphAttributes.position[0].count,
+  gazeYaw:eyes.map(e=>e.pivot.rotation.z),sourceGeometry:original.uuid,workingGeometry:work.uuid
+ };}};
 }
