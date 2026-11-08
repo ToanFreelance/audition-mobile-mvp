@@ -1,0 +1,90 @@
+{
+  "blender": "4.3.2",
+  "has_custom_normals": true,
+  "materials": [
+    {
+      "name": "Material.001",
+      "nodes": [
+        {
+          "type": "BSDF_PRINCIPLED",
+          "name": "Principled BSDF",
+          "image": null
+        },
+        {
+          "type": "OUTPUT_MATERIAL",
+          "name": "Material Output",
+          "image": null
+        },
+        {
+          "type": "TEX_IMAGE",
+          "name": "Image Texture",
+          "image": "texture_pbr_20250901"
+        },
+        {
+          "type": "SEPARATE_COLOR",
+          "name": "Separate Color",
+          "image": null
+        },
+        {
+          "type": "TEX_IMAGE",
+          "name": "Image Texture.001",
+          "image": "texture_pbr_20250901_metallic-texture_pbr_20250901_roughness"
+        },
+        {
+          "type": "NORMAL_MAP",
+          "name": "Normal Map",
+          "image": null
+        },
+        {
+          "type": "TEX_IMAGE",
+          "name": "Image Texture.002",
+          "image": "texture_pbr_20250901_normal"
+        }
+      ],
+      "links": [
+        [
+          "Principled BSDF",
+          "BSDF",
+          "Material Output",
+          "Surface"
+        ],
+        [
+          "Image Texture",
+          "Color",
+          "Principled BSDF",
+          "Base Color"
+        ],
+        [
+          "Separate Color",
+          "Blue",
+          "Principled BSDF",
+          "Metallic"
+        ],
+        [
+          "Separate Color",
+          "Green",
+          "Principled BSDF",
+          "Roughness"
+        ],
+        [
+          "Image Texture.001",
+          "Color",
+          "Separate Color",
+          "Color"
+        ],
+        [
+          "Normal Map",
+          "Normal",
+          "Principled BSDF",
+          "Normal"
+        ],
+        [
+          "Image Texture.002",
+          "Color",
+          "Normal Map",
+          "Color"
+        ]
+      ]
+    }
+  ]
+}
