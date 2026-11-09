@@ -1,0 +1,26 @@
+{
+  "basis_exact": true,
+  "v2_key_exact": true,
+  "topology_exact": true,
+  "uv_exact": true,
+  "packed_textures_exact": true,
+  "blender": "4.3.2",
+  "keys": [
+    [
+      "Basis",
+      0.0
+    ],
+    [
+      "M01_Natural_EXPERIMENTAL",
+      0.0
+    ],
+    [
+      "M01_Natural_V21_Iteration04",
+      1.0
+    ]
+  ],
+  "vertices": 292645,
+  "triangles": 499762,
+  "fileSha256": "6492dae47c16bd4702752c532b419f323bd70735581838f58cc23d52a0086ac4",
+  "runtime": "NOT_RUN"
+}

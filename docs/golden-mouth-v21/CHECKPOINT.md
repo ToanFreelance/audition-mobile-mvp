@@ -49,3 +49,19 @@ blender --background --threads 8 --python-exit-code 1 \
  --python scripts/golden-mouth-v21/render_comparison.py -- /path/v21 \
  v21:front v21:left35 v21:right35 v21:profile v21:mouth v21:clay
 ```
+
+## Kết luận và phục hồi sau gián đoạn — 09/11/2026
+
+**Visual FAIL.** Không promote iteration 04. Không chạy WebGL2 V2.1 hoặc tạo preview mới.
+Môi dưới bớt nhô, nếp ngắn hơn nhưng khóe còn bó, upper contour sắc, có vệt chuyển tiếp da.
+Chi tiết `QA_VI.md`. Route V2 giữ nguyên.
+
+Iteration 04 đã lưu: libfile_4743c82e6a0081919d5d651c5feeef2b.
+SHA-256: 6492dae47c16bd4702752c532b419f323bd70735581838f58cc23d52a0086ac4.
+Đã khôi phục .blend sau khi mất workspace tạm và mở lại kiểm chứng Basis/V2/UV/topology.
+Script tái tạo từ checkpoint 8e339fb, không cần bắt đầu lại. Output phục hồi:
+`/workspace/scratch/e27dffa28e71/m01-v21/recovered/`, `reproduced/`, `comparison/`.
+
+Bộ bằng chứng cuối đã lưu và kiểm tra ZIP: `libfile_77ef94b4fec08191ade3437f22decf4d`
+(Golden-Mouth-V21-M01-Visual-FAIL-Evidence.zip), 34 tệp + manifest SHA-256,
+5,189,801 bytes. Bao gồm sáu PNG Cycles mới, comparison sheets, script và báo cáo.
