@@ -15,3 +15,8 @@ Khóa lower central: abs(x)<.042, .282<height<.3335, depth>.19 theo V3.2, 1804 �
 Đo sơ bộ: width .090006 / facial width tại mouth height .355402 = .2533; / lower-face width tại h=.30 .276775 = .3252. IPD cần đo cùng rig/reference; không quyết định width bằng một ratio.
 
 Kế hoạch: upper-lip region-only surface refinement, seam/lower/nose locked; geometry và albedo chẩn đoán riêng. Lưu source + blend trước render. Chưa PASS, chưa runtime.
+
+Upper-only iteration01 đã lưu libfile_744ac419d38081919d183fd4e874e870. Lower lock maxdelta=0; fit nhẹ chưa đổi đủ silhouette.
+Refined iteration02 đã lưu libfile_641c2f4215248191b41c2dd7a51fa6e4. Upper roll giảm projection nhẹ, Cupid peak hạ nhẹ theo region; không sửa lower. Sửa artifact bằng quadratic skin fit có weighted lower anchors, góc gãy 68.45→47.99°; còn thấy vệt.
+Đã thử width probe +5% commissure translation với tâm giữ, không scale toàn mặt. Lower YZ giữ chính xác nhưng X có dịch tối đa .00224. Chọn giữ width vì lợi ích toàn mặt chưa rõ, ưu tiên lower lip owner đã chốt.
+Correction kỹ thuật cuối: dùng exact KKT anchor 239338 để fit đi qua đúng đỉnh khóa, thay weighted-only constraint. Không điều chỉnh lower lip, width hoặc upper artwork tiếp. Chờ render/QA.
