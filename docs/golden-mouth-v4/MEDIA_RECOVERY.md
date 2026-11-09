@@ -22,3 +22,9 @@ Tiếp theo: render 27 Cycles PNG từ đúng buffers này; chạy `browser_chec
 Tái xuất package từ buffer phục hồi cho đúng 1597931 bytes / SHA `2548334bd96d6327ea5b56124b65589ae84f8777ac33a34852fe0a8d28b5ca1d`, khớp asset đã deploy. Điều này kiểm luôn normals, interior và chín pose mà không sửa runtime hoặc checkpoint.
 
 Đã xem ba grid WebGL2: M03/M06 mở thật; các góc 35° không lộ cavity/răng ngoài môi. M05/M09 nhẹ hơn Golden, khác biệt nhìn chính diện còn tiết chế và có căng mô nhỏ phía trên môi; giữ nguyên làm giới hạn polish để owner đánh giá. Không sửa pose trong phiên media. Cycles và đóng gói raw media vẫn đang chạy.
+
+## Hoàn tất
+
+Đã render/chụp lại đủ52PNG và ghép7grid. Tất cả PNG decode được, ZIPCRC và hash từng ảnh đúng. Raw archive đã lưu và nhận identity/version thành công: [Golden-Mouth-V4-Cycles-WebGL2-Raw-Evidence.zip](https://chatgpt.com/library?file_id=libfile_359b5b15f2cc8191aeda315c1cce6a17&account_id=personal), `libfile_359b5b15f2cc8191aeda315c1cce6a17`, version0, 23560060bytes, SHA `7628387c018d070f84d503bdf38a974e265bf4856f2047c09fe941fb9b49fc35`.
+
+Đọc QA_VI.md và evidence/media-index.json cho trạng thái bàn giao cuối. Không còn bước phục hồi media bị thiếu. Vẫn chờ owner iPhone visual acceptance cho cả bộ; không tuyên bố physical Safari PASS.

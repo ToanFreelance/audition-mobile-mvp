@@ -1,0 +1,113 @@
+{
+  "verifiedAt": "2026-11-09T15:35:21.299769+00:00",
+  "sourceHeadOnResume": "0239a5ec9eb28ad6e1d9d4bb19b8da69355e9228",
+  "runtimeImplementationCommit": "bd4dbf9ecc8bde1ab2ac3ed1b0a1c7ab9bf957c0",
+  "webglRerunStartedAtHead": "0239a5ec9eb28ad6e1d9d4bb19b8da69355e9228",
+  "readOnlyRecovery": {
+    "blender": "4.3.2",
+    "sourceBlendSha256": "153b589728fe54dea3f5088f2cf637541fc29b41fb42afdde743658c2cd35e79",
+    "controlsSha256": "872e84a322196d07e0f8ebb49d7743adc7959ad6f9db0fc1802af98b5dec8c95",
+    "readOnlyCheckpointRecovery": true,
+    "allNineKeyCoordinatesBitExactWithFrozenControls": true,
+    "BasisAndHistoricalKeysExactWithOriginalBackup": true,
+    "retainedFacesAndUVExactWithOriginalBackup": true,
+    "M01Exact": true,
+    "vertices": 292645,
+    "triangles": 499207,
+    "normalProbeEvaluatedMaxFloatError": 7.275957614183426e-12,
+    "headModifiers": [],
+    "protectedUpperFaceVertices": 195239,
+    "protectedUpperFaceMaxDisplacement": 0.0
+  },
+  "reexportedPackageBitExact": true,
+  "packageBytes": 1597931,
+  "packageSha256": "2548334bd96d6327ea5b56124b65589ae84f8777ac33a34852fe0a8d28b5ca1d",
+  "lockedScopeChecks": [
+    {
+      "path": "public/qa/female-golden-eye-v8/approved-iris-atlas.webp",
+      "baseline": "1a0ba6e4fd8a1a0e76453a2e698fb9fcc5746576",
+      "sha256": "70063f467e18a4d5d676527bd9fc2b1baea73ceeee9621ac96e6f03ab868e91d",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-eye-v8/eye-boundary.json.gz",
+      "baseline": "1a0ba6e4fd8a1a0e76453a2e698fb9fcc5746576",
+      "sha256": "16814c18de46b543683e4da39a34ebc929989e3aff3a495a2e35171817b9d104",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-eye-v8/eye-patch.bin.gz",
+      "baseline": "1a0ba6e4fd8a1a0e76453a2e698fb9fcc5746576",
+      "sha256": "467e01bc813965833258c13675db01fc1414a3ba94188a3c9ecfc04b4f7a4fd1",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-eye-v8/eye-rig.js",
+      "baseline": "1a0ba6e4fd8a1a0e76453a2e698fb9fcc5746576",
+      "sha256": "50ddf67ae96fc2a7c22b9d037f9e4e4db01071444676c95fe05945a88af9358c",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-eye-v8/eye-rig.json",
+      "baseline": "1a0ba6e4fd8a1a0e76453a2e698fb9fcc5746576",
+      "sha256": "3964cfc54f72168a4dca39f8bba40b3d32aedc9e7f5c5bca9aa6f533ed0c6f8c",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-eye-v8/index.html",
+      "baseline": "1a0ba6e4fd8a1a0e76453a2e698fb9fcc5746576",
+      "sha256": "e19930cab17f9215082eb412c582a7cb8c370a31d29423fd881ba9c7be53db01",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-eye-v8/qa.js",
+      "baseline": "1a0ba6e4fd8a1a0e76453a2e698fb9fcc5746576",
+      "sha256": "9f7526a418a58d91fa1d25afb9c1651f59e9466e74730b3589cfdd0fd4ac269b",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-mouth-v2/index.html",
+      "baseline": "d4d6e681f00be31f8fd5f8246a8d9b2d51451c22",
+      "sha256": "893442228e246542fce157092afc20d312ac693283683254732162dcb07dd9c9",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-mouth-v2/m01-native.json.gz",
+      "baseline": "d4d6e681f00be31f8fd5f8246a8d9b2d51451c22",
+      "sha256": "58116b33b7469bf962299a5584d50cbb4f6f600460cca856a421e102d5402cd3",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-mouth-v2/native-mouth.js",
+      "baseline": "d4d6e681f00be31f8fd5f8246a8d9b2d51451c22",
+      "sha256": "5aa349b443312f9fd38b23cae09409eac78f2cbba782c26885dc10aa99e892ac",
+      "exact": true
+    },
+    {
+      "path": "public/qa/female-golden-mouth-v2/qa.js",
+      "baseline": "d4d6e681f00be31f8fd5f8246a8d9b2d51451c22",
+      "sha256": "a7cb74b60abc7e51aa5c43e0277ea8737bdbb5c819b9681dffef5419b2a99d52",
+      "exact": true
+    }
+  ],
+  "inheritedGeometryValidation": {
+    "final-checkpoint-audit.json": "b60ecdd2390b6e33a2ea1ab2ea687f2f74cbc927186832357507d338852bfd8b",
+    "final-interior-validation.json": "ded057a66ade881cad55b92c83dbda0d923b9863ec3a382c2e31d1f52d553845",
+    "final-validation.json": "fafd0136e348a78d42cfa4510e67ca1be3aa00499ba956acd7600f28d8899021",
+    "final-topology.json": "35e7814115f34f36d48ab1c4a20ee9803b6558058a5655f27c75469335d21373"
+  },
+  "noSculptOrRuntimeChangesInMediaSession": true,
+  "previewHttpVerification": {
+    "deploymentId": "dpl_VBuxBZFrLjBXQZrEdVcsHqAdfk3w",
+    "deploymentCommit": "a4b050d80e2dd4cd318232749dfbda1becc02b42",
+    "deploymentReady": true,
+    "origin": "https://audition-mobile-mvp-git-work-fe-563419-toan-freelances-projects.vercel.app",
+    "route": "/qa/female-golden-mouth-v4/index.html",
+    "htmlStatus": 200,
+    "manifestStatus": 200,
+    "mouthButtonCount": 9,
+    "manifestStyleCount": 9,
+    "manifestPackageSha256": "2548334bd96d6327ea5b56124b65589ae84f8777ac33a34852fe0a8d28b5ca1d",
+    "physicalIPhone": "NOT_TESTED"
+  }
+}

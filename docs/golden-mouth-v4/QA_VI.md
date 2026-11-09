@@ -2,7 +2,7 @@
 
 Ngày 09/11/2026. Owner **chấp nhận tạm thời M01 V3.3 Refined-02** và yêu cầu dừng chỉnh M01 để mở rộng MVP. Quyết định này được áp dụng; báo cáo Visual FAIL V3.3 giữ nguyên như lịch sử.
 
-**Đã hoàn thành phần triển khai: đủ M01–M09, Blender editable, gói morph, selector QA và WebGL2 thực 81/81.** Chưa có owner acceptance cho cả bộ hoặc kiểm thử iPhone vật lý. Môi trường chuyển sang unavailable sau test, trước khi đóng gói/lưu bộ PNG cuối và grid. Không coi phần bàn giao ảnh là đã hoàn tất.
+**Đã hoàn thành triển khai M01–M09, Blender editable, gói morph, selector QA và WebGL2 thực 81/81.** Phiên tiếp tục đã phục hồi đúng checkpoint, chạy lại WebGL2 và lưu đủ 27 PNG Cycles, 25 PNG WebGL2, 7 grid và full diagnostics. Bộ ảnh gốc đã được kiểm decode/CRC/SHA và lưu thành artifact tải được. Chưa có owner acceptance cho cả bộ hoặc kiểm thử iPhone vật lý.
 
 ## Dùng bản nào
 
@@ -88,7 +88,7 @@ BVH chỉ kiểm perioral scope, không phải chứng minh collision-free toàn
 
 ### WebGL2 thực — 81/81 PASS
 
-Commit chạy: `bd4dbf9ecc8bde1ab2ac3ed1b0a1c7ab9bf957c0`.
+Code runtime: `bd4dbf9ecc8bde1ab2ac3ed1b0a1c7ab9bf957c0`. Lần chạy mới bắt đầu trên HEAD `0239a5ec9eb28ad6e1d9d4bb19b8da69355e9228`; runtime giữ nguyên. Full raw diagnostics và grid của lần mới đã được commit tại `a4b050d80e2dd4cd318232749dfbda1becc02b42`.
 
 Chrome Headless Shell **157.0.8103.38**, Three.js **0.180.0**, ANGLE/Vulkan **SwiftShader phần mềm**. Đã load GLB thật, link/chạy shader và đọc framebuffer; không phải Node mock. CDN được route đến cùng package r180 cục bộ trong test.
 
@@ -118,29 +118,53 @@ Kết quả đã quan sát:
 - Đã chụp 9 front, hai phía 35° cho M03/M05/M06/M09, cận miệng, original và layout 390×844.
 - Không hardware-GPU PASS, không physical iPhone Safari PASS, không benchmark FPS.
 
-[Stdout thực đã quan sát](evidence/webgl-console-observed.log) và [tóm tắt kết quả](evidence/webgl-observed-summary.json) được lưu qua GitHub sau khi môi trường dừng. Đây không phải bản full raw JSON; không tái tạo các hash từng cell bị thiếu.
+Lần đầu bị gián đoạn chỉ giữ [stdout](evidence/webgl-console-observed.log) và [summary](evidence/webgl-observed-summary.json). Phiên tiếp tục đã chạy lại thật và lưu [full raw JSON 81 cell](evidence/webgl-diagnostics.json), [log mới](evidence/webgl-rerun.log), [grid chín miệng](evidence/nine-webgl-front.jpg), [cận môi](evidence/webgl-mouth-closeups.jpg) và [hai phía 35°](evidence/webgl-three-quarter.jpg). Các hash từng cell thuộc lần chạy mới, không dựng lại từ summary cũ.
 
 ## Mỹ thuật MVP và giới hạn
 
-Các silhouette chính đã phân biệt được; không có skin patch phẳng hoặc lip ribbon mới. M03/M06 mở thật; M03/M08 có răng nằm trong head. Các góc 35° WebGL đã xem không lộ lỗ hở ngoài aperture hoặc răng nổi rời.
+Nhóm cười mở, O, cười nhẹ và cười lệch có silhouette riêng; M05/M09 còn gần M01 khi nhìn chính diện. Không có skin patch phẳng hoặc lip ribbon mới. M03/M06 mở thật; M03/M08 có răng nằm trong head. Các góc 35° WebGL đã xem không lộ lỗ hở ngoài aperture hoặc răng nổi rời.
 
-Đây là **ứng viên MVP để owner duyệt**, không phải tuyên bố artist fidelity hoàn thiện. Còn upper roll/khóe kế thừa M01, độ căng nhân trung nhẹ khi pucker, M05/M09 nhẹ hơn Golden và hàng răng còn đều. Không tiếp tục sửa M01 hoặc kéo dài vòng polish trong milestone này.
+Đây là **ứng viên MVP để owner duyệt**, không phải tuyên bố artist fidelity hoàn thiện. Còn upper roll/khóe kế thừa M01, nếp kéo vùng nhân trung khi pucker (rõ hơn ở cận M09), M05/M09 nhẹ hơn Golden và hàng răng còn đều. Nhìn chính diện, M05/M09 có khác biệt khá tiết chế so M01; projection rõ hơn ở góc 35°. Không tuyên bố cả chín silhouette đã được owner chấp nhận. Không tiếp tục sửa M01 hoặc kéo dài vòng polish trong milestone này.
 
-## Preview và gián đoạn lưu ảnh
+## Trạng thái cổng nghiệm thu
 
-Vercel deployment `dpl_3UKALxtGHbnyeyKU526cmcf6uyDR` của commit bd4dbf9 đã READY. Đã fetch qua Vercel: HTML status 200 có đủ chín nút; manifest status 200 có chín style và đúng SHA/size gói ở trên. Không gọi kiểm HTTP này là iPhone test.
+| Cổng | Kết quả | Giới hạn |
+|---|---|---|
+| Phục hồi source / M01 / frozen poses | PASS | Tọa độ và gói re-export bit-exact |
+| Native geometry cả 9 pose | PASS trong scope đã kiểm | 555 face nội môi bỏ có chủ đích; không kiểm mọi blend liên tục |
+| Cavity / răng / lưỡi | PASS trong scope đã kiểm | Gum chỉ kiểm attachment/visibility |
+| WebGL2 81 tổ hợp | PASS, SwiftShader phần mềm | Không phải hardware GPU |
+| Mỹ thuật cả bộ V4 | CHỜ OWNER DUYỆT | M01 chỉ được chấp nhận tạm thời; M05/M09 còn tiết chế, M09 có nếp nhân trung thấy ở clay |
+| iPhone Safari vật lý | CHƯA KIỂM | Ảnh 390×844 là layout Chromium |
 
-Môi trường chuyển unavailable sau 81/81, trước khi đóng gói bộ ảnh/grid cuối. Thử upload raw diagnostics trả lỗi **no primary turn environment is available**. Vì vậy:
+Không gọi bộ V4 là đã được owner chấp nhận hoặc production-ready. Không sửa thêm M01 trong phiên bàn giao media.
 
-- PNG Cycles/WebGL đã tạo và một số đã xem, nhưng bộ raw/grid cuối **chưa được lưu bền vững có thể tải về**.
-- Full `webgl-diagnostics.json` chưa chuyển ra artifact; chỉ stdout/tóm tắt đã được giữ ở Git.
-- Không tuyên bố các PNG/grid đã deliver. Cần hoàn tất bước media này khi môi trường trở lại.
-- Mã, frozen geometry, morph package và editable Blender đủ chín pose đã lưu, không cần sculpt lại.
+## Bộ ảnh thực đã hoàn tất
 
-## Phục hồi và phạm vi file
+- [Chín miệng — WebGL2 với Golden Eye V8](evidence/nine-webgl-front.jpg).
+- [Chín miệng — Cycles CPU, mắt native tím](evidence/nine-cycles-front.jpg).
+- [Chín cận miệng Cycles](evidence/nine-cycles-mouth.jpg).
+- [Clay M03/M05/M06/M08/M09](evidence/clay-critical.jpg).
+- [Cycles góc 35°](evidence/cycles-three-quarter.jpg).
+- [WebGL2 hai phía 35°](evidence/webgl-three-quarter.jpg).
+- [WebGL2 cận khoang/răng/môi](evidence/webgl-mouth-closeups.jpg).
 
-Đọc [CHECKPOINT.md](CHECKPOINT.md). Ưu tiên dùng bản Blender MVP hoặc `inspect_source.py → recover_delivery.py → build_blend.py`; recovery đã so đúng tuyệt đối. Giữ scratch PNG nếu còn; nếu scratch mất, render lại từ các pose đã khóa rồi chạy browser script để lưu raw diagnostics.
+[Golden-Mouth-V4-Cycles-WebGL2-Raw-Evidence.zip](https://chatgpt.com/library?file_id=libfile_359b5b15f2cc8191aeda315c1cce6a17&account_id=personal) chứa **52 PNG nguyên bản** (27 Cycles +25 browser), log Cycles và `RAW_SHA256.json` với hash/kích thước từng ảnh. ZIP 23,560,060 bytes, SHA `7628387c018d070f84d503bdf38a974e265bf4856f2047c09fe941fb9b49fc35`; đã verify decode mọi PNG, CRC ZIP và hash bytes trong archive. Không có GLB gốc trong gói.
 
-Chỉ thay `scripts/golden-mouth-v4/`, `docs/golden-mouth-v4/`, `public/qa/female-golden-mouth-v4/`. Preview V2 và source V8 giữ nguyên. Không chạy suite gameplay/multiplayer rộng.
+Grid chỉ crop/resize đồng nhất và gắn nhãn; raw PNG giữ nguyên. Denoising tắt. Không warp, paint-over hoặc ảnh AI. Đã xem cả bảy grid và ảnh phóng lớn M01/M03/M09 để ghi đúng các giới hạn mỹ thuật, không che nếp còn lại.
 
-Branch `work/female-golden-mouth-v1-qa`; PR #26 tiếp tục OPEN/Draft, không merge. Local HEAD cuối kiểm trước gián đoạn là bd4dbf9; trạng thái working tree sau môi trường dừng không kiểm lại được. Commit báo cáo phía GitHub có thể mới hơn commit chạy test; không mô tả metadata-only commit là đã chạy lại 81 matrix.
+## Preview và phục hồi sau gián đoạn
+
+Lần đầu môi trường dừng sau test trước đóng gói ảnh. Phiên tiếp tục kiểm scratch đã mất media, khôi phục đúng `.blend` MVP v1 từ artifact, so SHA rồi render/chụp lại. Không sculpt lại hay thay pose. [Recovery read-only](evidence/media-recovery.json) xác nhận chín key, Basis, historical keys, retained faces/UV khớp tuyệt đối. Tái xuất cả gói morph cho đúng bytes/SHA `2548334b…`, kiểm luôn normals và nội thất.
+
+[Kiểm tra media và locked scope](evidence/media-verification.json) ghi bảy file V8 khớp accepted baseline, bốn file preview V2 khớp trước V4, runtime không thay so bd4dbf9. Deployment `dpl_VBuxBZFrLjBXQZrEdVcsHqAdfk3w` tại commit a4b050d đã READY; HTML/manifest của stable branch trả 200, đủ chín nút/style và đúng package SHA. Commit chỉ thêm media/tài liệu sau đó không thay runtime. Không gọi HTTP check hoặc screenshot 390×844 là iPhone Safari PASS.
+
+[Preview ổn định](https://audition-mobile-mvp-git-work-fe-563419-toan-freelances-projects.vercel.app/qa/female-golden-mouth-v4/index.html): mở trên iPhone, chọn GLB gốc trong Tệp. Model đọc tại thiết bị, không upload. Link chia sẻ protection mới được gửi ngoài Git khi cần.
+
+## File thay đổi và bước tiếp theo
+
+Triển khai V4 chỉ trong `scripts/golden-mouth-v4/`, `docs/golden-mouth-v4/`, `public/qa/female-golden-mouth-v4/`. Phiên media chỉ thêm `recover_media_inputs.py`, `package_media.py`, tùy chọn `--webgl-only` cho `make_sheets.py`, recovery/report và ảnh/diagnostics. Không đổi nine poses, M01, rig/runtime, V8, V2 hoặc gameplay.
+
+Đọc [CHECKPOINT.md](CHECKPOINT.md) và [MEDIA_RECOVERY.md](MEDIA_RECOVERY.md) để tái lập từ `.blend` cuối; không chạy lại các thử nghiệm sculpt bị loại. Editable source, frozen controls và morph package đã lưu. Bộ raw ảnh cũng đã lưu; phần media bị thiếu ở lần trước đã hoàn tất.
+
+Branch `work/female-golden-mouth-v1-qa`; PR #26 tiếp tục OPEN/Draft, không merge. Bước tiếp theo là owner xem đủ chín preset trên iPhone và quyết định chấp nhận MVP hoặc chỉ định polish cụ thể. Không bắt đầu milestone khác tự động.

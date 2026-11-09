@@ -1,4 +1,6 @@
-# Golden Mouth V4 — manifest phục hồi ban đầu
+# Golden Mouth V4 — checkpoint và nhật ký phục hồi
+
+**Trạng thái mới nhất:** đủ chín preset, editable `.blend`, morph package, WebGL2 81/81, 27 Cycles PNG, 25 browser PNG, 7 grid và raw archive đã lưu. Không sửa pose trong phiên media. Xem mục “Hoàn tất media sau gián đoạn” cuối file. Các mục prototype/PENDING bên dưới là nhật ký lịch sử, không phải trạng thái bàn giao hiện tại.
 
 Ngày 09/11/2026. Owner chấp nhận **tạm thời M01 V3.3 Refined-02** cho MVP; không sửa tiếp M01. Visual FAIL V3.3 giữ nguyên là lịch sử, không còn là lý do chặn mở rộng preset.
 
@@ -107,3 +109,30 @@ node scripts/golden-mouth-v4/browser_check.mjs http://127.0.0.1:8765/qa/female-g
 ```
 
 Không sửa M01, không bắt đầu milestone khác, không merge. Còn lại: lưu raw/grid, owner xem 9 preset trên iPhone; các polish nhỏ hoãn sau MVP.
+
+## Hoàn tất media sau gián đoạn
+
+HEAD lúc phục hồi: `0239a5ec9eb28ad6e1d9d4bb19b8da69355e9228`, cùng work branch, PR26 OPEN/Draft. Scratch cũ mất, đã materialize đúng MVP `.blend` v1 từ `libfile_1bb6d576cea881918e57d5fd45792652`, kiểm SHA153b5897… và mở bằng Blender4.3.2.
+
+- Checkpoint phục hồi read-only: `0c92ce187e24bdce693a0e03e18454f9c9ca9c3f`.
+- Full WebGL2 JSON/3 grid đã lưu tại `a4b050d80e2dd4cd318232749dfbda1becc02b42`; browser 81/81 chạy lại thật, không dựng hash từ summary cũ.
+- `recover_media_inputs.py` so frozen absolute coordinates, original backup keys, source face IDs/UV. Không gọi sculpt hoặc lưu lại source .blend.
+- Re-export asset bit-exact với web package (1597931 bytes / SHA2548334b…), nên buffers vị trí, normals và nội thất khớp bản bàn giao.
+- Hoàn tất 27 PNG Cycles CPU /48 samples /8 threads /denoising OFF; đủ9front/9mouth/5clay/4góc35°. Đã xem cả4grid Cycles và3grid WebGL.
+- Raw archive: [Golden-Mouth-V4-Cycles-WebGL2-Raw-Evidence.zip](https://chatgpt.com/library?file_id=libfile_359b5b15f2cc8191aeda315c1cce6a17&account_id=personal), `libfile_359b5b15f2cc8191aeda315c1cce6a17`, version0, SHA `7628387c018d070f84d503bdf38a974e265bf4856f2047c09fe941fb9b49fc35`, 23560060bytes. Đã verify52PNG, ZIPCRC và từng hash bên trong.
+- `.blend` v1 giữ nguyên bytes, không overwrite. Chín pose/M01/runtime/V8/V2 không thay trong phiên media.
+
+### Phục hồi nhanh chỉ cần bản Blender cuối
+
+```bash
+V4_ROOT=/path/to/mouth-v4
+V4_FINAL=/path/to/Golden-Mouth-V4-MVP-Nine-Presets.blend
+blender --background --factory-startup --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v4/recover_media_inputs.py -- "$V4_FINAL" scripts/golden-mouth-v4/frozen-final-controls.npz "$V4_ROOT/delivery"
+blender --background --factory-startup --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v4/render.py -- "$V4_ROOT/delivery" M01:front M02:front M03:front M04:front M05:front M06:front M07:front M08:front M09:front M01:mouth M02:mouth M03:mouth M04:mouth M05:mouth M06:mouth M07:mouth M08:mouth M09:mouth M03:clay M05:clay M06:clay M08:clay M09:clay M03:left35 M05:left35 M06:right35 M09:right35
+python3 scripts/golden-mouth-v4/make_sheets.py "$V4_ROOT/delivery" "$V4_ROOT/webgl" docs/golden-mouth-v4/evidence
+python3 scripts/golden-mouth-v4/package_media.py "$V4_ROOT/delivery" "$V4_ROOT/webgl" "$V4_ROOT/Golden-Mouth-V4-Cycles-WebGL2-Raw-Evidence.zip"
+```
+
+Chạy browser theo lệnh phía trên để tạo25PNG/fullJSON trước hai lệnh ghép/đóng gói. Dùng raw archive đã lưu nếu chỉ xem ảnh, không cần render lại. Thư mục assets/GLB không commit. Không sao chép source Git vào artifact ảnh.
+
+Còn lại: owner iPhone review cả bộ V4. Chưa physical iPhone/GPU acceptance; M05/M09 còn tiết chế và M09 có nếp nhân trung ở cận. Không sửa M01, không mở milestone khác, không merge.
