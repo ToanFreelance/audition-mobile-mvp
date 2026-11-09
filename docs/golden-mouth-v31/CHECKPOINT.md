@@ -14,3 +14,27 @@ Kế hoạch: key M01_Natural_V31 riêng từ V3; profile hỗ trợ bám độ 
 Iteration01: libfile_0c8a2dec73c48191b65b91a4e2c96643, SHA 7b4d08aac92ced480c6f9165dfeedb53ea20ca0e691b12ebacec785569ab9d7f.
 Iteration02: libfile_2b29185ee8e4819192603b318ad399ce, SHA 10355d1c13d8707c43d3924b8b603c987012eb7d2f0a7e1cf1152217001e9511. Loại do face 398668 quay quá 90 độ tại rìa sửa seam phải.
 Iteration03 là sửa fan seam phải chứa 397033/397043/398668, không đổi thiết kế/volume tiếp. Cần render, xem clay và chốt gate. Không tiếp tục chuỗi đổi thông số.
+
+## Kết quả cuối
+Iteration04 được lưu tại libfile_a501a8480b7c8191863aaf1a389fb245.
+SHA dac46039732b674d86349409c6f78da12f5d629321bbd318cdc4a5022fcdd4f9; 55142851 bytes.
+Mở lại kiểm Basis/V3/UV/texture; zero face >90°, zero giao cắt perioral; mũi delta=0.
+VISUAL FAIL do chuyển tiếp/khóe chưa đạt. Không WebGL2 hoặc preview mới.
+
+Tái tạo từ repo (Blender 4.3.2):
+```
+blender --background --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v31/refine.py -- V3.blend iteration-01
+blender --background --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v31/correct_uv_continuity.py -- iteration-01/M01-Natural-V31-Iteration-01.blend iteration-04
+blender --background --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v31/verify.py -- V3.blend iteration-04/M01-Natural-V31-Iteration-04.blend verify04.json
+blender --background --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v3/render_native.py -- iteration-04/M01-Natural-V31-Iteration-04.blend iteration-04 clay profile mouth front left35 right35
+blender --background --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v3/render_native.py -- V3.blend baseline clay profile mouth front left35 right35
+python3 scripts/golden-mouth-v31/projection.py verify04.npz diagnosis
+python3 scripts/golden-mouth-v31/make_sheets.py ROOT Golden.jpeg evidence
+```
+Script follow-up cuối kiểm SHA tọa độ shape key iteration01 sau khi mở, không phụ thuộc metadata .blend. Có thể dùng artifact iteration01 đã lưu hoặc tái tạo bằng refine.py. V3 vẫn cần SHA file đúng nêu đầu báo cáo.
+Toàn bộ lệnh đã chạy với ROOT=/workspace/scratch/e27dffa28e71/m01-v31; input nằm trong ROOT/input.
+
+Bằng chứng PNG/geometry/logs đã lưu: libfile_a47537e9fb1081919c5c30551be957f3.
+Golden-Mouth-V31-M01-Evidence.zip, 21570637 bytes, SHA 69f2903b48afb0ce24e91abaf453bd7093fbd684b8d06ff994c362c61bfe3ab8. ZIP CRC đã kiểm và PNG mở được.
+Checkpoint script trước render cuối: b2f08fe13dd910eee01449895df2852edc910d3f.
+Chưa được owner duyệt; việc còn lại là cải thiện curvature chuyển tiếp và commissure, không tự bắt đầu preset khác.

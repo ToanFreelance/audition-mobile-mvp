@@ -2,10 +2,11 @@
 import bpy,numpy as np,sys,hashlib
 from pathlib import Path
 src,out=map(Path,sys.argv[sys.argv.index('--')+1:]);out.mkdir(parents=True,exist_ok=True)
-assert hashlib.sha256(src.read_bytes()).hexdigest()=='7b4d08aac92ced480c6f9165dfeedb53ea20ca0e691b12ebacec785569ab9d7f'
+# Validate semantic geometry after load, independent of Blender metadata.
 bpy.ops.wm.open_mainfile(filepath=str(src));o=bpy.data.objects['node_0'];m=o.data;n=len(m.vertices);k=m.shape_keys.key_blocks
 p=np.empty((n,3),np.float32);v=p.copy();q=p.copy()
 for name,a in [('Basis',p),('M01_Natural_V3',v),('M01_Natural_V31',q)]:k[name].data.foreach_get('co',a.ravel())
+assert hashlib.sha256(q.tobytes()).hexdigest()=='7c608ea20c5f64d2c6ce9ebceb14a0f71c5c349755d27f7ee4bc3d81c7487844', 'Unexpected iteration01 geometry'
 f=np.array([x.vertices[:] for x in m.polygons]);mask=(abs(p[:,0])<.09)&(p[:,1]>.285)&(p[:,1]<.365)&(p[:,2]>.20)
 ids=np.flatnonzero(mask);selected=mask[f].all(1);edges=np.unique(np.sort(np.concatenate([f[selected][:,[0,1]],f[selected][:,[1,2]],f[selected][:,[2,0]]]),axis=1),axis=0)
 a,b=edges.T;weight=1/np.maximum(np.linalg.norm(v[a]-v[b],axis=1),.0005);den=np.bincount(np.r_[a,b],weights=np.r_[weight,weight],minlength=n);field=(q[:,2]-v[:,2]).copy();start=field.copy()
