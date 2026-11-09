@@ -1,0 +1,16 @@
+{
+  "blender": "4.3.2",
+  "keys": [
+    "Basis",
+    "M01_Natural_V3",
+    "M01_Natural_V31"
+  ],
+  "vertexCount": 292645,
+  "triangleCount": 499762,
+  "V31UpperSupportCubicResidualP50P95Max": [
+    0.00038104085251688957,
+    0.0008491964545100927,
+    0.0016285136807709932
+  ],
+  "note": "Residual measures non-low-frequency content in V31 correction. It is not itself a visual acceptance test."
+}
