@@ -1,0 +1,27 @@
+{
+  "source": "/workspace/scratch/e27dffa28e71/upload/Female_anime_origin(6).glb",
+  "sha256": "b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90",
+  "blender": "4.3.2",
+  "vertices": 292645,
+  "triangles": 499762,
+  "basis": "DIRECT_ORIGINAL_GLB_IMPORT",
+  "shape_keys": [
+    "Basis",
+    "M01_Natural_V3"
+  ],
+  "operator": "Bind mesh to system in laplacian deform modifier",
+  "command": [
+    "blender",
+    "--background",
+    "--factory-startup",
+    "--threads",
+    "8",
+    "--python-exit-code",
+    "1",
+    "--python",
+    "scripts/golden-mouth-v3/inspect_basis.py",
+    "--",
+    "/workspace/scratch/e27dffa28e71/upload/Female_anime_origin(6).glb",
+    "/workspace/scratch/e27dffa28e71/m01-v3/diagnosis"
+  ]
+}
