@@ -1,0 +1,43 @@
+{
+  "provenance": "Tổng hợp từ stdout và dữ liệu tool đã quan sát sau lần chạy thực; không phải bản full raw webgl-diagnostics.json. Môi trường dừng trước khi upload file raw.",
+  "testedCommit": "bd4dbf9ecc8bde1ab2ac3ed1b0a1c7ab9bf957c0",
+  "pass": true,
+  "browser": "157.0.8103.38",
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "combinationCount": 81,
+  "eyeStyles": 9,
+  "mouthStyles": 9,
+  "blink": 0.6,
+  "eyeNeutral": 0.4,
+  "eyeWeights": [
+    0.36,
+    0.4,
+    0.24
+  ],
+  "extraPresetRequests": 0,
+  "modelLoads": 1,
+  "programLinkResults": [
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    true
+  ],
+  "errors": [],
+  "mouthFramebuffersIndependentOfEyes": true,
+  "actorAndBuffersStable": true,
+  "originalRestored": {
+    "vertices": 292645,
+    "triangles": 499762,
+    "position": "d3aa7b21f8712cbcd57662dea8686c861e4c00cd24aeb9d240c6a1cd6931b61a",
+    "normal": "f8e9b4d4e479f869878e084aa85bc5a5461d3f48c23734bbfc94fcb3d6683c99",
+    "index": "d3133a7a039e730a77acdf51dadf6e930d2eeb51e33b65ca3b501130005d07b9"
+  },
+  "physicalIPhone": "NOT_TESTED",
+  "hardwareGPU": false,
+  "rawPNGAndRawDiagnosticsDurable": "BLOCKED_AFTER_ENVIRONMENT_UNAVAILABLE"
+}

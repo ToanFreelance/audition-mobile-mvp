@@ -60,3 +60,50 @@ Dữ liệu chính xác để phục hồi: `scripts/golden-mouth-v4/frozen-fina
 Asset web: 1597931 bytes, SHA `2548334bd96d6327ea5b56124b65589ae84f8777ac33a34852fe0a8d28b5ca1d`. Head có 9 target CPU sparse one-hot relative original Basis để giữ đúng 3 GPU morph controls V8. Interior có 9 GPU targets riêng. Đổi miệng không gọi eye API, không tạo actor/nạp GLB lại. V8 code/assets giữ nguyên.
 
 Cy­cles CPU 48 samples, 8 threads, denoising tắt: đủ grid front 9, mouth 9, clay 5 và 35° 4. Mắt trong Cycles là native tím. WebGL2/81-combo và Vercel hiện **PENDING**, chưa tuyên bố PASS hoặc physical iPhone acceptance.
+
+
+## Kết quả sau WebGL2 và trạng thái gián đoạn
+
+WebGL2 thực đã hoàn tất trên commit `bd4dbf9ecc8bde1ab2ac3ed1b0a1c7ab9bf957c0`: 81/81, 9 program linked, zero errors; loads=1, extra preset requests=0. Eye weights/blink/gaze và actor/geometry/buffer identity giữ nguyên; mouth framebuffer checksum ổn định qua 9 eye styles. Original positions/normals/index khớp hash GLB. Xem `QA_VI.md` và `evidence/webgl-console-observed.log`.
+
+Deployment `dpl_3UKALxtGHbnyeyKU526cmcf6uyDR` READY; stable branch origin:
+https://audition-mobile-mvp-git-work-fe-563419-toan-freelances-projects.vercel.app
+Route: /qa/female-golden-mouth-v4/index.html
+HTML/manifest đã fetch status 200, đủ 9 nút và đúng asset SHA `2548334bd96d6327ea5b56124b65589ae84f8777ac33a34852fe0a8d28b5ca1d`.
+
+**Môi trường chuyển unavailable sau test, trước đóng gói ảnh cuối.** Library upload raw JSON lỗi `no primary turn environment is available`. Không thể xác nhận lưu bền vững PNG/grid hoặc full raw diagnostics. Các file sau còn ở scratch tại lần chạy cuối, cần kiểm lại khi môi trường trở lại:
+
+- `/workspace/scratch/e27dffa28e71/mouth-v4/delivery/renders/`: 27 PNG Cycles.
+- `/workspace/scratch/e27dffa28e71/mouth-v4/webgl/`: 25 PNG và full webgl-diagnostics.json.
+- Log tại `/workspace/scratch/e27dffa28e71/mouth-v4/webgl-run.log`.
+
+Đã giữ stdout/tóm tắt thật qua GitHub connector; không bịa hash từng cell. Source, native morph package, frozen final positions và .blend v1 đã lưu trước gián đoạn. Local HEAD cuối kiểm là bd4dbf9; working tree sau gián đoạn không thể kiểm lại. Metadata-only commit mới trên GitHub không có nghĩa 81 matrix đã chạy lại.
+
+## Phục hồi nhanh, không sculpt lại
+
+Phục hồi M01 input theo ID libfile_641c2f4215248191b41c2dd7a51fa6e4 và hash 7fdc16e00012f785c76dba9d88700e7139b0e36c85f302d7a0dd0940508bcb8a; hoặc mở .blend MVP libfile_1bb6d576cea881918e57d5fd45792652 version 1 trực tiếp.
+
+Dưới đây là lệnh tái lập từ M01 khóa và frozen coordinates đã so bit-exact. V4_ROOT là thư mục đầu ra mới; đặt input/source đúng path phiên mới:
+
+```bash
+V4_ROOT=/path/to/mouth-v4
+V4_INPUT=/path/to/M01-Natural-V33-Refined-02.blend
+V4_SOURCE=/path/to/Female_anime_origin.glb
+blender --background --factory-startup --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v4/inspect_source.py -- "$V4_INPUT" "$V4_ROOT/diagnosis"
+python3 scripts/golden-mouth-v4/recover_delivery.py "$V4_ROOT/diagnosis/native.npz" scripts/golden-mouth-v4/frozen-final-controls.npz "$V4_ROOT/delivery"
+blender --background --factory-startup --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v4/build_blend.py -- "$V4_INPUT" "$V4_ROOT/delivery"
+blender --background --factory-startup --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v4/validate.py -- "$V4_ROOT/delivery" "$V4_SOURCE"
+blender --background --factory-startup --threads 8 --python-exit-code 1 --python scripts/golden-mouth-v4/audit_checkpoint.py -- "$V4_INPUT" "$V4_ROOT/delivery"
+```
+
+Ưu tiên kiểm scratch cũ trước. Nếu PNG/JSON còn, đóng gói và lưu, không render/test lại không cần thiết. Nếu scratch đã mất, chạy render.py với 9 front/9 mouth/5 clay/4 views, rồi browser_check.mjs để lấy raw diagnostics mới. `make_sheets.py` chỉ ghép các ảnh thật, không sinh/vẽ lại bằng AI. Source của script ghép được lưu để tiếp tục; không tuyên bố script ghép đã chạy thành công sau môi trường dừng.
+
+Lệnh browser đã chạy thành công (chạy HTTP server và Node trong cùng executor nếu loopback namespace tách):
+
+```bash
+python3 -m http.server 8765 --bind 127.0.0.1 --directory public
+# Terminal cùng executor:
+node scripts/golden-mouth-v4/browser_check.mjs http://127.0.0.1:8765/qa/female-golden-mouth-v4/index.html "$V4_SOURCE" /opt/codex/runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright/index.mjs /workspace/scratch/e27dffa28e71/qa-deps/chrome-headless-shell-linux64/chrome-headless-shell /workspace/scratch/e27dffa28e71/qa-deps/node_modules/three "$V4_ROOT/webgl"
+```
+
+Không sửa M01, không bắt đầu milestone khác, không merge. Còn lại: lưu raw/grid, owner xem 9 preset trên iPhone; các polish nhỏ hoãn sau MVP.
