@@ -30,3 +30,15 @@ Sửa seam riêng bằng tọa độ native, giữ UV/ID. Không sửa texture �
 
 Chưa visual/geometry PASS. Chỉ một lượt đầu và một correction mỹ thuật nếu cần;
 kiểm hình học thật trước khi quyết định runtime. GLB gốc không commit.
+
+## Lượt 01 và correction tập trung
+Lượt 01 .blend đã lưu: libfile_801f50132ea48191873ec0a90c7d69a0,
+SHA 7b97129f8eab5b1324696008d051baa2504da08a6f4cb3d4bca36af41205ede9.
+Mở lại xác minh Basis/source, V3, UV và material; mũi/UV split chính xác.
+Clay lượt 01 hết gợn V3.1; khóe vẫn sắc, vùng translation-only seam gây lõm và
+face 412066 bị xoay >90° tại rìa. Không chấp nhận.
+
+Correction duy nhất giữ nguyên trường thể tích. Fit positive affine map từ vòng
+bề mặt thực quanh seam để tiếp khớp tangent thay vì giữ một đảo native chỉ tịnh tiến.
+Vùng outer commissure (không qua seam giữa) fit quadratic cục bộ với mức chỉnh
+capped .0008, mask C2. Không nén width, không diffusion mesh. Render/verify lại.
