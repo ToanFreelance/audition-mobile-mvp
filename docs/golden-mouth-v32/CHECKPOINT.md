@@ -42,3 +42,10 @@ Correction duy nhất giữ nguyên trường thể tích. Fit positive affine m
 bề mặt thực quanh seam để tiếp khớp tangent thay vì giữ một đảo native chỉ tịnh tiến.
 Vùng outer commissure (không qua seam giữa) fit quadratic cục bộ với mức chỉnh
 capped .0008, mask C2. Không nén width, không diffusion mesh. Render/verify lại.
+
+## Kiểm tra liên tục của correction
+Phát hiện hard clamp trong giới hạn displacement commissure gây gãy gradient dù
+mask C2. Sửa duy nhất clamp thành .002*tanh(delta/.002), không thay control-volume,
+mask hoặc tiếp tục tuning anatomy. Lưu iteration03 riêng, không ghi đè iteration02.
+Nếu mảng curvature vẫn còn, dừng Visual FAIL. Đây là sửa lỗi tính liên tục trong
+cùng lượt correction, không thêm thiết kế miệng.

@@ -14,6 +14,7 @@ x,h,z=v.T
 # Fit surrounding skin at uniform XY samples; omit lip relief and inner seam.
 skin=(abs(x)<.09)&(h>.29)&(h<.381)&(z>.215)&((abs(x)>.055)|(h>.358)|(h<.309))
 pts=v[skin];_,sample=np.unique(np.round(pts[:,:2]/.0015),axis=0,return_index=True);pts=pts[sample]
+chart_samples=len(pts)
 u=pts[:,0]/.075;t=(pts[:,1]-.337)/.04;A=np.stack([u*0+1,u,t,u*u,u*t,t*t],axis=1);coef=np.linalg.lstsq(A,pts[:,2],rcond=None)[0]
 u=x/.075;t=(h-.337)/.04;dx=(coef[1]+2*coef[3]*u+coef[4]*t)/.075;dy=(coef[2]+coef[4]*u+2*coef[5]*t)/.04
 # Mostly outward normal, reduced tangential component to preserve delicate M01 pose.
@@ -59,6 +60,6 @@ for name,mask in [('Protected_nose',nose),('Upper_support',(foot>.01)&(h>.345)),
 def normals(y):
  tri=y[f].astype(float);cross=np.cross(tri[:,1]-tri[:,0],tri[:,2]-tri[:,0]);ar=np.linalg.norm(cross,axis=1);return cross/np.maximum(ar[:,None],1e-20),ar*.5
 n0,ar0=normals(p);n1,ar1=normals(q);dot=(n0*n1).sum(1);affected=(np.linalg.norm(q-p,axis=1)>1e-8)[f].any(1)
-report={'commissures':corner_reports,'seamMaps':seam_reports,'method':'V3 geometry + C2 anatomical support along low-frequency skin-normal chart','blender':bpy.app.version_string,'keys':['Basis','M01_Natural_V3','M01_Natural_V32'],'vertices':n,'triangles':len(f),'changedFromV3':int((np.linalg.norm(q-v,axis=1)>1e-8).sum()),'chartCoefficients':coef.tolist(),'chartSkinSamples':len(pts),'facesOver90':int((dot[affected]<0).sum()),'minNormalDot':float(dot[affected].min()),'degenerateAffected':int((ar1[affected]<1e-14).sum()),'noseCount':int(nose.sum()),'noseMaxDelta':float(abs(q[nose]-p[nose]).max()),'maxSupportAmplitude':float(amplitude.max()),'geometryBasis':'V3, not V31','status':'NOT_VISUALLY_REVIEWED'}
+report={'commissures':corner_reports,'seamMaps':seam_reports,'method':'V3 geometry + C2 anatomical support along low-frequency skin-normal chart','blender':bpy.app.version_string,'keys':['Basis','M01_Natural_V3','M01_Natural_V32'],'vertices':n,'triangles':len(f),'changedFromV3':int((np.linalg.norm(q-v,axis=1)>1e-8).sum()),'chartCoefficients':coef.tolist(),'chartSkinSamples':chart_samples,'facesOver90':int((dot[affected]<0).sum()),'minNormalDot':float(dot[affected].min()),'degenerateAffected':int((ar1[affected]<1e-14).sum()),'noseCount':int(nose.sum()),'noseMaxDelta':float(abs(q[nose]-p[nose]).max()),'maxSupportAmplitude':float(amplitude.max()),'geometryBasis':'V3, not V31','status':'NOT_VISUALLY_REVIEWED'}
 np.savez_compressed(out/'surface.npz',basis=p,v3=v,sculpt=q,faces=f,amplitude=amplitude,direction=direction,foot=foot)
 (out/'sculpt.json').write_text(json.dumps(report,indent=2));bpy.ops.wm.save_as_mainfile(filepath=str(out/'M01-Natural-V32-Iteration-02.blend'),compress=True);print(json.dumps(report))
