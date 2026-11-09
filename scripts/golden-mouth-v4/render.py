@@ -12,6 +12,7 @@ for mat in m.materials:mm.materials.append(mat)
 ob=bpy.data.objects.new('V4_ExactKeyRender',mm);bpy.context.collection.objects.link(ob);ob.matrix_world=original.matrix_world.copy();original.hide_render=True
 for job in jobs:
  code,view=job.split(':');idx=next(i for i,st in enumerate(styles) if st['code']==code);st=styles[idx];q=a['poses'][idx];mm.vertices.foreach_set('co',q.ravel());mm.update()
+ original['MouthPreset']=idx
  loops=loop_normals(a['poses'][0],q,f,a['groups'],sh['m01LoopNormals'],clay=view=='clay')
  mm.normals_split_custom_set(loops.tolist())
  for name in ['V4_Cavity','V4_UpperTeeth','V4_Gum','V4_Tongue']:

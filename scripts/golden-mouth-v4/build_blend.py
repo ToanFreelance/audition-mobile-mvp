@@ -1,6 +1,7 @@
 """Build editable native-head keys plus attached interior, without replacing facial skin."""
 import bpy,numpy as np,sys,json,hashlib
 from pathlib import Path
+from mathutils.bvhtree import BVHTree
 src,folder=map(Path,sys.argv[sys.argv.index('--')+1:]);assert hashlib.sha256(src.read_bytes()).hexdigest()=='7fdc16e00012f785c76dba9d88700e7139b0e36c85f302d7a0dd0940508bcb8a';a=np.load(folder/'poses.npz');styles=json.loads((folder/'catalog.json').read_text());bpy.ops.wm.open_mainfile(filepath=str(src));o=bpy.data.objects['node_0'];old=o.data;n=len(old.vertices);du=a['duplicates'];f=a['faces'];base=a['basis'];poses=a['poses'];groups=a['groups'];oldkeys={}
 for key in old.shape_keys.key_blocks:
  p=np.empty((n,3),np.float32);key.data.foreach_get('co',p.ravel());oldkeys[key.name]=np.r_[p,p[du]]
@@ -10,6 +11,7 @@ oldloops=np.empty((len(old.loops),3),np.float32);old.corner_normals.foreach_get(
 if 'sourceFaceIds' in a:
  oldloops=oldloops.reshape(-1,3,3)[a['sourceFaceIds']].reshape(-1,3);m01loops=m01loops.reshape(-1,3,3)[a['sourceFaceIds']].reshape(-1,3)
 m=bpy.data.meshes.new('V4_NativeHead_OralSlit');m.from_pydata(base.tolist(),[],f.tolist());m.materials.clear()
+backup_collection=bpy.data.collections.new('V4_Original_Source_Backup');bpy.context.scene.collection.children.link(backup_collection);backup_collection.hide_render=True;backup_collection.hide_viewport=True;backup=bpy.data.objects.new('V4_Original_Head_Uncut',old);backup.matrix_world=o.matrix_world.copy();backup_collection.objects.link(backup);backup.hide_render=True;backup.hide_viewport=True;backup['source_sha256']='b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90';backup['immutable_reference']=True
 for mat in old.materials:m.materials.append(mat)
 m.uv_layers.new(name=old.uv_layers.active.name).data.foreach_set('uv',a['uv'].ravel());m.polygons.foreach_set('use_smooth',np.ones(len(f),bool));o.data=m
 for name,p in oldkeys.items():key=o.shape_key_add(name=name);key.data.foreach_set('co',p.ravel());key.value=0
@@ -25,26 +27,34 @@ cavitymat=material('V4_OralCavity',(.035,.006,.012),.94);toothmat=material('V4_E
 parts={}
 def meshpart(name,points,faces,mat):
  mm=bpy.data.meshes.new(name);mm.from_pydata(np.asarray(points).tolist(),[],np.asarray(faces).tolist());mm.materials.append(mat);mm.polygons.foreach_set('use_smooth',np.ones(len(faces),bool));ob=bpy.data.objects.new(name,mm);bpy.context.collection.objects.link(ob);ob.parent=o;ob.hide_render=True;parts[name]=ob;return ob
-upper=a['upper'];lower=a['lower'];loop=np.r_[upper,lower[-2:0:-1]];L=len(loop);openindex=next(i for i,s in enumerate(styles) if s['code']=='M03');cavposes=[];cf=[]
+upper=a['upper'];lower=a['lower'];loop=np.r_[upper,lower[-2:0:-1]];L=64;openindex=next(i for i,s in enumerate(styles) if s['code']=='M03');cavposes=[];cf=[]
 for q,st in zip(poses,styles):
- rim=q[loop];center=np.array([0,(rim[:,1].max()+rim[:,1].min())*.5,float(rim[:,2].mean()-.05)]);vv=[]
- for scale,depth in [(1,0),(.995,.004),(.92,.013),(.76,.030),(.45,.047)]:
-  r=rim.copy();r[:,:2]=center[:2]+(r[:,:2]-center[:2])*scale;r[:,2]-=depth;vv.extend(r)
- vv.append(center);cavposes.append(vv)
-for j in range(4):
+ # A regular concave bowl behind the real native aperture. Its occluded margin
+ # overlaps behind the rim; no irregular radial fan is sewn through the scan fold.
+ rim=q[loop];center=np.array([0,(rim[:,1].max()+rim[:,1].min())*.5,0.]);rx=(rim[:,0].max()-rim[:,0].min())*.5+.032;ry=max((rim[:,1].max()-rim[:,1].min())*.5+.014,.018);angles=np.arange(L)*2*np.pi/L
+ tree=BVHTree.FromPolygons(q.tolist(),f.tolist(),all_triangles=True);depths=[]
+ for theta in angles:
+  xx=rx*np.cos(theta);yy=center[1]+ry*np.sin(theta);hit=tree.ray_cast((float(xx),float(yy),1.),(0,0,-1),2.)
+  if hit[0] is not None:depths.append(float(hit[0].z))
+ front=min(depths)-.006 if depths else float(rim[:,2].min()-.018);back=front-.050;vv=[]
+ for j in range(8):
+  phi=j/8*np.pi/2;rad=np.cos(phi);zz=front-.050*np.sin(phi)
+  vv.extend(np.c_[rx*rad*np.cos(angles),center[1]+ry*rad*np.sin(angles),np.full(L,zz)])
+ vv.append([0,center[1],back]);cavposes.append(vv)
+for j in range(7):
  for k in range(L):
   x=j*L+k;y=j*L+(k+1)%L;cf.extend([[x,y,x+L],[y,y+L,x+L]])
-for k in range(L):cf.append([4*L+k,4*L+(k+1)%L,5*L])
+for k in range(L):cf.append([7*L+k,7*L+(k+1)%L,8*L])
 meshpart('V4_Cavity',cavposes[0],cf,cavitymat)
 # Blender bevel operations author a reusable rounded tooth, then form a dental arch.
 bpy.ops.mesh.primitive_cube_add(size=1);unit=bpy.context.object;unit.scale=(.0115,.011,.009);bpy.ops.object.transform_apply(location=False,rotation=False,scale=True);bevel=unit.modifiers.new('Rounded_enamel_edges','BEVEL');bevel.width=.0013;bevel.segments=3;bpy.context.view_layer.objects.active=unit;bpy.ops.object.modifier_apply(modifier=bevel.name);bpy.ops.object.modifier_add(type='TRIANGULATE');bpy.ops.object.modifier_apply(modifier=unit.modifiers[-1].name);up=np.array([v.co[:] for v in unit.data.vertices]);uf=np.array([p.vertices[:] for p in unit.data.polygons]);bpy.data.objects.remove(unit,do_unlink=True)
 teethposes=[];toothfaces=np.concatenate([uf+i*len(up) for i in range(8)])
 for q,st in zip(poses,styles):
  if not st['teeth']:q=poses[openindex]
- rim=q[upper];order=np.argsort(rim[:,0]);rim=rim[order];width=(rim[-1,0]-rim[0,0])*.80;vv=[]
+ rim=q[upper];order=np.argsort(rim[:,0]);rim=rim[order];width=(rim[-1,0]-rim[0,0])*(.72 if st['code']=='M08' else .80);vv=[]
  for i in range(8):
-  xx=(i-3.5)*width/8;top=np.interp(xx,rim[:,0],rim[:,1])+.003;zz=np.interp(xx,rim[:,0],rim[:,2])-.009
-  pt=up.copy();pt[:,0]*=width/(8*.0115);pt+=np.array([xx,top-.0055,zz]);vv.extend(pt)
+  xx=(i-3.5)*width/8;top=np.interp(xx,rim[:,0],rim[:,1])+.003;zz=np.interp(xx,rim[:,0],rim[:,2])-(.014 if st['code']=='M08' else .009)
+  pt=up.copy();pt[:,0]*=width/(8*.0115)*.93;pt[:,1]*=.72 if st['code']=='M08' else 1;pt+=np.array([xx,top-(.004 if st['code']=='M08' else .0055),zz]);vv.extend(pt)
  teethposes.append(vv)
 meshpart('V4_UpperTeeth',teethposes[0],toothfaces,toothmat)
 # A shallow upper gum band behind the lip anchors the tooth roots.
@@ -72,6 +82,19 @@ for name,pp in allposes.items():
  ob=parts[name];ob.shape_key_add(name='Basis')
  for st,p in zip(styles,pp):key=ob.shape_key_add(name=st['code']);key.data.foreach_set('co',np.asarray(p,np.float32).ravel())
  ob['attached_to']='node_0';ob['no_independent_actor']=True
+o['MouthPreset']=0;o.id_properties_ui('MouthPreset').update(min=-1,max=len(styles)-1,description='-1=Basis; 0=M01, 1=M02 ... 8=M09; one active full pose')
+for i,st in enumerate(styles):
+ driver=m.shape_keys.key_blocks[st['key']].driver_add('value').driver;driver.type='SCRIPTED';var=driver.variables.new();var.name='preset';var.targets[0].id=o;var.targets[0].data_path='["MouthPreset"]';driver.expression='1.0 if preset=='+str(i)+' else 0.0'
+for name,ob in parts.items():
+ visible=[st['key'] for st in styles if st.get('cavity',st['open'])] if name=='V4_Cavity' else [st['key'] for st in styles if st['teeth'] if name in ['V4_UpperTeeth','V4_Gum']] if name in ['V4_UpperTeeth','V4_Gum'] else [st['key'] for st in styles if st['tongue']]
+ for st in styles:
+  driver=ob.data.shape_keys.key_blocks[st['code']].driver_add('value').driver;driver.type='SUM';var=driver.variables.new();var.name='pose';var.targets[0].id_type='KEY';var.targets[0].id=m.shape_keys;var.targets[0].data_path='key_blocks['+json.dumps(st['key'])+'].value'
+ for prop in ['hide_render','hide_viewport']:
+  driver=ob.driver_add(prop).driver;driver.type='SCRIPTED';names=[]
+  for i,keyname in enumerate(visible):
+   var=driver.variables.new();var.name='w'+str(i);var.targets[0].id_type='KEY';var.targets[0].id=m.shape_keys;var.targets[0].data_path='key_blocks['+json.dumps(keyname)+'].value';names.append(var.name)
+  driver.expression='('+ '+'.join(names)+' < 0.001)' if names else 'True'
+text=bpy.data.texts.new('V4_Select_Mouth.py');text.write('import bpy\nhead=bpy.data.objects["node_0"]\n# -1=Basis, 0=M01, ... 8=M09. Set this one property; drivers reset inactive weights.\nhead["MouthPreset"]=0\nbpy.context.view_layer.update()\n')
 np.savez_compressed(folder/'interior.npz',**{name:np.array(pp,np.float32) for name,pp in allposes.items()},**{name+'_faces':np.array([t.vertices[:] for t in ob.data.polygons]) for name,ob in parts.items()})
 o['V4_source_vertices']=n;o['V4_seam_duplicates']=len(du);o['V4_M01_locked_sha256']='7fdc16e00012f785c76dba9d88700e7139b0e36c85f302d7a0dd0940508bcb8a';o['V4_catalog']=json.dumps(styles,ensure_ascii=False)
 path=folder/'Golden-Mouth-V4.blend';bpy.ops.wm.save_as_mainfile(filepath=str(path),compress=True);print(json.dumps({'blend':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'bytes':path.stat().st_size,'keys':list(m.shape_keys.key_blocks.keys()),'parts':list(parts)}))

@@ -24,8 +24,18 @@ for st,q0 in zip(styles,a['poses']):
  if st['code']=='M01':poses.append(q0);continue
  if st['code'] in reused:
   poses.append(reused[st['code']]);reports.append({'code':st['code'],'reusedVerifiedPrototype':str(reuse)});continue
- bpy.ops.wm.read_factory_settings(use_empty=True);mesh=bpy.data.meshes.new('Native_Perioral_Authoring');mesh.from_pydata(p.tolist(),[],lf.tolist());o=bpy.data.objects.new('Native_Perioral_Authoring',mesh);bpy.context.collection.objects.link(o);bpy.context.view_layer.objects.active=o;o.select_set(True);vg=o.vertex_groups.new(name='Anatomical_Handles');vg.add(np.flatnonzero(handles).tolist(),1,'REPLACE');mod=o.modifiers.new('Curvature_Support','LAPLACIANDEFORM');mod.vertex_group=vg.name;mod.iterations=12;bpy.ops.object.laplaciandeform_bind(modifier=mod.name);assert mod.is_bind
- target=p.copy();desired=q0[first][ids];target[lip]=desired[lip];mesh.vertices.foreach_set('co',target.ravel());mesh.update();bpy.context.view_layer.update();ev=o.evaluated_get(bpy.context.evaluated_depsgraph_get());em=ev.to_mesh();result=np.array([x.co[:] for x in em.vertices]);ev.to_mesh_clear();u=vv.astype(float).copy();u[ids]=result;u[ids[boundary&~lip]]=p[boundary&~lip];q=u[g]
+ active_lip=lip.copy()
+ if st['code'] in ['M05','M09']:
+  uu=np.minimum(abs(p[:,0])/.045,1);active_lip=(abs(p[:,0])<.052)&(p[:,1]>.318+.009*uu*uu)&(p[:,1]<.350-.009*uu*uu)&(p[:,2]>.230);active_lip|=np.isin(ids,seam)
+ active_handles=boundary|active_lip
+ if '--experimental-direct-pout' in args and st['code'] in ['M05','M09']:
+  # Pucker narrows vermilion, not the philtrum. Preserve native skin curvature
+  # with a continuous proportional edit rather than an isometric tissue pull.
+  result=q0[first][ids].copy()
+ else:
+  bpy.ops.wm.read_factory_settings(use_empty=True);mesh=bpy.data.meshes.new('Native_Perioral_Authoring');mesh.from_pydata(p.tolist(),[],lf.tolist());o=bpy.data.objects.new('Native_Perioral_Authoring',mesh);bpy.context.collection.objects.link(o);bpy.context.view_layer.objects.active=o;o.select_set(True);vg=o.vertex_groups.new(name='Anatomical_Handles');vg.add(np.flatnonzero(active_handles).tolist(),1,'REPLACE');mod=o.modifiers.new('Curvature_Support','LAPLACIANDEFORM');mod.vertex_group=vg.name;mod.iterations=12;bpy.ops.object.laplaciandeform_bind(modifier=mod.name);assert mod.is_bind
+  target=p.copy();desired=q0[first][ids];target[active_lip]=desired[active_lip];mesh.vertices.foreach_set('co',target.ravel());mesh.update();bpy.context.view_layer.update();ev=o.evaluated_get(bpy.context.evaluated_depsgraph_get());em=ev.to_mesh();result=np.array([x.co[:] for x in em.vertices]);ev.to_mesh_clear()
+ u=vv.astype(float).copy();u[ids]=result;u[ids[boundary&~active_lip]]=p[boundary&~active_lip];q=u[g]
  # Unroll the scan's closed-groove lining between fixed seam and outer lip.
  # This is a local mesh edit in each new pose, not a replacement skin mesh.
  if experimental:

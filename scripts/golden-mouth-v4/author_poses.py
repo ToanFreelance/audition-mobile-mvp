@@ -27,14 +27,15 @@ settings=[
  ('M02','soft-smile','Mỉm cười',1.12,0,0,.009,0,0),
  ('M03','bright-smile','Cười rạng rỡ',1.30,.006,.030,.012,0,.001),
  ('M04','playful-smirk','Tinh nghịch',1.04,0,0,.003,.007,0),
- ('M05','cute-pout','Chu môi',.68,.0012,.0018,0,0,.014),
+ ('M05','cute-pout','Chu môi',.68,.0012,.0018,0,0,.011),
  ('M06','surprised','Ngạc nhiên',.50,.017,.028,0,0,.005),
  ('M07','shy','Ngại ngùng',.92,0,0,-.002,.001,0),
  ('M08','idol-smile','Thần tượng',1.20,.004,.020,.009,0,.001),
- ('M09','blow-kiss','Hôn gió',.48,.002,.003,0,0,.026)]
+ ('M09','blow-kiss','Hôn gió',.48,.002,.003,0,0,.020)]
 poses=[];styles=[]
 for code,id,label,sx,ou,od,smile,skew,projection in settings:
  if stage=='A' and code not in ['M01','M03','M06']:continue
+ if stage=='pout' and code not in ['M01','M05','M09']:continue
  q=v.astype(float).copy()
  if code!='M01':
   env=np.sqrt(np.maximum(0,1-u*u)) if code=='M06' else envelope
@@ -46,7 +47,8 @@ for code,id,label,sx,ou,od,smile,skew,projection in settings:
   if code=='M07':q[:,1]-=.0005*envelope*support
   q[:,2]+=projection*(.70*lip+.30*support)*(1-.20*u*u)
   if code in ['M05','M09']:
-   q[:,1]+=(.0015 if code=='M05' else .0035)*side*lip*envelope
+   q[:,1]+=.0015*side*lip*envelope
+   q[:,1]-=.0015*np.exp(-((abs(x)-.01)/.009)**2-((h-.347)/.008)**2)*up*lip
   if ou+od>0:
    # Reference-guided boundary silhouette. Native edge path is irregular; map
    # its arc-length monotonically, carrying nearby native lip tissue with it.

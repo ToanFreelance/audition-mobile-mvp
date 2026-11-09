@@ -46,3 +46,17 @@ A validated: `libfile_57beccc7ad6c8191b56a24f764cd2c2c`.
 B editable đủ M01–M09: `libfile_baa4be84aea881919725caefd5384a1f`, SHA `9346c7b52bfa484ca3533fc43ad7eec44794450e9059a935c82323319e0f53d8`, 79,388,575 bytes; đã mở lại kiểm keys/positions/UV. Native geometry gate PASS cả 9: zero faces >90°, degenerates, UV-split separation và local non-adjacent intersections; nose h>=.378 bất biến. M03/M06 reuse bit-exact từ A4 qua frozen controls.
 
 Đang render grid chín miệng, mouth/clay và 35° bằng Cycles CPU. Đang kiểm nội thất riêng; chưa tuyên bố art/runtime/81-combo PASS. Chưa có route V4 hoặc iPhone preview.
+
+## Bản bàn giao MVP đã khóa trước WebGL2
+
+Bản mới nhất: `libfile_1bb6d576cea881918e57d5fd45792652`, filename `Golden-Mouth-V4-MVP-Nine-Presets.blend`, version 1. SHA `153b589728fe54dea3f5088f2cf637541fc29b41fb42afdde743658c2cd35e79`, 108170836 bytes. Đã mở lại kiểm Basis/V3/V32/M01 bit-exact, packed images/materials và driver một weight cho cả 9. Float eval sai số tối đa 1.863e-9; dữ liệu key lưu chính xác. Collection ẩn `V4_Original_Source_Backup` chứa đủ original 292645 vertices/499762 triangles và UV.
+
+Native chính: 292645 vertices/499207 triangles, cố định cho 9 pose, 555 face nội môi bỏ có chủ đích; không thay da mặt/môi ngoài. Cavity cuối là bowl concave riêng, margin nằm sau môi và parent head, không cố kéo fan qua boundary scan gấp. Đã kiểm all 9 cavity, teeth và tongue: zero tự giao/cắt da/thành phần crown. Tooth gap nhỏ và arch M08 thấp hơn để tránh chạm môi.
+
+M05/M09 chọn intensity .50/.60 của bản LP điều chỉnh, làm preset đầy đủ trước export, không blend cộng M01 ở runtime. Nhẹ hơn Golden, còn độ căng nhân trung nhỏ; phần polish để sau MVP. Không dùng direct-pout/corrective-smooth/inner harmonic thử nghiệm. Bảy pose còn lại giữ nguyên khi sửa hai pose này.
+
+Dữ liệu chính xác để phục hồi: `scripts/golden-mouth-v4/frozen-final-controls.npz` (absolute coordinates 7950 vertices x9; M01 vẫn từ checkpoint gốc). `recover_delivery.py` đã so sánh positions/faces/UV bit-exact với bản delivery.
+
+Asset web: 1597931 bytes, SHA `2548334bd96d6327ea5b56124b65589ae84f8777ac33a34852fe0a8d28b5ca1d`. Head có 9 target CPU sparse one-hot relative original Basis để giữ đúng 3 GPU morph controls V8. Interior có 9 GPU targets riêng. Đổi miệng không gọi eye API, không tạo actor/nạp GLB lại. V8 code/assets giữ nguyên.
+
+Cy­cles CPU 48 samples, 8 threads, denoising tắt: đủ grid front 9, mouth 9, clay 5 và 35° 4. Mắt trong Cycles là native tím. WebGL2/81-combo và Vercel hiện **PENDING**, chưa tuyên bố PASS hoặc physical iPhone acceptance.

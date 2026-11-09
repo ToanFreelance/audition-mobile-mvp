@@ -1,0 +1,179 @@
+{
+  "version": 4,
+  "vertices": 292645,
+  "triangles": 499207,
+  "removedInnerFoldTriangles": 555,
+  "affectedVertices": 8326,
+  "styles": [
+    {
+      "code": "M01",
+      "id": "natural",
+      "label": "Tự nhiên",
+      "key": "M01_Natural_V33",
+      "open": false,
+      "teeth": false,
+      "tongue": false,
+      "controls": {
+        "width": 1.0,
+        "upperOpen": 0,
+        "lowerOpen": 0,
+        "smile": 0,
+        "skew": 0,
+        "projection": 0
+      },
+      "cavity": true
+    },
+    {
+      "code": "M02",
+      "id": "soft-smile",
+      "label": "Mỉm cười",
+      "key": "M02_soft_smile",
+      "open": false,
+      "teeth": false,
+      "tongue": false,
+      "controls": {
+        "width": 1.12,
+        "upperOpen": 0,
+        "lowerOpen": 0,
+        "smile": 0.009,
+        "skew": 0,
+        "projection": 0
+      },
+      "cavity": true
+    },
+    {
+      "code": "M03",
+      "id": "bright-smile",
+      "label": "Cười rạng rỡ",
+      "key": "M03_bright_smile",
+      "open": true,
+      "teeth": true,
+      "tongue": true,
+      "controls": {
+        "width": 1.3,
+        "upperOpen": 0.006,
+        "lowerOpen": 0.03,
+        "smile": 0.012,
+        "skew": 0,
+        "projection": 0.001
+      },
+      "cavity": true
+    },
+    {
+      "code": "M04",
+      "id": "playful-smirk",
+      "label": "Tinh nghịch",
+      "key": "M04_playful_smirk",
+      "open": false,
+      "teeth": false,
+      "tongue": false,
+      "controls": {
+        "width": 1.04,
+        "upperOpen": 0,
+        "lowerOpen": 0,
+        "smile": 0.003,
+        "skew": 0.007,
+        "projection": 0
+      },
+      "cavity": true
+    },
+    {
+      "code": "M05",
+      "id": "cute-pout",
+      "label": "Chu môi",
+      "key": "M05_cute_pout",
+      "open": true,
+      "teeth": false,
+      "tongue": false,
+      "controls": {
+        "width": 0.68,
+        "upperOpen": 0.0012,
+        "lowerOpen": 0.0018,
+        "smile": 0,
+        "skew": 0,
+        "projection": 0.011
+      },
+      "cavity": true,
+      "authoredMVPIntensity": 0.5
+    },
+    {
+      "code": "M06",
+      "id": "surprised",
+      "label": "Ngạc nhiên",
+      "key": "M06_surprised",
+      "open": true,
+      "teeth": false,
+      "tongue": true,
+      "controls": {
+        "width": 0.5,
+        "upperOpen": 0.017,
+        "lowerOpen": 0.028,
+        "smile": 0,
+        "skew": 0,
+        "projection": 0.005
+      },
+      "cavity": true
+    },
+    {
+      "code": "M07",
+      "id": "shy",
+      "label": "Ngại ngùng",
+      "key": "M07_shy",
+      "open": false,
+      "teeth": false,
+      "tongue": false,
+      "controls": {
+        "width": 0.92,
+        "upperOpen": 0,
+        "lowerOpen": 0,
+        "smile": -0.002,
+        "skew": 0.001,
+        "projection": 0
+      },
+      "cavity": true
+    },
+    {
+      "code": "M08",
+      "id": "idol-smile",
+      "label": "Thần tượng",
+      "key": "M08_idol_smile",
+      "open": true,
+      "teeth": true,
+      "tongue": true,
+      "controls": {
+        "width": 1.2,
+        "upperOpen": 0.004,
+        "lowerOpen": 0.02,
+        "smile": 0.009,
+        "skew": 0,
+        "projection": 0.001
+      },
+      "cavity": true
+    },
+    {
+      "code": "M09",
+      "id": "blow-kiss",
+      "label": "Hôn gió",
+      "key": "M09_blow_kiss",
+      "open": true,
+      "teeth": false,
+      "tongue": false,
+      "controls": {
+        "width": 0.48,
+        "upperOpen": 0.002,
+        "lowerOpen": 0.003,
+        "smile": 0,
+        "skew": 0,
+        "projection": 0.02
+      },
+      "cavity": true,
+      "authoredMVPIntensity": 0.6
+    }
+  ],
+  "bytes": 1597931,
+  "sha256": "2548334bd96d6327ea5b56124b65589ae84f8777ac33a34852fe0a8d28b5ca1d",
+  "deltaBasis": "original GLB",
+  "headGpuEyeMorphSlots": 3,
+  "mouthTargetEvaluation": "CPU sparse, one-hot, independent of V8 GPU eyes",
+  "interiorGpuTargets": 9
+}

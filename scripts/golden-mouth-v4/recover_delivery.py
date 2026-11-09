@@ -1,0 +1,5 @@
+"""Exact recovery from locked input + committed sparse absolute authored coordinates."""
+from pathlib import Path
+import numpy as np,json,sys
+source,controls,out=map(Path,sys.argv[1:]);out.mkdir(parents=True,exist_ok=True);a=np.load(source);b=np.load(controls);p=a['Basis'];v=a['M01_Natural_V33'];assert len(p)==int(b['vertexCount'])==292645;q=np.repeat(v[None],9,axis=0);q[:,b['indices']]=b['positions'];assert np.array_equal(q[0],v);keep=np.ones(len(a['faces']),bool);keep[b['removed']]=False;f=a['faces'][keep];_,groups=np.unique(p,axis=0,return_inverse=True)
+np.savez_compressed(out/'poses.npz',basis=p,poses=q,faces=f,duplicates=np.array([],np.int64),upper=b['upper'],lower=b['lower'],groups=groups,source_faces=a['faces'],uv=a['uv'].reshape(-1,3,2)[keep].reshape(-1,2),sourceFaceIds=np.flatnonzero(keep),removedFoldFaceIds=b['removed']);(out/'catalog.json').write_bytes(b['catalog'].tobytes());(out/'topology.json').write_bytes(b['topology'].tobytes());print(json.dumps({'recovered':str(out),'M01Exact':True,'vertices':len(p),'triangles':len(f),'styles':9}))
