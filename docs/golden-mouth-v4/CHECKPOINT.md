@@ -30,3 +30,19 @@ M03 có opening/răng thật nhưng vùng khóe còn kéo mạnh. M06 hiện hì
 Artifact `libfile_52eef0c822e0819192b2676feb909a4d`, SHA `baae646af193c10e898f118b6b76bbdfa09b209256cf7cb33f6c840a809e013e`; đã mở lại/render và validate. M01 bất biến. Native Laplacian Deform trên mô đỡ, 7699 vertices trong bản sao authoring, không thay da runtime. Normal transport theo rotation bề mặt sửa discontinuity do thay normals theo mask.
 
 Validation A3 phát hiện M03 47 / M06 52 cặp giao cắt tại nếp scan bên trong môi; chưa PASS. A4 dùng correction dọc seam liên tục giảm còn 22/49. Đang unroll đúng strip inner-lining geodesic <.006, giữ seam và outer lip làm biên; không smoothing da/môi ngoài, không đổi M01. Cần xác minh giao cắt bằng BVH trước nhóm B.
+
+## Checkpoint A — giải pháp cuối đã qua geometry và render MVP
+
+Native scan không có aperture. Giữ toàn bộ tam giác dẫn tới folded lining tự giao nhau; unroll harmonic thử nghiệm cũng không đạt, không dùng trong pipeline cuối. Giải pháp tối thiểu là bỏ 555 triangles ở dải nội môi cách seam geodesic <.001, không thay da/môi ngoài. Giữ đúng 292645 vertices, Basis và toàn bộ tọa độ M01; các mặt còn lại giữ connectivity/UV nguồn. Outer mesh chung còn 499207 triangles; một boundary loop manifold 137 vertices nối cavity thực. Không thêm vertices da hoặc dùng patch ellipse.
+
+M01/M03/M06 đã mở lại validate: zero face >90°, zero degenerates, zero local non-adjacent intersections, UV split separation=0, nose=0. Renders front/cận/35/clay thật xác nhận opening/teeth. M01 chỉ có thay đổi topology nội môi, không sculpt lại; volume/coordinates giữ nguyên.
+
+Hai pose M03/M06 đã đóng băng tuyệt đối trong `scripts/golden-mouth-v4/validated-open-controls.npz` (sparse absolute coordinates, không delta chồng M01). Có thể phục hồi bằng `sculpt_support.py --reuse-controls` từ Git; không cần giữ file NPZ lớn ở scratch. Nhóm B dùng đúng pose này.
+
+## Nhóm B — đủ chín shape keys đã lưu trước QA đắt
+
+A validated: `libfile_57beccc7ad6c8191b56a24f764cd2c2c`.
+
+B editable đủ M01–M09: `libfile_baa4be84aea881919725caefd5384a1f`, SHA `9346c7b52bfa484ca3533fc43ad7eec44794450e9059a935c82323319e0f53d8`, 79,388,575 bytes; đã mở lại kiểm keys/positions/UV. Native geometry gate PASS cả 9: zero faces >90°, degenerates, UV-split separation và local non-adjacent intersections; nose h>=.378 bất biến. M03/M06 reuse bit-exact từ A4 qua frozen controls.
+
+Đang render grid chín miệng, mouth/clay và 35° bằng Cycles CPU. Đang kiểm nội thất riêng; chưa tuyên bố art/runtime/81-combo PASS. Chưa có route V4 hoặc iPhone preview.

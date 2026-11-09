@@ -1,11 +1,15 @@
 """Build editable native-head keys plus attached interior, without replacing facial skin."""
 import bpy,numpy as np,sys,json,hashlib
 from pathlib import Path
-src,folder=map(Path,sys.argv[sys.argv.index('--')+1:]);a=np.load(folder/'poses.npz');styles=json.loads((folder/'catalog.json').read_text());bpy.ops.wm.open_mainfile(filepath=str(src));o=bpy.data.objects['node_0'];old=o.data;n=len(old.vertices);du=a['duplicates'];f=a['faces'];base=a['basis'];poses=a['poses'];groups=a['groups'];oldkeys={}
+src,folder=map(Path,sys.argv[sys.argv.index('--')+1:]);assert hashlib.sha256(src.read_bytes()).hexdigest()=='7fdc16e00012f785c76dba9d88700e7139b0e36c85f302d7a0dd0940508bcb8a';a=np.load(folder/'poses.npz');styles=json.loads((folder/'catalog.json').read_text());bpy.ops.wm.open_mainfile(filepath=str(src));o=bpy.data.objects['node_0'];old=o.data;n=len(old.vertices);du=a['duplicates'];f=a['faces'];base=a['basis'];poses=a['poses'];groups=a['groups'];oldkeys={}
 for key in old.shape_keys.key_blocks:
  p=np.empty((n,3),np.float32);key.data.foreach_get('co',p.ravel());oldkeys[key.name]=np.r_[p,p[du]]
+assert np.array_equal(oldkeys['Basis'],base) and np.array_equal(oldkeys['M01_Natural_V33'],poses[0])
 # Preserve original imported material/image datablocks and all loop UVs.
-oldloops=np.empty((len(old.loops),3),np.float32);old.corner_normals.foreach_get('vector',oldloops.ravel());bpy.context.view_layer.update();ev=o.evaluated_get(bpy.context.evaluated_depsgraph_get());em=ev.to_mesh();m01loops=np.empty_like(oldloops);em.corner_normals.foreach_get('vector',m01loops.ravel());ev.to_mesh_clear();m=bpy.data.meshes.new('V4_NativeHead_SeamSplit');m.from_pydata(base.tolist(),[],f.tolist());m.materials.clear()
+oldloops=np.empty((len(old.loops),3),np.float32);old.corner_normals.foreach_get('vector',oldloops.ravel());bpy.context.view_layer.update();ev=o.evaluated_get(bpy.context.evaluated_depsgraph_get());em=ev.to_mesh();m01loops=np.empty_like(oldloops);em.corner_normals.foreach_get('vector',m01loops.ravel());ev.to_mesh_clear()
+if 'sourceFaceIds' in a:
+ oldloops=oldloops.reshape(-1,3,3)[a['sourceFaceIds']].reshape(-1,3);m01loops=m01loops.reshape(-1,3,3)[a['sourceFaceIds']].reshape(-1,3)
+m=bpy.data.meshes.new('V4_NativeHead_OralSlit');m.from_pydata(base.tolist(),[],f.tolist());m.materials.clear()
 for mat in old.materials:m.materials.append(mat)
 m.uv_layers.new(name=old.uv_layers.active.name).data.foreach_set('uv',a['uv'].ravel());m.polygons.foreach_set('use_smooth',np.ones(len(f),bool));o.data=m
 for name,p in oldkeys.items():key=o.shape_key_add(name=name);key.data.foreach_set('co',p.ravel());key.value=0
@@ -23,7 +27,6 @@ def meshpart(name,points,faces,mat):
  mm=bpy.data.meshes.new(name);mm.from_pydata(np.asarray(points).tolist(),[],np.asarray(faces).tolist());mm.materials.append(mat);mm.polygons.foreach_set('use_smooth',np.ones(len(faces),bool));ob=bpy.data.objects.new(name,mm);bpy.context.collection.objects.link(ob);ob.parent=o;ob.hide_render=True;parts[name]=ob;return ob
 upper=a['upper'];lower=a['lower'];loop=np.r_[upper,lower[-2:0:-1]];L=len(loop);openindex=next(i for i,s in enumerate(styles) if s['code']=='M03');cavposes=[];cf=[]
 for q,st in zip(poses,styles):
- if not st['open']:q=poses[openindex]
  rim=q[loop];center=np.array([0,(rim[:,1].max()+rim[:,1].min())*.5,float(rim[:,2].mean()-.05)]);vv=[]
  for scale,depth in [(1,0),(.995,.004),(.92,.013),(.76,.030),(.45,.047)]:
   r=rim.copy();r[:,:2]=center[:2]+(r[:,:2]-center[:2])*scale;r[:,2]-=depth;vv.extend(r)

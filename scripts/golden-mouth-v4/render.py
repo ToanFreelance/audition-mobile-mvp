@@ -18,6 +18,6 @@ for job in jobs:
   part=bpy.data.objects[name]
   for key in part.data.shape_keys.key_blocks:key.value=0
   part.data.shape_keys.key_blocks[code].value=1
-  part.hide_render=not(st['open'] if name=='V4_Cavity' else st['teeth'] if name in ['V4_UpperTeeth','V4_Gum'] else st['tongue'])
+  part.hide_render=not(st.get('cavity',st['open']) if name=='V4_Cavity' else st['teeth'] if name in ['V4_UpperTeeth','V4_Gum'] else st['tongue'])
  angle,height,scale={'front':(0,.51,.94),'left35':(-35,.51,.94),'right35':(35,.51,.94),'mouth':(0,.335,.24),'clay':(0,.335,.24),'close35':(35,.335,.25),'profile':(90,.51,.94)}[view];yaw=math.radians(angle);s.camera.location=(1.9*math.sin(yaw),-1.9*math.cos(yaw),height);s.camera.rotation_euler=(Vector((0,0,height))-s.camera.location).to_track_quat('-Z','Y').to_euler();s.camera.data.ortho_scale=scale;s.view_layers[0].material_override=bpy.data.materials['NeutralClay'] if view=='clay' else None
  out=folder/'renders';out.mkdir(exist_ok=True);s.render.filepath=str(out/(code+'-'+view+'.png'));bpy.context.view_layer.update();bpy.ops.render.render(write_still=True)

@@ -1,0 +1,15 @@
+{
+  "sourceVertices": 292645,
+  "sourceTriangles": 499762,
+  "retainedVertices": 292645,
+  "retainedTriangles": 499207,
+  "removedInnerFoldTriangles": 555,
+  "removedOuterSkinReplacement": 0,
+  "addedOuterLipSkinMeshes": 0,
+  "geodesicStripRadius": 0.001,
+  "boundaryVertices": 137,
+  "boundaryManifold": true,
+  "M01CoordinatesExact": true,
+  "seamSplitAppendVerticesRequiredInFinal": 0,
+  "minimumNecessarySolution": "remove closed scan inner fold only; exact native rim attached to mouth interior"
+}
