@@ -1,0 +1,42 @@
+{
+  "lower_core": {
+    "vertices": 1928,
+    "maxDeltaXYZ": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "meanDisplacement": 0.0
+  },
+  "lower_support": {
+    "vertices": 610,
+    "maxDeltaXYZ": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "meanDisplacement": 0.0
+  },
+  "upper_perioral": {
+    "vertices": 285,
+    "maxDeltaXYZ": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "meanDisplacement": 0.0
+  },
+  "lateral_support": {
+    "vertices": 370,
+    "maxDeltaXYZ": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "meanDisplacement": 0.0
+  },
+  "lowerOutsideCoreEdited": {
+    "vertices": 48,
+    "maxDisplacement": 0.0008376836776733398
+  }
+}

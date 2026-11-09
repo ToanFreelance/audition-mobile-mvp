@@ -1,0 +1,86 @@
+{
+  "definition": {
+    "IPD": 0.24,
+    "IPDSource": "accepted V8 eyeCenter.x=.12, natural gaze=0; eye assets unchanged",
+    "mouthLandmarks": [
+      247298,
+      239979
+    ],
+    "faceWidthPlane": 0.334,
+    "lowerFaceWidthPlane": 0.3,
+    "noseHeightReference": 0.386,
+    "chinHeightReference": 0.25,
+    "noseChinReferenceNote": "Height references picked from aligned front render (~480/590px), not asserted anatomical boundaries; ~2px uncertainty."
+  },
+  "v32": {
+    "mouthWidth": 0.09000606089830399,
+    "widthOverIPD": 0.3750252537429333,
+    "facialWidthAtMouth": 0.3554016947746277,
+    "widthOverFace": 0.25325163673003837,
+    "lowerFaceWidth": 0.2767750024795532,
+    "widthOverLowerFace": 0.32519577307185893,
+    "seamHeight": 0.33497485518455505,
+    "noseToSeamOverNoseToChin": 0.37518488834885994
+  },
+  "v33_selected": {
+    "mouthWidth": 0.09000606089830399,
+    "widthOverIPD": 0.3750252537429333,
+    "facialWidthAtMouth": 0.3554016947746277,
+    "widthOverFace": 0.25325163673003837,
+    "lowerFaceWidth": 0.2767750024795532,
+    "widthOverLowerFace": 0.32519577307185893,
+    "seamHeight": 0.33497485518455505,
+    "noseToSeamOverNoseToChin": 0.37518488834885994
+  },
+  "wide_probe": {
+    "mouthWidth": 0.09450636059045792,
+    "widthOverIPD": 0.3937765024602413,
+    "facialWidthAtMouth": 0.3554016947746277,
+    "widthOverFace": 0.26591420913281694,
+    "lowerFaceWidth": 0.2767750024795532,
+    "widthOverLowerFace": 0.3414555496117811,
+    "seamHeight": 0.33497485518455505,
+    "noseToSeamOverNoseToChin": 0.37518488834885994
+  },
+  "visibleColoredLipProxy": {
+    "input": "actual albedo emission, orthographic .13, 680x760",
+    "criteria": "R-G>80 and G>115, ROI x40..639/y435..574",
+    "pixelWidth": 535,
+    "modelWidth": 0.09151315789473684,
+    "overIPD": 0.3813048245614035,
+    "limitation": "Color-threshold proxy includes lateral pigment and is not an anatomical vermilion segmentation; approximate width only."
+  },
+  "Golden2D": {
+    "pupilPixels": [
+      [
+        156,
+        315
+      ],
+      [
+        276,
+        315
+      ]
+    ],
+    "cornersPixels": [
+      [
+        195,
+        405
+      ],
+      [
+        239,
+        405
+      ]
+    ],
+    "nosePixels": [
+      217,
+      378
+    ],
+    "chinPixels": [
+      217,
+      450
+    ],
+    "widthOverIPD": 0.36666666666666664,
+    "noseToSeamOverNoseToChin": 0.3888888888888889,
+    "uncertainty": "~1\u20132px at mouth, ~2px at pupils; no 3D depth inferred."
+  }
+}
