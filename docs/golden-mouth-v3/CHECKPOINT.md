@@ -42,3 +42,21 @@ Phải kiểm tra công cụ thực chạy được, sau đó clay/front mới �
 
 Chỉ một lượt đầu + một lượt correction nếu có triển vọng. Nếu vẫn pinch/crease,
 dừng Visual FAIL, giữ V2 preview. Không làm preset khác hoặc sửa kiến trúc.
+
+## Stage B — trước render
+
+Công cụ Blender Laplacian Deform đã bind và solve thật, 6891 đỉnh working copy;
+head gốc vẫn 292645/499762. Tạo M01_Natural_V3 từ import mới. 14 cụm landmark,
+1385 boundary pins. Geometry có 2 tam giác đổi hướng >90° cần kiểm tra; chưa PASS.
+Không dùng smoothing hoặc fit mặt thay thế. Tệp .blend lưu cả solver copy ẩn và
+marker điều khiển; copy này không render/export như một phần mặt.
+
+```
+blender --background --factory-startup --threads 8 --python-exit-code 1 \
+ --python scripts/golden-mouth-v3/sculpt_m01.py -- \
+ --source /path/Female_anime_origin.glb \
+ --controls scripts/golden-mouth-v3/landmarks.json --output /path/iteration-01
+blender --background --threads 8 --python-exit-code 1 \
+ --python scripts/golden-mouth-v3/render_native.py -- \
+ /path/iteration-01/M01-Natural-V3.blend /path/iteration-01 clay front mouth
+```
