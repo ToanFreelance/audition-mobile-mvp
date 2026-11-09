@@ -21,7 +21,9 @@ proxy_mesh=bpy.data.meshes.new('NativeSurface_SolverMesh');proxy_mesh.from_pydat
 proxy.matrix_world=head.matrix_world.copy();anchors=proxy.vertex_groups.new(name='Anchor');anchors.add(np.flatnonzero(pinned).tolist(),1,'REPLACE');target=vp.copy();occupied=pinned.copy();landmarks=[]
 for h in cfg['handles']:
  c=p[h['vertex']];dist=np.linalg.norm(vp-c,axis=1);selected=(dist<h['radius'])&(~occupied);ids=np.flatnonzero(selected);assert len(ids)>0,h['name']
- delta=np.zeros(3) if h.get('pin') else np.array(h['target'])-c;target[ids]+=delta;occupied[ids]=True;anchors.add(ids.tolist(),1,'REPLACE')
+ delta=np.zeros(3) if h.get('pin') else np.array(h['target'])-c;
+ angle=math.radians(h.get('rotate_depth_degrees',0));rot=np.array([[math.cos(angle),-math.sin(angle),0],[math.sin(angle),math.cos(angle),0],[0,0,1]])
+ target[ids]=(vp[ids]-c)@rot.T+c+delta;occupied[ids]=True;anchors.add(ids.tolist(),1,'REPLACE')
  vg=proxy.vertex_groups.new(name=h['name']);vg.add(ids.tolist(),1,'REPLACE')
  # Preserve editing handles in the .blend for later human/interactive sculpting.
  marker=bpy.data.objects.new(h['name']+'_target',None);bpy.context.scene.collection.objects.link(marker);marker.empty_display_type='SPHERE';marker.empty_display_size=.002;marker.location=head.matrix_world@Vector(c+delta);marker.hide_render=True

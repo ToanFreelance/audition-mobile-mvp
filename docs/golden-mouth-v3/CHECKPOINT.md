@@ -60,3 +60,13 @@ blender --background --threads 8 --python-exit-code 1 \
  --python scripts/golden-mouth-v3/render_native.py -- \
  /path/iteration-01/M01-Natural-V3.blend /path/iteration-01 clay front mouth
 ```
+
+## Stage C — correction đã lưu, trước gate cuối
+
+Iteration 01 .blend đã lưu Library: libfile_47e38d51d09881919608f59bf2735d9f.
+Đã mở lại kiểm: Basis = GLB gốc, UV/connectivity đúng, hai keys; chỉ head render.
+Iteration 02 dùng `landmarks-correction.json`, cùng script và GLB gốc. Không stack
+lên iteration 01. Công cụ quay cụm khóe ±25° và thêm guard seam bên trong.
+Còn 1 tam giác quay hơn 90° (dot≈−.0435), chưa bỏ qua; chưa visual PASS.
+Lệnh tái tạo như Stage B, thay controls bằng landmarks-correction.json, output iteration-02.
+Chỉ còn gate/render/report; không thử iteration 03.

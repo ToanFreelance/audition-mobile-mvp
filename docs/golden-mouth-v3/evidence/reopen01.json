@@ -1,0 +1,19 @@
+{
+  "sourceSHA256": "b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90",
+  "blendSHA256": "cf8dcfa3f2a68a87a73e6207afd8aa85788735db67434af7c1fd1bdaa29a45f3",
+  "bytes": 52116710,
+  "blender": "4.3.2",
+  "BasisEqualsOriginalGLB": true,
+  "connectivityEqualsOriginalGLB": true,
+  "uvEqualsOriginalGLB": true,
+  "keys": [
+    "Basis",
+    "M01_Natural_V3"
+  ],
+  "vertices": 292645,
+  "triangles": 499762,
+  "packedImages": 3,
+  "visibleMeshObjects": [
+    "node_0"
+  ]
+}
