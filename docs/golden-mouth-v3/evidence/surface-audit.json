@@ -1,0 +1,231 @@
+{
+  "status": "VISUAL_FAIL_NOT_RUNTIME_ASSET",
+  "vertices": 292645,
+  "triangles": 499762,
+  "changedVertices": 5956,
+  "finite": true,
+  "affectedTriangles": 11311,
+  "affectedDegenerateTriangles": 0,
+  "areaRatio": {
+    "p50": 0.9555512748690652,
+    "p95": 1.286619954250619,
+    "p99": 1.4126400742635228,
+    "max": 4.333372667130261
+  },
+  "minimumAreaRatio": 0.36554693480323297,
+  "adjacentFaceAngleDegreesOriginal": {
+    "p50": 1.432911461935056,
+    "p95": 9.249980075941822,
+    "p99": 33.50460183766203,
+    "max": 104.7606274680275
+  },
+  "adjacentFaceAngleDegreesV3": {
+    "p50": 1.4135912949408185,
+    "p95": 12.03684664811795,
+    "p99": 38.04849918868433,
+    "max": 161.2447160993005
+  },
+  "absoluteAdjacentAngleChangeDegrees": {
+    "p50": 0.4917693071705058,
+    "p95": 3.9933866959901696,
+    "p99": 9.813749993192744,
+    "max": 114.85656908087518
+  },
+  "facesTurnedOver90": [
+    {
+      "face": 411680,
+      "vertices": [
+        246960,
+        247541,
+        247548
+      ],
+      "originalCenter": [
+        -0.020459333434700966,
+        0.335685670375824,
+        0.24679966767628989
+      ],
+      "normalDot": -0.043537276111238754,
+      "originalArea": 1.8870653707948085e-08,
+      "sculptArea": 7.846232140147278e-08
+    }
+  ],
+  "landmarks": {
+    "leftCorner": {
+      "vertex": 247298,
+      "original": [
+        -0.05153200030326843,
+        0.34550198912620544,
+        0.24210600554943085
+      ],
+      "V3": [
+        -0.044872429221868515,
+        0.3342899680137634,
+        0.24456444382667542
+      ],
+      "normalDisplacement": 0.011671697001659598,
+      "tangentDisplacement": 0.006314643360860307
+    },
+    "rightCorner": {
+      "vertex": 239979,
+      "original": [
+        0.05166200175881386,
+        0.345223993062973,
+        0.2419700026512146
+      ],
+      "V3": [
+        0.044854480773210526,
+        0.33429720997810364,
+        0.2445688396692276
+      ],
+      "normalDisplacement": 0.0116390818477905,
+      "tangentDisplacement": 0.0060846241487379485
+    },
+    "seam": {
+      "vertex": 247593,
+      "original": [
+        0.0003640000068116933,
+        0.3345629870891571,
+        0.2514899969100952
+      ],
+      "V3": [
+        0.000383036705898121,
+        0.33524295687675476,
+        0.2510162591934204
+      ],
+      "normalDisplacement": 0.00014780799162305278,
+      "tangentDisplacement": 0.0008156601803613164
+    },
+    "upperCenter": {
+      "vertex": 243775,
+      "original": [
+        -4.8999998398358e-05,
+        0.3514229953289032,
+        0.2732279896736145
+      ],
+      "V3": [
+        8.888142474461347e-06,
+        0.34535667300224304,
+        0.2655060887336731
+      ],
+      "normalDisplacement": -0.009341580854038535,
+      "tangentDisplacement": 0.003027581656806979
+    },
+    "cupidL": {
+      "vertex": 243576,
+      "original": [
+        -0.009948999620974064,
+        0.35917899012565613,
+        0.2719680070877075
+      ],
+      "V3": [
+        -0.009693673811852932,
+        0.35121244192123413,
+        0.2665397822856903
+      ],
+      "normalDisplacement": -0.005913289738927806,
+      "tangentDisplacement": 0.007617723641580469
+    },
+    "cupidR": {
+      "vertex": 243582,
+      "original": [
+        0.009522000327706337,
+        0.35917899012565613,
+        0.27191299200057983
+      ],
+      "V3": [
+        0.009664629586040974,
+        0.3512142300605774,
+        0.26649489998817444
+      ],
+      "normalDisplacement": -0.0060976117065366185,
+      "tangentDisplacement": 0.007458726400946591
+    },
+    "lowerCenter": {
+      "vertex": 239703,
+      "original": [
+        -0.0010389999952167273,
+        0.3189550042152405,
+        0.2543489933013916
+      ],
+      "V3": [
+        -0.0010897014290094376,
+        0.3244721293449402,
+        0.24951834976673126
+      ],
+      "normalDisplacement": -0.006124327601250003,
+      "tangentDisplacement": 0.004033481131154935
+    },
+    "lowerBorder": {
+      "vertex": 244284,
+      "original": [
+        -0.00013099999341648072,
+        0.3088639974594116,
+        0.23696300387382507
+      ],
+      "V3": [
+        -0.00012962384789716452,
+        0.3159520924091339,
+        0.23695692420005798
+      ],
+      "normalDisplacement": -0.0061964660403562855,
+      "tangentDisplacement": 0.003441646937098273
+    },
+    "philtrum": {
+      "vertex": 243821,
+      "original": [
+        -4.8999998398358e-05,
+        0.3811210095882416,
+        0.28105801343917847
+      ],
+      "V3": [
+        -5.135379615239799e-05,
+        0.38120314478874207,
+        0.2811085879802704
+      ],
+      "normalDisplacement": -3.785745775459413e-05,
+      "tangentDisplacement": 8.874868232942729e-05
+    },
+    "labiomental": {
+      "vertex": 239816,
+      "original": [
+        0.0008590000215917826,
+        0.2904520034790039,
+        0.22634300589561462
+      ],
+      "V3": [
+        0.0008599303546361625,
+        0.29039549827575684,
+        0.226348415017128
+      ],
+      "normalDisplacement": 1.6073344271938614e-05,
+      "tangentDisplacement": 5.4448229805718926e-05
+    }
+  },
+  "modelIPDEstimate": 0.2399473684210526,
+  "originalProportions": {
+    "widthOverIPD": 0.43006932203982534,
+    "cornerElevationOverIPD": 0.04500988727861603,
+    "cupidPeakToSeamOverIPD": 0.10258917694526903,
+    "seamToLowerBorderOverIPD": 0.10710261087193776,
+    "lowerVolumeDepth": 0.2543489933013916
+  },
+  "V3Proportions": {
+    "widthOverIPD": 0.3739441302712222,
+    "cornerElevationOverIPD": -0.003956567171661183,
+    "cupidPeakToSeamOverIPD": 0.06655784232701668,
+    "seamToLowerBorderOverIPD": 0.08039623270120556,
+    "lowerVolumeDepth": 0.24951834976673126
+  },
+  "notes": [
+    "Face-angle metrics are discrete curvature indicators, not proof of smooth anatomy.",
+    "A rotated face is a warning; this audit does not establish self-intersection-free geometry.",
+    "Lip surface landmarks are not equivalent to painted vermilion borders.",
+    "Golden frontal illustration provides no authoritative 3D projection measurement."
+  ],
+  "nearNoseConservationProbe": {
+    "mask": "height>.38, abs(x)<.02, depth>.28",
+    "changed": 135,
+    "maxDisplacement": 0.00022025579720402115,
+    "note": "Regional probe, not a complete anatomical nose segmentation; do not claim exact nose invariance."
+  }
+}

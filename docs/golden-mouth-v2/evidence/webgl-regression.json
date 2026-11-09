@@ -1,0 +1,49 @@
+{
+  "pass": true,
+  "physicalIPhone": "NOT_TESTED",
+  "hardwareGPU": false,
+  "browser": "157.0.8103.38",
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "webglVersion": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+  "eyeMouthSelections": 18,
+  "originalRestored": {
+    "vertices": 292645,
+    "triangles": 499762,
+    "hash": "d3aa7b21f8712cbcd57662dea8686c861e4c00cd24aeb9d240c6a1cd6931b61a",
+    "normal": "f8e9b4d4e479f869878e084aa85bc5a5461d3f48c23734bbfc94fcb3d6683c99"
+  },
+  "loads": 1,
+  "programs": [
+    {
+      "linked": true
+    },
+    {
+      "linked": true
+    },
+    {
+      "linked": true
+    },
+    {
+      "linked": true
+    },
+    {
+      "linked": true
+    },
+    {
+      "linked": true
+    },
+    {
+      "linked": true
+    }
+  ],
+  "shaderChecks": {
+    "pixelRange": [
+      215,
+      244
+    ],
+    "error": 0
+  },
+  "errors": [],
+  "geometryIdStable": true,
+  "eyeWeightsPreserved": true
+}

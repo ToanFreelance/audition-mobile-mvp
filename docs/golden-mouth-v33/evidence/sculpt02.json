@@ -1,0 +1,23 @@
+{
+  "rightArtifactFaces": [
+    398187,
+    397282,
+    398287,
+    398285
+  ],
+  "rightArtifactVertices": [
+    239233,
+    239234,
+    239235,
+    239237,
+    239338,
+    239339
+  ],
+  "repairMaxDisplacement": 0.0008376849218472547,
+  "lowerProtectedCount": 1928,
+  "lowerMaxDelta": 0.0,
+  "changedFromV32": 842,
+  "maxDisplacement": 0.0010761728044599295,
+  "method": "local upper roll/Cupid controls plus constrained quadratic right-skin repair",
+  "status": "PENDING_VISUAL"
+}

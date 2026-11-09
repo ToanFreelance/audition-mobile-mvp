@@ -1,0 +1,46 @@
+{
+  "blender": "4.3.2",
+  "sourceSHA256": "b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90",
+  "blendSHA256": "7fdc16e00012f785c76dba9d88700e7139b0e36c85f302d7a0dd0940508bcb8a",
+  "blendBytes": 57896132,
+  "keys": [
+    "Basis",
+    "M01_Natural_V3",
+    "M01_Natural_V32",
+    "M01_Natural_V33"
+  ],
+  "vertices": 292645,
+  "triangles": 499762,
+  "sourceBasisTopologyUVExact": true,
+  "priorShapeKeysExact": true,
+  "texturesMaterialsUnchanged": true,
+  "noseCount": 195239,
+  "noseMaxDelta": 0.0,
+  "UVSplitSpreadXYZ": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "lowerProtectedCount": 1928,
+  "lowerMaxDeltaXYZ": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "lowerSupportCount": 610,
+  "lowerSupportMaxDeltaXYZ": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "widthProbe": false,
+  "facesOver90": 0,
+  "minimumNormalDot": 0.6725126932664508,
+  "degenerateAffected": 0,
+  "badFaces": [],
+  "V32IntersectionPairs": 0,
+  "candidateIntersectionPairs": 0,
+  "introducedIntersectionPairs": [],
+  "artifactAngle397282_398187": 47.99250207373139,
+  "collisionScope": "native perioral abs(x)<.11, .275<h<.40, z>.18; excludes adjacent/UV duplicate vertices"
+}

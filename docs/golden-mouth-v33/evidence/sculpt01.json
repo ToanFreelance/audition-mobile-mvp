@@ -1,0 +1,8 @@
+{
+  "method": "one-pass upper-surface moving quadratic fit, seam-safe, local normal direction",
+  "changed": 707,
+  "maxDisplacement": 0.000238893655478023,
+  "lowerLocked": 1928,
+  "lowerMaxDelta": 0.0,
+  "status": "PENDING_VISUAL"
+}

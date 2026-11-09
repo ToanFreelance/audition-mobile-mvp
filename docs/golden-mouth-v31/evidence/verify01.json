@@ -1,0 +1,33 @@
+{
+  "BasisExact": true,
+  "V3Exact": true,
+  "topologyExact": true,
+  "UVExact": true,
+  "packedTexturesExact": true,
+  "noseMaskCount": 195239,
+  "noseMaxDelta": 0.0,
+  "facesOver90": 0,
+  "minimumDot": 0.42252513097352873,
+  "seamFaceDot": 1.0,
+  "degenerateAffected": 0,
+  "BasisIntersectionPairs": 0,
+  "V3IntersectionPairs": 5,
+  "V31IntersectionPairs": 1,
+  "remainingPairs": [
+    {
+      "faces": [
+        397033,
+        397043
+      ],
+      "center": [
+        0.020401667803525925,
+        0.33597198128700256,
+        0.24668265879154205
+      ]
+    }
+  ],
+  "introducedIntersectionPairs": [],
+  "collisionScope": "native perioral triangles; excludes adjacency and coincident UV vertices, epsilon 0",
+  "blendSHA256": "7b4d08aac92ced480c6f9165dfeedb53ea20ca0e691b12ebacec785569ab9d7f",
+  "bytes": 55132132
+}

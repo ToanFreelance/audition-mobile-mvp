@@ -1,0 +1,13 @@
+{
+  "vertices": 292645,
+  "triangles": 499762,
+  "changedVertices": 6025,
+  "touchedTriangles": 11465,
+  "nonfiniteVertices": 0,
+  "unchangedOutsideSupport": true,
+  "reversedAffectedFaceNormals": 0,
+  "minimumAffectedFaceNormalDot": 0.7903397679328918,
+  "minimumAffectedAreaRatio": 0.3680403530597687,
+  "indexAndUV": "unchanged by construction; runtime source restore separately verified",
+  "packageSHA256": "58116b33b7469bf962299a5584d50cbb4f6f600460cca856a421e102d5402cd3"
+}

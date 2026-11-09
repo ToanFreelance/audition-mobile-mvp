@@ -1,0 +1,55 @@
+{
+  "blender": "4.3.2",
+  "sourceSHA256": "b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90",
+  "blendSHA256": "c376b547113b884a1591b822243ed3cee39f0d5191d379c71e48427e72edc397",
+  "sourceVertices": 292645,
+  "workingVertices": 292645,
+  "triangles": 499207,
+  "deletedSkinFaces": 0,
+  "BasisExact": true,
+  "UVExact": true,
+  "sourcePrefixPreserved": true,
+  "noseProtectedCount": 195239,
+  "collisionScope": "perioral abs(x)<.14, .235<h<.39, z>.17, excludes common physical/UV coordinates",
+  "poses": [
+    {
+      "code": "M01",
+      "keyExactOnReopen": true,
+      "facesOver90": 0,
+      "minNormalDot": 0.6725126932664508,
+      "degenerate": 0,
+      "UVSplitMaxSeparation": 0.0,
+      "noseMaxDisplacement": 0.0,
+      "nonAdjacentIntersections": 0,
+      "intersectionFaces": [],
+      "mouthApertureCenter": 0.001203685998916626
+    },
+    {
+      "code": "M03",
+      "keyExactOnReopen": true,
+      "facesOver90": 0,
+      "minNormalDot": 0.03485458131410479,
+      "degenerate": 0,
+      "UVSplitMaxSeparation": 0.0,
+      "noseMaxDisplacement": 0.0,
+      "nonAdjacentIntersections": 0,
+      "intersectionFaces": [],
+      "mouthApertureCenter": 0.037263959646224976
+    },
+    {
+      "code": "M06",
+      "keyExactOnReopen": true,
+      "facesOver90": 0,
+      "minNormalDot": 0.011173592976226658,
+      "degenerate": 0,
+      "UVSplitMaxSeparation": 0.0,
+      "noseMaxDisplacement": 0.0,
+      "nonAdjacentIntersections": 0,
+      "intersectionFaces": [],
+      "mouthApertureCenter": 0.04608467221260071
+    }
+  ],
+  "sourceTriangles": 499762,
+  "removedInnerFoldFaces": 555,
+  "geometryPass": true
+}

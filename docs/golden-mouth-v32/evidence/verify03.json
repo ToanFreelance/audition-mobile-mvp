@@ -1,0 +1,35 @@
+{
+  "blender": "4.3.2",
+  "sourceSHA256": "b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90",
+  "blendSHA256": "cd53bb6d1fd7d0178300958d47c73511fc253e7a68b8fc57aad5ebd5345401c7",
+  "blendBytes": 55134315,
+  "keys": [
+    "Basis",
+    "M01_Natural_V3",
+    "M01_Natural_V32"
+  ],
+  "vertices": 292645,
+  "triangles": 499762,
+  "BasisEqualsSource": true,
+  "V3Unchanged": true,
+  "connectivityEqualsSource": true,
+  "UVEqualsSource": true,
+  "texturesAndMaterialIdentityUnchanged": true,
+  "noseMaskVertices": 195239,
+  "noseMaxDelta": 0.0,
+  "UVSplitSpreadXYZ": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "facesOver90": 0,
+  "minimumNormalDot": 0.6559148200915117,
+  "seamFace411680Dot": 0.9680909032241172,
+  "degenerateAffected": 0,
+  "badFaces": [],
+  "V3IntersectionPairs": 5,
+  "candidateIntersectionPairs": 0,
+  "introducedIntersectionPairs": [],
+  "remainingIntersections": [],
+  "collisionScope": "native perioral abs(x)<.11, .275<height<.40, depth>.18; excludes adjacent triangles and source UV duplicates, epsilon 0"
+}

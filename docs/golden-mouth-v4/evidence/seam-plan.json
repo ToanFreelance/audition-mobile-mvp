@@ -1,0 +1,24 @@
+{
+  "sourceVertices": 292645,
+  "sourceTriangles": 499762,
+  "seamPathVertices": 77,
+  "appendedVertices": 95,
+  "workingVertices": 292740,
+  "workingTriangles": 499762,
+  "rewiredFaces": 188,
+  "deletedSkinFaces": 0,
+  "sourcePositionsPreserved": true,
+  "sourceFaceWindingPreserved": true,
+  "closedM01CoincidenceExact": true,
+  "left": [
+    -0.045011006295681,
+    0.3341018855571747,
+    0.24804960191249847
+  ],
+  "right": [
+    0.044995054602622986,
+    0.3341067433357239,
+    0.24805904924869537
+  ],
+  "method": "edge-path fan separation; no skin patch/face removal"
+}

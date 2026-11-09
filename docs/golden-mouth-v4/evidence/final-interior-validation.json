@@ -1,0 +1,187 @@
+[
+  {
+    "code": "M01",
+    "parts": {
+      "V4_Cavity": {
+        "vertices": 513,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      }
+    }
+  },
+  {
+    "code": "M02",
+    "parts": {
+      "V4_Cavity": {
+        "vertices": 513,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      }
+    }
+  },
+  {
+    "code": "M03",
+    "parts": {
+      "V4_Cavity": {
+        "vertices": 513,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      },
+      "V4_UpperTeeth": {
+        "vertices": 768,
+        "triangles": 1504,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": 0,
+        "attachedToHead": true
+      },
+      "V4_Tongue": {
+        "vertices": 482,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      }
+    }
+  },
+  {
+    "code": "M04",
+    "parts": {
+      "V4_Cavity": {
+        "vertices": 513,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      }
+    }
+  },
+  {
+    "code": "M05",
+    "parts": {
+      "V4_Cavity": {
+        "vertices": 513,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      }
+    }
+  },
+  {
+    "code": "M06",
+    "parts": {
+      "V4_Cavity": {
+        "vertices": 513,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      },
+      "V4_Tongue": {
+        "vertices": 482,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      }
+    }
+  },
+  {
+    "code": "M07",
+    "parts": {
+      "V4_Cavity": {
+        "vertices": 513,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      }
+    }
+  },
+  {
+    "code": "M08",
+    "parts": {
+      "V4_Cavity": {
+        "vertices": 513,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      },
+      "V4_UpperTeeth": {
+        "vertices": 768,
+        "triangles": 1504,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": 0,
+        "attachedToHead": true
+      },
+      "V4_Tongue": {
+        "vertices": 482,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      }
+    }
+  },
+  {
+    "code": "M09",
+    "parts": {
+      "V4_Cavity": {
+        "vertices": 513,
+        "triangles": 960,
+        "degenerate": 0,
+        "selfIntersections": 0,
+        "selfPairs": [],
+        "bodyIntersectionsExcludingRimContact": 0,
+        "visibleCrownBodyIntersections": null,
+        "attachedToHead": true
+      }
+    }
+  }
+]

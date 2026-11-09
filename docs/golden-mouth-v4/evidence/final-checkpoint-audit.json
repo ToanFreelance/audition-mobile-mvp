@@ -1,0 +1,70 @@
+{
+  "lockedSha256": "7fdc16e00012f785c76dba9d88700e7139b0e36c85f302d7a0dd0940508bcb8a",
+  "finalBlendSha256": "153b589728fe54dea3f5088f2cf637541fc29b41fb42afdde743658c2cd35e79",
+  "BasisAndPriorKeysExact": [
+    "Basis",
+    "M01_Natural_V3",
+    "M01_Natural_V32",
+    "M01_Natural_V33"
+  ],
+  "M01Exact": true,
+  "packedImagesExact": true,
+  "headMaterialIdentityExact": true,
+  "originalFullTopologyBackupExact": true,
+  "driverResults": [
+    {
+      "code": "M01",
+      "oneHot": true,
+      "evaluatedMaxFloatError": 7.275957614183426e-12,
+      "interiorAttachedAndVisibilityCorrect": true
+    },
+    {
+      "code": "M02",
+      "oneHot": true,
+      "evaluatedMaxFloatError": 3.637978807091713e-12,
+      "interiorAttachedAndVisibilityCorrect": true
+    },
+    {
+      "code": "M03",
+      "oneHot": true,
+      "evaluatedMaxFloatError": 7.275957614183426e-12,
+      "interiorAttachedAndVisibilityCorrect": true
+    },
+    {
+      "code": "M04",
+      "oneHot": true,
+      "evaluatedMaxFloatError": 7.275957614183426e-12,
+      "interiorAttachedAndVisibilityCorrect": true
+    },
+    {
+      "code": "M05",
+      "oneHot": true,
+      "evaluatedMaxFloatError": 7.275957614183426e-12,
+      "interiorAttachedAndVisibilityCorrect": true
+    },
+    {
+      "code": "M06",
+      "oneHot": true,
+      "evaluatedMaxFloatError": 1.862645149230957e-09,
+      "interiorAttachedAndVisibilityCorrect": true
+    },
+    {
+      "code": "M07",
+      "oneHot": true,
+      "evaluatedMaxFloatError": 7.275957614183426e-12,
+      "interiorAttachedAndVisibilityCorrect": true
+    },
+    {
+      "code": "M08",
+      "oneHot": true,
+      "evaluatedMaxFloatError": 2.9103830456733704e-11,
+      "interiorAttachedAndVisibilityCorrect": true
+    },
+    {
+      "code": "M09",
+      "oneHot": true,
+      "evaluatedMaxFloatError": 2.9103830456733704e-11,
+      "interiorAttachedAndVisibilityCorrect": true
+    }
+  ]
+}

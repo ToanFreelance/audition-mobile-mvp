@@ -1,0 +1,180 @@
+{
+  "description": "Original GLB local coordinates: x lateral, y height, z anterior. Native anatomical handles, not analytical lip surface.",
+  "solver_iterations": 25,
+  "handles": [
+    {
+      "name": "Commissure_L",
+      "vertex": 247298,
+      "radius": 0.005,
+      "target": [
+        -0.045,
+        0.3345,
+        0.2445
+      ],
+      "rotate_depth_degrees": 25
+    },
+    {
+      "name": "Commissure_R",
+      "vertex": 239979,
+      "radius": 0.005,
+      "target": [
+        0.045,
+        0.3345,
+        0.2445
+      ],
+      "rotate_depth_degrees": -25
+    },
+    {
+      "name": "Upper_center",
+      "vertex": 243775,
+      "radius": 0.003,
+      "target": [
+        0,
+        0.3455,
+        0.2655
+      ]
+    },
+    {
+      "name": "Cupid_L",
+      "vertex": 243576,
+      "radius": 0.0032,
+      "target": [
+        -0.0097,
+        0.351,
+        0.2665
+      ]
+    },
+    {
+      "name": "Cupid_R",
+      "vertex": 243582,
+      "radius": 0.0032,
+      "target": [
+        0.0097,
+        0.351,
+        0.2665
+      ]
+    },
+    {
+      "name": "Upper_lateral_L",
+      "vertex": 250015,
+      "radius": 0.0035,
+      "target": [
+        -0.0275,
+        0.345,
+        0.2605
+      ]
+    },
+    {
+      "name": "Upper_lateral_R",
+      "vertex": 243025,
+      "radius": 0.0035,
+      "target": [
+        0.0275,
+        0.345,
+        0.2605
+      ]
+    },
+    {
+      "name": "Lower_center",
+      "vertex": 239703,
+      "radius": 0.0045,
+      "target": [
+        -0.001039,
+        0.3245,
+        0.2495
+      ]
+    },
+    {
+      "name": "Lower_lateral_L",
+      "vertex": 252479,
+      "radius": 0.0038,
+      "target": [
+        -0.0225,
+        0.326,
+        0.2455
+      ]
+    },
+    {
+      "name": "Lower_lateral_R",
+      "vertex": 239545,
+      "radius": 0.0038,
+      "target": [
+        0.0225,
+        0.326,
+        0.2455
+      ]
+    },
+    {
+      "name": "Lower_border",
+      "vertex": 244284,
+      "radius": 0.0035,
+      "target": [
+        -0.000131,
+        0.316,
+        0.237
+      ]
+    },
+    {
+      "name": "Seam_center",
+      "vertex": 247593,
+      "radius": 0.0025,
+      "target": [
+        0.000364,
+        0.335,
+        0.25149
+      ]
+    },
+    {
+      "name": "Philtrum_pin",
+      "vertex": 243821,
+      "radius": 0.005,
+      "pin": true
+    },
+    {
+      "name": "Labiomental_pin",
+      "vertex": 239816,
+      "radius": 0.006,
+      "pin": true
+    },
+    {
+      "name": "InnerSeam_outer_L",
+      "vertex": 246489,
+      "radius": 0.0027,
+      "target": [
+        -0.02798459865152836,
+        0.335,
+        0.24141499400138855
+      ]
+    },
+    {
+      "name": "InnerSeam_outer_R",
+      "vertex": 247680,
+      "radius": 0.0027,
+      "target": [
+        0.027836998924613,
+        0.335,
+        0.2408120036125183
+      ]
+    },
+    {
+      "name": "InnerSeam_inner_L",
+      "vertex": 246960,
+      "radius": 0.0027,
+      "target": [
+        -0.018635399639606476,
+        0.335,
+        0.2463420033454895
+      ]
+    },
+    {
+      "name": "InnerSeam_inner_R",
+      "vertex": 247000,
+      "radius": 0.0027,
+      "target": [
+        0.018533699214458466,
+        0.335,
+        0.24633699655532837
+      ]
+    }
+  ]
+}

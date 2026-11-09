@@ -1,0 +1,18 @@
+{
+  "fileName": "Golden-Mouth-V4-Cycles-WebGL2-Raw-Evidence.zip",
+  "libraryFileId": "libfile_359b5b15f2cc8191aeda315c1cce6a17",
+  "libraryFileVersion": 0,
+  "url": "https://chatgpt.com/library?file_id=libfile_359b5b15f2cc8191aeda315c1cce6a17&account_id=personal",
+  "bytes": 23560060,
+  "sha256": "7628387c018d070f84d503bdf38a974e265bf4856f2047c09fe941fb9b49fc35",
+  "cyclesPng": 27,
+  "webglPng": 25,
+  "contactSheets": 7,
+  "pngDecodeAndZipCRCVerified": true,
+  "editableBlendLibraryFileId": "libfile_1bb6d576cea881918e57d5fd45792652",
+  "editableBlendSha256": "153b589728fe54dea3f5088f2cf637541fc29b41fb42afdde743658c2cd35e79",
+  "noSculptOrRuntimeChanges": true,
+  "rawDiagnostics": "webgl-diagnostics.json",
+  "runtimeImplementationCommit": "bd4dbf9ecc8bde1ab2ac3ed1b0a1c7ab9bf957c0",
+  "webglMediaCommit": "a4b050d80e2dd4cd318232749dfbda1becc02b42"
+}

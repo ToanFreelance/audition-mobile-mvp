@@ -1,0 +1,42 @@
+{
+  "upper_support": {
+    "samples": 603,
+    "meanZGainOverV31": 0.0015207091176490089,
+    "minZGain": 0.0005980730056762695,
+    "p05ZGain": 0.0009702503681182862,
+    "maxZGain": 0.002859175205230713,
+    "fractionForward": 1.0,
+    "projectedVolumeGain": 2.0632220953702925e-06
+  },
+  "lower_support": {
+    "samples": 670,
+    "meanZGainOverV31": 0.001450451986113591,
+    "minZGain": 0.0009189248085021973,
+    "p05ZGain": 0.001066434383392334,
+    "maxZGain": 0.0024558305740356445,
+    "fractionForward": 1.0,
+    "projectedVolumeGain": 2.1865563690662384e-06
+  },
+  "lateral_support": {
+    "samples": 616,
+    "meanZGainOverV31": 0.002235416661609303,
+    "minZGain": 0.0016410350799560547,
+    "p05ZGain": 0.0018354803323745728,
+    "maxZGain": 0.002623617649078369,
+    "fractionForward": 1.0,
+    "projectedVolumeGain": 3.098287492990494e-06
+  },
+  "v31_upperCorrectionHessianP50P95": [
+    26.254201037283718,
+    89.99108148382493
+  ],
+  "v32_upperCorrectionHessianP50P95": [
+    14.710081629259925,
+    35.289676098981836
+  ],
+  "notes": [
+    "Projected volume is XY depth integral, not a watertight anatomical tissue volume.",
+    "Hessian measures correction roughness, not artistic acceptance.",
+    "All comparisons use actual triangle rays at equal XY."
+  ]
+}

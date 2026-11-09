@@ -1,0 +1,261 @@
+{
+  "blender": "4.3.2",
+  "sourceSha256": "b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90",
+  "source": "DIRECT_ORIGINAL_GLB_IMPORT",
+  "vertices": 292645,
+  "triangles": 499762,
+  "changed": 5956,
+  "solverVertices": 6891,
+  "solverTriangles": 13427,
+  "boundaryPins": 1385,
+  "maxDisplacement": 0.010738149285316467,
+  "minimumFaceNormalDot": -0.6344209909439087,
+  "facesTurnedOver90": 2,
+  "topologySha256": "d3133a7a039e730a77acdf51dadf6e930d2eeb51e33b65ca3b501130005d07b9",
+  "uvSha256": "8d685c130de48d1df3530f382ad0dffc1368691c22b368292f890632e56ced6b",
+  "landmarks": [
+    {
+      "name": "Commissure_L",
+      "sourceVertex": 247298,
+      "source": [
+        -0.05153200030326843,
+        0.34550198912620544,
+        0.24210600554943085
+      ],
+      "target": [
+        -0.045,
+        0.3375,
+        0.2445
+      ],
+      "anchorCount": 37,
+      "radius": 0.0038
+    },
+    {
+      "name": "Commissure_R",
+      "sourceVertex": 239979,
+      "source": [
+        0.05166200175881386,
+        0.345223993062973,
+        0.2419700026512146
+      ],
+      "target": [
+        0.045,
+        0.3375,
+        0.2445
+      ],
+      "anchorCount": 36,
+      "radius": 0.0038
+    },
+    {
+      "name": "Upper_center",
+      "sourceVertex": 243775,
+      "source": [
+        -4.8999998398358e-05,
+        0.3514229953289032,
+        0.2732279896736145
+      ],
+      "target": [
+        0.0,
+        0.3455,
+        0.2655
+      ],
+      "anchorCount": 20,
+      "radius": 0.003
+    },
+    {
+      "name": "Cupid_L",
+      "sourceVertex": 243576,
+      "source": [
+        -0.009948999620974064,
+        0.35917899012565613,
+        0.2719680070877075
+      ],
+      "target": [
+        -0.0097,
+        0.351,
+        0.2665
+      ],
+      "anchorCount": 13,
+      "radius": 0.0032
+    },
+    {
+      "name": "Cupid_R",
+      "sourceVertex": 243582,
+      "source": [
+        0.009522000327706337,
+        0.35917899012565613,
+        0.27191299200057983
+      ],
+      "target": [
+        0.0097,
+        0.351,
+        0.2665
+      ],
+      "anchorCount": 12,
+      "radius": 0.0032
+    },
+    {
+      "name": "Upper_lateral_L",
+      "sourceVertex": 250015,
+      "source": [
+        -0.030192000791430473,
+        0.35092800855636597,
+        0.26519501209259033
+      ],
+      "target": [
+        -0.0275,
+        0.345,
+        0.2605
+      ],
+      "anchorCount": 5,
+      "radius": 0.0035
+    },
+    {
+      "name": "Upper_lateral_R",
+      "sourceVertex": 243025,
+      "source": [
+        0.03064900077879429,
+        0.35043200850486755,
+        0.26443299651145935
+      ],
+      "target": [
+        0.0275,
+        0.345,
+        0.2605
+      ],
+      "anchorCount": 7,
+      "radius": 0.0035
+    },
+    {
+      "name": "Lower_center",
+      "sourceVertex": 239703,
+      "source": [
+        -0.0010389999952167273,
+        0.3189550042152405,
+        0.2543489933013916
+      ],
+      "target": [
+        -0.001039,
+        0.3245,
+        0.2495
+      ],
+      "anchorCount": 24,
+      "radius": 0.0045
+    },
+    {
+      "name": "Lower_lateral_L",
+      "sourceVertex": 252479,
+      "source": [
+        -0.023492999374866486,
+        0.32369598746299744,
+        0.24739399552345276
+      ],
+      "target": [
+        -0.0225,
+        0.326,
+        0.2455
+      ],
+      "anchorCount": 7,
+      "radius": 0.0038
+    },
+    {
+      "name": "Lower_lateral_R",
+      "sourceVertex": 239545,
+      "source": [
+        0.023905999958515167,
+        0.3259490132331848,
+        0.2476930022239685
+      ],
+      "target": [
+        0.0225,
+        0.326,
+        0.2455
+      ],
+      "anchorCount": 8,
+      "radius": 0.0038
+    },
+    {
+      "name": "Lower_border",
+      "sourceVertex": 244284,
+      "source": [
+        -0.00013099999341648072,
+        0.3088639974594116,
+        0.23696300387382507
+      ],
+      "target": [
+        -0.000131,
+        0.316,
+        0.237
+      ],
+      "anchorCount": 18,
+      "radius": 0.0035
+    },
+    {
+      "name": "Seam_center",
+      "sourceVertex": 247593,
+      "source": [
+        0.0003640000068116933,
+        0.3345629870891571,
+        0.2514899969100952
+      ],
+      "target": [
+        0.000364,
+        0.335,
+        0.25149
+      ],
+      "anchorCount": 8,
+      "radius": 0.0025
+    },
+    {
+      "name": "Philtrum_pin",
+      "sourceVertex": 243821,
+      "source": [
+        -4.8999998398358e-05,
+        0.3811210095882416,
+        0.28105801343917847
+      ],
+      "target": [
+        -4.8999998398358e-05,
+        0.3811210095882416,
+        0.28105801343917847
+      ],
+      "anchorCount": 35,
+      "radius": 0.005
+    },
+    {
+      "name": "Labiomental_pin",
+      "sourceVertex": 239816,
+      "source": [
+        0.0008590000215917826,
+        0.2904520034790039,
+        0.22634300589561462
+      ],
+      "target": [
+        0.0008590000215917826,
+        0.2904520034790039,
+        0.22634300589561462
+      ],
+      "anchorCount": 23,
+      "radius": 0.006
+    }
+  ],
+  "status": "EXPERIMENT_NOT_VISUALLY_REVIEWED",
+  "command": [
+    "blender",
+    "--background",
+    "--factory-startup",
+    "--threads",
+    "8",
+    "--python-exit-code",
+    "1",
+    "--python",
+    "scripts/golden-mouth-v3/sculpt_m01.py",
+    "--",
+    "--source",
+    "/workspace/scratch/e27dffa28e71/upload/Female_anime_origin(6).glb",
+    "--controls",
+    "scripts/golden-mouth-v3/landmarks.json",
+    "--output",
+    "/workspace/scratch/e27dffa28e71/m01-v3/iteration-01"
+  ]
+}
