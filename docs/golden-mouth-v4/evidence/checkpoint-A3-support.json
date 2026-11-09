@@ -1,0 +1,22 @@
+[
+  {
+    "code": "M03",
+    "nativeModifier": "LAPLACIANDEFORM",
+    "iterations": 12,
+    "regionVertices": 7699,
+    "lipHandles": 2733,
+    "fixedBoundary": 442,
+    "orientationCorrectionIterations": 4,
+    "maxOrientationCorrection": 0.00015937535143403735
+  },
+  {
+    "code": "M06",
+    "nativeModifier": "LAPLACIANDEFORM",
+    "iterations": 12,
+    "regionVertices": 7699,
+    "lipHandles": 2733,
+    "fixedBoundary": 442,
+    "orientationCorrectionIterations": 40,
+    "maxOrientationCorrection": 0.0010693270365221372
+  }
+]

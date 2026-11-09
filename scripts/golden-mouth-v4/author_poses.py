@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np,json,sys
 from scipy.sparse import coo_matrix,diags
 from scipy.sparse.linalg import spsolve
+from scipy.spatial import cKDTree
 src,plan,out=map(Path,sys.argv[1:4]);stage=sys.argv[4] if len(sys.argv)>4 else 'A';out.mkdir(parents=True,exist_ok=True)
 a=np.load(src);b=np.load(plan);p=a['Basis'];v=a['M01_Natural_V33'];du=b['duplicates'];f=b['faces'];n=len(p);base=np.concatenate([p,p[du]]);v=np.concatenate([v,v[du]])
 # UV counterparts weld for the displacement solve; upper/lower split branches do not.
@@ -36,14 +37,30 @@ for code,id,label,sx,ou,od,smile,skew,projection in settings:
  if stage=='A' and code not in ['M01','M03','M06']:continue
  q=v.astype(float).copy()
  if code!='M01':
+  env=np.sqrt(np.maximum(0,1-u*u)) if code=='M06' else envelope
   q[:,0]+=(sx-1)*x*support
   curve=smile*u*u+skew*u
-  q[:,1]+=curve*support+envelope*(ou*up*vertical_up-od*down*vertical_down)*mx*front
+  q[:,1]+=curve*support+env*(ou*up*vertical_up-od*down*vertical_down)*mx*front
+  if code=='M06':q[:,1]-=.0050*np.exp(-(x/.032)**4-((h-.347)/.008)**2)*up*lip
   if code=='M02':q[:,1]-=.0015*envelope*support
   if code=='M07':q[:,1]-=.0005*envelope*support
   q[:,2]+=projection*(.70*lip+.30*support)*(1-.20*u*u)
   if code in ['M05','M09']:
    q[:,1]+=(.0015 if code=='M05' else .0035)*side*lip*envelope
+  if ou+od>0:
+   # Reference-guided boundary silhouette. Native edge path is irregular; map
+   # its arc-length monotonically, carrying nearby native lip tissue with it.
+   rim=v[b['upper']];arc=np.r_[0,np.cumsum(np.linalg.norm(np.diff(rim,axis=0),axis=1))];uu=arc/arc[-1]*2-1
+   contour=np.sqrt(np.maximum(0,1-uu*uu)) if code=='M06' else np.maximum(0,1-uu*uu)**.75
+   depth=np.polyval(np.polyfit(uu,rim[:,2],4),uu)+projection*.85
+   for branch,boundary,opening,sign in [(up,b['upper'],ou,1),(down,b['lower'],od,-1)]:
+    target=np.c_[.045*sx*uu,.3358-.0017*uu*uu+smile*uu*uu+skew*uu+sign*opening*contour,depth]
+    distance,near=cKDTree(v[boundary]).query(v);weight=(1-c2(.001,.013,distance))*branch
+    # A low-frequency polynomial transports the boundary correction continuously.
+    # Nearest-sample displacement would make Voronoi steps in the dense lip fold.
+    co=np.polynomial.polynomial.polyfit(v[boundary,0]/.045,target-q[boundary],6)
+    correction=np.stack([np.polynomial.polynomial.polyval(x/.045,co[:,j]) for j in range(3)],1)
+    q+=correction*weight[:,None]
  q[base[:,1]>=.378]=v[base[:,1]>=.378]
  q=q.astype(np.float32);assert np.array_equal(q[base[:,1]>=.378],base[base[:,1]>=.378])
  poses.append(q);styles.append({'code':code,'id':id,'label':label,'key':'M01_Natural_V33' if code=='M01' else code+'_'+id.replace('-','_'),'open':ou+od>.0001,'teeth':code in ['M03','M08'],'tongue':code in ['M03','M06','M08'],'controls':{'width':sx,'upperOpen':ou,'lowerOpen':od,'smile':smile,'skew':skew,'projection':projection}})

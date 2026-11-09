@@ -2,6 +2,8 @@
 import bpy,numpy as np,sys,json,math
 from pathlib import Path
 from mathutils import Vector
+sys.path.insert(0,str(Path(__file__).parent))
+from shading import loop_normals
 folder=Path(sys.argv[sys.argv.index('--')+1]);jobs=sys.argv[sys.argv.index('--')+2:];a=np.load(folder/'poses.npz');sh=np.load(folder/'shading.npz');styles=json.loads((folder/'catalog.json').read_text());bpy.ops.wm.open_mainfile(filepath=str(folder/'Golden-Mouth-V4.blend'));original=bpy.data.objects['node_0'];m=original.data;f=a['faces'];s=bpy.context.scene;s.render.engine='CYCLES';s.cycles.device='CPU';s.cycles.samples=48;s.cycles.use_denoising=False;s.render.threads_mode='FIXED';s.render.threads=8;s.render.resolution_x=680;s.render.resolution_y=760;s.render.resolution_percentage=100
 # A render mesh is a coordinate-exact copy of the selected key, with posed normals.
 # This avoids Blender custom normals being transported a second time by shape keys.
@@ -10,11 +12,7 @@ for mat in m.materials:mm.materials.append(mat)
 ob=bpy.data.objects.new('V4_ExactKeyRender',mm);bpy.context.collection.objects.link(ob);ob.matrix_world=original.matrix_world.copy();original.hide_render=True
 for job in jobs:
  code,view=job.split(':');idx=next(i for i,st in enumerate(styles) if st['code']==code);st=styles[idx];q=a['poses'][idx];mm.vertices.foreach_set('co',q.ravel());mm.update()
- if code=='M01':loops=sh['m01LoopNormals']
- else:
-  t=q[f].astype(float);cross=np.cross(t[:,1]-t[:,0],t[:,2]-t[:,0]);g=a['groups'];norm=np.zeros((g.max()+1,3))
-  for j in range(3):np.add.at(norm,g[f[:,j]],cross)
-  norm/=np.maximum(np.linalg.norm(norm,axis=1)[:,None],1e-20);loops=norm[g[f]].reshape(-1,3);edited=(np.linalg.norm(q-a['poses'][0],axis=1)>1e-8)[f].any(1);loops=loops.reshape(-1,3,3);loops[~edited]=sh['m01LoopNormals'].reshape(-1,3,3)[~edited];loops=loops.reshape(-1,3)
+ loops=loop_normals(a['poses'][0],q,f,a['groups'],sh['m01LoopNormals'],clay=view=='clay')
  mm.normals_split_custom_set(loops.tolist())
  for name in ['V4_Cavity','V4_UpperTeeth','V4_Gum','V4_Tongue']:
   part=bpy.data.objects[name]

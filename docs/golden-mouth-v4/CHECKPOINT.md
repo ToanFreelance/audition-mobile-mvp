@@ -24,3 +24,9 @@ Seam fan đã sửa theo orientation nhất quán: thêm 95 vertices, rewire 188
 Đã save và mở lại/render prototype. Artifact `libfile_e620b536fb048191a161f798798f55db`, SHA `17eedfa65160d39630a03eb9019f0bf271f999117af9915d5c82d8edf08e3018`, 63059749 bytes. Đây là prototype chưa PASS, không phải bản hoàn chỉnh.
 
 M03 có opening/răng thật nhưng vùng khóe còn kéo mạnh. M06 hiện hình thoi và kéo mô quanh nhân trung; cần sửa silhouette O và chuyển tiếp mô đỡ trước khi mở rộng. Không coi prototype là MVP PASS. Đã lưu render failure để đối chứng.
+
+## A3 — cavity prototype đã phục hồi được, còn lỗi lining
+
+Artifact `libfile_52eef0c822e0819192b2676feb909a4d`, SHA `baae646af193c10e898f118b6b76bbdfa09b209256cf7cb33f6c840a809e013e`; đã mở lại/render và validate. M01 bất biến. Native Laplacian Deform trên mô đỡ, 7699 vertices trong bản sao authoring, không thay da runtime. Normal transport theo rotation bề mặt sửa discontinuity do thay normals theo mask.
+
+Validation A3 phát hiện M03 47 / M06 52 cặp giao cắt tại nếp scan bên trong môi; chưa PASS. A4 dùng correction dọc seam liên tục giảm còn 22/49. Đang unroll đúng strip inner-lining geodesic <.006, giữ seam và outer lip làm biên; không smoothing da/môi ngoài, không đổi M01. Cần xác minh giao cắt bằng BVH trước nhóm B.
