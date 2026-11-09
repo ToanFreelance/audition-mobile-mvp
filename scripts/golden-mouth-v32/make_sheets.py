@@ -4,7 +4,7 @@ from PIL import Image,ImageDraw,ImageFont
 import sys
 root,ref,out=map(Path,sys.argv[1:]);out.mkdir(parents=True,exist_ok=True)
 f=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',20);sm=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',15)
-versions=[('v3','V3'),('v31','V3.1 · Visual FAIL'),('iteration-02','V3.2 · Visual FAIL')]
+versions=[('v3','V3'),('v31','V3.1 · Visual FAIL'),('iteration-03','V3.2 · Visual FAIL')]
 def im(folder,view):return Image.open(root/folder/(view+'.png')).convert('RGB')
 def sheet(w,h):
  a=Image.new('RGB',(w,h),'#211d29');return a,ImageDraw.Draw(a)
@@ -20,7 +20,7 @@ for row,view in enumerate(['mouth','clay']):
 s.save(out/'mouth-clay-comparison.jpg',quality=95)
 s,d=sheet(1020,850)
 for i,v in enumerate(['front','left35','right35','profile','mouth','clay']):
- x=i%3*340;y=i//3*425;s.paste(im('iteration-02',v).resize((340,380)),(x,y+35));d.text((x+10,y+8),v+' · Cycles CPU',font=f,fill='white')
+ x=i%3*340;y=i//3*425;s.paste(im('iteration-03',v).resize((340,380)),(x,y+35));d.text((x+10,y+8),v+' · Cycles CPU',font=f,fill='white')
 s.save(out/'six-views.jpg',quality=94)
 s,d=sheet(1020,430)
 for col,(folder,label) in enumerate(versions):s.paste(im(folder,'profile').resize((340,380)),(340*col,40));d.text((340*col+10,10),label,font=f,fill='white')

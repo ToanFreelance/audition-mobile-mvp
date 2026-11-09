@@ -1,3 +1,4 @@
+# Historical iteration02; final correction source is correct_continuity.py.
 """V32: clean V3 + anatomical C2 support volumes in a fitted skin-normal chart.
 No V31 coordinates, native-delta clipping, graph diffusion, or mesh replacement.
 """

@@ -49,3 +49,75 @@ mask C2. Sửa duy nhất clamp thành .002*tanh(delta/.002), không thay contro
 mask hoặc tiếp tục tuning anatomy. Lưu iteration03 riêng, không ghi đè iteration02.
 Nếu mảng curvature vẫn còn, dừng Visual FAIL. Đây là sửa lỗi tính liên tục trong
 cùng lượt correction, không thêm thiết kế miệng.
+
+## Checkpoint cuối và phục hồi
+
+Iteration03 (sửa liên tục của cùng correction) đã lưu: libfile_b23cc9d3507c8191acda5e4d1ca77fce.
+SHA cd53bb6d1fd7d0178300958d47c73511fc253e7a68b8fc57aad5ebd5345401c7,
+55134315 bytes. Mở lại kiểm với GLB và V3: Basis/V3/UV/topology/texture đúng,
+zero face >90°, zero suy biến/giao cắt perioral, mũi/UV split delta=0.
+Iteration02 lịch sử: libfile_42f2fcf1b12081919058a3a982ec4265,
+SHA ddf7016c719e315e2eacecce86a0595adfa33006ef5a0c82fafb6419f9479c70.
+Không ghi đè bản trước.
+
+Kết luận cuối vẫn VISUAL FAIL: gợn nhân trung đã hết rõ, mô đỡ đầy hơn V3.1,
+nhưng khóe chưa tròn và có một facet nhỏ dưới khóe phải. Không runtime/WebGL2,
+không preview V3.2. V3 sạch và V2 preview giữ nguyên; không làm M02–M09.
+
+## Lệnh thực đã chạy
+
+CWD=/workspace/scratch/e27dffa28e71/audition-mobile-mvp;
+ROOT=/workspace/scratch/e27dffa28e71/m01-v32. Dưới đây dùng đường dẫn rút gọn
+để có thể chuyển workspace; thay ROOT bằng thư mục làm việc thực.
+
+```bash
+blender --background --factory-startup --threads 8 --python-exit-code 1 \
+ --python scripts/golden-mouth-v32/inspect_baselines.py -- \
+ ROOT/input/M01-Natural-V3-Iteration-02.blend \
+ ROOT/input/M01-Natural-V31-Iteration-04.blend ROOT/diagnosis
+blender --background --factory-startup --threads 8 --python-exit-code 1 \
+ --python scripts/golden-mouth-v32/sculpt_m01.py -- \
+ --v3 ROOT/input/M01-Natural-V3-Iteration-02.blend --output ROOT/iteration-01
+blender --background --factory-startup --threads 8 --python-exit-code 1 \
+ --python scripts/golden-mouth-v32/correct_continuity.py -- \
+ --v3 ROOT/input/M01-Natural-V3-Iteration-02.blend --output ROOT/iteration-03
+blender --background --threads 8 --python-exit-code 1 \
+ --python scripts/golden-mouth-v32/verify.py -- \
+ ROOT/input/M01-Natural-V3-Iteration-02.blend \
+ ROOT/iteration-03/M01-Natural-V32-Iteration-03.blend \
+ /path/Female_anime_origin.glb ROOT/verify03.json
+blender --background --threads 8 --python-exit-code 1 \
+ --python scripts/golden-mouth-v3/render_native.py -- \
+ ROOT/iteration-03/M01-Natural-V32-Iteration-03.blend ROOT/iteration-03 \
+ clay mouth left35 right35 profile front
+blender --background --threads 8 --python-exit-code 1 \
+ --python scripts/golden-mouth-v32/sample_profiles.py -- \
+ ROOT/input/M01-Natural-V3-Iteration-02.blend \
+ ROOT/input/M01-Natural-V31-Iteration-04.blend \
+ ROOT/iteration-03/M01-Natural-V32-Iteration-03.blend ROOT/profiles03
+python3 scripts/golden-mouth-v32/plot_profiles.py ROOT/profiles03 evidence
+python3 scripts/golden-mouth-v32/curvature_audit.py \
+ ROOT/diagnosis/baselines.npz ROOT/profiles03/geometry.npz evidence/curvature.json
+python3 scripts/golden-mouth-v32/make_sheets.py ROOT Golden.jpeg evidence
+```
+
+`correct_m01.py` tái tạo iteration02 trước sửa hard-clamp; chỉ lịch sử chẩn đoán.
+`correct_continuity.py` là source cuối. Cả hai đều mở V3 mới, không stack V3.1 hoặc
+iteration01. Hash .blend tái tạo có thể khác do metadata Blender; phải so tọa độ/key,
+UV và topology bằng verify.py, không coi hash khác là geometry khác ngay.
+
+Baseline v3/v31 trong ROOT được render bằng cùng render_native.py, đủ sáu góc;
+chọn key được lưu trong mỗi checkpoint. Mọi Cycles ở đây CPU 64 samples, không
+denoise. Phép diagnostic xóa custom normals dùng script generic
+scripts/golden-mouth-v31/diagnose_normals.py với input .blend V3.2, không lưu đè file.
+
+Các checkpoint Git: 5d2fc5c (nguồn/chẩn đoán), 7aeeb9a (support đầu),
+3fe2a92 (seam/commissure correction), 19628d1 (sửa clamp, trước render cuối).
+Tất cả nằm trên cùng work branch. Scripts/diagnostic nhỏ trong Git, PNG/data/logs
+lớn trong ZIP lưu riêng; original GLB không commit.
+
+ZIP cuối: libfile_a27e36a3ef248191b4aa00b4f1b7dc21,
+Golden-Mouth-V32-M01-Visual-FAIL-Evidence.zip, 52602742 bytes,
+SHA 0bef8da09a92a95c9f9ae982ddf7786197e3d324263ff51485a535a8718eefd5.
+55 mục, CRC và PNG đã kiểm trước upload; lưu thành công. ZIP chứa các render gốc
+V3/V3.1/V3.2 và dữ liệu diagnostic để không phải render lại chỉ để đọc bằng chứng.

@@ -38,8 +38,11 @@ Lượt 01: đầy hơn và hết gợn nhân trung rõ, nhưng translation-only
 repair tạo lõm trên môi dưới, face 412066 đổi hướng ở rìa. Không chấp nhận.
 Correction duy nhất: giữ trường support; fit positive affine differential map từ
 vòng bề mặt lân cận để tiếp khớp seam. Hai determinant≈.509/.617. Outer commissure
-được fit quadratic cục bộ, mask C2, mức chỉnh thực tế tối đa≈.000534/.000547; không
-average qua seam và không thu hẹp miệng. Bản correction sửa geometry nhưng còn lỗi
+được fit quadratic cục bộ, mask C2, mức chỉnh dưới .00055 đơn vị model; không
+average qua seam và không thu hẹp miệng. Đã sửa thêm một lỗi tính liên tục của correction: hard clamp được thay bằng tanh
+trơn (iteration03), giữ nguyên control volume/mask. Normal dot nhỏ nhất tăng nhưng
+mảng gãy vẫn còn; clamp không phải nguyên nhân duy nhất. Bản cuối sửa geometry
+nhưng còn lỗi
 curvature nhìn thấy ở khóe phải. Không tiếp tục đổi thông số sau lượt này.
 
 ## Độ đầy quanh miệng so V3.1
@@ -64,14 +67,14 @@ Góc vùng commissure không cải thiện đồng đều; cận cảnh quan tr�
 
 ## Geometry/UV/nose — mở lại file đã lưu
 
-| Kiểm tra | Kết quả iteration02 |
+| Kiểm tra | Kết quả iteration03 |
 |---|---|
 | Source vertices / triangles | 292645 / 499762 |
 | Basis so GLB gốc, connectivity, UV | Khớp tuyệt đối |
 | V3 key so checkpoint | Tọa độ không đổi |
 | Packed textures / material identity | Không đổi |
 | Đỉnh khác V3 | 6068, chỉ scope quanh miệng và phục hồi residual mũi |
-| Mặt ảnh hưởng quay >90° | 0; minimum normal dot≈.578585 |
+| Mặt ảnh hưởng quay >90° | 0; minimum normal dot≈.655915 |
 | Face 411680 | dot≈.968091, sửa bằng geometry thật |
 | Tam giác suy biến vùng ảnh hưởng | 0 tại ngưỡng diện tích 1e-14 |
 | Non-adjacent intersection pairs | V3 5 → V3.2 0; không có cặp mới |
@@ -128,8 +131,14 @@ Chỉ thêm scripts/golden-mouth-v32 và docs/golden-mouth-v32; không public/ap
 WebAudio, Gauge, RoomState, Stage, Shop, Catalog hoặc Supabase. Không upload GLB gốc.
 PR #26 giữ Draft, không merge. Không M02–M09.
 
-Editable iteration02: libfile_42f2fcf1b12081919058a3a982ec4265, 55136528 bytes;
-SHA ddf7016c719e315e2eacecce86a0595adfa33006ef5a0c82fafb6419f9479c70.
+Editable iteration03: libfile_b23cc9d3507c8191acda5e4d1ca77fce, 55134315 bytes;
+SHA cd53bb6d1fd7d0178300958d47c73511fc253e7a68b8fc57aad5ebd5345401c7.
 Đã lưu và mở lại kiểm. V3/V3.1 gốc không bị ghi đè. Lệnh/script ở CHECKPOINT.md.
 Bước chưa đạt còn lại là làm mềm anatomy/curvature ở commissure; không tăng thêm
 volume hoặc đổi vài hằng số rồi coi là hoàn thành. Giữ V3 làm nền sạch khi tiếp tục.
+
+Tệp bàn giao đã lưu và kiểm đọc:
+- [M01-Natural-V32-Iteration-03.blend](https://chatgpt.com/library?file_id=libfile_b23cc9d3507c8191acda5e4d1ca77fce&account_id=personal)
+- [Golden-Mouth-V32-M01-Visual-FAIL-Evidence.zip](https://chatgpt.com/library?file_id=libfile_a27e36a3ef248191b4aa00b4f1b7dc21&account_id=personal)
+ZIP có 55 mục, PNG gốc/geometry/ray data/logs/reference; CRC đã kiểm. Scripts và
+báo cáo nhỏ nằm trong Git. Không giữ tiến độ chỉ ở tệp tạm.
