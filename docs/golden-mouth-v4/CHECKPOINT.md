@@ -16,3 +16,11 @@ Catalog đã kiểm từ V1: `natural`, `soft-smile`, `bright-smile`, `playful-s
 V8 giữ ba slot morph mắt với semantics hiện có. Khi tích hợp miệng phải tránh thay đổi code V8; các delta miệng dùng chung source Basis, không cộng full M01 với full preset khác. Không tạo actor/load GLB lại khi đổi preset.
 
 Đã đọc PROJECT_INSTRUCTIONS, báo cáo V2/V3.3 và source rig mắt/miệng. Phạm vi chỉ facial QA, không gameplay/catalog/Supabase.
+
+## Checkpoint A prototype — chưa qua art/geometry gate
+
+Seam fan đã sửa theo orientation nhất quán: thêm 95 vertices, rewire 188 faces, giữ nguyên 499762 tam giác, xóa 0 mặt da. M01 source prefix và Basis giữ chính xác.
+
+Đã save và mở lại/render prototype. Artifact `libfile_e620b536fb048191a161f798798f55db`, SHA `17eedfa65160d39630a03eb9019f0bf271f999117af9915d5c82d8edf08e3018`, 63059749 bytes. Đây là prototype chưa PASS, không phải bản hoàn chỉnh.
+
+M03 có opening/răng thật nhưng vùng khóe còn kéo mạnh. M06 hiện hình thoi và kéo mô quanh nhân trung; cần sửa silhouette O và chuyển tiếp mô đỡ trước khi mở rộng. Không coi prototype là MVP PASS. Đã lưu render failure để đối chứng.
