@@ -1,0 +1,47 @@
+{
+  "material": "Material.001",
+  "images": [
+    {
+      "name": "texture_pbr_20250901",
+      "sha256": "39637a2fdaa6aae93483a7439e1dd146938e9112bdc448c3e9f7eef0ac504f2e"
+    },
+    {
+      "name": "texture_pbr_20250901_metallic-texture_pbr_20250901_roughness",
+      "sha256": "a45a3991d27d330cdd7b0c694230f0bb05b8e6f28378a305bc46250d3dd249af"
+    },
+    {
+      "name": "texture_pbr_20250901_normal",
+      "sha256": "3d4e83420f6c2f31c3fbc889c64a6d72e9dcc6c98fd1dec5695e4591ba004e01"
+    }
+  ],
+  "links": [
+    {
+      "from": "Principled BSDF.BSDF",
+      "to": "Material Output.Surface"
+    },
+    {
+      "from": "Image Texture.Color",
+      "to": "Principled BSDF.Base Color"
+    },
+    {
+      "from": "Separate Color.Blue",
+      "to": "Principled BSDF.Metallic"
+    },
+    {
+      "from": "Separate Color.Green",
+      "to": "Principled BSDF.Roughness"
+    },
+    {
+      "from": "Image Texture.001.Color",
+      "to": "Separate Color.Color"
+    },
+    {
+      "from": "Normal Map.Normal",
+      "to": "Principled BSDF.Normal"
+    },
+    {
+      "from": "Image Texture.002.Color",
+      "to": "Normal Map.Color"
+    }
+  ]
+}

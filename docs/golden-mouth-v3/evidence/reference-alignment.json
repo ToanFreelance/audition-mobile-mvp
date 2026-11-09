@@ -1,0 +1,23 @@
+{
+  "GoldenSize": [
+    1122,
+    1402
+  ],
+  "GoldenIPD": 120,
+  "renderIPD": 194,
+  "sheetIPD": 97,
+  "uniformScale": 0.8083333333333333,
+  "crop": [
+    85,
+    205,
+    349,
+    494
+  ],
+  "pasteInGoldenPanel": [
+    64,
+    101
+  ],
+  "pixelRounding": true,
+  "warping": false,
+  "renderRetouching": false
+}

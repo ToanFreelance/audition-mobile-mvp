@@ -29,3 +29,11 @@ với solver Blender lan truyền trên mặt gốc; không dùng field nén V2/
 Sau correction render đủ góc. Nếu còn pinch/crease hoặc expression không tự nhiên,
 dừng Visual FAIL. Không sửa texture để che hình học. Highlight trắng/dải tối baked
 sẽ xử lý riêng chỉ khi geometry đạt; hiện texture chưa đổi.
+
+## Kết luận sau correction
+
+VISUAL FAIL. Đã xem đủ sáu góc và crop 1:1 cạnh V2/V2.1. Nếp dài giảm nhưng
+hai khóe vẫn lõm nhọn và gợi cười; upper roll chưa đủ mềm. Dừng, không lượt 03.
+Albedo emission xác nhận đốm trắng môi dưới và pigment khóe baked; không sửa
+texture để che hình học. Còn một mặt seam quay >90° và residual nhỏ sát đáy mũi.
+Xem QA_VI.md và surface-audit.json; không promote vào runtime.

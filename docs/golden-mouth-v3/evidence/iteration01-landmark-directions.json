@@ -1,0 +1,254 @@
+[
+  {
+    "name": "Commissure_L",
+    "sourceVertex": 247298,
+    "source": [
+      -0.05153200030326843,
+      0.34550198912620544,
+      0.24210600554943085
+    ],
+    "target": [
+      -0.045,
+      0.3375,
+      0.2445
+    ],
+    "anchorCount": 37,
+    "radius": 0.0038,
+    "normalComponent": 0.008207457068221164,
+    "tangentMagnitude": 0.0067132492227389
+  },
+  {
+    "name": "Commissure_R",
+    "sourceVertex": 239979,
+    "source": [
+      0.05166200175881386,
+      0.345223993062973,
+      0.2419700026512146
+    ],
+    "target": [
+      0.045,
+      0.3375,
+      0.2445
+    ],
+    "anchorCount": 36,
+    "radius": 0.0038,
+    "normalComponent": 0.008842658840229833,
+    "tangentMagnitude": 0.0056789611280333415
+  },
+  {
+    "name": "Upper_center",
+    "sourceVertex": 243775,
+    "source": [
+      -4.8999998398358e-05,
+      0.3514229953289032,
+      0.2732279896736145
+    ],
+    "target": [
+      0.0,
+      0.3455,
+      0.2655
+    ],
+    "anchorCount": 20,
+    "radius": 0.003,
+    "normalComponent": -0.009228638376999207,
+    "tangentMagnitude": 0.003104565341943819
+  },
+  {
+    "name": "Cupid_L",
+    "sourceVertex": 243576,
+    "source": [
+      -0.009948999620974064,
+      0.35917899012565613,
+      0.2719680070877075
+    ],
+    "target": [
+      -0.0097,
+      0.351,
+      0.2665
+    ],
+    "anchorCount": 13,
+    "radius": 0.0032,
+    "normalComponent": -0.0059322833205132175,
+    "tangentMagnitude": 0.007852706601731516
+  },
+  {
+    "name": "Cupid_R",
+    "sourceVertex": 243582,
+    "source": [
+      0.009522000327706337,
+      0.35917899012565613,
+      0.27191299200057983
+    ],
+    "target": [
+      0.0097,
+      0.351,
+      0.2665
+    ],
+    "anchorCount": 12,
+    "radius": 0.0032,
+    "normalComponent": -0.006197227986162291,
+    "tangentMagnitude": 0.0076041049572935
+  },
+  {
+    "name": "Upper_lateral_L",
+    "sourceVertex": 250015,
+    "source": [
+      -0.030192000791430473,
+      0.35092800855636597,
+      0.26519501209259033
+    ],
+    "target": [
+      -0.0275,
+      0.345,
+      0.2605
+    ],
+    "anchorCount": 5,
+    "radius": 0.0035,
+    "normalComponent": -0.0052991421146340294,
+    "tangentMagnitude": 0.006029127846599551
+  },
+  {
+    "name": "Upper_lateral_R",
+    "sourceVertex": 243025,
+    "source": [
+      0.03064900077879429,
+      0.35043200850486755,
+      0.26443299651145935
+    ],
+    "target": [
+      0.0275,
+      0.345,
+      0.2605
+    ],
+    "anchorCount": 7,
+    "radius": 0.0035,
+    "normalComponent": -0.004761022825458256,
+    "tangentMagnitude": 0.00567662267190846
+  },
+  {
+    "name": "Lower_center",
+    "sourceVertex": 239703,
+    "source": [
+      -0.0010389999952167273,
+      0.3189550042152405,
+      0.2543489933013916
+    ],
+    "target": [
+      -0.001039,
+      0.3245,
+      0.2495
+    ],
+    "anchorCount": 24,
+    "radius": 0.0045,
+    "normalComponent": -0.006099279016608887,
+    "tangentMagnitude": 0.004130195121703179
+  },
+  {
+    "name": "Lower_lateral_L",
+    "sourceVertex": 252479,
+    "source": [
+      -0.023492999374866486,
+      0.32369598746299744,
+      0.24739399552345276
+    ],
+    "target": [
+      -0.0225,
+      0.326,
+      0.2455
+    ],
+    "anchorCount": 7,
+    "radius": 0.0038,
+    "normalComponent": -0.002708039349157545,
+    "tangentMagnitude": 0.001596328140848867
+  },
+  {
+    "name": "Lower_lateral_R",
+    "sourceVertex": 239545,
+    "source": [
+      0.023905999958515167,
+      0.3259490132331848,
+      0.2476930022239685
+    ],
+    "target": [
+      0.0225,
+      0.326,
+      0.2455
+    ],
+    "anchorCount": 8,
+    "radius": 0.0038,
+    "normalComponent": -0.002556884218624263,
+    "tangentMagnitude": 0.0005010359367661273
+  },
+  {
+    "name": "Lower_border",
+    "sourceVertex": 244284,
+    "source": [
+      -0.00013099999341648072,
+      0.3088639974594116,
+      0.23696300387382507
+    ],
+    "target": [
+      -0.000131,
+      0.316,
+      0.237
+    ],
+    "anchorCount": 18,
+    "radius": 0.0035,
+    "normalComponent": -0.006259159932044514,
+    "tangentMagnitude": 0.0034273631036345733
+  },
+  {
+    "name": "Seam_center",
+    "sourceVertex": 247593,
+    "source": [
+      0.0003640000068116933,
+      0.3345629870891571,
+      0.2514899969100952
+    ],
+    "target": [
+      0.000364,
+      0.335,
+      0.25149
+    ],
+    "anchorCount": 8,
+    "radius": 0.0025,
+    "normalComponent": 0.0003095654869352555,
+    "tangentMagnitude": 0.0003084631060730754
+  },
+  {
+    "name": "Philtrum_pin",
+    "sourceVertex": 243821,
+    "source": [
+      -4.8999998398358e-05,
+      0.3811210095882416,
+      0.28105801343917847
+    ],
+    "target": [
+      -4.8999998398358e-05,
+      0.3811210095882416,
+      0.28105801343917847
+    ],
+    "anchorCount": 35,
+    "radius": 0.005,
+    "normalComponent": 0.0,
+    "tangentMagnitude": 0.0
+  },
+  {
+    "name": "Labiomental_pin",
+    "sourceVertex": 239816,
+    "source": [
+      0.0008590000215917826,
+      0.2904520034790039,
+      0.22634300589561462
+    ],
+    "target": [
+      0.0008590000215917826,
+      0.2904520034790039,
+      0.22634300589561462
+    ],
+    "anchorCount": 23,
+    "radius": 0.006,
+    "normalComponent": 0.0,
+    "tangentMagnitude": 0.0
+  }
+]
