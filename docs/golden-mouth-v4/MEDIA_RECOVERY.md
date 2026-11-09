@@ -14,3 +14,11 @@ blender --background --factory-startup --threads 8 --python-exit-code 1 --python
 ```
 
 Tiếp theo: render 27 Cycles PNG từ đúng buffers này; chạy `browser_check.mjs` lấy raw diagnostics và 25 ảnh; chạy `make_sheets.py`; kiểm ảnh; lưu raw media và commit grid/diagnostics/report. Đây là checkpoint trước render, chưa tuyên bố media cuối hoàn tất.
+
+## Checkpoint media WebGL2
+
+Đã hoàn tất lần chạy mới: 81/81 PASS, Chrome Headless Shell 157.0.8103.38 / ANGLE Vulkan SwiftShader phần mềm; 25 PNG và full raw JSON đã được tạo. Các grid front/cận/35° và `evidence/webgl-diagnostics.json` được lưu cùng checkpoint này. Không gọi đây là hardware-GPU hoặc physical iPhone QA. Code runtime vẫn đúng bản bd4dbf9; local HEAD lúc bắt đầu browser là 0239a5e, trước commit chỉ thêm công cụ phục hồi media.
+
+Tái xuất package từ buffer phục hồi cho đúng 1597931 bytes / SHA `2548334bd96d6327ea5b56124b65589ae84f8777ac33a34852fe0a8d28b5ca1d`, khớp asset đã deploy. Điều này kiểm luôn normals, interior và chín pose mà không sửa runtime hoặc checkpoint.
+
+Đã xem ba grid WebGL2: M03/M06 mở thật; các góc 35° không lộ cavity/răng ngoài môi. M05/M09 nhẹ hơn Golden, khác biệt nhìn chính diện còn tiết chế và có căng mô nhỏ phía trên môi; giữ nguyên làm giới hạn polish để owner đánh giá. Không sửa pose trong phiên media. Cycles và đóng gói raw media vẫn đang chạy.

@@ -1,0 +1,16 @@
+{
+  "blender": "4.3.2",
+  "sourceBlendSha256": "153b589728fe54dea3f5088f2cf637541fc29b41fb42afdde743658c2cd35e79",
+  "controlsSha256": "872e84a322196d07e0f8ebb49d7743adc7959ad6f9db0fc1802af98b5dec8c95",
+  "readOnlyCheckpointRecovery": true,
+  "allNineKeyCoordinatesBitExactWithFrozenControls": true,
+  "BasisAndHistoricalKeysExactWithOriginalBackup": true,
+  "retainedFacesAndUVExactWithOriginalBackup": true,
+  "M01Exact": true,
+  "vertices": 292645,
+  "triangles": 499207,
+  "normalProbeEvaluatedMaxFloatError": 7.275957614183426e-12,
+  "headModifiers": [],
+  "protectedUpperFaceVertices": 195239,
+  "protectedUpperFaceMaxDisplacement": 0.0
+}
