@@ -1,0 +1,819 @@
+{
+  "blender": "4.3.2",
+  "sourceSha256": "b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90",
+  "originalGLBOpened": true,
+  "V1NativeHeadEqualsMouthV4": true,
+  "visibleM02LowerFaceMaxError": 5.960464477539063e-08,
+  "baselineFaceSignatures": {
+    "node_0": {
+      "positions": "336bc76e25a6f49abc39f1b23044bb4fd421bb20e4d59b22f6ac09e5eab601ae",
+      "loops": "ebaed285a50ac1f799866c3121844897a1b215971c5fbf411ffc90efa7559e45",
+      "polygonSizes": "6efbea5f7e2d213a2e5c390ad993ff132d6d3b979ea16fe7297b5867a97bc308",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.3435885648505064e-07,
+        -1.0000001192092896,
+        0.0,
+        0.0,
+        1.0000001192092896,
+        -1.3435885648505064e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "Material.001"
+      ],
+      "uv": {
+        "UVMap": "2c3f9d23b04cc202f2536f68088f994dd0d7d4ae10830a155696c9d336193046"
+      },
+      "keys": {
+        "Basis": "336bc76e25a6f49abc39f1b23044bb4fd421bb20e4d59b22f6ac09e5eab601ae",
+        "M01_Natural_V3": "23240c746f2971c91c5cd370714a321ffd6864851b784f131970883c77537b1f",
+        "M01_Natural_V32": "c7a45cc9f7677fc1a64f6dbfbb321318dab92465310a375627a9cf91bf5f28e0",
+        "M01_Natural_V33": "2e92254cf448a851e0717c53ac1ef27db635fa0358c5a67c07ca33c201d0a40d",
+        "M02_soft_smile": "e583a91488bdced6e01bc4e1825f659cdecc0df5a8abd6eb88da7864e48f8e4f",
+        "M03_bright_smile": "00d5d93e8f6b882529ab83f9f83f1e775548993f5d972e493b37c8f093b2d984",
+        "M04_playful_smirk": "e97d048e030d0c41bbd4735a533df63041e099b7415b112be9606f201b0895d3",
+        "M05_cute_pout": "d3a1e0034955db6838562f311a7c93df74ae36f260499e6e9d232d19cb774915",
+        "M06_surprised": "303aee0698a4125db9c2ef1902450cfd6063d4d8ca453c059a401e796ec9e636",
+        "M07_shy": "a5ffd59792a69b65febc35b9479b6c54fb2fd1b5496123a8d2eed86fde59e03f",
+        "M08_idol_smile": "7b5fb6d6d67a3687280e51ce12795ad503e230deb4e762651f9a7d6a6f5d202d",
+        "M09_blow_kiss": "4771e4491f59df3be7bc4a28538f944da52c8967b275597a30a4b433a045fd1b"
+      }
+    },
+    "Preview_M02_GoldenEyeV8": {
+      "positions": "257e51e3b2f6f6b70b749c4ad9afbc4ebfece5ae31ca907232f9b89ed503cefa",
+      "loops": "bc91accb04c1ed49cbac76c5d093787405544a7cd7dd734061a66feabf3f23ea",
+      "polygonSizes": "e2e1fcb55bcc4a9b254573f6a192f3f14668edb7f58b91e438b5ac81066720e9",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -2.821300029154372e-07,
+        -1.0000001192092896,
+        0.0,
+        0.0,
+        1.0000001192092896,
+        -2.821300029154372e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "Material.001"
+      ],
+      "uv": {
+        "UVMap": "7ff89db0d441472ed657644b95117aef73c0d7a12fae5988c2d4a14e17b569e2"
+      },
+      "keys": {}
+    },
+    "V4_Original_Head_Uncut": {
+      "positions": "336bc76e25a6f49abc39f1b23044bb4fd421bb20e4d59b22f6ac09e5eab601ae",
+      "loops": "d3133a7a039e730a77acdf51dadf6e930d2eeb51e33b65ca3b501130005d07b9",
+      "polygonSizes": "6ca9e2620af42b6472ddbeee93bac123446be2138285a38c27873606057458fa",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "Material.001"
+      ],
+      "uv": {
+        "UVMap": "8d685c130de48d1df3530f382ad0dffc1368691c22b368292f890632e56ced6b"
+      },
+      "keys": {
+        "Basis": "336bc76e25a6f49abc39f1b23044bb4fd421bb20e4d59b22f6ac09e5eab601ae",
+        "M01_Natural_V3": "23240c746f2971c91c5cd370714a321ffd6864851b784f131970883c77537b1f",
+        "M01_Natural_V32": "c7a45cc9f7677fc1a64f6dbfbb321318dab92465310a375627a9cf91bf5f28e0",
+        "M01_Natural_V33": "2e92254cf448a851e0717c53ac1ef27db635fa0358c5a67c07ca33c201d0a40d"
+      }
+    },
+    "V8_Iris_-1": {
+      "positions": "2c841ba8f2fcc138fafd493be5789a9c32583a662d6c4f143700d79518b4afa8",
+      "loops": "5d98a77f0e0e7517d7681f3d01ff159c6e33c2626fbe0a46014d81dff36f3931",
+      "polygonSizes": "9253767c5d527c127d5aa865cb1ef3ab358ff83e14c90f32386d1212ef922676",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "V8_ApprovedIris_Frozen"
+      ],
+      "uv": {
+        "UVMap": "3895e3e908f49c4020ce71c79d8dd3c48956c3b4bde61b1d5f01e3debc9a4799"
+      },
+      "keys": {}
+    },
+    "V8_Iris_1": {
+      "positions": "c1605b178afa4a17c46b72544da992ca0aee75ffdcb3b76b115877998f8bbe76",
+      "loops": "5d98a77f0e0e7517d7681f3d01ff159c6e33c2626fbe0a46014d81dff36f3931",
+      "polygonSizes": "9253767c5d527c127d5aa865cb1ef3ab358ff83e14c90f32386d1212ef922676",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "V8_ApprovedIris_Frozen"
+      ],
+      "uv": {
+        "UVMap": "3895e3e908f49c4020ce71c79d8dd3c48956c3b4bde61b1d5f01e3debc9a4799"
+      },
+      "keys": {}
+    },
+    "V8_Sclera_-1": {
+      "positions": "9846c200072309f96a134791a1a5ddec05fabef460efcb6b053da34d365a1534",
+      "loops": "fbc5bed75eb8f6aa0de144a741ae8950baf36ab9822b905bf27e43cb998b2a9f",
+      "polygonSizes": "b6a7ec24b83000bdafadc292ea94eda54c0c4beb6a84b17dedb313a23982ff9a",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "V8_Sclera_Frozen"
+      ],
+      "uv": {},
+      "keys": {}
+    },
+    "V8_Sclera_1": {
+      "positions": "fd1240257b547e6d4efd9523fb5881df0536e9bb990cecbe628c73f1944181ad",
+      "loops": "1f6a0bc604c1a141906afb368ef60b08dff0f55b202252e1b1f49074f5bb992b",
+      "polygonSizes": "b6a7ec24b83000bdafadc292ea94eda54c0c4beb6a84b17dedb313a23982ff9a",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "V8_Sclera_Frozen"
+      ],
+      "uv": {},
+      "keys": {}
+    },
+    "V4_Cavity": {
+      "positions": "0661bcde7579f131ebe6f4645b65ea6e49bebde9e1da57cb8378b478b2f3304e",
+      "loops": "89f3dc6494e94e6917ae23f2f71919402276cf52822a2d4500c41edfe1b259eb",
+      "polygonSizes": "1604a72b7863cde2f09a2aa477bc3d041766c597b6b956f28d3f8f928e3ea111",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.3435885648505064e-07,
+        -1.0000001192092896,
+        0.0,
+        0.0,
+        1.0000001192092896,
+        -1.3435885648505064e-07,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "V4_OralCavity"
+      ],
+      "uv": {},
+      "keys": {
+        "Basis": "0661bcde7579f131ebe6f4645b65ea6e49bebde9e1da57cb8378b478b2f3304e",
+        "M01": "0661bcde7579f131ebe6f4645b65ea6e49bebde9e1da57cb8378b478b2f3304e",
+        "M02": "516901c56d2ef323bf74f0c3f9e3208034e2b5786d882828f43a3737e942f943",
+        "M03": "7036d1fa448a3e285591e6421eea242dc0ca5525eddd56487b66dab3a66e6e30",
+        "M04": "3f86f043e9519768b0f97beba8f29ad06bf365a4a7c03020d016227b460f14bf",
+        "M05": "5667ec899135fea6a3e219705f8ff6550d37f518ba5ebda45a7c91535aad630d",
+        "M06": "e481328c08110aa57f80ccb0f3781a0f34684a3fba94e3256f6033c121ae77bb",
+        "M07": "7b87c5989949593e79d1ad08407cb903b17e5d4423f7ec14f86b657ce06fba0e",
+        "M08": "df51778d78848039051c9542c06cf9cd3dffa5a7fa17cd6a31b09681212d2ab9",
+        "M09": "373b445792e49b56b7cff4b4d289ba5448ca228f68cebed2c62cf43a0cdd45b4"
+      }
+    },
+    "V4_Gum": {
+      "positions": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060",
+      "loops": "ba8480ad33b058775f0ae3d818e9c332cf65f4a86f616f732087cbcfd644265f",
+      "polygonSizes": "58ce5c958c387d3bcad653fb2317b72fa16b44525b127a653c02195e01d9a168",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "V4_Gum"
+      ],
+      "uv": {},
+      "keys": {
+        "Basis": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060",
+        "M01": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060",
+        "M02": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060",
+        "M03": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060",
+        "M04": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060",
+        "M05": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060",
+        "M06": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060",
+        "M07": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060",
+        "M08": "d3fcde78f5588d164eb3d0257a0f3e73c0f4aabade4a1f7f27d1e6a835ff06d0",
+        "M09": "d2337388709bdb834b48401fb58317def97d0d0d19f7155e2fd2bb4bd8e84060"
+      }
+    },
+    "V4_Tongue": {
+      "positions": "6556ffbe61d5cf80540be2f7d06965ffc4e5595d56669a280349638e418bbb4c",
+      "loops": "7f0cf6fa28ffbd1a9591fcd1977435f9d8d53135d3e1bd57f67a3b6baa0bfc75",
+      "polygonSizes": "1604a72b7863cde2f09a2aa477bc3d041766c597b6b956f28d3f8f928e3ea111",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "V4_Tongue"
+      ],
+      "uv": {},
+      "keys": {
+        "Basis": "6556ffbe61d5cf80540be2f7d06965ffc4e5595d56669a280349638e418bbb4c",
+        "M01": "6556ffbe61d5cf80540be2f7d06965ffc4e5595d56669a280349638e418bbb4c",
+        "M02": "6556ffbe61d5cf80540be2f7d06965ffc4e5595d56669a280349638e418bbb4c",
+        "M03": "6556ffbe61d5cf80540be2f7d06965ffc4e5595d56669a280349638e418bbb4c",
+        "M04": "6556ffbe61d5cf80540be2f7d06965ffc4e5595d56669a280349638e418bbb4c",
+        "M05": "6556ffbe61d5cf80540be2f7d06965ffc4e5595d56669a280349638e418bbb4c",
+        "M06": "aeb7cfb74fb1f38b8eb243838307522963f7244d85953d97de98bbbd49b5ae9a",
+        "M07": "6556ffbe61d5cf80540be2f7d06965ffc4e5595d56669a280349638e418bbb4c",
+        "M08": "aabdc291734f24db814c187e6019b1b351e531017c52c3a3d45f535428082b43",
+        "M09": "6556ffbe61d5cf80540be2f7d06965ffc4e5595d56669a280349638e418bbb4c"
+      }
+    },
+    "V4_UpperTeeth": {
+      "positions": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a",
+      "loops": "e15e2b016fbabd4e744ffcfbaed56d7a8855f412f9722656a186ca7ee70d1e24",
+      "polygonSizes": "d0bfed2f8e388d82a4ae375626077c62cbff3ac551515cb714d5aa0fde3a86dd",
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "materials": [
+        "V4_Enamel"
+      ],
+      "uv": {},
+      "keys": {
+        "Basis": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a",
+        "M01": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a",
+        "M02": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a",
+        "M03": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a",
+        "M04": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a",
+        "M05": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a",
+        "M06": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a",
+        "M07": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a",
+        "M08": "0b885f9d2bb3227a41162753284d57048dcfd77265d7936d43c453197de56c40",
+        "M09": "4e95c8903932703d7de73792e810bfc483ae69eb55a8f595e136326d8b42c41a"
+      }
+    }
+  },
+  "results": [
+    {
+      "file": "Female-Default-Hair-Style04-V2-primary.blend",
+      "sha256": "20df32dca40e620bb61cd66efe01acef08b780dc5cfe81901d6a7a75b6fd5efc",
+      "faceObjectsExact": {
+        "node_0": true,
+        "Preview_M02_GoldenEyeV8": true,
+        "V4_Original_Head_Uncut": true,
+        "V8_Iris_-1": true,
+        "V8_Iris_1": true,
+        "V8_Sclera_-1": true,
+        "V8_Sclera_1": true,
+        "V4_Cavity": true,
+        "V4_Gum": true,
+        "V4_Tongue": true,
+        "V4_UpperTeeth": true
+      },
+      "packedFacialImagesExact": true,
+      "hair": [
+        {
+          "name": "V2_BackVolume",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 7.729901026165368e-07,
+          "headIntersectionPairs": 573,
+          "intersectionBounds": [
+            [
+              -0.09742099791765213,
+              0.23235176503658295,
+              0.6907171607017517
+            ],
+            [
+              0.09801000356674194,
+              0.3694628179073334,
+              0.9397541880607605
+            ]
+          ]
+        },
+        {
+          "name": "V2_Fringe_Center",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 1.15855457724641e-08,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_L_inner",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 1.1594810873529737e-08,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_L_outer",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 1.158610938956482e-08,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_L_sweep",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 1.1589152505355948e-08,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_R_inner",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 1.158680765700866e-08,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_R_sweep",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 1.1590246924350828e-08,
+          "headIntersectionPairs": 202,
+          "intersectionBounds": [
+            [
+              0.09661000221967697,
+              -0.1734342724084854,
+              0.8977510333061218
+            ],
+            [
+              0.13903500139713287,
+              -0.07611828297376633,
+              0.9665871262550354
+            ]
+          ]
+        },
+        {
+          "name": "V2_LeftEnvelope",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 4.637539456325392e-08,
+          "headIntersectionPairs": 386,
+          "intersectionBounds": [
+            [
+              -0.26370999217033386,
+              -0.1651962250471115,
+              0.6713269948959351
+            ],
+            [
+              -0.14681799709796906,
+              -0.08718627691268921,
+              0.9396981000900269
+            ]
+          ]
+        },
+        {
+          "name": "V2_LeftRear",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 4.637142033897003e-08,
+          "headIntersectionPairs": 194,
+          "intersectionBounds": [
+            [
+              -0.24851900339126587,
+              0.129387766122818,
+              0.8357321619987488
+            ],
+            [
+              -0.18195000290870667,
+              0.193547785282135,
+              0.916120171546936
+            ]
+          ]
+        },
+        {
+          "name": "V2_Primary_CrownClosure",
+          "vertices": 1106,
+          "triangles": 2208,
+          "finite": true,
+          "minTriangleArea": 9.842870368415437e-06,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Primary_CrownSideNape",
+          "vertices": 10528,
+          "triangles": 21056,
+          "finite": true,
+          "minTriangleArea": 9.116189684392141e-06,
+          "headIntersectionPairs": 666,
+          "intersectionBounds": [
+            [
+              -0.244625985622406,
+              -0.20475122332572937,
+              0.4814170300960541
+            ],
+            [
+              0.24362699687480927,
+              -0.12400815635919571,
+              0.6921150088310242
+            ]
+          ]
+        },
+        {
+          "name": "V2_RightEnvelope",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 4.6370282107966434e-08,
+          "headIntersectionPairs": 669,
+          "intersectionBounds": [
+            [
+              0.08957000076770782,
+              -0.16127420961856842,
+              0.642769992351532
+            ],
+            [
+              0.2695789933204651,
+              -0.03269828110933304,
+              0.979120135307312
+            ]
+          ]
+        },
+        {
+          "name": "V2_RightRear",
+          "vertices": 784,
+          "triangles": 1564,
+          "finite": true,
+          "minTriangleArea": 4.636713612960824e-08,
+          "headIntersectionPairs": 508,
+          "intersectionBounds": [
+            [
+              0.1315550059080124,
+              0.13116274774074554,
+              0.7190681099891663
+            ],
+            [
+              0.2824139893054962,
+              0.24430479109287262,
+              0.9474751949310303
+            ]
+          ]
+        }
+      ],
+      "hairTriangles": 40468,
+      "headIntersectionPairs": 3198
+    },
+    {
+      "file": "Female-Default-Hair-Style04-V2-secondary.blend",
+      "sha256": "39019739b38aa3630a80e1e2664d4ed4f04a7ba41c2ac654322a414d26d117de",
+      "faceObjectsExact": {
+        "node_0": true,
+        "Preview_M02_GoldenEyeV8": true,
+        "V4_Original_Head_Uncut": true,
+        "V8_Iris_-1": true,
+        "V8_Iris_1": true,
+        "V8_Sclera_-1": true,
+        "V8_Sclera_1": true,
+        "V4_Cavity": true,
+        "V4_Gum": true,
+        "V4_Tongue": true,
+        "V4_UpperTeeth": true
+      },
+      "packedFacialImagesExact": true,
+      "hair": [
+        {
+          "name": "V2_BackVolume",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.047128963330152e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_Center",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.047102169996189e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_L_inner",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.054283787421543e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_L_outer",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.05255262538622e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_L_sweep",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.048945197227491e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_R_inner",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.052468096624046e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_R_overlay",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.050878332840035e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Fringe_R_sweep",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.0423512427993935e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_LeftEnvelope",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.056489575366059e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_LeftJawTurn",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.053220774054297e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_LeftNapeLayer",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 1.2187045567020278e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_LeftOuterLayer",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.049473277510839e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_LeftRear",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.052423846892349e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_LeftTempleSweep",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.049224737682999e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_Primary_CrownSideNape",
+          "vertices": 10528,
+          "triangles": 21056,
+          "finite": true,
+          "minTriangleArea": 1.5261646000872246e-08,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_RightEnvelope",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.059515736753582e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_RightJawTurn",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.052322329569679e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_RightNapeLayer",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 1.4007362080649263e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_RightOuterLayer",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.0514587682136565e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_RightRear",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.053603308798374e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        },
+        {
+          "name": "V2_RightTempleSweep",
+          "vertices": 1140,
+          "triangles": 2276,
+          "finite": true,
+          "minTriangleArea": 6.054391534188757e-09,
+          "headIntersectionPairs": 0,
+          "intersectionBounds": null
+        }
+      ],
+      "hairTriangles": 66576,
+      "headIntersectionPairs": 0
+    }
+  ],
+  "scope": "Static pose and mesh surface intersections only; no animation, WebGL or owner artistic acceptance."
+}

@@ -1,0 +1,110 @@
+{
+  "scope": "Style 04 artistic blockout only",
+  "visualGate": "FAIL",
+  "ownerAcceptance": "PENDING; not inferred",
+  "repository": "ToanFreelance/audition-mobile-mvp",
+  "branch": "work/female-default-hair-v1",
+  "baselineHead": "6ad9732c2f920890316418f778673fbbe0ca74ab",
+  "blender": "4.3.2",
+  "sourceGLBSha256": "b5ba67fa8b5b2440c0244acf5df0e47c6f7f487b81e9636fcbee4a5afdba1e90",
+  "sourceGLBLibraryId": "libfile_c84a50805ebc8191967cc4f0383e46db",
+  "references": [
+    {
+      "filename": "Golden-Mouth-V4-MVP-Nine-Presets.blend",
+      "library_file_id": "libfile_1bb6d576cea881918e57d5fd45792652",
+      "sha256": "153b589728fe54dea3f5088f2cf637541fc29b41fb42afdde743658c2cd35e79"
+    },
+    {
+      "filename": "Female-Default-Hair-Style04-V1.blend",
+      "library_file_id": "libfile_2613c8d05f64819194110cfe6ad32ace",
+      "sha256": "d8cdbbd9a543a0b6ba9efbd623c3e40d9f9ce2ab07ce770d948f558d9bf9b506"
+    },
+    {
+      "filename": "Female-Default-Hair-Style04-V1-Review.zip",
+      "library_file_id": "libfile_bc6f2876b6448191b28b6f05428aae04"
+    },
+    {
+      "filename": "female-default-style04-bob.glb",
+      "library_file_id": "libfile_48a710c3668c8191a57e341dbfcb54e2"
+    }
+  ],
+  "deliverables": [
+    {
+      "filename": "Female-Default-Hair-Style04-V2-primary.blend",
+      "library_file_id": "libfile_8c2a06c42c708191bca2728672da1c32",
+      "version": 0,
+      "bytes": 126879258,
+      "sha256": "20df32dca40e620bb61cd66efe01acef08b780dc5cfe81901d6a7a75b6fd5efc",
+      "status": "diagnostic only, VISUAL FAIL"
+    },
+    {
+      "filename": "Female-Default-Hair-Style04-V2-secondary.blend",
+      "library_file_id": "libfile_b1060fccb9a0819186583e22aef772d5",
+      "version": 1,
+      "bytes": 127012496,
+      "sha256": "39019739b38aa3630a80e1e2664d4ed4f04a7ba41c2ac654322a414d26d117de",
+      "status": "final attempted blockout, VISUAL FAIL"
+    },
+    {
+      "filename": "Female-Default-Hair-Style04-V2-Review.zip",
+      "library_file_id": "libfile_735bae31a4c48191ab8a32add49a0a95",
+      "version": 0,
+      "bytes": 22102571,
+      "sha256": "1353cd075071d429e015cf38869d20803cc74acaf4d870e1f56384bc6c81bd44"
+    },
+    {
+      "filename": "Concept-V1-V2-Comparison.jpg",
+      "library_file_id": "libfile_1e99c9bedad88191986cf98f277ba405",
+      "version": 0,
+      "bytes": 269545,
+      "sha256": "a952c8dcecaab9f07988e886318694aca7925ede9ad1a50d60fe5d3df01672ef"
+    },
+    {
+      "filename": "V2-clay-six-views.jpg",
+      "library_file_id": "libfile_45172f2135d08191b335bdedf9d8a33a",
+      "version": 0,
+      "bytes": 173611,
+      "sha256": "1230b43d9e12d805806b9cf99da757d64e50c76f52b60d439595d55965b587b7"
+    },
+    {
+      "filename": "V2-lavender-six-views.jpg",
+      "library_file_id": "libfile_33b08828b27481919f265484c3ef8c7a",
+      "version": 0,
+      "bytes": 188547,
+      "sha256": "d0ced47a731abbea137ddfa92205ab9836151b1bd797b8442fbc4357b2076629"
+    },
+    {
+      "filename": "V2-Fringe-Closeup.jpg",
+      "library_file_id": "libfile_380dfdf089f08191b0ceae1c8f194931",
+      "version": 0,
+      "bytes": 203336,
+      "sha256": "01e67242d42dbbf377b5233ffad4e6344afe4b45e2a73d3e2ed4183fb818ba35"
+    }
+  ],
+  "commands": [
+    "blender -b -t 8 --python scripts/female-default-hair-v2/author.py -- /absolute/references /absolute/output secondary",
+    "blender -b -t 8 --python scripts/female-default-hair-v2/render.py -- /absolute/output/Female-Default-Hair-Style04-V2-secondary.blend /absolute/output/clay clay",
+    "blender -b -t 8 --python scripts/female-default-hair-v2/render.py -- /absolute/output/Female-Default-Hair-Style04-V2-secondary.blend /absolute/output/lavender lavender",
+    "blender -b -t 4 --python scripts/female-default-hair-v2/validate.py -- /absolute/references /absolute/Female_anime_origin.glb /absolute/output /absolute/output/Female-Default-Hair-Style04-V2-secondary.blend",
+    "python3 scripts/female-default-hair-v2/package_review.py /absolute/output /absolute/style04-concept.jpg"
+  ],
+  "notes": [
+    "The saved primary is the pre-refinement historical checkpoint. The current author.py primary mode builds updated primary geometry; recover original early primary directly by ID.",
+    "Byte-identical .blend reproduction is not promised (Blender datablock metadata); authored geometry is deterministic from fixed station controls.",
+    "No runtime GLB required or exported; no WebGL2, gameplay, catalog integration, deploy or merge."
+  ],
+  "validation": {
+    "reopenedBothCheckpoints": true,
+    "preservedFaceObjects": 11,
+    "finalHairMeshes": 21,
+    "finalHairTriangles": 66576,
+    "finalHeadIntersectionPairs": 0,
+    "finiteHairCoordinates": true,
+    "minimumTriangleArea": 1.2187045567020278e-09,
+    "pngCount": 26,
+    "pngDecodeAndZipCRCVerified": true,
+    "artisticGate": "FAIL",
+    "webglRun": false,
+    "ownerAcceptance": false
+  }
+}
