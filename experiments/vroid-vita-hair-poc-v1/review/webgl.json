@@ -1,0 +1,111 @@
+{
+  "three": "180",
+  "context": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+  "renderer": "WebKit WebGL",
+  "triangles": 353105,
+  "meshes": [
+    {
+      "name": "Bodybaked",
+      "skinned": true,
+      "triangles": 7732,
+      "morphs": 0
+    },
+    {
+      "name": "Bodybaked_1",
+      "skinned": true,
+      "triangles": 2122,
+      "morphs": 0
+    },
+    {
+      "name": "Bodybaked_2",
+      "skinned": true,
+      "triangles": 760,
+      "morphs": 0
+    },
+    {
+      "name": "Bodybaked_3",
+      "skinned": true,
+      "triangles": 394,
+      "morphs": 0
+    },
+    {
+      "name": "Facebaked",
+      "skinned": true,
+      "triangles": 496,
+      "morphs": 41
+    },
+    {
+      "name": "Facebaked_1",
+      "skinned": true,
+      "triangles": 96,
+      "morphs": 41
+    },
+    {
+      "name": "Facebaked_2",
+      "skinned": true,
+      "triangles": 384,
+      "morphs": 41
+    },
+    {
+      "name": "Facebaked_3",
+      "skinned": true,
+      "triangles": 224,
+      "morphs": 41
+    },
+    {
+      "name": "Facebaked_4",
+      "skinned": true,
+      "triangles": 160,
+      "morphs": 41
+    },
+    {
+      "name": "Facebaked_5",
+      "skinned": true,
+      "triangles": 192,
+      "morphs": 41
+    },
+    {
+      "name": "Facebaked_6",
+      "skinned": true,
+      "triangles": 192,
+      "morphs": 41
+    },
+    {
+      "name": "Facebaked_7",
+      "skinned": true,
+      "triangles": 1342,
+      "morphs": 41
+    },
+    {
+      "name": "Facebaked_8",
+      "skinned": true,
+      "triangles": 64,
+      "morphs": 41
+    },
+    {
+      "name": "Style04_•_GBH_filaments_1",
+      "skinned": true,
+      "triangles": 88201,
+      "morphs": 0
+    },
+    {
+      "name": "Style04_•_GBH_filaments_2",
+      "skinned": true,
+      "triangles": 88174,
+      "morphs": 0
+    },
+    {
+      "name": "Style04_•_GBH_filaments_3",
+      "skinned": true,
+      "triangles": 87912,
+      "morphs": 0
+    },
+    {
+      "name": "Style04_•_Layered_silk_cards",
+      "skinned": true,
+      "triangles": 74460,
+      "morphs": 0
+    }
+  ],
+  "error": 0
+}

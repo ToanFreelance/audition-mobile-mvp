@@ -1,0 +1,62 @@
+{
+  "Vita-Original.vrm": {
+    "bytes": 14359044,
+    "sha256": "f2bf78f28a24e2f75f5ca0b6c3b646654c394e4b03592dfaa0d0633ef0972b4d"
+  },
+  "Vita-Style04-Hair-POC-V1.blend": {
+    "bytes": 20737419,
+    "sha256": "4b0b04abcccdec53a5f0b1a9ea713d46fa1f6c6b963595519dc64a162b353900"
+  },
+  "Vita-Style04-Hair-POC-V1.glb": {
+    "bytes": 24458864,
+    "sha256": "b4fab5b20d1e411eb459ec5aa5788a2a679f9bf42e92426829e5a7f72af2e957"
+  },
+  "Vita-Style04-Hair-POC-V1.vrm": {
+    "bytes": 30933772,
+    "sha256": "df647e47060ae748bb478ee8a1084b32d44746eb0ced14e299bd55688e003697"
+  },
+  "01-original-front.png": {
+    "bytes": 697065,
+    "sha256": "a5f5aa714aad0a30dcefa096f83a0f59b41e678710683708190006df398805c0"
+  },
+  "02-original-left35.png": {
+    "bytes": 701477,
+    "sha256": "642c8323db0cc6ad5806e497ee6106ca518e1b8ec67cc37c760771481d919859"
+  },
+  "03-style04-front.png": {
+    "bytes": 862778,
+    "sha256": "adead2c6aba38ad82c10bce242fb05efa4c360c8d0ba47d9c0308be0f64c763a"
+  },
+  "04-style04-left35.png": {
+    "bytes": 870195,
+    "sha256": "0883c46c1493d1102ab500155f99b5e847d89bb51027eae572142c64460b0f96"
+  },
+  "05-style04-right-profile.png": {
+    "bytes": 867964,
+    "sha256": "e09f3c05db25877983da4ee49ba88791fc186dbebcf076d1e75ecbe49e8c5b4d"
+  },
+  "06-hair-front.png": {
+    "bytes": 974800,
+    "sha256": "751fff5211234fb0bdd7c2dcfb378fc75f1fcc8d13db5edf9d608c83413a9756"
+  },
+  "07-hair-side.png": {
+    "bytes": 916648,
+    "sha256": "1e0d9d7b79ac8d4d0ec8d15dd09e9a029d2f8d2cbcb5e29ec5207f4ce23b7211"
+  },
+  "08-fringe-detail.png": {
+    "bytes": 1016463,
+    "sha256": "a0e6c0038b67d50111212fb023a1c94d230abc4b492027be6a9f43bf7154092e"
+  },
+  "09-gbh-guides.png": {
+    "bytes": 966209,
+    "sha256": "0365aa28cd86f8b2c5580c654e4af61e15365568c80ad6730192128a4d367ed3"
+  },
+  "10-fresh-glb-front.png": {
+    "bytes": 861320,
+    "sha256": "30a4951a04d66c9f89ab74e43e28cc766320334c2a768ab1a7bf80dbd85fd2d4"
+  },
+  "11-three-webgl2-front.png": {
+    "bytes": 382054,
+    "sha256": "85b5adb37b003302bca020979dfd181b3c2c228d06f1c16ad99737a6df7a7359"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "root_count": 1088,
+  "root_clearance_mm": {
+    "min": 0.33177377190440893,
+    "median": 0.3458311839494854,
+    "max": 0.34899363527074456
+  },
+  "intersections": {
+    "Style04 \u2022 Layered silk cards": 0,
+    "Style04 \u2022 GBH filaments 1": 0,
+    "Style04 \u2022 GBH filaments 2": 0,
+    "Style04 \u2022 GBH filaments 3": 0
+  }
+}

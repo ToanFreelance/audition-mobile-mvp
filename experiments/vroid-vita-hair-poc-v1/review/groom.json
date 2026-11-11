@@ -1,0 +1,55 @@
+{
+  "cards": 219,
+  "card_vertices": 45990,
+  "card_quads": 37230,
+  "gbh": [
+    {
+      "operator": "gbh.node_group_add_to_object",
+      "result": [
+        "FINISHED"
+      ],
+      "convert_hair_mesh": [
+        "FINISHED"
+      ],
+      "group": "GBH Profile Polygon Hair Cards",
+      "guides": 363,
+      "points": 10527,
+      "mesh_vertices": 50311,
+      "mesh_faces": 44645,
+      "width": 0.03200000151991844,
+      "resolution": 3
+    },
+    {
+      "operator": "gbh.node_group_add_to_object",
+      "result": [
+        "FINISHED"
+      ],
+      "convert_hair_mesh": [
+        "FINISHED"
+      ],
+      "group": "GBH Profile Polygon Hair Cards",
+      "guides": 363,
+      "points": 10527,
+      "mesh_vertices": 50262,
+      "mesh_faces": 44631,
+      "width": 0.03200000151991844,
+      "resolution": 3
+    },
+    {
+      "operator": "gbh.node_group_add_to_object",
+      "result": [
+        "FINISHED"
+      ],
+      "convert_hair_mesh": [
+        "FINISHED"
+      ],
+      "group": "GBH Profile Polygon Hair Cards",
+      "guides": 362,
+      "points": 10498,
+      "mesh_vertices": 50090,
+      "mesh_faces": 44499,
+      "width": 0.03200000151991844,
+      "resolution": 3
+    }
+  ]
+}
