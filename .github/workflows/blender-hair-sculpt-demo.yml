@@ -1,0 +1,65 @@
+name: Blender Headless Hair Sculpt Demo
+
+on:
+  push:
+    branches:
+      - "work/blender-headless-hair-demo-v1"
+    paths:
+      - ".github/workflows/blender-hair-sculpt-demo.yml"
+      - "tools/blender/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blender-hair-sculpt-demo-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sculpt-validate:
+    name: Blender CPU render + GLB roundtrip
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      OUTPUT_DIR: ${{ runner.temp }}/blender-hair-sculpt-output
+    steps:
+      - name: Checkout isolated work branch
+        uses: actions/checkout@v4
+
+      - name: Install Ubuntu Blender package
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y blender
+          blender --background --version | head -n 4
+
+      - name: Sculpt existing hair vertices, render before/after, export GLB and roundtrip
+        shell: bash
+        run: |
+          mkdir -p "$OUTPUT_DIR"
+          blender --background --threads 4 --python tools/blender/hair_sculpt_demo.py -- "$OUTPUT_DIR"
+
+      - name: Report measured results
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$OUTPUT_DIR/report.json"; then
+            cat "$OUTPUT_DIR/report.json"
+            {
+              echo "## Blender Hair Sculpt Demo"
+              echo "Report (JSON):"
+              cat "$OUTPUT_DIR/report.json"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No report.json generated; inspect previous job logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Publish before/after, GLB, .blend and report for iPhone QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-hair-sculpt-demo-${{ github.run_id }}
+          path: ${{ env.OUTPUT_DIR }}/
+          if-no-files-found: warn
+          retention-days: 3
