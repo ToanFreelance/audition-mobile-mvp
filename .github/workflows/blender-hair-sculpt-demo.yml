@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      OUTPUT_DIR: ${{ runner.temp }}/blender-hair-sculpt-output
+      OUTPUT_DIR: artifacts/blender-hair-sculpt-output
     steps:
       - name: Checkout isolated work branch
         uses: actions/checkout@v4
