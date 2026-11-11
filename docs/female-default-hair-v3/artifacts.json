@@ -1,0 +1,94 @@
+{
+  "baselineCommit": "1cea4ba43aa598ebaaf8d41fb12ca6fc0e3164c4",
+  "branch": "work/female-default-hair-v1",
+  "artistReview": "FAIL — central tips are still too regular; owner review pending",
+  "blenderVersion": "4.3.2",
+  "sourceHairSha256": "b2674e644b7997f2947698440b518bd412ffd3f2d8cbe211a78384b5dab737a5",
+  "baselineBlendSha256": "d8cdbbd9a543a0b6ba9efbd623c3e40d9f9ce2ab07ce770d948f558d9bf9b506",
+  "faceDigestsBeforeAndAfter": {
+    "node_0": "c524ac4c1e1b96f1aa563e6059e1c717ad50609a67eb9232f9a1315057960f54",
+    "V4_Cavity": "8099a54c0068bee8be1aa67941fe746bce1336a539807fad541c92778f3b9c2b",
+    "V4_UpperTeeth": "1944e74f815231eb2eae0829339cc6d290c95ec29705e76558a39a2c175d7771",
+    "V4_Gum": "a1a198028f26041cf09791eccdfbd381ecbfd8f1270b4010a970663d08ef3a58",
+    "V4_Tongue": "b07b8bc798e04089c9f75c3023a674fd839fce5a63968eb9bbe1ac3e6008693b",
+    "Preview_M02_GoldenEyeV8": "46baadf4f62cc69cab3fb3828b0239d6c003a61202c1104e459278fe04213833",
+    "V8_Iris_-1": "d1ca21a74efeb0e1ca438ce85396950b9b52fbff8f6fcdca15a1baa7ebf9fdf2",
+    "V8_Sclera_-1": "de1194fbeb768768066af4525c1d802b21c86fa43407d40aec9167544515c61f",
+    "V8_Iris_1": "c5416c66f2c605edcef9008458f5aaf23539fa311e2599374b686e0ed2fc3927",
+    "V8_Sclera_1": "5d9dbfa8f7b49504156f915aed70ba1fd52159733c7c3243c21c951dfddc4e63",
+    "V4_Original_Head_Uncut": "60ba39b3f278cc66932ae29433be1674aa1f286a15a2bd6076750042a1057208"
+  },
+  "outputHair": {
+    "triangles": 716084,
+    "hunyuanTriangles": 685908,
+    "fringeTriangles": 30176,
+    "meshes": 42,
+    "materials": 2,
+    "embeddedImages": 4,
+    "exactRebuild": true
+  },
+  "renders": {
+    "engine": "Cycles CPU",
+    "imageCount": 27,
+    "isolatedHair": "fresh import of final GLB, no character mesh in scene",
+    "clayAndLavender": "five hair-only and five fitted views for each material",
+    "pbr": "five fitted views, isolated front, original mannequin front",
+    "denoised": false
+  },
+  "outputs": [
+    {
+      "name": "Style04-V3-A-Separation.glb",
+      "bytes": 61927688,
+      "sha256": "c42704411a9d1444b49e6adff7b2574c5e6dec014f7f7a2f709cfd008329912f",
+      "library_file_id": "libfile_948845c2c2188191904382f765c92b3e"
+    },
+    {
+      "name": "Style04-V3-B-Fringe.glb",
+      "bytes": 61509100,
+      "sha256": "da747e891313d5182be0d0df0562745c7d66dd51140fb95589b001082c54104f",
+      "library_file_id": "libfile_20bf9564033c8191a8a45ab02bf326da"
+    },
+    {
+      "name": "Style04-V3-Hair.glb",
+      "bytes": 61632672,
+      "sha256": "996e551f66f0635ad32f1b298e8b9d5b4e7c2b37b83fa06acda140378f1072e7",
+      "library_file_id": "libfile_2b3fa0282e6c8191b3e7f4bd8cc40595"
+    },
+    {
+      "name": "Style04-V3-Fitted.blend",
+      "bytes": 194732539,
+      "sha256": "87d378e2ddc2c8eceba25669cd5fd14c84822a29a4ffa8a102798a2b39403be7",
+      "library_file_id": "libfile_e6be3671a8f081918726ad98d9d48ee1"
+    },
+    {
+      "name": "Style04-V3-Comparison.jpg",
+      "bytes": 211522,
+      "sha256": "b1b8039e26a451aee90800688fe1653e2e0a25700ca0e9fa1be473a4c2e43ae1",
+      "library_file_id": "libfile_b3c60a13e7648191aedccf734adbac49"
+    },
+    {
+      "name": "Style04-V3-Fringe-M02.png",
+      "bytes": 1234454,
+      "sha256": "dfddbc2d9ebac647b5304084f60fc3668796fbbfa4cb5e233ee1e422d48ab067",
+      "library_file_id": "libfile_dd814d2b507c8191800977e4e64a62c8"
+    },
+    {
+      "name": "Style04-V3-Hair-Views.jpg",
+      "bytes": 336890,
+      "sha256": "afa83a5aa923f4a7aa54492f284ce16719e8850e4836145183c3a5eacb035cd2",
+      "library_file_id": "libfile_248098fc0b8481918b6f3e7fc1609d91"
+    },
+    {
+      "name": "Style04-V3-Fitted-Views.jpg",
+      "bytes": 375276,
+      "sha256": "d9749f9235c0c0c980f1c08fef383a768e0707590ea4ea498b2afc0dae2519fa",
+      "library_file_id": "libfile_9eed64ff50d48191a3aa77d462a51430"
+    },
+    {
+      "name": "Style04-V3-Review.zip",
+      "bytes": 20519134,
+      "sha256": "aad0fe543e58416d1a50fb2bfeb07af6193e9abc641b5642d04cf18f07cf77be",
+      "library_file_id": "libfile_cae4c68961f48191b5851c6aee920308"
+    }
+  ]
+}
