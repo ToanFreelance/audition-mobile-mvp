@@ -27,12 +27,16 @@ jobs:
       - name: Checkout isolated work branch
         uses: actions/checkout@v4
 
-      - name: Install Ubuntu Blender package
+      - name: Install official portable Blender 4.5.16 LTS (no APT)
         shell: bash
         run: |
-          sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y blender
-          blender --background --version | head -n 4
+          curl --fail --location --retry 2 --connect-timeout 20 --max-time 240 \
+            --output "$RUNNER_TEMP/blender-4.5.16.tar.xz" \
+            "https://download.blender.org/release/Blender4.5/blender-4.5.16-linux-x64.tar.xz"
+          tar -xf "$RUNNER_TEMP/blender-4.5.16.tar.xz" -C "$RUNNER_TEMP"
+          test -x "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender"
+          echo "$RUNNER_TEMP/blender-4.5.16-linux-x64" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/blender-4.5.16-linux-x64/blender" --background --version | head -n 4
 
       - name: Sculpt existing hair vertices, render before/after, export GLB and roundtrip
         shell: bash
