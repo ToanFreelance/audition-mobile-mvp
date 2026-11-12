@@ -162,13 +162,17 @@ function disposeHair(group: THREE.Group): void {
 function freezeDonorHair(root: THREE.Object3D): HairGroup {
   root.updateMatrixWorld(true);
   const donorHead = headBone(root);
-  if (!donorHead) throw new Error("File không có xương Head để canh tóc.");
-  donorHead.updateMatrixWorld(true);
+  // GLBs built by the VRoid Beta hair converter deliberately contain hair-only
+  // geometry already authored in Head-local coordinates (no avatar or armature).
+  // Never silently accept arbitrary headless GLBs, which could be full avatars.
+  const headLocal = root.userData.vroidHairHeadLocal === true;
+  if (!donorHead && !headLocal) throw new Error("File không có xương Head. Với GLB chỉ chứa tóc, hãy dùng converter VRoid Beta.");
+  donorHead?.updateMatrixWorld(true);
   const members = hairMeshes(root);
   if (!members.length) throw new Error("Không tìm được hair mesh tách riêng trong file này.");
   const group = new THREE.Group() as HairGroup;
   group.name = "TryOnHair";
-  const inverseHead = donorHead.matrixWorld.clone().invert();
+  const inverseHead = donorHead ? donorHead.matrixWorld.clone().invert() : null;
   for (const original of members) {
     const geometry = original.geometry.clone();
     const attr = geometry.getAttribute("position") as THREE.BufferAttribute;
@@ -180,7 +184,8 @@ function freezeDonorHair(root: THREE.Object3D): HairGroup {
     for (let i = 0; i < attr.count; i++) {
       v.fromBufferAttribute(originalAttr, i);
       if (skinned) skinned.applyBoneTransform(i, v);
-      v.applyMatrix4(original.matrixWorld).applyMatrix4(inverseHead);
+      v.applyMatrix4(original.matrixWorld);
+      if (inverseHead) v.applyMatrix4(inverseHead);
       attr.setXYZ(i, v.x, v.y, v.z);
     }
     geometry.deleteAttribute("skinIndex");
@@ -195,6 +200,7 @@ function freezeDonorHair(root: THREE.Object3D): HairGroup {
   }
   if (!group.children.length) throw new Error("Không tạo được mesh tóc hợp lệ.");
   group.userData.sourceName = root.name;
+  group.userData.headLocal = headLocal;
   return group;
 }
 
@@ -546,6 +552,9 @@ export default function VitaHairTryOnPage() {
       const gltf = await new GLTFLoader().parseAsync(await file.arrayBuffer(), "");
       const group = freezeDonorHair(gltf.scene);
       if (token !== serial.current || !viewer.current?.head) { disposeHair(group); return; }
+      // The Beta converter exports native +Z-facing, Head-local geometry.
+      // Apply no donor 180° correction to its output.
+      if (group.userData.headLocal) setReverseImportedHair(false);
       const old = viewer.current.groups.get(candidateId);
       if (old) { old.parent?.remove(old); disposeHair(old); }
       viewer.current.groups.set(candidateId, group);
@@ -556,7 +565,7 @@ export default function VitaHairTryOnPage() {
       viewer.current.baseHair.forEach(o => { o.visible = false; });
       group.scale.setScalar(scale);
       group.position.set(horizontal / 100, vertical / 100, depth / 100);
-      group.rotation.y = reverseImportedHair ? Math.PI : 0;
+      group.rotation.y = group.userData.headLocal ? 0 : (reverseImportedHair ? Math.PI : 0);
       setSelected(candidateId);
       rememberPhoto(viewer.current, candidateId, isVariantA);
       setStatus("Đã gắn " + file.name + " lên Head. Kiểm tra trước/sau và chỉnh hướng tóc nếu cần.");
@@ -641,8 +650,9 @@ export default function VitaHairTryOnPage() {
           </div>
           <div className="hair-uploads">
             <label className="hair-upload">Nạp Vita V1.1 đã duyệt (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadAvatarFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
-            <label className="hair-upload">Nạp một hairstyle (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadHairFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
+            <label className="hair-upload">Nạp hairstyle hoặc GLB convert (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadHairFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
           </div>
+          <p className="hair-help">GLB chuyển từ preset VRoid Beta được hỗ trợ ở dạng <strong>hair-only, head-local</strong> (không cần xương Head). Chỉ sử dụng file do converter tạo ra, không đổi tên .vroid/.vroidcustomitem thành .glb. Bản dựng gần đúng cần kiểm tra fit trực quan.</p>
           <p className="hair-help">V2 tự mở <strong>Variant A</strong> nếu bạn đã nạp file lần trước trên cùng trình duyệt. Lần đầu chọn <strong>Vita-Premium-Cute-V11.glb</strong> từ Library. File chỉ được lưu trong IndexedDB của máy, không upload lên server.</p>
           {isVariantA && <button type="button" className="hair-reset-avatar" disabled={!!pending || batching} onClick={() => void restoreVitaCC0()}>Trở về Vita CC0 mặc định</button>}
           <details className="hair-fit">
