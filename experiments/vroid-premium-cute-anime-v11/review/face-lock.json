@@ -1,0 +1,331 @@
+{
+  "vertices": "36aab5f0edc246ed2f6a4b11f44ce2dddbb86c1bc05915dcf046875dcd3a500c",
+  "topology": "984ec28cca321742cc74c90280ace61593875d7b3d4770b4064a39d0b4fd02fa",
+  "keys": {
+    "Basis": "36aab5f0edc246ed2f6a4b11f44ce2dddbb86c1bc05915dcf046875dcd3a500c",
+    "Face.M_F00_000_00_Fcl_ALL_Angry": "286d3e581132c0b234baea04325741cea772307dbeaa2ee0f4101d23731e0b6f",
+    "Face.M_F00_000_00_Fcl_ALL_Fun": "f78099d6417c4bf01b59911bd92d3715d60aae46bf8a68ec2508751c4d1b6ece",
+    "Face.M_F00_000_00_Fcl_ALL_Joy": "fabf894300bd24d78398ff5d6ee48661c095d650c197881e39caf8740dfcd6fb",
+    "Face.M_F00_000_00_Fcl_ALL_Sorrow": "d6788e8942fca4b9961d7672a0211a1e257afc8da142bf1b4d22b8fddf2259db",
+    "Face.M_F00_000_00_Fcl_ALL_Surprised": "89fcd5a4db79d1812fa559050c7cacd4e130343af08ec719184d38b55fe2904f",
+    "Face.M_F00_000_00_Fcl_BRW_Angry": "cdcfe5f7abed460f51ae9ad35a22b14b1dbfda72633239bbcda88cf8f8461bae",
+    "Face.M_F00_000_00_Fcl_BRW_Fun": "316f36061cedd0636355953c62ba4bd1088319190448a1d31986073d45171314",
+    "Face.M_F00_000_00_Fcl_BRW_Joy": "7622ee9c457a611caad777117b363d6840b04c57253977abf3ecd28ee1750b85",
+    "Face.M_F00_000_00_Fcl_BRW_Sorrow": "720489e6833644d0843167982e0718427641c90dd172271b46638c454e59c2e8",
+    "Face.M_F00_000_00_Fcl_BRW_Surprised": "af01a2da76145eee982b4a4065fc5169e281d0a2b71b1ac5a39a2dc3ee6c7517",
+    "Face.M_F00_000_00_Fcl_EYE_Natural": "36aab5f0edc246ed2f6a4b11f44ce2dddbb86c1bc05915dcf046875dcd3a500c",
+    "Face.M_F00_000_00_Fcl_EYE_Angry": "8dfdaaaad441e2def17e0e2ed124504483d739586987677a2fd6f75a05d0a3f3",
+    "Face.M_F00_000_00_Fcl_EYE_Close": "b46992ba9eed618a5e7a07c57c01499647d2fb7fc07396cf76aaf219a584b686",
+    "Face.M_F00_000_00_Fcl_EYE_Close_R": "0e4095ae06e81571ae095f70006fa022db9b395f6f1cd104e7a44bac7c8b4a49",
+    "Face.M_F00_000_00_Fcl_EYE_Close_L": "5fcc5c95ab5ccfc7d324f27e2bff69597f4e64496c0dd321338ea5afa773d169",
+    "Face.M_F00_000_00_Fcl_EYE_Joy": "2eaad610f69cfde0d1dcc3890ad5b0dd5ee6c56e9cdd2cf7cd7ca90b4c2e953b",
+    "Face.M_F00_000_00_Fcl_EYE_Joy_R": "f384bbd8c7908fe2fe1a9338937c2d8afc7975e559e40ff38d8888c69f83fb5c",
+    "Face.M_F00_000_00_Fcl_EYE_Joy_L": "b06ef996223bc271ac239cec9cbb77db0fdaf4b459f401e00f425fe47484667e",
+    "Face.M_F00_000_00_Fcl_EYE_Sorrow": "ba7ea49d3aaea335251195e2a9d92923f6975dbe96baa9c9d8f315d063b4b2dd",
+    "Face.M_F00_000_00_Fcl_EYE_Surprised": "49e209213f27118bfa2b95707f8d49cd8fb0a2fa2ae2e3e67dfcfc5d8717dd35",
+    "Face.M_F00_000_00_Fcl_EYE_Extra": "b813f8aadfebac79973c44b7bb959fcdcaa8467abd38fc01bdd35dbd2be7b014",
+    "Face.M_F00_000_00_Fcl_MTH_Up": "b797e33a8c0c487e695e69c52e54da2166daa2ca31b370eaa895e00b247c6f3e",
+    "Face.M_F00_000_00_Fcl_MTH_Down": "60c9afa6697fa4ba9e82f546f9f0833d195b7d7b3fceea0e6a419dd5d1725616",
+    "Face.M_F00_000_00_Fcl_MTH_Angry": "a45c2e8410d44d40a22b84d4b11fdae230cdae467cfab19e2d6e021e56b2787b",
+    "Face.M_F00_000_00_Fcl_MTH_Neutral": "5e8e09170569bd70bdfd3271c75a0fef66201044799c927613c06ae76ff63fd7",
+    "Face.M_F00_000_00_Fcl_MTH_Fun": "2f3d66d37b8c09262c10afcfe126b01adbf5ad911926b180d466eef4d77ae1eb",
+    "Face.M_F00_000_00_Fcl_MTH_Joy": "ac7c0a35cc36569b4e07ab518cfca9dd712728401d207d39eaa988c09f12a484",
+    "Face.M_F00_000_00_Fcl_MTH_Sorrow": "b7c08f7cba389d1163bfd5603994a44b2f13cea1c194386ed7c16f8b7125d993",
+    "Face.M_F00_000_00_Fcl_MTH_Surprised": "d617a9f1181c2e72f0a13d3efb5f399c9dc9b69dd824e3213be75ed241dfc03b",
+    "Face.M_F00_000_00_Fcl_MTH_A": "a8f492b4a83ba1aa8bbe1045ed946e099e4867ad0109fa2eca355eaf1b9f693b",
+    "Face.M_F00_000_00_Fcl_MTH_I": "510dbc95322dd4b2f1b20c0aefe83ff73bc7e59e8c0562d7e7a1b9068114d545",
+    "Face.M_F00_000_00_Fcl_MTH_U": "7b98229d18f141105c4dc145375933b49349ab9e495aad4e1f1a201fcfaf95e2",
+    "Face.M_F00_000_00_Fcl_MTH_E": "bcc0d62dea469a77d26d0f4636d604956c817fbe065e984fd0ad996853350a19",
+    "Face.M_F00_000_00_Fcl_MTH_O": "3cbcbce7788c75bfda4ecd90f01e6a1a23ec202f5efc2ce4bd7ba0668609a22d",
+    "Face.M_F00_000_00_Fcl_HA_Fung1": "b7ac94a5305e3037b597660553a57531d7955c827d61280c632458e24dc876b7",
+    "Face.M_F00_000_00_Fcl_HA_Fung1_Low": "dce00be4787fe7a7b65e7985fd9564ddd94d9b013ec20c39df9bbaa179c6ee6d",
+    "Face.M_F00_000_00_Fcl_HA_Fung1_Up": "1c4486f9df854950a57a724bb8387f7683b4c8be1d1afeeae34a3715fc3f5fa9",
+    "Face.M_F00_000_00_Fcl_HA_Fung2": "cb3d8eb294d6b6305cbd5130ade53d65336ba5b21020296fed004598750f1c20",
+    "Face.M_F00_000_00_Fcl_HA_Fung2_Low": "eda6ba3e7ec1a7e05fdd87b672fb630119fa091a387bf9d187695101a0455e7a",
+    "Face.M_F00_000_00_Fcl_HA_Fung2_Up": "17bb9a3af7d1dff2c866a3597c7d850ce99391f388ff5afa071399570f62e9eb",
+    "EyeExtra_01.M_F00_000_00_EyeExtra_On": "3392e4bb71b42c9a5b9e631853953ea86ad04fd2da53be7995ae0f538a1439bc"
+  },
+  "weights": "d1d931f96cf55de1dd3d059aed488ea2cb831bade57e24e5e9cb61acdda3f7ce",
+  "skeleton": "3af1cc343db2c45320f80b6c3c6c0ed7c746b152d059f81c32631c2921aa3e6e",
+  "humanoid": {
+    "hips": "J_Bip_C_Hips",
+    "leftUpperLeg": "J_Bip_L_UpperLeg",
+    "rightUpperLeg": "J_Bip_R_UpperLeg",
+    "leftLowerLeg": "J_Bip_L_LowerLeg",
+    "rightLowerLeg": "J_Bip_R_LowerLeg",
+    "leftFoot": "J_Bip_L_Foot",
+    "rightFoot": "J_Bip_R_Foot",
+    "spine": "J_Bip_C_Spine",
+    "chest": "J_Bip_C_Chest",
+    "neck": "J_Bip_C_Neck",
+    "head": "J_Bip_C_Head",
+    "leftShoulder": "J_Bip_L_Shoulder",
+    "rightShoulder": "J_Bip_R_Shoulder",
+    "leftUpperArm": "J_Bip_L_UpperArm",
+    "rightUpperArm": "J_Bip_R_UpperArm",
+    "leftLowerArm": "J_Bip_L_LowerArm",
+    "rightLowerArm": "J_Bip_R_LowerArm",
+    "leftHand": "J_Bip_L_Hand",
+    "rightHand": "J_Bip_R_Hand",
+    "leftToes": "J_Bip_L_ToeBase",
+    "rightToes": "J_Bip_R_ToeBase",
+    "leftEye": "J_Adj_L_FaceEye",
+    "rightEye": "J_Adj_R_FaceEye",
+    "leftThumbProximal": "J_Bip_L_Thumb1",
+    "leftThumbIntermediate": "J_Bip_L_Thumb2",
+    "leftThumbDistal": "J_Bip_L_Thumb3",
+    "leftIndexProximal": "J_Bip_L_Index1",
+    "leftIndexIntermediate": "J_Bip_L_Index2",
+    "leftIndexDistal": "J_Bip_L_Index3",
+    "leftMiddleProximal": "J_Bip_L_Middle1",
+    "leftMiddleIntermediate": "J_Bip_L_Middle2",
+    "leftMiddleDistal": "J_Bip_L_Middle3",
+    "leftRingProximal": "J_Bip_L_Ring1",
+    "leftRingIntermediate": "J_Bip_L_Ring2",
+    "leftRingDistal": "J_Bip_L_Ring3",
+    "leftLittleProximal": "J_Bip_L_Little1",
+    "leftLittleIntermediate": "J_Bip_L_Little2",
+    "leftLittleDistal": "J_Bip_L_Little3",
+    "rightThumbProximal": "J_Bip_R_Thumb1",
+    "rightThumbIntermediate": "J_Bip_R_Thumb2",
+    "rightThumbDistal": "J_Bip_R_Thumb3",
+    "rightIndexProximal": "J_Bip_R_Index1",
+    "rightIndexIntermediate": "J_Bip_R_Index2",
+    "rightIndexDistal": "J_Bip_R_Index3",
+    "rightMiddleProximal": "J_Bip_R_Middle1",
+    "rightMiddleIntermediate": "J_Bip_R_Middle2",
+    "rightMiddleDistal": "J_Bip_R_Middle3",
+    "rightRingProximal": "J_Bip_R_Ring1",
+    "rightRingIntermediate": "J_Bip_R_Ring2",
+    "rightRingDistal": "J_Bip_R_Ring3",
+    "rightLittleProximal": "J_Bip_R_Little1",
+    "rightLittleIntermediate": "J_Bip_R_Little2",
+    "rightLittleDistal": "J_Bip_R_Little3",
+    "upperChest": "J_Bip_C_UpperChest"
+  },
+  "expressions": {
+    "Neutral": [],
+    "A": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_MTH_A",
+        1.0
+      ]
+    ],
+    "I": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_MTH_I",
+        1.0
+      ]
+    ],
+    "U": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_MTH_U",
+        1.0
+      ]
+    ],
+    "E": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_MTH_E",
+        1.0
+      ]
+    ],
+    "O": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_MTH_O",
+        1.0
+      ]
+    ],
+    "Blink": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_EYE_Close",
+        1.0
+      ]
+    ],
+    "Blink_L": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_EYE_Close_L",
+        1.0
+      ]
+    ],
+    "Blink_R": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_EYE_Close_R",
+        1.0
+      ]
+    ],
+    "Angry": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_ALL_Angry",
+        1.0
+      ]
+    ],
+    "Fun": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_ALL_Fun",
+        1.0
+      ]
+    ],
+    "Joy": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_ALL_Joy",
+        1.0
+      ]
+    ],
+    "Sorrow": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_ALL_Sorrow",
+        1.0
+      ]
+    ],
+    "Surprised": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_ALL_Surprised",
+        1.0
+      ]
+    ],
+    "Extra": [
+      [
+        "Face",
+        "Face.M_F00_000_00_Fcl_EYE_Extra",
+        1.0
+      ],
+      [
+        "Face",
+        "EyeExtra_01.M_F00_000_00_EyeExtra_On",
+        1.0
+      ]
+    ]
+  },
+  "springs": [
+    [
+      "",
+      [
+        "J_Sec_L_Bust1",
+        "J_Sec_R_Bust1"
+      ]
+    ],
+    [
+      "",
+      [
+        "J_Sec_L_LowerSleeve",
+        "J_Sec_L_TipSleeve",
+        "J_Sec_R_LowerSleeve",
+        "J_Sec_R_TipSleeve"
+      ]
+    ],
+    [
+      "",
+      [
+        "J_Sec_L_SkirtBack1",
+        "J_Sec_L_SkirtFront1",
+        "J_Sec_L_SkirtSide1",
+        "J_Sec_R_SkirtBack1",
+        "J_Sec_R_SkirtFront1",
+        "J_Sec_R_SkirtSide1"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-245c78de-5156-428a-a204-d0d365e05ba6"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-228d3cb8-acdc-423e-ba0b-348633783c8d"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-92f42ad7-3cfb-4a57-92ce-fb7949e9fd63"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-bbbbeaec-2e88-4187-a45f-82397e478b9b"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-97f1861b-4225-48a8-82a7-83298efe6d1d"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-624404ef-6900-4636-a7e8-8f21a085e1a1"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-f42abeae-8c90-4c62-acb0-f421b9ff20ae"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-4308202c-fb5a-4cd4-b888-88df8484cbfd"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-f5673e45-468b-4385-9e7f-884dd40a42d9"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-b2ad7ba8-6449-4705-8265-acf10ff1e0b6"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-84128ad6-f9ff-4606-a254-0ae6a42fa328"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-e4b0b4c5-3f6a-478d-adca-d4d03d2deecc"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-c2c155fc-f638-43ac-bd5d-c8bcfcdb5bfe"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-a9ff6aaa-bb4d-492a-9e81-3c1ebc305fca"
+      ]
+    ],
+    [
+      "",
+      [
+        "HairJoint-e1cb9281-c290-4f72-8e0f-833f3b3a9b5c"
+      ]
+    ]
+  ]
+}

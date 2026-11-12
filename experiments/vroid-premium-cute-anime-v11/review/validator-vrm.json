@@ -1,0 +1,50 @@
+{
+  "errors": 0,
+  "warnings": 13,
+  "codes": {
+    "INVALID_EXTENSION_NAME_FORMAT": 1,
+    "UNSUPPORTED_EXTENSION": 1,
+    "BUFFER_VIEW_TARGET_MISSING": 98,
+    "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE": 12,
+    "UNUSED_OBJECT": 45,
+    "IMAGE_NPOT_DIMENSIONS": 1
+  },
+  "firstPerCode": [
+    {
+      "code": "INVALID_EXTENSION_NAME_FORMAT",
+      "message": "Extension name has invalid format.",
+      "severity": 1,
+      "pointer": "/extensionsUsed/1"
+    },
+    {
+      "code": "UNSUPPORTED_EXTENSION",
+      "message": "Cannot validate an extension as it is not supported by the validator: 'VRM'.",
+      "severity": 2,
+      "pointer": "/extensionsUsed/1"
+    },
+    {
+      "code": "BUFFER_VIEW_TARGET_MISSING",
+      "message": "bufferView.target should be set for vertex or index data.",
+      "severity": 3,
+      "pointer": "/meshes/0/primitives/0/attributes/JOINTS_0"
+    },
+    {
+      "code": "MESH_PRIMITIVE_GENERATED_TANGENT_SPACE",
+      "message": "Material requires a tangent space but the mesh primitive does not provide it. Runtime-generated tangent space may be non-portable across implementations.",
+      "severity": 1,
+      "pointer": "/meshes/0/primitives/0/material"
+    },
+    {
+      "code": "UNUSED_OBJECT",
+      "message": "This object may be unused.",
+      "severity": 2,
+      "pointer": "/meshes/2/primitives/0/attributes/TEXCOORD_0"
+    },
+    {
+      "code": "IMAGE_NPOT_DIMENSIONS",
+      "message": "Image has non-power-of-two dimensions: 520x620.",
+      "severity": 2,
+      "pointer": "/images/19"
+    }
+  ]
+}

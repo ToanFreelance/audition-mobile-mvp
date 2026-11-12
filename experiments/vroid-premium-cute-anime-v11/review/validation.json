@@ -1,0 +1,102 @@
+{
+  "source_sha256": "773752a0c4f78d50af8b8935055c1af6518fff7176aa21f41bdc0d0c7ecb372a",
+  "face_exact": true,
+  "shape_arrays": 42,
+  "springs": 18,
+  "humanoid": 54,
+  "expression_groups": 15,
+  "rig_bones": 155,
+  "meshes": {
+    "Face": {
+      "triangles": 3150,
+      "slot": "CharacterBase",
+      "id": "vita-a",
+      "default": true
+    },
+    "Scalp": {
+      "triangles": 394,
+      "slot": "CharacterBase",
+      "id": "vita-a",
+      "default": true
+    },
+    "Vita_Suit": {
+      "triangles": 10614,
+      "slot": "OutfitSlot",
+      "id": "vita-stage",
+      "default": false
+    },
+    "Street_Skin": {
+      "triangles": 4836,
+      "slot": "OutfitSlot",
+      "id": "lilac-club",
+      "default": true
+    },
+    "Hair_Bob": {
+      "triangles": 11276,
+      "slot": "HairSlot",
+      "id": "lilac-bob",
+      "default": true
+    },
+    "Hair_Lob": {
+      "triangles": 11276,
+      "slot": "HairSlot",
+      "id": "swept-lob",
+      "default": false
+    },
+    "Street_Dance_Shorts": {
+      "triangles": 550,
+      "slot": "OutfitSlot",
+      "id": "lilac-club",
+      "default": true
+    },
+    "Street_Bomber_Pleats_Sneakers": {
+      "triangles": 8306,
+      "slot": "OutfitSlot",
+      "id": "lilac-club",
+      "default": true
+    },
+    "Ribbon_Champagne": {
+      "triangles": 1108,
+      "slot": "HeadAccessorySlot",
+      "id": "rose-bow",
+      "default": true
+    }
+  },
+  "pose_tests": {
+    "Ribbon_Champagne": {
+      "motion_mm": 41.3342268133694,
+      "radial_error_mm": 1.1476472189242415e-05
+    },
+    "Hair_Bob": {
+      "motion_mm": 40.8048067077574,
+      "radial_error_mm": 7.801233897763993e-05
+    },
+    "Hair_Lob": {
+      "motion_mm": 42.90169732018304,
+      "radial_error_mm": 7.911908425639602e-05
+    },
+    "Street_Bomber_Pleats_Sneakers": {
+      "motion_mm": 40.84758816655268,
+      "radial_error_mm": 0.9036069326119611
+    },
+    "Street_Dance_Shorts": {
+      "motion_mm": 20.335467732180817,
+      "radial_error_mm": 0.7741283225257689
+    }
+  },
+  "imports": {
+    "glb": {
+      "meshes": 7,
+      "morphs": 41,
+      "skinned": true
+    },
+    "vrm": {
+      "meshes": 7,
+      "morphs": 41,
+      "skinned": true,
+      "bindings_exact": true,
+      "humanoid_exact": true,
+      "spring_groups": 18
+    }
+  }
+}

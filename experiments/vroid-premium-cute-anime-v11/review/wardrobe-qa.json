@@ -1,0 +1,127 @@
+{
+  "mode": "wardrobe",
+  "webgl": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+  "three": "180",
+  "drawCalls": 28,
+  "triangles": 30580,
+  "materialCount": 22,
+  "rgba8MipMiB": 43.333333333333336,
+  "strengths": {
+    "neutral": 0,
+    "happy": 1,
+    "blink": 1
+  },
+  "proof": [
+    {
+      "slot": "HairSlot",
+      "id": "swept-lob",
+      "faceRigAndExpressionStable": true,
+      "visible": [
+        "Hair_Lob"
+      ]
+    },
+    {
+      "slot": "OutfitSlot",
+      "id": "vita-stage",
+      "faceRigAndExpressionStable": true,
+      "visible": [
+        "Vita_Suit"
+      ]
+    },
+    {
+      "slot": "HeadAccessorySlot",
+      "id": "off",
+      "faceRigAndExpressionStable": true,
+      "visible": []
+    },
+    {
+      "slot": "HairSlot",
+      "id": "lilac-bob",
+      "faceRigAndExpressionStable": true,
+      "visible": [
+        "Hair_Bob"
+      ]
+    },
+    {
+      "slot": "OutfitSlot",
+      "id": "lilac-club",
+      "faceRigAndExpressionStable": true,
+      "visible": [
+        "Street_Bomber_Pleats_Sneakers",
+        "Street_Dance_Shorts",
+        "Street_Skin"
+      ]
+    },
+    {
+      "slot": "HeadAccessorySlot",
+      "id": "rose-bow",
+      "faceRigAndExpressionStable": true,
+      "visible": [
+        "Ribbon_Champagne"
+      ]
+    }
+  ],
+  "error": 0,
+  "textures": [
+    [
+      512,
+      512
+    ],
+    [
+      1024,
+      512
+    ],
+    [
+      1024,
+      256
+    ],
+    [
+      1024,
+      256
+    ],
+    [
+      1024,
+      256
+    ],
+    [
+      1024,
+      512
+    ],
+    [
+      1024,
+      512
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      512,
+      256
+    ],
+    [
+      512,
+      1024
+    ],
+    [
+      512,
+      1024
+    ],
+    [
+      512,
+      1024
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      1024,
+      1024
+    ]
+  ]
+}

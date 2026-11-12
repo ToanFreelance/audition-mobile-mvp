@@ -1,0 +1,29 @@
+{
+  "errors": 0,
+  "warnings": 7,
+  "codes": {
+    "UNUSED_MESH_TANGENT": 10,
+    "UNUSED_OBJECT": 2,
+    "NODE_SKINNED_MESH_NON_ROOT": 7
+  },
+  "firstPerCode": [
+    {
+      "code": "UNUSED_MESH_TANGENT",
+      "message": "Tangents are not used because the material has no normal texture.",
+      "severity": 2,
+      "pointer": "/meshes/0/primitives/0/attributes/TANGENT"
+    },
+    {
+      "code": "UNUSED_OBJECT",
+      "message": "This object may be unused.",
+      "severity": 2,
+      "pointer": "/meshes/5/primitives/0/attributes/TEXCOORD_0"
+    },
+    {
+      "code": "NODE_SKINNED_MESH_NON_ROOT",
+      "message": "Node with a skinned mesh is not root. Parent transforms will not affect a skinned mesh.",
+      "severity": 1,
+      "pointer": "/nodes/155"
+    }
+  ]
+}

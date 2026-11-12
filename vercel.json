@@ -2,7 +2,8 @@
   "git": {
     "deploymentEnabled": {
       "work/vroid-vita-hair-poc-v1": false,
-      "work/vroid-premium-anime-visual-poc-v1": false
+      "work/vroid-premium-anime-visual-poc-v1": false,
+      "work/vroid-premium-cute-anime-v11": false
     }
   }
 }
