@@ -9,6 +9,68 @@ import "./tryon.css";
 const SAMPLE_ROOT = "https://raw.githubusercontent.com/madjin/vrm-samples/master/vroid/beta/";
 const BASE_VITA = SAMPLE_ROOT + "Vita.vrm";
 
+const VARIANT_A_STORE = "audition-vita-hair-v2";
+const VARIANT_A_KEY = "approved-variant-a-v11";
+const PHOTO_STORE_KEY = "audition-vita-hair-v2:photos";
+
+// Browsers cannot fetch a private ChatGPT Library GLB as an unauthenticated URL.
+// Preserve the genuine approved Variant A after the owner imports it once.
+// No mesh is uploaded to the server.
+function openAvatarDb(): Promise<IDBDatabase | null> {
+  return new Promise(resolve => {
+    if (typeof indexedDB === "undefined") return resolve(null);
+    try {
+      const req = indexedDB.open(VARIANT_A_STORE, 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains("models")) req.result.createObjectStore("models");
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+    } catch { resolve(null); }
+  });
+}
+async function loadSavedVariantA(): Promise<ArrayBuffer | null> {
+  const db = await openAvatarDb();
+  if (!db) return null;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction("models", "readonly");
+      const req = tx.objectStore("models").get(VARIANT_A_KEY);
+      req.onsuccess = () => resolve(req.result instanceof ArrayBuffer ? req.result : null);
+      req.onerror = () => resolve(null);
+      tx.oncomplete = () => db.close();
+      tx.onerror = () => { db.close(); resolve(null); };
+    } catch { db.close(); resolve(null); }
+  });
+}
+async function saveVariantA(buffer: ArrayBuffer): Promise<boolean> {
+  const db = await openAvatarDb();
+  if (!db) return false;
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction("models", "readwrite");
+      tx.objectStore("models").put(buffer, VARIANT_A_KEY);
+      tx.oncomplete = () => { db.close(); resolve(true); };
+      tx.onerror = () => { db.close(); resolve(false); };
+      tx.onabort = () => { db.close(); resolve(false); };
+    } catch { db.close(); resolve(false); }
+  });
+}
+async function removeSavedVariantA(): Promise<void> {
+  const db = await openAvatarDb();
+  if (!db) return;
+  await new Promise<void>(resolve => {
+    try {
+      const tx = db.transaction("models", "readwrite");
+      tx.objectStore("models").delete(VARIANT_A_KEY);
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); resolve(); };
+    } catch { db.close(); resolve(); }
+  });
+}
+
+
 type ReadyHair = { id: string; label: string; note: string; url?: string; source: string };
 type Candidate = { label: string; kind: string; source: string; url: string };
 type HairGroup = THREE.Group & { userData: { sourceName?: string } };
@@ -211,6 +273,9 @@ export default function VitaHairTryOnPage() {
   const serial = useRef(0);
   const [status, setStatus] = useState("Đang khởi tạo viewer…");
   const [avatarName, setAvatarName] = useState("Vita gốc · VRoid CC0");
+  const [isVariantA, setIsVariantA] = useState(false);
+  const [photos, setPhotos] = useState<Record<string, string>>({});
+  const [batching, setBatching] = useState(false);
   const [selected, setSelected] = useState("original");
   const [pending, setPending] = useState<string | null>("avatar");
   const [customHair, setCustomHair] = useState<HairGroup | null>(null);
@@ -222,17 +287,48 @@ export default function VitaHairTryOnPage() {
   const [showSources, setShowSources] = useState(true);
 
   useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PHOTO_STORE_KEY);
+      if (raw) setPhotos(JSON.parse(raw) as Record<string, string>);
+    } catch { /* private browsing or unavailable storage */ }
+  }, []);
+
+  useEffect(() => {
     if (!host.current) return;
     let alive = true;
     let v: Viewer;
     try { v = makeViewer(host.current); viewer.current = v; }
     catch { setPending(null); setStatus("Thiết bị không khởi tạo được WebGL."); return; }
-    v.loader.loadAsync(BASE_VITA).then(gltf => {
-      if (!alive) return;
-      installAvatar(v, gltf.scene);
-      setStatus("Vita CC0 đã tải. Chọn tóc ở bên dưới hoặc nạp file Vita A từ Library.");
-      setPending(null);
-    }).catch(e => { if (alive) { setPending(null); setStatus("Không tải được Vita CC0: " + String(e)); } });
+    const bootToken = serial.current;
+    async function boot() {
+      try {
+        const saved = await loadSavedVariantA();
+        if (saved) {
+          try {
+            const model = await v.loader.parseAsync(saved, "");
+            if (!alive || serial.current !== bootToken) return;
+            installAvatar(v, model.scene);
+            setAvatarName("Vita Premium Variant A · V1.1");
+            setIsVariantA(true);
+            setStatus("Đã tự động khôi phục Vita Variant A từ bộ nhớ iPhone. Thử chọn tóc bên dưới.");
+            return;
+          } catch {
+            // Keep original CC0 available when the cached GLB is invalid.
+          }
+        }
+        const model = await v.loader.loadAsync(BASE_VITA);
+        if (!alive || serial.current !== bootToken) return;
+        installAvatar(v, model.scene);
+        setAvatarName("Vita gốc · VRoid CC0");
+        setIsVariantA(false);
+        setStatus("Vita CC0 đã tải. Nạp Vita-Premium-Cute-V11.glb một lần để V2 tự dùng Variant A ở lần sau.");
+      } catch (error) {
+        if (alive && serial.current === bootToken) setStatus("Không tải được Vita: " + String(error));
+      } finally {
+        if (alive && serial.current === bootToken) setPending(null);
+      }
+    }
+    void boot();
     return () => {
       alive = false;
       serial.current++;
@@ -312,10 +408,14 @@ export default function VitaHairTryOnPage() {
       installAvatar(viewer.current, gltf.scene);
       if (customHair) disposeHair(customHair);
       setCustomHair(null);
-      setAvatarName(file.name);
+      setAvatarName("Vita Premium Variant A · " + file.name);
+      setIsVariantA(true);
       setSelected("original");
       resetFit();
-      setStatus("Đã import model " + file.name + ". Các kiểu tóc sẽ gắn vào model này, không sửa mesh mặt.");
+      const stored = await saveVariantA(content);
+      setStatus(stored
+        ? "Đã nạp Variant A và lưu cục bộ trên thiết bị. Lần sau sẽ tự mở nhân vật này."
+        : "Đã nạp Variant A. Bộ nhớ trình duyệt không cho phép lưu, lần sau có thể cần nạp lại.");
     } catch (error) {
       if (token === serial.current) setStatus("Không đọc được model: " + String(error));
     } finally { if (token === serial.current) setPending(null); }
