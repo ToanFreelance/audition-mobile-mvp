@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { inspectWardrobePackage, type WardrobeIntake } from "./zip-reader";
+import { inspectWardrobePackage, revokeWardrobeAssets, type WardrobeIntake } from "./zip-reader";
 import "./wardrobe.css";
 
 const BASE_VITA = "https://raw.githubusercontent.com/madjin/vrm-samples/master/vroid/beta/Vita.vrm";
@@ -132,7 +132,7 @@ export default function VitaWardrobeLabPage() {
       active = false;
       avatarToken.current++;
       sourceToken.current++;
-      for (const item of itemsRef.current) if (item.thumbnailUrl) URL.revokeObjectURL(item.thumbnailUrl);
+      revokeWardrobeAssets(itemsRef.current);
       disposePreview(current);
       preview.current = null;
     };
@@ -169,14 +169,14 @@ export default function VitaWardrobeLabPage() {
     try {
       const parsed = await inspectWardrobePackage(file);
       if (token !== sourceToken.current) {
-        for (const item of parsed) if (item.thumbnailUrl) URL.revokeObjectURL(item.thumbnailUrl);
+        revokeWardrobeAssets(parsed);
         return;
       }
-      for (const item of itemsRef.current) if (item.thumbnailUrl) URL.revokeObjectURL(item.thumbnailUrl);
+      revokeWardrobeAssets(itemsRef.current);
       itemsRef.current = parsed;
       setItems(parsed);
       setSourceName(file.name);
-      setSourceStatus(`Đã đọc ${parsed.length} custom item từ ${file.name}. Đây là QA định dạng/thumbnail, CHƯA chuyển thành mesh trang phục.`);
+      setSourceStatus(`Đã đọc ${parsed.length} custom item và trích xuất ${parsed.reduce((sum, item) => sum + item.textures.length, 0)} texture PNG thực từ ${file.name}. Chưa chuyển thành mesh trang phục.`);
     } catch (error) {
       if (token === sourceToken.current) setSourceStatus("Không đọc được file: " + (error instanceof Error ? error.message : String(error)));
     } finally {
@@ -212,7 +212,7 @@ export default function VitaWardrobeLabPage() {
         <section className="wardrobe-card wardrobe-sources" aria-label="Đọc gói trang phục VRoid">
           <div className="wardrobe-card-head"><strong>02 / OUTFIT SOURCE INTAKE</strong><span>Browser-only</span></div>
           <h2>Cyber Blue Outfit</h2>
-          <p>Gói BOOTH gồm <strong>Top · Skirt · Shoes</strong> ở dạng <code>.vroidcustomitem</code>, chưa có garment GLB để mặc trực tiếp.</p>
+          <p>Gói BOOTH gồm <strong>Top · Skirt · Shoes</strong> ở dạng <code>.vroidcustomitem</code>. Có thể xem các lớp texture thật được trích xuất từ file trên thiết bị, nhưng chưa có garment GLB để mặc trực tiếp.</p>
           <a className="wardrobe-source" href={CYBER_BLUE} target="_blank" rel="noopener noreferrer">Xem và tải Cyber Blue trên BOOTH ↗</a>
           <label className="wardrobe-upload wardrobe-main-upload">
             {loading ? "Đang phân tích ZIP..." : "Nạp Cyber_Blue.zip hoặc .vroidcustomitem"}
@@ -224,7 +224,20 @@ export default function VitaWardrobeLabPage() {
             <div className="wardrobe-item-list">
               {items.map((item, i) => <article className="wardrobe-item" key={item.name + i}>
                 {item.thumbnailUrl ? <img src={item.thumbnailUrl} alt={"Thumbnail xuất từ " + item.name}/> : <div className="wardrobe-no-thumb">Không có thumbnail</div>}
-                <div><strong>{item.name}</strong><small>{item.kind}</small><small>VRoid {item.version} · {item.entries} entry · {item.sourceFormat}</small><p>{item.notes}</p></div>
+                <div><strong>{item.name}</strong><small>{item.kind}</small><small>VRoid {item.version} · {item.entries} entry · {item.sourceFormat}</small><p>{item.notes}</p>
+                  <details className="wardrobe-textures">
+                    <summary>{item.textures.length} texture PNG thực · Chạm để xem</summary>
+                    {item.textures.length > 0 ?
+                      <div className="wardrobe-texture-grid">
+                        {item.textures.map((texture, idx) => <a href={texture.url} download={item.name.replace(/\.vroidcustomitem$/i, "") + "-layer-" + (idx + 1) + ".png"} key={idx}>
+                          <img src={texture.url} alt={"Texture thật " + (idx + 1) + " của " + item.name} loading="lazy" />
+                          <span>Layer {idx + 1} · {texture.width}×{texture.height}</span>
+                          <small>Tải PNG</small>
+                        </a>)}
+                      </div> :
+                      <p>File chưa tìm thấy PNG embedded; cần mở bằng VRoid Studio để xem texture.</p>}
+                  </details>
+                </div>
               </article>)}
             </div>
           </>}
