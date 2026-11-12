@@ -1,0 +1,40 @@
+{
+  "face_vertices": 2339,
+  "keys": 41,
+  "expressions": 15,
+  "humanoid": 54,
+  "bones": 155,
+  "springs": 18,
+  "A_all_meshes_equal_original": true,
+  "body_and_hair_positions_equal": true,
+  "UV_topology_skinning_equal": true,
+  "all_shape_fields_max_error_mm": 0.00011781142958794126,
+  "B_rollback_all_keys_exact": true,
+  "expression_roundtrip": {
+    "Neutral": {
+      "max_surface_error_mm": 0.00012105761015845928,
+      "max_motion_mm": 0.0
+    },
+    "Joy": {
+      "max_surface_error_mm": 0.00012105761015845928,
+      "max_motion_mm": 28.906616057011707
+    },
+    "Blink": {
+      "max_surface_error_mm": 0.00012105761015845928,
+      "max_motion_mm": 33.598903019354246
+    },
+    "A": {
+      "max_surface_error_mm": 0.00012105761015845928,
+      "max_motion_mm": 14.263860639548884
+    },
+    "Surprised": {
+      "max_surface_error_mm": 0.00012105761015845928,
+      "max_motion_mm": 28.643634550826217
+    }
+  },
+  "eye_white_width_change_pct": -7.208851522751491,
+  "eye_white_height_change_pct": -16.66287666939137,
+  "iris_height_change_pct": -15.502546872706224,
+  "mouth_interior_width_change_pct": -0.1972462202017522,
+  "max_base_shift_mm": 6.743616104125977
+}

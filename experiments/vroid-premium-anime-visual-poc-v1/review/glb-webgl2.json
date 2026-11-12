@@ -1,0 +1,155 @@
+{
+  "mode": "glb",
+  "context": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+  "three": "180",
+  "names": [],
+  "strengths": {
+    "neutral": 0,
+    "happy": 1,
+    "blink": 1,
+    "aa": 1,
+    "surprised": 1
+  },
+  "headMotionMetres": 0.019535111286108398,
+  "headRadiusError": 2.4940151333030514e-9,
+  "skinned": 16,
+  "morphCount": 41,
+  "drawTriangles": 26330,
+  "glError": 0,
+  "materials": [
+    {
+      "name": "Studio · F00_002_02_Body_00_SKIN",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "normalColorSpace": "",
+      "alphaTest": 0.5,
+      "transparent": false,
+      "depthWrite": true
+    },
+    {
+      "name": "Studio · F00_002_01_Tops_01_CLOTH",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0.5,
+      "transparent": false,
+      "depthWrite": true
+    },
+    {
+      "name": "Studio · F00_002_01_Shoes_01_CLOTH",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0.5,
+      "transparent": false,
+      "depthWrite": true
+    },
+    {
+      "name": "Studio · F00_000_HairBack_00_HAIR",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "normalColorSpace": "",
+      "alphaTest": 0,
+      "transparent": true,
+      "depthWrite": false
+    },
+    {
+      "name": "Studio · F00_000_00_FaceMouth_00_FACE",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0,
+      "transparent": false,
+      "depthWrite": true
+    },
+    {
+      "name": "Studio · F00_000_00_EyeWhite_00_EYE",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0,
+      "transparent": false,
+      "depthWrite": true
+    },
+    {
+      "name": "Studio · F00_000_00_FaceEyeline_00_FACE",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0,
+      "transparent": true,
+      "depthWrite": false
+    },
+    {
+      "name": "Studio · F00_000_00_FaceEyelash_00_FACE",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0,
+      "transparent": true,
+      "depthWrite": false
+    },
+    {
+      "name": "Studio · F00_000_00_FaceBrow_00_FACE",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0,
+      "transparent": true,
+      "depthWrite": false
+    },
+    {
+      "name": "Studio · F00_000_00_EyeIris_00_EYE",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0.5,
+      "transparent": false,
+      "depthWrite": true
+    },
+    {
+      "name": "Studio · F00_000_00_EyeHighlight_00_EYE",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0,
+      "transparent": true,
+      "depthWrite": false
+    },
+    {
+      "name": "Studio · F00_000_00_Face_00_SKIN",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "normalColorSpace": "",
+      "alphaTest": 0,
+      "transparent": false,
+      "depthWrite": true
+    },
+    {
+      "name": "Studio · F00_000_00_EyeExtra_01_EYE",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "alphaTest": 0,
+      "transparent": true,
+      "depthWrite": false
+    },
+    {
+      "name": "Studio · F00_000_Hair_00_HAIR_01",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "normalColorSpace": "",
+      "alphaTest": 0.5,
+      "transparent": false,
+      "depthWrite": true
+    },
+    {
+      "name": "Studio · F00_000_Hair_00_HAIR_02",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "normalColorSpace": "",
+      "alphaTest": 0.5,
+      "transparent": false,
+      "depthWrite": true
+    },
+    {
+      "name": "Studio · F00_000_Hair_00_HAIR_03",
+      "shader": "MeshPhysicalMaterial",
+      "baseColorSpace": "srgb",
+      "normalColorSpace": "",
+      "alphaTest": 0.5,
+      "transparent": false,
+      "depthWrite": true
+    }
+  ]
+}

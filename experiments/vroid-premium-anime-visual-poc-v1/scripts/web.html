@@ -1,0 +1,50 @@
+<!doctype html><meta charset="utf-8"><style>*{margin:0}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
+<script type="module">
+import * as T from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {VRMLoaderPlugin,VRMUtils} from '/vrm.js';
+async function run(){
+ const mode=new URLSearchParams(location.search).get('mode');
+ const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+ renderer.setSize(530,620);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.NeutralToneMapping;
+ document.body.append(renderer.domElement);
+ const scene=new T.Scene();scene.background=new T.Color(0x555062);
+ const camera=new T.OrthographicCamera(-.425*530/620/2,.425*530/620/2,.425/2,-.425/2,.01,10);
+ function view(yaw){const a=yaw*Math.PI/180;camera.position.set(3*Math.sin(a),1.556,3*Math.cos(a));camera.lookAt(0,1.54,0);}
+ view(0);scene.add(new T.HemisphereLight(0xfff7f5,0xb3a7b7,1.25));
+ for(const [x,y,z,p,c] of [[-.65,.78,.9,1.75,0xffeee2],[.6,.23,.65,.75,0xe1ebff],[.27,.62,-.45,1.1,0xe9d8f3]]){
+   const light=new T.DirectionalLight(c,p);light.position.set(x,y,z);scene.add(light);
+ }
+ const loader=new GLTFLoader();if(mode==='vrm')loader.register(parser=>new VRMLoaderPlugin(parser));
+ const gltf=await loader.loadAsync('/asset.'+mode);const actor=gltf.scene,vrm=gltf.userData.vrm;
+ if(mode==='vrm'){if(!vrm)throw Error('No VRM metadata');VRMUtils.rotateVRM0(vrm);}
+ scene.add(actor);let parts=[],eyes=[],materials=new Set();
+ actor.traverse(o=>{if(o.isMesh){parts.push(o);if(o.morphTargetInfluences?.length)eyes.push(o);for(const m of [].concat(o.material))materials.add(m);}});
+ const keys={neutral:null,happy:'Fcl_ALL_Joy',blink:'Fcl_EYE_Close',aa:'Fcl_MTH_A',surprised:'Fcl_ALL_Surprised'};
+ const manager=vrm?.expressionManager;
+ const presetAlias=Object.fromEntries(Object.keys(keys).map(k=>[k,manager?.getExpression(k)?k:manager?.expressions.find(x=>x.expressionName.toLowerCase()===k)?.expressionName]));
+ const names=(manager?.expressions||[]).map(x=>x.expressionName);
+ if(mode==='vrm'&&!presetAlias.surprised)presetAlias.surprised=names.find(n=>n.toLowerCase()==='surprised');
+ function set(k,yaw=0){
+   view(yaw);
+   if(manager){manager.resetValues();if(k!=='neutral'){if(!presetAlias[k])throw Error('Missing expression '+k);manager.setValue(presetAlias[k],1);}manager.update();}
+   else for(const mesh of eyes){mesh.morphTargetInfluences.fill(0);if(keys[k]){const id=Object.entries(mesh.morphTargetDictionary).find(([n])=>n.endsWith(keys[k]));if(id)mesh.morphTargetInfluences[id[1]]=1;}}
+   actor.updateMatrixWorld(true);renderer.render(scene,camera);return Math.max(0,...eyes.flatMap(o=>o.morphTargetInfluences));
+ }
+ function sample(mesh){
+   const out=new T.Vector3();mesh.getVertexPosition(mesh.geometry.index.getX(0),out);return mesh.localToWorld(out);
+ }
+ const head=vrm?.humanoid.getRawBoneNode('head')||actor.getObjectByName('J_Bip_C_Head');
+ const face=eyes[0];actor.updateMatrixWorld(true);const before=sample(face),anchor=head.getWorldPosition(new T.Vector3());
+ const saved=head.quaternion.clone();head.rotateY(.23);actor.updateMatrixWorld(true);const after=sample(face);
+ const restError=Math.abs(before.distanceTo(anchor)-after.distanceTo(anchor));head.quaternion.copy(saved);
+ const strengths={};for(const k of Object.keys(keys))strengths[k]=set(k);
+ set('neutral');await renderer.compileAsync(scene,camera);renderer.render(scene,camera);
+ const gl=renderer.getContext();window.setPortrait=set;
+ window.qa={mode,context:gl.getParameter(gl.VERSION),three:T.REVISION,vrm:vrm?.meta.metaVersion,names,strengths,headMotionMetres:before.distanceTo(after),headRadiusError:restError,
+ skinned:parts.filter(o=>o.isSkinnedMesh).length,morphCount:Math.max(...eyes.map(o=>o.morphTargetInfluences.length)),drawTriangles:renderer.info.render.triangles,glError:gl.getError(),
+ materials:[...materials].map(m=>({name:m.name,shader:m.type,baseColorSpace:m.map?.colorSpace,normalColorSpace:m.normalMap?.colorSpace,alphaTest:m.alphaTest,transparent:m.transparent,depthWrite:m.depthWrite}))};
+}
+run().catch(e=>window.failure=e.stack||String(e));
+</script>
