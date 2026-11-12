@@ -51,8 +51,10 @@ function hairLike(o: THREE.Object3D): boolean {
   // Never inspect the avatar root name: "HairSample_Female" names the entire avatar.
   // Exclude face/body geometry even when an asset has a misleading material name.
   if (/face|body|skin|eye|eyebrow|mouth|tooth|teeth|tongue|outfit|cloth/i.test(o.name)) return false;
-  const ownName = o.name + " " + (o.parent?.name ?? "");
-  if (/hair|bangs|fringe|ponytail|ツインテ|髪|前髪|後髪|ヘア/i.test(ownName)) return true;
+  const hairPattern = /hair|bangs|fringe|ponytail|ツインテ|髪|前髪|後髪|ヘア/i;
+  if (hairPattern.test(o.name)) return true;
+  const parent = o.parent?.name ?? "";
+  if (/^(hair|bangs|fringe|ponytail|髪|前髪|後髪|ヘア)(?:[_\s.-]|$)/i.test(parent)) return true;
   const mats = Array.isArray(o.material) ? o.material : [o.material];
   return mats.some(m => m && /hair|髪|ヘア/i.test(m.name));
 }
