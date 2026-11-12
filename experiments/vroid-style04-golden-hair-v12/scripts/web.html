@@ -1,0 +1,62 @@
+<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vita · Style 04</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#4c4859;font:15px system-ui;color:white}canvas{display:block}aside{position:fixed;bottom:0;left:0;display:flex;gap:6px;padding:8px;background:#272236dc}label{display:grid}select{max-width:31vw}</style>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
+<aside hidden></aside><script type="module">
+import * as T from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+
+async function run(){
+ const search=new URLSearchParams(location.search),mode=search.get('mode')||'wardrobe';
+ const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+ const w=innerWidth,h=innerHeight;renderer.setSize(w,h);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.NeutralToneMapping;document.body.append(renderer.domElement);
+ const scene=new T.Scene();scene.background=new T.Color(0x554f61);
+ const camera=new T.OrthographicCamera(-1,1,1,-1,.01,12);
+ function view(height=.865,scale=1.86,yaw=0){const a=T.MathUtils.degToRad(yaw);camera.top=scale/2;camera.bottom=-scale/2;camera.right=scale*w/h/2;camera.left=-camera.right;camera.updateProjectionMatrix();camera.position.set(3*Math.sin(a),height+.016,3*Math.cos(a));camera.lookAt(0,height,0);}
+ view();scene.add(new T.HemisphereLight(0xfff8f5,0xcfbfd4,1.35));
+ for(const [x,y,z,p] of [[-.65,.78,.9,1.65],[.66,.35,.68,.8],[.28,.6,-.5,.9]]){const l=new T.DirectionalLight(0xffffff,p);l.position.set(x,y,z);scene.add(l);}
+ const loader=new GLTFLoader();
+ const data=await loader.loadAsync(mode==='wardrobe'?'/wardrobe.glb':'/asset.'+mode);const actor=data.scene,vrm=data.userData.vrm;scene.add(actor);
+ const slots=[],faces=[],meshes=[];actor.traverse(o=>{if(o.userData.cosmeticSlot)slots.push(o);if(o.isMesh){meshes.push(o);if(o.morphTargetInfluences?.length===41)faces.push(o);}});
+ function joint(n,degrees){const b=actor.getObjectByName('J_Bip_'+n);actor.updateMatrixWorld(true);const q=b.getWorldQuaternion(new T.Quaternion());const axis=new T.Vector3(0,0,1).applyQuaternion(q.invert());b.rotateOnAxis(axis,T.MathUtils.degToRad(degrees));}
+ for(const [s,sgn] of [['L',1],['R',-1]]){
+  const bone=actor.getObjectByName('J_Bip_'+s+'_UpperArm');const sign=Math.sign(bone.getWorldPosition(new T.Vector3()).x)||sgn;
+  joint(s+'_UpperArm',-sign*63);joint(s+'_LowerArm',-sign*9);joint(s+'_UpperLeg',sign*6);
+ }
+ const selected={HairSlot:'hair-style04-lavender-bob'};
+ function render(){actor.updateMatrixWorld(true);renderer.render(scene,camera);}
+ function swap(slot,id){const ok=slots.some(o=>o.userData.cosmeticSlot===slot && o.userData.cosmeticId===id);
+ if(!ok&&!(slot==='HeadAccessorySlot'&&id==='off'))throw Error('Món không hợp lệ');
+ for(const o of slots.filter(o=>o.userData.cosmeticSlot===slot))o.visible=o.userData.cosmeticId===id;selected[slot]=id;render();}
+ if(mode==='wardrobe')for(const [slot,id] of Object.entries(selected))swap(slot,id);
+ function expr(k){if(vrm){vrm.expressionManager.resetValues();if(k!=='neutral')vrm.expressionManager.setValue(k,1);vrm.expressionManager.update();}
+ else for(const f of faces){f.morphTargetInfluences.fill(0);const n={happy:'Fcl_ALL_Joy',blink:'Fcl_EYE_Close'}[k];if(n){const target=Object.keys(f.morphTargetDictionary).find(k=>k.endsWith(n));if(target)f.morphTargetInfluences[f.morphTargetDictionary[target]]=1;}}render();return Math.max(...faces.flatMap(f=>f.morphTargetInfluences));}
+ const strengths=Object.fromEntries(['neutral','happy','blink'].map(k=>[k,expr(k)]));
+ const snapshot=()=>JSON.stringify(faces.map(f=>[f.uuid,f.skeleton.uuid,f.morphTargetInfluences]));
+ const head=actor.getObjectByName('J_Bip_C_Head');
+ const track=new T.NumberKeyframeTrack(head.name+'.rotation[y]',[0,1,2],[0,.15,0]);
+ const clip=new T.AnimationClip('Head follow test',2,[track]),mixer=new T.AnimationMixer(actor),action=mixer.clipAction(clip);
+ action.play();mixer.update(.37);render();
+ const proof=[];
+ if(mode==='wardrobe')for(const expression of ['neutral','happy','blink']){
+   expr(expression);const start=snapshot(),time=action.time;
+   for(const id of ['lilac-bob','hair-style04-lavender-bob']){
+     swap('HairSlot',id);
+     const visible=slots.filter(o=>o.visible&&o.userData.cosmeticSlot==='HairSlot').map(o=>o.name);
+     proof.push({id,expression,visible,stable:snapshot()===start&&actor===mixer.getRoot()&&action.time===time&&action.isRunning(),actionTime:action.time});
+   }
+ }
+ mixer.update(.15);const advanced=action.time>.37;action.stop();render();
+ expr('neutral');render();
+ const visible=[];actor.traverseVisible(o=>{if(o.isMesh)visible.push(o)});
+ const materials=new Set(visible.flatMap(o=>[].concat(o.material))),maps=new Map();
+ for(const m of materials)for(const tx of [...Object.values(m),...Object.values(m.uniforms||{}).map(u=>u.value)]){if(tx?.isTexture&&tx.image?.width)maps.set(tx.source.uuid,[tx.image.width,tx.image.height]);}
+ const gl=renderer.getContext();window.qa={mode,webgl:gl.getParameter(gl.VERSION),three:T.REVISION,drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles,materialCount:materials.size,rgba8MipMiB:maps.size===0?null:[...maps.values()].reduce((a,[x,y])=>a+x*y*4*4/3,0)/1048576,strengths,proof,advanced,error:gl.getError(),textures:[...maps.values()]};
+ const hairRoot=actor.getObjectByName('Hair_Style04');
+ const calls=renderer.info.render.calls;hairRoot.visible=false;render();window.qa.hairDrawCalls=calls-renderer.info.render.calls;hairRoot.visible=true;render();
+ window.frame=(angle,portrait)=>{view(portrait?1.535:.865,portrait?.70:1.86,angle);render()};window.swap=swap;window.expr=expr;
+ if(mode==='wardrobe'&&!search.has('photos')){const box=document.querySelector('aside');box.hidden=false;
+ for(const [slot,title,items] of [['HairSlot','Tóc',[['hair-style04-lavender-bob','Style 04'],['lilac-bob','Bob V1.1']]]]){const label=document.createElement('label');label.textContent=title;const select=document.createElement('select');for(const [val,txt] of items)select.add(new Option(txt,val));select.onchange=()=>swap(slot,select.value);label.append(select);box.append(label);}}
+ else document.querySelector('aside').remove();
+}
+run().catch(e=>window.failure=e.stack||String(e));
+</script></html>

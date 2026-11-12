@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0-dev.3.10",
+  "errors": 0,
+  "warnings": 6,
+  "infos": 14,
+  "counts": {
+    "UNUSED_MESH_TANGENT": 11,
+    "UNUSED_OBJECT": 3,
+    "NODE_SKINNED_MESH_NON_ROOT": 6
+  },
+  "issuesTruncated": false
+}

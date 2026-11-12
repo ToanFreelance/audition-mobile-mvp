@@ -1,0 +1,99 @@
+{
+  "operators": {
+    "reload_library": [
+      "FINISHED"
+    ],
+    "node_group_append": [
+      "FINISHED"
+    ]
+  },
+  "regions": [
+    {
+      "region": "Back",
+      "curves": 45,
+      "modifiers": [
+        "Style04 \u00b7 capture guide position",
+        "GBH Profile Line Hair Cards",
+        "Style04 \u00b7 orienter et ajuster le profil GBH"
+      ],
+      "operator": [
+        "FINISHED"
+      ],
+      "clearanceVertices": 0,
+      "maximumClearanceMm": 0.0,
+      "gbhQuads": 2970,
+      "medianMidWidthMm": 23.562476971907444,
+      "medianTipWidthMm": 9.732583660167593
+    },
+    {
+      "region": "Crown",
+      "curves": 88,
+      "modifiers": [
+        "Style04 \u00b7 capture guide position",
+        "GBH Profile Line Hair Cards",
+        "Style04 \u00b7 orienter et ajuster le profil GBH",
+        "Style04 \u00b7 d\u00e9gagement GBH \u2022 Crown \u2022 4"
+      ],
+      "operator": [
+        "FINISHED"
+      ],
+      "clearanceVertices": 93,
+      "maximumClearanceMm": 19.499965101914917,
+      "gbhQuads": 5808,
+      "medianMidWidthMm": 23.755048275819384,
+      "medianTipWidthMm": 8.961610075375546
+    },
+    {
+      "region": "Fringe",
+      "curves": 15,
+      "modifiers": [
+        "Style04 \u00b7 capture guide position",
+        "GBH Profile Line Hair Cards",
+        "Style04 \u00b7 orienter et ajuster le profil GBH"
+      ],
+      "operator": [
+        "FINISHED"
+      ],
+      "clearanceVertices": 0,
+      "maximumClearanceMm": 0.0,
+      "gbhQuads": 660,
+      "medianMidWidthMm": 14.126337952705843,
+      "medianTipWidthMm": 7.903284330631005
+    },
+    {
+      "region": "Sides",
+      "curves": 20,
+      "modifiers": [
+        "Style04 \u00b7 capture guide position",
+        "GBH Profile Line Hair Cards",
+        "Style04 \u00b7 orienter et ajuster le profil GBH"
+      ],
+      "operator": [
+        "FINISHED"
+      ],
+      "clearanceVertices": 0,
+      "maximumClearanceMm": 0.0,
+      "gbhQuads": 960,
+      "medianMidWidthMm": 13.778509054728541,
+      "medianTipWidthMm": 8.320121219364943
+    },
+    {
+      "region": "Sides",
+      "curves": 10,
+      "modifiers": [
+        "Style04 \u00b7 capture guide position",
+        "GBH Profile Line Hair Cards",
+        "Style04 \u00b7 orienter et ajuster le profil GBH"
+      ],
+      "operator": [
+        "FINISHED"
+      ],
+      "clearanceVertices": 0,
+      "maximumClearanceMm": 0.0,
+      "gbhQuads": 930,
+      "medianMidWidthMm": 11.594998714686358,
+      "medianTipWidthMm": 1.0439962189119483
+    }
+  ],
+  "nativeLiningTriangles": 5320
+}

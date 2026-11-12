@@ -1,0 +1,44 @@
+{
+  "baselineSha256": "138a5b8321bd333e409340be321e483bdef6f2e6bebe5758bc8af6d4d75fed52",
+  "faceLockExact": true,
+  "headFollowMaxErrorMm": [
+    0.00012759129651471567,
+    0.0001271170470736289
+  ],
+  "faceSkinTrianglePairIntersections": {
+    "Style04_Cards": 0,
+    "Style04_Fine_Fibres": 0
+  },
+  "rootsMmMinMedianMax": [
+    0.14681743050459772,
+    0.42680202750489116,
+    0.5200310843065381
+  ],
+  "guideRoots": 421,
+  "hairTriangles": 32851,
+  "primitives": 1,
+  "assetTriangles": 50087,
+  "fileMaterials": 19,
+  "hairMaterial": {
+    "alphaMode": "MASK",
+    "doubleSided": true,
+    "extensions": {
+      "KHR_materials_specular": {
+        "specularFactor": 0.4399999976158142
+      }
+    },
+    "name": "Style04 \u00b7 Am\u00e9thyste soie",
+    "pbrMetallicRoughness": {
+      "baseColorTexture": {
+        "index": 19
+      },
+      "metallicFactor": 0,
+      "roughnessFactor": 0.5600000023841858
+    },
+    "alphaCutoff": 0.42
+  },
+  "morphs": 41,
+  "humanBones": 54,
+  "springs": 18,
+  "freshGlbImport": true
+}

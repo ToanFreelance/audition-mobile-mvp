@@ -1,0 +1,27 @@
+{
+  "reload_library": [
+    "FINISHED"
+  ],
+  "node_group_append": [
+    "FINISHED"
+  ],
+  "node_group_add_to_object": [
+    "FINISHED"
+  ],
+  "convert_hair": [
+    "FINISHED"
+  ],
+  "lining_cards": 35,
+  "group": "GBH Profile Polygon Hair Cards",
+  "width": 0.038,
+  "profile": 3,
+  "curves": 65,
+  "source_guides": {
+    "Nappe int\u00e9rieure": 82,
+    "Voile ext\u00e9rieur": 51,
+    "Frange": 15,
+    "Tempes": 30
+  },
+  "Style04_Cards": 27976,
+  "Style04_Fine_Fibres": 4875
+}

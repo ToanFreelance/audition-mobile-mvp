@@ -1,0 +1,28 @@
+{
+  "blender": "4.3.2",
+  "extensions": {
+    "vrm": {
+      "id": "vrm",
+      "version": "4.10.5",
+      "name": "VRM format",
+      "blender_version_min": "4.2.0",
+      "blender_version_max": "5.4.0",
+      "license": [
+        "SPDX:MIT",
+        "SPDX:GPL-3.0-or-later"
+      ]
+    },
+    "gbhtool": {
+      "id": "gbhtool",
+      "version": "2.2.3",
+      "name": "GBH Tool",
+      "blender_version_min": "4.2.0",
+      "license": [
+        "SPDX:GPL-2.0-or-later"
+      ]
+    }
+  },
+  "three": "180",
+  "webglTest": "Chromium / ANGLE SwiftShader",
+  "iphoneTest": false
+}

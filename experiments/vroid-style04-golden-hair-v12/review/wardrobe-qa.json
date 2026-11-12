@@ -1,0 +1,127 @@
+{
+  "mode": "wardrobe",
+  "webgl": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+  "three": "180",
+  "drawCalls": 25,
+  "triangles": 51047,
+  "materialCount": 21,
+  "rgba8MipMiB": 46,
+  "strengths": {
+    "neutral": 0,
+    "happy": 1,
+    "blink": 1
+  },
+  "proof": [
+    {
+      "id": "lilac-bob",
+      "expression": "neutral",
+      "visible": [
+        "Hair_Bob"
+      ],
+      "stable": true,
+      "actionTime": 0.37
+    },
+    {
+      "id": "hair-style04-lavender-bob",
+      "expression": "neutral",
+      "visible": [
+        "Hair_Style04"
+      ],
+      "stable": true,
+      "actionTime": 0.37
+    },
+    {
+      "id": "lilac-bob",
+      "expression": "happy",
+      "visible": [
+        "Hair_Bob"
+      ],
+      "stable": true,
+      "actionTime": 0.37
+    },
+    {
+      "id": "hair-style04-lavender-bob",
+      "expression": "happy",
+      "visible": [
+        "Hair_Style04"
+      ],
+      "stable": true,
+      "actionTime": 0.37
+    },
+    {
+      "id": "lilac-bob",
+      "expression": "blink",
+      "visible": [
+        "Hair_Bob"
+      ],
+      "stable": true,
+      "actionTime": 0.37
+    },
+    {
+      "id": "hair-style04-lavender-bob",
+      "expression": "blink",
+      "visible": [
+        "Hair_Style04"
+      ],
+      "stable": true,
+      "actionTime": 0.37
+    }
+  ],
+  "advanced": true,
+  "error": 0,
+  "textures": [
+    [
+      512,
+      512
+    ],
+    [
+      1024,
+      512
+    ],
+    [
+      1024,
+      256
+    ],
+    [
+      1024,
+      256
+    ],
+    [
+      1024,
+      256
+    ],
+    [
+      1024,
+      512
+    ],
+    [
+      1024,
+      512
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      512,
+      256
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      1024,
+      1024
+    ]
+  ],
+  "hairDrawCalls": 1
+}
