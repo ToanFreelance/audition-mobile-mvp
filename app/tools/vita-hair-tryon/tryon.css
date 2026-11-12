@@ -23,3 +23,18 @@
  .hair-choice{min-height:180px;}
  .hair-choice-image{height:100px;}
 }
+
+/* V2.1: isolated donor orientation and curated source file try-on */
+.hair-orientation{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #594572;background:#292037;padding:12px;border-radius:12px;margin:14px 0}
+.hair-orientation strong,.hair-orientation small{display:block}
+.hair-orientation strong{font-size:12px;margin-bottom:5px}
+.hair-orientation small{font-size:11px;color:#c5b5d3;line-height:1.5}
+.hair-orientation button{flex-shrink:0;border:1px solid #a97cce;border-radius:10px;background:#50366b;color:#f7eaff;padding:10px;font-size:11px;cursor:pointer}
+.hair-orientation button:disabled,.hair-candidate-actions button:disabled,.hair-candidate-import:has(input:disabled){opacity:.6}
+.hair-candidate .hair-candidate-info{flex:1;min-width:0}
+.hair-candidate-thumb{width:72px;height:72px;border-radius:9px;object-fit:cover;margin-bottom:4px}
+.hair-candidate .hair-candidate-actions{display:flex;flex-direction:column;gap:6px;align-items:stretch;flex-shrink:0}
+.hair-candidate-actions a,.hair-candidate-actions button,.hair-candidate-import{border:1px solid #75528d;border-radius:7px;padding:7px 9px;color:#dbb1fa;background:transparent;font-size:11px;font-weight:500;text-align:center;cursor:pointer;text-decoration:none}
+.hair-candidate-import{position:relative;background:#48315f;color:#f8e8ff}
+.hair-candidate-import input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+@media(max-width:490px){.hair-orientation{flex-direction:column;align-items:stretch}.hair-orientation button{width:100%}}

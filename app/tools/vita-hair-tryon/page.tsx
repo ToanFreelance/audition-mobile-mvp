@@ -21,7 +21,7 @@ async function isApprovedVariantA(buffer: ArrayBuffer): Promise<boolean> {
   const hex = Array.from(new Uint8Array(hash)).map(x => x.toString(16).padStart(2, "0")).join("");
   return APPROVED_VARIANT_A_SHA256.has(hex);
 }
-const PHOTO_STORE_KEY = "audition-vita-hair-v2:photos";
+const PHOTO_STORE_KEY = "audition-vita-hair-v21:photos";
 
 // Browsers cannot fetch a private ChatGPT Library GLB as an unauthenticated URL.
 // Preserve the genuine approved Variant A after the owner imports it once.
@@ -326,6 +326,9 @@ export default function VitaHairTryOnPage() {
   const [depth, setDepth] = useState(0);
   const [view, setView] = useState<View>("Chính diện");
   const [showSources, setShowSources] = useState(true);
+  // Opposite donor/recipient Head axes on approved Variant A: rotate hair, not the avatar.
+  const [reverseImportedHair, setReverseImportedHair] = useState(false);
+  const [curatedLoaded, setCuratedLoaded] = useState<Record<string, string>>({});
 
   const rememberPhoto = useCallback((v: Viewer, id: string, variantA: boolean) => {
     const photo = captureHairPhoto(v);
@@ -365,7 +368,8 @@ export default function VitaHairTryOnPage() {
             installAvatar(v, model.scene);
             setAvatarName("Vita Premium Variant A · V1.1");
             setIsVariantA(true);
-            setStatus("Đã tự động khôi phục Vita Variant A từ bộ nhớ iPhone. Thử chọn tóc bên dưới.");
+            setReverseImportedHair(true);
+            setStatus("Đã tự động khôi phục Vita Variant A. Tóc import mặc định xoay 180° để khớp hướng mặt.");
             rememberPhoto(v, "original", true);
             return;
           } catch {
@@ -377,6 +381,7 @@ export default function VitaHairTryOnPage() {
         installAvatar(v, model.scene);
         setAvatarName("Vita gốc · VRoid CC0");
         setIsVariantA(false);
+        setReverseImportedHair(false);
         setStatus("Vita CC0 đã tải. Nạp Vita-Premium-Cute-V11.glb một lần để V2 tự dùng Variant A ở lần sau.");
         rememberPhoto(v, "original", false);
       } catch (error) {
@@ -408,7 +413,7 @@ export default function VitaHairTryOnPage() {
     if (!v?.root || !v.head) return;
     const token = ++serial.current;
     const style = READY.find(x => x.id === id);
-    if (!style && id !== "custom") return;
+    if (!style && !v.groups.has(id)) return;
     setPending(id);
     setStatus(id === "original" ? "Đã chọn tóc Vita gốc." : "Đang tải và chuyển hair mesh…");
     try {
@@ -432,6 +437,7 @@ export default function VitaHairTryOnPage() {
       if (group) {
         group.scale.setScalar(scale);
         group.position.set(horizontal / 100, vertical / 100, depth / 100);
+        group.rotation.y = reverseImportedHair ? Math.PI : 0;
       }
       setSelected(id);
       setStatus(id === "original" ? "Tóc Vita gốc đã được khôi phục." : "Đã gắn mesh tóc thật lên Head của Vita. Hãy xoay để kiểm tra fit.");
@@ -441,7 +447,7 @@ export default function VitaHairTryOnPage() {
     } finally {
       if (token === serial.current) setPending(null);
     }
-  }, [customHair, scale, horizontal, vertical, depth, rememberPhoto, isVariantA]);
+  }, [customHair, scale, horizontal, vertical, depth, reverseImportedHair, rememberPhoto, isVariantA]);
 
   useEffect(() => {
     const v = viewer.current;
@@ -452,6 +458,15 @@ export default function VitaHairTryOnPage() {
       g.position.set(horizontal / 100, vertical / 100, depth / 100);
     }
   }, [scale, horizontal, vertical, depth, selected, customHair]);
+
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v?.root) return;
+    for (const group of v.groups.values()) {
+      group.rotation.y = reverseImportedHair ? Math.PI : 0;
+    }
+    if (selected !== "original" && v.groups.has(selected)) rememberPhoto(v, selected, isVariantA);
+  }, [reverseImportedHair, selected, isVariantA, rememberPhoto]);
 
   const loadAvatarFile = async (file?: File) => {
     if (!file) return;
@@ -467,8 +482,9 @@ export default function VitaHairTryOnPage() {
       const gltf = await new GLTFLoader().parseAsync(content, "");
       if (token !== serial.current || !viewer.current) return;
       installAvatar(viewer.current, gltf.scene);
-      if (customHair) disposeHair(customHair);
       setCustomHair(null);
+      setCuratedLoaded({});
+      setReverseImportedHair(true);
       setAvatarName("Vita Premium Variant A · " + file.name);
       setIsVariantA(true);
       setSelected("original");
@@ -493,6 +509,9 @@ export default function VitaHairTryOnPage() {
       if (token !== serial.current) return;
       await removeSavedVariantA();
       installAvatar(v, gltf.scene);
+      setCustomHair(null);
+      setCuratedLoaded({});
+      setReverseImportedHair(false);
       setSelected("original");
       setIsVariantA(false);
       setAvatarName("Vita gốc · VRoid CC0");
@@ -517,26 +536,30 @@ export default function VitaHairTryOnPage() {
     }
   };
 
-  const loadHairFile = async (file?: File) => {
+  const loadHairFile = async (file?: File, candidateId = "custom") => {
     if (!file) return;
     if (!/\.(glb|vrm)$/i.test(file.name)) { setStatus("Chỉ hỗ trợ .glb/.vrm."); return; }
     const token = ++serial.current;
-    setPending("custom");
+    setPending(candidateId);
     setStatus("Đang tách tóc từ file " + file.name);
     try {
       const gltf = await new GLTFLoader().parseAsync(await file.arrayBuffer(), "");
       const group = freezeDonorHair(gltf.scene);
       if (token !== serial.current || !viewer.current?.head) { disposeHair(group); return; }
-      if (customHair) { customHair.parent?.remove(customHair); disposeHair(customHair); }
-      viewer.current.groups.set("custom", group);
-      setCustomHair(group);
-      for (const [name, old] of viewer.current.groups) old.visible = name === "custom";
+      const old = viewer.current.groups.get(candidateId);
+      if (old) { old.parent?.remove(old); disposeHair(old); }
+      viewer.current.groups.set(candidateId, group);
+      if (candidateId === "custom") setCustomHair(group);
+      else setCuratedLoaded(current => ({ ...current, [candidateId]: file.name }));
+      for (const [name, existing] of viewer.current.groups) existing.visible = name === candidateId;
       viewer.current.head.add(group);
       viewer.current.baseHair.forEach(o => { o.visible = false; });
       group.scale.setScalar(scale);
       group.position.set(horizontal / 100, vertical / 100, depth / 100);
-      setSelected("custom");
-      setStatus("Đã gắn tóc từ " + file.name + ". Kiểm tra lệch đầu bằng thanh Fit bên dưới.");
+      group.rotation.y = reverseImportedHair ? Math.PI : 0;
+      setSelected(candidateId);
+      rememberPhoto(viewer.current, candidateId, isVariantA);
+      setStatus("Đã gắn " + file.name + " lên Head. Kiểm tra trước/sau và chỉnh hướng tóc nếu cần.");
     } catch (error) {
       if (token === serial.current) setStatus("Không nhận được hair mesh: " + String(error));
     } finally { if (token === serial.current) setPending(null); }
@@ -610,6 +633,12 @@ export default function VitaHairTryOnPage() {
             {batching ? "Đang tạo ảnh…" : "✦ Tạo ảnh 3D thật cho cả 6 kiểu"}
           </button>
           <p className="hair-help">Ảnh do chính viewer kết xuất từ mesh thật, lưu cục bộ trên trình duyệt. Lần đầu tạo cả bộ cần tải 5 avatar VRM, nên chỉ chạy khi dùng Wi-Fi.</p>
+          <div className="hair-orientation">
+            <div><strong>Hướng tóc import</strong><small>Chỉ xoay hair mesh quanh xương Head, không xoay Vita. Variant A mặc định cần xoay 180°.</small></div>
+            <button type="button" disabled={!!pending || batching} onClick={() => setReverseImportedHair(value => !value)}>
+              {reverseImportedHair ? "Đang xoay 180° · Đổi về 0°" : "Đang ở 0° · Xoay 180°"}
+            </button>
+          </div>
           <div className="hair-uploads">
             <label className="hair-upload">Nạp Vita V1.1 đã duyệt (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadAvatarFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
             <label className="hair-upload">Nạp một hairstyle (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadHairFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
@@ -625,8 +654,26 @@ export default function VitaHairTryOnPage() {
             <button type="button" onClick={resetFit}>Đặt lại fit</button>
           </details>
           <div className="hair-section-heading hair-source-heading"><div><small>03 / CURATED SOURCES</small><h2>Kiểu tóc đã lọc</h2></div><button className="hair-link-button" type="button" onClick={() => setShowSources(x => !x)}>{showSources ? "Thu gọn" : "Mở rộng"}</button></div>
-          <p className="hair-help">Các kiểu dưới đây mới có trang nguồn, <strong>chưa có asset đã import và kiểm tra license</strong>; không giả lập việc thử tóc. Có file .glb/.vrm hợp lệ thì dùng nút “Nạp một hairstyle” ở trên.</p>
-          {showSources && <div className="hair-candidate-list">{CANDIDATES.map(c => <div className="hair-candidate" key={c.url}><div><strong>{c.label}</strong><small>{c.kind} · {c.source}</small><span>Chưa có mesh để thử</span></div><a href={c.url} target="_blank" rel="noopener noreferrer">Xem nguồn ↗</a></div>)}</div>}
+          <p className="hair-help">Các mẫu này mới có trang nguồn, chưa kèm mesh và chưa xác nhận license sử dụng lại. Tải asset từ tác giả theo điều khoản của họ, rồi nạp <strong>.glb/.vrm</strong> vào đúng hàng để thử. File <strong>.vroidcustomitem/.unitypackage</strong> cần chuyển thành GLB/VRM bằng VRoid Studio hoặc công cụ 3D phù hợp trước khi mở trên iPhone.</p>
+          {showSources && <div className="hair-candidate-list">{CANDIDATES.map((c, index) => {
+            const id = "curated-" + index;
+            const imported = !!curatedLoaded[id];
+            const photo = photos[(isVariantA ? "a" : "cc0") + ":" + id];
+            return <div className="hair-candidate" key={c.url}>
+              <div className="hair-candidate-info">
+                {imported && photo && <img className="hair-candidate-thumb" src={photo} alt={"Render 3D của " + c.label} />}
+                <strong>{c.label}</strong><small>{c.kind} · {c.source}</small>
+                <span>{imported ? "Đã nạp cục bộ: " + curatedLoaded[id] : "Chưa có mesh để thử"}</span>
+              </div>
+              <div className="hair-candidate-actions">
+                <a href={c.url} target="_blank" rel="noopener noreferrer">Xem nguồn ↗</a>
+                <label className="hair-candidate-import">{imported ? "Thay file" : "Nạp file"}
+                  <input type="file" accept=".glb,.vrm" disabled={!!pending || batching} onChange={e => { void loadHairFile(e.currentTarget.files?.[0], id); e.currentTarget.value = ""; }}/>
+                </label>
+                {imported && <button type="button" disabled={!!pending || batching} onClick={() => void setStyle(id)}>{selected === id ? "Đang thử" : "Thử lại"}</button>}
+              </div>
+            </div>;
+          })}</div>}
           <p className="hair-footer">Prototype chỉ phục vụ nghiên cứu mỹ thuật. Không thay Character Catalog, RoomState, Gameplay hoặc production assets. Chưa kiểm chứng FPS iPhone.</p>
         </section>
       </div>
