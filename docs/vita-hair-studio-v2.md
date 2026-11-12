@@ -41,3 +41,9 @@ This is a research POC, not an accepted production cosmetic catalog.
 - Thumbnail cache namespace bumped to prevent showing wrong-facing older photos. Image capture still uses real WebGL.
 - Each curated row can accept an owner-provided .glb/.vrm file and reselect/reimport during the session; source links alone do not provide the mesh. No license bypass or remote asset scraping. VRoid custom items and Unity packages need separate export/conversion.
 - Physical iPhone validation remains pending for all six donor styles, front/35°/rear and thumbnails. Imported curated assets remain only in browser session memory and require reimport after reload.
+
+## 2026-11-12 — Owner accepts COMPLETE Vita Hair Studio modular-hair demo baseline
+
+The latest explicit owner instruction clarifies that **the entire existing Vita Hair Studio demonstration** is accepted as the ongoing hair exploration baseline, **not only the FeliKitty hairstyle**. This includes the existing six VRoid CC0 hairstyle choices; real WebGL 3D viewing, previews/thumbnails, import, direction correction, fit controls, user-loaded curated styles and the new experimental VRoid Beta ZIP-to-GLB conversion path. Preserve all of these as a coherent standalone proof-of-concept feature.
+
+**Evidence specificity:** The original six choices were visually tested on Vita CC0. The reconstructed FeliKitty GLB was subsequently loaded on an actual iPhone and considered a good visual result with a small still-unmeasured upward fit adjustment. This acceptance does not certify all six on Premium Variant A, all externally curated sources, animation performance, exact VRoid exporter parity, redistribution licenses or production catalog readiness. Do not silently broaden these gates. Leave V1.1 face/outfit unchanged.

@@ -1,5 +1,14 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-11-12 — Owner clarification: COMPLETE Vita Hair Studio demo accepted as modular-hair POC baseline
+
+- **Latest explicit owner clarification:** The accepted hair scope is the **whole previously demonstrated Vita Hair Studio workflow**, **NOT only FeliKitty Short Bob**. Preserve the existing six choices (Vita original, HairSample Female/Male, Vivi, Shibu, Victoria), 3D orbit/front/side/back views, real rendered thumbnails, try-on and adjustment controls, Variant A local restore/import, owner-imported hair files and curated styles, donor orientation correction, and the experimental VRoid Beta ZIP → hair-only GLB path. The six original choices were previously tried successfully on Vita CC0; do not claim that all donor styles have been separately verified on approved Variant A or are production assets.
+- **Owner acceptance meaning:** the complete isolated **demo's approach and user experience** are accepted for continued modular hair development. The FeliKitty converted example loaded and looked good on a real iPhone, with a small **positive vertical offset still required**. No precise offset has been provided. Individual style clipping/skeleton/performance/licensing and any production Character Catalog adoption remain separate gates.
+- **Corrections to prior log:** The previous entry's narrow FeliKitty-only feasibility phrasing was incomplete. It should be read as evidence for **one converted test sample within the owner-accepted full demo**, not the entire accepted scope.
+- **Next focus as requested:** research a dedicated *Wardrobe Try-On POC*; no clothing runtime implementation or main/development integration authorized yet. Test one upper garment before layered full-body outfits, require rig/skin compatibility and dance animation validation, never replace the accepted V1.1 face/outfit in source assets.
+- **Scope:** Documentation and acceptance clarification only. No gameplay, timing, gauge, Supabase, actor lifecycle or Character Catalog edits; do not merge.
+
+
 ### 2026-11-12 — Owner iPhone accepts FeliKitty VRoid Beta hair conversion feasibility; wardrobe sourcing next
 
 - **Owner real-device evidence (2026-11-12):** Owner successfully loaded the FeliKitty Short Bob experimental GLB into isolated Vita Hair Studio on iPhone and reports it looks **quite good**, with **only a small upward vertical hair offset still needed** for the fit. Owner explicitly authorizes continuing to explore VRoid-derived hairstyles. This is an **owner-positive POC acceptance for import feasibility and appearance**, not a numerical fit certification, exact VRoid Studio equivalence, all hairstyles, mobile FPS, or release license approval. Do not claim fully aligned/perfect fit.

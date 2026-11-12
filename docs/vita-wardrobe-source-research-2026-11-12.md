@@ -26,3 +26,15 @@
 5. If licensed assets cannot be embedded in a public Preview, run local-only import with user-supplied files, as with hair; do not commit creator files to GitHub.
 
 Sources: seller listings above and official VRoid documentation for `.vroidcustomitem` categories: https://vroid.pixiv.help/hc/en-us/articles/900005583186-How-to-Use-Custom-Items and https://vroid.pixiv.help/hc/en-us/articles/7467455312409-How-to-import-and-export-custom-items .
+
+## Proposed next milestone: isolated Vita Wardrobe Studio (recommendation, NOT authorized implementation)
+
+**Gate 0 — Asset/legal feasibility:** Select one free, source-verifiable outfit ZIP (prefer individual upper/top piece first, e.g. Cyber Blue). Read the actual package's terms and file structure without uploading licensed assets to public GitHub. Check whether it contains texture/template parameters (`.vroidcustomitem`), actual `.vrm/.glb` geometry, or `.xwear`. VRoid Studio custom items may contain texture editor/template data; **not** guaranteed skinned geometry.
+
+**Gate 1 — First top-only demo:** Build an isolated wardrobe try-on route only once approved. Original Premium V1.1 body, face, hair, rig and outfit must not be modified in stored source. Import user-supplied clothing in browser memory; match scale, bind pose and skin weights with the original skeleton for body garments. Use original wardrobe as fallback. No claim that attaching static geometry to one torso bone is sufficient.
+
+**Gate 2 — Motion fit:** inspect neutral/T-pose, idle, body turns and existing dance clips; reject shoulder/elbow/torso penetration and z-fighting. Include body occlusion strategy (hide only body regions actually covered, without damaging accepted character) and preserve texture/material quality.
+
+**Gate 3 — Modular clothing categories:** separate top, bottom, shoes, outerwear/accessories into data-driven independent slots and reversible selection. Define clear ownership, author credit, and export/distribution eligibility before any production catalog, no automatic inclusion in Character Catalog.
+
+**Decision rule:** A one-outfit proof of concept passing iPhone visual + dance tests precedes building any general-purpose Stable `.vroidcustomitem` converter or shop. Avoid starting full wardrobe pipeline based only on hair success.
