@@ -1,0 +1,72 @@
+{
+  "mode": "glb",
+  "webgl": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+  "three": "180",
+  "drawCalls": 25,
+  "triangles": 45388,
+  "materialCount": 21,
+  "rgba8MipMiB": 46,
+  "strengths": {
+    "neutral": 0,
+    "happy": 1,
+    "blink": 1
+  },
+  "proof": [],
+  "advanced": true,
+  "error": 0,
+  "textures": [
+    [
+      512,
+      512
+    ],
+    [
+      1024,
+      512
+    ],
+    [
+      1024,
+      256
+    ],
+    [
+      1024,
+      256
+    ],
+    [
+      1024,
+      256
+    ],
+    [
+      1024,
+      512
+    ],
+    [
+      1024,
+      512
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      512,
+      256
+    ],
+    [
+      2048,
+      1024
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      1024,
+      1024
+    ]
+  ],
+  "hairDrawCalls": 1
+}

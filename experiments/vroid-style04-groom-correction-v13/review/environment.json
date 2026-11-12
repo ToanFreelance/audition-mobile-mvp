@@ -1,0 +1,21 @@
+{
+  "blender": "4.3.2",
+  "addons": {
+    "gbhtool": {
+      "version": "2.2.3",
+      "blender_version_min": "4.2.0",
+      "license": [
+        "SPDX:GPL-2.0-or-later"
+      ]
+    },
+    "vrm": {
+      "version": "4.10.5",
+      "blender_version_min": "4.2.0",
+      "license": [
+        "SPDX:MIT",
+        "SPDX:GPL-3.0-or-later"
+      ]
+    }
+  },
+  "hairTriangles": 27192
+}

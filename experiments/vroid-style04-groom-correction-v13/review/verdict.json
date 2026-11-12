@@ -1,0 +1,13 @@
+{
+  "overall": "PARTIAL",
+  "artisticGate": "FAIL",
+  "checkpointOnly": true,
+  "regionsNotStarted": [
+    "RightSide",
+    "Back"
+  ],
+  "sourceV12Commit": "8a4f59cdf8b7b5f239b84fb4e313a1749396bdb1",
+  "sourceV11Commit": "ec7ded7e321638a3e639f461d5228bf38099d1ae",
+  "iphoneVerified": false,
+  "reason": "Mái và lớp bên trái vẫn có nhịp dải cong lặp, đỉnh hở và ngọn cứng. Dừng sau cổng mỹ thuật theo yêu cầu chủ dự án."
+}

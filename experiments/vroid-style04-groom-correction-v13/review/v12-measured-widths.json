@@ -1,0 +1,32 @@
+[
+  {
+    "object": "GBH \u2022 Back \u2022 4",
+    "curves": 45,
+    "medianMidWidthMm": 23.56246887811903,
+    "medianTipWidthMm": 9.732520582270238
+  },
+  {
+    "object": "GBH \u2022 Crown \u2022 4",
+    "curves": 88,
+    "medianMidWidthMm": 23.754998804153765,
+    "medianTipWidthMm": 8.961628944967416
+  },
+  {
+    "object": "GBH \u2022 Fringe \u2022 3",
+    "curves": 15,
+    "medianMidWidthMm": 14.126316899479587,
+    "medianTipWidthMm": 7.9032335307908665
+  },
+  {
+    "object": "GBH \u2022 Sides \u2022 3",
+    "curves": 20,
+    "medianMidWidthMm": 13.778530159337881,
+    "medianTipWidthMm": 8.320136671316787
+  },
+  {
+    "object": "GBH \u2022 Sides \u2022 4",
+    "curves": 10,
+    "medianMidWidthMm": 11.594979487424645,
+    "medianTipWidthMm": 1.0439750929027913
+  }
+]

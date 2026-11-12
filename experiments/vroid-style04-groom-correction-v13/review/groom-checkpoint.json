@@ -1,0 +1,107 @@
+{
+  "stage": "checkpoint",
+  "operators": {
+    "gbh.reload_library": [
+      "FINISHED"
+    ],
+    "gbh.node_group_append": [
+      "FINISHED"
+    ]
+  },
+  "profile": "GBH Profile Line Hair Cards",
+  "profileWidthCm": 1.0,
+  "regions": [
+    {
+      "region": "Fringe",
+      "curves": 58,
+      "vertices": 4698,
+      "triangles": 6032,
+      "widthMm": {
+        "min": 1.6717409236825198,
+        "median": 4.674890336810813,
+        "max": 6.770805584714387
+      },
+      "tipWidthMm": {
+        "median": 0.14729001870908764,
+        "max": 0.20656076503879814
+      },
+      "nodes": [
+        "V13 \u00b7 Guide center",
+        "GBH Profile Line Hair Cards",
+        "V13 \u00b7 Strand orientation \u00b7 no width scaling"
+      ],
+      "operator": [
+        "FINISHED"
+      ]
+    },
+    {
+      "region": "Crown",
+      "curves": 113,
+      "vertices": 9153,
+      "triangles": 11752,
+      "widthMm": {
+        "min": 4.804077225006863,
+        "median": 6.865405659195764,
+        "max": 9.421717233682147
+      },
+      "tipWidthMm": {
+        "median": 0.20961305562252014,
+        "max": 0.27648123815562786
+      },
+      "nodes": [
+        "V13 \u00b7 Guide center",
+        "GBH Profile Line Hair Cards",
+        "V13 \u00b7 Strand orientation \u00b7 no width scaling"
+      ],
+      "operator": [
+        "FINISHED"
+      ]
+    },
+    {
+      "region": "LeftSide",
+      "curves": 56,
+      "vertices": 5208,
+      "triangles": 6720,
+      "widthMm": {
+        "min": 2.446504865518527,
+        "median": 4.550621835801699,
+        "max": 8.845128830851621
+      },
+      "tipWidthMm": {
+        "median": 0.13644528577323511,
+        "max": 0.24994684543695533
+      },
+      "nodes": [
+        "V13 \u00b7 Guide center",
+        "GBH Profile Line Hair Cards",
+        "V13 \u00b7 Strand orientation \u00b7 no width scaling"
+      ],
+      "operator": [
+        "FINISHED"
+      ]
+    },
+    {
+      "region": "Secondary",
+      "curves": 24,
+      "vertices": 2088,
+      "triangles": 2688,
+      "widthMm": {
+        "min": 0.3421540568510952,
+        "median": 0.47789361156108146,
+        "max": 0.6536169956575376
+      },
+      "tipWidthMm": {
+        "median": 0.014076932169101039,
+        "max": 0.019647529967926923
+      },
+      "nodes": [
+        "V13 \u00b7 Guide center",
+        "GBH Profile Line Hair Cards",
+        "V13 \u00b7 Strand orientation \u00b7 no width scaling"
+      ],
+      "operator": [
+        "FINISHED"
+      ]
+    }
+  ]
+}

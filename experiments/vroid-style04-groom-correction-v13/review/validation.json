@@ -1,0 +1,200 @@
+{
+  "baselineSha256": "138a5b8321bd333e409340be321e483bdef6f2e6bebe5758bc8af6d4d75fed52",
+  "faceLockExact": true,
+  "morphs": 41,
+  "regions": [
+    {
+      "region": "Fringe",
+      "curves": 58,
+      "triangles": 6032,
+      "liveToBakedMaxErrorMm": 0.0,
+      "midWidthMm": {
+        "min": 1.6717409236825198,
+        "p10": 2.2939258546888084,
+        "median": 4.674890336810813,
+        "p90": 6.2481130348770195,
+        "max": 6.770805584714387
+      },
+      "rootWidthMm": {
+        "min": 1.6175069793522516,
+        "p10": 1.943120825839472,
+        "median": 4.189974222496811,
+        "p90": 5.576724591819822,
+        "max": 5.994982542829849
+      },
+      "nearTipWidthMm": {
+        "min": 0.8465198499925846,
+        "p10": 1.1432007627862166,
+        "median": 2.3365617481374206,
+        "p90": 2.9774213405546726,
+        "max": 3.2453354477123977
+      },
+      "tipWidthMm": {
+        "min": 0.05431837902334969,
+        "p10": 0.07029553568539268,
+        "median": 0.14729001870908764,
+        "p90": 0.1847369407703057,
+        "max": 0.20656076503879814
+      },
+      "nativeType": "CURVES",
+      "surface": "Scalp",
+      "modifiers": [
+        "V13 \u00b7 Guide center",
+        "GBH Profile Line Hair Cards",
+        "V13 \u00b7 Strand orientation \u00b7 no width scaling"
+      ]
+    },
+    {
+      "region": "Crown",
+      "curves": 113,
+      "triangles": 11752,
+      "liveToBakedMaxErrorMm": 0.0,
+      "midWidthMm": {
+        "min": 4.804077225006863,
+        "p10": 5.492466752192442,
+        "median": 6.865405659195764,
+        "p90": 8.566839768344968,
+        "max": 9.421717233682147
+      },
+      "rootWidthMm": {
+        "min": 4.396770839952977,
+        "p10": 4.85712383652887,
+        "median": 6.121746798906539,
+        "p90": 7.535033865104599,
+        "max": 8.106497830341594
+      },
+      "nearTipWidthMm": {
+        "min": 2.348884462146694,
+        "p10": 2.614437783020383,
+        "median": 3.3540976616016134,
+        "p90": 4.021025611009945,
+        "max": 4.389251566911586
+      },
+      "tipWidthMm": {
+        "min": 0.14803666114638608,
+        "p10": 0.16237456647619586,
+        "median": 0.20961305562252014,
+        "p90": 0.2532516034914974,
+        "max": 0.27648123815562786
+      },
+      "nativeType": "CURVES",
+      "surface": "Scalp",
+      "modifiers": [
+        "V13 \u00b7 Guide center",
+        "GBH Profile Line Hair Cards",
+        "V13 \u00b7 Strand orientation \u00b7 no width scaling"
+      ]
+    },
+    {
+      "region": "LeftSide",
+      "curves": 56,
+      "triangles": 6720,
+      "liveToBakedMaxErrorMm": 0.0,
+      "midWidthMm": {
+        "min": 2.446504865518527,
+        "p10": 2.954069695242738,
+        "median": 4.550621835801699,
+        "p90": 7.718914134707738,
+        "max": 8.845128830851621
+      },
+      "rootWidthMm": {
+        "min": 2.3414689940553823,
+        "p10": 2.521572514792622,
+        "median": 4.079661999938546,
+        "p90": 6.284384636475714,
+        "max": 7.762651014861492
+      },
+      "nearTipWidthMm": {
+        "min": 1.0683187359965642,
+        "p10": 1.2616836481586353,
+        "median": 1.8977234145101933,
+        "p90": 3.0809195130295657,
+        "max": 3.459674314191201
+      },
+      "tipWidthMm": {
+        "min": 0.07827175310062313,
+        "p10": 0.0898806851273948,
+        "median": 0.13644528577323511,
+        "p90": 0.2169724588901728,
+        "max": 0.24994684543695533
+      },
+      "nativeType": "CURVES",
+      "surface": "Scalp",
+      "modifiers": [
+        "V13 \u00b7 Guide center",
+        "GBH Profile Line Hair Cards",
+        "V13 \u00b7 Strand orientation \u00b7 no width scaling"
+      ]
+    },
+    {
+      "region": "RightSide",
+      "curves": 0,
+      "status": "Ch\u01b0a tri\u1ec3n khai sau c\u1ed5ng m\u1ef9 thu\u1eadt FAIL"
+    },
+    {
+      "region": "Back",
+      "curves": 0,
+      "status": "Ch\u01b0a tri\u1ec3n khai sau c\u1ed5ng m\u1ef9 thu\u1eadt FAIL"
+    },
+    {
+      "region": "Secondary",
+      "curves": 24,
+      "triangles": 2688,
+      "liveToBakedMaxErrorMm": 0.0,
+      "midWidthMm": {
+        "min": 0.3421540568510952,
+        "p10": 0.35141798378119954,
+        "median": 0.47789361156108146,
+        "p90": 0.5978676666830757,
+        "max": 0.6536169956575376
+      },
+      "rootWidthMm": {
+        "min": 0.3030983306819848,
+        "p10": 0.30909502496946417,
+        "median": 0.436014533782542,
+        "p90": 0.5292204865309557,
+        "max": 0.5538032064261552
+      },
+      "nearTipWidthMm": {
+        "min": 0.14402602678962398,
+        "p10": 0.15443856024694136,
+        "median": 0.20262751462141176,
+        "p90": 0.2871692182481986,
+        "max": 0.31232018411206736
+      },
+      "tipWidthMm": {
+        "min": 0.0104876142086124,
+        "p10": 0.010947766823775872,
+        "median": 0.014076932169101039,
+        "p90": 0.018127603636938154,
+        "max": 0.019647529967926923
+      },
+      "nativeType": "CURVES",
+      "surface": "Scalp",
+      "modifiers": [
+        "V13 \u00b7 Guide center",
+        "GBH Profile Line Hair Cards",
+        "V13 \u00b7 Strand orientation \u00b7 no width scaling"
+      ]
+    }
+  ],
+  "hairTriangles": 27192,
+  "guideEdit": {
+    "requestMm": 1,
+    "maximumMotionMm": 0.9999982934335993,
+    "restoreErrorMm": 0.0
+  },
+  "headFollowMaxErrorMm": 0.0001295129344124962,
+  "skinTrianglePairIntersections": {
+    "Hair13_Fringe": 0,
+    "Hair13_Crown": 0,
+    "Hair13_LeftSide": 0,
+    "Hair13_Secondary": 0
+  },
+  "stage": "checkpoint",
+  "artisticGate": "FAIL",
+  "notStarted": [
+    "RightSide",
+    "Back"
+  ]
+}
