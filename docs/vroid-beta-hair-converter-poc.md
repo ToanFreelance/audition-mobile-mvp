@@ -33,3 +33,9 @@ Status: **experimental / approximate geometry**, not a VRoid Studio exporter.
 - Only the VRoid **Beta** embedded `preset.json` schema is supported in this proof of concept. Stable `.vroid`, `.vroidcustomitem` and arbitrary ZIPs cannot be renamed to `.glb`.
 - GLB validity checked by a separate glTF mesh reader; owner iPhone geometry/fit/performance acceptance is pending.
 - No change to Character Catalog, Waiting Room, RoomState, Supabase, WebAudio or gameplay. No merge.
+
+## 2026-11-12 — Owner physical iPhone feasibility feedback
+
+Owner successfully imported the reconstructed FeliKitty Short Bob hair-only GLB into Vita Hair Studio on an actual iPhone. The look was rated **quite good / workable**, with a **small upward hair fit offset still required**. This confirms a practical import/test workflow for this exact example and supports further VRoid hairstyle exploration; it does **not** certify exact visual parity, a universal converter, collision-free motion, performance, or permission to embed creator source assets into public builds.
+
+Keep fit offset adjustable until the owner supplies a measured value and visually validates a baked asset. The source ZIP and approximate GLB must remain out of this public repository. The author-built converter source (not creator content) is now tracked at `scripts/vroid-beta-hair-to-glb.py`, with usage instructions in `scripts/VROID_BETA_HAIR_CONVERTER.md`. No changes to the approved face/outfit.

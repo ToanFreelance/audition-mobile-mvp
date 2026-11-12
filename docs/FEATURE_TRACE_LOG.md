@@ -1,5 +1,16 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-11-12 — Owner iPhone accepts FeliKitty VRoid Beta hair conversion feasibility; wardrobe sourcing next
+
+- **Owner real-device evidence (2026-11-12):** Owner successfully loaded the FeliKitty Short Bob experimental GLB into isolated Vita Hair Studio on iPhone and reports it looks **quite good**, with **only a small upward vertical hair offset still needed** for the fit. Owner explicitly authorizes continuing to explore VRoid-derived hairstyles. This is an **owner-positive POC acceptance for import feasibility and appearance**, not a numerical fit certification, exact VRoid Studio equivalence, all hairstyles, mobile FPS, or release license approval. Do not claim fully aligned/perfect fit.
+- **Source and reconstruction:** Creator ZIP contains VRoid Beta `preset.json` with 84 strands and texture data. An approximate standard-library Python converter builds hair-only glTF 2.0 with 13 mesh groups / 21,840 triangles / 738,576 bytes. Embedded `scenes[0].extras.vroidHairHeadLocal=true` allows the isolated Studio's safe, explicitly tagged head-local import path without donor Head bone. The creator source ZIP and its derivative GLB remain **off the public GitHub repo**; script only is tracked for reproducibility.
+- **Actual local validation:** Re-ran `python scripts/vroid-beta-hair-to-glb.py <owner ZIP> /tmp/verify.glb --color '#ff4a97'` using the local working copy: 84 strands, 13 mesh groups, 21,840 triangles; parsed GLB magic, version 2, declared length and scene extras successfully. Output deterministic 738,576 bytes for the tested input. The existing Preview deployment reached READY on the prior importer commit; physical iPhone judgement is owner-provided. This log/docs/utility commit has no gameplay QA requirement.
+- **Open visual adjustment:** small positive `Dịch cao` value in the isolated hair Fit control; exact offset not reported, so **do not bake a guessed offset** into shared defaults or source asset. Retain per-asset fit calibration and validate any final baked setting on iPhone.
+- **Scope:** Source hairstyle import is accepted as a viable *prototype technique*. Production character identity, base approved Vita V1.1 face/outfit, Character Catalog, RoomState/CAS/Realtime, WebAudio authoritative clock, gauge, gameplay and staging remain unchanged. Confirm license/commercial use and preserve attribution for each third-party hairstyle before any runtime/marketplace distribution.
+- **Next work (research only):** investigate VRoid clothing/outfits (BOOTH/official), formats, licenses and skinned-clothing compatibility. Outfit replacement is **not** a Head-local hair attachment: it needs body fit/weights/occlusion/motion QA. Source shortlist in `docs/vita-wardrobe-source-research-2026-11-12.md`. No production outfit code or automatic wardrobe converter started.
+- **Branch:** `work/vita-hair-tryon-poc-v1`; no PR created or merge approved.
+
+
 ### 2026-10-16 — C3 real iPhone screenshots: empty slot rings + preload layout
 
 - **Owner evidence:** actual 1/5 Host Waiting Room compared to five-person P5.6 sketch QA. Empty slots show a normal cyan marker plus a displaced mirrored ring and ghost body on reflective floor; waiting connection and PRELOADING/COUNTDOWN panels are inserted before the footer, physically pushing the controls out of portrait safe area.
