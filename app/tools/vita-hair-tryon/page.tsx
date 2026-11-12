@@ -48,16 +48,13 @@ const CANDIDATES: Candidate[] = [
 
 function hairLike(o: THREE.Object3D): boolean {
   if (!(o instanceof THREE.Mesh)) return false;
-  const path: string[] = [];
-  let cur: THREE.Object3D | null = o;
-  for (let i = 0; i < 4 && cur; i++) {
-    path.push(cur.name);
-    cur = cur.parent;
-  }
-  const named = path.join(" ");
-  if (/hair|bangs|fringe|ponytail|ツインテ|髪|前髪|後髪|ヘア/i.test(named)) return true;
+  // Never inspect the avatar root name: "HairSample_Female" names the entire avatar.
+  // Exclude face/body geometry even when an asset has a misleading material name.
+  if (/face|body|skin|eye|eyebrow|mouth|tooth|teeth|tongue|outfit|cloth/i.test(o.name)) return false;
+  const ownName = o.name + " " + (o.parent?.name ?? "");
+  if (/hair|bangs|fringe|ponytail|ツインテ|髪|前髪|後髪|ヘア/i.test(ownName)) return true;
   const mats = Array.isArray(o.material) ? o.material : [o.material];
-  return !/face|body|skin|eye/i.test(o.name) && mats.some(m => m && /hair|髪|ヘア/i.test(m.name));
+  return mats.some(m => m && /hair|髪|ヘア/i.test(m.name));
 }
 
 function hairMeshes(root: THREE.Object3D): THREE.Mesh[] {
