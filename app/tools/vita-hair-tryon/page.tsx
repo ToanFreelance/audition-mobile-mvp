@@ -11,6 +11,16 @@ const BASE_VITA = SAMPLE_ROOT + "Vita.vrm";
 
 const VARIANT_A_STORE = "audition-vita-hair-v2";
 const VARIANT_A_KEY = "approved-variant-a-v11";
+const APPROVED_VARIANT_A_SHA256 = new Set([
+  "d422159770ee8e9fbc9d78f2f256d5ee988651373cbd211aaa99efd7ecf2bad8", // V11 GLB
+  "5e1802f4618fcf8ed182efdc856dda6f9eee4eaaee83ba889397d2a64951ea12", // V11 VRM
+]);
+async function isApprovedVariantA(buffer: ArrayBuffer): Promise<boolean> {
+  if (!crypto?.subtle) return false;
+  const hash = await crypto.subtle.digest("SHA-256", buffer);
+  const hex = Array.from(new Uint8Array(hash)).map(x => x.toString(16).padStart(2, "0")).join("");
+  return APPROVED_VARIANT_A_SHA256.has(hex);
+}
 const PHOTO_STORE_KEY = "audition-vita-hair-v2:photos";
 
 // Browsers cannot fetch a private ChatGPT Library GLB as an unauthenticated URL.
@@ -349,6 +359,7 @@ export default function VitaHairTryOnPage() {
         const saved = await loadSavedVariantA();
         if (saved) {
           try {
+            if (!(await isApprovedVariantA(saved))) throw new Error("Lưu trữ không phải bản V1.1 đã duyệt");
             const model = await v.loader.parseAsync(saved, "");
             if (!alive || serial.current !== bootToken) return;
             installAvatar(v, model.scene);
@@ -450,6 +461,9 @@ export default function VitaHairTryOnPage() {
     setStatus("Đang import Vita A: " + file.name);
     try {
       const content = await file.arrayBuffer();
+      if (!(await isApprovedVariantA(content))) {
+        throw new Error("File chưa trùng SHA-256 của Vita Premium Cute V1.1 đã duyệt. Vui lòng dùng artifact V11 chính thức trong Library.");
+      }
       const gltf = await new GLTFLoader().parseAsync(content, "");
       if (token !== serial.current || !viewer.current) return;
       installAvatar(viewer.current, gltf.scene);
@@ -587,7 +601,7 @@ export default function VitaHairTryOnPage() {
                   ? <img alt={"Render 3D thật của " + option.label} src={photos[(isVariantA ? "a" : "cc0") + ":" + option.id]} />
                   : <span aria-hidden="true" className="hair-choice-placeholder">✧<small>Ảnh tạo khi thử</small></span>}
               </span>
-              <strong>{option.label}</strong><small>{option.note}</small>
+              <strong>{option.id === "original" && isVariantA ? "Bob gốc · V1.1" : option.label}</strong><small>{option.note}</small>
               <em>{selected === option.id ? "Đang hiển thị" : "Chạm để thử"}</em>
             </button>)}
             {customHair && <button type="button" disabled={!!pending || batching} onClick={() => void setStyle("custom")} className={selected === "custom" ? "hair-choice active" : "hair-choice"}><span className="hair-choice-image hair-choice-placeholder">✧</span><strong>Tóc từ file</strong><small>Asset bạn chọn</small><em>{selected === "custom" ? "Đang hiển thị" : "Thử 3D"}</em></button>}
@@ -597,7 +611,7 @@ export default function VitaHairTryOnPage() {
           </button>
           <p className="hair-help">Ảnh do chính viewer kết xuất từ mesh thật, lưu cục bộ trên trình duyệt. Lần đầu tạo cả bộ cần tải 5 avatar VRM, nên chỉ chạy khi dùng Wi-Fi.</p>
           <div className="hair-uploads">
-            <label className="hair-upload">Nạp Vita Variant A (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadAvatarFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
+            <label className="hair-upload">Nạp Vita V1.1 đã duyệt (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadAvatarFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
             <label className="hair-upload">Nạp một hairstyle (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadHairFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
           </div>
           <p className="hair-help">V2 tự mở <strong>Variant A</strong> nếu bạn đã nạp file lần trước trên cùng trình duyệt. Lần đầu chọn <strong>Vita-Premium-Cute-V11.glb</strong> từ Library. File chỉ được lưu trong IndexedDB của máy, không upload lên server.</p>
