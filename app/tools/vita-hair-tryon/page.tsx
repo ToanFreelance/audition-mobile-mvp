@@ -30,6 +30,9 @@ const READY: ReadyHair[] = [
   { id: "original", label: "Tóc gốc Vita", note: "VRoid Vita CC0 · Mặc định", source: "Vita" },
   { id: "female-sample", label: "HairSample Female", note: "VRoid CC0 · Tóc nữ", source: "pixiv / VRoid", url: SAMPLE_ROOT + "HairSample_Female.vrm" },
   { id: "male-sample", label: "HairSample Male", note: "VRoid CC0 · Tóc nam", source: "pixiv / VRoid", url: SAMPLE_ROOT + "HairSample_Male.vrm" },
+  { id: "vivi-bob", label: "Vivi · Anime Bob", note: "AvatarSample β2 · CC0", source: "pixiv / VRoid", url: SAMPLE_ROOT + "Vivi.vrm" },
+  { id: "shibu-bob", label: "Shibu · Short Bob", note: "AvatarSample β1 · CC0", source: "pixiv / VRoid", url: SAMPLE_ROOT + "Sendagaya_Shibu.vrm" },
+  { id: "victoria", label: "Victoria · Soft Blonde", note: "AvatarSample β4 · CC0", source: "pixiv / VRoid", url: SAMPLE_ROOT + "Victoria_Rubin.vrm" },
 ];
 
 const CANDIDATES: Candidate[] = [
