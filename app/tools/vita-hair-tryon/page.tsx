@@ -264,6 +264,37 @@ function installAvatar(viewer: Viewer, root: THREE.Object3D) {
   viewer.controls.update();
 }
 
+
+// Capture a REAL image from the active WebGL scene. No mock hair image is used.
+function captureHairPhoto(v: Viewer): string | null {
+  if (!v.head || !v.root) return null;
+  const lastPos = v.camera.position.clone();
+  const lastTarget = v.controls.target.clone();
+  const focus = new THREE.Vector3();
+  v.head.getWorldPosition(focus);
+  v.controls.target.copy(focus).add(new THREE.Vector3(0, -0.055, 0));
+  v.camera.position.copy(v.controls.target).add(new THREE.Vector3(0, 0.06, 0.95));
+  v.controls.update();
+  try {
+    v.renderer.render(v.scene, v.camera);
+    const source = v.renderer.domElement;
+    const out = document.createElement("canvas");
+    out.width = 224; out.height = 224;
+    const context = out.getContext("2d");
+    if (!context) return null;
+    const crop = Math.min(source.width, source.height);
+    context.drawImage(source,
+      (source.width - crop) / 2, (source.height - crop) / 2, crop, crop,
+      0, 0, 224, 224);
+    return out.toDataURL("image/jpeg", 0.76);
+  } catch { return null; }
+  finally {
+    v.camera.position.copy(lastPos);
+    v.controls.target.copy(lastTarget);
+    v.controls.update();
+  }
+}
+
 const VIEWS = ["Chính diện", "Góc 35°", "Bên trái", "Phía sau", "Toàn thân"] as const;
 type View = (typeof VIEWS)[number];
 
@@ -285,6 +316,19 @@ export default function VitaHairTryOnPage() {
   const [depth, setDepth] = useState(0);
   const [view, setView] = useState<View>("Chính diện");
   const [showSources, setShowSources] = useState(true);
+
+  const rememberPhoto = useCallback((v: Viewer, id: string, variantA: boolean) => {
+    const photo = captureHairPhoto(v);
+    if (!photo) return;
+    const key = (variantA ? "a" : "cc0") + ":" + id;
+    setPhotos(current => {
+      const next = { ...current, [key]: photo };
+      try { window.localStorage.setItem(PHOTO_STORE_KEY, JSON.stringify(next)); }
+      catch { /* storage not mandatory */ }
+      return next;
+    });
+  }, []);
+
 
   useEffect(() => {
     try {
@@ -311,6 +355,7 @@ export default function VitaHairTryOnPage() {
             setAvatarName("Vita Premium Variant A · V1.1");
             setIsVariantA(true);
             setStatus("Đã tự động khôi phục Vita Variant A từ bộ nhớ iPhone. Thử chọn tóc bên dưới.");
+            rememberPhoto(v, "original", true);
             return;
           } catch {
             // Keep original CC0 available when the cached GLB is invalid.
@@ -322,6 +367,7 @@ export default function VitaHairTryOnPage() {
         setAvatarName("Vita gốc · VRoid CC0");
         setIsVariantA(false);
         setStatus("Vita CC0 đã tải. Nạp Vita-Premium-Cute-V11.glb một lần để V2 tự dùng Variant A ở lần sau.");
+        rememberPhoto(v, "original", false);
       } catch (error) {
         if (alive && serial.current === bootToken) setStatus("Không tải được Vita: " + String(error));
       } finally {
@@ -340,7 +386,7 @@ export default function VitaHairTryOnPage() {
       v.renderer.domElement.remove();
       viewer.current = null;
     };
-  }, []);
+  }, [rememberPhoto]);
 
   const resetFit = useCallback(() => {
     setScale(1); setHorizontal(0); setVertical(0); setDepth(0);
@@ -378,12 +424,13 @@ export default function VitaHairTryOnPage() {
       }
       setSelected(id);
       setStatus(id === "original" ? "Tóc Vita gốc đã được khôi phục." : "Đã gắn mesh tóc thật lên Head của Vita. Hãy xoay để kiểm tra fit.");
+      rememberPhoto(v, id, isVariantA);
     } catch (error) {
       if (token === serial.current) setStatus("Không thể thử kiểu này: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       if (token === serial.current) setPending(null);
     }
-  }, [customHair, scale, horizontal, vertical, depth]);
+  }, [customHair, scale, horizontal, vertical, depth, rememberPhoto, isVariantA]);
 
   useEffect(() => {
     const v = viewer.current;
@@ -416,9 +463,44 @@ export default function VitaHairTryOnPage() {
       setStatus(stored
         ? "Đã nạp Variant A và lưu cục bộ trên thiết bị. Lần sau sẽ tự mở nhân vật này."
         : "Đã nạp Variant A. Bộ nhớ trình duyệt không cho phép lưu, lần sau có thể cần nạp lại.");
+      rememberPhoto(viewer.current, "original", true);
     } catch (error) {
       if (token === serial.current) setStatus("Không đọc được model: " + String(error));
     } finally { if (token === serial.current) setPending(null); }
+  };
+
+  const restoreVitaCC0 = async () => {
+    const v = viewer.current;
+    if (!v || pending || batching) return;
+    const token = ++serial.current;
+    setPending("avatar");
+    try {
+      const gltf = await v.loader.loadAsync(BASE_VITA);
+      if (token !== serial.current) return;
+      await removeSavedVariantA();
+      installAvatar(v, gltf.scene);
+      setSelected("original");
+      setIsVariantA(false);
+      setAvatarName("Vita gốc · VRoid CC0");
+      resetFit();
+      rememberPhoto(v, "original", false);
+      setStatus("Đã chuyển về Vita CC0. Để dùng lại Variant A, nạp GLB V1.1.");
+    } catch (error) {
+      if (token === serial.current) setStatus("Không thể khôi phục Vita CC0: " + String(error));
+    } finally { if (token === serial.current) setPending(null); }
+  };
+
+  const buildAllThumbnails = async () => {
+    if (batching || pending || !viewer.current?.root) return;
+    const previous = selected;
+    setBatching(true);
+    setStatus("Đang tạo thumbnail từ model 3D thật; sẽ tải các mẫu lần đầu (dữ liệu VRM khá lớn).");
+    try {
+      for (const item of READY) await setStyle(item.id);
+    } finally {
+      await setStyle(previous);
+      setBatching(false);
+    }
   };
 
   const loadHairFile = async (file?: File) => {
@@ -493,18 +575,33 @@ export default function VitaHairTryOnPage() {
         </section>
         <section className="hair-controls">
           <div className="hair-section-heading"><div><small>01 / WORKING SOURCES</small><h2>Thử tóc trên Vita</h2></div><span className="hair-count">{READY.length} lựa chọn</span></div>
+          <div className={isVariantA ? "hair-avatar-banner premium" : "hair-avatar-banner"}>
+            <span className="hair-avatar-gem">{isVariantA ? "✦" : "◇"}</span>
+            <div><strong>{isVariantA ? "Vita Premium Cute · Variant A" : "Vita VRoid CC0 · Bản mẫu"}</strong><small>{isVariantA ? "Khuôn mặt và outfit V1.1 được giữ nguyên · lưu trên thiết bị" : "Nạp V11 GLB một lần để tự sử dụng Variant A ở lần mở sau"}</small></div>
+          </div>
           <p className="hair-help">Hai mẫu HairSample là VRM CC0 thật. Lần thử đầu sẽ tải file từ GitHub, có thể mất thời gian trên 4G.</p>
           <div className="hair-ready-grid">
-            {READY.map(option => <button key={option.id} type="button" disabled={!!pending} onClick={() => void setStyle(option.id)} className={selected === option.id ? "hair-choice active" : "hair-choice"}>
-              <span className="hair-choice-ico">✦</span><strong>{option.label}</strong><small>{option.note}</small><em>{selected === option.id ? "Đang hiển thị" : "Thử 3D"}</em>
+            {READY.map(option => <button key={option.id} type="button" disabled={!!pending || batching} onClick={() => void setStyle(option.id)} className={selected === option.id ? "hair-choice active" : "hair-choice"}>
+              <span className="hair-choice-image">
+                {photos[(isVariantA ? "a" : "cc0") + ":" + option.id]
+                  ? <img alt={"Render 3D thật của " + option.label} src={photos[(isVariantA ? "a" : "cc0") + ":" + option.id]} />
+                  : <span aria-hidden="true" className="hair-choice-placeholder">✧<small>Ảnh tạo khi thử</small></span>}
+              </span>
+              <strong>{option.label}</strong><small>{option.note}</small>
+              <em>{selected === option.id ? "Đang hiển thị" : "Chạm để thử"}</em>
             </button>)}
-            {customHair && <button type="button" disabled={!!pending} onClick={() => void setStyle("custom")} className={selected === "custom" ? "hair-choice active" : "hair-choice"}><span className="hair-choice-ico">✧</span><strong>Tóc từ file</strong><small>Asset bạn chọn</small><em>{selected === "custom" ? "Đang hiển thị" : "Thử 3D"}</em></button>}
+            {customHair && <button type="button" disabled={!!pending || batching} onClick={() => void setStyle("custom")} className={selected === "custom" ? "hair-choice active" : "hair-choice"}><span className="hair-choice-image hair-choice-placeholder">✧</span><strong>Tóc từ file</strong><small>Asset bạn chọn</small><em>{selected === "custom" ? "Đang hiển thị" : "Thử 3D"}</em></button>}
           </div>
+          <button type="button" disabled={!!pending || batching} className="hair-photo-action" onClick={() => void buildAllThumbnails()}>
+            {batching ? "Đang tạo ảnh…" : "✦ Tạo ảnh 3D thật cho cả 6 kiểu"}
+          </button>
+          <p className="hair-help">Ảnh do chính viewer kết xuất từ mesh thật, lưu cục bộ trên trình duyệt. Lần đầu tạo cả bộ cần tải 5 avatar VRM, nên chỉ chạy khi dùng Wi-Fi.</p>
           <div className="hair-uploads">
             <label className="hair-upload">Nạp Vita Variant A (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadAvatarFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
             <label className="hair-upload">Nạp một hairstyle (.glb/.vrm)<input type="file" accept=".glb,.vrm" onChange={e => { void loadHairFile(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
           </div>
-          <p className="hair-help">Model mặc định là Vita CC0 gốc. Để xem đúng khuôn mặt và outfit Variant A đã duyệt, chọn <strong>Vita-Premium-Cute-V11.glb</strong> trong Library. File được xử lý ngay trên thiết bị, không upload lên server.</p>
+          <p className="hair-help">V2 tự mở <strong>Variant A</strong> nếu bạn đã nạp file lần trước trên cùng trình duyệt. Lần đầu chọn <strong>Vita-Premium-Cute-V11.glb</strong> từ Library. File chỉ được lưu trong IndexedDB của máy, không upload lên server.</p>
+          {isVariantA && <button type="button" className="hair-reset-avatar" disabled={!!pending || batching} onClick={() => void restoreVitaCC0()}>Trở về Vita CC0 mặc định</button>}
           <details className="hair-fit">
             <summary>02 / Chỉnh fit tóc · Scale / Offset</summary>
             <label>Tỷ lệ <output>{Math.round(scale * 100)}%</output><input type="range" min="0.7" max="1.4" step="0.01" value={scale} onChange={e => setScale(Number(e.currentTarget.value))}/></label>
