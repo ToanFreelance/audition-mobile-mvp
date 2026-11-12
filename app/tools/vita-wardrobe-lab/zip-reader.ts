@@ -114,6 +114,14 @@ export async function extractZipEntry(bytes: ArrayBuffer, entry: ZipEntry): Prom
   return out;
 }
 
+export type WardrobeTexture = {
+  name: string;
+  width: number;
+  height: number;
+  bytes: number;
+  url: string;
+};
+
 export type WardrobeIntake = {
   name: string;
   sourceFormat: ".vroidcustomitem";
@@ -121,8 +129,47 @@ export type WardrobeIntake = {
   kind: string;
   version: string;
   thumbnailUrl: string | null;
+  textures: WardrobeTexture[];
   notes: string;
 };
+
+// A transferable is not a standalone mesh. These PNGs are actual VRoid
+// clothing texture layers embedded in protobuf-like binary payloads.
+const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
+function extractEmbeddedPngs(bytes: Uint8Array, basename: string, remaining: number): WardrobeTexture[] {
+  const textures: WardrobeTexture[] = [];
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  for (let offset = 0; offset + 33 <= bytes.length && textures.length < remaining; offset++) {
+    if (bytes[offset] !== PNG_SIGNATURE[0] || PNG_SIGNATURE.some((value, i) => bytes[offset + i] !== value)) continue;
+    if (dv.getUint32(offset + 8, false) !== 13 ||
+        String.fromCharCode(...bytes.subarray(offset + 12, offset + 16)) !== "IHDR") continue;
+    const width = dv.getUint32(offset + 16, false);
+    const height = dv.getUint32(offset + 20, false);
+    if (!width || !height || width > 4096 || height > 4096) continue;
+    let pos = offset + 8, end = 0;
+    for (let chunk = 0; chunk < 1000 && pos + 12 <= bytes.length; chunk++) {
+      const length = dv.getUint32(pos, false);
+      if (length > bytes.length - pos - 12) break;
+      const isIend = bytes[pos + 4] === 73 && bytes[pos + 5] === 69 &&
+        bytes[pos + 6] === 78 && bytes[pos + 7] === 68 && length === 0;
+      pos += length + 12;
+      if (isIend) { end = pos; break; }
+    }
+    if (!end || end - offset > MAX_ENTRY_BYTES) continue;
+    const png = Uint8Array.from(bytes.subarray(offset, end));
+    const url = URL.createObjectURL(new Blob([png], { type: "image/png" }));
+    textures.push({ name: basename + " · PNG " + (textures.length + 1), width, height, bytes: png.byteLength, url });
+    offset = end - 1;
+  }
+  return textures;
+}
+
+export function revokeWardrobeAssets(items: WardrobeIntake[]): void {
+  for (const item of items) {
+    if (item.thumbnailUrl) URL.revokeObjectURL(item.thumbnailUrl);
+    for (const layer of item.textures) URL.revokeObjectURL(layer.url);
+  }
+}
 
 function guessKind(name: string): string {
   if (/skirt|váy|bottom|pants|trousers|short/i.test(name)) return "Bottom / Skirt (dự đoán từ tên)";
@@ -139,21 +186,39 @@ async function parseCustomItem(blob: ArrayBuffer, name: string): Promise<Wardrob
   if (!meta || !rootMeta) throw new Error(`File ${name} không đúng cấu trúc .vroidcustomitem VRoid Stable đã biết.`);
   const info = JSON.parse(decoder.decode(await extractZipEntry(blob, meta))) as Record<string, unknown>;
   const version = [info.updateVroidVersionMajor, info.updateVroidVersionMinor, info.updateVroidVersionPatch].filter(x => typeof x === "number").join(".");
+  const rootInfo = JSON.parse(decoder.decode(await extractZipEntry(blob, rootMeta))) as Record<string, unknown>;
+  const groupType = typeof rootInfo.rootTransferableGroupTypeId === "string" ? rootInfo.rootTransferableGroupTypeId : "";
+  const exactCategory = groupType.endsWith(".Tops") ? "Top / Jacket (VRoid metadata)" :
+    groupType.endsWith(".Bottoms") ? "Bottom / Skirt (VRoid metadata)" :
+    groupType.endsWith(".Shoes") ? "Shoes (VRoid metadata)" : guessKind(name);
   let thumbnailUrl: string | null = null;
   if (preview) {
     const image = await extractZipEntry(blob, preview);
     const mime = preview.name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
     thumbnailUrl = URL.createObjectURL(new Blob([Uint8Array.from(image)], { type: mime }));
   }
-  return {
-    name,
-    sourceFormat: ".vroidcustomitem",
-    entries: entries.length,
-    kind: guessKind(name),
-    version: version || "Không có phiên bản trong metadata",
-    thumbnailUrl,
-    notes: "Đã đọc metadata/thumbnail cục bộ. File chứa tham số VRoid; CHƯA tạo mesh, skin weights hoặc mặc lên Vita.",
-  };
+  const textures: WardrobeTexture[] = [];
+  try {
+    for (const entry of entries.filter(item => item.name.endsWith(".transferable"))) {
+      if (textures.length >= 16) break;
+      const payload = await extractZipEntry(blob, entry);
+      textures.push(...extractEmbeddedPngs(payload, entry.name.split("/").pop() || entry.name, 16 - textures.length));
+    }
+    return {
+      name,
+      sourceFormat: ".vroidcustomitem",
+      entries: entries.length,
+      kind: exactCategory,
+      version: version || "Không có phiên bản trong metadata",
+      thumbnailUrl,
+      textures,
+      notes: "Đã trích xuất PNG thực từ .transferable. Đây là các lớp texture/template VRoid, CHƯA phải mesh hay quần áo đã skinning.",
+    };
+  } catch (error) {
+    if (thumbnailUrl) URL.revokeObjectURL(thumbnailUrl);
+    for (const layer of textures) URL.revokeObjectURL(layer.url);
+    throw error;
+  }
 }
 
 /** Reads both standalone custom-item files and creator ZIPs containing them. */
