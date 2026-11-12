@@ -83,7 +83,7 @@ async function removeSavedVariantA(): Promise<void> {
 
 type ReadyHair = { id: string; label: string; note: string; url?: string; source: string };
 type Candidate = { label: string; kind: string; source: string; url: string };
-type HairGroup = THREE.Group & { userData: { sourceName?: string } };
+type HairGroup = THREE.Group & { userData: { sourceName?: string; headLocal?: boolean } };
 type Viewer = {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
@@ -469,7 +469,7 @@ export default function VitaHairTryOnPage() {
     const v = viewer.current;
     if (!v?.root) return;
     for (const group of v.groups.values()) {
-      group.rotation.y = reverseImportedHair ? Math.PI : 0;
+      group.rotation.y = group.userData.headLocal ? 0 : (reverseImportedHair ? Math.PI : 0);
     }
     if (selected !== "original" && v.groups.has(selected)) rememberPhoto(v, selected, isVariantA);
   }, [reverseImportedHair, selected, isVariantA, rememberPhoto]);
