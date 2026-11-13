@@ -137,6 +137,8 @@ export default function VitaWardrobeLabPage() {
   const [wearingTop, setWearingTop] = useState(false);
   const [tryonBusy, setTryonBusy] = useState(false);
   const [posePlaying, setPosePlaying] = useState(false);
+  const [fitWidth, setFitWidth] = useState(100);
+  const [fitLift, setFitLift] = useState(0);
   const [tryonStatus, setTryonStatus] = useState("Nạp ZIP Cyber Blue để mở mặc thử 3D.");
   const [items, setItems] = useState<WardrobeIntake[]>([]);
   const [sourceName, setSourceName] = useState("");
@@ -178,6 +180,10 @@ export default function VitaWardrobeLabPage() {
       preview.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    currentTryon.current?.setFit(fitWidth / 100, fitLift / 100);
+  }, [fitWidth, fitLift]);
 
   const loadAvatar = async (file?: File) => {
     if (!file || !preview.current) return;
@@ -268,10 +274,10 @@ export default function VitaWardrobeLabPage() {
         return;
       }
       currentTryon.current = generated;
+      generated.setFit(fitWidth / 100, fitLift / 100);
       setWearingTop(true);
-      setTryonStatus(generated.kind === "existing-skinned-top"
-        ? `Đã áp texture Cyber Blue lên ${generated.meshCount} mesh áo nhận diện được. Giữ skinning gốc của Vita, nhưng UV chưa trùng template VRoid.`
-        : `Đã dựng áo 3D gần đúng (${generated.meshCount} phần), theo xương thân/tay. Đây KHÔNG phải mesh/skinning gốc VRoid; dùng để xem mẫu thử.`);
+      setTryonStatus("V0.4: Đã gắn " + generated.meshCount +
+        " mesh áo skinned (thân + 2 tay) theo skeleton Vita. Form áo được dựng riêng; không phải UV/geometry gốc VRoid. Hãy chỉnh fit và thử chuyển động.");
     } catch (error) {
       if (token === tryonToken.current) setTryonStatus("Không dựng được preview: " + String(error));
     } finally {
@@ -306,7 +312,7 @@ export default function VitaWardrobeLabPage() {
       <header className="wardrobe-head">
         <small>AUDITION · ISOLATED CHARACTER ART RESEARCH</small>
         <h1>Vita Wardrobe Lab <span>✦</span></h1>
-        <p>Giai đoạn 0 — kiểm tra bộ trang phục VRoid trước khi xây converter rigged clothing. Chưa can thiệp outfit hoặc skeleton đã duyệt.</p>
+        <p>V0.4 — Mặc thử áo Cyber Blue với hình học thân/tay thuôn và skinning theo skeleton Vita. Đây là bản dựng gần đúng, không thay đổi model đã duyệt.</p>
       </header>
       <div className="wardrobe-layout">
         <section className="wardrobe-card wardrobe-model" aria-label="Vita 3D reference">
@@ -353,7 +359,7 @@ export default function VitaWardrobeLabPage() {
           </>}
           <div className="wardrobe-gate wardrobe-tryon">
             <strong>03 / CYBER BLUE 3D TRY-ON — THỬ NGHIỆM</strong>
-            <p>Bản mặc thử được dựng trong trình duyệt từ texture của bạn. Ưu tiên giữ skin weights của mesh áo Vita nếu xác định được; nếu không có sẽ dùng lớp áo 3D gần đúng theo thân/tay. Không phải mesh UV gốc của VRoid Studio.</p>
+            <p>Bản V0.4 dựng áo theo xương ngực, cột sống và hai cánh tay Vita, thay thế hoàn toàn fallback hình trụ. Mesh mới có skin weights và vật liệu Cyber Blue cách điệu từ texture bạn nạp. Hình học và UV vẫn là bản dựng gần đúng, chưa phải xuất chuẩn từ VRoid.</p>
             <div className="wardrobe-tryon-actions">
               <button type="button" disabled={loading || tryonBusy || avatarBusy || !items.some(item => /tops\.vroidcustomitem$/i.test(item.name))} onClick={() => void toggleTop()}>
                 {tryonBusy ? "Đang dựng 3D..." : wearingTop ? "Trở về trang phục Vita gốc" : "✦ Mặc thử Cyber Blue Top"}
@@ -362,6 +368,15 @@ export default function VitaWardrobeLabPage() {
                 {posePlaying ? "Dừng thử chuyển động" : "Thử chuyển động vai"}
               </button>
             </div>
+            {wearingTop && <div className="wardrobe-fit">
+              <label>Độ rộng áo <output>{fitWidth}%</output>
+                <input type="range" min="82" max="125" step="1" value={fitWidth} onChange={e => setFitWidth(Number(e.currentTarget.value))}/>
+              </label>
+              <label>Dịch cao áo <output>{fitLift} cm</output>
+                <input type="range" min="-8" max="8" step="1" value={fitLift} onChange={e => setFitLift(Number(e.currentTarget.value))}/>
+              </label>
+              <button type="button" onClick={() => { setFitWidth(100); setFitLift(0); }}>Đặt lại fit</button>
+            </div>}
             <p className="wardrobe-tryon-status" role="status">{tryonStatus}</p>
           </div>
           <div className="wardrobe-gate">
