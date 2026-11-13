@@ -19,3 +19,10 @@
 .wardrobe-tryon-actions button:disabled{opacity:.55;cursor:not-allowed}
 .wardrobe-tryon-status{border:1px solid #6c5487;background:#211a30;border-radius:10px;padding:10px;font-size:12px;line-height:1.6;color:#ecdcfa}
 @media(max-width:550px){.wardrobe-tryon-actions button{flex:1 1 100%}}
+
+
+.wardrobe-fit{display:grid;gap:12px;padding:12px;margin:10px 0;border:1px solid #82689d;border-radius:12px;background:#221a31}
+.wardrobe-fit label{display:block;color:#e7dcf1;font-weight:650;font-size:12px}
+.wardrobe-fit output{float:right;color:#deb2ff}
+.wardrobe-fit input[type=range]{width:100%;accent-color:#c98ef9;display:block;margin-top:12px;touch-action:pan-y}
+.wardrobe-fit button{justify-self:start;padding:8px 12px;border:1px solid #9475b5;border-radius:8px;background:#392d4c;color:#eee1fa;cursor:pointer}
