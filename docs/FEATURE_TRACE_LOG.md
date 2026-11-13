@@ -1,5 +1,15 @@
 # Audition Mobile MVP — Feature & Issue Trace Log
 
+### 2026-11-13 — V0.4 rejected on owner iPhone; Work clothing + Cosmetics QA authorized
+
+- **Owner latest visual evidence:** physical iPhone screenshot `IMG_4536.jpeg` shows fitted Cyber Blue V0.4, but collar/shoulder-to-sleeve interface, torso/hem proportions, and separation from underlying approved white sleeves/outfit remain poor after slider adjustment. **REJECTED**, not accepted. Do not continue blind slider-only fixes.
+- **Next authorized execution:** hand detailed garment production work to ChatGPT Work; expand candidate wardrobe to multiple verified, rights-aware outfits and build an isolated Shop → Inventory → appearance/equip QA flow that feels in-game without changing actual production runtime, Character Catalog, RoomState or WebAudio. Retain complete accepted Hair Studio POC and approved Vita V1.1 model.
+- **Current repo finding:** `/character/create` has hair/appearance UI and disabled outfit/accessory/shoes equipment phase; no completed Shop/Inventory backend or purchases. Do not claim existing shop functionality. `/tools/vita-wardrobe-lab` is an art QA route, not a complete garment converter.
+- **Technical cause:** V0.3 rigid cylinders and V0.4 custom procedural skinned geometry lack original VRoid Casual2/BodySuit template UVs, accurate armhole construction and clothing/body occlusion. Real garment mesh/rig work required.
+- **Hand-off spec:** `docs/COSMETICS_WORK_HANDOFF_2026-11-13.md`. Keep source ZIP privately in owner conversation; do not push copyrighted downloaded assets to public repo. Work must separately verify tools, source rights and owner iPhone acceptance.
+- **Boundary:** document-only handoff in work branch. No merge or PR, no game code changes, no claimed preview improvements from this note.
+
+
 ### 2026-11-12 — Owner clarification: COMPLETE Vita Hair Studio demo accepted as modular-hair POC baseline
 
 - **Latest explicit owner clarification:** The accepted hair scope is the **whole previously demonstrated Vita Hair Studio workflow**, **NOT only FeliKitty Short Bob**. Preserve the existing six choices (Vita original, HairSample Female/Male, Vivi, Shibu, Victoria), 3D orbit/front/side/back views, real rendered thumbnails, try-on and adjustment controls, Variant A local restore/import, owner-imported hair files and curated styles, donor orientation correction, and the experimental VRoid Beta ZIP → hair-only GLB path. The six original choices were previously tried successfully on Vita CC0; do not claim that all donor styles have been separately verified on approved Variant A or are production assets.
