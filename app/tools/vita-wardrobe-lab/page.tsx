@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { inspectWardrobePackage, revokeWardrobeAssets, type WardrobeIntake } from "./zip-reader";
+import { attachCyberBlueTop, type CyberBlueTryOn } from "./cyber-blue-tryon";
 import "./wardrobe.css";
 
 const BASE_VITA = "https://raw.githubusercontent.com/madjin/vrm-samples/master/vroid/beta/Vita.vrm";
@@ -22,6 +23,9 @@ type Preview = {
   controls: OrbitControls;
   frame: number;
   resize: ResizeObserver;
+  poseBones: Array<{ bone: THREE.Bone; base: THREE.Quaternion; sign: number }>;
+  poseActive: boolean;
+  poseStartedAt: number;
 };
 
 function startPreview(mount: HTMLDivElement): Preview {
@@ -59,8 +63,20 @@ function startPreview(mount: HTMLDivElement): Preview {
     camera.updateProjectionMatrix();
   });
   resize.observe(mount);
-  const preview: Preview = { scene, root: null, camera, renderer, controls, frame: 0, resize };
+  const preview: Preview = {
+    scene, root: null, camera, renderer, controls, frame: 0, resize,
+    poseBones: [], poseActive: false, poseStartedAt: 0
+  };
+  const poseAxis = new THREE.Vector3(0, 0, 1);
+  const poseOffset = new THREE.Quaternion();
   const tick = () => {
+    if (preview.poseActive) {
+      const phase = (performance.now() - preview.poseStartedAt) / 1000;
+      for (const entry of preview.poseBones) {
+        poseOffset.setFromAxisAngle(poseAxis, Math.sin(phase * 2) * 0.16 * entry.sign);
+        entry.bone.quaternion.copy(entry.base).multiply(poseOffset);
+      }
+    }
     controls.update();
     renderer.render(scene, camera);
     preview.frame = window.requestAnimationFrame(tick);
@@ -69,11 +85,26 @@ function startPreview(mount: HTMLDivElement): Preview {
   return preview;
 }
 
+function resetPose(preview: Preview) {
+  preview.poseActive = false;
+  for (const entry of preview.poseBones) entry.bone.quaternion.copy(entry.base);
+}
 function installAvatar(preview: Preview, root: THREE.Object3D) {
+  resetPose(preview);
   if (preview.root) preview.scene.remove(preview.root);
   preview.root = root;
   preview.scene.add(root);
   root.updateMatrixWorld(true);
+  preview.poseBones = [];
+  root.traverse(node => {
+    if (!(node instanceof THREE.Bone)) return;
+    const name = node.name.replace(/[_\\s.-]/g, "").toLowerCase();
+    if (/leftupperarm|leftarm|upperarml|lupperarm/.test(name)) {
+      preview.poseBones.push({ bone: node, base: node.quaternion.clone(), sign: 1 });
+    } else if (/rightupperarm|rightarm|upperarmr|rupperarm/.test(name)) {
+      preview.poseBones.push({ bone: node, base: node.quaternion.clone(), sign: -1 });
+    }
+  });
   const bounds = new THREE.Box3().setFromObject(root);
   const center = bounds.getCenter(new THREE.Vector3());
   const size = bounds.getSize(new THREE.Vector3());
@@ -83,6 +114,7 @@ function installAvatar(preview: Preview, root: THREE.Object3D) {
 }
 
 function disposePreview(preview: Preview) {
+  resetPose(preview);
   cancelAnimationFrame(preview.frame);
   preview.resize.disconnect();
   preview.controls.dispose();
@@ -100,6 +132,12 @@ export default function VitaWardrobeLabPage() {
   const itemsRef = useRef<WardrobeIntake[]>([]);
   const sourceToken = useRef(0);
   const avatarToken = useRef(0);
+  const tryonToken = useRef(0);
+  const currentTryon = useRef<CyberBlueTryOn | null>(null);
+  const [wearingTop, setWearingTop] = useState(false);
+  const [tryonBusy, setTryonBusy] = useState(false);
+  const [posePlaying, setPosePlaying] = useState(false);
+  const [tryonStatus, setTryonStatus] = useState("Nạp ZIP Cyber Blue để mở mặc thử 3D.");
   const [items, setItems] = useState<WardrobeIntake[]>([]);
   const [sourceName, setSourceName] = useState("");
   const [sourceStatus, setSourceStatus] = useState("Chưa nạp bộ trang phục. File sẽ chỉ được đọc trong trình duyệt.");
@@ -132,6 +170,9 @@ export default function VitaWardrobeLabPage() {
       active = false;
       avatarToken.current++;
       sourceToken.current++;
+      tryonToken.current++;
+      currentTryon.current?.dispose();
+      currentTryon.current = null;
       revokeWardrobeAssets(itemsRef.current);
       disposePreview(current);
       preview.current = null;
@@ -150,7 +191,13 @@ export default function VitaWardrobeLabPage() {
       if (!APPROVED_VARIANT_HASHES.has(hash)) throw new Error("SHA-256 không trùng Vita Premium Cute V1.1 đã duyệt.");
       const gltf = await new GLTFLoader().parseAsync(bytes, "");
       if (token !== avatarToken.current || !preview.current) return;
+      ++tryonToken.current;
+      currentTryon.current?.dispose();
+      currentTryon.current = null;
+      setWearingTop(false);
+      setTryonStatus("Đã đổi Vita. Có thể chọn Mặc thử Cyber Blue Top.");
       installAvatar(preview.current, gltf.scene);
+      setPosePlaying(false);
       setAvatarName("Vita Premium Cute Variant A · V1.1");
       setAvatarStatus("Đã nạp đúng Vita V1.1. Trang phục gốc giữ nguyên — chưa gắn đồ Cyber Blue.");
       setTurned(false);
@@ -173,6 +220,13 @@ export default function VitaWardrobeLabPage() {
         return;
       }
       revokeWardrobeAssets(itemsRef.current);
+      ++tryonToken.current;
+      currentTryon.current?.dispose();
+      currentTryon.current = null;
+      if (preview.current) resetPose(preview.current);
+      setWearingTop(false);
+      setPosePlaying(false);
+      setTryonStatus("Đã nạp texture. Chọn Mặc thử Cyber Blue Top để xem áo 3D gần đúng.");
       itemsRef.current = parsed;
       setItems(parsed);
       setSourceName(file.name);
@@ -181,6 +235,60 @@ export default function VitaWardrobeLabPage() {
       if (token === sourceToken.current) setSourceStatus("Không đọc được file: " + (error instanceof Error ? error.message : String(error)));
     } finally {
       if (token === sourceToken.current) setLoading(false);
+    }
+  };
+
+  const toggleTop = async () => {
+    const v = preview.current;
+    if (!v?.root || tryonBusy) return;
+    if (currentTryon.current) {
+      ++tryonToken.current;
+      currentTryon.current.dispose();
+      currentTryon.current = null;
+      setWearingTop(false);
+      setTryonStatus("Đã khôi phục trang phục Vita gốc trong viewer.");
+      return;
+    }
+    const top = itemsRef.current.find(item => /tops\\.vroidcustomitem$/i.test(item.name) || /^Top/.test(item.kind));
+    const source = top?.textures.find(texture => texture.width >= 1024 && texture.height >= 1024);
+    if (!source) {
+      setTryonStatus("Chưa có texture áo thật. Hãy nạp đúng Cyber_Blue.zip trước.");
+      return;
+    }
+    const token = ++tryonToken.current;
+    const root = v.root;
+    setTryonBusy(true);
+    setTryonStatus("Đang dựng preview áo từ texture trong ZIP và skeleton Vita...");
+    try {
+      const generated = await attachCyberBlueTop(root, source.url);
+      if (token !== tryonToken.current || preview.current?.root !== root) {
+        generated.dispose();
+        return;
+      }
+      currentTryon.current = generated;
+      setWearingTop(true);
+      setTryonStatus(generated.kind === "existing-skinned-top"
+        ? `Đã áp texture Cyber Blue lên ${generated.meshCount} mesh áo nhận diện được. Giữ skinning gốc của Vita, nhưng UV chưa trùng template VRoid.`
+        : `Đã dựng áo 3D gần đúng (${generated.meshCount} phần), theo xương thân/tay. Đây KHÔNG phải mesh/skinning gốc VRoid; dùng để xem mẫu thử.`);
+    } catch (error) {
+      if (token === tryonToken.current) setTryonStatus("Không dựng được preview: " + String(error));
+    } finally {
+      if (token === tryonToken.current) setTryonBusy(false);
+    }
+  };
+
+  const togglePose = () => {
+    const v = preview.current;
+    if (!v) return;
+    if (v.poseActive) {
+      resetPose(v);
+      setPosePlaying(false);
+    } else if (v.poseBones.length > 0) {
+      v.poseStartedAt = performance.now();
+      v.poseActive = true;
+      setPosePlaying(true);
+    } else {
+      setTryonStatus("Model này chưa có xương UpperArm nhận diện được để thử chuyển động vai.");
     }
   };
 
@@ -241,8 +349,21 @@ export default function VitaWardrobeLabPage() {
               </article>)}
             </div>
           </>}
+          <div className="wardrobe-gate wardrobe-tryon">
+            <strong>03 / CYBER BLUE 3D TRY-ON — THỬ NGHIỆM</strong>
+            <p>Bản mặc thử được dựng trong trình duyệt từ texture của bạn. Ưu tiên giữ skin weights của mesh áo Vita nếu xác định được; nếu không có sẽ dùng lớp áo 3D gần đúng theo thân/tay. Không phải mesh UV gốc của VRoid Studio.</p>
+            <div className="wardrobe-tryon-actions">
+              <button type="button" disabled={loading || tryonBusy || avatarBusy || !items.some(item => /tops\\.vroidcustomitem$/i.test(item.name))} onClick={() => void toggleTop()}>
+                {tryonBusy ? "Đang dựng 3D..." : wearingTop ? "Trở về trang phục Vita gốc" : "✦ Mặc thử Cyber Blue Top"}
+              </button>
+              <button type="button" disabled={!preview.current?.root || avatarBusy} onClick={togglePose}>
+                {posePlaying ? "Dừng thử chuyển động" : "Thử chuyển động vai"}
+              </button>
+            </div>
+            <p className="wardrobe-tryon-status" role="status">{tryonStatus}</p>
+          </div>
           <div className="wardrobe-gate">
-            <strong>03 / NEXT GATE — RIGGED MESH</strong>
+            <strong>04 / NEXT GATE — EXACT RIGGED MESH</strong>
             <p>Cần xuất/tái dựng mesh quần áo, giữ skin weights và bind pose tương thích Vita. Ở bước này <strong>không giả lập việc mặc đồ</strong> hoặc xem ảnh thumbnail là 3D garment.</p>
           </div>
           <p className="wardrobe-muted">Tệp luôn nằm trong trình duyệt, không gửi lên máy chủ. Không đăng lại asset BOOTH lên GitHub hoặc Preview. Chưa xác nhận quyền phân phối thương mại trong game.</p>
