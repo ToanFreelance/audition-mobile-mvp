@@ -62,7 +62,7 @@ export async function attachCyberBlueTop(root: THREE.Object3D, sourcePngUrl: str
     const center = bounds.getCenter(new THREE.Vector3());
     if (span.y > h * 0.65 || center.y < total.min.y + h * 0.34 || center.y > total.min.y + h * 0.87) return;
     originals.push({ mesh, material: mesh.material });
-    const swap = (original: THREE.Material) => {
+    const swap = () => {
       const material = new THREE.MeshStandardMaterial({
         map: texture, color: 0xffffff, roughness: 0.93, metalness: 0.01,
         side: THREE.DoubleSide
@@ -71,7 +71,11 @@ export async function attachCyberBlueTop(root: THREE.Object3D, sourcePngUrl: str
       owned.push(material);
       return material;
     };
-    mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material);
+    // If several original materials share one mesh, only change the explicitly
+    // identified garment slots; never overpaint a face/skin/hair material.
+    mesh.material = Array.isArray(mesh.material) ?
+      mesh.material.map(mat => (isUpperGarment(nameOf(mesh, mat)) && !isUnsafe(nameOf(mesh, mat)) ? swap() : mat)) :
+      swap();
     applied++;
   });
 
@@ -86,7 +90,7 @@ export async function attachCyberBlueTop(root: THREE.Object3D, sourcePngUrl: str
     owned.push(body, blue, navy);
 
     const torsoHeight = h * 0.285;
-    const torsoGeom = new THREE.CylinderGeometry(h * 0.115, h * 0.125, torsoHeight, 24, 6, true);
+    const torsoGeom = new THREE.CylinderGeometry(h * 0.150, h * 0.143, torsoHeight, 24, 6, true);
     const torso = new THREE.Mesh(torsoGeom, body);
     torso.name = "CyberBlue_ApproxTop_Torso";
     owned.push(torsoGeom);
@@ -108,7 +112,7 @@ export async function attachCyberBlueTop(root: THREE.Object3D, sourcePngUrl: str
       const sleeve = new THREE.Mesh(sleeveGeom, blue);
       sleeve.name = "CyberBlue_ApproxTop_" + (sign < 0 ? "Left" : "Right") + "Sleeve";
       owned.push(sleeveGeom);
-      const sleeveWorld = wcenter.clone().add(new THREE.Vector3(sign * h * 0.179, h * 0.105, 0));
+      const sleeveWorld = wcenter.clone().add(new THREE.Vector3(sign * h * 0.205, h * 0.105, 0));
       sleeve.position.copy(root.worldToLocal(sleeveWorld));
       sleeve.rotation.z = Math.PI / 2;
       root.add(sleeve);
