@@ -50,7 +50,7 @@ export async function attachCyberBlueTop(root: THREE.Object3D, sourcePngUrl: str
 
   // Never re-skin the accepted avatar or recolor its merged skin/face mesh.
   root.traverse(node => {
-    if (!(node instanceof THREE.Mesh) || applied >= 6) return;
+    if (!(node instanceof THREE.SkinnedMesh) || applied >= 6) return;
     const mesh = node as THREE.Mesh;
     const all = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     const label = nameOf(mesh);
