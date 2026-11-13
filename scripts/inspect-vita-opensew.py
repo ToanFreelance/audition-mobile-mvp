@@ -145,7 +145,7 @@ def components(adjacency):
     return result
 
 
-def section(coords, triangles, origin, normal):
+def section(coords, triangles, origin, normal, precision=1e-5, boundary_segments=()):
     """Cắt chính xác surface; không nội suy phần thiếu hoặc vá lỗ.
 
     Quantize 10 micromet để nhận seam trùng tọa độ, không weld mesh.
@@ -164,7 +164,7 @@ def section(coords, triangles, origin, normal):
                 hits.append(vs[i].lerp(vs[j], ds[i] / (ds[i] - ds[j])))
         if len(hits) != 2:
             continue
-        keys = [tuple(round(x / 1e-5) for x in p) for p in hits]
+        keys = [tuple(round(x / precision) for x in p) for p in hits]
         if keys[0] == keys[1]:
             continue
         for key, point in zip(keys, hits):
@@ -174,16 +174,131 @@ def section(coords, triangles, origin, normal):
     rings = []
     for comp in components(graph):
         centre = sum((points[k] for k in comp), Vector()) / len(comp)
+        closed = all(len(graph[k]) == 2 for k in comp)
+        crossing = 0
+        for k in comp:
+            for n in graph[k]:
+                if k >= n:
+                    continue
+                a, b = points[k], points[n]
+                if (a.y > origin.y) != (b.y > origin.y):
+                    crossing += a.x + (origin.y - a.y) * (b.x - a.x) / (b.y - a.y) > origin.x
+        ends = [points[k] for k in comp if len(graph[k]) == 1]
+        distances = []
+        for point in ends:
+            if boundary_segments:
+                distances.append(min((point - a.lerp(b, max(0.0, min(1.0, (point - a).dot(b - a)
+                                          / max(1e-20, (b - a).length_squared))))).length
+                                     for a, b in boundary_segments))
         rings.append({
-            'nodes': len(comp), 'closed': all(len(graph[k]) == 2 for k in comp),
+            'nodes': len(comp), 'closed': closed,
+            'contains_axis_xy': closed and bool(crossing % 2),
             'endpoints': sum(len(graph[k]) == 1 for k in comp),
             'branch_nodes': sum(len(graph[k]) > 2 for k in comp),
+            'endpoints_on_mesh_boundary': sum(d <= 2e-6 for d in distances),
+            'max_endpoint_boundary_distance_m': max(distances, default=None),
             'distance_to_axis': (centre - origin).length,
             'perimeter': sum((points[k] - points[n]).length for k in comp for n in graph[k]) / 2,
         })
     rings.sort(key=lambda r: r['distance_to_axis'])
     return {'origin': list(origin), 'normal': list(normal), 'components': rings,
             'nearest_closed': bool(rings and rings[0]['closed'])}
+
+
+def inspect_neck_band(skin, rig):
+    """Quét shaft Neck.head → Head.head; không dùng offset Z hay vòng cổ cố định."""
+    skin.data.calc_loop_triangles()
+    co = [skin.matrix_world @ v.co for v in skin.data.vertices]
+    triangles = [tuple(t.vertices) for t in skin.data.loop_triangles]
+    base = rig.matrix_world @ rig.pose.bones['J_Bip_C_Neck'].head
+    head = rig.matrix_world @ rig.pose.bones['J_Bip_C_Head'].head
+    assert head.z > base.z, 'Neck/Head không xác định được shaft theo Z'
+    edge_counts = Counter()
+    edge_positions = {}
+    for face in skin.data.polygons:
+        vs = list(face.vertices)
+        for a, b in zip(vs, vs[1:] + vs[:1]):
+            key = tuple(sorted(tuple(round(x / 1e-6) for x in co[i]) for i in (a, b)))
+            if key[0] != key[1]:
+                edge_counts[key] += 1
+                edge_positions[key] = (co[a], co[b])
+    boundary = [edge_positions[k] for k, n in edge_counts.items() if n == 1]
+    events = sorted({base.z, head.z, *(v.z for edge in boundary for v in edge if base.z < v.z < head.z)})
+    # Giữa hai boundary-vertex event, giao tuyến với boundary không đổi topology.
+    zs = sorted({*(base.z + (head.z - base.z) * i / 65 for i in range(1, 65)),
+                 *((a + b) / 2 for a, b in zip(events, events[1:]))})
+    probes = []
+    for z in zs:
+        origin = base.lerp(head, (z - base.z) / (head.z - base.z))
+        origin.z = z
+        by_precision = []
+        for precision in (1e-6, 1e-5, 1e-4):
+            cut = section(co, triangles, origin, Vector((0, 0, 1)), precision, boundary)
+            by_precision.append({'precision_m': precision, 'components': cut['components']})
+        valid = all(len(p['components']) == 1 and p['components'][0]['closed']
+                    and p['components'][0]['contains_axis_xy'] for p in by_precision)
+        perimeters = [p['components'][0]['perimeter'] for p in by_precision if p['components']]
+        if valid:
+            valid = (max(perimeters) - min(perimeters)) / min(perimeters) <= 1e-4
+        probes.append({'z_m': z, 'valid': valid, 'precision_checks': by_precision,
+                       'perimeter_m': by_precision[1]['components'][0]['perimeter']
+                       if valid else None})
+    bands, current = [], []
+    for i, probe in enumerate(probes):
+        if probe['valid']:
+            current.append(i)
+        elif current:
+            bands.append(current)
+            current = []
+    if current:
+        bands.append(current)
+    # Cần hai mặt cắt lân cận kín để không chọn sát mép hở hay đầu shaft.
+    candidates = []
+    for band in bands:
+        for pos in range(1, len(band) - 1):
+            idx = band[pos]
+            around = [probes[band[j]]['perimeter_m'] for j in (pos - 1, pos, pos + 1)]
+            if max(abs(v - around[1]) / around[1] for v in around) <= 0.10:
+                candidates.append(idx)
+    selected = min(candidates, key=lambda i: (probes[i]['perimeter_m'], probes[i]['z_m'])) if candidates else None
+    return {'anatomical_base': list(base), 'anatomical_head': list(head),
+            'boundary_event_z_m': events, 'probes': probes,
+            'closed_bands': [{'z_min_m': probes[b[0]]['z_m'], 'z_max_m': probes[b[-1]]['z_m'],
+                              'probe_count': len(b)} for b in bands],
+            'selected_index': selected, 'valid_band_exists': selected is not None}
+
+
+@contextmanager
+def closed_neck_measurement(avatar, skin, rig, audit):
+    """Override dùng chung cho measurement/drafting trong scope Vita rest-copy.
+
+    Consumer như library._draft_top gọi cùng avatar.neck_girth(m). Không đổi
+    profile torso hoặc upstream file; chu vi luôn lấy lại từ giao tuyến thật.
+    """
+    assert audit['valid_band_exists'], 'BLOCKED: không có dải contour cổ kín'
+    selected = audit['probes'][audit['selected_index']]
+    base, head = Vector(audit['anatomical_base']), Vector(audit['anatomical_head'])
+    origin = base.lerp(head, (selected['z_m'] - base.z) / (head.z - base.z))
+    origin.z = selected['z_m']
+    original = avatar.neck_girth
+
+    def measured_neck(m):
+        if m.get('key', [None])[0] != skin.name or m.get('armature') != rig.name:
+            return original(m)
+        skin.data.calc_loop_triangles()
+        co = [skin.matrix_world @ v.co for v in skin.data.vertices]
+        triangles = [tuple(t.vertices) for t in skin.data.loop_triangles]
+        cut = section(co, triangles, origin, Vector((0, 0, 1)))
+        assert len(cut['components']) == 1, 'BLOCKED: contour cổ không duy nhất'
+        ring = cut['components'][0]
+        assert ring['closed'] and ring['contains_axis_xy'], 'BLOCKED: contour cổ hở/lệch trục'
+        return ring['perimeter']
+
+    try:
+        avatar.neck_girth = measured_neck
+        yield
+    finally:
+        avatar.neck_girth = original
 
 
 def audit_surface(skin, rig):
@@ -244,7 +359,7 @@ def measurement_gate(root, skin, rig, scene):
     assert digest(root / 'clothing_design/avatar.py') == AVATAR_SHA, 'Sai avatar.py của OpenSew đã chốt'
     sys.path.insert(0, str(root.resolve()))
     import clothing_design
-    from clothing_design import avatar
+    from clothing_design import avatar, library
     clothing_design.register()
     result = {'opensew_commit': OPENSEW_COMMIT, 'avatar_sha256': AVATAR_SHA,
               'historical_session_4b': {'height_m': 1.6752533846884035,
@@ -254,10 +369,12 @@ def measurement_gate(root, skin, rig, scene):
                                       'neck_m': 0.22458795209517923,
                                       'limb_chains': 0, 'figure_auto': 'MAN'}}
     original_tables = {k: getattr(avatar, k) for k in ('BONE_TABLE', 'LIMB_CHAINS', 'LIMB_GROUPS', 'EXCLUDE_TORSO')}
+    original_neck = avatar.neck_girth
     try:
         scene.cd.avatar = skin
         scene.cd.facing = avatar.auto_facing(bpy.context, skin)
-        with vroid_aliases(avatar):
+        result['neck_contours'] = inspect_neck_band(skin, rig)
+        with vroid_aliases(avatar), closed_neck_measurement(avatar, skin, rig, result['neck_contours']):
             resolved = {k: [avatar._find_bone(rig, candidates).name for candidates in pair]
                         for k, pair in avatar.LIMB_CHAINS.items()}
             assert all(tuple(resolved[k]) == CHAINS[k] for k in CHAINS), 'Chain map sai bone hoặc bên'
@@ -300,6 +417,13 @@ def measurement_gate(root, skin, rig, scene):
                     'figure_auto_non_authoritative': m['figure_auto'], 'facing': m['facing'],
                 })
             result['runs'] = measurements
+            result['legacy_invalid_neck_m'] = original_neck(m)
+            baseline = {'height_m': 1.6394608579576015, 'chest_m': 0.6733023326608331,
+                        'waist_m': 0.5094704383869392, 'hip_m': 0.715987810760658}
+            result['torso_regression_delta_m'] = {k: measurements[0][k] - v for k, v in baseline.items()}
+            assert all(abs(v) <= 1e-9 for v in result['torso_regression_delta_m'].values()), 'Hồi quy torso so với 4B.1'
+            result['drafting_accessor_m'] = library.avatar.neck_girth(m)
+            assert library.avatar is avatar and abs(result['drafting_accessor_m'] - measurements[0]['neck_m']) <= 1e-9
             flat = lambda d: [d[k] for k in ('height_m', 'chest_m', 'waist_m', 'hip_m', 'neck_m')] + list(d['limb_lengths_m'].values())
             result['repeat_max_delta_m'] = max(abs(a - b) for a, b in zip(flat(measurements[0]), flat(measurements[1])))
             assert result['repeat_max_delta_m'] <= 1e-9, 'Measurement không lặp lại ổn định'
@@ -311,16 +435,14 @@ def measurement_gate(root, skin, rig, scene):
             skin.data.calc_loop_triangles()
             triangles = [tuple(t.vertices) for t in skin.data.loop_triangles]
             zs = {k: avatar.z_of(m, k) for k in ('chest', 'waist', 'hip')}
-            neck_z = avatar.z_of(m, 'neck')
-            best, zs['neck'] = avatar.girth_at(m, neck_z), neck_z
-            while neck_z < avatar.z_of(m, 'neck') + 0.13 and neck_z < m['zmax']:
-                if not avatar.slice_ok(m, neck_z, min_cover=0.90):
-                    break
-                g = avatar.girth_at(m, neck_z)
-                if g < best:
-                    best, zs['neck'] = g, neck_z
-                neck_z += 0.01
-            assert abs(best - avatar.neck_girth(m)) < 1e-9
+            audit = result['neck_contours']
+            idx = audit['selected_index']
+            zs['neck'] = audit['probes'][idx]['z_m']
+            neighbors = [audit['probes'][i] for i in (idx - 1, idx, idx + 1)]
+            assert all(p['valid'] for p in neighbors), 'Contour cổ lân cận không kín'
+            result['neck_adjacent_max_relative_delta'] = max(abs(p['perimeter_m'] - measurements[0]['neck_m'])
+                                                            / measurements[0]['neck_m'] for p in neighbors)
+            assert result['neck_adjacent_max_relative_delta'] <= 0.10, 'Vòng cổ lân cận không nhất quán'
             result['section_crosscheck'] = {}
             for key, z in zs.items():
                 sliced = section(co, triangles, avatar.center_at(m, z), Vector((0, 0, 1)))
@@ -342,8 +464,9 @@ def measurement_gate(root, skin, rig, scene):
         result.update(valid=False, error=f'{type(error).__name__}: {error}', traceback=traceback.format_exc())
     finally:
         result['lookup_tables_restored'] = all(getattr(avatar, k) is value for k, value in original_tables.items())
+        result['neck_override_restored'] = avatar.neck_girth is original_neck
         clothing_design.unregister()
-    if not result['lookup_tables_restored']:
+    if not result['lookup_tables_restored'] or not result['neck_override_restored']:
         result.update(valid=False, error='Lookup tables không được restore')
     return result
 
@@ -353,6 +476,7 @@ def main():
     parser.add_argument('--vita-blend', required=True, type=Path)
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--opensew-root', type=Path, help='Bỏ qua để chỉ kiểm tra Task A')
+    parser.add_argument('--neck-inspection-only', action='store_true', help='Chỉ kiểm tra contour giải phẫu cổ')
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else [])
     assert bpy.app.version[:3] == (5, 2, 4), 'Chỉ dùng toolchain Blender 5.2.4 đã chốt'
     assert args.vita_blend.resolve() != args.output.resolve(), 'Output không được ghi đè source'
@@ -370,9 +494,13 @@ def main():
               'source_modifiers': [{'name': m.name, 'type': m.type} for m in body.modifiers]}
     skin, rig, scene = duplicate_skin(body, arm)
     result['skin'] = audit_surface(skin, rig)
+    if args.neck_inspection_only:
+        result['neck_contours'] = inspect_neck_band(skin, rig)
     result['stopped_after'] = 'A'
     result['verdict'] = 'PARTIAL' if result['skin']['suitable'] else 'BLOCKED'
-    if result['skin']['suitable'] and args.opensew_root:
+    if args.neck_inspection_only and not result['neck_contours']['valid_band_exists']:
+        result['verdict'] = 'BLOCKED'
+    if result['skin']['suitable'] and args.opensew_root and not args.neck_inspection_only:
         result['measurement'] = measurement_gate(args.opensew_root, skin, rig, scene)
         result['stopped_after'] = 'C'
         result['verdict'] = 'PASS' if result['measurement']['valid'] else 'BLOCKED'
@@ -382,6 +510,9 @@ def main():
     args.output.write_text(json.dumps(result, indent=2), encoding='utf-8')
     print('VITA_SKIN_GATE=' + json.dumps({k: v for k, v in result['skin'].items() if k != 'sections'}), flush=True)
     print('VERDICT=' + result['verdict'], flush=True)
+    if 'neck_contours' in result:
+        print('NECK_INSPECTION=' + json.dumps({k: v for k, v in result['neck_contours'].items()
+                                             if k != 'probes'}), flush=True)
     if 'measurement' in result:
         print('VITA_MEASUREMENT_GATE=' + json.dumps(result['measurement']), flush=True)
     if not result['skin']['suitable']:
