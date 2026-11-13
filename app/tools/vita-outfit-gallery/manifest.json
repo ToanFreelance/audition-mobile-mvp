@@ -112,7 +112,7 @@
         "dance",
         "street-pop"
       ],
-      "wearable3DStatus": "source-verified",
+      "wearable3DStatus": "blocked",
       "exactOrApprox": "unknown",
       "previewOnly": true,
       "notes": [
@@ -149,7 +149,38 @@
         "fidelity": "approximate",
         "route": "/tools/vita-wardrobe-lab"
       },
-      "remoteDownloadNote": "Link BOOTH dẫn tới trang đăng nhập; downloadableNow chỉ nói về tải mới từ BOOTH, không phủ nhận ZIP riêng đang có."
+      "remoteDownloadNote": "Link BOOTH dẫn tới trang đăng nhập; downloadableNow chỉ nói về tải mới từ BOOTH, không phủ nhận ZIP riêng đang có.",
+      "topWearableV1": {
+        "session": 2,
+        "status": "blocked",
+        "checkpointA": "source-surface-and-bind-feasibility-verified",
+        "checkpointB": "surface-probe-rejected-art-quality",
+        "checkpointC": "not-run",
+        "method": "Vita_Suit skin surface; independent voxel topology; barycentric skin-weight transfer; authored UV",
+        "exactOrApprox": "approximate",
+        "privateProbeOnly": true,
+        "acceptedWearable": false,
+        "sourceFilesVerified": true,
+        "donorSurface": {
+          "connectedComponents": 1,
+          "simpleBoundaryLoops": 4,
+          "nonManifoldNonBoundaryEdges": 0
+        },
+        "probe": {
+          "vertices": 13439,
+          "polygons": 13200,
+          "connectedComponents": 1,
+          "jointCount": 155,
+          "maxInverseBindDelta": 0.0
+        },
+        "blockers": [
+          "source hood and jacket silhouette not reconstructed faithfully",
+          "authored UV/panel mapping visually incorrect",
+          "inner layer and reversible runtime occlusion not implemented"
+        ],
+        "minimumDependency": "Authorized native Cyber Blue TOP mesh/UV/bind export, or artist-modeled source-faithful top with verified UV and compatible bind space",
+        "report": "docs/vita-wardrobe-cyber-blue-top-v1.md"
+      }
     },
     {
       "id": "pink-ribbon-boots",
@@ -325,4 +356,3 @@
     }
   ]
 }
-
