@@ -8,6 +8,7 @@ import * as THREE from "three";
 export type CyberBlueTryOn = {
   kind: "skinned-tailored-preview";
   meshCount: number;
+  setFit(width: number, lift: number): void;
   dispose(): void;
 };
 
@@ -295,9 +296,29 @@ export async function attachCyberBlueTop(root: THREE.Object3D, sourcePngUrl: str
       sleeveMaterial, "CyberBlue_V04_SkinnedLeftSleeve");
     attach(sleevePatch(positions.r, elbow(positions.r, positions.re), center, h, rightIndex, chestIndex),
       sleeveMaterial, "CyberBlue_V04_SkinnedRightSleeve");
+    const originalPositions = geometries.map(geometry =>
+      Float32Array.from(geometry.getAttribute("position").array as ArrayLike<number>));
     return {
       kind: "skinned-tailored-preview",
       meshCount: built.length,
+      setFit(width, lift) {
+        if (disposed) return;
+        const factor = THREE.MathUtils.clamp(width, 0.82, 1.25);
+        const up = THREE.MathUtils.clamp(lift, -0.09, 0.09);
+        geometries.forEach((geometry, i) => {
+          const position = geometry.getAttribute("position") as THREE.BufferAttribute;
+          const baseline = originalPositions[i];
+          for (let k = 0; k < position.count; k++) {
+            position.setXYZ(k,
+              centerX + (baseline[k * 3] - centerX) * factor,
+              baseline[k * 3 + 1] + up,
+              centerZ + (baseline[k * 3 + 2] - centerZ) * factor);
+          }
+          position.needsUpdate = true;
+          geometry.computeVertexNormals();
+          geometry.computeBoundingSphere();
+        });
+      },
       dispose() {
         if (disposed) return;
         disposed = true;
