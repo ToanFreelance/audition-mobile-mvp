@@ -9,3 +9,13 @@
 .wardrobe-texture-grid a span,.wardrobe-texture-grid a small{font-size:10px;color:#c7bad8;overflow-wrap:anywhere}
 .wardrobe-texture-grid a small{color:#d2a4ff}
 @media(max-width:420px){.wardrobe-texture-grid a img{height:98px}}
+
+
+/* Isolated, reversible garment preview controls; source assets remain browser-local. */
+.wardrobe-tryon{border-color:#b581e7;background:linear-gradient(150deg,#322044,#272238)}
+.wardrobe-tryon-actions{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0}
+.wardrobe-tryon-actions button{display:inline-flex;justify-content:center;align-items:center;min-height:44px;border:1px solid #ac82df;background:#63418b;color:#fff;border-radius:10px;padding:10px 13px;font-weight:750;font-size:12px;cursor:pointer}
+.wardrobe-tryon-actions button:last-child{background:#342b4a}
+.wardrobe-tryon-actions button:disabled{opacity:.55;cursor:not-allowed}
+.wardrobe-tryon-status{border:1px solid #6c5487;background:#211a30;border-radius:10px;padding:10px;font-size:12px;line-height:1.6;color:#ecdcfa}
+@media(max-width:550px){.wardrobe-tryon-actions button{flex:1 1 100%}}
