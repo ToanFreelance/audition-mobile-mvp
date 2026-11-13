@@ -95,12 +95,12 @@ function sleevePatch(start: THREE.Vector3, elbow: THREE.Vector3, bodyCenter: THR
   const m = new THREE.Vector3().crossVectors(direction, n).normalize();
   const s = newSurface();
   const rings = [
-    { t: -0.16, radius: 0.052, upper: 0.45 },
-    { t: 0.01, radius: 0.071, upper: 0.68 },
-    { t: 0.19, radius: 0.069, upper: 0.88 },
-    { t: 0.48, radius: 0.060, upper: 0.98 },
-    { t: 0.72, radius: 0.054, upper: 1.00 },
-    { t: 0.79, radius: 0.054, upper: 1.00 }
+    { t: -0.16, radius: 0.046, upper: 0.45 },
+    { t: 0.01, radius: 0.054, upper: 0.68 },
+    { t: 0.19, radius: 0.055, upper: 0.88 },
+    { t: 0.48, radius: 0.050, upper: 0.98 },
+    { t: 0.72, radius: 0.045, upper: 1.00 },
+    { t: 0.79, radius: 0.045, upper: 1.00 }
   ];
   for (let i = 0; i < rings.length; i++) {
     const ring = rings[i];
