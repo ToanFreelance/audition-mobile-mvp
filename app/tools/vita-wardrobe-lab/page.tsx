@@ -148,6 +148,7 @@ export default function VitaWardrobeLabPage() {
   const [loading, setLoading] = useState(false);
   const [avatarBusy, setAvatarBusy] = useState(true);
   const [turned, setTurned] = useState(false);
+  const [cameraView, setCameraView] = useState("Chính diện");
 
   useEffect(() => {
     if (!mount.current) return;
@@ -300,6 +301,24 @@ export default function VitaWardrobeLabPage() {
     }
   };
 
+  const setCameraPreset = (preset: string) => {
+    const v = preview.current;
+    if (!v?.root) return;
+    v.root.rotation.y = 0;
+    setTurned(false);
+    const target = v.controls.target.clone();
+    const distance = Math.max(1.8, v.camera.position.distanceTo(target));
+    const angles: Record<string, number> = {
+      "Chính diện": 0, "Góc 35°": 35, "Bên trái": 90, "Phía sau": 180,
+    };
+    const radians = THREE.MathUtils.degToRad(angles[preset] ?? 0);
+    v.camera.position.copy(target).add(
+      new THREE.Vector3(Math.sin(radians) * distance, distance * 0.035, Math.cos(radians) * distance)
+    );
+    v.controls.update();
+    setCameraView(preset);
+  };
+
   const rotate = () => {
     const root = preview.current?.root;
     if (!root) return;
@@ -318,9 +337,18 @@ export default function VitaWardrobeLabPage() {
         <section className="wardrobe-card wardrobe-model" aria-label="Vita 3D reference">
           <div className="wardrobe-card-head"><strong>01 / VITA 3D REFERENCE</strong><span>{avatarName}</span></div>
           <div ref={mount} className="wardrobe-stage" aria-label="Nhân vật Vita 3D xoay bằng thao tác vuốt" />
+          <div className="wardrobe-camera-tabs" aria-label="Các góc kiểm tra áo">
+            {["Chính diện", "Góc 35°", "Bên trái", "Phía sau"].map(preset =>
+              <button type="button" key={preset} onClick={() => setCameraPreset(preset)} className={cameraView === preset ? "active" : ""}>{preset}</button>
+            )}
+          </div>
           <div className="wardrobe-actions">
             <button type="button" onClick={rotate} disabled={avatarBusy || !preview.current?.root}>Quay nhân vật 180°</button>
             <label className="wardrobe-upload">Nạp Vita V1.1 đã duyệt<input type="file" accept=".glb,.vrm" disabled={avatarBusy} onChange={e => { void loadAvatar(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
+            {items.some(item => /^Top/.test(item.kind)) &&
+              <button type="button" className="wardrobe-quick-tryon" disabled={tryonBusy || avatarBusy || loading} onClick={() => void toggleTop()}>
+                {wearingTop ? "Khôi phục áo Vita" : "✦ Mặc thử Cyber Blue V0.4"}
+              </button>}
           </div>
           <p className="wardrobe-hint" role="status">{avatarStatus}</p>
           <p className="wardrobe-muted">Sau khi nạp ZIP, chọn “Mặc thử Cyber Blue Top” bên dưới để xem lớp áo 3D gần đúng. Không thay đổi GLB gốc.</p>
