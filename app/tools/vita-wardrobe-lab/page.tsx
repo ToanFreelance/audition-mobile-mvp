@@ -98,7 +98,7 @@ function installAvatar(preview: Preview, root: THREE.Object3D) {
   preview.poseBones = [];
   root.traverse(node => {
     if (!(node instanceof THREE.Bone)) return;
-    const name = node.name.replace(/[_\\s.-]/g, "").toLowerCase();
+    const name = node.name.replace(/[_\s.-]/g, "").toLowerCase();
     if (/leftupperarm|leftarm|upperarml|lupperarm/.test(name)) {
       preview.poseBones.push({ bone: node, base: node.quaternion.clone(), sign: 1 });
     } else if (/rightupperarm|rightarm|upperarmr|rupperarm/.test(name)) {
@@ -195,6 +195,7 @@ export default function VitaWardrobeLabPage() {
       currentTryon.current?.dispose();
       currentTryon.current = null;
       setWearingTop(false);
+      setTryonBusy(false);
       setTryonStatus("Đã đổi Vita. Có thể chọn Mặc thử Cyber Blue Top.");
       installAvatar(preview.current, gltf.scene);
       setPosePlaying(false);
@@ -225,6 +226,7 @@ export default function VitaWardrobeLabPage() {
       currentTryon.current = null;
       if (preview.current) resetPose(preview.current);
       setWearingTop(false);
+      setTryonBusy(false);
       setPosePlaying(false);
       setTryonStatus("Đã nạp texture. Chọn Mặc thử Cyber Blue Top để xem áo 3D gần đúng.");
       itemsRef.current = parsed;
@@ -249,7 +251,7 @@ export default function VitaWardrobeLabPage() {
       setTryonStatus("Đã khôi phục trang phục Vita gốc trong viewer.");
       return;
     }
-    const top = itemsRef.current.find(item => /tops\\.vroidcustomitem$/i.test(item.name) || /^Top/.test(item.kind));
+    const top = itemsRef.current.find(item => /tops\.vroidcustomitem$/i.test(item.name) || /^Top/.test(item.kind));
     const source = top?.textures.find(texture => texture.width >= 1024 && texture.height >= 1024);
     if (!source) {
       setTryonStatus("Chưa có texture áo thật. Hãy nạp đúng Cyber_Blue.zip trước.");
@@ -315,7 +317,7 @@ export default function VitaWardrobeLabPage() {
             <label className="wardrobe-upload">Nạp Vita V1.1 đã duyệt<input type="file" accept=".glb,.vrm" disabled={avatarBusy} onChange={e => { void loadAvatar(e.currentTarget.files?.[0]); e.currentTarget.value = ""; }}/></label>
           </div>
           <p className="wardrobe-hint" role="status">{avatarStatus}</p>
-          <p className="wardrobe-muted">Nhân vật chỉ là mẫu tham chiếu 3D. Danh sách ở bên cạnh chưa được gắn thành trang phục lên người.</p>
+          <p className="wardrobe-muted">Sau khi nạp ZIP, chọn “Mặc thử Cyber Blue Top” bên dưới để xem lớp áo 3D gần đúng. Không thay đổi GLB gốc.</p>
         </section>
         <section className="wardrobe-card wardrobe-sources" aria-label="Đọc gói trang phục VRoid">
           <div className="wardrobe-card-head"><strong>02 / OUTFIT SOURCE INTAKE</strong><span>Browser-only</span></div>
@@ -353,7 +355,7 @@ export default function VitaWardrobeLabPage() {
             <strong>03 / CYBER BLUE 3D TRY-ON — THỬ NGHIỆM</strong>
             <p>Bản mặc thử được dựng trong trình duyệt từ texture của bạn. Ưu tiên giữ skin weights của mesh áo Vita nếu xác định được; nếu không có sẽ dùng lớp áo 3D gần đúng theo thân/tay. Không phải mesh UV gốc của VRoid Studio.</p>
             <div className="wardrobe-tryon-actions">
-              <button type="button" disabled={loading || tryonBusy || avatarBusy || !items.some(item => /tops\\.vroidcustomitem$/i.test(item.name))} onClick={() => void toggleTop()}>
+              <button type="button" disabled={loading || tryonBusy || avatarBusy || !items.some(item => /tops\.vroidcustomitem$/i.test(item.name))} onClick={() => void toggleTop()}>
                 {tryonBusy ? "Đang dựng 3D..." : wearingTop ? "Trở về trang phục Vita gốc" : "✦ Mặc thử Cyber Blue Top"}
               </button>
               <button type="button" disabled={!preview.current?.root || avatarBusy} onClick={togglePose}>
