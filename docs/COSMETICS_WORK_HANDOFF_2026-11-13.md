@@ -1,5 +1,7 @@
 # AUDITION MOBILE MVP — COSMETICS / WARDROBE WORK HANDOFF
 
+> **Override phạm vi — 2026-11-13, SESSION 1:** yêu cầu mới nhất chỉ cho phép khóa shortlist nữ, xác minh source/license/access, cập nhật manifest/catalog metadata/docs và một commit/push rồi dừng. Các mục conversion/Shop/Inventory/checkpoint bên dưới là lịch sử, không phải quyền triển khai trong phiên này. Xem [bàn giao SESSION 1](vita-female-wardrobe-v1-session-1.md). SESSION 2 đề xuất: **Cyber Blue wearable 3D first**.
+
 **Date:** 2026-11-13 (Asia/Ho_Chi_Minh)  
 **Owner authorization:** Work may fix rejected Cyber Blue clothing, research/prototype additional outfit sets, and build an in-game-style Shop → Inventory → Equip test flow, **only on an isolated work branch**. No automatic merges.
 
@@ -75,3 +77,4 @@ Per candidate catalog entry, record `itemId`, `displayName`, `category`, `fileFo
 ## Permissions and remaining dependencies
 
 This handoff authorizes an isolated prototype, not deployment into `development`, real in-game commerce, use of external paid assets, or unauthorized redistribution. The owner `Cyber_Blue.zip`, V1.1 approved GLB and screenshot `IMG_4536.jpeg` are private chat attachments and may require explicit sharing with Work if its new conversation cannot access them. Do not fabricate paths or assume access. No work can be truthfully certified production-ready solely from the information in this document.
+

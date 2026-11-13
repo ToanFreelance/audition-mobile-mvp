@@ -1,12 +1,22 @@
 # Vita Wardrobe V1
-Nhánh thử riêng cho Vita Premium Cute Variant A V1.1. Điểm xuất phát d0deefb. Ảnh IMG_4536 cho thấy tay áo cũ còn lộ dưới tay áo Cyber Blue và phần vai có đường gãy. V0.4 gắn thân và hai tay thành ba bề mặt riêng rồi phủ lên outfit đang mặc. GLB được cung cấp có riêng nhóm Street_Bomber_Pleats_Sneakers, quần bảo hộ và phần da, cho phép thay đúng phần trang phục trong preview.
 
-## Checkpoint 1 · nguồn và thiết kế
-Catalog ở app/tools/vita-outfit-gallery/catalog.ts. Mã SHA-256 của Vita trùng bản duyệt d422159770ee8e9fbc9d78f2f256d5ee988651373cbd211aaa99efd7ecf2bad8. ZIP có ba custom item cho áo, váy và giày. Atlas áo có dải xanh, trắng, mảng tối chéo và hood. Không có mesh/bind/UV gốc của template trong ZIP. Chọn tái dựng approximate và ánh xạ từng mảng từ ZIP cục bộ. Ghi công Pham’s Itemshop / @sirbiblegayy.
+## Trạng thái hiện tại — SESSION 1, 2026-11-13
 
-Đã xem lại ba trang nguồn ngày 13/11/2026:
-- Cyber Blue, https://booth.pm/en/items/5798462 — cho sửa texture, yêu cầu credit thương mại, cấm phân phối lại.
-- 13 OUTFIT VROID, https://booth.pm/en/items/7430616 — cho sửa và chuyển đổi, giới hạn chia sẻ file.
-- Pastel Pink Pajama, https://booth.pm/en/items/7692844 — cho đổi màu, cấm nhận tác phẩm là của mình và bán lẻ asset.
+Chỉ khóa nguồn + manifest + catalog metadata theo yêu cầu mới nhất của owner.
+Shortlist outfit nữ: **Sweet Pop Jacket, Sweet Girly Coord, Cyber Blue**.
+Accessory: **Pink Ribbon Boots, Cross-Strap Pumps, Improved Hairbow, RIOT Choker, Fluffy Gloves**.
 
-Hai lựa chọn bổ sung là thiết kế gốc Sakura Encore (idol, cổ thủy thủ và váy hai tầng) và Mint Track (street-dance, áo khóa kéo và hai ống jogger). Hai thiết kế này không dùng dữ liệu hai gói BOOTH đã khảo sát. Cả ba thiết kế nhắm cùng bind pose Vita, chưa có kết luận QA ở checkpoint 1.
+Nguồn chính là [manifest.json](../app/tools/vita-outfit-gallery/manifest.json), qua [catalog QA](../app/tools/vita-outfit-gallery/catalog.ts).
+Xem [bàn giao SESSION 1](vita-female-wardrobe-v1-session-1.md) để biết source/license/format/access và blocker.
+Cross-Strap Pumps chưa xác định đúng listing; giữ item bị chặn, không tự thay nguồn.
+
+Cyber Blue có ZIP owner, đã inspect; V0.3/V0.4 bị reject. Ưu tiên SESSION 2: **Cyber Blue wearable 3D first**.
+SESSION 1 không bao gồm conversion/rigging/skinning, Shop/Inventory hay production/gameplay integration.
+Giữ nguyên Vita Premium Cute Variant A V1.1 và toàn bộ tóc/lab/runtime đã có.
+
+## Lịch sử trước SESSION 1 — đã được thay thế về shortlist
+
+Catalog trước đây từng đề xuất Cyber Blue + Sakura Encore + Mint Track và khảo sát 13 OUTFIT/Pastel Pink.
+Đây không còn là danh sách được phép triển khai trong phiên hiện tại.
+Chưa có wearable mới đạt owner acceptance; không tiếp tục hướng tái dựng approximate cũ chỉ dựa vào slider.
+

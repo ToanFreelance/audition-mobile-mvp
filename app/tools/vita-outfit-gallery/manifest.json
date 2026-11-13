@@ -1,0 +1,328 @@
+{
+  "schemaVersion": 1,
+  "session": 1,
+  "scope": "source-lock-metadata-only",
+  "checkedOn": "2026-11-13",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "intendedCharacter": "Vita Premium Cute Variant A",
+  "previewOnly": true,
+  "statusDefinitions": {
+    "downloadableNow": "Có thể tải mới binary từ nguồn BOOTH trong phiên không đăng nhập/không mua này; không phải trạng thái wearable hoặc quyền phân phối.",
+    "hasSourceFile": "Đã có và kiểm tra được file thật trong phiên, tách biệt khả năng tải mới từ BOOTH.",
+    "wearable3DStatus": "source-verified = binary nguồn đã inspect, không có nghĩa có wearable đạt yêu cầu; blocked = thiếu nguồn/binary/license, chưa chuyển đổi.",
+    "exactOrApprox": "unknown áp dụng cho wearable mục tiêu chưa bắt đầu; fidelity approximate của V0.3/V0.4 chỉ là lịch sử bị reject.",
+    "sourceUrl": "null nếu không thể xác định đúng listing; sourceCandidates chỉ là bằng chứng đối chiếu, không thay shortlist."
+  },
+  "supersededCandidateIds": [
+    "sakura-encore",
+    "mint-track"
+  ],
+  "nextSession": {
+    "title": "Cyber Blue wearable 3D first",
+    "priorityItemId": "cyber-blue",
+    "authorizedInSession1": false
+  },
+  "items": [
+    {
+      "id": "sweet-pop-jacket",
+      "displayName": "Sweet Pop Jacket",
+      "type": "outfit",
+      "category": "full-outfit",
+      "sourceUrl": "https://booth.pm/en/items/8009784",
+      "sourcePlatform": "BOOTH",
+      "seller": "vroidlabid",
+      "format": "VRoid Studio Custom Item; không có XWear/Unity package",
+      "pricingNote": "300 JPY; chưa mua.",
+      "licenseStatus": "unverified",
+      "licenseNote": "Listing không nêu rõ quyền chuyển đổi/phân phối asset trong game; chưa xác nhận license.",
+      "assetAccessStatus": "blocked-purchase",
+      "downloadableNow": false,
+      "hasSourceFile": false,
+      "intendedCharacter": "Vita Premium Cute Variant A",
+      "styleTags": [
+        "female",
+        "anime",
+        "idol",
+        "cute",
+        "pop",
+        "street"
+      ],
+      "wearable3DStatus": "blocked",
+      "exactOrApprox": "unknown",
+      "previewOnly": true,
+      "notes": [
+        "Listing đã kiểm tra ngày 2026-11-13; chưa có binary, chưa xác minh phần mở rộng/contents bên trong gói.",
+        "Jacket và skirt; không phải garment GLB sẵn."
+      ],
+      "shortlistOrder": 1
+    },
+    {
+      "id": "sweet-girly-coord",
+      "displayName": "Sweet Girly Coord",
+      "type": "outfit",
+      "category": "full-outfit",
+      "sourceUrl": "https://booth.pm/en/items/8009838",
+      "sourcePlatform": "BOOTH",
+      "seller": "vroidlabid",
+      "format": "VRoid Studio Custom Item; không có XWear/Unity package",
+      "pricingNote": "300 JPY; chưa mua.",
+      "licenseStatus": "unverified",
+      "licenseNote": "Listing không nêu rõ quyền chuyển đổi/phân phối asset trong game; chưa xác nhận license.",
+      "assetAccessStatus": "blocked-purchase",
+      "downloadableNow": false,
+      "hasSourceFile": false,
+      "intendedCharacter": "Vita Premium Cute Variant A",
+      "styleTags": [
+        "female",
+        "anime",
+        "cute",
+        "pastel",
+        "school-casual"
+      ],
+      "wearable3DStatus": "blocked",
+      "exactOrApprox": "unknown",
+      "previewOnly": true,
+      "notes": [
+        "Listing đã kiểm tra ngày 2026-11-13; chưa có binary, chưa xác minh phần mở rộng/contents bên trong gói.",
+        "Cardigan hồng và pleated skirt; không phải garment GLB sẵn."
+      ],
+      "shortlistOrder": 2
+    },
+    {
+      "id": "cyber-blue",
+      "displayName": "Cyber Blue",
+      "type": "outfit",
+      "category": "full-outfit",
+      "sourceUrl": "https://booth.pm/en/items/5798462",
+      "sourcePlatform": "BOOTH",
+      "seller": "Pham's Itemshop / @sirbiblegayy",
+      "format": "ZIP chứa 3 .vroidcustomitem (top / skirt / shoes)",
+      "pricingNote": "0 JPY; owner đã cung cấp ZIP.",
+      "licenseStatus": "terms-observed-distribution-unresolved",
+      "licenseNote": "Được sửa texture; dùng thương mại cần credit @sirbiblegayy; cấm phân phối lại. Quyền phát hành mesh dẫn xuất trong game/Preview chưa rõ.",
+      "assetAccessStatus": "owner-file-verified",
+      "downloadableNow": false,
+      "hasSourceFile": true,
+      "intendedCharacter": "Vita Premium Cute Variant A",
+      "styleTags": [
+        "female",
+        "anime",
+        "cyber",
+        "blue",
+        "dance",
+        "street-pop"
+      ],
+      "wearable3DStatus": "source-verified",
+      "exactOrApprox": "unknown",
+      "previewOnly": true,
+      "notes": [
+        "Owner đã cung cấp Cyber_Blue.zip trong chat cũ; source đã được inspect và được kiểm tra lại trong SESSION 1.",
+        "Không có mesh GLB/VRM, bind pose hoặc skin weights xuất sẵn; không coi texture/template là wearable 3D.",
+        "V0.3 và V0.4 đều bị owner reject; không tái gắn nhãn accepted."
+      ],
+      "shortlistOrder": 3,
+      "riggingPriority": 1,
+      "sourceFile": {
+        "fileName": "Cyber_Blue.zip",
+        "sizeBytes": 5736271,
+        "sha256": "4ef821492096d9facaf166fadb2f6f2c01b364571ac52b80cfb2c6f7cb883868",
+        "availability": "owner-private-file; không commit hoặc bundle",
+        "inspectionDoc": "docs/vita-wardrobe-cyber-blue-source-qa.md",
+        "entries": [
+          {
+            "fileName": "cyberbluetops.vroidcustomitem",
+            "nestedEntries": 8
+          },
+          {
+            "fileName": "cyberblueskirt.vroidcustomitem",
+            "nestedEntries": 7
+          },
+          {
+            "fileName": "cyberblueshoes.vroidcustomitem",
+            "nestedEntries": 9
+          }
+        ]
+      },
+      "legacyTryon": {
+        "v03": "owner-rejected",
+        "v04": "owner-rejected-on-physical-iphone",
+        "fidelity": "approximate",
+        "route": "/tools/vita-wardrobe-lab"
+      },
+      "remoteDownloadNote": "Link BOOTH dẫn tới trang đăng nhập; downloadableNow chỉ nói về tải mới từ BOOTH, không phủ nhận ZIP riêng đang có."
+    },
+    {
+      "id": "pink-ribbon-boots",
+      "displayName": "Pink Ribbon Boots",
+      "type": "accessory",
+      "category": "shoes",
+      "sourceUrl": "https://booth.pm/ja/items/5570256",
+      "sourcePlatform": "BOOTH",
+      "seller": "Chikaron SHOP (ちかろんショップ)",
+      "format": "ZIP; listing nêu リボンブーツ.vroidcustomitem",
+      "pricingNote": "0 JPY; bản hỗ trợ 100 JPY cùng nội dung.",
+      "licenseStatus": "terms-observed-distribution-unresolved",
+      "licenseNote": "Cho phép thương mại, sửa đổi và dùng ngoài VRoid; cấm phân phối lại. Chưa xác nhận quyền bundle trong game.",
+      "assetAccessStatus": "blocked-auth",
+      "downloadableNow": false,
+      "hasSourceFile": false,
+      "intendedCharacter": "Vita Premium Cute Variant A",
+      "styleTags": [
+        "female",
+        "cute",
+        "pink",
+        "ribbon",
+        "boots"
+      ],
+      "wearable3DStatus": "blocked",
+      "exactOrApprox": "unknown",
+      "previewOnly": true,
+      "notes": [
+        "Đối chiếu tên với listing ピンクリボンブーツ; chưa có binary.",
+        "Đã thử link tải miễn phí: chuyển tới đăng nhập BOOTH."
+      ]
+    },
+    {
+      "id": "cross-strap-pumps",
+      "displayName": "Cross-Strap Pumps",
+      "type": "accessory",
+      "category": "shoes",
+      "sourceUrl": null,
+      "sourcePlatform": "BOOTH",
+      "seller": null,
+      "format": null,
+      "pricingNote": "Chưa khóa đúng listing; không mua.",
+      "licenseStatus": "blocked-source-identity",
+      "licenseNote": "Chưa xác định đúng creator/listing đã chốt nên chưa thể khóa license.",
+      "assetAccessStatus": "blocked-source-identity",
+      "downloadableNow": false,
+      "hasSourceFile": false,
+      "intendedCharacter": "Vita Premium Cute Variant A",
+      "styleTags": [
+        "female",
+        "girly",
+        "cross-strap",
+        "pumps"
+      ],
+      "wearable3DStatus": "blocked",
+      "exactOrApprox": "unknown",
+      "previewOnly": true,
+      "notes": [
+        "Tên shortlist cũ chỉ nói 6 màu, không có URL/creator. Có ít nhất hai listing gần trùng tên nhưng hiện mô tả 10 hoặc 15 màu.",
+        "Giữ nguyên item trong shortlist; không tự chọn/thay nguồn. sourceUrl=null là blocker rõ ràng, không phải URL tải giả."
+      ],
+      "sourceCandidates": [
+        {
+          "sourceUrl": "https://booth.pm/ja/items/4297136",
+          "seller": "4473D",
+          "format": ".vroidcustomitem và textures",
+          "pricingNote": "300 JPY asset + 5.000 JPY license thương mại riêng; chưa mua.",
+          "licenseNote": "Listing yêu cầu license thương mại cho app/game và vẫn cấm phân phối model; không coi đã được phép phát hành.",
+          "notes": "Tên tương ứng Cross-Strap Pumps; hiện 10 màu. Chưa xác nhận đây là nguồn owner đã chọn."
+        },
+        {
+          "sourceUrl": "https://booth.pm/ja/items/4011291",
+          "seller": "双葉くるみ",
+          "format": "textures cho long boots; sample có custom item",
+          "pricingNote": "150 JPY/màu; 300 JPY bộ 15 màu; sample watermark miễn phí.",
+          "licenseNote": "Listing cấm phân phối texture/model dùng texture và cấm dùng cho commission; chưa có quyền dùng cho pipeline này.",
+          "notes": "Tên gần trùng; hiện 15 màu. Không thay thế cho listing chưa xác định."
+        }
+      ]
+    },
+    {
+      "id": "improved-hairbow",
+      "displayName": "Improved Hairbow",
+      "type": "accessory",
+      "category": "head-accessory",
+      "sourceUrl": "https://booth.pm/en/items/5767151",
+      "sourcePlatform": "BOOTH",
+      "seller": "Miss Aralys Designs",
+      "format": ".vroidcustomitem; ZIP texture màu tùy chọn",
+      "pricingNote": "0 JPY.",
+      "licenseStatus": "unverified",
+      "licenseNote": "Listing đã đọc không nêu rõ license thương mại/chuyển đổi/phân phối; miễn phí không đồng nghĩa được tái phân phối.",
+      "assetAccessStatus": "blocked-auth",
+      "downloadableNow": false,
+      "hasSourceFile": false,
+      "intendedCharacter": "Vita Premium Cute Variant A",
+      "styleTags": [
+        "female",
+        "cute",
+        "ribbon",
+        "hairbow"
+      ],
+      "wearable3DStatus": "blocked",
+      "exactOrApprox": "unknown",
+      "previewOnly": true,
+      "notes": [
+        "Import vào Ahoge/Extra theo listing; 4 phần hair strand, không phải GLB đã kiểm tra.",
+        "Đã thử link custom item: chuyển tới đăng nhập BOOTH; chưa có binary."
+      ]
+    },
+    {
+      "id": "riot-choker",
+      "displayName": "RIOT Choker",
+      "type": "accessory",
+      "category": "neck-accessory",
+      "sourceUrl": "https://booth.pm/en/items/6702402",
+      "sourcePlatform": "BOOTH",
+      "seller": "Pham's Itemshop",
+      "format": ".vroidcustomitem và .xwear",
+      "pricingNote": "0 JPY.",
+      "licenseStatus": "terms-observed-distribution-unresolved",
+      "licenseNote": "Cho phép avatar cá nhân/thương mại và sửa đổi; credit tùy chọn; cấm phân phối lại/nhận là tự làm. Quyền bundle game chưa rõ.",
+      "assetAccessStatus": "blocked-auth",
+      "downloadableNow": false,
+      "hasSourceFile": false,
+      "intendedCharacter": "Vita Premium Cute Variant A",
+      "styleTags": [
+        "female",
+        "street",
+        "cyber",
+        "chain",
+        "choker"
+      ],
+      "wearable3DStatus": "blocked",
+      "exactOrApprox": "unknown",
+      "previewOnly": true,
+      "notes": [
+        "Listing xác nhận hai format, không chứng minh khả năng đọc XWear trong Work.",
+        "Đã thử link XWear: chuyển tới đăng nhập BOOTH; chưa có binary."
+      ]
+    },
+    {
+      "id": "fluffy-gloves",
+      "displayName": "Fluffy Gloves",
+      "type": "accessory",
+      "category": "hand-accessory",
+      "sourceUrl": "https://booth.pm/ja/items/6499017",
+      "sourcePlatform": "BOOTH",
+      "seller": "～Starry Sea～☆彡",
+      "format": "VRoid customitem; 4 item thuộc 腕飾り theo listing",
+      "pricingNote": "200 JPY; chưa mua.",
+      "licenseStatus": "terms-inaccessible",
+      "licenseNote": "Listing dẫn tới Terms trên FANBOX; phiên này không truy cập được nội dung Terms nên chưa xác nhận quyền chuyển đổi/phân phối.",
+      "assetAccessStatus": "blocked-purchase",
+      "downloadableNow": false,
+      "hasSourceFile": false,
+      "intendedCharacter": "Vita Premium Cute Variant A",
+      "styleTags": [
+        "female",
+        "cute",
+        "fluffy",
+        "winter",
+        "gloves"
+      ],
+      "wearable3DStatus": "blocked",
+      "exactOrApprox": "unknown",
+      "previewOnly": true,
+      "notes": [
+        "Đối chiếu mô tả shortlist 4 màu với VRoid ふわもこファー手袋セット（4color）; chưa có binary.",
+        "Không thay bằng Fluffy VRChat gloves của seller khác."
+      ],
+      "termsUrl": "https://skone-star.fanbox.cc/posts/2599427"
+    }
+  ]
+}
+

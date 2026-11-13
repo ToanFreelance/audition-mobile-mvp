@@ -1,5 +1,7 @@
 # Vita Wardrobe — sourced outfit candidates (research only, 2026-11-12)
 
+> **Nghiên cứu lịch sử:** shortlist hiện hành đã được owner thay bằng 3 outfit + 5 accessory tại [SESSION 1](vita-female-wardrobe-v1-session-1.md). Danh sách P1/P2/P3 bên dưới không tự động được phép triển khai; manifest mới là metadata hiện hành.
+
 **Goal:** explore modular clothing for Premium Cute Vita Variant A after owner iPhone acceptance of the VRoid Beta hair import POC. No gameplay/Character Catalog/outfit import implementation in this task. Original approved V1.1 face and outfit remain intact.
 
 ## Shortlist — source pages, observed packages and rights
@@ -38,3 +40,4 @@ Sources: seller listings above and official VRoid documentation for `.vroidcusto
 **Gate 3 — Modular clothing categories:** separate top, bottom, shoes, outerwear/accessories into data-driven independent slots and reversible selection. Define clear ownership, author credit, and export/distribution eligibility before any production catalog, no automatic inclusion in Character Catalog.
 
 **Decision rule:** A one-outfit proof of concept passing iPhone visual + dance tests precedes building any general-purpose Stable `.vroidcustomitem` converter or shop. Avoid starting full wardrobe pipeline based only on hair success.
+
