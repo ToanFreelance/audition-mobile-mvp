@@ -1,0 +1,29 @@
+SESSION 4A — bounded environment installation probe (2026-11-13)
+No credentials, hostname or private character assets included.
+
+$ id
+uid=1000(agent) gid=1000(agent) groups=1000(agent)
+
+$ sudo -n -l
+/bin/bash: sudo: command not found
+exit_code=127
+
+$ python3 capability lookup
+sudo=None; wine=None; wine64=None; glxinfo=None; vulkaninfo=None
+package_helper_exists=False
+writable(/usr,/usr/bin,/var/lib/dpkg,/var/lib/apt/lists)=False
+exists(/dev/dri,/dev/nvidia0,/dev/kvm)=False
+
+$ apt-get --simulate install wine64
+NOTE: This is only a simulation!
+apt-get needs root privileges for real execution.
+W: Unable to read /etc/apt/apt.conf.d/80-applied-apt-retries - open (13: Permission denied)
+E: Unable to locate package wine64
+
+$ apt-get install -y wine64
+W: Unable to read /etc/apt/apt.conf.d/80-applied-apt-retries - open (13: Permission denied)
+E: Could not open lock file /var/lib/dpkg/lock-frontend - open (2: No such file or directory)
+E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?
+exit_code=100
+
+STOP: no Wine/VRoid launch, no MCP connection or preset test.
