@@ -301,8 +301,13 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     const assembly = assemblerRef.current;
     if (!assembly || !appearance) return;
     let active = true;
+    onReadyRef.current?.(false); // Prevent saving an appearance still loading.
     void assembly.updateAppearance(appearance).then(() => {
-      if (active) renderRef.current?.();
+      if (!active) return;
+      if (hostRef.current) delete hostRef.current.dataset.previewError;
+      setState("ready");
+      onReadyRef.current?.(true);
+      renderRef.current?.();
     }).catch(error => {
       if (!active) return;
       console.warn("[C3] M3 appearance update failed", error);
