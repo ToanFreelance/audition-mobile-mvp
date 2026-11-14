@@ -42,7 +42,7 @@ export type WardrobeSnapshot = {
   motionTracks: number;
 };
 
-export const WARDROBE: Record<WardrobeSlot, WardrobeOption[]> = {
+export const WARDROBE: Partial<Record<WardrobeSlot, WardrobeOption[]>> = {
   top: [
     { id: "tanktop", label: "Tank Top", file: "chest/tanktop.vrm" },
     { id: "croptop", label: "Crop Top", file: "chest/croptop.vrm" },
@@ -117,7 +117,7 @@ export function unavailableReason(
 
 const initial: Record<WardrobeSlot, string> = {
   top: "tanktop", bottom: "skirt", shoes: "dressboots2", hair: "curledbangs",
-  outer: "none", accessory: "none",
+  outer: "none", accessory: "none", head: "none", hands: "none", neck: "none", waist: "none",
 };
 
 type SourcePart = { scene: THREE.Group; meshes: THREE.SkinnedMesh[] };
