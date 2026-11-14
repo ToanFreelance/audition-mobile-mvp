@@ -57,7 +57,6 @@ const initial: Record<WardrobeSlot, string> = {
   hair: "curledbangs",
 };
 
-type SourceModel = { scene: THREE.Group; mesh: THREE.SkinnedMesh };
 type SourcePart = { scene: THREE.Group; meshes: THREE.SkinnedMesh[] };
 const slots: WardrobeSlot[] = ["top", "bottom", "shoes", "hair"];
 

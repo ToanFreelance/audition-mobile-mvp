@@ -33,4 +33,11 @@ No license file/redistribution grant was found in that external repository. The 
 
 ## Validation
 
-To be filled only with actually executed checks. A code commit alone is not a real browser/iPhone QA PASS.
+- GitHub work-branch HEAD before implementation: `27baf744b2cf7dea194badc45d25feadd360d89b`.
+- Git commit: `ce2429b0192fa77be68e9f978300b9da46f07fe4` (four focused files).
+- Vercel deployment `dpl_BcrnvheVBKJxmz8FYbV3U5C65XJ3`: **READY**, source commit matches; logs show `✓ Compiled successfully`, `Finished TypeScript`, and the route `○ /tools/m3-modular-wardrobe` pre-rendered.
+- Stable Git Branch Preview: `https://audition-mobile-mvp-git-work-vi-570b67-toan-freelances-projects.vercel.app/tools/m3-modular-wardrobe`.
+- No live in-browser render, base VRM parsing or actual outfit swap has been completed by the assistant. No physical iPhone test; performance, clipping, visual and gameplay animation remain **NOT RUN**.
+- No Playwright or full CI suite run. The Vercel `next build` result is a compile/deployment check only.
+- Open risk: actual third-party VRM downloads depend on external origin/CORS; `GLTFLoader` intentionally does not implement the full M3 MToon material/springbone stack. The QA route uses a minimal Three.js material fallback and original QA dance loop, not the full CharacterStudio runtime.
+- Source files lack a verified independent asset reuse license; do not integrate into production distribution.
