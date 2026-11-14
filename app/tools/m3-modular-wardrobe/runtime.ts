@@ -4,11 +4,15 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { makeMotionClip, MOTIONS, type MotionId } from "./motions";
+import { MALE_WARDROBE, MALE_SLOTS, MALE_DEFAULT } from "./male-catalog";
 
 // Isolated research-only runtime. These are public, third-party source URLs,
 // NOT files checked into Audition or approved for asset redistribution.
 const SOURCE = "https://raw.githubusercontent.com/memelotsqui/character-assets/main/drophunter/";
 const SOURCE_FALLBACK = "https://cdn.jsdelivr.net/gh/memelotsqui/character-assets@main/drophunter/";
+const MALE_SOURCE = "https://raw.githubusercontent.com/m3-org/loot-assets/main/anata/male/";
+const MALE_SOURCE_FALLBACK = "https://cdn.jsdelivr.net/gh/m3-org/loot-assets@main/anata/male/";
+const MALE_BODY = "Body/male.vrm";
 const BODY = "body/drophunter.vrm";
 // "eyes" is a REQUIRED anatomical trait in Drophunter's source manifest.
 // It is not an outfit slot, and must be installed only once with the base.
@@ -18,7 +22,8 @@ const EPSILON = 0.0001;
 // A long iPhone try-on session must not retain all 44 expanded VRM sources.
 const MAX_CACHED_SOURCE_PARTS = 14;
 
-export type WardrobeSlot = "top" | "bottom" | "shoes" | "hair" | "outer" | "accessory";
+export type AvatarKind = "female" | "male";
+export type WardrobeSlot = "top" | "bottom" | "shoes" | "hair" | "outer" | "accessory" | "head" | "hands" | "neck" | "waist";
 export type WardrobeOption = { id: string; label: string; file: string };
 export type WardrobeSnapshot = {
   ready: boolean;
@@ -32,6 +37,7 @@ export type WardrobeSnapshot = {
   moving: boolean;
   maxBindDelta: number;
   eyesReady: boolean;
+  avatarKind: AvatarKind;
   motionId: MotionId;
   motionTracks: number;
 };
@@ -115,7 +121,7 @@ const initial: Record<WardrobeSlot, string> = {
 };
 
 type SourcePart = { scene: THREE.Group; meshes: THREE.SkinnedMesh[] };
-const slots: WardrobeSlot[] = ["top", "bottom", "shoes", "hair", "outer", "accessory"];
+const FEMALE_SLOTS: WardrobeSlot[] = ["top", "bottom", "shoes", "hair", "outer", "accessory"];
 
 function getSkinnedMeshes(root: THREE.Object3D): THREE.SkinnedMesh[] {
   const found: THREE.SkinnedMesh[] = [];
@@ -155,6 +161,10 @@ function skeletonCompatible(base: THREE.Skeleton, incoming: THREE.Skeleton): num
 
 export class M3WardrobeRuntime {
   private readonly host: HTMLDivElement;
+  private readonly avatarKind: AvatarKind;
+  private readonly slots: WardrobeSlot[];
+  private readonly activeCatalog: Partial<Record<WardrobeSlot, WardrobeOption[]>>;
+  private readonly startingItems: Record<WardrobeSlot, string>;
   private readonly report: (value: WardrobeSnapshot) => void;
   private readonly scene: THREE.Scene;
   private readonly renderer: THREE.WebGLRenderer;
@@ -166,8 +176,8 @@ export class M3WardrobeRuntime {
   private readonly cache = new Map<string, SourcePart>();
   private readonly active = new Map<WardrobeSlot, THREE.SkinnedMesh[]>();
   private readonly eyeMeshes: THREE.SkinnedMesh[] = [];
-  private readonly tokens: Record<WardrobeSlot, number> = { top: 0, bottom: 0, shoes: 0, hair: 0, outer: 0, accessory: 0 };
-  private readonly equipment: Record<WardrobeSlot, string | null> = { top: null, bottom: null, shoes: null, hair: null, outer: null, accessory: null };
+  private readonly tokens: Record<WardrobeSlot, number> = { top: 0, bottom: 0, shoes: 0, hair: 0, outer: 0, accessory: 0, head: 0, hands: 0, neck: 0, waist: 0 };
+  private readonly equipment: Record<WardrobeSlot, string | null> = { top: null, bottom: null, shoes: null, hair: null, outer: null, accessory: null, head: null, hands: null, neck: null, waist: null };
   private root: THREE.Group | null = null;
   private rig: THREE.Skeleton | null = null;
   private mixer: THREE.AnimationMixer | null = null;
@@ -186,9 +196,13 @@ export class M3WardrobeRuntime {
   private baseReloads = 0;
   private ground: THREE.Mesh | null = null;
 
-  constructor(host: HTMLDivElement, report: (value: WardrobeSnapshot) => void) {
+  constructor(host: HTMLDivElement, report: (value: WardrobeSnapshot) => void, avatarKind: AvatarKind = "female") {
     this.host = host;
     this.report = report;
+    this.avatarKind = avatarKind;
+    this.slots = avatarKind === "male" ? MALE_SLOTS : FEMALE_SLOTS;
+    this.activeCatalog = avatarKind === "male" ? MALE_WARDROBE : WARDROBE;
+    this.startingItems = avatarKind === "male" ? MALE_DEFAULT : { ...initial, head: "none", hands: "none", neck: "none", waist: "none" };
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color("#0d1025");
     this.scene.fog = new THREE.Fog("#0d1025", 8, 20);
@@ -251,6 +265,7 @@ export class M3WardrobeRuntime {
       moving: this.moving,
       maxBindDelta: this.maxBindDelta,
       eyesReady: this.eyesReady,
+      avatarKind: this.avatarKind,
       motionId: this.motionId,
       motionTracks: this.motionTracks,
     };
@@ -270,9 +285,9 @@ export class M3WardrobeRuntime {
     }
     let gltf: Awaited<ReturnType<GLTFLoader["loadAsync"]>>;
     try {
-      gltf = await this.loader.loadAsync(SOURCE + path);
+      gltf = await this.loader.loadAsync((this.avatarKind === "male" ? MALE_SOURCE : SOURCE) + path);
     } catch {
-      gltf = await this.loader.loadAsync(SOURCE_FALLBACK + path);
+      gltf = await this.loader.loadAsync((this.avatarKind === "male" ? MALE_SOURCE_FALLBACK : SOURCE_FALLBACK) + path);
     }
     const meshes = getSkinnedMeshes(gltf.scene);
     if (!meshes.length) throw new Error(`Asset ${path} không có SkinnedMesh.`);
@@ -287,11 +302,11 @@ export class M3WardrobeRuntime {
 
   private trimUnusedCache(): void {
     if (this.cache.size <= MAX_CACHED_SOURCE_PARTS) return;
-    const pinned = new Set<string>([BODY, EYES]);
-    for (const slot of slots) {
+    const pinned = new Set<string>(this.avatarKind === "male" ? [MALE_BODY] : [BODY, EYES]);
+    for (const slot of this.slots) {
       const id = this.equipment[slot];
       if (!id) continue;
-      const option = WARDROBE[slot].find((item) => item.id === id);
+      const option = this.activeCatalog[slot]?.find((item) => item.id === id);
       if (option) pinned.add(option.file);
     }
     // Only evict donor assets no longer attached to the live actor. Each
@@ -344,7 +359,7 @@ export class M3WardrobeRuntime {
 
   async initialize(): Promise<void> {
     try {
-      const loaded = await this.getModel(BODY);
+      const loaded = await this.getModel(this.avatarKind === "male" ? MALE_BODY : BODY);
       if (this.destroyed) return;
       const main = loaded.meshes.reduce((a, b) => a.skeleton.bones.length >= b.skeleton.bones.length ? a : b);
       if (main.skeleton.bones.length < 50) throw new Error("Base không có rig humanoid hợp lệ.");
@@ -372,14 +387,16 @@ export class M3WardrobeRuntime {
       this.mixer = new THREE.AnimationMixer(this.root);
       for (const motion of MOTIONS) this.clips.set(motion.id, makeMotionClip(this.rig, motion.id));
       this.setMotion("groove");
-      this.message = "Đang nạp Eyes bắt buộc từ manifest Drophunter...";
-      this.publish();
-      await this.installEyes();
-      if (this.destroyed) return;
+      if (this.avatarKind === "female") {
+        this.message = "Đang nạp Eyes bắt buộc từ manifest Drophunter...";
+        this.publish();
+        await this.installEyes();
+        if (this.destroyed) return;
+      }
       this.ready = true;
       this.message = "Base đã nạp một lần. Đang mặc các item...";
       this.publish();
-      await Promise.all(slots.filter((slot) => initial[slot] !== "none").map((slot) => this.equip(slot, initial[slot])));
+      await Promise.all(this.slots.filter((slot) => this.startingItems[slot] !== "none").map((slot) => this.equip(slot, this.startingItems[slot])));
       if (!this.destroyed) {
         this.message = "Sẵn sàng: thay từng item, giữ cùng actor và AnimationMixer.";
         this.publish();
@@ -401,16 +418,16 @@ export class M3WardrobeRuntime {
   async equip(slot: WardrobeSlot, optionId: string): Promise<void> {
     if (!this.ready || !this.root || !this.rig || this.destroyed) return;
     const token = ++this.tokens[slot];
-    if (optionId === "none" && (slot === "outer" || slot === "accessory")) {
+    if (optionId === "none" && (slot === "outer" || slot === "accessory" || slot === "head" || slot === "hands" || slot === "neck" || slot === "waist")) {
       this.clearSlot(slot);
       this.error = null;
-      this.message = slot === "outer" ? "Đã tháo áo khoác." : "Đã tháo phụ kiện.";
+      this.message = `Đã tháo ${slot}.`;
       this.publish();
       return;
     }
-    const option = WARDROBE[slot].find((item) => item.id === optionId);
+    const option = this.activeCatalog[slot]?.find((item) => item.id === optionId);
     if (!option) throw new Error(`Unknown ${slot} option: ${optionId}`);
-    const blocked = unavailableReason(slot, optionId, this.equipment);
+    const blocked = this.avatarKind === "female" ? unavailableReason(slot, optionId, this.equipment) : null;
     if (blocked) {
       this.error = blocked;
       this.message = `Không thể mặc ${option.label}.`;
@@ -448,11 +465,11 @@ export class M3WardrobeRuntime {
       this.active.set(slot, replacement);
       this.equipment[slot] = optionId;
       this.maxBindDelta = Math.max(this.maxBindDelta, localMax);
-      if (slot === "top" && SOLO_TOPS.has(optionId) && this.equipment.outer) {
+      if (this.avatarKind === "female" && slot === "top" && SOLO_TOPS.has(optionId) && this.equipment.outer) {
         this.tokens.outer++;
         this.clearSlot("outer");
       }
-      if (slot === "bottom" && PANTS.has(optionId)) {
+      if (this.avatarKind === "female" && slot === "bottom" && PANTS.has(optionId)) {
         if (this.equipment.accessory === "legstrapandcompress") {
           this.tokens.accessory++;
           this.clearSlot("accessory");
@@ -503,7 +520,7 @@ export class M3WardrobeRuntime {
   dispose(): void {
     if (this.destroyed) return;
     this.destroyed = true;
-    slots.forEach((slot) => { this.tokens[slot]++; this.active.get(slot)?.forEach((mesh) => mesh.removeFromParent()); });
+    this.slots.forEach((slot) => { this.tokens[slot]++; this.active.get(slot)?.forEach((mesh) => mesh.removeFromParent()); });
     this.eyeMeshes.forEach((mesh) => mesh.removeFromParent());
     this.eyeMeshes.length = 0;
     window.cancelAnimationFrame(this.raf);
