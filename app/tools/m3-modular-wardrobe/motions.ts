@@ -88,15 +88,30 @@ function poseAt(id: MotionId, beat: number): Pose {
   };
 }
 
+/**
+ * GLTFLoader r180 calls PropertyBinding.sanitizeNodeName() on glTF node names.
+ * Thus VRM 'upper_arm.L' becomes a Three.js Bone named 'upper_armL', while
+ * name checks against raw VRM strings silently dropped all limb tracks.
+ * Resolve against the SAME imported bone naming convention as GLTFLoader.
+ */
+function resolveBone(skeleton: THREE.Skeleton, sourceName: string): THREE.Bone | undefined {
+  const runtimeName = THREE.PropertyBinding.sanitizeNodeName(sourceName);
+  return skeleton.bones.find((bone) => bone.name === runtimeName || bone.name === sourceName);
+}
+
 export function makeMotionClip(skeleton: THREE.Skeleton, id: MotionId): THREE.AnimationClip {
   const tracks: THREE.KeyframeTrack[] = [];
   const times = Array.from({ length: SAMPLE_COUNT }, (_, i) => (PHRASE_BEATS * 60 / BPM) * i / (SAMPLE_COUNT - 1));
   const samples = times.map((_, i) => poseAt(id, PHRASE_BEATS * i / (SAMPLE_COUNT - 1)));
   const names = Object.keys(samples[0].rotations);
+  const missing: string[] = [];
   const rotation = new THREE.Quaternion();
   for (const name of names) {
-    const bone = skeleton.bones.find((item) => item.name === name);
-    if (!bone) continue;
+    const bone = resolveBone(skeleton, name);
+    if (!bone) {
+      missing.push(name);
+      continue;
+    }
     const baseline = bone.quaternion.clone();
     const values: number[] = [];
     for (const sample of samples) {
@@ -107,7 +122,7 @@ export function makeMotionClip(skeleton: THREE.Skeleton, id: MotionId): THREE.An
     }
     tracks.push(new THREE.QuaternionKeyframeTrack(`${bone.uuid}.quaternion`, times, values));
   }
-  const hips = skeleton.bones.find((bone) => bone.name === "hips");
+  const hips = resolveBone(skeleton, "hips");
   if (hips) {
     const baseline = hips.position.clone();
     const values = samples.flatMap((sample) => [
@@ -117,6 +132,10 @@ export function makeMotionClip(skeleton: THREE.Skeleton, id: MotionId): THREE.An
     ]);
     tracks.push(new THREE.VectorKeyframeTrack(`${hips.uuid}.position`, times, values));
   }
-  if (tracks.length < 10) throw new Error(`Missing humanoid joints for motion ${id} (${tracks.length} tracks).`);
+  if (tracks.length < 10 || missing.length > 0 || !hips) {
+    throw new Error(
+      `QA motion ${id}: ${tracks.length} tracks; ${missing.length} thiếu bone: ${missing.join(", ") || "(none)"}.`,
+    );
+  }
   return new THREE.AnimationClip(`M3 QA / ${id} / 110 BPM`, PHRASE_BEATS * 60 / BPM, tracks);
 }

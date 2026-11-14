@@ -68,3 +68,15 @@ Owner tested the V1 preview on physical iPhone: multiple outfits **successfully 
 **Validation gate:** Confirm Vercel build/TypeScript and route existence, not merely git push. Then owner should test iPhone actual motions and outfit swaps; the QA must remain explicitly **NOT iPhone PASS** until owner verifies. No Playwright/full QA unless needed; no main/development changes or merge. The independent VRM server, full body occlusion, MToon and springbone remain unverified production issues.
 
 **V1.2 cache memory bound:** The isolated runtime now retains up to **14 source VRM parts** using an insertion-order recently-used cache. The canonical `body`, required `eyes`, and all **currently equipped** slot sources are pinned and never evicted while worn. Removed/disused donors are disposed only when above budget; reselecting an evicted item downloads its source again. This is a qualitative memory precaution, **not a measured iPhone memory/FPS claim**.
+
+## V1.2.1 — iPhone motion initialization regression fix (2026-11-14)
+
+**Owner physical iPhone screenshot:** M3 V1.2 enters `Missing humanoid joints for motion groove (4 tracks)`; the base still reports **198 joints / 1 mixer / 1 base load**, but initialization stops before required Eyes and equipped garment loading. This regression is isolated to new QA animation generation, not evidence of an invalid Drophunter rig.
+
+**Confirmed root cause (source-backed):** Drophunter raw glTF joint names contain periods, e.g. `upper_arm.L` and `lower_leg.R`. The project's Three.js **r180** `GLTFLoader._createUniqueName` applies `PropertyBinding.sanitizeNodeName` to every node. That operation **removes reserved characters including '.'**, so runtime bone names are `upper_armL` and `lower_legR`. The authored V1.2 `makeMotionClip` looked up the unsanitized raw strings; only `hips`, `spine`, `chest` quaternion tracks and `hips.position` survived → exactly **4 tracks**, triggering the guard. Upstream Three.js sources: `examples/jsm/loaders/GLTFLoader.js`, `src/animation/PropertyBinding.js` at `r180`.
+
+**Focused fix:** Resolve human bone roles through **the same Three.js node-name sanitizer used by the loader**, preferring resolved runtime names and retaining raw-name fallback. Both rotation and hips translation tracks use this helper. Missing required bones produce a detailed error rather than silently dropping limb animation. Three generated stress clips, a single `AnimationMixer` and body/garment asset source remain unchanged. No gameplay clock, animation scheduler or production Character Catalog was modified.
+
+**Expected clip counts on Drophunter:** Groove 12, Street Shuffle 14, Low & Reach 15 (assuming the author's intended named joints exist). These are *expected*, not browser-verified until iPhone/interactive QA.
+
+**Validation:** Git/Vercel build and TypeScript result to be recorded when observed. Owner iPhone retry remains necessary for visual and functional PASS; do not infer runtime success solely from build.
