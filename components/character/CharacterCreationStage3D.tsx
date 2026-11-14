@@ -16,6 +16,7 @@ type Props = {
   focus: CharacterCreatorFocus;
   assetId: CharacterAssetId;
   appearance?: M3Appearance;
+  onReadyChange?: (ready: boolean) => void;
 };
 
 type PreviewFrame = {
@@ -53,11 +54,13 @@ function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
 }
 
-export default function CharacterCreationStage3D({ yaw, focus, assetId, appearance }: Props) {
+export default function CharacterCreationStage3D({ yaw, focus, assetId, appearance, onReadyChange }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const modelRef = useRef<THREE.Object3D | null>(null);
   const assemblerRef = useRef<M3CharacterAssembler | null>(null);
   const appearanceRef = useRef<M3Appearance | undefined>(appearance);
+  const onReadyRef = useRef(onReadyChange);
+  onReadyRef.current = onReadyChange;
   const yawRef = useRef(yaw);
   yawRef.current = yaw;
   appearanceRef.current = appearance;
@@ -72,6 +75,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     let disposed = false;
     let focusRaf = 0;
     setState("loading");
+    onReadyRef.current?.(false);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x08091f);
     scene.fog = new THREE.FogExp2(0x08091f, 0.055);
@@ -95,6 +99,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     const context = canvas.getContext("webgl2");
     if (!context) {
       setState("fallback");
+      onReadyRef.current?.(false);
       return;
     }
 
@@ -260,6 +265,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           host.dataset.m3BaseLoads = String(assembly?.baseLoads ?? 0);
           host.dataset.m3BindDelta = String(assembly?.maxBindDelta ?? 0);
           setState("ready");
+          onReadyRef.current?.(true);
           applyFocus(activeFocus, false);
         } catch (error) {
           if (assembly) assembly.dispose();
@@ -272,6 +278,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
         console.warn("[C3] Character creation preview failed", error);
         host.dataset.previewError = error instanceof Error ? error.message : String(error);
         setState("fallback");
+        onReadyRef.current?.(false);
       });
 
     return () => {
@@ -301,6 +308,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       console.warn("[C3] M3 appearance update failed", error);
       if (hostRef.current) hostRef.current.dataset.previewError = error instanceof Error ? error.message : String(error);
       setState("fallback");
+      onReadyRef.current?.(false);
     });
     return () => { active = false; };
   }, [assetId, appearance?.hairStyle, appearance?.hairColor, appearance?.skinTone]);

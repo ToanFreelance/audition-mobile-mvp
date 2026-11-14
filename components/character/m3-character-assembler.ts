@@ -75,6 +75,7 @@ export class M3CharacterAssembler {
   private readonly textures = new Map<string, THREE.Texture>();
   private readonly equipped = new Map<Slot, THREE.SkinnedMesh[]>();
   private readonly skinTargets: SkinTarget[] = [];
+  private readonly originalHairColors = new WeakMap<THREE.Material, THREE.Color>();
   private readonly family: M3RigFamily;
   private readonly bindInverse = new THREE.Matrix4();
   private body: THREE.Group | null = null;
@@ -172,7 +173,11 @@ export class M3CharacterAssembler {
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       for (const material of materials) {
         const color = (material as THREE.MeshStandardMaterial).color;
-        if (color && COLORS[id]) color.set(COLORS[id]);
+        if (!color) continue;
+        if (!this.originalHairColors.has(material)) this.originalHairColors.set(material, color.clone());
+        const requested = COLORS[id];
+        if (requested) color.set(requested);
+        else color.copy(this.originalHairColors.get(material)!);
       }
     }
     this.hairColor = id;

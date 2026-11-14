@@ -86,6 +86,7 @@ export default function CharacterCreationV1() {
   const [skinTone, setSkinTone] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.skinTone);
   const [face, setFace] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.face);
   const [created, setCreated] = useState(false);
+  const [m3PreviewReady, setM3PreviewReady] = useState(false);
   const dragRef = useRef<{ id: number; x: number; yaw: number } | null>(null);
 
   const creatorCharacter = getCharacterCatalogEntry(characterAssetId) ?? DEFAULT_CHARACTER_DEFINITION;
@@ -217,7 +218,8 @@ export default function CharacterCreationV1() {
   };
 
   const createCharacter = () => {
-    if (!valid || (lockedAssetId && lockedAssetId !== profile.characterAssetId)) return;
+    if (!valid || (creatorCharacter.m3RigFamily && !m3PreviewReady)
+      || (lockedAssetId && lockedAssetId !== profile.characterAssetId)) return;
     try {
       saveCharacterCreationDraft(window.localStorage, profile);
       // First creation also creates the default appearance preset.
@@ -310,7 +312,7 @@ export default function CharacterCreationV1() {
             onPointerMove={moveDrag}
             onPointerUp={endDrag}
           >
-            <CharacterCreationStage3D assetId={profile.characterAssetId} focus={tab} yaw={yaw} appearance={{ hairStyle, hairColor, skinTone }} />
+            <CharacterCreationStage3D assetId={profile.characterAssetId} focus={tab} yaw={yaw} appearance={{ hairStyle, hairColor, skinTone }} onReadyChange={setM3PreviewReady} />
           </div>
 
           <div className={styles.rotateHint} aria-hidden="true">
@@ -490,7 +492,7 @@ export default function CharacterCreationV1() {
           <button
             className={styles.createButton}
             data-testid="c2-confirm-character"
-            disabled={!valid}
+            disabled={!valid || Boolean(creatorCharacter.m3RigFamily && !m3PreviewReady)}
             onClick={createCharacter}
             type="button"
           >
