@@ -54,3 +54,13 @@ casualshorts, sneakers; Neurohacker short hair, original light skin, Logo Tee,
 Cargo Shorts, casual shoes. Existing saved custom profile is not overwritten;
 new default applies to fresh profiles and on identity switching.
 This is implementation QA only: visual must be retested on physical iPhone.
+
+## Correction addendum — no world transform on detached bind rig
+Detaching M3 garments from donor Skeleton and binding into canonical Skeleton
+requires keeping the rig's world transform unchanged. A scaled parent still
+applies to BOTH bone matrixWorld and garment matrixWorld, effectively double-
+transforming detached-bound meshes. The 3D Creator now keeps M3 model in its
+authored world space; camera target, distance and yaw orbit are computed from
+actual Box3 bounds. Only stage decorations are scaled. This corrects the
+root cause of "giant clothing" and makes skin/hair switching preserve alignment.
+The body selector is the first navigation item and the initial open category.

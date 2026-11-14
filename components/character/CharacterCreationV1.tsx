@@ -31,11 +31,11 @@ const NAME_SUGGESTIONS = ["Luna", "Yuna", "Mina", "Ari", "Nari", "Sora"];
 // The approved sketch contains five visible categories. "Mặt" remains accessible
 // from Tạo hình; unavailable equipment slots retain their honest catalog state.
 const TABS: Array<{ id: Exclude<CreatorTab, "face">; label: string; locked?: boolean }> = [
+  { id: "body", label: "Tạo hình" },
   { id: "hair", label: "Kiểu tóc" },
   { id: "outfit", label: "Trang phục", locked: true },
   { id: "accessory", label: "Phụ kiện", locked: true },
   { id: "shoes", label: "Giày", locked: true },
-  { id: "body", label: "Tạo hình" },
 ];
 
 const DEFAULT_CHARACTER_DEFINITION = (() => {
