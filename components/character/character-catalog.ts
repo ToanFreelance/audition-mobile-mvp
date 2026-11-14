@@ -8,9 +8,10 @@ export const CHARACTER_CATALOG_VERSION = 1 as const;
 const C1_CASUAL_GRACE_PORTRAIT_URL = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIjJSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCT/wAARCABAAEADASIAAhEBAxEB/8QAGwAAAQUBAQAAAAAAAAAAAAAABgIEBQcIAwH/xAAyEAABAwMBBwIDCAMAAAAAAAABAgMEAAURIQYHEjFBUWETcRQikQgVFiMyQ4HBM1LR/8QAGgEAAwEBAQEAAAAAAAAAAAAAAwQFBgECAP/EACMRAAICAgEEAgMAAAAAAAAAAAECAAMEESESEzFRBRUiMoH/2gAMAwEAAhEDEQA/AK5e30397Zp7ZwsR0wHIMeGhOSS0WSCHU9lKwMjloK57T71Ju1NufifdECA7OktTLjIYKyqY82nhSSFEhI5nA6mgZKM06ZbyarCkbnRlNrUJLjtnNu+2v4tcistyfiWZXw6SfTy3w4GeeDwj60Vo3y32XtJbb49bYrsuCiU0gBxaUrQ8ScHHIp4sBQ1OBmgGMyDjSiC0QUhXqKA+XQe9MLihtRqlieTCa270L1Z5kyXBtcIOzJjUt4yFLfUoNpwG+JZJwck8XPWuULeBcbZbUwYtkt6HWzLMaUpS1LiiQfnCU5wcDQE5ps1DRkq4c8OvLnS/hBwIKk4OvMeaa+vXeo4BzqITebjcLPZLNIAEW0+sWVcRJVxnOo5achjoacNIJAHWltMIS0pWP06fWlNaLHjWnsekVAgToP7H1KmQwBjLqKeMNtD9zPsKjEGnrCqjqR6mfQSbhNtKUAOImiJ1PwMbiU4xHS0CVqfVj3wBr4obgy2YYS86ojBGABknWpGzWu4Xy5yQGC88tKhlwEhA/wBj2AGtAy801/gnmV6VIXYks5MNuShUiSlaFoS4hTSD8wOvPxTqLLbmsB9lfGgkpz1B7U4262Cm7K2+3vqkGQxLQAprGPRc6Y/ihiwIXb3FJecCWnSQE5yQodx0r7435GzuCtzsGeltKsNwpb+ZDiRroDSEr4VZ5+KbiaygKKVqJxgaUlM9tX604PdP/K0vVCCwbPoyp0Kp/CR6vqHiA4EFXvjpTEScckIH8V1RNdTnhUE5GDjtWd/shqdGEzUgwUsKkRW5KAULdQtOqkkj+jWmNktm7AzEi3OC8EsyW0FtoY4QrofJ169qy6xd2HpDRcdylxlLSwvmhScY+uKufdHMnT7XOYgOokxYzqRHU6oo9PIyRpnOO1SMittlpWqtBBWT28yxOM22YbhKZVFXgsFJPqheNB9apSdAbtSGUqfbckhxIcLSwpsnhOcHxpnzRZtNIuE2+yvvu6sS0QV8BjA8AGR0ST261Xrym0PFDJBYSria+Ujx11xRMOpu6sBa4CdRkoJXmvRJ81FB/wA0tL/mtaHiXdMDgauLdFuDk7cx0Xi+SHbfalf4koH5r47jPJPmhHdVu+e292sjwVAfAsEPS19mweXueVbOYQzb47cdhCW2mkBCEJGiUgYArNXWFeBPdab5MBIX2bN30RKSuHMlKTr+bIVr74xRjaNkrRs/HEO1wGIccfttpxk9z3NTdve+IYC85HKnXCCeVJuS3kxhT0eJWO1+42x7ZyHJhefgzV4Jdb1QogYBKTz09qDLj9lx9EVS4W0vrygk4S+xwpWagyCcVoKoXaO7i0xVvqVgIST70arIsTgGCZQxmML9s7d9mJrkO7QXozjauEqUk8Cj4VyNRodrZiBZt4VhXDuTDcqM+nCgoapPg9CKzrvN3K3fYV12fBC59lGoeH62R2WP7qvj5oc9LcGBeoqZ/9k=";
 const C4_CASUAL_BOY_PORTRAIT_URL = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHCAkIBgoJCAkMCwoMDxoRDw4ODx8WGBMaJSEnJiQhJCMpLjsyKSw4LCMkM0Y0OD0/QkNCKDFITUhATTtBQj//2wBDAQsMDA8NDx4RER4/KiQqPz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz//wAARCABAAEADASIAAhEBAxEB/8QAGwAAAQUBAQAAAAAAAAAAAAAABgECAwQFAAf/xAAyEAACAQMCAwYEBQUAAAAAAAABAgMABBEFIRITMQYiMkFRYRQzgZEHI0JxwRVyobHh/8QAGQEAAgMBAAAAAAAAAAAAAAAABAUBAgMA/8QAIREAAgIBBQADAQAAAAAAAAAAAAECAxEEEhMhUSIxQVL/2gAMAwEAAhEDEQA/AAflUvK9qvcn2qG4ZLeMsxG3lTyWILLO42iARE9BXBAenT1ptvdxm4VrgZiCnu5xj0zWat0vxSqjuqs3mMj6UC9V30iNqNblV3Kqwro7oqMrDoxxwnP7VaFqxHh2o2uUbF0WUMmdyqURVo/Ct6D7ilFofb71fai3GWSMqRgdPShibg/qUhuX7g2Xl7jNFPRGPtisPVNOuJi1xbRqYoEDSDzAzQ+shmGfAicfDJmYJNy4kPAmxLDc565oy078PH1XQ7a/S/EMzLlEMWy79Cah0Xsbqcl18T+W9s/5itIfH7EfWj600nUk022to9SeKOPPEIkGT7ZNKJS8Mdvp47LC1vqLwXGeJH5TkZ2PTNEdrE0dsgcljjzq/fdj7ptUJubhEZw8hIPFsNxn3quBhEHooploVltl6l8hOHbJwB70oACNgg5wNqbLsij9zSr8oe5JpkbPs5/ln3NS2UpgZnZeKN1KMh/UD5VGGIGB/ql7x3P3NRKKkmn9EhH2Y11YYxp8/dZPlk+Yojsrkwwyu7ll4i3e24RQJpNpBf3wt5AT3SVdTgq3lg0ZW+lSTW4gvbmS4iU+AgLn+4jrSDUVquxxRnP0F9a12S7upVtziJl5ZONyKyn8R9tqua/Fye0U6FQqlgV8hjFUSdzll+9OdPGMK1g6DSGzHvAegp/RVHtVeVwZTg7ZqVnTPjFbZJUl0VviHO3EfvWlZaRf3rAsjRR+byfwKLrfS9Ps8GG2QMP1EZP+auZXyoSWo/lAjsf4RaVo1pZQKbbiabiBdmO5/wCUQpHgZrFRmQ5U4q0L2bHiH2pdZXKUt2SeXKwyLWNNsL2IC8h4pN+Bl2I+tBGpdmrqDiktG50Y34ejAfzRs8jSHLEk03IHWiKZyrWMmbseejymQsjlXUqw6gjBphkPrXpt/ptnqMfDcxKx8mGzD60B9oNKGlXkSJxNDJ0cnr6ijIXKR3Iz/9k=";
 
-export type CharacterAssetId = "c1-casual-grace" | "c4-casual-boy";
+export type CharacterAssetId = "c1-casual-grace" | "c4-casual-boy" | "m3-drophunter" | "m3-neurohacker";
+export type M3RigFamily = "drophunter" | "neurohacker";
 export type CharacterGender = "female" | "male";
-export type CharacterAnimationProfile = "mixamo-c1" | "canonical";
+export type CharacterAnimationProfile = "mixamo-c1" | "canonical" | "m3-vrm";
 export type CharacterAppearanceSlot = "hairStyle" | "hairColor" | "skinTone" | "face";
 export type CharacterEquipmentSlot = "outfit" | "accessory" | "shoes";
 
@@ -29,6 +30,9 @@ export type CharacterCatalogEntry = {
   portraitUrl: string;
   animationProfile: CharacterAnimationProfile;
   runtimeReady: boolean;
+  /** Enable M3 Character Creation only; Room/Match remain gated until steps 2/3. */
+  creatorReady?: boolean;
+  m3RigFamily?: M3RigFamily;
   creatorBadge: string;
   creatorVersionLabel: string;
   appearance: {
@@ -128,7 +132,62 @@ const CASUAL_BOY: CharacterCatalogEntry = {
   equipmentSlots: ["outfit", "accessory", "shoes"],
 };
 
-export const CHARACTER_CATALOG_V1: readonly CharacterCatalogEntry[] = [CASUAL_GRACE, CASUAL_BOY];
+
+const M3_SKIN: readonly CharacterCatalogChoice[] = [
+  { id: "originalskin", label: "Da gốc", available: true },
+  { id: "tone1skin", label: "Tông 1", available: true },
+  { id: "tone2skin", label: "Tông 2", available: true },
+  { id: "tone3skin", label: "Tông 3", available: true },
+  { id: "tone4skin", label: "Tông 4", available: true },
+];
+const M3_HAIR_COLOR: readonly CharacterCatalogChoice[] = [
+  { id: "original", label: "Màu gốc", available: true },
+  { id: "black", label: "Đen", available: true },
+  { id: "syrup", label: "Nâu", available: true },
+  { id: "purple", label: "Tím", available: true },
+];
+const M3_FACE = [{ id: "basic-01", label: "Mặt mặc định", available: true }] as const;
+const DROPHUNTER_M3: CharacterCatalogEntry = {
+  id: "m3-drophunter", label: "Drophunter", gender: "female",
+  assetUrl: "https://raw.githubusercontent.com/memelotsqui/character-assets/main/drophunter/body/drophunter.vrm",
+  // Catalog portrait is intentionally omitted until owner-approved real icon acquisition.
+  portraitUrl: "/room-ui/demo-avatar.svg",
+  animationProfile: "m3-vrm", m3RigFamily: "drophunter",
+  creatorReady: true, runtimeReady: false,
+  creatorBadge: "FEMALE · M3 POC", creatorVersionLabel: "M3 Creator Step 1",
+  appearance: {
+    hairStyles: [
+      { id: "curledbangs", label: "Curled Bangs", available: true },
+      { id: "short", label: "Tóc ngắn", available: true },
+      { id: "ponytail", label: "Ponytail", available: true },
+      { id: "buns", label: "Buns", available: true },
+    ],
+    hairColors: M3_HAIR_COLOR, skinTones: M3_SKIN, faces: M3_FACE,
+  },
+  defaultAppearance: { hairStyle: "curledbangs", hairColor: "original", skinTone: "originalskin", face: "basic-01" },
+  equipmentSlots: ["outfit", "accessory", "shoes"],
+};
+const NEUROHACKER_M3: CharacterCatalogEntry = {
+  id: "m3-neurohacker", label: "Neurohacker · Street", gender: "male",
+  assetUrl: "https://raw.githubusercontent.com/memelotsqui/character-assets/main/neurohacker/body/neurohacker.vrm",
+  portraitUrl: "/room-ui/demo-avatar.svg",
+  animationProfile: "m3-vrm", m3RigFamily: "neurohacker",
+  creatorReady: true, runtimeReady: false,
+  creatorBadge: "MALE · STREET M3 POC", creatorVersionLabel: "M3 Creator Step 1",
+  appearance: {
+    hairStyles: [
+      { id: "short", label: "Short Hair", available: true },
+      { id: "hair1", label: "Style 1", available: true },
+      { id: "hair2", label: "Style 2", available: true },
+      { id: "hair3", label: "Style 3", available: true },
+    ],
+    hairColors: M3_HAIR_COLOR, skinTones: M3_SKIN, faces: M3_FACE,
+  },
+  defaultAppearance: { hairStyle: "short", hairColor: "original", skinTone: "originalskin", face: "basic-01" },
+  equipmentSlots: ["outfit", "accessory", "shoes"],
+};
+
+export const CHARACTER_CATALOG_V1: readonly CharacterCatalogEntry[] = [DROPHUNTER_M3, NEUROHACKER_M3, CASUAL_GRACE, CASUAL_BOY];
 
 export const DEFAULT_CHARACTER_ASSET_ID: CharacterAssetId = CASUAL_GRACE.id;
 

@@ -20,7 +20,8 @@ export type CharacterCreationProfileV1 = {
   name: string;
 };
 
-const DEFAULT_CHARACTER = getCharacterCatalogEntry(DEFAULT_CHARACTER_ASSET_ID);
+// Creator-only M3 default; legacy runtime fallback remains C1.
+const DEFAULT_CHARACTER = getCharacterCatalogEntry("m3-drophunter") ?? getCharacterCatalogEntry(DEFAULT_CHARACTER_ASSET_ID);
 if (!DEFAULT_CHARACTER) throw new Error("Default character catalog entry is missing.");
 
 export const DEFAULT_CHARACTER_CREATION_PROFILE: CharacterCreationProfileV1 = {

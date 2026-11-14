@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { resolveCharacterAssetUrl, type CharacterAssetId } from "./character-catalog";
+import { getCharacterCatalogEntry, resolveCharacterAssetUrl, type CharacterAssetId } from "./character-catalog";
+import { M3CharacterAssembler, type M3Appearance } from "./m3-character-assembler";
 import { disposeObjectResources } from "./CharacterActor";
 import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
 import styles from "./CharacterCreationStage3D.module.css";
@@ -14,6 +15,7 @@ type Props = {
   yaw: number;
   focus: CharacterCreatorFocus;
   assetId: CharacterAssetId;
+  appearance?: M3Appearance;
 };
 
 type PreviewFrame = {
@@ -51,9 +53,14 @@ function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
 }
 
-export default function CharacterCreationStage3D({ yaw, focus, assetId }: Props) {
+export default function CharacterCreationStage3D({ yaw, focus, assetId, appearance }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const modelRef = useRef<THREE.Object3D | null>(null);
+  const assemblerRef = useRef<M3CharacterAssembler | null>(null);
+  const appearanceRef = useRef<M3Appearance | undefined>(appearance);
+  const yawRef = useRef(yaw);
+  yawRef.current = yaw;
+  appearanceRef.current = appearance;
   const renderRef = useRef<(() => void) | null>(null);
   const focusRef = useRef<((nextFocus: CharacterCreatorFocus, animate?: boolean) => void) | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "fallback">("loading");
@@ -220,25 +227,50 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId }: Props)
     resize();
 
     const loader = new GLTFLoader();
+    const entry = getCharacterCatalogEntry(assetId);
     const assetUrl = resolveCharacterAssetUrl(assetId);
     host.dataset.characterAssetId = assetId;
-    void loader.loadAsync(assetUrl)
-      .then(gltf => {
+    const loadModel: Promise<{ root: THREE.Object3D; assembly: M3CharacterAssembler | null }> =
+      entry?.m3RigFamily
+        ? M3CharacterAssembler.create(assetId, appearanceRef.current ?? entry.defaultAppearance)
+            .then(assembly => ({ root: assembly.root, assembly }))
+        : loader.loadAsync(assetUrl).then(gltf => ({ root: gltf.scene, assembly: null }));
+    void loadModel
+      .then(async ({ root, assembly }) => {
         if (disposed) {
-          disposeObjectResources(gltf.scene);
+          if (assembly) assembly.dispose();
+          else disposeObjectResources(root);
           return;
         }
-        normalizePreview(gltf.scene);
-        gltf.scene.rotation.y = yaw;
-        modelRef.current = gltf.scene;
-        scene.add(gltf.scene);
-        host.dataset.characterSource = assetId;
-        setState("ready");
-        applyFocus(focus, false);
+        try {
+          if (assembly && appearanceRef.current) await assembly.updateAppearance(appearanceRef.current);
+          if (disposed) {
+            if (assembly) assembly.dispose();
+            else disposeObjectResources(root);
+            return;
+          }
+          // Canonical mesh binding was resolved before presentation-only scale/center.
+          normalizePreview(root);
+          root.rotation.y = yawRef.current;
+          modelRef.current = root;
+          assemblerRef.current = assembly;
+          scene.add(root);
+          host.dataset.characterSource = assetId;
+          host.dataset.m3Bones = String(assembly?.skeleton?.bones.length ?? 0);
+          host.dataset.m3BaseLoads = String(assembly?.baseLoads ?? 0);
+          host.dataset.m3BindDelta = String(assembly?.maxBindDelta ?? 0);
+          setState("ready");
+          applyFocus(activeFocus, false);
+        } catch (error) {
+          if (assembly) assembly.dispose();
+          else disposeObjectResources(root);
+          throw error;
+        }
       })
       .catch(error => {
         if (disposed) return;
         console.warn("[C3] Character creation preview failed", error);
+        host.dataset.previewError = error instanceof Error ? error.message : String(error);
         setState("fallback");
       });
 
@@ -249,12 +281,29 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId }: Props)
       focusRef.current = null;
       renderRef.current = null;
       modelRef.current = null;
+      assemblerRef.current?.dispose();
+      assemblerRef.current = null;
       disposeObjectResources(scene);
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
   }, [assetId]);
+
+  useEffect(() => {
+    const assembly = assemblerRef.current;
+    if (!assembly || !appearance) return;
+    let active = true;
+    void assembly.updateAppearance(appearance).then(() => {
+      if (active) renderRef.current?.();
+    }).catch(error => {
+      if (!active) return;
+      console.warn("[C3] M3 appearance update failed", error);
+      if (hostRef.current) hostRef.current.dataset.previewError = error instanceof Error ? error.message : String(error);
+      setState("fallback");
+    });
+    return () => { active = false; };
+  }, [assetId, appearance?.hairStyle, appearance?.hairColor, appearance?.skinTone]);
 
   useEffect(() => {
     if (!modelRef.current) return;

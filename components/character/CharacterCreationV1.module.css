@@ -614,3 +614,14 @@
   .dock{gap:5px;padding:6px 10px calc(6px + env(safe-area-inset-bottom))}
   .footerNote{min-height:20px}
 }
+
+/* M3 creator-only swatches; actual skin shades use source textureCollection PNGs. */
+.hair_original{background:#bd9a8c}
+.hair_syrup{background:#5a3114}
+.hair_purple{background:#af25ff}
+.skin_originalskin{background:#f6e4d6}
+.skin_tone1skin{background:#74403c}
+.skin_tone2skin{background:#94716e}
+.skin_tone3skin{background:#c39783}
+.skin_tone4skin{background:#e0b89c}
+.m3GateNote{margin:8px 3px 0;color:#edcfff;text-align:center;font-size:11px;line-height:1.35}

@@ -174,7 +174,11 @@ export default function CharacterCreationV1() {
 
   const selectCharacter = (assetId: CharacterAssetId) => {
     const next = getCharacterCatalogEntry(assetId);
-    if (!next?.runtimeReady || next.id === characterAssetId || (lockedAssetId && lockedAssetId !== next.id)) return;
+    if (!(next?.creatorReady || next?.runtimeReady) || next.id === characterAssetId) return;
+    // Only M3 creator QA allows deliberate migration of an old saved starter
+    // or switching between the two accepted M3 rigs before room integration.
+    if (lockedAssetId && lockedAssetId !== next.id && !next.m3RigFamily) return;
+    if (lockedAssetId && lockedAssetId !== next.id) setLockedAssetId(null);
     setCharacterAssetId(next.id);
     setHairStyle(next.defaultAppearance.hairStyle);
     setHairColor(next.defaultAppearance.hairColor);
@@ -185,8 +189,8 @@ export default function CharacterCreationV1() {
     setCreated(false);
   };
 
-  const femaleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "female" && entry.runtimeReady) ?? null;
-  const maleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "male" && entry.runtimeReady) ?? null;
+  const femaleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "female" && (entry.creatorReady || entry.runtimeReady)) ?? null;
+  const maleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "male" && (entry.creatorReady || entry.runtimeReady)) ?? null;
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     dragRef.current = { id: event.pointerId, x: event.clientX, yaw };
@@ -306,7 +310,7 @@ export default function CharacterCreationV1() {
             onPointerMove={moveDrag}
             onPointerUp={endDrag}
           >
-            <CharacterCreationStage3D assetId={profile.characterAssetId} focus={tab} yaw={yaw} />
+            <CharacterCreationStage3D assetId={profile.characterAssetId} focus={tab} yaw={yaw} appearance={{ hairStyle, hairColor, skinTone }} />
           </div>
 
           <div className={styles.rotateHint} aria-hidden="true">
@@ -323,7 +327,7 @@ export default function CharacterCreationV1() {
             <section aria-label="Tuỳ chọn tạo nhân vật" className={styles.optionsOverlay} data-testid="c1-category-options">
               <button aria-label="Đóng tuỳ chọn" className={styles.optionsClose} onClick={() => setOptionsOpen(false)} type="button">×</button>
           <div className={styles.panelTitle}>
-            <div><span>C4 · MALE + FEMALE STARTERS</span><strong>{TABS.find(item => item.id === tab)?.label}</strong></div>
+            <div><span>M3 · DROPHUNTER + NEUROHACKER</span><strong>{TABS.find(item => item.id === tab)?.label}</strong></div>
             <small>Asset và capability được resolve từ catalog; không fake variant chưa có.</small>
           </div>
 
@@ -338,7 +342,7 @@ export default function CharacterCreationV1() {
                       className={[styles.swatch, styles[`hair_${choice.id}`], hairColor === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
                       disabled={!choice.available}
                       key={choice.id}
-                      onClick={() => setHairColor(choice.id)}
+                      onClick={() => { setHairColor(choice.id); setCreated(false); }}
                       type="button"
                     />
                   ))}
@@ -350,7 +354,7 @@ export default function CharacterCreationV1() {
                     choice={choice}
                     icon={index === 0 ? "◖" : index === 1 ? "⌒" : "⑂"}
                     key={choice.id}
-                    onSelect={() => setHairStyle(choice.id)}
+                    onSelect={() => { setHairStyle(choice.id); setCreated(false); }}
                     selected={hairStyle === choice.id}
                   />
                 ))}
@@ -365,7 +369,7 @@ export default function CharacterCreationV1() {
                   choice={choice}
                   icon={index === 0 ? "◉" : "◎"}
                   key={choice.id}
-                  onSelect={() => setFace(choice.id)}
+                  onSelect={() => { setFace(choice.id); setCreated(false); }}
                   selected={face === choice.id}
                 />
               ))}
@@ -375,10 +379,10 @@ export default function CharacterCreationV1() {
           {tab === "body" && (
             <div className={styles.bodyGrid}>
               <div className={styles.bodyCard}>
-                <label>NHÂN VẬT {lockedAssetId ? "(ĐÃ CHỌN)" : "(CHỌN MỘT LẦN)"}</label>
+                <label>NHÂN VẬT {creatorCharacter.m3RigFamily ? "(M3 QA)" : lockedAssetId ? "(ĐÃ CHỌN)" : "(CHỌN MỘT LẦN)"}</label>
                 <button
                   className={creatorCharacter.gender === "female" ? styles.bodyActive : ""}
-                  disabled={!femaleStarter || (lockedAssetId !== null && lockedAssetId !== femaleStarter.id)}
+                  disabled={!femaleStarter || (lockedAssetId !== null && lockedAssetId !== femaleStarter.id && !femaleStarter.m3RigFamily)}
                   onClick={() => femaleStarter && selectCharacter(femaleStarter.id)}
                   type="button"
                 >
@@ -386,7 +390,7 @@ export default function CharacterCreationV1() {
                 </button>
                 <button
                   className={creatorCharacter.gender === "male" ? styles.bodyActive : ""}
-                  disabled={!maleStarter || (lockedAssetId !== null && lockedAssetId !== maleStarter.id)}
+                  disabled={!maleStarter || (lockedAssetId !== null && lockedAssetId !== maleStarter.id && !maleStarter.m3RigFamily)}
                   onClick={() => maleStarter && selectCharacter(maleStarter.id)}
                   type="button"
                 >
@@ -402,7 +406,7 @@ export default function CharacterCreationV1() {
                       className={[styles.swatch, styles[`skin_${choice.id}`], skinTone === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
                       disabled={!choice.available}
                       key={choice.id}
-                      onClick={() => setSkinTone(choice.id)}
+                      onClick={() => { setSkinTone(choice.id); setCreated(false); }}
                       type="button"
                     />
                   ))}
@@ -490,10 +494,10 @@ export default function CharacterCreationV1() {
             onClick={createCharacter}
             type="button"
           >
-            {created ? "✓ NHÂN VẬT MVP ĐÃ SẴN SÀNG" : "TẠO NHÂN VẬT"}
+            {created ? creatorCharacter.runtimeReady ? "✓ NHÂN VẬT MVP ĐÃ SẴN SÀNG" : "✓ ĐÃ LƯU M3 (CREATOR QA)" : "TẠO NHÂN VẬT"}
           </button>
 
-          {created && (
+          {created && creatorCharacter.runtimeReady && (
             <a
               href="/rooms"
               data-testid="entry-continue-rooms"
@@ -508,6 +512,11 @@ export default function CharacterCreationV1() {
             </a>
           )}
 
+          {created && !creatorCharacter.runtimeReady && (
+            <p role="status" className={styles.m3GateNote}>
+              ✓ Nhân vật M3 đã lưu trên thiết bị. Waiting Room và Gameplay sẽ được bật ở bước tích hợp tiếp theo.
+            </p>
+          )}
           <div className={styles.footerNote}>
             <span>DANCE YOUR STORY <CreatorIcon kind="heart" /></span>
             <small>{created ? "Đã lưu trên thiết bị" : ""}</small>
