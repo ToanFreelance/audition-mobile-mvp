@@ -15,6 +15,8 @@ const BODY = "body/drophunter.vrm";
 const EYES = "eyes/regulareyes.vrm";
 const BPM = 110;
 const EPSILON = 0.0001;
+// A long iPhone try-on session must not retain all 44 expanded VRM sources.
+const MAX_CACHED_SOURCE_PARTS = 14;
 
 export type WardrobeSlot = "top" | "bottom" | "shoes" | "hair" | "outer" | "accessory";
 export type WardrobeOption = { id: string; label: string; file: string };
@@ -260,7 +262,12 @@ export class M3WardrobeRuntime {
 
   private async getModel(path: string): Promise<SourcePart> {
     const cached = this.cache.get(path);
-    if (cached) return cached;
+    if (cached) {
+      // Refresh insertion order to keep recently worn garments warm.
+      this.cache.delete(path);
+      this.cache.set(path, cached);
+      return cached;
+    }
     let gltf: Awaited<ReturnType<GLTFLoader["loadAsync"]>>;
     try {
       gltf = await this.loader.loadAsync(SOURCE + path);
@@ -276,6 +283,25 @@ export class M3WardrobeRuntime {
     }
     this.cache.set(path, part);
     return part;
+  }
+
+  private trimUnusedCache(): void {
+    if (this.cache.size <= MAX_CACHED_SOURCE_PARTS) return;
+    const pinned = new Set<string>([BODY, EYES]);
+    for (const slot of slots) {
+      const id = this.equipment[slot];
+      if (!id) continue;
+      const option = WARDROBE[slot].find((item) => item.id === id);
+      if (option) pinned.add(option.file);
+    }
+    // Only evict donor assets no longer attached to the live actor. Each
+    // worn mesh shares the donor material/geometry until its slot is removed.
+    for (const [path, part] of this.cache) {
+      if (this.cache.size <= MAX_CACHED_SOURCE_PARTS) break;
+      if (pinned.has(path)) continue;
+      this.cache.delete(path);
+      disposeScene(part.scene);
+    }
   }
 
   /**
@@ -433,6 +459,7 @@ export class M3WardrobeRuntime {
         }
         if (TALL_BOOTS.has(this.equipment.shoes ?? "")) void this.equip("shoes", "dressboots2");
       }
+      this.trimUnusedCache();
       this.message = `Đã mặc ${option.label}; base và mixer không thay đổi.`;
     } catch (err) {
       if (this.destroyed || token !== this.tokens[slot]) return;

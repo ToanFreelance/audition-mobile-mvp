@@ -66,3 +66,5 @@ Owner tested the V1 preview on physical iPhone: multiple outfits **successfully 
 - Stress test intentionally targets shoulders/armpits, hair/neck, hip/skirt, knees and shoes. Probes are NOT imported Audition animation clips or an authoritative gameplay clock.
 
 **Validation gate:** Confirm Vercel build/TypeScript and route existence, not merely git push. Then owner should test iPhone actual motions and outfit swaps; the QA must remain explicitly **NOT iPhone PASS** until owner verifies. No Playwright/full QA unless needed; no main/development changes or merge. The independent VRM server, full body occlusion, MToon and springbone remain unverified production issues.
+
+**V1.2 cache memory bound:** The isolated runtime now retains up to **14 source VRM parts** using an insertion-order recently-used cache. The canonical `body`, required `eyes`, and all **currently equipped** slot sources are pinned and never evicted while worn. Removed/disused donors are disposed only when above budget; reselecting an evicted item downloads its source again. This is a qualitative memory precaution, **not a measured iPhone memory/FPS claim**.
