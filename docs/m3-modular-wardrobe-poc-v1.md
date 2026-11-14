@@ -51,3 +51,18 @@ Owner tested the V1 preview on physical iPhone: multiple outfits **successfully 
 **Focused correction:** Load `eyes/regulareyes.vrm` as a **fixed required base component**, check skeleton compatibility, bind it to the persistent base rig, keep materials/morph target metadata, and expose `EYES ✓` status. Do not add a new actor or mixer; do not implement eye geometry manually. If the third-party file is unavailable or violates bind-pose bounds, show an explicit error instead of claiming a repair.
 
 **After/acceptance:** With eyes loaded, on iPhone observe pupils/eyeballs correctly placed from front and side under all hairstyles. Verify the original wardrobe controls still work and the counter remains `1 mixer / 1 base load`. Loader and build validation is **not equivalent** to physical visual PASS. No Shop/Inventory, Character Catalog, actor production, WebAudio or gameplay changes.
+
+## V1.2 — Expanded wardrobe and 3 animation stress probes (2026-11-14)
+
+**Owner approval/input:** Physical iPhone owner screenshot confirmed eye correction and functional outfit changes, with 198 joints, 1 mixer, 1 base load. Owner requested more of the M3 Drophunter-supported clothing items and harder motion QA; this authorizes isolated POC expansion, not production Character Catalog / Shop.
+
+**Source inventory:** Inspected Drophunter's real `manifest.json` and GitHub tree. There are **44 actual skinned VRM options** across 6 selectable groups: 10 hair, 10 tops, 9 bottoms, 10 footwear, 3 outer, 2 accessories. Required `body` and `eyes` stay fixed. No third-party files were mirrored to the Audition repository.
+
+**Implementation scope:**
+- Added all 44 source-backed option IDs/paths with horizontal mobile browsing and lazy load on item selection.
+- Optional `outer` and `accessory` can be explicitly removed without any actor/mixer rebuild.
+- Applied focused Drophunter restrictions: outer disabled with `hoodie`, `dress`, `fulljacket`; pants vs tall boots or `legstrapandcompress`. When changing top/bottom, incompatible optional items detach; tall boots on new pants selection switch to permitted short boots.
+- Added three **original generated QA clips** at 110 BPM, each over 8 beats: `Groove` (sway + arms); `Street Shuffle` (cross/step + leg lift + torso rotation); `Low & Reach` (crouch, raised arms, deep knee motion). The samples are bound only to the persistent body's humanoid bone UUIDs. All share the **same existing Three.js AnimationMixer**; changing visual clip uses two actions and fade transition, never creates a new mixer or timer.
+- Stress test intentionally targets shoulders/armpits, hair/neck, hip/skirt, knees and shoes. Probes are NOT imported Audition animation clips or an authoritative gameplay clock.
+
+**Validation gate:** Confirm Vercel build/TypeScript and route existence, not merely git push. Then owner should test iPhone actual motions and outfit swaps; the QA must remain explicitly **NOT iPhone PASS** until owner verifies. No Playwright/full QA unless needed; no main/development changes or merge. The independent VRM server, full body occlusion, MToon and springbone remain unverified production issues.

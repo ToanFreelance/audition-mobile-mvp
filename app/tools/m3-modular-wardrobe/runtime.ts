@@ -151,46 +151,6 @@ function skeletonCompatible(base: THREE.Skeleton, incoming: THREE.Skeleton): num
   return maxDelta;
 }
 
-function danceClip(skeleton: THREE.Skeleton): THREE.AnimationClip {
-  const bone = (name: string) => skeleton.bones.find((candidate) => candidate.name === name);
-  const beat = 60 / BPM;
-  const times = [0, beat / 2, beat, beat * 1.5, beat * 2, beat * 2.5, beat * 3, beat * 3.5, beat * 4];
-  const moves: Array<{ name: string; axis: "x" | "y" | "z"; angles: number[] }> = [
-    { name: "upper_arm.L", axis: "z", angles: [0, -0.16, -0.64, -0.42, 0, -0.12, -0.56, -0.30, 0] },
-    { name: "upper_arm.R", axis: "z", angles: [0, 0.56, 0.18, 0.50, 0, 0.62, 0.22, 0.38, 0] },
-    { name: "lower_arm.L", axis: "x", angles: [0, -0.20, -0.42, -0.22, 0, -0.18, -0.35, -0.22, 0] },
-    { name: "lower_arm.R", axis: "x", angles: [0, -0.28, -0.12, -0.32, 0, -0.18, -0.28, -0.14, 0] },
-    { name: "upper_leg.L", axis: "x", angles: [0, 0.12, 0.16, 0.04, 0, -0.07, 0.10, 0.06, 0] },
-    { name: "upper_leg.R", axis: "x", angles: [0, -0.06, 0.08, 0.12, 0, 0.15, 0.11, 0.04, 0] },
-    { name: "spine", axis: "y", angles: [0, -0.10, 0.02, 0.12, 0, -0.12, 0.03, 0.11, 0] },
-  ];
-  const tracks: THREE.KeyframeTrack[] = [];
-  for (const move of moves) {
-    const target = bone(move.name);
-    if (!target) continue;
-    const start = target.quaternion.clone();
-    const values: number[] = [];
-    for (const angle of move.angles) {
-      const euler = new THREE.Euler(
-        move.axis === "x" ? angle : 0,
-        move.axis === "y" ? angle : 0,
-        move.axis === "z" ? angle : 0,
-      );
-      const q = start.clone().multiply(new THREE.Quaternion().setFromEuler(euler));
-      values.push(q.x, q.y, q.z, q.w);
-    }
-    tracks.push(new THREE.QuaternionKeyframeTrack(`${target.uuid}.quaternion`, times, values));
-  }
-  const hips = bone("hips");
-  if (hips) {
-    const y = hips.position.y;
-    const values = times.flatMap((_, i) => [hips.position.x, y + ([0, 0.02, 0.04, 0.01, 0, 0.025, 0.04, 0.01, 0][i]), hips.position.z]);
-    tracks.push(new THREE.VectorKeyframeTrack(`${hips.uuid}.position`, times, values));
-  }
-  if (!tracks.length) throw new Error("Không tìm thấy các bone humanoid để chạy dance probe.");
-  return new THREE.AnimationClip("M3 QA Dance · 110 BPM", beat * 4, tracks);
-}
-
 export class M3WardrobeRuntime {
   private readonly host: HTMLDivElement;
   private readonly report: (value: WardrobeSnapshot) => void;

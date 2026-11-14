@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { M3WardrobeRuntime, WARDROBE, type WardrobeSlot, type WardrobeSnapshot } from "./runtime";
+import {
+  M3WardrobeRuntime, WARDROBE, unavailableReason,
+  type WardrobeSlot, type WardrobeSnapshot,
+} from "./runtime";
+import { MOTIONS } from "./motions";
 import "./m3-wardrobe.css";
 
 const LABELS: Record<WardrobeSlot, { icon: string; name: string }> = {
@@ -9,7 +13,13 @@ const LABELS: Record<WardrobeSlot, { icon: string; name: string }> = {
   bottom: { icon: "◈", name: "Quần / váy" },
   shoes: { icon: "◉", name: "Giày" },
   hair: { icon: "✿", name: "Tóc" },
+  outer: { icon: "❖", name: "Áo khoác" },
+  accessory: { icon: "◇", name: "Phụ kiện" },
 };
+
+const SLOTS: WardrobeSlot[] = ["top", "bottom", "shoes", "hair", "outer", "accessory"];
+const OPTIONAL_SLOTS = new Set<WardrobeSlot>(["outer", "accessory"]);
+const SOURCE = "https://github.com/memelotsqui/character-assets/tree/main/drophunter";
 
 const DEFAULT_STATE: WardrobeSnapshot = {
   ready: false,
@@ -18,11 +28,13 @@ const DEFAULT_STATE: WardrobeSnapshot = {
   bones: 0,
   mixerCount: 0,
   baseReloads: 0,
-  equipped: { top: null, bottom: null, shoes: null, hair: null },
+  equipped: { top: null, bottom: null, shoes: null, hair: null, outer: null, accessory: null },
   cacheSize: 0,
   moving: true,
   maxBindDelta: 0,
   eyesReady: false,
+  motionId: "groove",
+  motionTracks: 0,
 };
 
 export default function M3ModularWardrobePage() {
@@ -65,8 +77,8 @@ export default function M3ModularWardrobePage() {
     <main className="m3-lab" data-testid="m3-modular-wardrobe">
       <header className="m3-head">
         <div className="m3-eyebrow">AUDITION MOBILE MVP / MODULAR RESEARCH</div>
-        <h1>Wardrobe <span>Studio</span> <small>V1</small></h1>
-        <p>M3 / Drophunter — một body, nhiều skinned garment. Chỉ dùng cho thử nghiệm riêng; không thay nhân vật Vita hoặc gameplay hiện tại.</p>
+        <h1>Wardrobe <span>Studio</span> <small>V1.2</small></h1>
+        <p>M3 / Drophunter — một body, 44 lựa chọn trang phục trong 6 nhóm, 3 bài kiểm tra chuyển động. Demo độc lập, không thay Vita hoặc gameplay.</p>
       </header>
       <div className="m3-grid">
         <section className="m3-stage-card" aria-label="Nhân vật 3D">
@@ -82,8 +94,24 @@ export default function M3ModularWardrobePage() {
             <button type="button" onClick={() => runtimeRef.current?.setView("left")} disabled={!state.ready}>Góc trái</button>
             <button type="button" onClick={() => runtimeRef.current?.setView("back")} disabled={!state.ready}>Phía sau</button>
             <button type="button" className="m3-dance" onClick={() => runtimeRef.current?.setDance(!state.moving)} disabled={!state.ready}>
-              {state.moving ? "❚❚ Dừng nhảy" : "▶ Nhảy 110 BPM"}
+              {state.moving ? "❚❚ Dừng nhảy" : "▶ Tiếp tục nhảy"}
             </button>
+          </div>
+          <div className="m3-motion-panel" data-testid="m3-motion-panel">
+            <div className="m3-motion-heading"><strong>Animation stress test</strong><span>{state.motionTracks} tracks · 110 BPM</span></div>
+            <div className="m3-motion-choices" role="group" aria-label="Chọn animation">
+              {MOTIONS.map((motion) => (
+                <button type="button" key={motion.id}
+                  className={state.motionId === motion.id ? "active" : ""}
+                  aria-pressed={state.motionId === motion.id}
+                  disabled={!state.ready}
+                  onClick={() => runtimeRef.current?.setMotion(motion.id)}>
+                  <strong>{motion.label}</strong>
+                  <small>{motion.description}</small>
+                </button>
+              ))}
+            </div>
+            <p>Chuyển động QA tự tạo để phát hiện lỗi áo, váy, tóc và giày khi khớp vai/hông/gối biến dạng. Không phải choreography gameplay Audition.</p>
           </div>
           <div className="m3-status" role="status" data-testid="m3-status" aria-live="polite">
             {state.error ? <strong>⚠ {state.message} {state.error}</strong> : state.message}
@@ -96,29 +124,49 @@ export default function M3ModularWardrobePage() {
           </div>
         </section>
         <section className="m3-editor" aria-label="Chọn trang phục">
-          <div className="m3-editor-top"><h2>Phối đồ</h2><span>4 slots độc lập</span></div>
-          {(Object.keys(LABELS) as WardrobeSlot[]).map((slot) => (
-            <div className="m3-group" key={slot}>
-              <div className="m3-group-head"><span>{LABELS[slot].icon} {LABELS[slot].name}</span><small>{state.equipped[slot] || "Chưa chọn"}</small></div>
-              <div className="m3-options">
-                {WARDROBE[slot].map((item) => (
-                  <button key={item.id} type="button"
-                    className={state.equipped[slot] === item.id ? "active" : ""}
-                    aria-pressed={state.equipped[slot] === item.id}
-                    disabled={!state.ready || Boolean(loadingSlot)}
-                    onClick={() => void equip(slot, item.id)}>
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
+          <div className="m3-editor-top"><h2>Phối đồ</h2><span>44 món · 6 nhóm</span></div>
+          <p className="m3-swipe-hint">Vuốt ngang trong từng nhóm để xem thêm đồ. Món mới chỉ được tải khi bạn chọn.</p>
+          {SLOTS.map((slot) => {
+            const selected = state.equipped[slot];
+            const options = WARDROBE[slot];
+            return (
+              <section className="m3-group" key={slot} aria-label={LABELS[slot].name}>
+                <div className="m3-group-head"><span>{LABELS[slot].icon} {LABELS[slot].name}</span><small>{selected || "Không mặc"} · {options.length} mẫu</small></div>
+                <div className="m3-options">
+                  {OPTIONAL_SLOTS.has(slot) && (
+                    <button type="button" className={!selected ? "active" : ""} aria-pressed={!selected}
+                      disabled={!state.ready || Boolean(loadingSlot)}
+                      onClick={() => void equip(slot, "none")}>
+                      Không mặc
+                    </button>
+                  )}
+                  {options.map((item) => {
+                    const unavailable = unavailableReason(slot, item.id, state.equipped);
+                    return (
+                      <button key={item.id} type="button"
+                        title={unavailable || item.label}
+                        className={selected === item.id ? "active" : ""}
+                        aria-pressed={selected === item.id}
+                        disabled={!state.ready || Boolean(loadingSlot) || Boolean(unavailable)}
+                        onClick={() => void equip(slot, item.id)}>
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {slot === "outer" && ["hoodie", "dress", "fulljacket"].includes(state.equipped.top || "") &&
+                  <p className="m3-restriction">M3 không cho mặc áo khoác ngoài hoodie hoặc áo nguyên bộ.</p>}
+                {slot === "shoes" && ["cargopants", "doublebeltpants", "jumpsuitpants"].includes(state.equipped.bottom || "") &&
+                  <p className="m3-restriction">Một số boots cao bị khóa khi mặc quần dài.</p>}
+              </section>
+            );
+          })}
           <div className="m3-tech">
             <h3>QA / Kiến trúc</h3>
-            <p>Eyes là trait bắt buộc riêng của Drophunter, được nạp cố định vào base. Mỗi item phải trùng thứ tự bone và inverse bind matrices với base (sai số ≤ 0,0001). Khi thay đồ, demo giữ một skeleton và một AnimationMixer; không tải lại actor.</p>
-            <p>Dance 110 BPM là clip thử nghiệm cục bộ, <strong>không phải animation/gameplay clock của Audition</strong>. Chưa kiểm chứng clipping hay hiệu suất 5 người trên iPhone.</p>
-            <p>Asset từ GitHub bên thứ ba, tải trực tiếp vào trình duyệt; chưa có quyền phân phối xác nhận. Không đóng gói VRM trong repository.</p>
-            <a href="https://github.com/memelotsqui/character-assets/tree/main/drophunter" target="_blank" rel="noopener noreferrer">Xem nguồn Drophunter</a>
+            <p>Eyes là phần bắt buộc và không bị thay khi đổi đồ. Mỗi garment phải có cùng bone order và inverse bind matrices với base (ngưỡng 0,0001). Demo giữ một skeleton, một AnimationMixer, một lần nạp base.</p>
+            <p>Quy tắc phối đồ theo manifest Drophunter được áp dụng cho áo khoác, quần dài/boots cao và Leg Strap. Chưa có body occlusion hoặc springbone physics đầy đủ nên cần kiểm tra clipping khi chuyển động mạnh.</p>
+            <p>Tải trực tiếp file bên thứ ba trong trình duyệt; chưa xác nhận giấy phép phân phối. Không đóng gói VRM vào repository.</p>
+            <a href={SOURCE} target="_blank" rel="noopener noreferrer">Xem nguồn Drophunter</a>
           </div>
         </section>
       </div>
