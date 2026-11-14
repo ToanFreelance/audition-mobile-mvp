@@ -3,6 +3,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { makeMotionClip, MOTIONS, type MotionId } from "./motions";
 
 // Isolated research-only runtime. These are public, third-party source URLs,
 // NOT files checked into Audition or approved for asset redistribution.
@@ -15,7 +16,7 @@ const EYES = "eyes/regulareyes.vrm";
 const BPM = 110;
 const EPSILON = 0.0001;
 
-export type WardrobeSlot = "top" | "bottom" | "shoes" | "hair";
+export type WardrobeSlot = "top" | "bottom" | "shoes" | "hair" | "outer" | "accessory";
 export type WardrobeOption = { id: string; label: string; file: string };
 export type WardrobeSnapshot = {
   ready: boolean;
@@ -29,6 +30,8 @@ export type WardrobeSnapshot = {
   moving: boolean;
   maxBindDelta: number;
   eyesReady: boolean;
+  motionId: MotionId;
+  motionTracks: number;
 };
 
 export const WARDROBE: Record<WardrobeSlot, WardrobeOption[]> = {
@@ -36,33 +39,81 @@ export const WARDROBE: Record<WardrobeSlot, WardrobeOption[]> = {
     { id: "tanktop", label: "Tank Top", file: "chest/tanktop.vrm" },
     { id: "croptop", label: "Crop Top", file: "chest/croptop.vrm" },
     { id: "hoodie", label: "Hoodie", file: "chest/hoodie.vrm" },
+    { id: "jumpsuittop", label: "Jumpsuit Top", file: "chest/jumpsuittop.vrm" },
+    { id: "lightshirt", label: "Light Shirt", file: "chest/lightshirt.vrm" },
+    { id: "shirt", label: "Shirt", file: "chest/shirt.vrm" },
+    { id: "sweater", label: "Sweater", file: "chest/sweater.vrm" },
+    { id: "tuckedshirt", label: "Tucked Shirt", file: "chest/tuckedshirt.vrm" },
+    { id: "dress", label: "Dress", file: "chest/dress.vrm" },
+    { id: "fulljacket", label: "Full Jacket", file: "chest/fulljacket.vrm" },
   ],
   bottom: [
     { id: "skirt", label: "Skirt", file: "legs/skirt.vrm" },
     { id: "cargopants", label: "Cargo Pants", file: "legs/cargopants.vrm" },
+    { id: "doublebeltpants", label: "Double Belt", file: "legs/doublebeltpants.vrm" },
+    { id: "jumpsuitpants", label: "Jumpsuit Pants", file: "legs/jumpsuitpants.vrm" },
+    { id: "abovekneeshorts", label: "Knee Shorts", file: "legs/abovekneeshorts.vrm" },
+    { id: "casualshorts", label: "Casual Shorts", file: "legs/casualshorts.vrm" },
     { id: "sportshorts", label: "Sport Shorts", file: "legs/sportshorts.vrm" },
+    { id: "sportshortswithanklebands", label: "Ankle Band Shorts", file: "legs/sportshortswithanklebands.vrm" },
+    { id: "waistshorts", label: "Waist Shorts", file: "legs/waistshorts.vrm" },
   ],
   shoes: [
     { id: "dressboots2", label: "Short Boots", file: "feet/dressboots2.vrm" },
     { id: "thinshoe", label: "Thin Shoes", file: "feet/thinshoe.vrm" },
     { id: "hightop", label: "High Tops", file: "feet/hightop.vrm" },
+    { id: "sneakers", label: "Sneakers", file: "feet/sneakers.vrm" },
+    { id: "tennisshoes", label: "Tennis Shoes", file: "feet/tennisshoes.vrm" },
+    { id: "designershoes", label: "Designer Shoes", file: "feet/designershoes.vrm" },
+    { id: "dressboots", label: "Dress Boots", file: "feet/dressboots.vrm" },
+    { id: "shortboots", label: "Ankle Boots", file: "feet/shortboots.vrm" },
+    { id: "designertallboots", label: "Designer Tall Boots", file: "feet/designertallboots.vrm" },
+    { id: "tallboots", label: "Tall Boots", file: "feet/tallboots.vrm" },
   ],
   hair: [
     { id: "curledbangs", label: "Curled Bangs", file: "head/curledbangs.vrm" },
     { id: "ponytail", label: "Ponytail", file: "head/ponytail.vrm" },
     { id: "buns", label: "Buns", file: "head/buns.vrm" },
+    { id: "dreds", label: "Dreads", file: "head/dreds.vrm" },
+    { id: "longspike", label: "Long Spikes", file: "head/longspike.vrm" },
+    { id: "short", label: "Short", file: "head/short.vrm" },
+    { id: "shortband", label: "Short Band", file: "head/shortband.vrm" },
+    { id: "shortcurve", label: "Short Curved", file: "head/shortcurve.vrm" },
+    { id: "straight", label: "Straight", file: "head/straight.vrm" },
+    { id: "swept", label: "Swept", file: "head/swept.vrm" },
+  ],
+  outer: [
+    { id: "halfjacket", label: "Half Jacket", file: "outer/halfjacket.vrm" },
+    { id: "jacket", label: "Jacket", file: "outer/jacket.vrm" },
+    { id: "shortjacket", label: "Short Jacket", file: "outer/shortjacket.vrm" },
+  ],
+  accessory: [
+    { id: "hipbelt", label: "Hip Belt", file: "accessories/hipbelt.vrm" },
+    { id: "legstrapandcompress", label: "Leg Strap", file: "accessories/legstrapandcompress.vrm" },
   ],
 };
 
+// Explicit equivalents of the Drophunter manifest typeRestrictions.
+// These do not attempt geometry/skin fitting and cannot prevent every clash.
+const SOLO_TOPS = new Set(["hoodie", "dress", "fulljacket"]);
+const PANTS = new Set(["cargopants", "doublebeltpants", "jumpsuitpants"]);
+const TALL_BOOTS = new Set(["designertallboots", "tallboots"]);
+export function unavailableReason(
+  slot: WardrobeSlot, optionId: string, equipped: Record<WardrobeSlot, string | null>,
+): string | null {
+  if (slot === "outer" && SOLO_TOPS.has(equipped.top ?? "")) return "Tháo hoodie/áo nguyên bộ trước khi mặc áo khoác.";
+  if (PANTS.has(equipped.bottom ?? "") && slot === "shoes" && TALL_BOOTS.has(optionId)) return "Quần dài không phối với boots cao trong manifest M3.";
+  if (PANTS.has(equipped.bottom ?? "") && slot === "accessory" && optionId === "legstrapandcompress") return "Leg Strap không dùng cùng quần dài.";
+  return null;
+}
+
 const initial: Record<WardrobeSlot, string> = {
-  top: "tanktop",
-  bottom: "skirt",
-  shoes: "dressboots2",
-  hair: "curledbangs",
+  top: "tanktop", bottom: "skirt", shoes: "dressboots2", hair: "curledbangs",
+  outer: "none", accessory: "none",
 };
 
 type SourcePart = { scene: THREE.Group; meshes: THREE.SkinnedMesh[] };
-const slots: WardrobeSlot[] = ["top", "bottom", "shoes", "hair"];
+const slots: WardrobeSlot[] = ["top", "bottom", "shoes", "hair", "outer", "accessory"];
 
 function getSkinnedMeshes(root: THREE.Object3D): THREE.SkinnedMesh[] {
   const found: THREE.SkinnedMesh[] = [];
@@ -153,12 +204,15 @@ export class M3WardrobeRuntime {
   private readonly cache = new Map<string, SourcePart>();
   private readonly active = new Map<WardrobeSlot, THREE.SkinnedMesh[]>();
   private readonly eyeMeshes: THREE.SkinnedMesh[] = [];
-  private readonly tokens: Record<WardrobeSlot, number> = { top: 0, bottom: 0, shoes: 0, hair: 0 };
-  private readonly equipment: Record<WardrobeSlot, string | null> = { top: null, bottom: null, shoes: null, hair: null };
+  private readonly tokens: Record<WardrobeSlot, number> = { top: 0, bottom: 0, shoes: 0, hair: 0, outer: 0, accessory: 0 };
+  private readonly equipment: Record<WardrobeSlot, string | null> = { top: null, bottom: null, shoes: null, hair: null, outer: null, accessory: null };
   private root: THREE.Group | null = null;
   private rig: THREE.Skeleton | null = null;
   private mixer: THREE.AnimationMixer | null = null;
-  private dance: THREE.AnimationAction | null = null;
+  private readonly clips = new Map<MotionId, THREE.AnimationClip>();
+  private activeAction: THREE.AnimationAction | null = null;
+  private motionId: MotionId = "groove";
+  private motionTracks = 0;
   private raf = 0;
   private destroyed = false;
   private ready = false;
@@ -235,6 +289,8 @@ export class M3WardrobeRuntime {
       moving: this.moving,
       maxBindDelta: this.maxBindDelta,
       eyesReady: this.eyesReady,
+      motionId: this.motionId,
+      motionTracks: this.motionTracks,
     };
   }
 
@@ -328,9 +384,8 @@ export class M3WardrobeRuntime {
       this.scene.add(platform);
       this.ground = platform;
       this.mixer = new THREE.AnimationMixer(this.root);
-      this.dance = this.mixer.clipAction(danceClip(this.rig));
-      this.dance.setLoop(THREE.LoopRepeat, Infinity);
-      this.dance.play();
+      for (const motion of MOTIONS) this.clips.set(motion.id, makeMotionClip(this.rig, motion.id));
+      this.setMotion("groove");
       this.message = "Đang nạp Eyes bắt buộc từ manifest Drophunter...";
       this.publish();
       await this.installEyes();
@@ -338,7 +393,7 @@ export class M3WardrobeRuntime {
       this.ready = true;
       this.message = "Base đã nạp một lần. Đang mặc các item...";
       this.publish();
-      await Promise.all(slots.map((slot) => this.equip(slot, initial[slot])));
+      await Promise.all(slots.filter((slot) => initial[slot] !== "none").map((slot) => this.equip(slot, initial[slot])));
       if (!this.destroyed) {
         this.message = "Sẵn sàng: thay từng item, giữ cùng actor và AnimationMixer.";
         this.publish();
@@ -351,11 +406,31 @@ export class M3WardrobeRuntime {
     }
   }
 
+  private clearSlot(slot: WardrobeSlot): void {
+    this.active.get(slot)?.forEach((mesh) => mesh.removeFromParent());
+    this.active.delete(slot);
+    this.equipment[slot] = null;
+  }
+
   async equip(slot: WardrobeSlot, optionId: string): Promise<void> {
     if (!this.ready || !this.root || !this.rig || this.destroyed) return;
+    const token = ++this.tokens[slot];
+    if (optionId === "none" && (slot === "outer" || slot === "accessory")) {
+      this.clearSlot(slot);
+      this.error = null;
+      this.message = slot === "outer" ? "Đã tháo áo khoác." : "Đã tháo phụ kiện.";
+      this.publish();
+      return;
+    }
     const option = WARDROBE[slot].find((item) => item.id === optionId);
     if (!option) throw new Error(`Unknown ${slot} option: ${optionId}`);
-    const token = ++this.tokens[slot];
+    const blocked = unavailableReason(slot, optionId, this.equipment);
+    if (blocked) {
+      this.error = blocked;
+      this.message = `Không thể mặc ${option.label}.`;
+      this.publish();
+      return;
+    }
     this.error = null;
     this.message = `Đang thay ${option.label}...`;
     this.publish();
@@ -387,6 +462,17 @@ export class M3WardrobeRuntime {
       this.active.set(slot, replacement);
       this.equipment[slot] = optionId;
       this.maxBindDelta = Math.max(this.maxBindDelta, localMax);
+      if (slot === "top" && SOLO_TOPS.has(optionId) && this.equipment.outer) {
+        this.tokens.outer++;
+        this.clearSlot("outer");
+      }
+      if (slot === "bottom" && PANTS.has(optionId)) {
+        if (this.equipment.accessory === "legstrapandcompress") {
+          this.tokens.accessory++;
+          this.clearSlot("accessory");
+        }
+        if (TALL_BOOTS.has(this.equipment.shoes ?? "")) void this.equip("shoes", "dressboots2");
+      }
       this.message = `Đã mặc ${option.label}; base và mixer không thay đổi.`;
     } catch (err) {
       if (this.destroyed || token !== this.tokens[slot]) return;
@@ -396,9 +482,25 @@ export class M3WardrobeRuntime {
     this.publish();
   }
 
+  setMotion(id: MotionId): void {
+    if (!this.mixer) return;
+    const clip = this.clips.get(id);
+    if (!clip) return;
+    const next = this.mixer.clipAction(clip);
+    if (this.activeAction && this.activeAction !== next) this.activeAction.fadeOut(0.2);
+    if (this.activeAction !== next) {
+      next.reset();
+      next.setLoop(THREE.LoopRepeat, Infinity);
+      next.fadeIn(0.2).play();
+    }
+    this.activeAction = next;
+    this.motionId = id;
+    this.motionTracks = clip.tracks.length;
+    this.publish();
+  }
+
   setDance(playing: boolean): void {
     this.moving = playing;
-    if (this.dance) this.dance.paused = !playing;
     this.publish();
   }
 
@@ -421,6 +523,8 @@ export class M3WardrobeRuntime {
     this.resize.disconnect();
     this.mixer?.stopAllAction();
     this.mixer = null;
+    this.clips.clear();
+    this.activeAction = null;
     this.controls.dispose();
     for (const part of this.cache.values()) disposeScene(part.scene);
     this.cache.clear();
