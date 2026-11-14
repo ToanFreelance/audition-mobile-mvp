@@ -17,3 +17,34 @@
 .m3-motion-choices button small{display:block;font-size:9px;line-height:1.35;color:#d9cbe8;margin-top:5px}
 .m3-motion-panel>p{font-size:10px;color:#bfb2d4;line-height:1.55;margin:9px 0 0}
 @media(max-width:460px){.m3-motion-choices button{min-height:70px;padding:7px 6px}.m3-motion-choices button strong{font-size:10px}.m3-motion-heading span{font-size:9px}}
+
+/* V1.3: the rendered actor stays visible while trying clothes on iPhone.
+   Motion/metrics are deliberately outside the sticky preview to save space. */
+.m3-grid{grid-template-rows:auto 1fr}
+.m3-stage-card{grid-column:1;grid-row:1;position:sticky;top:10px;align-self:start;z-index:5}
+.m3-diagnostics{grid-column:1;grid-row:2;border:1px solid rgba(178,149,226,.26);border-radius:19px;background:rgba(28,25,51,.88);padding:12px 0 3px}
+.m3-editor{grid-column:2;grid-row:1 / span 2}
+.m3-avatar-tabs{display:flex;gap:4px;min-width:0;flex:1}
+.m3-avatar-tabs button{background:#211c39;border:1px solid #54466f;color:#c0b4d4;border-radius:100px;padding:7px 10px;font-size:10px;white-space:nowrap;cursor:pointer}
+.m3-avatar-tabs button.active{color:#fff;background:linear-gradient(110deg,#7550ac,#a05fa6);border-color:#c899eb}
+.m3-stage-top .m3-demo-badge{margin-left:0;flex:0 0 auto}
+.m3-diagnostics .m3-motion-panel{margin:0 12px 12px}
+@media(max-width:800px){
+  .m3-grid{display:flex;flex-direction:column;align-items:stretch;gap:12px}
+  .m3-stage-card{position:sticky;top:0;align-self:stretch;width:100%;z-index:10;border-radius:13px;box-shadow:0 12px 32px rgba(0,0,0,.48)}
+  .m3-viewport{height:clamp(205px,34svh,320px);min-height:0}
+  .m3-stage-top{padding:8px 9px;gap:5px}
+  .m3-stage-top .m3-demo-badge{font-size:8px;letter-spacing:.1px;padding:5px 6px}
+  .m3-avatar-tabs button{padding:6px 8px;font-size:10px}
+  .m3-cameras{gap:5px;padding:7px 8px}
+  .m3-cameras button{min-height:36px;padding:6px;font-size:10px}
+  .m3-diagnostics{border-radius:14px}
+  .m3-diagnostics .m3-motion-panel{margin:0 10px 10px}
+  .m3-diagnostics .m3-status{margin:0 10px 10px}
+  .m3-diagnostics .m3-metrics{margin:0 10px 10px}
+  .m3-editor{width:100%}
+}
+@media(max-width:390px){
+  .m3-viewport{height:clamp(180px,30svh,275px)}
+  .m3-avatar-tabs button{padding:5px 6px;font-size:9px}
+}

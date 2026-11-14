@@ -80,3 +80,21 @@ Owner tested the V1 preview on physical iPhone: multiple outfits **successfully 
 **Expected clip counts on Drophunter:** Groove 12, Street Shuffle 14, Low & Reach 15 (assuming the author's intended named joints exist). These are *expected*, not browser-verified until iPhone/interactive QA.
 
 **Validation:** Git/Vercel build and TypeScript result to be recorded when observed. Owner iPhone retry remains necessary for visual and functional PASS; do not infer runtime success solely from build.
+
+## V1.3 — M3 Anata Male + sticky iPhone viewport (2026-11-14)
+
+Owner accepted Drophunter female wardrobe and all three motion probes on physical iPhone, explicitly authorized testing a male model and requested a sticky 3D preview while scrolling wardrobe choices.
+
+**Architecture:** Gender/character selection is an **explicit character identity change** that can dispose the previous isolated QA actor and create one distinct base/skeleton/mixer. Within a selected character, individual clothing swaps continue to **reuse the exact existing actor and mixer**; no garment rig is added to the scene.
+
+**Female:** Drophunter remains unchanged, sourced from `memelotsqui/character-assets/drophunter`: 198 joints, Eyes required, 44 independent outfit options, 6 female slots.
+
+**Male:** Anata Male from `M3-org/loot-assets/anata/male`: `Body/male.vrm` is the only base. Official manifest is source of 14 chest, 15 shoes, 16 head items, 11 hands, 3 neck and 15 waist = **74 separate selections across 6 male slots**. `Weapon` excluded intentionally: extreme file sizes and irrelevant to dance QA. This pack does **not** offer a separate male hair or trousers slot; never invent them or mix female Drophunter garment data onto the 55-joint male rig. Only the published source URLs are referenced; no third-party binary in repo.
+
+**Real source metadata preflight:** Male cap, slippers and amulet GLB/VRM data independently inspected. Each skin has 55 joints with identical bone order; cap vs slippers inverse-bind max absolute delta `2.384185791015625e-7`, amulet vs cap delta 0. Actual male base binary, WebGL runtime and male garment QA have not yet been inspected in-browser. Validate at runtime against base inverse-bind skeleton with `EPSILON=0.0001`; fail visibly if mismatch.
+
+**Sticky preview:** Stage section becomes `position:sticky` on small viewports, with compact avatar switch / 3D viewport / camera controls. Motion selection, status, metrics and clothing scroll **below sticky section** in regular document flow; do not wrap stage in an overflow-hidden ancestor. The sticky preview itself is portrait-sized to leave room to scroll and click outfit controls below.
+
+**Three QA motions:** Generated `Groove`, `Street Shuffle` and `Low & Reach`, reused across both humaniod skeletons when compatible; not the authoritative Audition gameplay timeline. Body switch resets the local QA actor/mixer as a new identity; ordinary equip does not.
+
+**Validation:** Vercel Next.js build, TypeScript and route existence to check explicitly. The original owner female QA remains accepted for the previous version; **male and sticky Preview still require physical iPhone tests**. No merge, PR, Shop/Inventory, Vita replacement, Character Catalog or WebAudio/Supabase modifications.
