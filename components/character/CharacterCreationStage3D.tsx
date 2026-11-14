@@ -66,6 +66,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
   appearanceRef.current = appearance;
   const renderRef = useRef<(() => void) | null>(null);
   const focusRef = useRef<((nextFocus: CharacterCreatorFocus, animate?: boolean) => void) | null>(null);
+  const orbitRef = useRef<((nextYaw: number) => void) | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "fallback">("loading");
 
   useEffect(() => {
@@ -86,6 +87,9 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     const lookTarget = new THREE.Vector3(0, initialFrame.targetY, 0);
     camera.lookAt(lookTarget);
     let activeFocus: CharacterCreatorFocus = focus;
+    // M3 uses detached SkinnedMesh binding: NEVER scale, translate or rotate
+    // its canonical VRM rig after assembly. Frame it using the camera only.
+    let m3View: { centerX: number; centerZ: number; minY: number; ratio: number } | null = null;
 
     // A portrait tablet uses a tall, narrow stage pane beside its controls.
     // Increase only its presentation distance to prevent head cropping.
@@ -172,16 +176,49 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     };
     renderRef.current = render;
 
+    const viewFrame = (key: CharacterCreatorFocus) => {
+      const frame = PREVIEW_FRAMES[key];
+      const ratio = m3View?.ratio ?? 1;
+      const minY = m3View?.minY ?? 0;
+      return {
+        cameraY: minY + frame.cameraY * ratio,
+        cameraZ: cameraDistance(frame.cameraZ * ratio),
+        targetY: minY + frame.targetY * ratio,
+        fov: frame.fov,
+      };
+    };
+    const setOrbit = (distance: number, nextYaw: number) => {
+      if (!m3View) {
+        camera.position.x = 0;
+        camera.position.z = distance;
+        lookTarget.x = 0;
+        lookTarget.z = 0;
+        return;
+      }
+      // Camera-orbit rotation does not touch the SkinnedMesh bind space.
+      camera.position.x = m3View.centerX + Math.sin(nextYaw) * distance;
+      camera.position.z = m3View.centerZ + Math.cos(nextYaw) * distance;
+      lookTarget.x = m3View.centerX;
+      lookTarget.z = m3View.centerZ;
+    };
+    orbitRef.current = nextYaw => {
+      if (!m3View) return;
+      const distance = Math.hypot(camera.position.x - m3View.centerX, camera.position.z - m3View.centerZ);
+      setOrbit(distance, nextYaw);
+      camera.lookAt(lookTarget);
+      render();
+    };
+
     const applyFocus = (nextFocus: CharacterCreatorFocus, animate = true) => {
       activeFocus = nextFocus;
-      const frame = PREVIEW_FRAMES[nextFocus];
-      const fittedZ = cameraDistance(frame.cameraZ);
+      const frame = viewFrame(nextFocus);
+      const fittedZ = frame.cameraZ;
       cancelAnimationFrame(focusRaf);
 
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (!animate || reducedMotion) {
         camera.position.y = frame.cameraY;
-        camera.position.z = fittedZ;
+        setOrbit(fittedZ, yawRef.current);
         camera.fov = frame.fov;
         lookTarget.y = frame.targetY;
         camera.lookAt(lookTarget);
@@ -201,7 +238,10 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
         const progress = Math.min(1, (now - startedAt) / durationMs);
         const eased = easeOutCubic(progress);
         camera.position.y = THREE.MathUtils.lerp(startPosition.y, frame.cameraY, eased);
-        camera.position.z = THREE.MathUtils.lerp(startPosition.z, fittedZ, eased);
+        const desiredX = m3View ? m3View.centerX + Math.sin(yawRef.current) * fittedZ : 0;
+        const desiredZ = m3View ? m3View.centerZ + Math.cos(yawRef.current) * fittedZ : fittedZ;
+        camera.position.x = THREE.MathUtils.lerp(startPosition.x, desiredX, eased);
+        camera.position.z = THREE.MathUtils.lerp(startPosition.z, desiredZ, eased);
         camera.fov = THREE.MathUtils.lerp(startFov, frame.fov, eased);
         lookTarget.y = THREE.MathUtils.lerp(startTargetY, frame.targetY, eased);
         camera.lookAt(lookTarget);
@@ -218,7 +258,8 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
       camera.aspect = width / height;
-      camera.position.z = cameraDistance(PREVIEW_FRAMES[activeFocus].cameraZ);
+      const frame = viewFrame(activeFocus);
+      setOrbit(frame.cameraZ, yawRef.current);
       camera.lookAt(lookTarget);
       camera.updateProjectionMatrix();
       const mobile = window.matchMedia("(pointer: coarse)").matches || width <= 768;
@@ -254,15 +295,33 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
             else disposeObjectResources(root);
             return;
           }
-          // For M3, normalize only a parent presentation Group. Never scale
-          // or reparent the canonical base VRM's rig/garments individually.
-          const presentation = assembly ? new THREE.Group() : root;
-          if (assembly) presentation.add(root);
-          normalizePreview(presentation);
-          presentation.rotation.y = yawRef.current;
-          modelRef.current = presentation;
+          if (assembly) {
+            // Regression root cause: detached SkinnedMesh bind + scaling an
+            // ancestor doubles the transform on clothing/eyes. The owner-PASS
+            // M3 demo keeps the rig at its original VRM world scale.
+            root.updateMatrixWorld(true);
+            const box = new THREE.Box3().setFromObject(root);
+            const height = box.getSize(new THREE.Vector3()).y;
+            if (!(height > 0) || !Number.isFinite(height)) throw new Error("M3 avatar has invalid world bounds");
+            const center = box.getCenter(new THREE.Vector3());
+            const ratio = height / NORMALIZED_CHARACTER_HEIGHT;
+            m3View = { centerX: center.x, centerZ: center.z, minY: box.min.y, ratio };
+            // Stage decorations can scale independently; NEVER the M3 actor.
+            floor.scale.setScalar(ratio);
+            floor.position.set(center.x, box.min.y - 0.01 * ratio, center.z);
+            ring.scale.setScalar(ratio);
+            ring.position.set(center.x, box.min.y + 0.006 * ratio, center.z);
+            pinkRing.scale.setScalar(ratio);
+            pinkRing.position.set(center.x, box.min.y + 0.008 * ratio, center.z);
+            host.dataset.m3WorldHeight = height.toFixed(3);
+            host.dataset.m3CameraScale = ratio.toFixed(4);
+          } else {
+            normalizePreview(root);
+            root.rotation.y = yawRef.current;
+          }
+          modelRef.current = root;
           assemblerRef.current = assembly;
-          scene.add(presentation);
+          scene.add(root);
           host.dataset.characterSource = assetId;
           host.dataset.m3Bones = String(assembly?.skeleton?.bones.length ?? 0);
           host.dataset.m3BaseLoads = String(assembly?.baseLoads ?? 0);
@@ -289,6 +348,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       cancelAnimationFrame(focusRaf);
       observer.disconnect();
       focusRef.current = null;
+      orbitRef.current = null;
       renderRef.current = null;
       modelRef.current = null;
       assemblerRef.current?.dispose();
@@ -323,6 +383,10 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
 
   useEffect(() => {
     if (!modelRef.current) return;
+    if (assemblerRef.current) {
+      orbitRef.current?.(yaw);
+      return;
+    }
     modelRef.current.rotation.y = yaw;
     modelRef.current.updateMatrixWorld(true);
     renderRef.current?.();
