@@ -48,3 +48,6 @@
   .m3-viewport{height:clamp(180px,30svh,275px)}
   .m3-avatar-tabs button{padding:5px 6px;font-size:9px}
 }
+
+/* V1.4: three explicit actor identities without adding sticky viewport height. */
+@media(max-width:390px){.m3-avatar-tabs{gap:3px}.m3-avatar-tabs button{font-size:8px;padding:5px 4px}.m3-stage-top .m3-demo-badge{font-size:7px;padding:4px 5px}}

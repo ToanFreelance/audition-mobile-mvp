@@ -6,6 +6,7 @@ import {
   type AvatarKind, type WardrobeSlot, type WardrobeSnapshot,
 } from "./runtime";
 import { MALE_WARDROBE, MALE_SLOTS, MALE_OPTIONAL_SLOTS } from "./male-catalog";
+import { STREET_WARDROBE, STREET_SLOTS, STREET_OPTIONAL_SLOTS, STREET_SOLO_TOPS, streetUnavailableReason } from "./street-catalog";
 import { MOTIONS } from "./motions";
 import "./m3-wardrobe.css";
 
@@ -83,18 +84,20 @@ export default function M3ModularWardrobePage() {
     finally { setLoadingSlot(null); }
   };
 
-  const male = avatarKind === "male";
-  const slots = male ? MALE_SLOTS : FEMALE_SLOTS;
-  const optional = male ? new Set<WardrobeSlot>(MALE_OPTIONAL_SLOTS) : FEMALE_OPTIONAL;
-  const catalog = male ? MALE_WARDROBE : WARDROBE;
+  const anata = avatarKind === "male";
+  const street = avatarKind === "male-street";
+  const male = anata || street;
+  const slots = street ? STREET_SLOTS : anata ? MALE_SLOTS : FEMALE_SLOTS;
+  const optional = street ? new Set<WardrobeSlot>(STREET_OPTIONAL_SLOTS) : anata ? new Set<WardrobeSlot>(MALE_OPTIONAL_SLOTS) : FEMALE_OPTIONAL;
+  const catalog = street ? STREET_WARDROBE : anata ? MALE_WARDROBE : WARDROBE;
   const count = slots.reduce((sum, slot) => sum + (catalog[slot]?.length ?? 0), 0);
 
   return (
     <main className="m3-lab" data-testid="m3-modular-wardrobe">
       <header className="m3-head">
         <div className="m3-eyebrow">AUDITION MOBILE MVP / MODULAR RESEARCH</div>
-        <h1>Wardrobe <span>Studio</span> <small>V1.3</small></h1>
-        <p>Hai base tách biệt, outfit modular theo từng rig. Trên iPhone, khung 3D ở trên sẽ cố định khi bạn cuộn danh sách trang phục.</p>
+        <h1>Wardrobe <span>Studio</span> <small>V1.4</small></h1>
+        <p>Thử thêm nam Streetwear (Neurohacker Experimental) bên cạnh nữ Drophunter và nam Anata. Khung 3D vẫn sticky trên iPhone.</p>
       </header>
       <div className="m3-grid">
         <section className="m3-stage-card" aria-label="Nhân vật 3D" data-testid="m3-sticky-preview">
@@ -102,9 +105,10 @@ export default function M3ModularWardrobePage() {
             <span className="m3-dot" />
             <div className="m3-avatar-tabs" role="group" aria-label="Chọn nhân vật">
               <button type="button" className={!male ? "active" : ""} aria-pressed={!male} onClick={() => chooseAvatar("female")} data-testid="m3-avatar-female">Nữ · Drophunter</button>
-              <button type="button" className={male ? "active" : ""} aria-pressed={male} onClick={() => chooseAvatar("male")} data-testid="m3-avatar-male">Nam · Anata</button>
+              <button type="button" className={street ? "active" : ""} aria-pressed={street} onClick={() => chooseAvatar("male-street")} data-testid="m3-avatar-male-street" aria-label="Nam Streetwear Neurohacker thử nghiệm">Nam · Street</button>
+              <button type="button" className={anata ? "active" : ""} aria-pressed={anata} onClick={() => chooseAvatar("male")} data-testid="m3-avatar-male">Nam · Anata</button>
             </div>
-            <span className="m3-demo-badge" data-testid="m3-eyes-status">{male ? "55-JOINT RIG" : state.eyesReady ? "EYES ✓" : "EYES —"}</span>
+            <span className="m3-demo-badge" data-testid="m3-eyes-status">{anata ? "55-JOINT RIG" : state.eyesReady ? "EYES ✓" : "EYES —"}</span>
           </div>
           <div className="m3-viewport" ref={mountRef} data-testid="m3-stage">
             {!state.ready && <div className="m3-loading">Đang nạp VRM và kiểm tra skeleton…</div>}
@@ -164,7 +168,7 @@ export default function M3ModularWardrobePage() {
                     </button>
                   )}
                   {options.map((item) => {
-                    const unavailable = male ? null : unavailableReason(slot, item.id, state.equipped);
+                    const unavailable = street ? streetUnavailableReason(slot, item.id, state.equipped) : male ? null : unavailableReason(slot, item.id, state.equipped);
                     return (
                       <button key={item.id} type="button" title={unavailable || item.label}
                         className={selected === item.id ? "active" : ""}
@@ -176,6 +180,8 @@ export default function M3ModularWardrobePage() {
                     );
                   })}
                 </div>
+                {street && slot === "outer" && STREET_SOLO_TOPS.has(state.equipped.top || "") &&
+                  <p className="m3-restriction">Áo Streetwear/Full Jacket là kiểu solo, cần đổi áo trước khi mặc áo khoác.</p>}
                 {!male && slot === "outer" && ["hoodie", "dress", "fulljacket"].includes(state.equipped.top || "") &&
                   <p className="m3-restriction">M3 không cho mặc áo khoác ngoài hoodie hoặc áo nguyên bộ.</p>}
                 {!male && slot === "shoes" && ["cargopants", "doublebeltpants", "jumpsuitpants"].includes(state.equipped.bottom || "") &&
@@ -185,7 +191,13 @@ export default function M3ModularWardrobePage() {
           })}
           <div className="m3-tech">
             <h3>QA / Kiến trúc</h3>
-            {male ? (
+            {street ? (
+              <>
+                <p><strong>EXPERIMENTAL · chưa iPhone PASS.</strong> Neurohacker từ cùng hệ M3, có áo, quần, giày, tóc và phụ kiện VRM tách rời. Mỗi item được kiểm tra lại bone/order/inverse-bind ngay khi nạp; lỗi không được thay bằng model giả.</p>
+                <p>Ba mẫu tóc nguồn đã xác minh 102 joints và inverse-bind khớp nhau. Skeleton body và garment lớn cần qua runtime gate thực tế. Giữ một actor + một mixer cho các lần thay đồ.</p>
+                <a href="https://github.com/memelotsqui/character-assets/tree/main/neurohacker" target="_blank" rel="noopener noreferrer">Nguồn Neurohacker</a>
+              </>
+            ) : male ? (
               <>
                 <p>Anata Male là bộ modular fantasy để thử cơ chế nam: một base 55 joints, các trait áo, mũ, găng, giày, cổ và đai riêng. Không có slot tóc/quần độc lập trong manifest này.</p>
                 <p>Khi chọn Nam ↔ Nữ, demo chủ động thay nhân vật vì mỗi base có rig khác nhau; khi thay quần áo, mixer và actor phải giữ nguyên.</p>

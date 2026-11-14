@@ -5,6 +5,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { makeMotionClip, MOTIONS, type MotionId } from "./motions";
 import { MALE_WARDROBE, MALE_SLOTS, MALE_DEFAULT } from "./male-catalog";
+import { STREET_WARDROBE, STREET_SLOTS, STREET_DEFAULT, STREET_SOLO_TOPS, streetUnavailableReason } from "./street-catalog";
 
 // Isolated research-only runtime. These are public, third-party source URLs,
 // NOT files checked into Audition or approved for asset redistribution.
@@ -13,6 +14,10 @@ const SOURCE_FALLBACK = "https://cdn.jsdelivr.net/gh/memelotsqui/character-asset
 const MALE_SOURCE = "https://raw.githubusercontent.com/m3-org/loot-assets/main/anata/male/";
 const MALE_SOURCE_FALLBACK = "https://cdn.jsdelivr.net/gh/m3-org/loot-assets@main/anata/male/";
 const MALE_BODY = "Body/male.vrm";
+const STREET_SOURCE = "https://raw.githubusercontent.com/memelotsqui/character-assets/main/neurohacker/";
+const STREET_SOURCE_FALLBACK = "https://cdn.jsdelivr.net/gh/memelotsqui/character-assets@main/neurohacker/";
+const STREET_BODY = "body/neurohacker.vrm";
+const STREET_EYES = "eyes/regulareyes.vrm";
 const BODY = "body/drophunter.vrm";
 // "eyes" is a REQUIRED anatomical trait in Drophunter's source manifest.
 // It is not an outfit slot, and must be installed only once with the base.
@@ -22,7 +27,7 @@ const EPSILON = 0.0001;
 // A long iPhone try-on session must not retain all 44 expanded VRM sources.
 const MAX_CACHED_SOURCE_PARTS = 14;
 
-export type AvatarKind = "female" | "male";
+export type AvatarKind = "female" | "male" | "male-street";
 export type WardrobeSlot = "top" | "bottom" | "shoes" | "hair" | "outer" | "accessory" | "head" | "hands" | "neck" | "waist";
 export type WardrobeOption = { id: string; label: string; file: string };
 export type WardrobeSnapshot = {
@@ -200,9 +205,10 @@ export class M3WardrobeRuntime {
     this.host = host;
     this.report = report;
     this.avatarKind = avatarKind;
-    this.slots = avatarKind === "male" ? MALE_SLOTS : FEMALE_SLOTS;
-    this.activeCatalog = avatarKind === "male" ? MALE_WARDROBE : WARDROBE;
-    this.startingItems = avatarKind === "male" ? MALE_DEFAULT : { ...initial, head: "none", hands: "none", neck: "none", waist: "none" };
+    this.slots = avatarKind === "male" ? MALE_SLOTS : avatarKind === "male-street" ? STREET_SLOTS : FEMALE_SLOTS;
+    this.activeCatalog = avatarKind === "male" ? MALE_WARDROBE : avatarKind === "male-street" ? STREET_WARDROBE : WARDROBE;
+    this.startingItems = avatarKind === "male" ? MALE_DEFAULT : avatarKind === "male-street" ? STREET_DEFAULT : { ...initial, head: "none", hands: "none", neck: "none", waist: "none" };
+    this.message = avatarKind === "male" ? "Đang tải Anata..." : avatarKind === "male-street" ? "Đang tải Neurohacker..." : "Đang tải Drophunter...";
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color("#0d1025");
     this.scene.fog = new THREE.Fog("#0d1025", 8, 20);
@@ -283,11 +289,13 @@ export class M3WardrobeRuntime {
       this.cache.set(path, cached);
       return cached;
     }
+    const origin = this.avatarKind === "male" ? MALE_SOURCE : this.avatarKind === "male-street" ? STREET_SOURCE : SOURCE;
+    const fallback = this.avatarKind === "male" ? MALE_SOURCE_FALLBACK : this.avatarKind === "male-street" ? STREET_SOURCE_FALLBACK : SOURCE_FALLBACK;
     let gltf: Awaited<ReturnType<GLTFLoader["loadAsync"]>>;
     try {
-      gltf = await this.loader.loadAsync((this.avatarKind === "male" ? MALE_SOURCE : SOURCE) + path);
+      gltf = await this.loader.loadAsync(origin + path);
     } catch {
-      gltf = await this.loader.loadAsync((this.avatarKind === "male" ? MALE_SOURCE_FALLBACK : SOURCE_FALLBACK) + path);
+      gltf = await this.loader.loadAsync(fallback + path);
     }
     const meshes = getSkinnedMeshes(gltf.scene);
     if (!meshes.length) throw new Error(`Asset ${path} không có SkinnedMesh.`);
@@ -302,7 +310,7 @@ export class M3WardrobeRuntime {
 
   private trimUnusedCache(): void {
     if (this.cache.size <= MAX_CACHED_SOURCE_PARTS) return;
-    const pinned = new Set<string>(this.avatarKind === "male" ? [MALE_BODY] : [BODY, EYES]);
+    const pinned = new Set<string>(this.avatarKind === "male" ? [MALE_BODY] : this.avatarKind === "male-street" ? [STREET_BODY, STREET_EYES] : [BODY, EYES]);
     for (const slot of this.slots) {
       const id = this.equipment[slot];
       if (!id) continue;
@@ -327,7 +335,7 @@ export class M3WardrobeRuntime {
    */
   private async installEyes(): Promise<void> {
     if (!this.root || !this.rig) throw new Error("Base chưa được nạp để gắn mắt.");
-    const part = await this.getModel(EYES);
+    const part = await this.getModel(this.avatarKind === "male-street" ? STREET_EYES : EYES);
     if (this.destroyed) return;
     this.root.updateMatrixWorld(true);
     part.scene.updateMatrixWorld(true);
@@ -359,7 +367,7 @@ export class M3WardrobeRuntime {
 
   async initialize(): Promise<void> {
     try {
-      const loaded = await this.getModel(this.avatarKind === "male" ? MALE_BODY : BODY);
+      const loaded = await this.getModel(this.avatarKind === "male" ? MALE_BODY : this.avatarKind === "male-street" ? STREET_BODY : BODY);
       if (this.destroyed) return;
       const main = loaded.meshes.reduce((a, b) => a.skeleton.bones.length >= b.skeleton.bones.length ? a : b);
       if (main.skeleton.bones.length < 50) throw new Error("Base không có rig humanoid hợp lệ.");
@@ -387,8 +395,8 @@ export class M3WardrobeRuntime {
       this.mixer = new THREE.AnimationMixer(this.root);
       for (const motion of MOTIONS) this.clips.set(motion.id, makeMotionClip(this.rig, motion.id));
       this.setMotion("groove");
-      if (this.avatarKind === "female") {
-        this.message = "Đang nạp Eyes bắt buộc từ manifest Drophunter...";
+      if (this.avatarKind !== "male") {
+        this.message = `Đang nạp Eyes bắt buộc từ manifest ${this.avatarKind === "male-street" ? "Neurohacker" : "Drophunter"}...`;
         this.publish();
         await this.installEyes();
         if (this.destroyed) return;
@@ -427,7 +435,7 @@ export class M3WardrobeRuntime {
     }
     const option = this.activeCatalog[slot]?.find((item) => item.id === optionId);
     if (!option) throw new Error(`Unknown ${slot} option: ${optionId}`);
-    const blocked = this.avatarKind === "female" ? unavailableReason(slot, optionId, this.equipment) : null;
+    const blocked = this.avatarKind === "female" ? unavailableReason(slot, optionId, this.equipment) : this.avatarKind === "male-street" ? streetUnavailableReason(slot, optionId, this.equipment) : null;
     if (blocked) {
       this.error = blocked;
       this.message = `Không thể mặc ${option.label}.`;
@@ -465,7 +473,7 @@ export class M3WardrobeRuntime {
       this.active.set(slot, replacement);
       this.equipment[slot] = optionId;
       this.maxBindDelta = Math.max(this.maxBindDelta, localMax);
-      if (this.avatarKind === "female" && slot === "top" && SOLO_TOPS.has(optionId) && this.equipment.outer) {
+      if ((this.avatarKind === "female" && SOLO_TOPS.has(optionId) || this.avatarKind === "male-street" && STREET_SOLO_TOPS.has(optionId)) && slot === "top" && this.equipment.outer) {
         this.tokens.outer++;
         this.clearSlot("outer");
       }
