@@ -22,6 +22,7 @@ const DEFAULT_STATE: WardrobeSnapshot = {
   cacheSize: 0,
   moving: true,
   maxBindDelta: 0,
+  eyesReady: false,
 };
 
 export default function M3ModularWardrobePage() {
@@ -71,7 +72,7 @@ export default function M3ModularWardrobePage() {
         <section className="m3-stage-card" aria-label="Nhân vật 3D">
           <div className="m3-stage-top">
             <span className="m3-dot" /> Drophunter / shared rig
-            <span className="m3-demo-badge">RESEARCH DEMO</span>
+            <span className="m3-demo-badge" data-testid="m3-eyes-status">{state.eyesReady ? "EYES ✓" : "EYES —"}</span>
           </div>
           <div className="m3-viewport" ref={mountRef} data-testid="m3-stage">
             {!state.ready && <div className="m3-loading">Đang nạp VRM và kiểm tra skeleton…</div>}
@@ -114,7 +115,7 @@ export default function M3ModularWardrobePage() {
           ))}
           <div className="m3-tech">
             <h3>QA / Kiến trúc</h3>
-            <p>Mỗi item phải trùng thứ tự bone và inverse bind matrices với base (sai số ≤ 0,0001). Khi thay đồ, demo giữ một skeleton và một AnimationMixer; không tải lại actor.</p>
+            <p>Eyes là trait bắt buộc riêng của Drophunter, được nạp cố định vào base. Mỗi item phải trùng thứ tự bone và inverse bind matrices với base (sai số ≤ 0,0001). Khi thay đồ, demo giữ một skeleton và một AnimationMixer; không tải lại actor.</p>
             <p>Dance 110 BPM là clip thử nghiệm cục bộ, <strong>không phải animation/gameplay clock của Audition</strong>. Chưa kiểm chứng clipping hay hiệu suất 5 người trên iPhone.</p>
             <p>Asset từ GitHub bên thứ ba, tải trực tiếp vào trình duyệt; chưa có quyền phân phối xác nhận. Không đóng gói VRM trong repository.</p>
             <a href="https://github.com/memelotsqui/character-assets/tree/main/drophunter" target="_blank" rel="noopener noreferrer">Xem nguồn Drophunter</a>

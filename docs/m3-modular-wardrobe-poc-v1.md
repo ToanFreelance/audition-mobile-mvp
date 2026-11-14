@@ -41,3 +41,13 @@ No license file/redistribution grant was found in that external repository. The 
 - No Playwright or full CI suite run. The Vercel `next build` result is a compile/deployment check only.
 - Open risk: actual third-party VRM downloads depend on external origin/CORS; `GLTFLoader` intentionally does not implement the full M3 MToon material/springbone stack. The QA route uses a minimal Three.js material fallback and original QA dance loop, not the full CharacterStudio runtime.
 - Source files lack a verified independent asset reuse license; do not integrate into production distribution.
+
+## V1.1 — iPhone owner eye-socket defect (2026-11-14)
+
+Owner tested the V1 preview on physical iPhone: multiple outfits **successfully swapped** with the UI showing **198 joints, 1 mixer, 1 base load and 13 cached files**; however the face rendered without eyes, exposing the empty eye area. This is independent of clothing switching. The screenshot is not stored in the repository.
+
+**Root cause verified:** The Drophunter source `drophunter/manifest.json` explicitly includes `requiredTraits: ["body", "eyes"]`, with Eyes source `eyes/regulareyes.vrm`. Isolated Audition V1 loaded body + four wardrobe slots but **omitted the mandatory Eyes trait**. The engine therefore displayed eye sockets without their intended skinned eye mesh; M3's original manifest-led assembly would normally include it.
+
+**Focused correction:** Load `eyes/regulareyes.vrm` as a **fixed required base component**, check skeleton compatibility, bind it to the persistent base rig, keep materials/morph target metadata, and expose `EYES ✓` status. Do not add a new actor or mixer; do not implement eye geometry manually. If the third-party file is unavailable or violates bind-pose bounds, show an explicit error instead of claiming a repair.
+
+**After/acceptance:** With eyes loaded, on iPhone observe pupils/eyeballs correctly placed from front and side under all hairstyles. Verify the original wardrobe controls still work and the counter remains `1 mixer / 1 base load`. Loader and build validation is **not equivalent** to physical visual PASS. No Shop/Inventory, Character Catalog, actor production, WebAudio or gameplay changes.

@@ -9,6 +9,9 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 const SOURCE = "https://raw.githubusercontent.com/memelotsqui/character-assets/main/drophunter/";
 const SOURCE_FALLBACK = "https://cdn.jsdelivr.net/gh/memelotsqui/character-assets@main/drophunter/";
 const BODY = "body/drophunter.vrm";
+// "eyes" is a REQUIRED anatomical trait in Drophunter's source manifest.
+// It is not an outfit slot, and must be installed only once with the base.
+const EYES = "eyes/regulareyes.vrm";
 const BPM = 110;
 const EPSILON = 0.0001;
 
@@ -25,6 +28,7 @@ export type WardrobeSnapshot = {
   cacheSize: number;
   moving: boolean;
   maxBindDelta: number;
+  eyesReady: boolean;
 };
 
 export const WARDROBE: Record<WardrobeSlot, WardrobeOption[]> = {
@@ -148,6 +152,7 @@ export class M3WardrobeRuntime {
   private readonly clock = new THREE.Clock();
   private readonly cache = new Map<string, SourcePart>();
   private readonly active = new Map<WardrobeSlot, THREE.SkinnedMesh[]>();
+  private readonly eyeMeshes: THREE.SkinnedMesh[] = [];
   private readonly tokens: Record<WardrobeSlot, number> = { top: 0, bottom: 0, shoes: 0, hair: 0 };
   private readonly equipment: Record<WardrobeSlot, string | null> = { top: null, bottom: null, shoes: null, hair: null };
   private root: THREE.Group | null = null;
@@ -161,6 +166,7 @@ export class M3WardrobeRuntime {
   private error: string | null = null;
   private message = "Đang tải base Drophunter...";
   private maxBindDelta = 0;
+  private eyesReady = false;
   private baseReloads = 0;
   private ground: THREE.Mesh | null = null;
 
@@ -228,6 +234,7 @@ export class M3WardrobeRuntime {
       cacheSize: this.cache.size,
       moving: this.moving,
       maxBindDelta: this.maxBindDelta,
+      eyesReady: this.eyesReady,
     };
   }
 
@@ -253,6 +260,44 @@ export class M3WardrobeRuntime {
     }
     this.cache.set(path, part);
     return part;
+  }
+
+  /**
+   * Install the mandatory eyes on the existing canonical body skeleton.
+   * Drophunter's manifest defines eyes separately from body. Without this
+   * trait the sockets are empty and the viewer appears to see through the face.
+   * Never create an eye-specific AnimationMixer or add its donor rig to scene.
+   */
+  private async installEyes(): Promise<void> {
+    if (!this.root || !this.rig) throw new Error("Base chưa được nạp để gắn mắt.");
+    const part = await this.getModel(EYES);
+    if (this.destroyed) return;
+    this.root.updateMatrixWorld(true);
+    part.scene.updateMatrixWorld(true);
+    const installed: THREE.SkinnedMesh[] = [];
+    let localMaxDelta = 0;
+    for (const sourceMesh of part.meshes) {
+      localMaxDelta = Math.max(localMaxDelta, skeletonCompatible(this.rig, sourceMesh.skeleton));
+      const eyes = new THREE.SkinnedMesh(sourceMesh.geometry, sourceMesh.material);
+      eyes.name = "m3-required-eyes";
+      eyes.frustumCulled = false;
+      eyes.matrixAutoUpdate = false;
+      eyes.matrix.copy(this.root.matrixWorld.clone().invert().multiply(sourceMesh.matrixWorld));
+      eyes.matrixWorldNeedsUpdate = true;
+      eyes.bindMode = "detached";
+      eyes.bind(this.rig, sourceMesh.bindMatrix);
+      // Preserve any authored morph targets (e.g. eye blink shapes).
+      if (sourceMesh.morphTargetDictionary && sourceMesh.morphTargetInfluences) {
+        eyes.morphTargetDictionary = { ...sourceMesh.morphTargetDictionary };
+        eyes.morphTargetInfluences = [...sourceMesh.morphTargetInfluences];
+      }
+      installed.push(eyes);
+    }
+    if (!installed.length) throw new Error("Trait Eyes không chứa mesh mắt hợp lệ.");
+    installed.forEach((mesh) => this.root?.add(mesh));
+    this.eyeMeshes.push(...installed);
+    this.maxBindDelta = Math.max(this.maxBindDelta, localMaxDelta);
+    this.eyesReady = true;
   }
 
   async initialize(): Promise<void> {
@@ -286,6 +331,10 @@ export class M3WardrobeRuntime {
       this.dance = this.mixer.clipAction(danceClip(this.rig));
       this.dance.setLoop(THREE.LoopRepeat, Infinity);
       this.dance.play();
+      this.message = "Đang nạp Eyes bắt buộc từ manifest Drophunter...";
+      this.publish();
+      await this.installEyes();
+      if (this.destroyed) return;
       this.ready = true;
       this.message = "Base đã nạp một lần. Đang mặc các item...";
       this.publish();
@@ -366,6 +415,8 @@ export class M3WardrobeRuntime {
     if (this.destroyed) return;
     this.destroyed = true;
     slots.forEach((slot) => { this.tokens[slot]++; this.active.get(slot)?.forEach((mesh) => mesh.removeFromParent()); });
+    this.eyeMeshes.forEach((mesh) => mesh.removeFromParent());
+    this.eyeMeshes.length = 0;
     window.cancelAnimationFrame(this.raf);
     this.resize.disconnect();
     this.mixer?.stopAllAction();
