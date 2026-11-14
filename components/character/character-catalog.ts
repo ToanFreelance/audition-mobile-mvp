@@ -157,14 +157,14 @@ const DROPHUNTER_M3: CharacterCatalogEntry = {
   creatorBadge: "FEMALE · M3 POC", creatorVersionLabel: "M3 Creator Step 1",
   appearance: {
     hairStyles: [
-      { id: "curledbangs", label: "Curled Bangs", available: true },
       { id: "short", label: "Tóc ngắn", available: true },
+      { id: "curledbangs", label: "Curled Bangs", available: true },
       { id: "ponytail", label: "Ponytail", available: true },
       { id: "buns", label: "Buns", available: true },
     ],
     hairColors: M3_HAIR_COLOR, skinTones: M3_SKIN, faces: M3_FACE,
   },
-  defaultAppearance: { hairStyle: "curledbangs", hairColor: "original", skinTone: "originalskin", face: "basic-01" },
+  defaultAppearance: { hairStyle: "short", hairColor: "original", skinTone: "originalskin", face: "basic-01" },
   equipmentSlots: ["outfit", "accessory", "shoes"],
 };
 const NEUROHACKER_M3: CharacterCatalogEntry = {

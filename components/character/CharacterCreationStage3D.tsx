@@ -254,12 +254,15 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
             else disposeObjectResources(root);
             return;
           }
-          // Canonical mesh binding was resolved before presentation-only scale/center.
-          normalizePreview(root);
-          root.rotation.y = yawRef.current;
-          modelRef.current = root;
+          // For M3, normalize only a parent presentation Group. Never scale
+          // or reparent the canonical base VRM's rig/garments individually.
+          const presentation = assembly ? new THREE.Group() : root;
+          if (assembly) presentation.add(root);
+          normalizePreview(presentation);
+          presentation.rotation.y = yawRef.current;
+          modelRef.current = presentation;
           assemblerRef.current = assembly;
-          scene.add(root);
+          scene.add(presentation);
           host.dataset.characterSource = assetId;
           host.dataset.m3Bones = String(assembly?.skeleton?.bones.length ?? 0);
           host.dataset.m3BaseLoads = String(assembly?.baseLoads ?? 0);

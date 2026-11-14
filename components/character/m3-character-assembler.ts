@@ -13,12 +13,14 @@ const FALLBACK = "https://cdn.jsdelivr.net/gh/memelotsqui/character-assets@main/
 const FAMILIES = {
   drophunter: {
     body: "body/drophunter.vrm", eyes: "eyes/regulareyes.vrm",
-    top: "chest/tanktop.vrm", bottom: "legs/skirt.vrm", shoes: "feet/dressboots2.vrm",
-    hair: ["curledbangs", "short", "ponytail", "buns"],
+    // Plain dance starter. Each VRM is a separate real SkinnedMesh trait in the Drophunter manifest.
+    top: "chest/shirt.vrm", bottom: "legs/casualshorts.vrm", shoes: "feet/sneakers.vrm",
+    hair: ["short", "curledbangs", "ponytail", "buns"],
   },
   neurohacker: {
     body: "body/neurohacker.vrm", eyes: "eyes/regulareyes.vrm",
-    top: "chest/streetware.vrm", bottom: "legs/cargopants.vrm", shoes: "foot/simpleshoes.vrm",
+    // T-shirt + casual shorts + everyday shoes, not fantasy armor.
+    top: "chest/logotee.vrm", bottom: "legs/cargoshorts.vrm", shoes: "foot/simpleshoes.vrm",
     hair: ["short", "hair1", "hair2", "hair3"],
   },
 } as const;
@@ -65,7 +67,8 @@ function skinFiles(family: M3RigFamily, id: string): readonly string[] {
   return files;
 }
 export class M3CharacterAssembler {
-  readonly root = new THREE.Group();
+  /** Canonical VRM scene itself, matching the owner-accepted M3 V1.4 rig hierarchy. */
+  root: THREE.Group = new THREE.Group();
   skeleton: THREE.Skeleton | null = null;
   baseLoads = 0;
   maxBindDelta = 0;
@@ -118,10 +121,14 @@ export class M3CharacterAssembler {
     if (primary.skeleton.bones.length < 50) throw new Error("Invalid M3 body rig");
     this.skeleton = primary.skeleton;
     this.body = body.scene;
-    this.body.updateMatrixWorld(true);
-    // Bind space captured BEFORE preview normalization; later hair swaps use this fixed matrix.
-    this.bindInverse.copy(this.body.matrixWorld).invert();
-    this.root.add(this.body);
+    // Critical: bind the donor meshes directly under the VRM base scene, as in
+    // the owner-PASS M3 V1.4 runtime. An intermediate skeleton owner changes
+    // coordinate spaces and can make clothing/eyes fly away from the actor.
+    // A separate presentation-only wrapper is owned by CharacterCreationStage3D.
+    this.root = body.scene;
+    this.root.name = "M3Actor:" + this.family;
+    this.root.updateMatrixWorld(true);
+    this.bindInverse.copy(this.root.matrixWorld).invert();
     this.baseLoads++;
     this.findSkinTargets();
     for (const slot of ["eyes", "top", "bottom", "shoes"] as const) await this.attach(slot, family[slot]);
@@ -131,6 +138,7 @@ export class M3CharacterAssembler {
   private async attach(slot: Slot, path: string): Promise<void> {
     const source = await this.loadPart(path);
     if (this.disposed || !this.body || !this.skeleton) return;
+    this.root.updateMatrixWorld(true);
     source.scene.updateMatrixWorld(true);
     const replacements: THREE.SkinnedMesh[] = [];
     for (const donor of source.meshes) {
@@ -141,6 +149,8 @@ export class M3CharacterAssembler {
       worn.name = `m3-${slot}-${path}`;
       worn.frustumCulled = false;
       worn.matrixAutoUpdate = false;
+      // Inverse of the original unnormalized root world matrix. The viewport
+      // transforms an outer Group only; the original bind space stays stable.
       worn.matrix.copy(this.bindInverse.clone().multiply(donor.matrixWorld));
       worn.matrixWorldNeedsUpdate = true;
       worn.bindMode = "detached";
@@ -151,12 +161,37 @@ export class M3CharacterAssembler {
       }
       replacements.push(worn);
     }
+    // Guard against coordinate-space regressions (giant skirt/boots/legs).
+    // Use the same skeleton's current rest pose; no animation or clock involved.
+    this.root.updateMatrixWorld(true);
+    const bodyBounds = new THREE.Box3().setFromObject(this.root);
+    const bodyHeight = bodyBounds.getSize(new THREE.Vector3()).y;
+    if (bodyHeight > 0 && Number.isFinite(bodyHeight)) {
+      const partBounds = new THREE.Box3();
+      for (const mesh of replacements) {
+        // Temporary parent only for an accurate world-bounds diagnostic;
+        // do not expose unvalidated garments in the live actor.
+        this.root.add(mesh);
+        this.root.updateMatrixWorld(true);
+        partBounds.expandByObject(mesh);
+        mesh.removeFromParent();
+      }
+      const partSize = partBounds.getSize(new THREE.Vector3());
+      const bodySize = bodyBounds.getSize(new THREE.Vector3());
+      if (partSize.y > bodyHeight * 2.5 || partSize.x > Math.max(bodySize.x * 3.5, bodyHeight * 1.5)) {
+        replacements.forEach(mesh => {
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          mats.forEach(material => material.dispose());
+        });
+        throw new Error(`M3 ${slot} outside canonical bind space: ${partSize.y.toFixed(2)} / body ${bodyHeight.toFixed(2)}`);
+      }
+    }
     for (const previous of this.equipped.get(slot) ?? []) {
       previous.removeFromParent();
       const materials = Array.isArray(previous.material) ? previous.material : [previous.material];
       materials.forEach(material => material.dispose());
     }
-    for (const mesh of replacements) this.body.add(mesh);
+    for (const mesh of replacements) this.root.add(mesh);
     this.equipped.set(slot, replacements);
   }
   private async swapHair(id: string): Promise<void> {

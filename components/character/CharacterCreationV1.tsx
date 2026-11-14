@@ -70,8 +70,8 @@ function ChoiceCard({
 }
 
 export default function CharacterCreationV1() {
-  const [tab, setTab] = useState<CreatorTab>("hair");
-  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [tab, setTab] = useState<CreatorTab>("body");
+  const [optionsOpen, setOptionsOpen] = useState(true);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
   const [lockedAssetId, setLockedAssetId] = useState<CharacterAssetId | null>(null);

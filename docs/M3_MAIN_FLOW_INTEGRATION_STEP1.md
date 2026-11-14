@@ -38,3 +38,19 @@ Current Room Browser forwards name and characterAssetId; RoomState avatar outfit
 - No Shop/Inventory, new clothing, Phase 14, direct development edits, merge, or production catalog activation.
 
 Validation: TypeScript/Next.js build and preview READY must be separately verified; code construction is not a mobile visual PASS.
+
+## Correction — physical iPhone owner findings (2026-11-14)
+Owner screenshot: female eyes/hair absent, skirt over head, boots away from feet,
+male giant trouser meshes. Root issue: Step 1 M3 assembler added an intermediate
+actor Group between base VRM and presentation frame, differing from the accepted
+M3 demo's canonical bind-space ownership. This correction makes the base VRM
+scene itself own the skeleton and all equipped SkinnedMesh traits. Only an
+outside presentation group receives scale/center/camera rotation. Source rig
+checks remain; geometric outliers fail closed, not shown as floating garments.
+
+Initial screen is now Tạo hình, selector open for choosing sex/skin. Default
+source-backed outfit: Drophunter short hair, original light skin, shirt,
+casualshorts, sneakers; Neurohacker short hair, original light skin, Logo Tee,
+Cargo Shorts, casual shoes. Existing saved custom profile is not overwritten;
+new default applies to fresh profiles and on identity switching.
+This is implementation QA only: visual must be retested on physical iPhone.
