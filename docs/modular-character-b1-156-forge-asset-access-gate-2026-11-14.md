@@ -43,3 +43,17 @@ Direction B: ONE cute dance-friendly base body + canonical skeleton per characte
 ## Work done and not done
 
 Only a documentation report was authored. No source code or dependencies changed; no third-party downloads/paid purchases, Unity app, Blender import, motion QA, Vercel preview, PR or merge. Original approved Vita assets, accepted Hair Studio, production Character Catalog, RoomState, Supabase and WebAudio remain unchanged.
+
+## B1 owner ownership evidence update — 2026-11-14
+
+The owner provided a screenshot captured on an iPhone of Unity Asset Store **My Assets** showing **156 FORGE — Modular Anime School Girl – Lite Edition**, **2.4 MB**, **v1.0.0**, purchase/add date **Nov 14, 2026**. This establishes account-side acquisition/entitlement **PASS on the displayed account**. Do **not** store the screenshot or its account/organization name in the public repository.
+
+**This supersedes only the previous statement that owner asset entitlement was unavailable/unverified.** It does **not** establish any connected Unity session in ChatGPT, GitHub, CLI or a remote Unity Editor; no package binary was transferred to this environment.
+
+- **Unity My Assets entitlement: PASS (owner screenshot evidence).**
+- **Usable file transfer/download into execution environment: BLOCKED.**
+- **B1 real binary inspection, skeleton/weights, independent garment swaps, animation and artistic QA: NOT RUN.**
+
+Unity's official procedure is to sign into **Unity Hub / Unity Editor** using the same Unity ID, then open **Package Manager → My Assets → Download/Import**. The fact the owner is logged into the iPhone web browser does not automatically authenticate a separate compute/Work tool session. Do not request passwords/tokens or require owner desktop operations; a properly authorized remote Unity environment or publisher-permitted standalone asset package is still required.
+
+Official guidance: https://docs.unity.com/en-us/asset-store/downloads/purchase-asset-packages and https://docs.unity.com/en-us/engine/6000.0/manual/packages-list/managing-packages-window/upm-ui-actions-ap/upm-ui-import
