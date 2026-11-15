@@ -546,10 +546,10 @@ export default function CharacterCreationV1() {
             onClick={createCharacter}
             type="button"
           >
-            {created ? creatorCharacter.runtimeReady ? "✓ NHÂN VẬT MVP ĐÃ SẴN SÀNG" : "✓ ĐÃ LƯU M3 (CREATOR QA)" : "TẠO NHÂN VẬT"}
+            {created ? creatorCharacter.runtimeReady ? "✓ NHÂN VẬT MVP ĐÃ SẴN SÀNG" : "✓ ĐÃ LƯU M3 · THỬ PHÒNG CHỜ" : "TẠO NHÂN VẬT"}
           </button>
 
-          {created && creatorCharacter.runtimeReady && (
+          {created && (creatorCharacter.runtimeReady || creatorCharacter.lobbyReady) && (
             <a
               href="/rooms"
               data-testid="entry-continue-rooms"
@@ -564,9 +564,9 @@ export default function CharacterCreationV1() {
             </a>
           )}
 
-          {created && !creatorCharacter.runtimeReady && (
+          {created && creatorCharacter.lobbyReady && !creatorCharacter.runtimeReady && (
             <p role="status" className={styles.m3GateNote}>
-              ✓ Nhân vật M3 đã lưu trên thiết bị. Waiting Room và Gameplay sẽ được bật ở bước tích hợp tiếp theo.
+              M3 chỉ thử hiển thị trong phòng chờ. Host Start/gameplay vẫn khóa cho đến khi retarget animation.
             </p>
           )}
           {saveError && <p className={styles.creatorSaveError} role="alert">{saveError}</p>}
