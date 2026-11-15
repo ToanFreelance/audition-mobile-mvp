@@ -885,3 +885,6 @@
   .creatorControlPanel .bodyCard > button.genderChoice:not(.swatch){font-size:13px}
   .creatorControlPanel .genderIcon{font-size:25px}
 }
+
+/* The M3 dock already owns the studio heading on every breakpoint. */
+.creatorDock .desktopHeading{display:none}
