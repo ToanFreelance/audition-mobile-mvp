@@ -1,289 +1,362 @@
 import * as THREE from "three";
 
 /**
- * M3-only Waiting Room idle. Keeps all motion on the participant's own
- * SkeletonUtils clone; gameplay clock, Mixamo mixers and canonical RoomState
- * never participate in this loop.
+ * M3 Waiting Room Idle V1.4 — video-reference pose choreography.
  *
- * V1.3: visible weight shift + authored, blended gesture poses. Two-bone IK
- * is solved ONCE when an actor spawns (not continuously). Crucially, the
- * hair-touch target is to the SIDE of the temple, below the top of the head:
- * not above the head as in the old "salute" gesture.
+ * Only the per-participant SkeletonUtils CLONE is animated. This has no
+ * relationship with WebAudio, gameplay AnimationMixer, or RoomState.
+ *
+ * The most important invariant is dual planted feet: heel/ankle anchors are
+ * stored in actor-local space, and the two-bone legs solve for those anchors
+ * after each subtle weight shift. Root/formation/camera motion remains owned
+ * by WaitingRoomStage3D.
  */
-export type M3LobbyGesture = "hair-touch" | "hand-on-hip" | "adjust-outfit" | "shoulder-roll";
+export type M3LobbyGesture =
+  | "hand-on-hip"
+  | "outfit-adjust"
+  | "look-aside"
+  | "neck-relax"
+  | "hair-brush";
+
 export type M3LobbyIdle = {
   elapsedSeconds: number;
-  hasScratchPose: boolean; // Existing Stage3D diagnostic contract.
+  hasScratchPose: boolean; // Retained for the existing Stage3D debug contract.
   currentGesture: M3LobbyGesture | null;
   completedGestures: number;
+  footDrift: number;
+  maxFootDrift: number;
   update(deltaSeconds: number): void;
 };
 
-type Pose = { bone: THREE.Bone; rest: THREE.Quaternion; position: THREE.Vector3 };
-type ArmPose = { shoulder: THREE.Quaternion; forearm: THREE.Quaternion; hand: THREE.Quaternion };
-type GesturePose = {
-  side: "L" | "R";
-  arm: ArmPose | null;
+type Joint = {
+  bone: THREE.Bone;
+  rotation: THREE.Quaternion;
+  position: THREE.Vector3;
 };
-const AXIS_X = new THREE.Vector3(1, 0, 0);
-const AXIS_Y = new THREE.Vector3(0, 1, 0);
-const AXIS_Z = new THREE.Vector3(0, 0, 1);
-const GESTURES: readonly M3LobbyGesture[] = [
-  "hair-touch", "hand-on-hip", "adjust-outfit", "shoulder-roll",
-];
+type ArmPose = {
+  upper: THREE.Quaternion;
+  forearm: THREE.Quaternion;
+  wrist: THREE.Quaternion;
+};
+type FootContact = {
+  upper: Joint;
+  lower: Joint;
+  ankle: Joint;
+  localAnchor: THREE.Vector3;
+  localWorldRotation: THREE.Quaternion;
+  poleLocal: THREE.Vector3;
+};
+type ActionPose = {
+  arm: ArmPose | null;
+  side: "L" | "R" | null;
+};
+
+const X = new THREE.Vector3(1, 0, 0);
+const Y = new THREE.Vector3(0, 1, 0);
+const Z = new THREE.Vector3(0, 0, 1);
 
 function hashId(input: string): number {
-  let hash = 2166136261;
-  for (let index = 0; index < input.length; index++) {
-    hash = Math.imul(hash ^ input.charCodeAt(index), 16777619);
+  let result = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    result = Math.imul(result ^ input.charCodeAt(i), 16777619);
   }
-  return hash >>> 0;
+  return result >>> 0;
 }
-function ease(value: number) {
-  const x = THREE.MathUtils.clamp(value, 0, 1);
+function ease(t: number): number {
+  const x = THREE.MathUtils.clamp(t, 0, 1);
   return x * x * (3 - 2 * x);
 }
-function findBone(skeleton: THREE.Skeleton, name: string) {
-  const safe = THREE.PropertyBinding.sanitizeNodeName(name);
-  return skeleton.bones.find(bone => bone.name === name || bone.name === safe);
+function keyCurve(phase: number): number {
+  // Long, recognisable holds rather than four sine waves in lockstep.
+  const keys: readonly [number, number][] = [
+    [0, 0], [.14, .1], [.28, .82], [.45, .85],
+    [.61, 0], [.77, -.65], [.89, -.60], [1, 0],
+  ];
+  for (let i = 0; i < keys.length - 1; i++) {
+    const [from, a] = keys[i], [to, b] = keys[i + 1];
+    if (phase <= to) return THREE.MathUtils.lerp(a, b, ease((phase - from) / (to - from)));
+  }
+  return 0;
 }
-function aim(bone: THREE.Bone, child: THREE.Bone, target: THREE.Vector3): boolean {
+function getJoint(skeleton: THREE.Skeleton, name: string): Joint | null {
+  const safe = THREE.PropertyBinding.sanitizeNodeName(name);
+  const bone = skeleton.bones.find(item => item.name === name || item.name === safe);
+  return bone ? { bone, rotation: bone.quaternion.clone(), position: bone.position.clone() } : null;
+}
+function appendRotation(joint: Joint, axis: THREE.Vector3, rad: number, tmp: THREE.Quaternion) {
+  joint.bone.quaternion.multiply(tmp.setFromAxisAngle(axis, rad));
+}
+function restore(joint: Joint) {
+  joint.bone.quaternion.copy(joint.rotation);
+  joint.bone.position.copy(joint.position);
+}
+
+function aimBone(bone: THREE.Bone, child: THREE.Bone, worldTarget: THREE.Vector3): boolean {
   bone.updateWorldMatrix(true, true);
-  const source = bone.getWorldPosition(new THREE.Vector3());
-  const current = child.getWorldPosition(new THREE.Vector3()).sub(source);
-  const desired = target.clone().sub(source);
-  if (current.lengthSq() < 1e-8 || desired.lengthSq() < 1e-8) return false;
-  const world = new THREE.Quaternion().setFromUnitVectors(current.normalize(), desired.normalize());
-  const parent = bone.parent?.getWorldQuaternion(new THREE.Quaternion()) ?? new THREE.Quaternion();
-  const local = parent.clone().invert().multiply(world).multiply(parent);
-  bone.quaternion.premultiply(local).normalize();
+  const start = bone.getWorldPosition(new THREE.Vector3());
+  const before = child.getWorldPosition(new THREE.Vector3()).sub(start);
+  const after = worldTarget.clone().sub(start);
+  if (before.lengthSq() < 1e-10 || after.lengthSq() < 1e-10) return false;
+  const delta = new THREE.Quaternion().setFromUnitVectors(before.normalize(), after.normalize());
+  const parentQ = bone.parent?.getWorldQuaternion(new THREE.Quaternion()) ?? new THREE.Quaternion();
+  bone.quaternion.premultiply(
+    parentQ.clone().invert().multiply(delta).multiply(parentQ),
+  ).normalize();
   bone.updateWorldMatrix(true, true);
   return true;
 }
 
-function captureArmGesture(
-  shoulder: Pose,
-  forearm: Pose,
-  hand: Pose,
+/**
+ * One two-bone solve. Includes a meaningful elbow/knee pole and an ankle
+ * orientation fix so soles stay level. Targets are in world coordinates.
+ */
+function solveLimb(
+  upper: Joint,
+  lower: Joint,
+  end: Joint,
   target: THREE.Vector3,
-  elbowHint: THREE.Vector3,
-): ArmPose | null {
-  // Source character already has the accepted creator-neutral resting pose.
-  // Solve a single reaching pose with preserved upper/lower bone lengths.
-  shoulder.bone.updateWorldMatrix(true, true);
-  const origin = shoulder.bone.getWorldPosition(new THREE.Vector3());
-  const elbow = forearm.bone.getWorldPosition(new THREE.Vector3());
-  const wrist = hand.bone.getWorldPosition(new THREE.Vector3());
-  const upperLength = origin.distanceTo(elbow);
-  const lowerLength = elbow.distanceTo(wrist);
-  if (upperLength < 1e-6 || lowerLength < 1e-6) return null;
-
-  const toHand = target.clone().sub(origin);
-  const targetDistance = toHand.length();
-  if (targetDistance < 1e-6) return null;
-  const direction = toHand.normalize();
-  const distance = THREE.MathUtils.clamp(
-    targetDistance,
-    Math.abs(upperLength - lowerLength) + 0.001,
-    (upperLength + lowerLength) * 0.97,
-  );
-  const reachable = origin.clone().addScaledVector(direction, distance);
-  const along = (upperLength ** 2 - lowerLength ** 2 + distance ** 2) / (2 * distance);
-  const height = Math.sqrt(Math.max(0, upperLength ** 2 - along ** 2));
-  const bend = elbowHint.clone().sub(origin);
-  bend.addScaledVector(direction, -bend.dot(direction));
-  if (bend.lengthSq() < 1e-8) return null;
-  bend.normalize();
-  const elbowTarget = origin.clone().addScaledVector(direction, along)
-    .addScaledVector(bend, height);
-
-  const solved = aim(shoulder.bone, forearm.bone, elbowTarget)
-    && aim(forearm.bone, hand.bone, reachable);
-  const result = solved ? {
-    shoulder: shoulder.bone.quaternion.clone(),
-    forearm: forearm.bone.quaternion.clone(),
-    hand: hand.bone.quaternion.clone(),
-  } : null;
-  forearm.bone.quaternion.copy(forearm.rest);
-  shoulder.bone.quaternion.copy(shoulder.rest);
-  hand.bone.quaternion.copy(hand.rest);
-  shoulder.bone.updateWorldMatrix(true, true);
-  return result;
+  pole: THREE.Vector3,
+): boolean {
+  upper.bone.updateWorldMatrix(true, true);
+  const origin = upper.bone.getWorldPosition(new THREE.Vector3());
+  const mid = lower.bone.getWorldPosition(new THREE.Vector3());
+  const tip = end.bone.getWorldPosition(new THREE.Vector3());
+  const first = origin.distanceTo(mid), second = mid.distanceTo(tip);
+  const direction = target.clone().sub(origin);
+  const rawDistance = direction.length();
+  if (first < 1e-6 || second < 1e-6 || rawDistance < 1e-6) return false;
+  direction.normalize();
+  const distance = THREE.MathUtils.clamp(rawDistance, Math.abs(first - second) + 1e-6, first + second - 1e-6);
+  const projection = (first * first - second * second + distance * distance) / (2 * distance);
+  const elevation = Math.sqrt(Math.max(0, first * first - projection * projection));
+  const poleDirection = pole.clone().sub(origin);
+  poleDirection.addScaledVector(direction, -poleDirection.dot(direction));
+  if (poleDirection.lengthSq() < 1e-10) return false;
+  const bend = poleDirection.normalize();
+  const midTarget = origin.clone().addScaledVector(direction, projection).addScaledVector(bend, elevation);
+  const limitedTarget = origin.clone().addScaledVector(direction, distance);
+  return aimBone(upper.bone, lower.bone, midTarget)
+    && aimBone(lower.bone, end.bone, limitedTarget);
 }
 
-export function createM3LobbyIdle(
-  actor: THREE.Object3D, participantId: string, roomId: string,
-): M3LobbyIdle | null {
+function bakeArm(
+  upper: Joint, forearm: Joint, wrist: Joint, target: THREE.Vector3, pole: THREE.Vector3,
+): ArmPose | null {
+  // Arms are posed ONCE at spawn, not continuously re-targeted each frame.
+  const success = solveLimb(upper, forearm, wrist, target, pole);
+  const posed = success
+    ? { upper: upper.bone.quaternion.clone(), forearm: forearm.bone.quaternion.clone(), wrist: wrist.bone.quaternion.clone() }
+    : null;
+  restore(wrist);
+  restore(forearm);
+  restore(upper);
+  upper.bone.updateWorldMatrix(true, true);
+  return posed;
+}
+
+function makeContact(
+  actor: THREE.Object3D, upper: Joint, lower: Joint, ankle: Joint, height: number, side: number,
+): FootContact {
+  actor.updateWorldMatrix(true, true);
+  const worldPoint = ankle.bone.getWorldPosition(new THREE.Vector3());
+  const worldRotation = ankle.bone.getWorldQuaternion(new THREE.Quaternion());
+  const actorRotation = actor.getWorldQuaternion(new THREE.Quaternion());
+  const knee = lower.bone.getWorldPosition(new THREE.Vector3());
+  const forward = new THREE.Vector3(0, 0, 1).transformDirection(actor.matrixWorld);
+  const outward = new THREE.Vector3(1, 0, 0).transformDirection(actor.matrixWorld);
+  const pole = knee.clone().addScaledVector(forward, height * .12)
+    .addScaledVector(outward, side * height * .013);
+  return {
+    upper, lower, ankle,
+    localAnchor: actor.worldToLocal(worldPoint.clone()),
+    localWorldRotation: actorRotation.invert().multiply(worldRotation),
+    poleLocal: actor.worldToLocal(pole),
+  };
+}
+
+function solvePlantedFoot(actor: THREE.Object3D, contact: FootContact): number {
+  const { upper, lower, ankle } = contact;
+  restore(upper); restore(lower); restore(ankle);
+  actor.updateWorldMatrix(true, true);
+  const footGoal = actor.localToWorld(contact.localAnchor.clone());
+  const kneePole = actor.localToWorld(contact.poleLocal.clone());
+  solveLimb(upper, lower, ankle, footGoal, kneePole);
+
+  // A bent knee changes the ankle's world orientation; undo that so the shoe
+  // follows the original actor heading, not a spinning lower-leg rotation.
+  const actorRotation = actor.getWorldQuaternion(new THREE.Quaternion());
+  const parentWorld = ankle.bone.parent!.getWorldQuaternion(new THREE.Quaternion());
+  ankle.bone.quaternion.copy(
+    parentWorld.invert().multiply(actorRotation).multiply(contact.localWorldRotation),
+  );
+  ankle.bone.updateWorldMatrix(true, true);
+  const actual = ankle.bone.getWorldPosition(new THREE.Vector3());
+  return actual.distanceTo(footGoal);
+}
+
+export function createM3LobbyIdle(actor: THREE.Object3D, participantId: string, roomId: string): M3LobbyIdle | null {
   let skeleton: THREE.Skeleton | null = null;
-  actor.traverse(node => {
-    const mesh = node as THREE.SkinnedMesh;
-    if (mesh.isSkinnedMesh && (!skeleton || mesh.skeleton.bones.length > skeleton.bones.length)) {
-      skeleton = mesh.skeleton;
+  actor.traverse(item => {
+    const skinned = item as THREE.SkinnedMesh;
+    if (skinned.isSkinnedMesh && (!skeleton || skinned.skeleton.bones.length > skeleton.bones.length)) {
+      skeleton = skinned.skeleton;
     }
   });
   if (!skeleton) return null;
   const rig = skeleton as THREE.Skeleton;
-  const capture = (name: string): Pose | null => {
-    const bone = findBone(rig, name);
-    return bone ? { bone, rest: bone.quaternion.clone(), position: bone.position.clone() } : null;
-  };
-  const hips = capture("hips"), spine = capture("spine"), neck = capture("neck"), head = capture("head");
-  const upperL = capture("upper_arm.L"), upperR = capture("upper_arm.R");
-  const lowerL = capture("lower_arm.L"), lowerR = capture("lower_arm.R");
-  const handL = capture("hand.L"), handR = capture("hand.R");
-  const legL = capture("upper_leg.L"), legR = capture("upper_leg.R");
-  if (!hips || !spine || !neck || !head || !upperL || !upperR ||
-      !lowerL || !lowerR || !handL || !handR || !legL || !legR) return null;
+  const hips = getJoint(rig, "hips"), spine = getJoint(rig, "spine"), neck = getJoint(rig, "neck"), head = getJoint(rig, "head");
+  const upperL = getJoint(rig, "upper_arm.L"), upperR = getJoint(rig, "upper_arm.R");
+  const foreL = getJoint(rig, "lower_arm.L"), foreR = getJoint(rig, "lower_arm.R");
+  const wristL = getJoint(rig, "hand.L"), wristR = getJoint(rig, "hand.R");
+  const thighL = getJoint(rig, "upper_leg.L"), thighR = getJoint(rig, "upper_leg.R");
+  const shinL = getJoint(rig, "lower_leg.L"), shinR = getJoint(rig, "lower_leg.R");
+  const ankleL = getJoint(rig, "foot.L"), ankleR = getJoint(rig, "foot.R");
+  if (!hips || !spine || !neck || !head || !upperL || !upperR || !foreL || !foreR ||
+    !wristL || !wristR || !thighL || !thighR || !shinL || !shinR || !ankleL || !ankleR) return null;
+
+  actor.updateWorldMatrix(true, true);
+  const worldHeight = new THREE.Box3().setFromObject(actor).getSize(new THREE.Vector3()).y;
+  const scale = actor.getWorldScale(new THREE.Vector3());
+  if (!(worldHeight > 0) || !(scale.y > 0)) return null;
+  const localHeight = worldHeight / scale.y;
+  const leftContact = makeContact(actor, thighL, shinL, ankleL, worldHeight, 1);
+  const rightContact = makeContact(actor, thighR, shinR, ankleR, worldHeight, -1);
 
   const seed = hashId(roomId + ":" + participantId);
-  const side: "L" | "R" = seed % 2 ? "L" : "R";
-  const upper = side === "L" ? upperL : upperR;
-  const lower = side === "L" ? lowerL : lowerR;
-  const hand = side === "L" ? handL : handR;
-  const bodyHeight = new THREE.Box3().setFromObject(actor).getSize(new THREE.Vector3()).y;
-  if (!Number.isFinite(bodyHeight) || bodyHeight <= 0) return null;
-  actor.updateWorldMatrix(true, true);
-  const headWorld = head.bone.getWorldPosition(new THREE.Vector3());
-  const hipsWorld = hips.bone.getWorldPosition(new THREE.Vector3());
-  const spineWorld = spine.bone.getWorldPosition(new THREE.Vector3());
-  const shoulderWorld = upper.bone.getWorldPosition(new THREE.Vector3());
-  // Derive rig's actual left/right placement; never infer character from ID.
-  const outward = Math.sign(shoulderWorld.x - headWorld.x) || (side === "L" ? -1 : 1);
-
-  // Geometry is proportional to world-space actor height. Hair reaches the
-  // outer temple with a visibly bent elbow. Other targets keep arms below
-  // shoulder/head height. Every gesture is baked into a safe rest-relative pose.
-  const targets: Partial<Record<M3LobbyGesture, GesturePose>> = {};
-  const bake = (name: M3LobbyGesture, target: THREE.Vector3, hint: THREE.Vector3) => {
-    const arm = captureArmGesture(upper, lower, hand, target, hint);
-    if (arm) targets[name] = { side, arm };
+  const side: "L" | "R" = seed & 1 ? "L" : "R";
+  const arm = side === "L" ? upperL : upperR;
+  const forearm = side === "L" ? foreL : foreR;
+  const hand = side === "L" ? wristL : wristR;
+  const right = X.clone().transformDirection(actor.matrixWorld);
+  const up = Y.clone().transformDirection(actor.matrixWorld);
+  const forward = Z.clone().transformDirection(actor.matrixWorld);
+  const headW = head.bone.getWorldPosition(new THREE.Vector3());
+  const hipsW = hips.bone.getWorldPosition(new THREE.Vector3());
+  const spineW = spine.bone.getWorldPosition(new THREE.Vector3());
+  const shoulderW = arm.bone.getWorldPosition(new THREE.Vector3());
+  const outward = Math.sign(shoulderW.clone().sub(headW).dot(right)) || (side === "L" ? 1 : -1);
+  const at = (origin: THREE.Vector3, horizontal: number, vertical: number, depth: number) =>
+    origin.clone().addScaledVector(right, horizontal * outward * worldHeight)
+      .addScaledVector(up, vertical * worldHeight)
+      .addScaledVector(forward, depth * worldHeight);
+  const handPoses: Partial<Record<M3LobbyGesture, ArmPose>> = {};
+  const pose = (kind: M3LobbyGesture, goal: THREE.Vector3, elbow: THREE.Vector3) => {
+    const result = bakeArm(arm, forearm, hand, goal, elbow);
+    if (result) handPoses[kind] = result;
   };
-  const hint = (sideAmount: number, vertical: number, forward: number) =>
-    shoulderWorld.clone().add(new THREE.Vector3(outward * bodyHeight * sideAmount,
-      bodyHeight * vertical, bodyHeight * forward));
-  bake("hair-touch", headWorld.clone().add(new THREE.Vector3(
-    outward * bodyHeight * .071, bodyHeight * .008, bodyHeight * .035)),
-    hint(.12, -.055, .060));
-  bake("hand-on-hip", hipsWorld.clone().add(new THREE.Vector3(
-    outward * bodyHeight * .093, bodyHeight * .040, bodyHeight * .055)),
-    hint(.15, -.14, .065));
-  bake("adjust-outfit", spineWorld.clone().add(new THREE.Vector3(
-    outward * bodyHeight * .042, bodyHeight * .032, bodyHeight * .097)),
-    hint(.105, -.075, .12));
-  targets["shoulder-roll"] = { side, arm: null };
+  // These targets come from the reference's casual body language, not exact
+  // proprietary animation curves or assets.
+  pose("hand-on-hip", at(hipsW, .095, .045, .055), at(shoulderW, .145, -.125, .075));
+  pose("outfit-adjust", at(spineW, .035, -.095, .095), at(shoulderW, .125, -.135, .090));
+  // Optional, low elbow. Side-of-temple hand, NEVER above the head.
+  pose("hair-brush", at(headW, .067, -.024, .032), at(shoulderW, .120, -.078, .070));
 
-  const gestureSequence = GESTURES.filter(kind => Boolean(targets[kind]));
-  const hasScratchPose = Boolean(targets["hair-touch"]);
-  const phase = ((seed >>> 5) % 628) / 100;
-  const cycle = 4.75 + ((seed >>> 12) % 80) / 100; // 4.75-5.54s
-  const tempo = 2 * Math.PI / cycle;
-  const intensity = 0.92 + ((seed >>> 9) % 18) / 100;
-  const temp = new THREE.Quaternion();
-  const setRotation = (pose: Pose, axis: THREE.Vector3, radians: number) =>
-    pose.bone.quaternion.copy(pose.rest).multiply(temp.setFromAxisAngle(axis, radians));
-  const addRotation = (pose: Pose, axis: THREE.Vector3, radians: number) =>
-    pose.bone.quaternion.multiply(temp.setFromAxisAngle(axis, radians));
-
-  // Never use Math.random: the sequence is deterministic per avatar identity,
-  // and doesn't restart on READY/connection metadata updates.
+  const schedule: readonly M3LobbyGesture[] = [
+    "look-aside", "hand-on-hip", "outfit-adjust", "neck-relax",
+  ];
+  // Hair-touch is deliberately excluded until an owner-approved hand-to-hair
+  // pose exists. The current video shows it looks too much like a salute.
+  const hasScratchPose = Boolean(handPoses["hair-brush"]);
+  const tempo = 5.2 + ((seed >>> 12) % 125) / 100;
+  const phase = ((seed >>> 6) % 1000) / 1000;
+  const localTimeOffset = phase * tempo;
+  const q = new THREE.Quaternion();
   let ordinal = 0;
-  // The FIRST gesture must be visible during an ordinary short iPhone
-  // preview; the relaxed shoulder roll is reserved for later cycles.
-  let gestureStart = 3.5 + ((seed >>> 8) % 250) / 100;
+  let gestureAt = 3.0 + ((seed >>> 8) % 280) / 100;
+  let duration = 2.65;
   let gesture: M3LobbyGesture | null = null;
-  let duration = 2.6;
-  const schedule = (time: number) => {
+  const nextGesture = (now: number) => {
     ordinal++;
-    // 7-12s of calm idle between gestures; mixed durations 2-3s.
-    const waitHash = hashId(participantId + ":" + ordinal + ":" + roomId);
-    gestureStart = time + 7 + (waitHash % 501) / 100;
-    duration = 2.1 + ((waitHash >>> 11) % 76) / 100;
+    const rand = hashId(roomId + ":" + participantId + ":gesture:" + ordinal);
+    gestureAt = now + 7.5 + (rand % 551) / 100;
+    duration = 2.45 + ((rand >>> 10) % 80) / 100;
     gesture = null;
   };
 
   const runtime: M3LobbyIdle = {
-    elapsedSeconds: 0,
-    hasScratchPose,
-    currentGesture: null,
-    completedGestures: 0,
+    elapsedSeconds: 0, hasScratchPose, currentGesture: null,
+    completedGestures: 0, footDrift: 0, maxFootDrift: 0,
     update(deltaSeconds) {
-      runtime.elapsedSeconds += THREE.MathUtils.clamp(deltaSeconds, 0, .1);
-      const t = runtime.elapsedSeconds;
+      const delta = THREE.MathUtils.clamp(deltaSeconds, 0, .10);
+      runtime.elapsedSeconds += delta;
+      const time = runtime.elapsedSeconds;
+      const shift = keyCurve(((time + localTimeOffset) / tempo) % 1);
+      const inhale = Math.sin(time * 1.67 + phase * 6.28);
+      const look = keyCurve(((time * .52 + phase * 3.1) / tempo) % 1);
 
-      // 5s shifting of weight, hip/shoulder counter-rotation, shoulder
-      // relaxed swing and small secondary head movement. Feet stay planted.
-      const shift = Math.sin(tempo * t + phase);
-      const swing = Math.sin(tempo * t + phase + .65);
-      const breath = Math.sin(t * 2.0 + phase * .8);
-      setRotation(hips, AXIS_Z, -.050 * shift * intensity);
-      setRotation(spine, AXIS_Z, .072 * shift * intensity);
-      addRotation(spine, AXIS_X, .022 * breath);
-      setRotation(neck, AXIS_Z, -.032 * shift * intensity);
-      setRotation(head, AXIS_Y, .050 * Math.sin(t * .76 + phase));
-      addRotation(head, AXIS_Z, -.018 * shift);
-      setRotation(legL, AXIS_X, .027 * swing);
-      setRotation(legR, AXIS_X, -.027 * swing);
-      setRotation(upperL, AXIS_X, .115 * swing);
-      setRotation(upperR, AXIS_X, -.115 * swing);
-      addRotation(upperL, AXIS_Z, .043 * shift);
-      addRotation(upperR, AXIS_Z, -.043 * shift);
-      setRotation(lowerL, AXIS_Z, .036 * breath);
-      setRotation(lowerR, AXIS_Z, -.036 * breath);
-      handL.bone.quaternion.copy(handL.rest);
-      handR.bone.quaternion.copy(handR.rest);
-      // Slight pelvis translation relative to spine (not character root) is
-      // avoided to prevent foot skating / sole penetration on the stage.
+      // KEY DIFFERENCE from V1.3: hips shift in the source rig's local
+      // coordinates. The two planted heels are subsequently solved, and the
+      // ankle's world orientation is restored to keep soles flat.
+      restore(hips);
+      hips.bone.position.x += shift * localHeight * .012;
+      hips.bone.position.y -= localHeight * (.012 + Math.abs(shift) * .004);
+      appendRotation(hips, Y, .010 * shift, q);
 
-      if (!gestureSequence.length) return;
-      if (!gesture && t >= gestureStart) {
-        // Cycle the available gesture catalogue with an individual initial
-        // permutation: a room of five avatars won't all choose hair touch.
-        const firstGestureIndex = seed % 2; // hair-touch or hand-on-hip first
-        gesture = gestureSequence[(ordinal + firstGestureIndex) % gestureSequence.length];
+      restore(spine);
+      appendRotation(spine, Z, -.040 * shift, q);
+      appendRotation(spine, X, .018 * inhale, q);
+      restore(neck);
+      appendRotation(neck, Z, .022 * shift, q);
+      restore(head);
+      appendRotation(head, Y, .050 * look, q);
+      appendRotation(head, Z, -.014 * shift, q);
+
+      restore(upperL); restore(upperR);
+      restore(foreL); restore(foreR);
+      restore(wristL); restore(wristR);
+      // A small shoulder swing is enough when expressive gestures carry the
+      // visual action; don't rotate legs in free-running sine waves.
+      appendRotation(upperL, X, .041 * shift, q);
+      appendRotation(upperR, X, -.041 * shift, q);
+      appendRotation(foreL, Z, .012 * inhale, q);
+      appendRotation(foreR, Z, -.012 * inhale, q);
+
+      const driftL = solvePlantedFoot(actor, leftContact);
+      const driftR = solvePlantedFoot(actor, rightContact);
+      runtime.footDrift = Math.max(driftL, driftR);
+      runtime.maxFootDrift = Math.max(runtime.maxFootDrift, runtime.footDrift);
+
+      if (!gesture && time >= gestureAt) {
+        gesture = schedule[(ordinal + (seed >>> 4)) % schedule.length];
         runtime.currentGesture = gesture;
       }
       if (!gesture) return;
-
-      const local = t - gestureStart;
-      if (local >= duration) {
+      const progress = time - gestureAt;
+      if (progress >= duration) {
         runtime.completedGestures++;
         runtime.currentGesture = null;
-        schedule(t);
+        nextGesture(time);
         return;
       }
-      // Anticipation: ease in .52s, readable hold, smooth release .8s.
-      const fadeIn = ease(local / .52);
-      const fadeOut = 1 - ease((local - (duration - .80)) / .80);
-      const weight = fadeIn * fadeOut;
-      const pose = targets[gesture];
-      if (!pose || weight <= 0) return;
+      // Anticipate → action → readable hold → settle; not a continuous wave.
+      const weight = ease(progress / .52) * (1 - ease((progress - (duration - .83)) / .83));
+      if (weight <= 0) return;
 
-      if (gesture === "shoulder-roll") {
-        // Both shoulders relax backward, then settle with a small nod.
-        addRotation(upperL, AXIS_X, -.15 * weight);
-        addRotation(upperR, AXIS_X, -.15 * weight);
-        addRotation(spine, AXIS_X, -.050 * weight);
-        addRotation(head, AXIS_X, .038 * weight);
-        return;
-      }
-      if (!pose.arm) return;
-      const arm = pose.side === "L" ? upperL : upperR;
-      const forearm = pose.side === "L" ? lowerL : lowerR;
-      const palm = pose.side === "L" ? handL : handR;
-      arm.bone.quaternion.slerp(pose.arm.shoulder, weight);
-      forearm.bone.quaternion.slerp(pose.arm.forearm, weight);
-      palm.bone.quaternion.slerp(pose.arm.hand, weight);
-      if (gesture === "hair-touch") {
-        // This is a SIDE temple brush, not a straight-arm salute.
-        addRotation(head, AXIS_Z, -.034 * weight * outward);
-        addRotation(palm, AXIS_Z, Math.sin(local * 12) * .06 * weight);
-      } else if (gesture === "hand-on-hip") {
-        addRotation(spine, AXIS_Z, .065 * weight * outward);
-        addRotation(head, AXIS_Y, .030 * weight * outward);
-      } else if (gesture === "adjust-outfit") {
-        // A small second beat at the chest, like smoothing a shirt collar.
-        addRotation(palm, AXIS_X, Math.sin(local * 11) * .045 * weight);
-        addRotation(head, AXIS_X, .035 * weight);
+      if (gesture === "look-aside") {
+        appendRotation(head, Y, .26 * weight * outward, q);
+        appendRotation(head, X, -.075 * weight, q);
+        appendRotation(spine, Y, .053 * weight * outward, q);
+      } else if (gesture === "neck-relax") {
+        appendRotation(head, Z, .18 * weight * outward, q);
+        appendRotation(neck, X, .070 * weight, q);
+        appendRotation(upperL, X, -.10 * weight, q);
+        appendRotation(upperR, X, -.10 * weight, q);
+      } else {
+        const target = handPoses[gesture];
+        if (!target) return;
+        const raised = side === "L" ? upperL : upperR;
+        const elbow = side === "L" ? foreL : foreR;
+        const palm = side === "L" ? wristL : wristR;
+        raised.bone.quaternion.slerp(target.upper, weight);
+        elbow.bone.quaternion.slerp(target.forearm, weight);
+        palm.bone.quaternion.slerp(target.wrist, weight);
+        if (gesture === "hand-on-hip") {
+          appendRotation(head, Y, -.085 * weight * outward, q);
+          appendRotation(spine, Z, .075 * weight * outward, q);
+        } else if (gesture === "outfit-adjust") {
+          appendRotation(palm, X, Math.sin(progress * 12) * .045 * weight, q);
+          appendRotation(head, X, .045 * weight, q);
+        }
       }
     },
   };

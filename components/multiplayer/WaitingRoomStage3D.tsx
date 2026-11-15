@@ -1467,6 +1467,10 @@ export default function WaitingRoomStage3D({
     const startIdleLoop = () => {
       if (animationFrame) return;
       const minFrameMs = 1000 / IDLE_RENDER_FPS;
+      // The isolated sketch fixture exposes real VRM foot-contact error to
+      // Playwright without adding React renders or changing gameplay/UI.
+      const footContactProbe = window.location.pathname === "/tools/lobby-qa-sketch";
+      let lastProbeMs = 0;
       const tick = (nowMs: number) => {
         if (disposed) return;
         animationFrame = requestAnimationFrame(tick);
@@ -1486,6 +1490,16 @@ export default function WaitingRoomStage3D({
           switchIdleIfNeeded(runtime, deltaSeconds);
         });
         m3IdleByParticipant.forEach(runtime => runtime.update(deltaSeconds));
+        if (footContactProbe && nowMs - lastProbeMs > 450 && mountRef.current) {
+          lastProbeMs = nowMs;
+          const runtimes = [...m3IdleByParticipant.values()];
+          const stageElement = mountRef.current.parentElement;
+          if (stageElement) {
+            stageElement.dataset.m3FootDrift = Math.max(0, ...runtimes.map(item => item.footDrift)).toFixed(5);
+            stageElement.dataset.m3CompletedGestures = String(runtimes.reduce((sum, item) => sum + item.completedGestures, 0));
+            stageElement.dataset.m3ActiveGestures = runtimes.map(item => item.currentGesture || "-").join(",");
+          }
+        }
 
         const ringTime = nowMs / 1000;
         const transitionAlpha = 1 - Math.exp(-deltaSeconds * 4.2);
