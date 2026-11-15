@@ -627,7 +627,6 @@
 .skin_tone2skin{background:#94716e}
 .skin_tone3skin{background:#c39783}
 .skin_tone4skin{background:#e0b89c}
-.m3GateNote{margin:8px 3px 0;color:#edcfff;text-align:center;font-size:11px;line-height:1.35}
 
 /* M3 creator: high-contrast selected gender, icon and text on one line. */
 .bodyCard > button.genderChoice:not(.swatch){
@@ -853,6 +852,16 @@
   box-shadow:0 0 16px rgba(224,56,252,.37),
     inset 0 2px 4px rgba(255,255,255,.32),
     0 7px 15px rgba(73,25,154,.24);
+}
+/* The saved-state route is the same-height CTA, never an extra dock row. */
+.creatorDock .continueButton{
+  box-sizing:border-box;
+  display:flex;
+  width:100%;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  text-decoration:none;
 }
 .creatorSaveError{
   margin:0;color:#ffd0dc;font-size:11px;text-align:center;line-height:1.3

@@ -539,36 +539,28 @@ export default function CharacterCreationV1() {
             <small className={styles.nameCounter}>{name.length}/14</small>
           </div>
 
-          <button
-            className={styles.createButton}
-            data-testid="c2-confirm-character"
-            disabled={!valid || Boolean(creatorCharacter.m3RigFamily && !m3PreviewReady)}
-            onClick={createCharacter}
-            type="button"
-          >
-            {created ? creatorCharacter.runtimeReady ? "✓ NHÂN VẬT MVP ĐÃ SẴN SÀNG" : "✓ ĐÃ LƯU M3 · THỬ PHÒNG CHỜ" : "TẠO NHÂN VẬT"}
-          </button>
-
-          {created && (creatorCharacter.runtimeReady || creatorCharacter.lobbyReady) && (
+          {/* A saved character uses the SAME dock slot for navigation.
+              Never grow the dock (and shrink the 3D preview) after save. */}
+          {created && (creatorCharacter.runtimeReady || creatorCharacter.lobbyReady) ? (
             <a
-              href="/rooms"
+              className={[styles.createButton, styles.continueButton].join(" ")}
               data-testid="entry-continue-rooms"
-              style={{
-                display: "block", marginTop: 10, padding: "14px 12px",
-                borderRadius: 12, textAlign: "center",
-                background: "linear-gradient(105deg, #6d38cf, #c53edb)",
-                color: "#fff", textDecoration: "none", fontWeight: 800,
-              }}
+              href="/rooms"
             >
               TIẾP TỤC → SẢNH PHÒNG
             </a>
+          ) : (
+            <button
+              className={styles.createButton}
+              data-testid="c2-confirm-character"
+              disabled={!valid || Boolean(creatorCharacter.m3RigFamily && !m3PreviewReady)}
+              onClick={createCharacter}
+              type="button"
+            >
+              {created ? "✓ NHÂN VẬT ĐÃ LƯU" : "TẠO NHÂN VẬT"}
+            </button>
           )}
 
-          {created && creatorCharacter.lobbyReady && !creatorCharacter.runtimeReady && (
-            <p role="status" className={styles.m3GateNote}>
-              M3 chỉ thử hiển thị trong phòng chờ. Host Start/gameplay vẫn khóa cho đến khi retarget animation.
-            </p>
-          )}
           {saveError && <p className={styles.creatorSaveError} role="alert">{saveError}</p>}
           <div className={styles.footerNote}>
             <span>DANCE YOUR STORY <CreatorIcon kind="heart" /></span>
