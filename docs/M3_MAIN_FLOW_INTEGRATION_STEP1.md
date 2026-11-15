@@ -128,3 +128,48 @@ Changes (creator only):
 - Dispose the GPU backdrop texture with preview teardown. No extra render loop or character rebuild.
 
 Required focused validation: Next.js TypeScript/build; Vercel commit deployment READY; HTTP 200. Physical iPhone check for light + deep skin tones, black hair and dark clothing without overexposing pale skin, and SVG button centering. This is not a final mobile visual acceptance until owner confirms.
+
+## V1.6 item-only thumbnails in the M3 creator — 2026-11-15
+
+Owner approved V1.5 Character Creation and explicitly requests thumbnail images
+on the corresponding hair, top, bottom and simple-shoes item cells.
+
+Discovery: BOTH source M3 manifests contain an item thumbnail field and, for
+textured garments, thumbnailOverrides. We verified the actual PNG content
+through GitHub for representative hair, shirts, shorts and shoes and verified
+all 18 exact source paths against the complete upstream file tree. The images
+are **item-only** renders on transparent backgrounds — NOT full-actor photos,
+not composited mannequins and not artificially created garment mockups.
+
+Implementation:
+- Add `m3-creator-thumbnails.ts` with a curated, explicit per-rig hair
+  thumbnail lookup and an encoder for upstream filenames with spaces.
+- Add a `thumbnail` field to each of the 10 existing `M3CreatorGarment`
+  catalogue records (4 tops, 4 bottoms and 2 fixed shoes). Images correspond
+  to **exact** matching VRM garment IDs from manifest, not a search by name.
+- In CharacterCreationV1, render source-backed item-only images inside M3
+  hair choices, garment choices and fixed shoes display. Preserve item
+  selected state, aria-pressed, labels, the horizontal hair swipe and existing
+  two-top/two-bottom layout. Legacy C1/C4 cards retain icon-only presentation.
+- Source `raw.githubusercontent.com` PNGs are loaded as plain images with
+  lazy loading, async decode and no additional WebGL context. An error produces
+  a neutral placeholder, not an invented garment thumbnail.
+- Light item-card backing distinguishes dark and white source PNGs; selected
+  item retains visible accent border and checkmark.
+- Keep the existing one-skeleton/one-actor runtime unchanged. No Shop,
+  Inventory, Creator profile schema migration, RoomState, gameplay or PR19 work.
+
+**Accuracy note:** Thumbnail imagery is the source icon variant (and some hair
+icons are red); it represents the **item silhouette**, not necessarily the
+actor's current material/color variant. The true equipped color and skin are
+shown on the main M3 3D preview. Avoid suggesting a color variant exists
+if M3 runtime cannot actually equip it.
+
+Licensing: no source PNGs are redistributed in the repo, only referenced from
+the existing source CDN/origin; separate commercial distribution rights will
+be reviewed before public product release.
+
+Validation: source images 18/18 verified, Next.js/TypeScript build, Vercel
+READY + /character/create HTTP 200. Physical iPhone test needed to approve
+thumbnail clarity, lazy loading and selection UX. No full E2E or iPhone visual
+claim from a build alone.

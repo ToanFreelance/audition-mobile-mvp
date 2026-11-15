@@ -6,7 +6,7 @@ import { getCharacterCatalogEntry, type M3RigFamily } from "./character-catalog"
  * Never mix donor assets between Drophunter and Neurohacker rigs.
  */
 export type M3CreatorOutfit = Readonly<{ top: string; bottom: string }>;
-export type M3CreatorGarment = Readonly<{ id: string; label: string; file: string }>;
+export type M3CreatorGarment = Readonly<{ id: string; label: string; file: string; thumbnail: string }>;
 export type M3CreatorWardrobe = Readonly<{
   top: readonly M3CreatorGarment[];
   bottom: readonly M3CreatorGarment[];
@@ -17,26 +17,26 @@ export type M3CreatorWardrobe = Readonly<{
 const WARDROBES: Record<M3RigFamily, M3CreatorWardrobe> = {
   drophunter: {
     top: [
-      { id: "shirt", label: "Áo thường", file: "chest/shirt.vrm" },
-      { id: "lightshirt", label: "Áo nhẹ", file: "chest/lightshirt.vrm" },
+      { id: "shirt", label: "Áo thường", file: "chest/shirt.vrm", thumbnail: "chest/shirt/Shirt-icon0.png" },
+      { id: "lightshirt", label: "Áo nhẹ", file: "chest/lightshirt.vrm", thumbnail: "chest/lightshirt/Light Shirt-icon0.png" },
     ],
     bottom: [
-      { id: "casualshorts", label: "Quần ngắn", file: "legs/casualshorts.vrm" },
-      { id: "sportshorts", label: "Quần thể thao", file: "legs/sportshorts.vrm" },
+      { id: "casualshorts", label: "Quần ngắn", file: "legs/casualshorts.vrm", thumbnail: "legs/casualshorts/Casual Shorts-icon0.png" },
+      { id: "sportshorts", label: "Quần thể thao", file: "legs/sportshorts.vrm", thumbnail: "legs/sportshorts/Sport Shorts-icon0.png" },
     ],
-    shoes: { id: "sneakers", label: "Sneakers cơ bản", file: "feet/sneakers.vrm" },
+    shoes: { id: "sneakers", label: "Sneakers cơ bản", file: "feet/sneakers.vrm", thumbnail: "feet/sneakers.png" },
     defaultOutfit: { top: "shirt", bottom: "casualshorts" },
   },
   neurohacker: {
     top: [
-      { id: "logotee", label: "Áo T-shirt", file: "chest/logotee.vrm" },
-      { id: "simpleshirt", label: "Áo thường", file: "chest/simpleshirt.vrm" },
+      { id: "logotee", label: "Áo T-shirt", file: "chest/logotee.vrm", thumbnail: "chest/logotee/Logo Tee-icon0.png" },
+      { id: "simpleshirt", label: "Áo thường", file: "chest/simpleshirt.vrm", thumbnail: "chest/simpleshirt/Simple Shirt-icon0.png" },
     ],
     bottom: [
-      { id: "cargoshorts", label: "Cargo Shorts", file: "legs/cargoshorts.vrm" },
-      { id: "shorts", label: "Quần ngắn", file: "legs/shorts.vrm" },
+      { id: "cargoshorts", label: "Cargo Shorts", file: "legs/cargoshorts.vrm", thumbnail: "legs/cargoshorts/Cargoshorts-icon0.png" },
+      { id: "shorts", label: "Quần ngắn", file: "legs/shorts.vrm", thumbnail: "legs/shorts/Shorts-icon0.png" },
     ],
-    shoes: { id: "simpleshoes", label: "Giày cơ bản", file: "foot/simpleshoes.vrm" },
+    shoes: { id: "simpleshoes", label: "Giày cơ bản", file: "foot/simpleshoes.vrm", thumbnail: "foot/simpleshoes.png" },
     defaultOutfit: { top: "logotee", bottom: "cargoshorts" },
   },
 };

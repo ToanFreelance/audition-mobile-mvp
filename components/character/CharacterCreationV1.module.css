@@ -1054,3 +1054,154 @@
   .creatorControlPanel .genderContents svg{width:20px;height:20px;flex-basis:20px}
   .creatorControlPanel .genderContents > span{line-height:20px}
 }
+
+/* M3 thumbnail POC: source-backed item-only PNGs (no actor screenshots).
+   Render regular images rather than a second WebGL canvas per cell. */
+.creatorControlPanel .creatorItemArt{
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  width:52px;
+  height:52px;
+  min-width:0;
+  min-height:0;
+  overflow:hidden;
+  border:1px solid rgba(189,181,252,.23);
+  border-radius:10px;
+  background:
+    radial-gradient(circle at 45% 38%,rgba(224,212,245,.28),transparent 75%),
+    linear-gradient(140deg,#535072,#302c56);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.13);
+}
+.creatorControlPanel .creatorItemArt img{
+  display:block;
+  width:100%;
+  height:100%;
+  min-width:0;
+  object-fit:contain;
+  object-position:center;
+  user-select:none;
+  -webkit-user-drag:none;
+  pointer-events:none;
+  filter:drop-shadow(0 2px 3px rgba(8,5,22,.2));
+}
+.creatorControlPanel .creatorItemArtFallback{
+  display:grid;
+  place-items:center;
+  color:rgba(214,205,254,.55);
+  font-size:22px;
+}
+.creatorControlPanel .creatorGarmentChoice{
+  position:relative;
+  display:grid;
+  grid-template-columns:52px minmax(0,1fr);
+  align-items:center;
+  justify-content:stretch;
+  column-gap:7px;
+  min-width:0;
+  min-height:64px;
+  padding:5px 6px;
+  text-align:left;
+}
+.creatorControlPanel .creatorGarmentChoice .creatorGarmentLabel{
+  min-width:0;
+  max-width:100%;
+  padding-right:7px;
+  font-size:10px;
+  font-weight:800;
+  line-height:1.25;
+  text-wrap:balance;
+}
+.creatorControlPanel .creatorGarmentChoice .creatorItemCheck{
+  position:absolute;
+  right:4px;
+  top:3px;
+  display:grid;
+  place-items:center;
+  width:16px;height:16px;
+  border:1px solid rgba(135,255,224,.5);
+  border-radius:99px;
+  background:#274d63;
+  color:#a6ffe5;
+  font-size:10px;
+  line-height:1;
+}
+.creatorControlPanel .creatorHairCarousel .choiceCard{
+  display:grid;
+  grid-template-columns:56px minmax(0,1fr);
+  grid-template-rows:1fr 1fr;
+  align-items:center;
+  justify-items:start;
+  align-content:center;
+  column-gap:6px;
+  row-gap:1px;
+  flex:0 0 clamp(155px,52%,190px);
+  min-height:84px;
+  padding:5px;
+  text-align:left;
+}
+.creatorControlPanel .creatorHairCarousel .choiceCard .creatorItemArt{
+  grid-column:1;
+  grid-row:1 / 3;
+  width:56px;
+  height:65px;
+}
+.creatorControlPanel .creatorHairCarousel .choiceCard strong{
+  grid-column:2;
+  grid-row:1;
+  min-width:0;
+  justify-self:stretch;
+  align-self:end;
+  font-size:10px;
+  line-height:1.2;
+  overflow-wrap:anywhere;
+}
+.creatorControlPanel .creatorHairCarousel .choiceCard small{
+  grid-column:2;
+  grid-row:2;
+  min-width:0;
+  justify-self:stretch;
+  align-self:start;
+  font-size:8px;
+  line-height:1.2;
+}
+.creatorControlPanel .creatorFixedShoes{
+  position:relative;
+  justify-content:flex-start;
+  gap:12px;
+  padding:6px 10px;
+  min-height:72px;
+}
+.creatorControlPanel .creatorFixedShoes > .creatorItemArt{
+  width:62px;height:60px;
+  color:inherit;
+  font-size:inherit;
+}
+.creatorControlPanel .creatorFixedShoes > .creatorShoesCheck{
+  position:absolute;
+  right:11px;
+  top:8px;
+  display:grid;
+  place-items:center;
+  width:21px;height:21px;
+  border:1px solid rgba(132,252,211,.5);
+  border-radius:50%;
+  background:rgba(31,79,72,.65);
+  font-size:12px;
+  line-height:1;
+  color:#a6ffe3;
+}
+.creatorControlPanel .creatorFixedShoes div{
+  min-width:0;
+  padding-right:23px;
+  text-align:left;
+}
+.creatorControlPanel .creatorGarmentGrid{gap:7px}
+.creatorControlPanel .creatorWardrobe{gap:8px}
+@media(max-width:370px){
+  .creatorControlPanel .creatorItemArt{width:45px;height:48px}
+  .creatorControlPanel .creatorGarmentChoice{grid-template-columns:45px minmax(0,1fr);column-gap:5px;min-height:59px;padding:4px}
+  .creatorControlPanel .creatorGarmentChoice .creatorGarmentLabel{font-size:9px}
+  .creatorControlPanel .creatorHairCarousel .choiceCard{flex-basis:145px;grid-template-columns:50px minmax(0,1fr)}
+  .creatorControlPanel .creatorHairCarousel .choiceCard .creatorItemArt{width:50px;height:60px}
+}

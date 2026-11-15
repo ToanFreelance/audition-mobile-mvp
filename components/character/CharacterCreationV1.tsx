@@ -17,6 +17,7 @@ import {
 import {
   defaultM3CreatorOutfit, getM3CreatorWardrobe, type M3CreatorOutfit,
 } from "./m3-creator-outfits";
+import { m3CreatorHairThumbnailUrl, m3CreatorThumbnailUrl } from "./m3-creator-thumbnails";
 import styles from "./CharacterCreationV1.module.css";
 import CreatorIcon from "./CreatorIcon";
 
@@ -55,25 +56,51 @@ function GenderGlyph({ gender }: { gender: "female" | "male" }) {
   );
 }
 
+/** Actual item-only PNG, not a cropped full-character portrait. */
+function M3ItemThumbnail({ url, label }: { url: string; label: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span className={styles.creatorItemArt} aria-hidden="true" title={label}>
+      {!failed ? (
+        <img
+          src={url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className={styles.creatorItemArtFallback}>◇</span>
+      )}
+    </span>
+  );
+}
+
 function ChoiceCard({
   choice,
   selected,
   onSelect,
   icon,
+  thumbnailUrl,
 }: {
   choice: CharacterCatalogChoice;
   selected: boolean;
   onSelect: () => void;
   icon: string;
+  thumbnailUrl?: string;
 }) {
   return (
     <button
       className={[styles.choiceCard, selected ? styles.selected : "", !choice.available ? styles.lockedChoice : ""].filter(Boolean).join(" ")}
+      aria-pressed={selected}
       disabled={!choice.available}
       onClick={onSelect}
       type="button"
     >
-      <span className={styles.choiceIcon}>{icon}</span>
+      {thumbnailUrl
+        ? <M3ItemThumbnail key={thumbnailUrl} url={thumbnailUrl} label={choice.label} />
+        : <span className={styles.choiceIcon}>{icon}</span>}
       <strong>{choice.label}</strong>
       <small>{choice.available ? (selected ? "Đang dùng" : "Chọn") : choice.note ?? "Chưa khả dụng"}</small>
     </button>
@@ -285,6 +312,9 @@ export default function CharacterCreationV1() {
                     choice={choice}
                     icon={index === 0 ? "◖" : index === 1 ? "⌒" : "⑂"}
                     key={choice.id}
+                    thumbnailUrl={creatorCharacter.m3RigFamily
+                      ? m3CreatorHairThumbnailUrl(creatorCharacter.m3RigFamily, choice.id)
+                      : undefined}
                     onSelect={() => { setHairStyle(choice.id); setCreated(false); }}
                     selected={hairStyle === choice.id}
                   />
@@ -371,8 +401,15 @@ export default function CharacterCreationV1() {
                             setCreated(false);
                           }}
                         >
-                          <span aria-hidden="true">{selected ? "✓" : slot === "top" ? "◈" : "▥"}</span>
-                          <span>{item.label}</span>
+                          {creatorCharacter.m3RigFamily && (
+                            <M3ItemThumbnail
+                              key={item.thumbnail}
+                              url={m3CreatorThumbnailUrl(creatorCharacter.m3RigFamily, item.thumbnail)}
+                              label={item.label}
+                            />
+                          )}
+                          <span className={styles.creatorGarmentLabel}>{item.label}</span>
+                          {selected && <span className={styles.creatorItemCheck} aria-hidden="true">✓</span>}
                         </button>
                       );
                     })}
@@ -383,8 +420,15 @@ export default function CharacterCreationV1() {
           )}
           {tab === "shoes" && creatorWardrobe && (
             <div className={styles.creatorFixedShoes} data-testid="creator-fixed-shoes">
-              <span aria-hidden="true">✓</span>
-              <div><strong>{creatorWardrobe.shoes.label}</strong><small>Giày cơ bản mặc định khi tạo nhân vật</small></div>
+              {creatorCharacter.m3RigFamily && (
+                <M3ItemThumbnail
+                  key={creatorWardrobe.shoes.thumbnail}
+                  url={m3CreatorThumbnailUrl(creatorCharacter.m3RigFamily, creatorWardrobe.shoes.thumbnail)}
+                  label={creatorWardrobe.shoes.label}
+                />
+              )}
+              <div><strong>{creatorWardrobe.shoes.label}</strong><small>Giày cơ bản mặc định</small></div>
+              <span className={styles.creatorShoesCheck} aria-hidden="true">✓</span>
             </div>
           )}
           {(tab === "outfit" || tab === "accessory" || tab === "shoes") && !creatorWardrobe && (
