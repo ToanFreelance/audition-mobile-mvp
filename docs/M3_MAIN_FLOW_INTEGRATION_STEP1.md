@@ -81,3 +81,18 @@ Owner requests creation-time customization, NOT an Inventory UI:
   gate requires owner physical iPhone test, NOT inferred from successful build.
 - RoomState/MatchManifest/Waiting Room/Game remain unchanged. No Shop/Inventory
   implementation, no animation retarget, no changes on development/main.
+
+## V1.3 Creator UX correction — 2026-11-15
+
+Owner iPhone evidence: M3 outfit swapping visually works; however the gender icon+label buttons overflow in the half-width overlay, the overlay hides the actor during outfit selection, the 4 appearance slots are not appropriate for first-time creation and the imported rigs display a raw T-pose.
+
+Scope and implementation:
+- Refactor one shared creator options panel: existing legacy actor keeps its former overlay; M3 uses an **inline, compact, scrollable cockpit** in the lower creator dock. The preview stage remains entirely unobstructed. On M3 outfit tab, camera frames the complete actor.
+- Gender selector uses two equal-width grid buttons, CSS active outline and stronger color contrast, with an inline glyph and label, no wrapping.
+- Remove the four appearance-slot UI and its local state/actions. Existing profile V1 and already saved draft remain compatible; old look-presets storage is not deleted or migrated as Inventory.
+- Keep the accepted M3 2-top/2-bottom choices, one pair of shoes per rig and no accessories.
+- Static creator-only neutral pose: determine each upper arm/elbow/hand world direction from canonical M3 skeleton, rotate arms downward slightly outward and the forearms gently forward. Do this **after** canonical garment assembly; no 3D actor reload, extra AnimationMixer, or gameplay timing. The rest pose is never rewritten in asset binaries.
+- Add creator UI QA selectors and focus/aria state, maintain scoped iPhone no-page-scroll behavior.
+- No new marketplace, Inventory, Waiting Room, Gameplay or PR19 animation changes.
+
+Validation required: Next.js TypeScript/production build and READY commit-specific Vercel preview; owner physical iPhone to verify neutral-arm pose with both genders and in-place garment changes, especially hands/shoulders/clipping. The design quality target is premium rhythm-game presentation; avoid representing this as a certified AAA production art pass.

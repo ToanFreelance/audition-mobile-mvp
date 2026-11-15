@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { getCharacterCatalogEntry, type CharacterAssetId, type M3RigFamily } from "./character-catalog";
 import { getM3CreatorWardrobeForFamily, type M3CreatorOutfit } from "./m3-creator-outfits";
+import { applyM3CreatorNeutralPose } from "./m3-creator-neutral-pose";
 
 /** Shared M3 actor assembly. Does not own renderer, AnimationMixer or gameplay clock. */
 export type M3Appearance = Readonly<{
@@ -78,6 +79,7 @@ export class M3CharacterAssembler {
   skeleton: THREE.Skeleton | null = null;
   baseLoads = 0;
   maxBindDelta = 0;
+  creatorIdleArms = 0;
   private readonly loader = new GLTFLoader();
   private readonly textureLoader = new THREE.TextureLoader();
   private readonly sources = new Map<string, LoadedPart>();
@@ -152,6 +154,13 @@ export class M3CharacterAssembler {
     this.outfit = { top: top.id, bottom: bottom.id };
     await this.swapHair(appearance.hairStyle);
     await Promise.all([this.tintHair(appearance.hairColor), this.replaceSkin(appearance.skinTone)]);
+    // Pose only after all separately bound garments have passed the bind-space
+    // verification. The very same skeleton drives their SkinnedMeshes.
+    const idle = applyM3CreatorNeutralPose(this.skeleton);
+    if (idle.positionedArms !== 2 || idle.positionedForearms !== 2) {
+      throw new Error("M3 creator neutral pose requires two complete arm chains.");
+    }
+    this.creatorIdleArms = idle.positionedArms;
   }
   private async attach(slot: Slot, path: string): Promise<void> {
     const source = await this.loadPart(path);
