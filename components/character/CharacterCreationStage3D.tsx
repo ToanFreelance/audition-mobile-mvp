@@ -19,7 +19,8 @@ type Props = {
   onReadyChange?: (ready: boolean) => void;
 };
 
-type QualityPreset = "A" | "B" | "C" | "D";
+type QualityPreset = "A" | "B" | "C" | "D" | "E" | "F";
+type FaceMaterialBaseline = { material: THREE.MeshBasicMaterial; color: THREE.Color; originalCompile: THREE.Material["onBeforeCompile"] };
 type RenderDiagnostics = {
   deviceDpr: number; cap: number; requestedDpr: number; actualDpr: number;
   cssSize: string; bufferSize: string; megapixels: string;
@@ -30,6 +31,26 @@ const QUALITY_LABELS: Record<QualityPreset, string> = {
   B: "B · Nét — DPR 1.5, đèn/ACES như A",
   C: "C · Đèn — DPR 1.5, ánh sáng hiệu chỉnh, ACES",
   D: "D · Tone — DPR 1.5, đèn gốc, Neutral thay ACES",
+  E: "E · Neutral dịu — DPR 1.25, giảm exposure, màu mặt bớt hồng",
+  F: "F · Mặt có khối — như E, thêm shading khuôn mặt/mũi/miệng",
+};
+
+// M3 VRM marks face/mouth as KHR_materials_unlit. Ordinary scene lights
+// therefore cannot bring out nose/mouth geometry. This temporary V1.7.1
+// shader adds a *small* view-space normal response to those two materials
+// only, retaining their source maps and original unlit rendering in A-E.
+const facialSculptCompile: THREE.Material["onBeforeCompile"] = shader => {
+  shader.vertexShader = "varying vec3 vM3FaceNormal;\n" + shader.vertexShader.replace(
+    "#include <defaultnormal_vertex>",
+    "#include <defaultnormal_vertex>\nvM3FaceNormal = normalize( transformedNormal );",
+  );
+  shader.fragmentShader = "varying vec3 vM3FaceNormal;\n" + shader.fragmentShader.replace(
+    "#include <color_fragment>",
+    "#include <color_fragment>\n" +
+    "float m3Facing = max(dot(normalize(vM3FaceNormal), normalize(vec3(-0.22, 0.32, 0.92))), 0.0);\n" +
+    "float m3FaceShade = mix(0.84, 1.025, smoothstep(0.05, 0.94, m3Facing));\n" +
+    "diffuseColor.rgb *= m3FaceShade;",
+  );
 };
 
 type PreviewFrame = {
@@ -193,6 +214,42 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     key.position.set(3, 6, 5);
     scene.add(key);
 
+    // The original unlit face/mouth materials are preserved, even after
+    // skin-map replacement or switching the QA preset back to A/D.
+    const faceMaterials: FaceMaterialBaseline[] = [];
+    const neutralFaceTint = new THREE.Color(0xfaffff);
+    const captureFaceMaterials = (root: THREE.Object3D) => {
+      const found = new Set<THREE.Material>();
+      faceMaterials.length = 0;
+      root.traverse(node => {
+        const mesh = node as THREE.Mesh;
+        if (!mesh.isMesh || !/^head.*baked/i.test(mesh.name)) return;
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const material of materials) {
+          const basic = material as THREE.MeshBasicMaterial;
+          if (!basic.isMeshBasicMaterial || found.has(material)) continue;
+          found.add(material);
+          faceMaterials.push({
+            material: basic, color: basic.color.clone(), originalCompile: basic.onBeforeCompile,
+          });
+        }
+      });
+      host.dataset.m3UnlitFaceMaterials = String(faceMaterials.length);
+    };
+    const applyFaceMaterials = (preset: QualityPreset) => {
+      const calibrated = preset === "E" || preset === "F";
+      for (const baseline of faceMaterials) {
+        const material = baseline.material;
+        material.color.copy(baseline.color);
+        if (calibrated) material.color.multiply(neutralFaceTint);
+        const sculpt = preset === "F";
+        if ((material.onBeforeCompile === facialSculptCompile) !== sculpt) {
+          material.onBeforeCompile = sculpt ? facialSculptCompile : baseline.originalCompile;
+          material.needsUpdate = true; // Shader switches; not an actor/texture reload.
+        }
+      }
+    };
+
     let faceFill: THREE.DirectionalLight | null = null;
     if (isM3Creator) {
       // Neutral forward fill is important for dark-skin material visibility.
@@ -332,7 +389,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     // Event-driven canvas; FPS sampling would be misleading.
     // WebGL object counts below are not actual GPU memory allocations.
     const mobileViewport = () => window.matchMedia("(pointer: coarse)").matches || host.clientWidth <= 768;
-    const pixelRatioCap = () => mobileViewport() ? (presetRef.current === "A" ? 1.25 : 1.5) : 1.6;
+    const pixelRatioCap = () => mobileViewport() ? (["A", "E", "F"].includes(presetRef.current) ? 1.25 : 1.5) : 1.6;
     const configureResolution = () => {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
@@ -385,8 +442,9 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       key.intensity = calibrated ? 1.95 : (isM3Creator ? 2.2 : 2.4);
       if (faceFill) faceFill.intensity = calibrated ? 1.05 : 1.25;
       rim.intensity = calibrated ? 1.45 : (isM3Creator ? 1.6 : 1.7);
-      renderer.toneMapping = isM3Creator && preset === "D" ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.03;
+      renderer.toneMapping = isM3Creator && ["D", "E", "F"].includes(preset) ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = isM3Creator && ["E", "F"].includes(preset) ? 0.985 : 1.03;
+      if (isM3Creator) applyFaceMaterials(preset);
       configureResolution();
       render();
       readDiagnostics();
@@ -457,9 +515,11 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
             normalizePreview(root);
             root.rotation.y = yawRef.current;
           }
+          if (assembly) captureFaceMaterials(root);
           modelRef.current = root;
           assemblerRef.current = assembly;
           scene.add(root);
+          if (assembly) applyQuality(presetRef.current);
           host.dataset.characterSource = assetId;
           host.dataset.m3Bones = String(assembly?.skeleton?.bones.length ?? 0);
           host.dataset.m3BaseLoads = String(assembly?.baseLoads ?? 0);
@@ -565,7 +625,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           onPointerCancel={event => event.stopPropagation()}
         >
           <div className={styles.qualityControls} aria-label="Thử chất lượng render khuôn mặt">
-            {(["A", "B", "C", "D"] as const).map(preset => (
+            {(["A", "B", "C", "D", "E", "F"] as const).map(preset => (
               <button
                 key={preset}
                 type="button"
@@ -587,8 +647,10 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           </div>
           {showDiagnostics && (
             <div className={styles.qualityDiagnostics} role="status" data-testid="m3-facial-diagnostics">
-              <strong>Facial Fidelity V1.7 · {qualityPreset}</strong>
-              <span>A: gốc · B: nét · C: đèn · D: Neutral</span>
+              <strong>Facial Fidelity V1.7.1 · {qualityPreset}</strong>
+              <span>A: gốc · B: DPR · C: đèn · D: Neutral · E: dịu · F: có khối</span>
+              <span>Đèn không tạo khối trên VRM unlit; F thêm shading cục bộ (không sửa texture).</span>
+              <span>Unlit face/mouth: {hostRef.current?.dataset.m3UnlitFaceMaterials ?? "đang tải"}</span>
               {diagnostics ? (
                 <>
                   <span>DPR máy {diagnostics.deviceDpr} · cap {diagnostics.cap}</span>
