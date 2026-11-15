@@ -288,6 +288,7 @@ export default function CharacterCreationV1() {
                   {creatorCharacter.appearance.hairColors.map(choice => (
                     <button
                       aria-label={choice.label}
+                      aria-pressed={hairColor === choice.id}
                       className={[styles.swatch, styles[`hair_${choice.id}`], hairColor === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
                       disabled={!choice.available}
                       key={choice.id}

@@ -33,6 +33,7 @@ const FAMILIES = {
 } as const;
 const COLORS: Readonly<Record<string, string | null>> = {
   original: null, black: "#161616", syrup: "#5A3114", purple: "#AF25FF",
+  red: "#C43F54", yellow: "#E5BD69",
 };
 const SKINS = ["originalskin", "tone1skin", "tone2skin", "tone3skin", "tone4skin"] as const;
 function listMeshes(object: THREE.Object3D): THREE.SkinnedMesh[] {

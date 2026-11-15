@@ -145,6 +145,8 @@ const M3_HAIR_COLOR: readonly CharacterCatalogChoice[] = [
   { id: "black", label: "Đen", available: true },
   { id: "syrup", label: "Nâu", available: true },
   { id: "purple", label: "Tím", available: true },
+  { id: "red", label: "Đỏ cherry", available: true },
+  { id: "yellow", label: "Vàng blonde", available: true },
 ];
 const M3_FACE = [{ id: "basic-01", label: "Mặt mặc định", available: true }] as const;
 const DROPHUNTER_M3: CharacterCatalogEntry = {

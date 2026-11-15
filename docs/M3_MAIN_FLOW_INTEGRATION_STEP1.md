@@ -173,3 +173,22 @@ Validation: source images 18/18 verified, Next.js/TypeScript build, Vercel
 READY + /character/create HTTP 200. Physical iPhone test needed to approve
 thumbnail clarity, lazy loading and selection UX. No full E2E or iPhone visual
 claim from a build alone.
+
+## V1.6.1 — Hair red and blonde yellow (owner-directed, 2026-11-15)
+
+- Add two new creator-only M3 catalog hair color IDs: `red` (Đỏ cherry),
+  `yellow` (Vàng blonde). Both character identities share this catalog:
+  Drophunter and Neurohacker; C1/C4 legacy choice sets are unchanged.
+- Preserve the M3 rig and hair material tint pipeline, extend existing
+  actor-local color map with `#C43F54` and `#E5BD69`. Original color
+  restoration is unchanged; no base/garment loads are introduced.
+- Add corresponding colored swatches. Existing six-color layout wraps
+  responsively in narrow viewports. Each selected swatch exposes aria-pressed.
+- Persist the selected color through existing profile V1 validation + save
+  + reload; no profile schema migration needed. Thumbnails remain the
+  original item-only source art and are not recolored.
+- Waiting Room, Gameplay, Character Catalog runtimeReady gating, WebAudio,
+  RoomState, Supabase, Shop and Inventory are not modified.
+- Validate by TypeScript/Next.js build, GitHub/Vercel READY and route HTTP 200.
+  Owner physical iPhone visual QA remains outstanding for red/blonde tint,
+  reverting original shade and hair-style changes.
