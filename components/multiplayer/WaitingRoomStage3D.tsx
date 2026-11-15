@@ -14,6 +14,7 @@ import {
 } from "../character/character-catalog";
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import { M3CharacterAssembler } from "../character/m3-character-assembler";
+import { createM3LobbyIdle, type M3LobbyIdle } from "../character/m3-lobby-idle";
 import { parseM3LobbyAppearance } from "../character/m3-lobby-appearance";
 import { loadLobbyIdleLibrary } from "../character/lobby-idle-library";
 import { retargetQuaterniusClipsToMixamo } from "../character/mixamo-character-adapter";
@@ -798,6 +799,8 @@ export default function WaitingRoomStage3D({
   const [sceneGeneration, setSceneGeneration] = useState(0);
   const [renderedActorCount, setRenderedActorCount] = useState(0);
   const [idleRuntimeCount, setIdleRuntimeCount] = useState(0);
+  const [m3IdleCount, setM3IdleCount] = useState(0);
+  const [m3ScratchReadyCount, setM3ScratchReadyCount] = useState(0);
   const [idleSource, setIdleSource] = useState<"loading" | "published" | "builtin" | "none">("loading");
   const stagePresentationReady = loadState !== "loading"
     && renderedActorCount >= participants.length;
@@ -870,10 +873,14 @@ export default function WaitingRoomStage3D({
     let characterAssetsReady = false;
 
     const idleRuntimeByParticipant = new Map<string, IdleRuntime>();
+    // Waiting Room only: native M3 skeleton motion, no Mixer/gameplay clock.
+    const m3IdleByParticipant = new Map<string, M3LobbyIdle>();
     const disposableSources: THREE.Object3D[] = [];
     stageNodesRef.current.clear();
     slotPlaceholdersRef.current = [];
     setIdleRuntimeCount(0);
+    setM3IdleCount(0);
+    setM3ScratchReadyCount(0);
     setIdleSource("loading");
 
     const sketchVisual = visualPreset === "sketch";
@@ -1478,6 +1485,7 @@ export default function WaitingRoomStage3D({
           runtime.mixer.update(deltaSeconds);
           switchIdleIfNeeded(runtime, deltaSeconds);
         });
+        m3IdleByParticipant.forEach(runtime => runtime.update(deltaSeconds));
 
         const ringTime = nowMs / 1000;
         const transitionAlpha = 1 - Math.exp(-deltaSeconds * 4.2);
@@ -1811,6 +1819,12 @@ export default function WaitingRoomStage3D({
     };
 
     const removeStageNode = (participantId: string) => {
+      // Only departure or true identity replacement destroys M3 idle;
+      // READY and connection metadata only update the participant reference.
+      if (m3IdleByParticipant.delete(participantId)) {
+        setM3IdleCount(m3IdleByParticipant.size);
+        setM3ScratchReadyCount([...m3IdleByParticipant.values()].filter(idle => idle.hasScratchPose).length);
+      }
       const node = stageNodesRef.current.get(participantId);
       if (!node) return;
       stopIdleRuntime(participantId);
@@ -1907,7 +1921,16 @@ export default function WaitingRoomStage3D({
         layoutReady: false,
       };
       stageNodesRef.current.set(participant.participantId, node);
-      attachIdleRuntime(node);
+      if (m3Source) {
+        const idle = createM3LobbyIdle(actor, participant.participantId, roomId);
+        if (idle) {
+          m3IdleByParticipant.set(participant.participantId, idle);
+          setM3IdleCount(m3IdleByParticipant.size);
+          setM3ScratchReadyCount([...m3IdleByParticipant.values()].filter(runtime => runtime.hasScratchPose).length);
+        }
+      } else {
+        attachIdleRuntime(node);
+      }
       return node;
     };
 
@@ -2092,6 +2115,7 @@ export default function WaitingRoomStage3D({
       renderer.domElement.removeEventListener("pointercancel", onPointerEnd);
       idleRuntimeByParticipant.forEach(runtime => runtime.mixer.stopAllAction());
       idleRuntimeByParticipant.clear();
+      m3IdleByParticipant.clear();
       renderRef.current = null;
       layoutRef.current = null;
       reconcileParticipantsRef.current = null;
@@ -2154,6 +2178,8 @@ export default function WaitingRoomStage3D({
       data-scene-generation={sceneGeneration}
       data-actor-count={renderedActorCount}
       data-idle-count={idleRuntimeCount}
+      data-m3-idle-count={m3IdleCount}
+      data-m3-scratch-ready-count={m3ScratchReadyCount}
       data-idle-source={idleSource}
       data-character-assets={participants.map(participantCharacterAssetId).join(",")}
       data-focus-participant-id={focusedParticipant?.participantId ?? ""}
