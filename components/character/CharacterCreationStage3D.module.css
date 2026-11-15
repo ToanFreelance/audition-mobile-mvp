@@ -24,3 +24,30 @@
   letter-spacing:.06em;
   text-shadow:0 0 10px rgba(92,216,255,.35);
 }
+
+/* Temporary in-preview M3 facial fidelity QA; no extra layout height. */
+.qualityTest {
+  position: absolute; z-index: 5; top: calc(max(8px, env(safe-area-inset-top)) + 69px); right: 7px;
+  width: max-content; max-width: calc(100% - 14px);
+  pointer-events: auto; touch-action: manipulation; user-select: none;
+}
+.qualityControls { display: flex; justify-content: flex-end; gap: 3px; }
+.qualityControls button {
+  min-width: 25px; height: 26px; padding: 0 5px;
+  border: 1px solid rgba(202, 181, 255, .48); border-radius: 6px;
+  background: rgba(18, 14, 47, .83); color: #e9e4ff;
+  font-size: 11px; font-weight: 800; line-height: 1; touch-action: manipulation;
+}
+.qualityControls button.qualityActive {
+  border-color: #7be7f6; background: rgba(46, 103, 130, .95); color: #fff;
+}
+.qualityDiagnostics {
+  position: absolute; right: 0; top: 30px; display: grid; gap: 3px;
+  width: min(246px, calc(100vw - 104px)); padding: 9px;
+  border: 1px solid rgba(182, 167, 245, .58); border-radius: 9px;
+  background: rgba(12, 10, 38, .94); color: #e5e6ff;
+  font-size: 10px; line-height: 1.35; overflow-wrap: anywhere;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .34);
+}
+.qualityDiagnostics strong { color: #a4eefd; }
+.qualityDiagnostics small { color: #bdb7d9; font-size: 9px; }

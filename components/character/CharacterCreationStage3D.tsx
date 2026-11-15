@@ -19,6 +19,19 @@ type Props = {
   onReadyChange?: (ready: boolean) => void;
 };
 
+type QualityPreset = "A" | "B" | "C" | "D";
+type RenderDiagnostics = {
+  deviceDpr: number; cap: number; requestedDpr: number; actualDpr: number;
+  cssSize: string; bufferSize: string; megapixels: string;
+  geometries: number; textures: number; faceMaps: string; faceSampling: string;
+};
+const QUALITY_LABELS: Record<QualityPreset, string> = {
+  A: "A · Gốc — DPR 1.25, ACES, đèn gốc",
+  B: "B · Nét — DPR 1.5, đèn/ACES như A",
+  C: "C · Đèn — DPR 1.5, ánh sáng hiệu chỉnh, ACES",
+  D: "D · Tone — DPR 1.5, đèn gốc, Neutral thay ACES",
+};
+
 type PreviewFrame = {
   fov: number;
   cameraY: number;
@@ -98,6 +111,17 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
   const focusRef = useRef<((nextFocus: CharacterCreatorFocus, animate?: boolean) => void) | null>(null);
   const orbitRef = useRef<((nextYaw: number) => void) | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "fallback">("loading");
+  // Removable in-preview QA presets: never persisted in avatar/profile.
+  const [qualityPreset, setQualityPreset] = useState<QualityPreset>("A");
+  const presetRef = useRef(qualityPreset);
+  presetRef.current = qualityPreset;
+  const applyQualityRef = useRef<((preset: QualityPreset) => void) | null>(null);
+  const readDiagnosticsRef = useRef<(() => void) | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const showDiagnosticsRef = useRef(showDiagnostics);
+  showDiagnosticsRef.current = showDiagnostics;
+  const [diagnostics, setDiagnostics] = useState<RenderDiagnostics | null>(null);
+  const m3Preview = Boolean(getCharacterCatalogEntry(assetId)?.m3RigFamily);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -159,18 +183,20 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       scene.background = studioBackground;
       scene.fog = new THREE.FogExp2(0x403a59, 0.028);
     }
-    scene.add(new THREE.HemisphereLight(
+    const hemisphere = new THREE.HemisphereLight(
       isM3Creator ? 0xf3edff : 0xbec8ff,
       isM3Creator ? 0x635e79 : 0x130923,
       isM3Creator ? 1.75 : 1.65,
-    ));
+    );
+    scene.add(hemisphere);
     const key = new THREE.DirectionalLight(isM3Creator ? 0xfff3eb : 0xffe6f7, isM3Creator ? 2.2 : 2.4);
     key.position.set(3, 6, 5);
     scene.add(key);
 
+    let faceFill: THREE.DirectionalLight | null = null;
     if (isM3Creator) {
       // Neutral forward fill is important for dark-skin material visibility.
-      const faceFill = new THREE.DirectionalLight(0xeae9ff, 1.25);
+      faceFill = new THREE.DirectionalLight(0xeae9ff, 1.25);
       faceFill.position.set(-2.6, 2.5, 5);
       scene.add(faceFill);
     }
@@ -303,6 +329,70 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     };
     focusRef.current = applyFocus;
 
+    // Event-driven canvas; FPS sampling would be misleading.
+    // WebGL object counts below are not actual GPU memory allocations.
+    const mobileViewport = () => window.matchMedia("(pointer: coarse)").matches || host.clientWidth <= 768;
+    const pixelRatioCap = () => mobileViewport() ? (presetRef.current === "A" ? 1.25 : 1.5) : 1.6;
+    const configureResolution = () => {
+      const width = Math.max(1, host.clientWidth);
+      const height = Math.max(1, host.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap()));
+      renderer.setSize(width, height, false);
+    };
+    const readDiagnostics = () => {
+      if (disposed || !showDiagnosticsRef.current) return;
+      const buffer = renderer.getDrawingBufferSize(new THREE.Vector2());
+      const faceMaps = new Set<string>();
+      const faceSampling = new Set<string>();
+      modelRef.current?.traverse(node => {
+        const mesh = node as THREE.Mesh;
+        if (!mesh.isMesh || !/headbaked|head_geobaked|headgeobaked/i.test(mesh.name)) return;
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const material of materials) {
+          const map = (material as THREE.MeshStandardMaterial).map;
+          if (!map) continue;
+          const image = map.image as { width?: number; height?: number } | undefined;
+          if (image?.width && image?.height) faceMaps.add(String(image.width) + "×" + String(image.height));
+          const minFilter = map.minFilter === THREE.LinearMipmapLinearFilter ? "trilinear" :
+            map.minFilter === THREE.LinearMipmapNearestFilter ? "linear / nearest mip" :
+            map.minFilter === THREE.LinearFilter ? "linear" : String(map.minFilter);
+          const magFilter = map.magFilter === THREE.LinearFilter ? "linear" : String(map.magFilter);
+          faceSampling.add(minFilter + "/" + magFilter + ", mip=" + String(map.generateMipmaps) + ", " + map.colorSpace);
+        }
+      });
+      const width = Math.max(1, host.clientWidth);
+      const height = Math.max(1, host.clientHeight);
+      setDiagnostics({
+        deviceDpr: window.devicePixelRatio || 1,
+        cap: pixelRatioCap(),
+        requestedDpr: Math.min(window.devicePixelRatio || 1, pixelRatioCap()),
+        actualDpr: renderer.getPixelRatio(),
+        cssSize: width + "×" + height,
+        bufferSize: buffer.x + "×" + buffer.y,
+        megapixels: ((buffer.x * buffer.y) / 1_000_000).toFixed(2),
+        geometries: renderer.info.memory.geometries,
+        textures: renderer.info.memory.textures,
+        faceMaps: [...faceMaps].join(", ") || "chưa đọc được",
+        faceSampling: [...faceSampling].join("; ") || "chưa đọc được",
+      });
+    };
+    readDiagnosticsRef.current = readDiagnostics;
+    const applyQuality = (preset: QualityPreset) => {
+      // Do not change camera, model, skeleton, garments or actor lifecycle.
+      presetRef.current = preset;
+      const calibrated = isM3Creator && preset === "C";
+      hemisphere.intensity = calibrated ? 1.35 : (isM3Creator ? 1.75 : 1.65);
+      key.intensity = calibrated ? 1.95 : (isM3Creator ? 2.2 : 2.4);
+      if (faceFill) faceFill.intensity = calibrated ? 1.05 : 1.25;
+      rim.intensity = calibrated ? 1.45 : (isM3Creator ? 1.6 : 1.7);
+      renderer.toneMapping = isM3Creator && preset === "D" ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.03;
+      configureResolution();
+      render();
+      readDiagnostics();
+    };
+    applyQualityRef.current = applyQuality;
+
     const resize = () => {
       const width = Math.max(1, host.clientWidth);
       const height = Math.max(1, host.clientHeight);
@@ -311,14 +401,13 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       setOrbit(frame.cameraZ, yawRef.current);
       camera.lookAt(lookTarget);
       camera.updateProjectionMatrix();
-      const mobile = window.matchMedia("(pointer: coarse)").matches || width <= 768;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.6));
-      renderer.setSize(width, height, false);
+      configureResolution();
       render();
+      readDiagnostics();
     };
-
     const observer = new ResizeObserver(resize);
     observer.observe(host);
+    applyQuality(presetRef.current);
     resize();
 
     const loader = new GLTFLoader();
@@ -378,6 +467,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           setState("ready");
           onReadyRef.current?.(true);
           applyFocus(activeFocus, false);
+          readDiagnostics();
         } catch (error) {
           if (assembly) assembly.dispose();
           else disposeObjectResources(root);
@@ -399,6 +489,8 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       focusRef.current = null;
       orbitRef.current = null;
       renderRef.current = null;
+      applyQualityRef.current = null;
+      readDiagnosticsRef.current = null;
       modelRef.current = null;
       assemblerRef.current?.dispose();
       assemblerRef.current = null;
@@ -421,6 +513,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       setState("ready");
       onReadyRef.current?.(true);
       renderRef.current?.();
+      readDiagnosticsRef.current?.();
     }).catch(error => {
       if (!active) return;
       console.warn("[C3] M3 appearance update failed", error);
@@ -446,6 +539,14 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     focusRef.current?.(focus, true);
   }, [focus]);
 
+  useEffect(() => {
+    applyQualityRef.current?.(qualityPreset);
+  }, [qualityPreset]);
+
+  useEffect(() => {
+    if (showDiagnostics) readDiagnosticsRef.current?.();
+  }, [showDiagnostics]);
+
   return (
     <div
       className={styles.host}
@@ -454,6 +555,55 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       data-testid="c2-character-stage"
       ref={hostRef}
     >
+      {m3Preview && (
+        <div
+          className={styles.qualityTest}
+          data-testid="m3-facial-quality-test"
+          onPointerDown={event => event.stopPropagation()}
+          onPointerMove={event => event.stopPropagation()}
+          onPointerUp={event => event.stopPropagation()}
+          onPointerCancel={event => event.stopPropagation()}
+        >
+          <div className={styles.qualityControls} aria-label="Thử chất lượng render khuôn mặt">
+            {(["A", "B", "C", "D"] as const).map(preset => (
+              <button
+                key={preset}
+                type="button"
+                aria-label={QUALITY_LABELS[preset]}
+                aria-pressed={qualityPreset === preset}
+                title={QUALITY_LABELS[preset]}
+                data-testid={"m3-facial-preset-" + preset}
+                className={qualityPreset === preset ? styles.qualityActive : ""}
+                onClick={() => setQualityPreset(preset)}
+              >{preset}</button>
+            ))}
+            <button
+              type="button"
+              aria-label={showDiagnostics ? "Ẩn chẩn đoán render" : "Hiện chẩn đoán render"}
+              aria-expanded={showDiagnostics}
+              className={showDiagnostics ? styles.qualityActive : ""}
+              onClick={() => setShowDiagnostics(current => !current)}
+            >i</button>
+          </div>
+          {showDiagnostics && (
+            <div className={styles.qualityDiagnostics} role="status" data-testid="m3-facial-diagnostics">
+              <strong>Facial Fidelity V1.7 · {qualityPreset}</strong>
+              <span>A: gốc · B: nét · C: đèn · D: Neutral</span>
+              {diagnostics ? (
+                <>
+                  <span>DPR máy {diagnostics.deviceDpr} · cap {diagnostics.cap}</span>
+                  <span>DPR yêu cầu {diagnostics.requestedDpr} · renderer {diagnostics.actualDpr}</span>
+                  <span>CSS {diagnostics.cssSize} · buffer {diagnostics.bufferSize}</span>
+                  <span>Pixels {diagnostics.megapixels} MP · geometry {diagnostics.geometries} · texture {diagnostics.textures}</span>
+                  <span>Face map: {diagnostics.faceMaps}</span>
+                  <span>Face filter: {diagnostics.faceSampling}</span>
+                  <small>Đếm WebGL ≠ VRAM. Không đo FPS/GPU time.</small>
+                </>
+              ) : <span>Đang đọc renderer…</span>}
+            </div>
+          )}
+        </div>
+      )}
       {state === "loading" && <div className={styles.status}>Đang tải nhân vật…</div>}
       {state === "fallback" && <div className={styles.status}>Không thể mở 3D preview</div>}
     </div>
