@@ -625,3 +625,64 @@
 .skin_tone3skin{background:#c39783}
 .skin_tone4skin{background:#e0b89c}
 .m3GateNote{margin:8px 3px 0;color:#edcfff;text-align:center;font-size:11px;line-height:1.35}
+
+/* M3 creator: high-contrast selected gender, icon and text on one line. */
+.bodyCard > button.genderChoice:not(.swatch){
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  min-width:0;
+  padding:4px 5px;
+  font-size:11px;
+  font-weight:850;
+  line-height:1;
+  white-space:nowrap;
+}
+.genderIcon{font-size:23px;line-height:1;font-weight:700;flex:0 0 auto}
+.bodyCard > button.genderChoice.bodyActive:not(.swatch){
+  border:2px solid #ff85ef;
+  color:#fff;
+  background:linear-gradient(135deg,#a13dd8,#6426af);
+  box-shadow:0 0 0 1px #ffa0ed88,0 0 14px #f358e080,inset 0 1px 6px #ffffff38;
+}
+.bodyCard > button.genderChoice:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+/* Only two real starter tops and two bottoms per M3 character. */
+.creatorWardrobe{display:grid;gap:10px;padding:1px}
+.creatorGarmentGroup{display:grid;gap:5px}
+.creatorGarmentGroup>strong{font-size:10px;letter-spacing:.12em;color:#e9caff}
+.creatorGarmentGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.creatorGarmentChoice{
+  min-width:0;min-height:42px;padding:7px 6px;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  border:1px solid #7766c3;border-radius:9px;
+  background:linear-gradient(145deg,#2e225c,#15193f);
+  color:#e4ddfa;font-size:10px;font-weight:750;text-align:center;
+}
+.creatorGarmentChoice>span:first-child{font-size:15px;line-height:1;color:#a9dafa}
+.creatorGarmentChoice.creatorGarmentSelected{
+  border:2px solid #ff77e3;
+  color:#fff;
+  background:linear-gradient(145deg,#7133b9,#39237c);
+  box-shadow:0 0 13px #d54dd455,inset 0 0 8px #f7c3ff27;
+}
+.creatorGarmentChoice.creatorGarmentSelected>span:first-child{color:#9effde}
+.creatorGarmentChoice:focus-visible{outline:2px solid white;outline-offset:2px}
+.creatorFixedShoes{
+  min-height:70px;display:flex;align-items:center;justify-content:center;
+  gap:12px;padding:12px;border:2px solid #cd7af4;border-radius:11px;
+  background:linear-gradient(130deg,#4c2684,#242159);color:#fff
+}
+.creatorFixedShoes>span{color:#9effde;font-size:23px;font-weight:900}
+.creatorFixedShoes>div{display:grid;gap:4px}
+.creatorFixedShoes strong{font-size:12px}
+.creatorFixedShoes small{font-size:10px;color:#c9bbf0}
+@media(max-width:767px){
+  .rail.m3Rail{grid-template-rows:repeat(4,minmax(0,1fr));max-height:260px}
+}
+@media(max-width:370px){
+  .bodyCard > button.genderChoice:not(.swatch){gap:3px;padding:3px;font-size:10px}
+  .genderIcon{font-size:20px}
+  .creatorGarmentChoice{font-size:9px;gap:4px}
+}

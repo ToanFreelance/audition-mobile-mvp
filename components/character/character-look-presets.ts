@@ -4,6 +4,7 @@ import {
   type CharacterAssetId,
 } from "./character-catalog";
 import type { CharacterCreationProfileV1 } from "./character-profile";
+import { isValidM3CreatorOutfit } from "./m3-creator-outfits";
 
 // Four quick appearance presets for one already-created MVP character.
 // This is local device persistence, NOT an account or server character registry.
@@ -11,7 +12,7 @@ export const CHARACTER_LOOK_PRESETS_KEY = "audition.characterLookPresets.v1";
 
 export type CharacterLook = Pick<
   CharacterCreationProfileV1,
-  "hairStyle" | "hairColor" | "skinTone" | "face"
+  "hairStyle" | "hairColor" | "skinTone" | "face" | "m3Outfit"
 >;
 export type CharacterLookSlots = [
   CharacterLook | null,
@@ -27,6 +28,7 @@ export function appearanceFromProfile(profile: CharacterCreationProfileV1): Char
     hairColor: profile.hairColor,
     skinTone: profile.skinTone,
     face: profile.face,
+    m3Outfit: profile.m3Outfit,
   };
 }
 
@@ -40,6 +42,7 @@ export function validCharacterLook(assetId: CharacterAssetId, value: unknown): v
     && isAvailableCharacterChoice(character.appearance.hairColors, look.hairColor)
     && isAvailableCharacterChoice(character.appearance.skinTones, look.skinTone)
     && isAvailableCharacterChoice(character.appearance.faces, look.face)
+    && (!character.m3RigFamily || look.m3Outfit === undefined || isValidM3CreatorOutfit(assetId, look.m3Outfit))
   );
 }
 

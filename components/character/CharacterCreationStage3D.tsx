@@ -379,7 +379,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       onReadyRef.current?.(false);
     });
     return () => { active = false; };
-  }, [assetId, appearance?.hairStyle, appearance?.hairColor, appearance?.skinTone]);
+  }, [assetId, appearance?.hairStyle, appearance?.hairColor, appearance?.skinTone, appearance?.m3Outfit?.top, appearance?.m3Outfit?.bottom]);
 
   useEffect(() => {
     if (!modelRef.current) return;

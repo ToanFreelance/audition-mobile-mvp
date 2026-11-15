@@ -1,4 +1,9 @@
 import {
+  type M3CreatorOutfit,
+  defaultM3CreatorOutfit,
+  resolveM3CreatorOutfit,
+} from "./m3-creator-outfits";
+import {
   DEFAULT_CHARACTER_ASSET_ID,
   getCharacterCatalogEntry,
   isAvailableCharacterChoice,
@@ -17,6 +22,8 @@ export type CharacterCreationProfileV1 = {
   hairColor: string;
   skinTone: string;
   face: string;
+  /** Creator-only starter garments, without inventory or shop authority. */
+  m3Outfit?: M3CreatorOutfit;
   name: string;
 };
 
@@ -32,6 +39,7 @@ export const DEFAULT_CHARACTER_CREATION_PROFILE: CharacterCreationProfileV1 = {
   hairColor: DEFAULT_CHARACTER.defaultAppearance.hairColor,
   skinTone: DEFAULT_CHARACTER.defaultAppearance.skinTone,
   face: DEFAULT_CHARACTER.defaultAppearance.face,
+  m3Outfit: defaultM3CreatorOutfit(DEFAULT_CHARACTER.id),
   name: "Luna",
 };
 
@@ -72,6 +80,7 @@ export function parseCharacterCreationDraft(raw: string | null): CharacterCreati
       hairColor: value.hairColor,
       skinTone: value.skinTone,
       face: value.face,
+      m3Outfit: resolveM3CreatorOutfit(character.id, value.m3Outfit),
       name: value.name.trim().slice(0, 14),
     };
   } catch {

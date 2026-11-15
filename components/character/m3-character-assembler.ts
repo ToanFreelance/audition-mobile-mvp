@@ -1,9 +1,15 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { getCharacterCatalogEntry, type CharacterAssetId, type M3RigFamily } from "./character-catalog";
+import { getM3CreatorWardrobeForFamily, type M3CreatorOutfit } from "./m3-creator-outfits";
 
 /** Shared M3 actor assembly. Does not own renderer, AnimationMixer or gameplay clock. */
-export type M3Appearance = Readonly<{ hairStyle: string; hairColor: string; skinTone: string }>;
+export type M3Appearance = Readonly<{
+  hairStyle: string;
+  hairColor: string;
+  skinTone: string;
+  m3Outfit?: M3CreatorOutfit;
+}>;
 type Slot = "eyes" | "top" | "bottom" | "shoes" | "hair";
 type LoadedPart = { scene: THREE.Group; meshes: THREE.SkinnedMesh[] };
 type SkinLayer = "body" | "face" | "mouth";
@@ -85,6 +91,7 @@ export class M3CharacterAssembler {
   private hairId = "";
   private hairColor = "original";
   private skinId = "originalskin";
+  private outfit: M3CreatorOutfit | null = null;
   private appearanceVersion = 0;
   private updateQueue: Promise<void> = Promise.resolve();
   private disposed = false;
@@ -131,7 +138,18 @@ export class M3CharacterAssembler {
     this.bindInverse.copy(this.root.matrixWorld).invert();
     this.baseLoads++;
     this.findSkinTargets();
-    for (const slot of ["eyes", "top", "bottom", "shoes"] as const) await this.attach(slot, family[slot]);
+    const wardrobe = getM3CreatorWardrobeForFamily(this.family);
+    const selected = appearance.m3Outfit ?? wardrobe.defaultOutfit;
+    const top = wardrobe.top.find(item => item.id === selected.top);
+    const bottom = wardrobe.bottom.find(item => item.id === selected.bottom);
+    if (!top || !bottom) throw new Error("M3 creator outfit not valid for " + this.family);
+    // Mandatory eyes and the fixed simple shoes. Two tops and bottoms are
+    // creation-time traits, not an Inventory/Shop wardrobe.
+    await this.attach("eyes", family.eyes);
+    await this.attach("top", top.file);
+    await this.attach("bottom", bottom.file);
+    await this.attach("shoes", wardrobe.shoes.file);
+    this.outfit = { top: top.id, bottom: bottom.id };
     await this.swapHair(appearance.hairStyle);
     await Promise.all([this.tintHair(appearance.hairColor), this.replaceSkin(appearance.skinTone)]);
   }
@@ -262,6 +280,22 @@ export class M3CharacterAssembler {
     }
     this.skinId = id;
   }
+  private async updateCreatorOutfit(outfit: M3CreatorOutfit): Promise<void> {
+    const wardrobe = getM3CreatorWardrobeForFamily(this.family);
+    const top = wardrobe.top.find(item => item.id === outfit.top);
+    const bottom = wardrobe.bottom.find(item => item.id === outfit.bottom);
+    if (!top || !bottom) throw new Error("M3 creator garment does not belong to the selected rig");
+    if (this.outfit?.top !== top.id) {
+      await this.attach("top", top.file);
+      this.outfit = { top: top.id, bottom: this.outfit?.bottom ?? bottom.id };
+    }
+    if (this.disposed) return;
+    if (this.outfit?.bottom !== bottom.id) {
+      await this.attach("bottom", bottom.file);
+      this.outfit = { top: this.outfit?.top ?? top.id, bottom: bottom.id };
+    }
+  }
+
   async updateAppearance(appearance: M3Appearance): Promise<void> {
     const version = ++this.appearanceVersion;
     const work = this.updateQueue.then(async () => {
@@ -270,6 +304,8 @@ export class M3CharacterAssembler {
       if (this.disposed || version !== this.appearanceVersion) return;
       this.tintHair(appearance.hairColor);
       await this.replaceSkin(appearance.skinTone);
+      if (this.disposed || version !== this.appearanceVersion) return;
+      await this.updateCreatorOutfit(appearance.m3Outfit ?? getM3CreatorWardrobeForFamily(this.family).defaultOutfit);
     });
     this.updateQueue = work.catch(() => {});
     return work;

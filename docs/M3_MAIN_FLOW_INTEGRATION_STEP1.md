@@ -64,3 +64,20 @@ authored world space; camera target, distance and yaw orbit are computed from
 actual Box3 bounds. Only stage decorations are scaled. This corrects the
 root cause of "giant clothing" and makes skin/hair switching preserve alignment.
 The body selector is the first navigation item and the initial open category.
+
+## Creator UX follow-up — 2026-11-15
+Physical iPhone feedback: female M3 creator renders correctly after bind-space/camera correction.
+Owner requests creation-time customization, NOT an Inventory UI:
+- Gender selector in Tạo hình must visibly indicate active gender; enlarged gender glyph inline with label.
+- Exactly two source-verified elementary tops and two bottoms per M3 family:
+  Drophunter: shirt, lightshirt / casualshorts, sportshorts.
+  Neurohacker: logotee, simpleshirt / cargoshorts, shorts.
+- Accessories: none in Character Creation, hide the accessory tab for M3.
+- Shoes: single fixed basic starter: Drophunter sneakers, Neurohacker simpleshoes.
+- The creator-only outfit (top/bottom IDs) is persisted in the optional
+  `m3Outfit` property of existing CharacterCreationProfileV1 and local look
+  presets. Old profiles without m3Outfit migrate to the matching rig default.
+- Actor swaps only per garment slot, canonical skeleton stays; current visual
+  gate requires owner physical iPhone test, NOT inferred from successful build.
+- RoomState/MatchManifest/Waiting Room/Game remain unchanged. No Shop/Inventory
+  implementation, no animation retarget, no changes on development/main.

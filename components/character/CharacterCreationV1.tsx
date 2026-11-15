@@ -14,6 +14,9 @@ import {
   saveCharacterCreationDraft,
   type CharacterCreationProfileV1,
 } from "./character-profile";
+import {
+  defaultM3CreatorOutfit, getM3CreatorWardrobe, type M3CreatorOutfit,
+} from "./m3-creator-outfits";
 import styles from "./CharacterCreationV1.module.css";
 import CreatorIcon from "./CreatorIcon";
 import {
@@ -87,9 +90,11 @@ export default function CharacterCreationV1() {
   const [face, setFace] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.face);
   const [created, setCreated] = useState(false);
   const [m3PreviewReady, setM3PreviewReady] = useState(false);
+  const [m3Outfit, setM3Outfit] = useState<M3CreatorOutfit | undefined>(DEFAULT_CHARACTER_CREATION_PROFILE.m3Outfit);
   const dragRef = useRef<{ id: number; x: number; yaw: number } | null>(null);
 
   const creatorCharacter = getCharacterCatalogEntry(characterAssetId) ?? DEFAULT_CHARACTER_DEFINITION;
+  const creatorWardrobe = getM3CreatorWardrobe(creatorCharacter.id);
   const normalizedName = name.trim();
   const valid = normalizedName.length > 0;
   const profile = useMemo<CharacterCreationProfileV1>(() => ({
@@ -100,8 +105,9 @@ export default function CharacterCreationV1() {
     hairColor,
     skinTone,
     face,
+    m3Outfit: creatorWardrobe ? m3Outfit ?? creatorWardrobe.defaultOutfit : undefined,
     name: normalizedName,
-  }), [creatorCharacter.gender, creatorCharacter.id, face, hairColor, hairStyle, normalizedName, skinTone]);
+  }), [creatorCharacter.gender, creatorCharacter.id, creatorWardrobe, face, hairColor, hairStyle, m3Outfit, normalizedName, skinTone]);
 
   // Scope the no-scroll/no-pinch game viewport to this route only.
   // Restore prior document styles when navigating to /rooms or any other route.
@@ -161,6 +167,7 @@ export default function CharacterCreationV1() {
       setHairColor(draft.hairColor);
       setSkinTone(draft.skinTone);
       setFace(draft.face);
+      setM3Outfit(draft.m3Outfit ?? defaultM3CreatorOutfit(draft.characterAssetId));
       setLockedAssetId(draft.characterAssetId);
       setCreated(true);
       // Legacy migration: an existing one-character draft becomes its first
@@ -185,6 +192,7 @@ export default function CharacterCreationV1() {
     setHairColor(next.defaultAppearance.hairColor);
     setSkinTone(next.defaultAppearance.skinTone);
     setFace(next.defaultAppearance.face);
+    setM3Outfit(defaultM3CreatorOutfit(next.id));
     setLookSlots(emptyCharacterLookSlots());
     setActiveLookSlot(null);
     setCreated(false);
@@ -262,6 +270,7 @@ export default function CharacterCreationV1() {
     setHairColor(look.hairColor);
     setSkinTone(look.skinTone);
     setFace(look.face);
+    if (creatorWardrobe) setM3Outfit(look.m3Outfit ?? creatorWardrobe.defaultOutfit);
     setActiveLookSlot(index);
     setOptionsOpen(false);
     setCreated(false); // Press CTA to persist the active appearance to the draft.
@@ -288,8 +297,8 @@ export default function CharacterCreationV1() {
         </header>
 
         <div className={styles.hero}>
-          <nav className={styles.rail} aria-label="Tuỳ chỉnh nhân vật">
-            {TABS.map(item => (
+          <nav className={[styles.rail, creatorWardrobe ? styles.m3Rail : ""].filter(Boolean).join(" ")} aria-label="Tuỳ chỉnh nhân vật">
+            {TABS.filter(item => item.id !== "accessory" || !creatorWardrobe).map(item => (
               <button
                 aria-pressed={tab === item.id}
                 className={[tab === item.id ? styles.railActive : "", item.locked ? styles.railLocked : ""].filter(Boolean).join(" ")}
@@ -312,7 +321,9 @@ export default function CharacterCreationV1() {
             onPointerMove={moveDrag}
             onPointerUp={endDrag}
           >
-            <CharacterCreationStage3D assetId={profile.characterAssetId} focus={tab} yaw={yaw} appearance={{ hairStyle, hairColor, skinTone }} onReadyChange={setM3PreviewReady} />
+            <CharacterCreationStage3D assetId={profile.characterAssetId} focus={tab} yaw={yaw}
+              appearance={{ hairStyle, hairColor, skinTone, m3Outfit: profile.m3Outfit }}
+              onReadyChange={setM3PreviewReady} />
           </div>
 
           <div className={styles.rotateHint} aria-hidden="true">
@@ -383,20 +394,24 @@ export default function CharacterCreationV1() {
               <div className={styles.bodyCard}>
                 <label>NHÂN VẬT {creatorCharacter.m3RigFamily ? "(M3 QA)" : lockedAssetId ? "(ĐÃ CHỌN)" : "(CHỌN MỘT LẦN)"}</label>
                 <button
-                  className={creatorCharacter.gender === "female" ? styles.bodyActive : ""}
+                  aria-pressed={creatorCharacter.gender === "female"}
+                  className={[styles.genderChoice, creatorCharacter.gender === "female" ? styles.bodyActive : ""].filter(Boolean).join(" ")}
+                  data-testid="creator-gender-female"
                   disabled={!femaleStarter || (lockedAssetId !== null && lockedAssetId !== femaleStarter.id && !femaleStarter.m3RigFamily)}
                   onClick={() => femaleStarter && selectCharacter(femaleStarter.id)}
                   type="button"
                 >
-                  ♀ Nữ
+                  <span className={styles.genderIcon} aria-hidden="true">♀</span><span>Nữ</span>
                 </button>
                 <button
-                  className={creatorCharacter.gender === "male" ? styles.bodyActive : ""}
+                  aria-pressed={creatorCharacter.gender === "male"}
+                  className={[styles.genderChoice, creatorCharacter.gender === "male" ? styles.bodyActive : ""].filter(Boolean).join(" ")}
+                  data-testid="creator-gender-male"
                   disabled={!maleStarter || (lockedAssetId !== null && lockedAssetId !== maleStarter.id && !maleStarter.m3RigFamily)}
                   onClick={() => maleStarter && selectCharacter(maleStarter.id)}
                   type="button"
                 >
-                  ♂ Nam
+                  <span className={styles.genderIcon} aria-hidden="true">♂</span><span>Nam</span>
                 </button>
               </div>
               <div className={styles.bodyCard}>
@@ -417,11 +432,48 @@ export default function CharacterCreationV1() {
             </div>
           )}
 
-          {(tab === "outfit" || tab === "accessory" || tab === "shoes") && (
+          {tab === "outfit" && creatorWardrobe && (
+            <div className={styles.creatorWardrobe} aria-label="Trang phục khởi tạo">
+              {(["top", "bottom"] as const).map(slot => (
+                <div className={styles.creatorGarmentGroup} key={slot}>
+                  <strong>{slot === "top" ? "ÁO" : "QUẦN"}</strong>
+                  <div className={styles.creatorGarmentGrid}>
+                    {creatorWardrobe[slot].map(item => {
+                      const selected = profile.m3Outfit?.[slot] === item.id;
+                      return (
+                        <button
+                          type="button"
+                          aria-pressed={selected}
+                          className={[styles.creatorGarmentChoice, selected ? styles.creatorGarmentSelected : ""].filter(Boolean).join(" ")}
+                          data-testid={`creator-${slot}-${item.id}`}
+                          key={item.id}
+                          onClick={() => {
+                            const current = profile.m3Outfit ?? creatorWardrobe.defaultOutfit;
+                            setM3Outfit({ ...current, [slot]: item.id });
+                            setCreated(false);
+                          }}
+                        >
+                          <span aria-hidden="true">{selected ? "✓" : slot === "top" ? "◈" : "▥"}</span>
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {tab === "shoes" && creatorWardrobe && (
+            <div className={styles.creatorFixedShoes} data-testid="creator-fixed-shoes">
+              <span aria-hidden="true">✓</span>
+              <div><strong>{creatorWardrobe.shoes.label}</strong><small>Giày cơ bản mặc định khi tạo nhân vật</small></div>
+            </div>
+          )}
+          {(tab === "outfit" || tab === "accessory" || tab === "shoes") && !creatorWardrobe && (
             <div className={styles.futurePanel}>
               <span>◇</span>
               <strong>{TABS.find(item => item.id === tab)?.label}</strong>
-              <p>Slot đã có trong character catalog. Inventory / equipment / shop vẫn thuộc Phase 8–9.</p>
+              <p>Chưa có tuỳ chọn tạo nhân vật tương thích với mẫu này.</p>
             </div>
           )}
 
