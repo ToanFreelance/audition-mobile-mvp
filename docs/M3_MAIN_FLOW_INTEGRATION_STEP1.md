@@ -96,3 +96,20 @@ Scope and implementation:
 - No new marketplace, Inventory, Waiting Room, Gameplay or PR19 animation changes.
 
 Validation required: Next.js TypeScript/production build and READY commit-specific Vercel preview; owner physical iPhone to verify neutral-arm pose with both genders and in-place garment changes, especially hands/shoulders/clipping. The design quality target is premium rhythm-game presentation; avoid representing this as a certified AAA production art pass.
+
+## V1.4 iPhone UX feedback — 2026-11-15
+
+Owner feedback on V1.3 physically tested:
+- Left navigation shifts upward, overlaps the Back button whenever the bottom creator dock is expanded.
+- Hair option cards are cropped vertically at the bottom of their scroll panel and the UX looks unfinished.
+- Remove the "Xoay nhân vật / Drag to rotate" icon/text entirely.
+- Invert left/right dragging so the character's perceived direction follows the touch.
+
+Root causes and focused correction:
+- `.rail.m3Rail` previously used `top:15%` relative to `.hero`, which shrinks when a dock panel expands. Set a fixed *safe top clearance* referenced to the fixed Back button position and dynamically cap rail height to remaining hero space. Four-item M3 rail remains accessible in portrait.
+- Hair used a 2×2 grid in a max-height constrained vertical scroller. Convert **only the M3 hair choices** to a single horizontally scroll-snapped row with a 'VUỐT NGANG' affordance, a partial next card, and hidden scrollbar. Keep gender/skin, outfit and shoes controls compact; retain overflow-y for unusually short screens.
+- Remove rotation coach-mark JSX. No changes to actual drag/touch capability.
+- M3 uses orbit camera rather than rotating the detached-bind rig. Reverse the sign of the pointer delta **only for M3**. Preserve legacy C1/C4 GLB rotation direction. The M3 skeleton, one-base assembly, hair/skin outfit swapping and neutral pose stay unchanged.
+- Preserve single saved CharacterCreationProfile V1; no Waiting Room/Game/PR19 work.
+
+Validation gate: Next.js + TypeScript, Vercel READY and HTTP 200 for deployed commit. Actual rail clearance, horizontal hair swipe and drag direction require owner physical iPhone confirmation. No AAA visual PASS before that.

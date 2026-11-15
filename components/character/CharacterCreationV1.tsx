@@ -194,7 +194,11 @@ export default function CharacterCreationV1() {
   const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.id !== event.pointerId) return;
-    setYaw(drag.yaw + (event.clientX - drag.x) * 0.012);
+    // M3 camera orbits around the stationary rig: invert its orbit so a
+    // leftward drag visually turns the character left with the finger.
+    // Legacy GLB preview rotates the model itself and keeps its accepted sign.
+    const delta = (event.clientX - drag.x) * 0.012;
+    setYaw(drag.yaw + (creatorWardrobe ? -delta : delta));
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -251,7 +255,16 @@ export default function CharacterCreationV1() {
                   ))}
                 </div>
               </div>
-              <div className={styles.choiceGrid}>
+              {creatorWardrobe && (
+                <div className={styles.creatorHairSectionLabel}>
+                  <span>KIỂU TÓC</span>
+                  <span aria-hidden="true">VUỐT NGANG <span className={styles.creatorSwipeChevron}>›</span></span>
+                </div>
+              )}
+              <div
+                className={[styles.choiceGrid, creatorWardrobe ? styles.creatorHairCarousel : ""].filter(Boolean).join(" ")}
+                aria-label="Chọn kiểu tóc"
+              >
                 {creatorCharacter.appearance.hairStyles.map((choice, index) => (
                   <ChoiceCard
                     choice={choice}
@@ -426,11 +439,6 @@ export default function CharacterCreationV1() {
             <CharacterCreationStage3D assetId={profile.characterAssetId} focus={creatorWardrobe && tab === "outfit" ? "body" : tab} yaw={yaw}
               appearance={{ hairStyle, hairColor, skinTone, m3Outfit: profile.m3Outfit }}
               onReadyChange={setM3PreviewReady} />
-          </div>
-
-          <div className={styles.rotateHint} aria-hidden="true">
-            <b className={styles.rotateArrow}><CreatorIcon kind="rotate" /></b>
-            <div><strong>Xoay nhân vật</strong><small>Drag to rotate</small></div>
           </div>
 
           <div className={styles.heroBadge}>
