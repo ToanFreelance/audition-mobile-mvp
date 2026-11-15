@@ -1498,6 +1498,8 @@ export default function WaitingRoomStage3D({
             stageElement.dataset.m3FootDrift = Math.max(0, ...runtimes.map(item => item.footDrift)).toFixed(5);
             stageElement.dataset.m3CompletedGestures = String(runtimes.reduce((sum, item) => sum + item.completedGestures, 0));
             stageElement.dataset.m3ActiveGestures = runtimes.map(item => item.currentGesture || "-").join(",");
+            stageElement.dataset.m3ReferenceProfiles = runtimes.map(item => item.animationProfile).join(",");
+            stageElement.dataset.m3ReferenceTimes = runtimes.map(item => item.poseTime.toFixed(2)).join(",");
           }
         }
 
@@ -1835,7 +1837,10 @@ export default function WaitingRoomStage3D({
     const removeStageNode = (participantId: string) => {
       // Only departure or true identity replacement destroys M3 idle;
       // READY and connection metadata only update the participant reference.
-      if (m3IdleByParticipant.delete(participantId)) {
+      const removedM3Idle = m3IdleByParticipant.get(participantId);
+      if (removedM3Idle) {
+        removedM3Idle.dispose();
+        m3IdleByParticipant.delete(participantId);
         setM3IdleCount(m3IdleByParticipant.size);
         setM3ScratchReadyCount([...m3IdleByParticipant.values()].filter(idle => idle.hasScratchPose).length);
       }
@@ -1936,7 +1941,8 @@ export default function WaitingRoomStage3D({
       };
       stageNodesRef.current.set(participant.participantId, node);
       if (m3Source) {
-        const idle = createM3LobbyIdle(actor, participant.participantId, roomId);
+        const rigFamily = getCharacterCatalogEntry(characterAssetId)?.m3RigFamily;
+        const idle = rigFamily ? createM3LobbyIdle(actor, participant.participantId, roomId, rigFamily) : null;
         if (idle) {
           m3IdleByParticipant.set(participant.participantId, idle);
           setM3IdleCount(m3IdleByParticipant.size);
@@ -2129,6 +2135,7 @@ export default function WaitingRoomStage3D({
       renderer.domElement.removeEventListener("pointercancel", onPointerEnd);
       idleRuntimeByParticipant.forEach(runtime => runtime.mixer.stopAllAction());
       idleRuntimeByParticipant.clear();
+      m3IdleByParticipant.forEach(runtime => runtime.dispose());
       m3IdleByParticipant.clear();
       renderRef.current = null;
       layoutRef.current = null;

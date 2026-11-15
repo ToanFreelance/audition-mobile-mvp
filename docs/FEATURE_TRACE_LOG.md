@@ -309,3 +309,13 @@ Never equate a green CI/build, a recovered metadata ACK, canonical `playing`, or
 - **Files:** components/character/m3-lobby-idle.ts; isolated QA probe in components/multiplayer/WaitingRoomStage3D.tsx; modified e2e/m3-lobby-idle-v13.spec.ts; docs/M3_IDLE_VIDEO_REVIEW_V14.md; this feature trace.
 - **Validation actually run:** TypeScript PASS, production build PASS, three focused skeleton Playwright tests PASS (90s and transformed actor). Chromium actual M3 female, male, five-person mixed fixture PASS with 0.00000 foot drift sampled; Stage3D scene generation 1, no errors. Owner physical iPhone visual and real five-human Supabase QA remain pending.
 - **Locked architecture unchanged:** no Catalog/Creator asset changes, RoomState CAS or Supabase Realtime protocol changes, preload, Host Start, WebAudio clock, gameplay timeline, gauge or Finish changes. No merge to development/main.
+
+### 2026-11-15 — M3 Waiting Room Idle V1.5 — video-referenced keyframed actions
+
+- **Owner feedback:** V1.4 eliminated foot skating but animations did not resemble the owner-supplied Zenless idle video. Owner explicitly prioritizes maximum feasible resemblance, not a larger catalog of generic gestures.
+- **Sources reviewed:** Zenless compilation MP4 at 30 FPS, particularly playful female 37–44 s and male sleepy-to-awake 78–88 s. See docs/M3_IDLE_REFERENCE_V15.md for concrete pose/time mapping and limitations.
+- **Root cause:** V1.4 uses a short list of simplistic procedural gestures, not the distinctive multi-bone time series in the video. Physically correct foot IK alone cannot match choreographic style.
+- **Implementation:** Authored per-rig looping Three.js AnimationClips (female 7.40 s guarded lateral bounce with upper-arm/elbow/hand/finger keyframes, male 10.10 s sleep/slump/awake). AnimationMixer is per cloned actor and updated by existing 30 FPS lobby tick. Explicit Character Catalog m3RigFamily chooses profile. Mixer disposed on true actor deletion only; READY/connection changes do not create actors or restart clips.
+- **Foot stability:** Retains V1.4 actor-local dual-foot IK after animation update and static wider female stance anchors. No player/root motion, no independent clock or gameplay compatibility claim.
+- **Validation:** TypeScript PASS; focused six tests (M3 appearance contract, START gate, clip and hand animation, sleepy hold, catalog profile selection, transformed foot anchors) PASS. Production build and actual Chromium preview smoke results recorded in implementation report. Owner iPhone visual acceptance pending.
+- **Scope:** components/character/m3-lobby-idle.ts, focused WaitingRoomStage3D integration, e2e/m3-lobby-idle-v13.spec.ts, docs/M3_IDLE_REFERENCE_V15.md and this journal. No merge.
