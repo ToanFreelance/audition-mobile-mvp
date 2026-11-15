@@ -113,3 +113,18 @@ Root causes and focused correction:
 - Preserve single saved CharacterCreationProfile V1; no Waiting Room/Game/PR19 work.
 
 Validation gate: Next.js + TypeScript, Vercel READY and HTTP 200 for deployed commit. Actual rail clearance, horizontal hair swipe and drag direction require owner physical iPhone confirmation. No AAA visual PASS before that.
+
+## V1.5 follow-up — 2026-11-15 iPhone contrast and gender control
+
+Owner confirmed V1.4 navigation/hair UI is improved. Remaining visual feedback:
+- Gender symbol and label still visually off-center on both axes.
+- Dark skin + dark hair/clothes disappear against the nearly black creator backdrop.
+
+Changes (creator only):
+- Replace platform-dependent Unicode gender glyphs with two same-sized 24x24 SVG symbols.
+- Center the glyph+label together in a single inline-flex group inside a CSS grid button, preserving aria-pressed/active styling and the selected-rig behavior.
+- Add a lightweight 256x512 screen-space lavender/violet CanvasTexture backdrop for the M3 preview, with a brighter, soft central halo for silhouette contrast. This changes the *background*, never the character skin material or texture.
+- Add neutral 3-point lighting with a forward fill for dark materials and soft rim for contours, without modifying any M3 source geometry/material or the locked pose/bind architecture. Legacy C1/C4 preview lighting/backdrop stays unchanged.
+- Dispose the GPU backdrop texture with preview teardown. No extra render loop or character rebuild.
+
+Required focused validation: Next.js TypeScript/build; Vercel commit deployment READY; HTTP 200. Physical iPhone check for light + deep skin tones, black hair and dark clothing without overexposing pale skin, and SVG button centering. This is not a final mobile visual acceptance until owner confirms.

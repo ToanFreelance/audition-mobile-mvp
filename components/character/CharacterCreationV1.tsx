@@ -40,6 +40,21 @@ const DEFAULT_CHARACTER_DEFINITION = (() => {
   return character;
 })();
 
+/** Consistent SVG bounds replace baseline-dependent Unicode gender glyphs. */
+function GenderGlyph({ gender }: { gender: "female" | "male" }) {
+  return gender === "female" ? (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="8.7" r="5.5" />
+      <path d="M12 14.2V21M8.2 17.7h7.6" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <circle cx="9.8" cy="14.2" r="5.5" />
+      <path d="M13.8 10.2 21 3M15.7 3H21v5.3" />
+    </svg>
+  );
+}
+
 function ChoiceCard({
   choice,
   selected,
@@ -304,7 +319,7 @@ export default function CharacterCreationV1() {
                   onClick={() => femaleStarter && selectCharacter(femaleStarter.id)}
                   type="button"
                 >
-                  <span className={styles.genderIcon} aria-hidden="true">♀</span><span>Nữ</span>
+                  <span className={styles.genderContents}><GenderGlyph gender="female" /><span>Nữ</span></span>
                 </button>
                 <button
                   aria-pressed={creatorCharacter.gender === "male"}
@@ -314,7 +329,7 @@ export default function CharacterCreationV1() {
                   onClick={() => maleStarter && selectCharacter(maleStarter.id)}
                   type="button"
                 >
-                  <span className={styles.genderIcon} aria-hidden="true">♂</span><span>Nam</span>
+                  <span className={styles.genderContents}><GenderGlyph gender="male" /><span>Nam</span></span>
                 </button>
               </div>
               <div className={styles.bodyCard}>

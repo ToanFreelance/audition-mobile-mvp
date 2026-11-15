@@ -1009,3 +1009,48 @@
     height:min(188px, calc(100% - env(safe-area-inset-top) - 82px));
   }
 }
+
+/* M3 V1.5 · Equal centering for the complete gender icon+label group.
+   Glyph paths live in the same 24×24 SVG canvas, not Unicode font metrics. */
+.creatorControlPanel .bodyCard > button.genderChoice:not(.swatch){
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  place-items:center;
+  place-content:center;
+  padding:5px 2px;
+  min-height:40px;
+  text-align:center;
+  line-height:1;
+}
+.creatorControlPanel .genderContents{
+  display:inline-flex;
+  justify-content:center;
+  align-items:center;
+  gap:7px;
+  width:max-content;
+  max-width:100%;
+  margin:auto;
+  font-size:12px;
+  font-weight:850;
+  line-height:1;
+  white-space:nowrap;
+  vertical-align:middle;
+}
+.creatorControlPanel .genderContents svg{
+  display:block;
+  width:23px;
+  height:23px;
+  flex:0 0 23px;
+}
+.creatorControlPanel .genderContents > span{
+  display:block;
+  margin:0;
+  padding:0;
+  line-height:23px;
+  text-align:center;
+}
+@media(max-width:370px){
+  .creatorControlPanel .genderContents{gap:5px;font-size:11px}
+  .creatorControlPanel .genderContents svg{width:20px;height:20px;flex-basis:20px}
+  .creatorControlPanel .genderContents > span{line-height:20px}
+}

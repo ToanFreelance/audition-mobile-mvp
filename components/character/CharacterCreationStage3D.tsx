@@ -50,6 +50,36 @@ function normalizePreview(model: THREE.Object3D) {
   model.updateMatrixWorld(true);
 }
 
+/**
+ * Screen-space studio backdrop: light lavender behind the silhouette and dark
+ * violet around the edges. Readable for both light and deep skin / dark outfits.
+ * One small texture per creator preview; never touches avatar materials.
+ */
+function makeM3StudioBackground(): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Unable to create M3 preview background");
+  const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  base.addColorStop(0, "#302946");
+  base.addColorStop(0.38, "#524963");
+  base.addColorStop(0.68, "#44415f");
+  base.addColorStop(1, "#1b1939");
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const halo = ctx.createRadialGradient(128, 205, 8, 128, 205, 290);
+  halo.addColorStop(0, "rgba(210,196,224,0.50)");
+  halo.addColorStop(0.38, "rgba(175,156,202,0.36)");
+  halo.addColorStop(0.75, "rgba(100,94,145,0.11)");
+  halo.addColorStop(1, "rgba(100,94,145,0)");
+  ctx.fillStyle = halo;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 function easeOutCubic(value: number) {
   return 1 - Math.pow(1 - value, 3);
 }
@@ -77,6 +107,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     let focusRaf = 0;
     setState("loading");
     onReadyRef.current?.(false);
+    const isM3Creator = Boolean(getCharacterCatalogEntry(assetId)?.m3RigFamily);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x08091f);
     scene.fog = new THREE.FogExp2(0x08091f, 0.055);
@@ -120,12 +151,30 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     renderer.domElement.className = styles.canvas;
     host.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xbec8ff, 0x130923, 1.65));
-    const key = new THREE.DirectionalLight(0xffe6f7, 2.4);
+    // Presentation-only lighting. A lighter, neutral studio halo gives real
+    // dark skin, hair and black garments enough silhouette contrast without
+    // recoloring M3 textures or modifying source garment materials.
+    const studioBackground = isM3Creator ? makeM3StudioBackground() : null;
+    if (studioBackground) {
+      scene.background = studioBackground;
+      scene.fog = new THREE.FogExp2(0x403a59, 0.028);
+    }
+    scene.add(new THREE.HemisphereLight(
+      isM3Creator ? 0xf3edff : 0xbec8ff,
+      isM3Creator ? 0x635e79 : 0x130923,
+      isM3Creator ? 1.75 : 1.65,
+    ));
+    const key = new THREE.DirectionalLight(isM3Creator ? 0xfff3eb : 0xffe6f7, isM3Creator ? 2.2 : 2.4);
     key.position.set(3, 6, 5);
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0x63dfff, 1.7);
+    if (isM3Creator) {
+      // Neutral forward fill is important for dark-skin material visibility.
+      const faceFill = new THREE.DirectionalLight(0xeae9ff, 1.25);
+      faceFill.position.set(-2.6, 2.5, 5);
+      scene.add(faceFill);
+    }
+    const rim = new THREE.DirectionalLight(isM3Creator ? 0xa8d9ff : 0x63dfff, isM3Creator ? 1.6 : 1.7);
     rim.position.set(-4, 3, -1);
     scene.add(rim);
 
@@ -354,6 +403,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       assemblerRef.current?.dispose();
       assemblerRef.current = null;
       disposeObjectResources(scene);
+      studioBackground?.dispose();
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
