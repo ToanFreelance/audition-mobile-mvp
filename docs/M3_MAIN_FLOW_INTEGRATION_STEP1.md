@@ -192,3 +192,19 @@ claim from a build alone.
 - Validate by TypeScript/Next.js build, GitHub/Vercel READY and route HTTP 200.
   Owner physical iPhone visual QA remains outstanding for red/blonde tint,
   reverting original shade and hair-style changes.
+
+## V1.6.2 — Original hair swatch correction / facial fidelity triage
+Owner physical iPhone V1.6.1 PASS for red + blonde, but original swatch showed
+beige #BD9A8C while visible default hair is silver/white in both M3 rigs.
+Change creator-only CSS .hair_original to silver #B9B9C9. No texture/material,
+hair-color IDs, selection logic or gameplay changes.
+
+Research on facial softness: M3 face-tone PNG sources include 2048x2048
+textures for Drophunter and Neurohacker; model textures are not intrinsically
+tiny. CharacterCreationStage3D currently clamps mobile devicePixelRatio to
+1.25 (even on Retina devices) despite antialias=true. Its ACES tone mapping
+and multiple bright lights (key, hemisphere, fill, rim) can also flatten
+stylized pale-face shading. Both original source sculpt/stylization and
+preview image quality contribute. **Do not increase mobile DPR or rebalance
+lighting in this swatch-only correction.** A separate iPhone A/B QA pass,
+looking at actual GPU time/FPS and different skin shades, is required.

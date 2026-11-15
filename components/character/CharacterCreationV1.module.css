@@ -616,7 +616,8 @@
 }
 
 /* M3 creator-only swatches; actual skin shades use source textureCollection PNGs. */
-.hair_original{background:#bd9a8c}
+/* Both accepted M3 starter rigs have silver-grey source hair. */
+.hair_original{background:#b9b9c9}
 .hair_syrup{background:#5a3114}
 .hair_purple{background:#af25ff}
 .hair_red{background:#c43f54}
