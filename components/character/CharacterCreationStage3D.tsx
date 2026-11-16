@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { getCharacterCatalogEntry, resolveCharacterAssetUrl, type CharacterAssetId } from "./character-catalog";
 import { M3CharacterAssembler, type M3Appearance } from "./m3-character-assembler";
+import { createM3PremiumEnvironment } from "./m3-premium-lighting";
 import { disposeObjectResources } from "./CharacterActor";
 import { NORMALIZED_CHARACTER_HEIGHT } from "./framing";
 import styles from "./CharacterCreationStage3D.module.css";
@@ -150,6 +151,17 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     renderer.toneMappingExposure = 1.03;
     renderer.domElement.className = styles.canvas;
     host.appendChild(renderer.domElement);
+    // Softbox reflections make hair and eyes read as dimensional rather than
+    // flat albedo. One PMREM per preview, with a safe fallback on old GPUs.
+    let premiumEnvironment: ReturnType<typeof createM3PremiumEnvironment> | null = null;
+    if (isM3Creator) {
+      try {
+        premiumEnvironment = createM3PremiumEnvironment(renderer);
+        scene.environment = premiumEnvironment.texture;
+      } catch (error) {
+        console.warn("[m3-premium] Studio environment unavailable; keeping direct lights.", error);
+      }
+    }
 
     // Presentation-only lighting. A lighter, neutral studio halo gives real
     // dark skin, hair and black garments enough silhouette contrast without
@@ -162,21 +174,21 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     const hemisphere = new THREE.HemisphereLight(
       isM3Creator ? 0xf3edff : 0xbec8ff,
       isM3Creator ? 0x635e79 : 0x130923,
-      isM3Creator ? 1.75 : 1.65,
+      isM3Creator ? 1.10 : 1.65,
     );
     scene.add(hemisphere);
-    const key = new THREE.DirectionalLight(isM3Creator ? 0xfff3eb : 0xffe6f7, isM3Creator ? 2.2 : 2.4);
+    const key = new THREE.DirectionalLight(isM3Creator ? 0xffefdf : 0xffe6f7, isM3Creator ? 2.58 : 2.4);
     key.position.set(3, 6, 5);
     scene.add(key);
 
     let faceFill: THREE.DirectionalLight | null = null;
     if (isM3Creator) {
       // Neutral forward fill is important for dark-skin material visibility.
-      faceFill = new THREE.DirectionalLight(0xeae9ff, 1.25);
+      faceFill = new THREE.DirectionalLight(0xeae9ff, 0.76);
       faceFill.position.set(-2.6, 2.5, 5);
       scene.add(faceFill);
     }
-    const rim = new THREE.DirectionalLight(isM3Creator ? 0xa8d9ff : 0x63dfff, isM3Creator ? 1.6 : 1.7);
+    const rim = new THREE.DirectionalLight(isM3Creator ? 0xa8d9ff : 0x63dfff, isM3Creator ? 1.84 : 1.7);
     rim.position.set(-4, 3, -1);
     scene.add(rim);
 
@@ -384,6 +396,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           host.dataset.characterSource = assetId;
           host.dataset.m3Bones = String(assembly?.skeleton?.bones.length ?? 0);
           host.dataset.m3BaseLoads = String(assembly?.baseLoads ?? 0);
+          host.dataset.m3PremiumMaterials = String(assembly?.premiumMaterialCount ?? 0);
           host.dataset.m3BindDelta = String(assembly?.maxBindDelta ?? 0);
           setState("ready");
           onReadyRef.current?.(true);
@@ -414,6 +427,8 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       assemblerRef.current = null;
       disposeObjectResources(scene);
       studioBackground?.dispose();
+      scene.environment = null;
+      premiumEnvironment?.dispose();
       renderer.dispose();
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
