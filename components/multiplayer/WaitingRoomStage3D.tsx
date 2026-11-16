@@ -1499,6 +1499,7 @@ export default function WaitingRoomStage3D({
             stageElement.dataset.m3CompletedGestures = String(runtimes.reduce((sum, item) => sum + item.completedGestures, 0));
             stageElement.dataset.m3ActiveGestures = runtimes.map(item => item.currentGesture || "-").join(",");
             stageElement.dataset.m3ReferenceProfiles = runtimes.map(item => item.animationProfile).join(",");
+            stageElement.dataset.m3IdleInstances = runtimes.map(item => item.instanceId).join(",");
             stageElement.dataset.m3ReferenceTimes = runtimes.map(item => item.poseTime.toFixed(2)).join(",");
           }
         }

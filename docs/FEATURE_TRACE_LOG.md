@@ -338,3 +338,9 @@ Never equate a green CI/build, a recovered metadata ACK, canonical `playing`, or
 - **Existing CI issue:** General fast-lobby-qa still fails pre-existing `WaitingRoomStage3D.tsx:1868/1874` no-use-before-define lint in both V1.5/V1.6. No unrelated Stage3D production edits were made to hide this failure.
 - **Vercel:** stable work-branch Preview READY. Engineering details / selection matrix / source limitations and CI links in `docs/M3_IDLE_VIDEO_REVIEW_V16.md`. Work branch only, no PR or merge.
 
+
+### 2026-11-16 — M3 Waiting Room Idle V1.7 — dựng chuyển động từ video
+
+- Chủ dự án bác V1.6 trên iPhone. Hai clip V1.7 được dựng offline từ quỹ đạo ảnh 30 Hz của video 031643, với mốc xoay và che khuất được hiệu chỉnh trên rig Drophunter/Neurohacker thật. Nữ 0–10,40 s, nam 53,70–64,80 s. Giữ một mixer cho từng clone, hai chân IK hậu xử lý, trạng thái M3 chỉ dùng ở phòng chờ.
+- Đã render so V1.6 và nguồn, sửa bước lật cổ tay, sửa va chạm với áo/quần. Quét mesh đã skin trên hai bộ đồ mỗi rig. Kết quả, timing sheet, vùng tiếp xúc khớp vai và giới hạn trong [M3_IDLE_VIDEO_REVIEW_V17.md](M3_IDLE_VIDEO_REVIEW_V17.md).
+- Đã chạy TypeScript, build production, 11 test logic và kiểm tra render. Nghiệm thu iPhone V1.7 còn mở. Nhánh work, không merge.

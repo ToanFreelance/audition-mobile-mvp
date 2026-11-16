@@ -10,7 +10,7 @@ for (const fixture of [
   { query: "male", expectedActors: "1", m3Count: "1", profile: "male-neck-led-slump" },
   { query: "five", expectedActors: "5", m3Count: "3", profile: "male-neck-led-slump" },
 ]) {
-  test("V1.6 actual M3 render smoke: " + fixture.query, async ({ page }) => {
+  test("V1.7 actual M3 render smoke: " + fixture.query, async ({ page }) => {
     test.setTimeout(150_000);
     await page.setViewportSize({ width: 390, height: 844 });
     const errors: string[] = [];
@@ -22,7 +22,22 @@ for (const fixture of [
     await expect(stage).toHaveAttribute("data-m3-idle-count", fixture.m3Count);
     await expect(stage).toHaveAttribute("data-m3-reference-profiles", new RegExp(fixture.profile), { timeout: 30_000 });
     const before = await stage.getAttribute("data-scene-generation");
-    const capturePrefix = "test-results/m3-idle-v16/" + fixture.query;
+    if (fixture.query === "five") {
+      const instances = await stage.getAttribute("data-m3-idle-instances");
+      expect(instances?.split(",")).toHaveLength(3);
+      await expect(stage).toHaveAttribute("data-idle-count", "2");
+      await page.getByTestId("room-settings-button").click();
+      await page.getByRole("button", {name: "GUEST", exact: true}).first().click();
+      await page.getByTestId("room-settings-button").click();
+      const ready = page.getByTestId("ready-button");
+      await ready.click();
+      await expect(ready).toContainText("ĐÃ SẴN SÀNG");
+      await ready.click();
+      await expect(ready).not.toContainText("ĐÃ SẴN SÀNG");
+      await page.waitForTimeout(650); // Allow the existing sketch telemetry tick to publish.
+      await expect(stage).toHaveAttribute("data-m3-idle-instances", instances!);
+    }
+    const capturePrefix = "test-results/m3-idle-v17/" + fixture.query;
     await page.screenshot({ path: capturePrefix + "-initial.png", fullPage: false, animations: "disabled" });
     await page.waitForTimeout(3500);
     await page.screenshot({ path: capturePrefix + "-progress.png", fullPage: false, animations: "disabled" });
@@ -33,7 +48,7 @@ for (const fixture of [
       sceneGeneration: element.getAttribute("data-scene-generation"),
       active: element.getAttribute("data-m3-active-gestures"),
     }));
-    console.log("M3_V16_MESH_SMOKE " + fixture.query + " " + JSON.stringify(metrics));
+    console.log("M3_V17_MESH_SMOKE " + fixture.query + " " + JSON.stringify(metrics));
     expect(Number.isFinite(metrics.drift)).toBe(true);
     expect(metrics.drift).toBeLessThan(.015);
     expect(metrics.sceneGeneration).toBe(before);

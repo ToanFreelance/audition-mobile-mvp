@@ -11,13 +11,16 @@ function syntheticM3Actor() {
   };
   const hips = bone("hips", root, 0, 0.85);
   const spine = bone("spine", hips, 0, 0.27);
-  const neck = bone("neck", spine, 0, 0.28);
+  const chest = bone("chest", spine, 0, 0.13);
+  const neck = bone("neck", chest, 0, 0.15);
   bone("head", neck, 0, 0.12);
   for (const side of [-1, 1]) {
     const suffix = side > 0 ? "L" : "R";
-    const upper = bone("upper_arm." + suffix, spine, side * 0.20, 0.22);
-    const lower = bone("lower_arm." + suffix, upper, side * 0.06, -0.19);
-    bone("hand." + suffix, lower, side * 0.04, -0.19);
+    // M3 VRMs bind in a T-pose, with the fingers along lateral X.
+    const clavicle = bone("shoulder." + suffix, chest, side * 0.02, 0.12);
+    const upper = bone("upper_arm." + suffix, clavicle, side * 0.10, 0.003);
+    const lower = bone("lower_arm." + suffix, upper, side * 0.20, 0, -0.009);
+    bone("hand." + suffix, lower, side * 0.18, 0, 0.009);
     const thigh = bone("upper_leg." + suffix, hips, side * 0.09, -0.05);
     const shin = bone("lower_leg." + suffix, thigh, 0, -0.32);
     bone("foot." + suffix, shin, 0, -0.415, -0.046);
@@ -39,7 +42,7 @@ function syntheticM3Actor() {
   return { root, bones };
 }
 
-test("V1.6 female: keyframed open-palm acknowledgement preserves foot contacts", () => {
+test("V1.7 female: keyframed open-palm acknowledgement preserves foot contacts", () => {
   const { root, bones } = syntheticM3Actor();
   const runtime = createM3LobbyIdle(root, "host-female", "fixture-1", "drophunter");
   expect(runtime).not.toBeNull();
@@ -74,13 +77,13 @@ test("V1.6 female: keyframed open-palm acknowledgement preserves foot contacts",
   runtime.dispose();
 });
 
-test("V1.6 male: neck-led sleepy hold and recovery without torso overfold", () => {
+test("V1.7 male: neck-led sleepy hold and recovery without torso overfold", () => {
   const { root, bones } = syntheticM3Actor();
   const runtime = createM3LobbyIdle(root, "guest-male", "fixture-1", "neurohacker");
   expect(runtime).not.toBeNull();
   if (!runtime) return;
   expect(runtime.animationProfile).toBe("male-neck-led-slump");
-  expect(runtime.clipDuration).toBeCloseTo(10.2, 3);
+  expect(runtime.clipDuration).toBeCloseTo(11.1, 3);
   const head = bones.find(b => b.name === "head")!;
   const spine = bones.find(b => b.name === "spine")!;
   let maxHead = 0, maxTorso = 0, slumpedFrames = 0, awakeAgain = false;
@@ -101,7 +104,7 @@ test("V1.6 male: neck-led sleepy hold and recovery without torso overfold", () =
   runtime.dispose();
 });
 
-test("V1.6 M3 clip identity comes from explicit catalog rigFamily, not player name", () => {
+test("V1.7 M3 clip identity comes from explicit catalog rigFamily, not player name", () => {
   const female = createM3LobbyIdle(syntheticM3Actor().root, "Boy", "fixture-2", "drophunter");
   const male = createM3LobbyIdle(syntheticM3Actor().root, "Grace", "fixture-2", "neurohacker");
   expect(female?.animationProfile).toBe("female-relaxed-greeting");
@@ -111,7 +114,7 @@ test("V1.6 M3 clip identity comes from explicit catalog rigFamily, not player na
   male?.dispose();
 });
 
-test("V1.6 planted feet follow formation translation, yaw and scale changes", () => {
+test("V1.7 planted feet follow formation translation, yaw and scale changes", () => {
   const { root, bones } = syntheticM3Actor();
   root.scale.setScalar(2.35);
   root.position.set(1.2, 0.3, -0.8);
@@ -122,7 +125,7 @@ test("V1.6 planted feet follow formation translation, yaw and scale changes", ()
   expect(runtime).not.toBeNull();
   if (!runtime) return;
   runtime.update(1 / 30);
-  // V1.6 deliberately adjusts the female stance ONCE before recording
+  // V1.7 deliberately adjusts the female stance ONCE before recording
   // the planted anchors. Compare against those accepted stance positions.
   const anchors = feet.map(foot => root.worldToLocal(foot.getWorldPosition(new THREE.Vector3())));
   for (let i = 0; i < 900; i++) {
@@ -144,7 +147,7 @@ test("V1.6 planted feet follow formation translation, yaw and scale changes", ()
 });
 
 
-test("V1.6 rendered-pose proxy: no forearm crosses torso center during either full clip", () => {
+test("V1.7 rendered-pose proxy: no forearm crosses torso center during either full clip", () => {
   for (const rig of ["drophunter","neurohacker"] as const) {
     const { root, bones }=syntheticM3Actor();
     const runtime=createM3LobbyIdle(root,rig+"-clearance","fixture-clearance",rig);
@@ -177,5 +180,27 @@ test("V1.6 rendered-pose proxy: no forearm crosses torso center during either fu
     expect(minimum).toBeGreaterThan(.055);
     expect(runtime.maxFootDrift).toBeLessThan(.012);
     runtime.dispose();
+  }
+});
+
+test("V1.7 actual clip playback has continuous wrists and a closed loop on both rigs", () => {
+  for (const family of ["drophunter", "neurohacker"] as const) {
+    const {root, bones} = syntheticM3Actor();
+    const idle = createM3LobbyIdle(root, "loop-check", "QA", family)!;
+    const initial = bones.map(bone => bone.quaternion.clone());
+    const previous = initial.map(q => q.clone());
+    let largestStep = 0;
+    for (let i = 0; i < Math.round(idle.clipDuration * 30); i++) {
+      idle.update(1 / 30);
+      for (const [index, bone] of bones.entries()) {
+        largestStep = Math.max(largestStep, previous[index].angleTo(bone.quaternion));
+        previous[index].copy(bone.quaternion);
+      }
+    }
+    expect(largestStep).toBeLessThan(0.40);
+    for (const [index, bone] of bones.entries()) {
+      expect(initial[index].angleTo(bone.quaternion)).toBeLessThan(.002);
+    }
+    idle.dispose();
   }
 });
