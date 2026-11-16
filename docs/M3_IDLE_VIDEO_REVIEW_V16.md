@@ -71,3 +71,28 @@ Expected technical checks: `npx tsc --noEmit`, `npm run build`, focused `e2e/m3-
 **Not yet verified:** side-by-side source/M3 rendered key poses, male garment intersection in front/side projection, physical iPhone smoothness, five-person aesthetic fit and any final owner visual acceptance. These require actual runtime render captures and owner iPhone review before declaring PASS. This document is not a full QA certificate.
 
 No merge to `development` or `main`.
+
+## Actual V1.6 execution — 2026-11-16
+
+### Source- vs rendered-frame review
+
+The attached source video (the *actual* 031643 file) was sampled directly; key positions from the selected 00–10.5 s female and ~54–65.5 s male were compared against the real, assembled Drophunter and Neurohacker rendered in headless Chromium's existing sketch Waiting Room scene. The M3 image captures are **not frame-perfect time-synchronized or camera-aligned** to the original game; source timing labels are approximate, and the original and M3 outfits and body proportions are very different.
+
+- The first actual V1.6 female capture revealed a wrong camera-side gesture (hand near **hair**), with both resting hands too close to the front hips: clearly not faithful to the source's viewer-right open palm / one relaxed arm.
+- Correction at `5624a653ba5e7f133f6f9f8f514695940a49baa2`: mapped source viewer-right gesture to the proper M3 hand, moved the open palm outside the shoulder, and separated the resting hands.
+- Correction at `c42b8df6977d121ac064e0cb9a4163d5d926584d`: resolved overly flared elbows during the resting pose. The source's bag-side arm now hangs lower and the other hand rests near the hip. The raised hand remains open, with no invisible-prop grasp.
+- In the final headless front capture, there is no obvious forearm-through-chest artifact for the male, and the female's open palm is visibly **outside the torso**. However, the male's prolonged slump still hides most facial expression, the M3 gloves/hand silhouettes differ, the female's hand path and body-weight character are only partially similar, and the 5-person view sometimes has off-edge participants because of the accepted stage framing. **This is an improvement over V1.5, not equivalent to source quality.**
+- Physical iPhone animation beauty, smoothness, clothing-body collisions at all intermediate frames, rear/side-view arm clearance, accurate shoe-ground geometry and naturalness **remain unverified**. Browser front snapshots plus torso capsule proxies cannot prove those gates. The owner's visual approval remains OPEN.
+
+### Validation actually run
+
+- Branch test code HEAD: `c42b8df6977d121ac064e0cb9a4163d5d926584d`.
+- **Focused GitHub Actions PASS**: run [43800671170](https://github.com/ToanFreelance/audition-mobile-mvp/actions/runs/43800671170), job `m3-v16-focused`; TypeScript `npx tsc --noEmit` PASS; Next.js `npm run build` PASS; Chromium installation PASS; **8/8 focused Playwright tests PASS** (five synthetic-skeleton cases including transformed planted feet, looping and arm-clearance proxy; three actual assembled M3 render fixtures).
+- Real render fixture `?m3=female`: stage ready, 1 actor/1 M3, 1 scene generation, `footDrift=0`, no pageerror, screenshots captured.
+- Real render fixture `?m3=male`: stage ready, 1 actor/1 M3, 1 scene generation, `footDrift=0`, no pageerror, screenshots captured.
+- Real render fixture `?m3=five`: stage ready, 5 actors (3 M3 + 2 C1/C4), 1 scene generation, `footDrift=0`, no pageerror, screenshots captured.
+- Browser screenshot artifact: `m3-idle-v16-visual-43800671170` (artifact ID `14196317634`). Six full viewport PNGs and JUnit are included. Preview was READY at the stable git-branch alias after the code commit. This is a **software-rendered Chromium** result, not iPhone GPU or physical tap/reconnect evidence.
+- The legacy general `Lobby QA QC` job on this work branch remains **FAIL** due to an unrelated pre-existing `@typescript-eslint/no-use-before-define` at `WaitingRoomStage3D.tsx:1868,1874` (`reconcileParticipants`). The same lint failure existed at V1.5 HEAD `a6a600a6...`. The dedicated animation QA tests/build PASS do not magically clear that gate.
+- No real five-human Supabase READY/connection E2E was run; unchanged Stage3D runtime lifetime is supported by source inspection and the single-scene fixture, but not a claim of real reconnect/READY PASS.
+- M3 remains Waiting Room-only with `runtimeReady=false`; no edits to RoomState, CAS, Realtime, START/preload, shared start, gameplay/WebAudio, gauge or Finish. No PR merge.
+
