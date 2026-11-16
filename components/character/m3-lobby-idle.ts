@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { M3RigFamily } from "./character-catalog";
 
 /**
- * M3 Waiting Room Idle V1.4 — video-reference pose choreography.
+ * M3 Waiting Room Idle V1.6 — video-timed empty-hand performances.
  *
  * Only the per-participant SkeletonUtils CLONE is animated. This has no
  * relationship with WebAudio, gameplay AnimationMixer, or RoomState.
@@ -12,7 +12,7 @@ import type { M3RigFamily } from "./character-catalog";
  * after each subtle weight shift. Root/formation/camera motion remains owned
  * by WaitingRoomStage3D.
  */
-export type M3LobbyGesture = "female-feline-guard" | "male-sleepy-recovery";
+export type M3LobbyGesture = "female-relaxed-greeting" | "male-neck-led-slump";
 
 export type M3LobbyIdle = {
   elapsedSeconds: number;
@@ -194,219 +194,263 @@ function solvePlantedFoot(actor: THREE.Object3D, contact: FootContact): number {
   return actual.distanceTo(footGoal);
 }
 
-type M3ReferenceMotion = "female-feline-guard" | "male-sleepy-recovery";
-type GuardPose = "rest" | "low" | "chest" | "cheek" | "high" | "cross";
-type Frame = {
-  t: number;
-  x?: number; y?: number; yaw?: number;
-  torso?: [number, number, number]; neck?: [number, number, number]; head?: [number, number, number];
-  armL?: GuardPose; armR?: GuardPose; fist?: number;
-  lSwing?: [number, number, number]; rSwing?: [number, number, number];
-};
 
 /**
- * The key timings below follow the two owner's 30fps video references, not
- * generic ambient sin waves. These are NEW animated poses authored for M3,
- * NOT imported game clips or extracted skeleton keyframes.
+ * V1.6: the MP4 is a sequence of rendered images, not source rig curves.
+ * Two deliberately LIMITED, prop-free performances are reconstructed from
+ * the owner's 89.23 s selection video:
+ *   00–10.5 s relaxed pink-haired female / open palm acknowledgement
+ *   55–65 s tired male / neck-led dip, hold and recovery.
  *
- * Female 37–44s: planted wide guard, low bounce/weight shifts, both fists
- * move to cheek height, elbows flare, recover to a low guard.
- * Male 78–88s: upright -> drooping head/spine -> long held doze -> awake
- * shoulder/head rebound -> rest. No hand salute / random gestures.
+ * Position targets are in anatomical shoulder-relative actor directions,
+ * not Euler guesses for a foreign rig. Arm IK is solved for EVERY 30 fps
+ * source-time sample, not at a handful of distant key poses. Foot IK below
+ * remains the accepted independent, post-mixer V1.4 implementation.
  */
-const FEMALE_REFERENCE: readonly Frame[] = [
-  { t: 0,    x: -.015, y: -.032, torso: [2, -3, 5], neck: [-2, 0, -3], head: [-3, -8, 4], armL: "low", armR: "chest", fist: .80 },
-  { t: .48,  x: -.020, y: -.039, torso: [5, -5, 7], neck: [-3, 0, -4], head: [-4, -5, 4], armL: "chest", armR: "low", fist: .95 },
-  { t: 1.02, x: .015,  y: -.045, torso: [3, 2, -6], neck: [-2, 1, 3], head: [-3, 7, -4], armL: "low", armR: "chest", fist: 1 },
-  { t: 1.47, x: .021,  y: -.052, torso: [6, 6, -9], neck: [-4, 0, 3], head: [-5, 11, -5], armL: "chest", armR: "cheek", fist: 1 },
-  { t: 1.90, x: -.005, y: -.047, torso: [3, 0, 0], neck: [-4, 0, 0], head: [-7, 0, 0], armL: "cheek", armR: "cheek", fist: 1 },
-  { t: 2.36, x: -.006, y: -.021, torso: [-4, -4, 4], neck: [2, 0, -2], head: [-4, -6, 4], armL: "high", armR: "high", fist: 1 },
-  { t: 2.92, x: -.003, y: -.020, torso: [-6, 0, 0], neck: [3, 0, 0], head: [-4, 4, 1], armL: "high", armR: "cheek", fist: 1 },
-  { t: 3.35, x: .007,  y: -.041, torso: [1, 4, -5], neck: [-2, 0, 3], head: [-2, 10, -3], armL: "cheek", armR: "chest", fist: 1 },
-  { t: 3.84, x: -.016, y: -.059, torso: [7, -5, 8], neck: [-3, 2, -4], head: [-7, -8, 4], armL: "low", armR: "cheek", fist: 1 },
-  { t: 4.35, x: -.020, y: -.061, torso: [6, -4, 8], neck: [-4, 0, -4], head: [-3, -8, 6], armL: "chest", armR: "low", fist: .98 },
-  { t: 4.90, x: .015,  y: -.037, torso: [3, 8, -9], neck: [-3, 0, 4], head: [-4, 10, -5], armL: "cheek", armR: "low", fist: 1 },
-  { t: 5.43, x: .023,  y: -.049, torso: [5, 8, -11], neck: [-5, 0, 6], head: [-5, 12, -5], armL: "chest", armR: "cheek", fist: 1 },
-  { t: 5.94, x: .006,  y: -.045, torso: [6, 4, -4], neck: [-4, 0, 2], head: [-4, 7, -3], armL: "low", armR: "chest", fist: 1 },
-  { t: 6.45, x: -.020, y: -.042, torso: [4, -5, 6], neck: [-3, 0, -3], head: [-4, -8, 4], armL: "chest", armR: "low", fist: .96 },
-  { t: 6.96, x: -.018, y: -.036, torso: [2, -4, 6], neck: [-2, 0, -3], head: [-3, -8, 4], armL: "low", armR: "chest", fist: .88 },
-  { t: 7.40, x: -.015, y: -.032, torso: [2, -3, 5], neck: [-2, 0, -3], head: [-3, -8, 4], armL: "low", armR: "chest", fist: .80 },
+type Triple = readonly [number, number, number];
+type ReferenceFrame = {
+  t: number;
+  hipsX: number;
+  hipsY: number;
+  hipYaw: number;
+  spine: Triple;
+  neck: Triple;
+  head: Triple;
+  leftHand: Triple;
+  rightHand: Triple;
+  leftCurl: number;
+  rightCurl: number;
+  rightPalm: number;
+};
+const FEMALE_RECONSTRUCTION: readonly ReferenceFrame[] = [
+  {t:0.0, hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.012,-.198,.065],rightHand:[.015,-.205,.064],leftCurl:.20,rightCurl:.20,rightPalm:0},
+  {t:1.7, hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.012,-.198,.065],rightHand:[.015,-.205,.064],leftCurl:.20,rightCurl:.20,rightPalm:0},
+  {t:2.9, hipsX:-.004,hipsY:-.013,hipYaw:0,spine:[2,1,2],neck:[-1,0,0],head:[-2,-2,2],leftHand:[.012,-.198,.065],rightHand:[.016,-.202,.070],leftCurl:.20,rightCurl:.15,rightPalm:0},
+  {t:3.55,hipsX:.006,hipsY:-.014,hipYaw:3,spine:[0,3,-2],neck:[-2,0,1],head:[-2,5,-1],leftHand:[.014,-.198,.066],rightHand:[.027,-.155,.094],leftCurl:.20,rightCurl:.09,rightPalm:2},
+  {t:4.18,hipsX:.011,hipsY:-.009,hipYaw:5,spine:[-1,5,-3],neck:[-2,0,1],head:[-1,10,-2],leftHand:[.016,-.196,.067],rightHand:[.030,-.030,.124],leftCurl:.18,rightCurl:.04,rightPalm:11},
+  {t:4.75,hipsX:.013,hipsY:-.007,hipYaw:6,spine:[-1,5,-3],neck:[-2,0,2],head:[-1,11,-3],leftHand:[.017,-.196,.067],rightHand:[.032,.045,.115],leftCurl:.18,rightCurl:.03,rightPalm:15},
+  {t:5.45,hipsX:.013,hipsY:-.008,hipYaw:6,spine:[0,5,-3],neck:[-1,0,1],head:[0,12,-3],leftHand:[.017,-.196,.067],rightHand:[.030,.050,.116],leftCurl:.18,rightCurl:.03,rightPalm:14},
+  {t:6.40,hipsX:.011,hipsY:-.010,hipYaw:5,spine:[1,4,-2],neck:[-1,0,1],head:[0,10,-2],leftHand:[.017,-.196,.067],rightHand:[.037,.037,.114],leftCurl:.18,rightCurl:.03,rightPalm:9},
+  {t:7.18,hipsX:.010,hipsY:-.010,hipYaw:4,spine:[1,4,-2],neck:[-1,0,1],head:[0,10,-2],leftHand:[.017,-.196,.067],rightHand:[.033,.030,.115],leftCurl:.18,rightCurl:.03,rightPalm:12},
+  {t:7.75,hipsX:.003,hipsY:-.011,hipYaw:2,spine:[1,2,0],neck:[0,0,0],head:[-2,5,-1],leftHand:[.015,-.196,.067],rightHand:[.025,-.099,.105],leftCurl:.18,rightCurl:.12,rightPalm:3},
+  {t:8.55,hipsX:-.005,hipsY:-.011,hipYaw:0,spine:[2,0,2],neck:[-1,0,0],head:[-3,-2,2],leftHand:[.014,-.197,.066],rightHand:[.017,-.200,.070],leftCurl:.18,rightCurl:.18,rightPalm:0},
+  {t:9.40,hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.012,-.198,.065],rightHand:[.015,-.205,.064],leftCurl:.20,rightCurl:.20,rightPalm:0},
+  {t:10.40,hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.012,-.198,.065],rightHand:[.015,-.205,.064],leftCurl:.20,rightCurl:.20,rightPalm:0},
+];
+const MALE_RECONSTRUCTION: readonly ReferenceFrame[] = [
+  {t:0.00,hipsX:0,hipsY:-.005,hipYaw:0,spine:[0,0,0],neck:[1,0,0],head:[-2,2,0],leftHand:[.015,-.205,.065],rightHand:[.015,-.205,.065],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:.40,hipsX:0,hipsY:-.006,hipYaw:0,spine:[2,0,0],neck:[7,0,0],head:[5,2,0],leftHand:[.017,-.210,.072],rightHand:[.017,-.210,.072],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:1.15,hipsX:-.003,hipsY:-.009,hipYaw:-1,spine:[8,0,1],neck:[18,0,0],head:[22,2,-1],leftHand:[.022,-.212,.080],rightHand:[.022,-.212,.080],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:1.85,hipsX:-.003,hipsY:-.012,hipYaw:-1,spine:[9,-1,2],neck:[21,0,0],head:[25,2,-2],leftHand:[.028,-.215,.085],rightHand:[.028,-.215,.085],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:2.90,hipsX:-.003,hipsY:-.012,hipYaw:-1,spine:[9,-1,2],neck:[21,0,0],head:[25,2,-2],leftHand:[.028,-.215,.085],rightHand:[.028,-.215,.085],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:4.55,hipsX:-.003,hipsY:-.013,hipYaw:-1,spine:[10,-1,2],neck:[21,0,0],head:[24,2,-2],leftHand:[.028,-.215,.086],rightHand:[.028,-.215,.086],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:6.25,hipsX:-.003,hipsY:-.013,hipYaw:-1,spine:[10,-1,2],neck:[21,0,0],head:[25,2,-2],leftHand:[.028,-.215,.086],rightHand:[.028,-.215,.086],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:7.45,hipsX:-.003,hipsY:-.011,hipYaw:-1,spine:[9,-1,2],neck:[20,0,0],head:[23,2,-2],leftHand:[.027,-.215,.086],rightHand:[.027,-.215,.086],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:8.08,hipsX:-.002,hipsY:-.009,hipYaw:0,spine:[6,0,1],neck:[13,0,0],head:[13,2,0],leftHand:[.024,-.212,.078],rightHand:[.024,-.212,.078],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:8.85,hipsX:0,hipsY:-.003,hipYaw:1,spine:[-2,1,-1],neck:[-3,0,0],head:[-7,5,0],leftHand:[.016,-.203,.064],rightHand:[.016,-.203,.064],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:9.45,hipsX:0,hipsY:-.005,hipYaw:0,spine:[0,0,0],neck:[1,0,0],head:[-2,2,0],leftHand:[.015,-.205,.065],rightHand:[.015,-.205,.065],leftCurl:.15,rightCurl:.15,rightPalm:0},
+  {t:10.20,hipsX:0,hipsY:-.005,hipYaw:0,spine:[0,0,0],neck:[1,0,0],head:[-2,2,0],leftHand:[.015,-.205,.065],rightHand:[.015,-.205,.065],leftCurl:.15,rightCurl:.15,rightPalm:0},
 ];
 
-const MALE_REFERENCE: readonly Frame[] = [
-  { t: 0,    y: -.006, torso: [0, 1, 0], neck: [0, 0, 0], head: [-2, 6, 0], lSwing: [0, 0, 0], rSwing: [0, 0, 0] },
-  { t: .72,  y: -.008, torso: [3, 0, 1], neck: [5, 0, 0], head: [10, 2, -2], lSwing: [-2, 0, -2], rSwing: [-2, 0, 2] },
-  { t: 1.28, y: -.015, torso: [11, -1, 2], neck: [18, 0, 1], head: [22, 0, -2], lSwing: [-7, 0, -4], rSwing: [-7, 0, 4] },
-  { t: 1.96, y: -.019, torso: [16, -3, 4], neck: [24, 0, 1], head: [30, 0, -2], lSwing: [-9, 0, -6], rSwing: [-9, 0, 6] },
-  { t: 2.48, y: -.020, torso: [17, -4, 5], neck: [25, 0, 2], head: [34, 0, -4], lSwing: [-9, 0, -7], rSwing: [-9, 0, 7] },
-  { t: 3.60, y: -.021, torso: [17, -3, 5], neck: [25, 0, 2], head: [33, 1, -4], lSwing: [-9, 0, -7], rSwing: [-9, 0, 7] },
-  { t: 4.42, y: -.022, torso: [18, -3, 6], neck: [24, 0, 2], head: [35, 0, -5], lSwing: [-9, 0, -7], rSwing: [-9, 0, 7] },
-  { t: 5.30, y: -.020, torso: [17, -3, 5], neck: [24, 0, 2], head: [32, 0, -4], lSwing: [-9, 0, -7], rSwing: [-9, 0, 7] },
-  { t: 6.05, y: -.023, torso: [18, -2, 5], neck: [25, 0, 2], head: [35, -1, -4], lSwing: [-9, 0, -7], rSwing: [-9, 0, 7] },
-  { t: 7.20, y: -.020, torso: [17, -2, 5], neck: [24, 0, 2], head: [32, -1, -4], lSwing: [-9, 0, -7], rSwing: [-9, 0, 7] },
-  { t: 8.25, y: -.020, torso: [16, -2, 4], neck: [23, 0, 1], head: [29, 1, -3], lSwing: [-7, 0, -6], rSwing: [-7, 0, 6] },
-  { t: 8.70, y: -.013, torso: [9, 1, 2], neck: [11, 0, 0], head: [14, 2, 0], lSwing: [-3, 0, -3], rSwing: [-3, 0, 3] },
-  { t: 9.10, y: -.003, torso: [-5, 5, -2], neck: [-8, 0, 1], head: [-10, 8, 2], lSwing: [-14, 0, -16], rSwing: [-14, 0, 16] },
-  { t: 9.45, y: -.006, torso: [-2, 3, -1], neck: [-3, 0, 0], head: [-6, 8, 1], lSwing: [-6, 0, -8], rSwing: [-6, 0, 8] },
-  { t: 9.82, y: -.006, torso: [0, 1, 0], neck: [0, 0, 0], head: [-2, 6, 0], lSwing: [0, 0, 0], rSwing: [0, 0, 0] },
-  { t: 10.10,y: -.006, torso: [0, 1, 0], neck: [0, 0, 0], head: [-2, 6, 0], lSwing: [0, 0, 0], rSwing: [0, 0, 0] },
-];
-
+function easedInterval(t: number): number {
+  const x = THREE.MathUtils.clamp(t, 0, 1);
+  return x * x * x * (x * (x * 6 - 15) + 10);
+}
+function mixTriple(a: Triple, b: Triple, t: number): Triple {
+  return [THREE.MathUtils.lerp(a[0], b[0], t), THREE.MathUtils.lerp(a[1], b[1], t), THREE.MathUtils.lerp(a[2], b[2], t)];
+}
+function sampleReference(frames: readonly ReferenceFrame[], t: number): ReferenceFrame {
+  let index = 0;
+  while (index < frames.length - 2 && t > frames[index + 1].t) index++;
+  const a = frames[index], b = frames[index + 1];
+  const blend = easedInterval((t - a.t) / (b.t - a.t));
+  return {
+    t,
+    hipsX:THREE.MathUtils.lerp(a.hipsX,b.hipsX,blend),
+    hipsY:THREE.MathUtils.lerp(a.hipsY,b.hipsY,blend),
+    hipYaw:THREE.MathUtils.lerp(a.hipYaw,b.hipYaw,blend),
+    spine:mixTriple(a.spine,b.spine,blend),neck:mixTriple(a.neck,b.neck,blend),head:mixTriple(a.head,b.head,blend),
+    leftHand:mixTriple(a.leftHand,b.leftHand,blend),
+    rightHand:mixTriple(a.rightHand,b.rightHand,blend),
+    leftCurl:THREE.MathUtils.lerp(a.leftCurl,b.leftCurl,blend),
+    rightCurl:THREE.MathUtils.lerp(a.rightCurl,b.rightCurl,blend),
+    rightPalm:THREE.MathUtils.lerp(a.rightPalm,b.rightPalm,blend),
+  };
+}
 type AnimatedJoint = "hips" | "spine" | "neck" | "head"
   | "upper_arm.L" | "lower_arm.L" | "hand.L"
   | "upper_arm.R" | "lower_arm.R" | "hand.R";
-type ReferenceJoint = Joint & { id: AnimatedJoint };
 type FingerJoint = Joint & { id: string };
-function poseQuaternion(joint: Joint, degrees: [number, number, number] | undefined) {
-  const v = degrees ?? [0, 0, 0];
+function poseQuaternion(joint: Joint, degrees: Triple) {
   joint.bone.quaternion.copy(joint.rotation)
     .multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(
-      THREE.MathUtils.degToRad(v[0]),
-      THREE.MathUtils.degToRad(v[1]),
-      THREE.MathUtils.degToRad(v[2]), "XYZ",
+      THREE.MathUtils.degToRad(degrees[0]),
+      THREE.MathUtils.degToRad(degrees[1]),
+      THREE.MathUtils.degToRad(degrees[2]), "XYZ",
     )));
 }
-
-function fingerJoints(skeleton: THREE.Skeleton, side: "L"|"R"): FingerJoint[] {
+function fingerJoints(skeleton: THREE.Skeleton, side: "L" | "R"): FingerJoint[] {
   const selected: FingerJoint[] = [];
-  for (const digit of ["index", "middle", "ring", "thumb"]) {
-    for (const segment of ["proximal", "intermediate", "distal"]) {
-      const name = digit + "." + segment + "." + side;
-      const joint = getJoint(skeleton, name);
-      if (joint) selected.push({ ...joint, id: name });
+  for (const digit of ["index","middle","ring","thumb"]) {
+    for (const segment of ["proximal","intermediate","distal"]) {
+      const name = digit+"."+segment+"."+side;
+      const joint = getJoint(skeleton,name);
+      if (joint) selected.push({...joint,id:name});
     }
   }
   return selected;
 }
 
-function setHand(
-  actor: THREE.Object3D,
-  upper: Joint, forearm: Joint, wrist: Joint,
-  name: GuardPose, side: "L"|"R", height: number,
-  right: THREE.Vector3, up: THREE.Vector3, forward: THREE.Vector3,
-  spine: Joint, head: Joint,
-) {
-  if (name === "rest") return;
-  upper.bone.updateWorldMatrix(true, true);
-  const shoulderW = upper.bone.getWorldPosition(new THREE.Vector3());
-  const headW = head.bone.getWorldPosition(new THREE.Vector3());
-  const outward = Math.sign(shoulderW.clone().sub(headW).dot(right)) || (side==="L"?1:-1);
-  let target: THREE.Vector3;
-  let hint: THREE.Vector3;
-  const place = (base: THREE.Vector3,x:number,y:number,z:number) =>
-    base.clone().addScaledVector(right,outward*x*height).addScaledVector(up,y*height).addScaledVector(forward,z*height);
-  if (name==="cheek") {
-    target=place(headW,.038,-.072,.069);
-    hint=place(shoulderW,.065,-.200,.070);
-  } else if (name==="high"){
-    target=place(headW,.061,-.050,.064);
-    hint=place(shoulderW,.077,-.160,.072);
-  } else if (name==="cross"){
-    target=place(shoulderW,-.065,-.085,.145);
-    hint=place(shoulderW,.065,-.085,.090);
-  } else if(name==="chest"){
-    target=place(shoulderW,-.028,-.078,.126);
-    hint=place(shoulderW,.084,-.103,.085);
-  } else {
-    target=place(shoulderW,-.016,-.124,.108);
-    hint=place(shoulderW,.073,-.139,.087);
-  }
-  if (solveLimb(upper,forearm,wrist,target,hint)) {
-    // Stable fist-facing pose; fingers are keyed independently.
-    wrist.bone.quaternion.multiply(
-      new THREE.Quaternion().setFromAxisAngle(Z,outward*-.24),
-    );
-  }
+/** Closest separation from a forearm point to the pelvis/shoulder torso axis. */
+function distanceToTorso(
+  point: THREE.Vector3, pelvis: THREE.Vector3, chest: THREE.Vector3,
+): number {
+  const axis=chest.clone().sub(pelvis);
+  const t=THREE.MathUtils.clamp(point.clone().sub(pelvis).dot(axis)/Math.max(axis.lengthSq(),1e-8),0,1);
+  return point.distanceTo(pelvis.clone().addScaledVector(axis,t));
 }
-
+function armClearance(
+  forearm: Joint, wrist: Joint, pelvis: THREE.Vector3, chest: THREE.Vector3, radius: number,
+): number {
+  const elbow=forearm.bone.getWorldPosition(new THREE.Vector3());
+  const hand=wrist.bone.getWorldPosition(new THREE.Vector3());
+  let minimum=Infinity;
+  // Forearm + wrist only: upper-arm naturally originates at the torso.
+  for(const fraction of [0,.25,.5,.75,1]) {
+    const point=elbow.clone().lerp(hand,fraction);
+    minimum=Math.min(minimum,distanceToTorso(point,pelvis,chest)-radius);
+  }
+  return minimum;
+}
+/**
+ * Solve hands OUTSIDE the chest/clothing clearance proxy, by M3 anatomical
+ * targets. Pole vectors keep elbows on their own sides of the rib cage.
+ * A failed or unsafe solve restores the rig's safe neutral arm pose; never
+ * commit an intersecting extreme to the animation curve.
+ */
+function poseEmptyHand(
+  arm: [Joint, Joint, Joint], targetPose: Triple,
+  actorAxes: [THREE.Vector3, THREE.Vector3, THREE.Vector3],
+  pelvis: THREE.Vector3, chest: THREE.Vector3, bodyRadius: number, height: number,
+): number {
+  const [upper,forearm,wrist]=arm, [right,up,forward]=actorAxes;
+  restore(upper);restore(forearm);restore(wrist);
+  upper.bone.updateWorldMatrix(true,true);
+  const shoulder=upper.bone.getWorldPosition(new THREE.Vector3());
+  const side=Math.sign(shoulder.clone().sub(chest).dot(right)) || 1;
+  let minClearance=-Infinity;
+  for(let attempt=0;attempt<5;attempt++) {
+    restore(upper);restore(forearm);restore(wrist);
+    const extra=attempt*.017*height;
+    const target=shoulder.clone()
+      .addScaledVector(right,side*(targetPose[0]*height+extra))
+      .addScaledVector(up,targetPose[1]*height)
+      .addScaledVector(forward,targetPose[2]*height+attempt*.007*height);
+    const pole=shoulder.clone()
+      .addScaledVector(right,side*(.10*height+extra))
+      .addScaledVector(up,-.105*height)
+      .addScaledVector(forward,.11*height);
+    if(!solveLimb(upper,forearm,wrist,target,pole))continue;
+    upper.bone.updateWorldMatrix(true,true);
+    minClearance=armClearance(forearm,wrist,pelvis,chest,bodyRadius);
+    if(minClearance>=.008*height) return minClearance;
+  }
+  // No validated pose: avoid the V1.5 failure mode of keeping a clipped key.
+  restore(upper);restore(forearm);restore(wrist);
+  return minClearance;
+}
 function appendQuaternionTrack(
   tracks: THREE.KeyframeTrack[], joint: Joint, times: number[], samples: THREE.Quaternion[],
 ) {
-  const values: number[]=[];
-  let previous: THREE.Quaternion|null=null;
-  for (const value of samples) {
-    const q=value.clone();
-    if (previous&&previous.dot(q)<0) q.set(-q.x,-q.y,-q.z,-q.w);
-    values.push(q.x,q.y,q.z,q.w);
-    previous=q;
+  const values:number[]=[];
+  let previous:THREE.Quaternion|null=null;
+  for(const sample of samples) {
+    const q=sample.clone();
+    if(previous&&previous.dot(q)<0)q.set(-q.x,-q.y,-q.z,-q.w);
+    values.push(q.x,q.y,q.z,q.w);previous=q;
   }
   tracks.push(new THREE.QuaternionKeyframeTrack(joint.bone.uuid+".quaternion",times,values));
 }
-
 function buildReferenceClip(
   actor: THREE.Object3D, skeleton: THREE.Skeleton,
   rigFamily: M3RigFamily,
   joints: Record<AnimatedJoint,Joint>,
   localHeight: number, worldHeight: number,
 ): THREE.AnimationClip {
-  const isFemale = rigFamily==="drophunter";
-  const frames=isFemale?FEMALE_REFERENCE:MALE_REFERENCE;
-  const times=frames.map(f=>f.t);
-  const animated = Object.values(joints);
-  const fingers = isFemale
-    ? [...fingerJoints(skeleton,"L"),...fingerJoints(skeleton,"R")]
-    : [];
-  const all=[...animated,...fingers];
-  const rotations=new Map<THREE.Bone,THREE.Quaternion[]>(
-    all.map(j=>[j.bone,[]])
-  );
+  const female=rigFamily==="drophunter";
+  const frames=female?FEMALE_RECONSTRUCTION:MALE_RECONSTRUCTION;
+  const duration=frames[frames.length-1].t;
+  const fingers=[
+    ...fingerJoints(skeleton,"L"),...fingerJoints(skeleton,"R"),
+  ];
+  const all=[...Object.values(joints),...fingers];
+  const rotations=new Map<THREE.Bone,THREE.Quaternion[]>(all.map(j=>[j.bone,[]]));
   const pelvisPositions:number[]=[];
-  const right=X.clone().transformDirection(actor.matrixWorld);
-  const up=Y.clone().transformDirection(actor.matrixWorld);
-  const forward=Z.clone().transformDirection(actor.matrixWorld);
-
-  for (const frame of frames) {
-    for (const joint of all) restore(joint);
-    const pelvis=joints.hips;
-    pelvis.bone.position.copy(pelvis.position).add(new THREE.Vector3(
-      localHeight*(frame.x??0),
-      localHeight*(frame.y??0),
-      0,
+  const times:number[]=[];
+  const actorAxes:[THREE.Vector3,THREE.Vector3,THREE.Vector3]=[
+    X.clone().transformDirection(actor.matrixWorld),
+    Y.clone().transformDirection(actor.matrixWorld),
+    Z.clone().transformDirection(actor.matrixWorld),
+  ];
+  // The hand clearance capsule is based on this specific actor's shoulder
+  // width, not a female-sized hardcoded radius reused on the male outfit.
+  const shoulderL=joints["upper_arm.L"].bone,shoulderR=joints["upper_arm.R"].bone;
+  const width=shoulderL.getWorldPosition(new THREE.Vector3())
+    .distanceTo(shoulderR.getWorldPosition(new THREE.Vector3()));
+  const bodyRadius=Math.min(worldHeight*.13,width*.38)+worldHeight*.016;
+  const sampleCount=Math.round(duration*30);
+  for(let index=0;index<=sampleCount;index++) {
+    const time=duration*index/sampleCount;
+    const frame=sampleReference(frames,time);
+    times.push(time);
+    for(const joint of all)restore(joint);
+    const hips=joints.hips;
+    hips.bone.position.copy(hips.position).add(new THREE.Vector3(
+      localHeight*frame.hipsX,localHeight*frame.hipsY,0,
     ));
-    poseQuaternion(pelvis,[0,frame.yaw??0,0]);
-    poseQuaternion(joints.spine,frame.torso);
+    poseQuaternion(hips,[0,frame.hipYaw,0]);
+    poseQuaternion(joints.spine,frame.spine);
     poseQuaternion(joints.neck,frame.neck);
     poseQuaternion(joints.head,frame.head);
-    if (isFemale) {
-      actor.updateWorldMatrix(true,true);
-      setHand(actor,joints["upper_arm.L"],joints["lower_arm.L"],joints["hand.L"],frame.armL??"low","L",worldHeight,right,up,forward,joints.spine,joints.head);
-      setHand(actor,joints["upper_arm.R"],joints["lower_arm.R"],joints["hand.R"],frame.armR??"low","R",worldHeight,right,up,forward,joints.spine,joints.head);
-      const flex=frame.fist??0;
-      for (const finger of fingers) {
-        const isThumb=finger.bone.name.startsWith("thumb.");
-        const isProx=finger.bone.name.includes(".proximal.");
-        const isMid=finger.bone.name.includes(".intermediate.");
-        const radians = flex*(isThumb?.38:isProx?.75:isMid?.85:.39);
-        finger.bone.quaternion.copy(finger.rotation)
-          .multiply(new THREE.Quaternion().setFromAxisAngle(X,radians));
-      }
-    } else {
-      poseQuaternion(joints["upper_arm.L"],frame.lSwing);
-      poseQuaternion(joints["upper_arm.R"],frame.rSwing);
-      poseQuaternion(joints["lower_arm.L"],[(frame.t>=1.2&&frame.t<=8.5)?-6:0,0,-3]);
-      poseQuaternion(joints["lower_arm.R"],[(frame.t>=1.2&&frame.t<=8.5)?-6:0,0,3]);
-      poseQuaternion(joints["hand.L"],[3,0,0]);
-      poseQuaternion(joints["hand.R"],[3,0,0]);
-    }
-    pelvisPositions.push(
-      pelvis.bone.position.x,pelvis.bone.position.y,pelvis.bone.position.z,
+    actor.updateWorldMatrix(true,true);
+    const pelvis=hips.bone.getWorldPosition(new THREE.Vector3());
+    const chest=shoulderL.getWorldPosition(new THREE.Vector3()).add(
+      shoulderR.getWorldPosition(new THREE.Vector3())
+    ).multiplyScalar(.5);
+    poseEmptyHand(
+      [joints["upper_arm.L"],joints["lower_arm.L"],joints["hand.L"]],
+      frame.leftHand,actorAxes,pelvis,chest,bodyRadius,worldHeight,
     );
+    poseEmptyHand(
+      [joints["upper_arm.R"],joints["lower_arm.R"],joints["hand.R"]],
+      frame.rightHand,actorAxes,pelvis,chest,bodyRadius,worldHeight,
+    );
+    if(female) {
+      joints["hand.R"].bone.quaternion.multiply(
+        new THREE.Quaternion().setFromAxisAngle(Y,THREE.MathUtils.degToRad(frame.rightPalm)),
+      );
+    }
+    for(const finger of fingers) {
+      const side=finger.id.endsWith(".L")?"L":"R";
+      const relaxed=side==="L"?frame.leftCurl:frame.rightCurl;
+      const curl=finger.id.startsWith("thumb.")?relaxed*.45:relaxed;
+      finger.bone.quaternion.copy(finger.rotation).multiply(
+        new THREE.Quaternion().setFromAxisAngle(X,curl),
+      );
+    }
+    pelvisPositions.push(hips.bone.position.x,hips.bone.position.y,hips.bone.position.z);
     for(const joint of all)rotations.get(joint.bone)!.push(joint.bone.quaternion.clone());
   }
-  // The animation track data is copied; restore the source rest pose before
-  // mixer playback starts. Never modify the shared M3 catalog asset.
-  for (const joint of all) restore(joint);
+  for(const joint of all)restore(joint);
   actor.updateWorldMatrix(true,true);
   const tracks:THREE.KeyframeTrack[]=[
     new THREE.VectorKeyframeTrack(joints.hips.bone.uuid+".position",times,pelvisPositions),
   ];
   for(const joint of all)appendQuaternionTrack(tracks,joint,times,rotations.get(joint.bone)!);
-  const clip=new THREE.AnimationClip(
-    isFemale?"m3-ref-feline-boxer-37-44":"m3-ref-sleepy-recover-78-88",
-    frames[frames.length-1].t,
-    tracks,
+  return new THREE.AnimationClip(
+    female?"m3-v16-female-relaxed-open-palm-00-10":"m3-v16-male-neck-led-slump-55-65",
+    duration,tracks,
   );
-  return clip;
 }
 
 export function createM3LobbyIdle(
@@ -446,7 +490,7 @@ export function createM3LobbyIdle(
   // Reference female keeps a boxer-wide, planted stance. We widen BOTH
   // contact anchors once at actor creation, never continuously slide them.
   const hipLocal=actor.worldToLocal(joints.hips.bone.getWorldPosition(new THREE.Vector3()));
-  const widen=localHeight*(rigFamily==="drophunter"?.042:.012);
+  const widen=localHeight*(rigFamily==="drophunter"?.026:.012);
   for(const contact of [leftContact,rightContact]){
     const side=Math.sign(contact.localAnchor.x-hipLocal.x)||1;
     contact.localAnchor.x+=side*widen;
@@ -466,7 +510,7 @@ export function createM3LobbyIdle(
   const runtime:M3LobbyIdle={
     elapsedSeconds:0,hasScratchPose:false,
     currentGesture:null,completedGestures:0,footDrift:0,maxFootDrift:0,
-    animationProfile:rigFamily==="drophunter"?"female-feline-guard":"male-sleepy-recovery",
+    animationProfile:rigFamily==="drophunter"?"female-relaxed-greeting":"male-neck-led-slump",
     clipDuration:clip.duration,
     poseTime:0,
     update(deltaSeconds){
@@ -478,8 +522,8 @@ export function createM3LobbyIdle(
       if(Math.floor((before+delta)/clip.duration)>Math.floor(before/clip.duration))
         runtime.completedGestures++;
       runtime.currentGesture=rigFamily==="drophunter"
-        ? (runtime.poseTime>1.45&&runtime.poseTime<5.90?"female-feline-guard":null)
-        : (runtime.poseTime>1.20&&runtime.poseTime<9.18?"male-sleepy-recovery":null);
+        ? (runtime.poseTime>3.55&&runtime.poseTime<8.55?"female-relaxed-greeting":null)
+        : (runtime.poseTime>.40&&runtime.poseTime<9.45?"male-neck-led-slump":null);
       // The clip does not animate thighs: only pelvis is translated; foot IK
       // runs after the clip to keep both shoes planted on existing stage rings.
       const driftL=solvePlantedFoot(actor,leftContact);
