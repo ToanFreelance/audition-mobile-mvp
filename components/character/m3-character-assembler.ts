@@ -84,6 +84,7 @@ export class M3CharacterAssembler {
   creatorIdleArms = 0;
   /** Diagnostic only; material finish does not alter rig or cosmetic identity. */
   get premiumMaterialCount() { return this.premiumFinish.applied; }
+  get premiumConvertedUnlit() { return this.premiumFinish.convertedUnlit; }
   private readonly premiumFinish = new M3PremiumMaterialFinish();
   private readonly loader = new GLTFLoader();
   private readonly textureLoader = new THREE.TextureLoader();
@@ -176,9 +177,9 @@ export class M3CharacterAssembler {
     for (const donor of source.meshes) {
       const delta = verifyRig(this.skeleton, donor.skeleton);
       this.maxBindDelta = Math.max(this.maxBindDelta, delta);
-      const material = Array.isArray(donor.material) ? donor.material.map(item => item.clone()) : donor.material.clone();
-      const materials = Array.isArray(material) ? material : [material];
-      for (const candidate of materials) this.premiumFinish.apply(candidate, slot);
+      const material = Array.isArray(donor.material)
+        ? donor.material.map(item => this.premiumFinish.apply(item.clone(), slot))
+        : this.premiumFinish.apply(donor.material.clone(), slot);
       const worn = new THREE.SkinnedMesh(donor.geometry, material);
       worn.name = `m3-${slot}-${path}`;
       worn.frustumCulled = false;
@@ -264,8 +265,7 @@ export class M3CharacterAssembler {
       if (!layer) return;
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const clones = materials.map(mat => {
-        const material = mat.clone() as THREE.MeshStandardMaterial;
-        this.premiumFinish.apply(material, layer === "body" ? "skin" : layer);
+        const material = this.premiumFinish.apply(mat.clone(), layer === "body" ? "skin" : layer) as THREE.MeshStandardMaterial;
         this.skinTargets.push({ material, originalMap: material.map ?? null, layer });
         return material;
       });
