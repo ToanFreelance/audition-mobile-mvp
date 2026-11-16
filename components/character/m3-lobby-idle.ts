@@ -223,19 +223,19 @@ type ReferenceFrame = {
   rightPalm: number;
 };
 const FEMALE_RECONSTRUCTION: readonly ReferenceFrame[] = [
-  {t:0.0, hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.012,-.198,.065],rightHand:[.015,-.205,.064],leftCurl:.20,rightCurl:.20,rightPalm:0},
-  {t:1.7, hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.012,-.198,.065],rightHand:[.015,-.205,.064],leftCurl:.20,rightCurl:.20,rightPalm:0},
-  {t:2.9, hipsX:-.004,hipsY:-.013,hipYaw:0,spine:[2,1,2],neck:[-1,0,0],head:[-2,-2,2],leftHand:[.012,-.198,.065],rightHand:[.016,-.202,.070],leftCurl:.20,rightCurl:.15,rightPalm:0},
-  {t:3.55,hipsX:.006,hipsY:-.014,hipYaw:3,spine:[0,3,-2],neck:[-2,0,1],head:[-2,5,-1],leftHand:[.014,-.198,.066],rightHand:[.027,-.155,.094],leftCurl:.20,rightCurl:.09,rightPalm:2},
-  {t:4.18,hipsX:.011,hipsY:-.009,hipYaw:5,spine:[-1,5,-3],neck:[-2,0,1],head:[-1,10,-2],leftHand:[.016,-.196,.067],rightHand:[.030,-.030,.124],leftCurl:.18,rightCurl:.04,rightPalm:11},
-  {t:4.75,hipsX:.013,hipsY:-.007,hipYaw:6,spine:[-1,5,-3],neck:[-2,0,2],head:[-1,11,-3],leftHand:[.017,-.196,.067],rightHand:[.032,.045,.115],leftCurl:.18,rightCurl:.03,rightPalm:15},
-  {t:5.45,hipsX:.013,hipsY:-.008,hipYaw:6,spine:[0,5,-3],neck:[-1,0,1],head:[0,12,-3],leftHand:[.017,-.196,.067],rightHand:[.030,.050,.116],leftCurl:.18,rightCurl:.03,rightPalm:14},
-  {t:6.40,hipsX:.011,hipsY:-.010,hipYaw:5,spine:[1,4,-2],neck:[-1,0,1],head:[0,10,-2],leftHand:[.017,-.196,.067],rightHand:[.037,.037,.114],leftCurl:.18,rightCurl:.03,rightPalm:9},
-  {t:7.18,hipsX:.010,hipsY:-.010,hipYaw:4,spine:[1,4,-2],neck:[-1,0,1],head:[0,10,-2],leftHand:[.017,-.196,.067],rightHand:[.033,.030,.115],leftCurl:.18,rightCurl:.03,rightPalm:12},
-  {t:7.75,hipsX:.003,hipsY:-.011,hipYaw:2,spine:[1,2,0],neck:[0,0,0],head:[-2,5,-1],leftHand:[.015,-.196,.067],rightHand:[.025,-.099,.105],leftCurl:.18,rightCurl:.12,rightPalm:3},
-  {t:8.55,hipsX:-.005,hipsY:-.011,hipYaw:0,spine:[2,0,2],neck:[-1,0,0],head:[-3,-2,2],leftHand:[.014,-.197,.066],rightHand:[.017,-.200,.070],leftCurl:.18,rightCurl:.18,rightPalm:0},
-  {t:9.40,hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.012,-.198,.065],rightHand:[.015,-.205,.064],leftCurl:.20,rightCurl:.20,rightPalm:0},
-  {t:10.40,hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.012,-.198,.065],rightHand:[.015,-.205,.064],leftCurl:.20,rightCurl:.20,rightPalm:0},
+  {t:0.0, hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.065,-.185,.020],rightHand:[.060,-.185,.020],leftCurl:.20,rightCurl:.20,rightPalm:0},
+  {t:1.7, hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.065,-.185,.020],rightHand:[.060,-.185,.020],leftCurl:.20,rightCurl:.20,rightPalm:0},
+  {t:2.9, hipsX:-.004,hipsY:-.013,hipYaw:0,spine:[2,1,2],neck:[-1,0,0],head:[-2,-2,2],leftHand:[.065,-.185,.020],rightHand:[.061,-.184,.030],leftCurl:.20,rightCurl:.15,rightPalm:0},
+  {t:3.55,hipsX:.006,hipsY:-.014,hipYaw:3,spine:[0,3,-2],neck:[-2,0,1],head:[-2,5,-1],leftHand:[.065,-.185,.020],rightHand:[.071,-.145,.090],leftCurl:.20,rightCurl:.09,rightPalm:2},
+  {t:4.18,hipsX:.011,hipsY:-.009,hipYaw:5,spine:[-1,5,-3],neck:[-2,0,1],head:[-1,10,-2],leftHand:[.064,-.184,.022],rightHand:[.085,-.084,.120],leftCurl:.18,rightCurl:.04,rightPalm:11},
+  {t:4.75,hipsX:.013,hipsY:-.007,hipYaw:6,spine:[-1,5,-3],neck:[-2,0,2],head:[-1,11,-3],leftHand:[.064,-.184,.022],rightHand:[.095,-.071,.118],leftCurl:.18,rightCurl:.03,rightPalm:15},
+  {t:5.45,hipsX:.013,hipsY:-.008,hipYaw:6,spine:[0,5,-3],neck:[-1,0,1],head:[0,12,-3],leftHand:[.064,-.184,.022],rightHand:[.095,-.072,.116],leftCurl:.18,rightCurl:.03,rightPalm:14},
+  {t:6.40,hipsX:.011,hipsY:-.010,hipYaw:5,spine:[1,4,-2],neck:[-1,0,1],head:[0,10,-2],leftHand:[.065,-.184,.022],rightHand:[.090,-.075,.120],leftCurl:.18,rightCurl:.03,rightPalm:9},
+  {t:7.18,hipsX:.010,hipsY:-.010,hipYaw:4,spine:[1,4,-2],neck:[-1,0,1],head:[0,10,-2],leftHand:[.065,-.184,.022],rightHand:[.087,-.078,.117],leftCurl:.18,rightCurl:.03,rightPalm:12},
+  {t:7.75,hipsX:.003,hipsY:-.011,hipYaw:2,spine:[1,2,0],neck:[0,0,0],head:[-2,5,-1],leftHand:[.065,-.184,.022],rightHand:[.074,-.127,.094],leftCurl:.18,rightCurl:.12,rightPalm:3},
+  {t:8.55,hipsX:-.005,hipsY:-.011,hipYaw:0,spine:[2,0,2],neck:[-1,0,0],head:[-3,-2,2],leftHand:[.065,-.185,.020],rightHand:[.064,-.183,.029],leftCurl:.18,rightCurl:.18,rightPalm:0},
+  {t:9.40,hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.065,-.185,.020],rightHand:[.060,-.185,.020],leftCurl:.20,rightCurl:.20,rightPalm:0},
+  {t:10.40,hipsX:-.008,hipsY:-.009,hipYaw:-2,spine:[1,-2,3],neck:[-1,0,-1],head:[-3,-6,3],leftHand:[.065,-.185,.020],rightHand:[.060,-.185,.020],leftCurl:.20,rightCurl:.20,rightPalm:0},
 ];
 const MALE_RECONSTRUCTION: readonly ReferenceFrame[] = [
   {t:0.00,hipsX:0,hipsY:-.005,hipYaw:0,spine:[0,0,0],neck:[1,0,0],head:[-2,2,0],leftHand:[.015,-.205,.065],rightHand:[.015,-.205,.065],leftCurl:.15,rightCurl:.15,rightPalm:0},
@@ -417,22 +417,27 @@ function buildReferenceClip(
     const chest=shoulderL.getWorldPosition(new THREE.Vector3()).add(
       shoulderR.getWorldPosition(new THREE.Vector3())
     ).multiplyScalar(.5);
+    // This selection video's waving/open-palm hand is viewer-right.
+    // M3's anatomical .L hand appears viewer-right in the stage front view;
+    // the source frame controls retain their authored gesture/rest labels.
     poseEmptyHand(
       [joints["upper_arm.L"],joints["lower_arm.L"],joints["hand.L"]],
-      frame.leftHand,actorAxes,pelvis,chest,bodyRadius,worldHeight,
+      female?frame.rightHand:frame.leftHand,actorAxes,pelvis,chest,bodyRadius,worldHeight,
     );
     poseEmptyHand(
       [joints["upper_arm.R"],joints["lower_arm.R"],joints["hand.R"]],
-      frame.rightHand,actorAxes,pelvis,chest,bodyRadius,worldHeight,
+      female?frame.leftHand:frame.rightHand,actorAxes,pelvis,chest,bodyRadius,worldHeight,
     );
     if(female) {
-      joints["hand.R"].bone.quaternion.multiply(
+      joints["hand.L"].bone.quaternion.multiply(
         new THREE.Quaternion().setFromAxisAngle(Y,THREE.MathUtils.degToRad(frame.rightPalm)),
       );
     }
     for(const finger of fingers) {
       const side=finger.id.endsWith(".L")?"L":"R";
-      const relaxed=side==="L"?frame.leftCurl:frame.rightCurl;
+      const relaxed=female
+        ? (side==="L"?frame.rightCurl:frame.leftCurl)
+        : (side==="L"?frame.leftCurl:frame.rightCurl);
       const curl=finger.id.startsWith("thumb.")?relaxed*.45:relaxed;
       finger.bone.quaternion.copy(finger.rotation).multiply(
         new THREE.Quaternion().setFromAxisAngle(X,curl),
