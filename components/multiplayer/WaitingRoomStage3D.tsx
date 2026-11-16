@@ -1269,6 +1269,9 @@ export default function WaitingRoomStage3D({
       calibrationCallbackRef.current?.(snapshot);
     };
 
+    const motionReview = window.location.pathname === "/tools/lobby-qa-sketch";
+    let reviewSpeed = 1;
+    let sideView = false;
     const applyLayout = () => {
       const current = viewRef.current;
       const activeParticipants = participantsRef.current;
@@ -1409,6 +1412,10 @@ export default function WaitingRoomStage3D({
         camera.position.set(0, 3.08, 9.65);
         camera.lookAt(0, 2.0, 0);
       }
+      if (sideView) {
+        camera.position.set(8, 2.45, 0);
+        camera.lookAt(0, 1.65, 0);
+      }
       render();
       emitCalibrationLayout();
     };
@@ -1464,6 +1471,17 @@ export default function WaitingRoomStage3D({
       );
     };
 
+    function onReview(event: Event) {
+      const { command, id, value } = (event as CustomEvent).detail;
+      if (command === "speed") reviewSpeed = value === .25 ? .25 : 1;
+      if (command === "camera") { sideView = value === "side"; applyLayout(); }
+      for (const runtime of m3IdleByParticipant.values()) {
+        if (command === "select") runtime.select(id);
+        if (command === "transition") runtime.request(id);
+        if (command === "random") runtime.random = true;
+      }
+    }
+    if (motionReview) window.addEventListener("m3-idle-review", onReview);
     const startIdleLoop = () => {
       if (animationFrame) return;
       const minFrameMs = 1000 / IDLE_RENDER_FPS;
@@ -1489,12 +1507,16 @@ export default function WaitingRoomStage3D({
           runtime.mixer.update(deltaSeconds);
           switchIdleIfNeeded(runtime, deltaSeconds);
         });
-        m3IdleByParticipant.forEach(runtime => runtime.update(deltaSeconds));
+        m3IdleByParticipant.forEach(runtime => runtime.update(deltaSeconds * reviewSpeed));
         if (footContactProbe && nowMs - lastProbeMs > 450 && mountRef.current) {
           lastProbeMs = nowMs;
           const runtimes = [...m3IdleByParticipant.values()];
           const stageElement = mountRef.current.parentElement;
           if (stageElement) {
+            stageElement.dataset.m3MotionReview = JSON.stringify(runtimes.map(r => ({
+              id: r.animationProfile, target: r.target, contact: r.contacts + " · " + r.phase, feet: r.placement.feet,
+              drift: r.footDrift, floor: r.floorError, time: r.poseTime
+            })));
             stageElement.dataset.m3FootDrift = Math.max(0, ...runtimes.map(item => item.footDrift)).toFixed(5);
             stageElement.dataset.m3CompletedGestures = String(runtimes.reduce((sum, item) => sum + item.completedGestures, 0));
             stageElement.dataset.m3ActiveGestures = runtimes.map(item => item.currentGesture || "-").join(",");
@@ -1943,7 +1965,9 @@ export default function WaitingRoomStage3D({
       stageNodesRef.current.set(participant.participantId, node);
       if (m3Source) {
         const rigFamily = getCharacterCatalogEntry(characterAssetId)?.m3RigFamily;
-        const idle = rigFamily ? createM3LobbyIdle(actor, participant.participantId, roomId, rigFamily) : null;
+        const idle = rigFamily ? createM3LobbyIdle(actor, participant.participantId, roomId, rigFamily,
+          () => Array.from(m3IdleByParticipant.values()).flatMap(r => r.target ? [r.animationProfile, r.target] : [r.animationProfile])
+        ) : null;
         if (idle) {
           m3IdleByParticipant.set(participant.participantId, idle);
           setM3IdleCount(m3IdleByParticipant.size);
@@ -2128,6 +2152,7 @@ export default function WaitingRoomStage3D({
 
     return () => {
       disposed = true;
+      if (motionReview) window.removeEventListener("m3-idle-review", onReview);
       if (animationFrame) cancelAnimationFrame(animationFrame);
       observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);

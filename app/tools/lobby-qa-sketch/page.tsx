@@ -1,3 +1,4 @@
+import MotionControls from "./MotionControls";
 import WaitingRoomPanel from "../../../components/multiplayer/WaitingRoomPanel";
 import { createRoomState, addParticipant } from "../../../multiplayer/room-state";
 import type { HumanHostParticipant, HumanGuestParticipant } from "../../../multiplayer/types";
@@ -105,6 +106,7 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
     : soloRoom;
 
   return (
+    <>
     <WaitingRoomPanel
       initialRoom={visualRoom}
       initialSync={initialSync}
@@ -118,5 +120,7 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       } : null}
       visualPreset="sketch"
     />
+    {m3Id && <MotionControls family={params.m3 === "male" ? "neurohacker" : "drophunter"} />}
+    </>
   );
 }

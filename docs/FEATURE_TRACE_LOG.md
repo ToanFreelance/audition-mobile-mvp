@@ -344,3 +344,7 @@ Never equate a green CI/build, a recovered metadata ACK, canonical `playing`, or
 - Chủ dự án bác V1.6 trên iPhone. Hai clip V1.7 được dựng offline từ quỹ đạo ảnh 30 Hz của video 031643, với mốc xoay và che khuất được hiệu chỉnh trên rig Drophunter/Neurohacker thật. Nữ 0–10,40 s, nam 53,70–64,80 s. Giữ một mixer cho từng clone, hai chân IK hậu xử lý, trạng thái M3 chỉ dùng ở phòng chờ.
 - Đã render so V1.6 và nguồn, sửa bước lật cổ tay, sửa va chạm với áo/quần. Quét mesh đã skin trên hai bộ đồ mỗi rig. Kết quả, timing sheet, vùng tiếp xúc khớp vai và giới hạn trong [M3_IDLE_VIDEO_REVIEW_V17.md](M3_IDLE_VIDEO_REVIEW_V17.md).
 - Đã chạy TypeScript, build production, 11 test logic và kiểm tra render. Nghiệm thu iPhone V1.7 còn mở. Nhánh work, không merge.
+
+### 2026-11-16 — V1.8, chín diễn xuất M3 và chuyển thế chân trong phòng chờ
+
+Chủ dự án bác V1.7 trên iPhone vì mỗi rig chỉ đổi pha của một clip và luôn giữ cùng hai mốc chân. Đã dựng danh mục F01–F05 cho Drophunter, M01/M02/X01/M03 cho Neurohacker, thêm túi xáo theo participant, quỹ đạo chân theo tiếp xúc và chuyển thế trên cùng mixer. Đã xem lại nguồn, render hai góc, sửa đường đi của cổ tay, chân nâng M03, hai chuyển tiếp vướng quần, độ ôm của tay áo/ống quần Neurohacker và giới hạn góc đế giày trước tiếp đất. Kết quả kiểm mesh, thời gian nguồn và các giới hạn được ghi trong [báo cáo V1.8](M3_IDLE_VIDEO_REVIEW_V18.md). Chờ chủ dự án đánh giá trên iPhone. M3 tiếp tục chỉ dùng trong phòng chờ.

@@ -1,30 +1,54 @@
 import * as THREE from "three";
+import { fitLobbyGarments } from "./motion/garment-fit";
 import drophunter from "./motion/drophunter.json";
 import neurohacker from "./motion/neurohacker.json";
 import type { M3RigFamily } from "./character-catalog";
 
-/**
- * M3 Waiting Room Idle V1.7 — offline-reconstructed empty-hand performances.
- *
- * Only the per-participant SkeletonUtils CLONE is animated. This has no
- * relationship with WebAudio, gameplay AnimationMixer, or RoomState.
- *
- * The most important invariant is dual planted feet: heel/ankle anchors are
- * stored in actor-local space, and the two-bone legs solve for those anchors
- * after each subtle weight shift. Root/formation/camera motion remains owned
- * by WaitingRoomStage3D.
- */
-export type M3LobbyGesture = "female-relaxed-greeting" | "male-neck-led-slump";
+import F02 from "./motion/F02.json";
+import F03 from "./motion/F03.json";
+import F04 from "./motion/F04.json";
+import F05 from "./motion/F05.json";
+import M02 from "./motion/M02.json";
+import M03 from "./motion/M03.json";
+import X01 from "./motion/X01.json";
+import {
+  bridgeBetween,
+  ease,
+  rigPool,
+  stanceAt,
+  type IdleId,
+  type Shoe,
+} from "./motion/stances";
+import { selectParticipantIdlePhaseSeconds } from "../multiplayer/lobby-idle-selection";
 
+const sources = {
+  F01: drophunter,
+  F02,
+  F03,
+  F04,
+  F05,
+  M01: neurohacker,
+  M02,
+  M03,
+  X01,
+};
 export type M3LobbyIdle = {
   readonly instanceId: string;
   elapsedSeconds: number;
   hasScratchPose: boolean; // Retained for the existing Stage3D debug contract.
-  currentGesture: M3LobbyGesture | null;
+  currentGesture: IdleId;
+  target: IdleId | null;
+  contacts: string;
+  phase: string;
+  floorError: number;
+  placement: ReturnType<typeof stanceAt>;
+  select(id: IdleId): void;
+  request(id: IdleId): void;
+  random: boolean;
   completedGestures: number;
   footDrift: number;
   maxFootDrift: number;
-  animationProfile: M3LobbyGesture;
+  animationProfile: IdleId;
   clipDuration: number;
   poseTime: number;
   update(deltaSeconds: number): void;
@@ -53,132 +77,225 @@ function hashId(input: string): number {
 }
 function getJoint(skeleton: THREE.Skeleton, name: string): Joint | null {
   const safe = THREE.PropertyBinding.sanitizeNodeName(name);
-  const bone = skeleton.bones.find(item => item.name === name || item.name === safe);
-  return bone ? { bone, rotation: bone.quaternion.clone(), position: bone.position.clone() } : null;
+  const bone = skeleton.bones.find(
+    (item) => item.name === name || item.name === safe,
+  );
+  return bone
+    ? {
+        bone,
+        rotation: bone.quaternion.clone(),
+        position: bone.position.clone(),
+      }
+    : null;
 }
 function restore(joint: Joint) {
   joint.bone.quaternion.copy(joint.rotation);
   joint.bone.position.copy(joint.position);
 }
 
-function aimBone(bone: THREE.Bone, child: THREE.Bone, worldTarget: THREE.Vector3): boolean {
-  bone.updateWorldMatrix(true, true);
-  const start = bone.getWorldPosition(new THREE.Vector3());
-  const before = child.getWorldPosition(new THREE.Vector3()).sub(start);
-  const after = worldTarget.clone().sub(start);
-  if (before.lengthSq() < 1e-10 || after.lengthSq() < 1e-10) return false;
-  const delta = new THREE.Quaternion().setFromUnitVectors(before.normalize(), after.normalize());
-  const parentQ = bone.parent?.getWorldQuaternion(new THREE.Quaternion()) ?? new THREE.Quaternion();
-  bone.quaternion.premultiply(
-    parentQ.clone().invert().multiply(delta).multiply(parentQ),
-  ).normalize();
-  bone.updateWorldMatrix(true, true);
-  return true;
+// The two leg solves run sequentially in the stage's render tick.
+function solveScratch() {
+  return {
+    origin: new THREE.Vector3(),
+    mid: new THREE.Vector3(),
+    tip: new THREE.Vector3(),
+    direction: new THREE.Vector3(),
+    bend: new THREE.Vector3(),
+    knee: new THREE.Vector3(),
+    end: new THREE.Vector3(),
+    start: new THREE.Vector3(),
+    before: new THREE.Vector3(),
+    after: new THREE.Vector3(),
+    delta: new THREE.Quaternion(),
+    parent: new THREE.Quaternion(),
+    inverse: new THREE.Quaternion(),
+    footGoal: new THREE.Vector3(),
+    pole: new THREE.Vector3(),
+    actorRotation: new THREE.Quaternion(),
+  };
+}
+type SolveScratch = ReturnType<typeof solveScratch>;
+
+function aimBone(
+  bone: THREE.Bone,
+  child: THREE.Bone,
+  target: THREE.Vector3,
+  work: SolveScratch,
+) {
+  bone.getWorldPosition(work.start);
+  child.getWorldPosition(work.before).sub(work.start);
+  work.after.copy(target).sub(work.start);
+  if (work.before.lengthSq() < 1e-10 || work.after.lengthSq() < 1e-10) return;
+  work.delta.setFromUnitVectors(
+    work.before.normalize(),
+    work.after.normalize(),
+  );
+  bone.parent!.getWorldQuaternion(work.parent);
+  work.inverse
+    .copy(work.parent)
+    .invert()
+    .multiply(work.delta)
+    .multiply(work.parent);
+  bone.quaternion.premultiply(work.inverse).normalize();
 }
 
-/**
- * One two-bone solve. Includes a meaningful elbow/knee pole and an ankle
- * orientation fix so soles stay level. Targets are in world coordinates.
- */
-function solveLimb(
-  upper: Joint,
-  lower: Joint,
-  end: Joint,
-  target: THREE.Vector3,
-  pole: THREE.Vector3,
-): boolean {
-  upper.bone.updateWorldMatrix(true, true);
-  const origin = upper.bone.getWorldPosition(new THREE.Vector3());
-  const mid = lower.bone.getWorldPosition(new THREE.Vector3());
-  const tip = end.bone.getWorldPosition(new THREE.Vector3());
-  const first = origin.distanceTo(mid), second = mid.distanceTo(tip);
-  const direction = target.clone().sub(origin);
-  const rawDistance = direction.length();
-  if (first < 1e-6 || second < 1e-6 || rawDistance < 1e-6) return false;
-  direction.normalize();
-  const distance = THREE.MathUtils.clamp(rawDistance, Math.abs(first - second) + 1e-6, first + second - 1e-6);
-  const projection = (first * first - second * second + distance * distance) / (2 * distance);
-  const elevation = Math.sqrt(Math.max(0, first * first - projection * projection));
-  const poleDirection = pole.clone().sub(origin);
-  poleDirection.addScaledVector(direction, -poleDirection.dot(direction));
-  if (poleDirection.lengthSq() < 1e-10) return false;
-  const bend = poleDirection.normalize();
-  const midTarget = origin.clone().addScaledVector(direction, projection).addScaledVector(bend, elevation);
-  const limitedTarget = origin.clone().addScaledVector(direction, distance);
-  return aimBone(upper.bone, lower.bone, midTarget)
-    && aimBone(lower.bone, end.bone, limitedTarget);
+function solveLimb(contact: FootContact, work: SolveScratch) {
+  const { upper, lower, ankle } = contact;
+  upper.bone.getWorldPosition(work.origin);
+  lower.bone.getWorldPosition(work.mid);
+  ankle.bone.getWorldPosition(work.tip);
+  const first = work.origin.distanceTo(work.mid),
+    second = work.mid.distanceTo(work.tip);
+  work.direction.copy(work.footGoal).sub(work.origin);
+  const rawDistance = work.direction.length();
+  if (Math.min(first, second, rawDistance) < 1e-6) return;
+  work.direction.normalize();
+  const distance = THREE.MathUtils.clamp(
+    rawDistance,
+    Math.abs(first - second) + 1e-6,
+    first + second - 1e-6,
+  );
+  const projection =
+    (first * first - second * second + distance * distance) / (2 * distance);
+  const elevation = Math.sqrt(
+    Math.max(0, first * first - projection * projection),
+  );
+  work.bend.copy(work.pole).sub(work.origin);
+  work.bend.addScaledVector(work.direction, -work.bend.dot(work.direction));
+  if (work.bend.lengthSq() < 1e-10) return;
+  work.knee
+    .copy(work.origin)
+    .addScaledVector(work.direction, projection)
+    .addScaledVector(work.bend.normalize(), elevation);
+  work.end.copy(work.origin).addScaledVector(work.direction, distance);
+  aimBone(upper.bone, lower.bone, work.knee, work);
+  aimBone(lower.bone, ankle.bone, work.end, work);
 }
 
 function makeContact(
-  actor: THREE.Object3D, upper: Joint, lower: Joint, ankle: Joint, height: number, side: number,
+  actor: THREE.Object3D,
+  upper: Joint,
+  lower: Joint,
+  ankle: Joint,
+  height: number,
+  side: number,
 ): FootContact {
   actor.updateWorldMatrix(true, true);
   const worldPoint = ankle.bone.getWorldPosition(new THREE.Vector3());
   const worldRotation = ankle.bone.getWorldQuaternion(new THREE.Quaternion());
   const actorRotation = actor.getWorldQuaternion(new THREE.Quaternion());
   const knee = lower.bone.getWorldPosition(new THREE.Vector3());
-  const forward = new THREE.Vector3(0, 0, 1).transformDirection(actor.matrixWorld);
-  const outward = new THREE.Vector3(1, 0, 0).transformDirection(actor.matrixWorld);
-  const pole = knee.clone().addScaledVector(forward, height * .12)
-    .addScaledVector(outward, side * height * .013);
+  const forward = new THREE.Vector3(0, 0, 1).transformDirection(
+    actor.matrixWorld,
+  );
+  const outward = new THREE.Vector3(1, 0, 0).transformDirection(
+    actor.matrixWorld,
+  );
+  const pole = knee
+    .clone()
+    .addScaledVector(forward, height * 0.12)
+    .addScaledVector(outward, side * height * 0.013);
   return {
-    upper, lower, ankle,
+    upper,
+    lower,
+    ankle,
     localAnchor: actor.worldToLocal(worldPoint.clone()),
     localWorldRotation: actorRotation.invert().multiply(worldRotation),
     poleLocal: actor.worldToLocal(pole),
   };
 }
 
-function solvePlantedFoot(actor: THREE.Object3D, contact: FootContact): number {
+function solveFoot(
+  actor: THREE.Object3D,
+  contact: FootContact,
+  work: SolveScratch,
+): number {
   const { upper, lower, ankle } = contact;
-  restore(upper); restore(lower); restore(ankle);
-  actor.updateWorldMatrix(true, true);
-  const footGoal = actor.localToWorld(contact.localAnchor.clone());
-  const kneePole = actor.localToWorld(contact.poleLocal.clone());
-  solveLimb(upper, lower, ankle, footGoal, kneePole);
-
-  // A bent knee changes the ankle's world orientation; undo that so the shoe
-  // follows the original actor heading, not a spinning lower-leg rotation.
-  const actorRotation = actor.getWorldQuaternion(new THREE.Quaternion());
-  const parentWorld = ankle.bone.parent!.getWorldQuaternion(new THREE.Quaternion());
+  restore(upper);
+  restore(lower);
+  restore(ankle);
+  actor.localToWorld(work.footGoal.copy(contact.localAnchor));
+  actor.localToWorld(work.pole.copy(contact.poleLocal));
+  solveLimb(contact, work);
+  actor.getWorldQuaternion(work.actorRotation);
+  ankle.bone.parent!.getWorldQuaternion(work.parent);
   ankle.bone.quaternion.copy(
-    parentWorld.invert().multiply(actorRotation).multiply(contact.localWorldRotation),
+    work.parent
+      .invert()
+      .multiply(work.actorRotation)
+      .multiply(contact.localWorldRotation),
   );
-  ankle.bone.updateWorldMatrix(true, true);
-  const actual = ankle.bone.getWorldPosition(new THREE.Vector3());
-  return actual.distanceTo(footGoal);
+  return ankle.bone.getWorldPosition(work.tip).distanceTo(work.footGoal);
 }
 
-
 type BakedTrack = { frames: number[]; values: number[] };
-type BakedMotion = { fps: number; lastFrame: number; tracks: Record<string, BakedTrack> };
+type BakedMotion = {
+  fps: number;
+  lastFrame: number;
+  tracks: Record<string, BakedTrack>;
+};
 
-function buildPerformanceClip(rig: THREE.Skeleton, family: M3RigFamily): THREE.AnimationClip {
-  const source: BakedMotion = family === "drophunter" ? drophunter : neurohacker;
+function buildPerformanceClip(
+  rig: THREE.Skeleton,
+  id: IdleId,
+): THREE.AnimationClip {
+  const source: BakedMotion = sources[id];
   const tracks: THREE.KeyframeTrack[] = [];
   for (const [name, track] of Object.entries(source.tracks)) {
-    const times = track.frames.map(frame => frame / source.fps);
+    const times = track.frames.map((frame) => frame / source.fps);
     if (name.startsWith("curl.")) {
       const side = name.slice(-1);
       // Both M3 bind poses have fingers along local +/-X, with the palm
       // facing -Y. Bend towards the palm, progressively down the chain.
       const axis = new THREE.Vector3(0, 0, side === "L" ? -1 : 1);
-      for (const [digit, flex] of Object.entries({index:.68, middle:.88, ring:1.1, little:1.25, thumb:.36})) {
-        for (const [segment, gain] of Object.entries({proximal:1, intermediate:.76, distal:.48})) {
+      for (const [digit, flex] of Object.entries({
+        index: 0.68,
+        middle: 0.88,
+        ring: 1.1,
+        little: 1.25,
+        thumb: 0.36,
+      })) {
+        for (const [segment, gain] of Object.entries({
+          proximal: 1,
+          intermediate: 0.76,
+          distal: 0.48,
+        })) {
           const joint = getJoint(rig, [digit, segment, side].join("."));
           if (!joint) continue;
-          const values = track.values.flatMap(curl => joint.rotation.clone().multiply(
-            new THREE.Quaternion().setFromAxisAngle(axis, curl * flex * gain)
-          ).toArray());
-          tracks.push(new THREE.QuaternionKeyframeTrack(joint.bone.uuid + ".quaternion", times, values));
+          const values = track.values.flatMap((curl) =>
+            joint.rotation
+              .clone()
+              .multiply(
+                new THREE.Quaternion().setFromAxisAngle(
+                  axis,
+                  curl * flex * gain,
+                ),
+              )
+              .toArray(),
+          );
+          tracks.push(
+            new THREE.QuaternionKeyframeTrack(
+              joint.bone.uuid + ".quaternion",
+              times,
+              values,
+            ),
+          );
         }
       }
     } else if (name === "hips.position") {
       const hips = getJoint(rig, "hips");
       if (!hips) continue;
       const origin = hips.position.toArray();
-      const positions = track.values.map((offset, index) => origin[index % 3] + offset);
-      tracks.push(new THREE.VectorKeyframeTrack(hips.bone.uuid + ".position", times, positions));
+      const positions = track.values.map(
+        (offset, index) => origin[index % 3] + offset,
+      );
+      tracks.push(
+        new THREE.VectorKeyframeTrack(
+          hips.bone.uuid + ".position",
+          times,
+          positions,
+        ),
+      );
     } else {
       const joint = getJoint(rig, name);
       if (joint) {
@@ -188,97 +305,388 @@ function buildPerformanceClip(rig: THREE.Skeleton, family: M3RigFamily): THREE.A
         for (let i = 0; i < rotations.length; i += 4) {
           q.fromArray(track.values, i).normalize().toArray(rotations, i);
         }
-        tracks.push(new THREE.QuaternionKeyframeTrack(joint.bone.uuid + ".quaternion", times, rotations));
+        tracks.push(
+          new THREE.QuaternionKeyframeTrack(
+            joint.bone.uuid + ".quaternion",
+            times,
+            rotations,
+          ),
+        );
       }
     }
   }
-  return new THREE.AnimationClip("m3-v17-" + family, source.lastFrame / source.fps, tracks);
+  return new THREE.AnimationClip(
+    "m3-v18-" + id,
+    source.lastFrame / source.fps,
+    tracks,
+  );
 }
 
 export function createM3LobbyIdle(
-  actor:THREE.Object3D,participantId:string,roomId:string,rigFamily:M3RigFamily,
-):M3LobbyIdle|null{
-  let skeleton:THREE.Skeleton|null=null;
-  actor.traverse(object=>{
-    const mesh=object as THREE.SkinnedMesh;
-    if(mesh.isSkinnedMesh&&(!skeleton||mesh.skeleton.bones.length>skeleton.bones.length))
-      skeleton=mesh.skeleton;
+  actor: THREE.Object3D,
+  participantId: string,
+  roomId: string,
+  rigFamily: M3RigFamily,
+  occupied: () => readonly IdleId[] = () => [],
+): M3LobbyIdle | null {
+  let skeleton: THREE.Skeleton | null = null;
+  actor.traverse((object) => {
+    const mesh = object as THREE.SkinnedMesh;
+    if (
+      mesh.isSkinnedMesh &&
+      (!skeleton || mesh.skeleton.bones.length > skeleton.bones.length)
+    )
+      skeleton = mesh.skeleton;
   });
-  if(!skeleton)return null;
-  const rig=skeleton as THREE.Skeleton;
+  if (!skeleton) return null;
+  const rig = skeleton as THREE.Skeleton;
   const hips = getJoint(rig, "hips");
-  if (!hips || !["spine", "neck", "head", "upper_arm.L", "upper_arm.R", "hand.L", "hand.R"]
-    .every(name => getJoint(rig, name))) return null;
-  const leftLeg=getJoint(rig,"upper_leg.L"),rightLeg=getJoint(rig,"upper_leg.R");
-  const leftShin=getJoint(rig,"lower_leg.L"),rightShin=getJoint(rig,"lower_leg.R");
-  const leftFoot=getJoint(rig,"foot.L"),rightFoot=getJoint(rig,"foot.R");
-  if(!leftLeg||!rightLeg||!leftShin||!rightShin||!leftFoot||!rightFoot)return null;
-  actor.updateWorldMatrix(true,true);
-  const worldHeight=new THREE.Box3().setFromObject(actor).getSize(new THREE.Vector3()).y;
-  const worldScale=actor.getWorldScale(new THREE.Vector3());
-  if(!(worldHeight>0)||!(worldScale.y>0))return null;
-  const localHeight=worldHeight/worldScale.y;
-  const leftContact=makeContact(actor,leftLeg,leftShin,leftFoot,worldHeight,1);
-  const rightContact=makeContact(actor,rightLeg,rightShin,rightFoot,worldHeight,-1);
-  // Preserve the accepted planted stance. Offset both
-  // contact anchors once at actor creation, never continuously slide them.
-  const hipLocal=actor.worldToLocal(hips.bone.getWorldPosition(new THREE.Vector3()));
-  const widen=localHeight*(rigFamily==="drophunter"?.026:.012);
-  for(const contact of [leftContact,rightContact]){
-    const side=Math.sign(contact.localAnchor.x-hipLocal.x)||1;
-    contact.localAnchor.x+=side*widen;
+  if (
+    !hips ||
+    ![
+      "spine",
+      "neck",
+      "head",
+      "upper_arm.L",
+      "upper_arm.R",
+      "hand.L",
+      "hand.R",
+    ].every((name) => getJoint(rig, name))
+  )
+    return null;
+  const leftLeg = getJoint(rig, "upper_leg.L"),
+    rightLeg = getJoint(rig, "upper_leg.R");
+  const leftShin = getJoint(rig, "lower_leg.L"),
+    rightShin = getJoint(rig, "lower_leg.R");
+  const leftFoot = getJoint(rig, "foot.L"),
+    rightFoot = getJoint(rig, "foot.R");
+  if (
+    !leftLeg ||
+    !rightLeg ||
+    !leftShin ||
+    !rightShin ||
+    !leftFoot ||
+    !rightFoot
+  )
+    return null;
+  actor.updateWorldMatrix(true, true);
+  const worldHeight = new THREE.Box3()
+    .setFromObject(actor)
+    .getSize(new THREE.Vector3()).y;
+  const worldScale = actor.getWorldScale(new THREE.Vector3());
+  if (!(worldHeight > 0) || !(worldScale.y > 0)) return null;
+  const localHeight = worldHeight / worldScale.y;
+  const leftContact = makeContact(
+    actor,
+    leftLeg,
+    leftShin,
+    leftFoot,
+    worldHeight,
+    1,
+  );
+  const rightContact = makeContact(
+    actor,
+    rightLeg,
+    rightShin,
+    rightFoot,
+    worldHeight,
+    -1,
+  );
+  const contacts = [leftContact, rightContact];
+  const work = solveScratch();
+  const garmentFit =
+    rigFamily === "neurohacker" ? fitLobbyGarments(actor) : null;
+  const rest = contacts.map((c) => c.localAnchor.clone());
+  // Bind-pose shoe vertices give each ankle its own height above the sole.
+  // Sample once on assembly; the renderer never scans geometry per frame.
+  const sole = [Infinity, Infinity];
+  const shoeRadius = [0, 0];
+  const vertex = new THREE.Vector3();
+  actor.traverse((object) => {
+    const mesh = object as THREE.SkinnedMesh;
+    if (!mesh.isSkinnedMesh || !mesh.name.includes("m3-shoes")) return;
+    for (let i = 0; i < mesh.geometry.attributes.position.count; i++) {
+      mesh.getVertexPosition(i, vertex).applyMatrix4(mesh.matrixWorld);
+      actor.worldToLocal(vertex);
+      const side =
+        Math.abs(vertex.x - rest[0].x) < Math.abs(vertex.x - rest[1].x) ? 0 : 1;
+      sole[side] = Math.min(sole[side], vertex.y);
+      shoeRadius[side] = Math.max(
+        shoeRadius[side],
+        vertex.distanceTo(rest[side]),
+      );
+    }
+  });
+  rest.forEach((point, i) => {
+    if (Number.isFinite(sole[i])) point.y -= sole[i];
+  });
+  const orientations = contacts.map((c) => c.localWorldRotation.clone());
+  const center = (rest[0].x + rest[1].x) / 2;
+  const forward = (rest[0].z + rest[1].z) / 2;
+  const pool = rigPool[rigFamily];
+  const mixer = new THREE.AnimationMixer(actor);
+  const actions = new Map(
+    pool.map((id) => {
+      const clip = buildPerformanceClip(rig, id);
+      const action = mixer.clipAction(clip).setLoop(THREE.LoopOnce, 1);
+      action.clampWhenFinished = true;
+      return [id, action] as const;
+    }),
+  );
+  let seed = hashId(roomId + ":" + participantId) || 1;
+  let bag: IdleId[] = [];
+  function draw(previous?: IdleId): IdleId {
+    if (!bag.length || (bag.length === 1 && bag[0] === previous)) {
+      bag = [...pool];
+      for (let i = bag.length - 1; i > 0; i--) {
+        seed ^= seed << 13;
+        seed ^= seed >>> 17;
+        seed ^= seed << 5;
+        const j = (seed >>> 0) % (i + 1);
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+    }
+    const busy = occupied();
+    let index = bag.findIndex((id) => id !== previous && !busy.includes(id));
+    if (index < 0) index = bag.findIndex((id) => id !== previous);
+    return bag.splice(Math.max(index, 0), 1)[0];
   }
-  const clip=buildPerformanceClip(rig,rigFamily);
-  const mixer=new THREE.AnimationMixer(actor);
-  const action=mixer.clipAction(clip);
-  action.setLoop(THREE.LoopRepeat,Infinity);
-  action.clampWhenFinished=false;
-  action.enabled=true;
-  action.play();
-
-  const seed=hashId(roomId+":"+participantId);
-  // Sample the full cycle so multiple participants can enter different action phases.
-  const phase=(seed / 0x100000000) * clip.duration;
-  const runtime:M3LobbyIdle={
+  let id = draw(),
+    action = actions.get(id)!.play();
+  let placement = stanceAt(id, 0);
+  let bridge: ReturnType<typeof bridgeBetween> | null = null;
+  let bridgeTime = 0,
+    queued: IdleId | null = null;
+  let correctionX = 0,
+    correctionY = 0;
+  const yaw = new THREE.Quaternion(),
+    up = new THREE.Vector3(0, 1, 0);
+  const pitch = new THREE.Quaternion(),
+    across = new THREE.Vector3(1, 0, 0);
+  let lastLift = 0,
+    settling = 0;
+  const originalHips = hips.position;
+  const rightArm = getJoint(rig, "upper_arm.R")!.bone;
+  const armBase = new THREE.Quaternion(),
+    armOffset = new THREE.Quaternion();
+  const armAxis = new THREE.Vector3(0, 0, 1);
+  let armCorrected = false;
+  const actualHips = new THREE.Vector3();
+  const thighPosition = new THREE.Vector3(),
+    shinPosition = new THREE.Vector3(),
+    anklePosition = new THREE.Vector3();
+  const lengths = contacts.map((c) => {
+    c.upper.bone.getWorldPosition(thighPosition);
+    c.lower.bone.getWorldPosition(shinPosition);
+    c.ankle.bone.getWorldPosition(anklePosition);
+    return (
+      (thighPosition.distanceTo(shinPosition) +
+        shinPosition.distanceTo(anklePosition)) /
+      worldScale.y
+    );
+  });
+  const phase = selectParticipantIdlePhaseSeconds(
+    participantId,
+    action.getClip().duration,
+    18,
+    roomId,
+  );
+  action.time = phase;
+  let incoming: THREE.AnimationAction | null = null;
+  let replay: THREE.AnimationAction | null = null;
+  function begin(next: IdleId) {
+    queued = null;
+    bridge = bridgeBetween(placement, stanceAt(next, 0));
+    bridgeTime = 0;
+    runtime.target = next;
+    action.paused = true;
+    incoming = actions.get(next)!;
+    if (incoming === action) {
+      if (!replay || replay.getClip().name !== action.getClip().name) {
+        if (replay) mixer.uncacheClip(replay.getClip());
+        replay = mixer
+          .clipAction(action.getClip().clone())
+          .setLoop(THREE.LoopOnce, 1);
+        replay.clampWhenFinished = true;
+      }
+      incoming = replay;
+    }
+    incoming.reset().play();
+    incoming.paused = true;
+    incoming.setEffectiveWeight(0);
+  }
+  const runtime: M3LobbyIdle = {
     instanceId: THREE.MathUtils.generateUUID(),
-    elapsedSeconds:0,hasScratchPose:false,
-    currentGesture:null,completedGestures:0,footDrift:0,maxFootDrift:0,
-    animationProfile:rigFamily==="drophunter"?"female-relaxed-greeting":"male-neck-led-slump",
-    clipDuration:clip.duration,
-    poseTime:0,
-    update(deltaSeconds){
-      const delta=THREE.MathUtils.clamp(deltaSeconds,0,.10);
-      runtime.elapsedSeconds+=delta;
-      const before=mixer.time;
-      mixer.update(delta);
-      runtime.poseTime=mixer.time%clip.duration;
-      if(Math.floor((before+delta)/clip.duration)>Math.floor(before/clip.duration))
-        runtime.completedGestures++;
-      runtime.currentGesture=rigFamily==="drophunter"
-        ? (runtime.poseTime>3.55&&runtime.poseTime<8.55?"female-relaxed-greeting":null)
-        : (runtime.poseTime>1.30&&runtime.poseTime<10.35?"male-neck-led-slump":null);
-      // The clip does not animate thighs: only pelvis is translated; foot IK
-      // runs after the clip to keep both shoes planted on existing stage rings.
-      const driftL=solvePlantedFoot(actor,leftContact);
-      const driftR=solvePlantedFoot(actor,rightContact);
-      runtime.footDrift=Math.max(driftL,driftR);
-      runtime.maxFootDrift=Math.max(runtime.maxFootDrift,runtime.footDrift);
-    },
-    dispose(){
+    elapsedSeconds: 0,
+    hasScratchPose: false,
+    currentGesture: id,
+    animationProfile: id,
+    target: null,
+    contacts: "",
+    phase: "",
+    floorError: 0,
+    placement,
+    random: true,
+    completedGestures: 0,
+    footDrift: 0,
+    maxFootDrift: 0,
+    clipDuration: action.getClip().duration,
+    poseTime: phase,
+    select(next) {
+      if (!actions.has(next)) return;
+      hips.bone.position.x -= correctionX;
+      hips.bone.position.y -= correctionY;
+      correctionX = 0;
+      correctionY = 0;
       mixer.stopAllAction();
-      mixer.uncacheClip(clip);
+      id = next;
+      action = actions.get(id)!.reset().setEffectiveWeight(1).play();
+      bridge = null;
+      queued = null;
+      runtime.target = null;
+      runtime.random = false;
+      runtime.update(0);
+    },
+    request(next) {
+      if (actions.has(next) && next !== id) queued = next;
+    },
+    update(deltaSeconds) {
+      const dt = THREE.MathUtils.clamp(deltaSeconds, 0, 0.1);
+      runtime.elapsedSeconds += dt;
+      hips.bone.position.x -= correctionX;
+      hips.bone.position.y -= correctionY;
+      if (armCorrected) {
+        rightArm.quaternion.copy(armBase);
+        armCorrected = false;
+      }
+      let clearanceAngle = 0;
+      if (bridge && runtime.target && incoming) {
+        bridgeTime += dt;
+        const next = runtime.target;
+        const weight = ease(Math.min(1, bridgeTime / bridge.duration));
+        if (incoming !== action) {
+          action.setEffectiveWeight(1 - weight);
+          incoming.setEffectiveWeight(weight);
+        }
+        // These two paths pass the right pocket between otherwise clear endpoints.
+        if (
+          (id === "F05" && next === "F01") ||
+          (id === "M02" && next === "M01")
+        )
+          clearanceAngle = -0.3 * 4 * weight * (1 - weight);
+        placement = bridge.sample(bridgeTime);
+        if (bridgeTime >= bridge.duration) {
+          action.stop();
+          id = next;
+          action = incoming.reset().setEffectiveWeight(1).play();
+          bridge = null;
+          runtime.target = null;
+        }
+        mixer.update(0);
+      } else {
+        mixer.update(dt);
+        placement = stanceAt(id, action.time);
+        const finished = action.time >= action.getClip().duration - 1e-6;
+        const safe = placement.feet.every((f) => f[2] < 1e-6) || id === "M03";
+        if (finished || (queued && safe)) {
+          runtime.completedGestures += Number(finished);
+          begin(queued ?? (runtime.random ? draw(id) : id));
+        }
+      }
+      if (clearanceAngle) {
+        armBase.copy(rightArm.quaternion);
+        rightArm.quaternion.premultiply(
+          armOffset.setFromAxisAngle(armAxis, clearanceAngle),
+        );
+        armCorrected = true;
+      }
+      runtime.placement = placement;
+      runtime.currentGesture = id;
+      runtime.animationProfile = id;
+      runtime.poseTime = action.time;
+      runtime.clipDuration = action.getClip().duration;
+      correctionX = placement.shift * localHeight;
+      correctionY = -placement.drop * localHeight;
+      hips.bone.position.x += correctionX;
+      hips.bone.position.y += correctionY;
+      // Lower the pelvis just enough for the measured leg lengths on this rig.
+      for (const [i, c] of contacts.entries()) {
+        const shoe: Shoe = placement.feet[i];
+        c.localAnchor.set(
+          center + shoe[0] * localHeight,
+          rest[i].y + shoe[2] * localHeight,
+          forward + shoe[1] * localHeight,
+        );
+        // An ankle rotation may lower any sole vertex by at most radius * angle.
+        const availablePitch =
+          shoeRadius[i] > 0
+            ? (shoe[2] * localHeight) / shoeRadius[i]
+            : Infinity;
+        const solePitch = THREE.MathUtils.clamp(
+          placement.pitch[i],
+          -availablePitch,
+          availablePitch,
+        );
+        c.localWorldRotation
+          .copy(orientations[i])
+          .premultiply(pitch.setFromAxisAngle(across, solePitch))
+          .premultiply(yaw.setFromAxisAngle(up, shoe[3]));
+        actor.worldToLocal(c.upper.bone.getWorldPosition(actualHips));
+        const horizontal =
+          (actualHips.x - c.localAnchor.x) ** 2 +
+          (actualHips.z - c.localAnchor.z) ** 2;
+        const ceiling =
+          c.localAnchor.y +
+          Math.sqrt(Math.max(0, (lengths[i] * 0.998) ** 2 - horizontal));
+        const lower = Math.max(0, actualHips.y - ceiling);
+        hips.bone.position.y -= lower;
+        correctionY -= lower;
+      }
+      runtime.footDrift = 0;
+      runtime.floorError = 0;
+      for (const [i, c] of contacts.entries()) {
+        const error =
+          solveFoot(actor, c, work) / actor.getWorldScale(thighPosition).y;
+        if (placement.feet[i][2] < 1e-6)
+          runtime.footDrift = Math.max(runtime.footDrift, error);
+        actor.worldToLocal(c.ankle.bone.getWorldPosition(anklePosition));
+        runtime.floorError = Math.max(
+          runtime.floorError,
+          rest[i].y - anklePosition.y,
+        );
+      }
+      if (garmentFit) garmentFit.update(placement.feet[1][2]);
+      runtime.contacts =
+        placement.feet[0][2] > 1e-6
+          ? "RIGHT_SUPPORT"
+          : placement.feet[1][2] > 1e-6
+            ? "LEFT_SUPPORT"
+            : "DOUBLE_SUPPORT";
+      const lift = Math.max(placement.feet[0][2], placement.feet[1][2]);
+      if (lastLift > 1e-6 && lift <= 1e-6) settling = 0.18;
+      runtime.phase =
+        lift <= 1e-6
+          ? settling > 0
+            ? "SETTLING"
+            : "DOUBLE_SUPPORT"
+          : lift < lastLift && lift < 0.009
+            ? "LANDING"
+            : Math.abs(lift - lastLift) < 1e-8
+              ? runtime.contacts
+              : placement.feet[0][2] > 0
+                ? "LEFT_SWING"
+                : "RIGHT_SWING";
+      lastLift = lift;
+      settling = Math.max(0, settling - dt);
+      runtime.maxFootDrift = Math.max(runtime.maxFootDrift, runtime.footDrift);
+    },
+    dispose() {
+      mixer.stopAllAction();
       mixer.uncacheRoot(actor);
+      garmentFit?.dispose();
+      hips.bone.position.copy(originalHips);
     },
   };
-  // Set the initial phase once, when the actor is created.
-  if(phase>0){
-    // update() is intentionally limited to 100 ms per render frame.
-    // Seed the mixer directly or different participants collapse to the
-    // same initial frame and dance in unwanted synchrony.
-    mixer.setTime(phase);
-    runtime.elapsedSeconds=phase;
-    runtime.poseTime=phase;
-  }
-  runtime.update(0); // Set planted feet before the very first visible frame.
+  runtime.update(0);
   return runtime;
 }

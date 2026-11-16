@@ -1,0 +1,108 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import {
+  poses,
+  rigPool,
+  type Feet,
+  type IdleId,
+} from "../../../components/character/motion/stances";
+
+type Sample = {
+  id: IdleId;
+  target: IdleId | null;
+  feet: Feet;
+  contact: string;
+  drift: number;
+  floor: number;
+  time: number;
+};
+function placement(feet: Feet) {
+  return feet
+    .map((shoe) => shoe.map((n) => n.toFixed(2)).join(" / "))
+    .join(" | ");
+}
+export default function MotionControls({
+  family,
+}: {
+  family: keyof typeof rigPool;
+}) {
+  const [id, setId] = useState<IdleId>(rigPool[family][0]);
+  const [open, setOpen] = useState(false);
+  const [samples, setSamples] = useState<Sample[]>([]);
+  useEffect(() => {
+    const stage = document.querySelector<HTMLElement>(
+      "[data-testid=waiting-room-stage]",
+    );
+    if (!open || !stage) return;
+    const update = () =>
+      setSamples(JSON.parse(stage.dataset.m3MotionReview ?? "[]"));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(stage, {
+      attributes: true,
+      attributeFilter: ["data-m3-motion-review"],
+    });
+    return () => observer.disconnect();
+  }, [open]);
+  const send = (command: string, value?: string | number) =>
+    window.dispatchEvent(
+      new CustomEvent("m3-idle-review", { detail: { command, id, value } }),
+    );
+  return (
+    <details
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+      style={{
+        position: "fixed",
+        left: 4,
+        bottom: 4,
+        zIndex: 100,
+        background: "#101825ee",
+        color: "white",
+        padding: 6,
+        fontSize: 12,
+        maxWidth: "96vw",
+        maxHeight: "50vh",
+        overflow: "auto",
+      }}
+    >
+      <summary>Kiểm tra chuyển động M3</summary>
+      <nav>
+        <a href="?m3=female">Nữ</a> · <a href="?m3=male">Nam</a> ·{" "}
+        <a href="?m3=five">Năm người</a>
+      </nav>
+      <select
+        aria-label="Động tác"
+        value={id}
+        onChange={(e) => setId(e.target.value as IdleId)}
+      >
+        {rigPool[family].map((key) => (
+          <option key={key}>{key}</option>
+        ))}
+      </select>{" "}
+      <button onClick={() => send("select")}>Phát lại</button> ·{" "}
+      <button onClick={() => send("transition")}>Chuyển đến</button> ·{" "}
+      <button onClick={() => send("random")}>Ngẫu nhiên</button>
+      <div>
+        <button onClick={() => send("camera", "front")}>Chính diện</button> ·{" "}
+        <button onClick={() => send("camera", "side")}>Góc nghiêng</button> ·{" "}
+        <button onClick={() => send("speed", 1)}>1×</button> ·{" "}
+        <button onClick={() => send("speed", 0.25)}>0,25×</button>
+      </div>
+      {samples.map((s, i) => (
+        <div key={i}>
+          <strong>
+            {s.id} · {s.time.toFixed(1)} s {s.target && "→ " + s.target}
+          </strong>{" "}
+          · {s.contact}
+          <div>Trái | Phải (ngang / sâu / cao / góc): {placement(s.feet)}</div>
+          {s.target && <div>Đích: {placement(poses[s.target].feet)}</div>}
+          <div>
+            Sai số cổ chân khi trụ {s.drift.toFixed(5)} · Thấp hơn mốc cổ chân{" "}
+            {s.floor.toFixed(5)}
+          </div>
+        </div>
+      ))}
+    </details>
+  );
+}

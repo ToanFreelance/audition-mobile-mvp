@@ -1,4 +1,4 @@
-name: M3 Waiting Room Idle V1.7 — Focused QA
+name: M3 Waiting Room Idle V1.8 — Focused QA
 
 on:
   push:
@@ -6,6 +6,8 @@ on:
       - work/m3-waiting-room-integration-v1
     paths:
       - components/character/motion/**
+      - components/multiplayer/WaitingRoomStage3D.tsx
+      - app/tools/lobby-qa-sketch/**
       - components/character/m3-lobby-idle.ts
       - e2e/m3-lobby-idle-v13.spec.ts
       - e2e/m3-idle-v17-visual.spec.ts
@@ -20,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  m3-v17-focused:
+  m3-v18-focused:
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:
@@ -52,9 +54,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m3-idle-v17-visual-${{ github.run_id }}
+          name: m3-idle-v18-visual-${{ github.run_id }}
           path: |
-            test-results/m3-idle-v17/
+            test-results/m3-idle-v18/
             test-results/junit.xml
             playwright-report/
           if-no-files-found: ignore
