@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { getCharacterCatalogEntry, type CharacterAssetId, type M3RigFamily } from "./character-catalog";
 import { getM3CreatorWardrobeForFamily, type M3CreatorOutfit } from "./m3-creator-outfits";
 import { applyM3CreatorNeutralPose } from "./m3-creator-neutral-pose";
+import { M3PremiumMaterialFinish } from "./m3-premium-materials";
 
 /** Shared M3 actor assembly. Does not own renderer, AnimationMixer or gameplay clock. */
 export type M3Appearance = Readonly<{
@@ -81,6 +82,9 @@ export class M3CharacterAssembler {
   baseLoads = 0;
   maxBindDelta = 0;
   creatorIdleArms = 0;
+  /** Diagnostic only; material finish does not alter rig or cosmetic identity. */
+  get premiumMaterialCount() { return this.premiumFinish.applied; }
+  private readonly premiumFinish = new M3PremiumMaterialFinish();
   private readonly loader = new GLTFLoader();
   private readonly textureLoader = new THREE.TextureLoader();
   private readonly sources = new Map<string, LoadedPart>();
@@ -173,6 +177,8 @@ export class M3CharacterAssembler {
       const delta = verifyRig(this.skeleton, donor.skeleton);
       this.maxBindDelta = Math.max(this.maxBindDelta, delta);
       const material = Array.isArray(donor.material) ? donor.material.map(item => item.clone()) : donor.material.clone();
+      const materials = Array.isArray(material) ? material : [material];
+      for (const candidate of materials) this.premiumFinish.apply(candidate, slot);
       const worn = new THREE.SkinnedMesh(donor.geometry, material);
       worn.name = `m3-${slot}-${path}`;
       worn.frustumCulled = false;
@@ -259,6 +265,7 @@ export class M3CharacterAssembler {
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       const clones = materials.map(mat => {
         const material = mat.clone() as THREE.MeshStandardMaterial;
+        this.premiumFinish.apply(material, layer === "body" ? "skin" : layer);
         this.skinTargets.push({ material, originalMap: material.map ?? null, layer });
         return material;
       });
@@ -338,6 +345,7 @@ export class M3CharacterAssembler {
     this.sources.clear();
     this.textures.forEach(texture => texture.dispose());
     this.textures.clear();
+    this.premiumFinish.dispose();
     this.root.clear();
     this.skeleton = null;
     this.body = null;
