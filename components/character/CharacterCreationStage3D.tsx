@@ -148,7 +148,9 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.03;
+    // Source VRMs were unlit; after PBR conversion the former flat-light
+    // exposure washes out peach fabric and light skin. Keep pastel color.
+    renderer.toneMappingExposure = isM3Creator ? 0.77 : 1.03;
     renderer.domElement.className = styles.canvas;
     host.appendChild(renderer.domElement);
     // Softbox reflections make hair and eyes read as dimensional rather than
@@ -174,21 +176,21 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     const hemisphere = new THREE.HemisphereLight(
       isM3Creator ? 0xf3edff : 0xbec8ff,
       isM3Creator ? 0x635e79 : 0x130923,
-      isM3Creator ? 1.10 : 1.65,
+      isM3Creator ? 0.82 : 1.65,
     );
     scene.add(hemisphere);
-    const key = new THREE.DirectionalLight(isM3Creator ? 0xffefdf : 0xffe6f7, isM3Creator ? 2.58 : 2.4);
+    const key = new THREE.DirectionalLight(isM3Creator ? 0xffefdf : 0xffe6f7, isM3Creator ? 1.75 : 2.4);
     key.position.set(3, 6, 5);
     scene.add(key);
 
     let faceFill: THREE.DirectionalLight | null = null;
     if (isM3Creator) {
       // Neutral forward fill is important for dark-skin material visibility.
-      faceFill = new THREE.DirectionalLight(0xeae9ff, 0.76);
+      faceFill = new THREE.DirectionalLight(0xeae9ff, 0.48);
       faceFill.position.set(-2.6, 2.5, 5);
       scene.add(faceFill);
     }
-    const rim = new THREE.DirectionalLight(isM3Creator ? 0xa8d9ff : 0x63dfff, isM3Creator ? 1.84 : 1.7);
+    const rim = new THREE.DirectionalLight(isM3Creator ? 0xa8d9ff : 0x63dfff, isM3Creator ? 1.15 : 1.7);
     rim.position.set(-4, 3, -1);
     scene.add(rim);
 
