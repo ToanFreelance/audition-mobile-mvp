@@ -68,9 +68,58 @@ export class M3PremiumMaterialFinish {
   private knit: THREE.DataTexture | null = null;
   private twill: THREE.DataTexture | null = null;
   applied = 0;
+  convertedUnlit = 0;
 
-  apply(material: THREE.Material, surface: M3Surface): void {
-    if (!(material instanceof THREE.MeshStandardMaterial)) return;
+  /**
+   * Many M3 VRMs use KHR_materials_unlit. GLTFLoader creates MeshBasicMaterial
+   * for these, which ignores every studio/key/rim light. That is the actual
+   * cause of the 2D-flat render: adjusting roughness on a MeshStandardMaterial
+   * subtype did not reach any part of the assembled model.
+   *
+   * Upgrade only compatible built-in Basic/Toon materials. Preserve source
+   * albedo maps, alpha handling, sidedness and creator color customizations.
+   * Unknown custom shader materials remain unchanged rather than being broken.
+   */
+  apply(source: THREE.Material, surface: M3Surface): THREE.Material {
+    let material: THREE.MeshStandardMaterial;
+    if (source instanceof THREE.MeshStandardMaterial) {
+      material = source;
+    } else if (source instanceof THREE.MeshBasicMaterial ||
+      source instanceof THREE.MeshToonMaterial) {
+      const original = source as THREE.MeshBasicMaterial & THREE.MeshToonMaterial;
+      material = new THREE.MeshStandardMaterial({
+        color: original.color.clone(),
+        map: original.map ?? null,
+        alphaMap: original.alphaMap ?? null,
+        transparent: original.transparent,
+        opacity: original.opacity,
+        alphaTest: original.alphaTest,
+        side: original.side,
+        depthWrite: original.depthWrite,
+        depthTest: original.depthTest,
+        blending: original.blending,
+        vertexColors: original.vertexColors,
+        fog: original.fog,
+      });
+      material.name = original.name;
+      material.userData = { ...original.userData };
+      material.visible = original.visible;
+      material.polygonOffset = original.polygonOffset;
+      material.polygonOffsetFactor = original.polygonOffsetFactor;
+      material.polygonOffsetUnits = original.polygonOffsetUnits;
+      material.dithering = original.dithering;
+      material.toneMapped = true;
+      if (source instanceof THREE.MeshToonMaterial) {
+        material.normalMap = source.normalMap;
+        material.normalScale.copy(source.normalScale);
+        material.bumpMap = source.bumpMap;
+        material.bumpScale = source.bumpScale;
+      }
+      source.dispose();
+      this.convertedUnlit++;
+    } else {
+      return source;
+    }
     const finish = FINISH[surface];
     material.roughness = finish.roughness;
     material.metalness = finish.metalness;
@@ -92,6 +141,7 @@ export class M3PremiumMaterialFinish {
     if (material.map) material.map.anisotropy = Math.max(2, Math.min(4, material.map.anisotropy));
     material.needsUpdate = true;
     this.applied++;
+    return material;
   }
 
   dispose(): void {
