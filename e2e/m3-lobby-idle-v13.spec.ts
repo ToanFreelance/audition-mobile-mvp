@@ -39,13 +39,13 @@ function syntheticM3Actor() {
   return { root, bones };
 }
 
-test("V1.5 female: authored guard clip raises two forearms, preserves foot contacts", () => {
+test("V1.6 female: keyframed open-palm acknowledgement preserves foot contacts", () => {
   const { root, bones } = syntheticM3Actor();
   const runtime = createM3LobbyIdle(root, "host-female", "fixture-1", "drophunter");
   expect(runtime).not.toBeNull();
   if (!runtime) return;
-  expect(runtime.animationProfile).toBe("female-feline-guard");
-  expect(runtime.clipDuration).toBeCloseTo(7.4, 3);
+  expect(runtime.animationProfile).toBe("female-relaxed-greeting");
+  expect(runtime.clipDuration).toBeCloseTo(10.4, 3);
   const feet = bones.filter(b => b.name.startsWith("foot."));
   const anchors = feet.map(b => root.worldToLocal(b.getWorldPosition(new THREE.Vector3())));
   const originalRoot = root.position.clone();
@@ -74,13 +74,13 @@ test("V1.5 female: authored guard clip raises two forearms, preserves foot conta
   runtime.dispose();
 });
 
-test("V1.5 male: reference-like sustained sleepy slump and recovery", () => {
+test("V1.6 male: neck-led sleepy hold and recovery without torso overfold", () => {
   const { root, bones } = syntheticM3Actor();
   const runtime = createM3LobbyIdle(root, "guest-male", "fixture-1", "neurohacker");
   expect(runtime).not.toBeNull();
   if (!runtime) return;
-  expect(runtime.animationProfile).toBe("male-sleepy-recovery");
-  expect(runtime.clipDuration).toBeCloseTo(10.1, 3);
+  expect(runtime.animationProfile).toBe("male-neck-led-slump");
+  expect(runtime.clipDuration).toBeCloseTo(10.2, 3);
   const head = bones.find(b => b.name === "head")!;
   const spine = bones.find(b => b.name === "spine")!;
   let maxHead = 0, maxTorso = 0, slumpedFrames = 0, awakeAgain = false;
@@ -94,24 +94,24 @@ test("V1.5 male: reference-like sustained sleepy slump and recovery", () => {
     if (runtime.elapsedSeconds > 9.7 && headAngle < .18) awakeAgain = true;
   }
   expect(maxHead).toBeGreaterThan(.42);
-  expect(maxTorso).toBeGreaterThan(.20);
+  expect(maxTorso).toBeGreaterThan(.12);
   expect(slumpedFrames).toBeGreaterThan(50);
   expect(awakeAgain).toBe(true);
   expect(runtime.maxFootDrift).toBeLessThan(.012);
   runtime.dispose();
 });
 
-test("V1.5 M3 clip identity comes from explicit catalog rigFamily, not player name", () => {
+test("V1.6 M3 clip identity comes from explicit catalog rigFamily, not player name", () => {
   const female = createM3LobbyIdle(syntheticM3Actor().root, "Boy", "fixture-2", "drophunter");
   const male = createM3LobbyIdle(syntheticM3Actor().root, "Grace", "fixture-2", "neurohacker");
-  expect(female?.animationProfile).toBe("female-feline-guard");
-  expect(male?.animationProfile).toBe("male-sleepy-recovery");
+  expect(female?.animationProfile).toBe("female-relaxed-greeting");
+  expect(male?.animationProfile).toBe("male-neck-led-slump");
   expect(female?.clipDuration).not.toBe(male?.clipDuration);
   female?.dispose();
   male?.dispose();
 });
 
-test("V1.5 planted feet follow formation translation, yaw and scale changes", () => {
+test("V1.6 planted feet follow formation translation, yaw and scale changes", () => {
   const { root, bones } = syntheticM3Actor();
   root.scale.setScalar(2.35);
   root.position.set(1.2, 0.3, -0.8);
@@ -122,7 +122,7 @@ test("V1.5 planted feet follow formation translation, yaw and scale changes", ()
   expect(runtime).not.toBeNull();
   if (!runtime) return;
   runtime.update(1 / 30);
-  // V1.5 deliberately widens the female stance ONCE before recording
+  // V1.6 deliberately adjusts the female stance ONCE before recording
   // the planted anchors. Compare against those accepted stance positions.
   const anchors = feet.map(foot => root.worldToLocal(foot.getWorldPosition(new THREE.Vector3())));
   for (let i = 0; i < 900; i++) {
@@ -141,4 +141,41 @@ test("V1.5 planted feet follow formation translation, yaw and scale changes", ()
   }
   expect(runtime.maxFootDrift).toBeLessThan(.015);
   runtime.dispose();
+});
+
+
+test("V1.6 rendered-pose proxy: no forearm crosses torso center during either full clip", () => {
+  for (const rig of ["drophunter","neurohacker"] as const) {
+    const { root, bones }=syntheticM3Actor();
+    const runtime=createM3LobbyIdle(root,rig+"-clearance","fixture-clearance",rig);
+    expect(runtime).not.toBeNull();
+    if(!runtime)continue;
+    const bone=(name:string)=>bones.find(b=>b.name===name)!;
+    const leftElbow=bone("lower_arm.L"),rightElbow=bone("lower_arm.R");
+    const leftHand=bone("hand.L"),rightHand=bone("hand.R");
+    const hips=bone("hips"),leftShoulder=bone("upper_arm.L"),rightShoulder=bone("upper_arm.R");
+    let minimum=Infinity;
+    for(let i=0;i<Math.ceil(runtime.clipDuration*30)+2;i++){
+      runtime.update(1/30);
+      root.updateWorldMatrix(true,true);
+      const pelvis=hips.getWorldPosition(new THREE.Vector3());
+      const chest=leftShoulder.getWorldPosition(new THREE.Vector3()).add(
+        rightShoulder.getWorldPosition(new THREE.Vector3())
+      ).multiplyScalar(.5);
+      const axis=chest.clone().sub(pelvis);
+      for(const [forearm,wrist] of [[leftElbow,leftHand],[rightElbow,rightHand]]) {
+        const elbow=forearm.getWorldPosition(new THREE.Vector3());
+        const hand=wrist.getWorldPosition(new THREE.Vector3());
+        for(const fraction of [0,.25,.5,.75,1]) {
+          const point=elbow.clone().lerp(hand,fraction);
+          const t=THREE.MathUtils.clamp(point.clone().sub(pelvis).dot(axis)/Math.max(axis.lengthSq(),1e-8),0,1);
+          minimum=Math.min(minimum,point.distanceTo(pelvis.clone().addScaledVector(axis,t)));
+        }
+      }
+    }
+    // Skeletal proxy only. Outfit skinned meshes still require actual rendered QA.
+    expect(minimum).toBeGreaterThan(.055);
+    expect(runtime.maxFootDrift).toBeLessThan(.012);
+    runtime.dispose();
+  }
 });
