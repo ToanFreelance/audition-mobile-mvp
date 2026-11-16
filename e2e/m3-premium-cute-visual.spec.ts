@@ -21,6 +21,9 @@ test("M3 premium creator shows both real rigs without breaking saved traits", as
     await expect(stage).toHaveAttribute("data-character-asset-id", family);
     await expect(stage).toHaveAttribute("data-preview-state", "ready", { timeout: 110_000 });
     await expect.poll(async () => Number(await stage.getAttribute("data-m3-premium-materials"))).toBeGreaterThan(0);
+    // The source VRMs are unlit: assert that real materials, not only lights,
+    // were converted to responsive PBR on each M3 rig.
+    await expect.poll(async () => Number(await stage.getAttribute("data-m3-premium-converted"))).toBeGreaterThan(0);
     await page.screenshot({
       path: "test-results/m3-premium-cute/creator-" + gender + ".png",
       animations: "disabled",
