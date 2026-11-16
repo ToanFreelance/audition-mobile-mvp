@@ -329,3 +329,12 @@ Never equate a green CI/build, a recovered metadata ACK, canonical `playing`, or
 - **QA scope:** Focused synthetic-skeleton test updated for the new timing/profile and adds elbow/forearm/hand-to-torso minimum-distance proxy checks over the entire clip. These are engineering safeguards, not proof that actual M3 outfits are penetration-free. TypeScript, production build, 1F/1M/5-person actual-render, physical iPhone and side-by-side frame proof must be reported separately as PASS only if actually run.
 - **No merge:** Work branch only. Keep READY metadata actor lifecycle, Host Start gating, RoomState CAS/Realtime, preload/shared start, WebAudio authority, gauge, Finish and global turn budget frozen.
 
+
+### 2026-11-16 — M3 Idle V1.6 actual QA closeout (engineering candidate, owner visual gate OPEN)
+
+- **Focused code HEAD:** `c42b8df6977d121ac064e0cb9a4163d5d926584d`. V1.6 female open-palm hand orientation corrected to viewer-right at `5624a653`, then asymmetrical neutral arms and relaxed hanging-elbow pole at `c42b8df`. Both corrected after direct examination of real M3/89 s source side-by-side screenshots; earlier screenshot showed a hand-at-hair salute and hands crowded across hips.
+- **Actually executed:** GitHub Actions focused run `43800671170` **PASS 8/8** with `npx tsc --noEmit` PASS, Next.js build PASS, 5 synthetic animation/foot/contact proxy checks and 3 real WebGL/SwiftShader 390×844 fixtures (female, male, 5-person). Real actor counts 1/1/5, M3 idle counts 1/1/3, scene generation 1, measured `footDrift=0` in all cases, no page errors. Six screenshots in artifact `14196317634`.
+- **Actual visual findings:** Female silhouette improved (open palm outside shoulder and one relaxed hanging arm), male front images show no obvious hand-through-chest but prolonged face-down posture; source characters have significantly different outfit/body proportions and richer natural micro-motion. Approximate hand/timing reconstruction is **not** identical to source. Actual iPhone, side-view cloth collisions, visual-loop smoothness and real multiplayer READY transitions remain **OPEN**.
+- **Existing CI issue:** General fast-lobby-qa still fails pre-existing `WaitingRoomStage3D.tsx:1868/1874` no-use-before-define lint in both V1.5/V1.6. No unrelated Stage3D production edits were made to hide this failure.
+- **Vercel:** stable work-branch Preview READY. Engineering details / selection matrix / source limitations and CI links in `docs/M3_IDLE_VIDEO_REVIEW_V16.md`. Work branch only, no PR or merge.
+
