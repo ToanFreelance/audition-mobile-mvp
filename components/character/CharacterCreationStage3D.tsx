@@ -397,6 +397,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           host.dataset.m3Bones = String(assembly?.skeleton?.bones.length ?? 0);
           host.dataset.m3BaseLoads = String(assembly?.baseLoads ?? 0);
           host.dataset.m3PremiumMaterials = String(assembly?.premiumMaterialCount ?? 0);
+          host.dataset.m3PremiumConverted = String(assembly?.premiumConvertedUnlit ?? 0);
           host.dataset.m3BindDelta = String(assembly?.maxBindDelta ?? 0);
           setState("ready");
           onReadyRef.current?.(true);
