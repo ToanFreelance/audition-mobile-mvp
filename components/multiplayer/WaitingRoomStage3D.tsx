@@ -14,6 +14,7 @@ import {
 } from "../character/character-catalog";
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import { M3CharacterAssembler } from "../character/m3-character-assembler";
+import { createM3PremiumEnvironment } from "../character/m3-premium-lighting";
 import { createM3LobbyIdle, type M3LobbyIdle } from "../character/m3-lobby-idle";
 import { parseM3LobbyAppearance } from "../character/m3-lobby-appearance";
 import { loadLobbyIdleLibrary } from "../character/lobby-idle-library";
@@ -887,6 +888,8 @@ export default function WaitingRoomStage3D({
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
     if (sketchVisual) camera.layers.enable(1);
+    // Layer 2 reserves subtle premium face/hair accents for M3 only.
+    camera.layers.enable(2);
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -898,6 +901,8 @@ export default function WaitingRoomStage3D({
     renderer.toneMappingExposure = sketchVisual ? 1.15 : 1.16;
     renderer.setClearColor(0x000000, 0);
     mount.appendChild(renderer.domElement);
+    // Lazy and scene-owned: shared by all M3 actors, not by each participant.
+    let m3PremiumEnvironment: ReturnType<typeof createM3PremiumEnvironment> | null = null;
 
     scene.add(new THREE.HemisphereLight(
       sketchVisual ? WAITING_ROOM_SKETCH_BLUEPRINT.palette.actor.hemisphereSky : 0x9bb4ff,
@@ -918,6 +923,17 @@ export default function WaitingRoomStage3D({
     );
     frontFill.position.set(0, 3.2, 6.8);
     scene.add(frontFill);
+
+    // M3-only accents give the face, hair and outfit separate light planes
+    // without regrading legacy C1/C4 meshes or changing the existing stage.
+    const m3FaceKey = new THREE.DirectionalLight(0xffeddd, 0.72);
+    m3FaceKey.position.set(3.8, 5.6, 4.4);
+    m3FaceKey.layers.set(2);
+    scene.add(m3FaceKey);
+    const m3CoolContour = new THREE.DirectionalLight(0xb5d8ff, 0.44);
+    m3CoolContour.position.set(-3.4, 4.7, -2.7);
+    m3CoolContour.layers.set(2);
+    scene.add(m3CoolContour);
 
     const cyanRim = new THREE.SpotLight(
       sketchVisual ? 0x20e8ff : 0x42dcff,
@@ -1909,6 +1925,16 @@ export default function WaitingRoomStage3D({
       const source = m3Source ?? actorSources.get(characterAssetId) ?? null;
       const actor = source ? cloneSkeleton(source) : fallbackActor(participantUsesFemaleFallback(participant));
       if (m3Source) {
+        if (!m3PremiumEnvironment) {
+          try {
+            m3PremiumEnvironment = createM3PremiumEnvironment(renderer);
+            scene.environment = m3PremiumEnvironment.texture;
+          } catch (error) {
+            console.warn("[m3-premium] Lobby softbox unavailable; using stage lighting.", error);
+          }
+        }
+        // Extra premium lighting must not illuminate existing C1/C4 actors.
+        actor.traverse(object => object.layers.enable(2));
         // M3 garments were detached-bound in the creator where the rig NEVER
         // moves. Waiting Room applies a stage formation transform. Attached
         // bind matrices follow the actor's world space once, not twice.
@@ -2171,6 +2197,8 @@ export default function WaitingRoomStage3D({
       sketchReflector?.getRenderTarget().dispose();
       sketchFloorTexture?.dispose();
       disposeObject(scene);
+      scene.environment = null;
+      m3PremiumEnvironment?.dispose();
       disposableSources.forEach(disposeObject);
       m3Sources.forEach(assembly => assembly.dispose());
       m3Sources.clear();
