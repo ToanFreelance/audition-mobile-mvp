@@ -42,7 +42,6 @@ for (const library of libraries) {
       await expect(stage).toHaveAttribute("data-m3-idle-count", "1");
       const generation = await stage.getAttribute("data-scene-generation");
       const instance = await stage.getAttribute("data-m3-idle-instances");
-  if (!generation || !instance) throw new Error("Missing five-person actor identity attributes");
       if (!generation || !instance) throw new Error("Missing stable actor identity attributes");
 
       await page.getByText("Kiểm tra chuyển động M3").click();
@@ -80,6 +79,7 @@ test("M3 V1.9.1 five-person random Waiting Room browser video", async ({ page })
   await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 110_000 });
   const generation = await stage.getAttribute("data-scene-generation");
   const instance = await stage.getAttribute("data-m3-idle-instances");
+  if (!generation || !instance) throw new Error("Missing five-person actor identity attributes");
   await page.waitForTimeout(30_000);
   await expect(stage).toHaveAttribute("data-scene-generation", generation);
   await expect(stage).toHaveAttribute("data-m3-idle-instances", instance);
