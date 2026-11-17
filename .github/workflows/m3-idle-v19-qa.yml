@@ -1,4 +1,4 @@
-name: M3 Idle V1.9 — Reference Projection & Measured Motion QA
+name: M3 Idle V1.9.1 — Nine-Clip Projection & Measurement Infrastructure QA
 on:
   push:
     branches:
@@ -6,6 +6,8 @@ on:
     paths:
       - scripts/m3-idle/reference_metrics_v19.py
       - scripts/m3-idle/test_reference_metrics_v19.py
+      - scripts/m3-idle/reference_metrics_v191.py
+      - scripts/m3-idle/test_reference_metrics_v191.py
       - e2e/m3-idle-v19-projection.spec.ts
       - components/character/m3-lobby-idle.ts
       - components/multiplayer/WaitingRoomStage3D.tsx
@@ -19,7 +21,7 @@ concurrency:
 jobs:
   measured-projection:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 35
     env:
       CI: "true"
       NEXT_TELEMETRY_DISABLED: "1"
@@ -38,8 +40,8 @@ jobs:
           python-version: "3.11"
       - name: Python dependencies for 2D measurement
         run: python -m pip install --disable-pip-version-check numpy opencv-python-headless
-      - name: Score accuracy/occlusion/frame-alignment tests (synthetic)
-        run: python -m unittest discover -s scripts/m3-idle -p test_reference_metrics_v19.py -v
+      - name: 2D measurement and nine-clip tracking audit (synthetic)
+        run: python -m unittest discover -s scripts/m3-idle -p 'test_reference_metrics_v19*.py' -v
       - name: Node dependencies
         run: npm ci
       - name: TypeScript
@@ -48,7 +50,7 @@ jobs:
         run: npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Export real F03/M03 M3 rig pivots at 30Hz
+      - name: Export real nine-clip M3 rig pivots at 30Hz
         env:
           PLAYWRIGHT_WEB_SERVER: "1"
         run: npx playwright test e2e/m3-idle-v19-projection.spec.ts --project=desktop --workers=1 --retries=0
