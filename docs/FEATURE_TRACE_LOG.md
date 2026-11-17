@@ -387,3 +387,9 @@ Dựng lại F03 và M03 bằng đường cong Blender và tỷ lệ xương th�
 - Clear 3D instability: F04 forearm CV 37.4%/32.3% and 131 source-model coordinate jumps >0.20 nominal world units; X01 forearm CV 23.4%/28.1% and 122 jumps; F03 right upper arm CV 22.7%. M02 poses are practically unavailable (0.28% landmark coverage). All estimated world streams are explicitly `retarget_ready=false`.
 - Added portable `scripts/m3-idle/world_estimates_v191.py` and focused synthetic regression tests; CI runs the tests alongside V1.9 measurements. Do not bake raw world data or claim animation fidelity improvements.
 - Complete data and limitations: `docs/M3_IDLE_MEASURED_RETARGET_V191.md`. Actual private world estimates provided as conversation ZIP only; no source or 3D video files publicly committed, no motion JSON changes, no merge.
+
+### 2026-11-17 — M3 V1.9.1 normal-playback real actor evidence (not owner acceptance)
+
+- Added isolated Playwright browser recording: female five-clip library, male four-clip library, five-person random Waiting Room fixture, all recorded from REAL M3 SkinnedMesh/AnimationMixer rather than static screenshots. Run 44065383460: 3/3 tests PASS, actor instance and scene generation stable and no page errors.
+- Post-process CI failed because runner lacked `ffmpeg`, not an animation error; raw WebM artifact `14320147395` was valid. Converted privately into owner-visible MP4: female 52.84s, male 35.04s, five-person 32.32s. Separate motion workflow now provisions FFmpeg.
+- These are recordings of unchanged baked motions, NOT retargeted V1.9.1 improvements, and the 5-person QA fixture is NOT live 5-human Supabase QA. No production runtime/multiplayer/gameplay/clip JSON changes. Owner iPhone review and synchronized nine source-vs-render comparisons remain OPEN.
