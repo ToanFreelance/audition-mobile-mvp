@@ -63,6 +63,7 @@ def inspect_landmarks(source: dict) -> dict:
             "fraction": round(len(strengths) / len(frames), 4),
             "median_visibility": round(float(np.median(strengths)), 4) if strengths else None,
         }
+    anchor_fraction = min(coverage[name]["fraction"] for name in v19.ANCHORS)
     warnings = []
     previous = None
     previous_shoulder_sign = None
@@ -93,7 +94,9 @@ def inspect_landmarks(source: dict) -> dict:
         previous = f
     return {"clip": source["clip"], "frame_start": first, "frame_end": frames[-1]["frame"],
             "frames": len(frames), "coverage": coverage, "review_flags": warnings,
-            "status": "SOURCE_TRACKING_REQUIRES_HUMAN_FRAME_REVIEW",
+            "status": ("SOURCE_TRACKING_INSUFFICIENT" if anchor_fraction < .50
+                       else "SOURCE_TRACKING_REQUIRES_HUMAN_FRAME_REVIEW"),
+            "anchor_min_coverage": anchor_fraction,
             "source_bounds_verified": False,
             "depth_estimation": "NOT_PERFORMED",
             "retargeting": "NOT_PERFORMED"}
@@ -152,6 +155,7 @@ def main() -> None:
     rois = parse_rois(args.rois, windows)
     reports = {}
     measured = {}
+    failures = []
     for clip, (start, end) in windows.items():
         # Existing ranges are unverified until explicitly checked on source frames.
         v19.SEGMENTS[clip] = (start / fps, end / fps)
@@ -169,16 +173,27 @@ def main() -> None:
         v19.store(source_path,data)
         reports[clip] = inspect_landmarks(data)
         v19.store(args.output_dir / (clip + "-tracking-coverage.json"), reports[clip])
+        if reports[clip]["status"] == "SOURCE_TRACKING_INSUFFICIENT":
+            failures.append(clip)
+            measured[clip] = {"status": "NO_VALID_REPROJECTION",
+                              "reason": "Insufficient source shoulder/hip coverage"}
+            continue
         if args.m3_dir:
             target = args.m3_dir / (clip + "-m3-2d.json")
             if not target.is_file():
                 raise FileNotFoundError("Missing M3 capture: " + str(target))
             metrics_path = args.output_dir / (clip + "-source-vs-M3-metrics.json")
-            v19.score(SimpleNamespace(
-                source=source_path, target=target, output=metrics_path,
-                csv=args.output_dir / (clip + "-reprojection.csv"),
-                overlay=args.output_dir / (clip + "-source-vs-M3-overlay.mp4"),
-                video=args.video, confidence=args.confidence))
+            try:
+                v19.score(SimpleNamespace(
+                    source=source_path, target=target, output=metrics_path,
+                    csv=args.output_dir / (clip + "-reprojection.csv"),
+                    overlay=args.output_dir / (clip + "-source-vs-M3-overlay.mp4"),
+                    video=args.video, confidence=args.confidence))
+            except ValueError as exc:
+                failures.append(clip)
+                measured[clip] = {"status": "NO_VALID_REPROJECTION",
+                                  "reason": str(exc)}
+                continue
             measured[clip] = {"current": json.loads(metrics_path.read_text())["error_px"]}
             if args.baseline_m3_dir:
                 old = args.baseline_m3_dir / (clip + "-m3-2d.json")
@@ -194,8 +209,11 @@ def main() -> None:
     v19.store(args.output_dir / "nine-clips-tracking-audit.json", {
         "source_file": args.video.name, "source_fps": fps, "source_frame_count": count,
         "range_review": "NOT_YET_VERIFIED_AGAINST_SOURCE", "clips": reports,
-        "reprojection": measured,
+        "reprojection": measured, "failed_clips": failures,
+        "overall_status": ("INCOMPLETE" if failures else "SOURCE_TRACKING_REQUIRES_HUMAN_REVIEW"),
         "warning": "Tracking data must be frame-reviewed before 3D reconstruction."})
+    if failures:
+        raise SystemExit("Tracking incomplete for: " + ", ".join(failures))
 
 
 if __name__ == "__main__":
