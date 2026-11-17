@@ -52,6 +52,9 @@ export type M3LobbyIdle = {
   clipDuration: number;
   poseTime: number;
   update(deltaSeconds: number): void;
+  /** QA-only measurement API; never used by production Waiting Room. */
+  seekReferenceTime(seconds: number): void;
+  projectReferenceJoints(camera: THREE.Camera, width: number, height: number): Record<string, [number, number, number]>;
   dispose(): void;
 };
 
@@ -549,6 +552,22 @@ export function createM3LobbyIdle(
     }
     hips!.bone.position.copy(exitHips);
   }
+  // These are rig pivots, not surface landmarks; left/right are anatomical.
+  const projectedBones = {
+    left_shoulder: getJoint(rig, "upper_arm.L")?.bone,
+    right_shoulder: getJoint(rig, "upper_arm.R")?.bone,
+    left_elbow: getJoint(rig, "lower_arm.L")?.bone,
+    right_elbow: getJoint(rig, "lower_arm.R")?.bone,
+    left_wrist: getJoint(rig, "hand.L")?.bone,
+    right_wrist: getJoint(rig, "hand.R")?.bone,
+    left_hip: getJoint(rig, "upper_leg.L")?.bone,
+    right_hip: getJoint(rig, "upper_leg.R")?.bone,
+    left_knee: getJoint(rig, "lower_leg.L")?.bone,
+    right_knee: getJoint(rig, "lower_leg.R")?.bone,
+    left_ankle: getJoint(rig, "foot.L")?.bone,
+    right_ankle: getJoint(rig, "foot.R")?.bone,
+  };
+  const referencePoint = new THREE.Vector3();
   const runtime: M3LobbyIdle = {
     instanceId: THREE.MathUtils.generateUUID(),
     elapsedSeconds: 0,
@@ -744,6 +763,26 @@ export function createM3LobbyIdle(
       lastLift = lift;
       settling = Math.max(0, settling - dt);
       runtime.maxFootDrift = Math.max(runtime.maxFootDrift, runtime.footDrift);
+    },
+    seekReferenceTime(seconds) {
+      if (bridge || !Number.isFinite(seconds) || seconds < 0) return;
+      action.time = THREE.MathUtils.clamp(seconds, 0, action.getClip().duration - 0.0001);
+      mixer.update(0);
+      runtime.update(0);
+    },
+    projectReferenceJoints(camera, width, height) {
+      if (!(width > 0) || !(height > 0)) return {};
+      actor.updateWorldMatrix(true, true);
+      camera.updateWorldMatrix(true, false);
+      const result: Record<string, [number, number, number]> = {};
+      for (const [name, bone] of Object.entries(projectedBones)) {
+        if (!bone) continue;
+        referencePoint.setFromMatrixPosition(bone.matrixWorld).project(camera);
+        if (!Number.isFinite(referencePoint.x) || !Number.isFinite(referencePoint.y)) continue;
+        result[name] = [(referencePoint.x + 1) * width / 2,
+          (1 - referencePoint.y) * height / 2, 1];
+      }
+      return result;
     },
     dispose() {
       mixer.stopAllAction();
