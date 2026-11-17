@@ -69,6 +69,14 @@ class NineClipTrackingTests(unittest.TestCase):
                                      for k in m.CLIP_ASSETS}))
             self.assertEqual(len(m.parse_rois(p,m.existing_clip_windows())),9)
 
+    def test_missing_nonhuman_pose_is_reported_incomplete(self):
+        source = fake_source()
+        for frame in source["frames"]:
+            frame["joints"].clear()
+        report = m.inspect_landmarks(source)
+        self.assertEqual(report["status"], "SOURCE_TRACKING_INSUFFICIENT")
+        self.assertEqual(report["anchor_min_coverage"], 0.0)
+
     def test_no_landmark_confidence_is_invented(self):
         x = fake_source()
         for frame in x["frames"]: frame["joints"].pop("left_ankle")
