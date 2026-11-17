@@ -65,20 +65,42 @@ def track(args):
     out=None
     if args.overlay: out=video_writer(args.overlay,fps,(w,h))
     frames=[]
+    # The previous V1.7 pipeline used MediaPipe Solutions (0.10.21).
+    # Newer universal Python wheels expose the Tasks PoseLandmarker API.
+    # Both return the same 33 landmark indices; do not substitute manual keys.
+    if hasattr(mp,"solutions"):
+        detector=mp.solutions.pose.Pose(model_complexity=2,smooth_landmarks=False,
+            min_detection_confidence=.45,min_tracking_confidence=.45)
+        def detect(rgb,frame_index):
+            result=detector.process(rgb)
+            return result.pose_landmarks.landmark if result.pose_landmarks else []
+        backend="mediapipe.solutions.pose"
+    else:
+        if not args.model or not args.model.is_file():
+            raise ValueError("This MediaPipe version requires --model pose_landmarker_full.task")
+        vision=mp.tasks.vision
+        detector=vision.PoseLandmarker.create_from_options(vision.PoseLandmarkerOptions(
+            base_options=mp.tasks.BaseOptions(model_asset_path=str(args.model)),
+            running_mode=vision.RunningMode.VIDEO,num_poses=1,
+            min_pose_detection_confidence=.45,min_tracking_confidence=.45))
+        def detect(rgb,frame_index):
+            image=mp.Image(image_format=mp.ImageFormat.SRGB,data=np.ascontiguousarray(rgb))
+            result=detector.detect_for_video(image,round(frame_index*1000/fps))
+            return result.pose_landmarks[0] if result.pose_landmarks else []
+        backend="mediapipe.tasks.pose_landmarker"
     try:
-        with mp.solutions.pose.Pose(model_complexity=2,smooth_landmarks=False,
-                 min_detection_confidence=.45,min_tracking_confidence=.45) as estimator:
+        with detector:
             for ix in range(first,last+1):
                 ok,frame=capture.read()
                 if not ok: raise ValueError("Source video ended before frame "+str(ix))
                 rgb=cv2.cvtColor(frame[y:y+ch,x:x+cw],cv2.COLOR_BGR2RGB)
-                observation=estimator.process(rgb)
+                landmarks=detect(rgb,ix-first)
                 joints={}
-                if observation.pose_landmarks:
-                    for name,index in JOINTS.items():
-                        p=observation.pose_landmarks.landmark[index]
-                        if p.visibility>=args.confidence and np.isfinite([p.x,p.y]).all():
-                            joints[name]=[round(x+p.x*cw,4),round(y+p.y*ch,4),round(p.visibility,4)]
+                for name,index in JOINTS.items():
+                    if index>=len(landmarks): continue
+                    p=landmarks[index]
+                    if p.visibility>=args.confidence and np.isfinite([p.x,p.y]).all():
+                        joints[name]=[round(x+p.x*cw,4),round(y+p.y*ch,4),round(p.visibility,4)]
                 sample={"frame":ix,"time":round((ix-first)/fps,6),"joints":joints}
                 frames.append(sample)
                 if out:
@@ -90,7 +112,7 @@ def track(args):
         if out: out.release()
     result={"schema":"m3-v19-2d","clip":args.clip,"kind":"source","fps":fps,
       "width":w,"height":h,"source_start":start,"crop":list(roi),
-      "confidence_threshold":args.confidence,"frames":frames}
+      "confidence_threshold":args.confidence,"backend":backend,"frames":frames}
     store(args.output,result)
     print(json.dumps({"clip":args.clip,"frames":len(frames),
       "coverage":{name:round(sum(name in f["joints"] for f in frames)/len(frames),3)
@@ -227,6 +249,7 @@ def main():
     a.add_argument("--video",type=Path,required=True)
     a.add_argument("--clip",choices=SEGMENTS,required=True)
     a.add_argument("--roi",default="300,110,315,375")
+    a.add_argument("--model",type=Path,help="MediaPipe Tasks pose_landmarker_full.task (newer versions)")
     a.add_argument("--confidence",type=float,default=.6)
     a.add_argument("--output",type=Path,required=True)
     a.add_argument("--overlay",type=Path)
