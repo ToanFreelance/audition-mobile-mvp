@@ -406,6 +406,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           host.dataset.m3PremiumNoseVertices = String(assembly?.premiumFaceSculpt.affectedVertices ?? 0);
           host.dataset.m3PremiumNoseDelta = String(assembly?.premiumFaceSculpt.maxForwardDelta ?? 0);
           host.dataset.m3PremiumPhysicalDetails = String(assembly?.premiumPhysicalDetails ?? 0);
+          host.dataset.m3PremiumNoseProbe = String(assembly?.root.userData.m3PremiumFaceGeometryProbe ?? "");
           host.dataset.m3BindDelta = String(assembly?.maxBindDelta ?? 0);
           setState("ready");
           onReadyRef.current?.(true);
