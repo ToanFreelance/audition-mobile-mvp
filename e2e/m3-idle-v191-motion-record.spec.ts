@@ -42,6 +42,8 @@ for (const library of libraries) {
       await expect(stage).toHaveAttribute("data-m3-idle-count", "1");
       const generation = await stage.getAttribute("data-scene-generation");
       const instance = await stage.getAttribute("data-m3-idle-instances");
+  if (!generation || !instance) throw new Error("Missing five-person actor identity attributes");
+      if (!generation || !instance) throw new Error("Missing stable actor identity attributes");
 
       await page.getByText("Kiểm tra chuyển động M3").click();
       await page.getByRole("button", { name: "Chính diện", exact: true }).click();
