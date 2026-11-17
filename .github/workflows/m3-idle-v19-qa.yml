@@ -14,7 +14,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: m3-idle-v19-\${{ github.ref }}
+  group: m3-idle-v19-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   measured-projection:
@@ -56,7 +56,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m3-idle-v19-projected-joints-\${{ github.run_id }}
+          name: m3-idle-v19-projected-joints-${{ github.run_id }}
           path: |
             test-results/m3-idle-v19/
             test-results/junit.xml
