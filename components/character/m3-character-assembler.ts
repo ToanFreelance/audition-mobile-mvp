@@ -87,6 +87,7 @@ export class M3CharacterAssembler {
   /** Diagnostic only; material finish does not alter rig or cosmetic identity. */
   get premiumMaterialCount() { return this.premiumFinish.applied; }
   get premiumConvertedUnlit() { return this.premiumFinish.convertedUnlit; }
+  get premiumPhysicalDetails() { return this.premiumFinish.physicalEnhancements; }
   private readonly premiumFinish: M3PremiumMaterialFinish;
   private readonly loader = new GLTFLoader();
   private readonly textureLoader = new THREE.TextureLoader();
