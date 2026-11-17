@@ -106,7 +106,7 @@ export function applyM3PremiumFaceSculpt(
     const bounds = mesh.geometry.boundingBox;
     if (bounds && attr && attr.count > 50) {
       probe.push([
-        mesh.name, String(attr.count), String(mesh.isSkinnedMesh ?? false),
+        mesh.name, String(attr.count), String((mesh as THREE.SkinnedMesh).isSkinnedMesh === true),
         bounds.min.x.toFixed(3), bounds.max.x.toFixed(3),
         bounds.min.y.toFixed(3), bounds.max.y.toFixed(3),
         bounds.min.z.toFixed(3), bounds.max.z.toFixed(3),
