@@ -87,3 +87,58 @@ The existing adaptive contact IK and shuffle-bag were left unchanged to avoid sl
 Locked: WebAudio gameplay clock and global turn budget, gauge/Finish, RoomState CAS, Supabase Realtime, READY/START/preload, Character Catalog and M3 `lobbyReady=true/runtimeReady=false`. No Premium Cute integration. No merge into development/main.
 
 **Next owner acceptance requires authorized access to the exact raw video, full nine-clip tracking/reconstruction, quantitative before-after reports, nine original/skeleton/M3 side-by-side motion videos, actual five-person recordings and physical iPhone approval.**
+
+
+## Addendum — 2026-11-17: actual owner MP4 received and measured (source gate remains OPEN)
+
+A new *direct conversation upload* `Idle-animation-reference.mp4` was read successfully and independently verified by ffprobe: 910×512 pixels, 30 fps, **2677 frames**, 89.233333 s. Original nine performance ordering was inspected on an extracted multi-frame contact sheet. The previously inaccessible Library copy is no longer a blocker.
+
+The assistant also recovered the exact V1.9 MediaPipe 0.10.32 full PoseLandmarker toolchain from historical Actions artifact `14297222508` (includes `pose_landmarker_full.task`). Actual nine-clip M3 bone pivot projections came from focused 9/9 Playwright run `44059611164`, artifact `14318121104`. In the offline source environment, MediaPipe processed **all nine** selected windows at 30 fps using the same initial `300,110,315,375` crop and visibility threshold 0.60. The model was not modified for the source.
+
+Eight original-source tracks were sufficient for fixed-camera 2D baseline reprojection. **M02 failed** (bear with heavy props): only six anatomical points in one source frame were returned; 0.28% average joint coverage. Repeated image-mode trials with full, tight and wide crops failed to recover a stable pose. M02 is **NOT** a valid source skeleton or measured retarget.
+
+| ID | Existing source frame range (inclusive) | Tracked 12-joint observations | Mean joint coverage | Median detected visibility | Baseline P50 2D | Baseline P95 2D |
+|---|---|---:|---:|---:|---:|---:|
+| F01 | 0–312 | 3756 | 100.0% | 0.9863 | 8.48 px | 57.17 px |
+| F02 | 348–759 | 4820 | 97.5% | 0.9925 | 7.41 px | 33.51 px |
+| F03 | 768–997 | 2729 | 98.9% | 0.9955 | 13.24 px | 31.78 px |
+| F04 | 1020–1251 | 2737 | 98.3% | 0.9667 | 10.01 px | 41.13 px |
+| F05 | 1287–1593 | 3167 | 86.0% | 0.9556 | 7.80 px | 24.74 px |
+| M01 | 1611–1944 | 4008 | 100.0% | 0.9923 | 12.85 px | 35.20 px |
+| M02 | 1980–2160 | insufficient | 0.28% | 0.9935 on 1 detected frame | N/A | N/A |
+| X01 | 2198–2440 | 2277 | 78.1% | 0.9567 | 11.56 px | 38.72 px |
+| M03 | 2466–2659 | 2204 | 94.7% | 0.9279 | 12.37 px | 36.19 px |
+
+These values are **real source-to-existing-M3 2D baseline errors** produced by a global per-clip similarity fit on the FIRST 30 frames only, NOT optimization results or new retarget improvements. Source detection confidence denotes MediaPipe's `visibility`, not verified anatomical accuracy; missing joints were explicitly excluded. The F03/M03 historical V1.9 baseline varies slightly because the newly uploaded MP4/source detection is not guaranteed byte-identical to the prior analysis artifacts, and the current source tracks have different observation counts. Do not report these differences as improvement.
+
+### Manual review flags
+
+- F01 highest P95 joint: right wrist 86.6 px.
+- F02: right wrist 54.8 px.
+- F03: right elbow 45.9 px and left elbow 43.4 px.
+- F04: possible left/right shoulder inversions around frames `1076,1078,1139,1148,1153,1159,1167,1169` (some may be genuine torso turns), left ankle P95 70.2 px.
+- F05: 86.0% coverage, left wrist P95 51.3 px.
+- M01: right wrist P95 42.3 px.
+- M02: source Landmarker failure; no valid reprojection.
+- X01: 78.1% coverage, possible shoulder inversions at `2233,2236,2351,2352`, right wrist P95 69.6 px.
+- M03: possible shoulder inversions at `2467,2506,2507`, right wrist P95 59.9 px.
+
+Source-frame windows above are verified to be within the actual MP4, but the exact choreographic cut boundaries between clips have **not** been human-accepted. A flipped shoulder sign is only a *flag*; no anatomical correction is assumed. Shoulder occlusion or side-facing posture can cause false positives.
+
+**Artifacts generated in the private conversation environment, not committed to GitHub:**
+
+- Eight complete `<ID>-source-skeleton.mp4` recordings over original imagery and absolute source timecode. M02 diagnostic video contains no valid skeleton and is excluded.
+- Eight full-length `<ID>-source-vs-M3-overlay.mp4` yellow-source/blue-M3-rig overlays at 30 fps. These are **joint-only overlays**, *not* full rendered M3 actors.
+- Nine `<ID>-source-landmarks.json` (including M02 failure evidence), eight per-joint reprojection CSV/JSON reports, nine-clip aggregate summary and tracking coverage.
+- Three private conversation ZIP bundles (source skeleton, 2D overlays, measurement data), retained outside the Git repository.
+
+### Gate status after receiving the source
+
+- Gate A: **PARTIAL**, 8/9 automated skeleton tracks; M02 failed, F04/X01/M03 require left/right validation, F05/X01 have poorer landmark coverage.
+- Gate B: **NOT DONE**, constrained 3D reconstruction not performed.
+- Gate C: **NOT DONE**, no nine-clip measured M3 retarget; original V1.8.1 motion JSON files retained.
+- Gate D: **PARTIAL BASELINE**, 8/9 fixed-camera 2D baseline discrepancies measured; NO before/after retarget delta.
+- Gate E: **9/9 existing M3 30 Hz isolated projection Playwright PASS** on run `44059611164`; actor lifecycle stable in that QA, but no independent new 5-human READY QA or contact/collision scan.
+- Gate F: **OPEN**, owner iPhone art review must follow actual 3D retarget, full rendered comparisons and five-person footage.
+
+The critical unresolved task is to repair unreliable source tracking, especially M02 with an appropriate animation/anime pose solution or manual verified ground truth, then fit source trajectories to M3 anatomical bone constraints and generate real side-by-side motion videos. Do **not** accept the eight skeleton overlay results as final V1.9.1 artistic delivery. No source video is publicly uploaded and no merges occurred.
