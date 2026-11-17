@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import type { M3RigFamily } from "./character-catalog";
 
 /**
  * M3 Premium Cute Anime — a reversible material-only finish on the existing
@@ -67,6 +68,7 @@ function makeWovenNormalMap(denser: boolean): THREE.DataTexture {
 export class M3PremiumMaterialFinish {
   private knit: THREE.DataTexture | null = null;
   private twill: THREE.DataTexture | null = null;
+  constructor(private readonly family: M3RigFamily) {}
   applied = 0;
   convertedUnlit = 0;
 
@@ -121,10 +123,62 @@ export class M3PremiumMaterialFinish {
       return source;
     }
     const finish = FINISH[surface];
-    material.roughness = finish.roughness;
+    // Material profiles follow the actual catalog rig family, never a
+    // participant's name or a gender-string heuristic.
+    material.roughness = surface === "face" && this.family === "neurohacker"
+      ? .61 : finish.roughness;
     material.metalness = finish.metalness;
     material.envMapIntensity = finish.envMapIntensity;
     material.flatShading = false;
+
+    if ((surface === "eyes" || surface === "hair")
+      && !(material instanceof THREE.MeshPhysicalMaterial)) {
+      // Clearcoat and hair sheen supply eye catchlights and separable
+      // layered-hair volume on existing meshes, with no extra draw calls.
+      const old = material;
+      material = new THREE.MeshPhysicalMaterial({
+        name: old.name,
+        color: old.color.clone(),
+        map: old.map,
+        alphaMap: old.alphaMap,
+        normalMap: old.normalMap,
+        normalScale: old.normalScale.clone(),
+        bumpMap: old.bumpMap,
+        bumpScale: old.bumpScale,
+        roughness: old.roughness,
+        metalness: old.metalness,
+        envMapIntensity: old.envMapIntensity,
+        transparent: old.transparent,
+        opacity: old.opacity,
+        alphaTest: old.alphaTest,
+        side: old.side,
+        depthWrite: old.depthWrite,
+        depthTest: old.depthTest,
+        blending: old.blending,
+        vertexColors: old.vertexColors,
+        fog: old.fog,
+        emissive: old.emissive.clone(),
+        emissiveMap: old.emissiveMap,
+        emissiveIntensity: old.emissiveIntensity,
+        toneMapped: old.toneMapped,
+      });
+      material.userData = { ...old.userData };
+      material.visible = old.visible;
+      old.dispose();
+      const physical = material as THREE.MeshPhysicalMaterial;
+      if (surface === "eyes") {
+        physical.clearcoat = .82;
+        physical.clearcoatRoughness = .10;
+        physical.ior = 1.43;
+      } else {
+        physical.anisotropy = .48;
+        physical.sheen = .18;
+        physical.sheenColor.set(0xf6f3ff);
+        physical.sheenRoughness = .51;
+        physical.clearcoat = .09;
+        physical.clearcoatRoughness = .37;
+      }
+    }
     // Keep the original M3 face, skin, color, hair-color and outfit textures.
     // Additional normal detail is reserved for existing UV-mapped garments.
     if ((surface === "top" || surface === "bottom") && !material.normalMap
