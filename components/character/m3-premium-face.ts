@@ -98,11 +98,12 @@ export function applyM3PremiumFaceSculpt(
   if (family !== "neurohacker") return ZERO;
   let result = ZERO;
   root.traverse(object => {
-    const mesh = object as THREE.SkinnedMesh;
-    if (!mesh.isSkinnedMesh) return;
-    const name = mesh.name.toLowerCase();
-    // The first baked head contains face/nose. Its "_1" sibling is mouth.
-    if (!/headbaked|head_geo|headgeobaked/.test(name) || /_1$/.test(name)) return;
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    // GLTFLoader may normalize Head.baked(copy) to "Head" on the final node
+    // or render a head sub-mesh as a bone-attached Mesh (not SkinnedMesh).
+    // Identify the exact verified male head by its vertex bounds/count in
+    // refineNeurohackerNoseGeometry; body and mouth cannot satisfy that guard.
     if (mesh.userData.m3PremiumNoseV11 === true) return;
     const sculpt = refineNeurohackerNoseGeometry(mesh.geometry);
     if (sculpt.geometry === mesh.geometry) return;
