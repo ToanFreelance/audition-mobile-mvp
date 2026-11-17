@@ -47,6 +47,9 @@ test("M3 premium creator shows both real rigs without breaking saved traits", as
     });
     await page.getByRole("button", { name: "Mặt · Tuỳ chỉnh khuôn mặt →" }).click();
     await expect(stage).toHaveAttribute("data-focus", "face");
+    // Focus transitions interpolate the camera for 340ms. Wait for the real
+    // face frame instead of capturing the previous torso/body framing.
+    await page.waitForTimeout(450);
     await page.screenshot({
       path: "test-results/m3-premium-cute/creator-" + gender + "-face-front.png",
       animations: "disabled",

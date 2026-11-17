@@ -348,3 +348,12 @@ Never equate a green CI/build, a recovered metadata ACK, canonical `playing`, or
 ### 2026-11-16 — V1.8, chín diễn xuất M3 và chuyển thế chân trong phòng chờ
 
 Chủ dự án bác V1.7 trên iPhone vì mỗi rig chỉ đổi pha của một clip và luôn giữ cùng hai mốc chân. Đã dựng danh mục F01–F05 cho Drophunter, M01/M02/X01/M03 cho Neurohacker, thêm túi xáo theo participant, quỹ đạo chân theo tiếp xúc và chuyển thế trên cùng mixer. Đã xem lại nguồn, render hai góc, sửa đường đi của cổ tay, chân nâng M03, hai chuyển tiếp vướng quần, độ ôm của tay áo/ống quần Neurohacker và giới hạn góc đế giày trước tiếp đất. Kết quả kiểm mesh, thời gian nguồn và các giới hạn được ghi trong [báo cáo V1.8](M3_IDLE_VIDEO_REVIEW_V18.md). Chờ chủ dự án đánh giá trên iPhone. M3 tiếp tục chỉ dùng trong phòng chờ.
+
+
+## 2026-11-17 — M3 Premium Cute Anime V1.1 (visual branch, NOT accepted/merged)
+
+- Dedicated branch `work/m3-premium-cute-visual-v1`; owner requested direct GitHub API implementation; motion V1.8.1 branch untouched.
+- Verified real Neurohacker head source and morph-target/rest-position discrepancy; sculpted **337 real nose vertices**, softened max displacement ~0.009 model units, recalculated normal; Drophunter topology unchanged.
+- Added rig-specific male face lighting and physically shaded eye/hair surfaces while preserving wardrobe, skin tones, bind/skeleton, M3 lobby-only gate and Stage3D roster/mixer lifecycle.
+- Focused QA `43996638807`: TypeScript/build PASS, 9/9 Playwright PASS, male bind delta 0, female 5.96e-7. Front/side WebGL screenshots are review evidence, not a visual quality PASS. Follow-up final run checks corrected camera capture timing.
+- Existing Lobby QA lint defect `reconcileParticipants` unchanged. Owner iPhone visual/performance acceptance pending. See `docs/M3_PREMIUM_CUTE_VISUAL_V11.md`.
