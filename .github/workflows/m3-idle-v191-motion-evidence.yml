@@ -7,6 +7,8 @@ on:
       - components/character/motion/**
       - e2e/m3-idle-v191-motion-record.spec.ts
       - components/character/m3-lobby-idle.ts
+      - components/multiplayer/WaitingRoomStage3D.tsx
+      - app/tools/lobby-qa-sketch/**
       - .github/workflows/m3-idle-v191-motion-evidence.yml
   workflow_dispatch:
 permissions:

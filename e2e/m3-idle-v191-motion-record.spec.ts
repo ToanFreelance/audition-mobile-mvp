@@ -100,7 +100,9 @@ test("Five actual M3 roots and mixers survive presentation-only roster changes",
   const stage = page.getByTestId("waiting-room-stage");
   const roster = async (): Promise<string[][]> => JSON.parse(await stage.getAttribute("data-m3-roster-identity") ?? "[]");
   await expect.poll(async () => (await roster()).length, { timeout: 110_000 }).toBe(5);
-  const identity = (await roster()).map(row => row.slice(0,3));
+  const identity = (await roster()).map(row => row.slice(0, 3));
+  for (const field of [0, 1, 2]) expect(new Set(identity.map(row => row[field])).size).toBe(5);
+  const readyBadge = page.getByTestId("p56-participant-deck").locator("button").filter({ hasText: "Kai" }).locator("b");
   const generation = await stage.getAttribute("data-scene-generation");
   const guest = "m3-fixture-guest-male";
   for (const [control, field, expected] of [
@@ -109,7 +111,8 @@ test("Five actual M3 roots and mixers survive presentation-only roster changes",
   ] as const) {
     await page.getByRole("button", { name: control, exact: true }).click();
     await expect.poll(async () => (await roster()).find(row => row[0] === guest)?.[field]).toBe(expected);
-    expect((await roster()).map(row => row.slice(0,3))).toEqual(identity);
+    if (field === 3) await expect(readyBadge).toHaveText(expected === "ready" ? "READY" : "NOT READY");
+    expect((await roster()).map(row => row.slice(0, 3))).toEqual(identity);
     await expect(stage).toHaveAttribute("data-scene-generation", generation!);
   }
 });

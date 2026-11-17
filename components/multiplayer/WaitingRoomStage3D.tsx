@@ -1587,7 +1587,8 @@ export default function WaitingRoomStage3D({
                 Array.from(m3IdleByParticipant, ([participant, idle]) => {
                   const mixer = idle.playbackMixer;
                   if (!reviewMixerIds.has(mixer)) reviewMixerIds.set(mixer, THREE.MathUtils.generateUUID());
-                  const current = stageNodesRef.current.get(participant)?.participant;
+                  // Status-only updates deliberately skip actor reconciliation. Read the latest room props.
+                  const current = participantsRef.current.find(p => p.participantId === participant);
                   return [participant, mixer.getRoot().uuid, reviewMixerIds.get(mixer), current?.readyState, current?.connectionState];
                 }).sort((a,b) => String(a[0]).localeCompare(String(b[0]))),
               );
