@@ -316,7 +316,7 @@ function buildPerformanceClip(
     }
   }
   return new THREE.AnimationClip(
-    "m3-v18-" + id,
+    "m3-lobby-" + id,
     source.lastFrame / source.fps,
     tracks,
   );
@@ -420,6 +420,7 @@ export function createM3LobbyIdle(
   rest.forEach((point, i) => {
     if (Number.isFinite(sole[i])) point.y -= sole[i];
   });
+  const bindPoleX = contacts.map(c => c.poleLocal.x);
   const orientations = contacts.map((c) => c.localWorldRotation.clone());
   const center = (rest[0].x + rest[1].x) / 2;
   const forward = (rest[0].z + rest[1].z) / 2;
@@ -466,6 +467,7 @@ export function createM3LobbyIdle(
   let lastLift = 0,
     settling = 0;
   const originalHips = hips.position;
+  const leftArm = getJoint(rig, "upper_arm.L")!.bone;
   const rightArm = getJoint(rig, "upper_arm.R")!.bone;
   const armBase = new THREE.Quaternion(),
     armOffset = new THREE.Quaternion();
@@ -493,27 +495,59 @@ export function createM3LobbyIdle(
   );
   action.time = phase;
   let incoming: THREE.AnimationAction | null = null;
-  let replay: THREE.AnimationAction | null = null;
-  function begin(next: IdleId) {
+  // Inertialize the visible chain onto a moving entry action. Store velocity in
+  // local joint space, independent of the actor's slot translation, scale and yaw.
+  const driven = rig.bones.filter(b => /^(hips|spine|chest|neck|head|shoulder|upper_arm|lower_arm|hand|thumb|index|middle|ring|little)/.test(b.name)).map(bone => ({
+    bone, base: bone.quaternion.clone(), previous: bone.quaternion.clone(), exit: new THREE.Quaternion(),
+    offset: new THREE.Quaternion(), velocity: new THREE.Quaternion(),
+  }));
+  const identity = new THREE.Quaternion(), residual = new THREE.Quaternion();
+  const exitHips = new THREE.Vector3(), hipOffset = new THREE.Vector3();
+  const hipPrevious = new THREE.Vector3(), hipVelocity = new THREE.Vector3();
+  // Clamp extrapolation to the finite velocity window before the support changes.
+  const baseHips = new THREE.Vector3();
+  let restoreBase = false;
+  let velocityWindow = 0;
+  let exitShift = 0, entryShift = 0, exitDrop = 0, entryDrop = 0;
+  const balance = [
+    ["hips", -0.64, 0.50], ["spine", 0.46, 0.95], ["chest", 0.36, 0.55],
+    ["neck", -0.19, -0.92], ["head", -0.09, -0.70],
+    ["shoulder.L", -0.47, 0.25], ["shoulder.R", -0.47, 0.25],
+    ["upper_arm.L", 0.78, -0.24], ["upper_arm.R", 0.78, -0.24],
+  ] as const;
+  const chain = balance.flatMap(([name, roll, flex]) => {
+    const joint = getJoint(rig, name);
+    return joint ? [{ bone: joint.bone, roll, flex }] : [];
+  });
+  function begin(next: IdleId, dt: number) {
     queued = null;
-    bridge = bridgeBetween(placement, stanceAt(next, 0));
+    const entry = stanceAt(next, 0);
+    bridge = bridgeBetween(placement, entry);
+    exitShift = placement.shift;
+    entryShift = entry.shift;
+    exitDrop = placement.drop;
+    entryDrop = entry.drop;
     bridgeTime = 0;
     runtime.target = next;
-    action.paused = true;
-    incoming = actions.get(next)!;
-    if (incoming === action) {
-      if (!replay || replay.getClip().name !== action.getClip().name) {
-        if (replay) mixer.uncacheClip(replay.getClip());
-        replay = mixer
-          .clipAction(action.getClip().clone())
-          .setLoop(THREE.LoopOnce, 1);
-        replay.clampWhenFinished = true;
-      }
-      incoming = replay;
+    velocityWindow = Math.min(5, 0.09 / Math.max(dt, 1 / 120));
+    hipVelocity.copy(hips!.bone.position).sub(hipPrevious);
+    exitHips.copy(hips!.bone.position);
+    for (const j of driven) {
+      j.exit.copy(j.bone.quaternion);
+      j.velocity.copy(j.previous).invert().multiply(j.exit);
     }
-    incoming.reset().play();
-    incoming.paused = true;
-    incoming.setEffectiveWeight(0);
+    action.stop();
+    incoming = actions.get(next)!.reset().setEffectiveWeight(1).play();
+    mixer.update(0);
+    baseHips.copy(hips!.bone.position);
+    restoreBase = true;
+    hipOffset.copy(exitHips).sub(hips!.bone.position);
+    for (const j of driven) {
+      j.base.copy(j.bone.quaternion);
+      j.offset.copy(j.bone.quaternion).invert().multiply(j.exit);
+      j.bone.quaternion.copy(j.exit);
+    }
+    hips!.bone.position.copy(exitHips);
   }
   const runtime: M3LobbyIdle = {
     instanceId: THREE.MathUtils.generateUUID(),
@@ -538,6 +572,8 @@ export function createM3LobbyIdle(
       hips.bone.position.y -= correctionY;
       correctionX = 0;
       correctionY = 0;
+      restoreBase = false;
+      armCorrected = false;
       mixer.stopAllAction();
       id = next;
       action = actions.get(id)!.reset().setEffectiveWeight(1).play();
@@ -559,14 +595,38 @@ export function createM3LobbyIdle(
         rightArm.quaternion.copy(armBase);
         armCorrected = false;
       }
+      if (restoreBase) {
+        for (const j of driven) j.bone.quaternion.copy(j.base);
+        hips.bone.position.copy(baseHips);
+        restoreBase = false;
+      }
       let clearanceAngle = 0;
       if (bridge && runtime.target && incoming) {
         bridgeTime += dt;
         const next = runtime.target;
         const weight = ease(Math.min(1, bridgeTime / bridge.duration));
-        if (incoming !== action) {
-          action.setEffectiveWeight(1 - weight);
-          incoming.setEffectiveWeight(weight);
+        // Start the entry gesture gradually in the last part of settling. The
+        // first authored step stays after the bridge and the action keeps its time.
+        const ramp = THREE.MathUtils.clamp(1 - (bridge.duration - bridgeTime) / 0.42, 0, 1);
+        mixer.update(dt * ease(ramp));
+        placement = bridge.sample(bridgeTime);
+        const load = placement.shift - THREE.MathUtils.lerp(exitShift, entryShift, weight);
+        const compression = placement.drop - THREE.MathUtils.lerp(exitDrop, entryDrop, weight);
+        const velocity = velocityWindow * (1 - Math.exp(-bridgeTime / 0.09)) * (1 - weight);
+        baseHips.copy(hips.bone.position);
+        restoreBase = true;
+        for (const j of driven) {
+          j.base.copy(j.bone.quaternion);
+          j.bone.quaternion.multiply(residual.copy(identity).slerp(j.offset, 1 - weight));
+          j.bone.quaternion.multiply(residual.copy(identity).slerp(j.velocity, velocity));
+        }
+        hips.bone.position.addScaledVector(hipOffset, 1 - weight).addScaledVector(hipVelocity, velocity);
+        for (const link of chain) {
+          link.bone.quaternion.premultiply(residual.setFromAxisAngle(armAxis, link.roll * load));
+          link.bone.quaternion.premultiply(residual.setFromAxisAngle(across, link.flex * compression));
+        }
+        if ((id === "M03" && next === "M01") || (id === "M01" && next === "M03")) {
+          leftArm.quaternion.premultiply(residual.setFromAxisAngle(armAxis, 0.45 * 4 * weight * (1 - weight)));
         }
         // These two paths pass the right pocket between otherwise clear endpoints.
         if (
@@ -574,23 +634,22 @@ export function createM3LobbyIdle(
           (id === "M02" && next === "M01")
         )
           clearanceAngle = -0.3 * 4 * weight * (1 - weight);
-        placement = bridge.sample(bridgeTime);
         if (bridgeTime >= bridge.duration) {
-          action.stop();
           id = next;
-          action = incoming.reset().setEffectiveWeight(1).play();
+          action = incoming;
           bridge = null;
           runtime.target = null;
         }
-        mixer.update(0);
       } else {
+        for (const j of driven) j.previous.copy(j.bone.quaternion);
+        hipPrevious.copy(hips.bone.position);
         mixer.update(dt);
         placement = stanceAt(id, action.time);
         const finished = action.time >= action.getClip().duration - 1e-6;
-        const safe = placement.feet.every((f) => f[2] < 1e-6) || id === "M03";
+        const safe = id === "M03" || (lastLift <= 1e-6 && settling <= 0 && placement.feet.every(f => f[2] < 1e-6));
         if (finished || (queued && safe)) {
           runtime.completedGestures += Number(finished);
-          begin(queued ?? (runtime.random ? draw(id) : id));
+          begin(queued ?? (runtime.random ? draw(id) : id), dt);
         }
       }
       if (clearanceAngle) {
@@ -603,7 +662,7 @@ export function createM3LobbyIdle(
       runtime.placement = placement;
       runtime.currentGesture = id;
       runtime.animationProfile = id;
-      runtime.poseTime = action.time;
+      runtime.poseTime = bridge ? bridgeTime : action.time;
       runtime.clipDuration = action.getClip().duration;
       correctionX = placement.shift * localHeight;
       correctionY = -placement.drop * localHeight;
@@ -616,6 +675,12 @@ export function createM3LobbyIdle(
           center + shoe[0] * localHeight,
           rest[i].y + shoe[2] * localHeight,
           forward + shoe[1] * localHeight,
+        );
+        // Aim the knee along the shoe's track when opening the stance. The
+        // folded knee opens laterally as the free foot tucks behind the calf.
+        const outward = i === 0 ? 1 : -1;
+        c.poleLocal.x = bindPoleX[i] + localHeight * (
+          0.44 * shoe[0] + 0.09 * Math.sin(shoe[3]) + outward * shoe[2] * 0.85
         );
         // An ankle rotation may lower any sole vertex by at most radius * angle.
         const availablePitch =

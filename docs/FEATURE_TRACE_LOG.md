@@ -348,3 +348,7 @@ Never equate a green CI/build, a recovered metadata ACK, canonical `playing`, or
 ### 2026-11-16 — V1.8, chín diễn xuất M3 và chuyển thế chân trong phòng chờ
 
 Chủ dự án bác V1.7 trên iPhone vì mỗi rig chỉ đổi pha của một clip và luôn giữ cùng hai mốc chân. Đã dựng danh mục F01–F05 cho Drophunter, M01/M02/X01/M03 cho Neurohacker, thêm túi xáo theo participant, quỹ đạo chân theo tiếp xúc và chuyển thế trên cùng mixer. Đã xem lại nguồn, render hai góc, sửa đường đi của cổ tay, chân nâng M03, hai chuyển tiếp vướng quần, độ ôm của tay áo/ống quần Neurohacker và giới hạn góc đế giày trước tiếp đất. Kết quả kiểm mesh, thời gian nguồn và các giới hạn được ghi trong [báo cáo V1.8](M3_IDLE_VIDEO_REVIEW_V18.md). Chờ chủ dự án đánh giá trên iPhone. M3 tiếp tục chỉ dùng trong phòng chờ.
+
+### 2026-11-17 — M3 Waiting Room Idle V1.8.1
+
+Dựng lại F03 và M03 bằng đường cong Blender và tỷ lệ xương thật, chỉnh bảy clip còn lại và thay phần hòa hai pose đứng yên bằng chuyển thế có vận tốc, đổi trụ và ổn định. Đã quét đế giày, kiểm giao tam giác qua chín clip và 32 cặp chuyển, hiệu chỉnh vai áo Neurohacker, bổ sung chẩn đoán nhịp vẽ trong QA. Chờ nghiệm thu trên iPhone. [Báo cáo chuyển động V1.8.1](M3_IDLE_VIDEO_REVIEW_V181.md)

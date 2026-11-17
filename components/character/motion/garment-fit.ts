@@ -35,7 +35,19 @@ export function fitLobbyGarments(actor: THREE.Object3D) {
       if(sleeve){
         for(let j=0;j<4;j++)if(sleeveBone[joints.getComponent(i,j)])sleeveWeight+=weights.getComponent(i,j);
       }
-      const distance = region * 0.015 * (sleeve ? THREE.MathUtils.smoothstep(sleeveWeight,.5,.72) : 1);
+      // The folded arm rotates skin across the cap toward the collar. Give the
+      // cap a wider falloff across clavicle weights, retaining the original hem.
+      // Ray-to-triangle review found the back panel 2–3 mm inside the
+      // scapula near the collar. Give only that strip additional ease.
+      const backCap = sleeve
+        ? THREE.MathUtils.smoothstep(-positions.getZ(i), 0.028, 0.074) *
+          THREE.MathUtils.smoothstep(positions.getY(i), 1.17, 1.22) *
+          (1 - THREE.MathUtils.smoothstep(positions.getY(i), 1.25, 1.30)) *
+          THREE.MathUtils.smoothstep(Math.abs(x), 0.038, 0.083)
+        : 0;
+      const distance = sleeve
+        ? region * 0.022 * THREE.MathUtils.smoothstep(sleeveWeight, .20, .66) + 0.017 * backCap
+        : region * 0.015;
       const dx = distance * normals.getX(i),
         dy = distance * normals.getY(i),
         dz = distance * normals.getZ(i);

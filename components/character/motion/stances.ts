@@ -95,9 +95,9 @@ export const poses = {
   M03: {
     feet: [
       [0.018, 0.009, 0, 0.13],
-      [-0.046, 0.222, 0.112, -0.36],
+      [-0.068, -0.082, 0.041, -0.38],
     ],
-    pelvis: 0.019,
+    pelvis: 0.028,
     drop: 0.013,
   },
 } satisfies Record<string, Stance>;
@@ -113,8 +113,8 @@ function travel(from: Shoe, to: Shoe, t: number, lift: number): Shoe {
   const a = ease(t),
     arch = 16 * t * t * (1 - t) * (1 - t);
   // When coming down from a held leg lift, extend the knee before drawing the shoe inward.
-  const across = from[2] > 0.05 && to[2] === 0 ? ease(t * t) : a;
-  if (from[2] > 0.05 || to[2] > 0.05) lift = 0;
+  const across = from[2] > 0 && to[2] === 0 ? ease(t * t) : a;
+  if (from[2] > 0 || to[2] > 0) lift = 0;
   return [
     from[0] + (to[0] - from[0]) * across,
     from[1] + (to[1] - from[1]) * across,
@@ -160,6 +160,10 @@ export function bridgeBetween(from: Placement, to: Placement) {
     start: number;
     duration: number;
   }[] = [];
+  const preparation = 0.31, settling = 0.29;
+  // A crouched actor already carries flexion: extend the support knee on
+  // takeoff instead of stacking a second squat underneath the authored one.
+  const crouch = ease(Math.max(0, Math.min(1, (from.drop - 0.029) / 0.017)));
   let duration = 0.0;
   function place(side: 0 | 1, target: Shoe) {
     const previous = feet[side];
@@ -175,7 +179,7 @@ export function bridgeBetween(from: Placement, to: Placement) {
       start: duration,
       duration: span,
     });
-    duration += span + 0.26;
+    duration += span + preparation + settling;
     feet[side] = target;
   }
   // A raised foot lands before the opposite foot can leave support.
@@ -186,7 +190,7 @@ export function bridgeBetween(from: Placement, to: Placement) {
     feet[0][2] > 0.001 ? 0 : feet[1][2] > 0.001 ? 1 : from.shift < 0 ? 0 : 1;
   for (const side of [first, 1 - first] as (0 | 1)[]) {
     const target = to.feet[side];
-    if (!alreadyPlaced) place(side, [target[0], target[1], 0, target[3]]);
+    if (!alreadyPlaced && target[2] === 0) place(side, target);
   }
   for (const side of [0, 1] as const)
     if (to.feet[side][2] > 0) place(side, to.feet[side]);
@@ -198,31 +202,37 @@ export function bridgeBetween(from: Placement, to: Placement) {
       const current: [Shoe, Shoe] = [...from.feet];
       const pitch: [number, number] = [...from.pitch];
       let shift = from.shift + (to.shift - from.shift) * t;
+      let compression = 0;
       for (const m of moves) {
         const elapsed = time - m.start;
-        const liftStart = 0.18;
+        const liftStart = preparation;
         const u = Math.max(0, Math.min(1, (elapsed - liftStart) / m.duration));
         if (u > 0) {
-          current[m.side] = travel(m.from, m.to, u, 0.032);
+          // A wide, already loaded stance needs less toe clearance on the
+          // first short reposition. Avoid folding the shin into cargo hems.
+          const lift = 0.032 - 0.010 * crouch;
+          current[m.side] = travel(m.from, m.to, u, lift);
           const startPitch = m.from[2] > 0 ? from.pitch[m.side] : 0;
           const endPitch = m.to[2] > 0 ? to.pitch[m.side] : 0;
           pitch[m.side] =
             startPitch + (endPitch - startPitch) * ease(u) + swingPitch(u);
         }
-        if (elapsed >= 0 && elapsed < m.duration + 0.26) {
+        if (elapsed >= 0 && elapsed < m.duration + preparation + settling) {
           const load = Math.min(
             1,
             elapsed / liftStart,
-            (m.duration + 0.26 - elapsed) / 0.08,
+            (m.duration + preparation + settling - elapsed) / settling,
           );
-          shift += (current[1 - m.side][0] - shift) * 0.55 * ease(load);
+          // Flex the support knee during loading, then accept weight on landing.
+          compression += (0.017 - 0.048 * crouch) * ease(load) * (1 - 0.5 * u);
+          shift += (current[1 - m.side][0] - shift) * 0.72 * ease(load);
         }
       }
       return {
         feet: current,
         pitch,
         shift,
-        drop: from.drop + (to.drop - from.drop) * t,
+        drop: from.drop + (to.drop - from.drop) * t + compression,
       };
     },
   };

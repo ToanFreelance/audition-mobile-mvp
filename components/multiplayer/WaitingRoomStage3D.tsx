@@ -861,6 +861,7 @@ export default function WaitingRoomStage3D({
     let animationFrame = 0;
     let lastFrameMs = 0;
     let accumulatedMs = 0;
+    let lastDrawMs = 0;
     let idleClips: readonly THREE.AnimationClip[] = [];
     let releaseVersion = 0;
     const actorSources = new Map<CharacterAssetId, THREE.Object3D>();
@@ -1482,9 +1483,17 @@ export default function WaitingRoomStage3D({
       }
     }
     if (motionReview) window.addEventListener("m3-idle-review", onReview);
+    let stageTimingReset: (() => void) | undefined;
+    const onVisibilityChange = () => stageTimingReset?.();
+    document.addEventListener("visibilitychange", onVisibilityChange);
     const startIdleLoop = () => {
       if (animationFrame) return;
-      const minFrameMs = 1000 / IDLE_RENDER_FPS;
+      const requestedFps = motionReview && new URLSearchParams(location.search).get("cadence") === "60" ? 60 : IDLE_RENDER_FPS;
+      const minFrameMs = 1000 / requestedFps;
+      const samples: number[][] = [];
+      let rafTotal = 0, rafCount = 0;
+      const resetTiming = () => { lastFrameMs = 0; lastDrawMs = 0; accumulatedMs = 0; rafTotal = 0; rafCount = 0; };
+      stageTimingReset = resetTiming;
       // The isolated sketch fixture exposes real VRM foot-contact error to
       // Playwright without adding React renders or changing gameplay/UI.
       const footContactProbe = window.location.pathname === "/tools/lobby-qa-sketch";
@@ -1493,26 +1502,44 @@ export default function WaitingRoomStage3D({
         if (disposed) return;
         animationFrame = requestAnimationFrame(tick);
         if (document.hidden) {
-          lastFrameMs = nowMs;
-          accumulatedMs = 0;
+          resetTiming();
           return;
         }
-        if (!lastFrameMs) lastFrameMs = nowMs;
-        accumulatedMs += Math.min(100, Math.max(0, nowMs - lastFrameMs));
+        if (!lastFrameMs) { lastFrameMs = nowMs; lastDrawMs = nowMs; return; }
+        const rafMs = Math.max(0, nowMs - lastFrameMs);
+        if (footContactProbe) { rafTotal += rafMs; rafCount++; }
+        accumulatedMs += rafMs;
         lastFrameMs = nowMs;
-        if (accumulatedMs < minFrameMs) return;
-        const deltaSeconds = accumulatedMs / 1000;
-        accumulatedMs = 0;
+        // Keep the cadence remainder. rAF timestamps on a 60 Hz screen can
+        // alternate between 16.6 and 16.7 ms. Never advance animation twice.
+        if (accumulatedMs + 0.2 < minFrameMs) return;
+        accumulatedMs = Math.max(0, (accumulatedMs + 0.2) % minFrameMs - 0.2);
+        const drawMs = nowMs - lastDrawMs;
+        lastDrawMs = nowMs;
+        const deltaSeconds = Math.min(0.1, drawMs / 1000);
         idleRuntimeByParticipant.forEach(runtime => {
           runtime.mixer.update(deltaSeconds);
           switchIdleIfNeeded(runtime, deltaSeconds);
         });
+        const animationStart = footContactProbe ? performance.now() : 0;
         m3IdleByParticipant.forEach(runtime => runtime.update(deltaSeconds * reviewSpeed));
+        const animationCost = footContactProbe ? performance.now() - animationStart : 0;
         if (footContactProbe && nowMs - lastProbeMs > 450 && mountRef.current) {
           lastProbeMs = nowMs;
           const runtimes = [...m3IdleByParticipant.values()];
           const stageElement = mountRef.current.parentElement;
           if (stageElement) {
+            if (samples.length) {
+              const mean = (column: number) => samples.reduce((sum, row) => sum + row[column], 0) / samples.length;
+              const durations = samples.map(row => row[1]).sort((a,b) => a-b);
+              stageElement.dataset.m3Pacing = JSON.stringify({
+                target: requestedFps, actors: runtimes.length, draws: samples.length,
+                rafMeanMs: mean(0) / mean(4), drawMeanMs: mean(1), drawP95Ms: durations[Math.floor(durations.length * 0.95)],
+                animationMeanMs: mean(2), renderSubmitMeanMs: mean(3),
+                delayed: durations.filter(ms => ms > 1.5 * minFrameMs).length,
+                cappedMs: samples.reduce((sum, row) => sum + Math.max(0, row[1] - 100), 0),
+              });
+            }
             stageElement.dataset.m3MotionReview = JSON.stringify(runtimes.map(r => ({
               id: r.animationProfile, target: r.target, contact: r.contacts + " · " + r.phase, feet: r.placement.feet,
               drift: r.footDrift, floor: r.floorError, time: r.poseTime
@@ -1597,7 +1624,13 @@ export default function WaitingRoomStage3D({
             if (floorMaterial) floorMaterial.opacity = 0.07 + wave * 0.065 + emphasis * 0.055;
           }
         });
+        const submitStart = footContactProbe ? performance.now() : 0;
         render();
+        if (footContactProbe) {
+          samples.push([rafTotal, drawMs, animationCost, performance.now() - submitStart, rafCount]);
+          rafTotal = 0; rafCount = 0;
+          if (samples.length > 120) samples.shift();
+        }
       };
       animationFrame = requestAnimationFrame(tick);
     };
@@ -2152,6 +2185,7 @@ export default function WaitingRoomStage3D({
 
     return () => {
       disposed = true;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (motionReview) window.removeEventListener("m3-idle-review", onReview);
       if (animationFrame) cancelAnimationFrame(animationFrame);
       observer.disconnect();

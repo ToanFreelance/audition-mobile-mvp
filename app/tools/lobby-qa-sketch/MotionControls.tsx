@@ -8,6 +8,7 @@ import {
   type IdleId,
 } from "../../../components/character/motion/stances";
 
+type Pacing = { target: number; drawP95Ms: number; animationMeanMs: number; renderSubmitMeanMs: number; cappedMs: number };
 type Sample = {
   id: IdleId;
   target: IdleId | null;
@@ -30,13 +31,16 @@ export default function MotionControls({
   const [id, setId] = useState<IdleId>(rigPool[family][0]);
   const [open, setOpen] = useState(false);
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [pacing, setPacing] = useState<Pacing | null>(null);
   useEffect(() => {
     const stage = document.querySelector<HTMLElement>(
       "[data-testid=waiting-room-stage]",
     );
     if (!open || !stage) return;
-    const update = () =>
+    const update = () => {
       setSamples(JSON.parse(stage.dataset.m3MotionReview ?? "[]"));
+      setPacing(JSON.parse(stage.dataset.m3Pacing ?? "null"));
+    };
     update();
     const observer = new MutationObserver(update);
     observer.observe(stage, {
@@ -89,6 +93,11 @@ export default function MotionControls({
         <button onClick={() => send("speed", 1)}>1×</button> ·{" "}
         <button onClick={() => send("speed", 0.25)}>0,25×</button>
       </div>
+      {pacing && <div>
+        Mục tiêu {pacing.target} hình/s · P95 {pacing.drawP95Ms.toFixed(1)} ms ·
+        cập nhật M3 {pacing.animationMeanMs.toFixed(1)} ms · gửi lệnh vẽ {pacing.renderSubmitMeanMs.toFixed(1)} ms ·
+        thời gian bỏ qua {pacing.cappedMs.toFixed(0)} ms
+      </div>}
       {samples.map((s, i) => (
         <div key={i}>
           <strong>

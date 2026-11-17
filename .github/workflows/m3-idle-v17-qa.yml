@@ -1,4 +1,4 @@
-name: M3 Waiting Room Idle V1.8 — Focused QA
+name: M3 Waiting Room Idle V1.8.1 — Focused QA
 
 on:
   push:
@@ -54,7 +54,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: m3-idle-v18-visual-${{ github.run_id }}
+          name: m3-idle-v181-visual-${{ github.run_id }}
           path: |
             test-results/m3-idle-v18/
             test-results/junit.xml

@@ -201,9 +201,39 @@ test("Khớp cổ tay và chân liên tục khi phát lại đủ chín clip", (
       }
       expect(enteredBridge).toBe(true);
       expect(runtime.animationProfile).toBe(id);
-      expect(runtime.poseTime).toBeCloseTo(0);
+      expect(runtime.poseTime).toBeGreaterThan(0);
+      expect(runtime.poseTime).toBeLessThan(0.3);
       expect(maxStep,id).toBeLessThan(.09);
     }
     runtime.dispose();
   }
+});
+
+test("Chuyển từ chân co sang hai chân giữ trụ và đưa trọng lượng về trước khi đổi trụ", () => {
+  const { root, bones } = syntheticM3Actor();
+  const runtime = createM3LobbyIdle(root, "balance", "qa", "neurohacker")!;
+  runtime.select("M03");
+  const support = bones.find(b => b.name === "foot.L")!;
+  const anchor = support.getWorldPosition(new THREE.Vector3());
+  const chest = bones.find(b => b.name === "chest")!;
+  for (let i = 0; i < 63; i++) runtime.update(1 / 30);
+  runtime.request("M01");
+  let chestTravel = 0, landing = false, landed = false;
+  const previous = chest.quaternion.clone();
+  for (let i = 0; i < 120; i++) {
+    runtime.update(1 / 30);
+    if (runtime.placement.feet[1][2] > 0 && !landed) {
+      expect(support.getWorldPosition(new THREE.Vector3()).distanceTo(anchor)).toBeLessThan(.001);
+      chestTravel += previous.angleTo(chest.quaternion);
+    }
+    if (runtime.phase === "LANDING") landing = true;
+    if (runtime.phase === "SETTLING") landed = true;
+    previous.copy(chest.quaternion);
+    if (runtime.currentGesture === "M01") break;
+  }
+  expect(chestTravel).toBeGreaterThan(.01);
+  expect(landing && landed).toBe(true);
+  expect(runtime.currentGesture).toBe("M01");
+  expect(runtime.poseTime).toBeGreaterThan(.1);
+  runtime.dispose();
 });
