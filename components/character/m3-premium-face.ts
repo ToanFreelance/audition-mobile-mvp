@@ -36,9 +36,17 @@ export function refineNeurohackerNoseGeometry(
   if (!position || position.itemSize !== 3 || position.count < 800) {
     return { geometry: source, result: ZERO };
   }
-  source.computeBoundingBox();
-  const box = source.boundingBox;
-  if (!box) return { geometry: source, result: ZERO };
+  // computeBoundingBox() unions every blendshape/morph target. The real
+  // Neurohacker head has expression morphs whose extreme facial extents grow
+  // from rest x±.10 / y1.36–1.61 to x±.14 / y1.25–1.66. Using that union
+  // rejected the correct head! Measure the BASE POSITION attribute instead.
+  const box = new THREE.Box3();
+  const point = new THREE.Vector3();
+  for (let i = 0; i < position.count; i++) {
+    point.set(position.getX(i), position.getY(i), position.getZ(i));
+    box.expandByPoint(point);
+  }
+  if (box.isEmpty()) return { geometry: source, result: ZERO };
   const w = box.max.x - box.min.x, h = box.max.y - box.min.y;
   // Do not apply the procedure to Drophunter, mouth parts or a later
   // third-party head with materially different coordinates.
