@@ -97,9 +97,21 @@ export function applyM3PremiumFaceSculpt(
 ): M3FaceSculptResult {
   if (family !== "neurohacker") return ZERO;
   let result = ZERO;
+  const probe: string[] = [];
   root.traverse(object => {
     const mesh = object as THREE.Mesh;
     if (!mesh.isMesh) return;
+    const attr = mesh.geometry.getAttribute("position");
+    mesh.geometry.computeBoundingBox();
+    const bounds = mesh.geometry.boundingBox;
+    if (bounds && attr && attr.count > 50) {
+      probe.push([
+        mesh.name, String(attr.count), String(mesh.isSkinnedMesh ?? false),
+        bounds.min.x.toFixed(3), bounds.max.x.toFixed(3),
+        bounds.min.y.toFixed(3), bounds.max.y.toFixed(3),
+        bounds.min.z.toFixed(3), bounds.max.z.toFixed(3),
+      ].join(":"));
+    }
     // GLTFLoader may normalize Head.baked(copy) to "Head" on the final node
     // or render a head sub-mesh as a bone-attached Mesh (not SkinnedMesh).
     // Identify the exact verified male head by its vertex bounds/count in
@@ -111,5 +123,7 @@ export function applyM3PremiumFaceSculpt(
     mesh.userData.m3PremiumNoseV11 = true;
     result = sculpt.result;
   });
+  // QA diagnostic of the ACTUAL GLTFLoader tree, not source-GLB assumptions.
+  root.userData.m3PremiumFaceGeometryProbe = probe.join("|");
   return result;
 }
