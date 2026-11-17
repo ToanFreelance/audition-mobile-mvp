@@ -24,10 +24,45 @@ test("M3 premium creator shows both real rigs without breaking saved traits", as
     // The source VRMs are unlit: assert that real materials, not only lights,
     // were converted to responsive PBR on each M3 rig.
     await expect.poll(async () => Number(await stage.getAttribute("data-m3-premium-converted"))).toBeGreaterThan(0);
+    await expect.poll(async () => Number(await stage.getAttribute("data-m3-premium-physical-details"))).toBeGreaterThan(0);
+    const sculptedVertices = Number(await stage.getAttribute("data-m3-premium-nose-vertices"));
+    const noseDelta = Number(await stage.getAttribute("data-m3-premium-nose-delta"));
+    if (gender === "male") {
+      expect(sculptedVertices).toBeGreaterThan(15);
+      expect(noseDelta).toBeGreaterThan(.002);
+      expect(noseDelta).toBeLessThan(.018);
+    } else {
+      expect(sculptedVertices).toBe(0); // Female accepted geometry is untouched.
+    }
+    console.log("M3_PREMIUM_FACE " + gender + " " + JSON.stringify({
+      sculptedVertices, noseDelta,
+      physical: await stage.getAttribute("data-m3-premium-physical-details"),
+      bones: await stage.getAttribute("data-m3-bones"),
+      bindDelta: await stage.getAttribute("data-m3-bind-delta"),
+    }));
     await page.screenshot({
       path: "test-results/m3-premium-cute/creator-" + gender + ".png",
       animations: "disabled",
     });
+    await page.getByRole("button", { name: "Mặt · Tuỳ chỉnh khuôn mặt →" }).click();
+    await expect(stage).toHaveAttribute("data-focus", "face");
+    await page.screenshot({
+      path: "test-results/m3-premium-cute/creator-" + gender + "-face-front.png",
+      animations: "disabled",
+    });
+    const viewport = page.getByTestId("c2-character-viewport");
+    const rect = await viewport.boundingBox();
+    if (!rect) throw new Error("Cannot inspect premium 3/4 face without creator viewport");
+    await page.mouse.move(rect.x + rect.width * .74, rect.y + rect.height * .50);
+    await page.mouse.down();
+    await page.mouse.move(rect.x + rect.width * .48, rect.y + rect.height * .50, { steps: 8 });
+    await page.mouse.up();
+    await page.screenshot({
+      path: "test-results/m3-premium-cute/creator-" + gender + "-face-three-quarter.png",
+      animations: "disabled",
+    });
+    await page.getByRole("button", { name: "← Tạo hình" }).click();
+    await expect(stage).toHaveAttribute("data-focus", "body");
   }
   expect(errors).toEqual([]);
 });
