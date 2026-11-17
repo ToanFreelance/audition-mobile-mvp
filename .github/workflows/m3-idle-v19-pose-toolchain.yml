@@ -1,0 +1,33 @@
+name: M3 V1.9 — Offline Pose Model Bundle (diagnostics only)
+on:
+  push:
+    branches: [work/m3-waiting-room-integration-v1]
+    paths: [.github/workflows/m3-idle-v19-pose-toolchain.yml]
+permissions:
+  contents: read
+jobs:
+  python-tools:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Download portable Python 3.13 pose inference wheels
+        run: |
+          mkdir -p offline-model
+          python -m pip download --only-binary=:all: --no-deps "mediapipe==0.10.32" -d offline-model
+          python -m pip download --only-binary=:all: --no-deps flatbuffers protobuf -d offline-model
+      - name: Download official model for offline comparison with source
+        run: |
+          curl --fail --location --retry 3 --connect-timeout 20 \
+            https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task \
+            --output offline-model/pose_landmarker_full.task
+          ls -lh offline-model/
+      - name: Save toolchain for use with the attached source video outside CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3-v19-offline-pose-toolchain
+          path: offline-model/
+          retention-days: 7
