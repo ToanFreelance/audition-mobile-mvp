@@ -1483,7 +1483,8 @@ export default function WaitingRoomStage3D({
           const runtime = [...m3IdleByParticipant.values()][0];
           const stage = mountRef.current?.parentElement;
           const seconds = Number(value);
-          if (runtime && stage && (id === "F03" || id === "M03")
+          if (runtime && stage && typeof id === "string"
+            && /^(F0[1-5]|M0[1-3]|X01)$/.test(id)
             && Number.isFinite(seconds) && seconds >= 0) {
             if (runtime.currentGesture !== id || runtime.random || runtime.target) runtime.select(id);
             if (runtime.currentGesture === id) {
