@@ -889,6 +889,8 @@ export default function WaitingRoomStage3D({
     if (sketchVisual) camera.layers.enable(1);
     // Layer 2 reserves subtle premium face/hair accents for M3 only.
     camera.layers.enable(2);
+    // Layer 3 adds just one angled face light to the M3 Neurohacker rig.
+    camera.layers.enable(3);
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true,
@@ -930,6 +932,10 @@ export default function WaitingRoomStage3D({
     m3CoolContour.position.set(-3.4, 4.7, -2.7);
     m3CoolContour.layers.set(2);
     scene.add(m3CoolContour);
+    const m3MaleNoseKey = new THREE.DirectionalLight(0xffe0cc, 0.43);
+    m3MaleNoseKey.position.set(4.1, 5.2, 2.7);
+    m3MaleNoseKey.layers.set(3);
+    scene.add(m3MaleNoseKey);
 
     const cyanRim = new THREE.SpotLight(
       sketchVisual ? 0x20e8ff : 0x42dcff,
@@ -1925,7 +1931,12 @@ export default function WaitingRoomStage3D({
         // scene.environment changes all MeshPhysicalMaterials including the
         // floor, making the golden stage pale; do NOT attach a global PMREM.
         // Extra premium lighting must not illuminate existing C1/C4 actors.
-        actor.traverse(object => object.layers.enable(2));
+        actor.traverse(object => {
+          object.layers.enable(2);
+          if (getCharacterCatalogEntry(characterAssetId)?.m3RigFamily === "neurohacker") {
+            object.layers.enable(3);
+          }
+        });
         // M3 garments were detached-bound in the creator where the rig NEVER
         // moves. Waiting Room applies a stage formation transform. Attached
         // bind matrices follow the actor's world space once, not twice.
