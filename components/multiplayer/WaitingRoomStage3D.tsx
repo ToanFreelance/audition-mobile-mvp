@@ -1474,6 +1474,37 @@ export default function WaitingRoomStage3D({
 
     function onReview(event: Event) {
       const { command, id, value } = (event as CustomEvent).detail;
+      // V1.9 isolated frame probe: freeze one solo M3 at the requested
+      // source-relative 30 Hz timestamp and project RIG JOINTS with the REAL
+      // Three.js camera. No gameplay timing, actor identity or socket changes.
+      if (command === "v19-sample") {
+        if (motionReview && window.location.pathname === "/tools/lobby-qa-sketch"
+          && new URLSearchParams(window.location.search).get("v19capture") === "1") {
+          const runtime = [...m3IdleByParticipant.values()][0];
+          const stage = mountRef.current?.parentElement;
+          const seconds = Number(value);
+          if (runtime && stage && (id === "F03" || id === "M03")
+            && Number.isFinite(seconds) && seconds >= 0) {
+            if (runtime.currentGesture !== id || runtime.random || runtime.target) runtime.select(id);
+            if (runtime.currentGesture === id) {
+              runtime.seekReferenceTime(seconds);
+              stage.dataset.m3V19Sample = JSON.stringify({
+                schema: "m3-v19-2d", clip: id, kind: "m3", fps: 30,
+                width: renderer.domElement.clientWidth,
+                height: renderer.domElement.clientHeight,
+                frames: [{
+                  frame: Math.round(seconds * 30),
+                  time: Math.round(seconds * 1000000) / 1000000,
+                  joints: runtime.projectReferenceJoints(
+                    camera, renderer.domElement.clientWidth, renderer.domElement.clientHeight,
+                  ),
+                }],
+              });
+            }
+          }
+        }
+        return;
+      }
       if (command === "speed") reviewSpeed = value === .25 ? .25 : 1;
       if (command === "camera") { sideView = value === "side"; applyLayout(); }
       for (const runtime of m3IdleByParticipant.values()) {
