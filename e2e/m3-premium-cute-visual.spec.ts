@@ -52,6 +52,7 @@ test("M3 premium creator shows both real rigs without breaking saved traits", as
       animations: "disabled",
     });
     const viewport = page.getByTestId("c2-character-viewport");
+    const initialYaw = Number(await viewport.getAttribute("data-yaw"));
     const rect = await viewport.boundingBox();
     if (!rect) throw new Error("Cannot inspect premium 3/4 face without creator viewport");
     await page.mouse.move(rect.x + rect.width * .74, rect.y + rect.height * .50);
@@ -62,6 +63,13 @@ test("M3 premium creator shows both real rigs without breaking saved traits", as
       path: "test-results/m3-premium-cute/creator-" + gender + "-face-three-quarter.png",
       animations: "disabled",
     });
+    // Restore the exact starting yaw. Otherwise male "face-front" inherits
+    // female's three-quarter camera and is mislabeled as a frontal view.
+    await page.mouse.move(rect.x + rect.width * .48, rect.y + rect.height * .50);
+    await page.mouse.down();
+    await page.mouse.move(rect.x + rect.width * .74, rect.y + rect.height * .50, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(async () => Number(await viewport.getAttribute("data-yaw"))).toBeCloseTo(initialYaw, 1);
     await page.getByRole("button", { name: "← Tạo hình" }).click();
     await expect(stage).toHaveAttribute("data-focus", "body");
   }
