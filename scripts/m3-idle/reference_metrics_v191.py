@@ -119,6 +119,10 @@ def main() -> None:
     cli.add_argument("--model", type=Path, help="MediaPipe pose_landmarker_full.task when using Tasks")
     cli.add_argument("--output-dir", type=Path, required=True)
     cli.add_argument("--confidence", type=float, default=.60)
+    cli.add_argument("--m3-dir", type=Path,
+                     help="Nine actual Playwright M3 2D rig export files")
+    cli.add_argument("--baseline-m3-dir", type=Path,
+                     help="Optional nine old M3 exports for before/after comparison")
     cli.add_argument("--template-only", action="store_true",
                      help="Write an unverified ROI template; no source processing")
     args = cli.parse_args()
@@ -147,6 +151,7 @@ def main() -> None:
         raise ValueError("Unexpected original source dimensions: " + str(size))
     rois = parse_rois(args.rois, windows)
     reports = {}
+    measured = {}
     for clip, (start, end) in windows.items():
         # Existing ranges are unverified until explicitly checked on source frames.
         v19.SEGMENTS[clip] = (start / fps, end / fps)
@@ -164,9 +169,32 @@ def main() -> None:
         v19.store(source_path,data)
         reports[clip] = inspect_landmarks(data)
         v19.store(args.output_dir / (clip + "-tracking-coverage.json"), reports[clip])
+        if args.m3_dir:
+            target = args.m3_dir / (clip + "-m3-2d.json")
+            if not target.is_file():
+                raise FileNotFoundError("Missing M3 capture: " + str(target))
+            metrics_path = args.output_dir / (clip + "-source-vs-M3-metrics.json")
+            v19.score(SimpleNamespace(
+                source=source_path, target=target, output=metrics_path,
+                csv=args.output_dir / (clip + "-reprojection.csv"),
+                overlay=args.output_dir / (clip + "-source-vs-M3-overlay.mp4"),
+                video=args.video, confidence=args.confidence))
+            measured[clip] = {"current": json.loads(metrics_path.read_text())["error_px"]}
+            if args.baseline_m3_dir:
+                old = args.baseline_m3_dir / (clip + "-m3-2d.json")
+                if not old.is_file():
+                    raise FileNotFoundError("Missing old M3 capture: " + str(old))
+                baseline, _ = v19.compare(
+                    data, json.loads(old.read_text()), args.confidence)
+                measured[clip]["baseline"] = baseline["error_px"]
+                measured[clip]["delta_p50_px"] = round(
+                    measured[clip]["current"]["p50"] - baseline["error_px"]["p50"], 4)
+                measured[clip]["delta_p95_px"] = round(
+                    measured[clip]["current"]["p95"] - baseline["error_px"]["p95"], 4)
     v19.store(args.output_dir / "nine-clips-tracking-audit.json", {
         "source_file": args.video.name, "source_fps": fps, "source_frame_count": count,
         "range_review": "NOT_YET_VERIFIED_AGAINST_SOURCE", "clips": reports,
+        "reprojection": measured,
         "warning": "Tracking data must be frame-reviewed before 3D reconstruction."})
 
 
