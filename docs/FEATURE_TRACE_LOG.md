@@ -380,3 +380,10 @@ Dựng lại F03 và M03 bằng đường cong Blender và tỷ lệ xương th�
 - Exported eight source-skeleton MP4s, eight source-versus-M3 **joint-only** overlay MP4s and nine JSON/CSV/coverage archives privately in conversation. Original/derived video data not committed. No actual full-motion M3 renders, 3D reconstruction or animation JSON changes.
 - Hardened V1.9.1 source batch runner to mark insufficient source tracking as a failing gate but preserve other clip results instead of crashing mid-run. Added regression test. See [M3_IDLE_MEASURED_RETARGET_V191.md](M3_IDLE_MEASURED_RETARGET_V191.md).
 - Existing nine-clip M3 Playwright projection CI PASS (`44059611164`) with TypeScript/build/Python tests; new changes need their own CI recheck. Five-person READY and owner iPhone visual acceptance remain OPEN; M3 lobby-only and locked gameplay/multiplayer unchanged. No PR, no merge.
+
+### 2026-11-17 — M3 V1.9.1 monocular world-pose biomechanics gate (rejected for direct bake)
+
+- Re-ran actual 89.233s source through MediaPipe Tasks Full `pose_world_landmarks` at 30Hz for nine performance intervals, exported private per-frame model-estimated 3D landmark JSON and eight-limb length consistency audits. These are **estimated**, NOT source-observed depth or exact 3D mocap.
+- Clear 3D instability: F04 forearm CV 37.4%/32.3% and 131 source-model coordinate jumps >0.20 nominal world units; X01 forearm CV 23.4%/28.1% and 122 jumps; F03 right upper arm CV 22.7%. M02 poses are practically unavailable (0.28% landmark coverage). All estimated world streams are explicitly `retarget_ready=false`.
+- Added portable `scripts/m3-idle/world_estimates_v191.py` and focused synthetic regression tests; CI runs the tests alongside V1.9 measurements. Do not bake raw world data or claim animation fidelity improvements.
+- Complete data and limitations: `docs/M3_IDLE_MEASURED_RETARGET_V191.md`. Actual private world estimates provided as conversation ZIP only; no source or 3D video files publicly committed, no motion JSON changes, no merge.
