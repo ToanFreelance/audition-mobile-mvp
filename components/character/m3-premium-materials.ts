@@ -71,6 +71,7 @@ export class M3PremiumMaterialFinish {
   constructor(private readonly family: M3RigFamily) {}
   applied = 0;
   convertedUnlit = 0;
+  physicalEnhancements = 0;
 
   /**
    * Many M3 VRMs use KHR_materials_unlit. GLTFLoader creates MeshBasicMaterial
@@ -166,6 +167,7 @@ export class M3PremiumMaterialFinish {
       material.visible = old.visible;
       old.dispose();
       const physical = material as THREE.MeshPhysicalMaterial;
+      this.physicalEnhancements++;
       if (surface === "eyes") {
         physical.clearcoat = .82;
         physical.clearcoatRoughness = .10;
