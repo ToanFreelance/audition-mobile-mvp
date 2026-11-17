@@ -105,7 +105,7 @@ def track(args):
                 frames.append(sample)
                 if out:
                     render_pose(frame,joints,(0,255,255),
-                         f"SOURCE {args.clip} {sample['time']:.2f}s visible {len(joints)}/12")
+                         f"SOURCE {args.clip} frame {ix} abs {ix/fps:.3f}s clip {sample['time']:.2f}s visible {len(joints)}/12")
                     out.write(frame)
     finally:
         capture.release()
