@@ -1,0 +1,53 @@
+name: M3 face geometry diagnostic
+on:
+  push:
+    branches: [work/m3-premium-cute-visual-v1]
+    paths: [.github/workflows/m3-face-probe.yml]
+permissions:
+  contents: read
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Inspect existing licensed M3 male/female VRM head topology (read only)
+        run: |
+          python3 - <<'PY'
+          import json,struct,urllib.request
+          for family in ('neurohacker','drophunter'):
+            url=f'https://raw.githubusercontent.com/memelotsqui/character-assets/main/{family}/body/{family}.vrm'
+            req=urllib.request.Request(url,headers={'User-Agent':'M3-Visual-Probe'})
+            with urllib.request.urlopen(req,timeout=50) as response: raw=response.read()
+            if raw[:4]!=b'glTF':raise Exception("Not VRM GLB")
+            length,=struct.unpack_from('<I',raw,8);o=12;g=None;binary=None
+            while o<length:
+              n,typ=struct.unpack_from('<II',raw,o);o+=8;val=raw[o:o+n];o+=n
+              if typ==0x4e4f534a:g=json.loads(val)
+              elif typ==0x004e4942:binary=val
+            print('FAMILY',family,'bytes',len(raw),'meshes',len(g['meshes']))
+            for idx,node in enumerate(g['nodes']):
+              name=node.get('name','')
+              if any(x in name.lower() for x in ('head','face','neck','nose','eye')):
+                print(' NODE',idx,name,'mesh',node.get('mesh'),'pos',node.get('translation'))
+            for ix,m in enumerate(g['meshes']):
+              name=m.get('name','')
+              owners=[n.get('name','') for n in g['nodes'] if n.get('mesh')==ix]
+              print(' MESH',ix,name,'owners',owners)
+              for p in m['primitives']:
+                att=p.get('attributes',{});ai=att.get('POSITION')
+                if ai is None:continue
+                a=g['accessors'][ai];v=g['bufferViews'][a['bufferView']]
+                if a['componentType']!=5126 or a['type']!='VEC3':continue
+                start=v.get('byteOffset',0)+a.get('byteOffset',0);stride=v.get('byteStride',12)
+                pts=[struct.unpack_from('<fff',binary,start+i*stride) for i in range(a['count'])]
+                bounds=[(round(min(pt[k] for pt in pts),4),round(max(pt[k] for pt in pts),4)) for k in range(3)]
+                print('  PRIM',len(pts),'bounds',bounds,'materials',p.get('material'))
+                if any(t in (' '.join([name]+owners)).lower() for t in ('head','face')):
+                  print('  FRONT',[[round(z,4) for z in pt] for pt in sorted(pts,key=lambda p:p[2],reverse=True)[:12]])
+                  print('  BACK',[[round(z,4) for z in pt] for pt in sorted(pts,key=lambda p:p[2])[:5]])
+                  ys=sorted(v[1] for v in pts)
+                  for fraction in (.25,.35,.45,.55,.65,.75):
+                    y=ys[0]+(ys[-1]-ys[0])*fraction
+                    mid=[z for z in pts if abs(z[0])<.022 and abs(z[1]-y)<.015]
+                    if mid:print('  MID',fraction,'y',round(y,3),'n',len(mid),'frontZ',round(max(t[2] for t in mid),4),'backZ',round(min(t[2] for t in mid),4))
+          PY
