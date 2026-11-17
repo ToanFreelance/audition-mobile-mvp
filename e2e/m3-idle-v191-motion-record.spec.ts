@@ -33,7 +33,7 @@ const libraries = [
 for (const library of libraries) {
   test("M3 V1.9.1 full-library browser motion evidence: " + library.family,
     async ({ page }) => {
-      test.setTimeout(300_000);
+      test.setTimeout(420_000);
       const errors: string[] = [];
       page.on("pageerror", error => errors.push(error.message));
       await page.goto("/tools/lobby-qa-sketch?m3=" + library.family);
@@ -47,15 +47,17 @@ for (const library of libraries) {
       await page.getByText("Kiểm tra chuyển động M3").click();
       await page.getByRole("button", { name: "Chính diện", exact: true }).click();
       await page.waitForTimeout(500);
+      const completed = async () => Number(await stage.getAttribute("data-m3-completed-gestures"));
       for (const clip of library.clips) {
+        const previous = await completed();
         await page.evaluate((id) => {
           window.dispatchEvent(new CustomEvent("m3-idle-review", {
             detail: { command: "select", id },
           }));
         }, clip.id);
-        // Record normal-speed motion across essentially the entire existing
-        // baked clip. Do not use synthetic frame-seeking as cinematic proof.
-        await page.waitForTimeout(Math.floor((clip.frames - 2) * 1000 / 30));
+        await expect(stage).toHaveAttribute("data-m3-active-gestures", clip.id);
+        // A slow browser can take longer than the source duration to draw the whole clip.
+        await expect.poll(completed, { timeout: Math.ceil(clip.frames / 30) * 6_000 + 10_000 }).toBeGreaterThan(previous);
         await expect(stage).toHaveAttribute("data-m3-idle-instances", instance);
         await expect(stage).toHaveAttribute("data-scene-generation", generation);
       }
@@ -74,9 +76,10 @@ test("M3 V1.9.1 five-person random Waiting Room browser video", async ({ page })
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
-  await page.goto("/tools/lobby-qa-sketch?m3=five");
+  await page.goto("/tools/lobby-qa-sketch?m3=five&allM3=1");
   const stage = page.getByTestId("waiting-room-stage");
   await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 110_000 });
+  await expect(stage).toHaveAttribute("data-m3-idle-count", "5");
   const generation = await stage.getAttribute("data-scene-generation");
   const instance = await stage.getAttribute("data-m3-idle-instances");
   if (!generation || !instance) throw new Error("Missing five-person actor identity attributes");
@@ -89,4 +92,24 @@ test("M3 V1.9.1 five-person random Waiting Room browser video", async ({ page })
   await page.close();
   await mkdir("test-results/m3-v191-motion", { recursive: true });
   await video.saveAs("test-results/m3-v191-motion/five-person-random.webm");
+});
+
+test("Five actual M3 roots and mixers survive presentation-only roster changes", async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.goto("/tools/lobby-qa-sketch?m3=five&allM3=1&rosterProbe=1");
+  const stage = page.getByTestId("waiting-room-stage");
+  const roster = async (): Promise<string[][]> => JSON.parse(await stage.getAttribute("data-m3-roster-identity") ?? "[]");
+  await expect.poll(async () => (await roster()).length, { timeout: 110_000 }).toBe(5);
+  const identity = (await roster()).map(row => row.slice(0,3));
+  const generation = await stage.getAttribute("data-scene-generation");
+  const guest = "m3-fixture-guest-male";
+  for (const [control, field, expected] of [
+    ["Sẵn sàng", 3, "ready"], ["Sẵn sàng", 3, "not-ready"],
+    ["Kết nối", 4, "disconnected"], ["Kết nối", 4, "connected"],
+  ] as const) {
+    await page.getByRole("button", { name: control, exact: true }).click();
+    await expect.poll(async () => (await roster()).find(row => row[0] === guest)?.[field]).toBe(expected);
+    expect((await roster()).map(row => row.slice(0,3))).toEqual(identity);
+    await expect(stage).toHaveAttribute("data-scene-generation", generation!);
+  }
 });

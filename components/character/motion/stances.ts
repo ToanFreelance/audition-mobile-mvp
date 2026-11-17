@@ -2,7 +2,7 @@
 // Anatomical L is viewer-right in a front view. All targets are actor-local.
 export type Shoe = readonly [number, number, number, number];
 export type Feet = readonly [Shoe, Shoe];
-type Step = readonly [number, number, 0 | 1, Shoe];
+type Step = readonly [number, number, 0 | 1, Shoe, number?];
 type Stance = {
   feet: Feet;
   pelvis: number;
@@ -12,14 +12,18 @@ type Stance = {
 export const poses = {
   F01: {
     feet: [
-      [0.07, -0.025, 0, 0.21],
-      [-0.062, 0.024, 0, -0.05],
+      [0.105, -0.025, 0, 0.17],
+      [-0.115, 0.024, 0, -0.05],
     ],
     pelvis: -0.018,
     drop: 0.015,
     steps: [
-      [3.3, 3.87, 0, [0.03, -0.039, 0, 0.37]],
-      [8.0, 8.63, 0, [0.07, -0.025, 0, 0.21]],
+      // Original 30 Hz boot contacts. The left shoe comes forward, then
+      // the right heel pivots in. The shoes return in the opposite order.
+      [92 / 30, 106 / 30, 0, [0.063, 0.04, 0, 0.12], 0.014],
+      [106 / 30, 119 / 30, 1, [-0.055, 0.029, 0, 0.13], 0.009],
+      [243 / 30, 255 / 30, 1, [-0.115, 0.024, 0, -0.05], 0.009],
+      [255 / 30, 268 / 30, 0, [0.105, -0.025, 0, 0.17], 0.014],
     ],
   },
   F02: {
@@ -70,11 +74,15 @@ export const poses = {
   },
   M01: {
     feet: [
-      [0.108, 0.016, 0, 0.24],
+      [0.095, 0.016, 0, 0.24],
       [-0.117, -0.012, 0, -0.3],
     ],
     pelvis: -0.011,
     drop: 0.02,
+    steps: [
+      [23 / 30, 39 / 30, 0, [0.124, 0.016, 0, 0.27], 0.006],
+      [302 / 30, 317 / 30, 0, [0.095, 0.016, 0, 0.24], 0.006],
+    ],
   },
   M02: {
     feet: [
@@ -131,7 +139,7 @@ export function stanceAt(id: IdleId, time: number) {
     feet: [Shoe, Shoe] = [...pose.feet];
   let shift = pose.pelvis;
   const pitch: [number, number] = [0, id === "M03" ? 0.14 : 0];
-  for (const [start, end, side, target] of pose.steps ?? []) {
+  for (const [start, end, side, target, lift = 0.028] of pose.steps ?? []) {
     const support = feet[1 - side][0];
     if (time >= start - 0.22 && time < end + 0.22) {
       const load = Math.min(
@@ -144,7 +152,7 @@ export function stanceAt(id: IdleId, time: number) {
     if (time >= end) feet[side] = target;
     else if (time > start) {
       const phase = (time - start) / (end - start);
-      feet[side] = travel(feet[side], target, phase, 0.028);
+      feet[side] = travel(feet[side], target, phase, lift);
       pitch[side] = swingPitch(phase);
     }
   }

@@ -393,3 +393,10 @@ Dựng lại F03 và M03 bằng đường cong Blender và tỷ lệ xương th�
 - Added isolated Playwright browser recording: female five-clip library, male four-clip library, five-person random Waiting Room fixture, all recorded from REAL M3 SkinnedMesh/AnimationMixer rather than static screenshots. Run 44065383460: 3/3 tests PASS, actor instance and scene generation stable and no page errors.
 - Post-process CI failed because runner lacked `ffmpeg`, not an animation error; raw WebM artifact `14320147395` was valid. Converted privately into owner-visible MP4: female 52.84s, male 35.04s, five-person 32.32s. Separate motion workflow now provisions FFmpeg.
 - These are recordings of unchanged baked motions, NOT retargeted V1.9.1 improvements, and the 5-person QA fixture is NOT live 5-human Supabase QA. No production runtime/multiplayer/gameplay/clip JSON changes. Owner iPhone review and synchronized nine source-vs-render comparisons remain OPEN.
+
+
+### 2026-11-17 — M3 V1.9.1, hai chuyển động dựng lại
+
+- F01 và M01 có khóa mới 30 Hz trên rig thật. Bộ kiểm tra mốc nguồn, bộ giải và kiểm thử ở `scripts/m3-idle`; bằng chứng video nguồn được giao riêng.
+- Bộ thử phòng năm M3 kiểm tra định danh root/mixer khi đổi sẵn sàng và kết nối. Sửa chuyển đổi FFmpeg để xuất đủ ba bản ghi.
+- Bảy clip giữ chuyển động hiện hành do thiếu quan sát. Chi tiết trong `docs/M3_IDLE_MEASURED_RETARGET_V191.md`.

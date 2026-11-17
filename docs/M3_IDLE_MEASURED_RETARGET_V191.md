@@ -188,3 +188,17 @@ The separate CI workflow `.github/workflows/m3-idle-v191-motion-evidence.yml` wa
 **Crucial distinction:** These recordings demonstrate **existing V1.8.1-era M3 runtime motion**, not newly reconstructed V1.9.1 animations. They were not synchronized frame-by-frame against source MP4 and do not prove artistic acceptance. The five-person fixture is NOT a five-human Supabase READY/reconnect test. The source-to-M3 3D retarget gate remains FAILED/OPEN. No changes to M3 motion JSON or runtime behavior were made.
 
 Static source-vs-real-M3 contact sheet and a 24 high-error source/M3 skeleton frame montage were also generated privately; they support visual review but do not replace full per-clip actor comparisons.
+
+
+## 2026-11-17 — Dựng chuyển động F01 và M01 từ nguồn đã rà soát
+
+F01 (Drophunter, khung 0–312) và M01 (Neurohacker, 1611–1944) hiện dùng khóa chuyển động mới 30 Hz. Bảy clip còn lại giữ chuyển động hiện hành. Video nguồn và dữ liệu quan sát theo từng khung được giao riêng cho chủ dự án.
+
+Hai lần nhận dạng độc lập về trọng số mô hình, mốc ảnh đánh dấu tay và quang lưu hai chiều cung cấp mục tiêu 2D. Những vùng mất dấu có cờ riêng. Bộ giải khớp với chiều dài xương lấy từ VRM, giới hạn quay, ràng buộc theo thời gian và tiếp xúc chân. Hướng sâu của tay là ước lượng. Camera mỗi clip được cố định trước khi so trước/sau. Bảy khung mỗi clip được loại khỏi bộ giải; lỗi ở bốn mốc khuỷu/cổ tay đánh dấu riêng trên nguồn như sau.
+
+| Clip | P50 trước → sau (px nguồn) | P95 trước → sau (px nguồn) |
+|---|---:|---:|
+| F01 | 10,23 → 4,12 | 15,30 → 6,84 |
+| M01 | 23,81 → 14,72 | 36,80 → 19,13 |
+
+Kiểm tra lưới da với trang phục mặc định ở từng khung của hai clip và 16 đường chuyển liên quan ghi nhận 0 giao cắt trong các cặp được kiểm. Phân vị 95 của sai phân bậc hai cổ tay tăng ở cả hai clip. F02, F03, F04, F05, X01 và M03 thiếu quan sát tin cậy ở tay, chân hoặc cả hai trong những đoạn quan trọng. M02 chỉ có mốc ngoài trên bộ đồ gấu. Các số đo, góc chính diện/nghiêng và kiểm tra của chủ dự án trên iPhone là các bước riêng của nghiệm thu.

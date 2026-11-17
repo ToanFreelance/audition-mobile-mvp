@@ -1,3 +1,4 @@
+import RosterProbe from "./RosterProbe";
 import MotionControls from "./MotionControls";
 import WaitingRoomPanel from "../../../components/multiplayer/WaitingRoomPanel";
 import { createRoomState, addParticipant } from "../../../multiplayer/room-state";
@@ -17,6 +18,8 @@ type LobbyQaSketchPageProps = {
     traceMode?: string;
     solo?: string;
     m3?: "female" | "male" | "five";
+    allM3?: string;
+    rosterProbe?: string;
   }>;
 };
 
@@ -45,9 +48,10 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
   // Room renderer without Supabase, START, or canonical room mutation.
   const m3Id = params.m3 === "female" || params.m3 === "five" ? "m3-drophunter"
     : params.m3 === "male" ? "m3-neurohacker" : null;
+  const maleAppearance = { hairStyle: "short", hairColor: "original", skinTone: "originalskin", m3Outfit: { top: "logotee", bottom: "cargoshorts" } };
   const m3Appearance = m3Id === "m3-drophunter"
     ? { hairStyle: "short", hairColor: "original", skinTone: "originalskin", m3Outfit: { top: "shirt", bottom: "casualshorts" } }
-    : { hairStyle: "short", hairColor: "original", skinTone: "originalskin", m3Outfit: { top: "logotee", bottom: "cargoshorts" } };
+    : maleAppearance;
   const soloHost: HumanHostParticipant = {
     participantId: "c3-single-host",
     displayName: "Luna",
@@ -81,10 +85,10 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
   const guests: HumanGuestParticipant[] = params.m3 === "five" ? (
     [
       { participantId: "m3-fixture-guest-male", slotIndex: 0, displayName: "Kai", characterId: "m3-neurohacker",
-        m3Appearance: { hairStyle: "short", hairColor: "original", skinTone: "originalskin", m3Outfit: { top: "logotee", bottom: "cargoshorts" } } },
+        m3Appearance: maleAppearance },
       { participantId: "m3-fixture-guest-female", slotIndex: 1, displayName: "Mia", characterId: "m3-drophunter", m3Appearance },
-      { participantId: "m3-fixture-guest-c1", slotIndex: 3, displayName: "Grace", characterId: "c1-casual-grace" },
-      { participantId: "m3-fixture-guest-c4", slotIndex: 4, displayName: "Boy", characterId: "c4-casual-boy" },
+      { participantId: "m3-fixture-guest-c1", slotIndex: 3, displayName: "Grace", characterId: params.allM3 === "1" ? "m3-drophunter" : "c1-casual-grace", m3Appearance: params.allM3 === "1" ? m3Appearance : undefined },
+      { participantId: "m3-fixture-guest-c4", slotIndex: 4, displayName: "Boy", characterId: params.allM3 === "1" ? "m3-neurohacker" : "c4-casual-boy", m3Appearance: params.allM3 === "1" ? maleAppearance : undefined },
     ] as const).map(guest => ({
       participantId: guest.participantId,
       displayName: guest.displayName,
@@ -104,6 +108,8 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
   const visualRoom = soloRoom && guests.length
     ? guests.reduce((room, guest) => addParticipant(room, guest), soloRoom)
     : soloRoom;
+
+  if (params.rosterProbe === "1" && params.m3 === "five" && visualRoom) return <RosterProbe room={visualRoom} />;
 
   return (
     <>

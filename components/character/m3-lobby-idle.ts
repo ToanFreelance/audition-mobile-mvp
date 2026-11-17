@@ -52,6 +52,7 @@ export type M3LobbyIdle = {
   clipDuration: number;
   poseTime: number;
   update(deltaSeconds: number): void;
+  readonly playbackMixer: THREE.AnimationMixer;
   /** QA-only measurement API; never used by production Waiting Room. */
   seekReferenceTime(seconds: number): void;
   projectReferenceJoints(camera: THREE.Camera, width: number, height: number): Record<string, [number, number, number]>;
@@ -235,6 +236,7 @@ type BakedTrack = { frames: number[]; values: number[] };
 type BakedMotion = {
   fps: number;
   lastFrame: number;
+  sourceFrameCount?: number;
   tracks: Record<string, BakedTrack>;
 };
 
@@ -320,7 +322,7 @@ function buildPerformanceClip(
   }
   return new THREE.AnimationClip(
     "m3-lobby-" + id,
-    source.lastFrame / source.fps,
+    (source.sourceFrameCount ?? source.lastFrame) / source.fps,
     tracks,
   );
 }
@@ -477,6 +479,35 @@ export function createM3LobbyIdle(
   const armAxis = new THREE.Vector3(0, 0, 1);
   let armCorrected = false;
   const actualHips = new THREE.Vector3();
+  // Measure the distal finger on the assembled cargo outfit during inertial
+  // transitions. The wrist alone can clear the pocket while the fingers enter it.
+  const cargoArms = rigFamily === "neurohacker" ? [
+    { arm: leftArm, tip: getJoint(rig, "middle.distal.L")?.bone, sign: 1 },
+    { arm: rightArm, tip: getJoint(rig, "middle.distal.R")?.bone, sign: -1 },
+  ] : [];
+  const cargoTip = new THREE.Vector3(), cargoShoulder = new THREE.Vector3();
+  const cargoAxis = new THREE.Vector3(), cargoRotation = new THREE.Quaternion();
+  function clearCargoPockets(weight: number) {
+    actor.worldToLocal(hips!.bone.getWorldPosition(actualHips));
+    for (const { arm, tip, sign } of cargoArms) {
+      if (!tip) continue;
+      actor.worldToLocal(tip.getWorldPosition(cargoTip));
+      const relativeY = (cargoTip.y - actualHips.y) / localHeight;
+      if (relativeY > 0.08 || relativeY < -0.20) continue;
+      const depth = (cargoTip.z - actualHips.z) / localHeight;
+      const clearance = 0.177 - Math.max(0, depth - 0.12);
+      const deficit = clearance - sign * (cargoTip.x - actualHips.x) / localHeight;
+      if (deficit <= 0) continue;
+      actor.worldToLocal(arm.getWorldPosition(cargoShoulder));
+      const lever = Math.max(0.08, (cargoShoulder.y - cargoTip.y) / localHeight);
+      const angle = Math.min(0.36, Math.atan2(deficit, lever)) * weight * sign;
+      actor.getWorldQuaternion(cargoRotation);
+      cargoAxis.set(0, 0, 1).applyQuaternion(cargoRotation);
+      arm.parent!.getWorldQuaternion(cargoRotation);
+      cargoAxis.applyQuaternion(cargoRotation.invert());
+      arm.quaternion.premultiply(cargoRotation.setFromAxisAngle(cargoAxis, angle));
+    }
+  }
   const thighPosition = new THREE.Vector3(),
     shinPosition = new THREE.Vector3(),
     anklePosition = new THREE.Vector3();
@@ -570,6 +601,7 @@ export function createM3LobbyIdle(
   const referencePoint = new THREE.Vector3();
   const runtime: M3LobbyIdle = {
     instanceId: THREE.MathUtils.generateUUID(),
+    playbackMixer: mixer,
     elapsedSeconds: 0,
     hasScratchPose: false,
     currentGesture: id,
@@ -620,9 +652,13 @@ export function createM3LobbyIdle(
         restoreBase = false;
       }
       let clearanceAngle = 0;
+      let cargoWeight = 0;
       if (bridge && runtime.target && incoming) {
         bridgeTime += dt;
         const next = runtime.target;
+        if (id === "M01" || next === "M01") {
+          cargoWeight = ease(THREE.MathUtils.clamp(Math.min(bridgeTime, bridge.duration - bridgeTime) / 0.12, 0, 1));
+        }
         const weight = ease(Math.min(1, bridgeTime / bridge.duration));
         // Start the entry gesture gradually in the last part of settling. The
         // first authored step stays after the bridge and the action keeps its time.
@@ -739,6 +775,7 @@ export function createM3LobbyIdle(
           rest[i].y - anklePosition.y,
         );
       }
+      if (cargoWeight > 0) clearCargoPockets(cargoWeight);
       if (garmentFit) garmentFit.update(placement.feet[1][2]);
       runtime.contacts =
         placement.feet[0][2] > 1e-6

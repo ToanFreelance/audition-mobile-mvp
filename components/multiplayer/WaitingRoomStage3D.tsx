@@ -1271,6 +1271,8 @@ export default function WaitingRoomStage3D({
     };
 
     const motionReview = window.location.pathname === "/tools/lobby-qa-sketch";
+    const rosterReview = motionReview && new URLSearchParams(window.location.search).get("rosterProbe") === "1";
+    const reviewMixerIds = rosterReview ? new WeakMap<THREE.AnimationMixer, string>() : null;
     let reviewSpeed = 1;
     let sideView = false;
     const applyLayout = () => {
@@ -1580,6 +1582,16 @@ export default function WaitingRoomStage3D({
             stageElement.dataset.m3CompletedGestures = String(runtimes.reduce((sum, item) => sum + item.completedGestures, 0));
             stageElement.dataset.m3ActiveGestures = runtimes.map(item => item.currentGesture || "-").join(",");
             stageElement.dataset.m3ReferenceProfiles = runtimes.map(item => item.animationProfile).join(",");
+            if (reviewMixerIds) {
+              stageElement.dataset.m3RosterIdentity = JSON.stringify(
+                Array.from(m3IdleByParticipant, ([participant, idle]) => {
+                  const mixer = idle.playbackMixer;
+                  if (!reviewMixerIds.has(mixer)) reviewMixerIds.set(mixer, THREE.MathUtils.generateUUID());
+                  const current = stageNodesRef.current.get(participant)?.participant;
+                  return [participant, mixer.getRoot().uuid, reviewMixerIds.get(mixer), current?.readyState, current?.connectionState];
+                }).sort((a,b) => String(a[0]).localeCompare(String(b[0]))),
+              );
+            }
             stageElement.dataset.m3IdleInstances = runtimes.map(item => item.instanceId).join(",");
             stageElement.dataset.m3ReferenceTimes = runtimes.map(item => item.poseTime.toFixed(2)).join(",");
           }

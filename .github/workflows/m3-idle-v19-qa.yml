@@ -9,6 +9,9 @@ on:
       - scripts/m3-idle/test_reference_metrics_v19.py
       - scripts/m3-idle/reference_metrics_v191.py
       - scripts/m3-idle/test_reference_metrics_v191.py
+      - scripts/m3-idle/review_tracks_v191.py
+      - scripts/m3-idle/solve_reviewed_v191.py
+      - scripts/m3-idle/test_reviewed_v191.py
       - scripts/m3-idle/world_estimates_v191.py
       - scripts/m3-idle/test_world_estimates_v191.py
       - e2e/m3-idle-v19-projection.spec.ts
@@ -42,7 +45,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Python dependencies for 2D measurement
-        run: python -m pip install --disable-pip-version-check numpy opencv-python-headless
+        run: python -m pip install --disable-pip-version-check numpy scipy opencv-python-headless
       - name: 2D measurement and nine-clip tracking audit (synthetic)
         run: python -m unittest discover -s scripts/m3-idle -p 'test_*v19*.py' -v
       - name: Node dependencies
