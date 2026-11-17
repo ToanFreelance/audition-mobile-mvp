@@ -8,6 +8,8 @@ on:
       - scripts/m3-idle/test_reference_metrics_v19.py
       - scripts/m3-idle/reference_metrics_v191.py
       - scripts/m3-idle/test_reference_metrics_v191.py
+      - scripts/m3-idle/world_estimates_v191.py
+      - scripts/m3-idle/test_world_estimates_v191.py
       - e2e/m3-idle-v19-projection.spec.ts
       - components/character/m3-lobby-idle.ts
       - components/multiplayer/WaitingRoomStage3D.tsx
@@ -41,7 +43,7 @@ jobs:
       - name: Python dependencies for 2D measurement
         run: python -m pip install --disable-pip-version-check numpy opencv-python-headless
       - name: 2D measurement and nine-clip tracking audit (synthetic)
-        run: python -m unittest discover -s scripts/m3-idle -p 'test_reference_metrics_v19*.py' -v
+        run: python -m unittest discover -s scripts/m3-idle -p 'test_*v19*.py' -v
       - name: Node dependencies
         run: npm ci
       - name: TypeScript
