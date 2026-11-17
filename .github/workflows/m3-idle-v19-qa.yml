@@ -4,6 +4,7 @@ on:
     branches:
       - work/m3-waiting-room-integration-v1
     paths:
+      - components/character/motion/**
       - scripts/m3-idle/reference_metrics_v19.py
       - scripts/m3-idle/test_reference_metrics_v19.py
       - scripts/m3-idle/reference_metrics_v191.py

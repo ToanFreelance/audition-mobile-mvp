@@ -4,7 +4,9 @@ on:
     branches:
       - work/m3-waiting-room-integration-v1
     paths:
+      - components/character/motion/**
       - e2e/m3-idle-v191-motion-record.spec.ts
+      - components/character/m3-lobby-idle.ts
       - .github/workflows/m3-idle-v191-motion-evidence.yml
   workflow_dispatch:
 permissions:
@@ -51,7 +53,7 @@ jobs:
             fi
             find test-results/m3-v191-motion -type f -name '*.webm' -print0 |
             while IFS= read -r -d '' video; do
-              ffmpeg -y -hide_banner -loglevel error -i "$video" \
+              ffmpeg -nostdin -y -hide_banner -loglevel error -i "$video" \
                 -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p \
                 "${video%.webm}.mp4"
             done
