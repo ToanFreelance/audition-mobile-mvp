@@ -167,3 +167,24 @@ A separate reproducible script was committed: `scripts/m3-idle/world_estimates_v
 An additional private conversation bundle, `M3-V191-3D-estimates-biomechanics-9-clips.zip`, contains the actual per-frame world estimates and these audits; it was NOT committed to public GitHub.
 
 **Current 3D gate outcome: REJECT DIRECT RETARGET.** Required next method is measured-2D constrained reconstruction with fixed M3 bone lengths, joint limits, confidence-weighted loss, occlusion treatment, anatomical L/R review, 3D foot support/contact, then frame-aligned comparison using *rendered* M3 actors in front/side view. M02 requires a different source-tracking strategy because the human pose model fails on its bear morphology. No animations, random selection or gameplay were changed as part of this evaluation.
+
+
+## Addendum — actual M3 WebGL full-motion browser recordings (existing runtime)
+
+A new isolated Playwright suite `e2e/m3-idle-v191-motion-record.spec.ts` captured **real assembled M3 characters** (not synthetic stick-figures) while the current M3 `AnimationMixer` played each baked clip at normal runtime speed. Three tests in GitHub Actions run `44065383460` **PASSED 3/3**:
+
+1. Female Drophunter existing library: F01, F02, F03, F04, F05 at normal playback speed, preserved scene generation and actor instance through recording.
+2. Male Neurohacker existing library: M01, M02, X01, M03 at normal playback speed, preserved actor instance.
+3. Five-person QA fixture: 30 seconds of random Waiting Room playback, stable scene generation and M3 instances, no page errors.
+
+Run `44065383460` had a **post-processing infrastructure failure** after the tests: the GitHub runner did not have the system `ffmpeg` binary. The raw WebM footage was uploaded successfully as artifact `14320147395`. It was downloaded into the private analysis environment, validated with ffprobe, converted to H264 MP4, and the waiting/loading portions were trimmed for owner viewing:
+
+- `M3-V191-female-full-library-real-motion.mp4` — 52.84 s.
+- `M3-V191-male-full-library-real-motion.mp4` — 35.04 s.
+- `M3-V191-five-person-random-real-motion.mp4` — 32.32 s.
+
+The separate CI workflow `.github/workflows/m3-idle-v191-motion-evidence.yml` was corrected to install FFmpeg before MP4 transcoding. The owner-visible MP4 files are private conversation attachments, not repository media.
+
+**Crucial distinction:** These recordings demonstrate **existing V1.8.1-era M3 runtime motion**, not newly reconstructed V1.9.1 animations. They were not synchronized frame-by-frame against source MP4 and do not prove artistic acceptance. The five-person fixture is NOT a five-human Supabase READY/reconnect test. The source-to-M3 3D retarget gate remains FAILED/OPEN. No changes to M3 motion JSON or runtime behavior were made.
+
+Static source-vs-real-M3 contact sheet and a 24 high-error source/M3 skeleton frame montage were also generated privately; they support visual review but do not replace full per-clip actor comparisons.
