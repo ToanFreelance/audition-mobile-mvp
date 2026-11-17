@@ -1486,7 +1486,7 @@ export default function WaitingRoomStage3D({
           if (runtime && stage && typeof id === "string"
             && /^(F0[1-5]|M0[1-3]|X01)$/.test(id)
             && Number.isFinite(seconds) && seconds >= 0) {
-            if (runtime.currentGesture !== id || runtime.random || runtime.target) runtime.select(id);
+            if (runtime.currentGesture !== id || runtime.random || runtime.target) runtime.select(id as M3LobbyIdle["currentGesture"]);
             if (runtime.currentGesture === id) {
               runtime.seekReferenceTime(seconds);
               stage.dataset.m3V19Sample = JSON.stringify({
