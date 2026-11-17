@@ -28,6 +28,7 @@ test("M3 premium creator shows both real rigs without breaking saved traits", as
     const sculptedVertices = Number(await stage.getAttribute("data-m3-premium-nose-vertices"));
     const noseDelta = Number(await stage.getAttribute("data-m3-premium-nose-delta"));
     if (gender === "male") {
+      console.log("M3_PREMIUM_MALE_GEOMETRY " + String(await stage.getAttribute("data-m3-premium-nose-probe")));
       expect(sculptedVertices).toBeGreaterThan(15);
       expect(noseDelta).toBeGreaterThan(.002);
       expect(noseDelta).toBeLessThan(.018);
