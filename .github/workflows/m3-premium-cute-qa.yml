@@ -41,7 +41,7 @@ jobs:
       - name: Actual M3 creator, lobby and identity smoke
         env:
           PLAYWRIGHT_WEB_SERVER: "1"
-        run: npx playwright test e2e/m3-premium-cute-visual.spec.ts e2e/m3-lobby-appearance.spec.ts e2e/lobby-stage-identity.spec.ts --project=desktop --workers=1 --retries=0
+        run: npx playwright test e2e/m3-premium-cute-visual.spec.ts e2e/m3-lobby-appearance.spec.ts e2e/lobby-stage-identity.spec.ts --project=desktop --workers=1 --retries=0 --max-failures=1
       - name: Upload true WebGL screenshots for owner review
         if: always()
         uses: actions/upload-artifact@v4
