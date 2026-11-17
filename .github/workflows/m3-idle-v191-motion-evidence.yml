@@ -1,0 +1,65 @@
+name: M3 Idle V1.9.1 — Real Full-Motion Evidence
+on:
+  push:
+    branches:
+      - work/m3-waiting-room-integration-v1
+    paths:
+      - e2e/m3-idle-v191-motion-record.spec.ts
+      - .github/workflows/m3-idle-v191-motion-evidence.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: m3-v191-motion-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Dependencies
+        run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Record actual rendered motion
+        env:
+          PLAYWRIGHT_WEB_SERVER: "1"
+        run: npx playwright test e2e/m3-idle-v191-motion-record.spec.ts --project=desktop --workers=1 --retries=0
+      - name: Convert Playwright real-time captures to mobile-friendly MP4
+        if: always()
+        run: |
+          if test -d test-results/m3-v191-motion; then
+            find test-results/m3-v191-motion -type f -name '*.webm' -print0 |
+            while IFS= read -r -d '' video; do
+              ffmpeg -y -hide_banner -loglevel error -i "$video" \
+                -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p \
+                "${video%.webm}.mp4"
+            done
+          fi
+      - name: Preserve real full-motion footage and Playwright errors
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3-v191-real-motion-${{ github.run_id }}
+          path: |
+            test-results/m3-v191-motion/
+            test-results/junit.xml
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
