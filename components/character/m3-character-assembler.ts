@@ -4,6 +4,7 @@ import { getCharacterCatalogEntry, type CharacterAssetId, type M3RigFamily } fro
 import { getM3CreatorWardrobeForFamily, type M3CreatorOutfit } from "./m3-creator-outfits";
 import { applyM3CreatorNeutralPose } from "./m3-creator-neutral-pose";
 import { M3PremiumMaterialFinish } from "./m3-premium-materials";
+import { applyM3PremiumFaceSculpt, type M3FaceSculptResult } from "./m3-premium-face";
 
 /** Shared M3 actor assembly. Does not own renderer, AnimationMixer or gameplay clock. */
 export type M3Appearance = Readonly<{
@@ -82,10 +83,11 @@ export class M3CharacterAssembler {
   baseLoads = 0;
   maxBindDelta = 0;
   creatorIdleArms = 0;
+  premiumFaceSculpt: M3FaceSculptResult = { vertexCount: 0, affectedVertices: 0, maxForwardDelta: 0 };
   /** Diagnostic only; material finish does not alter rig or cosmetic identity. */
   get premiumMaterialCount() { return this.premiumFinish.applied; }
   get premiumConvertedUnlit() { return this.premiumFinish.convertedUnlit; }
-  private readonly premiumFinish = new M3PremiumMaterialFinish();
+  private readonly premiumFinish: M3PremiumMaterialFinish;
   private readonly loader = new GLTFLoader();
   private readonly textureLoader = new THREE.TextureLoader();
   private readonly sources = new Map<string, LoadedPart>();
@@ -106,6 +108,7 @@ export class M3CharacterAssembler {
 
   private constructor(family: M3RigFamily) {
     this.family = family;
+    this.premiumFinish = new M3PremiumMaterialFinish(family);
     this.root.name = "M3Actor:" + family;
   }
   static async create(assetId: CharacterAssetId, appearance: M3Appearance): Promise<M3CharacterAssembler> {
@@ -145,6 +148,9 @@ export class M3CharacterAssembler {
     this.root.updateMatrixWorld(true);
     this.bindInverse.copy(this.root.matrixWorld).invert();
     this.baseLoads++;
+    // Real male nose mesh sculpt, bounded by verified source proportions.
+    // Do this once before cloning and before any wardrobe/animation binding.
+    this.premiumFaceSculpt = applyM3PremiumFaceSculpt(this.root, this.family);
     this.findSkinTargets();
     const wardrobe = getM3CreatorWardrobeForFamily(this.family);
     const selected = appearance.m3Outfit ?? wardrobe.defaultOutfit;
