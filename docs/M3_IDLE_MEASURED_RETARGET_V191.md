@@ -142,3 +142,28 @@ Source-frame windows above are verified to be within the actual MP4, but the exa
 - Gate F: **OPEN**, owner iPhone art review must follow actual 3D retarget, full rendered comparisons and five-person footage.
 
 The critical unresolved task is to repair unreliable source tracking, especially M02 with an appropriate animation/anime pose solution or manual verified ground truth, then fit source trajectories to M3 anatomical bone constraints and generate real side-by-side motion videos. Do **not** accept the eight skeleton overlay results as final V1.9.1 artistic delivery. No source video is publicly uploaded and no merges occurred.
+
+
+## Addendum — source-derived 3D world estimates, biomechanical rejection
+
+The owner source was also passed through MediaPipe Tasks `pose_world_landmarks` at the original 30 fps for all nine selected windows. This output is a **model-inferred single-camera 3D pose** in pelvis-relative nominal world units — no camera-depth ground truth. The projected 2D joint trajectories and these inferred 3D trajectories must not be conflated.
+
+| Clip | World landmark coverage | Inter-frame world-coordinate jump flags (distance >0.20 units) | Unstable 3D estimated limb lengths (CV >15%) |
+|---|---:|---:|---|
+| F01 | 100.0% | 23 | None in 8 tested limbs |
+| F02 | 97.5% | 30 | None in 8 tested limbs |
+| F03 | 98.9% | 31 | Right upper arm, right forearm |
+| F04 | 98.3% | 131 | Right upper arm, both forearms |
+| F05 | 86.0% | 60 | Both forearms |
+| M01 | 100.0% | 11 | None in 8 tested limbs |
+| M02 | 0.28% | 0 (insufficient evidence) | Not measurable |
+| X01 | 78.1% | 122 | Both upper arms and forearms |
+| M03 | 94.7% | 12 | None in 8 tested limbs |
+
+For example, F04 forearm length CV is **37.37% left** and **32.27% right**; X01 forearm length CV is **23.42% left** and **28.06% right**; F03 right upper arm CV **22.69%**. A real animated skeleton cannot have dynamically changing bone lengths. This is evidence that the source model estimates are not physically stable enough for direct bone-rotation baking. Jump flags are conservative screening heuristics, **not** confirmed body motion errors in every flagged frame.
+
+A separate reproducible script was committed: `scripts/m3-idle/world_estimates_v191.py`. It accepts the actual private MP4, model, manually reviewed nine ROI entries and export directory, writes per-clip 3D estimate JSON and biomechanical-audit JSON, with **`retarget_ready=false` always** pending constrained reconstruction. Tests in `test_world_estimates_v191.py` ensure missing source poses stay missing and unstable bone lengths cannot silently pass. No automatically inferred coordinates are substituted for verified M3 rig constraints.
+
+An additional private conversation bundle, `M3-V191-3D-estimates-biomechanics-9-clips.zip`, contains the actual per-frame world estimates and these audits; it was NOT committed to public GitHub.
+
+**Current 3D gate outcome: REJECT DIRECT RETARGET.** Required next method is measured-2D constrained reconstruction with fixed M3 bone lengths, joint limits, confidence-weighted loss, occlusion treatment, anatomical L/R review, 3D foot support/contact, then frame-aligned comparison using *rendered* M3 actors in front/side view. M02 requires a different source-tracking strategy because the human pose model fails on its bear morphology. No animations, random selection or gameplay were changed as part of this evaluation.
