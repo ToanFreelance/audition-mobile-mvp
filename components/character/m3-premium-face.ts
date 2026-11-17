@@ -70,10 +70,10 @@ export function refineNeurohackerNoseGeometry(
     const front = THREE.MathUtils.smoothstep(z, .048, .085);
     // Soft volumes: brow-to-bridge ramp, subtle nose-tip projection and
     // alar side planes. These taper to zero before cheeks/eyes and lips.
-    const bridge = .009 * bell(x - cx, y - bridgeY, sigmaX * .77, h * .126);
-    const tip = .006 * bell(x - cx, y - tipY, sigmaX * .83, h * .043);
-    const leftWing = .002 * bell(x - (cx - w * .059), y - tipY, sigmaX * .45, h * .031);
-    const rightWing = .002 * bell(x - (cx + w * .059), y - tipY, sigmaX * .45, h * .031);
+    const bridge = .0058 * bell(x - cx, y - bridgeY, sigmaX * .95, h * .138);
+    const tip = .0036 * bell(x - cx, y - tipY, sigmaX * 1.06, h * .057);
+    const leftWing = .0012 * bell(x - (cx - w * .059), y - tipY, sigmaX * .62, h * .041);
+    const rightWing = .0012 * bell(x - (cx + w * .059), y - tipY, sigmaX * .62, h * .041);
     const delta = front * (bridge + tip + leftWing + rightWing);
     if (delta < .00005) continue;
     points.setZ(i, z + delta);
