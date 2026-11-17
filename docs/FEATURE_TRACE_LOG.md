@@ -352,3 +352,11 @@ Chủ dự án bác V1.7 trên iPhone vì mỗi rig chỉ đổi pha của một
 ### 2026-11-17 — M3 Waiting Room Idle V1.8.1
 
 Dựng lại F03 và M03 bằng đường cong Blender và tỷ lệ xương thật, chỉnh bảy clip còn lại và thay phần hòa hai pose đứng yên bằng chuyển thế có vận tốc, đổi trụ và ổn định. Đã quét đế giày, kiểm giao tam giác qua chín clip và 32 cặp chuyển, hiệu chỉnh vai áo Neurohacker, bổ sung chẩn đoán nhịp vẽ trong QA. Chờ nghiệm thu trên iPhone. [Báo cáo chuyển động V1.8.1](M3_IDLE_VIDEO_REVIEW_V181.md)
+
+### 2026-11-17 — M3 V1.9 measured reference skeleton gate (IN PROGRESS, no visual acceptance)
+
+- Owner rejected robotic V1.8.1; approved measured source-video skeleton overlay and 2D-to-3D retarget with per-frame reprojection error rather than subjective F-Curve tuning.
+- Existing branch work/m3-waiting-room-integration-v1; V1.8.1 clips and shuffle-bag unchanged. New opt-in real-rig 30Hz projection in sketch QA route, full-source MP4 MediaPipe Tasks tracking, fixed first-30-frame camera registration and per-frame CSV/overlay. Source video not committed.
+- Verified actual 230 F03 and 194 M03 source frames. Baseline V1.8.1 error: F03 P50 13.52px / P95 31.53px, M03 P50 12.64px / P95 36.39px. Right/left F03 elbows and M03 right wrist / ankle remain major divergences. This is 2D reprojection, NOT 3D fidelity percentage.
+- QA run 44012954641 PASS: Python metrics tests 5/5, real M3 Playwright export 2/2, TypeScript, build. Source overlay generated from original attached video in analysis environment, not in CI artifact. See docs/M3_IDLE_REFERENCE_TRACKING_V19.md.
+- No new runtime animation has been accepted or retargeted; optimizing measured targets is the next gate. No merge; general Lobby QA historical lint failure unchanged.
