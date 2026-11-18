@@ -15,6 +15,7 @@ class BlenderF01Tests(unittest.TestCase):
         data=self.data
         self.assertEqual(data['motionOwner'],'blender-full-body')
         self.assertEqual((data['fps'],data['lastFrame'],data['sourceFrameCount']),(30,312,313))
+        self.assertEqual(data['sourceStartFrame'],0)
         for side in ['L','R']:
             for name in ['shoulder','upper_arm','lower_arm','hand','upper_leg','lower_leg','foot']:
                 self.assertIn(name+'.'+side,data['tracks'])

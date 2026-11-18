@@ -276,7 +276,7 @@ def bake(arm,assets,out):
             yaw.append(math.atan2(matrix[0][2],matrix[2][2]))
         rows.append({'frame':frame,'joints':{n:list(m.translation) for n,m in world.items()},
                      'footYaw':yaw,'contact':[any(a<=frame<=b for a,b in CONTACTS[s]) for s in ['L','R']]})
-    data={'fps':30,'lastFrame':312,'sourceFrameCount':313,'sourceStart':0,
+    data={'fps':30,'lastFrame':312,'sourceFrameCount':313,'sourceStartFrame':0,
           'authoring':'Blender 4.3 full-body F01 pilot; owner acceptance OPEN',
           'motionOwner':'blender-full-body','contactWindows':CONTACTS,
           'footSamples':[[r['joints']['foot.'+s] for s in ['L','R']] for r in rows],
