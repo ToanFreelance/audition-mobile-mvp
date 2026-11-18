@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import * as THREE from "three";
+import restRig from "./fixtures/drophunter-rest-v192.json";
+import f01 from "../components/character/motion/drophunter.json";
 import { createM3LobbyIdle } from "../components/character/m3-lobby-idle";
 
 import {
@@ -12,35 +14,16 @@ import {
 function syntheticM3Actor() {
   const root = new THREE.Group();
   const bones: THREE.Bone[] = [];
-  const bone = (
-    name: string,
-    parent: THREE.Object3D,
-    x: number,
-    y: number,
-    z = 0,
-  ) => {
-    const b = new THREE.Bone();
-    b.name = name;
-    b.position.set(x, y, z);
-    parent.add(b);
-    bones.push(b);
-    return b;
-  };
-  const hips = bone("hips", root, 0, 0.85);
-  const spine = bone("spine", hips, 0, 0.27);
-  const chest = bone("chest", spine, 0, 0.13);
-  const neck = bone("neck", chest, 0, 0.15);
-  bone("head", neck, 0, 0.12);
-  for (const side of [-1, 1]) {
-    const suffix = side > 0 ? "L" : "R";
-    // M3 VRMs bind in a T-pose, with the fingers along lateral X.
-    const clavicle = bone("shoulder." + suffix, chest, side * 0.02, 0.12);
-    const upper = bone("upper_arm." + suffix, clavicle, side * 0.1, 0.003);
-    const lower = bone("lower_arm." + suffix, upper, side * 0.2, 0, -0.009);
-    bone("hand." + suffix, lower, side * 0.18, 0, 0.009);
-    const thigh = bone("upper_leg." + suffix, hips, side * 0.09, -0.05);
-    const shin = bone("lower_leg." + suffix, thigh, 0, -0.32);
-    bone("foot." + suffix, shin, 0, -0.415, -0.046);
+  // Full-body baked motion requires the canonical rig's proportions.
+  const byName = new Map<string, THREE.Bone>();
+  for (const node of restRig) {
+    const joint = new THREE.Bone();
+    joint.name = node.name;
+    joint.position.fromArray(node.translation);
+    joint.quaternion.fromArray(node.rotation);
+    (byName.get(node.parent ?? "") ?? root).add(joint);
+    byName.set(node.name, joint);
+    bones.push(joint);
   }
   const geometry = new THREE.BoxGeometry(0.4, 1.68, 0.2);
   const vertexCount = geometry.getAttribute("position").count;
@@ -235,5 +218,34 @@ test("Chuyển từ chân co sang hai chân giữ trụ và đưa trọng lượ
   expect(landing && landed).toBe(true);
   expect(runtime.currentGesture).toBe("M01");
   expect(runtime.poseTime).toBeGreaterThan(.1);
+  runtime.dispose();
+});
+
+test("F01 Blender owns authored joints after mixer and actor transforms", () => {
+  const { root, bones } = syntheticM3Actor();
+  const runtime = createM3LobbyIdle(root, "blender", "qa", "drophunter")!;
+  runtime.select("F01");
+  const mixer = runtime.playbackMixer;
+  root.position.set(2, 0.4, -1);
+  root.rotation.y = 0.7;
+  root.scale.setScalar(1.8);
+  for (const frame of [0, 30, 99, 110, 172, 238, 262, 312]) {
+    runtime.seekReferenceTime(frame / 30);
+    for (const [name, track] of Object.entries(f01.tracks)) {
+      const joint = bones.find(bone => bone.name === name);
+      if (!joint) continue;
+      const index = track.frames.indexOf(frame);
+      expect(index).toBeGreaterThanOrEqual(0);
+      const expected = new THREE.Quaternion().fromArray(track.values, index * 4).normalize();
+      expect(joint.quaternion.clone().normalize().angleTo(expected), name).toBeLessThan(0.000001);
+    }
+    const hips = bones.find(bone => bone.name === "hips")!;
+    const rest = restRig.find(bone => bone.name === "hips")!;
+    const expected = new THREE.Vector3().fromArray(f01.tracks["hips.position"].values, frame * 3)
+      .add(new THREE.Vector3().fromArray(rest.translation));
+    expect(hips.position.distanceTo(expected)).toBeLessThan(0.000001);
+    expect(runtime.playbackMixer).toBe(mixer);
+  }
+  expect(runtime.clipDuration).toBeCloseTo(313 / 30, 10);
   runtime.dispose();
 });

@@ -20,6 +20,7 @@ type LobbyQaSketchPageProps = {
     m3?: "female" | "male" | "five";
     allM3?: string;
     rosterProbe?: string;
+    f01Pilot?: string;
   }>;
 };
 
@@ -126,7 +127,7 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       } : null}
       visualPreset="sketch"
     />
-    {m3Id && <MotionControls family={params.m3 === "male" ? "neurohacker" : "drophunter"} />}
+    {m3Id && <MotionControls family={params.m3 === "male" ? "neurohacker" : "drophunter"} pilot={params.f01Pilot === "1" && params.m3 === "female"} />}
     </>
   );
 }

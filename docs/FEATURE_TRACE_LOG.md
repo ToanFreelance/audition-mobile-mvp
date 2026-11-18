@@ -400,3 +400,7 @@ Dựng lại F03 và M03 bằng đường cong Blender và tỷ lệ xương th�
 - F01 và M01 có khóa mới 30 Hz trên rig thật. Bộ kiểm tra mốc nguồn, bộ giải và kiểm thử ở `scripts/m3-idle`; bằng chứng video nguồn được giao riêng.
 - Bộ thử phòng năm M3 kiểm tra định danh root/mixer khi đổi sẵn sàng và kết nối. Sửa chuyển đổi FFmpeg để xuất đủ ba bản ghi.
 - Bảy clip giữ chuyển động hiện hành do thiếu quan sát. Chi tiết trong `docs/M3_IDLE_MEASURED_RETARGET_V191.md`.
+
+### 2026-11-18 — F01 Blender V1.9.2
+
+Chủ dự án bác V1.9.1. Dựng F01 toàn thân trên rig thật trong Blender, xuất 313 khung và ngăn stance/IK runtime ghi đè chân trong phần biểu diễn. Route thử ?m3=female&f01Pilot=1 tự chọn F01. Chi tiết quyền ghi xương, tư thế, giới hạn và lệnh dựng ở M3_IDLE_BLENDER_F01_V192.md. Nghiệm thu hình ảnh của chủ dự án còn mở.

@@ -237,6 +237,10 @@ type BakedMotion = {
   fps: number;
   lastFrame: number;
   sourceFrameCount?: number;
+  motionOwner?: string;
+  footSamples?: number[][][];
+  footYawSamples?: number[][];
+  contactWindows?: Record<string, number[][]>;
   tracks: Record<string, BakedTrack>;
 };
 
@@ -429,6 +433,30 @@ export function createM3LobbyIdle(
   const orientations = contacts.map((c) => c.localWorldRotation.clone());
   const center = (rest[0].x + rest[1].x) / 2;
   const forward = (rest[0].z + rest[1].z) / 2;
+  const authoredF01: BakedMotion = drophunter;
+  const ownsFullBody = (clip: IdleId) =>
+    clip === "F01" && authoredF01.motionOwner === "blender-full-body";
+  function performancePlacement(clip: IdleId, time: number) {
+    if (!ownsFullBody(clip) || !authoredF01.footSamples) return stanceAt(clip, time);
+    const frame = THREE.MathUtils.clamp(time * authoredF01.fps, 0, authoredF01.lastFrame);
+    const a = Math.floor(frame), b = Math.min(a + 1, authoredF01.lastFrame);
+    const weight = frame - a;
+    const feet = contacts.map((_, side): Shoe => {
+      const start = authoredF01.footSamples![a][side];
+      const end = authoredF01.footSamples![b][side];
+      const position = start.map((v, axis) => THREE.MathUtils.lerp(v, end[axis], weight));
+      const planted = authoredF01.contactWindows?.[side === 0 ? "L" : "R"]
+        .some(([first, last]) => frame >= first && frame <= last);
+      return [
+        (position[0] - center) / localHeight,
+        (position[2] - forward) / localHeight,
+        planted ? 0 : Math.max(0.000001, (position[1] - rest[side].y) / localHeight),
+        THREE.MathUtils.lerp(authoredF01.footYawSamples?.[a][side] ?? 0, authoredF01.footYawSamples?.[b][side] ?? 0, weight),
+      ];
+    }) as [Shoe, Shoe];
+    // Transition metadata only. The Blender action already owns the pelvis.
+    return { feet, pitch: [0, 0] as [number, number], shift: 0, drop: 0 };
+  }
   const pool = rigPool[rigFamily];
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map(
@@ -459,7 +487,7 @@ export function createM3LobbyIdle(
   }
   let id = draw(),
     action = actions.get(id)!.play();
-  let placement = stanceAt(id, 0);
+  let placement = performancePlacement(id, 0);
   let bridge: ReturnType<typeof bridgeBetween> | null = null;
   let bridgeTime = 0,
     queued: IdleId | null = null;
@@ -555,7 +583,7 @@ export function createM3LobbyIdle(
   });
   function begin(next: IdleId, dt: number) {
     queued = null;
-    const entry = stanceAt(next, 0);
+    const entry = performancePlacement(next, 0);
     bridge = bridgeBetween(placement, entry);
     exitShift = placement.shift;
     entryShift = entry.shift;
@@ -689,6 +717,10 @@ export function createM3LobbyIdle(
           (id === "M02" && next === "M01")
         )
           clearanceAngle = -0.3 * 4 * weight * (1 - weight);
+        if (id === "F01" && next === "F02") {
+          clearanceAngle = -0.28 * ease(Math.min(1, bridgeTime / 0.16))
+            * ease(Math.min(1, (bridge.duration - bridgeTime) / 0.25));
+        }
         if (bridgeTime >= bridge.duration) {
           id = next;
           action = incoming;
@@ -699,7 +731,7 @@ export function createM3LobbyIdle(
         for (const j of driven) j.previous.copy(j.bone.quaternion);
         hipPrevious.copy(hips.bone.position);
         mixer.update(dt);
-        placement = stanceAt(id, action.time);
+        placement = performancePlacement(id, action.time);
         const finished = action.time >= action.getClip().duration - 1e-6;
         const safe = id === "M03" || (lastLift <= 1e-6 && settling <= 0 && placement.feet.every(f => f[2] < 1e-6));
         if (finished || (queued && safe)) {
@@ -719,61 +751,82 @@ export function createM3LobbyIdle(
       runtime.animationProfile = id;
       runtime.poseTime = bridge ? bridgeTime : action.time;
       runtime.clipDuration = action.getClip().duration;
-      correctionX = placement.shift * localHeight;
-      correctionY = -placement.drop * localHeight;
-      hips.bone.position.x += correctionX;
-      hips.bone.position.y += correctionY;
-      // Lower the pelvis just enough for the measured leg lengths on this rig.
-      for (const [i, c] of contacts.entries()) {
-        const shoe: Shoe = placement.feet[i];
-        c.localAnchor.set(
-          center + shoe[0] * localHeight,
-          rest[i].y + shoe[2] * localHeight,
-          forward + shoe[1] * localHeight,
-        );
-        // Aim the knee along the shoe's track when opening the stance. The
-        // folded knee opens laterally as the free foot tucks behind the calf.
-        const outward = i === 0 ? 1 : -1;
-        c.poleLocal.x = bindPoleX[i] + localHeight * (
-          0.44 * shoe[0] + 0.09 * Math.sin(shoe[3]) + outward * shoe[2] * 0.85
-        );
-        // An ankle rotation may lower any sole vertex by at most radius * angle.
-        const availablePitch =
-          shoeRadius[i] > 0
-            ? (shoe[2] * localHeight) / shoeRadius[i]
-            : Infinity;
-        const solePitch = THREE.MathUtils.clamp(
-          placement.pitch[i],
-          -availablePitch,
-          availablePitch,
-        );
-        c.localWorldRotation
-          .copy(orientations[i])
-          .premultiply(pitch.setFromAxisAngle(across, solePitch))
-          .premultiply(yaw.setFromAxisAngle(up, shoe[3]));
-        actor.worldToLocal(c.upper.bone.getWorldPosition(actualHips));
-        const horizontal =
-          (actualHips.x - c.localAnchor.x) ** 2 +
-          (actualHips.z - c.localAnchor.z) ** 2;
-        const ceiling =
-          c.localAnchor.y +
-          Math.sqrt(Math.max(0, (lengths[i] * 0.998) ** 2 - horizontal));
-        const lower = Math.max(0, actualHips.y - ceiling);
-        hips.bone.position.y -= lower;
-        correctionY -= lower;
-      }
-      runtime.footDrift = 0;
-      runtime.floorError = 0;
-      for (const [i, c] of contacts.entries()) {
-        const error =
-          solveFoot(actor, c, work) / actor.getWorldScale(thighPosition).y;
-        if (placement.feet[i][2] < 1e-6)
-          runtime.footDrift = Math.max(runtime.footDrift, error);
-        actor.worldToLocal(c.ankle.bone.getWorldPosition(anklePosition));
-        runtime.floorError = Math.max(
-          runtime.floorError,
-          rest[i].y - anklePosition.y,
-        );
+      const fullBodyPlayback = ownsFullBody(id) && !bridge;
+      if (fullBodyPlayback) {
+        // AnimationMixer is the sole owner of Blender's full-body F01.
+        // These measurements never modify any bone.
+        correctionX = 0;
+        correctionY = 0;
+        runtime.footDrift = 0;
+        runtime.floorError = 0;
+        for (const [i, contact] of contacts.entries()) {
+          actor.worldToLocal(contact.ankle.bone.getWorldPosition(anklePosition));
+          const shoe = placement.feet[i];
+          if (shoe[2] === 0) {
+            runtime.footDrift = Math.max(runtime.footDrift, Math.hypot(
+              anklePosition.x - center - shoe[0] * localHeight,
+              anklePosition.z - forward - shoe[1] * localHeight,
+            ));
+          }
+          runtime.floorError = Math.max(runtime.floorError, rest[i].y - anklePosition.y);
+        }
+      } else {
+        correctionX = placement.shift * localHeight;
+        correctionY = -placement.drop * localHeight;
+        hips.bone.position.x += correctionX;
+        hips.bone.position.y += correctionY;
+        // Lower the pelvis just enough for the measured leg lengths on this rig.
+        for (const [i, c] of contacts.entries()) {
+          const shoe: Shoe = placement.feet[i];
+          c.localAnchor.set(
+            center + shoe[0] * localHeight,
+            rest[i].y + shoe[2] * localHeight,
+            forward + shoe[1] * localHeight,
+          );
+          // Aim the knee along the shoe's track when opening the stance. The
+          // folded knee opens laterally as the free foot tucks behind the calf.
+          const outward = i === 0 ? 1 : -1;
+          c.poleLocal.x = bindPoleX[i] + localHeight * (
+            0.44 * shoe[0] + 0.09 * Math.sin(shoe[3]) + outward * shoe[2] * 0.85
+          );
+          // An ankle rotation may lower any sole vertex by at most radius * angle.
+          const availablePitch =
+            shoeRadius[i] > 0
+              ? (shoe[2] * localHeight) / shoeRadius[i]
+              : Infinity;
+          const solePitch = THREE.MathUtils.clamp(
+            placement.pitch[i],
+            -availablePitch,
+            availablePitch,
+          );
+          c.localWorldRotation
+            .copy(orientations[i])
+            .premultiply(pitch.setFromAxisAngle(across, solePitch))
+            .premultiply(yaw.setFromAxisAngle(up, shoe[3]));
+          actor.worldToLocal(c.upper.bone.getWorldPosition(actualHips));
+          const horizontal =
+            (actualHips.x - c.localAnchor.x) ** 2 +
+            (actualHips.z - c.localAnchor.z) ** 2;
+          const ceiling =
+            c.localAnchor.y +
+            Math.sqrt(Math.max(0, (lengths[i] * 0.998) ** 2 - horizontal));
+          const lower = Math.max(0, actualHips.y - ceiling);
+          hips.bone.position.y -= lower;
+          correctionY -= lower;
+        }
+        runtime.footDrift = 0;
+        runtime.floorError = 0;
+        for (const [i, c] of contacts.entries()) {
+          const error =
+            solveFoot(actor, c, work) / actor.getWorldScale(thighPosition).y;
+          if (placement.feet[i][2] < 1e-6)
+            runtime.footDrift = Math.max(runtime.footDrift, error);
+          actor.worldToLocal(c.ankle.bone.getWorldPosition(anklePosition));
+          runtime.floorError = Math.max(
+            runtime.floorError,
+            rest[i].y - anklePosition.y,
+          );
+        }
       }
       if (cargoWeight > 0) clearCargoPockets(cargoWeight);
       if (garmentFit) garmentFit.update(placement.feet[1][2]);

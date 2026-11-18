@@ -116,3 +116,27 @@ test("Five actual M3 roots and mixers survive presentation-only roster changes",
     await expect(stage).toHaveAttribute("data-scene-generation", generation!);
   }
 });
+
+test("F01 V1.9.2 isolated Blender pilot plays complete source duration at 1x", async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/tools/lobby-qa-sketch?m3=female&f01Pilot=1");
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 110_000 });
+  await expect(stage).toHaveAttribute("data-m3-active-gestures", "F01");
+  const identity = await stage.getAttribute("data-m3-idle-instances");
+  const completed = Number(await stage.getAttribute("data-m3-completed-gestures"));
+  await expect(page.getByText("F01 Blender V1.9.2 · Chờ duyệt hình ảnh")).toBeVisible();
+  await page.getByRole("button", { name: "1×", exact: true }).click();
+  await page.getByRole("button", { name: "Phát lại", exact: true }).click();
+  await expect.poll(async () => Number(await stage.getAttribute("data-m3-completed-gestures")),
+    { timeout: 65_000 }).toBeGreaterThan(completed);
+  await expect(stage).toHaveAttribute("data-m3-idle-instances", identity!);
+  expect(errors).toEqual([]);
+  const video = page.video();
+  if (!video) throw new Error("Missing F01 browser recording");
+  await page.close();
+  await mkdir("test-results/m3-v191-motion", { recursive: true });
+  await video.saveAs("test-results/m3-v191-motion/f01-blender-v192.webm");
+});

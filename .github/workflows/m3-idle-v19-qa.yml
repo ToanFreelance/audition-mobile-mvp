@@ -5,6 +5,8 @@ on:
       - work/m3-waiting-room-integration-v1
     paths:
       - components/character/motion/**
+      - scripts/m3-idle/blender_f01_v192.py
+      - scripts/m3-idle/test_blender_f01_v192.py
       - scripts/m3-idle/reference_metrics_v19.py
       - scripts/m3-idle/test_reference_metrics_v19.py
       - scripts/m3-idle/reference_metrics_v191.py

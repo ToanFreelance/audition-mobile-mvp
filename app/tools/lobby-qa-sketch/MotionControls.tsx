@@ -25,13 +25,31 @@ function placement(feet: Feet) {
 }
 export default function MotionControls({
   family,
+  pilot = false,
 }: {
   family: keyof typeof rigPool;
+  pilot?: boolean;
 }) {
   const [id, setId] = useState<IdleId>(rigPool[family][0]);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(pilot);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [pacing, setPacing] = useState<Pacing | null>(null);
+  useEffect(() => {
+    if (!pilot) return;
+    const stage = document.querySelector<HTMLElement>("[data-testid=waiting-room-stage]");
+    if (!stage) return;
+    let started = false;
+    const start = () => {
+      if (started || stage.dataset.stageReady !== "1") return;
+      started = true;
+      window.dispatchEvent(new CustomEvent("m3-idle-review", { detail: { command: "select", id: "F01" } }));
+      window.dispatchEvent(new CustomEvent("m3-idle-review", { detail: { command: "camera", value: "front" } }));
+    };
+    const observer = new MutationObserver(start);
+    observer.observe(stage, { attributes: true, attributeFilter: ["data-stage-ready"] });
+    start();
+    return () => observer.disconnect();
+  }, [pilot]);
   useEffect(() => {
     const stage = document.querySelector<HTMLElement>(
       "[data-testid=waiting-room-stage]",
@@ -55,6 +73,7 @@ export default function MotionControls({
     );
   return (
     <details
+      open={open}
       onToggle={(e) => setOpen(e.currentTarget.open)}
       style={{
         position: "fixed",
@@ -71,6 +90,7 @@ export default function MotionControls({
       }}
     >
       <summary>Kiểm tra chuyển động M3</summary>
+      {pilot && <p>F01 Blender V1.9.2 · Chờ duyệt hình ảnh</p>}
       <nav>
         <a href="?m3=female">Nữ</a> · <a href="?m3=male">Nam</a> ·{" "}
         <a href="?m3=five">Năm người</a>
