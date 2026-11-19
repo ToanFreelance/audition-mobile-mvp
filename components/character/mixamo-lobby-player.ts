@@ -57,6 +57,13 @@ function findSkeleton(actor: THREE.Object3D): THREE.Skeleton | null {
   return skeleton;
 }
 
+function findRigBone(rig: THREE.Skeleton, name: string): THREE.Bone | undefined {
+  // GLTFLoader sanitizes punctuation in M3 bone names (e.g. foot.L -> foot_L).
+  // Match the existing M3 lobby runtime's canonical and sanitized names.
+  const safe = THREE.PropertyBinding.sanitizeNodeName(name);
+  return rig.bones.find(item => item.name === name || item.name === safe);
+}
+
 function buildClip(rig: THREE.Skeleton, family: MixamoRig, id: MixamoGesture): THREE.AnimationClip | null {
   const data = getMixamoData(family, id);
   if (!data) return null;
@@ -68,7 +75,7 @@ function buildClip(rig: THREE.Skeleton, family: MixamoRig, id: MixamoGesture): T
   const q = new THREE.Quaternion();
   for (let b = 0; b < MIXAMO_BONES.length; b++) {
     const name = MIXAMO_BONES[b];
-    const bone = rig.bones.find(item => item.name === name || item.name === THREE.PropertyBinding.sanitizeNodeName(name));
+    const bone = findRigBone(rig, name);
     if (!bone) continue;
     const values = new Float32Array(n * 4);
     for (let f = 0; f < n; f++) {
@@ -79,7 +86,7 @@ function buildClip(rig: THREE.Skeleton, family: MixamoRig, id: MixamoGesture): T
     }
     tracks.push(new THREE.QuaternionKeyframeTrack(bone.uuid + ".quaternion", times, values));
   }
-  const hips = rig.bones.find(item => item.name === "hips");
+  const hips = findRigBone(rig, "hips");
   if (!hips) return null;
   const values = new Float32Array(n * 3);
   for (let f = 0; f < n; f++) {
@@ -103,7 +110,7 @@ export function createMixamoLobbyIdle(
 ): MixamoLobbyIdle | null {
   if (rigFamily !== "drophunter" && rigFamily !== "neurohacker") return null;
   const rig = findSkeleton(actor);
-  if (!rig) return null;
+  if (!rig) { console.warn("[mixamo-qa] M3 actor skeleton not found"); return null; }
   const family: MixamoRig = rigFamily;
   const group = MIXAMO_GROUPS[family];
   const available = [...group.base, ...group.emote, ...group.manual];
@@ -111,13 +118,17 @@ export function createMixamoLobbyIdle(
   const actions = new Map<MixamoGesture, THREE.AnimationAction>();
   for (const key of available) {
     const clip = buildClip(rig, family, key);
-    if (!clip) { mixer.stopAllAction(); return null; }
+    if (!clip) { console.warn("[mixamo-qa] missing retargeted clip", family, key, rig.bones.length); mixer.stopAllAction(); return null; }
     const action = mixer.clipAction(clip).setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished = true;
     actions.set(key, action);
   }
-  const feet = ["foot.L", "foot.R"].map(name => rig.bones.find(item => item.name === name));
-  if (feet.some(foot => !foot)) return null;
+  const feet = ["foot.L", "foot.R"].map(name => findRigBone(rig, name));
+  if (feet.some(foot => !foot)) {
+    console.warn("[mixamo-qa] missing M3 foot bones", family, rig.bones.map(b => b.name).filter(name => /foot/i.test(name)));
+    mixer.stopAllAction();
+    return null;
+  }
   const footBones = feet as THREE.Bone[];
   actor.updateWorldMatrix(true, true);
   const scale = Math.max(0.01, new THREE.Box3().setFromObject(actor).getSize(new THREE.Vector3()).y);
@@ -257,7 +268,7 @@ export function createMixamoLobbyIdle(
     projectReferenceJoints(camera, width, height) {
       const result: Record<string,[number,number,number]> = {};
       for (const [key, name] of Object.entries(projectedNames)) {
-        const bone = rig.bones.find(item => item.name === name);
+        const bone = findRigBone(rig, name);
         if (!bone) continue;
         bone.getWorldPosition(point).project(camera);
         result[key] = [(point.x + 1) * width / 2, (1-point.y) * height / 2, point.z];
