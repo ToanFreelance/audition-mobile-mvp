@@ -1273,6 +1273,7 @@ export default function WaitingRoomStage3D({
 
     const motionReview = window.location.pathname === "/tools/lobby-qa-sketch";
     const mixamoReview = motionReview && new URLSearchParams(window.location.search).get("mixamo") === "1";
+    const footLockReview = mixamoReview && new URLSearchParams(window.location.search).get("footLock") === "1";
     let mixamoModule: typeof import("../character/mixamo-lobby-player") | null = null;
     const rosterReview = motionReview && new URLSearchParams(window.location.search).get("rosterProbe") === "1";
     const reviewMixerIds = rosterReview ? new WeakMap<THREE.AnimationMixer, string>() : null;
@@ -1567,6 +1568,12 @@ export default function WaitingRoomStage3D({
           const stageElement = mountRef.current.parentElement;
           if (stageElement) {
             stageElement.dataset.m3MixamoEnabled = mixamoReview && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3FootlockEnabled = footLockReview && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3FootlockMetrics = JSON.stringify(runtimes.map(item => ({
+              lockedFeet: "lockedFeet" in item ? item.lockedFeet : 0,
+              maxContactError: "maxContactError" in item ? item.maxContactError : 0,
+              contactTravel: "contactTravel" in item ? item.contactTravel : 0,
+            })));
             if (samples.length) {
               const mean = (column: number) => samples.reduce((sum, row) => sum + row[column], 0) / samples.length;
               const durations = samples.map(row => row[1]).sort((a,b) => a-b);
@@ -2050,7 +2057,7 @@ export default function WaitingRoomStage3D({
         const occupiedProfiles = () => Array.from(m3IdleByParticipant.values()).flatMap(r =>
           r.target ? [r.animationProfile, r.target] : [r.animationProfile]);
         const idle = rigFamily ? (mixamoReview && mixamoModule
-          ? mixamoModule.createMixamoLobbyIdle(actor, participant.participantId, roomId, rigFamily, occupiedProfiles)
+          ? mixamoModule.createMixamoLobbyIdle(actor, participant.participantId, roomId, rigFamily, occupiedProfiles, footLockReview)
           : createM3LobbyIdle(actor, participant.participantId, roomId, rigFamily, () =>
               occupiedProfiles().filter((key): key is M3LobbyIdle["currentGesture"] =>
                 /^(F0[1-5]|M0[1-3]|X01)$/.test(key))

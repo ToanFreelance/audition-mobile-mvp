@@ -22,6 +22,7 @@ type LobbyQaSketchPageProps = {
     rosterProbe?: string;
     f01Pilot?: string;
     mixamo?: string;
+    footLock?: string;
   }>;
 };
 
@@ -128,7 +129,7 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       } : null}
       visualPreset="sketch"
     />
-    {m3Id && <MotionControls mixed={params.m3 === "five"} family={params.m3 === "male" ? "neurohacker" : "drophunter"} pilot={params.f01Pilot === "1" && params.m3 === "female"} mixamo={params.mixamo === "1"} />}
+    {m3Id && <MotionControls mixed={params.m3 === "five"} family={params.m3 === "male" ? "neurohacker" : "drophunter"} pilot={params.f01Pilot === "1" && params.m3 === "female"} mixamo={params.mixamo === "1"} footLock={params.footLock === "1"} />}
     </>
   );
 }

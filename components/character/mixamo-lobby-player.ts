@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { fitLobbyGarments } from "./motion/garment-fit";
 import type { M3RigFamily } from "./character-catalog";
 import type { Shoe } from "./motion/stances";
@@ -26,6 +27,9 @@ export type MixamoLobbyIdle = {
   completedGestures: number;
   footDrift: number;
   maxFootDrift: number;
+  lockedFeet: number;
+  maxContactError: number;
+  contactTravel: number;
   animationProfile: MixamoGesture;
   clipDuration: number;
   poseTime: number;
@@ -107,6 +111,7 @@ export function createMixamoLobbyIdle(
   roomId: string,
   rigFamily: M3RigFamily,
   occupied: () => readonly string[] = () => [],
+  enableFootLock = false,
 ): MixamoLobbyIdle | null {
   if (rigFamily !== "drophunter" && rigFamily !== "neurohacker") return null;
   const rig = findSkeleton(actor);
@@ -135,6 +140,7 @@ export function createMixamoLobbyIdle(
   const point = new THREE.Vector3();
   const rest = footBones.map(foot => actor.worldToLocal(foot.getWorldPosition(new THREE.Vector3())).clone());
   const garmentFit = family === "neurohacker" ? fitLobbyGarments(actor) : null;
+  const footLock = enableFootLock ? createMixamoFootLock(actor, rig, scale) : null;
 
   let seed = hashId(roomId + ":mixamo:" + participantId);
   let bag: MixamoGesture[] = [];
@@ -211,6 +217,7 @@ export function createMixamoLobbyIdle(
     elapsedSeconds: 0, hasScratchPose: false, currentGesture: current,
     target: null, contacts: "DOUBLE_SUPPORT", phase: "MIXAMO_IDLE", floorError: 0,
     placement, random: true, completedGestures: 0, footDrift: 0, maxFootDrift: 0,
+    lockedFeet: 0, maxContactError: 0, contactTravel: 0,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
     select(id) {
       if (!actions.has(id as MixamoGesture)) return;
@@ -246,6 +253,12 @@ export function createMixamoLobbyIdle(
       this.clipDuration = action.getClip().duration;
       this.currentGesture = current;
       this.animationProfile = current;
+      // Only the explicitly opted-in QA mode constrains planted ankles.
+      // Run after Mixamo's mixer so authored upper body and steps stay intact.
+      const lockSample = footLock?.update(deltaSeconds, Boolean(outgoing));
+      this.lockedFeet = lockSample?.lockedFeet ?? 0;
+      this.maxContactError = lockSample?.maxContactError ?? 0;
+      this.contactTravel = lockSample?.contactTravel ?? 0;
       const nextFeet = footBones.map((foot, i): Shoe => {
         actor.worldToLocal(foot.getWorldPosition(point));
         const height = Math.max(0, point.y - rest[i].y);

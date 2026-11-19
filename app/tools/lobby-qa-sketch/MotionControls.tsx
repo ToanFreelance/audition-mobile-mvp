@@ -29,11 +29,13 @@ export default function MotionControls({
   pilot = false,
   mixed = false,
   mixamo = false,
+  footLock = false,
 }: {
   family: keyof typeof rigPool;
   pilot?: boolean;
   mixed?: boolean;
   mixamo?: boolean;
+  footLock?: boolean;
 }) {
   const [id, setId] = useState<IdleId | MixamoGesture>(
     mixamo ? MIXAMO_GROUPS[family].base[0] : rigPool[family][0],
@@ -105,6 +107,12 @@ export default function MotionControls({
     >
       <summary>Kiểm tra chuyển động M3{mixamo ? " · Mixamo All 10" : ""}</summary>
       {mixamo && <p>10 Mixamo clips · 17 tổ hợp rig; Catwalk chỉ chọn thủ công</p>}
+      {mixamo && <p>
+        Foot Lock: {footLock ? "BẬT (thử nghiệm)" : "TẮT (gốc)"} ·{" "}
+        <a href={`?m3=${mixed ? "five&allM3=1" : family === "drophunter" ? "female" : "male"}&mixamo=1&footLock=${footLock ? "0" : "1"}`}>
+          {footLock ? "So sánh: tắt" : "So sánh: bật"}
+        </a>
+      </p>}
       {pilot && <p>F01 Blender V1.9.3 · Chờ duyệt hình ảnh</p>}
       <nav>
         <a href={mixamo ? "?m3=female&mixamo=1" : "?m3=female"}>Nữ</a> · <a href={mixamo ? "?m3=male&mixamo=1" : "?m3=male"}>Nam</a> ·{" "}
