@@ -234,9 +234,23 @@ for row in POSES['F01']:
  if 238<=f<=262: row[11]+=.035; row[13]+=.035
  if 238<=f<=255: row[12]+=.090; row[13]-=.015
  if f==255: row[15]+=.025
+ # Spread depth/orientation changes through the existing source-timed keys;
+ # avoid the near-extension IK speed spikes without retiming the performance.
+ if f==106: row[13]=.15
+ if f==112: row[13]=.10
+ if f==230: row[13]=.11
+ if f==238: row[13]=.17
+ if f==255: row[11:14]=[.18,.97,.22]
+ if f==262: row[11:14]=[.11,.95,.22]
 for row in POSES['F02']:
  if row[12]<.93: row[12]+=.045
  row[15]+=.035
+ # Frame-by-frame source review: wrist is beside the head at 92-104,
+ # already descending at 108-116 and back at the hip by 124.
+ left={72:(.22,.99,.12),86:(.25,1.24,.12),96:(.25,1.25,.12),
+       108:(.26,1.17,.13),120:(.23,.91,.10),134:(.22,.93,.10),
+       151:(.22,.94,.10),173:(.218,.945,.10)}
+ if row[0] in left: row[11:14]=left[row[0]]
 for row in POSES['F04']:
  if 36<=row[0]<=60: row[13]+=.035
  if row[12]<.96: row[12]=.96+(row[12]-.96)*.20

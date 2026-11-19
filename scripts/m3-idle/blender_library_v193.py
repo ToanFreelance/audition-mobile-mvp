@@ -74,7 +74,7 @@ def hand_rotation(id,side,f):
     neutral=((.06*sign,-.99,.10),.12);keys=None
     if id=='F02' and side=='L':
         raised=((.10,.9,.38),.35)
-        keys=[(0,neutral),(64,neutral),(96,raised),(120,raised),(173,neutral),(411,neutral)]
+        keys=[(0,neutral),(60,neutral),(86,raised),(100,raised),(124,neutral),(411,neutral)]
     elif id=='F04' and side=='L':
         chest=((-.55,.65,.52),.25)
         keys=[(0,neutral),(24,neutral),(48,chest),(158,chest),(194,neutral),(231,neutral)]

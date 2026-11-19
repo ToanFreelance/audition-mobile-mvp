@@ -45,13 +45,22 @@ asset, rig-map, pivots từng hình và ảnh front/side. Drophunter có 198 bon
 tracks; Neurohacker thực tế có 102 bones/50 tracks, không giả định cùng skeleton.
 Source video, model và texture riêng tư không đưa vào Git.
 
-## Các cổng đang mở tại checkpoint
+## Trạng thái nghiệm thu
 
-- Đã chạy Blender 4.3.2 thực tế cho đủ chín clip; chưa gọi đây là chất lượng đạt.
-- Lượt bake đầu F01 có khoảng 9.85 mm lệch chân khi trụ vì dịch hông mới vượt tầm
-  chân không kéo giãn. Cần chỉnh pose, không sửa bằng IK runtime đè lên clip.
-- Phải hoàn tất render 30 FPS đủ thời lượng, BVH mesh/quần áo/chuyển clip,
-  so sánh trước/sau, UI năm người, CI và Preview trước báo cáo cuối.
+Đã dựng và bake cả chín clip trong Blender 4.3.2. Đã xuất video nguồn/M3 và góc
+nghiêng đủ thời lượng, đồng bộ 30 FPS (2.446 hình mỗi góc), cùng ảnh key pose.
+Các số đo runtime/Blender và tiếp đất kiểm tra tính đúng của pipeline; không
+chứng minh mức giống diễn xuất nguồn.
+
+Chưa đạt nghiệm thu mỹ thuật toàn bộ thư viện. F03 còn khác hình bàn tay và độ
+nghiêng thân; F04/F05 cần duyệt diễn giải bỏ đạo cụ; M01 có khác biệt tầm với tay
+so với tỷ lệ người nguồn; M02 không xác minh được khớp người bị che trong hình gấu;
+X01 cần duyệt phong cách trên mapping Neurohacker hiện có; M03 cần duyệt tay sau
+hông và dáng chân so le. F01/F02 đã sửa thêm nhịp tay sau đối chiếu từng hình.
+Không coi bản V191 là baseline mỹ thuật được chấp nhận.
+
+Các hình dissolve cuối đoạn nguồn được giữ nguyên theo cửa sổ đã chỉ định;
+chúng không được dùng làm mục tiêu đo skeleton.
 
 ## Bản tích hợp V193
 
@@ -67,3 +76,15 @@ Idle M3 bù bước thời gian khi render vượt 100 ms, chia thành các bư�
 chân, thời lượng, drift tiếp đất < 0.04 mm, bước xoay khớp < 15 độ/hình.
 Đã chạy TypeScript, build và 10 kiểm thử runtime cục bộ. CI và video đối chiếu
 được báo riêng theo đúng commit. Không xem các số này là nghiệm thu mỹ thuật.
+
+## Sửa lỗi sau lượt CI đầu của V193
+
+F01 từng có bước xoay cẳng tay/cổ tay 12–13°/hình, làm thất bại kiểm thử ngưỡng
+12° có sẵn. Đã sửa key chiều sâu/tầm với trong Blender, giữ nguyên thời gian
+nguồn và ngưỡng kiểm thử. Kiểm thử Python 24/24 đạt sau sửa F01.
+F02 được so lại từng hình 92–136: tay ở cạnh đầu tại 92–104, hạ 108–116 và về
+hông khoảng 124. Đã sửa quỹ đạo/hướng bàn tay theo các mốc này, không kéo dài
+động tác tới 173 như bản bake trước.
+
+Các kết quả CI, Preview và video cuối phải tra theo SHA mới nhất trong báo cáo
+bàn giao; không dùng kết quả checkpoint để tuyên bố bản cuối đã đạt.
