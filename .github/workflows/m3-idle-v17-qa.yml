@@ -17,6 +17,7 @@ on:
       - components/character/mixamo-lobby-player.ts
       - components/character/mixamo-foot-lock.ts
       - e2e/mixamo-footlock-v1.spec.ts
+      - e2e/mixamo-foot-contact-v2.spec.ts
       - .github/workflows/m3-idle-v17-qa.yml
   workflow_dispatch:
 
@@ -55,7 +56,7 @@ jobs:
       - name: Synthetic rig regression + actual M3 render snapshots
         env:
           PLAYWRIGHT_WEB_SERVER: "1"
-        run: npx playwright test e2e/lobby-stage-identity.spec.ts e2e/m3-lobby-appearance.spec.ts e2e/m3-lobby-idle-v13.spec.ts e2e/m3-idle-v17-visual.spec.ts e2e/mixamo-lobby-all10.spec.ts e2e/mixamo-footlock-v1.spec.ts --project=desktop --workers=1 --retries=0
+        run: npx playwright test e2e/lobby-stage-identity.spec.ts e2e/m3-lobby-appearance.spec.ts e2e/m3-lobby-idle-v13.spec.ts e2e/m3-idle-v17-visual.spec.ts e2e/mixamo-lobby-all10.spec.ts e2e/mixamo-footlock-v1.spec.ts e2e/mixamo-foot-contact-v2.spec.ts --project=desktop --workers=1 --retries=0
       - name: Upload screenshots and traces for visual review
         if: always()
         uses: actions/upload-artifact@v4

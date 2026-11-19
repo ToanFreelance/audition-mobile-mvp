@@ -30,6 +30,8 @@ export type MixamoLobbyIdle = {
   lockedFeet: number;
   maxContactError: number;
   contactTravel: number;
+  plantedRawTravel: number;
+  plantedCorrectedTravel: number;
   animationProfile: MixamoGesture;
   clipDuration: number;
   poseTime: number;
@@ -218,6 +220,7 @@ export function createMixamoLobbyIdle(
     target: null, contacts: "DOUBLE_SUPPORT", phase: "MIXAMO_IDLE", floorError: 0,
     placement, random: true, completedGestures: 0, footDrift: 0, maxFootDrift: 0,
     lockedFeet: 0, maxContactError: 0, contactTravel: 0,
+    plantedRawTravel: 0, plantedCorrectedTravel: 0,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
     select(id) {
       if (!actions.has(id as MixamoGesture)) return;
@@ -259,6 +262,8 @@ export function createMixamoLobbyIdle(
       this.lockedFeet = lockSample?.lockedFeet ?? 0;
       this.maxContactError = lockSample?.maxContactError ?? 0;
       this.contactTravel = lockSample?.contactTravel ?? 0;
+      this.plantedRawTravel = lockSample?.plantedRawTravel ?? 0;
+      this.plantedCorrectedTravel = lockSample?.plantedCorrectedTravel ?? 0;
       const nextFeet = footBones.map((foot, i): Shoe => {
         actor.worldToLocal(foot.getWorldPosition(point));
         const height = Math.max(0, point.y - rest[i].y);

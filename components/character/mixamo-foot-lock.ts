@@ -1,78 +1,84 @@
 import * as THREE from "three";
 
 /**
- * QA-only Mixamo contact stabilization, applied AFTER AnimationMixer.
- * Never modifies the source animation, upper body, actor root, or gameplay clock.
- * Targets are kept in actor-local space so stage placement / camera transitions
- * do not pin shoes to a stale world-space position.
+ * QA-only Mixamo contact IK. The authored mixer always writes the source pose
+ * first; only the two leg chains are subsequently adjusted. All anchors are
+ * actor-local: camera motion and Waiting Room formation cannot drag a shoe.
+ *
+ * V2: retain an existing planted foot through a crossfade, use lift-off rather
+ * than raw horizontal sway to release, and measure actual grounded-foot travel.
+ * No pelvis, torso, hand, source-clip, or gameplay clock modifications.
  */
-const LOCK_IN = 0.16;
-const LOCK_OUT = 0.10;
-const MAX_CORRECTION_FRAC = 0.06;
-const PLANT_HEIGHT_FRAC = 0.023;
-const RELEASE_HEIGHT_FRAC = 0.043;
+const ACQUIRE_SECONDS = 0.085;
+const FADE_IN_SECONDS = 0.12;
+const FADE_OUT_SECONDS = 0.14;
+const COOLDOWN_SECONDS = 0.085;
+const PLANT_HEIGHT = 0.032;
+const LIFT_HEIGHT = 0.063;
+const MAX_STANCE_REACH = 0.14;
+const FAST_STEP_DISTANCE = 0.075;
 
-function bone(rig: THREE.Skeleton, id: string): THREE.Bone | undefined {
-  const safe = THREE.PropertyBinding.sanitizeNodeName(id);
-  return rig.bones.find(item => item.name === id || item.name === safe);
+const clamp01 = (n: number) => THREE.MathUtils.clamp(n, 0, 1);
+
+function findBone(rig: THREE.Skeleton, name: string) {
+  const safe = THREE.PropertyBinding.sanitizeNodeName(name);
+  return rig.bones.find(b => b.name === name || b.name === safe);
 }
 
-type Leg = {
+type Foot = {
   thigh: THREE.Bone;
   shin: THREE.Bone;
   ankle: THREE.Bone;
-  groundY: number;
+  baseY: number;
   anchor: THREE.Vector3 | null;
-  lastRaw: THREE.Vector3 | null;
+  previousRaw: THREE.Vector3 | null;
+  previousCorrected: THREE.Vector3 | null;
+  acquireSeconds: number;
+  cooldown: number;
   weight: number;
-  coolDown: number;
+  rawTravel: number;
+  correctedTravel: number;
 };
 
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-
-/** Rotate a bone so its child aims toward a world-space target. */
-function aim(b: THREE.Bone, child: THREE.Bone, target: THREE.Vector3) {
-  const from = b.getWorldPosition(new THREE.Vector3());
-  const oldDirection = child.getWorldPosition(new THREE.Vector3()).sub(from);
-  const newDirection = target.clone().sub(from);
-  if (oldDirection.lengthSq() < 1e-12 || newDirection.lengthSq() < 1e-12 || !b.parent) return;
-  const worldDelta = new THREE.Quaternion().setFromUnitVectors(oldDirection.normalize(), newDirection.normalize());
-  const parentWorld = b.parent.getWorldQuaternion(new THREE.Quaternion());
-  const localDelta = parentWorld.clone().invert().multiply(worldDelta).multiply(parentWorld);
-  b.quaternion.premultiply(localDelta).normalize();
-  b.updateWorldMatrix(false, true);
+/** Aim a bone/child in world space, preserving the native animated knee plane. */
+function aim(bone: THREE.Bone, child: THREE.Bone, goal: THREE.Vector3) {
+  if (!bone.parent) return;
+  const start = bone.getWorldPosition(new THREE.Vector3());
+  const current = child.getWorldPosition(new THREE.Vector3()).sub(start);
+  const desired = goal.clone().sub(start);
+  if (current.lengthSq() < 1e-12 || desired.lengthSq() < 1e-12) return;
+  const delta = new THREE.Quaternion().setFromUnitVectors(current.normalize(), desired.normalize());
+  const parent = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+  bone.quaternion.premultiply(parent.clone().invert().multiply(delta).multiply(parent)).normalize();
+  bone.updateWorldMatrix(false, true);
 }
 
-/** Two-bone IK keeping animated bend direction and original ankle orientation. */
-function alignAnkle(leg: Leg, targetWorld: THREE.Vector3) {
-  const { thigh, shin, ankle } = leg;
-  const beforeAnkleRotation = ankle.getWorldQuaternion(new THREE.Quaternion());
+function applyLegIK(foot: Foot, goal: THREE.Vector3) {
+  const { thigh, shin, ankle } = foot;
+  const savedAnkleOrientation = ankle.getWorldQuaternion(new THREE.Quaternion());
   const hip = thigh.getWorldPosition(new THREE.Vector3());
   const knee = shin.getWorldPosition(new THREE.Vector3());
-  const foot = ankle.getWorldPosition(new THREE.Vector3());
-  const a = hip.distanceTo(knee), b = knee.distanceTo(foot);
-  const toward = targetWorld.clone().sub(hip);
-  const d = toward.length();
-  if (a < 1e-5 || b < 1e-5 || d < 1e-5) return;
-  const direction = toward.multiplyScalar(1 / d);
-  const distance = THREE.MathUtils.clamp(d, Math.abs(a - b) + 1e-5, a + b - 1e-5);
-  const along = (a * a - b * b + distance * distance) / (2 * distance);
-  const rise = Math.sqrt(Math.max(0, a * a - along * along));
-  // Keep the CURRENT Mixamo knee plane; never force a generic forward-facing knee.
-  const bent = knee.clone().sub(hip);
-  bent.addScaledVector(direction, -bent.dot(direction));
-  if (bent.lengthSq() < 1e-10) {
-    // Degenerate straight leg: preserve source animation rather than pick random pole.
-    return;
-  }
-  const targetKnee = hip.clone().addScaledVector(direction, along).addScaledVector(bent.normalize(), rise);
-  const reachableAnkle = hip.clone().addScaledVector(direction, distance);
-  aim(thigh, shin, targetKnee);
-  aim(shin, ankle, reachableAnkle);
-  // Prevent forced foot tilting while correcting knee/ankle placement.
+  const startAnkle = ankle.getWorldPosition(new THREE.Vector3());
+  const upperLength = hip.distanceTo(knee);
+  const lowerLength = knee.distanceTo(startAnkle);
+  const toward = goal.clone().sub(hip);
+  const requested = toward.length();
+  if (Math.min(upperLength, lowerLength, requested) < 1e-5) return;
+  const axis = toward.normalize();
+  const reachable = THREE.MathUtils.clamp(requested,
+    Math.abs(upperLength - lowerLength) + 1e-5, upperLength + lowerLength - 1e-5);
+  const projection = (upperLength ** 2 - lowerLength ** 2 + reachable ** 2) / (2 * reachable);
+  const elevation = Math.sqrt(Math.max(0, upperLength ** 2 - projection ** 2));
+  const pole = knee.clone().sub(hip).addScaledVector(axis, -knee.clone().sub(hip).dot(axis));
+  // Never invent an IK knee orientation for a degenerate straight leg.
+  if (pole.lengthSq() < 1e-10) return;
+  const kneeGoal = hip.clone().addScaledVector(axis, projection).addScaledVector(pole.normalize(), elevation);
+  const ankleGoal = hip.clone().addScaledVector(axis, reachable);
+  aim(thigh, shin, kneeGoal);
+  aim(shin, ankle, ankleGoal);
   if (ankle.parent) {
-    const parentRotation = ankle.parent.getWorldQuaternion(new THREE.Quaternion());
-    ankle.quaternion.copy(parentRotation.invert().multiply(beforeAnkleRotation)).normalize();
+    const parentWorld = ankle.parent.getWorldQuaternion(new THREE.Quaternion());
+    ankle.quaternion.copy(parentWorld.invert().multiply(savedAnkleOrientation)).normalize();
     ankle.updateWorldMatrix(false, true);
   }
 }
@@ -81,67 +87,126 @@ export type FootLockSample = {
   lockedFeet: number;
   maxContactError: number;
   contactTravel: number;
+  plantedRawTravel: number;
+  plantedCorrectedTravel: number;
 };
 
 export function createMixamoFootLock(actor: THREE.Object3D, rig: THREE.Skeleton, characterHeight: number) {
-  const scale = Math.max(0.01, characterHeight);
+  const height = Math.max(0.01, characterHeight);
   actor.updateWorldMatrix(true, true);
-  const legs = (["L", "R"] as const).map(side => {
-    const thigh = bone(rig, `upper_leg.${side}`);
-    const shin = bone(rig, `lower_leg.${side}`);
-    const ankle = bone(rig, `foot.${side}`);
+  const entries = (["L", "R"] as const).map(side => {
+    const thigh = findBone(rig, `upper_leg.${side}`);
+    const shin = findBone(rig, `lower_leg.${side}`);
+    const ankle = findBone(rig, `foot.${side}`);
     if (!thigh || !shin || !ankle) return null;
     return {
       thigh, shin, ankle,
-      groundY: actor.worldToLocal(ankle.getWorldPosition(new THREE.Vector3())).y,
-      anchor: null, lastRaw: null, weight: 0, coolDown: 0,
-    } satisfies Leg;
+      baseY: actor.worldToLocal(ankle.getWorldPosition(new THREE.Vector3())).y,
+      anchor: null,
+      previousRaw: null,
+      previousCorrected: null,
+      acquireSeconds: 0,
+      cooldown: 0,
+      weight: 0,
+      rawTravel: 0,
+      correctedTravel: 0,
+    } satisfies Foot;
   });
-  if (legs.some(item => item === null)) return null;
-  const items = legs as Leg[];
+  if (entries.some(foot => foot === null)) return null;
+  const feet = entries as Foot[];
+
   return {
-    update(seconds: number, crossfade: boolean): FootLockSample {
-      const dt = Math.max(0, Math.min(seconds, 0.1));
+    update(deltaSeconds: number, crossfade: boolean): FootLockSample {
+      const dt = THREE.MathUtils.clamp(deltaSeconds, 0, 0.1);
       actor.updateWorldMatrix(true, true);
       let lockedFeet = 0, maxContactError = 0, contactTravel = 0;
-      for (const leg of items) {
-        const raw = actor.worldToLocal(leg.ankle.getWorldPosition(new THREE.Vector3()));
-        const vertical = raw.y - leg.groundY;
-        const speed = dt > 0 && leg.lastRaw
-          ? raw.distanceTo(leg.lastRaw) / dt : 0;
-        leg.lastRaw = raw.clone();
-        leg.coolDown = Math.max(0, leg.coolDown - dt);
-        const nearGround = vertical <= PLANT_HEIGHT_FRAC * scale;
-        const released = vertical > RELEASE_HEIGHT_FRAC * scale;
-        if (released || crossfade) leg.coolDown = Math.max(leg.coolDown, released ? 0.09 : 0.12);
-        const eligible = !crossfade && leg.coolDown <= 0 && nearGround && speed < scale * 0.50;
-        if (!leg.anchor && eligible) leg.anchor = raw.clone();
-        if (leg.anchor) {
-          const drift = new THREE.Vector2(raw.x - leg.anchor.x, raw.z - leg.anchor.z).length();
-          // Prevent huge leg stretch: this is a stabilization pass, not a stance editor.
-          if (drift > scale * MAX_CORRECTION_FRAC || released) leg.coolDown = Math.max(leg.coolDown, 0.13);
+      for (const foot of feet) {
+        // Read the unmodified Mixamo pose. Its raw travel is the reference signal.
+        const raw = actor.worldToLocal(foot.ankle.getWorldPosition(new THREE.Vector3()));
+        const oldRaw = foot.previousRaw;
+        const dx = oldRaw ? raw.x - oldRaw.x : 0;
+        const dz = oldRaw ? raw.z - oldRaw.z : 0;
+        const distancePerSecond = oldRaw && dt > 0 ? Math.hypot(dx, dz) / dt : 0;
+        const upwardSpeed = oldRaw && dt > 0 ? (raw.y - oldRaw.y) / dt : 0;
+        const clearance = raw.y - foot.baseY;
+        const nearFloor = clearance <= height * PLANT_HEIGHT;
+        const lifted = clearance > height * LIFT_HEIGHT ||
+          (clearance > height * PLANT_HEIGHT && upwardSpeed > height * 0.18);
+        foot.cooldown = Math.max(0, foot.cooldown - dt);
+
+        // Capture a NEW contact only after a short stable period, avoiding
+        // accidental locking of a skimming/swinging foot.
+        const candidate = !crossfade && foot.cooldown <= 0 && nearFloor &&
+          Math.abs(upwardSpeed) < height * 0.20 && distancePerSecond < height * 0.75;
+        foot.acquireSeconds = candidate ? foot.acquireSeconds + dt : 0;
+        if (!foot.anchor && foot.acquireSeconds >= ACQUIRE_SECONDS) {
+          foot.anchor = raw.clone();
+          foot.previousCorrected = null;
+          foot.acquireSeconds = 0;
         }
-        const targetWeight = leg.anchor && eligible && leg.coolDown <= 0 ? 1 : 0;
-        leg.weight = clamp01(leg.weight + (targetWeight ? dt / LOCK_IN : -dt / LOCK_OUT));
-        if (!leg.anchor || leg.weight < 1e-4) {
-          if (!targetWeight) leg.anchor = null;
+
+        if (foot.anchor) {
+          const distanceFromContact = Math.hypot(raw.x - foot.anchor.x, raw.z - foot.anchor.z);
+          const deliberateFastStep = distanceFromContact > height * FAST_STEP_DISTANCE &&
+            distancePerSecond > height * 1.65;
+          const outOfReach = distanceFromContact > height * MAX_STANCE_REACH;
+          // IMPORTANT: do not release merely because Mixer is crossfading, or
+          // because the planted foot moves sideways with the animated pelvis.
+          if (lifted || deliberateFastStep || outOfReach) {
+            foot.cooldown = Math.max(foot.cooldown, COOLDOWN_SECONDS);
+          }
+        }
+
+        const supported = Boolean(foot.anchor) && foot.cooldown <= 0 && !lifted;
+        const desiredWeight = supported ? 1 : 0;
+        foot.weight = clamp01(foot.weight + (desiredWeight
+          ? (dt / FADE_IN_SECONDS) : -(dt / FADE_OUT_SECONDS)));
+        if (!foot.anchor || foot.weight <= 1e-4) {
+          if (!supported) {
+            foot.anchor = null;
+            foot.previousCorrected = null;
+          }
+          foot.previousRaw = raw;
           continue;
         }
-        const correction = leg.anchor.clone().sub(raw);
-        correction.y = 0; // Do not force ankle height; preserve authored knee/foot lifts.
-        correction.multiplyScalar(leg.weight);
-        const magnitude = correction.length();
-        if (magnitude < 1e-6) continue;
-        const correctedLocal = raw.clone().add(correction);
-        alignAnkle(leg, actor.localToWorld(correctedLocal));
-        actor.updateWorldMatrix(true, true);
-        const corrected = actor.worldToLocal(leg.ankle.getWorldPosition(new THREE.Vector3()));
-        const error = new THREE.Vector2(corrected.x - leg.anchor.x, corrected.z - leg.anchor.z).length();
-        maxContactError = Math.max(maxContactError, error);
-        contactTravel = Math.max(contactTravel, magnitude);
-        if (leg.weight > 0.5) lockedFeet++;
+
+        const horizontal = foot.anchor.clone().sub(raw);
+        horizontal.y = 0; // Preserve original toe-off and foot lift height.
+        const correction = horizontal.multiplyScalar(foot.weight);
+        const limited = Math.min(correction.length(), height * MAX_STANCE_REACH);
+        if (limited > 1e-7) {
+          correction.setLength(limited);
+          const correctedGoal = actor.localToWorld(raw.clone().add(correction));
+          applyLegIK(foot, correctedGoal);
+          actor.updateWorldMatrix(true, true);
+        }
+        const corrected = actor.worldToLocal(foot.ankle.getWorldPosition(new THREE.Vector3()));
+        // These measurements only count consecutive frames of the SAME active
+        // support contact; free footsteps and gait motion are excluded.
+        if (foot.weight > 0.5) {
+          lockedFeet++;
+          const error = Math.hypot(corrected.x - foot.anchor.x, corrected.z - foot.anchor.z);
+          maxContactError = Math.max(maxContactError, error);
+          contactTravel = Math.max(contactTravel, limited);
+          if (oldRaw && foot.previousCorrected) {
+            foot.rawTravel += Math.hypot(dx, dz);
+            foot.correctedTravel += Math.hypot(
+              corrected.x - foot.previousCorrected.x, corrected.z - foot.previousCorrected.z,
+            );
+          }
+          foot.previousCorrected = corrected;
+        } else {
+          foot.previousCorrected = null;
+        }
+        foot.previousRaw = raw;
       }
-      return {lockedFeet, maxContactError, contactTravel};
+      return {
+        lockedFeet,
+        maxContactError,
+        contactTravel,
+        plantedRawTravel: feet.reduce((sum, foot) => sum + foot.rawTravel, 0),
+        plantedCorrectedTravel: feet.reduce((sum, foot) => sum + foot.correctedTravel, 0),
+      };
     },
   };
 }

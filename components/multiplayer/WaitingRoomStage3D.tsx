@@ -1573,6 +1573,8 @@ export default function WaitingRoomStage3D({
               lockedFeet: "lockedFeet" in item ? item.lockedFeet : 0,
               maxContactError: "maxContactError" in item ? item.maxContactError : 0,
               contactTravel: "contactTravel" in item ? item.contactTravel : 0,
+              plantedRawTravel: "plantedRawTravel" in item ? item.plantedRawTravel : 0,
+              plantedCorrectedTravel: "plantedCorrectedTravel" in item ? item.plantedCorrectedTravel : 0,
             })));
             if (samples.length) {
               const mean = (column: number) => samples.reduce((sum, row) => sum + row[column], 0) / samples.length;
