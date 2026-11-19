@@ -15,6 +15,7 @@ import {
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import { M3CharacterAssembler } from "../character/m3-character-assembler";
 import { createM3LobbyIdle, type M3LobbyIdle } from "../character/m3-lobby-idle";
+import type { MixamoLobbyIdle } from "../character/mixamo-lobby-player";
 import { parseM3LobbyAppearance } from "../character/m3-lobby-appearance";
 import { loadLobbyIdleLibrary } from "../character/lobby-idle-library";
 import { retargetQuaterniusClipsToMixamo } from "../character/mixamo-character-adapter";
@@ -875,7 +876,7 @@ export default function WaitingRoomStage3D({
 
     const idleRuntimeByParticipant = new Map<string, IdleRuntime>();
     // Waiting Room only: native M3 skeleton motion, no Mixer/gameplay clock.
-    const m3IdleByParticipant = new Map<string, M3LobbyIdle>();
+    const m3IdleByParticipant = new Map<string, M3LobbyIdle | MixamoLobbyIdle>();
     const disposableSources: THREE.Object3D[] = [];
     stageNodesRef.current.clear();
     slotPlaceholdersRef.current = [];
@@ -1271,6 +1272,8 @@ export default function WaitingRoomStage3D({
     };
 
     const motionReview = window.location.pathname === "/tools/lobby-qa-sketch";
+    const mixamoReview = motionReview && new URLSearchParams(window.location.search).get("mixamo") === "1";
+    let mixamoModule: typeof import("../character/mixamo-lobby-player") | null = null;
     const rosterReview = motionReview && new URLSearchParams(window.location.search).get("rosterProbe") === "1";
     const reviewMixerIds = rosterReview ? new WeakMap<THREE.AnimationMixer, string>() : null;
     let reviewSpeed = 1;
@@ -1563,6 +1566,7 @@ export default function WaitingRoomStage3D({
           const runtimes = [...m3IdleByParticipant.values()];
           const stageElement = mountRef.current.parentElement;
           if (stageElement) {
+            stageElement.dataset.m3MixamoEnabled = mixamoReview && mixamoModule ? "1" : "0";
             if (samples.length) {
               const mean = (column: number) => samples.reduce((sum, row) => sum + row[column], 0) / samples.length;
               const durations = samples.map(row => row[1]).sort((a,b) => a-b);
@@ -2043,8 +2047,14 @@ export default function WaitingRoomStage3D({
       stageNodesRef.current.set(participant.participantId, node);
       if (m3Source) {
         const rigFamily = getCharacterCatalogEntry(characterAssetId)?.m3RigFamily;
-        const idle = rigFamily ? createM3LobbyIdle(actor, participant.participantId, roomId, rigFamily,
-          () => Array.from(m3IdleByParticipant.values()).flatMap(r => r.target ? [r.animationProfile, r.target] : [r.animationProfile])
+        const occupiedProfiles = () => Array.from(m3IdleByParticipant.values()).flatMap(r =>
+          r.target ? [r.animationProfile, r.target] : [r.animationProfile]);
+        const idle = rigFamily ? (mixamoReview && mixamoModule
+          ? mixamoModule.createMixamoLobbyIdle(actor, participant.participantId, roomId, rigFamily, occupiedProfiles)
+          : createM3LobbyIdle(actor, participant.participantId, roomId, rigFamily, () =>
+              occupiedProfiles().filter((key): key is M3LobbyIdle["currentGesture"] =>
+                /^(F0[1-5]|M0[1-3]|X01)$/.test(key))
+            )
         ) : null;
         if (idle) {
           m3IdleByParticipant.set(participant.participantId, idle);
@@ -2149,6 +2159,14 @@ export default function WaitingRoomStage3D({
       return null;
     });
     const idleLibraryPromise = loadLobbyIdleLibrary();
+    const mixamoLibraryPromise = mixamoReview
+      ? import("../character/mixamo-lobby-player").then(async module => {
+          await module.prepareMixamoLobbyClips();
+          mixamoModule = module;
+        }).catch(error => {
+          console.warn("[mixamo-qa] library unavailable; using existing M3 idle", error);
+        })
+      : Promise.resolve();
     const catalogPromises = CHARACTER_CATALOG_V1
       .filter(entry => entry.runtimeReady)
       .map(async entry => {
@@ -2161,7 +2179,7 @@ export default function WaitingRoomStage3D({
         }
       });
 
-    void Promise.all([canonicalPromise, idleLibraryPromise, Promise.all(catalogPromises)])
+    void Promise.all([canonicalPromise, idleLibraryPromise, Promise.all(catalogPromises), mixamoLibraryPromise])
       .then(([canonicalGltf, idleLibrary, catalogResults]) => {
         if (disposed) {
           if (canonicalGltf) disposeObject(canonicalGltf.scene);

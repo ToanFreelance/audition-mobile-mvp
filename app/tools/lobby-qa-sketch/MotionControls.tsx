@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MIXAMO_GROUPS, type MixamoGesture } from "../../../components/character/mixamo-lobby-data";
 import {
   poses,
   rigPool,
@@ -10,8 +11,8 @@ import {
 
 type Pacing = { target: number; drawP95Ms: number; animationMeanMs: number; renderSubmitMeanMs: number; cappedMs: number };
 type Sample = {
-  id: IdleId;
-  target: IdleId | null;
+  id: string;
+  target: string | null;
   feet: Feet;
   contact: string;
   drift: number;
@@ -27,13 +28,24 @@ export default function MotionControls({
   family,
   pilot = false,
   mixed = false,
+  mixamo = false,
 }: {
   family: keyof typeof rigPool;
   pilot?: boolean;
   mixed?: boolean;
+  mixamo?: boolean;
 }) {
-  const [id, setId] = useState<IdleId>(rigPool[family][0]);
-  const [open, setOpen] = useState(pilot);
+  const [id, setId] = useState<IdleId | MixamoGesture>(
+    mixamo ? MIXAMO_GROUPS[family].base[0] : rigPool[family][0],
+  );
+  const [open, setOpen] = useState(pilot || mixamo);
+  const optionsFor = (rig: keyof typeof rigPool) =>
+    [...MIXAMO_GROUPS[rig].base, ...MIXAMO_GROUPS[rig].emote, ...MIXAMO_GROUPS[rig].manual];
+  const options = mixamo
+    ? (mixed
+        ? Array.from(new Set([...optionsFor("drophunter"), ...optionsFor("neurohacker")]))
+        : optionsFor(family))
+    : (mixed ? [...rigPool.drophunter, ...rigPool.neurohacker] : rigPool[family]);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [pacing, setPacing] = useState<Pacing | null>(null);
   useEffect(() => {
@@ -91,18 +103,20 @@ export default function MotionControls({
         overflow: "auto",
       }}
     >
-      <summary>Kiểm tra chuyển động M3</summary>
+      <summary>Kiểm tra chuyển động M3{mixamo ? " · Mixamo All 10" : ""}</summary>
+      {mixamo && <p>10 Mixamo clips · 17 tổ hợp rig; Catwalk chỉ chọn thủ công</p>}
       {pilot && <p>F01 Blender V1.9.3 · Chờ duyệt hình ảnh</p>}
       <nav>
-        <a href="?m3=female">Nữ</a> · <a href="?m3=male">Nam</a> ·{" "}
-        <a href="?m3=five&allM3=1">Năm người</a>
+        <a href={mixamo ? "?m3=female&mixamo=1" : "?m3=female"}>Nữ</a> · <a href={mixamo ? "?m3=male&mixamo=1" : "?m3=male"}>Nam</a> ·{" "}
+        <a href={mixamo ? "?m3=five&allM3=1&mixamo=1" : "?m3=five&allM3=1"}>Năm người</a> ·{" "}
+        <a href={mixamo ? "?m3=five&allM3=1" : "?m3=five&allM3=1&mixamo=1"}>{mixamo ? "Blender V1.9.3" : "Mixamo All 10"}</a>
       </nav>
       <select
         aria-label="Động tác"
         value={id}
-        onChange={(e) => setId(e.target.value as IdleId)}
+        onChange={(e) => setId(e.target.value as IdleId | MixamoGesture)}
       >
-        {(mixed ? [...rigPool.drophunter, ...rigPool.neurohacker] : rigPool[family]).map((key) => (
+        {options.map((key) => (
           <option key={key}>{key}</option>
         ))}
       </select>{" "}
@@ -127,7 +141,7 @@ export default function MotionControls({
           </strong>{" "}
           · {s.contact}
           <div>Trái | Phải (ngang / sâu / cao / góc): {placement(s.feet)}</div>
-          {s.target && <div>Đích: {placement(poses[s.target].feet)}</div>}
+          {s.target && !mixamo && <div>Đích: {placement(poses[s.target as IdleId].feet)}</div>}
           <div>
             Sai số cổ chân khi trụ {s.drift.toFixed(5)} · Thấp hơn mốc cổ chân{" "}
             {s.floor.toFixed(5)}
