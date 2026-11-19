@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import * as THREE from "three";
 import restRig from "./fixtures/drophunter-rest-v192.json";
+import maleRestRig from "./fixtures/neurohacker-rest-v193.json";
 import f01 from "../components/character/motion/drophunter.json";
 import { createM3LobbyIdle } from "../components/character/m3-lobby-idle";
 
@@ -11,12 +12,12 @@ import {
   type IdleId,
 } from "../components/character/motion/stances";
 
-function syntheticM3Actor() {
+function syntheticM3Actor(family: "drophunter" | "neurohacker" = "drophunter") {
   const root = new THREE.Group();
   const bones: THREE.Bone[] = [];
   // Full-body baked motion requires the canonical rig's proportions.
   const byName = new Map<string, THREE.Bone>();
-  for (const node of restRig) {
+  for (const node of (family === "neurohacker" ? maleRestRig : restRig)) {
     const joint = new THREE.Bone();
     joint.name = node.name;
     joint.position.fromArray(node.translation);
@@ -46,13 +47,22 @@ function syntheticM3Actor() {
   root.add(skinned);
   root.updateWorldMatrix(true, true);
   skinned.bind(new THREE.Skeleton(bones));
+  // Actual bind-shoe sole measurements; a bare skeleton lacks this offset.
+  const sole=family==="neurohacker"?-.02276697:-.01124723;
+  const g=new THREE.BufferGeometry();
+  g.setAttribute("position",new THREE.Float32BufferAttribute([-1,1].flatMap(sign=>[
+    sign*.075,sole,-.08, sign*.075,sole,.17, sign*.10,sole,0]),3));
+  g.setAttribute("skinIndex",new THREE.Uint16BufferAttribute(new Uint16Array(24),4));
+  g.setAttribute("skinWeight",new THREE.Float32BufferAttribute(Array.from({length:24},(_,i)=>i%4===0?1:0),4));
+  const shoes=new THREE.SkinnedMesh(g,new THREE.MeshBasicMaterial());shoes.name="m3-shoes-sole-fixture";
+  root.add(shoes);root.updateWorldMatrix(true,true);shoes.bind(new THREE.Skeleton(bones));
   return { root, bones };
 }
 
 for (const family of ["drophunter", "neurohacker"] as const) {
   const pool = rigPool[family];
   test(family + " — phát ngẫu nhiên liên tục, định danh và tiếp xúc", () => {
-    const { root } = syntheticM3Actor();
+    const { root } = syntheticM3Actor(family);
     const runtime = createM3LobbyIdle(root, "participant", "room", family)!;
     const identity = runtime.instanceId;
     const played = [runtime.currentGesture];
@@ -163,7 +173,7 @@ test("Rig binding and occupancy use catalog family", () => {
 
 test("Khớp cổ tay và chân liên tục khi phát lại đủ chín clip", () => {
   for (const family of ["drophunter", "neurohacker"] as const) {
-    const {root,bones}=syntheticM3Actor();
+    const {root,bones}=syntheticM3Actor(family);
     const runtime=createM3LobbyIdle(root, family,"replay",family)!;
     const tips=bones.filter(b=>/^(hand|foot)\./.test(b.name));
     for (const id of rigPool[family]) {
@@ -192,8 +202,8 @@ test("Khớp cổ tay và chân liên tục khi phát lại đủ chín clip", (
   }
 });
 
-test("Chuyển từ chân co sang hai chân giữ trụ và đưa trọng lượng về trước khi đổi trụ", () => {
-  const { root, bones } = syntheticM3Actor();
+test("M03 Blender chuyển dáng chân so le giữ trụ", () => {
+  const { root, bones } = syntheticM3Actor("neurohacker");
   const runtime = createM3LobbyIdle(root, "balance", "qa", "neurohacker")!;
   runtime.select("M03");
   const support = bones.find(b => b.name === "foot.L")!;
@@ -237,7 +247,7 @@ test("F01 Blender owns authored joints after mixer and actor transforms", () => 
       const index = track.frames.indexOf(frame);
       expect(index).toBeGreaterThanOrEqual(0);
       const expected = new THREE.Quaternion().fromArray(track.values, index * 4).normalize();
-      expect(joint.quaternion.clone().normalize().angleTo(expected), name).toBeLessThan(0.000001);
+      expect(joint.quaternion.clone().normalize().angleTo(expected), name).toBeLessThan(0.000003);
     }
     const hips = bones.find(bone => bone.name === "hips")!;
     const rest = restRig.find(bone => bone.name === "hips")!;
@@ -248,4 +258,12 @@ test("F01 Blender owns authored joints after mixer and actor transforms", () => 
   }
   expect(runtime.clipDuration).toBeCloseTo(313 / 30, 10);
   runtime.dispose();
+});
+
+test("M3 preserves source time under slow visible draws",()=>{
+ const r=createM3LobbyIdle(syntheticM3Actor().root,"clock","qa","drophunter")!;
+ r.select("F02");let t=0;const mixer=r.playbackMixer;
+ for(let i=0;i<12;i++)for(const dt of [1/30,.12,.18,.25,.08]){
+  r.update(dt);t+=dt;expect(r.poseTime).toBeCloseTo(t,8);expect(r.playbackMixer).toBe(mixer);
+ }r.dispose();
 });

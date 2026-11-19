@@ -1,6 +1,6 @@
 # M3 V1.9.3 — thư viện chín động tác Blender
 
-Trạng thái checkpoint: **đã bake 9/9, đang sửa hình ảnh và kiểm tra; chưa nghiệm thu**.
+Trạng thái: **đã bake và tích hợp 9/9, chưa nghiệm thu mỹ thuật**.
 Baseline Git: `4279d57cce5d0dab6d05882c890f69cd5e6706a5` (V1.9.2). Chỉ làm trên
 `work/m3-waiting-room-integration-v1`, không merge. Không thay RoomState, CAS,
 Realtime, Ready/Start/preload, WebAudio, gauge hoặc timeline gameplay.
@@ -52,3 +52,18 @@ Source video, model và texture riêng tư không đưa vào Git.
   chân không kéo giãn. Cần chỉnh pose, không sửa bằng IK runtime đè lên clip.
 - Phải hoàn tất render 30 FPS đủ thời lượng, BVH mesh/quần áo/chuyển clip,
   so sánh trước/sau, UI năm người, CI và Preview trước báo cáo cuối.
+
+## Bản tích hợp V193
+
+Đã sửa tầm với tay trên rig thật, giảm dịch hông quá mức, làm liên tục hướng
+lòng bàn tay bằng các key xoay riêng. Toàn bộ chín JSON có `motionOwner` và
+foot/contact samples; AnimationMixer giữ quyền ghi toàn thân lúc phát clip.
+Chỉ giai đoạn chuyển dùng bridge hiện có, không sửa shuffle-bag hay catalog.
+
+Idle M3 bù bước thời gian khi render vượt 100 ms, chia thành các bước nhỏ để giữ
+điểm tiếp đất. Tab ẩn vẫn dùng cơ chế reset thời gian sẵn có của stage.
+
+Đã chạy Blender 4.3.2 cho 9 clip, kiểm tra unit quaternion/sign, đầy đủ chân/bàn
+chân, thời lượng, drift tiếp đất < 0.04 mm, bước xoay khớp < 15 độ/hình.
+Đã chạy TypeScript, build và 10 kiểm thử runtime cục bộ. CI và video đối chiếu
+được báo riêng theo đúng commit. Không xem các số này là nghiệm thu mỹ thuật.

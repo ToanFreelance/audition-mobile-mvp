@@ -52,7 +52,7 @@ def hand_pose(id,side,f):
     elif id=='F04':
         if side=='L' and 36<=f<=166:direction=(-.55,.65,.52);flex=.18;twist=.25
     elif id=='F05':
-        direction=(-sign*.90,.10,.42);twist=sign*.35;flex=.28
+        direction=(-.60,-.60,.50) if side=='L' else (.80,.05,.60);twist=sign*.35;flex=.28
     elif id=='M02':
         if side=='L':direction=(.25,.85,.46);twist=.6;flex=.25
         else:direction=(.20,-.75,.63);flex=.35
@@ -66,13 +66,41 @@ def hand_pose(id,side,f):
         elif side=='L':direction=(.10,-.98,-.10)
     return Vector(direction).normalized(),twist,flex
 
+def hand_rotation(id,side,f):
+    direction,twist,flex=hand_pose(id,side,f);sign=1 if side=='L' else -1
+    def quat(d,t):
+        d=Vector(d).normalized()
+        return Quaternion(d,t) @ Vector((sign,0,0)).rotation_difference(d)
+    neutral=((.06*sign,-.99,.10),.12);keys=None
+    if id=='F02' and side=='L':
+        raised=((.10,.9,.38),.35)
+        keys=[(0,neutral),(64,neutral),(96,raised),(120,raised),(173,neutral),(411,neutral)]
+    elif id=='F04' and side=='L':
+        chest=((-.55,.65,.52),.25)
+        keys=[(0,neutral),(24,neutral),(48,chest),(158,chest),(194,neutral),(231,neutral)]
+    elif id=='X01' and side=='L':
+        waist=((-.85,.20,.48),.12);cheek=((-.20,.85,.48),.3)
+        keys=[(0,neutral),(25,neutral),(50,waist),(76,waist),(114,cheek),(140,cheek),(191,neutral),(242,neutral)]
+    elif id=='M03' and side=='R':
+        chest=((.25,.65,.72),.12);open_hand=((-.35,.90,.25),-.25)
+        keys=[(0,neutral),(20,neutral),(50,chest),(81,open_hand),(132,open_hand),(152,chest),(182,neutral),(193,neutral)]
+    if keys:
+        for (a,va),(b,vb) in zip(keys,keys[1:]):
+            if a<=f<=b:
+                t=(f-a)/(b-a);t=t*t*(3-2*t);q=quat(*va);r=quat(*vb)
+                if q.dot(r)<0:r.negate()
+                return q.slerp(r,t),flex
+    return quat(direction,twist),flex
+
 def elbow_pole(id,side,f,x):
     sign=1 if side=='L' else -1
     pole=(x+sign*.43,.78,-.08)
-    if id=='F01' and side=='L' and (f<=106 or f>=262):pole=(x+.42,.65,.20)
+    if id=='F01' and side=='L':
+        t=min(1,max(0,(f-80)/48),max(0,(272-f)/42));t=t*t*(3-2*t)
+        pole=(x+.42,.65+.13*t,.20-.28*t)
     if id=='F03':pole=(x+sign*.43,1.10 if 72<=f<=132 else .87,-.06)
     if id=='F04' and side=='L' and 36<=f<=166:pole=(x+.37,.86,.03)
-    if id=='F05':pole=(x+sign*.35,.75,-.025)
+    if id=='F05':pole=(x+sign*.43,.87,.20)
     if id=='M02' and side=='L':pole=(x+.48,.94,-.06)
     if id=='X01' and side=='L':pole=(x+.42,.90,-.03)
     if id=='M03' and side=='L':pole=(x+.40,.87,-.16)
@@ -120,8 +148,7 @@ def author(arm,id):
             base.key(elbow,'location',C.to_3x3() @ elbow_pole(id,side,f,x),f)
             # Poles point forward and out, never behind the anatomical knee.
             base.key(knee,'location',C.to_3x3() @ Vector((x+sign*.14,.42,1)),f)
-            direction,twist,flex=hand_pose(id,side,f)
-            q=Quaternion(direction,twist) @ Vector((sign,0,0)).rotation_difference(direction)
+            q,flex=hand_rotation(id,side,f)
             world=C.to_quaternion() @ q @ CI.to_quaternion()
             base.key(hand,'rotation_quaternion',world @ bones['hand.'+side].bone.matrix_local.to_quaternion(),f)
             for digit in ['thumb','index','middle','ring','little']:

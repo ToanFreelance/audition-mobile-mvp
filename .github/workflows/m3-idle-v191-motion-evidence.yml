@@ -1,4 +1,4 @@
-name: M3 Idle V1.9.1 — Real Full-Motion Evidence
+name: M3 Idle V1.9.3 — Blender Library Motion Evidence
 on:
   push:
     branches:
@@ -35,6 +35,8 @@ jobs:
           cache: npm
       - name: Dependencies
         run: npm ci
+      - name: Validate all nine Blender bakes
+        run: python scripts/m3-idle/validate_library_v193.py
       - name: TypeScript
         run: npx tsc --noEmit
       - name: Production build

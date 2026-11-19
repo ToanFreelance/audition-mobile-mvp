@@ -26,9 +26,11 @@ function placement(feet: Feet) {
 export default function MotionControls({
   family,
   pilot = false,
+  mixed = false,
 }: {
   family: keyof typeof rigPool;
   pilot?: boolean;
+  mixed?: boolean;
 }) {
   const [id, setId] = useState<IdleId>(rigPool[family][0]);
   const [open, setOpen] = useState(pilot);
@@ -90,17 +92,17 @@ export default function MotionControls({
       }}
     >
       <summary>Kiểm tra chuyển động M3</summary>
-      {pilot && <p>F01 Blender V1.9.2 · Chờ duyệt hình ảnh</p>}
+      {pilot && <p>F01 Blender V1.9.3 · Chờ duyệt hình ảnh</p>}
       <nav>
         <a href="?m3=female">Nữ</a> · <a href="?m3=male">Nam</a> ·{" "}
-        <a href="?m3=five">Năm người</a>
+        <a href="?m3=five&allM3=1">Năm người</a>
       </nav>
       <select
         aria-label="Động tác"
         value={id}
         onChange={(e) => setId(e.target.value as IdleId)}
       >
-        {rigPool[family].map((key) => (
+        {(mixed ? [...rigPool.drophunter, ...rigPool.neurohacker] : rigPool[family]).map((key) => (
           <option key={key}>{key}</option>
         ))}
       </select>{" "}

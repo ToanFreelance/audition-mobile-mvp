@@ -433,25 +433,25 @@ export function createM3LobbyIdle(
   const orientations = contacts.map((c) => c.localWorldRotation.clone());
   const center = (rest[0].x + rest[1].x) / 2;
   const forward = (rest[0].z + rest[1].z) / 2;
-  const authoredF01: BakedMotion = drophunter;
   const ownsFullBody = (clip: IdleId) =>
-    clip === "F01" && authoredF01.motionOwner === "blender-full-body";
+    (sources[clip] as BakedMotion).motionOwner === "blender-full-body";
   function performancePlacement(clip: IdleId, time: number) {
-    if (!ownsFullBody(clip) || !authoredF01.footSamples) return stanceAt(clip, time);
-    const frame = THREE.MathUtils.clamp(time * authoredF01.fps, 0, authoredF01.lastFrame);
-    const a = Math.floor(frame), b = Math.min(a + 1, authoredF01.lastFrame);
+    const authored: BakedMotion = sources[clip];
+    if (!ownsFullBody(clip) || !authored.footSamples) return stanceAt(clip, time);
+    const frame = THREE.MathUtils.clamp(time * authored.fps, 0, authored.lastFrame);
+    const a = Math.floor(frame), b = Math.min(a + 1, authored.lastFrame);
     const weight = frame - a;
     const feet = contacts.map((_, side): Shoe => {
-      const start = authoredF01.footSamples![a][side];
-      const end = authoredF01.footSamples![b][side];
+      const start = authored.footSamples![a][side];
+      const end = authored.footSamples![b][side];
       const position = start.map((v, axis) => THREE.MathUtils.lerp(v, end[axis], weight));
-      const planted = authoredF01.contactWindows?.[side === 0 ? "L" : "R"]
+      const planted = authored.contactWindows?.[side === 0 ? "L" : "R"]
         .some(([first, last]) => frame >= first && frame <= last);
       return [
         (position[0] - center) / localHeight,
         (position[2] - forward) / localHeight,
         planted ? 0 : Math.max(0.000001, (position[1] - rest[side].y) / localHeight),
-        THREE.MathUtils.lerp(authoredF01.footYawSamples?.[a][side] ?? 0, authoredF01.footYawSamples?.[b][side] ?? 0, weight),
+        THREE.MathUtils.lerp(authored.footYawSamples?.[a][side] ?? 0, authored.footYawSamples?.[b][side] ?? 0, weight),
       ];
     }) as [Shoe, Shoe];
     // Transition metadata only. The Blender action already owns the pelvis.
@@ -666,7 +666,18 @@ export function createM3LobbyIdle(
       if (actions.has(next) && next !== id) queued = next;
     },
     update(deltaSeconds) {
-      const dt = THREE.MathUtils.clamp(deltaSeconds, 0, 0.1);
+      if (!Number.isFinite(deltaSeconds) || deltaSeconds < 0) return;
+      // Preserve visible idle time; hidden tabs reset the stage clock.
+      // Integrate contact/transition boundaries in steps no larger than 100 ms.
+      if (deltaSeconds > 0.1) {
+        let remaining = deltaSeconds;
+        while (remaining > 1e-10) {
+          const step = Math.min(0.1, remaining);
+          runtime.update(step); remaining -= step;
+        }
+        return;
+      }
+      const dt = deltaSeconds;
       runtime.elapsedSeconds += dt;
       hips.bone.position.x -= correctionX;
       hips.bone.position.y -= correctionY;
@@ -717,9 +728,13 @@ export function createM3LobbyIdle(
           (id === "M02" && next === "M01")
         )
           clearanceAngle = -0.3 * 4 * weight * (1 - weight);
-        if (id === "F01" && next === "F02") {
-          clearanceAngle = -0.28 * ease(Math.min(1, bridgeTime / 0.16))
+        if (id === "F01" && next !== "F01") {
+          const clearance = ease(Math.min(1, bridgeTime / 0.16))
             * ease(Math.min(1, (bridge.duration - bridgeTime) / 0.25));
+          clearanceAngle = -0.30 * clearance;
+          if (next === "F02") {
+            leftArm.quaternion.premultiply(residual.setFromAxisAngle(armAxis, 0.24 * clearance));
+          }
         }
         if (bridgeTime >= bridge.duration) {
           id = next;
@@ -753,7 +768,7 @@ export function createM3LobbyIdle(
       runtime.clipDuration = action.getClip().duration;
       const fullBodyPlayback = ownsFullBody(id) && !bridge;
       if (fullBodyPlayback) {
-        // AnimationMixer is the sole owner of Blender's full-body F01.
+        // AnimationMixer is the sole owner of each Blender full-body action.
         // These measurements never modify any bone.
         correctionX = 0;
         correctionY = 0;

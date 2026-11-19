@@ -31,7 +31,7 @@ const libraries = [
 ] as const;
 
 for (const library of libraries) {
-  test("M3 V1.9.1 full-library browser motion evidence: " + library.family,
+  test("M3 V1.9.3 full-library browser motion evidence: " + library.family,
     async ({ page }) => {
       test.setTimeout(420_000);
       const errors: string[] = [];
@@ -72,7 +72,7 @@ for (const library of libraries) {
     });
 }
 
-test("M3 V1.9.1 five-person random Waiting Room browser video", async ({ page }) => {
+test("M3 V1.9.3 five-person random Waiting Room browser video", async ({ page }) => {
   test.setTimeout(240_000);
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -117,7 +117,7 @@ test("Five actual M3 roots and mixers survive presentation-only roster changes",
   }
 });
 
-test("F01 V1.9.2 isolated Blender pilot plays complete source duration at 1x", async ({ page }) => {
+test("F01 V1.9.3 isolated Blender pilot plays complete source duration at 1x", async ({ page }) => {
   test.setTimeout(180_000);
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -127,7 +127,7 @@ test("F01 V1.9.2 isolated Blender pilot plays complete source duration at 1x", a
   await expect(stage).toHaveAttribute("data-m3-active-gestures", "F01");
   const identity = await stage.getAttribute("data-m3-idle-instances");
   const completed = Number(await stage.getAttribute("data-m3-completed-gestures"));
-  await expect(page.getByText("F01 Blender V1.9.2 · Chờ duyệt hình ảnh")).toBeVisible();
+  await expect(page.getByText("F01 Blender V1.9.3 · Chờ duyệt hình ảnh")).toBeVisible();
   await page.getByRole("button", { name: "1×", exact: true }).click();
   await page.getByRole("button", { name: "Phát lại", exact: true }).click();
   await expect.poll(async () => Number(await stage.getAttribute("data-m3-completed-gestures")),
@@ -138,5 +138,5 @@ test("F01 V1.9.2 isolated Blender pilot plays complete source duration at 1x", a
   if (!video) throw new Error("Missing F01 browser recording");
   await page.close();
   await mkdir("test-results/m3-v191-motion", { recursive: true });
-  await video.saveAs("test-results/m3-v191-motion/f01-blender-v192.webm");
+  await video.saveAs("test-results/m3-v191-motion/f01-blender-v193.webm");
 });

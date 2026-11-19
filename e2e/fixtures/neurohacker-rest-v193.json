@@ -1,0 +1,1532 @@
+[
+  {
+    "name": "root",
+    "parent": "Armature",
+    "translation": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "hips",
+    "parent": "root",
+    "translation": [
+      0,
+      0.8356637,
+      -5.96046448e-08
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "spine",
+    "parent": "hips",
+    "translation": [
+      5.143537e-09,
+      0.171927571,
+      0.0150890946
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "chest",
+    "parent": "spine",
+    "translation": [
+      3.483568e-09,
+      0.142080784,
+      -0.003807664
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "upper_chest",
+    "parent": "chest",
+    "translation": [
+      -2.04570583e-10,
+      -1.1920929e-07,
+      0.003807664
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.L",
+    "parent": "upper_chest",
+    "translation": [
+      0.0694422647,
+      0.04745698,
+      0.04704559
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.001.L",
+    "parent": "Bone.L",
+    "translation": [
+      0.0007928163,
+      -3.57627869e-07,
+      0.0312005281
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.R",
+    "parent": "upper_chest",
+    "translation": [
+      -0.06944225,
+      0.04745698,
+      0.04704559
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.001.R",
+    "parent": "Bone.R",
+    "translation": [
+      -0.000792853534,
+      0,
+      0.0312005281
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "neck",
+    "parent": "upper_chest",
+    "translation": [
+      2.81546875e-09,
+      0.171438932,
+      -0.0162470341
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "head",
+    "parent": "neck",
+    "translation": [
+      3.15382565e-09,
+      0.10107851,
+      -0.00531339645
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone",
+    "parent": "head",
+    "translation": [
+      0,
+      0,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.001",
+    "parent": "Bone",
+    "translation": [
+      0.003398006,
+      0.07595098,
+      -0.13747704
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.002",
+    "parent": "Bone.001",
+    "translation": [
+      -0.00108396681,
+      -0.0305101871,
+      0.005076647
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.001.L.001",
+    "parent": "Bone",
+    "translation": [
+      0.11230088,
+      0.0110937357,
+      -0.00609266758
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.002.L.001",
+    "parent": "Bone.001.L.001",
+    "translation": [
+      -0.0140361339,
+      -0.02640605,
+      0.00667655468
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.001.R.001",
+    "parent": "Bone",
+    "translation": [
+      -0.112300813,
+      0.0110937357,
+      -0.006092906
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.002.R.001",
+    "parent": "Bone.001.R.001",
+    "translation": [
+      0.0140360966,
+      -0.02640593,
+      0.006676674
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.002.L",
+    "parent": "Bone",
+    "translation": [
+      0.09234675,
+      0.005412817,
+      0.0273183584
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.002.R",
+    "parent": "Bone",
+    "translation": [
+      -0.09234679,
+      0.005412817,
+      0.02731812
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.003",
+    "parent": "Bone",
+    "translation": [
+      0.102943696,
+      0.113469243,
+      -0.0185174942
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.006",
+    "parent": "Bone.003",
+    "translation": [
+      0.00161144882,
+      -0.0497725,
+      0.000928282738
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.004",
+    "parent": "Bone.006",
+    "translation": [
+      -0.004163116,
+      -0.0315880775,
+      0.005330324
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.003.L",
+    "parent": "Bone",
+    "translation": [
+      0.11960692,
+      0.014816761,
+      -0.0218989849
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.004.L",
+    "parent": "Bone.003.L",
+    "translation": [
+      -0.004331954,
+      -0.0199207067,
+      0.00191414356
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.003.R",
+    "parent": "Bone",
+    "translation": [
+      -0.11960683,
+      0.014816761,
+      -0.0218993425
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.004.R",
+    "parent": "Bone.003.R",
+    "translation": [
+      0.004331976,
+      -0.0199207067,
+      0.00191414356
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.005",
+    "parent": "Bone",
+    "translation": [
+      0.04546858,
+      0.132443666,
+      0.06702578
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.007",
+    "parent": "Bone.005",
+    "translation": [
+      -0.0135636814,
+      -0.0447273254,
+      0.0154774189
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.008",
+    "parent": "Bone",
+    "translation": [
+      -0.04020142,
+      0.126425624,
+      0.07653916
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.017",
+    "parent": "Bone.008",
+    "translation": [
+      -0.0114635974,
+      -0.0351554155,
+      0.00363135338
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.009",
+    "parent": "Bone",
+    "translation": [
+      -0.000879976549,
+      0.135339975,
+      0.08442652
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.010",
+    "parent": "Bone.009",
+    "translation": [
+      -0.00686852448,
+      -0.0707232952,
+      0.013833642
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.011",
+    "parent": "Bone",
+    "translation": [
+      -0.08867503,
+      0.0554089546,
+      0.04908085
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.012",
+    "parent": "Bone.011",
+    "translation": [
+      0.00707943,
+      -0.06664562,
+      -0.00416517258
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.013",
+    "parent": "Bone",
+    "translation": [
+      -0.08201395,
+      0.03772092,
+      0.014431
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.014",
+    "parent": "Bone.013",
+    "translation": [
+      0.0037150532,
+      -0.0345339775,
+      8.022785e-05
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.015",
+    "parent": "Bone",
+    "translation": [
+      -0.1048326,
+      0.0877095461,
+      -0.0124613047
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.016",
+    "parent": "Bone.015",
+    "translation": [
+      0.00301564485,
+      -0.04946792,
+      -0.00140273571
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Bone.018",
+    "parent": "Bone",
+    "translation": [
+      0.06482601,
+      0.172180772,
+      -0.08848572
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "eye.L",
+    "parent": "head",
+    "translation": [
+      0.04086806,
+      0.0431040525,
+      0.0385849476
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "eye.R",
+    "parent": "head",
+    "translation": [
+      -0.0408680625,
+      0.0431040525,
+      0.0385849476
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Hair1Root",
+    "parent": "head",
+    "translation": [
+      3.18559845e-09,
+      0.0566105843,
+      0.03050065
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Hair1Bang",
+    "parent": "Hair1Root",
+    "translation": [
+      0.0552997068,
+      0.08782792,
+      0.04474795
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Hair1Bang_2",
+    "parent": "Hair1Bang",
+    "translation": [
+      -0.101724669,
+      -0.0443124771,
+      0.005352378
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Hair2Root",
+    "parent": "head",
+    "translation": [
+      3.496221e-09,
+      0.0459319353,
+      0.03555131
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Hair2_1",
+    "parent": "Hair2Root",
+    "translation": [
+      3.29228733e-09,
+      0.116620779,
+      -0.00344216824
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Hair2_2",
+    "parent": "Hair2_1",
+    "translation": [
+      3.737327e-09,
+      -0.006551504,
+      0.07344651
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Hair5_Root",
+    "parent": "head",
+    "translation": [
+      1.62774416e-09,
+      0.0223855972,
+      0.0283465385
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "bang5.l",
+    "parent": "Hair5_Root",
+    "translation": [
+      0.0627091,
+      0.107466221,
+      0.04465747
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "bang5_2.l",
+    "parent": "bang5.l",
+    "translation": [
+      0.00498708338,
+      -0.0509325266,
+      -0.0109351873
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "bang5.r",
+    "parent": "Hair5_Root",
+    "translation": [
+      -0.0627090558,
+      0.1074661,
+      0.04465747
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "bang5_2.r",
+    "parent": "bang5.r",
+    "translation": [
+      -0.00498712063,
+      -0.0509326458,
+      -0.0109354258
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "Jaw",
+    "parent": "head",
+    "translation": [
+      9.718244e-10,
+      -0.0210398436,
+      0.0392302275
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "L Jaw",
+    "parent": "Jaw",
+    "translation": [
+      -0.0182217844,
+      0.004203081,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "R Jaw",
+    "parent": "Jaw",
+    "translation": [
+      0.0182217713,
+      0.004203081,
+      0
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "shoulder.L",
+    "parent": "upper_chest",
+    "translation": [
+      0.0224361774,
+      0.141331434,
+      -0.015089035
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "upper_arm.L",
+    "parent": "shoulder.L",
+    "translation": [
+      0.117623225,
+      0.00274133682,
+      -0.0120677948
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "lower_arm.L",
+    "parent": "upper_arm.L",
+    "translation": [
+      0.1824831,
+      -0.004156828,
+      -0.008988023
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "hand.L",
+    "parent": "lower_arm.L",
+    "translation": [
+      0.213580638,
+      0.000344634056,
+      0.008988023
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "index.proximal.L",
+    "parent": "hand.L",
+    "translation": [
+      0.07583535,
+      -0.002080202,
+      0.0180259943
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "index.intermediate.L",
+    "parent": "index.proximal.L",
+    "translation": [
+      0.0320134163,
+      0,
+      0.0005658865
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "index.distal.L",
+    "parent": "index.intermediate.L",
+    "translation": [
+      0.02252078,
+      0,
+      0.00103771687
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "little.proximal.L",
+    "parent": "hand.L",
+    "translation": [
+      0.06487894,
+      -0.00781858,
+      -0.0350872278
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "little.intermediate.L",
+    "parent": "little.proximal.L",
+    "translation": [
+      0.0261641741,
+      0,
+      -0.0026705265
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "little.distal.L",
+    "parent": "little.intermediate.L",
+    "translation": [
+      0.0178309679,
+      0,
+      -0.00196993351
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "middle.proximal.L",
+    "parent": "hand.L",
+    "translation": [
+      0.07642734,
+      0.00128960609,
+      -0.00278306
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "middle.intermediate.L",
+    "parent": "middle.proximal.L",
+    "translation": [
+      0.0336015224,
+      -1.1920929e-07,
+      0.000283002853
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "middle.distal.L",
+    "parent": "middle.intermediate.L",
+    "translation": [
+      0.0245717168,
+      1.1920929e-07,
+      0.000283122063
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "ring.proximal.L",
+    "parent": "hand.L",
+    "translation": [
+      0.07711691,
+      -0.000414013863,
+      -0.0219490528
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "ring.intermediate.L",
+    "parent": "ring.proximal.L",
+    "translation": [
+      0.0311555266,
+      0.000618577,
+      -0.000591158867
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "ring.distal.L",
+    "parent": "ring.intermediate.L",
+    "translation": [
+      0.0260619521,
+      0.00119245052,
+      -0.000905633
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "thumb.proximal.L",
+    "parent": "hand.L",
+    "translation": [
+      0.024254024,
+      -0.0130057335,
+      0.0211470127
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "thumb.intermediate.L",
+    "parent": "thumb.proximal.L",
+    "translation": [
+      0.0207473636,
+      -0.0066678524,
+      0.0150454044
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "thumb.distal.L",
+    "parent": "thumb.intermediate.L",
+    "translation": [
+      0.0231989622,
+      -0.000145673752,
+      0.01191771
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "shoulder.R",
+    "parent": "upper_chest",
+    "translation": [
+      -0.0224361569,
+      0.141331434,
+      -0.015089035
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "upper_arm.R",
+    "parent": "shoulder.R",
+    "translation": [
+      -0.117623188,
+      0.002741456,
+      -0.0120676756
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "lower_arm.R",
+    "parent": "upper_arm.R",
+    "translation": [
+      -0.182483152,
+      -0.004156828,
+      -0.008988142
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "hand.R",
+    "parent": "lower_arm.R",
+    "translation": [
+      -0.213580728,
+      0.000344634056,
+      0.008988142
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "index.proximal.R",
+    "parent": "hand.R",
+    "translation": [
+      -0.07583535,
+      -0.00207996368,
+      0.0180258751
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "index.intermediate.R",
+    "parent": "index.proximal.R",
+    "translation": [
+      -0.0320134163,
+      -2.38418579e-07,
+      0.0005660057
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "index.distal.R",
+    "parent": "index.intermediate.R",
+    "translation": [
+      -0.02252078,
+      0,
+      0.00103783607
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "little.proximal.R",
+    "parent": "hand.R",
+    "translation": [
+      -0.06487882,
+      -0.007818222,
+      -0.0350872278
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "little.intermediate.R",
+    "parent": "little.proximal.R",
+    "translation": [
+      -0.0261642337,
+      -2.38418579e-07,
+      -0.0026704073
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "little.distal.R",
+    "parent": "little.intermediate.R",
+    "translation": [
+      -0.0178309083,
+      0,
+      -0.00197005272
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "middle.proximal.R",
+    "parent": "hand.R",
+    "translation": [
+      -0.07642752,
+      0.00128984451,
+      -0.00278294086
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "middle.intermediate.R",
+    "parent": "middle.proximal.R",
+    "translation": [
+      -0.0336014628,
+      -1.1920929e-07,
+      0.000282883644
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "middle.distal.R",
+    "parent": "middle.intermediate.R",
+    "translation": [
+      -0.0245717764,
+      -1.1920929e-07,
+      0.000283122063
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "ring.proximal.R",
+    "parent": "hand.R",
+    "translation": [
+      -0.07711685,
+      -0.000413775444,
+      -0.0219490528
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "ring.intermediate.R",
+    "parent": "ring.proximal.R",
+    "translation": [
+      -0.0311554074,
+      0.0006186962,
+      -0.000591158867
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "ring.distal.R",
+    "parent": "ring.intermediate.R",
+    "translation": [
+      -0.02606213,
+      0.00119233131,
+      -0.000905633
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "thumb.proximal.R",
+    "parent": "hand.R",
+    "translation": [
+      -0.024254024,
+      -0.0130056143,
+      0.0211468935
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "thumb.intermediate.R",
+    "parent": "thumb.proximal.R",
+    "translation": [
+      -0.020747304,
+      -0.0066678524,
+      0.0150454044
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "thumb.distal.R",
+    "parent": "thumb.intermediate.R",
+    "translation": [
+      -0.0231990218,
+      -0.000145792961,
+      0.01191771
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "upper_leg.L",
+    "parent": "hips",
+    "translation": [
+      0.07432262,
+      0.0256323814,
+      0.0134602189
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "lower_leg.L",
+    "parent": "upper_leg.L",
+    "translation": [
+      -7.450581e-09,
+      -0.340793073,
+      0.00318533182
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "foot.L",
+    "parent": "lower_leg.L",
+    "translation": [
+      -2.23517418e-08,
+      -0.444220126,
+      -0.0526703522
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "toes.L",
+    "parent": "foot.L",
+    "translation": [
+      -7.450581e-09,
+      -0.0762828,
+      0.102316447
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "upper_leg.R",
+    "parent": "hips",
+    "translation": [
+      -0.07432261,
+      0.0256323814,
+      0.0134602189
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "lower_leg.R",
+    "parent": "upper_leg.R",
+    "translation": [
+      -3.7252903e-08,
+      -0.340793073,
+      0.00318610668
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "foot.R",
+    "parent": "lower_leg.R",
+    "translation": [
+      -4.47034836e-08,
+      -0.444219947,
+      -0.05266942
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  },
+  {
+    "name": "toes.R",
+    "parent": "foot.R",
+    "translation": [
+      -7.450581e-09,
+      -0.0762831,
+      0.102316573
+    ],
+    "rotation": [
+      0,
+      0,
+      0,
+      1
+    ]
+  }
+]

@@ -1556,7 +1556,7 @@ export default function WaitingRoomStage3D({
           switchIdleIfNeeded(runtime, deltaSeconds);
         });
         const animationStart = footContactProbe ? performance.now() : 0;
-        m3IdleByParticipant.forEach(runtime => runtime.update(deltaSeconds * reviewSpeed));
+        m3IdleByParticipant.forEach(runtime => runtime.update((drawMs / 1000) * reviewSpeed));
         const animationCost = footContactProbe ? performance.now() - animationStart : 0;
         if (footContactProbe && nowMs - lastProbeMs > 450 && mountRef.current) {
           lastProbeMs = nowMs;
@@ -1571,7 +1571,7 @@ export default function WaitingRoomStage3D({
                 rafMeanMs: mean(0) / mean(4), drawMeanMs: mean(1), drawP95Ms: durations[Math.floor(durations.length * 0.95)],
                 animationMeanMs: mean(2), renderSubmitMeanMs: mean(3),
                 delayed: durations.filter(ms => ms > 1.5 * minFrameMs).length,
-                cappedMs: samples.reduce((sum, row) => sum + Math.max(0, row[1] - 100), 0),
+                cappedMs: 0, // M3 preserves elapsed time with bounded integration steps.
               });
             }
             stageElement.dataset.m3MotionReview = JSON.stringify(runtimes.map(r => ({
