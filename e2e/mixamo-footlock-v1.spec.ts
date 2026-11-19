@@ -48,6 +48,9 @@ test("Mixamo foot locking - five independent M3 mixers survive READY update", as
   await page.getByTestId("room-settings-button").click();
   await page.getByRole("button",{name:"GUEST",exact:true}).first().click();
   await page.getByTestId("room-settings-button").click();
+  // The open QA telemetry panel overlays the READY control on 390px mobile.
+  // Close it through the UI before testing real pointer events (never force-click).
+  await page.locator("details > summary").click();
   const ready=page.getByTestId("ready-button");
   await ready.click();
   await ready.click();
