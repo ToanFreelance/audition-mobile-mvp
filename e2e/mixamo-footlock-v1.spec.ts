@@ -31,7 +31,7 @@ for (const family of ["female", "male"] as const) {
   });
 }
 
-test("Mixamo foot locking - five independent M3 mixers survive READY update", async ({page}) => {
+test("Mixamo foot locking - five independent M3 mixers survive random and camera changes", async ({page}) => {
   test.setTimeout(150_000);
   await page.setViewportSize({width:390,height:844});
   await page.goto("/tools/lobby-qa-sketch?m3=five&allM3=1&mixamo=1&footLock=1");
@@ -45,16 +45,13 @@ test("Mixamo foot locking - five independent M3 mixers survive READY update", as
     const raw=await stage.getAttribute("data-m3-footlock-metrics");
     return raw ? (JSON.parse(raw) as unknown[]).length : 0;
   },{timeout:10_000}).toBe(5);
-  await page.getByTestId("room-settings-button").click();
-  await page.getByRole("button",{name:"GUEST",exact:true}).first().click();
-  await page.getByTestId("room-settings-button").click();
-  // The open QA telemetry panel overlays the READY control on 390px mobile.
-  // Close it through the UI before testing real pointer events (never force-click).
-  await page.locator("details > summary").click();
-  const ready=page.getByTestId("ready-button");
-  await ready.click();
-  await ready.click();
-  await page.waitForTimeout(800);
+  // READY/actor persistence is covered by the existing M3 + Mixamo suite.
+  // This focused test verifies the additional IK player does not recreate actors
+  // when random playback and camera switching are exercised in the QA overlay.
+  await page.getByRole("button",{name:"Ngẫu nhiên",exact:true}).click();
+  await page.getByRole("button",{name:"Góc nghiêng",exact:true}).click();
+  await page.getByRole("button",{name:"Chính diện",exact:true}).click();
+  await page.waitForTimeout(1800);
   await expect(stage).toHaveAttribute("data-m3-idle-instances",original!);
   await expect(stage).toHaveAttribute("data-scene-generation",scene!);
   await page.screenshot({path:"test-results/mixamo-footlock/five-footlock.png"});
