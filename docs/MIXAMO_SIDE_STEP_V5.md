@@ -17,7 +17,7 @@ The opt-in `sideStepV5=1` path now runs **once at actor setup**. Only `Bored` (f
 5. Bakes the accepted change into 30fps thigh, shin and ankle quaternion tracks only, leaving the entire original torso, head, arms, pelvis track, actor root and clip duration unchanged. Foot motion outside the authored window remains source-authored.
 6. Reuses V4 contact-aware crossfade/shuffle-bag, and optional `pelvisFix=1` V3 small Bored pelvis adjustment.
 
-The step height is approximately **1.4% of each actor's measured height** (about 2.2cm at a 1.6m mesh), not a global model-space offset. This is a QA design parameter awaiting real-device sign-off, not a new gameplay rule.
+The step height is **0.9× measured source foot travel**, bounded between 1.3 and 2.6cm, rather than relying on the actor bounding box. The first M3 browser run measured a 4.05-unit visual box but only 1.8–2.1cm of maximum lateral travel in 14 frames, so V5's original 4.9cm detection threshold rejected every candidate. V5.1 uses bounded centimeter-scale motion thresholds and keeps the unchanged 11°/19° joint safety caps. This remains a QA design choice awaiting iPhone sign-off, not a gameplay rule.
 
 **Important:** If the source lacks a valid lateral traverse, or the native M3 skeleton cannot safely solve it, this pilot intentionally produces **no step** and keeps the original motion. A true source-specific Blender re-authoring pass may still be required. `Sad Idle` already contains an authored lifted step; it is never altered. Other Mixamo clips remain unchanged.
 

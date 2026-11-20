@@ -39,7 +39,7 @@ for (const gender of ["female", "male"] as const) {
     const baked = results[0];
     expect(baked.stepCount).toBeGreaterThan(0);
     for (const event of baked.steps) {
-      expect(event.distanceCm).toBeGreaterThan(1.8);
+      expect(event.distanceCm).toBeGreaterThan(0.9);
       expect(event.liftCm).toBeGreaterThan(1);
       expect(event.liftCm).toBeLessThan(4.2);
       expect(event.maxJointDeltaDeg).toBeLessThan(19.1);

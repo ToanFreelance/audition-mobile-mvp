@@ -19,7 +19,8 @@ type Candidate = { side: 0 | 1; start: number; end: number; distance: number; sc
 const FPS = 30;
 const WINDOW_FRAMES = 14;
 const MAX_EVENTS = 2;
-const STEP_LIFT_RATIO = 0.014; // 2.24 cm for a 1.6m M3 body
+// The M3 actor Box3 may include elevated attachments (observed 4.05 units);
+// step lift must follow actual source foot travel, not the actor bounding box.
 const MAX_UPPER_RAD = THREE.MathUtils.degToRad(11);
 const MAX_LOWER_RAD = THREE.MathUtils.degToRad(19);
 
@@ -40,7 +41,9 @@ export function planSideStepsV5(frames: readonly FootPair[], height: number): Ca
     q10(frames.map(f => f[1][1])),
   ];
   const candidates: Candidate[] = [];
-  const minTravel = Math.max(0.019, height * 0.012);
+  // Short idle traverses are ~1–2cm even on the 4.05-unit M3 bounding box.
+  // Do not scale this threshold with stage/attachment bounds.
+  const minTravel = Math.max(0.010, Math.min(0.014, height * 0.003));
   for (let side = 0 as 0 | 1; side < 2; side = (side + 1) as 0 | 1) {
     const opposite = (1 - side) as 0 | 1;
     for (let start = 12; start + WINDOW_FRAMES < frames.length - 12; start += 2) {
@@ -51,11 +54,11 @@ export function planSideStepsV5(frames: readonly FootPair[], height: number): Ca
       const dx = b[0] - a[0], dz = b[2] - a[2];
       const distance = Math.hypot(dx, dz);
       if (Math.abs(dx) < minTravel || Math.abs(dx) < Math.abs(dz) * 1.2) continue;
-      if (distance > height * 0.075) continue; // too large for a tiny idle step
+      if (distance > Math.min(0.11, height * 0.075)) continue; // not a tiny idle step
       const maxRise = Math.max(...frames.slice(start, end + 1).map(f => f[side][1] - floor[side]));
-      if (maxRise > height * 0.026) continue; // source already authored a lift
-      if (Math.max(a[1], b[1]) - floor[side] > height * 0.019) continue;
-      if (frames[mid][opposite][1] - floor[opposite] > height * 0.022) continue;
+      if (maxRise > Math.min(0.045, height * 0.026)) continue; // authored lift
+      if (Math.max(a[1], b[1]) - floor[side] > Math.min(0.035, height * 0.019)) continue;
+      if (frames[mid][opposite][1] - floor[opposite] > Math.min(0.040, height * 0.022)) continue;
       const supportMotion = Math.hypot(supportB[0] - supportA[0], supportB[2] - supportA[2]);
       // A moving support foot is suspicious; favor the cleaner of the two sides.
       const score = Math.abs(dx) - supportMotion * 0.23 - Math.abs(dz) * 0.15;
@@ -195,7 +198,9 @@ export function bakeBoredSideStepsV5(
       const bones = legs[event.side];
       const staged: {frame: number; values: readonly THREE.Quaternion[]}[] = [];
       let maxDelta = 0;
-      const liftMeters = height * STEP_LIFT_RATIO;
+      // A tiny deliberate side-step: arch proportional to source traverse,
+      // bounded to 1.3–2.6 cm and independently verified against joint angles.
+      const liftMeters = Math.min(0.026, Math.max(0.013, event.distance * 0.90));
       let valid = true;
       for (let frame = event.start + 1; frame < event.end; frame++) {
         sample(frame);
