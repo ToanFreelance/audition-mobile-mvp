@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
+import {
+  compatibleBagIndex, createMixamoContactTracker, plantedFeet,
+  supportFootMismatch, transitionWindow, type FootPair,
+} from "./mixamo-contact-transitions";
 import { fitLobbyGarments } from "./motion/garment-fit";
 import type { M3RigFamily } from "./character-catalog";
 import type { Shoe } from "./motion/stances";
@@ -33,6 +37,12 @@ export type MixamoLobbyIdle = {
   contactTravel: number;
   plantedRawTravel: number;
   plantedCorrectedTravel: number;
+  maxContactSlip: number;
+  maxCrossfadeSlip: number;
+  plantedContactTravel: number;
+  crossfadeContactTravel: number;
+  transitionPoseGap: number;
+  transitionCount: number;
   animationProfile: MixamoGesture;
   clipDuration: number;
   poseTime: number;
@@ -131,6 +141,10 @@ export function createMixamoLobbyIdle(
     typeof window !== "undefined" &&
     window.location.pathname === "/tools/lobby-qa-sketch" &&
     new URLSearchParams(window.location.search).get("pelvisFix") === "1";
+  const contactV4 = !enableFootLock &&
+    typeof window !== "undefined" &&
+    window.location.pathname === "/tools/lobby-qa-sketch" &&
+    new URLSearchParams(window.location.search).get("contactV4") !== "0";
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map<MixamoGesture, THREE.AnimationAction>();
   for (const key of available) {
@@ -153,6 +167,47 @@ export function createMixamoLobbyIdle(
   const rest = footBones.map(foot => actor.worldToLocal(foot.getWorldPosition(new THREE.Vector3())).clone());
   const garmentFit = family === "neurohacker" ? fitLobbyGarments(actor) : null;
   const footLock = enableFootLock ? createMixamoFootLock(actor, rig, scale) : null;
+  const restY: readonly [number, number] = [rest[0].y, rest[1].y];
+  const readFeet = (): FootPair => {
+    const left = actor.worldToLocal(footBones[0].getWorldPosition(new THREE.Vector3()));
+    const right = actor.worldToLocal(footBones[1].getWorldPosition(new THREE.Vector3()));
+    return [[left.x, left.y, left.z], [right.x, right.y, right.z]];
+  };
+
+  // Sample only the FIRST pose of each clip once per actor. The probe mixer
+  // is disposed and every bone transform is restored before normal playback.
+  // No per-frame IK, extra actor, or runtime re-skinning is introduced.
+  const firstFootPoses = new Map<MixamoGesture, FootPair>();
+  const savedBones = rig.bones.map(bone => ({
+    position: bone.position.clone(), rotation: bone.quaternion.clone(), scale: bone.scale.clone(),
+  }));
+  const poseProbe = new THREE.AnimationMixer(actor);
+  try {
+    for (const [gesture, playbackAction] of (contactV4 ? actions : new Map<MixamoGesture, THREE.AnimationAction>())) {
+      const clip = playbackAction.getClip();
+      const probeAction = poseProbe.clipAction(clip).reset().play();
+      poseProbe.update(0);
+      firstFootPoses.set(gesture, readFeet());
+      probeAction.stop();
+      poseProbe.uncacheClip(clip);
+    }
+  } catch (error) {
+    firstFootPoses.clear(); // Degrade to the original deterministic bag on probe failure.
+    console.warn("[mixamo-qa] contact pose sampling unavailable", error);
+  } finally {
+    poseProbe.stopAllAction();
+    poseProbe.uncacheRoot(actor);
+    rig.bones.forEach((bone, index) => {
+      bone.position.copy(savedBones[index].position);
+      bone.quaternion.copy(savedBones[index].rotation);
+      bone.scale.copy(savedBones[index].scale);
+    });
+    actor.updateWorldMatrix(true, true);
+  }
+  const contactTracker = createMixamoContactTracker(restY, scale);
+  let transitionPoseGap = 0;
+  let transitionCount = 0;
+  let poseSelectionReady = false;
 
   let seed = hashId(roomId + ":mixamo:" + participantId);
   let bag: MixamoGesture[] = [];
@@ -170,13 +225,23 @@ export function createMixamoLobbyIdle(
     let currentBag = which === "base" ? bag : emoteBag;
     if (!currentBag.length || (currentBag.length === 1 && currentBag[0] === previous)) currentBag = shuffle(pool);
     const otherActors = occupied();
-    let index = currentBag.findIndex(key => key !== previous && !otherActors.includes(key));
-    if (index < 0) index = currentBag.findIndex(key => key !== previous);
+    const distinct = currentBag.filter(key => key !== previous);
+    const unoccupied = distinct.filter(key => !otherActors.includes(key));
+    const allowed = unoccupied.length ? unoccupied : distinct.length ? distinct : currentBag;
+    let index = currentBag.indexOf(allowed[0]);
+    if (contactV4 && poseSelectionReady && allowed.length > 1 && firstFootPoses.size) {
+      const currentFeet = readFeet();
+      const mask = plantedFeet(currentFeet, restY, scale);
+      const blocked = currentBag.filter(key => !allowed.includes(key));
+      const best = compatibleBagIndex(currentBag, firstFootPoses, currentFeet, mask, scale, blocked);
+      if (best >= 0) index = best;
+    }
     const next = currentBag.splice(Math.max(0, index), 1)[0];
     if (which === "base") bag = currentBag; else emoteBag = currentBag;
     return next;
   }
   let current = nextFrom(group.base, "base");
+  poseSelectionReady = true;
   let lastBase = current;
   let baseCount = 0;
   let action = actions.get(current)!.reset().setEffectiveWeight(1).play();
@@ -197,13 +262,24 @@ export function createMixamoLobbyIdle(
       fadeTime = 0;
     } else {
       if (outgoing) outgoing.stop();
-      const duration = immediate ? 0.4 : Math.min(0.55, action.getClip().duration * 0.24);
+      // The previous 550ms fade could outlive the outgoing clip's 320ms lead.
+      // Use the SAME duration for both the fade scheduler and the fade itself.
+      const duration = contactV4
+        ? transitionWindow(action.getClip().duration).fade
+        : immediate ? 0.4 : Math.min(0.55, action.getClip().duration * 0.24);
+      const fade = contactV4 && immediate ? Math.min(duration, 0.22) : duration;
       incoming.reset().setEffectiveWeight(1).play();
-      action.crossFadeTo(incoming, duration, false);
+      action.crossFadeTo(incoming, fade, false);
       outgoing = action;
-      fadeTime = duration;
+      fadeTime = fade;
       action = incoming;
     }
+    const start = firstFootPoses.get(next);
+    if (start) {
+      const feet = readFeet();
+      transitionPoseGap = supportFootMismatch(feet, start, plantedFeet(feet, restY, scale), scale);
+    } else transitionPoseGap = 0;
+    transitionCount++;
     current = next;
     queued = null;
     runtime.target = next;
@@ -231,6 +307,9 @@ export function createMixamoLobbyIdle(
     placement, random: true, completedGestures: 0, footDrift: 0, maxFootDrift: 0,
     lockedFeet: 0, maxContactError: 0, contactTravel: 0,
     plantedRawTravel: 0, plantedCorrectedTravel: 0,
+    maxContactSlip: 0, maxCrossfadeSlip: 0,
+    plantedContactTravel: 0, crossfadeContactTravel: 0,
+    transitionPoseGap: 0, transitionCount: 0,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
     select(id) {
       if (!actions.has(id as MixamoGesture)) return;
@@ -256,7 +335,7 @@ export function createMixamoLobbyIdle(
           if (fadeTime <= 0) { outgoing.stop(); outgoing = null; this.target = null; }
         }
         const duration = action.getClip().duration;
-        const lead = Math.min(0.32, duration * 0.18);
+        const lead = contactV4 ? transitionWindow(duration).lead : Math.min(0.32, duration * 0.18);
         if (!outgoing && action.time >= duration - lead && (queued || this.random)) {
           const next = queued ?? drawNext();
           if (next) { this.completedGestures++; begin(next); }
@@ -274,13 +353,20 @@ export function createMixamoLobbyIdle(
       this.contactTravel = lockSample?.contactTravel ?? 0;
       this.plantedRawTravel = lockSample?.plantedRawTravel ?? 0;
       this.plantedCorrectedTravel = lockSample?.plantedCorrectedTravel ?? 0;
-      const nextFeet = footBones.map((foot, i): Shoe => {
-        actor.worldToLocal(foot.getWorldPosition(point));
-        const height = Math.max(0, point.y - rest[i].y);
-        const horizontal = Math.hypot(point.x - rest[i].x, point.z - rest[i].z);
+      const rawFeet = readFeet();
+      contactTracker.update(rawFeet, Boolean(outgoing), deltaSeconds);
+      this.maxContactSlip = contactTracker.stats.maxContactSlip;
+      this.maxCrossfadeSlip = contactTracker.stats.maxCrossfadeSlip;
+      this.plantedContactTravel = contactTracker.stats.plantedTravel;
+      this.crossfadeContactTravel = contactTracker.stats.crossfadeTravel;
+      this.transitionPoseGap = transitionPoseGap;
+      this.transitionCount = transitionCount;
+      const nextFeet = rawFeet.map((foot, i): Shoe => {
+        const height = Math.max(0, foot[1] - rest[i].y);
+        const horizontal = Math.hypot(foot[0] - rest[i].x, foot[2] - rest[i].z);
         if (height < 0.01) this.footDrift = Math.max(this.footDrift, horizontal);
-        this.floorError = Math.max(this.floorError, rest[i].y - point.y);
-        return [point.x / scale, point.z / scale, height / scale, 0];
+        this.floorError = Math.max(this.floorError, rest[i].y - foot[1]);
+        return [foot[0] / scale, foot[2] / scale, height / scale, 0];
       });
       this.maxFootDrift = Math.max(this.maxFootDrift, this.footDrift);
       this.placement.feet = nextFeet as [Shoe, Shoe];
@@ -291,6 +377,7 @@ export function createMixamoLobbyIdle(
     seekReferenceTime(seconds) {
       action.time = THREE.MathUtils.clamp(seconds, 0, action.getClip().duration);
       mixer.update(0);
+      contactTracker.resetAnchors(); // A manual seek is not a physical step.
       this.poseTime = action.time;
     },
     projectReferenceJoints(camera, width, height) {

@@ -1274,6 +1274,8 @@ export default function WaitingRoomStage3D({
     const motionReview = window.location.pathname === "/tools/lobby-qa-sketch";
     const mixamoReview = motionReview && new URLSearchParams(window.location.search).get("mixamo") === "1";
     const footLockReview = mixamoReview && new URLSearchParams(window.location.search).get("footLock") === "1";
+    const contactV4Review = mixamoReview && !footLockReview &&
+      new URLSearchParams(window.location.search).get("contactV4") !== "0";
     let mixamoModule: typeof import("../character/mixamo-lobby-player") | null = null;
     const rosterReview = motionReview && new URLSearchParams(window.location.search).get("rosterProbe") === "1";
     const reviewMixerIds = rosterReview ? new WeakMap<THREE.AnimationMixer, string>() : null;
@@ -1569,6 +1571,16 @@ export default function WaitingRoomStage3D({
           if (stageElement) {
             stageElement.dataset.m3MixamoEnabled = mixamoReview && mixamoModule ? "1" : "0";
             stageElement.dataset.m3FootlockEnabled = footLockReview && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3ContactV4 = contactV4Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3ContactMetrics = JSON.stringify(runtimes.map(item => ({
+              clip: item.animationProfile,
+              contactSlip: "maxContactSlip" in item ? item.maxContactSlip : null,
+              crossfadeSlip: "maxCrossfadeSlip" in item ? item.maxCrossfadeSlip : null,
+              plantedTravel: "plantedContactTravel" in item ? item.plantedContactTravel : null,
+              crossfadeTravel: "crossfadeContactTravel" in item ? item.crossfadeContactTravel : null,
+              poseGap: "transitionPoseGap" in item ? item.transitionPoseGap : null,
+              transitions: "transitionCount" in item ? item.transitionCount : null,
+            })));
             stageElement.dataset.m3FootlockMetrics = JSON.stringify(runtimes.map(item => ({
               lockedFeet: "lockedFeet" in item ? item.lockedFeet : 0,
               maxContactError: "maxContactError" in item ? item.maxContactError : 0,
@@ -1589,7 +1601,11 @@ export default function WaitingRoomStage3D({
             }
             stageElement.dataset.m3MotionReview = JSON.stringify(runtimes.map(r => ({
               id: r.animationProfile, target: r.target, contact: r.contacts + " · " + r.phase, feet: r.placement.feet,
-              drift: r.footDrift, floor: r.floorError, time: r.poseTime
+              drift: r.footDrift, floor: r.floorError, time: r.poseTime,
+              ...("maxContactSlip" in r ? {
+                contactSlip: r.maxContactSlip, crossfadeSlip: r.maxCrossfadeSlip,
+                poseGap: r.transitionPoseGap, transitionCount: r.transitionCount,
+              } : {}),
             })));
             stageElement.dataset.m3FootDrift = Math.max(0, ...runtimes.map(item => item.footDrift)).toFixed(5);
             stageElement.dataset.m3CompletedGestures = String(runtimes.reduce((sum, item) => sum + item.completedGestures, 0));

@@ -1,0 +1,55 @@
+name: Mixamo Contact V4 — Focused QA
+on:
+  push:
+    branches: [work/m3-waiting-room-integration-v1]
+    paths:
+      - components/character/mixamo-contact-transitions.ts
+      - components/character/mixamo-lobby-player.ts
+      - components/multiplayer/WaitingRoomStage3D.tsx
+      - app/tools/lobby-qa-sketch/MotionControls.tsx
+      - e2e/mixamo-contact-v4.spec.ts
+      - .github/workflows/mixamo-contact-v4-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mixamo-contact-v4-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Focused contact and real M3 mesh tests
+        env:
+          PLAYWRIGHT_WEB_SERVER: "1"
+        run: npx playwright test e2e/mixamo-contact-v4.spec.ts --project=desktop --workers=1 --retries=0
+      - name: QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mixamo-contact-v4-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
