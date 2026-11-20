@@ -22,6 +22,7 @@ type Sample = {
   crossfadeSlip?: number;
   poseGap?: number;
   transitionCount?: number;
+  steps?: number;
 };
 function placement(feet: Feet) {
   return feet
@@ -112,6 +113,15 @@ export default function MotionControls({
       <summary>Kiểm tra chuyển động M3{mixamo ? " · Mixamo All 10" : ""}</summary>
       {mixamo && <p>10 Mixamo clips · 17 tổ hợp rig; Catwalk chỉ chọn thủ công</p>}
       {mixamo && <p>
+        V5 Bored side-step (QA, chỉ bước khi chân đang trượt ngang).{" "}
+        <a href={`?m3=${mixed ? "five&allM3=1" : family === "drophunter" ? "female" : "male"}&mixamo=1&contactV4=1&pelvisFix=1&sideStepV5=1`}>
+          Mở V5 + pelvis
+        </a>{" · "}
+        <a href={`?m3=${mixed ? "five&allM3=1" : family === "drophunter" ? "female" : "male"}&mixamo=1&contactV4=1&pelvisFix=1&sideStepV5=0`}>
+          Đối chứng V4 + pelvis
+        </a>
+      </p>}
+      {mixamo && <p>
         V4: chọn pose chân tương thích và hoàn tất crossfade trước clip cũ.{" "}
         <a href={`?m3=${mixed ? "five&allM3=1" : family === "drophunter" ? "female" : "male"}&mixamo=1&contactV4=1`}>
           Bật V4
@@ -171,7 +181,7 @@ export default function MotionControls({
             Contact drift tối đa {(s.contactSlip * 100).toFixed(2)} cm ·
             trong crossfade {((s.crossfadeSlip ?? 0) * 100).toFixed(2)} cm ·
             chênh pose đầu clip {((s.poseGap ?? 0) * 100).toFixed(1)}% chiều cao ·
-            {s.transitionCount ?? 0} chuyển tiếp
+            {s.transitionCount ?? 0} chuyển tiếp · V5 side-step {s.steps ?? 0}
           </div>}
         </div>
       ))}

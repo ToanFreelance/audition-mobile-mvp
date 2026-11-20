@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
+import { bakeBoredSideStepsV5, type SideStepV5Event } from "./mixamo-side-step-v5";
 import {
   compatibleBagIndex, createMixamoContactTracker, plantedFeet,
   supportFootMismatch, transitionWindow, type FootPair,
@@ -43,6 +44,7 @@ export type MixamoLobbyIdle = {
   crossfadeContactTravel: number;
   transitionPoseGap: number;
   transitionCount: number;
+  sideStepEvents: readonly SideStepV5Event[];
   animationProfile: MixamoGesture;
   clipDuration: number;
   poseTime: number;
@@ -145,6 +147,9 @@ export function createMixamoLobbyIdle(
     typeof window !== "undefined" &&
     window.location.pathname === "/tools/lobby-qa-sketch" &&
     new URLSearchParams(window.location.search).get("contactV4") !== "0";
+  // Never enable V5 outside the isolated Mixamo QA route.
+  const sideStepV5 = contactV4 &&
+    new URLSearchParams(window.location.search).get("sideStepV5") === "1";
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map<MixamoGesture, THREE.AnimationAction>();
   for (const key of available) {
@@ -167,6 +172,24 @@ export function createMixamoLobbyIdle(
   const rest = footBones.map(foot => actor.worldToLocal(foot.getWorldPosition(new THREE.Vector3())).clone());
   const garmentFit = family === "neurohacker" ? fitLobbyGarments(actor) : null;
   const footLock = enableFootLock ? createMixamoFootLock(actor, rig, scale) : null;
+  // Bake once at actor startup, NEVER override an authored step during playback.
+  // Only Bored is eligible for this V5 pilot; all other gestures stay untouched.
+  let sideStepEvents: readonly SideStepV5Event[] = [];
+  if (sideStepV5) {
+    const sourceAction = actions.get("bored");
+    if (sourceAction) {
+      const sourceClip = sourceAction.getClip();
+      const baked = bakeBoredSideStepsV5(actor, rig, sourceClip, scale);
+      sideStepEvents = baked.events;
+      if (baked.events.length) {
+        sourceAction.stop();
+        mixer.uncacheClip(sourceClip);
+        const next = mixer.clipAction(baked.clip).setLoop(THREE.LoopOnce, 1);
+        next.clampWhenFinished = true;
+        actions.set("bored", next);
+      }
+    }
+  }
   const restY: readonly [number, number] = [rest[0].y, rest[1].y];
   const readFeet = (): FootPair => {
     const left = actor.worldToLocal(footBones[0].getWorldPosition(new THREE.Vector3()));
@@ -310,6 +333,7 @@ export function createMixamoLobbyIdle(
     maxContactSlip: 0, maxCrossfadeSlip: 0,
     plantedContactTravel: 0, crossfadeContactTravel: 0,
     transitionPoseGap: 0, transitionCount: 0,
+    sideStepEvents,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
     select(id) {
       if (!actions.has(id as MixamoGesture)) return;

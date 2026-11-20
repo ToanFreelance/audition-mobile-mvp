@@ -1276,6 +1276,8 @@ export default function WaitingRoomStage3D({
     const footLockReview = mixamoReview && new URLSearchParams(window.location.search).get("footLock") === "1";
     const contactV4Review = mixamoReview && !footLockReview &&
       new URLSearchParams(window.location.search).get("contactV4") !== "0";
+    const sideStepV5Review = contactV4Review &&
+      new URLSearchParams(window.location.search).get("sideStepV5") === "1";
     let mixamoModule: typeof import("../character/mixamo-lobby-player") | null = null;
     const rosterReview = motionReview && new URLSearchParams(window.location.search).get("rosterProbe") === "1";
     const reviewMixerIds = rosterReview ? new WeakMap<THREE.AnimationMixer, string>() : null;
@@ -1572,6 +1574,12 @@ export default function WaitingRoomStage3D({
             stageElement.dataset.m3MixamoEnabled = mixamoReview && mixamoModule ? "1" : "0";
             stageElement.dataset.m3FootlockEnabled = footLockReview && mixamoModule ? "1" : "0";
             stageElement.dataset.m3ContactV4 = contactV4Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3SideStepV5 = sideStepV5Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3SideStepMetrics = JSON.stringify(runtimes.map(item => ({
+              clip: item.animationProfile,
+              steps: "sideStepEvents" in item ? item.sideStepEvents : [],
+              stepCount: "sideStepEvents" in item ? item.sideStepEvents.length : 0,
+            })));
             stageElement.dataset.m3ContactMetrics = JSON.stringify(runtimes.map(item => ({
               clip: item.animationProfile,
               contactSlip: "maxContactSlip" in item ? item.maxContactSlip : null,
@@ -1605,6 +1613,7 @@ export default function WaitingRoomStage3D({
               ...("maxContactSlip" in r ? {
                 contactSlip: r.maxContactSlip, crossfadeSlip: r.maxCrossfadeSlip,
                 poseGap: r.transitionPoseGap, transitionCount: r.transitionCount,
+                steps: "sideStepEvents" in r ? r.sideStepEvents.length : 0,
               } : {}),
             })));
             stageElement.dataset.m3FootDrift = Math.max(0, ...runtimes.map(item => item.footDrift)).toFixed(5);
