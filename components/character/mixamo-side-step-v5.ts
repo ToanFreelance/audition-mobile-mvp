@@ -175,7 +175,23 @@ export function bakeBoredSideStepsV5(
       const b = actor.worldToLocal(legs[1][2].getWorldPosition(new THREE.Vector3()));
       poses.push([[a.x, a.y, a.z], [b.x, b.y, b.z]]);
     }
-    for (const event of planSideStepsV5(poses, height)) {
+    const plans = planSideStepsV5(poses, height);
+    const maxWindowTravel = [0, 1].map(side => {
+      let max = 0, maxLow = 0;
+      const floor = q10(poses.map(p => p[side][1]));
+      for (let f = 12; f + WINDOW_FRAMES < poses.length - 12; f += 2) {
+        const a = poses[f][side], b = poses[f + WINDOW_FRAMES][side];
+        const dx = Math.abs(b[0] - a[0]);
+        max = Math.max(max, dx);
+        if (a[1] - floor < height * 0.035 && b[1] - floor < height * 0.035)
+          maxLow = Math.max(maxLow, dx);
+      }
+      return {side, maxXCm: Math.round(max * 1000) / 10, maxNearFloorXCm: Math.round(maxLow * 1000) / 10,
+        minY: Math.round(floor * 1000) / 1000};
+    });
+    console.info("[mixamo-side-step-v5] plan", JSON.stringify({clip: original.name, height,
+      candidates: plans.length, maxWindowTravel, picks: plans}));
+    for (const event of plans) {
       const bones = legs[event.side];
       const staged: {frame: number; values: readonly THREE.Quaternion[]}[] = [];
       let maxDelta = 0;
@@ -190,10 +206,15 @@ export function bakeBoredSideStepsV5(
         maxDelta = Math.max(maxDelta, angle);
         staged.push({frame, values: bones.map(bone => bone.quaternion.clone())});
       }
-      if (!valid || staged.length < event.end - event.start - 1) continue;
+      if (!valid || staged.length < event.end - event.start - 1) {
+        console.info("[mixamo-side-step-v5] reject", JSON.stringify({clip:original.name, event, 
+          acceptedFrames:staged.length, expectedFrames:event.end-event.start-1}));
+        continue;
+      }
       for (const pose of staged) bones.forEach((bone, boneIndex) => {
         pose.values[boneIndex].toArray(outputs.get(bone.uuid)!, pose.frame * 4);
       });
+      console.info("[mixamo-side-step-v5] baked", JSON.stringify({clip:original.name, event}));
       accepted.push({
         side: event.side === 0 ? "L" : "R",
         startFrame: event.start, endFrame: event.end,

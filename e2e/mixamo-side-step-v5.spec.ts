@@ -22,6 +22,7 @@ for (const gender of ["female", "male"] as const) {
     await page.setViewportSize({width:390, height:844});
     const errors: string[] = [];
     page.on("pageerror", err => errors.push(err.message));
+    page.on("console", msg => {if (msg.text().includes("[mixamo-side-step-v5]")) console.log(msg.text());});
     await page.goto(`/tools/lobby-qa-sketch?m3=${gender}&mixamo=1&contactV4=1&pelvisFix=1&sideStepV5=1`);
     const stage = page.getByTestId("waiting-room-stage");
     await expect(stage).toHaveAttribute("data-stage-ready", "1", {timeout:90_000});
