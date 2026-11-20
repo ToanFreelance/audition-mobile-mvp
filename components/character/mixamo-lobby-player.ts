@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
+import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
 import { fitLobbyGarments } from "./motion/garment-fit";
 import type { M3RigFamily } from "./character-catalog";
 import type { Shoe } from "./motion/stances";
@@ -70,7 +71,7 @@ function findRigBone(rig: THREE.Skeleton, name: string): THREE.Bone | undefined 
   return rig.bones.find(item => item.name === name || item.name === safe);
 }
 
-function buildClip(rig: THREE.Skeleton, family: MixamoRig, id: MixamoGesture): THREE.AnimationClip | null {
+function buildClip(rig: THREE.Skeleton, family: MixamoRig, id: MixamoGesture, pelvisFix: boolean): THREE.AnimationClip | null {
   const data = getMixamoData(family, id);
   if (!data) return null;
   const n = data.frames;
@@ -101,6 +102,9 @@ function buildClip(rig: THREE.Skeleton, family: MixamoRig, id: MixamoGesture): T
       values[f * 3 + axis] = hips.position.getComponent(axis) + samples[offset + axis] * HIP_SCALE;
     }
   }
+  // V3 QA: source-measured, small shared pelvis translation on Bored only.
+  // Never adjust rotations/leg IK/actor placement; the clip crossfade blends this track.
+  if (pelvisFix) applyBoredPelvisCorrection(family, id, values, n);
   tracks.push(new THREE.VectorKeyframeTrack(hips.uuid + ".position", times, values));
   if (tracks.length < 20) return null;
   return new THREE.AnimationClip("mixamo-qa-" + family + "-" + id, (n - 1) / 30, tracks);
@@ -121,10 +125,16 @@ export function createMixamoLobbyIdle(
   const family: MixamoRig = rigFamily;
   const group = MIXAMO_GROUPS[family];
   const available = [...group.base, ...group.emote, ...group.manual];
+  // Opt-in ONLY on the isolated sketch QA route. Foot Lock and pelvis
+  // correction must never run together; V2 leg IK stays disabled here.
+  const pelvisFix = !enableFootLock &&
+    typeof window !== "undefined" &&
+    window.location.pathname === "/tools/lobby-qa-sketch" &&
+    new URLSearchParams(window.location.search).get("pelvisFix") === "1";
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map<MixamoGesture, THREE.AnimationAction>();
   for (const key of available) {
-    const clip = buildClip(rig, family, key);
+    const clip = buildClip(rig, family, key, pelvisFix);
     if (!clip) { console.warn("[mixamo-qa] missing retargeted clip", family, key, rig.bones.length); mixer.stopAllAction(); return null; }
     const action = mixer.clipAction(clip).setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished = true;
