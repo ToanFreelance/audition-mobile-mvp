@@ -20,7 +20,7 @@ import type { Shoe } from "./motion/stances";
 type Placement = { feet: [Shoe, Shoe]; pitch: [number, number]; shift: number; drop: number };
 import {
   MIXAMO_BONES, MIXAMO_GROUPS, MIXAMO_AUTO_GROUPS, STATIONARY_MIXAMO_GROUPS,
-  getMixamoData, getArmStretchSourceV10,
+  getMixamoData, getArmStretchSourceV10, getStandingGreetingSourceV11,
   prepareMixamoLobbyClips, type MixamoGesture, type MixamoRig,
 } from "./mixamo-lobby-data";
 
@@ -59,6 +59,7 @@ export type MixamoLobbyIdle = {
   contactV8Reports: readonly FootContactV8Report[];
   stationaryOnly: boolean;
   armStretchV10: boolean;
+  greetingV11: boolean;
   armSleeveV10: ArmStretchSleeveMetrics | null;
   allowedGestures: readonly MixamoGesture[];
   v8FootContact: {
@@ -178,15 +179,26 @@ export function createMixamoLobbyIdle(
     typeof window !== "undefined" &&
     window.location.pathname === "/tools/lobby-qa-sketch" &&
     new URLSearchParams(window.location.search).get("armStretchV10") === "1";
+  const greetingV11 = !clipReview && !enableFootLock &&
+    typeof window !== "undefined" &&
+    window.location.pathname === "/tools/lobby-qa-sketch" &&
+    new URLSearchParams(window.location.search).get("greetingV11") === "1";
   const baseGroup = clipReview ? MIXAMO_GROUPS[family]
     : stationaryOnly ? STATIONARY_MIXAMO_GROUPS[family]
     : MIXAMO_AUTO_GROUPS[family];
-  const group = armStretchV10
-    ? {...baseGroup,base:[...baseGroup.base,"arm-stretching" as MixamoGesture]}
-    : baseGroup;
+  const group = {
+    ...baseGroup,
+    base: [...baseGroup.base,
+      ...(armStretchV10 ? ["arm-stretching" as const] : []),
+      ...(greetingV11 ? ["standing-greeting-2" as const] : [])],
+  };
   const available = [...group.base, ...group.emote, ...group.manual];
   if(armStretchV10 && !getArmStretchSourceV10()){
     console.warn("[mixamo-v10] Arm Stretching source pack not preloaded");
+    return null;
+  }
+  if(greetingV11 && !getStandingGreetingSourceV11()){
+    console.warn("[mixamo-v11] Standing Greeting source pack not preloaded");
     return null;
   }
   if (!group.base.length) return null;
@@ -212,7 +224,8 @@ export function createMixamoLobbyIdle(
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map<MixamoGesture, THREE.AnimationAction>();
   for (const key of available) {
-    if(key==="arm-stretching" && armStretchV10)continue;
+    if((key==="arm-stretching" && armStretchV10) ||
+      (key==="standing-greeting-2" && greetingV11))continue;
     const clip = buildClip(rig, family, key, pelvisFix);
     if (!clip) { console.warn("[mixamo-qa] missing retargeted clip", family, key, rig.bones.length); mixer.stopAllAction(); return null; }
     const action = mixer.clipAction(clip).setLoop(THREE.LoopOnce,1);
@@ -227,7 +240,7 @@ export function createMixamoLobbyIdle(
   }
   const footBones = feet as THREE.Bone[];
   // Local source import is diagnostic only; capture native rest before playback.
-  const reviewRetargeter=(clipReview||armStretchV10)
+  const reviewRetargeter=(clipReview||armStretchV10||greetingV11)
     ? createLocalReviewRetargeter(actor,rig):null;
   if(armStretchV10){
     const source=getArmStretchSourceV10()!;
@@ -241,6 +254,19 @@ export function createMixamoLobbyIdle(
     const newAction=mixer.clipAction(arm.clip).setLoop(THREE.LoopOnce,1);
     newAction.clampWhenFinished=true;
     actions.set("arm-stretching",newAction);
+  }
+  if(greetingV11){
+    const source=getStandingGreetingSourceV11()!;
+    const imported=reviewRetargeter?.(source)??[];
+    const greeting=imported.find(item=>item.id==="standing-greeting-2");
+    if(!greeting){
+      mixer.stopAllAction();
+      console.warn("[mixamo-v11] Failed to retarget owner Standing Greeting 2");
+      return null;
+    }
+    const greetingAction=mixer.clipAction(greeting.clip).setLoop(THREE.LoopOnce,1);
+    greetingAction.clampWhenFinished=true;
+    actions.set("standing-greeting-2",greetingAction);
   }
   actor.updateWorldMatrix(true, true);
   const scale = Math.max(0.01, new THREE.Box3().setFromObject(actor).getSize(new THREE.Vector3()).y);
@@ -280,7 +306,8 @@ export function createMixamoLobbyIdle(
     for (const [gesture, sourceAction] of actions) {
       // Source-authoritative Arm Stretching: never warp the hips of the
       // owner-supplied clip to compensate for a different gesture's contacts.
-      if(gesture==="arm-stretching" && armStretchV10)continue;
+      if((gesture==="arm-stretching" && armStretchV10) ||
+        (gesture==="standing-greeting-2" && greetingV11))continue;
       const original = sourceAction.getClip();
       const baked = bakeFootContactsV7(actor, rig, original, family);
       contactV7Reports.push(baked.report);
@@ -302,9 +329,10 @@ export function createMixamoLobbyIdle(
       const original = sourceAction.getClip();
       const baked = bakePerFootContactV8(actor,rig,original);
       contactV8Profiles.set(gesture,baked.profile);
-      if(gesture==="arm-stretching" && armStretchV10){
+      if((gesture==="arm-stretching" && armStretchV10) ||
+        (gesture==="standing-greeting-2" && greetingV11)){
         contactV8Reports.push({...baked.report,applied:false,
-          reason:"V10 owner source: preserve authored bone and hip curves"});
+          reason:"Owner source: preserve authored bone and hip curves"});
         continue;
       }
       contactV8Reports.push(baked.report);
@@ -531,6 +559,7 @@ export function createMixamoLobbyIdle(
     contactV8Reports,
     stationaryOnly,
     armStretchV10,
+    greetingV11,
     armSleeveV10:sleeveV10?.metrics??null,
     allowedGestures:available,
     v8FootContact:v8Stats,

@@ -1277,6 +1277,8 @@ export default function WaitingRoomStage3D({
       new URLSearchParams(window.location.search).get("clipReview") === "1";
     const armStretchV10Review = mixamoReview && !clipReview &&
       new URLSearchParams(window.location.search).get("armStretchV10") === "1";
+    const greetingV11Review = mixamoReview && !clipReview &&
+      new URLSearchParams(window.location.search).get("greetingV11") === "1";
     const footLockReview = mixamoReview && new URLSearchParams(window.location.search).get("footLock") === "1";
     const contactV4Review = mixamoReview && !footLockReview &&
       new URLSearchParams(window.location.search).get("contactV4") !== "0";
@@ -1655,6 +1657,7 @@ export default function WaitingRoomStage3D({
             stageElement.dataset.m3MixamoEnabled = mixamoReview && mixamoModule ? "1" : "0";
             stageElement.dataset.m3ClipReview = clipReview && mixamoModule ? "1" : "0";
             stageElement.dataset.m3ArmStretchV10 = armStretchV10Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3StandingGreetingV11 = greetingV11Review && mixamoModule ? "1" : "0";
             stageElement.dataset.m3ArmSleevesV10 = JSON.stringify(
               runtimes.map(item => "armSleeveV10" in item ? item.armSleeveV10 : null)
             );

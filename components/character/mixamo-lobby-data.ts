@@ -6,7 +6,7 @@ export type MixamoRig = "drophunter" | "neurohacker";
 export type MixamoGesture =
   "breathing-idle-2" | "bored" | "dwarf-idle" | "dwarf-idle-2" |
   "sad-idle" | "waving" | "pointing" | "blow-a-kiss" |
-  "catwalk-twist" | "warrior-idle" | "cheering" | "arm-stretching";
+  "catwalk-twist" | "warrior-idle" | "cheering" | "arm-stretching" | "standing-greeting-2";
 export const MIXAMO_GROUPS: Record<MixamoRig, {base: readonly MixamoGesture[]; emote: readonly MixamoGesture[]; manual: readonly MixamoGesture[]}> = {
   drophunter: {
     base: ["breathing-idle-2", "bored", "dwarf-idle", "dwarf-idle-2"],
@@ -129,6 +129,28 @@ async function preloadArmStretchSourceV10(): Promise<void> {
   })().catch(error=>{armStretchLoadPromise=null;armStretchSource=null;throw error;});
   return armStretchLoadPromise;
 }
+// V11 owner candidate is loaded only for the existing five-actor QA route.
+// The compact FBX-derived asset is expanded to the native source-retarget schema
+// once, then independently fitted to the existing male/female bind skeletons.
+let standingGreetingSourceV11: string | null = null;
+let standingGreetingLoadingV11: Promise<void> | null = null;
+export function getStandingGreetingSourceV11(): string | null {
+  return standingGreetingSourceV11;
+}
+async function preloadStandingGreetingSourceV11(): Promise<void> {
+  if(typeof window === "undefined" ||
+    window.location.pathname !== "/tools/lobby-qa-sketch" ||
+    new URLSearchParams(window.location.search).get("greetingV11") !== "1") return;
+  if(!standingGreetingLoadingV11) standingGreetingLoadingV11 = (async () => {
+    const {loadStandingGreetingSourceV11} = await import("./mixamo-standing-greeting-v11");
+    standingGreetingSourceV11 = await loadStandingGreetingSourceV11();
+  })().catch(error => {
+    standingGreetingSourceV11 = null;
+    standingGreetingLoadingV11 = null;
+    throw error;
+  });
+  await standingGreetingLoadingV11;
+}
 function cacheKey(rig: MixamoRig, id: MixamoGesture): string {
   return `${id}__${rig}`;
 }
@@ -162,5 +184,5 @@ export async function prepareMixamoLobbyClips(): Promise<void> {
       for (const [key, value] of values) decoded.set(key, value);
     })().catch(error => { loadPromise = null; decoded.clear(); throw error; });
   }
-  await Promise.all([loadPromise,preloadArmStretchSourceV10()]);
+  await Promise.all([loadPromise,preloadArmStretchSourceV10(),preloadStandingGreetingSourceV11()]);
 }

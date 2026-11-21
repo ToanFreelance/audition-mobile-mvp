@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { MIXAMO_BONES, type MixamoGesture } from "./mixamo-lobby-data";
 
-export const LOCAL_REVIEW_IDS = ["cheering","arm-stretching"] as const;
+export const LOCAL_REVIEW_IDS = ["cheering","arm-stretching","standing-greeting-2"] as const;
 export type LocalReviewId = typeof LOCAL_REVIEW_IDS[number];
 type SourceClip = {
   id: LocalReviewId;

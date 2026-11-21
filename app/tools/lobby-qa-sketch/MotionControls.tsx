@@ -51,6 +51,7 @@ export default function MotionControls({
   contactV8 = false,
   stationaryOnly = false,
   armStretchV10 = false,
+  greetingV11 = false,
   sideStepDemo = false,
 }: {
   family: keyof typeof rigPool;
@@ -66,6 +67,7 @@ export default function MotionControls({
   contactV8?: boolean;
   stationaryOnly?: boolean;
   armStretchV10?: boolean;
+  greetingV11?: boolean;
   sideStepDemo?: boolean;
 }) {
   const [id, setId] = useState<IdleId | MixamoGesture>(
@@ -75,6 +77,7 @@ export default function MotionControls({
   const optionsFor = (rig: keyof typeof rigPool) => {
     const pool = (stationaryOnly ? STATIONARY_MIXAMO_GROUPS : MIXAMO_AUTO_GROUPS)[rig];
     return [...pool.base, ...(armStretchV10?["arm-stretching" as const]:[]),
+      ...(greetingV11?["standing-greeting-2" as const]:[]),
       ...pool.emote, ...pool.manual];
   };
   const options = mixamo
@@ -84,9 +87,9 @@ export default function MotionControls({
     : (mixed ? [...rigPool.drophunter, ...rigPool.neurohacker] : rigPool[family]);
   const qaLink = (
     familyMode: "female" | "male" | "five",
-    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "contactV7" | "contactV8" | "stationaryOnly" | "armStretchV10" | "sideStepDemo", boolean>> = {},
+    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "contactV7" | "contactV8" | "stationaryOnly" | "armStretchV10" | "greetingV11" | "sideStepDemo", boolean>> = {},
   ) => {
-    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, contactV7, contactV8, stationaryOnly, armStretchV10, sideStepDemo, ...changes};
+    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, contactV7, contactV8, stationaryOnly, armStretchV10, greetingV11, sideStepDemo, ...changes};
     const params = new URLSearchParams({m3:familyMode});
     if (familyMode === "five") params.set("allM3", "1");
     if (opts.mixamo) {
@@ -101,6 +104,7 @@ export default function MotionControls({
         if (opts.contactV8) params.set("contactV8", "1");
         if (opts.stationaryOnly) params.set("stationaryOnly", "1");
         if (opts.armStretchV10) params.set("armStretchV10", "1");
+        if (opts.greetingV11) params.set("greetingV11", "1");
         if (opts.sideStepDemo && !opts.stationaryOnly) params.set("sideStepDemo", "1");
       }
     }
@@ -200,6 +204,7 @@ export default function MotionControls({
         {mixamo && " · V8 " + (contactV8 && contactV7 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && stationaryOnly && " · STATIONARY ONLY"}
         {mixamo && armStretchV10 && " · ARM STRETCH V10"}
+        {mixamo && greetingV11 && " · STANDING GREETING V11"}
         {mixamo && sideStepDemo && " · Bored demo"}
       </summary>
       {mixamo && <p>
@@ -227,6 +232,26 @@ export default function MotionControls({
               detail:{command:"random"},
             }));
           }}>Về random</button>
+        </>}
+      </p>}
+      {mixamo && <p>
+        <strong>V11 Standing Greeting 2 — 5 người:</strong> {greetingV11 ? "BẬT" : "TẮT"}
+        {" · "}<a href={qaLink("five",{
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:false,contactV7:true,contactV8:true,
+          stationaryOnly:true,armStretchV10:true,greetingV11:true,sideStepDemo:false,
+        })}>5 người · Random Arm Stretch + Standing Greeting 2</a>
+        {" · "}Không Cheering / Dwarf Idle / Dwarf Idle 2.
+        {greetingV11 && <>
+          {" · "}<button onClick={()=>{
+            window.dispatchEvent(new CustomEvent("m3-idle-review",{
+              detail:{command:"select",id:"standing-greeting-2"},
+            }));
+            setId("standing-greeting-2");
+          }}>Phát Greeting cả 5</button>
+          {" · "}<button onClick={()=>window.dispatchEvent(new CustomEvent("m3-idle-review",{
+            detail:{command:"random"},
+          }))}>Về random V11</button>
         </>}
       </p>}
       {mixamo && <p>
