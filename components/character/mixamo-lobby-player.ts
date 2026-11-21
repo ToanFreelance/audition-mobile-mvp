@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createLocalReviewRetargeter } from "./mixamo-local-review";
+import { bakeStandingGreetingIdleArmsV12 } from "./mixamo-greeting-idle-pose-v12";
 import { fitArmStretchSleevesV10, type ArmStretchSleeveMetrics } from "./mixamo-arm-sleeve-v10";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
@@ -264,7 +265,18 @@ export function createMixamoLobbyIdle(
       console.warn("[mixamo-v11] Failed to retarget owner Standing Greeting 2");
       return null;
     }
-    const greetingAction=mixer.clipAction(greeting.clip).setLoop(THREE.LoopOnce,1);
+    // V12: FBX non-gesturing arm stays in source T-pose, so a literal
+    // retarget looked like a stiff sideways salute in the owner iPhone video.
+    // Bake the accepted Breathing Idle 2 arm tracks into THIS clip once.
+    // Preserve the greeting's active arm during its 1.65-3.65s wave segment.
+    const neutral=actions.get("breathing-idle-2")?.getClip();
+    if(!neutral){
+      mixer.stopAllAction();
+      console.warn("[mixamo-v12] Missing M3 neutral arm animation");
+      return null;
+    }
+    const greetingIdle=bakeStandingGreetingIdleArmsV12(greeting.clip,neutral,rig);
+    const greetingAction=mixer.clipAction(greetingIdle).setLoop(THREE.LoopOnce,1);
     greetingAction.clampWhenFinished=true;
     actions.set("standing-greeting-2",greetingAction);
   }
