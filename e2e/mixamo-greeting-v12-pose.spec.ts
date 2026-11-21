@@ -12,8 +12,14 @@ function track(bone:THREE.Bone,quats:THREE.Quaternion[]) {
 function sample(clip:THREE.AnimationClip,bone:THREE.Bone,time:number) {
   const key=clip.tracks.find(t=>t.name===bone.uuid+".quaternion");
   expect(key).toBeDefined();
-  return new THREE.Quaternion().fromArray(
-    key!.createInterpolant().evaluate(time) as ArrayLike<number>).normalize();
+  const idx=Array.from(key!.times).findIndex(t=>t>=time);
+  const high=idx<0?key!.times.length-1:idx;
+  const low=Math.max(0,high-1);
+  const a=new THREE.Quaternion().fromArray(key!.values,low*4);
+  const b=new THREE.Quaternion().fromArray(key!.values,high*4);
+  const alpha=high===low?0:(time-key!.times[low])/
+    (key!.times[high]-key!.times[low]);
+  return a.slerp(b,THREE.MathUtils.clamp(alpha,0,1)).normalize();
 }
 
 test("V12 Greeting: non-gesturing arm uses authored idle, waving arm returns to idle at both ends",()=>{
