@@ -3,11 +3,13 @@ on:
   push:
     branches: [work/m3-waiting-room-integration-v1]
     paths:
+      - components/character/mixamo-local-review.ts
       - components/character/mixamo-lobby-player.ts
       - components/multiplayer/WaitingRoomStage3D.tsx
       - app/tools/lobby-qa-sketch/page.tsx
       - app/tools/lobby-qa-sketch/ClipReviewControls.tsx
       - e2e/mixamo-clip-review.spec.ts
+      - e2e/mixamo-source-retarget-rest.spec.ts
       - .github/workflows/mixamo-clip-review-qa.yml
   workflow_dispatch:
 permissions:
@@ -42,7 +44,7 @@ jobs:
       - name: Owner 17-clip Back Next Replay and isolated mixer verification
         env:
           PLAYWRIGHT_WEB_SERVER: "1"
-        run: npx playwright test e2e/mixamo-clip-review.spec.ts --project=desktop --workers=1 --retries=0
+        run: npx playwright test e2e/mixamo-clip-review.spec.ts e2e/mixamo-source-retarget-rest.spec.ts --project=desktop --workers=1 --retries=0
       - name: Preserve visual QA evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -51,26 +51,52 @@ const boneByName=(rig:THREE.Skeleton,name:string)=>rig.bones.find(b=>
  * Source world delta * target world rest -> target local (animated parent inverse).
  * No changes to renderer, skin weights, any existing catalog curve, or shared actor transform. */
 export function createLocalReviewRetargeter(actor:THREE.Object3D,rig:THREE.Skeleton) {
-  actor.updateWorldMatrix(true,true);
-  const actorInv=actor.getWorldQuaternion(new THREE.Quaternion()).invert();
+  // IMPORTANT: the actor can arrive here in a M3 preview/idle pose.
+  // Capturing that as the Mixamo 'rest' basis turns the source's raised
+  // shoulders into crossed/downward arms. Use the actual SKIN BIND pose,
+  // not the currently displayed pose, as the retarget coordinate frame.
+  // Preserve ALL animated bone transforms and restore them immediately;
+  // never reset a live actor/mixer as a side-effect of importing a clip.
+  const saved=rig.bones.map(b=>({
+    position:b.position.clone(),quaternion:b.quaternion.clone(),scale:b.scale.clone(),
+  }));
   const rest=new Map<THREE.Object3D,Rest>();
-  function remember(node:THREE.Object3D|null) {
-    if(!node||node===actor||rest.has(node))return;
-    remember(node.parent);
-    rest.set(node,{local:node.quaternion.clone(),
-      world:actorInv.clone().multiply(node.getWorldQuaternion(new THREE.Quaternion())).normalize()});
-  }
   const bound=new Map<string,THREE.Bone>();
-  for(const name of MIXAMO_BONES){
-    const bone=boneByName(rig,name);
-    if(bone){bound.set(name,bone);remember(bone);}
+  const boundHips=new THREE.Vector3();
+  let bindHeight=0;
+  try {
+    actor.updateWorldMatrix(true,true);
+    rig.pose();
+    actor.updateWorldMatrix(true,true);
+    const actorInv=actor.getWorldQuaternion(new THREE.Quaternion()).invert();
+    function remember(node:THREE.Object3D|null) {
+      if(!node||node===actor||rest.has(node))return;
+      remember(node.parent);
+      rest.set(node,{local:node.quaternion.clone(),
+        world:actorInv.clone().multiply(node.getWorldQuaternion(new THREE.Quaternion())).normalize()});
+    }
+    for(const name of MIXAMO_BONES){
+      const bone=boneByName(rig,name);
+      if(bone){bound.set(name,bone);remember(bone);}
+    }
+    const bindHip=bound.get("hips"),bindFoot=bound.get("foot.L");
+    if(bindHip&&bindFoot){
+      boundHips.copy(bindHip.position);
+      bindHeight=actor.worldToLocal(bindHip.getWorldPosition(new THREE.Vector3()))
+        .distanceTo(actor.worldToLocal(bindFoot.getWorldPosition(new THREE.Vector3())));
+    }
+  } finally {
+    rig.bones.forEach((bone,i)=>{
+      bone.position.copy(saved[i].position);
+      bone.quaternion.copy(saved[i].quaternion);
+      bone.scale.copy(saved[i].scale);
+    });
+    actor.updateWorldMatrix(true,true);
   }
   const hips=bound.get("hips"), foot=bound.get("foot.L");
   if(!hips||!foot)return null;
-  const h=actor.worldToLocal(hips.getWorldPosition(new THREE.Vector3()));
-  const f=actor.worldToLocal(foot.getWorldPosition(new THREE.Vector3()));
-  const height=h.distanceTo(f);
-  const hipRest=hips.position.clone();
+  const height=bindHeight;
+  const hipRest=boundHips;
   if(height<.001||bound.size<20)return null;
   const nameByBone=new Map([...bound].map(([name,b])=>[b as THREE.Object3D,name]));
   const identity=new THREE.Quaternion();
