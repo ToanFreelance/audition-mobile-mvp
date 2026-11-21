@@ -1,6 +1,7 @@
 import {expect,test} from "@playwright/test";
 import {
-  MIXAMO_GROUPS,STATIONARY_MIXAMO_EXCLUDED,STATIONARY_MIXAMO_GROUPS,
+  MIXAMO_GROUPS,MIXAMO_AUTO_GROUPS,OWNER_REJECTED_MIXAMO_AUTO_GESTURES,
+  STATIONARY_MIXAMO_EXCLUDED,STATIONARY_MIXAMO_GROUPS,
   type MixamoRig,
 } from "../components/character/mixamo-lobby-data";
 
@@ -13,7 +14,7 @@ const safe=(rig:MixamoRig)=>[
 
 test("V9 curation: preserve catalog, remove only high-slip clips from stationary playback",()=>{
   expect(STATIONARY_MIXAMO_EXCLUDED).toEqual([
-    "bored","sad-idle","dwarf-idle-2","waving","catwalk-twist",
+    "bored","sad-idle","dwarf-idle","dwarf-idle-2","waving","catwalk-twist",
   ]);
   for(const rig of ["drophunter","neurohacker"] as const){
     const current=safe(rig);
@@ -22,11 +23,16 @@ test("V9 curation: preserve catalog, remove only high-slip clips from stationary
       ...MIXAMO_GROUPS[rig].manual,
     ];
     expect(current.length).toBeGreaterThanOrEqual(3);
-    expect(STATIONARY_MIXAMO_GROUPS[rig].base.length).toBeGreaterThanOrEqual(2);
+    expect(STATIONARY_MIXAMO_GROUPS[rig].base.length).toBeGreaterThanOrEqual(1);
     expect(new Set(current).size).toBe(current.length);
     expect(current.every(id=>originals.includes(id))).toBe(true);
     expect(current.every(id=>!STATIONARY_MIXAMO_EXCLUDED.includes(id))).toBe(true);
     expect(originals.includes("bored")).toBe(true); // no asset deletion
+    for(const blocked of OWNER_REJECTED_MIXAMO_AUTO_GESTURES){
+      expect(originals).toContain(blocked); // preserved in review library
+      expect(current).not.toContain(blocked);
+      expect(MIXAMO_AUTO_GROUPS[rig].base).not.toContain(blocked);
+    }
   }
 });
 
@@ -55,6 +61,12 @@ for(const [mode,rig] of [["female","drophunter"],["male","neurohacker"]] as cons
       }));
       window.dispatchEvent(new CustomEvent("m3-idle-review",{
         detail:{command:"transition",id:"sad-idle"},
+      }));
+      window.dispatchEvent(new CustomEvent("m3-idle-review",{
+        detail:{command:"select",id:"dwarf-idle"},
+      }));
+      window.dispatchEvent(new CustomEvent("m3-idle-review",{
+        detail:{command:"transition",id:"dwarf-idle-2"},
       }));
     });
     await page.waitForTimeout(1100);
@@ -103,3 +115,32 @@ test("V9 five-person Waiting Room: all actors remain safe during repeated random
   await page.screenshot({path:"test-results/mixamo-stationary-v9/five-stationary.png"});
   expect(errors).toEqual([]);
 });
+for(const [mode,rig] of [["female","drophunter"],["male","neurohacker"]] as const){
+  test(`Owner exclusion ${mode}: normal random also removes BOTH Dwarf idles; solo review retains source clips`,async ({page})=>{
+    test.setTimeout(145_000);
+    await page.setViewportSize({width:390,height:844});
+    const stage=page.getByTestId("waiting-room-stage");
+    await page.goto("/tools/lobby-qa-sketch?mixamo=1&contactV4=1&pelvisFix=1&sideStepV6=1&contactV7=1&contactV8=1&m3="+mode);
+    await expect(stage).toHaveAttribute("data-stage-ready","1",{timeout:115_000});
+    await expect(stage).toHaveAttribute("data-m3-idle-count","1",{timeout:40_000});
+    const allowed=await stage.evaluate(el=>JSON.parse(el.dataset.m3AllowedGestures??"[]")) as string[][];
+    const permitted=[
+      ...MIXAMO_AUTO_GROUPS[rig].base,
+      ...MIXAMO_AUTO_GROUPS[rig].emote,
+      ...MIXAMO_AUTO_GROUPS[rig].manual,
+    ];
+    expect(allowed).toEqual([permitted]);
+    for(const key of OWNER_REJECTED_MIXAMO_AUTO_GESTURES){
+      expect(permitted).not.toContain(key);
+      await page.evaluate(key=>window.dispatchEvent(new CustomEvent("m3-idle-review",{
+        detail:{command:"select",id:key},
+      })),key);
+    }
+    await page.waitForTimeout(600);
+    expect(permitted).toContain(await stage.getAttribute("data-m3-active-gestures"));
+    await page.goto("/tools/lobby-qa-sketch?mixamo=1&clipReview=1&contactV4=1&pelvisFix=1&sideStepV6=1&contactV7=1&contactV8=1&m3="+mode);
+    await expect(stage).toHaveAttribute("data-m3-clip-review","1",{timeout:115_000});
+    const reviews=await stage.evaluate(el=>JSON.parse(el.dataset.m3AllowedGestures??"[]")) as string[][];
+    for(const key of OWNER_REJECTED_MIXAMO_AUTO_GESTURES)expect(reviews[0]).toContain(key);
+  });
+}

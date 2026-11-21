@@ -27,3 +27,7 @@ The stage publishes `data-m3-clip-review`, `data-m3-active-gestures`, `data-m3-r
 
 ## Validation
 TypeScript, Next.js build, Chromium native M3 female/male full-catalog Prev/Next/Replay and out-of-range wrap, no accidental shuffle/crossfade/actor replacement, and client hydration. Owner iPhone is final visual quality gate. Do NOT claim clip-specific skating solely from V7/V8 aggregate contact travel.
+
+## Owner visual verdict (2026-11-21)
+
+From the demo screenshots: Drophunter clips `dwarf-idle` (#3/9) and `dwarf-idle-2` (#4/9) are **confirmed by owner to cause foot-position sliding**, on both female and male M3. They are excluded from automatic Waiting Room playback on the M3 work branch while remaining accessible in this diagnostics-only clip review. No verdict on other clips should be inferred from these two screenshots.

@@ -20,12 +20,40 @@ export const MIXAMO_GROUPS: Record<MixamoRig, {base: readonly MixamoGesture[]; e
   },
 };
 /**
+ * Owner visually rejected BOTH Dwarf Idle variants on iPhone (21 Nov 2026):
+ * Dwarf Idle (#3/9) and Dwarf Idle 2 (#4/9). These remain in MIXAMO_GROUPS
+ * ONLY for one-clip diagnostic review and asset reuse.
+ * Standard Waiting Room random/selection must never expose either clip.
+ */
+export const OWNER_REJECTED_MIXAMO_AUTO_GESTURES: readonly MixamoGesture[] = [
+  "dwarf-idle", "dwarf-idle-2",
+];
+export const MIXAMO_AUTO_GROUPS: Record<MixamoRig,{
+  base: readonly MixamoGesture[];
+  emote: readonly MixamoGesture[];
+  manual: readonly MixamoGesture[];
+}> = {
+  drophunter: {
+    base: MIXAMO_GROUPS.drophunter.base.filter(id =>
+      !OWNER_REJECTED_MIXAMO_AUTO_GESTURES.includes(id)),
+    emote: MIXAMO_GROUPS.drophunter.emote,
+    manual: MIXAMO_GROUPS.drophunter.manual,
+  },
+  neurohacker: {
+    base: MIXAMO_GROUPS.neurohacker.base.filter(id =>
+      !OWNER_REJECTED_MIXAMO_AUTO_GESTURES.includes(id)),
+    emote: MIXAMO_GROUPS.neurohacker.emote,
+    manual: MIXAMO_GROUPS.neurohacker.manual,
+  },
+};
+/**
  * V9 QA stationary-only curation from owner iPhone review + measured native
  * M3 heel/toe contact travel on V8. Do not delete source assets: they remain
  * available through the full Mixamo mode for isolated diagnosis/replacement.
  *
- * Rejected from automatic playback: Bored (+ V6 side-step), Sad Idle,
- * Dwarf Idle 2 and Waving (short contact evidence). Catwalk Twist is
+ * Owner-confirmed rejected from every automatic playlist: BOTH Dwarf Idle
+ * variants. Separately, this V9 preset provisionally excludes Bored (+ V6),
+ * Sad Idle and Waving (short contact evidence). Catwalk Twist is
  * manual-only in the original pool and excluded here as well.
  *
  * This deliberately keeps a SMALL library until the owner approves
@@ -37,18 +65,18 @@ export const STATIONARY_MIXAMO_GROUPS: Record<MixamoRig,{
   manual: readonly MixamoGesture[];
 }> = {
   drophunter: {
-    base: ["breathing-idle-2", "dwarf-idle"],
+    base: ["breathing-idle-2"],
     emote: ["pointing", "blow-a-kiss"],
     manual: [],
   },
   neurohacker: {
-    base: ["breathing-idle-2", "dwarf-idle", "warrior-idle"],
+    base: ["breathing-idle-2", "warrior-idle"],
     emote: ["pointing"],
     manual: [],
   },
 };
 export const STATIONARY_MIXAMO_EXCLUDED: readonly MixamoGesture[] = [
-  "bored", "sad-idle", "dwarf-idle-2", "waving", "catwalk-twist",
+  "bored", "sad-idle", "dwarf-idle", "dwarf-idle-2", "waving", "catwalk-twist",
 ];
 export const MIXAMO_BONES = ["hips", "spine", "chest", "upper_chest", "neck", "head", "shoulder.L", "upper_arm.L", "lower_arm.L", "hand.L", "index.proximal.L", "index.intermediate.L", "index.distal.L", "little.proximal.L", "little.intermediate.L", "little.distal.L", "middle.proximal.L", "middle.intermediate.L", "middle.distal.L", "ring.proximal.L", "ring.intermediate.L", "ring.distal.L", "thumb.proximal.L", "thumb.intermediate.L", "thumb.distal.L", "shoulder.R", "upper_arm.R", "lower_arm.R", "hand.R", "index.proximal.R", "index.intermediate.R", "index.distal.R", "little.proximal.R", "little.intermediate.R", "little.distal.R", "middle.proximal.R", "middle.intermediate.R", "middle.distal.R", "ring.proximal.R", "ring.intermediate.R", "ring.distal.R", "thumb.proximal.R", "thumb.intermediate.R", "thumb.distal.R", "upper_leg.L", "lower_leg.L", "foot.L", "toes.L", "upper_leg.R", "lower_leg.R", "foot.R", "toes.R"] as const;
 const CHANNELS_PER_FRAME = MIXAMO_BONES.length * 4 + 3;

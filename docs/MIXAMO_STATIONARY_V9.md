@@ -40,3 +40,15 @@ Compare on iPhone with **5 people + random**, at:
 `/tools/lobby-qa-sketch?m3=five&allM3=1&mixamo=1&contactV4=1&pelvisFix=1&sideStepV6=0&contactV7=1&contactV8=1&stationaryOnly=1`
 
 The full-library control uses the same flags but `stationaryOnly=0&sideStepV6=1`. The V9 shortlist may have noticeably less animation variety while waiting for the owner's replacement idle assets. Do **not** merge or proclaim visually accepted until owner's iPhone review.
+
+## Owner visual correction — 2026-11-21 (supersedes the provisional V9 rankings)
+
+Owner supplied screenshots of Drophunter **3/9 Dwarf Idle** and **4/9 Dwarf Idle 2** and confirmed these are the animations moving/skating the feet on **both** the female and male M3 rigs. The earlier V8 joint-proxy metric had misleadingly ranked Dwarf Idle as low risk. Owner video/device assessment wins over the proxy metric.
+
+**Confirmed remove from every automatic/normal M3 Mixamo Waiting Room playlist**:
+- `dwarf-idle` (Dwarf Idle)
+- `dwarf-idle-2` (Dwarf Idle 2)
+
+The distinction is explicit: `MIXAMO_GROUPS` remains the unfiltered source-of-truth library (female nine / male eight) for `clipReview=1` single-clip owner diagnosis; `MIXAMO_AUTO_GROUPS` removes only the two owner-confirmed rejections from regular Waiting Room random/manual QA actions. `STATIONARY_MIXAMO_GROUPS` now also removes Dwarf Idle, leaving female Breathing Idle 2 and male Breathing Idle 2 / Warrior Idle as base idle choices. Other provisional V9 exclusions remain isolated to the Stationary Only preset and are **not** newly confirmed by the owner.
+
+No source asset deletion; no RoomState, Catalog, mixer lifecycle, global WebAudio scheduler, Ready logic or scene rebuild changes. Await new owner-submitted stationary-foot idle clips.

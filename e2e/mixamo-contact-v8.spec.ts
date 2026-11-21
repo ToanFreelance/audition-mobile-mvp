@@ -19,7 +19,7 @@ test("V8 candidate selection preserves contact foot with stronger sole compatibi
   expect(bestSupportCandidateV8([],start,mask,current,[true,false])).toBe(-1);
 });
 
-for(const [mode,count] of [["female",9],["male",8]] as const){
+for(const [mode,count] of [["female",7],["male",6]] as const){
   test(`V8 ${mode}: native M3 per-foot, 17-clip audit, no unsafe joint changes`,async ({page})=>{
     test.setTimeout(160_000);
     await page.setViewportSize({width:390,height:844});
@@ -76,7 +76,7 @@ test("V8 five actors retain Mixer identity through supported random and queued c
   const scene=await stage.getAttribute("data-scene-generation");
   const reports=await stage.evaluate(el=>JSON.parse(el.dataset.m3ContactV8Reports??"[]"));
   expect(reports).toHaveLength(5);
-  expect(reports.every((list:unknown[])=>list.length>=8)).toBe(true);
+  expect(reports.every((list:unknown[])=>list.length>=6)).toBe(true);
   const source=await stage.evaluate(el=>JSON.parse(el.dataset.m3SideStepV6Metrics??"[]"));
   expect(source).toHaveLength(5);
   expect(source.every((x:{stepCount:number})=>x.stepCount>=1)).toBe(true);

@@ -17,7 +17,7 @@ import type { M3RigFamily } from "./character-catalog";
 import type { Shoe } from "./motion/stances";
 type Placement = { feet: [Shoe, Shoe]; pitch: [number, number]; shift: number; drop: number };
 import {
-  MIXAMO_BONES, MIXAMO_GROUPS, STATIONARY_MIXAMO_GROUPS, getMixamoData,
+  MIXAMO_BONES, MIXAMO_GROUPS, MIXAMO_AUTO_GROUPS, STATIONARY_MIXAMO_GROUPS, getMixamoData,
   prepareMixamoLobbyClips, type MixamoGesture, type MixamoRig,
 } from "./mixamo-lobby-data";
 
@@ -165,7 +165,11 @@ export function createMixamoLobbyIdle(
     typeof window !== "undefined" &&
     window.location.pathname === "/tools/lobby-qa-sketch" &&
     new URLSearchParams(window.location.search).get("stationaryOnly") === "1";
-  const group = stationaryOnly ? STATIONARY_MIXAMO_GROUPS[family] : MIXAMO_GROUPS[family];
+  // Review mode retains all original clips. Every other Mixamo Waiting Room
+  // mode obeys the owner's confirmed Dwarf Idle exclusion.
+  const group = clipReview ? MIXAMO_GROUPS[family]
+    : stationaryOnly ? STATIONARY_MIXAMO_GROUPS[family]
+    : MIXAMO_AUTO_GROUPS[family];
   const available = [...group.base, ...group.emote, ...group.manual];
   if (!group.base.length) return null;
   // Opt-in ONLY on the isolated sketch QA route. Foot Lock and pelvis

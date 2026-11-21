@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MIXAMO_GROUPS, STATIONARY_MIXAMO_GROUPS, type MixamoGesture } from "../../../components/character/mixamo-lobby-data";
+import { MIXAMO_AUTO_GROUPS, STATIONARY_MIXAMO_GROUPS, type MixamoGesture } from "../../../components/character/mixamo-lobby-data";
 import {
   poses,
   rigPool,
@@ -71,7 +71,7 @@ export default function MotionControls({
   );
   const [open, setOpen] = useState(pilot || mixamo);
   const optionsFor = (rig: keyof typeof rigPool) => {
-    const pool = (stationaryOnly ? STATIONARY_MIXAMO_GROUPS : MIXAMO_GROUPS)[rig];
+    const pool = (stationaryOnly ? STATIONARY_MIXAMO_GROUPS : MIXAMO_AUTO_GROUPS)[rig];
     return [...pool.base, ...pool.emote, ...pool.manual];
   };
   const options = mixamo
@@ -199,8 +199,8 @@ export default function MotionControls({
       </summary>
       {mixamo && <p>
         {stationaryOnly
-          ? "V9 lọc an toàn: chỉ còn Breathing Idle 2, Dwarf Idle; nam thêm Warrior Idle; emote Pointing, nữ thêm Blow a Kiss."
-          : "10 Mixamo clips · 17 tổ hợp rig; Catwalk chỉ chọn thủ công"}
+          ? "V9 lọc: Breathing Idle 2; nam thêm Warrior Idle; emote Pointing, nữ thêm Blow a Kiss."
+          : "Danh sách random đã bỏ Dwarf Idle và Dwarf Idle 2 (cả nam/nữ). Bản duyệt từng clip vẫn giữ toàn bộ asset."}
       </p>}
       {mixamo && <p>
         <strong>V9 Stationary Only:</strong> {stationaryOnly ? "BẬT" : "TẮT"}
@@ -215,7 +215,7 @@ export default function MotionControls({
           stationaryOnly:false,sideStepDemo:false,
         })}>Đối chứng toàn bộ V8</a>
         {" · "}Đã tạm loại khỏi danh sách random:
-        Bored, Sad Idle, Dwarf Idle 2, Waving, Catwalk Twist.
+        Bored, Sad Idle, Dwarf Idle, Dwarf Idle 2, Waving, Catwalk Twist.
       </p>}
       {mixamo && <p>
         <strong>V8 Per-Foot Contact + Transition:</strong>{" "}

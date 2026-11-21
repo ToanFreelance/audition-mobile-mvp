@@ -43,7 +43,7 @@ test("V7 cyclic double-support keeps looping endpoints and reduces foot sway",()
   expect(planned.jump).toBeLessThanOrEqual(0.00601);
 });
 
-for(const [gender, expected] of [["female",9],["male",8]] as const) {
+for(const [gender, expected] of [["female",7],["male",6]] as const) {
   test(`V7 ${gender}: audit all Mixamo clips and bake only improving pelvis contacts`, async ({page})=>{
     test.setTimeout(170_000);
     await page.setViewportSize({width:390,height:844});
@@ -91,7 +91,7 @@ test("V7 five actor random: no remount/recreate, V6 Bored retained",async ({page
   const generation=await stage.getAttribute("data-scene-generation");
   const reports=await stage.evaluate(el=>JSON.parse(el.dataset.m3ContactV7Reports??"[]"));
   expect(reports).toHaveLength(5);
-  expect(reports.every((list:unknown[])=>list.length>=8)).toBe(true);
+  expect(reports.every((list:unknown[])=>list.length>=6)).toBe(true);
   const steps=await stage.evaluate(el=>JSON.parse(el.dataset.m3SideStepV6Metrics??"[]"));
   expect(steps).toHaveLength(5);
   expect(steps.every((a:{stepCount:number})=>a.stepCount>=1)).toBe(true);
