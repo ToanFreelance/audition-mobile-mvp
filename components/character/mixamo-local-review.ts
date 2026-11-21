@@ -50,10 +50,7 @@ const boneByName=(rig:THREE.Skeleton,name:string)=>rig.bones.find(b=>
  * Capture BEFORE the first action. The source pack includes all authored 30 Hz samples.
  * Source world delta * target world rest -> target local (animated parent inverse).
  * No changes to renderer, skin weights, any existing catalog curve, or shared actor transform. */
-export function createLocalReviewRetargeter(
-  actor:THREE.Object3D, rig:THREE.Skeleton,
-  options: {greetingFrameZeroReference?:boolean} = {},
-) {
+export function createLocalReviewRetargeter(actor:THREE.Object3D,rig:THREE.Skeleton) {
   // IMPORTANT: the actor can arrive here in a M3 preview/idle pose.
   // Capturing that as the Mixamo 'rest' basis turns the source's raised
   // shoulders into crossed/downward arms. Use the actual SKIN BIND pose,
@@ -108,25 +105,6 @@ export function createLocalReviewRetargeter(
     return clips.map(source=>{
       const n=source.frames, times=Float32Array.from({length:n},(_,i)=>i/30);
       const indices=new Map(source.bones.map((b,i)=>[b,i]));
-      // V14: the Mixamo FBX bind skeleton has arms pointing UP, while its
-      // first animation frame has the familiar sideways T-pose. The packaged
-      // world deltas are relative to FBX BIND, not frame 0. Applying those
-      // uncalibrated deltas to M3 bind made Greeting 2 incorrect despite valid
-      // source curves. Align the first authored frame to the M3 skin bind,
-      // then preserve EVERY relative subsequent source rotation:
-      // targetWorld(t) = deltaFBX(t) * inverse(deltaFBX(0)) * targetBindWorld.
-      // Only opt in for Greeting; Arm Stretching and existing QA stay intact.
-      const zeroInverse=new Map<string,THREE.Quaternion>();
-      if(options.greetingFrameZeroReference &&
-          source.id==="standing-greeting-2") {
-        for (const name of bound.keys()) {
-          const index=indices.get(name);
-          if(index===undefined)continue;
-          zeroInverse.set(name,
-            new THREE.Quaternion().fromArray(source.samples,index*4)
-              .normalize().invert());
-        }
-      }
       const values=new Map([...bound].map(([b])=>[b,new Float32Array(n*4)]));
       const root=new Float32Array(n*3);
       for(let frame=0;frame<n;frame++){
@@ -138,10 +116,8 @@ export function createLocalReviewRetargeter(
           let desired:THREE.Quaternion;
           if(index!==undefined&&name!==undefined){
             const start=(frame*source.bones.length+index)*4;
-            desired=new THREE.Quaternion().fromArray(source.samples,start).normalize();
-            const zero=zeroInverse.get(name);
-            if(zero)desired.multiply(zero).normalize();
-            desired.multiply(base.world).normalize();
+            desired=new THREE.Quaternion().fromArray(source.samples,start)
+              .normalize().multiply(base.world).normalize();
             const local=parent.clone().invert().multiply(desired).normalize();
             const out=values.get(name)!;
             if(frame>0&&local.dot(new THREE.Quaternion().fromArray(out,(frame-1)*4))<0){
