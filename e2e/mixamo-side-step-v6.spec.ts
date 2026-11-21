@@ -105,10 +105,8 @@ test("V6 five-person Bored demo keeps every Mixer and supports random resume",as
   expect(await link.getAttribute("href")).toContain("sideStepV6=1");
   expect(await link.getAttribute("href")).toContain("pelvisFix=1");
   expect(await link.getAttribute("href")).toContain("sideStepDemo=1");
-  await page.getByRole("button",{name:"Ngẫu nhiên",exact:true}).click();
-  await page.waitForTimeout(900);
-  await expect(stage).toHaveAttribute("data-m3-idle-instances",actorIds!);
-  await expect(stage).toHaveAttribute("data-scene-generation",scene!);
+  // Capture while Bored is already active on all five actors. Do not switch
+  // from random into a frozen crossfade: it would blend the wrong source pose.
   await page.evaluate(()=>{
     window.dispatchEvent(new CustomEvent("m3-idle-review",{
       detail:{command:"v6-sample",id:"bored",value:70/30},
@@ -122,6 +120,11 @@ test("V6 five-person Bored demo keeps every Mixer and supports random resume",as
     }));
   });
   await page.screenshot({path:"test-results/mixamo-side-step-v6/five-side-frame-70.png"});
+  await page.locator("details summary").click();
+  await page.getByRole("button",{name:"Ngẫu nhiên",exact:true}).click();
+  await page.waitForTimeout(900);
+  await expect(stage).toHaveAttribute("data-m3-idle-instances",actorIds!);
+  await expect(stage).toHaveAttribute("data-scene-generation",scene!);
   expect(errors).toEqual([]);
 });
 
