@@ -140,6 +140,13 @@ for(const [mode,rig] of [["female","drophunter"],["male","neurohacker"]] as cons
     expect(permitted).toContain(await stage.getAttribute("data-m3-active-gestures"));
     await page.goto("/tools/lobby-qa-sketch?mixamo=1&clipReview=1&contactV4=1&pelvisFix=1&sideStepV6=1&contactV7=1&contactV8=1&m3="+mode);
     await expect(stage).toHaveAttribute("data-m3-clip-review","1",{timeout:115_000});
+    // The review flag can become ready before the async M3 actor/catalog.
+    // Wait for the actual runtime rather than racing its first telemetry tick.
+    await expect(stage).toHaveAttribute("data-m3-idle-count","1",{timeout:60_000});
+    await expect.poll(async()=>stage.evaluate(el=>
+      (JSON.parse(el.dataset.m3AllowedGestures??"[]") as string[][])[0]?.length??0
+    ),{timeout:30_000}).toBe(MIXAMO_GROUPS[rig].base.length+
+      MIXAMO_GROUPS[rig].emote.length+MIXAMO_GROUPS[rig].manual.length);
     const reviews=await stage.evaluate(el=>JSON.parse(el.dataset.m3AllowedGestures??"[]")) as string[][];
     for(const key of OWNER_REJECTED_MIXAMO_AUTO_GESTURES)expect(reviews[0]).toContain(key);
   });
