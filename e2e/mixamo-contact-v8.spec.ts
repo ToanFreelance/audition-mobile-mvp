@@ -39,6 +39,7 @@ for(const [mode,count] of [["female",9],["male",8]] as const){
       applied:boolean;reason:string;
     }>;
     console.log(`M3_V8_${mode.toUpperCase()}_PER_FOOT=${JSON.stringify(values)}`);
+    expect(values.filter(v=>v.applied).length).toBeGreaterThanOrEqual(5);
     for(const v of values){
       expect(v.supportFrames).toHaveLength(2);
       expect(v.beforeCm).toHaveLength(2);
@@ -54,6 +55,10 @@ for(const [mode,count] of [["female",9],["male",8]] as const){
     const review=await stage.evaluate(el=>JSON.parse(el.dataset.m3MotionReview??"[]"));
     expect(review).toHaveLength(1);
     expect(review[0].v8).toBeTruthy();
+    await page.locator("details summary").click(); // Unobstructed shoes/knees.
+    await page.screenshot({
+      path:`test-results/mixamo-contact-v8/${mode}-random-v8.png`,
+    });
     expect(errors).toEqual([]);
   });
 }
@@ -96,5 +101,7 @@ test("V8 five actors retain Mixer identity through supported random and queued c
   }
   await expect(stage).toHaveAttribute("data-m3-idle-instances",ids!);
   await expect(stage).toHaveAttribute("data-scene-generation",scene!);
+  await page.locator("details summary").click();
+  await page.screenshot({path:"test-results/mixamo-contact-v8/five-random-v8.png"});
   expect(errors).toEqual([]);
 });

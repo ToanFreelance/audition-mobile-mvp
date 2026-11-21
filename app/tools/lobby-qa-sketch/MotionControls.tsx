@@ -203,7 +203,7 @@ export default function MotionControls({
           mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
           sideStepV5:false,sideStepV6:true,contactV7:true,contactV8:false,sideStepDemo:false,
         })}>Đối chứng V7</a>
-        <div>QA: đế chân (heel/toe proxy), clip hiện tại, chân trụ và số liệu crossfade</div>
+        {" · "}QA: đế chân (heel/toe proxy), clip hiện tại, chân trụ và crossfade
       </p>}
       {mixamo && <p>
         <strong>V7 Contact-aware (toàn bộ Mixamo clips):</strong>{" "}
