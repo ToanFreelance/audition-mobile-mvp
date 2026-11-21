@@ -1519,7 +1519,8 @@ export default function WaitingRoomStage3D({
         }
         return;
       }
-      if (command === "v6-sample" && sideStepV6Review && id === "bored") {
+      // Same source-time sampler works in V6 and in its unmodified A/B control.
+      if (command === "v6-sample" && mixamoReview && id === "bored") {
         const seconds = Number(value);
         const stage = mountRef.current?.parentElement;
         if (stage && Number.isFinite(seconds) && seconds >= 0 && seconds <= 10.67) {

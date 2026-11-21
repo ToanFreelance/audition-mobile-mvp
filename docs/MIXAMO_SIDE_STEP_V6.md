@@ -36,3 +36,16 @@ Everything lives on `work/m3-waiting-room-integration-v1`. Do not merge or chang
 ## V6 source-foot phase correction (21 Nov)
 
 Native rig Chromium measurements identified that holding the same support shoe for the full 48-frame event was physically invalid: support-ankle displacement relative to the chosen anchor reached approximately 3cm at frame 73 and 8cm at frame 247. Even a 5mm approximate IK solution cannot correctly freeze a naturally travelling contact across this window. The solver must switch which leg is supporting, add airborne swing arcs on the appropriate frame ranges, and cap a per-contact adjustment rather than forcing the entire leg into one location. Any remaining slide beyond these Bored phases and in other Mixamo clips remains open until its own motion study.
+
+## Native M3 evidence from V6.2 focused QA (2026-11-21)
+
+Measured with the unaltered native M3 rig and the existing retargeted Bored clip; all values are clip-local and rounded.
+
+| Rig | Authored side-step A | Side-step B | Lift heights | Max limb rotation delta | Support ankle travel (source → baked, core phase) |
+|---|---:|---:|---:|---:|---|
+| Female Drophunter | 7cm | 6cm | 2.9cm / 2.5cm | 22.8° | 1.4→1.2cm and 1.2→0.9cm |
+| Male Neurohacker | 8cm | 7cm | 3.4cm / 2.9cm | 23° | 1.5→1.3cm and 1.3→1.0cm |
+
+V6 tests at this revision PASS all 3 initial rig checks, including sample projections and 5 independent actor mixers. On the solo 390px portrait QA projection, the stepping left ankle moves ~16 pixels laterally with an ~8-pixel vertical rise near source frame 70. These are **projected bone centers**, not guaranteed shoe-sole ground contact. Added A/B screenshots and tests now compare the exact same source-relative Bored frame with V6 enabled and disabled. No owner iPhone visual acceptance is yet recorded.
+
+**Residual sliding remains possible.** Improvements to the supporting ankle's short-phase travel are modest (~0.2–0.3cm), and other clips plus crossfades have not been rebuilt. Never report this as a complete five-person foot-slide cure.

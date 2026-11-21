@@ -63,6 +63,11 @@ for (const family of ["female","male"] as const) {
       }
     }
     console.log(`M3_V6_${family.toUpperCase()}_SCREEN_JOINTS=${JSON.stringify(points)}`);
+    // Projected full-body rig evidence, not just baked event metadata.
+    const activeJoint=e.side==="L"?"left_ankle":"right_ankle";
+    const first=points[0].joints[activeJoint], raised=points[2].joints[activeJoint];
+    expect(Math.abs(raised[0]-first[0])).toBeGreaterThan(5);
+    expect(first[1]-raised[1]).toBeGreaterThan(3);
     await expect(stage).toHaveAttribute("data-m3-idle-instances",id!);
     await expect(stage).toHaveAttribute("data-scene-generation",generation!);
     expect(errors).toEqual([]);
@@ -95,3 +100,37 @@ test("V6 five-person Bored demo keeps every Mixer and supports random resume",as
   await expect(stage).toHaveAttribute("data-scene-generation",scene!);
   expect(errors).toEqual([]);
 });
+
+for(const family of ["female","male"] as const){
+  test(`V6 ${family}: same 30fps Bored pose differs visibly from unchanged source control`,async ({page})=>{
+    test.setTimeout(180_000);
+    await page.setViewportSize({width:390,height:844});
+    const frame=70;
+    const evidence=async () => {
+      const stage=page.getByTestId("waiting-room-stage");
+      await expect(stage).toHaveAttribute("data-stage-ready","1",{timeout:110_000});
+      await expect(stage).toHaveAttribute("data-m3-reference-profiles","bored",{timeout:30_000});
+      return await stage.evaluate((el,secs)=>{
+        window.dispatchEvent(new CustomEvent("m3-idle-review",{
+          detail:{command:"v6-sample",id:"bored",value:secs}
+        }));
+        return JSON.parse(el.dataset.m3V6PoseEvidence??"null");
+      },frame/30);
+    };
+    await page.goto(`${base}&m3=${family}`);
+    const authored=await evidence();
+    expect(authored?.actors).toHaveLength(1);
+    const stepAnkle=authored.actors[0].joints.left_ankle as [number,number,number];
+    await page.screenshot({path:`test-results/mixamo-side-step-v6/${family}-v6-vs-source-v6.png`});
+    await page.goto(`${base.replace("sideStepV6=1","sideStepV6=0")}&m3=${family}`);
+    const unmodified=await evidence();
+    expect(unmodified?.actors).toHaveLength(1);
+    const sourceAnkle=unmodified.actors[0].joints.left_ankle as [number,number,number];
+    await page.screenshot({path:`test-results/mixamo-side-step-v6/${family}-v6-vs-source-source.png`});
+    const deltaX=Math.abs(stepAnkle[0]-sourceAnkle[0]);
+    const deltaY=sourceAnkle[1]-stepAnkle[1];
+    console.log(`V6_AB_${family} pixelDeltaX=${deltaX.toFixed(2)} pixelLiftY=${deltaY.toFixed(2)}`);
+    expect(deltaX).toBeGreaterThan(5);
+    expect(deltaY).toBeGreaterThan(3);
+  });
+}

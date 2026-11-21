@@ -114,7 +114,9 @@ export default function MotionControls({
           Number(stage.dataset.m3IdleCount ?? "0") !== needed ||
           (sideStepV6
             ? stage.dataset.m3SideStepV6 !== "1"
-            : stage.dataset.m3SideStepV5 !== "1")) return;
+            : sideStepV5
+              ? stage.dataset.m3SideStepV5 !== "1"
+              : stage.dataset.m3MixamoEnabled !== "1")) return;
       window.dispatchEvent(new CustomEvent("m3-idle-review", {
         detail: {command:"select", id:"bored"},
       }));
@@ -123,11 +125,12 @@ export default function MotionControls({
     };
     const observer = new MutationObserver(start);
     observer.observe(stage, {attributes:true, attributeFilter:[
-      "data-stage-ready", "data-m3-idle-count", "data-m3-side-step-v5", "data-m3-side-step-v6",
+      "data-stage-ready", "data-m3-idle-count", "data-m3-side-step-v5",
+      "data-m3-side-step-v6", "data-m3-mixamo-enabled",
     ]});
     start();
     return () => observer.disconnect();
-  }, [mixamo, sideStepDemo, sideStepV6, demoPlayed, mixed]);
+  }, [mixamo, sideStepDemo, sideStepV5, sideStepV6, demoPlayed, mixed]);
   useEffect(() => {
     const stage = document.querySelector<HTMLElement>(
       "[data-testid=waiting-room-stage]",
