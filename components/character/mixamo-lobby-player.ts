@@ -241,8 +241,7 @@ export function createMixamoLobbyIdle(
   const footBones = feet as THREE.Bone[];
   // Local source import is diagnostic only; capture native rest before playback.
   const reviewRetargeter=(clipReview||armStretchV10||greetingV11)
-    ? createLocalReviewRetargeter(actor,rig,
-        {greetingFrameZeroReference:greetingV11}):null;
+    ? createLocalReviewRetargeter(actor,rig):null;
   if(armStretchV10){
     const source=getArmStretchSourceV10()!;
     const imported=reviewRetargeter?.(source)??[];
@@ -265,9 +264,9 @@ export function createMixamoLobbyIdle(
       console.warn("[mixamo-v11] Failed to retarget owner Standing Greeting 2");
       return null;
     }
-    // V14: the source's actual frame-zero reference is aligned inside
-    // createLocalReviewRetargeter. Do NOT add V12 arm neutral blends or V13
-    // overhead goal IK: both overwrite the source choreography.
+    // V14: FBX was re-baked with the accepted extrinsic XYZ Euler
+    // conversion. Use exactly the existing bind-rest world-delta retargeter.
+    // Never apply the rejected V12/V13 procedural arm corrections.
     const greetingAction=mixer.clipAction(greeting.clip).setLoop(THREE.LoopOnce,1);
     greetingAction.clampWhenFinished=true;
     actions.set("standing-greeting-2",greetingAction);
