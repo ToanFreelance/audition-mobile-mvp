@@ -204,7 +204,7 @@ export default function MotionControls({
         {mixamo && " · V8 " + (contactV8 && contactV7 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && stationaryOnly && " · STATIONARY ONLY"}
         {mixamo && armStretchV10 && " · ARM STRETCH V10"}
-        {mixamo && greetingV11 && " · STANDING GREETING V11"}
+        {mixamo && greetingV11 && " · STANDING GREETING V14"}
         {mixamo && sideStepDemo && " · Bored demo"}
       </summary>
       {mixamo && <p>
@@ -235,7 +235,7 @@ export default function MotionControls({
         </>}
       </p>}
       {mixamo && <p>
-        <strong>V11 Standing Greeting 2 — 5 người:</strong> {greetingV11 ? "BẬT" : "TẮT"}
+        <strong>V14 Standing Greeting 2 — 5 người:</strong> {greetingV11 ? "BẬT" : "TẮT"}
         {" · "}<a href={qaLink("five",{
           mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
           sideStepV5:false,sideStepV6:false,contactV7:true,contactV8:true,
@@ -251,7 +251,7 @@ export default function MotionControls({
           }}>Phát Greeting cả 5</button>
           {" · "}<button onClick={()=>window.dispatchEvent(new CustomEvent("m3-idle-review",{
             detail:{command:"random"},
-          }))}>Về random V11</button>
+          }))}>Về random V14</button>
         </>}
       </p>}
       {mixamo && <p>
