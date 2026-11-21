@@ -1525,6 +1525,7 @@ export default function WaitingRoomStage3D({
         if (stage && Number.isFinite(seconds) && seconds >= 0 && seconds <= 10.67) {
           reviewFrozen = true;
           for (const runtime of m3IdleByParticipant.values()) {
+            if (!("sideStepV6Events" in runtime)) continue;
             if (runtime.currentGesture !== "bored") runtime.select("bored");
             runtime.seekReferenceTime(seconds);
           }
