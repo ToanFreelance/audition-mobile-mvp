@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { createLocalReviewRetargeter } from "./mixamo-local-review";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
 import { bakeBoredSideStepsV5, type SideStepV5Event } from "./mixamo-side-step-v5";
@@ -68,6 +69,7 @@ export type MixamoLobbyIdle = {
   animationProfile: MixamoGesture;
   clipDuration: number;
   poseTime: number;
+  importReviewPack(text: string): readonly MixamoGesture[];
   select(id: string): void;
   request(id: string): void;
   update(deltaSeconds: number): void;
@@ -207,6 +209,8 @@ export function createMixamoLobbyIdle(
     return null;
   }
   const footBones = feet as THREE.Bone[];
+  // Local source import is diagnostic only; capture native rest before playback.
+  const reviewRetargeter=clipReview?createLocalReviewRetargeter(actor,rig):null;
   actor.updateWorldMatrix(true, true);
   const scale = Math.max(0.01, new THREE.Box3().setFromObject(actor).getSize(new THREE.Vector3()).y);
   const point = new THREE.Vector3();
@@ -487,6 +491,28 @@ export function createMixamoLobbyIdle(
     allowedGestures:available,
     v8FootContact:v8Stats,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
+    importReviewPack(text) {
+      if(!clipReview || !reviewRetargeter || isDisposed)
+        throw Error("Chỉ nạp animation trong demo một nhân vật");
+      // Validate and build both clips before mutating the action catalog.
+      const imported=reviewRetargeter(text);
+      for(const item of imported){
+        const old=actions.get(item.id);
+        if(old){
+          if(old===action) this.select(available[0]);
+          old.stop();
+          mixer.uncacheClip(old.getClip());
+        }
+        const next=mixer.clipAction(item.clip).setLoop(THREE.LoopOnce,1);
+        next.clampWhenFinished=true;
+        actions.set(item.id,next);
+        if(!available.includes(item.id))available.push(item.id);
+      }
+      const ids=imported.map(x=>x.id);
+      // Explicit source-only preview. No V7/V8 bake, hidden random, or foot lock.
+      this.select(ids[0]);
+      return ids;
+    },
     select(id) {
       if (!actions.has(id as MixamoGesture)) return;
       this.random = false;

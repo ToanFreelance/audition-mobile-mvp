@@ -6,7 +6,7 @@ export type MixamoRig = "drophunter" | "neurohacker";
 export type MixamoGesture =
   "breathing-idle-2" | "bored" | "dwarf-idle" | "dwarf-idle-2" |
   "sad-idle" | "waving" | "pointing" | "blow-a-kiss" |
-  "catwalk-twist" | "warrior-idle";
+  "catwalk-twist" | "warrior-idle" | "cheering" | "arm-stretching";
 export const MIXAMO_GROUPS: Record<MixamoRig, {base: readonly MixamoGesture[]; emote: readonly MixamoGesture[]; manual: readonly MixamoGesture[]}> = {
   drophunter: {
     base: ["breathing-idle-2", "bored", "dwarf-idle", "dwarf-idle-2"],

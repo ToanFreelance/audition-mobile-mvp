@@ -6,6 +6,7 @@ import {MIXAMO_GROUPS,type MixamoGesture,type MixamoRig} from "../../../componen
 type ReviewMark = "ok"|"slide";
 const textName=(id:string)=>id.split("-").map(t=>t==="2"?"2":t.charAt(0).toUpperCase()+t.slice(1)).join(" ");
 const typeName=(id:MixamoGesture,rig:MixamoRig)=>{
+  if(id==="cheering"||id==="arm-stretching")return "Clip mới · source retarget";
   const group=MIXAMO_GROUPS[rig];
   return group.base.includes(id)?"Idle (base)":
     group.emote.includes(id)?"Emote":"Manual";
@@ -20,10 +21,13 @@ export default function ClipReviewControls({
   contactV7:boolean;
   contactV8:boolean;
 }){
+  const [localClips,setLocalClips]=useState<MixamoGesture[]>([]);
+  const [importStatus,setImportStatus]=useState("");
   const clips:MixamoGesture[]=[
     ...MIXAMO_GROUPS[family].base,
     ...MIXAMO_GROUPS[family].emote,
     ...MIXAMO_GROUPS[family].manual,
+    ...localClips,
   ];
   const [current,setCurrent]=useState<MixamoGesture>(clips[0]);
   const [ready,setReady]=useState(false);
@@ -41,6 +45,25 @@ export default function ClipReviewControls({
     window.dispatchEvent(new CustomEvent("m3-idle-review",{
       detail:{command,id,value},
     }));
+  }
+  function loadPack(text:string) {
+    const detail:{command:string;value:string;imported?:MixamoGesture[];error?:string}={
+      command:"import-review-pack",value:text,
+    };
+    window.dispatchEvent(new CustomEvent("m3-idle-review",{detail}));
+    if(detail.error||!detail.imported?.length){
+      setImportStatus(detail.error||"Nhân vật chưa sẵn sàng");return;
+    }
+    setLocalClips(detail.imported);
+    setCurrent(detail.imported[0]);
+    setTime(0);
+    setImportStatus("Đã nạp Cheering & Arm Stretching. Chỉ dùng để review.");
+    try{sessionStorage.setItem("m3-local-review-pack",text);}catch{/* still usable in this page */}
+  }
+  async function readPack(file?:File){
+    if(!file||!ready)return;
+    if(file.size>2_000_000){setImportStatus("Gói vượt giới hạn 2 MB");return;}
+    try{loadPack(await file.text());}catch(error){setImportStatus(String(error));}
   }
   function choose(id:MixamoGesture){
     if(!ready)return;
@@ -72,9 +95,13 @@ export default function ClipReviewControls({
         // For a single-clip review, explicitly reset the first clip from t=0.
         // The Mixamo runtime blocks all shuffle and crossfades in this mode.
         tell("select",clips[0]);
+        try{
+          const stored=sessionStorage.getItem("m3-local-review-pack");
+          if(stored)loadPack(stored);
+        }catch{/* no cached package */}
       }
       const actual=stage.dataset.m3ActiveGestures;
-      if(actual && clips.includes(actual as MixamoGesture))
+      if(actual && (clips.includes(actual as MixamoGesture)||actual==="cheering"||actual==="arm-stretching"))
         setCurrent(actual as MixamoGesture);
       const seconds=Number(stage.dataset.m3ReferenceTimes||"0");
       if(Number.isFinite(seconds))setTime(seconds);
@@ -183,8 +210,19 @@ export default function ClipReviewControls({
               const next=!slow;setSlow(next);tell("speed",undefined,next?.25:1);
             }}>{slow?"1×":"0,25×"}</button>
         </div>
+        <div style={{marginTop:9,fontSize:12}}>
+          <label htmlFor="local-review-pack" style={{display:"block",marginBottom:4,fontWeight:600}}>
+            Nạp gói 2 animation mới (JSON)
+          </label>
+          <input id="local-review-pack" aria-label="Nạp animation mới" type="file"
+            accept=".json,application/json" disabled={!ready}
+            onChange={e=>{void readPack(e.target.files?.[0]);e.target.value="";}}
+            style={{maxWidth:"100%",fontSize:12,color:"white"}}/>
+          <div role="status" style={{marginTop:4}}>{importStatus}</div>
+        </div>
         <div style={{marginTop:8,fontSize:11,opacity:.86}}>
-          Toàn bộ {clips.length} clip gốc trong catalog, kể cả clip đã loại ở V9.
+          {clips.length} clip để review, kể cả clip đã loại ở V9.
+          {localClips.length>0&&" Hai clip mới phát bản source-retarget, chưa áp dụng V7/V8."}
           Không random, không crossfade; phát một lần rồi giữ frame cuối (không tự loop).
           V8 {contactV8?"bật":"tắt"}.
           {" "}<a href={href(family==="drophunter"?"female":"male",!contactV8)}

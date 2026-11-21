@@ -1495,6 +1495,20 @@ export default function WaitingRoomStage3D({
 
     function onReview(event: Event) {
       const { command, id, value } = (event as CustomEvent).detail;
+      if(command==="import-review-pack"){
+        const detail=(event as CustomEvent).detail;
+        try{
+          if(!clipReview||typeof value!=="string"||m3IdleByParticipant.size!==1)
+            throw Error("Chỉ nạp gói trong demo một nhân vật");
+          const runtime=[...m3IdleByParticipant.values()][0];
+          if(!("importReviewPack" in runtime))throw Error("Nhân vật chưa sẵn sàng");
+          detail.imported=runtime.importReviewPack(value);
+          reviewFrozen=false;
+        }catch(error){
+          detail.error=error instanceof Error?error.message:String(error);
+        }
+        return;
+      }
       // V1.9 isolated frame probe: freeze one solo M3 at the requested
       // source-relative 30 Hz timestamp and project RIG JOINTS with the REAL
       // Three.js camera. No gameplay timing, actor identity or socket changes.

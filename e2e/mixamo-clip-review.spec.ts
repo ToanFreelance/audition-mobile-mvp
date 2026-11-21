@@ -1,5 +1,5 @@
 import {expect,test} from "@playwright/test";
-import {MIXAMO_GROUPS,type MixamoRig} from "../components/character/mixamo-lobby-data";
+import {MIXAMO_BONES,MIXAMO_GROUPS,type MixamoRig} from "../components/character/mixamo-lobby-data";
 
 const url="/tools/lobby-qa-sketch?mixamo=1&clipReview=1&contactV4=1&pelvisFix=1&sideStepV6=1&contactV7=1&contactV8=1";
 const all=(family:MixamoRig)=>[
@@ -75,4 +75,39 @@ test("Owner clip review: switch gender and A/B without accidentally enabling sta
   expect(page.url()).toContain("contactV8=0");
   const names=all("neurohacker");
   await expect(page.getByRole("combobox",{name:"Chọn animation"})).toHaveValue(names[0]);
+});
+
+test("local review-only source package: import two clips, keep actor/mixer and switch rig",async ({page})=>{
+  test.setTimeout(180_000);
+  await page.setViewportSize({width:390,height:844});
+  const errors:string[]=[];
+  page.on("pageerror",e=>errors.push(e.message));
+  await page.goto(`${url}&m3=female`);
+  const stage=page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-m3-idle-count","1",{timeout:115_000});
+  const controls=page.getByTestId("clip-review-controls");
+  await expect(controls.getByRole("button",{name:"Next"})).toBeEnabled();
+  const ids=await stage.getAttribute("data-m3-idle-instances");
+  const frames=31;
+  const packed=Buffer.alloc(frames*MIXAMO_BONES.length*8);
+  for(let i=0;i<frames*MIXAMO_BONES.length;i++)packed.writeInt16LE(32767,i*8+6);
+  const fixture=JSON.stringify({schema:"m3-mixamo-source-delta-v1",fps:30,
+    clips:["cheering","arm-stretching"].map(id=>({
+      id,frames,bones:MIXAMO_BONES,worldDeltaQ16:packed.toString("base64"),
+      rootOffsets:Array(frames*3).fill(0),
+    })),
+  });
+  await controls.getByLabel("Nạp animation mới").setInputFiles({
+    name:"review-fixture.json",mimeType:"application/json",buffer:Buffer.from(fixture),
+  });
+  await expect(controls.getByTestId("clip-review-current")).toContainText("10/11 · Cheering");
+  await expect(stage).toHaveAttribute("data-m3-active-gestures","cheering");
+  await controls.getByRole("button",{name:"Next"}).click();
+  await expect(stage).toHaveAttribute("data-m3-active-gestures","arm-stretching");
+  await expect(controls.getByTestId("clip-review-current")).toContainText("11/11 · Arm Stretching");
+  await expect(stage).toHaveAttribute("data-m3-idle-instances",ids!);
+  await controls.getByRole("link",{name:"Nhân vật nam"}).click();
+  await expect(stage).toHaveAttribute("data-m3-idle-count","1",{timeout:115_000});
+  await expect(page.getByTestId("clip-review-current")).toContainText("9/10 · Cheering",{timeout:40_000});
+  expect(errors).toEqual([]);
 });
