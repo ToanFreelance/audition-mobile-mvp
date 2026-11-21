@@ -1,7 +1,5 @@
 import * as THREE from "three";
 import { createLocalReviewRetargeter } from "./mixamo-local-review";
-import { bakeStandingGreetingIdleArmsV12 } from "./mixamo-greeting-idle-pose-v12";
-import { bakeStandingGreetingHighWaveV13 } from "./mixamo-greeting-high-wave-v13";
 import { fitArmStretchSleevesV10, type ArmStretchSleeveMetrics } from "./mixamo-arm-sleeve-v10";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
@@ -243,7 +241,8 @@ export function createMixamoLobbyIdle(
   const footBones = feet as THREE.Bone[];
   // Local source import is diagnostic only; capture native rest before playback.
   const reviewRetargeter=(clipReview||armStretchV10||greetingV11)
-    ? createLocalReviewRetargeter(actor,rig):null;
+    ? createLocalReviewRetargeter(actor,rig,
+        {greetingFrameZeroReference:greetingV11}):null;
   if(armStretchV10){
     const source=getArmStretchSourceV10()!;
     const imported=reviewRetargeter?.(source)??[];
@@ -266,22 +265,10 @@ export function createMixamoLobbyIdle(
       console.warn("[mixamo-v11] Failed to retarget owner Standing Greeting 2");
       return null;
     }
-    // V12: FBX non-gesturing arm stays in source T-pose, so a literal
-    // retarget looked like a stiff sideways salute in the owner iPhone video.
-    // Bake the accepted Breathing Idle 2 arm tracks into THIS clip once.
-    // Preserve the greeting's active arm during its 1.65-3.65s wave segment.
-    const neutral=actions.get("breathing-idle-2")?.getClip();
-    if(!neutral){
-      mixer.stopAllAction();
-      console.warn("[mixamo-v12] Missing M3 neutral arm animation");
-      return null;
-    }
-    const greetingIdle=bakeStandingGreetingIdleArmsV12(greeting.clip,neutral,rig);
-    // V13: V12 neutralized the inactive arm, but left the greeting wrist
-    // at shoulder height. Author the active wave OVER the actual M3 head,
-    // preserving the source forearm/hand gesture and the existing mixer.
-    const overhead=bakeStandingGreetingHighWaveV13(actor,rig,greetingIdle);
-    const greetingAction=mixer.clipAction(overhead).setLoop(THREE.LoopOnce,1);
+    // V14: the source's actual frame-zero reference is aligned inside
+    // createLocalReviewRetargeter. Do NOT add V12 arm neutral blends or V13
+    // overhead goal IK: both overwrite the source choreography.
+    const greetingAction=mixer.clipAction(greeting.clip).setLoop(THREE.LoopOnce,1);
     greetingAction.clampWhenFinished=true;
     actions.set("standing-greeting-2",greetingAction);
   }
