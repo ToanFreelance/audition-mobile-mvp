@@ -10,10 +10,10 @@ V6 remains opt-in and isolated to `/tools/lobby-qa-sketch?mixamo=1&contactV4=1&p
 
 For each M3 rig:
 1. Evaluate the existing **source retargeted 30 FPS Bored clip** on the actual native rig; use source foot trajectories to select two side-change moments.
-2. Expand each into a self-contained ~1.6-second, **two-lift side-tap** with weight shift, swing outward, planted hold, recovery lift and settle. A step out/return is used because this idle must keep the original clip start/end pose; a permanently translated stance would snap at loop/crossfade boundaries.
-3. Give the swing ankle a genuine **4.5–8.0 cm new lateral reach** and **2.5–3.7 cm lift**, proportional to a feasible constrained solution, rather than adding Y lift to the tiny original X displacement.
-4. While the swing foot moves, stabilize its opposite support ankle in M3 actor-local space with fade-in/out over the event window, and add only a small pelvis weight-shift along X.
-5. Solve both legs **at clip-build time only** and bake the resulting thigh/shin/ankle quaternion tracks plus hips X position. Preserve the authored head, spine, arms, stage placement, original clip length and native playback mixer. A candidate is entirely rejected if any frame exceeds 13° thigh, 23° shin/ankle, 5 mm target error, or the core support foot moves more than the allowed contact margin. No per-frame runtime foot IK or actor lock is introduced.
+2. Expand each into a self-contained ~1.6-second **two-leg side-step**: the first foot swings outward and lands along the authored source trajectory, then support transfers and the other foot lifts to follow. Both feet blend back to the source pose at event boundaries to avoid snapping at the next clip.
+3. Give each swing ankle a **4.5–8.0 cm airborne lateral excursion** and **2.5–3.7 cm lift** (second foot follows at 80–90% of that amplitude), keeping the source's ultimate landing/transition location. A bake count does not guarantee an actual planted shoe is still.
+4. Use contact phases instead of freezing one shoe for the entire 48-frame event. The first support shoe is corrected during the first 0.27s swing, then the planted role transfers to the other shoe for the second 0.33s swing. Per-phase support correction is capped at 1.2cm and fades smoothly, with a small X/Y pelvis softening.
+5. Solve both legs **at clip-build time only** and bake thigh/shin/ankle quaternion tracks plus small hips X/Y offsets. Preserve the authored head, spine, arms, actor root, stage placement, original clip duration and native playback mixer. For near-reachable targets the solver attempts only mechanically valid corrections within a strict 5mm foot-error margin; thigh 13° and shin/ankle 23° remain hard caps. No runtime IK, actor root lock, or forced leg extension is introduced.
 6. Playback reuses the V4 contact-aware shuffle-bag/crossfade. `Sad Idle` retains its own authored step and all other Mixamo clips are untouched.
 
 These are clip-local values in the native retargeted M3 rig; real rendered shoe-sole geometry is not measured by this solver. `Bored` remains one clip out of the random library. V6 **does not assert that unrelated clip/transition sliding is fixed**.
@@ -32,3 +32,7 @@ The QA-only event `m3-idle-review` with `{command:"v6-sample",id:"bored",value:s
 - V6 individual rigs: `m3=female` or `m3=male`, preserving flags
 
 Everything lives on `work/m3-waiting-room-integration-v1`. Do not merge or change production/RoomState/CAS/Realtime/Ready/Start/Gameplay/WebAudio/Character Catalog.
+
+## V6 source-foot phase correction (21 Nov)
+
+Native rig Chromium measurements identified that holding the same support shoe for the full 48-frame event was physically invalid: support-ankle displacement relative to the chosen anchor reached approximately 3cm at frame 73 and 8cm at frame 247. Even a 5mm approximate IK solution cannot correctly freeze a naturally travelling contact across this window. The solver must switch which leg is supporting, add airborne swing arcs on the appropriate frame ranges, and cap a per-contact adjustment rather than forcing the entire leg into one location. Any remaining slide beyond these Bored phases and in other Mixamo clips remains open until its own motion study.

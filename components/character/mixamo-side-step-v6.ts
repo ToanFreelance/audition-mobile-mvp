@@ -136,21 +136,20 @@ function solveLeg(
   return reject(bestReason||"no_feasible_contact");
 }
 
-function phase(t: number) {
-  // Each limb has two complete lift/land events. Endpoints are continuous.
-  const out = smooth((t - 0.13) / 0.23);
-  const inward = smooth((t - 0.60) / 0.23);
-  const reach = out * (1 - inward);
-  let lift = 0;
-  if (t >= 0.13 && t <= 0.36) {
-    lift = Math.pow(Math.sin(Math.PI * (t - 0.13) / 0.23), 1.15);
-  } else if (t >= 0.60 && t <= 0.83) {
-    lift = Math.pow(Math.sin(Math.PI * (t - 0.60) / 0.23), 1.15);
-  }
-  const contact = smooth(t / 0.13) * (1 - smooth((t - 0.83) / 0.17));
-  // Small hip sway towards support foot, then towards planted swing shoe.
-  const sway = smooth(t / 0.15) * (1 - smooth((t - 0.85) / 0.15));
-  return {reach, lift, contact, sway};
+function swingEnvelope(t:number,start:number,end:number) {
+  if (t<=start || t>=end) return 0;
+  return Math.pow(Math.sin(Math.PI*(t-start)/(end-start)),1.15);
+}
+
+function cappedFootAnchor(
+  source:THREE.Vector3, anchor:THREE.Vector3, blend:number,
+) {
+  // Keep only the locally feasible part of the support-foot correction.
+  // Long Bored sway cannot be constrained to ONE support foot for 48 frames.
+  const drift = anchor.clone().sub(source);
+  drift.y = 0; // never pull the ankle through the floor
+  drift.clampLength(0,0.012);
+  return source.clone().addScaledVector(drift,blend);
 }
 
 function jointTrack(clip: THREE.AnimationClip, bone: THREE.Bone, n: number) {
@@ -169,135 +168,142 @@ export function bakeBoredSideStepsV6(
   rig: THREE.Skeleton,
   original: THREE.AnimationClip,
 ): SideStepV6Result {
-  if (!original.name.includes("-bored")) return {clip:original, events:[]};
-  const legs = (["L", "R"] as const).map(side =>
-    ["upper_leg", "lower_leg", "foot"].map(name => resolveBone(rig, name + "." + side))
+  if (!original.name.includes("-bored")) return {clip:original,events:[]};
+  const legs = (["L","R"] as const).map(side=>
+    ["upper_leg","lower_leg","foot"].map(name=>resolveBone(rig,name+"."+side))
   );
-  if (legs.flat().some(b => !b)) return {clip:original, events:[]};
-  const bones = legs as THREE.Bone[][];
-  const hips = resolveBone(rig,"hips");
-  const n = Math.round(original.duration * FPS) + 1;
-  const hipTrack = hips && original.tracks.find(t => t.name === hips.uuid + ".position");
-  if (!hipTrack || !(hipTrack instanceof THREE.VectorKeyframeTrack) || hipTrack.values.length !== n * 3)
-    return {clip:original, events:[]};
-  const originalTracks = new Map<string,THREE.QuaternionKeyframeTrack>();
+  if (legs.flat().some(b=>!b)) return {clip:original,events:[]};
+  const bones=legs as THREE.Bone[][];
+  const hips=resolveBone(rig,"hips");
+  const n=Math.round(original.duration*FPS)+1;
+  const hipTrack=hips && original.tracks.find(t=>t.name===hips.uuid+".position");
+  if (!hipTrack || !(hipTrack instanceof THREE.VectorKeyframeTrack) ||
+      hipTrack.values.length!==n*3) return {clip:original,events:[]};
+  const sourceTracks=new Map<string,THREE.QuaternionKeyframeTrack>();
   for (const side of bones) for (const bone of side) {
-    const track = jointTrack(original,bone,n);
-    if (!track) return {clip:original, events:[]};
-    originalTracks.set(bone.uuid,track);
+    const track=jointTrack(original,bone,n);
+    if (!track) return {clip:original,events:[]};
+    sourceTracks.set(bone.uuid,track);
   }
-  const output = new Map<string,Float32Array>();
-  for (const [uuid,track] of originalTracks) output.set(uuid,new Float32Array(track.values));
-  const outputHips = new Float32Array(hipTrack.values);
-  const baseline = rig.bones.map(b => ({
-    position:b.position.clone(), quaternion:b.quaternion.clone(), scale:b.scale.clone()
+  const outputs=new Map<string,Float32Array>();
+  for(const [uuid,track] of sourceTracks)
+    outputs.set(uuid,new Float32Array(track.values));
+  const hipsOutput=new Float32Array(hipTrack.values);
+  const saved=rig.bones.map(b=>({
+    position:b.position.clone(),quaternion:b.quaternion.clone(),scale:b.scale.clone()
   }));
-  const mixer = new THREE.AnimationMixer(actor);
-  const action = mixer.clipAction(original).setLoop(THREE.LoopOnce,1);
-  action.clampWhenFinished = true;
+  const probe=new THREE.AnimationMixer(actor);
+  const action=probe.clipAction(original).setLoop(THREE.LoopOnce,1);
+  action.clampWhenFinished=true;
   action.reset().play();
-  const getFeet = (): [THREE.Vector3,THREE.Vector3] => [
+  const feet=():[THREE.Vector3,THREE.Vector3]=>[
     actor.worldToLocal(bones[0][2].getWorldPosition(VEC())),
     actor.worldToLocal(bones[1][2].getWorldPosition(VEC())),
   ];
-  const sample = (f: number) => {
-    action.time = Math.min(original.duration,f / FPS);
-    mixer.update(0);
+  const sample=(f:number)=>{
+    action.time=Math.min(original.duration,f/FPS);
+    probe.update(0);
     actor.updateWorldMatrix(true,true);
   };
-  const footFrames: [THREE.Vector3,THREE.Vector3][] = [];
-  const baked: SideStepV6Event[] = [];
-  let attempted = 0;
-  let rejected = 0;
+  const sources:[THREE.Vector3,THREE.Vector3][]=[];
+  const baked:SideStepV6Event[]=[];
+  let attempted=0,rejected=0;
   try {
-    for (let f=0;f<n;f++) { sample(f); footFrames.push(getFeet()); }
-    // The source's own near-floor lateral motion supplies step timing.
-    const scan: FootPair[] = footFrames.map(f=>[
+    for(let f=0;f<n;f++){sample(f);sources.push(feet());}
+    const positions:FootPair[]=sources.map(f=>[
       [f[0].x,f[0].y,f[0].z],[f[1].x,f[1].y,f[1].z],
     ]);
-    // Character height must come from bones, not the 4.05m actor AABB.
-    const hipAtStart = (() => {sample(0);return hips!.getWorldPosition(VEC());})();
-    const ankleAtStart = bones[0][2].getWorldPosition(VEC());
-    const legScale = Math.max(0.5,2 * hipAtStart.distanceTo(ankleAtStart));
-    const events = planSideStepsV5(scan,legScale);
-    for (const proposed of events) {
-      const start = Math.max(6,proposed.start - 5);
-      const end = Math.min(n-7,start + WINDOW_FRAMES);
-      if (end-start !== WINDOW_FRAMES) continue;
-      const side = proposed.side;
-      const support = (1-side) as 0|1;
-      const sign = Math.sign(footFrames[start][side].x-footFrames[start][support].x)
-        || (side===0 ? 1 : -1);
-      const plantedAnchor = footFrames[start][support].clone();
-      // The contact-foot transform never inherits accumulated runtime offset.
-      for (const amplitude of REACH_OPTIONS) {
+    sample(0);
+    const hipWorld=hips!.getWorldPosition(VEC());
+    const footWorld=bones[0][2].getWorldPosition(VEC());
+    const anatomicalHeight=Math.max(0.5,2*hipWorld.distanceTo(footWorld));
+    const moments=planSideStepsV5(positions,anatomicalHeight);
+    for(const candidate of moments){
+      const start=Math.max(6,candidate.start-5);
+      const end=start+WINDOW_FRAMES;
+      if(end>=n-6) continue;
+      const side=candidate.side;
+      const opposite=(1-side) as 0|1;
+      const sign=Math.sign(sources[start][side].x-sources[start][opposite].x)
+        || (side===0?1:-1);
+      // Phase A: side steps; Phase B: the former support foot follows. This
+      // avoids forcing one planted shoe to resist the whole Bored source sway.
+      const holdA=sources[Math.round(start+0.16*WINDOW_FRAMES)][opposite];
+      const holdB=sources[Math.round(start+0.43*WINDOW_FRAMES)][side];
+      for(const amplitude of REACH_OPTIONS){
         attempted++;
-        const lift = Math.min(0.037,Math.max(0.025,amplitude*0.42));
-        const staged: {frame:number; quats:THREE.Quaternion[]; hipX:number; feet:[THREE.Vector3,THREE.Vector3]}[] = [];
-        let failed = false;
-        let rejectAt = "";
-        let maxDelta = 0;
-        let maxError = 0;
-        for (let f=start+1;f<end;f++) {
+        const lift=Math.min(0.037,Math.max(0.025,amplitude*0.42));
+        const staged:{
+          frame:number;hipX:number;hipY:number;
+          quats:THREE.Quaternion[];feet:[THREE.Vector3,THREE.Vector3];
+        }[]=[];
+        let rejectAt="",maxDelta=0,maxError=0,failed=false;
+        for(let f=start+1;f<end;f++){
           sample(f);
-          const t = (f-start)/(end-start);
-          const p = phase(t);
-          const originalFeet = getFeet();
-          const hipShift = -sign * 0.012 * p.sway + sign * 0.009 * p.reach;
-          hips!.position.x += hipShift;
+          const t=(f-start)/(end-start);
+          const a=swingEnvelope(t,0.16,0.43);
+          const b=swingEnvelope(t,0.43,0.76);
+          const originalFeet=feet();
+          // A subtle source-relative weight shift and knee softening.
+          hips!.position.x+= -sign*0.007*a + sign*0.007*b;
+          hips!.position.y-= 0.006*Math.max(a,b);
           actor.updateWorldMatrix(true,true);
-          const supportGoal = originalFeet[support].clone().lerp(plantedAnchor,p.contact);
-          const swingGoal = originalFeet[side].clone();
-          swingGoal.x += sign * amplitude * p.reach;
-          swingGoal.z -= 0.008 * p.reach;
-          swingGoal.y += lift * p.lift;
-          // Plant the out-step between both lifting phases, no lateral scrape.
-          const landT = 0.36;
-          const returnT = 0.60;
-          if (t >= landT) {
-            const landedFrame = Math.round(start + (end-start)*landT);
-            const landed = footFrames[landedFrame][side].clone();
-            landed.x += sign*amplitude;
-            landed.z -= 0.008;
-            // No one-frame snap when leaving the short planted hold.
-            const release = t <= returnT ? 0 : smooth((t-returnT)/0.23);
-            swingGoal.lerpVectors(landed, originalFeet[side],release);
-            swingGoal.x += sign * amplitude * p.reach * release;
-            swingGoal.z -= 0.008 * p.reach * release;
-            swingGoal.y += lift * p.lift;
+          const footTargets:[THREE.Vector3,THREE.Vector3]=[
+            originalFeet[0].clone(),originalFeet[1].clone(),
+          ];
+          if(a>0){
+            footTargets[side].x+=sign*amplitude*a;
+            footTargets[side].z-=0.006*a;
+            footTargets[side].y+=lift*a;
+            footTargets[opposite]=cappedFootAnchor(
+              originalFeet[opposite],holdA,a,
+            );
+          } else if(b>0) {
+            footTargets[opposite].x+=sign*amplitude*0.8*b;
+            footTargets[opposite].z-=0.005*b;
+            footTargets[opposite].y+=lift*0.9*b;
+            footTargets[side]=cappedFootAnchor(originalFeet[side],holdB,b);
           }
-          // Correct support first so swing leg moves relative to a stable base.
-          const solvedSupport = solveLeg(actor,bones[support],supportGoal,
-            reason=>{rejectAt="support frame="+f+" "+reason;});
-          if (!solvedSupport) {failed=true;break;}
-          const solvedSwing = solveLeg(actor,bones[side],swingGoal,
-            reason=>{rejectAt="swing frame="+f+" "+reason;});
-          if (!solvedSwing) {failed=true;break;}
-          maxDelta = Math.max(maxDelta,solvedSupport.delta,solvedSwing.delta);
-          maxError = Math.max(maxError,solvedSupport.error,solvedSwing.error);
+          // Zero lift/zero correction on event boundaries returns to the
+          // exact source tracks and avoids clip-end discontinuities.
+          const supportSide=a>0?opposite:side;
+          if(a>0 || b>0){
+            const stable=solveLeg(actor,bones[supportSide],footTargets[supportSide],
+              reason=>{rejectAt="support f="+f+" "+reason;});
+            if(!stable){failed=true;break;}
+            maxDelta=Math.max(maxDelta,stable.delta);
+            maxError=Math.max(maxError,stable.error);
+            const movingSide=a>0?side:opposite;
+            const swing=solveLeg(actor,bones[movingSide],footTargets[movingSide],
+              reason=>{rejectAt="swing f="+f+" "+reason;});
+            if(!swing){failed=true;break;}
+            maxDelta=Math.max(maxDelta,swing.delta);
+            maxError=Math.max(maxError,swing.error);
+          }
           staged.push({
-            frame:f,hipX:hips!.position.x,
-            quats:bones.flat().map(b=>b.quaternion.clone()),
-            feet:getFeet(),
+            frame:f,hipX:hips!.position.x,hipY:hips!.position.y,
+            quats:bones.flat().map(bone=>bone.quaternion.clone()),feet:feet(),
           });
         }
-        if (failed || staged.length!==end-start-1) {
+        if(failed || staged.length!==end-start-1){
           rejected++;
           console.info("[mixamo-side-step-v6] rejected",JSON.stringify({
             clip:original.name,side,amplitude,staged:staged.length,rejectAt,
           }));
           continue;
         }
-        const core = (f:number)=> f>=start+8 && f<=end-8;
-        const baselineSupport = footFrames[start+8][support];
-        const finalSupport = staged.find(e=>e.frame===start+8)!.feet[support];
-        let sourceDrift = 0, correctedDrift=0;
-        for (const frame of staged.filter(e=>core(e.frame))) {
-          sourceDrift=Math.max(sourceDrift,travel(footFrames[frame.frame][support],baselineSupport));
-          correctedDrift=Math.max(correctedDrift,travel(frame.feet[support],finalSupport));
+        // Evaluate ONLY the first true support phase; a 48-frame stationary
+        // support target was the V6.0 architecture error.
+        const before=sources[Math.round(start+0.16*WINDOW_FRAMES)][opposite];
+        const after=staged.find(x=>x.frame===Math.round(start+0.16*WINDOW_FRAMES))!.feet[opposite];
+        let sourceDrift=0,correctedDrift=0;
+        for(const f of staged){
+          const t=(f.frame-start)/(end-start);
+          if(t<0.16 || t>0.43)continue;
+          sourceDrift=Math.max(sourceDrift,travel(sources[f.frame][opposite],before));
+          correctedDrift=Math.max(correctedDrift,travel(f.feet[opposite],after));
         }
-        // A reduced support-foot error is mandatory for declaring a valid step.
-        if (correctedDrift > Math.max(0.008,sourceDrift+0.001)) {
+        if(correctedDrift>Math.max(0.008,sourceDrift+0.001)){
           rejected++;
           console.info("[mixamo-side-step-v6] drift_rejected",JSON.stringify({
             clip:original.name,side,amplitude,sourceDrift,correctedDrift,
@@ -305,11 +311,14 @@ export function bakeBoredSideStepsV6(
           continue;
         }
         for(const frame of staged) {
-          outputHips[frame.frame*3] = frame.hipX;
-          bones.flat().forEach((b,i)=>frame.quats[i].toArray(output.get(b.uuid)!,frame.frame*4));
+          hipsOutput[frame.frame*3]=frame.hipX;
+          hipsOutput[frame.frame*3+1]=frame.hipY;
+          bones.flat().forEach((bone,i)=>
+            frame.quats[i].toArray(outputs.get(bone.uuid)!,frame.frame*4)
+          );
         }
         baked.push({
-          side:side===0?"L":"R",support:support===0?"L":"R",
+          side:side===0?"L":"R",support:opposite===0?"L":"R",
           startFrame:start,endFrame:end,
           reachCm:Math.round(amplitude*1000)/10,
           liftCm:Math.round(lift*1000)/10,
@@ -323,25 +332,25 @@ export function bakeBoredSideStepsV6(
     }
   } finally {
     action.stop();
-    mixer.stopAllAction();
-    mixer.uncacheRoot(actor);
+    probe.stopAllAction();
+    probe.uncacheRoot(actor);
     rig.bones.forEach((bone,i)=>{
-      bone.position.copy(baseline[i].position);
-      bone.quaternion.copy(baseline[i].quaternion);
-      bone.scale.copy(baseline[i].scale);
+      bone.position.copy(saved[i].position);
+      bone.quaternion.copy(saved[i].quaternion);
+      bone.scale.copy(saved[i].scale);
     });
     actor.updateWorldMatrix(true,true);
   }
   console.info("[mixamo-side-step-v6] result",JSON.stringify({
     source:original.name,events:baked,attempted,rejected,
   }));
-  if (!baked.length) return {clip:original,events:[]};
-  const tracks = original.tracks.map(t=>{
-    const name = t.name.split(".")[0];
-    if (hips && name===hips.uuid && t.name.endsWith(".position"))
-      return new THREE.VectorKeyframeTrack(t.name,t.times,outputHips);
-    const q = output.get(name);
-    return q ? new THREE.QuaternionKeyframeTrack(t.name,t.times,q) : t.clone();
+  if(!baked.length)return{clip:original,events:[]};
+  const tracks=original.tracks.map(track=>{
+    const uuid=track.name.split(".")[0];
+    if(hips && uuid===hips.uuid && track.name.endsWith(".position"))
+      return new THREE.VectorKeyframeTrack(track.name,track.times,hipsOutput);
+    const q=outputs.get(uuid);
+    return q?new THREE.QuaternionKeyframeTrack(track.name,track.times,q):track.clone();
   });
   return {
     clip:new THREE.AnimationClip(original.name+"-step-v6",original.duration,tracks),
