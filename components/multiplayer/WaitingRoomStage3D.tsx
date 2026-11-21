@@ -1543,6 +1543,34 @@ export default function WaitingRoomStage3D({
         }
         return;
       }
+      // V10 native five-person source-time freeze for objective sleeve QA.
+      // The ordinary five-actor random playback is untouched unless this
+      // explicitly requested diagnostic event is dispatched.
+      if(command==="v10-sample" && armStretchV10Review &&
+        id==="arm-stretching"){
+        const seconds=Number(value);
+        const stage=mountRef.current?.parentElement;
+        if(stage && Number.isFinite(seconds) &&
+          seconds>=0 && seconds<=8.866){
+          reviewFrozen=true;
+          const evidence=[];
+          for(const runtime of m3IdleByParticipant.values()){
+            if(!("armStretchV10" in runtime)||!runtime.armStretchV10)continue;
+            if(runtime.currentGesture!=="arm-stretching")
+              runtime.select("arm-stretching");
+            runtime.seekReferenceTime(seconds);
+            evidence.push({
+              mixer:runtime.playbackMixer.getRoot().uuid,
+              clip:runtime.currentGesture,
+              joints:runtime.projectReferenceJoints(camera,
+                renderer.domElement.clientWidth,renderer.domElement.clientHeight),
+              garment:runtime.armSleeveV10,
+            });
+          }
+          stage.dataset.m3V10PoseEvidence=JSON.stringify({seconds,actors:evidence});
+        }
+        return;
+      }
       // Same source-time sampler works in V6 and in its unmodified A/B control.
       if (command === "v6-sample" && mixamoReview && id === "bored") {
         const seconds = Number(value);

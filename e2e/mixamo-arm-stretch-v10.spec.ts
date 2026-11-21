@@ -49,12 +49,51 @@ test("Owner Arm Stretching V10: one source clip, no Cheering / Dwarf in 5-actor 
     (JSON.parse(el.dataset.m3ArmSleevesV10??"[]") as Array<{influence:number}>)
       .every(x=>x.influence>.9)
   ),{timeout:18_000}).toBe(true);
-  await page.waitForTimeout(1800);
+  // Freeze the SAME five native M3 actors at a known frame, not a random
+  // screenshot that may happen after the clip has reached its final idle pose.
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent("m3-idle-review",{
+    detail:{command:"v10-sample",id:"arm-stretching",value:0},
+  })));
+  const first=await stage.evaluate(el=>
+    JSON.parse(el.dataset.m3V10PoseEvidence??"null")) as {
+      seconds:number;actors:Array<{joints:Record<string,[number,number,number]>}>};
+  expect(first.actors).toHaveLength(5);
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent("m3-idle-review",{
+    detail:{command:"v10-sample",id:"arm-stretching",value:2.7},
+  })));
+  const sample=await stage.evaluate(el=>
+    JSON.parse(el.dataset.m3V10PoseEvidence??"null")) as {
+      seconds:number;actors:Array<{joints:Record<string,[number,number,number]>;
+      garment:{influence:number}}>} ;
+  expect(sample.seconds).toBe(2.7);
+  expect(sample.actors).toHaveLength(5);
+  const wristTravel=sample.actors.map((actor,i)=>{
+    const a=first.actors[i].joints.right_wrist;
+    const b=actor.joints.right_wrist;
+    return Math.hypot(a[0]-b[0],a[1]-b[1]);
+  });
+  console.log("V10_RIGHT_WRIST_TRAVEL_AT_2_7S="+JSON.stringify(wristTravel));
+  expect(wristTravel.filter(x=>x>3).length).toBeGreaterThanOrEqual(3);
   await expect(stage).toHaveAttribute("data-m3-idle-instances",actorIds!);
   await expect(stage).toHaveAttribute("data-scene-generation",generation!);
   await page.locator("details summary").click();
-  await page.screenshot({path:"test-results/arm-stretch-v10/5-arm-stretch-together.png"});
+  await page.screenshot({path:"test-results/arm-stretch-v10/5-arm-stretch-2_7s-front.png"});
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent("m3-idle-review",{
+    detail:{command:"camera",value:"side"},
+  })));
+  await page.screenshot({path:"test-results/arm-stretch-v10/5-arm-stretch-2_7s-side.png"});
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent("m3-idle-review",{
+    detail:{command:"camera",value:"front"},
+  })));
   await page.locator("details summary").click();
+  // Switch to a different clip to verify the sleeve morph returns to neutral.
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent("m3-idle-review",{
+    detail:{command:"select",id:"breathing-idle-2"},
+  })));
+  await expect.poll(async()=>stage.evaluate(el=>
+    (JSON.parse(el.dataset.m3ArmSleevesV10??"[]") as Array<{influence:number}>)
+      .every(x=>x.influence<.01)
+  ),{timeout:20_000}).toBe(true);
   await page.getByRole("button",{name:"Về random"}).click();
   await page.waitForTimeout(1400);
   await expect(stage).toHaveAttribute("data-m3-idle-instances",actorIds!);
