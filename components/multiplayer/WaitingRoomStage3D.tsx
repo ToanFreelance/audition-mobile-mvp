@@ -1573,6 +1573,30 @@ export default function WaitingRoomStage3D({
         }
         return;
       }
+      // V13: pose audit of the real M3 actors at one authored greeting frame.
+      // Only the QA sketch route can request this diagnostic source-time freeze.
+      if(command==="v13-sample" && greetingV11Review && id==="standing-greeting-2"){
+        const seconds=Number(value);
+        const stage=mountRef.current?.parentElement;
+        if(stage && Number.isFinite(seconds) && seconds>=0 && seconds<=5.1){
+          reviewFrozen=true;
+          const actors=[];
+          for(const runtime of m3IdleByParticipant.values()){
+            if(!("greetingV11" in runtime) || !runtime.greetingV11)continue;
+            if(runtime.currentGesture!=="standing-greeting-2")
+              runtime.select("standing-greeting-2");
+            runtime.seekReferenceTime(seconds);
+            actors.push({
+              mixer:runtime.playbackMixer.getRoot().uuid,
+              clip:runtime.currentGesture,
+              joints:runtime.projectReferenceJoints(camera,
+                renderer.domElement.clientWidth,renderer.domElement.clientHeight),
+            });
+          }
+          stage.dataset.m3V13PoseEvidence=JSON.stringify({seconds,actors});
+        }
+        return;
+      }
       // Same source-time sampler works in V6 and in its unmodified A/B control.
       if (command === "v6-sample" && mixamoReview && id === "bored") {
         const seconds = Number(value);
