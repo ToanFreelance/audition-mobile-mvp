@@ -1276,6 +1276,8 @@ export default function WaitingRoomStage3D({
     const footLockReview = mixamoReview && new URLSearchParams(window.location.search).get("footLock") === "1";
     const contactV4Review = mixamoReview && !footLockReview &&
       new URLSearchParams(window.location.search).get("contactV4") !== "0";
+    const contactV7Review = contactV4Review &&
+      new URLSearchParams(window.location.search).get("contactV7") === "1";
     const sideStepV6Review = contactV4Review &&
       new URLSearchParams(window.location.search).get("sideStepV6") === "1";
     const sideStepV5Review = contactV4Review && !sideStepV6Review &&
@@ -1604,6 +1606,10 @@ export default function WaitingRoomStage3D({
             stageElement.dataset.m3FootlockEnabled = footLockReview && mixamoModule ? "1" : "0";
             stageElement.dataset.m3ContactV4 = contactV4Review && mixamoModule ? "1" : "0";
             stageElement.dataset.m3SideStepV5 = sideStepV5Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3ContactV7 = contactV7Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3ContactV7Reports = JSON.stringify(runtimes.map(item => (
+              "contactV7Reports" in item ? item.contactV7Reports : []
+            )));
             stageElement.dataset.m3SideStepV6 = sideStepV6Review && mixamoModule ? "1" : "0";
             stageElement.dataset.m3SideStepV6Metrics = JSON.stringify(runtimes.map(item => ({
               clip: item.animationProfile,

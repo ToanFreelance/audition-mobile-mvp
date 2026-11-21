@@ -3,6 +3,7 @@ import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
 import { bakeBoredSideStepsV5, type SideStepV5Event } from "./mixamo-side-step-v5";
 import { bakeBoredSideStepsV6, type SideStepV6Event } from "./mixamo-side-step-v6";
+import { bakeFootContactsV7, type ClipContactV7 } from "./mixamo-foot-contact-v7";
 import {
   compatibleBagIndex, createMixamoContactTracker, plantedFeet,
   supportFootMismatch, transitionWindow, type FootPair,
@@ -47,6 +48,7 @@ export type MixamoLobbyIdle = {
   transitionCount: number;
   sideStepEvents: readonly SideStepV5Event[];
   sideStepV6Events: readonly SideStepV6Event[];
+  contactV7Reports: readonly ClipContactV7[];
   animationProfile: MixamoGesture;
   clipDuration: number;
   poseTime: number;
@@ -152,6 +154,8 @@ export function createMixamoLobbyIdle(
   // Never enable V5 outside the isolated Mixamo QA route.
   const sideStepV6 = contactV4 &&
     new URLSearchParams(window.location.search).get("sideStepV6") === "1";
+  const contactV7 = contactV4 &&
+    new URLSearchParams(window.location.search).get("contactV7") === "1";
   const sideStepV5 = contactV4 && !sideStepV6 &&
     new URLSearchParams(window.location.search).get("sideStepV5") === "1";
   const mixer = new THREE.AnimationMixer(actor);
@@ -197,6 +201,24 @@ export function createMixamoLobbyIdle(
         actions.set("bored", next);
       }
     }
+  }
+  // Offline 30 FPS contact authoring across every available Mixamo clip.
+  // V6 Bored step tracks are produced FIRST; V7 never overwrites leg rotations.
+  const contactV7Reports: ClipContactV7[] = [];
+  if (contactV7) {
+    for (const [gesture, sourceAction] of actions) {
+      const original = sourceAction.getClip();
+      const baked = bakeFootContactsV7(actor, rig, original, family);
+      contactV7Reports.push(baked.report);
+      if (!baked.report.applied) continue;
+      sourceAction.stop();
+      mixer.uncacheClip(original);
+      const next = mixer.clipAction(baked.clip).setLoop(THREE.LoopOnce, 1);
+      next.clampWhenFinished = true;
+      actions.set(gesture, next);
+    }
+    console.info("[mixamo-contact-v7] catalog", family,
+      JSON.stringify(contactV7Reports));
   }
   const restY: readonly [number, number] = [rest[0].y, rest[1].y];
   const readFeet = (): FootPair => {
@@ -343,6 +365,7 @@ export function createMixamoLobbyIdle(
     transitionPoseGap: 0, transitionCount: 0,
     sideStepEvents,
     sideStepV6Events,
+    contactV7Reports,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
     select(id) {
       if (!actions.has(id as MixamoGesture)) return;

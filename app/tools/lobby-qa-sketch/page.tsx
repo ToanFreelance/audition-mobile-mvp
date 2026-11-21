@@ -27,6 +27,7 @@ type LobbyQaSketchPageProps = {
     pelvisFix?: string;
     sideStepV5?: string;
     sideStepV6?: string;
+    contactV7?: string;
     sideStepDemo?: string;
   }>;
 };
@@ -144,6 +145,7 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       pelvisFix={params.pelvisFix === "1"}
       sideStepV5={params.sideStepV5 === "1"}
       sideStepV6={params.sideStepV6 === "1"}
+      contactV7={params.contactV7 === "1"}
       sideStepDemo={params.sideStepDemo === "1"}
     />}
     </>

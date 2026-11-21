@@ -1,0 +1,56 @@
+name: Mixamo V7 — Multi-Clip Contact QA
+on:
+  push:
+    branches: [work/m3-waiting-room-integration-v1]
+    paths:
+      - components/character/mixamo-foot-contact-v7.ts
+      - components/character/mixamo-lobby-player.ts
+      - components/multiplayer/WaitingRoomStage3D.tsx
+      - app/tools/lobby-qa-sketch/page.tsx
+      - app/tools/lobby-qa-sketch/MotionControls.tsx
+      - e2e/mixamo-foot-contact-v7.spec.ts
+      - .github/workflows/mixamo-foot-contact-v7-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: mixamo-contact-v7-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Real M3 17-clip contact and five-actor random evidence
+        env:
+          PLAYWRIGHT_WEB_SERVER: "1"
+        run: npx playwright test e2e/mixamo-foot-contact-v7.spec.ts --project=desktop --workers=1 --retries=0
+      - name: Preserve failures and contact evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mixamo-foot-contact-v7-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14

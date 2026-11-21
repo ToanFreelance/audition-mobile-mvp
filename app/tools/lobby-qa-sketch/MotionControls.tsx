@@ -40,6 +40,7 @@ export default function MotionControls({
   pelvisFix = false,
   sideStepV5 = false,
   sideStepV6 = false,
+  contactV7 = false,
   sideStepDemo = false,
 }: {
   family: keyof typeof rigPool;
@@ -51,6 +52,7 @@ export default function MotionControls({
   pelvisFix?: boolean;
   sideStepV5?: boolean;
   sideStepV6?: boolean;
+  contactV7?: boolean;
   sideStepDemo?: boolean;
 }) {
   const [id, setId] = useState<IdleId | MixamoGesture>(
@@ -66,9 +68,9 @@ export default function MotionControls({
     : (mixed ? [...rigPool.drophunter, ...rigPool.neurohacker] : rigPool[family]);
   const qaLink = (
     familyMode: "female" | "male" | "five",
-    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "sideStepDemo", boolean>> = {},
+    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "contactV7" | "sideStepDemo", boolean>> = {},
   ) => {
-    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, sideStepDemo, ...changes};
+    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, contactV7, sideStepDemo, ...changes};
     const params = new URLSearchParams({m3:familyMode});
     if (familyMode === "five") params.set("allM3", "1");
     if (opts.mixamo) {
@@ -79,6 +81,7 @@ export default function MotionControls({
         if (opts.pelvisFix) params.set("pelvisFix", "1");
         if (opts.sideStepV5 && !opts.sideStepV6) params.set("sideStepV5", "1");
         if (opts.sideStepV6) params.set("sideStepV6", "1");
+        if (opts.contactV7) params.set("contactV7", "1");
         if (opts.sideStepDemo) params.set("sideStepDemo", "1");
       }
     }
@@ -174,9 +177,22 @@ export default function MotionControls({
         Kiểm tra chuyển động M3{mixamo ? " · Mixamo All 10" : ""}
         {mixamo && " · V5 " + (sideStepV5 && !sideStepV6 && contactV4 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && " · V6 " + (sideStepV6 && contactV4 && !footLock ? "BẬT" : "TẮT")}
+        {mixamo && " · Contact V7 " + (contactV7 && contactV4 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && sideStepDemo && " · Bored demo"}
       </summary>
       {mixamo && <p>10 Mixamo clips · 17 tổ hợp rig; Catwalk chỉ chọn thủ công</p>}
+      {mixamo && <p>
+        <strong>V7 Contact-aware (toàn bộ Mixamo clips):</strong>{" "}
+        {contactV7 && !footLock ? "BẬT" : "TẮT"}{" · "}
+        <a href={qaLink(currentMode,{
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:true,contactV7:true,sideStepDemo:false,
+        })}>5 người · Random + V6 + V7</a>{" · "}
+        <a href={qaLink(currentMode,{
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:true,contactV7:false,sideStepDemo:false,
+        })}>Đối chứng Random + V6</a>
+      </p>}
       {mixamo && <p>
         <strong>V6 Bored side-step:</strong> {sideStepV6 ? "BẬT" : "TẮT"}
         {" · "}<a href={qaLink(currentMode,{
