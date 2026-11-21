@@ -48,8 +48,10 @@ export function bakeStandingGreetingIdleArmsV12(
     if (!(idle instanceof THREE.QuaternionKeyframeTrack))
       throw Error("Greeting V12: missing neutral animation for " + track.name);
 
-    const idleSample = idle.createInterpolant();
+    // Sample the validated neutral track directly; Three.js's runtime
+    // interpolant factory is not part of the project's public TS typings.
     const values = new Float32Array(track.values.length);
+    const nextNeutral = new THREE.Quaternion();
     const src = new THREE.Quaternion();
     const rest = new THREE.Quaternion();
     const last = new THREE.Quaternion();
@@ -59,7 +61,17 @@ export function bakeStandingGreetingIdleArmsV12(
       // The validated breathing clip is independent of the greeting's 5.1s
       // duration; only its existing arm motion is sampled.
       const idleTime = Math.min(timeMax, seconds % Math.max(.01, neutral.duration));
-      rest.fromArray(idleSample.evaluate(idleTime) as ArrayLike<number>);
+      let idx = 0;
+      while (idx + 1 < idle.times.length - 1 && idle.times[idx + 1] < idleTime) idx++;
+      const nextIdx = Math.min(idx + 1, idle.times.length - 1);
+      rest.fromArray(idle.values, idx * 4);
+      if (nextIdx !== idx) {
+        const fraction = THREE.MathUtils.clamp(
+          (idleTime - idle.times[idx]) /
+          Math.max(1e-6, idle.times[nextIdx] - idle.times[idx]), 0, 1);
+        nextNeutral.fromArray(idle.values, nextIdx * 4);
+        rest.slerp(nextNeutral, fraction).normalize();
+      }
       src.fromArray(track.values, frame * 4);
       const blend = side === "L" ? 0 :
         THREE.MathUtils.smoothstep(seconds, .65, 1.65) *
