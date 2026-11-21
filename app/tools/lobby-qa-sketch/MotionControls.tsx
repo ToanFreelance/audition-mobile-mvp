@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MIXAMO_GROUPS, type MixamoGesture } from "../../../components/character/mixamo-lobby-data";
+import { MIXAMO_GROUPS, STATIONARY_MIXAMO_GROUPS, type MixamoGesture } from "../../../components/character/mixamo-lobby-data";
 import {
   poses,
   rigPool,
@@ -49,6 +49,7 @@ export default function MotionControls({
   sideStepV6 = false,
   contactV7 = false,
   contactV8 = false,
+  stationaryOnly = false,
   sideStepDemo = false,
 }: {
   family: keyof typeof rigPool;
@@ -62,14 +63,17 @@ export default function MotionControls({
   sideStepV6?: boolean;
   contactV7?: boolean;
   contactV8?: boolean;
+  stationaryOnly?: boolean;
   sideStepDemo?: boolean;
 }) {
   const [id, setId] = useState<IdleId | MixamoGesture>(
     mixamo ? MIXAMO_GROUPS[family].base[0] : rigPool[family][0],
   );
   const [open, setOpen] = useState(pilot || mixamo);
-  const optionsFor = (rig: keyof typeof rigPool) =>
-    [...MIXAMO_GROUPS[rig].base, ...MIXAMO_GROUPS[rig].emote, ...MIXAMO_GROUPS[rig].manual];
+  const optionsFor = (rig: keyof typeof rigPool) => {
+    const pool = (stationaryOnly ? STATIONARY_MIXAMO_GROUPS : MIXAMO_GROUPS)[rig];
+    return [...pool.base, ...pool.emote, ...pool.manual];
+  };
   const options = mixamo
     ? (mixed
         ? Array.from(new Set([...optionsFor("drophunter"), ...optionsFor("neurohacker")]))
@@ -77,9 +81,9 @@ export default function MotionControls({
     : (mixed ? [...rigPool.drophunter, ...rigPool.neurohacker] : rigPool[family]);
   const qaLink = (
     familyMode: "female" | "male" | "five",
-    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "contactV7" | "contactV8" | "sideStepDemo", boolean>> = {},
+    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "contactV7" | "contactV8" | "stationaryOnly" | "sideStepDemo", boolean>> = {},
   ) => {
-    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, contactV7, contactV8, sideStepDemo, ...changes};
+    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, contactV7, contactV8, stationaryOnly, sideStepDemo, ...changes};
     const params = new URLSearchParams({m3:familyMode});
     if (familyMode === "five") params.set("allM3", "1");
     if (opts.mixamo) {
@@ -92,7 +96,8 @@ export default function MotionControls({
         if (opts.sideStepV6) params.set("sideStepV6", "1");
         if (opts.contactV7) params.set("contactV7", "1");
         if (opts.contactV8) params.set("contactV8", "1");
-        if (opts.sideStepDemo) params.set("sideStepDemo", "1");
+        if (opts.stationaryOnly) params.set("stationaryOnly", "1");
+        if (opts.sideStepDemo && !opts.stationaryOnly) params.set("sideStepDemo", "1");
       }
     }
     return "?" + params.toString();
@@ -118,7 +123,7 @@ export default function MotionControls({
     return () => observer.disconnect();
   }, [pilot]);
   useEffect(() => {
-    if (!mixamo || !sideStepDemo || demoPlayed) return;
+    if (!mixamo || stationaryOnly || !sideStepDemo || demoPlayed) return;
     const stage = document.querySelector<HTMLElement>("[data-testid=waiting-room-stage]");
     if (!stage) return;
     const start = () => {
@@ -143,7 +148,7 @@ export default function MotionControls({
     ]});
     start();
     return () => observer.disconnect();
-  }, [mixamo, sideStepDemo, sideStepV5, sideStepV6, demoPlayed, mixed]);
+  }, [mixamo, sideStepDemo, sideStepV5, sideStepV6, demoPlayed, mixed, stationaryOnly]);
   useEffect(() => {
     const stage = document.querySelector<HTMLElement>(
       "[data-testid=waiting-room-stage]",
@@ -189,9 +194,29 @@ export default function MotionControls({
         {mixamo && " · V6 " + (sideStepV6 && contactV4 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && " · Contact V7 " + (contactV7 && contactV4 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && " · V8 " + (contactV8 && contactV7 && !footLock ? "BẬT" : "TẮT")}
+        {mixamo && stationaryOnly && " · STATIONARY ONLY"}
         {mixamo && sideStepDemo && " · Bored demo"}
       </summary>
-      {mixamo && <p>10 Mixamo clips · 17 tổ hợp rig; Catwalk chỉ chọn thủ công</p>}
+      {mixamo && <p>
+        {stationaryOnly
+          ? "V9 lọc an toàn: chỉ còn Breathing Idle 2, Dwarf Idle; nam thêm Warrior Idle; emote Pointing, nữ thêm Blow a Kiss."
+          : "10 Mixamo clips · 17 tổ hợp rig; Catwalk chỉ chọn thủ công"}
+      </p>}
+      {mixamo && <p>
+        <strong>V9 Stationary Only:</strong> {stationaryOnly ? "BẬT" : "TẮT"}
+        {" · "}<a href={qaLink("five", {
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:false,contactV7:true,contactV8:true,
+          stationaryOnly:true,sideStepDemo:false,
+        })}>5 người · Random không animation trượt rõ</a>
+        {" · "}<a href={qaLink("five", {
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:true,contactV7:true,contactV8:true,
+          stationaryOnly:false,sideStepDemo:false,
+        })}>Đối chứng toàn bộ V8</a>
+        {" · "}Đã tạm loại khỏi danh sách random:
+        Bored, Sad Idle, Dwarf Idle 2, Waving, Catwalk Twist.
+      </p>}
       {mixamo && <p>
         <strong>V8 Per-Foot Contact + Transition:</strong>{" "}
         {contactV8 && contactV7 && !footLock ? "BẬT" : "TẮT"}{" · "}

@@ -1280,7 +1280,9 @@ export default function WaitingRoomStage3D({
       new URLSearchParams(window.location.search).get("contactV7") === "1";
     const contactV8Review = contactV7Review &&
       new URLSearchParams(window.location.search).get("contactV8") === "1";
-    const sideStepV6Review = contactV4Review &&
+    const stationaryOnlyReview = mixamoReview &&
+      new URLSearchParams(window.location.search).get("stationaryOnly") === "1";
+    const sideStepV6Review = contactV4Review && !stationaryOnlyReview &&
       new URLSearchParams(window.location.search).get("sideStepV6") === "1";
     const sideStepV5Review = contactV4Review && !sideStepV6Review &&
       new URLSearchParams(window.location.search).get("sideStepV5") === "1";
@@ -1613,6 +1615,10 @@ export default function WaitingRoomStage3D({
               "contactV7Reports" in item ? item.contactV7Reports : []
             )));
             stageElement.dataset.m3ContactV8 = contactV8Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3StationaryOnly = stationaryOnlyReview && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3AllowedGestures = JSON.stringify(runtimes.map(item =>
+              "allowedGestures" in item ? item.allowedGestures : []
+            ));
             stageElement.dataset.m3ContactV8Reports = JSON.stringify(runtimes.map(item => (
               "contactV8Reports" in item ? item.contactV8Reports : []
             )));

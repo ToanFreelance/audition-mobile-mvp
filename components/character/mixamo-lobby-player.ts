@@ -17,7 +17,7 @@ import type { M3RigFamily } from "./character-catalog";
 import type { Shoe } from "./motion/stances";
 type Placement = { feet: [Shoe, Shoe]; pitch: [number, number]; shift: number; drop: number };
 import {
-  MIXAMO_BONES, MIXAMO_GROUPS, getMixamoData,
+  MIXAMO_BONES, MIXAMO_GROUPS, STATIONARY_MIXAMO_GROUPS, getMixamoData,
   prepareMixamoLobbyClips, type MixamoGesture, type MixamoRig,
 } from "./mixamo-lobby-data";
 
@@ -54,6 +54,8 @@ export type MixamoLobbyIdle = {
   sideStepV6Events: readonly SideStepV6Event[];
   contactV7Reports: readonly ClipContactV7[];
   contactV8Reports: readonly FootContactV8Report[];
+  stationaryOnly: boolean;
+  allowedGestures: readonly MixamoGesture[];
   v8FootContact: {
     leftCm: number; rightCm: number;
     crossfadeLeftCm: number; crossfadeRightCm: number;
@@ -153,8 +155,15 @@ export function createMixamoLobbyIdle(
   const rig = findSkeleton(actor);
   if (!rig) { console.warn("[mixamo-qa] M3 actor skeleton not found"); return null; }
   const family: MixamoRig = rigFamily;
-  const group = MIXAMO_GROUPS[family];
+  // Owner V9: isolate a stationary-foot shortlist. The original catalog is
+  // preserved for A/B tests; no risky gesture is selected/queued in safe mode.
+  const stationaryOnly = !enableFootLock &&
+    typeof window !== "undefined" &&
+    window.location.pathname === "/tools/lobby-qa-sketch" &&
+    new URLSearchParams(window.location.search).get("stationaryOnly") === "1";
+  const group = stationaryOnly ? STATIONARY_MIXAMO_GROUPS[family] : MIXAMO_GROUPS[family];
   const available = [...group.base, ...group.emote, ...group.manual];
+  if (!group.base.length) return null;
   // Opt-in ONLY on the isolated sketch QA route. Foot Lock and pelvis
   // correction must never run together; V2 leg IK stays disabled here.
   const pelvisFix = !enableFootLock &&
@@ -166,7 +175,7 @@ export function createMixamoLobbyIdle(
     window.location.pathname === "/tools/lobby-qa-sketch" &&
     new URLSearchParams(window.location.search).get("contactV4") !== "0";
   // Never enable V5 outside the isolated Mixamo QA route.
-  const sideStepV6 = contactV4 &&
+  const sideStepV6 = contactV4 && !stationaryOnly &&
     new URLSearchParams(window.location.search).get("sideStepV6") === "1";
   const contactV7 = contactV4 &&
     new URLSearchParams(window.location.search).get("contactV7") === "1";
@@ -463,6 +472,8 @@ export function createMixamoLobbyIdle(
     sideStepV6Events,
     contactV7Reports,
     contactV8Reports,
+    stationaryOnly,
+    allowedGestures:available,
     v8FootContact:v8Stats,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
     select(id) {
