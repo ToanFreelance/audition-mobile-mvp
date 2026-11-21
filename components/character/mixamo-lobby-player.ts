@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { createLocalReviewRetargeter } from "./mixamo-local-review";
 import { bakeStandingGreetingIdleArmsV12 } from "./mixamo-greeting-idle-pose-v12";
+import { bakeStandingGreetingHighWaveV13 } from "./mixamo-greeting-high-wave-v13";
 import { fitArmStretchSleevesV10, type ArmStretchSleeveMetrics } from "./mixamo-arm-sleeve-v10";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
@@ -276,7 +277,11 @@ export function createMixamoLobbyIdle(
       return null;
     }
     const greetingIdle=bakeStandingGreetingIdleArmsV12(greeting.clip,neutral,rig);
-    const greetingAction=mixer.clipAction(greetingIdle).setLoop(THREE.LoopOnce,1);
+    // V13: V12 neutralized the inactive arm, but left the greeting wrist
+    // at shoulder height. Author the active wave OVER the actual M3 head,
+    // preserving the source forearm/hand gesture and the existing mixer.
+    const overhead=bakeStandingGreetingHighWaveV13(actor,rig,greetingIdle);
+    const greetingAction=mixer.clipAction(overhead).setLoop(THREE.LoopOnce,1);
     greetingAction.clampWhenFinished=true;
     actions.set("standing-greeting-2",greetingAction);
   }
