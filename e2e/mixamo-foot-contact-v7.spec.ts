@@ -25,6 +25,24 @@ test("V7 contact planner lowers low-foot shared drift without a runtime foot loc
   expect(p.jump).toBeLessThanOrEqual(0.0061);
 });
 
+test("V7 cyclic double-support keeps looping endpoints and reduces foot sway",()=>{
+  const frames=Array.from({length:120},(_,f)=>{
+    const x=0.012*Math.sin(2*Math.PI*f/119);
+    const one=(offset:number)=>{
+      const sole=new THREE.Vector3(x+offset,0.10,0);
+      return {sole,ankle:sole.clone().add(new THREE.Vector3(0,0.05,0)),
+        toe:sole.clone().add(new THREE.Vector3(0,-0.02,0.10))};
+    };
+    return [one(-0.12),one(0.12)] as const;
+  });
+  const planned=planFootContactV7(frames);
+  expect(planned.reason).toBe("accepted");
+  expect(planned.after).toBeLessThan(planned.before);
+  expect(planned.offsets[0]).toBe(0);
+  expect(planned.offsets[planned.offsets.length-1]).toBe(0);
+  expect(planned.jump).toBeLessThanOrEqual(0.00601);
+});
+
 for(const [gender, expected] of [["female",9],["male",8]] as const) {
   test(`V7 ${gender}: audit all Mixamo clips and bake only improving pelvis contacts`, async ({page})=>{
     test.setTimeout(170_000);

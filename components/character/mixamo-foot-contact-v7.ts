@@ -48,7 +48,7 @@ function getPair(actor:THREE.Object3D,feet:readonly (readonly THREE.Bone[])[]):F
   };
   return [sample(feet[0]),sample(feet[1])];
 }
-function contactSpans(frames:Frame[]):Span[] {
+function contactSpans(frames:Frame[], conservative=false):Span[] {
   const spans:Span[]=[];
   for(let s=0 as 0|1;s<2;s=(s+1) as 0|1){
     const floor=q12(frames.map(f=>f[s].sole.y));
@@ -57,7 +57,11 @@ function contactSpans(frames:Frame[]):Span[] {
       if(i<2||i>=frames.length-2)return false;
       const p=f[s];
       const dv=Math.abs(frames[i+1][s].sole.y-frames[i-1][s].sole.y);
-      return p.sole.y-floor<=0.019 && p.toe.y-toeFloor<=0.027 && dv<=0.012;
+      const soleLimit=conservative?0.019:0.036;
+      const toeLimit=conservative?0.027:0.048;
+      const verticalLimit=conservative?0.012:0.018;
+      return p.sole.y-floor<=soleLimit && p.toe.y-toeFloor<=toeLimit
+        && dv<=verticalLimit;
     });
     // Bridge a one-frame tracking gap, never a lifted swing/step.
     for(let i=1;i<low.length-1;i++)
@@ -70,7 +74,13 @@ function contactSpans(frames:Frame[]):Span[] {
         const to=i-1;
         // A contact must be able to release into airborne frames; otherwise
         // an offset would snap at clip end and cannot be safely baked.
-        if(to-from>=7 && to<frames.length-9){
+        // Long planted idle poses can be cyclic without an airborne phase.
+        // Their end contact is safe ONLY if its sole returns near the start;
+        // otherwise preserve source to avoid a snap into the next gesture.
+        const cyclic=from<=8 && to>=frames.length-9 &&
+          travel(frames[Math.max(from,2)][s].sole,
+            frames[Math.min(to,frames.length-3)][s].sole)<0.015;
+        if(to-from>=7 && (to<frames.length-9 || cyclic)){
           const sample=frames.slice(from,Math.min(to+1,from+3))
             .map(x=>x[s].sole);
           const anchor=sample.reduce((sum,v)=>sum.add(v),tmp()).divideScalar(sample.length);
@@ -95,12 +105,12 @@ function contactTravel(frames:Frame[],spans:Span[],dx?:Float32Array) {
   }
   return sum;
 }
-export function planFootContactV7(frames:Frame[]):Plan {
+export function planFootContactV7(frames:Frame[],conservative=false):Plan {
   const n=frames.length;
   const zero=new Float32Array(n*2);
   const empty=(reason:string):Plan=>({frames,spans:[],offsets:zero,before:0,after:0,max:0,jump:0,reason});
   if(n<24) return empty("short_clip");
-  const spans=contactSpans(frames);
+  const spans=contactSpans(frames,conservative);
   if(!spans.length)return empty("no_stable_contact");
   const raw=new Float32Array(n*2);
   const weights=new Float32Array(n);
@@ -144,6 +154,31 @@ export function planFootContactV7(frames:Frame[]):Plan {
     const d=Math.hypot(smoothOffsets[f*2],smoothOffsets[f*2+1]);
     if(d>MAX_PELVIS){const k=MAX_PELVIS/d;smoothOffsets[f*2]*=k;smoothOffsets[f*2+1]*=k;}
   }
+  // Two-sided velocity constraint keeps a short foot contact from forcing
+  // a 7mm one-frame pelvis jump. The clip endpoints remain exact source.
+  const limitFrom=(start:number,step:number)=>{
+    for(let f=start;f>=0&&f<n;f+=step){
+      const prev=f-step;
+      if(prev<0||prev>=n)continue;
+      const dx=smoothOffsets[f*2]-smoothOffsets[prev*2];
+      const dz=smoothOffsets[f*2+1]-smoothOffsets[prev*2+1];
+      const length=Math.hypot(dx,dz);
+      if(length>MAX_FRAME_JUMP){
+        const k=MAX_FRAME_JUMP/length;
+        smoothOffsets[f*2]=smoothOffsets[prev*2]+dx*k;
+        smoothOffsets[f*2+1]=smoothOffsets[prev*2+1]+dz*k;
+      }
+    }
+  };
+  limitFrom(1,1);
+  // Preserve 0 endpoint and ensure backwards deltas are also safe.
+  smoothOffsets[(n-1)*2]=0;
+  smoothOffsets[(n-1)*2+1]=0;
+  limitFrom(n-2,-1);
+  // The animation clip endpoints must exactly match the original pose.
+  smoothOffsets[0]=0;
+  smoothOffsets[1]=0;
+  limitFrom(1,1);
   let max=0,jump=0;
   for(let f=1;f<n;f++){
     const d=Math.hypot(smoothOffsets[f*2],smoothOffsets[f*2+1]);
@@ -214,7 +249,7 @@ export function bakeFootContactsV7(
       });
       actor.updateWorldMatrix(true,true);
     }
-    const planned=planFootContactV7(frames);
+    const planned=planFootContactV7(frames,original.name.includes("-step-v6"));
     result={
       offsets:planned.offsets,before:planned.before,after:planned.after,
       max:planned.max,jump:planned.jump,reason:planned.reason,

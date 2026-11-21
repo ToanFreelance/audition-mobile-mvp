@@ -27,3 +27,16 @@ Owner iPhone visual review remains the acceptance gate. Do not promote to produc
 - V7 + V6 + random **5 people:** `?m3=five&allM3=1&mixamo=1&contactV4=1&pelvisFix=1&sideStepV6=1&contactV7=1`
 - V6-only **5 people random**: same URL, `contactV7=0`
 - Female/male isolated V7 clip audit: `m3=female` or `m3=male` and all flags as above.
+
+## First real-M3 findings / classifier refinement (21 November)
+
+Initial focused catalog run measured `Bored-step-v6` contact-proxy travel **51.8→42.0cm** (female) and **51.9→41.1cm** (male) over the concatenated inferred grounded intervals; these totals are sums over many sampled frames, **not a single foot slipping 42cm**. For the remaining clips the first classifier found no eight-frame safe release windows. `Sad Idle` produced an unsafe proposed ~7mm one-frame pelvis jump and was correctly rejected.
+
+The classifier has therefore been extended to distinguish:
+
+- Source clips with an explicitly lifted / released foot: plant corrections held until liftoff, then eased off.
+- Fully planted **cyclic** idle sway: support correction may span nearly the whole clip ONLY when the foot at the start and end returns to within 1.5cm in actor-local XZ; clip endpoints stay unchanged to preserve V4 transitions.
+- More generous near-floor joint tolerances for ordinary Mixamo source clips, while keeping the strict V6 Bored contact classifier so generated swing arcs are not accidentally treated as planted feet.
+- Two-pass correction velocity limiting for proposed pelvis offsets. No corrected clip may exceed 6mm displacement in one keyframe, and every clip is independently accepted only if contact motion is actually reduced.
+
+The above is an analysis/authoring quality gate, not a claim that all 17 clips need or receive the same correction. Rejected clips remain source-authored.
