@@ -71,3 +71,31 @@ test("V5 five-person staging keeps five independent mixers in random mode", asyn
   expect(records).toHaveLength(5);
   expect(records.every((item: {stepCount: number}) => Number.isFinite(item.stepCount))).toBe(true);
 });
+
+test("V5 review links preserve flags, and Bored demo visibly selects the authored clip", async ({page}) => {
+  test.setTimeout(180_000);
+  await page.setViewportSize({width:390, height:844});
+  await page.goto("/tools/lobby-qa-sketch?m3=female&mixamo=1&contactV4=1&pelvisFix=1&sideStepV5=1&sideStepDemo=1");
+  const stage = page.getByTestId("waiting-room-stage");
+  await expect(stage).toHaveAttribute("data-stage-ready", "1", {timeout:100_000});
+  await expect(stage).toHaveAttribute("data-m3-side-step-v5", "1", {timeout:30_000});
+  await expect(stage).toHaveAttribute("data-m3-reference-profiles", "bored", {timeout:30_000});
+  const summary = page.locator("details summary");
+  await expect(summary).toContainText("V5 BẬT");
+  await expect(summary).toContainText("Bored demo");
+  const five = page.getByRole("link", {name:"Năm người"});
+  const href = await five.getAttribute("href");
+  expect(href).toContain("m3=five");
+  expect(href).toContain("allM3=1");
+  expect(href).toContain("sideStepV5=1");
+  expect(href).toContain("pelvisFix=1");
+  expect(href).toContain("sideStepDemo=1");
+  await five.click();
+  await expect(stage).toHaveAttribute("data-m3-idle-count", "5", {timeout:100_000});
+  await expect(stage).toHaveAttribute("data-m3-side-step-v5", "1");
+  await expect(stage).toHaveAttribute("data-m3-reference-profiles", "bored,bored,bored,bored,bored", {timeout:30_000});
+  const counts = await stage.evaluate(el => JSON.parse(el.dataset.m3SideStepMetrics ?? "[]")
+    .map((item: {stepCount:number}) => item.stepCount));
+  expect(counts).toHaveLength(5);
+  expect(counts.every((number: number) => number > 0)).toBe(true);
+});

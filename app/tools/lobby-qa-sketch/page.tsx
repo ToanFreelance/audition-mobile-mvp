@@ -23,6 +23,10 @@ type LobbyQaSketchPageProps = {
     f01Pilot?: string;
     mixamo?: string;
     footLock?: string;
+    contactV4?: string;
+    pelvisFix?: string;
+    sideStepV5?: string;
+    sideStepDemo?: string;
   }>;
 };
 
@@ -129,7 +133,17 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       } : null}
       visualPreset="sketch"
     />
-    {m3Id && <MotionControls mixed={params.m3 === "five"} family={params.m3 === "male" ? "neurohacker" : "drophunter"} pilot={params.f01Pilot === "1" && params.m3 === "female"} mixamo={params.mixamo === "1"} footLock={params.footLock === "1"} />}
+    {m3Id && <MotionControls
+      mixed={params.m3 === "five"}
+      family={params.m3 === "male" ? "neurohacker" : "drophunter"}
+      pilot={params.f01Pilot === "1" && params.m3 === "female"}
+      mixamo={params.mixamo === "1"}
+      footLock={params.footLock === "1"}
+      contactV4={params.contactV4 !== "0"}
+      pelvisFix={params.pelvisFix === "1"}
+      sideStepV5={params.sideStepV5 === "1"}
+      sideStepDemo={params.sideStepDemo === "1"}
+    />}
     </>
   );
 }

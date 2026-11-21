@@ -37,3 +37,11 @@ Focused unit tests verify that an unlifting horizontal traverse is selected and 
 The detected foot contact is an ankle position proxy, **not an outsole collision or heel/toe sensor**. A QA pass cannot claim all skating is eliminated: source Bored can have shared bilateral pelvis sway, and an unedited planted foot may still slide; non-Bored and crossfade events also remain potential contributors.
 
 Use no runtime foot lock. Do not invent root timeline offsets, replace actors, or modify unrelated animation/game systems.
+
+## 2026-11-21 owner video: V5 visibility and QA navigation defect
+
+In the 32.2s iPhone video `Video-test(20261121-020713).mp4`, the owner still sees foot sliding and does not perceive the intended V5 side-step. This feedback **rejects V5.1 visual sign-off** regardless of CI. The previous V5 pilot did only small Y-axis foot arcs (1.3–1.8cm measured at foot-bone level), on Bored only, during clip-relative seconds ~2.07–2.53 and ~8.07–8.53. It does NOT synthesize a new lateral displacement, fix the planted foot, or affect any other random idle clip. It therefore cannot solve all 5-actor random skating.
+
+An additional confirmed review-UI bug was found: `MotionControls` used hard-coded Nữ/Nam/Năm người links that dropped `sideStepV5=1`, `pelvisFix=1` and `contactV4=1`. Navigating between review targets could silently disable V5. To remove this ambiguity, the QA links now preserve selected flags. The details summary declares whether V5 is enabled, and `sideStepDemo=1` plays Bored deterministically on all ready M3 actors. The iPhone reviewer can verify exactly which feature is actually running. `sideStepDemo` does not modify any clip and is QA-only.
+
+**Open visual defect:** A physically convincing side-step requires a longer and grounded contact-phase transition including weight shift, lifted swing shoe, lateral landing, and stable planted shoe. The V5.1 vertical-only arc is not a full side-step. Do not claim the slide is fixed from the existence of two baked events or from mesh smoke PASS. Further motion authoring should be clip-by-clip with side/front 30Hz QA evidence, not increased arbitrary foot IK caps. No default production enablement until owner approval.
