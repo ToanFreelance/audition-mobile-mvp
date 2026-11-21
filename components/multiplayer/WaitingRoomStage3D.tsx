@@ -1273,6 +1273,8 @@ export default function WaitingRoomStage3D({
 
     const motionReview = window.location.pathname === "/tools/lobby-qa-sketch";
     const mixamoReview = motionReview && new URLSearchParams(window.location.search).get("mixamo") === "1";
+    const clipReview = mixamoReview &&
+      new URLSearchParams(window.location.search).get("clipReview") === "1";
     const footLockReview = mixamoReview && new URLSearchParams(window.location.search).get("footLock") === "1";
     const contactV4Review = mixamoReview && !footLockReview &&
       new URLSearchParams(window.location.search).get("contactV4") !== "0";
@@ -1555,7 +1557,7 @@ export default function WaitingRoomStage3D({
       for (const runtime of m3IdleByParticipant.values()) {
         if (command === "select") runtime.select(id);
         if (command === "transition") runtime.request(id);
-        if (command === "random") runtime.random = true;
+        if (command === "random" && !clipReview) runtime.random = true;
       }
     }
     if (motionReview) window.addEventListener("m3-idle-review", onReview);
@@ -1607,6 +1609,7 @@ export default function WaitingRoomStage3D({
           const stageElement = mountRef.current.parentElement;
           if (stageElement) {
             stageElement.dataset.m3MixamoEnabled = mixamoReview && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3ClipReview = clipReview && mixamoModule ? "1" : "0";
             stageElement.dataset.m3FootlockEnabled = footLockReview && mixamoModule ? "1" : "0";
             stageElement.dataset.m3ContactV4 = contactV4Review && mixamoModule ? "1" : "0";
             stageElement.dataset.m3SideStepV5 = sideStepV5Review && mixamoModule ? "1" : "0";
@@ -1691,6 +1694,8 @@ export default function WaitingRoomStage3D({
             }
             stageElement.dataset.m3IdleInstances = runtimes.map(item => item.instanceId).join(",");
             stageElement.dataset.m3ReferenceTimes = runtimes.map(item => item.poseTime.toFixed(2)).join(",");
+            if (clipReview) stageElement.dataset.m3ReviewClipDurations =
+              runtimes.map(item => item.clipDuration.toFixed(2)).join(",");
           }
         }
 

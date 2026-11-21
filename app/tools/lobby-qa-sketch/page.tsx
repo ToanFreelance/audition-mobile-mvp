@@ -1,5 +1,6 @@
 import RosterProbe from "./RosterProbe";
 import MotionControls from "./MotionControls";
+import ClipReviewControls from "./ClipReviewControls";
 import WaitingRoomPanel from "../../../components/multiplayer/WaitingRoomPanel";
 import { createRoomState, addParticipant } from "../../../multiplayer/room-state";
 import type { HumanHostParticipant, HumanGuestParticipant } from "../../../multiplayer/types";
@@ -30,6 +31,7 @@ type LobbyQaSketchPageProps = {
     contactV7?: string;
     contactV8?: string;
     stationaryOnly?: string;
+    clipReview?: string;
     sideStepDemo?: string;
   }>;
 };
@@ -137,7 +139,16 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       } : null}
       visualPreset="sketch"
     />
-    {m3Id && <MotionControls
+    {m3Id && params.clipReview === "1" && params.mixamo === "1" && params.m3 !== "five" && (
+      <ClipReviewControls
+        family={params.m3 === "male" ? "neurohacker" : "drophunter"}
+        pelvisFix={params.pelvisFix === "1"}
+        sideStepV6={params.sideStepV6 === "1"}
+        contactV7={params.contactV7 === "1"}
+        contactV8={params.contactV8 === "1"}
+      />
+    )}
+    {m3Id && !(params.clipReview === "1" && params.mixamo === "1" && params.m3 !== "five") && <MotionControls
       mixed={params.m3 === "five"}
       family={params.m3 === "male" ? "neurohacker" : "drophunter"}
       pilot={params.f01Pilot === "1" && params.m3 === "female"}

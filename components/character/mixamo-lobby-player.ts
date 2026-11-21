@@ -157,7 +157,11 @@ export function createMixamoLobbyIdle(
   const family: MixamoRig = rigFamily;
   // Owner V9: isolate a stationary-foot shortlist. The original catalog is
   // preserved for A/B tests; no risky gesture is selected/queued in safe mode.
-  const stationaryOnly = !enableFootLock &&
+  const clipReview = !enableFootLock &&
+    typeof window !== "undefined" &&
+    window.location.pathname === "/tools/lobby-qa-sketch" &&
+    new URLSearchParams(window.location.search).get("clipReview") === "1";
+  const stationaryOnly = !clipReview && !enableFootLock &&
     typeof window !== "undefined" &&
     window.location.pathname === "/tools/lobby-qa-sketch" &&
     new URLSearchParams(window.location.search).get("stationaryOnly") === "1";
@@ -188,7 +192,7 @@ export function createMixamoLobbyIdle(
   for (const key of available) {
     const clip = buildClip(rig, family, key, pelvisFix);
     if (!clip) { console.warn("[mixamo-qa] missing retargeted clip", family, key, rig.bones.length); mixer.stopAllAction(); return null; }
-    const action = mixer.clipAction(clip).setLoop(THREE.LoopOnce, 1);
+    const action = mixer.clipAction(clip).setLoop(THREE.LoopOnce,1);
     action.clampWhenFinished = true;
     actions.set(key, action);
   }
@@ -361,11 +365,14 @@ export function createMixamoLobbyIdle(
     if (which === "base") bag = currentBag; else emoteBag = currentBag;
     return next;
   }
-  let current = nextFrom(group.base, "base");
+  // A single-clip owner review must be deterministic, never shuffle at boot.
+  let current = clipReview ? available[0] : nextFrom(group.base, "base");
   poseSelectionReady = true;
   let lastBase = current;
   let baseCount = 0;
   let action = actions.get(current)!.reset().setEffectiveWeight(1).play();
+  // Single-shot clip review: preserve the end pose and avoid loop-seam
+  // snapping masquerading as foot sliding. Replay restarts from frame zero.
   let outgoing: THREE.AnimationAction | null = null;
   let previousActiveGesture:MixamoGesture|null = null;
   let fadeTime = 0;
@@ -462,7 +469,7 @@ export function createMixamoLobbyIdle(
     instanceId: THREE.MathUtils.generateUUID(), playbackMixer: mixer,
     elapsedSeconds: 0, hasScratchPose: false, currentGesture: current,
     target: null, contacts: "DOUBLE_SUPPORT", phase: "MIXAMO_IDLE", floorError: 0,
-    placement, random: true, completedGestures: 0, footDrift: 0, maxFootDrift: 0,
+    placement, random: !clipReview, completedGestures: 0, footDrift: 0, maxFootDrift: 0,
     lockedFeet: 0, maxContactError: 0, contactTravel: 0,
     plantedRawTravel: 0, plantedCorrectedTravel: 0,
     maxContactSlip: 0, maxCrossfadeSlip: 0,
@@ -479,9 +486,34 @@ export function createMixamoLobbyIdle(
     select(id) {
       if (!actions.has(id as MixamoGesture)) return;
       this.random = false;
+      if (clipReview) {
+        // Independent full-clip playback, with NO crossfade or prior pose
+        // blending. Changing clips never recreates the actor/mixer.
+        mixer.stopAllAction();
+        action = actions.get(id as MixamoGesture)!;
+        action.reset().setLoop(THREE.LoopOnce,1);
+        action.clampWhenFinished = true;
+        action.setEffectiveWeight(1).play();
+        outgoing = null;
+        previousActiveGesture = null;
+        fadeTime = 0;
+        queued = null;
+        current = id as MixamoGesture;
+        this.currentGesture = current;
+        this.animationProfile = current;
+        this.clipDuration = action.getClip().duration;
+        this.poseTime = 0;
+        this.target = null;
+        contactTracker.resetAnchors();
+        v8Last[0] = v8Last[1] = null;
+        v8LastGesture = null;
+        mixer.update(0);
+        return;
+      }
       begin(id as MixamoGesture, true);
     },
     request(id) {
+      if (clipReview) return;
       if (!actions.has(id as MixamoGesture)) return;
       queued = id as MixamoGesture;
       this.random = false;
@@ -504,7 +536,7 @@ export function createMixamoLobbyIdle(
         }
         const duration = action.getClip().duration;
         const lead = contactV4 ? transitionWindow(duration).lead : Math.min(0.32, duration * 0.18);
-        if (!outgoing && action.time >= duration - lead && (queued || this.random)) {
+        if (!clipReview && !outgoing && action.time >= duration - lead && (queued || this.random)) {
           const next = queued ?? drawNext();
           if (next) { this.completedGestures++; begin(next); }
         }
