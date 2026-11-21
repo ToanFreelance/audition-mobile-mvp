@@ -3,7 +3,7 @@ import { MIXAMO_BONES } from "./mixamo-lobby-data";
 
 /**
  * Owner FBX: Standing Greeting 2 (5.1 s, 154 frames, 30 Hz).
- * Offline baked from FBX PreRotation/Lcl Rotation/PostRotation into source-world
+ * V14: offline baked from FBX PreRotation/Lcl Rotation/PostRotation into source-world
  * delta quaternions. The sparse pose package retains authored body/arm/leg and
  * proximal finger movement. Intermediate/distal finger deltas follow the
  * proximal joint, preserving hand attachment without inventing extra gestures.
@@ -12,7 +12,10 @@ import { MIXAMO_BONES } from "./mixamo-lobby-data";
 const SOURCE_SHA256 = "8ab3d94aaa0b6bfaf3616d54ad392cf46b502e328b5eabec40838b8db2b4c276";
 const FRAMES = 154;
 const ID = "standing-greeting-2";
-const ASSET = "/m3-qa/standing_greeting_2_v11.bin.gz";
+// V14 re-export: same SG11 mobile package, rebuilt from owner FBX using
+// scipy Rotation.from_euler('xyz') (extrinsic), matching the accepted pilot.
+// The V11 pack was incorrectly exported with intrinsic Euler ('XYZ').
+const ASSET = "/m3-qa/standing_greeting_2_v14.b64";
 
 type Key = { frame: number; value: THREE.Quaternion };
 type PositionKey = { frame: number; value: [number, number, number] };
@@ -79,8 +82,15 @@ function readPositionKeys(view: DataView, cursor: { at: number }, count: number)
 
 export async function loadStandingGreetingSourceV11(): Promise<string> {
   const response = await fetch(ASSET, {cache: "force-cache"});
-  if (!response.ok) throw Error("Greeting V11 asset unavailable: HTTP " + response.status);
-  const buffer = await new Response(new Blob([await response.arrayBuffer()])
+  if (!response.ok) throw Error("Greeting V14 asset unavailable: HTTP " + response.status);
+  // Keep the new asset as Base64 text so the existing GitHub content workflow
+  // can commit it without modifying unrelated binary asset infrastructure.
+  const encoded = (await response.text()).trim();
+  if (encoded.length !== 7740 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))
+    throw Error("Invalid Greeting V14 asset encoding");
+  const compressed = Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+  if (compressed.byteLength !== 5805) throw Error("Invalid Greeting V14 asset length");
+  const buffer = await new Response(new Blob([compressed.buffer as ArrayBuffer])
     .stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
   const view = new DataView(buffer);
   if (view.byteLength < 16 || view.getUint32(0, false) !== 0x53473131 ||
