@@ -15,6 +15,7 @@ export type ArmStretchSleeveMetrics = {
   vertices: number;
   maxEaseMm: number;
   influence: number;
+  diagnostic?: string[];
 };
 
 export function fitArmStretchSleevesV10(
@@ -27,6 +28,7 @@ export function fitArmStretchSleevesV10(
 } {
   const metrics: ArmStretchSleeveMetrics = {
     garments: 0, vertices: 0, maxEaseMm: 0, influence: 0,
+    diagnostic: [],
   };
   const modified: Array<{
     mesh: THREE.SkinnedMesh;
@@ -37,7 +39,14 @@ export function fitArmStretchSleevesV10(
     ? "m3-top-chest/shirt.vrm" : "m3-top-chest/logotee.vrm";
   actor.traverse(node => {
     const mesh = node as THREE.SkinnedMesh;
-    if (!mesh.isSkinnedMesh || mesh.name !== expected) return;
+    if (!mesh.isSkinnedMesh) return;
+    if(mesh.name.includes("m3-top")||mesh.name.includes("shirt")||
+      mesh.name.includes("logo")){
+      metrics.diagnostic?.push("seen: "+mesh.name+
+        " vertices="+mesh.geometry.getAttribute("position")?.count+
+        " morph="+(mesh.geometry.morphAttributes.position?.length??0));
+    }
+    if (mesh.name !== expected) return;
     const old = mesh.geometry;
     // Never overwrite a wardrobe morph built by another feature.
     if (old.morphAttributes.position?.length) return;
@@ -45,14 +54,20 @@ export function fitArmStretchSleevesV10(
     const normals = old.getAttribute("normal");
     const joints = old.getAttribute("skinIndex");
     const weights = old.getAttribute("skinWeight");
-    if (!positions || !normals || !joints || !weights) return;
+    if (!positions || !normals || !joints || !weights){
+      metrics.diagnostic?.push("missing position/normal/skin indices or weights");
+      return;
+    }
     const arms = mesh.skeleton.bones.map(b =>
       /^(upper_arm|shoulder)[._]/.test(b.name));
     const shoulders = ["upper_arm.L","upper_arm.R"].map(name =>
       mesh.skeleton.bones.find(b =>
         b.name === name ||
         b.name === THREE.PropertyBinding.sanitizeNodeName(name)));
-    if (!shoulders[0] || !shoulders[1]) return;
+    if (!shoulders[0] || !shoulders[1]){
+      metrics.diagnostic?.push("missing upper arm bones");
+      return;
+    }
     actor.updateWorldMatrix(true,true);
     const shoulderHeight = shoulders.reduce((total,b) =>
       total + actor.worldToLocal(
@@ -61,9 +76,12 @@ export function fitArmStretchSleevesV10(
     const deltas = new Float32Array(positions.count*3);
     let moved = 0;
     let maximum = 0;
+    let radialHits=0,verticalHits=0,skinHits=0,joinedHits=0;
+    let minY=Infinity,maxY=-Infinity,maxArmWeight=0;
     for (let i=0;i<positions.count;i++) {
       const x=positions.getX(i), y=positions.getY(i);
       const absX=Math.abs(x);
+      minY=Math.min(minY,y);maxY=Math.max(maxY,y);
       // The axial sleeve seam is outside the side of the rib cage and below
       // the upper arm pivot. Keep chest/collar/hem completely unchanged.
       const radial=THREE.MathUtils.smoothstep(absX,.055,.110) *
@@ -79,6 +97,11 @@ export function fitArmStretchSleevesV10(
       }
       const skin=THREE.MathUtils.smoothstep(armWeight,.10,.50);
       const amount=radial*vertical*skin;
+      maxArmWeight=Math.max(maxArmWeight,armWeight);
+      if(radial>.02)radialHits++;
+      if(vertical>.02)verticalHits++;
+      if(skin>.02)skinHits++;
+      if(amount>0)joinedHits++;
       if(amount<.015)continue;
       const outward=family==="drophunter"?.007:.005;
       const normalEase=family==="drophunter"?.009:.006;
@@ -92,6 +115,12 @@ export function fitArmStretchSleevesV10(
         moved++;
       }
     }
+    metrics.diagnostic?.push("H="+shoulderHeight.toFixed(3)+
+      " y="+minY.toFixed(3)+".."+maxY.toFixed(3)+
+      " radial="+radialHits+" vertical="+verticalHits+
+      " skin="+skinHits+" overlap="+joinedHits+
+      " maxArmWeight="+maxArmWeight.toFixed(3)+
+      " moved="+moved);
     if(!moved)return;
     const geometry=old.clone();
     geometry.morphTargetsRelative=true;
