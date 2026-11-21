@@ -85,10 +85,10 @@ export async function loadStandingGreetingSourceV11(): Promise<string> {
   if (!response.ok) throw Error("Greeting V14 asset unavailable: HTTP " + response.status);
   // Keep the new asset as Base64 text so the existing GitHub content workflow
   // can commit it without modifying unrelated binary asset infrastructure.
-  const encoded = (await response.text()).trim();
-  if (encoded.length !== 7740 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))
+  const assetBase64 = (await response.text()).trim();
+  if (assetBase64.length !== 7740 || !/^[A-Za-z0-9+/]+={0,2}$/.test(assetBase64))
     throw Error("Invalid Greeting V14 asset encoding");
-  const compressed = Uint8Array.from(atob(encoded),c=>c.charCodeAt(0));
+  const compressed = Uint8Array.from(atob(assetBase64),c=>c.charCodeAt(0));
   if (compressed.byteLength !== 5805) throw Error("Invalid Greeting V14 asset length");
   const buffer = await new Response(new Blob([compressed.buffer as ArrayBuffer])
     .stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
