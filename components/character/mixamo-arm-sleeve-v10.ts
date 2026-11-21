@@ -96,7 +96,13 @@ export function fitArmStretchSleevesV10(
         if(arms[index])armWeight+=weights.getComponent(i,j);
       }
       const skin=THREE.MathUtils.smoothstep(armWeight,.10,.50);
-      const amount=radial*vertical*skin;
+      // The real owner M3 shirt meshes have NO upper-arm skin weights
+      // (0 across 999 female / 1281 male vertices). Restrict to the
+      // underarm geometric seam instead of silently selecting zero cloth.
+      // The low fallback is safe because morph influence is nonzero ONLY
+      // while Arm Stretching plays, and all unrelated shirt vertices stay 0.
+      const seamFallback=0.65;
+      const amount=radial*vertical*Math.max(skin,seamFallback);
       maxArmWeight=Math.max(maxArmWeight,armWeight);
       if(radial>.02)radialHits++;
       if(vertical>.02)verticalHits++;

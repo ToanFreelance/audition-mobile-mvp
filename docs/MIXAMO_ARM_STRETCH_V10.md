@@ -23,3 +23,9 @@ QA preview:
 The UI permits **Phát Arm Stretch cả 5** (manually demonstrate the garment on 5 real actors) and **Về random** (resume existing shuffle-bag). QA data attributes include `data-m3-arm-stretch-v10` and `data-m3-arm-sleeves-v10` with garment/vertex count, amplitude and live morph blend. Actor/mixer identity must not change. No footage or static image proves complete absence of clipping: owner iPhone video is primary visual acceptance.
 
 Validation: TypeScript, Next build, real Chromium five-person Playwright (catalog exclusion + source duration + all 5 actors, consistent mixer/scene IDs, arm morph activation/return, screen evidence), original non-opt-in baseline unchanged. Review scope remains work branch; no merge.
+
+## Runtime garment diagnosis and V10 geometric fallback
+
+The FIRST five-actor QA attempt returned 0 modified vertices on every M3 shirt and failed (correctly). Instrumented Chromium run `44882641895` measured the exact installed meshes: `m3-top-chest/shirt.vrm`, 999 vertices, upper-arm joint Y≈1.208; `m3-top-chest/logotee.vrm`, 1,281 vertices, upper-arm Y≈1.294. Both meshes have a valid radial/vertical nách region but **no vertices weighted to upper-arm/shoulder bones** (max detected weight 0.000). Therefore an upper-arm skin-weight-only selector was invalid on these assets and could never correct their underarm sleeve intersection.
+
+Revised morph selection uses the narrow underarm side geometry as a conservative fallback and still respects the source local shirt coordinates, character-specific shoulder height, ~16mm maximum ease, and Arm Stretching-only animation weight. No blanket garment scale and no arbitrary arm rotation. This is a **geometric clearance experiment**, not an actual re-skinning pass; if iPhone still shows sleeve crossing, the next intervention needs a rig-specific skin-weight rebind or artist garment edit. Do not silently declare visually accepted from vertex counts alone.
