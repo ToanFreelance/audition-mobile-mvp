@@ -58,8 +58,10 @@ function targetBoneAt(bone: THREE.Bone, child: THREE.Bone, target: THREE.Vector3
 function solveLeg(
   actor: THREE.Object3D, [upper, lower, ankle]: readonly THREE.Bone[],
   targetActorLocal: THREE.Vector3,
+  onReject?: (reason: string) => void,
 ): {delta: number; error: number} | null {
-  if (!ankle.parent) return null;
+  const reject = (reason:string) => {onReject?.(reason);return null;};
+  if (!ankle.parent) return reject("ankle_no_parent");
   const saved = [upper.quaternion.clone(), lower.quaternion.clone(), ankle.quaternion.clone()];
   const heading = ankle.getWorldQuaternion(new THREE.Quaternion());
   const root = upper.getWorldPosition(VEC());
@@ -72,16 +74,19 @@ function solveLeg(
   const reach = axis.length();
   if (reach < 1e-5 || upperLength < 1e-5 || lowerLength < 1e-5 ||
     reach >= upperLength + lowerLength - 0.00001 ||
-    reach <= Math.abs(upperLength - lowerLength) + 0.00001) return null;
+    reach <= Math.abs(upperLength - lowerLength) + 0.00001) return reject(
+      "unreachable:"+[reach,upperLength,lowerLength].map(x=>x.toFixed(4)).join("/")
+    );
   axis.divideScalar(reach);
   const kneeAxis = knee.clone().sub(root);
   const pole = kneeAxis.clone().addScaledVector(axis, -kneeAxis.dot(axis));
-  if (pole.lengthSq() < 1e-9) return null;
+  if (pole.lengthSq() < 1e-9) return reject("pole_degenerate");
   const along = (upperLength ** 2 - lowerLength ** 2 + reach ** 2) / (2 * reach);
   const perpendicular = Math.sqrt(Math.max(0, upperLength ** 2 - along ** 2));
   const targetKnee = root.clone().addScaledVector(axis, along)
     .addScaledVector(pole.normalize(), perpendicular);
-  if (!targetBoneAt(upper, lower, targetKnee) || !targetBoneAt(lower, ankle, goal)) return null;
+  if (!targetBoneAt(upper, lower, targetKnee) || !targetBoneAt(lower, ankle, goal))
+    return reject("aim_failed");
   ankle.quaternion.copy(
     ankle.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(heading)
   ).normalize();
@@ -92,7 +97,10 @@ function solveLeg(
     ankle.quaternion.angleTo(saved[2]),
   ];
   if (error > MAX_CONTACT_ERROR || rotations[0] > MAX_THIGH ||
-      rotations[1] > MAX_SHIN || rotations[2] > MAX_ANKLE) return null;
+      rotations[1] > MAX_SHIN || rotations[2] > MAX_ANKLE) return reject(
+        "limits:error="+error.toFixed(4)+";angles="+rotations.map(x=>
+          THREE.MathUtils.radToDeg(x).toFixed(1)).join("/")
+      );
   return {delta: Math.max(...rotations), error};
 }
 
@@ -195,6 +203,7 @@ export function bakeBoredSideStepsV6(
         const lift = Math.min(0.037,Math.max(0.025,amplitude*0.42));
         const staged: {frame:number; quats:THREE.Quaternion[]; hipX:number; feet:[THREE.Vector3,THREE.Vector3]}[] = [];
         let failed = false;
+        let rejectAt = "";
         let maxDelta = 0;
         let maxError = 0;
         for (let f=start+1;f<end;f++) {
@@ -226,9 +235,11 @@ export function bakeBoredSideStepsV6(
             swingGoal.y += lift * p.lift;
           }
           // Correct support first so swing leg moves relative to a stable base.
-          const solvedSupport = solveLeg(actor,bones[support],supportGoal);
+          const solvedSupport = solveLeg(actor,bones[support],supportGoal,
+            reason=>{rejectAt="support frame="+f+" "+reason;});
           if (!solvedSupport) {failed=true;break;}
-          const solvedSwing = solveLeg(actor,bones[side],swingGoal);
+          const solvedSwing = solveLeg(actor,bones[side],swingGoal,
+            reason=>{rejectAt="swing frame="+f+" "+reason;});
           if (!solvedSwing) {failed=true;break;}
           maxDelta = Math.max(maxDelta,solvedSupport.delta,solvedSwing.delta);
           maxError = Math.max(maxError,solvedSupport.error,solvedSwing.error);
@@ -238,7 +249,13 @@ export function bakeBoredSideStepsV6(
             feet:getFeet(),
           });
         }
-        if (failed || staged.length!==end-start-1) {rejected++;continue;}
+        if (failed || staged.length!==end-start-1) {
+          rejected++;
+          console.info("[mixamo-side-step-v6] rejected",JSON.stringify({
+            clip:original.name,side,amplitude,staged:staged.length,rejectAt,
+          }));
+          continue;
+        }
         const core = (f:number)=> f>=start+8 && f<=end-8;
         const baselineSupport = footFrames[start+8][support];
         const finalSupport = staged.find(e=>e.frame===start+8)!.feet[support];
@@ -248,7 +265,13 @@ export function bakeBoredSideStepsV6(
           correctedDrift=Math.max(correctedDrift,travel(frame.feet[support],finalSupport));
         }
         // A reduced support-foot error is mandatory for declaring a valid step.
-        if (correctedDrift > Math.max(0.008,sourceDrift+0.001)) {rejected++;continue;}
+        if (correctedDrift > Math.max(0.008,sourceDrift+0.001)) {
+          rejected++;
+          console.info("[mixamo-side-step-v6] drift_rejected",JSON.stringify({
+            clip:original.name,side,amplitude,sourceDrift,correctedDrift,
+          }));
+          continue;
+        }
         for(const frame of staged) {
           outputHips[frame.frame*3] = frame.hipX;
           bones.flat().forEach((b,i)=>frame.quats[i].toArray(output.get(b.uuid)!,frame.frame*4));
