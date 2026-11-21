@@ -40,6 +40,8 @@ for (const family of ["female","male"] as const) {
       expect(e.endFrame-e.startFrame).toBe(48);
     }
     const e=events[0];
+    // Screenshots must show the shoes; QA controls otherwise cover the knees/feet.
+    await page.locator("details summary").click();
     const positions=[0,8,13,18,24,31,36,43,48].map(offset=>e.startFrame+offset);
     const points: Array<{frame:number; joints:Record<string,[number,number,number]>}>=[];
     for(const frame of positions){
@@ -63,6 +65,15 @@ for (const family of ["female","male"] as const) {
       }
     }
     console.log(`M3_V6_${family.toUpperCase()}_SCREEN_JOINTS=${JSON.stringify(points)}`);
+    await page.evaluate((seconds)=>{
+      window.dispatchEvent(new CustomEvent("m3-idle-review",{
+        detail:{command:"camera",value:"side"},
+      }));
+      window.dispatchEvent(new CustomEvent("m3-idle-review",{
+        detail:{command:"v6-sample",id:"bored",value:seconds},
+      }));
+    },(e.startFrame+13)/30);
+    await page.screenshot({path:`test-results/mixamo-side-step-v6/${family}-side-frame-${e.startFrame+13}.png`});
     // Projected full-body rig evidence, not just baked event metadata.
     const activeJoint=e.side==="L"?"left_ankle":"right_ankle";
     const first=points[0].joints[activeJoint], raised=points[2].joints[activeJoint];
@@ -98,6 +109,19 @@ test("V6 five-person Bored demo keeps every Mixer and supports random resume",as
   await page.waitForTimeout(900);
   await expect(stage).toHaveAttribute("data-m3-idle-instances",actorIds!);
   await expect(stage).toHaveAttribute("data-scene-generation",scene!);
+  await page.evaluate(()=>{
+    window.dispatchEvent(new CustomEvent("m3-idle-review",{
+      detail:{command:"v6-sample",id:"bored",value:70/30},
+    }));
+  });
+  await page.locator("details summary").click();
+  await page.screenshot({path:"test-results/mixamo-side-step-v6/five-front-frame-70.png"});
+  await page.evaluate(()=>{
+    window.dispatchEvent(new CustomEvent("m3-idle-review",{
+      detail:{command:"camera",value:"side"},
+    }));
+  });
+  await page.screenshot({path:"test-results/mixamo-side-step-v6/five-side-frame-70.png"});
   expect(errors).toEqual([]);
 });
 
@@ -121,11 +145,13 @@ for(const family of ["female","male"] as const){
     const authored=await evidence();
     expect(authored?.actors).toHaveLength(1);
     const stepAnkle=authored.actors[0].joints.left_ankle as [number,number,number];
+    await page.locator("details summary").click();
     await page.screenshot({path:`test-results/mixamo-side-step-v6/${family}-v6-vs-source-v6.png`});
     await page.goto(`${base.replace("sideStepV6=1","sideStepV6=0")}&m3=${family}`);
     const unmodified=await evidence();
     expect(unmodified?.actors).toHaveLength(1);
     const sourceAnkle=unmodified.actors[0].joints.left_ankle as [number,number,number];
+    await page.locator("details summary").click();
     await page.screenshot({path:`test-results/mixamo-side-step-v6/${family}-v6-vs-source-source.png`});
     const deltaX=Math.abs(stepAnkle[0]-sourceAnkle[0]);
     const deltaY=sourceAnkle[1]-stepAnkle[1];
