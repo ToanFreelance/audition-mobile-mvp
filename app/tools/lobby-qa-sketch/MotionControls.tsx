@@ -67,7 +67,7 @@ export default function MotionControls({
   sideStepDemo?: boolean;
 }) {
   const [id, setId] = useState<IdleId | MixamoGesture>(
-    mixamo ? MIXAMO_GROUPS[family].base[0] : rigPool[family][0],
+    mixamo ? (stationaryOnly ? STATIONARY_MIXAMO_GROUPS : MIXAMO_AUTO_GROUPS)[family].base[0] : rigPool[family][0],
   );
   const [open, setOpen] = useState(pilot || mixamo);
   const optionsFor = (rig: keyof typeof rigPool) => {
