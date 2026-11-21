@@ -22,11 +22,11 @@ test("V11 owner Standing Greeting 2 joins existing M3 five-actor idle shuffle", 
       expect(pool).not.toContain(excluded);
   }
   const source = await page.evaluate(async () => {
-    const res = await fetch("/m3-qa/standing_greeting_2_v11.bin.gz");
+    const res = await fetch("/m3-qa/standing_greeting_2_v14.b64");
     return {status:res.status, bytes:(await res.arrayBuffer()).byteLength};
   });
   expect(source.status).toBe(200);
-  expect(source.bytes).toBeGreaterThan(2000);
+  expect(source.bytes).toBe(7740);
 
   const ids = await stage.getAttribute("data-m3-idle-instances");
   const scene = await stage.getAttribute("data-scene-generation");
@@ -41,7 +41,7 @@ test("V11 owner Standing Greeting 2 joins existing M3 five-actor idle shuffle", 
   await page.getByRole("button",{name:"Phát Arm Stretch cả 5"}).click();
   await expect.poll(async () => (await stage.getAttribute("data-m3-active-gestures") ?? "").split(","),
     {timeout:18_000}).toEqual(Array(5).fill("arm-stretching"));
-  await page.getByRole("button",{name:"Về random V11"}).click();
+  await page.getByRole("button",{name:"Về random V14"}).click();
   await expect(stage).toHaveAttribute("data-m3-idle-instances",ids!);
   await expect(stage).toHaveAttribute("data-scene-generation",scene!);
   expect(errors).toEqual([]);
