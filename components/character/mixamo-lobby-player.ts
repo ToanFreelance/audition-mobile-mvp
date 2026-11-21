@@ -556,6 +556,7 @@ export function createMixamoLobbyIdle(
     return nextFrom(group.base, "base", current);
   }
   const projectedNames: Record<string,string> = {
+    head: "head",
     left_shoulder: "upper_arm.L", right_shoulder: "upper_arm.R", left_elbow: "lower_arm.L", right_elbow: "lower_arm.R",
     left_wrist: "hand.L", right_wrist: "hand.R", left_hip: "upper_leg.L", right_hip: "upper_leg.R",
     left_knee: "lower_leg.L", right_knee: "lower_leg.R", left_ankle: "foot.L", right_ankle: "foot.R",
