@@ -36,6 +36,24 @@ const FPS=30;
 const MAX_CORRECTION=0.008; // native M3 units, per ankle, per frame
 const MAX_JOINT=THREE.MathUtils.degToRad(7.5);
 const MAX_CORRECTION_CHANGE=THREE.MathUtils.degToRad(3.5);
+type BakeCache = {
+  report:FootContactV8Report;
+  contacts:Uint8Array;
+  start:FootPair;
+  jointValues:readonly Float32Array[] | null;
+};
+const bakedCache=new Map<string,BakeCache>();
+function profileFromCache(
+  clip:string,n:number,contacts:Uint8Array,start:FootPair,
+):FootContactV8Profile {
+  return {
+    clip,frames:n,contacts,start,
+    getContact(time){
+      const frame=Math.max(0,Math.min(n-1,Math.round(time*FPS)));
+      return [(contacts[frame]&1)!==0,(contacts[frame]&2)!==0];
+    },
+  };
+}
 const resolver=(rig:THREE.Skeleton,name:string)=>
   rig.bones.find(b=>b.name===name||b.name===THREE.PropertyBinding.sanitizeNodeName(name));
 const vector=()=>new THREE.Vector3();
@@ -141,6 +159,34 @@ export function bakePerFootContactV8(
   const tracks=safeLegs.map(leg=>leg.map(b=>trackFor(clip,b,n)));
   if(tracks.flat().some(t=>!t))
     return {clip,profile:fallbackProfile,report:{...defaultReport,reason:"missing_joint_tracks"}};
+  // The source joint samples and rest-limb geometry must both match before a
+  // cached plan can be shared. Bone UUIDs are deliberately NOT shared.
+  const signature=[
+    clip.name,n,
+    ...safeLegs.flat().flatMap(b=>[
+      ...b.position.toArray().map(v=>v.toFixed(4)),
+      ...b.quaternion.toArray().map(v=>v.toFixed(4)),
+    ]),
+    ...tracks.flat().flatMap(t=>{
+      const a=t!.values;
+      return [a[0],a[1],a[Math.floor(a.length/2)],a[a.length-1]]
+        .map(v=>v.toFixed(4));
+    }),
+  ].join(":");
+  const cached=bakedCache.get(signature);
+  if(cached){
+    const profile=profileFromCache(clip.name,n,cached.contacts,cached.start);
+    if(!cached.jointValues)return {clip,profile,report:cached.report};
+    const replacement=new Map<string,THREE.QuaternionKeyframeTrack>();
+    tracks.flat().forEach((t,i)=>replacement.set(t!.name,
+      new THREE.QuaternionKeyframeTrack(t!.name,t!.times,
+        new Float32Array(cached.jointValues![i]))));
+    return {
+      clip:new THREE.AnimationClip(clip.name+"-foot-v8",clip.duration,
+        clip.tracks.map(t=>replacement.get(t.name)??t.clone())),
+      profile,report:cached.report,
+    };
+  }
   const source=rig.bones.map(b=>({
     position:b.position.clone(),quaternion:b.quaternion.clone(),scale:b.scale.clone(),
   }));
@@ -254,6 +300,16 @@ export function bakePerFootContactV8(
       }else report.reason="joint_continuity";
     }else report.reason=unsafe>0?"unsafe_or_insufficient_gain":"insufficient_gain";
     result??={clip,report,profile};
+    const jointValues=result.report.applied
+      ? tracks.flat().map(t=>{
+          const baked=result!.clip.tracks.find(x=>x.name===t!.name);
+          return new Float32Array(baked!.values);
+        })
+      :null;
+    bakedCache.set(signature,{
+      report:result.report,contacts:new Uint8Array(profile.contacts),
+      start:profile.start,jointValues,
+    });
   }catch(error){
     result={clip,profile:fallbackProfile,report:{
       ...defaultReport,reason:"probe_failed:"+String(error).slice(0,64),
