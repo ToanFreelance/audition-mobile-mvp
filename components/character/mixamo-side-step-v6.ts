@@ -62,46 +62,78 @@ function solveLeg(
 ): {delta: number; error: number} | null {
   const reject = (reason:string) => {onReject?.(reason);return null;};
   if (!ankle.parent) return reject("ankle_no_parent");
+  // Re-estimate the nearest biomechanically reachable target on THIS rig.
+  // A near-ground foot may be 1mm beyond full leg extension during source
+  // hip sway. Preserve support within a hard 5mm tolerance; never relax the
+  // thigh/shin/ankle angular safety gates to force a planted foot.
   const saved = [upper.quaternion.clone(), lower.quaternion.clone(), ankle.quaternion.clone()];
   const heading = ankle.getWorldQuaternion(new THREE.Quaternion());
+  const target = actor.localToWorld(targetActorLocal.clone());
   const root = upper.getWorldPosition(VEC());
-  const knee = lower.getWorldPosition(VEC());
-  const foot = ankle.getWorldPosition(VEC());
-  const goal = actor.localToWorld(targetActorLocal.clone());
-  const upperLength = root.distanceTo(knee);
-  const lowerLength = knee.distanceTo(foot);
-  const axis = goal.clone().sub(root);
-  const reach = axis.length();
-  if (reach < 1e-5 || upperLength < 1e-5 || lowerLength < 1e-5 ||
-    reach >= upperLength + lowerLength - 0.00001 ||
-    reach <= Math.abs(upperLength - lowerLength) + 0.00001) return reject(
-      "unreachable:"+[reach,upperLength,lowerLength].map(x=>x.toFixed(4)).join("/")
-    );
-  axis.divideScalar(reach);
-  const kneeAxis = knee.clone().sub(root);
-  const pole = kneeAxis.clone().addScaledVector(axis, -kneeAxis.dot(axis));
-  if (pole.lengthSq() < 1e-9) return reject("pole_degenerate");
-  const along = (upperLength ** 2 - lowerLength ** 2 + reach ** 2) / (2 * reach);
-  const perpendicular = Math.sqrt(Math.max(0, upperLength ** 2 - along ** 2));
-  const targetKnee = root.clone().addScaledVector(axis, along)
-    .addScaledVector(pole.normalize(), perpendicular);
-  if (!targetBoneAt(upper, lower, targetKnee) || !targetBoneAt(lower, ankle, goal))
-    return reject("aim_failed");
-  ankle.quaternion.copy(
-    ankle.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(heading)
-  ).normalize();
-  actor.updateWorldMatrix(true, true);
-  const error = ankle.getWorldPosition(VEC()).distanceTo(goal);
-  const rotations = [
-    upper.quaternion.angleTo(saved[0]), lower.quaternion.angleTo(saved[1]),
-    ankle.quaternion.angleTo(saved[2]),
-  ];
-  if (error > MAX_CONTACT_ERROR || rotations[0] > MAX_THIGH ||
-      rotations[1] > MAX_SHIN || rotations[2] > MAX_ANKLE) return reject(
-        "limits:error="+error.toFixed(4)+";angles="+rotations.map(x=>
-          THREE.MathUtils.radToDeg(x).toFixed(1)).join("/")
-      );
-  return {delta: Math.max(...rotations), error};
+  const startingKnee = lower.getWorldPosition(VEC());
+  const startingFoot = ankle.getWorldPosition(VEC());
+  const upperLength = root.distanceTo(startingKnee);
+  const lowerLength = startingKnee.distanceTo(startingFoot);
+  if (upperLength < 1e-5 || lowerLength < 1e-5)
+    return reject("degenerate_limb");
+  const restore = () => {
+    upper.quaternion.copy(saved[0]);
+    lower.quaternion.copy(saved[1]);
+    ankle.quaternion.copy(saved[2]);
+    actor.updateWorldMatrix(true,true);
+  };
+  const initialError = startingFoot.distanceTo(target);
+  if (initialError <= 0.001) return {delta:0,error:initialError};
+
+  let bestReason = "";
+  for (const alpha of [1, 0.995, 0.98, 0.96, 0.92, 0.86, 0.76, 0.62, 0.45, 0.20, 0]) {
+    restore();
+    const goal = startingFoot.clone().lerp(target,alpha);
+    // Even alpha=0 is useful as a safe no-IK pose when already very close
+    // to the requested planted contact.
+    if (alpha === 0) {
+      if (initialError <= MAX_CONTACT_ERROR) return {delta:0,error:initialError};
+      continue;
+    }
+    const axis = goal.clone().sub(root);
+    const reach = axis.length();
+    if (reach < 1e-5 || reach >= upperLength + lowerLength - 0.00001 ||
+        reach <= Math.abs(upperLength - lowerLength) + 0.00001) {
+      bestReason = "unreachable:reach="+reach.toFixed(4)
+        +";limbs="+upperLength.toFixed(4)+"/"+lowerLength.toFixed(4)
+        +";alpha="+alpha;
+      continue;
+    }
+    axis.divideScalar(reach);
+    const kneeAxis = startingKnee.clone().sub(root);
+    const pole = kneeAxis.clone().addScaledVector(axis, -kneeAxis.dot(axis));
+    if (pole.lengthSq() < 1e-9) {bestReason="pole_degenerate";continue;}
+    const along = (upperLength ** 2 - lowerLength ** 2 + reach ** 2) / (2 * reach);
+    const across = Math.sqrt(Math.max(0, upperLength ** 2 - along ** 2));
+    const kneeGoal = root.clone().addScaledVector(axis, along)
+      .addScaledVector(pole.normalize(), across);
+    if (!targetBoneAt(upper,lower,kneeGoal) || !targetBoneAt(lower,ankle,goal)) {
+      bestReason="aim_failed";continue;
+    }
+    ankle.quaternion.copy(
+      ankle.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(heading)
+    ).normalize();
+    actor.updateWorldMatrix(true,true);
+    const finalFoot=ankle.getWorldPosition(VEC());
+    const error = finalFoot.distanceTo(target); // TRUE requested contact
+    const angles = [
+      upper.quaternion.angleTo(saved[0]),lower.quaternion.angleTo(saved[1]),
+      ankle.quaternion.angleTo(saved[2]),
+    ];
+    if (error <= MAX_CONTACT_ERROR && angles[0]<=MAX_THIGH &&
+      angles[1]<=MAX_SHIN && angles[2]<=MAX_ANKLE) {
+      return {delta:Math.max(...angles),error};
+    }
+    bestReason="limits:error="+error.toFixed(4)+";angles="+angles.map(x=>
+      THREE.MathUtils.radToDeg(x).toFixed(1)).join("/")+";alpha="+alpha;
+  }
+  restore();
+  return reject(bestReason||"no_feasible_contact");
 }
 
 function phase(t: number) {
