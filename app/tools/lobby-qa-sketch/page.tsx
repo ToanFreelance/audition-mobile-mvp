@@ -31,6 +31,7 @@ type LobbyQaSketchPageProps = {
     contactV7?: string;
     contactV8?: string;
     stationaryOnly?: string;
+    armStretchV10?: string;
     clipReview?: string;
     sideStepDemo?: string;
   }>;
@@ -161,6 +162,7 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       contactV7={params.contactV7 === "1"}
       contactV8={params.contactV8 === "1"}
       stationaryOnly={params.stationaryOnly === "1"}
+      armStretchV10={params.armStretchV10 === "1"}
       sideStepDemo={params.sideStepDemo === "1"}
     />}
     </>

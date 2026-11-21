@@ -16,7 +16,7 @@ export function decodeReviewPack(text:string):DecodedClip[] {
   if(text.length>2_000_000)throw Error("Gói animation quá lớn");
   const pack=JSON.parse(text);
   if(pack?.schema!=="m3-mixamo-source-delta-v1"||pack.fps!==30||
-    !Array.isArray(pack.clips)||pack.clips.length!==2)throw Error("Gói animation không đúng định dạng");
+    !Array.isArray(pack.clips)||(pack.clips.length!==1&&pack.clips.length!==2))throw Error("Gói animation không đúng định dạng");
   const ids=new Set<string>();
   return pack.clips.map((c:SourceClip)=>{
     if(!LOCAL_REVIEW_IDS.includes(c.id)||ids.has(c.id))throw Error("Tên clip không hợp lệ");

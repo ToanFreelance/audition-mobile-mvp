@@ -50,6 +50,7 @@ export default function MotionControls({
   contactV7 = false,
   contactV8 = false,
   stationaryOnly = false,
+  armStretchV10 = false,
   sideStepDemo = false,
 }: {
   family: keyof typeof rigPool;
@@ -64,6 +65,7 @@ export default function MotionControls({
   contactV7?: boolean;
   contactV8?: boolean;
   stationaryOnly?: boolean;
+  armStretchV10?: boolean;
   sideStepDemo?: boolean;
 }) {
   const [id, setId] = useState<IdleId | MixamoGesture>(
@@ -72,7 +74,8 @@ export default function MotionControls({
   const [open, setOpen] = useState(pilot || mixamo);
   const optionsFor = (rig: keyof typeof rigPool) => {
     const pool = (stationaryOnly ? STATIONARY_MIXAMO_GROUPS : MIXAMO_AUTO_GROUPS)[rig];
-    return [...pool.base, ...pool.emote, ...pool.manual];
+    return [...pool.base, ...(armStretchV10?["arm-stretching" as const]:[]),
+      ...pool.emote, ...pool.manual];
   };
   const options = mixamo
     ? (mixed
@@ -81,9 +84,9 @@ export default function MotionControls({
     : (mixed ? [...rigPool.drophunter, ...rigPool.neurohacker] : rigPool[family]);
   const qaLink = (
     familyMode: "female" | "male" | "five",
-    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "contactV7" | "contactV8" | "stationaryOnly" | "sideStepDemo", boolean>> = {},
+    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "contactV7" | "contactV8" | "stationaryOnly" | "armStretchV10" | "sideStepDemo", boolean>> = {},
   ) => {
-    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, contactV7, contactV8, stationaryOnly, sideStepDemo, ...changes};
+    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, contactV7, contactV8, stationaryOnly, armStretchV10, sideStepDemo, ...changes};
     const params = new URLSearchParams({m3:familyMode});
     if (familyMode === "five") params.set("allM3", "1");
     if (opts.mixamo) {
@@ -97,6 +100,7 @@ export default function MotionControls({
         if (opts.contactV7) params.set("contactV7", "1");
         if (opts.contactV8) params.set("contactV8", "1");
         if (opts.stationaryOnly) params.set("stationaryOnly", "1");
+        if (opts.armStretchV10) params.set("armStretchV10", "1");
         if (opts.sideStepDemo && !opts.stationaryOnly) params.set("sideStepDemo", "1");
       }
     }
@@ -195,12 +199,35 @@ export default function MotionControls({
         {mixamo && " · Contact V7 " + (contactV7 && contactV4 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && " · V8 " + (contactV8 && contactV7 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && stationaryOnly && " · STATIONARY ONLY"}
+        {mixamo && armStretchV10 && " · ARM STRETCH V10"}
         {mixamo && sideStepDemo && " · Bored demo"}
       </summary>
       {mixamo && <p>
         {stationaryOnly
           ? "V9 lọc: Breathing Idle 2; nam thêm Warrior Idle; emote Pointing, nữ thêm Blow a Kiss."
           : "Danh sách random đã bỏ Dwarf Idle và Dwarf Idle 2 (cả nam/nữ). Bản duyệt từng clip vẫn giữ toàn bộ asset."}
+      </p>}
+      {mixamo && <p>
+        <strong>V10 Arm Stretching — 5 người:</strong> {armStretchV10?"BẬT":"TẮT"}
+        {" · "}<a href={qaLink("five",{
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:false,contactV7:true,contactV8:true,
+          stationaryOnly:true,armStretchV10:true,sideStepDemo:false,
+        })}>5 người · Random có Arm Stretching</a>
+        {" · "}Không Cheering / Dwarf Idle / Dwarf Idle 2.
+        {armStretchV10 && <>
+          {" · "}<button onClick={()=>{
+            window.dispatchEvent(new CustomEvent("m3-idle-review",{
+              detail:{command:"select",id:"arm-stretching"},
+            }));
+            setId("arm-stretching");
+          }}>Phát Arm Stretch cả 5</button>
+          {" · "}<button onClick={()=>{
+            window.dispatchEvent(new CustomEvent("m3-idle-review",{
+              detail:{command:"random"},
+            }));
+          }}>Về random</button>
+        </>}
       </p>}
       {mixamo && <p>
         <strong>V9 Stationary Only:</strong> {stationaryOnly ? "BẬT" : "TẮT"}

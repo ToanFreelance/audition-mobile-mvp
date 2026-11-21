@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createLocalReviewRetargeter } from "./mixamo-local-review";
+import { fitArmStretchSleevesV10, type ArmStretchSleeveMetrics } from "./mixamo-arm-sleeve-v10";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
 import { bakeBoredSideStepsV5, type SideStepV5Event } from "./mixamo-side-step-v5";
@@ -18,7 +19,8 @@ import type { M3RigFamily } from "./character-catalog";
 import type { Shoe } from "./motion/stances";
 type Placement = { feet: [Shoe, Shoe]; pitch: [number, number]; shift: number; drop: number };
 import {
-  MIXAMO_BONES, MIXAMO_GROUPS, MIXAMO_AUTO_GROUPS, STATIONARY_MIXAMO_GROUPS, getMixamoData,
+  MIXAMO_BONES, MIXAMO_GROUPS, MIXAMO_AUTO_GROUPS, STATIONARY_MIXAMO_GROUPS,
+  getMixamoData, getArmStretchSourceV10,
   prepareMixamoLobbyClips, type MixamoGesture, type MixamoRig,
 } from "./mixamo-lobby-data";
 
@@ -56,6 +58,8 @@ export type MixamoLobbyIdle = {
   contactV7Reports: readonly ClipContactV7[];
   contactV8Reports: readonly FootContactV8Report[];
   stationaryOnly: boolean;
+  armStretchV10: boolean;
+  armSleeveV10: ArmStretchSleeveMetrics | null;
   allowedGestures: readonly MixamoGesture[];
   v8FootContact: {
     leftCm: number; rightCm: number;
@@ -167,12 +171,24 @@ export function createMixamoLobbyIdle(
     typeof window !== "undefined" &&
     window.location.pathname === "/tools/lobby-qa-sketch" &&
     new URLSearchParams(window.location.search).get("stationaryOnly") === "1";
-  // Review mode retains all original clips. Every other Mixamo Waiting Room
-  // mode obeys the owner's confirmed Dwarf Idle exclusion.
-  const group = clipReview ? MIXAMO_GROUPS[family]
+  // Owner accepts Arm Stretching as a candidate, not Cheering.
+  // V10 is opt-in only on this existing QA route, with the existing real
+  // 5-person shuffle-bag/crossfade/mixer. Both Dwarf Idles stay excluded.
+  const armStretchV10 = !clipReview && !enableFootLock &&
+    typeof window !== "undefined" &&
+    window.location.pathname === "/tools/lobby-qa-sketch" &&
+    new URLSearchParams(window.location.search).get("armStretchV10") === "1";
+  const baseGroup = clipReview ? MIXAMO_GROUPS[family]
     : stationaryOnly ? STATIONARY_MIXAMO_GROUPS[family]
     : MIXAMO_AUTO_GROUPS[family];
+  const group = armStretchV10
+    ? {...baseGroup,base:[...baseGroup.base,"arm-stretching" as MixamoGesture]}
+    : baseGroup;
   const available = [...group.base, ...group.emote, ...group.manual];
+  if(armStretchV10 && !getArmStretchSourceV10()){
+    console.warn("[mixamo-v10] Arm Stretching source pack not preloaded");
+    return null;
+  }
   if (!group.base.length) return null;
   // Opt-in ONLY on the isolated sketch QA route. Foot Lock and pelvis
   // correction must never run together; V2 leg IK stays disabled here.
@@ -196,6 +212,7 @@ export function createMixamoLobbyIdle(
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map<MixamoGesture, THREE.AnimationAction>();
   for (const key of available) {
+    if(key==="arm-stretching" && armStretchV10)continue;
     const clip = buildClip(rig, family, key, pelvisFix);
     if (!clip) { console.warn("[mixamo-qa] missing retargeted clip", family, key, rig.bones.length); mixer.stopAllAction(); return null; }
     const action = mixer.clipAction(clip).setLoop(THREE.LoopOnce,1);
@@ -210,12 +227,29 @@ export function createMixamoLobbyIdle(
   }
   const footBones = feet as THREE.Bone[];
   // Local source import is diagnostic only; capture native rest before playback.
-  const reviewRetargeter=clipReview?createLocalReviewRetargeter(actor,rig):null;
+  const reviewRetargeter=(clipReview||armStretchV10)
+    ? createLocalReviewRetargeter(actor,rig):null;
+  if(armStretchV10){
+    const source=getArmStretchSourceV10()!;
+    const imported=reviewRetargeter?.(source)??[];
+    const arm=imported.find(item=>item.id==="arm-stretching");
+    if(!arm){
+      mixer.stopAllAction();
+      console.warn("[mixamo-v10] Failed to retarget owner Arm Stretching");
+      return null;
+    }
+    const newAction=mixer.clipAction(arm.clip).setLoop(THREE.LoopOnce,1);
+    newAction.clampWhenFinished=true;
+    actions.set("arm-stretching",newAction);
+  }
   actor.updateWorldMatrix(true, true);
   const scale = Math.max(0.01, new THREE.Box3().setFromObject(actor).getSize(new THREE.Vector3()).y);
   const point = new THREE.Vector3();
   const rest = footBones.map(foot => actor.worldToLocal(foot.getWorldPosition(new THREE.Vector3())).clone());
   const garmentFit = family === "neurohacker" ? fitLobbyGarments(actor) : null;
+  // V10: per-actor skinned garment clone + reversible underarm morph. No bone
+  // changes, no global wardrobe edits and zero influence on other clips.
+  const sleeveV10 = armStretchV10 ? fitArmStretchSleevesV10(actor,family) : null;
   const footLock = enableFootLock ? createMixamoFootLock(actor, rig, scale) : null;
   // Bake once at actor startup, NEVER override an authored step during playback.
   // Only Bored is eligible for this V5 pilot; all other gestures stay untouched.
@@ -244,6 +278,9 @@ export function createMixamoLobbyIdle(
   const contactV7Reports: ClipContactV7[] = [];
   if (contactV7) {
     for (const [gesture, sourceAction] of actions) {
+      // Source-authoritative Arm Stretching: never warp the hips of the
+      // owner-supplied clip to compensate for a different gesture's contacts.
+      if(gesture==="arm-stretching" && armStretchV10)continue;
       const original = sourceAction.getClip();
       const baked = bakeFootContactsV7(actor, rig, original, family);
       contactV7Reports.push(baked.report);
@@ -264,8 +301,13 @@ export function createMixamoLobbyIdle(
     for (const [gesture, sourceAction] of actions) {
       const original = sourceAction.getClip();
       const baked = bakePerFootContactV8(actor,rig,original);
-      contactV8Reports.push(baked.report);
       contactV8Profiles.set(gesture,baked.profile);
+      if(gesture==="arm-stretching" && armStretchV10){
+        contactV8Reports.push({...baked.report,applied:false,
+          reason:"V10 owner source: preserve authored bone and hip curves"});
+        continue;
+      }
+      contactV8Reports.push(baked.report);
       if (!baked.report.applied) continue;
       sourceAction.stop();
       mixer.uncacheClip(original);
@@ -488,6 +530,8 @@ export function createMixamoLobbyIdle(
     contactV7Reports,
     contactV8Reports,
     stationaryOnly,
+    armStretchV10,
+    armSleeveV10:sleeveV10?.metrics??null,
     allowedGestures:available,
     v8FootContact:v8Stats,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
@@ -635,6 +679,11 @@ export function createMixamoLobbyIdle(
           : nextFeet[1][2] > .01 ? "LEFT_SUPPORT" : "DOUBLE_SUPPORT";
       this.phase = outgoing ? "CROSSFADE" : group.emote.includes(current) ? "MIXAMO_EMOTE" : "MIXAMO_IDLE";
       garmentFit?.update(nextFeet[1][2]);
+      sleeveV10?.update(Math.max(
+        current==="arm-stretching"?action.getEffectiveWeight():0,
+        outgoing&&previousActiveGesture==="arm-stretching"
+          ? outgoing.getEffectiveWeight():0,
+      ));
     },
     seekReferenceTime(seconds) {
       action.time = THREE.MathUtils.clamp(seconds, 0, action.getClip().duration);
@@ -655,6 +704,8 @@ export function createMixamoLobbyIdle(
     dispose() {
       if (isDisposed) return;
       isDisposed = true;
+      sleeveV10?.dispose();
+      garmentFit?.dispose();
       mixer.stopAllAction();
       for (const item of actions.values()) mixer.uncacheClip(item.getClip());
       mixer.uncacheRoot(actor);

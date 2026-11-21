@@ -103,6 +103,32 @@ type EncodedAsset = { id: string; rig: MixamoRig; frames: number; data: string }
 export type MixamoDecoded = { frames: number; samples: Int16Array };
 const decoded = new Map<string, MixamoDecoded>();
 let loadPromise: Promise<void> | null = null;
+// V10: owner-supplied Arm Stretching source, loaded once for an isolated
+// five-actor QA mode. Never included in ordinary Waiting Room traffic.
+let armStretchSource: string | null = null;
+let armStretchLoadPromise: Promise<void> | null = null;
+export function getArmStretchSourceV10(): string | null {
+  return armStretchSource;
+}
+async function preloadArmStretchSourceV10(): Promise<void> {
+  if(typeof window==="undefined"||
+    window.location.pathname!=="/tools/lobby-qa-sketch"||
+    new URLSearchParams(window.location.search).get("armStretchV10")!=="1")
+    return;
+  if(!armStretchLoadPromise)armStretchLoadPromise=(async()=>{
+    const response=await fetch("/m3-qa/arm_stretching_source.json",{cache:"force-cache"});
+    if(!response.ok)throw Error("Arm Stretching data unavailable: HTTP "+response.status);
+    const raw=await response.text();
+    const value=JSON.parse(raw);
+    if(value?.schema!=="m3-mixamo-source-delta-v1"||
+       value?.fps!==30||value.clips?.length!==1||
+       value.clips[0]?.id!=="arm-stretching"||
+       value.clips[0]?.frames!==267)
+      throw Error("Invalid Arm Stretching source package");
+    armStretchSource=raw;
+  })().catch(error=>{armStretchLoadPromise=null;armStretchSource=null;throw error;});
+  return armStretchLoadPromise;
+}
 function cacheKey(rig: MixamoRig, id: MixamoGesture): string {
   return `${id}__${rig}`;
 }
@@ -136,5 +162,5 @@ export async function prepareMixamoLobbyClips(): Promise<void> {
       for (const [key, value] of values) decoded.set(key, value);
     })().catch(error => { loadPromise = null; decoded.clear(); throw error; });
   }
-  return loadPromise;
+  await Promise.all([loadPromise,preloadArmStretchSourceV10()]);
 }
