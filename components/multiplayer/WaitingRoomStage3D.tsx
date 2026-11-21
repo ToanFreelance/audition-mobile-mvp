@@ -1276,12 +1276,15 @@ export default function WaitingRoomStage3D({
     const footLockReview = mixamoReview && new URLSearchParams(window.location.search).get("footLock") === "1";
     const contactV4Review = mixamoReview && !footLockReview &&
       new URLSearchParams(window.location.search).get("contactV4") !== "0";
-    const sideStepV5Review = contactV4Review &&
+    const sideStepV6Review = contactV4Review &&
+      new URLSearchParams(window.location.search).get("sideStepV6") === "1";
+    const sideStepV5Review = contactV4Review && !sideStepV6Review &&
       new URLSearchParams(window.location.search).get("sideStepV5") === "1";
     let mixamoModule: typeof import("../character/mixamo-lobby-player") | null = null;
     const rosterReview = motionReview && new URLSearchParams(window.location.search).get("rosterProbe") === "1";
     const reviewMixerIds = rosterReview ? new WeakMap<THREE.AnimationMixer, string>() : null;
     let reviewSpeed = 1;
+    let reviewFrozen = false;
     let sideView = false;
     const applyLayout = () => {
       const current = viewRef.current;
@@ -1516,7 +1519,30 @@ export default function WaitingRoomStage3D({
         }
         return;
       }
+      if (command === "v6-sample" && sideStepV6Review && id === "bored") {
+        const seconds = Number(value);
+        const stage = mountRef.current?.parentElement;
+        if (stage && Number.isFinite(seconds) && seconds >= 0 && seconds <= 10.67) {
+          reviewFrozen = true;
+          for (const runtime of m3IdleByParticipant.values()) {
+            if (runtime.currentGesture !== "bored") runtime.select("bored");
+            runtime.seekReferenceTime(seconds);
+          }
+          stage.dataset.m3V6PoseEvidence = JSON.stringify({
+            seconds, clip:"bored", fps:30, width:renderer.domElement.clientWidth,
+            height:renderer.domElement.clientHeight,
+            actors:[...m3IdleByParticipant.values()].map(runtime => ({
+              family:runtime.animationProfile, mixer:runtime.playbackMixer.getRoot().uuid,
+              joints:runtime.projectReferenceJoints(camera,
+                renderer.domElement.clientWidth,renderer.domElement.clientHeight),
+            })),
+          });
+        }
+        return;
+      }
       if (command === "speed") reviewSpeed = value === .25 ? .25 : 1;
+      if (command === "select" || command === "random" || command === "transition")
+        reviewFrozen = false;
       if (command === "camera") { sideView = value === "side"; applyLayout(); }
       for (const runtime of m3IdleByParticipant.values()) {
         if (command === "select") runtime.select(id);
@@ -1564,7 +1590,8 @@ export default function WaitingRoomStage3D({
           switchIdleIfNeeded(runtime, deltaSeconds);
         });
         const animationStart = footContactProbe ? performance.now() : 0;
-        m3IdleByParticipant.forEach(runtime => runtime.update((drawMs / 1000) * reviewSpeed));
+        if (!reviewFrozen)
+          m3IdleByParticipant.forEach(runtime => runtime.update((drawMs / 1000) * reviewSpeed));
         const animationCost = footContactProbe ? performance.now() - animationStart : 0;
         if (footContactProbe && nowMs - lastProbeMs > 450 && mountRef.current) {
           lastProbeMs = nowMs;
@@ -1575,6 +1602,12 @@ export default function WaitingRoomStage3D({
             stageElement.dataset.m3FootlockEnabled = footLockReview && mixamoModule ? "1" : "0";
             stageElement.dataset.m3ContactV4 = contactV4Review && mixamoModule ? "1" : "0";
             stageElement.dataset.m3SideStepV5 = sideStepV5Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3SideStepV6 = sideStepV6Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3SideStepV6Metrics = JSON.stringify(runtimes.map(item => ({
+              clip: item.animationProfile,
+              steps: "sideStepV6Events" in item ? item.sideStepV6Events : [],
+              stepCount: "sideStepV6Events" in item ? item.sideStepV6Events.length : 0,
+            })));
             stageElement.dataset.m3SideStepMetrics = JSON.stringify(runtimes.map(item => ({
               clip: item.animationProfile,
               steps: "sideStepEvents" in item ? item.sideStepEvents : [],
@@ -1614,6 +1647,7 @@ export default function WaitingRoomStage3D({
                 contactSlip: r.maxContactSlip, crossfadeSlip: r.maxCrossfadeSlip,
                 poseGap: r.transitionPoseGap, transitionCount: r.transitionCount,
                 steps: "sideStepEvents" in r ? r.sideStepEvents.length : 0,
+                stepsV6: "sideStepV6Events" in r ? r.sideStepV6Events.length : 0,
               } : {}),
             })));
             stageElement.dataset.m3FootDrift = Math.max(0, ...runtimes.map(item => item.footDrift)).toFixed(5);

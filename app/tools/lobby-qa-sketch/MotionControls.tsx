@@ -23,6 +23,7 @@ type Sample = {
   poseGap?: number;
   transitionCount?: number;
   steps?: number;
+  stepsV6?: number;
 };
 function placement(feet: Feet) {
   return feet
@@ -38,6 +39,7 @@ export default function MotionControls({
   contactV4 = true,
   pelvisFix = false,
   sideStepV5 = false,
+  sideStepV6 = false,
   sideStepDemo = false,
 }: {
   family: keyof typeof rigPool;
@@ -48,6 +50,7 @@ export default function MotionControls({
   contactV4?: boolean;
   pelvisFix?: boolean;
   sideStepV5?: boolean;
+  sideStepV6?: boolean;
   sideStepDemo?: boolean;
 }) {
   const [id, setId] = useState<IdleId | MixamoGesture>(
@@ -63,9 +66,9 @@ export default function MotionControls({
     : (mixed ? [...rigPool.drophunter, ...rigPool.neurohacker] : rigPool[family]);
   const qaLink = (
     familyMode: "female" | "male" | "five",
-    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepDemo", boolean>> = {},
+    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "sideStepDemo", boolean>> = {},
   ) => {
-    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepDemo, ...changes};
+    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, sideStepDemo, ...changes};
     const params = new URLSearchParams({m3:familyMode});
     if (familyMode === "five") params.set("allM3", "1");
     if (opts.mixamo) {
@@ -74,7 +77,8 @@ export default function MotionControls({
       else {
         params.set("contactV4", opts.contactV4 ? "1" : "0");
         if (opts.pelvisFix) params.set("pelvisFix", "1");
-        if (opts.sideStepV5) params.set("sideStepV5", "1");
+        if (opts.sideStepV5 && !opts.sideStepV6) params.set("sideStepV5", "1");
+        if (opts.sideStepV6) params.set("sideStepV6", "1");
         if (opts.sideStepDemo) params.set("sideStepDemo", "1");
       }
     }
@@ -108,7 +112,9 @@ export default function MotionControls({
       const needed = mixed ? 5 : 1;
       if (stage.dataset.stageReady !== "1" ||
           Number(stage.dataset.m3IdleCount ?? "0") !== needed ||
-          stage.dataset.m3SideStepV5 !== "1") return;
+          (sideStepV6
+            ? stage.dataset.m3SideStepV6 !== "1"
+            : stage.dataset.m3SideStepV5 !== "1")) return;
       window.dispatchEvent(new CustomEvent("m3-idle-review", {
         detail: {command:"select", id:"bored"},
       }));
@@ -117,11 +123,11 @@ export default function MotionControls({
     };
     const observer = new MutationObserver(start);
     observer.observe(stage, {attributes:true, attributeFilter:[
-      "data-stage-ready", "data-m3-idle-count", "data-m3-side-step-v5",
+      "data-stage-ready", "data-m3-idle-count", "data-m3-side-step-v5", "data-m3-side-step-v6",
     ]});
     start();
     return () => observer.disconnect();
-  }, [mixamo, sideStepDemo, demoPlayed, mixed]);
+  }, [mixamo, sideStepDemo, sideStepV6, demoPlayed, mixed]);
   useEffect(() => {
     const stage = document.querySelector<HTMLElement>(
       "[data-testid=waiting-room-stage]",
@@ -163,18 +169,31 @@ export default function MotionControls({
     >
       <summary>
         Kiểm tra chuyển động M3{mixamo ? " · Mixamo All 10" : ""}
-        {mixamo && " · V5 " + (sideStepV5 && contactV4 && !footLock ? "BẬT" : "TẮT")}
+        {mixamo && " · V5 " + (sideStepV5 && !sideStepV6 && contactV4 && !footLock ? "BẬT" : "TẮT")}
+        {mixamo && " · V6 " + (sideStepV6 && contactV4 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && sideStepDemo && " · Bored demo"}
       </summary>
       {mixamo && <p>10 Mixamo clips · 17 tổ hợp rig; Catwalk chỉ chọn thủ công</p>}
       {mixamo && <p>
+        <strong>V6 Bored side-step:</strong> {sideStepV6 ? "BẬT" : "TẮT"}
+        {" · "}<a href={qaLink(currentMode,{
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:true,sideStepDemo:true,
+        })}>Bật V6 + demo Bored</a>
+        {" · "}<a href={qaLink(currentMode,{
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:false,sideStepDemo:true,
+        })}>Đối chứng V4+V3</a>
+        {" · "}Bước bake: {samples.map(s=>s.stepsV6 ?? 0).join(",") || "đang tải"}
+      </p>}
+      {mixamo && <p>
         V5: <strong>{sideStepV5 && !footLock && contactV4 ? "BẬT" : "TẮT"}</strong>
         {" · "}Số bước có thể bake trong Bored: {samples.map(s => s.steps ?? 0).join(", ") || "đang tải"}
         {" · "}<a href={qaLink(currentMode, {
-          mixamo:true, footLock:false, contactV4:true, pelvisFix:true, sideStepV5:true, sideStepDemo:true,
+          mixamo:true, footLock:false, contactV4:true, pelvisFix:true, sideStepV5:true, sideStepV6:false, sideStepDemo:true,
         })}>Demo Bored (cả 5 nhân vật)</a>
         {" · "}<a href={qaLink(currentMode, {
-          mixamo:true, footLock:false, contactV4:true, pelvisFix:true, sideStepV5:false, sideStepDemo:false,
+          mixamo:true, footLock:false, contactV4:true, pelvisFix:true, sideStepV5:false, sideStepV6:false, sideStepDemo:false,
         })}>Đối chứng (tắt V5)</a>
       </p>}
       {mixamo && <p>
@@ -182,13 +201,13 @@ export default function MotionControls({
         <a href={qaLink(currentMode, {contactV4:true})}>
           Bật V4
         </a>{" · "}
-        <a href={qaLink(currentMode, {contactV4:false,sideStepV5:false,sideStepDemo:false})}>
+        <a href={qaLink(currentMode, {contactV4:false,sideStepV5:false,sideStepV6:false,sideStepDemo:false})}>
           So sánh bản cũ
         </a>
       </p>}
       {mixamo && <p>
         Foot Lock: {footLock ? "BẬT (thử nghiệm)" : "TẮT (gốc)"} ·{" "}
-        <a href={qaLink(currentMode, {footLock:!footLock,sideStepV5:false,sideStepDemo:false})}>
+        <a href={qaLink(currentMode, {footLock:!footLock,sideStepV5:false,sideStepV6:false,sideStepDemo:false})}>
           {footLock ? "So sánh: tắt" : "So sánh: bật"}
         </a>
       </p>}
@@ -196,7 +215,7 @@ export default function MotionControls({
       <nav>
         <a href={qaLink("female")}>Nữ</a> · <a href={qaLink("male")}>Nam</a> ·{" "}
         <a href={qaLink("five")}>Năm người</a> ·{" "}
-        <a href={qaLink("five", {mixamo:!mixamo,sideStepV5:false,sideStepDemo:false})}>{mixamo ? "Blender V1.9.3" : "Mixamo All 10"}</a>
+        <a href={qaLink("five", {mixamo:!mixamo,sideStepV5:false,sideStepV6:false,sideStepDemo:false})}>{mixamo ? "Blender V1.9.3" : "Mixamo All 10"}</a>
       </nav>
       <select
         aria-label="Động tác"
@@ -237,7 +256,7 @@ export default function MotionControls({
             Contact drift tối đa {(s.contactSlip * 100).toFixed(2)} cm ·
             trong crossfade {((s.crossfadeSlip ?? 0) * 100).toFixed(2)} cm ·
             chênh pose đầu clip {((s.poseGap ?? 0) * 100).toFixed(1)}% chiều cao ·
-            {s.transitionCount ?? 0} chuyển tiếp · V5 side-step {s.steps ?? 0}
+            {s.transitionCount ?? 0} chuyển tiếp · V5 steps {s.steps ?? 0} · V6 steps {s.stepsV6 ?? 0}
           </div>}
         </div>
       ))}

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
 import { bakeBoredSideStepsV5, type SideStepV5Event } from "./mixamo-side-step-v5";
+import { bakeBoredSideStepsV6, type SideStepV6Event } from "./mixamo-side-step-v6";
 import {
   compatibleBagIndex, createMixamoContactTracker, plantedFeet,
   supportFootMismatch, transitionWindow, type FootPair,
@@ -45,6 +46,7 @@ export type MixamoLobbyIdle = {
   transitionPoseGap: number;
   transitionCount: number;
   sideStepEvents: readonly SideStepV5Event[];
+  sideStepV6Events: readonly SideStepV6Event[];
   animationProfile: MixamoGesture;
   clipDuration: number;
   poseTime: number;
@@ -148,7 +150,9 @@ export function createMixamoLobbyIdle(
     window.location.pathname === "/tools/lobby-qa-sketch" &&
     new URLSearchParams(window.location.search).get("contactV4") !== "0";
   // Never enable V5 outside the isolated Mixamo QA route.
-  const sideStepV5 = contactV4 &&
+  const sideStepV6 = contactV4 &&
+    new URLSearchParams(window.location.search).get("sideStepV6") === "1";
+  const sideStepV5 = contactV4 && !sideStepV6 &&
     new URLSearchParams(window.location.search).get("sideStepV5") === "1";
   const mixer = new THREE.AnimationMixer(actor);
   const actions = new Map<MixamoGesture, THREE.AnimationAction>();
@@ -175,12 +179,16 @@ export function createMixamoLobbyIdle(
   // Bake once at actor startup, NEVER override an authored step during playback.
   // Only Bored is eligible for this V5 pilot; all other gestures stay untouched.
   let sideStepEvents: readonly SideStepV5Event[] = [];
-  if (sideStepV5) {
+  let sideStepV6Events: readonly SideStepV6Event[] = [];
+  if (sideStepV5 || sideStepV6) {
     const sourceAction = actions.get("bored");
     if (sourceAction) {
       const sourceClip = sourceAction.getClip();
-      const baked = bakeBoredSideStepsV5(actor, rig, sourceClip, scale);
-      sideStepEvents = baked.events;
+      const baked = sideStepV6
+        ? bakeBoredSideStepsV6(actor, rig, sourceClip)
+        : bakeBoredSideStepsV5(actor, rig, sourceClip, scale);
+      if (sideStepV6) sideStepV6Events = baked.events as readonly SideStepV6Event[];
+      else sideStepEvents = baked.events as readonly SideStepV5Event[];
       if (baked.events.length) {
         sourceAction.stop();
         mixer.uncacheClip(sourceClip);
@@ -334,6 +342,7 @@ export function createMixamoLobbyIdle(
     plantedContactTravel: 0, crossfadeContactTravel: 0,
     transitionPoseGap: 0, transitionCount: 0,
     sideStepEvents,
+    sideStepV6Events,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
     select(id) {
       if (!actions.has(id as MixamoGesture)) return;
