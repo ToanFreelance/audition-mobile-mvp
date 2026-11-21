@@ -5,6 +5,10 @@ import { bakeBoredSideStepsV5, type SideStepV5Event } from "./mixamo-side-step-v
 import { bakeBoredSideStepsV6, type SideStepV6Event } from "./mixamo-side-step-v6";
 import { bakeFootContactsV7, type ClipContactV7 } from "./mixamo-foot-contact-v7";
 import {
+  bakePerFootContactV8, bestSupportCandidateV8,
+  type FootContactV8Profile, type FootContactV8Report,
+} from "./mixamo-contact-v8";
+import {
   compatibleBagIndex, createMixamoContactTracker, plantedFeet,
   supportFootMismatch, transitionWindow, type FootPair,
 } from "./mixamo-contact-transitions";
@@ -49,6 +53,16 @@ export type MixamoLobbyIdle = {
   sideStepEvents: readonly SideStepV5Event[];
   sideStepV6Events: readonly SideStepV6Event[];
   contactV7Reports: readonly ClipContactV7[];
+  contactV8Reports: readonly FootContactV8Report[];
+  v8FootContact: {
+    leftCm: number; rightCm: number;
+    crossfadeLeftCm: number; crossfadeRightCm: number;
+    segments: number;
+    transitions: Array<{
+      from:string; to:string; support: readonly [boolean,boolean];
+      soleGapCm:readonly [number,number]; fadeSeconds:number;
+    }>;
+  };
   animationProfile: MixamoGesture;
   clipDuration: number;
   poseTime: number;
@@ -156,6 +170,8 @@ export function createMixamoLobbyIdle(
     new URLSearchParams(window.location.search).get("sideStepV6") === "1";
   const contactV7 = contactV4 &&
     new URLSearchParams(window.location.search).get("contactV7") === "1";
+  const contactV8 = contactV4 && contactV7 &&
+    new URLSearchParams(window.location.search).get("contactV8") === "1";
   const sideStepV5 = contactV4 && !sideStepV6 &&
     new URLSearchParams(window.location.search).get("sideStepV5") === "1";
   const mixer = new THREE.AnimationMixer(actor);
@@ -220,11 +236,49 @@ export function createMixamoLobbyIdle(
     console.info("[mixamo-contact-v7] catalog", family,
       JSON.stringify(contactV7Reports));
   }
+  // Native per-foot contact authoring follows V7; clip runtime does not do IK.
+  const contactV8Reports: FootContactV8Report[] = [];
+  const contactV8Profiles = new Map<MixamoGesture,FootContactV8Profile>();
+  if (contactV8) {
+    for (const [gesture, sourceAction] of actions) {
+      const original = sourceAction.getClip();
+      const baked = bakePerFootContactV8(actor,rig,original);
+      contactV8Reports.push(baked.report);
+      contactV8Profiles.set(gesture,baked.profile);
+      if (!baked.report.applied) continue;
+      sourceAction.stop();
+      mixer.uncacheClip(original);
+      const next = mixer.clipAction(baked.clip).setLoop(THREE.LoopOnce,1);
+      next.clampWhenFinished = true;
+      actions.set(gesture,next);
+    }
+    console.info("[mixamo-contact-v8] per-foot catalog",family,
+      JSON.stringify(contactV8Reports));
+  }
+  const firstSoles = new Map<MixamoGesture,FootPair>();
+  const initialSupports = new Map<MixamoGesture,readonly [boolean,boolean]>();
+  for(const [id,profile] of contactV8Profiles){
+    firstSoles.set(id,profile.start);
+    initialSupports.set(id,profile.getContact(2/30));
+  }
   const restY: readonly [number, number] = [rest[0].y, rest[1].y];
   const readFeet = (): FootPair => {
     const left = actor.worldToLocal(footBones[0].getWorldPosition(new THREE.Vector3()));
     const right = actor.worldToLocal(footBones[1].getWorldPosition(new THREE.Vector3()));
     return [[left.x, left.y, left.z], [right.x, right.y, right.z]];
+  };
+
+  const toeBones = (["toes.L","toes.R"] as const)
+    .map(name=>findRigBone(rig,name));
+  const readSoles = ():FootPair => {
+    if (toeBones.some(b=>!b)) return readFeet();
+    const asSole=(index:number):readonly [number,number,number]=>{
+      const heel=actor.worldToLocal(footBones[index].getWorldPosition(new THREE.Vector3()));
+      const toe=actor.worldToLocal(toeBones[index]!.getWorldPosition(new THREE.Vector3()));
+      heel.lerp(toe,0.64);
+      return [heel.x,heel.y,heel.z];
+    };
+    return [asSole(0),asSole(1)];
   };
 
   // Sample only the FIRST pose of each clip once per actor. The probe mixer
@@ -286,7 +340,12 @@ export function createMixamoLobbyIdle(
       const currentFeet = readFeet();
       const mask = plantedFeet(currentFeet, restY, scale);
       const blocked = currentBag.filter(key => !allowed.includes(key));
-      const best = compatibleBagIndex(currentBag, firstFootPoses, currentFeet, mask, scale, blocked);
+      const best = contactV8 && firstSoles.size
+        ? bestSupportCandidateV8(
+            currentBag,firstSoles,initialSupports,readSoles(),
+            contactV8Profiles.get(current)?.getContact(action.time)??mask,blocked,
+          )
+        : compatibleBagIndex(currentBag, firstFootPoses, currentFeet, mask, scale, blocked);
       if (best >= 0) index = best;
     }
     const next = currentBag.splice(Math.max(0, index), 1)[0];
@@ -299,9 +358,16 @@ export function createMixamoLobbyIdle(
   let baseCount = 0;
   let action = actions.get(current)!.reset().setEffectiveWeight(1).play();
   let outgoing: THREE.AnimationAction | null = null;
+  let previousActiveGesture:MixamoGesture|null = null;
   let fadeTime = 0;
   let queued: MixamoGesture | null = null;
   let isDisposed = false;
+  const v8Stats:MixamoLobbyIdle["v8FootContact"] = {
+    leftCm:0,rightCm:0,crossfadeLeftCm:0,crossfadeRightCm:0,
+    segments:0,transitions:[],
+  };
+  const v8Last:([number,number,number]|null)[]=[null,null];
+  let v8LastGesture:MixamoGesture|null=null;
   const placement: Placement = {
     feet: [[0, 0, 0, 0], [0, 0, 0, 0]],
     pitch: [0, 0], shift: 0, drop: 0,
@@ -309,9 +375,22 @@ export function createMixamoLobbyIdle(
   function begin(next: MixamoGesture, immediate = false) {
     const incoming = actions.get(next);
     if (!incoming) return;
+    const previousGesture=current;
+    const currentContact:readonly [boolean,boolean] =
+      contactV8Profiles.get(current)?.getContact(action.time) ??
+      plantedFeet(readFeet(),restY,scale);
+    const oldSoles=contactV8?readSoles():null;
+    const nextSoles=firstSoles.get(next);
+    const gaps:readonly [number,number]=oldSoles&&nextSoles
+      ? [0,1].map(i=>Math.hypot(
+          oldSoles[i][0]-nextSoles[i][0],
+          oldSoles[i][2]-nextSoles[i][2],
+        )*100) as [number,number]
+      :[0,0];
     if (incoming === action) {
       action.reset().setEffectiveWeight(1).play();
       outgoing = null;
+      previousActiveGesture=null;
       fadeTime = 0;
     } else {
       if (outgoing) outgoing.stop();
@@ -320,10 +399,18 @@ export function createMixamoLobbyIdle(
       const duration = contactV4
         ? transitionWindow(action.getClip().duration).fade
         : immediate ? 0.4 : Math.min(0.55, action.getClip().duration * 0.24);
-      const fade = contactV4 && immediate ? Math.min(duration, 0.22) : duration;
+      // A shorter capped crossfade reduces prolonged planted-foot blending
+      // on mismatched support poses. We still blend all authored joints;
+      // no runtime leg lock, transform warp, or extra AnimationMixer.
+      const risk = Math.max(...gaps.filter((_,i)=>currentContact[i]));
+      const baseFade = contactV4 && immediate ? Math.min(duration,0.22) : duration;
+      const fade = contactV8 && risk>2.5
+        ? Math.max(0.15,Math.min(baseFade,baseFade*0.82))
+        : baseFade;
       incoming.reset().setEffectiveWeight(1).play();
       action.crossFadeTo(incoming, fade, false);
       outgoing = action;
+      previousActiveGesture=current;
       fadeTime = fade;
       action = incoming;
     }
@@ -333,6 +420,15 @@ export function createMixamoLobbyIdle(
       transitionPoseGap = supportFootMismatch(feet, start, plantedFeet(feet, restY, scale), scale);
     } else transitionPoseGap = 0;
     transitionCount++;
+    if(contactV8){
+      v8Stats.transitions.push({
+        from:previousGesture,to:next,support:currentContact,
+        soleGapCm:gaps,fadeSeconds:outgoing?fadeTime:0,
+      });
+      if(v8Stats.transitions.length>16)v8Stats.transitions.shift();
+      v8Last[0]=v8Last[1]=null;
+      v8LastGesture=null;
+    }
     current = next;
     queued = null;
     runtime.target = next;
@@ -366,6 +462,8 @@ export function createMixamoLobbyIdle(
     sideStepEvents,
     sideStepV6Events,
     contactV7Reports,
+    contactV8Reports,
+    v8FootContact:v8Stats,
     animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
     select(id) {
       if (!actions.has(id as MixamoGesture)) return;
@@ -388,7 +486,10 @@ export function createMixamoLobbyIdle(
         mixer.update(dt);
         if (outgoing) {
           fadeTime -= dt;
-          if (fadeTime <= 0) { outgoing.stop(); outgoing = null; this.target = null; }
+          if (fadeTime <= 0) {
+            outgoing.stop(); outgoing = null;
+            previousActiveGesture=null; this.target = null;
+          }
         }
         const duration = action.getClip().duration;
         const lead = contactV4 ? transitionWindow(duration).lead : Math.min(0.32, duration * 0.18);
@@ -411,6 +512,32 @@ export function createMixamoLobbyIdle(
       this.plantedCorrectedTravel = lockSample?.plantedCorrectedTravel ?? 0;
       const rawFeet = readFeet();
       contactTracker.update(rawFeet, Boolean(outgoing), deltaSeconds);
+      if(contactV8){
+        const blended=Boolean(outgoing);
+        const active=contactV8Profiles.get(current);
+        const mask=active?.getContact(action.time)??[false,false];
+        const was=outgoing
+          ? (previousActiveGesture
+            ? contactV8Profiles.get(previousActiveGesture)?.getContact(outgoing.time)
+            :null)
+          :null;
+        const soles=readSoles();
+        if(v8LastGesture!==current){
+          v8Last[0]=v8Last[1]=null;
+          v8LastGesture=current;
+        }
+        for(let i=0;i<2;i++){
+          const planted=mask[i] && (!was||was[i]);
+          if(!planted){v8Last[i]=null;continue;}
+          if(v8Last[i]&&deltaSeconds>0&&deltaSeconds<=0.15){
+            const cm=100*Math.hypot(soles[i][0]-v8Last[i]![0],
+              soles[i][2]-v8Last[i]![2]);
+            if(i===0){v8Stats.leftCm+=cm;if(blended)v8Stats.crossfadeLeftCm+=cm;}
+            else {v8Stats.rightCm+=cm;if(blended)v8Stats.crossfadeRightCm+=cm;}
+          }else v8Stats.segments++;
+          v8Last[i]=[...soles[i]] as [number,number,number];
+        }
+      }
       this.maxContactSlip = contactTracker.stats.maxContactSlip;
       this.maxCrossfadeSlip = contactTracker.stats.maxCrossfadeSlip;
       this.plantedContactTravel = contactTracker.stats.plantedTravel;
@@ -426,7 +553,13 @@ export function createMixamoLobbyIdle(
       });
       this.maxFootDrift = Math.max(this.maxFootDrift, this.footDrift);
       this.placement.feet = nextFeet as [Shoe, Shoe];
-      this.contacts = nextFeet[0][2] > .01 ? "RIGHT_SUPPORT" : nextFeet[1][2] > .01 ? "LEFT_SUPPORT" : "DOUBLE_SUPPORT";
+      const v8Mask=contactV8Profiles.get(current)?.getContact(action.time);
+      this.contacts = v8Mask
+        ? v8Mask[0] && v8Mask[1] ? "DOUBLE_SUPPORT"
+          : v8Mask[0] ? "LEFT_SUPPORT"
+          : v8Mask[1] ? "RIGHT_SUPPORT" : "AIRBORNE"
+        : nextFeet[0][2] > .01 ? "RIGHT_SUPPORT"
+          : nextFeet[1][2] > .01 ? "LEFT_SUPPORT" : "DOUBLE_SUPPORT";
       this.phase = outgoing ? "CROSSFADE" : group.emote.includes(current) ? "MIXAMO_EMOTE" : "MIXAMO_IDLE";
       garmentFit?.update(nextFeet[1][2]);
     },

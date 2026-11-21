@@ -28,6 +28,7 @@ type LobbyQaSketchPageProps = {
     sideStepV5?: string;
     sideStepV6?: string;
     contactV7?: string;
+    contactV8?: string;
     sideStepDemo?: string;
   }>;
 };
@@ -146,6 +147,7 @@ export default async function LobbyQaSketchPage({ searchParams }: LobbyQaSketchP
       sideStepV5={params.sideStepV5 === "1"}
       sideStepV6={params.sideStepV6 === "1"}
       contactV7={params.contactV7 === "1"}
+      contactV8={params.contactV8 === "1"}
       sideStepDemo={params.sideStepDemo === "1"}
     />}
     </>

@@ -24,6 +24,13 @@ type Sample = {
   transitionCount?: number;
   steps?: number;
   stepsV6?: number;
+  v8?: {
+    leftCm:number;rightCm:number;
+    crossfadeLeftCm:number;crossfadeRightCm:number;
+    segments:number;
+    transitions:Array<{from:string;to:string;support:readonly [boolean,boolean];
+      soleGapCm:readonly [number,number];fadeSeconds:number}>;
+  } | null;
 };
 function placement(feet: Feet) {
   return feet
@@ -41,6 +48,7 @@ export default function MotionControls({
   sideStepV5 = false,
   sideStepV6 = false,
   contactV7 = false,
+  contactV8 = false,
   sideStepDemo = false,
 }: {
   family: keyof typeof rigPool;
@@ -53,6 +61,7 @@ export default function MotionControls({
   sideStepV5?: boolean;
   sideStepV6?: boolean;
   contactV7?: boolean;
+  contactV8?: boolean;
   sideStepDemo?: boolean;
 }) {
   const [id, setId] = useState<IdleId | MixamoGesture>(
@@ -68,9 +77,9 @@ export default function MotionControls({
     : (mixed ? [...rigPool.drophunter, ...rigPool.neurohacker] : rigPool[family]);
   const qaLink = (
     familyMode: "female" | "male" | "five",
-    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "contactV7" | "sideStepDemo", boolean>> = {},
+    changes: Partial<Record<"mixamo" | "footLock" | "contactV4" | "pelvisFix" | "sideStepV5" | "sideStepV6" | "contactV7" | "contactV8" | "sideStepDemo", boolean>> = {},
   ) => {
-    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, contactV7, sideStepDemo, ...changes};
+    const opts = {mixamo, footLock, contactV4, pelvisFix, sideStepV5, sideStepV6, contactV7, contactV8, sideStepDemo, ...changes};
     const params = new URLSearchParams({m3:familyMode});
     if (familyMode === "five") params.set("allM3", "1");
     if (opts.mixamo) {
@@ -82,6 +91,7 @@ export default function MotionControls({
         if (opts.sideStepV5 && !opts.sideStepV6) params.set("sideStepV5", "1");
         if (opts.sideStepV6) params.set("sideStepV6", "1");
         if (opts.contactV7) params.set("contactV7", "1");
+        if (opts.contactV8) params.set("contactV8", "1");
         if (opts.sideStepDemo) params.set("sideStepDemo", "1");
       }
     }
@@ -178,9 +188,23 @@ export default function MotionControls({
         {mixamo && " · V5 " + (sideStepV5 && !sideStepV6 && contactV4 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && " · V6 " + (sideStepV6 && contactV4 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && " · Contact V7 " + (contactV7 && contactV4 && !footLock ? "BẬT" : "TẮT")}
+        {mixamo && " · V8 " + (contactV8 && contactV7 && !footLock ? "BẬT" : "TẮT")}
         {mixamo && sideStepDemo && " · Bored demo"}
       </summary>
       {mixamo && <p>10 Mixamo clips · 17 tổ hợp rig; Catwalk chỉ chọn thủ công</p>}
+      {mixamo && <p>
+        <strong>V8 Per-Foot Contact + Transition:</strong>{" "}
+        {contactV8 && contactV7 && !footLock ? "BẬT" : "TẮT"}{" · "}
+        <a href={qaLink("five",{
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:true,contactV7:true,contactV8:true,sideStepDemo:false,
+        })}>5 người · Random + V8</a>{" · "}
+        <a href={qaLink("five",{
+          mixamo:true,footLock:false,contactV4:true,pelvisFix:true,
+          sideStepV5:false,sideStepV6:true,contactV7:true,contactV8:false,sideStepDemo:false,
+        })}>Đối chứng V7</a>
+        <div>QA: đế chân (heel/toe proxy), clip hiện tại, chân trụ và số liệu crossfade</div>
+      </p>}
       {mixamo && <p>
         <strong>V7 Contact-aware (toàn bộ Mixamo clips):</strong>{" "}
         {contactV7 && !footLock ? "BẬT" : "TẮT"}{" · "}
@@ -276,6 +300,18 @@ export default function MotionControls({
             trong crossfade {((s.crossfadeSlip ?? 0) * 100).toFixed(2)} cm ·
             chênh pose đầu clip {((s.poseGap ?? 0) * 100).toFixed(1)}% chiều cao ·
             {s.transitionCount ?? 0} chuyển tiếp · V5 steps {s.steps ?? 0} · V6 steps {s.stepsV6 ?? 0}
+          </div>}
+          {s.v8 && <div>
+            V8 contact L/R: {s.v8.leftCm.toFixed(2)} / {s.v8.rightCm.toFixed(2)} cm ·
+            crossfade L/R: {s.v8.crossfadeLeftCm.toFixed(2)} / {s.v8.crossfadeRightCm.toFixed(2)} cm
+            {" · "}{s.v8.segments} đoạn trụ
+            {s.v8.transitions.length>0 && <div>
+              Last: {s.v8.transitions[s.v8.transitions.length-1].from}
+              {" → "}{s.v8.transitions[s.v8.transitions.length-1].to}
+              {" · "}Gap L/R: {s.v8.transitions[s.v8.transitions.length-1].soleGapCm
+                .map(x=>x.toFixed(1)).join("/")} cm
+              {" · "}Fade: {s.v8.transitions[s.v8.transitions.length-1].fadeSeconds.toFixed(2)}s
+            </div>}
           </div>}
         </div>
       ))}

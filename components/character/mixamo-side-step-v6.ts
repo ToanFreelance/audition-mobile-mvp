@@ -55,7 +55,7 @@ function targetBoneAt(bone: THREE.Bone, child: THREE.Bone, target: THREE.Vector3
   return true;
 }
 
-function solveLeg(
+export function solveLeg(
   actor: THREE.Object3D, [upper, lower, ankle]: readonly THREE.Bone[],
   targetActorLocal: THREE.Vector3,
   onReject?: (reason: string) => void,

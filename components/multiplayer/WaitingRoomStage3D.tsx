@@ -1278,6 +1278,8 @@ export default function WaitingRoomStage3D({
       new URLSearchParams(window.location.search).get("contactV4") !== "0";
     const contactV7Review = contactV4Review &&
       new URLSearchParams(window.location.search).get("contactV7") === "1";
+    const contactV8Review = contactV7Review &&
+      new URLSearchParams(window.location.search).get("contactV8") === "1";
     const sideStepV6Review = contactV4Review &&
       new URLSearchParams(window.location.search).get("sideStepV6") === "1";
     const sideStepV5Review = contactV4Review && !sideStepV6Review &&
@@ -1610,6 +1612,13 @@ export default function WaitingRoomStage3D({
             stageElement.dataset.m3ContactV7Reports = JSON.stringify(runtimes.map(item => (
               "contactV7Reports" in item ? item.contactV7Reports : []
             )));
+            stageElement.dataset.m3ContactV8 = contactV8Review && mixamoModule ? "1" : "0";
+            stageElement.dataset.m3ContactV8Reports = JSON.stringify(runtimes.map(item => (
+              "contactV8Reports" in item ? item.contactV8Reports : []
+            )));
+            stageElement.dataset.m3ContactV8Metrics = JSON.stringify(runtimes.map(item => (
+              "v8FootContact" in item ? item.v8FootContact : null
+            )));
             stageElement.dataset.m3SideStepV6 = sideStepV6Review && mixamoModule ? "1" : "0";
             stageElement.dataset.m3SideStepV6Metrics = JSON.stringify(runtimes.map(item => ({
               clip: item.animationProfile,
@@ -1656,6 +1665,7 @@ export default function WaitingRoomStage3D({
                 poseGap: r.transitionPoseGap, transitionCount: r.transitionCount,
                 steps: "sideStepEvents" in r ? r.sideStepEvents.length : 0,
                 stepsV6: "sideStepV6Events" in r ? r.sideStepV6Events.length : 0,
+                v8: "v8FootContact" in r ? r.v8FootContact : null,
               } : {}),
             })));
             stageElement.dataset.m3FootDrift = Math.max(0, ...runtimes.map(item => item.footDrift)).toFixed(5);
