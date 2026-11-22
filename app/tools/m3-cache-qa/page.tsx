@@ -6,6 +6,7 @@ import { parseM3LobbyAppearance } from "../../../components/character/m3-lobby-a
 import {
   m3CacheKey, m3SelectedAssetFiles, warmM3AppearanceAssets,
   inspectM3AppearanceCache, M3_ASSET_CACHE_REVISION,
+  M3_GREETING_CACHE_KEY, warmM3GreetingAsset,
 } from "../../../components/character/m3-asset-cache";
 import { removePersistentAssetCached } from "../../../lib/persistent-asset-cache";
 import type { M3LobbyAppearance } from "../../../multiplayer/types";
@@ -16,12 +17,15 @@ type Status = Awaited<ReturnType<typeof inspectM3AppearanceCache>>;
 export default function M3CacheQaPage() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
+  const [greetingCached, setGreetingCached] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState("");
 
   const check = useCallback(async (selected: Selection) => {
     setStatus(await inspectM3AppearanceCache(selected.assetId, selected.appearance));
+    const { isPersistentAssetCached } = await import("../../../lib/persistent-asset-cache");
+    setGreetingCached(await isPersistentAssetCached(M3_GREETING_CACHE_KEY));
   }, []);
 
   useEffect(() => {
@@ -56,11 +60,15 @@ export default function M3CacheQaPage() {
     setBusy(true); setError(""); setResult("");
     try {
       if (action === "warm") {
-        await warmM3AppearanceAssets(selection.assetId, selection.appearance);
+        await Promise.all([
+          warmM3AppearanceAssets(selection.assetId, selection.appearance),
+          warmM3GreetingAsset(),
+        ]);
         setResult("Đã tải và lưu các VRM/texture của nhân vật vào Cache Storage.");
       } else if (action === "clear") {
         const files = m3SelectedAssetFiles(selection.assetId, selection.appearance);
         await Promise.all(files.map(item => removePersistentAssetCached(m3CacheKey(item.family, item.file))));
+        await removePersistentAssetCached(M3_GREETING_CACHE_KEY);
         setResult("Đã xóa CHỈ các asset M3 được chọn để test cold load. Không xóa tài khoản hay audio.");
       }
       await check(selection);
@@ -86,6 +94,9 @@ export default function M3CacheQaPage() {
           padding: 18, borderRadius: 12, fontSize: 23, fontWeight: 800 }}>
           {status.cached}/{status.total} files cached
         </div>}
+        <div data-testid="m3-greeting-cached" style={{ fontWeight: 700, fontSize: 14 }}>
+          Standing Greeting V14: {greetingCached ? "cached" : "not cached"}
+        </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {([
             ["check", "Kiểm tra lại"],
@@ -110,7 +121,8 @@ export default function M3CacheQaPage() {
         </ul>}
         <p style={{ fontSize: 12, lineHeight: 1.6, color: "#c5bfdc" }}>
           PASS sơ bộ: sau Preload phải là 6/6 (hoặc nhiều hơn nếu dùng skin tone khác),
-          reload trang vẫn giữ số đó. Safari có thể tự xóa dữ liệu khi thiếu dung lượng.
+          reload trang vẫn giữ số đó, và Standing Greeting V14 hiển thị cached.
+          Safari có thể tự xóa dữ liệu khi thiếu dung lượng.
           Để đo chính xác bytes mạng, dùng Web Inspector. Animation Mixamo dùng
           cache HTTP của JS bundle; Audio có cache bytes riêng.
         </p>
