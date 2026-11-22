@@ -103,3 +103,72 @@ test("admin delete requires Yes/No popup but not manual email copy", async ({ pa
   await expect(dialog).toHaveCount(0);
   expect(deleted).toBe(true);
 });
+
+test("Room Browser exposes logout for an authenticated M3 character", async ({ page }) => {
+  let loggedOut = false;
+  await page.route("**/api/auth", async route => {
+    if (route.request().method() === "POST") {
+      expect(route.request().postDataJSON()).toMatchObject({ action: "logout" });
+      loggedOut = true;
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ ok: true }) });
+    } else {
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ authenticated: !loggedOut,
+          user: loggedOut ? null : { id: "11111111-1111-4111-8111-111111111111", email: "qa@example.com" } }) });
+    }
+  });
+  await page.route("**/api/account/character", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, profile: {
+      version: 1, characterAssetId: "m3-drophunter",
+      gender: "female", name: "QA Dancer", hairStyle: "default",
+      hairColor: "default", skinTone: "default", face: "default",
+    } }),
+  }));
+  await page.route("**/api/multiplayer/room?browse=1", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, rooms: [] }),
+  }));
+  await page.goto("/rooms");
+  const logout = page.getByTestId("room-browser-logout");
+  await expect(logout).toBeVisible();
+  await logout.click();
+  await expect(page).toHaveURL(/\/auth$/);
+  expect(loggedOut).toBe(true);
+  await expect(page.getByTestId("auth-submit")).toBeVisible();
+});
+
+test("QA password recovery cannot bypass admin quick access", async ({ page }) => {
+  const testUser = {
+    id: "11111111-1111-4111-8111-111111111111",
+    email: "audition-qa-123456789012345678901234@example.com",
+    confirmed: true, isTestAccount: true, createdAt: null, lastSignInAt: null,
+  };
+  let issued = false;
+  await page.route(/\/api\/admin\/accounts(?:\?.*)?$/, async route => {
+    if (route.request().method() === "POST") {
+      expect(route.request().postDataJSON()).toMatchObject({
+        action: "reset-qa-password", userId: testUser.id, confirmEmail: testUser.email,
+      });
+      issued = true;
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        ok: true, testAccount: { id: testUser.id, email: testUser.email,
+          password: "newStrongPassword123" },
+      }) });
+    } else {
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ ok: true, page: 1, users: [testUser] }) });
+    }
+  });
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Cấp lại mật khẩu QA " + testUser.email }).click();
+  await expect(page.getByRole("alertdialog")).toBeVisible();
+  await page.getByTestId("admin-cancel-action").click();
+  expect(issued).toBe(false);
+  await page.getByRole("button", { name: "Cấp lại mật khẩu QA " + testUser.email }).click();
+  await page.getByTestId("admin-confirm-delete").click();
+  expect(issued).toBe(true);
+  await expect(page.getByTestId("admin-test-credentials")).toBeVisible();
+  await expect(page.getByLabel("Mật khẩu tài khoản QA")).toHaveValue("newStrongPassword123");
+});

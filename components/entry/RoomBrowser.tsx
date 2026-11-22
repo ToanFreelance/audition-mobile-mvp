@@ -72,6 +72,7 @@ export default function RoomBrowser() {
   const [error, setError] = useState("");
   const [walletInfoOpen, setWalletInfoOpen] = useState(false);
   const [dashboardHint, setDashboardHint] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [section, setSection] = useState<Section>("rooms");
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -154,6 +155,28 @@ export default function RoomBrowser() {
       window.removeEventListener("pageshow", refreshVisible);
     };
   }, [refresh]);
+
+  const logout = async () => {
+    if (loggingOut || accountState !== "account") return;
+    setLoggingOut(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "logout" }),
+      });
+      const result = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) throw new Error(result.error ?? "Đăng xuất không thành công.");
+      // Navigation destroys all account-specific in-memory profile state. The
+      // guest browser identity is not promoted into this account's profile.
+      setIdentity(null);
+      window.location.replace("/auth");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể đăng xuất.");
+      setLoggingOut(false);
+    }
+  };
 
   const roomAvatarLook = () => {
     if (!identity) return null;
@@ -263,7 +286,18 @@ export default function RoomBrowser() {
             <div className={styles.playerText}>
               <strong>{identity.profile.name}</strong>
               <span>Lv. 25</span>
-              {accountState === "account" && <a href="/auth" style={{ color: "#9feaff", fontSize: 10 }}>Tài khoản</a>}
+              {accountState === "account" ? (
+                <span className={styles.accountLinks}>
+                  <a href="/auth" className={styles.accountShortcut}>Tài khoản</a>
+                  <button type="button" className={styles.logoutShortcut}
+                    data-testid="room-browser-logout" disabled={loggingOut}
+                    onClick={() => void logout()}>
+                    {loggingOut ? "Đang thoát…" : "Đăng xuất"}
+                  </button>
+                </span>
+              ) : (
+                <a href="/auth" className={styles.accountShortcut}>Đăng nhập</a>
+              )}
             </div>
             <div className={styles.playerTokens} aria-label="Số dư mẫu chưa triển khai">
               <span className={styles.tokenGold} aria-label="0 coin"><span className={styles.coinSymbol}>◎</span><b>0</b></span>

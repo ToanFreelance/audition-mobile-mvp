@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       // No client-supplied email/password is forwarded to privileged service.
       return await callAdminEdge(request, { action: "create-test-account" });
     }
-    if (input.action !== "delete" && input.action !== "reset-character"
+    if (input.action !== "delete" && input.action !== "reset-character" && input.action !== "reset-qa-password"
       || typeof input.userId !== "string"
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.userId)
       || typeof input.confirmEmail !== "string" || input.confirmEmail.length > 254) {

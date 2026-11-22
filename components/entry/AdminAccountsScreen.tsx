@@ -29,7 +29,7 @@ export default function AdminAccountsScreen() {
   const [notice, setNotice] = useState("");
   const [denied, setDenied] = useState(false);
   const [selected, setSelected] = useState<Account | null>(null);
-  const [selectedAction, setSelectedAction] = useState<"delete" | "reset-character">("delete");
+  const [selectedAction, setSelectedAction] = useState<"delete" | "reset-character" | "reset-qa-password">("delete");
   const [busy, setBusy] = useState(false);
   const [accessCode, setAccessCode] = useState("");
   const [newTestAccount, setNewTestAccount] = useState<{ email: string; password: string } | null>(null);
@@ -134,6 +134,10 @@ export default function AdminAccountsScreen() {
       });
       const data = await r.json() as Result;
       if (!r.ok || !data.ok) throw Error(data.error ?? "Không xóa được tài khoản.");
+      if (selectedAction === "reset-qa-password") {
+        if (!data.testAccount) throw Error("Không nhận được mật khẩu QA mới.");
+        setNewTestAccount({ email: data.testAccount.email, password: data.testAccount.password });
+      }
       if (selectedAction === "delete" && data.deletedSelf) {
         // Session cookies must be cleared before this email registers again.
         await fetch("/api/auth", { method: "POST", credentials: "same-origin",
@@ -144,7 +148,9 @@ export default function AdminAccountsScreen() {
       setSelected(null);
       setNotice(selectedAction === "reset-character"
         ? "Đã reset nhân vật. Tài khoản vẫn được xác minh; đăng nhập và tạo nhân vật M3 mới."
-        : "Đã xóa tài khoản. Việc đăng ký lại vẫn phụ thuộc hạn mức email xác minh của Supabase.");
+        : selectedAction === "reset-qa-password"
+          ? "Đã cấp mật khẩu QA mới. Dùng nút Đăng nhập ngay hoặc sao chép mật khẩu; mật khẩu cũ không còn sử dụng."
+          : "Đã xóa tài khoản. Việc đăng ký lại vẫn phụ thuộc hạn mức email xác minh của Supabase.");
       await load(page);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không xóa được."); }
     finally { setBusy(false); }
@@ -186,7 +192,7 @@ export default function AdminAccountsScreen() {
             </div>
             {newTestAccount && (
               <section className={admin.credentials} data-testid="admin-test-credentials">
-                <strong>Tài khoản QA đã tạo — lưu lại thông tin ngay</strong>
+                <strong>Thông tin đăng nhập QA — lưu lại ngay</strong>
                 <p>Mật khẩu chỉ hiển thị trong phiên này và không thể xem lại.</p>
                 <label>Email
                   <input readOnly value={newTestAccount.email} aria-label="Email tài khoản QA"/>
@@ -224,6 +230,14 @@ export default function AdminAccountsScreen() {
                     <span>Đăng nhập gần nhất: {dateLabel(user.lastSignInAt)}</span>
                   </div>
                   <div className={admin.accountActions}>
+                    {user.isTestAccount && (
+                      <button type="button" className={admin.reset} disabled={busy}
+                        data-testid={"qa-password-reset-" + user.id}
+                        onClick={() => { setSelected(user); setSelectedAction("reset-qa-password"); setError(""); }}
+                        aria-label={"Cấp lại mật khẩu QA " + (user.email ?? user.id)}>
+                        Mật khẩu QA
+                      </button>
+                    )}
                     <button type="button" className={admin.reset} disabled={!user.email || busy}
                       onClick={() => { setSelected(user); setSelectedAction("reset-character"); setError(""); }}
                       aria-label={"Reset nhân vật " + (user.email ?? user.id)}>Reset NV</button>
@@ -248,13 +262,16 @@ export default function AdminAccountsScreen() {
               aria-labelledby="admin-action-title" aria-describedby="admin-action-description"
               data-testid="admin-delete-confirmation">
               <strong id="admin-action-title">
-                {selectedAction === "reset-character" ? "Reset nhân vật?" : "Xóa tài khoản?"}
+                {selectedAction === "reset-character" ? "Reset nhân vật?" :
+                  selectedAction === "reset-qa-password" ? "Cấp lại mật khẩu QA?" : "Xóa tài khoản?"}
               </strong>
               <p id="admin-action-description">
                 <strong>{selected.email}</strong>
                 {selectedAction === "reset-character"
                   ? " — Nhân vật hiện tại sẽ bị xóa. Tài khoản và email đã xác minh vẫn được giữ."
-                  : " — Tài khoản và nhân vật sẽ bị xóa vĩnh viễn. Không thể hoàn tác."}
+                  : selectedAction === "reset-qa-password"
+                    ? " — Mật khẩu cũ sẽ hết hiệu lực. Mật khẩu mới được hiển thị một lần; nhân vật vẫn giữ nguyên."
+                    : " — Tài khoản và nhân vật sẽ bị xóa vĩnh viễn. Không thể hoàn tác."}
                 {selectedAction === "delete" && selected.id === selfId && " Đây là tài khoản đang đăng nhập."}
               </p>
               <div className={admin.confirmButtons}>
@@ -263,7 +280,8 @@ export default function AdminAccountsScreen() {
                 <button type="button" data-testid="admin-confirm-delete" className={admin.delete}
                   disabled={busy} onClick={() => void remove()}>
                   {busy ? "ĐANG XỬ LÝ…" :
-                    selectedAction === "reset-character" ? "CÓ, RESET" : "CÓ, XÓA"}
+                    selectedAction === "reset-character" ? "CÓ, RESET" :
+                    selectedAction === "reset-qa-password" ? "CÓ, CẤP LẠI" : "CÓ, XÓA"
                 </button>
               </div>
             </section>

@@ -148,3 +148,12 @@ After owner successfully created QA test accounts, two usability issues were res
 - Reset NV and Xóa now open a mobile **Yes/No confirmation modal**. No typing/copying the selected email is required. The client includes the selected user's email automatically, and the server still re-fetches and checks the exact target email + authorized Admin quick-access code before irreversible deletion. Modal cancellation makes no network write.
 
 Existing normal registration/login, email confirmation, character ownership, RoomState and gameplay remain unchanged. These QA shortcuts must be retired before production.
+
+## Account re-login & Room Browser logout — 22 Nov 2026
+
+- Existing QA users sign in again at `/auth` with the generated email/password saved at account creation; normal refresh-cookie session persists between visits on the same browser unless signed out.
+- `/rooms` now exposes **Đăng xuất** under the player's name only for an authenticated account. It uses the existing `POST /api/auth` logout action, clears the account identity from the current page and navigates with `location.replace('/auth')`. Guest sees an optional `Đăng nhập` shortcut instead.
+- For a QA account whose one-time random password was not saved, Admin now includes **Mật khẩu QA** on each generated QA account. It is a privileged `reset-qa-password` action with a Yes/No confirmation; Edge verifies the target ID/email and strict `audition_qa_test` app metadata and generated QA email pattern before issuing a fresh random password through Supabase GoTrue Admin UpdateUser endpoint. This does NOT apply to a real email account.
+- The new password is displayed one time, permitting **Đăng nhập ngay → Tạo nhân vật** or copy onto another device. Previously created character data is untouched. No static password, password hash, privileged login bypass, service-role key or per-user password cache is added to browser or repository.
+- If the user lost their previous password, it cannot be recovered; only a new QA password can be issued.
+- The login/logout experience is scoped to Room Browser and Admin. RoomState and accepted Waiting Room assets remain unchanged. No auto-merge.

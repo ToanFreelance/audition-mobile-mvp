@@ -148,7 +148,7 @@ Deno.serve(async req => {
         })),
       });
     }
-    if (body.action !== "delete" && body.action !== "reset-character") {
+    if (body.action !== "delete" && body.action !== "reset-character" && body.action !== "reset-qa-password") {
       return response({ error: "Unsupported action" }, 400);
     }
     const userId = typeof body.userId === "string" ? body.userId : "";
@@ -168,6 +168,23 @@ Deno.serve(async req => {
     // Do not permit one admin to delete a DIFFERENT admin.
     if (!quickAdmin && userId !== caller.id && await isAdminEmail(env, email)) {
       return response({ error: "Cannot delete another administrator" }, 403);
+    }
+    if (body.action === "reset-qa-password") {
+      // Explicitly reject real user accounts. This is only a QA recovery tool:
+      // no privileged user impersonation and no email confirmation bypass.
+      if (target.app_metadata?.audition_qa_test !== true ||
+          !/^audition-qa-[0-9a-f]{24}@example\.com$/.test(email)) {
+        return response({ error: "Only generated QA accounts may reset passwords here" }, 403);
+      }
+      const passwordBytes = crypto.getRandomValues(new Uint8Array(24));
+      const password = btoa(String.fromCharCode(...passwordBytes))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+      const update = await callProvider(env.url + "/auth/v1/admin/users/" + userId,
+        env.serviceKey, { method: "PUT", body: JSON.stringify({ password }) });
+      if (!update.ok) return response({ error: "Unable to issue new QA password" }, 502);
+      // The new password is returned ONCE to the authorized Admin session,
+      // never stored in plain text or added to the account-list response.
+      return response({ ok: true, testAccount: { id: userId, email, password } });
     }
     if (body.action === "reset-character") {
       // Test-only reset. Keep the confirmed Auth account and credentials, and
