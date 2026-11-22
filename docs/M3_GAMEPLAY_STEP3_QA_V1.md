@@ -49,3 +49,11 @@ Both operations violated the *accepted M3 Creator V1.4 rule*: detached SkinnedMe
 **Focused fix:** Keep the QA actor root identity (scale 1, position 0, zero Euler) and VRM child unchanged. Camera FOV/framing instead adapts to measured native world bounds. Only separate floor/grid decorations are scaled/moved. New pure `frameM3GameplayQaCamera` guard asserts actor's world matrix was not touched; synthetic scene regression verifies the actor and all garment nodes retain their world matrices. No changes to animation retarget, M3 assembler or Stage3D game. Real iPhone QA must confirm *both* sex rigs and actual clothes after reload and after Dance/Miss/Finish; unit tests and build are not 3D visual acceptance.
 
 Preview branch origin stays identical (Cache Storage origin preserved).
+
+## V1.0.2 — complete isolated animation QA controls (2026-11-22)
+
+With the native bind-space garment fix in place, Step 3's isolated preview now offers every canonical gameplay dance action **Dance 01–08**, plus **Miss** and **Finish L9** for both Drophunter and Neurohacker. The QA click goes through the existing `CharacterPresentationEvent` and `CharacterAnimationController`, and a rejected event now shows an error instead of displaying a false positive. A focused synthetic regression dispatches all eight dances and checks the selected clip and AudioContext song-time sample.
+
+**Owner iPhone visual gate (still required):** on the same stable Step 3 Preview URL, verify both M3 rigs after page reload; play each Dance 01–08, Miss, and Finish. Inspect outfit attachment through motion, planted feet / sliding, hand-body or garment intersections, motion heading, and Finish continuity. Check actual animation source label: fallback choreography cannot be accepted as the published dance release.
+
+This is only a QA-tool expansion. **Do not** set M3 `runtimeReady=true`, modify `Stage3D`, enable real Host START, replace Waiting Room animation, or claim visual approval from synthetic tests. Proceed to Stage3D actor factory / frozen manifest / preload-LOADED integration only after the owner approves the iPhone choreography gate.
