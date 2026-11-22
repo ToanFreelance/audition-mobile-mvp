@@ -332,3 +332,9 @@ button.avatar:focus-visible{outline:2px solid #fff;outline-offset:3px}
   color:#ffb8d4;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .logoutShortcut:disabled{opacity:.6;cursor:wait}
 .logoutShortcut:focus-visible,.accountShortcut:focus-visible{outline:2px solid #fff;outline-offset:3px;border-radius:3px}
+
+/* No accepted M3 profile thumbnail yet. Never misrepresent male M3 with
+   the hard-coded female sample avatar. Visual-only; 3D actor is untouched. */
+.m3AvatarGlyph{width:100%;height:100%;border-radius:9px;display:grid;place-items:center;
+  color:#ecf4ff;font-size:32px;font-weight:850;line-height:1;
+  background:radial-gradient(circle at 30% 20%,#685dc0,#172447 72%);text-shadow:0 0 9px #a8bbff}

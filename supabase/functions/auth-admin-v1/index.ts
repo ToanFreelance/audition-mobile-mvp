@@ -187,12 +187,30 @@ Deno.serve(async req => {
       return response({ ok: true, testAccount: { id: userId, email, password } });
     }
     if (body.action === "reset-character") {
-      // Test-only reset. Keep the confirmed Auth account and credentials, and
-      // remove just its one character. Do not touch RoomState or other users.
-      const result = await callProvider(env.url + "/rest/v1/player_characters?user_id=eq."
-        + encodeURIComponent(userId), env.serviceKey, { method: "DELETE" });
-      if (!result.ok) return response({ error: "Unable to reset character" }, 502);
-      return response({ ok: true, resetUserId: userId });
+      // Test-only reset; the verified account, password and historical room
+      // snapshots remain unchanged. Return the deleted row to detect a
+      // permission/RLS failure or a silent zero-row DELETE.
+      const query = "/rest/v1/player_characters?user_id=eq."
+        + encodeURIComponent(userId) + "&select=user_id";
+      const result = await callProvider(env.url + query, env.serviceKey, {
+        method: "DELETE", headers: { Prefer: "return=representation" },
+      });
+      if (!result.ok) {
+        // Never claim a reset succeeded after PostgREST 403 (missing
+        // service-role privileges) or other provider failure.
+        return response({ error: result.status === 403
+          ? "Không đủ quyền xóa hồ sơ nhân vật trên Supabase (403)."
+          : "Không reset được nhân vật (HTTP " + result.status + ")." }, 502);
+      }
+      const removed = await result.json() as Array<{ user_id?: string }>;
+      if (!Array.isArray(removed) || removed.length > 1 ||
+        removed.some(row => row.user_id !== userId)) {
+        return response({ error: "Kết quả reset nhân vật không hợp lệ." }, 502);
+      }
+      if (removed.length !== 1) {
+        return response({ error: "Không có hồ sơ nhân vật để reset; hãy tải lại danh sách tài khoản." }, 409);
+      }
+      return response({ ok: true, resetUserId: userId, removedRows: 1 });
     }
     const deleted = await callProvider(env.url + "/auth/v1/admin/users/" + userId, env.serviceKey,
       { method: "DELETE" });

@@ -46,3 +46,6 @@
   border-color:#e1b6ff!important;color:#fff!important;font-size:13px!important}
 .copyActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .copyActions button{min-width:0;font-size:12px}
+
+.dialogError{background:#581e35;border:1px solid #ff8ba2;padding:10px 12px;border-radius:10px;
+ color:#fff!important;font-weight:700;font-size:12px;overflow-wrap:anywhere}

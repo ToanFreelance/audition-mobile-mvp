@@ -30,6 +30,7 @@ export default function AdminAccountsScreen() {
   const [notice, setNotice] = useState("");
   const [denied, setDenied] = useState(false);
   const [selected, setSelected] = useState<Account | null>(null);
+  const [dialogError, setDialogError] = useState("");
   const [selectedAction, setSelectedAction] = useState<"delete" | "reset-character" | "reset-qa-password">("delete");
   const [busy, setBusy] = useState(false);
   const [accessCode, setAccessCode] = useState("");
@@ -148,14 +149,19 @@ export default function AdminAccountsScreen() {
         return;
       }
       setSelected(null);
+      setDialogError("");
       setNotice(selectedAction === "reset-character"
         ? "Đã reset nhân vật. Tài khoản vẫn được xác minh; đăng nhập và tạo nhân vật M3 mới."
         : selectedAction === "reset-qa-password"
           ? "Đã cấp mật khẩu QA mới. Dùng nút Đăng nhập ngay hoặc sao chép mật khẩu; mật khẩu cũ không còn sử dụng."
           : "Đã xóa tài khoản. Việc đăng ký lại vẫn phụ thuộc hạn mức email xác minh của Supabase.");
       await load(page);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Không xóa được."); }
-    finally { setBusy(false); }
+    } catch (cause) {
+      // The modal covers the page: a bottom-page error is invisible on iPhone.
+      // Keep it open and show the actual error next to the confirmation buttons.
+      const message = cause instanceof Error ? cause.message : "Không thực hiện được yêu cầu Admin.";
+      setDialogError(message);
+    } finally { setBusy(false); }
   };
 
   return (
@@ -235,16 +241,16 @@ export default function AdminAccountsScreen() {
                     {user.isTestAccount && (
                       <button type="button" className={admin.reset} disabled={busy}
                         data-testid={"qa-password-reset-" + user.id}
-                        onClick={() => { setSelected(user); setSelectedAction("reset-qa-password"); setError(""); }}
+                        onClick={() => { setSelected(user); setSelectedAction("reset-qa-password"); setDialogError(""); setError(""); }}
                         aria-label={"Cấp lại mật khẩu QA " + (user.email ?? user.id)}>
                         Mật khẩu QA
                       </button>
                     )}
                     <button type="button" className={admin.reset} disabled={!user.email || busy}
-                      onClick={() => { setSelected(user); setSelectedAction("reset-character"); setError(""); }}
+                      onClick={() => { setSelected(user); setSelectedAction("reset-character"); setDialogError(""); setError(""); }}
                       aria-label={"Reset nhân vật " + (user.email ?? user.id)}>Reset NV</button>
                     <button type="button" className={admin.delete} disabled={!user.email || busy}
-                      onClick={() => { setSelected(user); setSelectedAction("delete"); setError(""); }}
+                      onClick={() => { setSelected(user); setSelectedAction("delete"); setDialogError(""); setError(""); }}
                       aria-label={"Xóa tài khoản " + (user.email ?? user.id)}>Xóa</button>
                   </div>
                 </article>
@@ -276,6 +282,9 @@ export default function AdminAccountsScreen() {
                     : " — Tài khoản và nhân vật sẽ bị xóa vĩnh viễn. Không thể hoàn tác."}
                 {selectedAction === "delete" && selected.id === selfId && " Đây là tài khoản đang đăng nhập."}
               </p>
+              {dialogError && <p role="alert" className={admin.dialogError} data-testid="admin-dialog-error">
+                {dialogError}
+              </p>}
               <div className={admin.confirmButtons}>
                 <button type="button" data-testid="admin-cancel-action"
                   disabled={busy} onClick={() => setSelected(null)}>KHÔNG, HỦY</button>

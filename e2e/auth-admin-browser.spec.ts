@@ -237,3 +237,54 @@ test("account profile API error keeps login onscreen and never falls back to Cre
   await expect(page).toHaveURL(/\/auth$/);
   await expect(page.getByRole("alert")).toContainText("Không xác minh được nhân vật");
 });
+
+test("Admin reset failure appears inside confirm modal, not hidden behind overlay", async ({ page }) => {
+  const uid = "11111111-1111-4111-8111-111111111111";
+  const email = "audition-qa-test@example.com";
+  let fail = true;
+  await page.route(/\/api\/admin\/accounts(?:\?.*)?$/, async route => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ ok: true, page: 1, users: [{
+          id: uid, email, confirmed: true, isTestAccount: true, createdAt: null, lastSignInAt: null,
+        }] }) });
+    } else {
+      expect(route.request().postDataJSON()).toMatchObject({
+        action: "reset-character", userId: uid, confirmEmail: email,
+      });
+      await route.fulfill({ status: fail ? 502 : 200, contentType: "application/json",
+        body: JSON.stringify(fail ? { error: "Không đủ quyền xóa hồ sơ nhân vật (403)." }
+          : { ok: true, resetUserId: uid, removedRows: 1 }) });
+    }
+  });
+  await page.goto("/admin");
+  await page.getByRole("button", { name: "Reset nhân vật " + email }).click();
+  await page.getByTestId("admin-confirm-delete").click();
+  await expect(page.getByTestId("admin-delete-confirmation")).toBeVisible();
+  await expect(page.getByTestId("admin-dialog-error")).toContainText("403");
+  fail = false;
+  await page.getByTestId("admin-confirm-delete").click();
+  await expect(page.getByTestId("admin-delete-confirmation")).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("Đã reset nhân vật");
+});
+
+test("M3 male profile never uses the hard-coded female demo avatar in Room Browser", async ({ page }) => {
+  await page.route("**/api/auth", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ authenticated: true,
+      user: { id: "11111111-1111-4111-8111-111111111111", email: "qa@example.com" } }),
+  }));
+  await page.route("**/api/account/character", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, profile: {
+      characterAssetId: "m3-neurohacker", gender: "male", name: "QA Male",
+      hairStyle: "short", hairColor: "original", skinTone: "originalskin",
+    } }),
+  }));
+  await page.route("**/api/multiplayer/room?browse=1", route => route.fulfill({
+    status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rooms: [] }),
+  }));
+  await page.goto("/rooms");
+  await expect(page.getByTestId("room-m3-profile-avatar")).toContainText("♂");
+  await expect(page.getByTestId("profile-dashboard-trigger").locator("img")).toHaveCount(0);
+});

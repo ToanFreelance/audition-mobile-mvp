@@ -268,7 +268,12 @@ export default function RoomBrowser() {
     </main>
   );
 
-  const portrait = identity.profile.characterAssetId === "c4-casual-boy"
+  const assetId = identity.profile.characterAssetId;
+  const m3Portrait = assetId === "m3-neurohacker" || assetId === "m3-drophunter";
+  // The old demo-avatar.svg depicts a female starter and was incorrectly
+  // shown for M3 Neurohacker. Until M3 outfit-aware thumbnails exist, use
+  // an honest rig-specific placeholder instead of another character's face.
+  const portrait = assetId === "c4-casual-boy"
     ? "/characters/portraits/c4-casual-boy.jpg" : "/room-ui/demo-avatar.svg";
   const isRoomSection = section === "rooms";
   const sectionLabel = section === "entertainment" ? "Giải trí"
@@ -281,7 +286,11 @@ export default function RoomBrowser() {
           <header className={styles.playerBar}>
             <button type="button" className={styles.avatar} data-testid="profile-dashboard-trigger"
               aria-label="Dashboard cá nhân (sắp có)" onClick={() => setDashboardHint(value => !value)}>
-              <img src={portrait} alt="" width="52" height="52" />
+              {m3Portrait ? (
+                <span className={styles.m3AvatarGlyph} data-testid="room-m3-profile-avatar" aria-hidden="true">
+                  {assetId === "m3-neurohacker" ? "♂" : "♀"}
+                </span>
+              ) : <img src={portrait} alt="" width="52" height="52" />}
             </button>
             <div className={styles.playerText}>
               <strong>{identity.profile.name}</strong>

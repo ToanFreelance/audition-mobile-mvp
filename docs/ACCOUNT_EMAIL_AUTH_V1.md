@@ -165,3 +165,22 @@ Root cause: sign-in and Auth VÀO GAME defaulted to /character/create; Creator t
 Fix: both AccountAuthScreen regular sign-in / VÀO GAME and Admin one-click QA login await the authoritative GET /api/account/character (no-store) **before** any navigation. A profile -> /rooms (preserving an explicit /rooms deep link), no profile -> /character/create. An API failure surfaces an error, never assumes the player is new. The existing direct-URL Creator guard remains defensive. This is a routing correction, not a new persistent account cache.
 
 Focused regression: existing player never requests Creator document, first-time player directly visits Creator, profile fetch outage does not route incorrectly, and server-profile no-store check.
+
+## iPhone A06 hotfix — reset authorization and avatar mismatch, 22 Nov 2026
+
+A01–A05 owner PASS, A06 FAIL; B01/B02/C01 not tested.
+
+**Verified root cause:** four Supabase PostgREST DELETE /player_characters requests returned HTTP **403**. Auth V1 migration granted authenticated SELECT/INSERT/UPDATE only (correct) but omitted service_role SELECT/DELETE (wrong for the Admin Edge handler). Current DB retained both existing profiles, including one male. The failed reset did NOT remove either character.
+
+Fix: grant only service_role SELECT/DELETE in the additive migration. RLS remains enabled, anon/authenticated still have no DELETE grants or DELETE policy. Edge DELETE uses Prefer return=representation and checks exactly one row was removed before returning success; no silent no-op. Admin modal displays an inline error on failure and stays open. No actual QA account or character is deleted by the hotfix.
+
+**Why a female avatar was seen:** Room Browser hardcoded `/room-ui/demo-avatar.svg` (female sample) for all characters except legacy C4, including M3 Neurohacker. Existing Supabase RoomState snapshots associated with the male account showed male `m3-neurohacker` IDs, not female. Replace only the misleading M3 Room Browser portrait with a clearly labeled gender/rig glyph until asset-specific thumbnails are approved. This does not alter the Waiting Room 3D actor or RoomState snapshots. If the owner reports a *3D* actor still female, investigate separately with a fresh snapshot and screenshot.
+
+Retest on iPhone:
+1. Admin -> Reset NV on a disposable QA account with an M3 profile -> CÓ, RESET. Modal closes; shows success.
+2. Log out/re-login same account -> immediate Character Creation (not Room Browser); profile GET returns null.
+3. Create a different M3 rig (e.g., male) and Continue -> Room Browser -> new room. Male rig should remain male; male avatar no longer shows the female demo.
+4. Another account's character is preserved. Admin DELETE account and Reset QA password are unaffected.
+5. When reset fails, error is visible inside the dialog rather than behind it.
+
+No gameplay clock, matching, Ready gate, Room CAS, animation or M3 asset code changed.
