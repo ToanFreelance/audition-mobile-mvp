@@ -1,0 +1,83 @@
+import { NextRequest, NextResponse } from "next/server";
+import {
+  clearAuthCookies, isSameOrigin, propagateSession,
+  providerError, resolveAccountSession, setAuthCookies, supabaseRequest,
+} from "../../../lib/account-auth";
+
+export const dynamic = "force-dynamic";
+
+function json(body: unknown, status = 200) {
+  return NextResponse.json(body, { status, headers: { "cache-control": "no-store" } });
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await resolveAccountSession(request);
+    if (!session) return clearAuthCookies(json({ authenticated: false, user: null }));
+    return propagateSession(json({ authenticated: true, user: session.user }), session);
+  } catch {
+    return json({ error: "Không xác minh được phiên đăng nhập." }, 503);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  if (!isSameOrigin(request)) return json({ error: "Request origin invalid." }, 403);
+  let input: Record<string, unknown>;
+  try { input = await request.json(); }
+  catch { return json({ error: "Dữ liệu không hợp lệ." }, 400); }
+  const action = input.action;
+  if (action === "logout") {
+    const session = await resolveAccountSession(request).catch(() => null);
+    if (session) await supabaseRequest("/auth/v1/logout?scope=local", {
+      method: "POST", body: "{}",
+    }, session.accessToken).catch(() => undefined);
+    return clearAuthCookies(json({ ok: true }));
+  }
+  if (action === "adopt") {
+    const access = input.accessToken, refresh = input.refreshToken;
+    if (typeof access !== "string" || typeof refresh !== "string"
+      || access.length > 4096 || refresh.length > 4096) return json({ error: "Phiên xác thực không hợp lệ." }, 400);
+    const response = await supabaseRequest("/auth/v1/user", { method: "GET" }, access);
+    if (!response.ok) return json({ error: "Liên kết xác nhận đã hết hạn." }, 401);
+    const user = await response.json() as { id?: string; email?: string };
+    if (!user.id) return json({ error: "Không xác minh được tài khoản." }, 401);
+    return setAuthCookies(json({ ok: true, user: { id: user.id, email: user.email ?? null } }),
+      { access_token: access, refresh_token: refresh,
+        expires_in: typeof input.expiresIn === "number" && input.expiresIn > 0 ? input.expiresIn : 3600 });
+  }
+  if (action !== "register" && action !== "login") return json({ error: "Unsupported action." }, 400);
+  const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
+  const password = input.password;
+  if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254
+    || typeof password !== "string" || password.length < 8 || password.length > 128) {
+    return json({ error: "Email không hợp lệ hoặc mật khẩu phải dài 8–128 ký tự." }, 400);
+  }
+  try {
+    const path = action === "register"
+      ? "/auth/v1/signup?redirect_to=" + encodeURIComponent(request.nextUrl.origin + "/auth")
+      : "/auth/v1/token?grant_type=password";
+    const auth = await supabaseRequest(path, {
+      method: "POST", body: JSON.stringify({ email, password }),
+    });
+    if (!auth.ok) {
+      const message = await providerError(auth,
+        action === "login" ? "Email hoặc mật khẩu không chính xác." : "Không đăng ký được tài khoản.");
+      return json({ error: auth.status === 429 ? "Thao tác quá nhanh. Hãy thử lại sau." : message },
+        auth.status === 429 ? 429 : 400);
+    }
+    const response = await auth.json() as {
+      access_token?: string; refresh_token?: string; expires_in?: number;
+      user?: { id?: string; email?: string }; id?: string;
+    };
+    if (response.access_token && response.refresh_token) {
+      return setAuthCookies(json({ ok: true, pendingConfirmation: false,
+        user: response.user ? { id: response.user.id, email: response.user.email } : null }),
+      { access_token: response.access_token, refresh_token: response.refresh_token,
+        expires_in: response.expires_in });
+    }
+    // When Confirm Email is enabled, Supabase returns a user but no session.
+    return json({ ok: true, pendingConfirmation: true });
+  } catch {
+    return json({ error: "Không kết nối được dịch vụ đăng nhập." }, 503);
+  }
+}
