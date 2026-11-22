@@ -25,6 +25,7 @@ export default function M3GameplayStep3Qa() {
   const [ready, setReady] = useState(false);
   const [started, setStarted] = useState(false);
   const [report, setReport] = useState<M3GameplayRetargetReport | null>(null);
+  const [choreographySource, setChoreographySource] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [current, setCurrent] = useState("Idle");
   const [songMs, setSongMs] = useState(0);
@@ -35,7 +36,8 @@ export default function M3GameplayStep3Qa() {
     const element = mountRef.current;
     if (!element) return;
     let destroyed = false, raf = 0;
-    setReady(false); setStarted(false); setReport(null); setError(""); setCurrent("Idle");
+    setReady(false); setStarted(false); setReport(null);
+    setChoreographySource(null); setError(""); setCurrent("Idle");
     void ctxRef.current?.close().catch(() => {});
     ctxRef.current = null;
     let actor: M3GameplayQaActor | null = null;
@@ -98,6 +100,7 @@ export default function M3GameplayStep3Qa() {
         actor.root.position.set(-center.x, -bounds.min.y, -center.z);
         actor.root.updateMatrixWorld(true);
         setReport(actor.report);
+        setChoreographySource(actor.choreographySource);
         setReady(true);
       } catch (cause) {
         if (!destroyed) setError(cause instanceof Error ? cause.message : "M3 QA asset failed");
@@ -200,6 +203,7 @@ export default function M3GameplayStep3Qa() {
         </div>
         {report && <div style={{ fontSize: 12, lineHeight: 1.65, background: "#242344",
           borderRadius: 10, padding: 14 }}>
+          <div><b>Animation source:</b> {choreographySource ?? "unknown"}</div>
           <b>Retarget:</b> {report.clipCount} clips · {report.boneTrackCount} bone tracks
           · {report.fps} FPS
           <div>Clip names: {report.clips.map(x => x.name).join(", ")}</div>

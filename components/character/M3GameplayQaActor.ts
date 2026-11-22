@@ -25,6 +25,7 @@ export class M3GameplayQaActor implements CharacterPresentation {
   private active = false;
   private pendingEvent: CharacterPresentationEvent | null = null;
   report: M3GameplayRetargetReport | null = null;
+  choreographySource: string | null = null;
 
   constructor(private readonly assetId: CharacterAssetId, private readonly appearance: M3Appearance) {
     const entry = getCharacterCatalogEntry(assetId);
@@ -62,6 +63,12 @@ export class M3GameplayQaActor implements CharacterPresentation {
         skipLegacyNormalDanceMocap: Boolean(published),
         skipLegacyFinishMocap: Boolean(published?.finalSourceClips.length),
       });
+      // A published release is the preferred authored gameplay choreography.
+      // If the provider is unavailable, mark the legacy library explicitly
+      // instead of claiming the fallback is the final gameplay motion set.
+      this.choreographySource = published
+        ? "Published dance release v" + published.info.releaseVersion
+        : "Legacy Quaternius/CMU fallback · NOT final gameplay acceptance";
       const clips = published ? applyPublishedDanceRelease(library, published).clips : library;
       if (!assembly.skeleton) throw Error("M3 target skeleton missing");
       const baked = retargetQuaterniusToM3(sourceScene, sourceMesh.skeleton, assembly.skeleton, clips);
