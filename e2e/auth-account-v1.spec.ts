@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { GET as authGet, POST as authPost, emailConfirmationRedirect } from "../app/api/auth/route";
 import { GET as characterGet, POST as characterPost } from "../app/api/account/character/route";
 import { GET as adminGet, POST as adminPost } from "../app/api/admin/accounts/route";
+import { POST as quickAdminPost } from "../app/api/admin/quick-access/route";
 
 function request(path: string, method = "GET", body?: Record<string, unknown>, origin = "https://game.test") {
   return new NextRequest("https://game.test" + path, {
@@ -190,7 +191,7 @@ test("admin endpoints fail closed without a verified session", async () => {
   const list = await adminGet(request("/api/admin/accounts"));
   expect(list.status).toBe(401);
   const body = await list.json();
-  expect(body.error).toContain("Authentication required");
+  expect(body.error).toContain("Admin code required");
   expect(JSON.stringify(body)).not.toContain("users");
   const deletion = await adminPost(request("/api/admin/accounts", "POST", {
     action: "delete", userId: "123e4567-e89b-42d3-a456-426614174000",
@@ -211,5 +212,47 @@ test("admin deletion rejects malformed IDs and missing email before privileged E
   const response = await adminPost(request("/api/admin/accounts", "POST", {
     action: "delete", userId: "not-a-user", confirmEmail: "",
   }));
-  expect(response.status).toBe(401);
+  expect(response.status).toBe(400);
+});
+
+test("quick Admin rejects invalid code and foreign origin", async () => {
+  const invalid = await quickAdminPost(request("/api/admin/quick-access", "POST", {
+    action: "unlock", code: "short",
+  }));
+  expect(invalid.status).toBe(400);
+  const foreign = await quickAdminPost(request("/api/admin/quick-access", "POST", {
+    action: "unlock", code: "A".repeat(32),
+  }, "https://attacker.invalid"));
+  expect(foreign.status).toBe(403);
+});
+
+test("quick Admin stores validated code in HttpOnly, Strict cookie", async () => {
+  const oldUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const oldKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://admin-fixture.test";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, string>;
+    expect(body.action).toBe("verify");
+    expect(body.quickCode).toBe("A".repeat(32));
+    return new Response(JSON.stringify({ ok: true, quickAdmin: true }), { status: 200 });
+  };
+  try {
+    const response = await quickAdminPost(request("/api/admin/quick-access", "POST", {
+      action: "unlock", code: "A".repeat(32),
+    }));
+    expect(response.status).toBe(200);
+    const cookie = response.cookies.get("audition_quick_admin_v1");
+    expect(cookie?.httpOnly).toBe(true);
+    expect(cookie?.sameSite).toBe("strict");
+    expect(cookie?.path).toBe("/api/admin");
+    expect(JSON.stringify(await response.json())).not.toContain("A".repeat(32));
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (oldUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = oldUrl;
+    if (oldKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = oldKey;
+  }
 });
