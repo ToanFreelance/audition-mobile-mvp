@@ -12,6 +12,13 @@ function deepFreeze<T>(value: T): T {
 function cloneAvatar(avatar: AvatarSnapshot): AvatarSnapshot {
   return {
     characterId: avatar.characterId,
+    ...(avatar.characterAssetId ? { characterAssetId: avatar.characterAssetId } : {}),
+    ...(avatar.m3Appearance ? { m3Appearance: {
+      hairStyle: avatar.m3Appearance.hairStyle,
+      hairColor: avatar.m3Appearance.hairColor,
+      skinTone: avatar.m3Appearance.skinTone,
+      m3Outfit: { ...avatar.m3Appearance.m3Outfit },
+    } } : {}),
     outfit: { ...avatar.outfit },
     accessoryIds: [...avatar.accessoryIds],
     petId: avatar.petId,

@@ -130,6 +130,20 @@ export default function RoomBrowser() {
           if (cancelled) return;
           setAccountState("account");
           setIdentity(data.profile ? { participantId: "player-" + auth.user.id, profile: data.profile } : null);
+          if (data.profile) {
+            const catalog = getCharacterCatalogEntry(data.profile.characterAssetId);
+            const look = catalog?.m3RigFamily
+              ? parseM3LobbyAppearance(catalog.id, data.profile) : null;
+            if (look) {
+              // Start a small, non-blocking immutable-asset warm-up for the
+              // server-authoritative account look only. No profile/PII is
+              // stored in Cache Storage, and navigating into Waiting Room
+              // reuses the same in-flight download if still pending.
+              void import("../character/m3-asset-cache")
+                .then(module => module.warmM3AppearanceAssets(catalog!.id, look))
+                .catch(() => { /* Waiting Room can retry via normal asset loading. */ });
+            }
+          }
         } else {
           setAccountState("guest");
           setIdentity(getEntryIdentity());
