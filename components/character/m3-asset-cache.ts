@@ -13,6 +13,8 @@ export const M3_ASSET_SOURCE = SOURCE;
  * compressed Mixamo JS chunks retain the browser's native hashed-asset cache. */
 export const M3_GREETING_CACHE_KEY = "m3:standing-greeting-v14:8ab3d94aaa0b6bfa";
 export async function warmM3GreetingAsset(): Promise<void> {
+  if (typeof window === "undefined" || !("caches" in window)) return;
+  if (await isPersistentAssetCached(M3_GREETING_CACHE_KEY)) return;
   const response = await fetchPersistentAsset("/m3-qa/standing_greeting_2_v14.b64", {
     cacheKey: M3_GREETING_CACHE_KEY,
   });
@@ -130,12 +132,16 @@ export async function loadM3AssetBytes(family: M3RigFamily, file: string): Promi
 export async function warmM3AppearanceAssets(
   assetId: CharacterAssetId, look: M3SelectedAppearance,
 ): Promise<void> {
+  if (typeof window === "undefined" || !("caches" in window)) return;
   const files = m3SelectedAssetFiles(assetId, look);
-  // Low concurrency: iPhone VRM files are large, avoid holding all raw buffers.
+  // Repeat logins should not read full cached VRMs into JS memory just to
+  // prewarm. The assembler still validates/decodes the bytes on actual use.
+  // Low concurrency: iPhone VRM files are large.
   let cursor = 0;
   await Promise.all([0, 1].map(async () => {
     while (cursor < files.length) {
       const item = files[cursor++];
+      if (await isPersistentAssetCached(m3CacheKey(item.family, item.file))) continue;
       await loadM3AssetBytes(item.family, item.file);
     }
   }));
