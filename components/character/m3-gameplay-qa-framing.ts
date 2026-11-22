@@ -168,9 +168,9 @@ export function fitM3QaVisualFrame(
   // Keep enough space for shoes, floor contact and dancing limbs.
   const halfV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
   const distance = Math.max(
-    frame.height / (2 * halfV * 0.67),
-    frame.width / (2 * halfV * camera.aspect * 0.58),
-  ) * 1.20;
+    frame.height / (2 * halfV * 0.78),
+    frame.width / (2 * halfV * camera.aspect * 0.68),
+  ) * 1.14;
   camera.position.set(frame.center.x, frame.center.y, frame.depth + distance);
   camera.lookAt(frame.center);
   camera.near = Math.max(0.001, frame.height * 0.002);
