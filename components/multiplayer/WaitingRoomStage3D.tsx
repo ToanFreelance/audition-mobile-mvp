@@ -2221,8 +2221,13 @@ export default function WaitingRoomStage3D({
         const rigFamily = getCharacterCatalogEntry(characterAssetId)?.m3RigFamily;
         const occupiedProfiles = () => Array.from(m3IdleByParticipant.values()).flatMap(r =>
           r.target ? [r.animationProfile, r.target] : [r.animationProfile]);
+        // QA V15: existing actor state is sufficient to avoid identical phases.
+        // Never persist idle phase in RoomState or reset another actor's mixer.
+        const occupiedPhases = () => Array.from(m3IdleByParticipant.entries())
+          .filter(([id]) => id !== participant.participantId)
+          .map(([, r]) => ({id:r.currentGesture, time:r.poseTime}));
         const idle = rigFamily ? (mixamoReview && mixamoModule
-          ? mixamoModule.createMixamoLobbyIdle(actor, participant.participantId, roomId, rigFamily, occupiedProfiles, footLockReview)
+          ? mixamoModule.createMixamoLobbyIdle(actor, participant.participantId, roomId, rigFamily, occupiedProfiles, footLockReview, occupiedPhases)
           : createM3LobbyIdle(actor, participant.participantId, roomId, rigFamily, () =>
               occupiedProfiles().filter((key): key is M3LobbyIdle["currentGesture"] =>
                 /^(F0[1-5]|M0[1-3]|X01)$/.test(key))
