@@ -104,3 +104,35 @@ test("QA Step 3 cannot accidentally unlock M3 START", () => {
     expect(entry?.runtimeReady).toBe(false);
   }
 });
+
+test("Step 3 QA can dispatch all eight canonical dance clips independently", () => {
+  const root = new THREE.Group();
+  const danceIds = [
+    "dance-01", "dance-02", "dance-03", "dance-04",
+    "dance-05", "dance-06", "dance-07", "dance-08",
+  ] as const;
+  const clips = [
+    new THREE.AnimationClip("Idle", 1, []),
+    ...danceIds.map((_, i) =>
+      new THREE.AnimationClip("HumanDance0" + (i + 1), 1, [])),
+  ];
+  const controller = new CharacterAnimationController(new THREE.AnimationMixer(root), clips);
+  controller.setGameActive(true);
+  for (let i = 0; i < danceIds.length; i++) {
+    const actionAt = i * 1000;
+    expect(controller.handlePresentationEvent({
+      eventId: i + 1,
+      absoluteTurn: i,
+      level: 1,
+      isFinish: false,
+      actionStartSongTimeMs: actionAt,
+      kind: "dance",
+      judgement: "perfect",
+      choreographyId: danceIds[i],
+    })).toBe(true);
+    controller.update(0.016, actionAt + 200);
+    expect(controller.getState().activeClip).toBe("HumanDance0" + (i + 1));
+    expect(controller.getState().clipTimeSeconds).toBeCloseTo(0.2, 2);
+  }
+  controller.dispose();
+});
