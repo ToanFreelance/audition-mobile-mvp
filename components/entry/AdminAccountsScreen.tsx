@@ -281,7 +281,7 @@ export default function AdminAccountsScreen() {
                   disabled={busy} onClick={() => void remove()}>
                   {busy ? "ĐANG XỬ LÝ…" :
                     selectedAction === "reset-character" ? "CÓ, RESET" :
-                    selectedAction === "reset-qa-password" ? "CÓ, CẤP LẠI" : "CÓ, XÓA"
+                    selectedAction === "reset-qa-password" ? "CÓ, CẤP LẠI" : "CÓ, XÓA"}
                 </button>
               </div>
             </section>
