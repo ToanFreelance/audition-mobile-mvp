@@ -1,3 +1,4 @@
+// @ts-nocheck -- Supabase Deno Edge runtime; Next.js typecheck has no Deno globals.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 // Privileged account actions are isolated in a Supabase Edge Function.
