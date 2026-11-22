@@ -37,3 +37,15 @@ M3 `runtimeReady=false` is intentionally locked: changing it without the retarge
 ## Report constraints
 
 Implementation+minimal validation only initially. Do not merge auth PR #29, work branch or development. Do not claim released gameplay is playable because QA buttons animate.
+
+
+## V1.0.1 — owner iPhone garment explosion regression (2026-11-22)
+
+Owner tested the Step 3 preview on iPhone: in both M3 rigs, shorts/shoes appeared enormous and offset above/beside the body. This **is 3D skinned mesh breakage**, not avatar thumbnails or bad selected apparel. Code audit traced two invalid transforms:
+- `M3GameplayQaActor.load` scaled the ancestor QA root by `3.85 / height`.
+- `/tools/m3-gameplay-step3` then translated that ancestor to floor-center.
+Both operations violated the *accepted M3 Creator V1.4 rule*: detached SkinnedMesh bindings must keep the canonical bind-space hierarchy in authored coordinates. Waiting Room correctly converts its cloned M3 actor bindings to `attached` before scaling for formation; Step 3 QA did not, and should not mutate the accepted VRM/skeleton or Waiting Room setup.
+
+**Focused fix:** Keep the QA actor root identity (scale 1, position 0, zero Euler) and VRM child unchanged. Camera FOV/framing instead adapts to measured native world bounds. Only separate floor/grid decorations are scaled/moved. New pure `frameM3GameplayQaCamera` guard asserts actor's world matrix was not touched; synthetic scene regression verifies the actor and all garment nodes retain their world matrices. No changes to animation retarget, M3 assembler or Stage3D game. Real iPhone QA must confirm *both* sex rigs and actual clothes after reload and after Dance/Miss/Finish; unit tests and build are not 3D visual acceptance.
+
+Preview branch origin stays identical (Cache Storage origin preserved).

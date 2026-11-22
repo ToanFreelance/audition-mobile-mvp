@@ -8,6 +8,8 @@ on:
       - "components/character/M3GameplayQaActor.ts"
       - "app/tools/m3-gameplay-step3/**"
       - "e2e/m3-gameplay-step3.spec.ts"
+      - "e2e/m3-gameplay-qa-framing.spec.ts"
+      - "components/character/m3-gameplay-qa-framing.ts"
       - ".github/workflows/m3-gameplay-step3-qa.yml"
   workflow_dispatch:
 
@@ -35,13 +37,13 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
       - name: ESLint scoped files
-        run: npx eslint components/character/m3-gameplay-retarget.ts components/character/M3GameplayQaActor.ts app/tools/m3-gameplay-step3/page.tsx e2e/m3-gameplay-step3.spec.ts
+        run: npx eslint components/character/m3-gameplay-retarget.ts components/character/M3GameplayQaActor.ts app/tools/m3-gameplay-step3/page.tsx components/character/m3-gameplay-qa-framing.ts e2e/m3-gameplay-step3.spec.ts e2e/m3-gameplay-qa-framing.spec.ts
       - name: Build
         run: npm run build
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Retarget/controller unit regression
-        run: npx playwright test e2e/m3-gameplay-step3.spec.ts --project=desktop --workers=1
+        run: npx playwright test e2e/m3-gameplay-step3.spec.ts e2e/m3-gameplay-qa-framing.spec.ts --project=desktop --workers=1
       - name: Upload failure traces
         if: failure()
         uses: actions/upload-artifact@v4
