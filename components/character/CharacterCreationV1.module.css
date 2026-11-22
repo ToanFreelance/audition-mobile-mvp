@@ -34,6 +34,7 @@
   background:linear-gradient(180deg,rgba(7,8,29,.99),rgba(12,11,43,.95));
 }
 .header>div{display:grid;justify-items:center;gap:3px}
+.accountLink{justify-self:center;color:#b9f0ff;text-decoration:none;border:1px solid #665aa3;border-radius:9px;padding:10px 8px;font-size:10px;font-weight:900;letter-spacing:.06em;white-space:nowrap}
 .header span{color:#74e8ff;font-size:7px;font-weight:900;letter-spacing:.22em}
 .header strong{font-size:16px;line-height:1;letter-spacing:.045em}
 .headerIcon{

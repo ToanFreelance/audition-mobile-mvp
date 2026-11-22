@@ -61,6 +61,7 @@ const isTeamMode = (modeId: string) => modeId.toLowerCase().includes("team");
 
 export default function RoomBrowser() {
   const [identity, setIdentity] = useState<EntryIdentity | null>(null);
+  const [accountState, setAccountState] = useState<"checking" | "guest" | "account" | "error">("checking");
   const [initialized, setInitialized] = useState(false);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomName, setRoomName] = useState("");
@@ -108,11 +109,38 @@ export default function RoomBrowser() {
     } finally { setRefreshing(false); }
   }, []);
   useEffect(() => {
-    setIdentity(getEntryIdentity());
-    setInitialized(true);
+    let cancelled = false;
     const params = new URLSearchParams(window.location.search);
     setJoinId(params.get("room")?.trim() ?? "");
     void refresh();
+    void (async () => {
+      try {
+        const authResponse = await fetch("/api/auth", { cache: "no-store" });
+        if (!authResponse.ok) throw new Error("Không thể xác minh tài khoản.");
+        const auth = await authResponse.json() as {
+          authenticated: boolean; user?: { id: string; email?: string };
+        };
+        if (cancelled) return;
+        if (auth.authenticated && auth.user) {
+          const saved = await fetch("/api/account/character", { cache: "no-store" });
+          if (!saved.ok) throw new Error("Không tải được nhân vật tài khoản.");
+          const data = await saved.json() as { profile: EntryIdentity["profile"] | null };
+          if (cancelled) return;
+          setAccountState("account");
+          setIdentity(data.profile ? { participantId: "player-" + auth.user.id, profile: data.profile } : null);
+        } else {
+          setAccountState("guest");
+          setIdentity(getEntryIdentity());
+        }
+      } catch (cause) {
+        if (cancelled) return;
+        setAccountState("error");
+        setError(cause instanceof Error ? cause.message : "Không xác minh được tài khoản.");
+      } finally {
+        if (!cancelled) setInitialized(true);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [refresh]);
   useEffect(() => {
     const refreshVisible = () => { if (document.visibilityState === "visible") void refresh(); };
@@ -205,9 +233,13 @@ export default function RoomBrowser() {
       <section className={styles.onboarding}>
         <span className={styles.brand}>AUDITION <em>MOBILE</em></span>
         <span className={styles.onboardingSymbol}><Icon name="sparkle" size={38} /></span>
-        <h1>Hãy tạo nhân vật trước</h1>
-        <p>Sảnh phòng sử dụng nhân vật đã lưu trên thiết bị.</p>
-        <a className={styles.onboardingButton} href="/character/create">Tạo nhân vật</a>
+        <h1>{accountState === "error" ? "Không thể tải tài khoản" : "Hãy tạo nhân vật trước"}</h1>
+        <p>{accountState === "account"
+          ? "Tài khoản chưa có nhân vật M3. Hãy tạo nhân vật duy nhất của bạn."
+          : accountState === "error" ? error : "Sảnh phòng sử dụng nhân vật đã lưu trên thiết bị."}</p>
+        <a className={styles.onboardingButton} href={accountState === "error" ? "/auth" : "/character/create"}>
+          {accountState === "error" ? "Tài khoản" : "Tạo nhân vật"}
+        </a>
       </section>
     </main>
   );
@@ -229,6 +261,7 @@ export default function RoomBrowser() {
             <div className={styles.playerText}>
               <strong>{identity.profile.name}</strong>
               <span>Lv. 25</span>
+              {accountState === "account" && <a href="/auth" style={{ color: "#9feaff", fontSize: 10 }}>Tài khoản</a>}
             </div>
             <div className={styles.playerTokens} aria-label="Số dư mẫu chưa triển khai">
               <span className={styles.tokenGold} aria-label="0 coin"><span className={styles.coinSymbol}>◎</span><b>0</b></span>
