@@ -1,0 +1,52 @@
+name: Auth V1 Waiting Room regression
+
+on:
+  push:
+    branches: ["work/account-email-auth-v1"]
+    paths:
+      - "components/entry/entry-room-identity.ts"
+      - "components/entry/EntryWaitingRoom.tsx"
+      - "e2e/entry-room-account-identity.spec.ts"
+      - "e2e/entry-room-account-browser.spec.ts"
+      - ".github/workflows/auth-entry-waiting-room-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  entry-room-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    env:
+      CI: "true"
+      PLAYWRIGHT_WEB_SERVER: "1"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Build application
+        run: npm run build
+      - name: Chromium install
+        run: npx playwright install --with-deps chromium
+      - name: Account identity and Waiting Room browser regression
+        run: npx playwright test e2e/entry-room-account-identity.spec.ts e2e/entry-room-account-browser.spec.ts --project=desktop --workers=1
+      - name: Upload browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auth-entry-waiting-room-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

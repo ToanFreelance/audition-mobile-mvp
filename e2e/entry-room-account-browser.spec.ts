@@ -16,7 +16,12 @@ function roomSnapshot(id: string, memberId: string, appearance = profile) {
     roomId: id, roomName: "QA Room", modeId: "solo-easy-battle", revision: 1,
     status: "waiting", hostParticipantId: memberId, selectedStageId: "bright-stage-v1",
     selectedSongId: "aloha", maxPlayers: 5,
-    slots: [{ slotIndex: 0, state: "occupied", participantId: memberId }],
+    matchStart: null,
+    slots: [
+      { slotIndex: 0, state: "occupied", participantId: memberId },
+      ...([1, 2, 3, 4] as const).map(slotIndex => ({ slotIndex, state: "open" })),
+      { slotIndex: 5, state: "closed" },
+    ],
     participants: [{
       participantId: memberId, displayName: appearance.name, kind: "human", role: "host",
       slotIndex: 0, readyState: "not-applicable", loadState: "idle",
@@ -58,6 +63,7 @@ test("account host opens Waiting Room after Create, with no Creator redirect", a
   await page.getByRole("button", { name: /Tạo phòng/i }).first().click();
   await expect(page).toHaveURL(new RegExp("/rooms/" + roomId + "$"));
   await expect(page.getByTestId("entry-room-cover")).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByTestId("waiting-room-avatar-strip")).toBeVisible();
   expect(roomLoaded).toBe(true);
   expect(creatorNavigations).toBe(0);
 });
