@@ -256,3 +256,50 @@ test("quick Admin stores validated code in HttpOnly, Strict cookie", async () =>
     else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = oldKey;
   }
 });
+
+test("resend confirmation uses stable /auth redirect and never requires deleting the account", async () => {
+  const previousFetch = globalThis.fetch;
+  const previousUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const previousKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const previousBranch = process.env.VERCEL_BRANCH_URL;
+  const previousOrigin = process.env.AUTH_REDIRECT_ORIGIN;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://auth-fixture.test";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  process.env.VERCEL_BRANCH_URL = "audition-mobile-mvp-git-work-ac-3c9ef9-toan-freelances-projects.vercel.app";
+  delete process.env.AUTH_REDIRECT_ORIGIN;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input));
+    expect(url.pathname).toBe("/auth/v1/resend");
+    expect(url.searchParams.get("redirect_to")).toBe(
+      "https://audition-mobile-mvp-git-work-ac-3c9ef9-toan-freelances-projects.vercel.app/auth"
+    );
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      type: "signup", email: "test@example.com",
+    });
+    return new Response(JSON.stringify({}), { status: 200 });
+  };
+  try {
+    const response = await authPost(request("/api/auth", "POST", {
+      action: "resend-confirmation", email: "test@example.com",
+    }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: true, pendingConfirmation: true });
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = previousKey;
+    if (previousBranch === undefined) delete process.env.VERCEL_BRANCH_URL;
+    else process.env.VERCEL_BRANCH_URL = previousBranch;
+    if (previousOrigin === undefined) delete process.env.AUTH_REDIRECT_ORIGIN;
+    else process.env.AUTH_REDIRECT_ORIGIN = previousOrigin;
+  }
+});
+
+test("resend confirmation rejects invalid email without contacting Supabase", async () => {
+  const response = await authPost(request("/api/auth", "POST", {
+    action: "resend-confirmation", email: "invalid-email",
+  }));
+  expect(response.status).toBe(400);
+});

@@ -101,3 +101,18 @@ Owner requested access to the Admin account list **without logging in as a playe
 4. Reload `/admin`: access persists in the HttpOnly cookie (up to 12 hours).
 5. Lock Admin: access is cleared; the code is required again.
 6. Delete disposable test account, then register same email again.
+
+## Email verification incident — 22 Nov 2026, iPhone Gmail
+
+At 16:49 local time the owner clicked a verification email but landed on the legacy game root (`READY?`), not the Auth callback. Supabase DB inspection showed **one newly registered user and zero confirmed users**; admin's `Chưa xác minh` was accurate, not a stale view. The client sends `redirect_to=https://<stable-branch>/auth` on registration, but the Supabase Auth email template or allowlist may be overriding the target; the exact email HTML is not readable through the connected management tools.
+
+Required **Supabase Dashboard** correction (cannot be changed with the current Supabase connector):
+1. Authentication → Email Templates → **Confirm sign up**: the link's href MUST be `{{ .ConfirmationURL }}` (not `{{ .SiteURL }}`, `{{ .RedirectTo }}`, or a bare homepage URL). This ensures the link visits Supabase's `/auth/v1/verify` endpoint and consumes the actual verification token.
+2. Authentication → URL Configuration → additional Redirect URLs must contain the exact branch callback `https://audition-mobile-mvp-git-work-ac-3c9ef9-toan-freelances-projects.vercel.app/auth`. Set Site URL to a stable application origin, not `localhost:3000`.
+3. Keep Confirm Email enabled. After configuration, use the new **Gửi lại email xác minh** button on /auth Login; do not delete the unverified account or reuse the old email link.
+4. In the newly received email, the link must first invoke Supabase verification and then return to `/auth`. `email_confirmed_at` must become non-null and Admin should show `Đã xác minh` after refresh.
+
+Recovery:
+- `POST /api/auth` action `resend-confirmation` calls the public Supabase GoTrue resend endpoint, preserving the stable /auth redirect, with built-in provider 429 handling. It does not modify `auth.users` or circumvent email confirmation.
+- `LegacyAuthRedirectBridge` on home forwards OAuth-style callback fragments to `/auth` if an older Site URL redirect arrives at root. It cannot verify a broken template link that contains NO verification token.
+- Owner must perform an end-to-end verification test on real email after Supabase configuration. Never mark verification as passing based on UI or HTTP 200 alone.

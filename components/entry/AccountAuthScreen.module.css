@@ -10,3 +10,6 @@
 .submit:disabled{opacity:.6}.notice{padding:12px;border-radius:10px;background:#152e35;color:#b5f8e7;font-size:13px}.error{padding:12px;border-radius:10px;background:#3c1829;color:#ffc7d1;font-size:13px}
 .links{display:flex;gap:15px;flex-wrap:wrap;margin-top:19px}.links a{color:#add8ff;font-size:12px;text-decoration:underline}
 .account{padding:14px;border:1px solid #554e88;border-radius:12px;color:#e8e9ff;overflow-wrap:anywhere;margin-bottom:16px}
+
+.resend{width:100%;margin:13px 0 0;padding:11px;border:1px solid #7668b9;border-radius:11px;background:transparent;color:#c4e7ff;font-weight:700;font-size:13px}
+.resend:disabled{opacity:.5}

@@ -73,6 +73,27 @@ export async function POST(request: NextRequest) {
       { access_token: tokens.access_token, refresh_token: tokens.refresh_token,
         expires_in: tokens.expires_in });
   }
+  if (action === "resend-confirmation") {
+    const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
+    if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254) {
+      return json({ error: "Email không hợp lệ." }, 400);
+    }
+    try {
+      const path = "/auth/v1/resend?redirect_to="
+        + encodeURIComponent(emailConfirmationRedirect(request));
+      const response = await supabaseRequest(path, {
+        method: "POST", body: JSON.stringify({ type: "signup", email }),
+      });
+      if (response.status === 429) {
+        return json({ error: "Bạn đã gửi yêu cầu quá nhanh. Hãy thử lại sau." }, 429);
+      }
+      // Do not leak whether a particular email exists in Supabase Auth.
+      if (!response.ok) return json({ error: "Không thể gửi email xác minh lúc này." }, 502);
+      return json({ ok: true, pendingConfirmation: true });
+    } catch {
+      return json({ error: "Không kết nối được dịch vụ xác minh." }, 503);
+    }
+  }
   if (action !== "register" && action !== "login") return json({ error: "Unsupported action." }, 400);
   const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
   const password = input.password;

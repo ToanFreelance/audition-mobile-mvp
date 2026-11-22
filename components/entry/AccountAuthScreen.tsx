@@ -67,6 +67,17 @@ export default function AccountAuthScreen() {
     return () => { cancelled = true; };
   }, []);
 
+  const resendVerification = async () => {
+    if (!email.trim() || busy) return;
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await authRequest({ action: "resend-confirmation", email });
+      setMessage("Yêu cầu đã được tiếp nhận. Nếu email đang chờ xác minh, hãy mở liên kết trong email mới rồi quay lại đăng nhập.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không gửi lại được email xác minh.");
+    } finally { setBusy(false); }
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true); setError(""); setMessage("");
@@ -130,6 +141,12 @@ export default function AccountAuthScreen() {
                 {busy ? "ĐANG XỬ LÝ…" : mode === "login" ? "ĐĂNG NHẬP" : "TẠO TÀI KHOẢN"}
               </button>
             </form>
+            {mode === "login" && (
+              <button className={styles.resend} type="button" disabled={busy || !email.trim()}
+                onClick={() => void resendVerification()} data-testid="auth-resend-confirmation">
+                Gửi lại email xác minh
+              </button>
+            )}
           </>
         )}
         {message && <p role="status" className={styles.notice}>{message}</p>}
