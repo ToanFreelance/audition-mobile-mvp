@@ -83,7 +83,16 @@ export default function M3GameplayStep3Qa() {
     function fitCamera() {
       if (!actor || !framingPose) return;
       const frame = frameM3GameplayQaCamera(actor.root, framingPose, camera, floor, grid);
-      if (visualFrame) fitM3QaVisualFrame(camera, visualFrame);
+      if (visualFrame) {
+        fitM3QaVisualFrame(camera, visualFrame);
+        // Floor contact is measured from the actual neutral shoe silhouette,
+        // not from a possibly offset VRM toe pivot. Freeze for all actions.
+        const shoeBottomY = visualFrame.center.y - visualFrame.height * 0.5;
+        const soleGroundY = shoeBottomY - visualFrame.height * 0.012;
+        floor.position.set(visualFrame.center.x, soleGroundY, visualFrame.center.z);
+        grid.position.set(visualFrame.center.x, soleGroundY - visualFrame.height * 0.006,
+          visualFrame.center.z);
+      }
       element!.dataset.m3BindSpace = "native";
       element!.dataset.m3ActorScale = actor.root.scale.x.toFixed(4);
       element!.dataset.m3WorldHeight = frame.height.toFixed(4);
@@ -129,14 +138,52 @@ export default function M3GameplayStep3Qa() {
         scene.background = originalBackground;
         target.dispose();
       }
-      const bounds = measureM3QaSilhouette(pixels, side, side);
+      let bounds = measureM3QaSilhouette(pixels, side, side);
       visualFrame = deriveM3QaVisualFrame(bounds, camera, baseline.center.z);
-      element!.dataset.m3VisualFrame = "rendered-silhouette";
+      fitCamera();
+
+      // One corrective read at the fitted perspective removes residual
+      // parallax from the deliberately distant first capture. Both reads
+      // sample the same neutral pose, never a song-time action frame.
+      const correctionTarget = new THREE.WebGLRenderTarget(side, side, {
+        format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+        depthBuffer: true, stencilBuffer: false,
+      });
+      const oldTarget = renderer.getRenderTarget();
+      const oldBackground = scene.background;
+      const oldColor = renderer.getClearColor(new THREE.Color()).clone();
+      const oldAlpha = renderer.getClearAlpha();
+      const oldFloorVisible = floor.visible, oldGridVisible = grid.visible;
+      try {
+        floor.visible = false;
+        grid.visible = false;
+        scene.background = null;
+        renderer.setRenderTarget(correctionTarget);
+        renderer.setClearColor(0x000000, 0);
+        renderer.clear(true, true, true);
+        renderer.render(scene, camera);
+        renderer.readRenderTargetPixels(correctionTarget, 0, 0, side, side, pixels);
+      } finally {
+        renderer.setRenderTarget(oldTarget);
+        renderer.setClearColor(oldColor, oldAlpha);
+        floor.visible = oldFloorVisible;
+        grid.visible = oldGridVisible;
+        scene.background = oldBackground;
+        correctionTarget.dispose();
+      }
+      bounds = measureM3QaSilhouette(pixels, side, side);
+      if (bounds.left < .025 || bounds.right > .975 ||
+          bounds.bottom < .025 || bounds.top > .975) {
+        throw new Error("M3 QA silhouette still clipped after camera fit");
+      }
+      visualFrame = deriveM3QaVisualFrame(bounds, camera, baseline.center.z);
+      fitCamera();
+      element!.dataset.m3VisualFrame = "rendered-silhouette-v2";
       element!.dataset.m3VisualCenterX = visualFrame.center.x.toFixed(4);
       element!.dataset.m3VisualHeight = visualFrame.height.toFixed(4);
-      // Refit again on viewport changes from the frozen silhouette, never
-      // from a mid-Dance or Finish pose.
-      fitCamera();
+      element!.dataset.m3SilhouetteX = ((bounds.left + bounds.right) / 2).toFixed(4);
+      element!.dataset.m3SilhouetteY = ((bounds.bottom + bounds.top) / 2).toFixed(4);
+      // Safari resizing uses the calibrated neutral pixels, never dancing toes.
     }
     function resize() {
       const w = Math.max(1, element!.clientWidth), h = Math.max(1, element!.clientHeight);
