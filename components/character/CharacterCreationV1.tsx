@@ -118,6 +118,7 @@ export default function CharacterCreationV1() {
   const [accountRevision, setAccountRevision] = useState<number | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [yaw, setYaw] = useState(-0.08);
+  const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.name);
   const [characterAssetId, setCharacterAssetId] = useState<CharacterAssetId>(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
   const [hairStyle, setHairStyle] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.hairStyle);
@@ -527,6 +528,7 @@ export default function CharacterCreationV1() {
       data-locked-asset={lockedAssetId ?? ""}
       data-character-asset={creatorCharacter.id}
       data-profile-version="1"
+      data-name-editing={editingName ? "1" : "0"}
       data-testid="c2-character-creation"
     >
       <section className={styles.phone}>
@@ -534,12 +536,19 @@ export default function CharacterCreationV1() {
           <a aria-label="Quay lại" className={styles.headerIcon} href="/">
             <CreatorIcon kind="back" />
           </a>
-          <a className={styles.accountLink} href="/auth" data-testid="creator-account-link">
-            {accountState === "account" ? "TÀI KHOẢN" : "ĐĂNG NHẬP"}
-          </a>
-          <button aria-label="Ngẫu nhiên" className={styles.headerIcon} onClick={randomize} type="button">
-            <CreatorIcon kind="dice" />
-          </button>
+          <span className={styles.headerActions}>
+            <a className={styles.accountIcon} href="/auth" data-testid="creator-account-link"
+              aria-label={accountState === "account" ? "Quản lý tài khoản" : "Đăng nhập"}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"
+                strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="8" r="3.5" />
+                <path d="M5 20v-1.6a7 7 0 0 1 14 0V20H5Z" />
+              </svg>
+            </a>
+            <button aria-label="Ngẫu nhiên" className={styles.headerIcon} onClick={randomize} type="button">
+              <CreatorIcon kind="dice" />
+            </button>
+          </span>
         </header>
 
         <div className={styles.hero}>
@@ -602,6 +611,8 @@ export default function CharacterCreationV1() {
                 ref={nameInputRef}
                 maxLength={14}
                 onChange={event => { setName(event.target.value); setCreated(false); }}
+                onFocus={() => setEditingName(true)}
+                onBlur={() => setEditingName(false)}
                 placeholder="Nhập tên nhân vật"
                 value={name}
               />

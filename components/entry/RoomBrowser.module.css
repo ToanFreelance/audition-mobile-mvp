@@ -317,3 +317,9 @@
   .createCard{height:56px;min-height:56px;flex-basis:56px}
   .filters{margin:6px 0 7px}
 }
+
+/* Avatar will route to Account Dashboard when the screen is implemented. */
+button.avatar{padding:0;cursor:pointer;appearance:none;font:inherit}
+button.avatar:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.dashboardNotice{margin:-10px 0 12px;padding:10px 12px;border:1px solid #566dc7;border-radius:11px;
+  background:#17234a;color:#d0e5ff;font-size:12px;line-height:1.5}

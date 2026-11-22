@@ -71,6 +71,7 @@ export default function RoomBrowser() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [walletInfoOpen, setWalletInfoOpen] = useState(false);
+  const [dashboardHint, setDashboardHint] = useState(false);
   const [section, setSection] = useState<Section>("rooms");
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -255,9 +256,10 @@ export default function RoomBrowser() {
       <div className={styles.app}>
         <div className={styles.content}>
           <header className={styles.playerBar}>
-            <a href="/character/create" className={styles.avatar} aria-label="Chỉnh sửa nhân vật">
+            <button type="button" className={styles.avatar} data-testid="profile-dashboard-trigger"
+              aria-label="Dashboard cá nhân (sắp có)" onClick={() => setDashboardHint(value => !value)}>
               <img src={portrait} alt="" width="52" height="52" />
-            </a>
+            </button>
             <div className={styles.playerText}>
               <strong>{identity.profile.name}</strong>
               <span>Lv. 25</span>
@@ -270,7 +272,10 @@ export default function RoomBrowser() {
             <button type="button" className={styles.profileSettings} aria-label="Thông tin coin và gem"
               aria-expanded={walletInfoOpen} onClick={() => setWalletInfoOpen(current => !current)}><svg aria-hidden="true" viewBox="0 0 24 24" width="19" height="19" fill="none"><path d="M12 4.5v15M4.5 12h15" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" /></svg></button>
           </header>
-          {walletInfoOpen && <p className={styles.walletNotice} role="status">Coin và Gem: 0 (dữ liệu mẫu). Shop sẽ được mở sau.</p>}
+          {dashboardHint && <p className={styles.dashboardNotice} data-testid="dashboard-coming-soon" role="status">
+            Dashboard cá nhân sẽ được bổ sung sau. Avatar hiện không mở Character Creation.
+          </p>}
+          {walletInfoOpen && <p className={styles.walletNotice} role="status">Coin và Gem: 0 (dữ liệu mẫu). Shop sẽ được mở sau.</p>
           <nav className={styles.primaryTabs} aria-label="Mục trong sảnh">
             <button type="button" className={isRoomSection ? styles.tabActive : ""}
               aria-current={isRoomSection ? "page" : undefined} onClick={() => setSection("rooms")}>Phòng</button>
