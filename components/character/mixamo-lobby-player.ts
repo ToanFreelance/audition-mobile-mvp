@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { createLocalReviewRetargeter } from "./mixamo-local-review";
+import { chooseUnsyncedMixamoStart, type ActiveMixamoPhase } from "./mixamo-idle-phase-v15";
 import { fitArmStretchSleevesV10, type ArmStretchSleeveMetrics } from "./mixamo-arm-sleeve-v10";
 import { createMixamoFootLock } from "./mixamo-foot-lock";
 import { applyBoredPelvisCorrection } from "./mixamo-pelvis-stabilizer";
@@ -157,6 +158,7 @@ export function createMixamoLobbyIdle(
   rigFamily: M3RigFamily,
   occupied: () => readonly string[] = () => [],
   enableFootLock = false,
+  occupiedPhases: () => readonly ActiveMixamoPhase[] = () => [],
 ): MixamoLobbyIdle | null {
   if (rigFamily !== "drophunter" && rigFamily !== "neurohacker") return null;
   const rig = findSkeleton(actor);
@@ -452,6 +454,14 @@ export function createMixamoLobbyIdle(
   let lastBase = current;
   let baseCount = 0;
   let action = actions.get(current)!.reset().setEffectiveWeight(1).play();
+  // V15: actors may reuse a gesture, but must not be phase-locked. All five
+  // stage mixers are ticked in the same render loop, so simply shuffling IDs
+  // cannot prevent identical motion if two actions both start at t=0.
+  // Do NOT seek in explicit single-clip QA: it is the source-of-truth test.
+  if (!clipReview) {
+    action.time = chooseUnsyncedMixamoStart(
+      current, action.getClip().duration, occupiedPhases());
+  }
   // Single-shot clip review: preserve the end pose and avoid loop-seam
   // snapping masquerading as foot sliding. Replay restarts from frame zero.
   let outgoing: THREE.AnimationAction | null = null;
@@ -486,6 +496,10 @@ export function createMixamoLobbyIdle(
       :[0,0];
     if (incoming === action) {
       action.reset().setEffectiveWeight(1).play();
+      if (!immediate) {
+        action.time = chooseUnsyncedMixamoStart(
+          next, action.getClip().duration, occupiedPhases());
+      }
       outgoing = null;
       previousActiveGesture=null;
       fadeTime = 0;
@@ -505,6 +519,12 @@ export function createMixamoLobbyIdle(
         ? Math.max(0.15,Math.min(baseFade,baseFade*0.82))
         : baseFade;
       incoming.reset().setEffectiveWeight(1).play();
+      // Auto playback only: manual "Phát ... cả 5" must remain an exact
+      // frame-zero, simultaneous comparison. Preserve all authored curves.
+      if (!immediate) {
+        incoming.time = chooseUnsyncedMixamoStart(
+          next, incoming.getClip().duration, occupiedPhases());
+      }
       action.crossFadeTo(incoming, fade, false);
       outgoing = action;
       previousActiveGesture=current;
@@ -533,7 +553,7 @@ export function createMixamoLobbyIdle(
     runtime.currentGesture = next;
     runtime.animationProfile = next;
     runtime.clipDuration = action.getClip().duration;
-    runtime.poseTime = 0;
+    runtime.poseTime = action.time;
   }
   function drawNext(): MixamoGesture {
     if (!group.base.includes(current)) return lastBase;
@@ -567,7 +587,7 @@ export function createMixamoLobbyIdle(
     armSleeveV10:sleeveV10?.metrics??null,
     allowedGestures:available,
     v8FootContact:v8Stats,
-    animationProfile: current, clipDuration: action.getClip().duration, poseTime: 0,
+    animationProfile: current, clipDuration: action.getClip().duration, poseTime: action.time,
     importReviewPack(text) {
       if(!clipReview || !reviewRetargeter || isDisposed)
         throw Error("Chỉ nạp animation trong demo một nhân vật");
