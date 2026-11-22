@@ -14,15 +14,12 @@ import {
   saveCharacterCreationDraft,
   type CharacterCreationProfileV1,
 } from "./character-profile";
+import {
+  defaultM3CreatorOutfit, getM3CreatorWardrobe, type M3CreatorOutfit,
+} from "./m3-creator-outfits";
+import { m3CreatorHairThumbnailUrl, m3CreatorThumbnailUrl } from "./m3-creator-thumbnails";
 import styles from "./CharacterCreationV1.module.css";
 import CreatorIcon from "./CreatorIcon";
-import {
-  appearanceFromProfile,
-  emptyCharacterLookSlots,
-  readCharacterLookSlots,
-  writeCharacterLookSlots,
-  type CharacterLookSlots,
-} from "./character-look-presets";
 
 type CreatorTab = "hair" | "face" | "body" | "outfit" | "accessory" | "shoes";
 
@@ -31,11 +28,11 @@ const NAME_SUGGESTIONS = ["Luna", "Yuna", "Mina", "Ari", "Nari", "Sora"];
 // The approved sketch contains five visible categories. "Mặt" remains accessible
 // from Tạo hình; unavailable equipment slots retain their honest catalog state.
 const TABS: Array<{ id: Exclude<CreatorTab, "face">; label: string; locked?: boolean }> = [
+  { id: "body", label: "Tạo hình" },
   { id: "hair", label: "Kiểu tóc" },
   { id: "outfit", label: "Trang phục", locked: true },
   { id: "accessory", label: "Phụ kiện", locked: true },
   { id: "shoes", label: "Giày", locked: true },
-  { id: "body", label: "Tạo hình" },
 ];
 
 const DEFAULT_CHARACTER_DEFINITION = (() => {
@@ -44,25 +41,66 @@ const DEFAULT_CHARACTER_DEFINITION = (() => {
   return character;
 })();
 
+/** Consistent SVG bounds replace baseline-dependent Unicode gender glyphs. */
+function GenderGlyph({ gender }: { gender: "female" | "male" }) {
+  return gender === "female" ? (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="8.7" r="5.5" />
+      <path d="M12 14.2V21M8.2 17.7h7.6" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <circle cx="9.8" cy="14.2" r="5.5" />
+      <path d="M13.8 10.2 21 3M15.7 3H21v5.3" />
+    </svg>
+  );
+}
+
+/** Actual item-only PNG, not a cropped full-character portrait. */
+function M3ItemThumbnail({ url, label }: { url: string; label: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <span className={styles.creatorItemArt} aria-hidden="true" title={label}>
+      {!failed ? (
+        <img
+          src={url}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable={false}
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <span className={styles.creatorItemArtFallback}>◇</span>
+      )}
+    </span>
+  );
+}
+
 function ChoiceCard({
   choice,
   selected,
   onSelect,
   icon,
+  thumbnailUrl,
 }: {
   choice: CharacterCatalogChoice;
   selected: boolean;
   onSelect: () => void;
   icon: string;
+  thumbnailUrl?: string;
 }) {
   return (
     <button
       className={[styles.choiceCard, selected ? styles.selected : "", !choice.available ? styles.lockedChoice : ""].filter(Boolean).join(" ")}
+      aria-pressed={selected}
       disabled={!choice.available}
       onClick={onSelect}
       type="button"
     >
-      <span className={styles.choiceIcon}>{icon}</span>
+      {thumbnailUrl
+        ? <M3ItemThumbnail key={thumbnailUrl} url={thumbnailUrl} label={choice.label} />
+        : <span className={styles.choiceIcon}>{icon}</span>}
       <strong>{choice.label}</strong>
       <small>{choice.available ? (selected ? "Đang dùng" : "Chọn") : choice.note ?? "Chưa khả dụng"}</small>
     </button>
@@ -70,14 +108,12 @@ function ChoiceCard({
 }
 
 export default function CharacterCreationV1() {
-  const [tab, setTab] = useState<CreatorTab>("hair");
-  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [tab, setTab] = useState<CreatorTab>("body");
+  const [optionsOpen, setOptionsOpen] = useState(true);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
   const [lockedAssetId, setLockedAssetId] = useState<CharacterAssetId | null>(null);
-  const [lookSlots, setLookSlots] = useState<CharacterLookSlots>(emptyCharacterLookSlots);
-  const [activeLookSlot, setActiveLookSlot] = useState<number | null>(null);
-  const [lookMessage, setLookMessage] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [yaw, setYaw] = useState(-0.08);
   const [name, setName] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.name);
   const [characterAssetId, setCharacterAssetId] = useState<CharacterAssetId>(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
@@ -86,9 +122,12 @@ export default function CharacterCreationV1() {
   const [skinTone, setSkinTone] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.skinTone);
   const [face, setFace] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.face);
   const [created, setCreated] = useState(false);
+  const [m3PreviewReady, setM3PreviewReady] = useState(false);
+  const [m3Outfit, setM3Outfit] = useState<M3CreatorOutfit | undefined>(DEFAULT_CHARACTER_CREATION_PROFILE.m3Outfit);
   const dragRef = useRef<{ id: number; x: number; yaw: number } | null>(null);
 
   const creatorCharacter = getCharacterCatalogEntry(characterAssetId) ?? DEFAULT_CHARACTER_DEFINITION;
+  const creatorWardrobe = getM3CreatorWardrobe(creatorCharacter.id);
   const normalizedName = name.trim();
   const valid = normalizedName.length > 0;
   const profile = useMemo<CharacterCreationProfileV1>(() => ({
@@ -99,8 +138,9 @@ export default function CharacterCreationV1() {
     hairColor,
     skinTone,
     face,
+    m3Outfit: creatorWardrobe ? m3Outfit ?? creatorWardrobe.defaultOutfit : undefined,
     name: normalizedName,
-  }), [creatorCharacter.gender, creatorCharacter.id, face, hairColor, hairStyle, normalizedName, skinTone]);
+  }), [creatorCharacter.gender, creatorCharacter.id, creatorWardrobe, face, hairColor, hairStyle, m3Outfit, normalizedName, skinTone]);
 
   // Scope the no-scroll/no-pinch game viewport to this route only.
   // Restore prior document styles when navigating to /rooms or any other route.
@@ -160,13 +200,9 @@ export default function CharacterCreationV1() {
       setHairColor(draft.hairColor);
       setSkinTone(draft.skinTone);
       setFace(draft.face);
+      setM3Outfit(draft.m3Outfit ?? defaultM3CreatorOutfit(draft.characterAssetId));
       setLockedAssetId(draft.characterAssetId);
       setCreated(true);
-      // Legacy migration: an existing one-character draft becomes its first
-      // saved appearance. Never seed a second male/female character here.
-      const saved = readCharacterLookSlots(window.localStorage, draft.characterAssetId);
-      setLookSlots(saved ?? [appearanceFromProfile(draft), null, null, null]);
-      setActiveLookSlot(0);
     } catch {
       // Local draft restore is optional. Account/profile authority remains Phase 7.
     }
@@ -174,19 +210,23 @@ export default function CharacterCreationV1() {
 
   const selectCharacter = (assetId: CharacterAssetId) => {
     const next = getCharacterCatalogEntry(assetId);
-    if (!next?.runtimeReady || next.id === characterAssetId || (lockedAssetId && lockedAssetId !== next.id)) return;
+    if (!(next?.creatorReady || next?.runtimeReady) || next.id === characterAssetId) return;
+    // Only M3 creator QA allows deliberate migration of an old saved starter
+    // or switching between the two accepted M3 rigs before room integration.
+    if (lockedAssetId && lockedAssetId !== next.id && !next.m3RigFamily) return;
+    if (lockedAssetId && lockedAssetId !== next.id) setLockedAssetId(null);
     setCharacterAssetId(next.id);
     setHairStyle(next.defaultAppearance.hairStyle);
     setHairColor(next.defaultAppearance.hairColor);
     setSkinTone(next.defaultAppearance.skinTone);
     setFace(next.defaultAppearance.face);
-    setLookSlots(emptyCharacterLookSlots());
-    setActiveLookSlot(null);
+    setM3Outfit(defaultM3CreatorOutfit(next.id));
+    setSaveError("");
     setCreated(false);
   };
 
-  const femaleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "female" && entry.runtimeReady) ?? null;
-  const maleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "male" && entry.runtimeReady) ?? null;
+  const femaleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "female" && (entry.creatorReady || entry.runtimeReady)) ?? null;
+  const maleStarter = CHARACTER_CATALOG_V1.find(entry => entry.gender === "male" && (entry.creatorReady || entry.runtimeReady)) ?? null;
 
   const beginDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     dragRef.current = { id: event.pointerId, x: event.clientX, yaw };
@@ -196,7 +236,11 @@ export default function CharacterCreationV1() {
   const moveDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.id !== event.pointerId) return;
-    setYaw(drag.yaw + (event.clientX - drag.x) * 0.012);
+    // M3 camera orbits around the stationary rig: invert its orbit so a
+    // leftward drag visually turns the character left with the finger.
+    // Legacy GLB preview rotates the model itself and keeps its accepted sign.
+    const delta = (event.clientX - drag.x) * 0.012;
+    setYaw(drag.yaw + (creatorWardrobe ? -delta : delta));
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -213,54 +257,200 @@ export default function CharacterCreationV1() {
   };
 
   const createCharacter = () => {
-    if (!valid || (lockedAssetId && lockedAssetId !== profile.characterAssetId)) return;
+    if (!valid || (creatorCharacter.m3RigFamily && !m3PreviewReady)
+      || (lockedAssetId && lockedAssetId !== profile.characterAssetId)) return;
     try {
       saveCharacterCreationDraft(window.localStorage, profile);
-      // First creation also creates the default appearance preset.
-      const nextSlots = lockedAssetId
-        ? lookSlots
-        : [appearanceFromProfile(profile), null, null, null] as CharacterLookSlots;
-      writeCharacterLookSlots(window.localStorage, profile.characterAssetId, nextSlots);
-      setLookSlots(nextSlots);
       setLockedAssetId(profile.characterAssetId);
-      setActiveLookSlot(lockedAssetId ? activeLookSlot : 0);
-      setLookMessage("");
+      setSaveError("");
       setCreated(true);
     } catch {
-      setLookMessage("Không thể lưu trên thiết bị. Hãy kiểm tra dung lượng trình duyệt.");
+      setSaveError("Không thể lưu nhân vật trên thiết bị. Hãy kiểm tra bộ nhớ trình duyệt.");
     }
   };
 
-  const saveLook = (index: number) => {
-    if (!lockedAssetId) {
-      setLookMessage("Hãy tạo nhân vật trước khi lưu mẫu ngoại hình.");
-      return;
-    }
-    if (lockedAssetId !== profile.characterAssetId) return;
-    const nextSlots = [...lookSlots] as CharacterLookSlots;
-    nextSlots[index] = appearanceFromProfile(profile);
-    try {
-      writeCharacterLookSlots(window.localStorage, lockedAssetId, nextSlots);
-      setLookSlots(nextSlots);
-      setActiveLookSlot(index);
-      setLookMessage(`Đã lưu mẫu ${index + 1} trên thiết bị`);
-    } catch {
-      setLookMessage("Không thể lưu mẫu. Hãy kiểm tra bộ nhớ trình duyệt.");
-    }
-  };
+  // The editor is mounted below the preview for M3, not as a blocking 3D overlay.
+  // The legacy GLB creator retains its existing presentation until migration.
 
-  const applyLook = (index: number) => {
-    const look = lookSlots[index];
-    if (!look || !lockedAssetId || lockedAssetId !== profile.characterAssetId) return;
-    setHairStyle(look.hairStyle);
-    setHairColor(look.hairColor);
-    setSkinTone(look.skinTone);
-    setFace(look.face);
-    setActiveLookSlot(index);
-    setOptionsOpen(false);
-    setCreated(false); // Press CTA to persist the active appearance to the draft.
-    setLookMessage(`Đã chọn mẫu ${index + 1}. Nhấn Tạo nhân vật để áp dụng.`);
-  };
+  const optionsPanel = optionsOpen ? (
+            <section aria-label="Tuỳ chọn tạo nhân vật" className={[styles.optionsOverlay, creatorWardrobe ? styles.creatorControlPanel : ""].filter(Boolean).join(" ")} data-testid="c1-category-options">
+              <button aria-label="Đóng tuỳ chọn" className={styles.optionsClose} onClick={() => setOptionsOpen(false)} type="button">×</button>
+          <div className={styles.panelTitle}>
+            <div><span>M3 · DROPHUNTER + NEUROHACKER</span><strong>{TABS.find(item => item.id === tab)?.label}</strong></div>
+            <small>Asset và capability được resolve từ catalog; không fake variant chưa có.</small>
+          </div>
+
+          {tab === "hair" && (
+            <div className={styles.optionStack}>
+              <div>
+                <label>MÀU TÓC</label>
+                <div className={styles.swatches}>
+                  {creatorCharacter.appearance.hairColors.map(choice => (
+                    <button
+                      aria-label={choice.label}
+                      aria-pressed={hairColor === choice.id}
+                      className={[styles.swatch, styles[`hair_${choice.id}`], hairColor === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
+                      disabled={!choice.available}
+                      key={choice.id}
+                      onClick={() => { setHairColor(choice.id); setCreated(false); }}
+                      type="button"
+                    />
+                  ))}
+                </div>
+              </div>
+              {creatorWardrobe && (
+                <div className={styles.creatorHairSectionLabel}>
+                  <span>KIỂU TÓC</span>
+                  <span aria-hidden="true">VUỐT NGANG <span className={styles.creatorSwipeChevron}>›</span></span>
+                </div>
+              )}
+              <div
+                className={[styles.choiceGrid, creatorWardrobe ? styles.creatorHairCarousel : ""].filter(Boolean).join(" ")}
+                aria-label="Chọn kiểu tóc"
+              >
+                {creatorCharacter.appearance.hairStyles.map((choice, index) => (
+                  <ChoiceCard
+                    choice={choice}
+                    icon={index === 0 ? "◖" : index === 1 ? "⌒" : "⑂"}
+                    key={choice.id}
+                    thumbnailUrl={creatorCharacter.m3RigFamily
+                      ? m3CreatorHairThumbnailUrl(creatorCharacter.m3RigFamily, choice.id)
+                      : undefined}
+                    onSelect={() => { setHairStyle(choice.id); setCreated(false); }}
+                    selected={hairStyle === choice.id}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === "face" && (
+            <div className={styles.choiceGrid}>
+              {creatorCharacter.appearance.faces.map((choice, index) => (
+                <ChoiceCard
+                  choice={choice}
+                  icon={index === 0 ? "◉" : "◎"}
+                  key={choice.id}
+                  onSelect={() => { setFace(choice.id); setCreated(false); }}
+                  selected={face === choice.id}
+                />
+              ))}
+            </div>
+          )}
+
+          {tab === "body" && (
+            <div className={styles.bodyGrid}>
+              <div className={styles.bodyCard}>
+                <label>GIỚI TÍNH</label>
+                <button
+                  aria-pressed={creatorCharacter.gender === "female"}
+                  className={[styles.genderChoice, creatorCharacter.gender === "female" ? styles.bodyActive : ""].filter(Boolean).join(" ")}
+                  data-testid="creator-gender-female"
+                  disabled={!femaleStarter || (lockedAssetId !== null && lockedAssetId !== femaleStarter.id && !femaleStarter.m3RigFamily)}
+                  onClick={() => femaleStarter && selectCharacter(femaleStarter.id)}
+                  type="button"
+                >
+                  <span className={styles.genderContents}><GenderGlyph gender="female" /><span>Nữ</span></span>
+                </button>
+                <button
+                  aria-pressed={creatorCharacter.gender === "male"}
+                  className={[styles.genderChoice, creatorCharacter.gender === "male" ? styles.bodyActive : ""].filter(Boolean).join(" ")}
+                  data-testid="creator-gender-male"
+                  disabled={!maleStarter || (lockedAssetId !== null && lockedAssetId !== maleStarter.id && !maleStarter.m3RigFamily)}
+                  onClick={() => maleStarter && selectCharacter(maleStarter.id)}
+                  type="button"
+                >
+                  <span className={styles.genderContents}><GenderGlyph gender="male" /><span>Nam</span></span>
+                </button>
+              </div>
+              <div className={styles.bodyCard}>
+                <label>MÀU DA</label>
+                <div className={styles.swatches}>
+                  {creatorCharacter.appearance.skinTones.map(choice => (
+                    <button
+                      aria-label={choice.label}
+                      className={[styles.swatch, styles[`skin_${choice.id}`], skinTone === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
+                      disabled={!choice.available}
+                      key={choice.id}
+                      onClick={() => { setSkinTone(choice.id); setCreated(false); }}
+                      type="button"
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "outfit" && creatorWardrobe && (
+            <div className={styles.creatorWardrobe} aria-label="Trang phục khởi tạo">
+              {(["top", "bottom"] as const).map(slot => (
+                <div className={styles.creatorGarmentGroup} key={slot}>
+                  <strong>{slot === "top" ? "ÁO" : "QUẦN"}</strong>
+                  <div className={styles.creatorGarmentGrid}>
+                    {creatorWardrobe[slot].map(item => {
+                      const selected = profile.m3Outfit?.[slot] === item.id;
+                      return (
+                        <button
+                          type="button"
+                          aria-pressed={selected}
+                          className={[styles.creatorGarmentChoice, selected ? styles.creatorGarmentSelected : ""].filter(Boolean).join(" ")}
+                          data-testid={`creator-${slot}-${item.id}`}
+                          key={item.id}
+                          onClick={() => {
+                            const current = profile.m3Outfit ?? creatorWardrobe.defaultOutfit;
+                            setM3Outfit({ ...current, [slot]: item.id });
+                            setCreated(false);
+                          }}
+                        >
+                          {creatorCharacter.m3RigFamily && (
+                            <M3ItemThumbnail
+                              key={item.thumbnail}
+                              url={m3CreatorThumbnailUrl(creatorCharacter.m3RigFamily, item.thumbnail)}
+                              label={item.label}
+                            />
+                          )}
+                          <span className={styles.creatorGarmentLabel}>{item.label}</span>
+                          {selected && <span className={styles.creatorItemCheck} aria-hidden="true">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {tab === "shoes" && creatorWardrobe && (
+            <div className={styles.creatorFixedShoes} data-testid="creator-fixed-shoes">
+              {creatorCharacter.m3RigFamily && (
+                <M3ItemThumbnail
+                  key={creatorWardrobe.shoes.thumbnail}
+                  url={m3CreatorThumbnailUrl(creatorCharacter.m3RigFamily, creatorWardrobe.shoes.thumbnail)}
+                  label={creatorWardrobe.shoes.label}
+                />
+              )}
+              <div><strong>{creatorWardrobe.shoes.label}</strong><small>Giày cơ bản mặc định</small></div>
+              <span className={styles.creatorShoesCheck} aria-hidden="true">✓</span>
+            </div>
+          )}
+          {(tab === "outfit" || tab === "accessory" || tab === "shoes") && !creatorWardrobe && (
+            <div className={styles.futurePanel}>
+              <span>◇</span>
+              <strong>{TABS.find(item => item.id === tab)?.label}</strong>
+              <p>Chưa có tuỳ chọn tạo nhân vật tương thích với mẫu này.</p>
+            </div>
+          )}
+
+
+              {tab === "body" && (
+                <button className={styles.faceSwitch} onClick={() => setTab("face")} type="button">Mặt · Tuỳ chỉnh khuôn mặt →</button>
+              )}
+              {tab === "face" && (
+                <button className={styles.faceSwitch} onClick={() => setTab("body")} type="button">← Tạo hình</button>
+              )}
+            </section>
+
+  ) : null;
+
 
   return (
     <main
@@ -282,8 +472,8 @@ export default function CharacterCreationV1() {
         </header>
 
         <div className={styles.hero}>
-          <nav className={styles.rail} aria-label="Tuỳ chỉnh nhân vật">
-            {TABS.map(item => (
+          <nav className={[styles.rail, creatorWardrobe ? styles.m3Rail : ""].filter(Boolean).join(" ")} aria-label="Tuỳ chỉnh nhân vật">
+            {TABS.filter(item => item.id !== "accessory" || !creatorWardrobe).map(item => (
               <button
                 aria-pressed={tab === item.id}
                 className={[tab === item.id ? styles.railActive : "", item.locked ? styles.railLocked : ""].filter(Boolean).join(" ")}
@@ -306,12 +496,9 @@ export default function CharacterCreationV1() {
             onPointerMove={moveDrag}
             onPointerUp={endDrag}
           >
-            <CharacterCreationStage3D assetId={profile.characterAssetId} focus={tab} yaw={yaw} />
-          </div>
-
-          <div className={styles.rotateHint} aria-hidden="true">
-            <b className={styles.rotateArrow}><CreatorIcon kind="rotate" /></b>
-            <div><strong>Xoay nhân vật</strong><small>Drag to rotate</small></div>
+            <CharacterCreationStage3D assetId={profile.characterAssetId} focus={creatorWardrobe && tab === "outfit" ? "body" : tab} yaw={yaw}
+              appearance={{ hairStyle, hairColor, skinTone, m3Outfit: profile.m3Outfit }}
+              onReadyChange={setM3PreviewReady} />
           </div>
 
           <div className={styles.heroBadge}>
@@ -319,153 +506,22 @@ export default function CharacterCreationV1() {
             <strong>{creatorCharacter.label}</strong>
             <small>{creatorCharacter.creatorVersionLabel}</small>
           </div>
-          {optionsOpen && (
-            <section aria-label="Tuỳ chọn tạo nhân vật" className={styles.optionsOverlay} data-testid="c1-category-options">
-              <button aria-label="Đóng tuỳ chọn" className={styles.optionsClose} onClick={() => setOptionsOpen(false)} type="button">×</button>
-          <div className={styles.panelTitle}>
-            <div><span>C4 · MALE + FEMALE STARTERS</span><strong>{TABS.find(item => item.id === tab)?.label}</strong></div>
-            <small>Asset và capability được resolve từ catalog; không fake variant chưa có.</small>
-          </div>
-
-          {tab === "hair" && (
-            <div className={styles.optionStack}>
-              <div>
-                <label>MÀU TÓC</label>
-                <div className={styles.swatches}>
-                  {creatorCharacter.appearance.hairColors.map(choice => (
-                    <button
-                      aria-label={choice.label}
-                      className={[styles.swatch, styles[`hair_${choice.id}`], hairColor === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
-                      disabled={!choice.available}
-                      key={choice.id}
-                      onClick={() => setHairColor(choice.id)}
-                      type="button"
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className={styles.choiceGrid}>
-                {creatorCharacter.appearance.hairStyles.map((choice, index) => (
-                  <ChoiceCard
-                    choice={choice}
-                    icon={index === 0 ? "◖" : index === 1 ? "⌒" : "⑂"}
-                    key={choice.id}
-                    onSelect={() => setHairStyle(choice.id)}
-                    selected={hairStyle === choice.id}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {tab === "face" && (
-            <div className={styles.choiceGrid}>
-              {creatorCharacter.appearance.faces.map((choice, index) => (
-                <ChoiceCard
-                  choice={choice}
-                  icon={index === 0 ? "◉" : "◎"}
-                  key={choice.id}
-                  onSelect={() => setFace(choice.id)}
-                  selected={face === choice.id}
-                />
-              ))}
-            </div>
-          )}
-
-          {tab === "body" && (
-            <div className={styles.bodyGrid}>
-              <div className={styles.bodyCard}>
-                <label>NHÂN VẬT {lockedAssetId ? "(ĐÃ CHỌN)" : "(CHỌN MỘT LẦN)"}</label>
-                <button
-                  className={creatorCharacter.gender === "female" ? styles.bodyActive : ""}
-                  disabled={!femaleStarter || (lockedAssetId !== null && lockedAssetId !== femaleStarter.id)}
-                  onClick={() => femaleStarter && selectCharacter(femaleStarter.id)}
-                  type="button"
-                >
-                  ♀ Nữ
-                </button>
-                <button
-                  className={creatorCharacter.gender === "male" ? styles.bodyActive : ""}
-                  disabled={!maleStarter || (lockedAssetId !== null && lockedAssetId !== maleStarter.id)}
-                  onClick={() => maleStarter && selectCharacter(maleStarter.id)}
-                  type="button"
-                >
-                  ♂ Nam
-                </button>
-              </div>
-              <div className={styles.bodyCard}>
-                <label>MÀU DA</label>
-                <div className={styles.swatches}>
-                  {creatorCharacter.appearance.skinTones.map(choice => (
-                    <button
-                      aria-label={choice.label}
-                      className={[styles.swatch, styles[`skin_${choice.id}`], skinTone === choice.id ? styles.swatchActive : "", !choice.available ? styles.swatchLocked : ""].filter(Boolean).join(" ")}
-                      disabled={!choice.available}
-                      key={choice.id}
-                      onClick={() => setSkinTone(choice.id)}
-                      type="button"
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {(tab === "outfit" || tab === "accessory" || tab === "shoes") && (
-            <div className={styles.futurePanel}>
-              <span>◇</span>
-              <strong>{TABS.find(item => item.id === tab)?.label}</strong>
-              <p>Slot đã có trong character catalog. Inventory / equipment / shop vẫn thuộc Phase 8–9.</p>
-            </div>
-          )}
-
-
-              {tab === "body" && (
-                <button className={styles.faceSwitch} onClick={() => setTab("face")} type="button">Mặt · Tuỳ chỉnh khuôn mặt →</button>
-              )}
-              {tab === "face" && (
-                <button className={styles.faceSwitch} onClick={() => setTab("body")} type="button">← Tạo hình</button>
-              )}
-            </section>
-          )}
+          {!creatorWardrobe && optionsPanel}
         </div>
 
-        <div className={styles.dock}>
+        <div className={[styles.dock, creatorWardrobe ? styles.creatorDock : ""].filter(Boolean).join(" ")}>
           <div className={styles.desktopHeading}>
             <span>CHARACTER CREATION</span>
             <strong>TẠO NHÂN VẬT</strong>
-            <small>Một nhân vật · Bốn mẫu ngoại hình yêu thích</small>
+            <small>Tạo nhân vật · Chọn phong cách ban đầu</small>
           </div>
-          <div className={styles.presetHeader}>
-            <span>MẪU NGOẠI HÌNH</span>
-            <small>Chạm mẫu để dùng • Lưu để ghi đè</small>
-          </div>
-          <div className={styles.avatarRow} role="group" aria-label="Mẫu ngoại hình đã lưu">
-            {lookSlots.map((look, index) => (
-              <div className={styles.presetCell} key={index}>
-                <button
-                  aria-label={look ? `Áp dụng mẫu ${index + 1}` : `Lưu mẫu ${index + 1}`}
-                  aria-pressed={activeLookSlot === index && look !== null}
-                  className={[styles.avatarTile, look && activeLookSlot === index ? styles.avatarSelected : "", !look ? styles.avatarEmpty : ""].filter(Boolean).join(" ")}
-                  data-testid={`c1-look-slot-${index + 1}`}
-                  onClick={() => look ? applyLook(index) : saveLook(index)}
-                  type="button"
-                >
-                  {look ? <img alt="" src={creatorCharacter.portraitUrl} /> : <span className={styles.emptyLookPlus}>＋</span>}
-                  <span className={styles.presetLabel}>{`MẪU ${String(index + 1).padStart(2, "0")}`}</span>
-                </button>
-                {look && (
-                  <button
-                    aria-label={`Ghi đè mẫu ${index + 1}`}
-                    className={styles.presetSave}
-                    onClick={() => saveLook(index)}
-                    type="button"
-                  >Lưu</button>
-                )}
-              </div>
-            ))}
-          </div>
-          {lookMessage && <p className={styles.presetMessage} role="status">{lookMessage}</p>}
+          {creatorWardrobe && (
+            <div className={styles.creatorSetupHeading} aria-hidden="true">
+              <div><span>CHARACTER STUDIO</span><strong>Thiết lập nhân vật</strong></div>
+              <span className={styles.creatorStepMark}>01 / CREATE</span>
+            </div>
+          )}
+          {creatorWardrobe && optionsPanel}
 
           <div className={styles.nameField}>
             <div>
@@ -483,31 +539,29 @@ export default function CharacterCreationV1() {
             <small className={styles.nameCounter}>{name.length}/14</small>
           </div>
 
-          <button
-            className={styles.createButton}
-            data-testid="c2-confirm-character"
-            disabled={!valid}
-            onClick={createCharacter}
-            type="button"
-          >
-            {created ? "✓ NHÂN VẬT MVP ĐÃ SẴN SÀNG" : "TẠO NHÂN VẬT"}
-          </button>
-
-          {created && (
+          {/* A saved character uses the SAME dock slot for navigation.
+              Never grow the dock (and shrink the 3D preview) after save. */}
+          {created && (creatorCharacter.runtimeReady || creatorCharacter.lobbyReady) ? (
             <a
-              href="/rooms"
+              className={[styles.createButton, styles.continueButton].join(" ")}
               data-testid="entry-continue-rooms"
-              style={{
-                display: "block", marginTop: 10, padding: "14px 12px",
-                borderRadius: 12, textAlign: "center",
-                background: "linear-gradient(105deg, #6d38cf, #c53edb)",
-                color: "#fff", textDecoration: "none", fontWeight: 800,
-              }}
+              href="/rooms"
             >
               TIẾP TỤC → SẢNH PHÒNG
             </a>
+          ) : (
+            <button
+              className={styles.createButton}
+              data-testid="c2-confirm-character"
+              disabled={!valid || Boolean(creatorCharacter.m3RigFamily && !m3PreviewReady)}
+              onClick={createCharacter}
+              type="button"
+            >
+              {created ? "✓ NHÂN VẬT ĐÃ LƯU" : "TẠO NHÂN VẬT"}
+            </button>
           )}
 
+          {saveError && <p className={styles.creatorSaveError} role="alert">{saveError}</p>}
           <div className={styles.footerNote}>
             <span>DANCE YOUR STORY <CreatorIcon kind="heart" /></span>
             <small>{created ? "Đã lưu trên thiết bị" : ""}</small>

@@ -23,6 +23,7 @@ import { isCanonicalRoomSnapshot } from "../../../../multiplayer/room-sync";
 import type { HumanGuestParticipant, MatchManifest, RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
 import { createP53SyncedWaitingRoomBase } from "../../../../multiplayer/waiting-room-qa";
 import { getCharacterCatalogEntry, isCharacterAssetId } from "../../../../components/character/character-catalog";
+import { parseM3LobbyAppearance, roomContainsNonPlayableCharacter } from "../../../../components/character/m3-lobby-appearance";
 import { WAITING_ROOM_MAX_PLAYERS, type HumanHostParticipant } from "../../../../multiplayer/types";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +50,7 @@ type RoomMutationBody =
       participantId: string;
       displayName: string;
       characterAssetId: string;
+      m3Appearance?: unknown;
       modeId?: string;
     }
   | { action: "bootstrap"; roomId: string }
@@ -61,6 +63,7 @@ type RoomMutationBody =
       slotIndex: RoomSlotIndex;
       characterId: string;
       characterAssetId?: string;
+      m3Appearance?: unknown;
     }
   | { action: "ready"; roomId: string; expectedRevision: number; participantId: string; ready: boolean }
   | { action: "leave"; roomId: string; expectedRevision: number; participantId: string }
@@ -280,6 +283,13 @@ function joinHumanGuest(
     throw new Error("Participant id is already used by another room member.");
   }
 
+  const entry = getCharacterCatalogEntry(body.characterAssetId?.trim() || "");
+  if (entry?.m3RigFamily && (!entry.lobbyReady || !parseM3LobbyAppearance(entry.id, body.m3Appearance))) {
+    throw new Error("M3 guest appearance is invalid or lobby preview unavailable.");
+  }
+  const m3Appearance = entry?.m3RigFamily
+    ? parseM3LobbyAppearance(entry.id, body.m3Appearance)!
+    : undefined;
   const participant: HumanGuestParticipant = {
     participantId: body.participantId,
     displayName: body.displayName.trim().slice(0, 32),
@@ -292,6 +302,7 @@ function joinHumanGuest(
     avatar: {
       characterId: body.characterId.trim() || "default-female",
       characterAssetId: body.characterAssetId?.trim() || undefined,
+      m3Appearance,
       outfit: {},
       accessoryIds: [],
       petId: null,
@@ -341,6 +352,11 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
       requireHost(room, body.actorParticipantId);
       return removeParticipant(room, body.participantId);
     case "start-preload":
+      // Never freeze a playable MatchManifest for creator-only M3 avatars.
+      // This server-side check applies even if a client bypasses the UI gate.
+      if (roomContainsNonPlayableCharacter(room.participants.map(item => item.avatar))) {
+        throw new Error("M3 Waiting Room preview only: gameplay runtime is not ready.");
+      }
       return beginLobbyPreload(
         room,
         body.actorParticipantId,
@@ -447,7 +463,15 @@ async function createEntryRoom(body: Extract<RoomMutationBody, { action: "create
     throw new Error("Invalid character or room details.");
   }
   const character = getCharacterCatalogEntry(body.characterAssetId);
-  if (!character?.runtimeReady) throw new Error("Character not ready for gameplay.");
+  if (!character || !(character.runtimeReady || character.lobbyReady)) {
+    throw new Error("Character not ready for Waiting Room.");
+  }
+  const m3Appearance = character.m3RigFamily
+    ? parseM3LobbyAppearance(character.id, body.m3Appearance)
+    : undefined;
+  if (character.m3RigFamily && !m3Appearance) {
+    throw new Error("Invalid M3 appearance: hair/skin/outfit must match Character Catalog.");
+  }
   const host: HumanHostParticipant = {
     participantId, displayName: name, kind: "human", role: "host",
     slotIndex: 0, readyState: "not-applicable",
@@ -455,6 +479,7 @@ async function createEntryRoom(body: Extract<RoomMutationBody, { action: "create
     avatar: {
       characterId: character.id,
       characterAssetId: character.id,
+      m3Appearance: m3Appearance ?? undefined,
       outfit: {}, accessoryIds: [], petId: null, titleId: null,
     },
   };

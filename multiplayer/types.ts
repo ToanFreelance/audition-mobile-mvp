@@ -6,6 +6,13 @@ export type LoadState = "idle" | "loading" | "loaded" | "failed";
 export type ConnectionState = "connected" | "disconnected";
 export type BotProfile = "perfect" | "miss" | "mixed" | "passive";
 
+export type M3LobbyAppearance = {
+  hairStyle: string;
+  hairColor: string;
+  skinTone: string;
+  m3Outfit: { top: string; bottom: string };
+};
+
 export type AvatarSnapshot = {
   /** Canonical Character Catalog identity for runtime presentation. */
   characterAssetId?: string;
@@ -18,6 +25,8 @@ export type AvatarSnapshot = {
     shoesId?: string;
   };
   accessoryIds: readonly string[];
+  /** Immutable creator look snapshot for M3 Waiting Room; not gameplay-ready. */
+  m3Appearance?: M3LobbyAppearance;
   petId?: string | null;
   titleId?: string | null;
 };

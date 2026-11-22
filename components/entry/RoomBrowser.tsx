@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { RoomState } from "../../multiplayer/types";
+import { getCharacterCatalogEntry } from "../character/character-catalog";
 import { getEntryIdentity, isEntryRoomId, type EntryIdentity } from "./entry-session";
+import { parseM3LobbyAppearance } from "../character/m3-lobby-appearance";
 import styles from "./RoomBrowser.module.css";
 
 type RoomSummary = { roomId: string; roomName: string; modeId: string; playerCount: number; maxPlayers: number; openSlots: number };
@@ -124,6 +126,14 @@ export default function RoomBrowser() {
     };
   }, [refresh]);
 
+  const roomAvatarLook = () => {
+    if (!identity) return null;
+    const entry = getCharacterCatalogEntry(identity.profile.characterAssetId);
+    if (!entry?.m3RigFamily) return undefined;
+    const look = parseM3LobbyAppearance(entry.id, identity.profile);
+    if (!look) throw new Error("Diện mạo M3 đã lưu không hợp lệ. Hãy quay lại Tạo hình.");
+    return look;
+  };
   const create = async () => {
     if (!identity || loading || createMode !== "solo-easy-battle") return;
     const title = roomName.trim() || `Phòng của ${identity.profile.name}`;
@@ -133,7 +143,8 @@ export default function RoomBrowser() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "create", participantId: identity.participantId,
-          displayName: identity.profile.name, characterAssetId: identity.profile.characterAssetId, roomName: title,
+          displayName: identity.profile.name, characterAssetId: identity.profile.characterAssetId,
+          m3Appearance: roomAvatarLook(), roomName: title,
           modeId: createMode,
         }),
       }));
@@ -171,6 +182,7 @@ export default function RoomBrowser() {
             participantId: identity.participantId, displayName: identity.profile.name,
             slotIndex: free.slotIndex, characterId: identity.profile.characterAssetId,
             characterAssetId: identity.profile.characterAssetId,
+            m3Appearance: roomAvatarLook(),
           }),
         }));
         if (joined.conflict) continue;

@@ -13,6 +13,10 @@ import {
   type CharacterAssetId,
 } from "../character/character-catalog";
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
+import { M3CharacterAssembler } from "../character/m3-character-assembler";
+import { applyM3WaitingRoomFacialF } from "../character/m3-lobby-face-f";
+import type { MixamoLobbyIdle } from "../character/mixamo-lobby-player";
+import { parseM3LobbyAppearance } from "../character/m3-lobby-appearance";
 import { loadLobbyIdleLibrary } from "../character/lobby-idle-library";
 import { retargetQuaterniusClipsToMixamo } from "../character/mixamo-character-adapter";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
@@ -69,6 +73,7 @@ type StageNode = {
   participant: RoomParticipant;
   index: number;
   characterAssetId: CharacterAssetId;
+  appearanceKey: string | null;
   actor: THREE.Object3D;
   ring: THREE.Object3D;
   baseScale: THREE.Vector3;
@@ -120,6 +125,18 @@ function participantSketchRingAccent(participant: RoomParticipant) {
 function participantCharacterAssetId(participant: RoomParticipant): CharacterAssetId {
   const candidate = avatarCharacterAssetId(participant.avatar);
   return isCharacterAssetId(candidate) ? candidate : DEFAULT_CHARACTER_ASSET_ID;
+}
+
+function m3ParticipantLook(participant: RoomParticipant) {
+  const id = participantCharacterAssetId(participant);
+  return getCharacterCatalogEntry(id)?.m3RigFamily
+    ? parseM3LobbyAppearance(id, participant.avatar.m3Appearance)
+    : null;
+}
+
+function m3ParticipantLookKey(participant: RoomParticipant): string | null {
+  const look = m3ParticipantLook(participant);
+  return look ? participantCharacterAssetId(participant) + ":" + JSON.stringify(look) : null;
 }
 
 function participantUsesFemaleFallback(participant: RoomParticipant) {
@@ -783,9 +800,15 @@ export default function WaitingRoomStage3D({
   const [sceneGeneration, setSceneGeneration] = useState(0);
   const [renderedActorCount, setRenderedActorCount] = useState(0);
   const [idleRuntimeCount, setIdleRuntimeCount] = useState(0);
+  const [m3IdleCount, setM3IdleCount] = useState(0);
+  const [m3ScratchReadyCount, setM3ScratchReadyCount] = useState(0);
   const [idleSource, setIdleSource] = useState<"loading" | "published" | "builtin" | "none">("loading");
+  const hasM3Participant = participants.some(participant =>
+    Boolean(getCharacterCatalogEntry(participantCharacterAssetId(participant))?.m3RigFamily));
+  // Legacy C1/C4 fallback behavior remains unchanged; M3 must fail closed.
   const stagePresentationReady = loadState !== "loading"
-    && renderedActorCount >= participants.length;
+    && renderedActorCount >= participants.length
+    && !(hasM3Participant && loadState === "fallback");
 
   selectCallbackRef.current = onSelectParticipant;
   calibrationModeRef.current = calibrationMode;
@@ -801,7 +824,7 @@ export default function WaitingRoomStage3D({
   );
 
   const participantRenderKey = useMemo(
-    () => participants.map(lobbyStageParticipantIdentity).join("|"),
+    () => participants.map(participant => lobbyStageParticipantIdentity(participant) + ":" + (m3ParticipantLookKey(participant) ?? "")).join("|"),
     [participants],
   );
 
@@ -846,14 +869,46 @@ export default function WaitingRoomStage3D({
     let idleClips: readonly THREE.AnimationClip[] = [];
     let releaseVersion = 0;
     const actorSources = new Map<CharacterAssetId, THREE.Object3D>();
+    // M3 rig sources are assembled on demand for actual frozen creator looks;
+    // metadata/READY updates do not cause base reloads or mixer recreation.
+    const m3Sources = new Map<string, M3CharacterAssembler>();
+    const m3Pending = new Set<string>();
+    const m3Failed = new Set<string>();
+    // The Mixamo catalog is lazy: legacy C1/C4 rooms do not download M3 clips.
+    let mixamoModule: typeof import("../character/mixamo-lobby-player") | null = null;
+    let mixamoLoadStarted = false;
+    let mixamoLoadError: string | null = null;
+    const ensureM3MixamoLibrary = () => {
+      if (mixamoLoadStarted) return;
+      mixamoLoadStarted = true;
+      void import("../character/mixamo-lobby-player")
+        .then(async module => {
+          // Load owner-accepted V14 Standing Greeting before exposing any actor.
+          await module.prepareMixamoLobbyClips(true);
+          if (disposed) return;
+          mixamoModule = module;
+          reconcileParticipantsRef.current?.();
+        })
+        .catch(error => {
+          if (disposed) return;
+          mixamoLoadError = error instanceof Error ? error.message : String(error);
+          console.warn("[waiting-room] M3 Mixamo V15 load failed", error);
+          if (mountRef.current) mountRef.current.dataset.m3IdleError = mixamoLoadError;
+          reconcileParticipantsRef.current?.();
+        });
+    };
     const idleClipsByAssetId = new Map<CharacterAssetId, readonly THREE.AnimationClip[]>();
     let characterAssetsReady = false;
 
     const idleRuntimeByParticipant = new Map<string, IdleRuntime>();
+    // Waiting Room only: native M3 skeleton motion, no Mixer/gameplay clock.
+    const m3IdleByParticipant = new Map<string, MixamoLobbyIdle>();
     const disposableSources: THREE.Object3D[] = [];
     stageNodesRef.current.clear();
     slotPlaceholdersRef.current = [];
     setIdleRuntimeCount(0);
+    setM3IdleCount(0);
+    setM3ScratchReadyCount(0);
     setIdleSource("loading");
 
     const sketchVisual = visualPreset === "sketch";
@@ -1458,6 +1513,8 @@ export default function WaitingRoomStage3D({
           runtime.mixer.update(deltaSeconds);
           switchIdleIfNeeded(runtime, deltaSeconds);
         });
+        // READY, connection, and other metadata updates never recreate mixers.
+        m3IdleByParticipant.forEach(runtime => runtime.update(deltaSeconds));
 
         const ringTime = nowMs / 1000;
         const transitionAlpha = 1 - Math.exp(-deltaSeconds * 4.2);
@@ -1791,6 +1848,15 @@ export default function WaitingRoomStage3D({
     };
 
     const removeStageNode = (participantId: string) => {
+      // Only departure or true identity replacement destroys M3 idle;
+      // READY and connection metadata only update the participant reference.
+      const removedM3Idle = m3IdleByParticipant.get(participantId);
+      if (removedM3Idle) {
+        removedM3Idle.dispose();
+        m3IdleByParticipant.delete(participantId);
+        setM3IdleCount(m3IdleByParticipant.size);
+        setM3ScratchReadyCount([...m3IdleByParticipant.values()].filter(idle => idle.hasScratchPose).length);
+      }
       const node = stageNodesRef.current.get(participantId);
       if (!node) return;
       stopIdleRuntime(participantId);
@@ -1801,16 +1867,64 @@ export default function WaitingRoomStage3D({
       stageNodesRef.current.delete(participantId);
     };
 
+    const ensureM3Source = (participant: RoomParticipant) => {
+      const id = participantCharacterAssetId(participant);
+      if (!getCharacterCatalogEntry(id)?.m3RigFamily) return;
+      ensureM3MixamoLibrary();
+      const look = m3ParticipantLook(participant);
+      const key = m3ParticipantLookKey(participant);
+      if (!look || !key || m3Sources.has(key) || m3Pending.has(key) || m3Failed.has(key)) return;
+      m3Pending.add(key);
+      void M3CharacterAssembler.create(id, look).then(assembly => {
+        if (disposed) { assembly.dispose(); return; }
+        m3Pending.delete(key);
+        m3Sources.set(key, assembly);
+        reconcileParticipantsRef.current?.();
+      }).catch(error => {
+        if (disposed) return;
+        m3Pending.delete(key);
+        m3Failed.add(key);
+        console.warn("[waiting-room] M3 avatar cannot load", error);
+        reconcileParticipantsRef.current?.();
+      });
+    };
+
     const createStageNode = (participant: RoomParticipant, index: number) => {
       const characterAssetId = participantCharacterAssetId(participant);
-      const source = actorSources.get(characterAssetId) ?? null;
+      const m3Family = Boolean(getCharacterCatalogEntry(characterAssetId)?.m3RigFamily);
+      const appearanceKey = m3ParticipantLookKey(participant);
+      const m3Source = appearanceKey ? m3Sources.get(appearanceKey)?.root : null;
+      // Missing M3 data/model is a loading/error state, NOT an unrelated
+      // C1/C4 fake stand-in that would misrepresent the saved avatar.
+      if (m3Family && (!m3Source || !mixamoModule)) return null;
+      const source = m3Source ?? actorSources.get(characterAssetId) ?? null;
       const actor = source ? cloneSkeleton(source) : fallbackActor(participantUsesFemaleFallback(participant));
+      if (m3Source) {
+        // M3 garments were detached-bound in the creator where the rig NEVER
+        // moves. Waiting Room applies a stage formation transform. Attached
+        // bind matrices follow the actor's world space once, not twice.
+        actor.traverse(object => {
+          const skinned = object as THREE.SkinnedMesh;
+          if (skinned.isSkinnedMesh) skinned.bindMode = "attached";
+        });
+        // M3 source VRMs are authored at a different scale from the accepted
+        // C1/C4 Waiting Room actor size. Normalize the *cloned actor only*
+        // after attached binding; otherwise M3 is tiny in 5-player formation.
+        actor.updateMatrixWorld(true);
+        const m3Size = new THREE.Box3().setFromObject(actor).getSize(new THREE.Vector3());
+        if (!(m3Size.y > 0) || !Number.isFinite(m3Size.y)) {
+          throw new Error("Invalid M3 Waiting Room actor height.");
+        }
+        actor.scale.multiplyScalar(4.05 / m3Size.y);
+        actor.updateMatrixWorld(true);
+      }
       tintActor(
         actor,
         participant,
         index,
-        visualPresetRef.current === "sketch",
+        visualPresetRef.current === "sketch" || Boolean(m3Source),
       );
+      if (m3Source) applyM3WaitingRoomFacialF(actor);
       actor.name = `WaitingRoomActor:${participant.participantId}:${characterAssetId}`;
       actor.userData.participantId = participant.participantId;
       actor.userData.characterAssetId = characterAssetId;
@@ -1830,6 +1944,7 @@ export default function WaitingRoomStage3D({
         participant,
         index,
         characterAssetId,
+        appearanceKey,
         actor,
         ring,
         baseScale: actor.scale.clone(),
@@ -1840,13 +1955,38 @@ export default function WaitingRoomStage3D({
         layoutReady: false,
       };
       stageNodesRef.current.set(participant.participantId, node);
-      attachIdleRuntime(node);
+      if (m3Source) {
+        const rigFamily = getCharacterCatalogEntry(characterAssetId)?.m3RigFamily;
+        // V15: per-actor shuffle bag and independent phases when a clip repeats.
+        const occupiedProfiles = () => Array.from(m3IdleByParticipant.values()).flatMap(r =>
+          r.target ? [r.animationProfile, r.target] : [r.animationProfile]);
+        const occupiedPhases = () => Array.from(m3IdleByParticipant.entries())
+          .filter(([id]) => id !== participant.participantId)
+          .map(([, r]) => ({ id: r.currentGesture, time: r.poseTime }));
+        const idle = rigFamily && mixamoModule
+          ? mixamoModule.createMixamoLobbyIdle(
+              actor, participant.participantId, roomId, rigFamily,
+              occupiedProfiles, false, occupiedPhases, true,
+            )
+          : null;
+        if (idle) {
+          m3IdleByParticipant.set(participant.participantId, idle);
+          setM3IdleCount(m3IdleByParticipant.size);
+        } else {
+          // Do not claim that a static / fake avatar is a working V15 actor.
+          if (mountRef.current) mountRef.current.dataset.m3IdleError = "M3 V15 clip retarget unavailable";
+          m3Failed.add(appearanceKey!);
+        }
+      } else {
+        attachIdleRuntime(node);
+      }
       return node;
     };
 
     const reconcileParticipants = () => {
       if (disposed || !characterAssetsReady) return;
       const activeParticipants = participantsRef.current;
+      activeParticipants.forEach(ensureM3Source);
       const activeIds = new Set(activeParticipants.map(item => item.participantId));
 
       // Remove only the participant that actually left. Existing actors,
@@ -1863,7 +2003,8 @@ export default function WaitingRoomStage3D({
         }
 
         // Avatar identity changes replace only that one actor.
-        if (existing.characterAssetId !== participantCharacterAssetId(participant)) {
+        if (existing.characterAssetId !== participantCharacterAssetId(participant)
+          || existing.appearanceKey !== m3ParticipantLookKey(participant)) {
           removeStageNode(participant.participantId);
           createStageNode(participant, index);
           return;
@@ -1907,11 +2048,21 @@ export default function WaitingRoomStage3D({
         existing.index = index;
       });
 
-      const needsFallback = activeParticipants.some(participant => (
-        !actorSources.has(participantCharacterAssetId(participant))
-      ));
+      const needsM3Load = activeParticipants.some(participant =>
+        Boolean(getCharacterCatalogEntry(participantCharacterAssetId(participant))?.m3RigFamily)
+        && (!m3Sources.has(m3ParticipantLookKey(participant) ?? "") || !mixamoModule)
+        && !m3Failed.has(m3ParticipantLookKey(participant) ?? "")
+        && !mixamoLoadError
+      );
+      const needsFallback = activeParticipants.some(participant => {
+        const id = participantCharacterAssetId(participant);
+        if (getCharacterCatalogEntry(id)?.m3RigFamily) {
+          return Boolean(mixamoLoadError) || !m3ParticipantLookKey(participant) || m3Failed.has(m3ParticipantLookKey(participant)!);
+        }
+        return !actorSources.has(id);
+      });
       setRenderedActorCount(stageNodesRef.current.size);
-      setLoadState(needsFallback ? "fallback" : "ready");
+      setLoadState(needsM3Load ? "loading" : needsFallback ? "fallback" : "ready");
       applyLayout();
       startIdleLoop();
     };
@@ -2014,6 +2165,8 @@ export default function WaitingRoomStage3D({
       renderer.domElement.removeEventListener("pointercancel", onPointerEnd);
       idleRuntimeByParticipant.forEach(runtime => runtime.mixer.stopAllAction());
       idleRuntimeByParticipant.clear();
+      m3IdleByParticipant.forEach(runtime => runtime.dispose());
+      m3IdleByParticipant.clear();
       renderRef.current = null;
       layoutRef.current = null;
       reconcileParticipantsRef.current = null;
@@ -2023,6 +2176,9 @@ export default function WaitingRoomStage3D({
       sketchFloorTexture?.dispose();
       disposeObject(scene);
       disposableSources.forEach(disposeObject);
+      m3Sources.forEach(assembly => assembly.dispose());
+      m3Sources.clear();
+      m3Pending.clear();
       renderer.dispose();
       // renderer.dispose() frees Three.js objects but may leave the WebGL
       // context and backing stores resident until Safari's next GC cycle.
@@ -2073,6 +2229,8 @@ export default function WaitingRoomStage3D({
       data-scene-generation={sceneGeneration}
       data-actor-count={renderedActorCount}
       data-idle-count={idleRuntimeCount}
+      data-m3-idle-count={m3IdleCount}
+      data-m3-scratch-ready-count={m3ScratchReadyCount}
       data-idle-source={idleSource}
       data-character-assets={participants.map(participantCharacterAssetId).join(",")}
       data-focus-participant-id={focusedParticipant?.participantId ?? ""}
