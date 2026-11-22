@@ -20,3 +20,7 @@
 .unlock button{padding:12px;border:1px solid #c8a9ff;border-radius:11px;color:white;background:linear-gradient(105deg,#6246dd,#bd35c4);font-weight:800}
 .unlock button:disabled{opacity:.45}
 .actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+
+.accountActions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.reset{border:1px solid #82b6ff;border-radius:10px;background:#1c365d;color:#d8edff;padding:9px 10px;font:inherit;font-size:12px;font-weight:800}
+.reset:disabled{opacity:.42}

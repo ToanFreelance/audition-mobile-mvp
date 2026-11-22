@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         method: "POST", body: JSON.stringify({ type: "signup", email }),
       });
       if (response.status === 429) {
-        return json({ error: "Bạn đã gửi yêu cầu quá nhanh. Hãy thử lại sau." }, 429);
+        return json({ error: "Supabase đã hết hạn mức gửi email xác minh của project. Không cần xóa tài khoản; hãy chờ quota phục hồi hoặc cấu hình Custom SMTP.", code: "email_rate_limited" }, 429);
       }
       // Do not leak whether a particular email exists in Supabase Auth.
       if (!response.ok) return json({ error: "Không thể gửi email xác minh lúc này." }, 502);
@@ -111,8 +111,13 @@ export async function POST(request: NextRequest) {
     if (!auth.ok) {
       const message = await providerError(auth,
         action === "login" ? "Email hoặc mật khẩu không chính xác." : "Không đăng ký được tài khoản.");
-      return json({ error: auth.status === 429 ? "Thao tác quá nhanh. Hãy thử lại sau." : message },
-        auth.status === 429 ? 429 : 400);
+      if (auth.status === 429) {
+        return json({ error: action === "register"
+          ? "Supabase đã hết hạn mức gửi email xác minh của project. Xóa tài khoản không đặt lại quota. Hãy chờ quota phục hồi hoặc cấu hình Custom SMTP."
+          : "Supabase đang giới hạn số lần xác thực. Hãy thử lại sau.",
+          code: action === "register" ? "email_rate_limited" : "auth_rate_limited" }, 429);
+      }
+      return json({ error: message }, 400);
     }
     const response = await auth.json() as {
       access_token?: string; refresh_token?: string; expires_in?: number;

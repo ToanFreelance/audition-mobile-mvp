@@ -107,7 +107,9 @@ Deno.serve(async req => {
         })),
       });
     }
-    if (body.action !== "delete") return response({ error: "Unsupported action" }, 400);
+    if (body.action !== "delete" && body.action !== "reset-character") {
+      return response({ error: "Unsupported action" }, 400);
+    }
     const userId = typeof body.userId === "string" ? body.userId : "";
     const confirmEmail = typeof body.confirmEmail === "string" ? body.confirmEmail.trim().toLowerCase() : "";
     if (!UUID.test(userId) || !confirmEmail || confirmEmail.length > 254) {
@@ -125,6 +127,14 @@ Deno.serve(async req => {
     // Do not permit one admin to delete a DIFFERENT admin.
     if (!quickAdmin && userId !== caller.id && await isAdminEmail(env, email)) {
       return response({ error: "Cannot delete another administrator" }, 403);
+    }
+    if (body.action === "reset-character") {
+      // Test-only reset. Keep the confirmed Auth account and credentials, and
+      // remove just its one character. Do not touch RoomState or other users.
+      const result = await callProvider(env.url + "/rest/v1/player_characters?user_id=eq."
+        + encodeURIComponent(userId), env.serviceKey, { method: "DELETE" });
+      if (!result.ok) return response({ error: "Unable to reset character" }, 502);
+      return response({ ok: true, resetUserId: userId });
     }
     const deleted = await callProvider(env.url + "/auth/v1/admin/users/" + userId, env.serviceKey,
       { method: "DELETE" });

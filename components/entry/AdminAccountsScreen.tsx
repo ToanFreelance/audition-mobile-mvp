@@ -28,6 +28,7 @@ export default function AdminAccountsScreen() {
   const [notice, setNotice] = useState("");
   const [denied, setDenied] = useState(false);
   const [selected, setSelected] = useState<Account | null>(null);
+  const [selectedAction, setSelectedAction] = useState<"delete" | "reset-character">("delete");
   const [confirmEmail, setConfirmEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [accessCode, setAccessCode] = useState("");
@@ -84,11 +85,11 @@ export default function AdminAccountsScreen() {
       const r = await fetch("/api/admin/accounts", {
         method: "POST", credentials: "same-origin", cache: "no-store",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "delete", userId: selected.id, confirmEmail }),
+        body: JSON.stringify({ action: selectedAction, userId: selected.id, confirmEmail }),
       });
       const data = await r.json() as Result;
       if (!r.ok || !data.ok) throw Error(data.error ?? "Không xóa được tài khoản.");
-      if (data.deletedSelf) {
+      if (selectedAction === "delete" && data.deletedSelf) {
         // Session cookies must be cleared before this email registers again.
         await fetch("/api/auth", { method: "POST", credentials: "same-origin",
           headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "logout" }) });
@@ -96,7 +97,9 @@ export default function AdminAccountsScreen() {
         return;
       }
       setSelected(null); setConfirmEmail("");
-      setNotice("Đã xóa tài khoản. Có thể đăng ký lại bằng email này.");
+      setNotice(selectedAction === "reset-character"
+        ? "Đã reset nhân vật. Tài khoản vẫn được xác minh; đăng nhập và tạo nhân vật M3 mới."
+        : "Đã xóa tài khoản. Việc đăng ký lại vẫn phụ thuộc hạn mức email xác minh của Supabase.");
       await load(page);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Không xóa được."); }
     finally { setBusy(false); }
@@ -138,9 +141,14 @@ export default function AdminAccountsScreen() {
                     <span>{user.confirmed ? "Đã xác minh" : "Chưa xác minh"} · Tạo: {dateLabel(user.createdAt)}</span>
                     <span>Đăng nhập gần nhất: {dateLabel(user.lastSignInAt)}</span>
                   </div>
-                  <button type="button" className={admin.delete} disabled={!user.email || busy}
-                    onClick={() => { setSelected(user); setConfirmEmail(""); setError(""); }}
-                    aria-label={"Xóa tài khoản " + (user.email ?? user.id)}>Xóa</button>
+                  <div className={admin.accountActions}>
+                    <button type="button" className={admin.reset} disabled={!user.email || busy}
+                      onClick={() => { setSelected(user); setSelectedAction("reset-character"); setConfirmEmail(""); setError(""); }}
+                      aria-label={"Reset nhân vật " + (user.email ?? user.id)}>Reset NV</button>
+                    <button type="button" className={admin.delete} disabled={!user.email || busy}
+                      onClick={() => { setSelected(user); setSelectedAction("delete"); setConfirmEmail(""); setError(""); }}
+                      aria-label={"Xóa tài khoản " + (user.email ?? user.id)}>Xóa</button>
+                  </div>
                 </article>
               ))}
               {users.length === 0 && <p className={styles.muted}>Không có tài khoản trong trang này.</p>}
@@ -154,10 +162,11 @@ export default function AdminAccountsScreen() {
         )}
         {selected && (
           <section className={admin.confirm} data-testid="admin-delete-confirmation">
-            <strong>Xóa vĩnh viễn tài khoản</strong>
-            <p>Nhân vật và hồ sơ liên quan sẽ bị xóa. {selected.id === selfId
-              ? "Bạn đang xóa tài khoản admin của chính mình. Sau đó phải đăng ký/xác minh email và đăng nhập lại."
-              : "Thao tác này không thể hoàn tác."}</p>
+            <strong>{selectedAction === "reset-character" ? "Reset nhân vật test" : "Xóa vĩnh viễn tài khoản"}</strong>
+            <p>{selectedAction === "reset-character"
+              ? "Chỉ xóa nhân vật M3 hiện tại. Tài khoản và email đã xác minh được giữ nguyên, nhưng dữ liệu nhân vật không thể khôi phục."
+              : "Xóa vĩnh viễn tài khoản và nhân vật. Việc đăng ký lại cần gửi email xác minh mới và có thể bị giới hạn bởi Supabase."}
+              {selectedAction === "delete" && selected.id === selfId && " Bạn đang xóa chính tài khoản đang đăng nhập."}</p>
             <label>Nhập chính xác email <strong>{selected.email}</strong> để xác nhận
               <input type="email" autoComplete="off" value={confirmEmail}
                 onChange={event => setConfirmEmail(event.target.value)} placeholder="Nhập email xác nhận" />
@@ -166,7 +175,8 @@ export default function AdminAccountsScreen() {
               <button type="button" onClick={() => { setSelected(null); setConfirmEmail(""); }}>Hủy</button>
               <button type="button" data-testid="admin-confirm-delete" className={admin.delete}
                 disabled={busy || confirmEmail.trim().toLowerCase() !== selected.email?.toLowerCase()}
-                onClick={() => void remove()}>{busy ? "Đang xóa…" : "XÓA VĨNH VIỄN"}</button>
+                onClick={() => void remove()}>{busy ? "Đang xử lý…" :
+                  selectedAction === "reset-character" ? "XÁC NHẬN RESET NHÂN VẬT" : "XÓA VĨNH VIỄN"}</button>
             </div>
           </section>
         )}

@@ -19,14 +19,14 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return adminJson({ error: "Invalid request origin" }, 403);
   try {
     const input = await request.json() as Record<string, unknown>;
-    if (input.action !== "delete"
+    if (input.action !== "delete" && input.action !== "reset-character"
       || typeof input.userId !== "string"
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.userId)
       || typeof input.confirmEmail !== "string" || input.confirmEmail.length > 254) {
       return adminJson({ error: "Invalid delete request" }, 400);
     }
     return await callAdminEdge(request, {
-      action: "delete", userId: input.userId, confirmEmail: input.confirmEmail,
+      action: input.action, userId: input.userId, confirmEmail: input.confirmEmail,
     });
   } catch {
     return adminJson({ error: "Cannot delete account" }, 503);

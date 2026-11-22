@@ -116,3 +116,14 @@ Recovery:
 - `POST /api/auth` action `resend-confirmation` calls the public Supabase GoTrue resend endpoint, preserving the stable /auth redirect, with built-in provider 429 handling. It does not modify `auth.users` or circumvent email confirmation.
 - `LegacyAuthRedirectBridge` on home forwards OAuth-style callback fragments to `/auth` if an older Site URL redirect arrives at root. It cannot verify a broken template link that contains NO verification token.
 - Owner must perform an end-to-end verification test on real email after Supabase configuration. Never mark verification as passing based on UI or HTTP 200 alone.
+
+## Auth signup 429 / admin test reset — 22 Nov 2026
+
+Owner verified email, deleted their account via temporary Admin, then repeated registration. Supabase Auth logs at 09:45–10:15 UTC showed **3 HTTP 429** requests with `error_code=over_email_send_rate_limit`. SQL confirmed `auth.users` is empty after deletion. This is hosted SMTP project-wide outgoing email quota, **not** stale account data, invalid password or an API signup bug. Deleting and re-registering does not restore the email allowance.
+
+- Keep Confirm Email enabled. The signup/resend HTTP 429 response now describes the email quota and Custom SMTP requirement.
+- To test repeated **registration/confirmation** on the hosted project, configure Custom SMTP (or Send Email Hook) and appropriate Auth Rate Limits. This cannot be solved in Next.js or by increasing UI retries.
+- To test **Character Creation, Room Browser, Waiting Room** repeatedly without sending confirmation email: new Admin **Reset NV** action removes only the selected account's single `player_characters` row. It preserves the verified Auth account and password. Re-sign-in then use Creator to create a new M3 character.
+- Reset requires existing valid Admin quick-access authorization and the exact target email. UI warns about irreversibility. Account deletion remains available separately.
+- Reset does not alter RoomState/MatchManifest historical snapshots, gameplay clock, Supabase Realtime or other Auth rows.
+- No real user accounts or characters were created/deleted by the implementation. Verify on disposable account once a confirmed account exists.

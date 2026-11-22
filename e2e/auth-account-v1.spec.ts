@@ -303,3 +303,49 @@ test("resend confirmation rejects invalid email without contacting Supabase", as
   }));
   expect(response.status).toBe(400);
 });
+
+test("rate-limited signup explains project email quota without inviting repeated retries", async () => {
+  const fetchBefore = globalThis.fetch;
+  const urlBefore = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const keyBefore = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://auth-fixture.test";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async input => {
+    expect(String(input)).toContain("/auth/v1/signup");
+    return new Response(JSON.stringify({ code: "over_email_send_rate_limit",
+      message: "email rate limit exceeded" }), { status: 429 });
+  };
+  try {
+    const reply = await authPost(request("/api/auth", "POST", {
+      action: "register", email: "test@example.com", password: "samplePassword123",
+    }));
+    expect(reply.status).toBe(429);
+    const payload = await reply.json();
+    expect(payload.code).toBe("email_rate_limited");
+    expect(payload.error).toContain("Custom SMTP");
+    expect(payload.error).toContain("Xóa tài khoản");
+  } finally {
+    globalThis.fetch = fetchBefore;
+    if (urlBefore === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = urlBefore;
+    if (keyBefore === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = keyBefore;
+  }
+});
+
+test("reset-character requires valid target email and Admin authentication", async () => {
+  const anonymous = await adminPost(request("/api/admin/accounts", "POST", {
+    action: "reset-character", userId: "123e4567-e89b-42d3-a456-426614174000",
+    confirmEmail: "test@example.com",
+  }));
+  expect(anonymous.status).toBe(401);
+  const bad = await adminPost(request("/api/admin/accounts", "POST", {
+    action: "reset-character", userId: "invalid", confirmEmail: "",
+  }));
+  expect(bad.status).toBe(400);
+  const foreign = await adminPost(request("/api/admin/accounts", "POST", {
+    action: "reset-character", userId: "123e4567-e89b-42d3-a456-426614174000",
+    confirmEmail: "test@example.com",
+  }, "https://other.example"));
+  expect(foreign.status).toBe(403);
+});
