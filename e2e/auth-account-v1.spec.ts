@@ -89,3 +89,70 @@ test("signup with email confirmation enabled does not fabricate a session", asyn
     else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = priorKey;
   }
 });
+
+test("implicit email confirmation cannot bind a refresh token from another account", async () => {
+  const prior = globalThis.fetch;
+  const priorUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const priorKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://auth-fixture.test";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async input => {
+    const url = String(input);
+    if (url.includes("/auth/v1/user")) {
+      return new Response(JSON.stringify({ id: "user-one", email: "one@example.com" }), { status: 200 });
+    }
+    if (url.includes("/auth/v1/token?grant_type=refresh_token")) {
+      return new Response(JSON.stringify({
+        access_token: "other-access", refresh_token: "other-refresh", expires_in: 3600,
+        user: { id: "user-two", email: "two@example.com" },
+      }), { status: 200 });
+    }
+    throw new Error("Unexpected Auth request: " + url);
+  };
+  try {
+    const response = await authPost(request("/api/auth", "POST", {
+      action: "adopt", accessToken: "email-access", refreshToken: "email-refresh",
+    }));
+    expect(response.status).toBe(401);
+    expect(response.cookies.get("audition_account_access")).toBeUndefined();
+  } finally {
+    globalThis.fetch = prior;
+    if (priorUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = priorUrl;
+    if (priorKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = priorKey;
+  }
+});
+
+test("authenticated account rejects malicious M3 outfits without creating a row", async () => {
+  const prior = globalThis.fetch;
+  const priorUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const priorKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://auth-fixture.test";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async input => {
+    expect(String(input)).toContain("/auth/v1/user");
+    return new Response(JSON.stringify({
+      id: "11111111-1111-4111-8111-111111111111", email: "owner@example.com",
+    }), { status: 200 });
+  };
+  try {
+    const source = request("/api/account/character", "POST", {
+      profile: {
+        version: 1, gender: "female", characterAssetId: "m3-drophunter", name: "Dancer",
+        hairStyle: "short", hairColor: "original", skinTone: "originalskin",
+        face: "default", m3Outfit: { top: "not-catalog", bottom: "not-catalog" },
+      },
+    });
+    source.cookies.set("audition_account_access", "mocked-access");
+    const result = await characterPost(source);
+    expect(result.status).toBe(400);
+    expect((await result.json()).error).toContain("không hợp lệ");
+  } finally {
+    globalThis.fetch = prior;
+    if (priorUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = priorUrl;
+    if (priorKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = priorKey;
+  }
+});
