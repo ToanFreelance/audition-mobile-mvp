@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { m3SelectedAssetFiles, m3CacheKey } from "../components/character/m3-asset-cache";
 import { getCharacterCatalogEntry } from "../components/character/character-catalog";
+import { createMatchManifest } from "../multiplayer/match-manifest";
+import { createRoomState } from "../multiplayer/room-state";
+import type { HumanHostParticipant } from "../multiplayer/types";
 
 const female = {
   hairStyle: "short", hairColor: "original", skinTone: "originalskin",
@@ -54,16 +57,50 @@ test("M3 VRM bytes survive hard reload with zero repeated source transfers and i
   await page.getByRole("button", { name: "Preload nhân vật" }).click();
   await expect(coverage).toHaveText("6/6 files cached");
   expect(networkRequests).toBe(6);
+  await expect(page.getByTestId("m3-greeting-cached")).toContainText("cached");
 
   await page.reload();
   await expect(coverage).toHaveText("6/6 files cached");
   await page.getByRole("button", { name: "Preload nhân vật" }).click();
   await expect(coverage).toHaveText("6/6 files cached");
   expect(networkRequests).toBe(6);
+  await expect(page.getByTestId("m3-greeting-cached")).toContainText("cached");
 
   await page.getByRole("button", { name: "Xóa cache M3 để test cold load" }).click();
   await expect(coverage).toHaveText("0/6 files cached");
+  await expect(page.getByTestId("m3-greeting-cached")).toContainText("not cached");
   await page.getByRole("button", { name: "Preload nhân vật" }).click();
   await expect(coverage).toHaveText("6/6 files cached");
   expect(networkRequests).toBe(12);
+});
+
+test("MatchManifest preparation deep-copies the M3 look without enabling Gameplay", () => {
+  const host: HumanHostParticipant = {
+    kind: "human", role: "host", readyState: "not-applicable",
+    loadState: "idle", connectionState: "connected", slotIndex: 0,
+    participantId: "host-m3", displayName: "M3",
+    avatar: { characterId: "m3-neurohacker", characterAssetId: "m3-neurohacker",
+      m3Appearance: { hairStyle: male.hairStyle, hairColor: male.hairColor,
+        skinTone: male.skinTone, m3Outfit: { ...male.m3Outfit } },
+      outfit: {}, accessoryIds: [],
+    },
+  };
+  const room = createRoomState({
+    roomId: "mvp-m3-cache", roomName: "M3", host, modeId: "solo-easy-battle",
+    selectedSongId: "aloha", selectedStageId: "bright-stage-v1",
+  });
+  const manifest = createMatchManifest(room, {
+    matchId: "match-m3-check", audioVersion: "test-audio", audioHash: "a",
+    chartVersion: "chart", chartHash: "b", characterRuntimeVersion: "m3-preview",
+    animationReleaseVersion: 1, animationReleaseHash: "c",
+    gameplayConfigVersion: "test", gameplayConfigHash: "d",
+    seed: 1, bpmExact: 110, spaceStartMs: 1000,
+    sequenceCounts: [4, 4], commandLengths: [4, 4], finishRestTurns: 0,
+  });
+  expect(manifest.participants[0].avatar.characterAssetId).toBe("m3-neurohacker");
+  expect(manifest.participants[0].avatar.m3Appearance?.m3Outfit).toEqual(male.m3Outfit);
+  host.avatar.m3Appearance!.m3Outfit.top = "logotee";
+  expect(manifest.participants[0].avatar.m3Appearance?.m3Outfit.top).toBe("simpleshirt");
+  expect(Object.isFrozen(manifest.participants[0].avatar.m3Appearance?.m3Outfit)).toBe(true);
+  expect(getCharacterCatalogEntry("m3-neurohacker")?.runtimeReady).toBe(false);
 });
