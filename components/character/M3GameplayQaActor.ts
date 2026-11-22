@@ -50,7 +50,8 @@ export class M3GameplayQaActor implements CharacterPresentation {
       const height = bounds.getSize(new THREE.Vector3()).y;
       if (!Number.isFinite(height) || height <= 0) throw Error("Invalid M3 model bounds");
       if (this.root.scale.x !== 1 || this.root.scale.y !== 1 || this.root.scale.z !== 1 ||
-          this.root.position.lengthSq() !== 0 || this.root.rotation.lengthSq() !== 0) {
+          this.root.position.lengthSq() !== 0 ||
+          this.root.rotation.x !== 0 || this.root.rotation.y !== 0 || this.root.rotation.z !== 0) {
         throw Error("M3 QA presentation root must keep native bind space");
       }
       this.root.add(assembly.root);
