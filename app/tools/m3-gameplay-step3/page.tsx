@@ -50,6 +50,7 @@ export default function M3GameplayStep3Qa() {
     void ctxRef.current?.close().catch(() => {});
     ctxRef.current = null;
     let actor: M3GameplayQaActor | null = null;
+    let framingSkeleton: THREE.Skeleton | null = null;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x13162f);
@@ -74,10 +75,22 @@ export default function M3GameplayStep3Qa() {
     const grid = new THREE.GridHelper(10, 10, 0x8d8ae9, 0x454463);
     scene.add(grid);
 
+    function fitCamera() {
+      if (!actor || !framingSkeleton) return;
+      const frame = frameM3GameplayQaCamera(actor.root, framingSkeleton, camera, floor, grid);
+      element!.dataset.m3BindSpace = "native";
+      element!.dataset.m3ActorScale = actor.root.scale.x.toFixed(4);
+      element!.dataset.m3WorldHeight = frame.height.toFixed(4);
+      element!.dataset.m3FloorY = frame.floorY.toFixed(4);
+    }
     function resize() {
       const w = Math.max(1, element!.clientWidth), h = Math.max(1, element!.clientHeight);
       renderer.setSize(w, h, false);
-      camera.aspect = w / h; camera.updateProjectionMatrix();
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      // Mobile Safari can change the visual viewport after asset loading or
+      // browser-bar collapse. Always re-fit the *camera*, never the M3 actor.
+      fitCamera();
     }
     const observer = new ResizeObserver(resize); observer.observe(element);
     resize();
@@ -104,10 +117,8 @@ export default function M3GameplayStep3Qa() {
         scene.add(actor.root);
         await actor.load();
         if (destroyed) return;
-        const frame = frameM3GameplayQaCamera(actor.root, camera, floor, grid);
-        element.dataset.m3BindSpace = "native";
-        element.dataset.m3ActorScale = actor.root.scale.x.toFixed(4);
-        element.dataset.m3WorldHeight = frame.height.toFixed(4);
+        framingSkeleton = actor.getQaFramingSkeleton();
+        fitCamera();
         setReport(actor.report);
         setChoreographySource(actor.choreographySource);
         setReady(true);
@@ -174,6 +185,11 @@ export default function M3GameplayStep3Qa() {
           thử nghiệm lấy từ AudioContext; <strong>không phải gameplay trận đấu</strong>.
           START M3 vẫn khóa, chưa có đánh giá foot contact hoặc Finish trên iPhone.
         </p>
+        <section data-testid="m3-gameplay-sticky" style={{
+          position: "sticky", top: "env(safe-area-inset-top, 0px)", zIndex: 10,
+          display: "grid", gap: 10, padding: "6px 0 10px",
+          background: "#0e1129",
+        }}>
         <div role="group" aria-label="Chọn rig M3" style={{ display: "flex", gap: 8 }}>
           {(["m3-drophunter", "m3-neurohacker"] as const).map(id => (
             <button key={id} type="button" aria-pressed={rig === id}
@@ -185,18 +201,19 @@ export default function M3GameplayStep3Qa() {
           ))}
         </div>
         <div ref={mountRef} data-testid="m3-gameplay-preview" style={{
-          width: "100%", aspectRatio: "3 / 4", maxHeight: "66dvh", minHeight: 280,
+          width: "100%", height: "clamp(230px, 40dvh, 440px)",
           overflow: "hidden", borderRadius: 14, border: "1px solid #6661a5",
         }}/>
         <div role="status" data-testid="m3-gameplay-status" style={{
-          fontSize: 13, padding: 10, borderRadius: 9, background: "#29264c",
+          fontSize: 13, padding: 8, borderRadius: 9, background: "#29264c",
         }}>
           {error ? "LỖI: " + error : !ready ? "Đang tải rig và retarget animation…" :
             !started ? "Đã tải xong; hãy khởi động AudioContext thử nghiệm." :
               "AudioContext " + songMs + " ms · " + current}
         </div>
+        </section>
         {error && <p role="alert">{error}</p>}
-        <button type="button" disabled={!ready || started} onClick={() => void begin()}
+        <button type="button" disabled={!ready || started> onClick={() => void begin()}
           style={{ background: "#7752c4", color: "#fff", minHeight: 45, borderRadius: 9,
             fontWeight: 800, opacity: ready && !started ? 1 : 0.5 }}>
           START QA AUDIOCONTEXT (không START phòng)
