@@ -96,10 +96,17 @@ Deno.serve(async req => {
       // Server chooses identity and a high-entropy one-time password. Client
       // may not submit an email, password or email_confirm value. This is a
       // disposable staging-only user and does NOT send any verification email.
-      const existing = await callProvider(env.url + "/auth/v1/admin/users?page=1&per_page=1", env.serviceKey);
+      // The GoTrue admin/users REST response is not guaranteed to include a
+      // JSON "total" field (pagination totals may live in headers). Count
+      // the actual first page instead; 20 results means the cap is reached.
+      // Do NOT misreport an absent total as "20 users".
+      const existing = await callProvider(env.url + "/auth/v1/admin/users?page=1&per_page=20", env.serviceKey);
       if (!existing.ok) return response({ error: "Unable to verify test-account quota" }, 502);
-      const count = await existing.json() as { total?: number };
-      if (typeof count.total !== "number" || count.total >= 20) {
+      const page = await existing.json() as { users?: unknown };
+      if (!Array.isArray(page.users)) {
+        return response({ error: "Unexpected account-list response. QA creation was not attempted." }, 502);
+      }
+      if (page.users.length >= 20) {
         return response({ error: "QA user limit reached (20). Delete old test users first." }, 409);
       }
       const randomId = [...crypto.getRandomValues(new Uint8Array(12))]
