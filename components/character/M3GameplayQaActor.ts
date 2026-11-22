@@ -40,10 +40,19 @@ export class M3GameplayQaActor implements CharacterPresentation {
       const assembly = await M3CharacterAssembler.create(this.assetId, this.appearance);
       if (this.disposed) { assembly.dispose(); throw Error("QA actor disposed"); }
       this.assembly = assembly;
-      // Always normalize presentation OUTSIDE the accepted M3 bind-space owner.
-      const size = new THREE.Box3().setFromObject(assembly.root).getSize(new THREE.Vector3());
-      if (!Number.isFinite(size.y) || size.y <= 0) throw Error("Invalid M3 model bounds");
-      this.root.scale.setScalar(3.85 / size.y);
+      // CRITICAL: M3 wardrobe uses detached SkinnedMesh bindings. Scaling or
+      // translating ANY ancestor of the canonical VRM rig makes garments and
+      // shoes explode (the owner's iPhone Step 3 screenshots). The accepted
+      // Creator preserves the VRM transform; Step 3 must do the same.
+      // Frame the character by camera/floor only in the isolated QA route.
+      assembly.root.updateMatrixWorld(true);
+      const bounds = new THREE.Box3().setFromObject(assembly.root);
+      const height = bounds.getSize(new THREE.Vector3()).y;
+      if (!Number.isFinite(height) || height <= 0) throw Error("Invalid M3 model bounds");
+      if (this.root.scale.x !== 1 || this.root.scale.y !== 1 || this.root.scale.z !== 1 ||
+          this.root.position.lengthSq() !== 0 || this.root.rotation.lengthSq() !== 0) {
+        throw Error("M3 QA presentation root must keep native bind space");
+      }
       this.root.add(assembly.root);
 
       const [gltf, published] = await Promise.all([

@@ -95,10 +95,36 @@ export default function M3GameplayStep3Qa() {
         scene.add(actor.root);
         await actor.load();
         if (destroyed) return;
+        // Character Creator's accepted M3 rule: the assembled VRM and ALL
+        // ancestors remain in original native bind space. ONLY camera and
+        // stage decorations are allowed to move or scale.
+        actor.root.updateMatrixWorld(true);
         const bounds = new THREE.Box3().setFromObject(actor.root);
         const center = bounds.getCenter(new THREE.Vector3());
-        actor.root.position.set(-center.x, -bounds.min.y, -center.z);
-        actor.root.updateMatrixWorld(true);
+        const size = bounds.getSize(new THREE.Vector3());
+        if (!Number.isFinite(size.y) || size.y <= 0 ||
+            !Number.isFinite(size.x) || !Number.isFinite(size.z)) {
+          throw Error("Cannot frame M3 avatar: invalid bounds");
+        }
+        const verticalFov = THREE.MathUtils.degToRad(camera.fov);
+        // Fit width in portrait and preserve head/feet with margin, without
+        // modifying the detached SkinnedMesh hierarchy.
+        const framedHeight = Math.max(size.y, size.x / Math.max(camera.aspect, 0.1));
+        const distance = framedHeight / (2 * Math.tan(verticalFov / 2)) * 1.42;
+        camera.position.set(center.x, center.y + size.y * 0.04, center.z + distance);
+        camera.lookAt(center);
+        camera.near = Math.max(0.001, size.y * 0.005);
+        camera.far = Math.max(100, size.y * 100);
+        camera.updateProjectionMatrix();
+        // Decorations are independent of the actor skeleton and safe to move.
+        const floorRatio = size.y / 4.0;
+        floor.scale.setScalar(floorRatio);
+        floor.position.set(center.x, bounds.min.y - size.y * 0.005, center.z);
+        grid.scale.setScalar(floorRatio);
+        grid.position.set(center.x, bounds.min.y - size.y * 0.01, center.z);
+        element.dataset.m3BindSpace = "native";
+        element.dataset.m3ActorScale = actor.root.scale.x.toFixed(4);
+        element.dataset.m3WorldHeight = size.y.toFixed(4);
         setReport(actor.report);
         setChoreographySource(actor.choreographySource);
         setReady(true);
