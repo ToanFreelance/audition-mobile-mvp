@@ -30,6 +30,7 @@ export default function AdminAccountsScreen() {
   const [selected, setSelected] = useState<Account | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
 
   const load = async (next = 1) => {
     setLoading(true); setError("");
@@ -38,8 +39,7 @@ export default function AdminAccountsScreen() {
       const data = await r.json() as Result;
       if (r.status === 401 || r.status === 403) {
         setDenied(true);
-        setError(r.status === 401 ? "Bạn cần đăng nhập để sử dụng Admin."
-          : "Tài khoản hiện tại không có quyền Admin.");
+        setError("Hãy dùng mã Admin tạm thời để mở danh sách tài khoản.");
         return;
       }
       if (!r.ok || !data.ok || !Array.isArray(data.users)) throw Error(data.error ?? "Không tải được danh sách tài khoản.");
@@ -50,6 +50,32 @@ export default function AdminAccountsScreen() {
     } finally { setLoading(false); }
   };
   useEffect(() => { void load(1); }, []);
+
+  const unlock = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true); setError("");
+    try {
+      const response = await fetch("/api/admin/quick-access", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "unlock", code: accessCode }),
+      });
+      const result = await response.json() as Result;
+      if (!response.ok || !result.ok) throw Error(result.error ?? "Mã Admin không đúng.");
+      setAccessCode("");
+      await load(1);
+    } catch (error) { setError(error instanceof Error ? error.message : "Không mở được Admin."); }
+    finally { setBusy(false); }
+  };
+  const lock = async () => {
+    await fetch("/api/admin/quick-access", {
+      method: "POST", credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ action: "lock" }),
+    });
+    setSelected(null); setUsers([]); setDenied(true);
+    setError("Đã khóa Admin trên thiết bị này.");
+  };
 
   const remove = async () => {
     if (!selected?.email || confirmEmail.trim().toLowerCase() !== selected.email.toLowerCase()) return;
@@ -81,19 +107,28 @@ export default function AdminAccountsScreen() {
       <section className={[styles.card, admin.card].join(" ")}>
         <span className={styles.brand}>AUDITION · ACCOUNT</span>
         <h1>QUẢN TRỊ TEST</h1>
-        <p className={styles.muted}>Xem tài khoản và xóa vĩnh viễn để đăng ký lại. Chỉ email admin đã xác minh mới có quyền truy cập.</p>
+        <p className={styles.muted}>Không cần đăng nhập email. Nhập mã Admin tạm thời để quản lý tài khoản thử nghiệm.</p>
         <nav className={styles.tabs} aria-label="Tùy chọn tài khoản">
           <a href="/auth">ĐĂNG NHẬP</a>
           <a href="/auth?mode=register">ĐĂNG KÝ</a>
           <a className={styles.on} href="/admin" aria-current="page">ADMIN</a>
         </nav>
-        {loading ? <p>Đang xác minh quyền và tải tài khoản…</p> : denied ? (
-          <p className={styles.muted}>Hãy đăng nhập bằng tài khoản admin được cấp quyền.</p>
+        {loading ? <p>Đang kiểm tra quyền truy cập…</p> : denied ? (
+          <form className={admin.unlock} data-testid="admin-quick-unlock" onSubmit={event => void unlock(event)}>
+            <label>Mã Admin tạm thời
+              <input type="password" autoComplete="off" autoCapitalize="none" spellCheck={false}
+                maxLength={32} value={accessCode} placeholder="Dán mã Admin"
+                onChange={event => setAccessCode(event.target.value.trim())}/>
+            </label>
+            <button type="submit" disabled={busy || accessCode.length !== 32}>
+              {busy ? "ĐANG XÁC MINH…" : "MỞ DANH SÁCH"}
+            </button>
+          </form>
         ) : (
           <>
             <div className={admin.summary}>
               <strong>Danh sách tài khoản</strong>
-              <button type="button" disabled={busy} onClick={() => void load(page)}>Làm mới</button>
+              <div className={admin.actions}><button type="button" disabled={busy} onClick={() => void load(page)}>Làm mới</button><button type="button" onClick={() => void lock()}>Khóa Admin</button></div>
             </div>
             <div className={admin.list}>
               {users.map(user => (
