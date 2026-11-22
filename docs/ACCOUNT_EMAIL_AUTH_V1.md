@@ -184,3 +184,17 @@ Retest on iPhone:
 5. When reset fails, error is visible inside the dialog rather than behind it.
 
 No gameplay clock, matching, Ready gate, Room CAS, animation or M3 asset code changed.
+
+## Account Waiting Room Auth identity correction — 22 November 2026
+
+**Owner iPhone regression:** account character creator -> Room Browser -> Create Room redirected to /character/create, then back to /rooms, never entered Waiting Room. Owner also clarified that earlier wrong female character was an actual Waiting Room 3D actor, not the Room Browser avatar.
+
+**Verified root cause:** `RoomBrowser` correctly uses the authenticated Supabase user ID as `participantId: player-<user.id>` and creates canonical RoomState with the saved M3 `characterAssetId` and M3 appearance. `EntryWaitingRoom` incorrectly used `getEntryIdentity()` (guest-only localStorage draft and unrelated UUID) and sent missing identity to `/character/create`. The Creator already-owned-account guard then redirected to Room Browser, forming the observed bounce.
+
+**Fix:** `resolveWaitingRoomIdentity()` obtains authoritative /api/auth and /api/account/character with no-store. When authenticated, it returns the same participant ID + server profile as Room Browser. Local guest identity is consulted **only if authenticated=false**. Failure to load account data is an error, never fallback to stale guest localStorage. An authenticated account without a created character may legitimately route to Creator.
+
+Waiting Room confirms the current participant exists in the room snapshot and matches saved M3 rig family, catalog character ID, hair color, skin and outfit before rendering `WaitingRoomStage3D`. For obsolete room links with a different character after Reset NV, it displays a clear RoomState mismatch and advises a fresh room rather than instantiating a wrong 3D actor. Room CAS/Realtime, authored V15 animations and Mixamo loader are untouched.
+
+**Source inspection:** Recent canonical room snapshots for the two QA accounts carry the correct male `m3-neurohacker` and female `m3-drophunter` identifiers. The M3 assembler chooses different real VRM base paths for these families. This does not yet establish that the previously seen wrong female 3D actor was a renderer issue; real-device retest on fresh room is needed. **Do not confuse this with the Room Browser avatar glyph hotfix.**
+
+Owner QA: male login, make new room, confirm route stays /rooms/mvp-..., stage shows male M3 actual 3D model (not just glyph); guest login on second device join and confirm independent male/female 3D rigs; reload and READY changes preserve correct actors; old room with conflicting character shows error, no Creator loop. Regression tests cover account vs guest identity and rig-family mismatch, without changing gameplay.

@@ -5,7 +5,8 @@ import type { RoomState } from "../../multiplayer/types";
 import WaitingRoomPanel from "../multiplayer/WaitingRoomPanel";
 import StageLaunchArtwork from "../multiplayer/StageLaunchArtwork";
 import styles from "./EntryWaitingRoom.module.css";
-import { getEntryIdentity, isEntryRoomId } from "./entry-session";
+import { isEntryRoomId } from "./entry-session";
+import { resolveWaitingRoomIdentity, roomAvatarMatchesSavedIdentity } from "./entry-room-identity";
 
 type ActiveEntry = {
   snapshot: RoomState;
@@ -17,11 +18,6 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
   const [entry, setEntry] = useState<ActiveEntry | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
-    const identity = getEntryIdentity();
-    if (!identity) {
-      window.location.replace("/character/create");
-      return;
-    }
     if (!isEntryRoomId(roomId)) {
       setError("Mã phòng không hợp lệ.");
       return;
@@ -29,9 +25,18 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
     let canceled = false;
     void (async () => {
       try {
+        // Authenticated participants use the SAME server identity as Room
+        // Browser; legacy localStorage is used only for true guests.
+        const resolved = await resolveWaitingRoomIdentity();
+        if (canceled) return;
+        const identity = resolved.identity;
+        if (!identity) {
+          window.location.replace("/character/create");
+          return;
+        }
         const response = await fetch(
           "/api/multiplayer/room?roomId=" + encodeURIComponent(roomId),
-          { cache: "no-store" },
+          { credentials: "same-origin", cache: "no-store" },
         );
         const data = await response.json() as {
           ok: boolean; error?: string; snapshot?: RoomState;
@@ -44,7 +49,13 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
           participant => participant.participantId === identity.participantId
         );
         if (!member || member.kind !== "human") {
-          window.location.replace("/rooms?room=" + encodeURIComponent(roomId));
+          // Do not treat a mismatch as a missing account character. It may be
+          // a stale room from a prior profile or a wrong participant ID.
+          setError("Tài khoản hiện tại không có mặt trong phòng này. Hãy quay lại Room Browser và tạo hoặc tham gia phòng mới.");
+          return;
+        }
+        if (!roomAvatarMatchesSavedIdentity(member, identity)) {
+          setError("Nhân vật trong RoomState không khớp với nhân vật đã lưu. Hãy quay lại Room Browser và tạo phòng mới.");
           return;
         }
         setEntry({
