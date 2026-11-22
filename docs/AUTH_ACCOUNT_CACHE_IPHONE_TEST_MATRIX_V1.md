@@ -56,3 +56,28 @@ For B02/B03/C01, iPhone screen recording/load time alone cannot establish cache 
 - **M3 persistent asset cache is currently NOT IMPLEMENTED as a guaranteed application feature**; label B02/B03 *Needs cache work / not yet verified*, regardless of subjective perceived speed.
 - **Audio Cache Storage** has implementation and code-level checks; C01 must be tested with a playable non-M3 match for browser-level PASS.
 - No full 3D asset cache acceptance until measured second-load network bytes prove it. Do not change the locked gameplay clock to implement caching.
+
+## M3 selected-asset persistent cache — 22 Nov 2026
+
+### Implementation and scope
+- A lightweight `m3-asset-cache` manifest resolves **only the currently authenticated account's validated** M3 rig, eyes, top, bottom, shoes, selected hair and skin texture overlays from the existing Character Catalog + M3 Creator wardrobe. No name, profile, email, token, password, RoomState or avatar JSON is cached.
+- Assets are public and immutable for the selected version. Byte-cache keys include `owner-m3-v1.7.2-cache-20261122`, M3 rig and exact verified file path. **Bump the revision when upstream assets change** (raw GitHub URLs use mutable main and cannot guarantee content-addressed immutability).
+- `RoomBrowser` triggers a **non-blocking** two-worker prewarm after fetching the authoritative server profile. It does not prewarm every wardrobe combination and does not gate room creation or Ready.
+- `M3CharacterAssembler` uses the same Cache Storage-backed bytes for both Creator and Waiting Room. It `GLTFLoader.parseAsync`s a **fresh independent GLB for every actor**, and uploads fresh independent textures; it does not share skeletons, materials or GPU resources across participants.
+- In-flight promise dedup prevents unnecessary identical downloads when Room Browser warm-up overlaps Waiting Room assembly. If the Cache Storage API is unavailable or browser quota is exceeded, normal network loading is still used. Corrupt GLB/PNG data is rejected and retried using fallback CDN.
+- Audio uses the existing `audition-runtime-assets-v1` Cache Storage; these changes do not alter WebAudio scheduling or decode. Mixamo encoded JS packs are lazy loaded through bundler HTTP caching and retain their module-lifetime decoded cache. Persistent decoded Mixamo clip caching is NOT claimed.
+- Account profile still uses a `no-store` Supabase GET on every login/Room Browser load. Cache entries are keyed by immutable public rig asset, **not** user ID, for browser storage efficiency without cross-user avatar leakage.
+- The source cache currently validates only GLB header magic and PNG signature before persisting/returning; full Three.js parse/bind validation remains unchanged in `M3CharacterAssembler`. On a real-device bug, use Web Inspector and retain the previous approved V15 visual baseline.
+
+### iPhone QA route
+`/tools/m3-cache-qa` shows exactly which **selected** M3 VRM/skin files are in Cache Storage without exposing account data. Buttons:
+1. Kiểm tra lại — count cached resources
+2. Preload nhân vật — fetch/store selected bytes
+3. Xóa cache M3 — delete only selected M3 keys (does NOT clear audio or user profile)
+
+**B01/B02 test:** signed-in account with M3 profile opens QA route. First cold load count may be 0/6 (default skin) or 0/9 (custom skin male). Preload must reach 6/6 or 9/9. Reload *same origin* then check count remains full; pressing Preload again should not transfer VRM bytes. Open Waiting Room twice with same look and ensure visuals and independent Mixamo idles unchanged. Browser quota eviction is allowed by the platform, not a gameplay failure.
+
+**C01:** legacy playable match audio Cache Storage recheck still pending native iPhone owner test. M3 gameplay remains blocked because Character Catalog `runtimeReady=false`.
+
+### Step 3 gameplay contract (not unlocked)
+`multiplayer/match-manifest.ts` now clones `characterAssetId` and a deep-copied `m3Appearance` when they exist, without modifying existing legacy properties, CAS, scheduling, gauge or Finish. **Do not enable M3 START** until there is a gameplay-compatible M3 actor/animation controller and real multi-client WebAudio-preload QA. This is a prerequisite only, not a gameplay PASS.

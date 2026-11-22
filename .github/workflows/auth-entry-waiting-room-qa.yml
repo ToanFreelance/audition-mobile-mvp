@@ -9,6 +9,13 @@ on:
       - "e2e/entry-room-account-identity.spec.ts"
       - "e2e/entry-room-account-browser.spec.ts"
       - ".github/workflows/auth-entry-waiting-room-qa.yml"
+      - "components/character/m3-asset-cache.ts"
+      - "components/character/m3-character-assembler.ts"
+      - "components/entry/RoomBrowser.tsx"
+      - "app/tools/m3-cache-qa/**"
+      - "e2e/m3-persistent-asset-cache.spec.ts"
+      - "lib/persistent-asset-cache.ts"
+      - "multiplayer/match-manifest.ts"
   workflow_dispatch:
 
 permissions:
@@ -39,7 +46,7 @@ jobs:
       - name: Chromium install
         run: npx playwright install --with-deps chromium
       - name: Account identity and Waiting Room browser regression
-        run: npx playwright test e2e/entry-room-account-identity.spec.ts e2e/entry-room-account-browser.spec.ts --project=desktop --workers=1
+        run: npx playwright test e2e/entry-room-account-identity.spec.ts e2e/entry-room-account-browser.spec.ts e2e/m3-persistent-asset-cache.spec.ts --project=desktop --workers=1
       - name: Upload browser failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
