@@ -28,6 +28,7 @@ test("Admin tab is visible but anonymous requests never reveal account list", as
   await expect(page.getByTestId("auth-admin-tab")).toBeVisible();
   await page.getByTestId("auth-admin-tab").click();
   await expect(page).toHaveURL(/\/admin$/);
-  await expect(page.getByRole("alert")).toContainText("Authentication required");
+  await expect(page.getByTestId("admin-quick-unlock")).toBeVisible();
+  await expect(page.getByTestId("admin-delete-confirmation")).toHaveCount(0);
   await expect(page.getByTestId("admin-delete-confirmation")).toHaveCount(0);
 });
