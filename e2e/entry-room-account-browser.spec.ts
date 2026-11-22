@@ -35,7 +35,7 @@ function roomSnapshot(id: string, memberId: string, appearance = profile) {
   };
 }
 test("account host opens Waiting Room after Create, with no Creator redirect", async ({ page }) => {
-  let roomLoaded = false, creatorNavigations = 0;
+  let createCount = 0, roomLoaded = false, creatorNavigations = 0;
   await page.route("**/character/create", route => { creatorNavigations++; void route.continue(); });
   await page.route("**/api/auth", route => route.fulfill({
     status: 200, contentType: "application/json", body: JSON.stringify({
@@ -51,8 +51,13 @@ test("account host opens Waiting Room after Create, with no Creator redirect", a
   await page.route(/\/api\/multiplayer\/room(?:\?.*)?$/, async route => {
     if (route.request().method() === "POST") {
       const body = route.request().postDataJSON();
-      expect(body).toMatchObject({ action: "create", participantId: "player-" + uid,
-        characterAssetId: "m3-neurohacker" });
+      if (body.action === "create") {
+        createCount++;
+        expect(body).toMatchObject({ action: "create", participantId: "player-" + uid,
+          characterAssetId: "m3-neurohacker" });
+      }
+      // WaitingRoomPanel also sends heartbeat/CAS mutations after mounting.
+      // Those are expected and must not be mistaken for a second Create.
     }
     roomLoaded = true;
     await route.fulfill({ status: 200, contentType: "application/json",
@@ -65,6 +70,7 @@ test("account host opens Waiting Room after Create, with no Creator redirect", a
   await expect(page.getByTestId("entry-room-cover")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByTestId("waiting-room-avatar-strip")).toBeVisible();
   expect(roomLoaded).toBe(true);
+  expect(createCount).toBe(1);
   expect(creatorNavigations).toBe(0);
 });
 
