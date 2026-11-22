@@ -67,6 +67,7 @@ export function frameM3GameplayQaCamera(
   camera.near = Math.max(0.001, height * 0.004);
   camera.far = Math.max(100, distance * 10);
   camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
 
   // Ground marker is a separate scene decoration, not a character transform.
   const decorationScale = height / 4;
