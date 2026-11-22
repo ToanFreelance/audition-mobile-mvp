@@ -8,26 +8,39 @@ import * as THREE from "three";
  * meshes. Frame from the *same canonical skeleton* used by the M3 actor.
  * This also keeps the horizontal center stable with asymmetric garments.
  */
-export function frameM3GameplayQaCamera(
-  actor: THREE.Object3D,
-  skeleton: THREE.Skeleton,
-  camera: THREE.PerspectiveCamera,
-  floor: THREE.Object3D,
-  grid: THREE.Object3D,
-): { height: number; distance: number; center: THREE.Vector3; floorY: number } {
-  actor.updateWorldMatrix(true, true);
-  const originalWorld = actor.matrixWorld.clone();
+/** One frozen neutral reference; resize must not sample dancing toes as ground. */
+export type M3GameplayQaReferencePose = Readonly<{
+  hips: THREE.Vector3;
+  head: THREE.Vector3;
+  hands: readonly [THREE.Vector3, THREE.Vector3];
+  feet: readonly [THREE.Vector3, THREE.Vector3, THREE.Vector3, THREE.Vector3];
+}>;
 
+export function captureM3GameplayQaReferencePose(skeleton: THREE.Skeleton): M3GameplayQaReferencePose {
   const joint = (name: string) => {
     const sanitized = THREE.PropertyBinding.sanitizeNodeName(name);
     const matches = skeleton.bones.filter(b => b.name === name || b.name === sanitized);
     if (matches.length !== 1) throw new Error("M3 QA framing missing or ambiguous joint: " + name);
     return matches[0].getWorldPosition(new THREE.Vector3());
   };
-  const hips = joint("hips");
-  const head = joint("head");
-  const hands = [joint("hand.L"), joint("hand.R")];
-  const feet = [joint("foot.L"), joint("foot.R"), joint("toes.L"), joint("toes.R")];
+  return {
+    hips: joint("hips"),
+    head: joint("head"),
+    hands: [joint("hand.L"), joint("hand.R")],
+    feet: [joint("foot.L"), joint("foot.R"), joint("toes.L"), joint("toes.R")],
+  };
+}
+
+export function frameM3GameplayQaCamera(
+  actor: THREE.Object3D,
+  pose: M3GameplayQaReferencePose,
+  camera: THREE.PerspectiveCamera,
+  floor: THREE.Object3D,
+  grid: THREE.Object3D,
+): { height: number; distance: number; center: THREE.Vector3; floorY: number } {
+  actor.updateWorldMatrix(true, true);
+  const originalWorld = actor.matrixWorld.clone();
+  const { hips, head, hands, feet } = pose;
   const anchors = [hips, head, ...hands, ...feet];
   if (anchors.some(p => ![p.x, p.y, p.z].every(Number.isFinite))) {
     throw new Error("M3 QA framing invalid skeleton anchors");
