@@ -213,7 +213,7 @@ export default function M3GameplayStep3Qa() {
         </div>
         </section>
         {error && <p role="alert">{error}</p>}
-        <button type="button" disabled={!ready || started> onClick={() => void begin()}
+        <button type="button" disabled={!ready || started} onClick={() => void begin()}
           style={{ background: "#7752c4", color: "#fff", minHeight: 45, borderRadius: 9,
             fontWeight: 800, opacity: ready && !started ? 1 : 0.5 }}>
           START QA AUDIOCONTEXT (không START phòng)
