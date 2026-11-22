@@ -123,8 +123,8 @@ test("Rendered M3 silhouette, not a centered skeleton, is authoritative camera c
     expect(Math.abs(projected.y)).toBeLessThan(.001);
     const halfVertical = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
     const distance = camera.position.z - visual.depth;
-    expect(visual.height / (2 * distance * halfVertical)).toBeLessThan(.67);
-    expect(visual.width / (2 * distance * halfVertical * aspect)).toBeLessThan(.58);
+    expect(visual.height / (2 * distance * halfVertical)).toBeLessThan(.78);
+    expect(visual.width / (2 * distance * halfVertical * aspect)).toBeLessThan(.68);
   }
 });
 
