@@ -194,6 +194,30 @@ export default function CharacterCreationV1() {
     try {
       const draft = loadCharacterCreationDraft(window.localStorage);
       if (!draft) return;
+      // development shares an origin with pre-M3 saved C1/C4 profiles.
+      // Show the accepted M3 Creator by default without overwriting the
+      // legacy snapshot (still valid for existing Room/Gameplay entries).
+      const previous = getCharacterCatalogEntry(draft.characterAssetId);
+      const legacyCreatorRequested =
+        new URLSearchParams(window.location.search).get("legacyCreator") === "1";
+      if (previous && !previous.m3RigFamily && !legacyCreatorRequested) {
+        const next = CHARACTER_CATALOG_V1.find(entry =>
+          entry.creatorReady && entry.m3RigFamily && entry.gender === draft.gender);
+        if (next) {
+          setName(draft.name);
+          setCharacterAssetId(next.id);
+          setHairStyle(next.defaultAppearance.hairStyle);
+          setHairColor(next.defaultAppearance.hairColor);
+          setSkinTone(next.defaultAppearance.skinTone);
+          setFace(next.defaultAppearance.face);
+          setM3Outfit(defaultM3CreatorOutfit(next.id));
+          // Preview-only selection. The saved C1/C4 identity is not changed
+          // until the user explicitly confirms the new M3 character.
+          setLockedAssetId(null);
+          setCreated(false);
+          return;
+        }
+      }
       setName(draft.name);
       setCharacterAssetId(draft.characterAssetId);
       setHairStyle(draft.hairStyle);
