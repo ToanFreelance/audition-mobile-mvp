@@ -79,3 +79,25 @@ No edits to Gameplay, RoomState, CAS, Supabase Realtime, WebAudio, M3 character 
 6. Confirm that the existing Room Browser / Waiting Room visuals remain unchanged.
 
 The admin functionality is **not** a full production moderation system: no invite flow, audit log, MFA or account recovery UI.
+
+## Admin quick access — temporary QA shortcut (22 Nov 2026)
+
+Owner requested access to the Admin account list **without logging in as a player/admin account** so disposable emails can be deleted and registered again.
+
+- A separate **32-character random access code**, not an email/password, is entered once on `/admin`.
+- The raw code is never committed to the repository, put in URLs, or returned from API responses. Only SHA-256 is stored in a private-access, RLS-enabled Supabase table `public.admin_quick_access`, with no read grants for `anon`/`authenticated`.
+- One code is active for 14 days, expiring 6 December 2026; owner can revoke it immediately with `update public.admin_quick_access set enabled=false where access_id='auth-v1-test'`.
+- Unlock creates a Secure HttpOnly SameSite=Strict cookie limited to `/api/admin` and 12 hours. Server checks the code against the active Supabase hash on **every subsequent** list/delete request, not only at unlock.
+- Edge Function `auth-admin-v1` has `verify_jwt=false` because it authenticates every request itself using the high-entropy temporary code **or** the original verified-admin JWT fallback. The publishable key is not trusted as authorization, and only Supabase's Edge runtime has the service-role secret.
+- UI still asks to type exact target email before irreversible deletion. Deleting an Auth user cascades its single `player_characters` row; old RoomState history is retained.
+- No accounts have been deleted during development. This shortcut is suitable for test only; disable it before production release.
+- Auth registration/login and one-account-one-character behavior remain intact. PR #29 stays Draft until owner iPhone acceptance.
+
+### Test matrix
+
+1. Open `/admin` without a player login: the quick-code form appears, and no account list is returned.
+2. Wrong code fails; correct code unlocks the account list.
+3. Deleting a user requires selecting the target and retyping that exact email.
+4. Reload `/admin`: access persists in the HttpOnly cookie (up to 12 hours).
+5. Lock Admin: access is cleared; the code is required again.
+6. Delete disposable test account, then register same email again.
