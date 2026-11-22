@@ -140,7 +140,10 @@ export default function RoomBrowser() {
               // stored in Cache Storage, and navigating into Waiting Room
               // reuses the same in-flight download if still pending.
               void import("../character/m3-asset-cache")
-                .then(module => module.warmM3AppearanceAssets(catalog!.id, look))
+                .then(module => Promise.allSettled([
+                  module.warmM3AppearanceAssets(catalog!.id, look),
+                  module.warmM3GreetingAsset(),
+                ]))
                 .catch(() => { /* Waiting Room can retry via normal asset loading. */ });
             }
           }

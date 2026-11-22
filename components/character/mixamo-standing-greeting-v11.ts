@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { MIXAMO_BONES } from "./mixamo-lobby-data";
+import { fetchPersistentAsset } from "../../lib/persistent-asset-cache";
+import { M3_GREETING_CACHE_KEY } from "./m3-asset-cache";
 
 /**
  * Owner FBX: Standing Greeting 2 (5.1 s, 154 frames, 30 Hz).
@@ -81,7 +83,7 @@ function readPositionKeys(view: DataView, cursor: { at: number }, count: number)
 }
 
 export async function loadStandingGreetingSourceV11(): Promise<string> {
-  const response = await fetch(ASSET, {cache: "force-cache"});
+  const response = await fetchPersistentAsset(ASSET, { cacheKey: M3_GREETING_CACHE_KEY });
   if (!response.ok) throw Error("Greeting V14 asset unavailable: HTTP " + response.status);
   // Keep the new asset as Base64 text so the existing GitHub content workflow
   // can commit it without modifying unrelated binary asset infrastructure.

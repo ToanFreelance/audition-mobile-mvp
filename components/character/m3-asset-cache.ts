@@ -9,6 +9,17 @@ export const M3_ASSET_CACHE_REVISION = "owner-m3-v1.7.2-cache-20261122";
 const SOURCE = "https://raw.githubusercontent.com/memelotsqui/character-assets/main/";
 const FALLBACK = "https://cdn.jsdelivr.net/gh/memelotsqui/character-assets@main/";
 export const M3_ASSET_SOURCE = SOURCE;
+/** Public V14 animation pack. This text file is separately cached; the
+ * compressed Mixamo JS chunks retain the browser's native hashed-asset cache. */
+export const M3_GREETING_CACHE_KEY = "m3:standing-greeting-v14:8ab3d94aaa0b6bfa";
+export async function warmM3GreetingAsset(): Promise<void> {
+  const response = await fetchPersistentAsset("/m3-qa/standing_greeting_2_v14.b64", {
+    cacheKey: M3_GREETING_CACHE_KEY,
+  });
+  if (!response.ok) throw new Error("M3 Greeting V14 not available");
+  // Consume this small 7.7 KB response so its body can be reclaimed.
+  await response.arrayBuffer();
+}
 export const M3_FAMILIES = {
   drophunter: {
     body: "body/drophunter.vrm", eyes: "eyes/regulareyes.vrm",
