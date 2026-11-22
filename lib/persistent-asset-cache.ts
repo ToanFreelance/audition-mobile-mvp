@@ -64,3 +64,13 @@ export async function fetchPersistentAsset(
 }
 
 export const persistentRuntimeAssetCacheName = CACHE_NAME;
+
+// Lightweight cache status check for the iPhone QA route. No personal profile
+// or bearer tokens are ever written to Cache Storage.
+export async function isPersistentAssetCached(cacheKey: string): Promise<boolean> {
+  if (!canUsePersistentCache()) return false;
+  try {
+    const cache = await window.caches.open(CACHE_NAME);
+    return Boolean(await cache.match(cacheRequest(cacheKey)));
+  } catch { return false; }
+}
