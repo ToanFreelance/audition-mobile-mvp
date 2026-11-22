@@ -5,12 +5,13 @@ import styles from "./AccountAuthScreen.module.css";
 import admin from "./AdminAccountsScreen.module.css";
 
 type Account = {
-  id: string; email: string | null; confirmed: boolean;
+  id: string; email: string | null; confirmed: boolean; isTestAccount?: boolean;
   createdAt: string | null; lastSignInAt: string | null;
 };
 type Result = {
   ok?: boolean; users?: Account[]; page?: number; nextPage?: number | null;
   currentUserId?: string; deletedSelf?: boolean; error?: string;
+  testAccount?: { id: string; email: string; password: string };
 };
 
 function dateLabel(value: string | null) {
@@ -32,6 +33,7 @@ export default function AdminAccountsScreen() {
   const [confirmEmail, setConfirmEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [accessCode, setAccessCode] = useState("");
+  const [newTestAccount, setNewTestAccount] = useState<{ email: string; password: string } | null>(null);
 
   const load = async (next = 1) => {
     setLoading(true); setError("");
@@ -74,8 +76,27 @@ export default function AdminAccountsScreen() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action: "lock" }),
     });
-    setSelected(null); setUsers([]); setDenied(true);
+    setSelected(null); setUsers([]); setNewTestAccount(null); setDenied(true);
     setError("Đã khóa Admin trên thiết bị này.");
+  };
+
+  const createTestAccount = async () => {
+    setBusy(true); setError(""); setNotice(""); setNewTestAccount(null);
+    try {
+      const r = await fetch("/api/admin/accounts", {
+        method: "POST", cache: "no-store", credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "create-test-account" }),
+      });
+      const data = await r.json() as Result;
+      if (!r.ok || !data.ok || !data.testAccount) {
+        throw Error(data.error ?? "Không tạo được tài khoản QA.");
+      }
+      setNewTestAccount({ email: data.testAccount.email, password: data.testAccount.password });
+      await load(1);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể tạo tài khoản QA.");
+    } finally { setBusy(false); }
   };
 
   const remove = async () => {
@@ -129,6 +150,32 @@ export default function AdminAccountsScreen() {
           </form>
         ) : (
           <>
+            <div className={admin.createSection}>
+              <div>
+                <strong>Test ngay, không cần email xác minh</strong>
+                <p>Hệ thống sinh một tài khoản QA giả và mật khẩu riêng. Không dùng email cá nhân và không gửi email.</p>
+              </div>
+              <button type="button" className={admin.createButton} data-testid="admin-create-test-user"
+                disabled={busy} onClick={() => void createTestAccount()}>
+                {busy ? "ĐANG TẠO…" : "+ TẠO TÀI KHOẢN QA"}
+              </button>
+            </div>
+            {newTestAccount && (
+              <section className={admin.credentials} data-testid="admin-test-credentials">
+                <strong>Tài khoản QA đã tạo — lưu lại thông tin ngay</strong>
+                <p>Mật khẩu chỉ hiển thị trong phiên này và không thể xem lại.</p>
+                <label>Email
+                  <input readOnly value={newTestAccount.email} aria-label="Email tài khoản QA"/>
+                </label>
+                <label>Mật khẩu
+                  <input readOnly value={newTestAccount.password} aria-label="Mật khẩu tài khoản QA"/>
+                </label>
+                <button type="button" onClick={() => navigator.clipboard.writeText(
+                  "Email: " + newTestAccount.email + "\nPassword: " + newTestAccount.password
+                )}>Sao chép thông tin đăng nhập</button>
+                <a href="/auth">Đến màn hình Đăng nhập</a>
+              </section>
+            )}
             <div className={admin.summary}>
               <strong>Danh sách tài khoản</strong>
               <div className={admin.actions}><button type="button" disabled={busy} onClick={() => void load(page)}>Làm mới</button><button type="button" onClick={() => void lock()}>Khóa Admin</button></div>
@@ -137,7 +184,7 @@ export default function AdminAccountsScreen() {
               {users.map(user => (
                 <article className={admin.item} key={user.id}>
                   <div className={admin.userInfo}>
-                    <strong>{user.email ?? "Chưa có email"} {user.id === selfId && <small>(Bạn)</small>}</strong>
+                    <strong>{user.email ?? "Chưa có email"} {user.isTestAccount && <small>(QA)</small>} {user.id === selfId && <small>(Bạn)</small>}</strong>
                     <span>{user.confirmed ? "Đã xác minh" : "Chưa xác minh"} · Tạo: {dateLabel(user.createdAt)}</span>
                     <span>Đăng nhập gần nhất: {dateLabel(user.lastSignInAt)}</span>
                   </div>

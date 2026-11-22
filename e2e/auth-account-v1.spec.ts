@@ -349,3 +349,47 @@ test("reset-character requires valid target email and Admin authentication", asy
   }, "https://other.example"));
   expect(foreign.status).toBe(403);
 });
+
+test("QA account creation requires Admin access and does not accept user-chosen credentials", async () => {
+  const unauthorized = await adminPost(request("/api/admin/accounts", "POST", {
+    action: "create-test-account", email: "victim@real.com", password: "injected",
+  }));
+  expect(unauthorized.status).toBe(401);
+});
+
+test("QA account POST forwards only server-generated action when Admin session exists", async () => {
+  const originalFetch = globalThis.fetch;
+  const oldUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const oldKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://auth-fixture.test";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_test";
+  globalThis.fetch = async (url, options) => {
+    expect(String(url)).toContain("/functions/v1/auth-admin-v1");
+    expect(JSON.parse(String(options?.body))).toMatchObject({
+      action: "create-test-account", quickCode: "A".repeat(32),
+    });
+    const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+    expect(body.email).toBeUndefined();
+    expect(body.password).toBeUndefined();
+    return new Response(JSON.stringify({ ok: true, testAccount: {
+      id: "11111111-1111-4111-8111-111111111111",
+      email: "audition-qa-123456789012345678901234@example.com",
+      password: "generated-password",
+    }}), { status: 201 });
+  };
+  try {
+    const req = request("/api/admin/accounts", "POST", {
+      action: "create-test-account", email: "victim@real.com", password: "unsafe",
+    });
+    req.cookies.set("audition_quick_admin_v1", "A".repeat(32));
+    const response = await adminPost(req);
+    expect(response.status).toBe(201);
+    expect((await response.json()).testAccount.email).toContain("audition-qa-");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (oldUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = oldUrl;
+    if (oldKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = oldKey;
+  }
+});

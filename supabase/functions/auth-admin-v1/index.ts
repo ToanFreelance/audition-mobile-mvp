@@ -8,7 +8,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 type AuthUser = { id: string; email?: string | null; email_confirmed_at?: string | null };
 type AuthListUser = { id: string; email?: string | null; email_confirmed_at?: string | null;
-  created_at?: string | null; last_sign_in_at?: string | null };
+  created_at?: string | null; last_sign_in_at?: string | null;
+  app_metadata?: Record<string, unknown> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function response(data: unknown, status = 200): Response {
@@ -91,6 +92,38 @@ Deno.serve(async req => {
       }
     }
     if (body.action === "verify") return response({ ok: true, quickAdmin });
+    if (body.action === "create-test-account") {
+      // Server chooses identity and a high-entropy one-time password. Client
+      // may not submit an email, password or email_confirm value. This is a
+      // disposable staging-only user and does NOT send any verification email.
+      const existing = await callProvider(env.url + "/auth/v1/admin/users?page=1&per_page=1", env.serviceKey);
+      if (!existing.ok) return response({ error: "Unable to verify test-account quota" }, 502);
+      const count = await existing.json() as { total?: number };
+      if (typeof count.total !== "number" || count.total >= 20) {
+        return response({ error: "QA user limit reached (20). Delete old test users first." }, 409);
+      }
+      const randomId = [...crypto.getRandomValues(new Uint8Array(12))]
+        .map(x => x.toString(16).padStart(2, "0")).join("");
+      const email = "audition-qa-" + randomId + "@example.com";
+      const passwordBytes = crypto.getRandomValues(new Uint8Array(24));
+      const password = btoa(String.fromCharCode(...passwordBytes))
+        .replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+      const created = await callProvider(env.url + "/auth/v1/admin/users", env.serviceKey, {
+        method: "POST",
+        body: JSON.stringify({
+          email, password, email_confirm: true,
+          app_metadata: { audition_qa_test: true },
+        }),
+      });
+      if (!created.ok) return response({ error: "Cannot create temporary QA user (" + created.status + ")" }, 502);
+      const payload = await created.json() as AuthListUser & { user?: AuthListUser };
+      const account = payload.user ?? payload;
+      if (!UUID.test(account.id) || account.email !== email || !account.email_confirmed_at) {
+        return response({ error: "QA user confirmation could not be verified" }, 502);
+      }
+      // Returned exactly once through authenticated, no-store Admin session.
+      return response({ ok: true, testAccount: { id: account.id, email, password } }, 201);
+    }
     if (body.action === "list") {
       const page = Number.isInteger(body.page) && Number(body.page) >= 1 && Number(body.page) <= 1000
         ? Number(body.page) : 1;
@@ -104,6 +137,7 @@ Deno.serve(async req => {
         users: users.map(u=>({
           id: u.id, email: u.email ?? null, confirmed: !!u.email_confirmed_at,
           createdAt: u.created_at ?? null, lastSignInAt: u.last_sign_in_at ?? null,
+          isTestAccount: u.app_metadata?.audition_qa_test === true,
         })),
       });
     }

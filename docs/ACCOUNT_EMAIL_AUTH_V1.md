@@ -127,3 +127,15 @@ Owner verified email, deleted their account via temporary Admin, then repeated r
 - Reset requires existing valid Admin quick-access authorization and the exact target email. UI warns about irreversibility. Account deletion remains available separately.
 - Reset does not alter RoomState/MatchManifest historical snapshots, gameplay clock, Supabase Realtime or other Auth rows.
 - No real user accounts or characters were created/deleted by the implementation. Verify on disposable account once a confirmed account exists.
+
+## Test-account creation without email quota — 22 November 2026
+
+To unblock owner iPhone QA while hosted SMTP is rate limited, Admin has **TẠO TÀI KHOẢN QA**:
+- Requires current quick-code Admin access (or verified admin JWT); no public signup bypass.
+- Edge Function generates a cryptographically random QA-only email `audition-qa-<24 hex>@example.com` and 32-character generated password. Client cannot submit chosen email/password or toggle confirmation.
+- Supabase's privileged `/auth/v1/admin/users` creates the user with `email_confirm=true`, app_metadata `audition_qa_test=true`. No confirmation email is sent. Protected server credentials never leave Edge.
+- Generated credentials return once to the unlocked Admin page (HTTPS, no-store); they are not stored in localStorage or committed. Use **Sao chép** then open /auth login.
+- Cap 20 users total in this temporary project; remove old QA accounts via existing Admin delete. Only enable this feature on the isolated Auth V1 testing Supabase project, not production.
+- This tests Auth LOGIN, character creation, account identity, Room Browser and Waiting Room. It does NOT test public registration, email-delivery verification or SMTP; those still need custom SMTP or email quota recovery.
+- No QA account is created merely by deploying; owner must explicitly press TẠO TÀI KHOẢN QA.
+- Delete the temporary accounts and retire quick-admin access before release.
