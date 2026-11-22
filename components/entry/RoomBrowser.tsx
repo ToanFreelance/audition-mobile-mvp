@@ -275,7 +275,7 @@ export default function RoomBrowser() {
           {dashboardHint && <p className={styles.dashboardNotice} data-testid="dashboard-coming-soon" role="status">
             Dashboard cá nhân sẽ được bổ sung sau. Avatar hiện không mở Character Creation.
           </p>}
-          {walletInfoOpen && <p className={styles.walletNotice} role="status">Coin và Gem: 0 (dữ liệu mẫu). Shop sẽ được mở sau.</p>
+          {walletInfoOpen && <p className={styles.walletNotice} role="status">Coin và Gem: 0 (dữ liệu mẫu). Shop sẽ được mở sau.</p>}
           <nav className={styles.primaryTabs} aria-label="Mục trong sảnh">
             <button type="button" className={isRoomSection ? styles.tabActive : ""}
               aria-current={isRoomSection ? "page" : undefined} onClick={() => setSection("rooms")}>Phòng</button>
