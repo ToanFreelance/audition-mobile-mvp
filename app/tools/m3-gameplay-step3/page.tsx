@@ -6,7 +6,10 @@ import type { CharacterPresentationEvent } from "../../../components/character/c
 import type { CharacterAssetId } from "../../../components/character/character-catalog";
 import type { M3GameplayRetargetReport } from "../../../components/character/m3-gameplay-retarget";
 import type { M3GameplayQaActor } from "../../../components/character/M3GameplayQaActor";
-import { frameM3GameplayQaCamera } from "../../../components/character/m3-gameplay-qa-framing";
+import {
+  captureM3GameplayQaReferencePose, frameM3GameplayQaCamera,
+  type M3GameplayQaReferencePose,
+} from "../../../components/character/m3-gameplay-qa-framing";
 
 type Rig = "m3-drophunter" | "m3-neurohacker";
 const QA_ACTIONS = [
@@ -50,7 +53,7 @@ export default function M3GameplayStep3Qa() {
     void ctxRef.current?.close().catch(() => {});
     ctxRef.current = null;
     let actor: M3GameplayQaActor | null = null;
-    let framingSkeleton: THREE.Skeleton | null = null;
+    let framingPose: M3GameplayQaReferencePose | null = null;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x13162f);
@@ -76,8 +79,8 @@ export default function M3GameplayStep3Qa() {
     scene.add(grid);
 
     function fitCamera() {
-      if (!actor || !framingSkeleton) return;
-      const frame = frameM3GameplayQaCamera(actor.root, framingSkeleton, camera, floor, grid);
+      if (!actor || !framingPose) return;
+      const frame = frameM3GameplayQaCamera(actor.root, framingPose, camera, floor, grid);
       element!.dataset.m3BindSpace = "native";
       element!.dataset.m3ActorScale = actor.root.scale.x.toFixed(4);
       element!.dataset.m3WorldHeight = frame.height.toFixed(4);
@@ -117,7 +120,9 @@ export default function M3GameplayStep3Qa() {
         scene.add(actor.root);
         await actor.load();
         if (destroyed) return;
-        framingSkeleton = actor.getQaFramingSkeleton();
+        // Freeze a single neutral-foot reference, even if Safari resizes
+        // during Dance/Miss/Finish. A viewport change must never move ground.
+        framingPose = captureM3GameplayQaReferencePose(actor.getQaFramingSkeleton());
         fitCamera();
         setReport(actor.report);
         setChoreographySource(actor.choreographySource);
