@@ -1,0 +1,79 @@
+name: Eye Asset Pack V1.9.6 — concept-aligned isolated 3D QA
+on:
+  push:
+    branches:
+      - work/facial-modular-eye-demo-v1
+    paths:
+      - scripts/eye-pack-v196/**
+      - .github/workflows/eye-pack-v196.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install geometry dependencies
+        run: python -m pip install numpy pillow scipy
+      - name: Compile reconstruction and QA
+        run: python -m py_compile scripts/eye-pack-v196/build_v196.py scripts/eye-pack-v196/qa_geometry.py
+      - name: Download immutable V1.9.3 source (CloudFront — no Supabase egress)
+        run: |
+          mkdir -p qa/eye-v196
+          curl --fail --location --retry 3 --retry-delay 3 \
+            'https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/0d4500f1-242f-4d8d-aa47-5fb7e764d2b5.glb' \
+            -o qa/eye-v196/source_v193.glb
+          echo 'a80088aed5356e2b1b7344f347d77e9c240fdd1ae0755c3771b9de12d31869e4  qa/eye-v196/source_v193.glb' | sha256sum --check
+      - name: Build bilateral Natural/Doll real-GLB candidate
+        run: |
+          python scripts/eye-pack-v196/build_v196.py qa/eye-v196/source_v193.glb qa/eye-v196/eye_v196_candidate.glb
+          python scripts/eye-pack-v196/qa_geometry.py qa/eye-v196/source_v193.glb qa/eye-v196/eye_v196_candidate.glb | tee qa/eye-v196/geometry_qa.txt
+      - name: Validate GLB using Khronos validator
+        run: |
+          mkdir -p "$RUNNER_TEMP/validator"
+          cd "$RUNNER_TEMP/validator"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund gltf-validator
+          node - "${GITHUB_WORKSPACE}/qa/eye-v196" <<'NODE'
+          const fs=require('node:fs'),path=require('node:path'),validator=require('gltf-validator');
+          (async()=>{
+            const dir=process.argv[2];
+            for(const [tag,name] of [['source','source_v193.glb'],['candidate','eye_v196_candidate.glb']]){
+              const result=await validator.validateBytes(new Uint8Array(fs.readFileSync(path.join(dir,name))),{uri:name,maxIssues:500});
+              fs.writeFileSync(path.join(dir,tag+'_validator.json'),JSON.stringify(result,null,2));
+              console.log(tag,'errors',result.issues?.numErrors,'warnings',result.issues?.numWarnings);
+              if(result.issues?.numErrors)process.exitCode=1;
+            }
+          })().catch(e=>{console.error(e);process.exitCode=1});
+          NODE
+      - name: Install Blender for true GLB reimport and Cycles renders
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y blender python3-numpy
+      - name: Blender source baseline and V1.9.6 after export/reimport
+        run: |
+          blender -b -t 2 --python scripts/eye-pack-v194/render_anchor_qa.py -- qa/eye-v196/source_v193.glb qa/eye-v196/before
+          blender -b -t 2 --python scripts/eye-pack-v196/render_v196.py -- qa/eye-v196/eye_v196_candidate.glb qa/eye-v196/after
+          test -s qa/eye-v196/after/render_report.json
+          test "$(find qa/eye-v196/before -name '*.png' | wc -l)" -eq 8
+          test "$(find qa/eye-v196/after -name '*.png' | wc -l)" -eq 8
+      - name: Save QA evidence — do not deploy rejected candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eye-v196-art-direction-candidate-${{ github.sha }}
+          path: |
+            qa/eye-v196/*.json
+            qa/eye-v196/*.txt
+            qa/eye-v196/*.glb
+            qa/eye-v196/before/*.png
+            qa/eye-v196/after/*.png
+            qa/eye-v196/before/*.json
+            qa/eye-v196/after/*.json
+          retention-days: 7
+          if-no-files-found: warn

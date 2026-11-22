@@ -1,0 +1,49 @@
+{
+  "headers": [
+    {
+      "source": "/characters/unified-heroine-v1/unified-heroine-v1-a41bb9e659e5.glb",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/characters/unified-heroine-v1/eye-pack-v1/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/characters/unified-heroine-v1/spider-queen-fang-v1-47366a109f16.glb",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/characters/unified-heroine-v1/dark-idol-native-lashes-v1-1ba835887c25.glb",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/characters/anime-lite-v2/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "asset": "Female_head_EyeSetPack_9_V19.glb",
+  "bytes": 31376604,
+  "sha256": "1da1e04c67d3441e7223224830a20aed69e67d5ea6c625025defdd2f9042367f",
+  "sets": [
+    {
+      "id": "natural",
+      "label": "Tự nhiên",
+      "color": "#bd713d",
+      "open": 1.08,
+      "outer": 0,
+      "inner": 0,
+      "brow": 0,
+      "iris": 1.04,
+      "lash": 1.0
+    },
+    {
+      "id": "joyful",
+      "label": "Tươi cười",
+      "color": "#ce793c",
+      "open": 0.73,
+      "outer": 0.004,
+      "inner": 0.001,
+      "brow": 0.003,
+      "iris": 0.92,
+      "lash": 0.86
+    },
+    {
+      "id": "sad",
+      "label": "Buồn",
+      "color": "#bd70ac",
+      "open": 0.9,
+      "outer": -0.009,
+      "inner": 0.004,
+      "brow": 0.006,
+      "iris": 0.97,
+      "lash": 0.92
+    },
+    {
+      "id": "playful",
+      "label": "Tinh nghịch",
+      "color": "#13c8bf",
+      "open": 0.93,
+      "outer": 0.011,
+      "inner": 0,
+      "brow": 0.003,
+      "iris": 1.04,
+      "lash": 1.08
+    },
+    {
+      "id": "angry",
+      "label": "Giận dữ",
+      "color": "#e62c51",
+      "open": 0.78,
+      "outer": 0.004,
+      "inner": -0.011,
+      "brow": -0.004,
+      "iris": 0.98,
+      "lash": 1.13
+    },
+    {
+      "id": "doll",
+      "label": "Búp bê",
+      "color": "#bd75ec",
+      "open": 1.28,
+      "outer": 0.001,
+      "inner": 0.002,
+      "brow": 0.005,
+      "iris": 1.12,
+      "lash": 1.12
+    },
+    {
+      "id": "idol",
+      "label": "Thần tượng",
+      "color": "#178fff",
+      "open": 1.16,
+      "outer": 0.002,
+      "inner": 0.002,
+      "brow": 0.004,
+      "iris": 1.07,
+      "lash": 1.09
+    },
+    {
+      "id": "star",
+      "label": "Ngôi sao",
+      "color": "#ab54e7",
+      "open": 1.05,
+      "outer": 0.002,
+      "inner": 0.001,
+      "brow": 0.003,
+      "iris": 1.03,
+      "lash": 1.04
+    },
+    {
+      "id": "heart",
+      "label": "Trái tim",
+      "color": "#f15b9f",
+      "open": 1.1,
+      "outer": 0.001,
+      "inner": 0.001,
+      "brow": 0.003,
+      "iris": 1.05,
+      "lash": 1.05
+    }
+  ],
+  "segmentation": {
+    "L": {
+      "sourcePatchFaces": 12221,
+      "removedEyeIslandFaces": 7633,
+      "rebuiltLidFaces": 3560,
+      "preservedOuterSeamVertices": 178,
+      "upperSkin": [
+        0.8823529411764706,
+        0.7176470588235294,
+        0.6980392156862745
+      ],
+      "lowerSkin": [
+        0.9333333333333333,
+        0.7686274509803922,
+        0.7529411764705882
+      ]
+    },
+    "R": {
+      "sourcePatchFaces": 13158,
+      "removedEyeIslandFaces": 8338,
+      "rebuiltLidFaces": 3520,
+      "preservedOuterSeamVertices": 176,
+      "upperSkin": [
+        0.8862745098039215,
+        0.7333333333333333,
+        0.6980392156862745
+      ],
+      "lowerSkin": [
+        0.9333333333333333,
+        0.7607843137254902,
+        0.7411764705882353
+      ]
+    }
+  },
+  "defaultScene": 0,
+  "libraryScene": 1,
+  "keptHeadFaces": 463223,
+  "originalHeadFaces": 488602,
+  "newNodes": 72,
+  "sourceBridgeFacesReplaced": 220,
+  "cdn": {
+    "url": "https://d2ol7oe51mr4n9.cloudfront.net/user_3Jb86LOyd6RRYonCk2iie6jkL5h/8a013292-3625-4598-8abc-fd26d1d1ad66.glb",
+    "bytes": 31376604,
+    "sha256": "1da1e04c67d3441e7223224830a20aed69e67d5ea6c625025defdd2f9042367f",
+    "accessControlAllowOrigin": "*",
+    "contentType": "model/gltf-binary",
+    "etag": "\"c7c9e084dd07ca3c1a37136ea2b9cb46\""
+  },
+  "visualStatus": "PARTIALLY READY / NOT VISUALLY ACCEPTED",
+  "productionCatalogIntegration": false
+}
