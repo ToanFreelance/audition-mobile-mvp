@@ -115,6 +115,12 @@ export class M3GameplayQaActor implements CharacterPresentation {
     }
   }
 
+  /** Read-only QA framing reference; do not modify the canonical bind-space rig. */
+  getQaFramingSkeleton(): THREE.Skeleton {
+    if (!this.assembly?.skeleton) throw new Error("M3 QA framing skeleton not loaded");
+    return this.assembly.skeleton;
+  }
+
   update(deltaSeconds: number, _renderTimeSeconds: number, songTimeMs: number) {
     this.controller?.update(deltaSeconds, songTimeMs);
   }
