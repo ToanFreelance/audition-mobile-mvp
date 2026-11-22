@@ -3,8 +3,8 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 // Privileged account actions are isolated in a Supabase Edge Function.
 // No service-role key ever enters Vercel, browser bundles or JWT metadata.
-// The function verifies the caller on every request, then checks a private
-// server-only allowlist of confirmed email addresses.
+// Every request is authorized with an expiring high-entropy Admin test code OR
+// a verified login with a private server-side email allowlist.
 
 type AuthUser = { id: string; email?: string | null; email_confirmed_at?: string | null };
 type AuthListUser = { id: string; email?: string | null; email_confirmed_at?: string | null;
@@ -45,31 +45,52 @@ async function isAdminEmail(env: ReturnType<typeof environment>, email: string) 
   return rows.length === 1 && rows[0].email === email;
 }
 
+// This function must use verify_jwt=false in deployment: it verifies every
+// request itself (high-entropy short-lived test code OR confirmed admin JWT).
+// Never trust a publishable Supabase API key as proof of administration.
+async function validateQuickCode(env: ReturnType<typeof environment>, code: string): Promise<boolean> {
+  if (!/^[A-Za-z0-9_-]{32}$/.test(code)) return false;
+  const result = await callProvider(
+    env.url + "/rest/v1/admin_quick_access?select=code_sha256,expires_at,enabled"
+      + "&access_id=eq.auth-v1-test&limit=1", env.serviceKey);
+  if (!result.ok) throw Error("Quick admin configuration unavailable");
+  const rows = await result.json() as Array<{
+    code_sha256: string; expires_at: string; enabled: boolean;
+  }>;
+  const row = rows[0];
+  if (!row?.enabled || !Number.isFinite(Date.parse(row.expires_at))
+    || Date.parse(row.expires_at) <= Date.now()) return false;
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(code));
+  const hash = [...new Uint8Array(bytes)].map(b => b.toString(16).padStart(2, "0")).join("");
+  return hash === row.code_sha256;
+}
+
 Deno.serve(async req => {
   if (req.method !== "POST") return response({ error: "Method not allowed" }, 405);
-  const bearer = req.headers.get("authorization") ?? "";
-  const jwt = bearer.startsWith("Bearer ") ? bearer.slice(7) : "";
-  if (!jwt || jwt.length > 8192) return response({ error: "Authentication required" }, 401);
-
   try {
     const env = environment();
-    // An untrusted user ID from request JSON or JWT metadata is never accepted.
-    const verify = await fetch(env.url + "/auth/v1/user", {
-      method: "GET", cache: "no-store",
-      headers: { apikey: env.publicKey, authorization: "Bearer " + jwt },
-    });
-    if (!verify.ok) return response({ error: "Authentication required" }, 401);
-    const caller = await verify.json() as AuthUser;
-    const callerEmail = typeof caller.email === "string" ? caller.email.trim().toLowerCase() : "";
-    if (!UUID.test(caller.id) || !callerEmail || !caller.email_confirmed_at) {
-      return response({ error: "A verified account is required" }, 403);
-    }
-    if (!(await isAdminEmail(env, callerEmail))) {
-      return response({ error: "Admin permission required" }, 403);
-    }
-
     let body: Record<string, unknown>;
     try { body = await req.json(); } catch { return response({ error: "Invalid JSON" }, 400); }
+    const code = typeof body.quickCode === "string" ? body.quickCode : "";
+    const quickAdmin = code ? await validateQuickCode(env, code) : false;
+    let caller: AuthUser = { id: "", email: null };
+    if (!quickAdmin) {
+      const bearer = req.headers.get("authorization") ?? "";
+      const jwt = bearer.startsWith("Bearer ") ? bearer.slice(7) : "";
+      if (!jwt || jwt.length > 8192) return response({ error: "Admin access code required" }, 401);
+      const verify = await fetch(env.url + "/auth/v1/user", {
+        method: "GET", cache: "no-store",
+        headers: { apikey: env.publicKey, authorization: "Bearer " + jwt },
+      });
+      if (!verify.ok) return response({ error: "Authentication required" }, 401);
+      caller = await verify.json() as AuthUser;
+      const callerEmail = typeof caller.email === "string" ? caller.email.trim().toLowerCase() : "";
+      if (!UUID.test(caller.id) || !callerEmail || !caller.email_confirmed_at
+        || !(await isAdminEmail(env, callerEmail))) {
+        return response({ error: "Admin permission required" }, 403);
+      }
+    }
+    if (body.action === "verify") return response({ ok: true, quickAdmin });
     if (body.action === "list") {
       const page = Number.isInteger(body.page) && Number(body.page) >= 1 && Number(body.page) <= 1000
         ? Number(body.page) : 1;
@@ -102,7 +123,7 @@ Deno.serve(async req => {
       return response({ error: "Email confirmation does not match" }, 409);
     }
     // Do not permit one admin to delete a DIFFERENT admin.
-    if (userId !== caller.id && await isAdminEmail(env, email)) {
+    if (!quickAdmin && userId !== caller.id && await isAdminEmail(env, email)) {
       return response({ error: "Cannot delete another administrator" }, 403);
     }
     const deleted = await callProvider(env.url + "/auth/v1/admin/users/" + userId, env.serviceKey,
