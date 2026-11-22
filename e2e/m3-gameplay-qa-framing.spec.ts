@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { expect, test } from "@playwright/test";
-import { frameM3GameplayQaCamera } from "../components/character/m3-gameplay-qa-framing";
+import {
+  captureM3GameplayQaReferencePose, frameM3GameplayQaCamera,
+} from "../components/character/m3-gameplay-qa-framing";
 
 function syntheticM3() {
   const root = new THREE.Group();
@@ -38,12 +40,13 @@ test("Step 3 QA centers both feet and head from joints, not detached garment bou
   const camera = new THREE.PerspectiveCamera(35, 0.6, 0.01, 100);
   const floor = new THREE.Group();
   const grid = new THREE.Group();
+  const pose = captureM3GameplayQaReferencePose(skeleton);
   const originalMatrices = new Map<THREE.Object3D, THREE.Matrix4>();
   root.traverse(item => { originalMatrices.set(item, item.matrixWorld.clone()); });
 
   for (const aspect of [0.55, 0.72, 1.25]) {
     camera.aspect = aspect;
-    const report = frameM3GameplayQaCamera(root, skeleton, camera, floor, grid);
+    const report = frameM3GameplayQaCamera(root, pose, camera, floor, grid);
     expect(report.height).toBeGreaterThan(1.6);
     expect(report.center.x).toBeCloseTo(1.2, 3);
     expect(report.distance).toBeGreaterThan(1);
@@ -60,6 +63,14 @@ test("Step 3 QA centers both feet and head from joints, not detached garment bou
       expect(Math.abs(projected.y)).toBeLessThan(0.84);
     }
   }
+  // Resizing mid-animation must NOT resample an airborne toe as floor contact.
+  const restingGround = floor.position.y;
+  toeL.position.y += 0.65;
+  root.updateMatrixWorld(true);
+  camera.aspect = 0.61;
+  const dancingResize = frameM3GameplayQaCamera(root, pose, camera, floor, grid);
+  expect(dancingResize.floorY).toBeCloseTo(restingGround, 6);
+  expect(floor.position.y).toBeCloseTo(restingGround, 6);
   expect(root.position.length()).toBe(0);
   expect(root.scale.toArray()).toEqual([1, 1, 1]);
   expect(vrm.scale.toArray()).toEqual([1, 1, 1]);
@@ -73,12 +84,13 @@ test("Step 3 QA rejects missing joints or inverted skeleton height", () => {
 
   const originalName = head.name;
   head.name = "not-head";
-  expect(() => frameM3GameplayQaCamera(root, skeleton, camera, floor, grid))
+  expect(() => captureM3GameplayQaReferencePose(skeleton))
     .toThrow(/missing or ambiguous joint: head/);
   head.name = originalName;
   head.position.y = -2;
   root.updateMatrixWorld(true);
-  expect(() => frameM3GameplayQaCamera(root, skeleton, camera, floor, grid))
+  const inverted = captureM3GameplayQaReferencePose(skeleton);
+  expect(() => frameM3GameplayQaCamera(root, inverted, camera, floor, grid))
     .toThrow(/invalid skeleton height/);
   garment.geometry.dispose();
 });
