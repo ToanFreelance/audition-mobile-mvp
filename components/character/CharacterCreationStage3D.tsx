@@ -132,8 +132,9 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
   const focusRef = useRef<((nextFocus: CharacterCreatorFocus, animate?: boolean) => void) | null>(null);
   const orbitRef = useRef<((nextYaw: number) => void) | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "fallback">("loading");
-  // Removable in-preview QA presets: never persisted in avatar/profile.
-  const [qualityPreset, setQualityPreset] = useState<QualityPreset>("A");
+  // Owner-accepted default for both M3 rigs. QA selection never enters avatar/profile.
+  const [qualityPreset, setQualityPreset] = useState<QualityPreset>("F");
+  const [facialQAEnabled, setFacialQAEnabled] = useState(false);
   const presetRef = useRef(qualityPreset);
   presetRef.current = qualityPreset;
   const applyQualityRef = useRef<((preset: QualityPreset) => void) | null>(null);
@@ -143,6 +144,19 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
   showDiagnosticsRef.current = showDiagnostics;
   const [diagnostics, setDiagnostics] = useState<RenderDiagnostics | null>(null);
   const m3Preview = Boolean(getCharacterCatalogEntry(assetId)?.m3RigFamily);
+
+  useEffect(() => {
+    // Opt-in debug UI only. Read on the client to keep server/client markup identical.
+    setFacialQAEnabled(new URLSearchParams(window.location.search).get("m3FacialQA") === "1");
+  }, []);
+
+  useEffect(() => {
+    // Each newly selected M3 identity starts from the approved presentation,
+    // even if another actor was inspected under a different QA preset.
+    if (!getCharacterCatalogEntry(assetId)?.m3RigFamily) return;
+    presetRef.current = "F";
+    setQualityPreset("F");
+  }, [assetId]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -191,8 +205,9 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       powerPreference: "high-performance",
     });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.03;
+    // Establish F before the first possible render; legacy C1/C4 keep ACES.
+    renderer.toneMapping = isM3Creator ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = isM3Creator ? 0.985 : 1.03;
     renderer.domElement.className = styles.canvas;
     host.appendChild(renderer.domElement);
 
@@ -444,7 +459,10 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       rim.intensity = calibrated ? 1.45 : (isM3Creator ? 1.6 : 1.7);
       renderer.toneMapping = isM3Creator && ["D", "E", "F"].includes(preset) ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = isM3Creator && ["E", "F"].includes(preset) ? 0.985 : 1.03;
-      if (isM3Creator) applyFaceMaterials(preset);
+      if (isM3Creator) {
+        applyFaceMaterials(preset);
+        host.dataset.m3FacialPreset = preset;
+      }
       configureResolution();
       render();
       readDiagnostics();
@@ -615,7 +633,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       data-testid="c2-character-stage"
       ref={hostRef}
     >
-      {m3Preview && (
+      {m3Preview && facialQAEnabled && (
         <div
           className={styles.qualityTest}
           data-testid="m3-facial-quality-test"
@@ -647,7 +665,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           </div>
           {showDiagnostics && (
             <div className={styles.qualityDiagnostics} role="status" data-testid="m3-facial-diagnostics">
-              <strong>Facial Fidelity V1.7.1 · {qualityPreset}</strong>
+              <strong>Facial Fidelity V1.7.2 · {qualityPreset}</strong>
               <span>A: gốc · B: DPR · C: đèn · D: Neutral · E: dịu · F: có khối</span>
               <span>Đèn không tạo khối trên VRM unlit; F thêm shading cục bộ (không sửa texture).</span>
               <span>Unlit face/mouth: {hostRef.current?.dataset.m3UnlitFaceMaterials ?? "đang tải"}</span>
