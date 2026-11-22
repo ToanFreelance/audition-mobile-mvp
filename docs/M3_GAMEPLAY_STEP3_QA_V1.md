@@ -69,3 +69,11 @@ Owner's physical iPhone screenshot of V1.0.2 showed the female rig visibly offse
 **QA UX:** sex selector, preview and status now live in a sticky group for scrolling down through ten actions. Preview height is mobile viewport responsive (`clamp(230px, 40dvh, 440px)`) instead of the previous tall `3 / 4` box. The preview continues rendering during interactions; it is not remounted by ordinary button clicks.
 
 **Owner visual gate remains OPEN:** on the stable branch URL verify complete head–shoes visibility and contact with ground on both rigs, reload and switch sex, scroll and use Dance 01–08 / Miss / Finish without losing the preview. Watch for animation-specific clipping and floating feet. Vercel READY and synthetic tests do not prove owner iPhone acceptance. Do not change `runtimeReady`, gameplay Stage3D, MatchManifest, Waiting Room or WebAudio.
+
+## V1.0.4 — actual rendered silhouette camera calibration (2026-11-22)
+
+The owner retested V1.0.3 on a physical iPhone and confirmed **both** Drophunter and Neurohacker still render shifted toward the right and crop their shoes. The static skeleton-axis prediction was therefore not sufficient for display framing; do not claim the prior skeleton-based fix was accepted.
+
+The Step 3 *isolated QA* camera now makes a one-time, low-resolution offscreen RGBA render of the actual dressed M3 actor at a safe zoomed-out distance, with floor/grid and background hidden only during capture. Nontransparent actor pixels give the final visible silhouette in screen space, including detached/offset skinned geometry. Their bounds are converted into one frozen camera-space world framing reference. The camera fits this silhouette with head/feet margins and recomputes from the same reference on Safari viewport resize—never from dancing bones. No skeleton / clothing / global actor transform changes. A fail-closed readable error is shown if framebuffer capture is blank, fully opaque or clipped. A synthetic test forces visible geometry to the right/bottom despite centered skeleton and checks world-centering, portrait resize, and invalid-buffer handling.
+
+Owner physical iPhone QA is required again for both genders and both idle/action poses. WebGL offscreen capture behavior is device-dependent and the synthetic test does not replace Safari pixel validation. Do not unlock M3 runtime or merge.
