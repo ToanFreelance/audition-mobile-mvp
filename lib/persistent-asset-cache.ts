@@ -74,3 +74,13 @@ export async function isPersistentAssetCached(cacheKey: string): Promise<boolean
     return Boolean(await cache.match(cacheRequest(cacheKey)));
   } catch { return false; }
 }
+
+/** Removes one immutable byte cache entry for isolated QA only. Never clears
+ * audio cache, session cookies, account profiles or other users' cache. */
+export async function removePersistentAssetCached(cacheKey: string): Promise<boolean> {
+  if (!canUsePersistentCache()) return false;
+  try {
+    const cache = await window.caches.open(CACHE_NAME);
+    return cache.delete(cacheRequest(cacheKey));
+  } catch { return false; }
+}
