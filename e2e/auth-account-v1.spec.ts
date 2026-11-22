@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { NextRequest } from "next/server";
 import { GET as authGet, POST as authPost, emailConfirmationRedirect } from "../app/api/auth/route";
 import { GET as characterGet, POST as characterPost } from "../app/api/account/character/route";
+import { GET as adminGet, POST as adminPost } from "../app/api/admin/accounts/route";
 
 function request(path: string, method = "GET", body?: Record<string, unknown>, origin = "https://game.test") {
   return new NextRequest("https://game.test" + path, {
@@ -183,4 +184,32 @@ test("email confirmation URL explicitly rejects insecure external redirects", ()
     if (original === undefined) delete process.env.AUTH_REDIRECT_ORIGIN;
     else process.env.AUTH_REDIRECT_ORIGIN = original;
   }
+});
+
+test("admin endpoints fail closed without a verified session", async () => {
+  const list = await adminGet(request("/api/admin/accounts"));
+  expect(list.status).toBe(401);
+  const body = await list.json();
+  expect(body.error).toContain("Authentication required");
+  expect(JSON.stringify(body)).not.toContain("users");
+  const deletion = await adminPost(request("/api/admin/accounts", "POST", {
+    action: "delete", userId: "123e4567-e89b-42d3-a456-426614174000",
+    confirmEmail: "test@example.com",
+  }));
+  expect(deletion.status).toBe(401);
+});
+
+test("admin account deletion rejects cross-origin requests before session lookup", async () => {
+  const response = await adminPost(request("/api/admin/accounts", "POST", {
+    action: "delete", userId: "123e4567-e89b-42d3-a456-426614174000",
+    confirmEmail: "test@example.com",
+  }, "https://malicious.example"));
+  expect(response.status).toBe(403);
+});
+
+test("admin deletion rejects malformed IDs and missing email before privileged Edge call", async () => {
+  const response = await adminPost(request("/api/admin/accounts", "POST", {
+    action: "delete", userId: "not-a-user", confirmEmail: "",
+  }));
+  expect(response.status).toBe(401);
 });

@@ -47,3 +47,35 @@ To eliminate `localhost:3000` fallback, configure **Supabase Dashboard → Authe
 - Existing confirmation emails have their old destination; re-test with a newly generated confirmation email. Previously verified accounts may sign in on the stable preview without re-registering.
 
 No edits to Gameplay, RoomState, CAS, Supabase Realtime, WebAudio, M3 character catalog, or animation.
+
+## Admin tab / single-character Creator guard — 22 Nov 2026
+
+### Admin
+- `/auth` now exposes an **Admin** tab alongside Login / Signup; admin has its own `/admin` screen.
+- Lists Supabase Auth accounts (email, confirmation, created and recent login).
+- Deleting an Auth user is intentionally **irreversible**. UI requires retyping the exact email; API verifies target and blocks deleting other admin users.
+- The authenticated **current admin may delete their own test account**, then re-register with the same email and confirm email again; the private email allowlist persists across Auth user deletion.
+- Authentication is checked on each server request by Supabase GoTrue and the Edge Function, NOT by spoofable client metadata.
+- Private allowlist is `public.account_admin_emails`; RLS enabled, zero client policies; SELECT denied to anonymous and authenticated roles.
+- Admin-only `auth-admin-v1` Edge Function uses server-only Supabase service credentials and `verify_jwt=true`. The Next.js API forwards the verified HttpOnly-cookie session JWT; no secret key stored in Vercel or browser.
+- Only one verified test account (Bondrain) was granted admin access in the existing Supabase database via one-time owner-authorized SQL, **not** by source-file seed data.
+- Supabase Auth user deletion cascades to its `player_characters` row. Existing RoomState history is not automatically purged; some old session JWTs may remain until expiry, so this is a QA-only account management tool.
+- No client can add its email to the admin allowlist. Never auto-grant admin to a newly registered email outside the prior private allowlist.
+- The verified owner should test list access and, if desired, delete a disposable account only after confirming its exact email. No accounts were deleted during implementation.
+
+### Direct URL guard
+- Account that already has a server-owned M3 character: direct navigation to `/character/create` sends user to `/rooms`.
+- Guest with an already saved M3 draft: same redirect.
+- Legacy C1/C4 drafts retain their accepted M3 migration fallback; they are not mistakenly treated as already-created M3 accounts.
+- Creator remains used for first creation; editing an existing saved account character will be exposed through the future Dashboard, not through URL manipulation.
+- The account character API still allows validated updates to the same row for future Dashboard implementation.
+
+### Owner mobile test requirements
+1. Login with existing verified Bondrain account → Auth → Admin.
+2. Admin lists exactly the accounts existing in Supabase; no public user list for guests or non-admins.
+3. Press Xóa → enter exact target email; wrong email must not delete.
+4. If deleting own account, user is logged out; same email can re-register and verify (keep redirect allowlist configured).
+5. A registered account with M3 character opening `/character/create` directly must be sent to Room Browser.
+6. Confirm that the existing Room Browser / Waiting Room visuals remain unchanged.
+
+The admin functionality is **not** a full production moderation system: no invite flow, audit log, MFA or account recovery UI.

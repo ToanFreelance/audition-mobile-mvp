@@ -34,6 +34,9 @@ export default function AccountAuthScreen() {
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("mode") === "register") {
+      setMode("register");
+    }
     let cancelled = false;
     const initialize = async () => {
       try {
