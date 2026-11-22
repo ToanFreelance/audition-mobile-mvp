@@ -1879,13 +1879,13 @@ export default function WaitingRoomStage3D({
         if (disposed) { assembly.dispose(); return; }
         m3Pending.delete(key);
         m3Sources.set(key, assembly);
-        reconcileParticipants();
+        reconcileParticipantsRef.current?.();
       }).catch(error => {
         if (disposed) return;
         m3Pending.delete(key);
         m3Failed.add(key);
         console.warn("[waiting-room] M3 avatar cannot load", error);
-        reconcileParticipants();
+        reconcileParticipantsRef.current?.();
       });
     };
 
