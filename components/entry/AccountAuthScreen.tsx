@@ -2,14 +2,15 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import styles from "./AccountAuthScreen.module.css";
+import { resolveAccountLanding } from "./account-landing";
 
 type Account = { id: string; email: string | null };
 type AuthResult = { ok?: boolean; authenticated?: boolean; pendingConfirmation?: boolean; user?: Account | null; error?: string };
 
-function nextRoute() {
-  const value = new URLSearchParams(window.location.search).get("next") ?? "/character/create";
-  return value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")
-    ? value : "/character/create";
+function requestedRoute() {
+  const value = new URLSearchParams(window.location.search).get("next");
+  return value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")
+    ? value : undefined;
 }
 
 async function authRequest(payload: Record<string, unknown>) {
@@ -78,6 +79,18 @@ export default function AccountAuthScreen() {
     } finally { setBusy(false); }
   };
 
+  const enterGame = async () => {
+    if (busy) return;
+    setBusy(true); setError("");
+    try {
+      const destination = await resolveAccountLanding(requestedRoute());
+      window.location.replace(destination);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không tải được nhân vật.");
+      setBusy(false);
+    }
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true); setError(""); setMessage("");
@@ -87,8 +100,11 @@ export default function AccountAuthScreen() {
         setMessage("Đăng ký đã được tiếp nhận. Nếu email xác nhận được bật, hãy mở email và xác nhận rồi đăng nhập.");
         setMode("login");
       } else {
-        setAccount(result.user ?? null);
-        window.location.assign(nextRoute());
+        // Resolve the account-owned character before navigation. Never flash
+        // Character Creation only to redirect after its heavy 3D scene mounts.
+        const destination = await resolveAccountLanding(requestedRoute());
+        setPassword("");
+        window.location.replace(destination);
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Có lỗi xác thực.");
@@ -120,7 +136,10 @@ export default function AccountAuthScreen() {
         {initializing ? <p>Đang xác minh phiên đăng nhập…</p> : account ? (
           <>
             <p className={styles.account} data-testid="auth-user-email">{account.email || "Tài khoản đã đăng nhập"}</p>
-            <button className={styles.submit} type="button" onClick={() => window.location.assign(nextRoute())}>VÀO GAME</button>
+            <button className={styles.submit} type="button" onClick={() => void enterGame()}
+              disabled={busy} data-testid="auth-enter-game">
+              {busy ? "ĐANG KIỂM TRA NHÂN VẬT…" : "VÀO GAME"}
+            </button>
             <button className={styles.submit} type="button" onClick={logout} disabled={busy} data-testid="auth-logout">ĐĂNG XUẤT</button>
           </>
         ) : (
@@ -138,7 +157,7 @@ export default function AccountAuthScreen() {
                 <input required type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={8} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} data-testid="auth-password"/>
               </label>
               <button className={styles.submit} disabled={busy} type="submit" data-testid="auth-submit">
-                {busy ? "ĐANG XỬ LÝ…" : mode === "login" ? "ĐĂNG NHẬP" : "TẠO TÀI KHOẢN"}
+                {busy ? "ĐANG KIỂM TRA TÀI KHOẢN…" : mode === "login" ? "ĐĂNG NHẬP" : "TẠO TÀI KHOẢN"}
               </button>
             </form>
             {mode === "login" && (

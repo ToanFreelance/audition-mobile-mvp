@@ -172,3 +172,68 @@ test("QA password recovery cannot bypass admin quick access", async ({ page }) =
   await expect(page.getByTestId("admin-test-credentials")).toBeVisible();
   await expect(page.getByLabel("Mật khẩu tài khoản QA")).toHaveValue("newStrongPassword123");
 });
+
+test("existing account lands directly in Room Browser without visiting Creator", async ({ page }) => {
+  const visits: string[] = [];
+  await page.route("**/character/create", route => {
+    visits.push("creator"); void route.continue();
+  });
+  await page.route("**/api/auth", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify(route.request().method() === "POST"
+      ? { ok: true, user: { id: "11111111-1111-4111-8111-111111111111", email: "qa@example.com" } }
+      : { authenticated: false, user: null }),
+  }));
+  await page.route("**/api/account/character", route => route.fulfill({
+    status: 200, contentType: "application/json", body: JSON.stringify({
+      ok: true, profile: { characterAssetId: "m3-drophunter" }, revision: 1,
+    }),
+  }));
+  await page.route("**/api/multiplayer/room?browse=1", route => route.fulfill({
+    status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rooms: [] }),
+  }));
+  await page.goto("/auth");
+  await page.getByTestId("auth-email").fill("qa@example.com");
+  await page.getByTestId("auth-password").fill("validpassword123");
+  await page.getByTestId("auth-submit").click();
+  await expect(page).toHaveURL(/\/rooms$/);
+  expect(visits).toEqual([]);
+});
+
+test("new account goes directly to Creator without visiting Room Browser first", async ({ page }) => {
+  let roomsVisited = 0;
+  await page.route("**/rooms", route => { roomsVisited++; void route.continue(); });
+  await page.route("**/api/auth", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify(route.request().method() === "POST"
+      ? { ok: true, user: { id: "11111111-1111-4111-8111-111111111111", email: "qa@example.com" } }
+      : { authenticated: false, user: null }),
+  }));
+  await page.route("**/api/account/character", route => route.fulfill({
+    status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, profile: null }),
+  }));
+  await page.goto("/auth");
+  await page.getByTestId("auth-email").fill("qa@example.com");
+  await page.getByTestId("auth-password").fill("validpassword123");
+  await page.getByTestId("auth-submit").click();
+  await expect(page).toHaveURL(/\/character\/create$/);
+  expect(roomsVisited).toBe(0);
+});
+
+test("account profile API error keeps login onscreen and never falls back to Creator", async ({ page }) => {
+  await page.route("**/api/auth", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify(route.request().method() === "POST"
+      ? { ok: true, user: { id: "11111111-1111-4111-8111-111111111111", email: "qa@example.com" } }
+      : { authenticated: false, user: null }),
+  }));
+  await page.route("**/api/account/character", route => route.fulfill({
+    status: 503, contentType: "application/json", body: JSON.stringify({ error: "Unavailable" }),
+  }));
+  await page.goto("/auth");
+  await page.getByTestId("auth-email").fill("qa@example.com");
+  await page.getByTestId("auth-password").fill("validpassword123");
+  await page.getByTestId("auth-submit").click();
+  await expect(page).toHaveURL(/\/auth$/);
+  await expect(page.getByRole("alert")).toContainText("Không xác minh được nhân vật");
+});

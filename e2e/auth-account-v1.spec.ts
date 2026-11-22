@@ -393,3 +393,22 @@ test("QA account POST forwards only server-generated action when Admin session e
     else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = oldKey;
   }
 });
+
+test("account-landing always resolves server profile, never reuses a guest local draft", async () => {
+  const { resolveAccountLanding } = await import("../components/entry/account-landing");
+  const fetchBefore = globalThis.fetch;
+  let called = 0;
+  globalThis.fetch = async (_url, init) => {
+    called++;
+    expect(init?.cache).toBe("no-store");
+    expect(init?.credentials).toBe("same-origin");
+    return new Response(JSON.stringify({
+      ok: true, profile: called === 1 ? { characterAssetId: "m3-neurohacker" } : null,
+    }), { status: 200 });
+  };
+  try {
+    expect(await resolveAccountLanding()).toBe("/rooms");
+    expect(await resolveAccountLanding()).toBe("/character/create");
+    expect(called).toBe(2);
+  } finally { globalThis.fetch = fetchBefore; }
+});

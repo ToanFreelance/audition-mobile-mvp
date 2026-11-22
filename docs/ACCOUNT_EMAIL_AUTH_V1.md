@@ -157,3 +157,11 @@ Existing normal registration/login, email confirmation, character ownership, Roo
 - The new password is displayed one time, permitting **Đăng nhập ngay → Tạo nhân vật** or copy onto another device. Previously created character data is untouched. No static password, password hash, privileged login bypass, service-role key or per-user password cache is added to browser or repository.
 - If the user lost their previous password, it cannot be recovered; only a new QA password can be issued.
 - The login/logout experience is scoped to Room Browser and Admin. RoomState and accepted Waiting Room assets remain unchanged. No auto-merge.
+
+## Login landing without Creator flash — 22 Nov 2026
+
+Root cause: sign-in and Auth VÀO GAME defaulted to /character/create; Creator then fetched server profile and redirected to /rooms. This visibly mounted the heavyweight Creator and 3D scene for existing players.
+
+Fix: both AccountAuthScreen regular sign-in / VÀO GAME and Admin one-click QA login await the authoritative GET /api/account/character (no-store) **before** any navigation. A profile -> /rooms (preserving an explicit /rooms deep link), no profile -> /character/create. An API failure surfaces an error, never assumes the player is new. The existing direct-URL Creator guard remains defensive. This is a routing correction, not a new persistent account cache.
+
+Focused regression: existing player never requests Creator document, first-time player directly visits Creator, profile fetch outage does not route incorrectly, and server-profile no-store check.

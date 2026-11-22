@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import styles from "./AccountAuthScreen.module.css";
 import admin from "./AdminAccountsScreen.module.css";
+import { resolveAccountLanding } from "./account-landing";
 
 type Account = {
   id: string; email: string | null; confirmed: boolean; isTestAccount?: boolean;
@@ -114,8 +115,9 @@ export default function AdminAccountsScreen() {
       if (!response.ok || !result.ok || result.pendingConfirmation) {
         throw Error(result.error ?? "Không thể đăng nhập tài khoản QA.");
       }
+      const destination = await resolveAccountLanding();
       setNewTestAccount(null);
-      window.location.assign("/character/create");
+      window.location.replace(destination);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không thể đăng nhập tài khoản QA.");
     } finally { setBusy(false); }
