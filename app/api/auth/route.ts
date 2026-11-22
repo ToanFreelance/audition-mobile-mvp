@@ -41,9 +41,23 @@ export async function POST(request: NextRequest) {
     if (!response.ok) return json({ error: "Liên kết xác nhận đã hết hạn." }, 401);
     const user = await response.json() as { id?: string; email?: string };
     if (!user.id) return json({ error: "Không xác minh được tài khoản." }, 401);
+    // Implicit callback tokens are untrusted until the refresh token is also
+    // verified and bound to the SAME account. Rotate on adoption to avoid a
+    // swapped refresh token silently changing identity after expiry.
+    const rotated = await supabaseRequest("/auth/v1/token?grant_type=refresh_token", {
+      method: "POST", body: JSON.stringify({ refresh_token: refresh }),
+    });
+    if (!rotated.ok) return json({ error: "Phiên xác nhận đã hết hạn. Hãy đăng nhập lại." }, 401);
+    const tokens = await rotated.json() as {
+      access_token?: string; refresh_token?: string; expires_in?: number;
+      user?: { id?: string; email?: string };
+    };
+    if (!tokens.access_token || !tokens.refresh_token || tokens.user?.id !== user.id) {
+      return json({ error: "Phiên xác nhận không khớp tài khoản." }, 401);
+    }
     return setAuthCookies(json({ ok: true, user: { id: user.id, email: user.email ?? null } }),
-      { access_token: access, refresh_token: refresh,
-        expires_in: typeof input.expiresIn === "number" && input.expiresIn > 0 ? input.expiresIn : 3600 });
+      { access_token: tokens.access_token, refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in });
   }
   if (action !== "register" && action !== "login") return json({ error: "Unsupported action." }, 400);
   const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";

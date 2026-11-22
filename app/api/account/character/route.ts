@@ -24,12 +24,17 @@ function send(body: unknown, session: AccountSession, status = 200) {
 
 function parseProfile(input: unknown) {
   if (!input || typeof input !== "object") return null;
+  const submitted = input as Record<string, unknown>;
+  const rawAssetId = submitted.characterAssetId;
+  if (rawAssetId !== "m3-drophunter" && rawAssetId !== "m3-neurohacker") return null;
+  // Validate the originally supplied look before normalization. A malformed
+  // outfit must not silently become the default via the legacy draft parser.
+  const look = parseM3LobbyAppearance(rawAssetId, submitted);
+  if (!look) return null;
   const value = parseCharacterCreationDraft(JSON.stringify(input));
-  if (!value) return null;
+  if (!value || value.characterAssetId !== rawAssetId) return null;
   const catalog = getCharacterCatalogEntry(value.characterAssetId);
   if (!catalog?.m3RigFamily || !catalog.creatorReady) return null;
-  const look = parseM3LobbyAppearance(catalog.id, value);
-  if (!look) return null;
   return { ...value, m3Outfit: look.m3Outfit };
 }
 
