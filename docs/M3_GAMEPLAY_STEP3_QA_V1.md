@@ -57,3 +57,15 @@ With the native bind-space garment fix in place, Step 3's isolated preview now o
 **Owner iPhone visual gate (still required):** on the same stable Step 3 Preview URL, verify both M3 rigs after page reload; play each Dance 01–08, Miss, and Finish. Inspect outfit attachment through motion, planted feet / sliding, hand-body or garment intersections, motion heading, and Finish continuity. Check actual animation source label: fallback choreography cannot be accepted as the published dance release.
 
 This is only a QA-tool expansion. **Do not** set M3 `runtimeReady=true`, modify `Stage3D`, enable real Host START, replace Waiting Room animation, or claim visual approval from synthetic tests. Proceed to Stage3D actor factory / frozen manifest / preload-LOADED integration only after the owner approves the iPhone choreography gate.
+
+## V1.0.3 — portrait full-body framing and sticky preview (2026-11-22)
+
+Owner's physical iPhone screenshot of V1.0.2 showed the female rig visibly offset toward the right and both feet cropped; owner also reports the same issue on the male rig. The clothes themselves are no longer enlarged, but the view cannot establish foot-contact acceptance.
+
+**Root cause:** the camera used `Box3.setFromObject(actor.root)` for the center and height, including detached M3 `SkinnedMesh` garment extents. Those geometry bounds are not dependable anchors for this rig. The resize callback also changed only `camera.aspect`, without re-fitting the camera when the Safari viewport changed.
+
+**Focused correction:** frame from the canonical M3 skeleton's `hips`, `head`, bilateral `hand`, `foot` and `toes` landmarks; reserve explicit crown/shoe/ground margins and symmetric dance-arm space; fit horizontal and vertical FOV per current aspect. The floor/grid are independent frozen decorations, positioned just below the resting toe joints. Recompute camera after preview size changes. Neither the actor nor its SkinnedMesh/skeleton parents are scaled or translated. A synthetic off-center rig plus deliberately offset garment checks joint centering, portrait head/toe NDC visibility, repeated viewport resizing and unchanged world matrices.
+
+**QA UX:** sex selector, preview and status now live in a sticky group for scrolling down through ten actions. Preview height is mobile viewport responsive (`clamp(230px, 40dvh, 440px)`) instead of the previous tall `3 / 4` box. The preview continues rendering during interactions; it is not remounted by ordinary button clicks.
+
+**Owner visual gate remains OPEN:** on the stable branch URL verify complete head–shoes visibility and contact with ground on both rigs, reload and switch sex, scroll and use Dance 01–08 / Miss / Finish without losing the preview. Watch for animation-specific clipping and floating feet. Vercel READY and synthetic tests do not prove owner iPhone acceptance. Do not change `runtimeReady`, gameplay Stage3D, MatchManifest, Waiting Room or WebAudio.
