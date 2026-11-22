@@ -95,3 +95,86 @@ export function frameM3GameplayQaCamera(
   }
   return { height, distance, center, floorY };
 }
+
+/**
+ * Model-space bones are NOT a reliable proxy for final visible M3 pixels:
+ * detached skinned outfits and baked geometry may draw away from joint pivots.
+ * A single small alpha-only offscreen render gives the *actual* rendered
+ * silhouette. Convert that frozen neutral capture into a world-space frame,
+ * then refit camera-only when Safari changes preview dimensions.
+ */
+export type M3QaSilhouetteBounds = Readonly<{
+  left: number; right: number; bottom: number; top: number;
+}>;
+export type M3QaVisualFrame = Readonly<{
+  center: THREE.Vector3;
+  width: number;
+  height: number;
+  depth: number;
+}>;
+
+export function measureM3QaSilhouette(
+  pixels: Uint8Array, width: number, height: number,
+): M3QaSilhouetteBounds {
+  if (width <= 2 || height <= 2 || pixels.length !== width * height * 4) {
+    throw new Error("M3 QA silhouette invalid pixel buffer");
+  }
+  let left = width, right = -1, bottom = height, top = -1, count = 0;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (pixels[(y * width + x) * 4 + 3] < 32) continue;
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+      bottom = Math.min(bottom, y);
+      top = Math.max(top, y);
+      count++;
+    }
+  }
+  if (count < 20 || right <= left || top <= bottom ||
+      (left === 0 && right === width - 1 && bottom === 0 && top === height - 1)) {
+    throw new Error("M3 QA silhouette unreadable or clipped");
+  }
+  return {
+    left: left / width, right: (right + 1) / width,
+    bottom: bottom / height, top: (top + 1) / height,
+  };
+}
+
+export function deriveM3QaVisualFrame(
+  bounds: M3QaSilhouetteBounds, camera: THREE.PerspectiveCamera, depth: number,
+): M3QaVisualFrame {
+  const distance = camera.position.z - depth;
+  const halfV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * distance;
+  const halfH = halfV * camera.aspect;
+  if (!(distance > 0) || !Number.isFinite(halfH) || !(halfH > 0)) {
+    throw new Error("M3 QA silhouette invalid camera projection");
+  }
+  const center = new THREE.Vector3(
+    camera.position.x + (bounds.left + bounds.right - 1) * halfH,
+    camera.position.y + (bounds.bottom + bounds.top - 1) * halfV,
+    depth,
+  );
+  const width = (bounds.right - bounds.left) * 2 * halfH;
+  const height = (bounds.top - bounds.bottom) * 2 * halfV;
+  if (!(width > 0) || !(height > 0) || ![center.x,center.y,width,height].every(Number.isFinite)) {
+    throw new Error("M3 QA silhouette invalid dimensions");
+  }
+  return { center, width, height, depth };
+}
+
+export function fitM3QaVisualFrame(
+  camera: THREE.PerspectiveCamera, frame: M3QaVisualFrame,
+): void {
+  // Keep enough space for shoes, floor contact and dancing limbs.
+  const halfV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+  const distance = Math.max(
+    frame.height / (2 * halfV * 0.67),
+    frame.width / (2 * halfV * camera.aspect * 0.58),
+  ) * 1.20;
+  camera.position.set(frame.center.x, frame.center.y, frame.depth + distance);
+  camera.lookAt(frame.center);
+  camera.near = Math.max(0.001, frame.height * 0.002);
+  camera.far = Math.max(100, distance * 10);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld(true);
+}
