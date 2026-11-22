@@ -2,42 +2,83 @@ import * as THREE from "three";
 import { expect, test } from "@playwright/test";
 import { frameM3GameplayQaCamera } from "../components/character/m3-gameplay-qa-framing";
 
-test("Step 3 M3 camera fits native rig without scaling or moving any actor or garment", () => {
+function syntheticM3() {
   const root = new THREE.Group();
-  const m3 = new THREE.Group();
-  root.add(m3);
-  const body = new THREE.Mesh(new THREE.BoxGeometry(.45, 1.8, .3));
-  body.position.y = .9;
-  m3.add(body);
-  const pants = new THREE.Mesh(new THREE.BoxGeometry(.5, .55, .4));
-  pants.position.set(.03, .68, .02);
-  m3.add(pants);
-  const shoe = new THREE.Mesh(new THREE.BoxGeometry(.24, .18, .48));
-  shoe.position.set(.2, .09, .1);
-  m3.add(shoe);
-  const group = new THREE.Group(); group.add(root);
-  group.updateMatrixWorld(true);
-  const camera = new THREE.PerspectiveCamera(35, .7, .01, 100);
+  const vrm = new THREE.Group();
+  vrm.position.x = 1.2; // Model may be authored off the scene origin.
+  root.add(vrm);
+  const joint = (name: string, parent: THREE.Object3D, x: number, y: number, z = 0) => {
+    const b = new THREE.Bone();
+    b.name = name;
+    b.position.set(x, y, z);
+    parent.add(b);
+    return b;
+  };
+  const hips = joint("hips", vrm, 0, 0.94);
+  const head = joint("head", hips, 0, 0.83);
+  const handL = joint("hand.L", hips, 0.42, -0.04, 0.1);
+  const handR = joint("hand.R", hips, -0.42, -0.04, 0.1);
+  const footL = joint("foot.L", hips, 0.14, -0.85, 0.05);
+  const footR = joint("foot.R", hips, -0.14, -0.85, 0.05);
+  const toeL = joint("toes.L", footL, 0, -0.045, 0.16);
+  const toeR = joint("toes.R", footR, 0, -0.045, 0.16);
+  const skeleton = new THREE.Skeleton([
+    hips, head, handL, handR, footL, footR, toeL, toeR,
+  ]);
+  // Irrelevant detached garment bounds must NOT skew camera framing.
+  const garment = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 1));
+  garment.position.set(12, 1.5, 0);
+  root.add(garment);
+  root.updateMatrixWorld(true);
+  return { root, vrm, skeleton, hips, head, toeL, toeR, garment };
+}
+
+test("Step 3 QA centers both feet and head from joints, not detached garment bounds", () => {
+  const { root, vrm, skeleton, hips, head, toeL, toeR, garment } = syntheticM3();
+  const camera = new THREE.PerspectiveCamera(35, 0.6, 0.01, 100);
   const floor = new THREE.Group();
   const grid = new THREE.Group();
-  const before = new Map<THREE.Object3D, THREE.Matrix4>();
-  root.traverse(item => { before.set(item, item.matrixWorld.clone()); });
-  const report = frameM3GameplayQaCamera(root, camera, floor, grid);
-  expect(report.height).toBeGreaterThan(1.7);
-  expect(report.distance).toBeGreaterThan(1);
+  const originalMatrices = new Map<THREE.Object3D, THREE.Matrix4>();
+  root.traverse(item => { originalMatrices.set(item, item.matrixWorld.clone()); });
+
+  for (const aspect of [0.55, 0.72, 1.25]) {
+    camera.aspect = aspect;
+    const report = frameM3GameplayQaCamera(root, skeleton, camera, floor, grid);
+    expect(report.height).toBeGreaterThan(1.6);
+    expect(report.center.x).toBeCloseTo(1.2, 3);
+    expect(report.distance).toBeGreaterThan(1);
+    expect(floor.position.y).toBeCloseTo(report.floorY, 6);
+    expect(grid.position.y).toBeLessThan(floor.position.y);
+    root.traverse(item =>
+      expect(item.matrixWorld.elements).toEqual(originalMatrices.get(item)!.elements));
+
+    const hipProjection = hips.getWorldPosition(new THREE.Vector3()).project(camera);
+    expect(hipProjection.x).toBeCloseTo(0, 5);
+    for (const bone of [head, toeL, toeR]) {
+      const projected = bone.getWorldPosition(new THREE.Vector3()).project(camera);
+      expect(Math.abs(projected.x)).toBeLessThan(0.84);
+      expect(Math.abs(projected.y)).toBeLessThan(0.84);
+    }
+  }
   expect(root.position.length()).toBe(0);
   expect(root.scale.toArray()).toEqual([1, 1, 1]);
-  expect(m3.scale.toArray()).toEqual([1, 1, 1]);
-  root.traverse(item => expect(item.matrixWorld.elements).toEqual(before.get(item)!.elements));
-  expect(grid.scale.x).toBeGreaterThan(0);
-  expect(floor.position.y).toBeLessThan(.1);
-  body.geometry.dispose(); pants.geometry.dispose(); shoe.geometry.dispose();
+  expect(vrm.scale.toArray()).toEqual([1, 1, 1]);
+  garment.geometry.dispose();
 });
 
-test("Step 3 framing rejects invalid bounds instead of displaying broken attire", () => {
-  const actor = new THREE.Group();
-  const camera = new THREE.PerspectiveCamera(35, .7, .01, 100);
+test("Step 3 QA rejects missing joints or inverted skeleton height", () => {
+  const { root, skeleton, head, garment } = syntheticM3();
+  const camera = new THREE.PerspectiveCamera(35, 0.7, 0.01, 100);
   const floor = new THREE.Group(), grid = new THREE.Group();
-  expect(() => frameM3GameplayQaCamera(actor, camera, floor, grid))
-    .toThrow("invalid bounds");
+
+  const originalName = head.name;
+  head.name = "not-head";
+  expect(() => frameM3GameplayQaCamera(root, skeleton, camera, floor, grid))
+    .toThrow(/missing or ambiguous joint: head/);
+  head.name = originalName;
+  head.position.y = -2;
+  root.updateMatrixWorld(true);
+  expect(() => frameM3GameplayQaCamera(root, skeleton, camera, floor, grid))
+    .toThrow(/invalid skeleton height/);
+  garment.geometry.dispose();
 });
