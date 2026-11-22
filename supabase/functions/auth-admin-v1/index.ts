@@ -107,7 +107,7 @@ Deno.serve(async req => {
       const email = "audition-qa-" + randomId + "@example.com";
       const passwordBytes = crypto.getRandomValues(new Uint8Array(24));
       const password = btoa(String.fromCharCode(...passwordBytes))
-        .replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/g, "");
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
       const created = await callProvider(env.url + "/auth/v1/admin/users", env.serviceKey, {
         method: "POST",
         body: JSON.stringify({
