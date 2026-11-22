@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { parseM3LobbyAppearance, roomContainsNonPlayableCharacter } from "../components/character/m3-lobby-appearance";
-import type { AvatarSnapshot } from "../multiplayer/types";
+import type { AvatarSnapshot, RoomParticipant } from "../multiplayer/types";
+import { lobbyStageParticipantIdentity } from "../multiplayer/lobby-stage-identity";
 
 const female = {
   hairStyle: "curledbangs", hairColor: "red", skinTone: "tone4skin",
@@ -31,4 +32,21 @@ test("blocks M3 gameplay while retaining legacy default-female/male compatibilit
     { characterId: "default-male", outfit: {}, accessoryIds: [] }];
   expect(roomContainsNonPlayableCharacter(legacy)).toBe(false);
   expect(roomContainsNonPlayableCharacter([avatar("c1-casual-grace"), avatar("m3-neurohacker")])).toBe(true);
+});
+
+test("READY / connection / loadState metadata never changes actor identity", () => {
+  const avatarSnapshot = avatar("m3-drophunter", female);
+  const member: RoomParticipant = {
+    participantId: "m3-player", kind: "human", role: "guest", slotIndex: 1,
+    displayName: "M3 Dancer", avatar: avatarSnapshot,
+    readyState: "not-ready", connectionState: "connected", loadState: "idle",
+  };
+  const original = lobbyStageParticipantIdentity(member);
+  expect(lobbyStageParticipantIdentity({
+    ...member, readyState: "ready", connectionState: "disconnected",
+    loadState: "loaded", displayName: "Updated",
+  })).toBe(original);
+  expect(lobbyStageParticipantIdentity({
+    ...member, avatar: { ...avatarSnapshot, characterAssetId: "m3-neurohacker" },
+  })).not.toBe(original);
 });

@@ -803,8 +803,12 @@ export default function WaitingRoomStage3D({
   const [m3IdleCount, setM3IdleCount] = useState(0);
   const [m3ScratchReadyCount, setM3ScratchReadyCount] = useState(0);
   const [idleSource, setIdleSource] = useState<"loading" | "published" | "builtin" | "none">("loading");
+  const hasM3Participant = participants.some(participant =>
+    Boolean(getCharacterCatalogEntry(participantCharacterAssetId(participant))?.m3RigFamily));
+  // Legacy C1/C4 fallback behavior remains unchanged; M3 must fail closed.
   const stagePresentationReady = loadState !== "loading"
-    && renderedActorCount >= participants.length;
+    && renderedActorCount >= participants.length
+    && !(hasM3Participant && loadState === "fallback");
 
   selectCallbackRef.current = onSelectParticipant;
   calibrationModeRef.current = calibrationMode;

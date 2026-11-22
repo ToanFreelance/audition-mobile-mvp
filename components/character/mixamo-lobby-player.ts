@@ -213,9 +213,9 @@ export function createMixamoLobbyIdle(
     window.location.pathname === "/tools/lobby-qa-sketch" &&
     new URLSearchParams(window.location.search).get("pelvisFix") === "1";
   const contactV4 = !enableFootLock &&
-    typeof window !== "undefined" &&
-    window.location.pathname === "/tools/lobby-qa-sketch" &&
-    new URLSearchParams(window.location.search).get("contactV4") !== "0";
+    (enableProductionGreeting || (typeof window !== "undefined" &&
+      window.location.pathname === "/tools/lobby-qa-sketch" &&
+      new URLSearchParams(window.location.search).get("contactV4") !== "0"));
   // Never enable V5 outside the isolated Mixamo QA route.
   const sideStepV6 = contactV4 && !stationaryOnly &&
     new URLSearchParams(window.location.search).get("sideStepV6") === "1";
