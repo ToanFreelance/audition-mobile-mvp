@@ -9,6 +9,14 @@ import type { M3GameplayQaActor } from "../../../components/character/M3Gameplay
 import { frameM3GameplayQaCamera } from "../../../components/character/m3-gameplay-qa-framing";
 
 type Rig = "m3-drophunter" | "m3-neurohacker";
+const QA_ACTIONS = [
+  ["dance-01", "Dance 01"], ["dance-02", "Dance 02"],
+  ["dance-03", "Dance 03"], ["dance-04", "Dance 04"],
+  ["dance-05", "Dance 05"], ["dance-06", "Dance 06"],
+  ["dance-07", "Dance 07"], ["dance-08", "Dance 08"],
+  ["miss", "Miss"], ["finish-special", "Finish L9"],
+] as const;
+type QaAction = (typeof QA_ACTIONS)[number][0];
 const LOOKS = {
   "m3-drophunter": { hairStyle: "short", hairColor: "red",
     skinTone: "originalskin", m3Outfit: { top: "shirt", bottom: "casualshorts" } },
@@ -135,7 +143,7 @@ export default function M3GameplayStep3Qa() {
       setError(cause instanceof Error ? cause.message : "AudioContext unavailable");
     }
   };
-  const trigger = (choreography: "dance-01" | "dance-08" | "finish-special" | "miss") => {
+  const trigger = (choreography: QaAction) => {
     const actor = actorRef.current, context = ctxRef.current;
     if (!ready || !started || !actor || !context) return;
     const songAt = Math.max(0, (context.currentTime - clockOriginRef.current) * 1000);
@@ -147,7 +155,11 @@ export default function M3GameplayStep3Qa() {
       ? { ...base, kind: "fail", judgement: "miss" }
       : { ...base, kind: "dance", judgement: "perfect",
           choreographyId: choreography, presentationVariantKey: id };
-    actor.handlePresentationEvent(event);
+    if (!actor.handlePresentationEvent(event)) {
+      setError("Không áp dụng được clip " + choreography + "; kiểm tra asset retarget.");
+      return;
+    }
+    setError("");
     setCurrent(choreography);
   };
 
@@ -158,7 +170,7 @@ export default function M3GameplayStep3Qa() {
         <a href="/rooms" style={{ color: "#bde9ff" }}>← Room Browser</a>
         <h1 style={{ fontSize: 24, margin: 0 }}>M3 Gameplay · Step 3 QA</h1>
         <p style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>
-          Thử retarget Dance/Miss/Finish trên model M3 thật. Đồng hồ của màn
+          Kiểm tra đủ Dance 01–08, Miss và Finish trên model M3 thật. Đồng hồ của màn
           thử nghiệm lấy từ AudioContext; <strong>không phải gameplay trận đấu</strong>.
           START M3 vẫn khóa, chưa có đánh giá foot contact hoặc Finish trên iPhone.
         </p>
@@ -190,10 +202,7 @@ export default function M3GameplayStep3Qa() {
           START QA AUDIOCONTEXT (không START phòng)
         </button>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 9 }}>
-          {([
-            ["dance-01", "Dance 01"], ["dance-08", "Dance 08"],
-            ["miss", "Miss"], ["finish-special", "Finish L9"],
-          ] as const).map(([id, title]) => (
+          {QA_ACTIONS.map(([id, title]) => (
             <button key={id} type="button" disabled={!ready || !started}
               onClick={() => trigger(id)} style={{
                 background: id === "finish-special" ? "#9c3549" : "#3b4e93",
