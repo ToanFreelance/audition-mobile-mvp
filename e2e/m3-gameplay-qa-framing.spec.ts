@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { expect, test } from "@playwright/test";
 import {
   captureM3GameplayQaReferencePose, frameM3GameplayQaCamera,
+  measureM3QaSilhouette, deriveM3QaVisualFrame, fitM3QaVisualFrame,
 } from "../components/character/m3-gameplay-qa-framing";
 
 function syntheticM3() {
@@ -93,4 +94,43 @@ test("Step 3 QA rejects missing joints or inverted skeleton height", () => {
   expect(() => frameM3GameplayQaCamera(root, inverted, camera, floor, grid))
     .toThrow(/invalid skeleton height/);
   garment.geometry.dispose();
+});
+
+test("Rendered M3 silhouette, not a centered skeleton, is authoritative camera center", () => {
+  const width = 100, height = 100;
+  const pixels = new Uint8Array(width * height * 4);
+  // Visual mesh is to the right and low in the frame despite skeleton
+  // centered at x=0: reproduce both owner iPhone screenshots.
+  for (let y = 11; y <= 58; y++) {
+    for (let x = 69; x <= 86; x++) pixels[(y * width + x) * 4 + 3] = 255;
+  }
+  const bounds = measureM3QaSilhouette(pixels, width, height);
+  expect(bounds.left).toBeCloseTo(.69);
+  expect(bounds.right).toBeCloseTo(.87);
+  const camera = new THREE.PerspectiveCamera(35, 1.3, .01, 100);
+  camera.position.set(0, 0, 9);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  const visual = deriveM3QaVisualFrame(bounds, camera, 0);
+  expect(visual.center.x).toBeGreaterThan(1);
+  expect(visual.center.y).toBeLessThan(0);
+  const originalVisual = visual.center.clone();
+  for (const aspect of [1.3, .7, .5]) {
+    camera.aspect = aspect;
+    fitM3QaVisualFrame(camera, visual);
+    const projected = originalVisual.clone().project(camera);
+    expect(Math.abs(projected.x)).toBeLessThan(.001);
+    expect(Math.abs(projected.y)).toBeLessThan(.001);
+    const halfVertical = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+    const distance = camera.position.z - visual.depth;
+    expect(visual.height / (2 * distance * halfVertical)).toBeLessThan(.67);
+    expect(visual.width / (2 * distance * halfVertical * aspect)).toBeLessThan(.58);
+  }
+});
+
+test("Silhouette calibration rejects transparent or opaque framebuffer reads", () => {
+  const empty = new Uint8Array(32 * 32 * 4);
+  expect(() => measureM3QaSilhouette(empty, 32, 32)).toThrow(/unreadable/);
+  for (let i = 3; i < empty.length; i += 4) empty[i] = 255;
+  expect(() => measureM3QaSilhouette(empty, 32, 32)).toThrow(/unreadable/);
 });
