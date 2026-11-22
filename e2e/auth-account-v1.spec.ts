@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { NextRequest } from "next/server";
-import { GET as authGet, POST as authPost } from "../app/api/auth/route";
+import { GET as authGet, POST as authPost, emailConfirmationRedirect } from "../app/api/auth/route";
 import { GET as characterGet, POST as characterPost } from "../app/api/account/character/route";
 
 function request(path: string, method = "GET", body?: Record<string, unknown>, origin = "https://game.test") {
@@ -154,5 +154,33 @@ test("authenticated account rejects malicious M3 outfits without creating a row"
     else process.env.NEXT_PUBLIC_SUPABASE_URL = priorUrl;
     if (priorKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = priorKey;
+  }
+});
+
+test("email confirmation URL uses a stable branch hostname, not a deployment hash", () => {
+  const original = process.env.VERCEL_BRANCH_URL;
+  const originalOverride = process.env.AUTH_REDIRECT_ORIGIN;
+  delete process.env.AUTH_REDIRECT_ORIGIN;
+  process.env.VERCEL_BRANCH_URL = "audition-mobile-mvp-git-work-ac-3c9ef9-toan-freelances-projects.vercel.app";
+  try {
+    expect(emailConfirmationRedirect(request("/api/auth", "POST"))).toBe(
+      "https://audition-mobile-mvp-git-work-ac-3c9ef9-toan-freelances-projects.vercel.app/auth"
+    );
+  } finally {
+    if (original === undefined) delete process.env.VERCEL_BRANCH_URL;
+    else process.env.VERCEL_BRANCH_URL = original;
+    if (originalOverride === undefined) delete process.env.AUTH_REDIRECT_ORIGIN;
+    else process.env.AUTH_REDIRECT_ORIGIN = originalOverride;
+  }
+});
+
+test("email confirmation URL explicitly rejects insecure external redirects", () => {
+  const original = process.env.AUTH_REDIRECT_ORIGIN;
+  process.env.AUTH_REDIRECT_ORIGIN = "http://untrusted.example";
+  try {
+    expect(() => emailConfirmationRedirect(request("/api/auth", "POST"))).toThrow("Invalid Auth redirect origin");
+  } finally {
+    if (original === undefined) delete process.env.AUTH_REDIRECT_ORIGIN;
+    else process.env.AUTH_REDIRECT_ORIGIN = original;
   }
 });

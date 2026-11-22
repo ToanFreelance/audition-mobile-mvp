@@ -6,6 +6,20 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/** Use a stable Git-branch URL for email confirmation, never a one-off
+ * deployment URL. The destination must still be in Supabase's redirect allow list. */
+export function emailConfirmationRedirect(request: NextRequest) {
+  const configured = process.env.AUTH_REDIRECT_ORIGIN;
+  const branchHostname = process.env.VERCEL_BRANCH_URL;
+  const origin = configured || (branchHostname ? "https://" + branchHostname : request.nextUrl.origin);
+  const url = new URL(origin);
+  if (url.protocol !== "https:" && !(process.env.NODE_ENV !== "production"
+    && url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1"))) {
+    throw new Error("Invalid Auth redirect origin");
+  }
+  return new URL("/auth", url).toString();
+}
+
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: { "cache-control": "no-store" } });
 }
@@ -68,7 +82,7 @@ export async function POST(request: NextRequest) {
   }
   try {
     const path = action === "register"
-      ? "/auth/v1/signup?redirect_to=" + encodeURIComponent(request.nextUrl.origin + "/auth")
+      ? "/auth/v1/signup?redirect_to=" + encodeURIComponent(emailConfirmationRedirect(request))
       : "/auth/v1/token?grant_type=password";
     const auth = await supabaseRequest(path, {
       method: "POST", body: JSON.stringify({ email, password }),
