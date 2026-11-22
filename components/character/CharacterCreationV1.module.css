@@ -854,7 +854,7 @@
     0 7px 15px rgba(73,25,154,.24);
 }
 /* The saved-state route is the same-height CTA, never an extra dock row. */
-.creatorDock .continueButton{
+.dock .continueButton{
   box-sizing:border-box;
   display:flex;
   width:100%;
