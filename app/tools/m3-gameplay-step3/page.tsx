@@ -8,7 +8,8 @@ import type { M3GameplayRetargetReport } from "../../../components/character/m3-
 import type { M3GameplayQaActor } from "../../../components/character/M3GameplayQaActor";
 import {
   captureM3GameplayQaReferencePose, frameM3GameplayQaCamera,
-  type M3GameplayQaReferencePose,
+  measureM3QaSilhouette, deriveM3QaVisualFrame, fitM3QaVisualFrame,
+  type M3GameplayQaReferencePose, type M3QaVisualFrame,
 } from "../../../components/character/m3-gameplay-qa-framing";
 
 type Rig = "m3-drophunter" | "m3-neurohacker";
@@ -54,6 +55,7 @@ export default function M3GameplayStep3Qa() {
     ctxRef.current = null;
     let actor: M3GameplayQaActor | null = null;
     let framingPose: M3GameplayQaReferencePose | null = null;
+    let visualFrame: M3QaVisualFrame | null = null;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x13162f);
@@ -81,10 +83,60 @@ export default function M3GameplayStep3Qa() {
     function fitCamera() {
       if (!actor || !framingPose) return;
       const frame = frameM3GameplayQaCamera(actor.root, framingPose, camera, floor, grid);
+      if (visualFrame) fitM3QaVisualFrame(camera, visualFrame);
       element!.dataset.m3BindSpace = "native";
       element!.dataset.m3ActorScale = actor.root.scale.x.toFixed(4);
       element!.dataset.m3WorldHeight = frame.height.toFixed(4);
       element!.dataset.m3FloorY = frame.floorY.toFixed(4);
+    }
+    function calibrateRenderedSilhouette() {
+      if (!actor || !framingPose) throw new Error("M3 QA silhouette actor not loaded");
+      // The bone frame is only an initial coarse position. Back away before
+      // measuring to avoid clipped feet biasing our rendered silhouette.
+      const baseline = frameM3GameplayQaCamera(actor.root, framingPose, camera, floor, grid);
+      camera.position.set(baseline.center.x, baseline.center.y, baseline.center.z + baseline.distance * 3);
+      camera.lookAt(baseline.center);
+      camera.updateMatrixWorld(true);
+
+      const side = 192;
+      const target = new THREE.WebGLRenderTarget(side, side, {
+        format: THREE.RGBAFormat, type: THREE.UnsignedByteType,
+        depthBuffer: true, stencilBuffer: false,
+      });
+      const pixels = new Uint8Array(side * side * 4);
+      const originalTarget = renderer.getRenderTarget();
+      const originalBackground = scene.background;
+      const originalColor = renderer.getClearColor(new THREE.Color()).clone();
+      const originalAlpha = renderer.getClearAlpha();
+      const floorVisible = floor.visible;
+      const gridVisible = grid.visible;
+      try {
+        // Read just visible M3 pixels, not floor/grid or the preview backdrop.
+        // This avoids guessed skeleton/mesh offsets and does not touch rig.
+        floor.visible = false;
+        grid.visible = false;
+        scene.background = null;
+        renderer.setRenderTarget(target);
+        renderer.setClearColor(0x000000, 0);
+        renderer.clear(true, true, true);
+        renderer.render(scene, camera);
+        renderer.readRenderTargetPixels(target, 0, 0, side, side, pixels);
+      } finally {
+        renderer.setRenderTarget(originalTarget);
+        renderer.setClearColor(originalColor, originalAlpha);
+        floor.visible = floorVisible;
+        grid.visible = gridVisible;
+        scene.background = originalBackground;
+        target.dispose();
+      }
+      const bounds = measureM3QaSilhouette(pixels, side, side);
+      visualFrame = deriveM3QaVisualFrame(bounds, camera, baseline.center.z);
+      element!.dataset.m3VisualFrame = "rendered-silhouette";
+      element!.dataset.m3VisualCenterX = visualFrame.center.x.toFixed(4);
+      element!.dataset.m3VisualHeight = visualFrame.height.toFixed(4);
+      // Refit again on viewport changes from the frozen silhouette, never
+      // from a mid-Dance or Finish pose.
+      fitCamera();
     }
     function resize() {
       const w = Math.max(1, element!.clientWidth), h = Math.max(1, element!.clientHeight);
@@ -123,7 +175,7 @@ export default function M3GameplayStep3Qa() {
         // Freeze a single neutral-foot reference, even if Safari resizes
         // during Dance/Miss/Finish. A viewport change must never move ground.
         framingPose = captureM3GameplayQaReferencePose(actor.getQaFramingSkeleton());
-        fitCamera();
+        calibrateRenderedSilhouette();
         setReport(actor.report);
         setChoreographySource(actor.choreographySource);
         setReady(true);
