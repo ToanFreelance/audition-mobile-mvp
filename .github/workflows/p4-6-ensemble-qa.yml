@@ -1,0 +1,31 @@
+name: P4.6A Focused Ensemble QA
+on:
+  push:
+    branches:
+      - work/p4-6-gameplay-ensemble
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ensemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Focused lint
+        run: npx eslint components/ensemble/formation.ts components/ensemble/EnsembleActorGroup.ts components/Stage3D.tsx components/multiplayer/LiveMultiplayerGameplay.tsx app/tools/p4-6-ensemble-qa/ e2e/p4-6-ensemble.spec.ts --quiet
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Production build
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Focused deterministic/browser QA
+        run: PLAYWRIGHT_WEB_SERVER=1 npx playwright test e2e/p4-6-ensemble.spec.ts --project=desktop --workers=1

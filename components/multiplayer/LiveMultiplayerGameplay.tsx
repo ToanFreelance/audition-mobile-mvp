@@ -6,6 +6,7 @@ import AuditionGauge from "../AuditionGauge";
 import GameCommandTokenVisual from "../GameCommandTokenVisual";
 import JudgementLabel from "../JudgementLabel";
 import Stage3D from "../Stage3D";
+import type { EnsembleParticipant } from "../ensemble/formation";
 import PortraitGameMenu, {
   CONTROL_SPACING_MAX, CONTROL_SPACING_STEP,
   type CameraPreset, type ControlLayout, type ControlSize,
@@ -288,6 +289,18 @@ export default function LiveMultiplayerGameplay(props: {
     : DEFAULT_CHARACTER_ASSET_ID;
   const characterAssetId = isCharacterAssetId(characterCandidate)
     ? characterCandidate : DEFAULT_CHARACTER_ASSET_ID;
+  // P4.6A is explicitly a 1–5 formation. Preserve the existing local-only
+  // rendering on historical six-occupant matches rather than hiding the local
+  // player when their participantId would be truncated from the roster.
+  const ensembleParticipants = useMemo<readonly EnsembleParticipant[] | undefined>(() =>
+    props.manifest.participants.length > 5 ? undefined : props.manifest.participants.map(participant => {
+      const candidate = avatarCharacterAssetId(participant.avatar);
+      return {
+        participantId: participant.participantId,
+        slotIndex: participant.slotIndex,
+        characterAssetId: isCharacterAssetId(candidate) ? candidate : DEFAULT_CHARACTER_ASSET_ID,
+      };
+    }), [props.manifest]);
   const judgementEvent = props.presentationJudgement?.matchId === props.manifest.matchId
     && props.presentationJudgement.participantId === props.participantId
     ? props.presentationJudgement : null;
@@ -400,6 +413,8 @@ export default function LiveMultiplayerGameplay(props: {
             cameraPreset={cameraPreset}
             selectedStageId={props.stageId}
             characterAssetId={characterAssetId}
+            ensembleParticipants={ensembleParticipants}
+            ensembleLocalParticipantId={props.participantId}
             isPlaying={snapshot.started && !snapshot.audioEnded}
             characterEvent={characterEvent}
             getSongTimeMs={getSongTimeMs}
