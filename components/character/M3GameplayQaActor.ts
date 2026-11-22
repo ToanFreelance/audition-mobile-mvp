@@ -51,11 +51,12 @@ export class M3GameplayQaActor implements CharacterPresentation {
       ]);
       sourceScene = gltf.scene;
       if (this.disposed) throw Error("QA actor disposed");
-      let sourceMesh: THREE.SkinnedMesh | null = null;
+      const sourceMeshes: THREE.SkinnedMesh[] = [];
       sourceScene.traverse(node => {
-        if (!sourceMesh && (node as THREE.SkinnedMesh).isSkinnedMesh)
-          sourceMesh = node as THREE.SkinnedMesh;
+        if ((node as THREE.SkinnedMesh).isSkinnedMesh)
+          sourceMeshes.push(node as THREE.SkinnedMesh);
       });
+      const sourceMesh = sourceMeshes[0];
       if (!sourceMesh) throw Error("Quaternius source skeleton missing");
       const library = await loadHumanAnimationLibrary(sourceMesh, {
         skipLegacyNormalDanceMocap: Boolean(published),
