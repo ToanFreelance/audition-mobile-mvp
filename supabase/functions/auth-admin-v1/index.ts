@@ -94,7 +94,8 @@ Deno.serve(async req => {
     const targetRes = await callProvider(env.url + "/auth/v1/admin/users/" + userId, env.serviceKey);
     if (targetRes.status === 404) return response({ error: "Account does not exist" }, 404);
     if (!targetRes.ok) return response({ error: "Unable to verify target account" }, 502);
-    const target = await targetRes.json() as AuthListUser;
+    const payload = await targetRes.json() as AuthListUser & { user?: AuthListUser };
+    const target = payload.user ?? payload;
     const email = typeof target.email === "string" ? target.email.trim().toLowerCase() : "";
     if (target.id !== userId || !email || email !== confirmEmail) {
       return response({ error: "Email confirmation does not match" }, 409);

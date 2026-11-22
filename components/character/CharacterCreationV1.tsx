@@ -220,9 +220,14 @@ export default function CharacterCreationV1() {
             profile: CharacterCreationProfileV1 | null; revision: number | null;
           };
           if (cancelled) return;
+          if (data.profile) {
+            // One saved character per authenticated account. The Creator is
+            // for initial creation only; future edits belong to Dashboard.
+            window.location.replace("/rooms");
+            return;
+          }
           setAccountState("account");
           setAccountRevision(data.revision);
-          if (data.profile) applyProfile(data.profile);
           // An account without a character starts from M3 defaults.
           // Never implicitly import a legacy guest draft from localStorage.
           return;
@@ -231,6 +236,10 @@ export default function CharacterCreationV1() {
         const draft = loadCharacterCreationDraft(window.localStorage);
         if (!draft) return;
         const previous = getCharacterCatalogEntry(draft.characterAssetId);
+        if (previous?.m3RigFamily) {
+          window.location.replace("/rooms");
+          return;
+        }
         const legacyCreatorRequested =
           new URLSearchParams(window.location.search).get("legacyCreator") === "1";
         if (previous && !previous.m3RigFamily && !legacyCreatorRequested) {

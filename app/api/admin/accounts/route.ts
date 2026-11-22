@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isSameOrigin, propagateSession, resolveAccountSession, type AccountSession } from "../../../lib/account-auth";
+import { isSameOrigin, propagateSession, resolveAccountSession, type AccountSession } from "../../../../lib/account-auth";
 
 export const dynamic = "force-dynamic";
 

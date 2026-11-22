@@ -98,6 +98,11 @@ export default function AccountAuthScreen() {
         <span className={styles.brand}>AUDITION · ACCOUNT</span>
         <h1>{account ? "TÀI KHOẢN" : "CHÀO MỪNG TRỞ LẠI"}</h1>
         <p className={styles.muted}>Đăng nhập bằng email và mật khẩu. Mỗi tài khoản chỉ sở hữu một nhân vật M3.</p>
+        {account && <div className={styles.tabs} aria-label="Tùy chọn tài khoản">
+          <a href="/auth">ĐĂNG NHẬP</a>
+          <a href="/auth">ĐĂNG KÝ</a>
+          <a href="/admin" data-testid="auth-admin-tab">ADMIN</a>
+        </div>}
         {initializing ? <p>Đang xác minh phiên đăng nhập…</p> : account ? (
           <>
             <p className={styles.account} data-testid="auth-user-email">{account.email || "Tài khoản đã đăng nhập"}</p>
@@ -106,9 +111,10 @@ export default function AccountAuthScreen() {
           </>
         ) : (
           <>
-            <div className={styles.tabs}>
+            <div className={styles.tabs} aria-label="Tùy chọn tài khoản">
               <button className={mode === "login" ? styles.on : ""} onClick={() => { setMode("login"); setError(""); }} type="button">ĐĂNG NHẬP</button>
               <button className={mode === "register" ? styles.on : ""} onClick={() => { setMode("register"); setError(""); }} type="button">ĐĂNG KÝ</button>
+              <a href="/admin" data-testid="auth-admin-tab">ADMIN</a>
             </div>
             <form onSubmit={submit}>
               <label className={styles.field}>EMAIL

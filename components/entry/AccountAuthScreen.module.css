@@ -1,7 +1,7 @@
 .page{min-height:100dvh;display:grid;place-items:center;padding:32px 18px;color:#f3f4ff;font-family:Inter,ui-sans-serif,system-ui,sans-serif;background:radial-gradient(circle at 18% 10%,#27195f 0,transparent 40%),radial-gradient(circle at 90% 80%,#4d124b 0,transparent 36%),#070817}
 .card{width:min(100%,410px);padding:28px 23px;border-radius:24px;border:1px solid #5946a5;background:linear-gradient(145deg,#1b1640,#0e102b);box-shadow:0 25px 80px #0009}
-.brand{color:#9feaff;font-weight:900;letter-spacing:.18em;font-size:11px}.card h1{font-size:26px;margin:12px 0 6px;line-height:1.15}.muted{color:#bbc2e4;font-size:13px;line-height:1.55;margin:0 0 22px}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
-.tabs button{padding:11px;border-radius:12px;border:1px solid #584e96;color:#c7c6e7;background:#171639;font-weight:700}
+.brand{color:#9feaff;font-weight:900;letter-spacing:.18em;font-size:11px}.card h1{font-size:26px;margin:12px 0 6px;line-height:1.15}.muted{color:#bbc2e4;font-size:13px;line-height:1.55;margin:0 0 22px}.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:18px}
+.tabs button,.tabs a{display:flex;align-items:center;justify-content:center;padding:11px 4px;border-radius:12px;border:1px solid #584e96;color:#c7c6e7;background:#171639;font-size:12px;font-weight:700;text-decoration:none;text-align:center}
 .tabs .on{border-color:#dd75f4;background:linear-gradient(110deg,#6331a8,#b42ebf);color:white}
 .field{display:grid;gap:6px;margin:12px 0;font-size:12px;color:#dde1ff;font-weight:700}
 .field input{width:100%;padding:14px 12px;border:1px solid #655b9f;border-radius:12px;background:#080e26;color:#fff;outline:none;font-size:16px}
