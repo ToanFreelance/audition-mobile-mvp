@@ -139,3 +139,12 @@ To unblock owner iPhone QA while hosted SMTP is rate limited, Admin has **TẠO 
 - This tests Auth LOGIN, character creation, account identity, Room Browser and Waiting Room. It does NOT test public registration, email-delivery verification or SMTP; those still need custom SMTP or email quota recovery.
 - No QA account is created merely by deploying; owner must explicitly press TẠO TÀI KHOẢN QA.
 - Delete the temporary accounts and retire quick-admin access before release.
+
+## iPhone QA usability pass — 22 Nov 2026
+
+After owner successfully created QA test accounts, two usability issues were resolved:
+- The generated credentials are immediately available in Admin component memory. **ĐĂNG NHẬP NGAY → TẠO NHÂN VẬT** POSTs them to the existing password-signin `/api/auth` route, which issues the normal HttpOnly account session. Upon success, the page clears the generated credentials from React state and navigates to `/character/create`. No new admin impersonation endpoint or storage of passwords was introduced.
+- Separate **Copy email**, **Copy mật khẩu**, and combined-copy actions remain for multi-device manual testing.
+- Reset NV and Xóa now open a mobile **Yes/No confirmation modal**. No typing/copying the selected email is required. The client includes the selected user's email automatically, and the server still re-fetches and checks the exact target email + authorized Admin quick-access code before irreversible deletion. Modal cancellation makes no network write.
+
+Existing normal registration/login, email confirmation, character ownership, RoomState and gameplay remain unchanged. These QA shortcuts must be retired before production.

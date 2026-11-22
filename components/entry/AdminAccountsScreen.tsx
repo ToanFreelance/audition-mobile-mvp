@@ -30,7 +30,6 @@ export default function AdminAccountsScreen() {
   const [denied, setDenied] = useState(false);
   const [selected, setSelected] = useState<Account | null>(null);
   const [selectedAction, setSelectedAction] = useState<"delete" | "reset-character">("delete");
-  const [confirmEmail, setConfirmEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [accessCode, setAccessCode] = useState("");
   const [newTestAccount, setNewTestAccount] = useState<{ email: string; password: string } | null>(null);
@@ -99,14 +98,39 @@ export default function AdminAccountsScreen() {
     } finally { setBusy(false); }
   };
 
+  const signInTestAccount = async () => {
+    if (!newTestAccount || busy) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      // The newly generated credentials only live in this component state.
+      // Reuse the normal sign-in API: no privileged impersonation/session bypass.
+      const response = await fetch("/api/auth", {
+        method: "POST", cache: "no-store", credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "login",
+          email: newTestAccount.email, password: newTestAccount.password }),
+      });
+      const result = await response.json() as { ok?: boolean; pendingConfirmation?: boolean; error?: string };
+      if (!response.ok || !result.ok || result.pendingConfirmation) {
+        throw Error(result.error ?? "Không thể đăng nhập tài khoản QA.");
+      }
+      setNewTestAccount(null);
+      window.location.assign("/character/create");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể đăng nhập tài khoản QA.");
+    } finally { setBusy(false); }
+  };
+
   const remove = async () => {
-    if (!selected?.email || confirmEmail.trim().toLowerCase() !== selected.email.toLowerCase()) return;
+    if (!selected?.email || busy) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const r = await fetch("/api/admin/accounts", {
         method: "POST", credentials: "same-origin", cache: "no-store",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: selectedAction, userId: selected.id, confirmEmail }),
+        // Retain the server-side exact target email check, but no typing is
+        // required after the owner approves the explicit modal.
+        body: JSON.stringify({ action: selectedAction, userId: selected.id, confirmEmail: selected.email }),
       });
       const data = await r.json() as Result;
       if (!r.ok || !data.ok) throw Error(data.error ?? "Không xóa được tài khoản.");
@@ -117,7 +141,7 @@ export default function AdminAccountsScreen() {
         window.location.replace("/auth");
         return;
       }
-      setSelected(null); setConfirmEmail("");
+      setSelected(null);
       setNotice(selectedAction === "reset-character"
         ? "Đã reset nhân vật. Tài khoản vẫn được xác minh; đăng nhập và tạo nhân vật M3 mới."
         : "Đã xóa tài khoản. Việc đăng ký lại vẫn phụ thuộc hạn mức email xác minh của Supabase.");
@@ -170,10 +194,21 @@ export default function AdminAccountsScreen() {
                 <label>Mật khẩu
                   <input readOnly value={newTestAccount.password} aria-label="Mật khẩu tài khoản QA"/>
                 </label>
-                <button type="button" onClick={() => navigator.clipboard.writeText(
+                <button type="button" className={admin.primaryTestLogin} data-testid="admin-test-login"
+                  disabled={busy} onClick={() => void signInTestAccount()}>
+                  {busy ? "ĐANG ĐĂNG NHẬP…" : "ĐĂNG NHẬP NGAY → TẠO NHÂN VẬT"}
+                </button>
+                <div className={admin.copyActions}>
+                  <button type="button" onClick={() => void navigator.clipboard.writeText(newTestAccount.email)}>
+                    Copy email
+                  </button>
+                  <button type="button" onClick={() => void navigator.clipboard.writeText(newTestAccount.password)}>
+                    Copy mật khẩu
+                  </button>
+                </div>
+                <button type="button" onClick={() => void navigator.clipboard.writeText(
                   "Email: " + newTestAccount.email + "\nPassword: " + newTestAccount.password
-                )}>Sao chép thông tin đăng nhập</button>
-                <a href="/auth">Đến màn hình Đăng nhập</a>
+                )}>Sao chép cả hai (dùng trên thiết bị khác)</button>
               </section>
             )}
             <div className={admin.summary}>
@@ -190,10 +225,10 @@ export default function AdminAccountsScreen() {
                   </div>
                   <div className={admin.accountActions}>
                     <button type="button" className={admin.reset} disabled={!user.email || busy}
-                      onClick={() => { setSelected(user); setSelectedAction("reset-character"); setConfirmEmail(""); setError(""); }}
+                      onClick={() => { setSelected(user); setSelectedAction("reset-character"); setError(""); }}
                       aria-label={"Reset nhân vật " + (user.email ?? user.id)}>Reset NV</button>
                     <button type="button" className={admin.delete} disabled={!user.email || busy}
-                      onClick={() => { setSelected(user); setSelectedAction("delete"); setConfirmEmail(""); setError(""); }}
+                      onClick={() => { setSelected(user); setSelectedAction("delete"); setError(""); }}
                       aria-label={"Xóa tài khoản " + (user.email ?? user.id)}>Xóa</button>
                   </div>
                 </article>
@@ -208,24 +243,31 @@ export default function AdminAccountsScreen() {
           </>
         )}
         {selected && (
-          <section className={admin.confirm} data-testid="admin-delete-confirmation">
-            <strong>{selectedAction === "reset-character" ? "Reset nhân vật test" : "Xóa vĩnh viễn tài khoản"}</strong>
-            <p>{selectedAction === "reset-character"
-              ? "Chỉ xóa nhân vật M3 hiện tại. Tài khoản và email đã xác minh được giữ nguyên, nhưng dữ liệu nhân vật không thể khôi phục."
-              : "Xóa vĩnh viễn tài khoản và nhân vật. Việc đăng ký lại cần gửi email xác minh mới và có thể bị giới hạn bởi Supabase."}
-              {selectedAction === "delete" && selected.id === selfId && " Bạn đang xóa chính tài khoản đang đăng nhập."}</p>
-            <label>Nhập chính xác email <strong>{selected.email}</strong> để xác nhận
-              <input type="email" autoComplete="off" value={confirmEmail}
-                onChange={event => setConfirmEmail(event.target.value)} placeholder="Nhập email xác nhận" />
-            </label>
-            <div className={admin.confirmButtons}>
-              <button type="button" onClick={() => { setSelected(null); setConfirmEmail(""); }}>Hủy</button>
-              <button type="button" data-testid="admin-confirm-delete" className={admin.delete}
-                disabled={busy || confirmEmail.trim().toLowerCase() !== selected.email?.toLowerCase()}
-                onClick={() => void remove()}>{busy ? "Đang xử lý…" :
-                  selectedAction === "reset-character" ? "XÁC NHẬN RESET NHÂN VẬT" : "XÓA VĨNH VIỄN"}</button>
-            </div>
-          </section>
+          <div className={admin.modalBackdrop} data-testid="admin-confirm-overlay">
+            <section className={admin.confirm} role="alertdialog" aria-modal="true"
+              aria-labelledby="admin-action-title" aria-describedby="admin-action-description"
+              data-testid="admin-delete-confirmation">
+              <strong id="admin-action-title">
+                {selectedAction === "reset-character" ? "Reset nhân vật?" : "Xóa tài khoản?"}
+              </strong>
+              <p id="admin-action-description">
+                <strong>{selected.email}</strong>
+                {selectedAction === "reset-character"
+                  ? " — Nhân vật hiện tại sẽ bị xóa. Tài khoản và email đã xác minh vẫn được giữ."
+                  : " — Tài khoản và nhân vật sẽ bị xóa vĩnh viễn. Không thể hoàn tác."}
+                {selectedAction === "delete" && selected.id === selfId && " Đây là tài khoản đang đăng nhập."}
+              </p>
+              <div className={admin.confirmButtons}>
+                <button type="button" data-testid="admin-cancel-action"
+                  disabled={busy} onClick={() => setSelected(null)}>KHÔNG, HỦY</button>
+                <button type="button" data-testid="admin-confirm-delete" className={admin.delete}
+                  disabled={busy} onClick={() => void remove()}>
+                  {busy ? "ĐANG XỬ LÝ…" :
+                    selectedAction === "reset-character" ? "CÓ, RESET" : "CÓ, XÓA"}
+                </button>
+              </div>
+            </section>
+          </div>
         )}
         {notice && <p role="status" className={styles.notice}>{notice}</p>}
         {error && <p role="alert" className={styles.error}>{error}</p>}

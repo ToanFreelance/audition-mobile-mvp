@@ -34,3 +34,15 @@
 .credentials label{display:grid;gap:5px;font-size:11px;font-weight:700}
 .credentials input{width:100%;min-width:0;padding:10px;border:1px solid #69a9ab;border-radius:9px;color:white;background:#0b1c2e;font-size:13px}
 .credentials button,.credentials a{display:block;padding:10px;border:1px solid #76aac1;border-radius:9px;color:#e9f9ff;background:#154567;text-align:center;text-decoration:none;font-size:12px;font-weight:800}
+
+/* Confirm modal: explicit Yes/No, no keyboard/email retyping on iPhone. */
+.modalBackdrop{position:fixed;inset:0;z-index:300;display:grid;place-items:center;
+  padding:18px;background:rgba(4,5,18,.78);backdrop-filter:blur(5px)}
+.modalBackdrop .confirm{width:min(100%,420px);max-height:calc(100dvh - 42px);
+  overflow:auto;margin:0;box-shadow:0 20px 80px #000c}
+.modalBackdrop .confirm p strong{overflow-wrap:anywhere;color:#fff}
+.confirmButtons button{min-height:44px}
+.primaryTestLogin{background:linear-gradient(105deg,#6340db,#cf39be)!important;
+  border-color:#e1b6ff!important;color:#fff!important;font-size:13px!important}
+.copyActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.copyActions button{min-width:0;font-size:12px}
