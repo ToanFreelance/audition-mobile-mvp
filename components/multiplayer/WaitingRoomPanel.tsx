@@ -55,6 +55,7 @@ import {
 import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlotIndex, type RoomState } from "../../multiplayer/types";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
+import { roomContainsNonPlayableCharacter } from "../character/m3-lobby-appearance";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
 import StageLaunchArtwork from "./StageLaunchArtwork";
 import PreparingStagePanel from "./PreparingStagePanel";
@@ -914,9 +915,13 @@ export default function WaitingRoomPanel({
   const hostView = syncOptions
     ? syncOptions.participantId === room.hostParticipantId
     : viewer.participantId === room.hostParticipantId;
-  const startGate = useMemo(() => canonicalVerified
-    ? canStartRoom(room)
-    : { allowed: false, reason: "Chưa xác minh trạng thái phòng. Hãy đồng bộ lại." }, [room, canonicalVerified]);
+  const startGate = useMemo(() => {
+    if (!canonicalVerified) return { allowed: false, reason: "Chưa xác minh trạng thái phòng. Hãy đồng bộ lại." };
+    if (roomContainsNonPlayableCharacter(room.participants.map(item => item.avatar))) {
+      return { allowed: false, reason: "M3 chỉ xem phòng chờ · chưa hỗ trợ START/gameplay." };
+    }
+    return canStartRoom(room);
+  }, [room, canonicalVerified]);
   const participantById = useMemo(
     () => new Map(displayRoom.participants.map(item => [item.participantId, item])),
     [displayRoom.participants],
@@ -1884,7 +1889,9 @@ export default function WaitingRoomPanel({
       }
 
       recordC3StartCheckpoint("start-canonical-confirmed");
-      const gate = canStartRoom(latest);
+      const gate = roomContainsNonPlayableCharacter(latest.participants.map(item => item.avatar))
+        ? { allowed: false, reason: "M3 chưa hỗ trợ START/gameplay." }
+        : canStartRoom(latest);
       if (!gate.allowed) {
         throw new Error(`Room cannot start: ${gate.reason}.`);
       }
