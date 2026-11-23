@@ -26,6 +26,10 @@ import type {
   MultiplayerGameplaySnapshot,
 } from "../../multiplayer/gameplay-runtime";
 import type { MatchManifest } from "../../multiplayer/types";
+import {
+  assessEpochHandoffHealth, epochHandoffHealthMessage,
+  type EpochHandoffHealth, type EpochAudioClockProbe,
+} from "../../multiplayer/epoch-handoff-health";
 import type { PerformanceDiagnostics } from "../diagnostics/performance-diagnostics";
 import PerformanceDiagnosticsOverlay from "../diagnostics/PerformanceDiagnosticsOverlay";
 import transitionStyles from "./LiveMultiplayerGameplay.module.css";
@@ -59,6 +63,8 @@ export default function LiveMultiplayerGameplay(props: {
   runtime: MultiplayerGameplayRuntime;
   transport: WebAudioTransport;
   startAtServerMs: number;
+  /** Read-only epoch diagnostic, never the gameplay song clock. */
+  estimatedServerOffsetMs: number;
   roomStatus: string;
   audioContextState?: AudioContextState | null;
   /** Realtime score metadata only; never participates in WebAudio scheduling. */
@@ -73,6 +79,10 @@ export default function LiveMultiplayerGameplay(props: {
   const [stagePresentationReady, setStagePresentationReady] = useState(false);
   const [stagePresentationError, setStagePresentationError] = useState<string | null>(null);
   const [entryCurtainVisible, setEntryCurtainVisible] = useState(true);
+  const [epochHandoffHealth, setEpochHandoffHealth] = useState<EpochHandoffHealth>("waiting");
+  const [epochClockProbe, setEpochClockProbe] = useState<EpochAudioClockProbe>(() => props.transport.getEpochClockProbe());
+  const [epochElapsedMs, setEpochElapsedMs] = useState(0);
+  const lastEpochProbeAtRef = useRef(0);
   const loadedCount = props.manifest.participants.filter(p => props.loadedParticipantIds?.includes(p.participantId)).length;
   const allPreloaded = loadedCount === props.manifest.participants.length;
   const launchProgress = 25 * (
@@ -170,12 +180,26 @@ export default function LiveMultiplayerGameplay(props: {
         && now - progress.observedAtMs > 3000) {
         setAudioClockStalled(true);
       }
-      setSnapshot(props.runtime.snapshot());
+      const nextSnapshot = props.runtime.snapshot();
+      setSnapshot(nextSnapshot);
+      // Presentation-only watchdog: NTP estimate may describe lateness,
+      // NEVER drive the actual WebAudio/song-time timeline.
+      if (now - lastEpochProbeAtRef.current >= 750) {
+        lastEpochProbeAtRef.current = now;
+        const probe = props.transport.getEpochClockProbe();
+        const elapsed = now + props.estimatedServerOffsetMs - props.startAtServerMs;
+        setEpochClockProbe(probe);
+        setEpochElapsedMs(elapsed);
+        setEpochHandoffHealth(assessEpochHandoffHealth({
+          elapsedSinceServerEpochMs: elapsed, songTimeMs: nextSnapshot.songTimeMs,
+          runtimeStarted: nextSnapshot.started, audioEnded: nextSnapshot.audioEnded, probe,
+        }));
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => { disposed = true; cancelAnimationFrame(raf); };
-  }, [props.runtime, props.transport]);
+  }, [props.runtime, props.transport, props.estimatedServerOffsetMs, props.startAtServerMs]);
 
   useEffect(() => () => {
     if (activeDirectionTimerRef.current !== null) window.clearTimeout(activeDirectionTimerRef.current);
@@ -393,6 +417,7 @@ export default function LiveMultiplayerGameplay(props: {
       data-room-status={props.roomStatus}
       data-audio-context={props.audioContextState ?? "unknown"}
       data-audio-stalled={audioClockStalled ? "1" : "0"}
+      data-epoch-handoff-health={epochHandoffHealth}
       data-testid="multiplayer-gameplay-live"
     >
       {props.performanceDiagnostics && <PerformanceDiagnosticsOverlay diagnostics={props.performanceDiagnostics} />}
@@ -421,6 +446,7 @@ export default function LiveMultiplayerGameplay(props: {
           data-visible={entryCurtainVisible ? "1" : "0"}
           data-stage-ready={stagePresentationReady ? "1" : "0"}
           data-stage-error={stagePresentationError ? "1" : "0"}
+          data-epoch-handoff-health={epochHandoffHealth}
           aria-hidden="true"
         >
           <StageLaunchArtwork />
@@ -448,7 +474,23 @@ export default function LiveMultiplayerGameplay(props: {
           >
             {stagePresentationError && <small role="alert">{stagePresentationError}</small>}
             {stagePresentationReady && snapshot.songTimeMs <= 0 &&
-              <small>Scene ready · Waiting for shared epoch</small>}
+              <small>{epochHandoffHealthMessage(epochHandoffHealth)
+                ? "Scene ready · WebAudio chưa bắt đầu" : "Scene ready · Waiting for shared epoch"}</small>}
+            {entryCurtainVisible && epochHandoffHealthMessage(epochHandoffHealth) && (
+              <div className={transitionStyles.epochHandoffFailure}
+                data-testid="epoch-handoff-failure" role="alert">
+                <strong>WEB AUDIO · SHARED EPOCH ĐÃ QUA</strong>
+                <span>{epochHandoffHealthMessage(epochHandoffHealth)}</span>
+                <small>
+                  Context: {epochClockProbe.state} · Source: {epochClockProbe.sourceActive ? "scheduled" : "inactive"}
+                  {" · "}Epoch +{Math.round(epochElapsedMs)}ms
+                  {" · "}Audio: {epochClockProbe.contextTimeSec?.toFixed(2) ?? "—"}s
+                  / {epochClockProbe.scheduledStartSec?.toFixed(2) ?? "—"}s
+                </small>
+                <small>Không phát bù hoặc dời shared epoch. Nếu dùng hai trình duyệt trên cùng iPhone,
+                  hãy test trên hai thiết bị riêng và giữ cả hai ứng dụng ở màn hình trước START.</small>
+              </div>
+            )}
           </PreparingStagePanel>
         </div>
         <div className="audition-hud">

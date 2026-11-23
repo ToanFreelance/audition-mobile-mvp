@@ -83,6 +83,17 @@ export class WebAudioTransport {
     return Boolean(this.source && this.run);
   }
 
+  /** Read-only diagnostics, never used to derive or control song time. */
+  getEpochClockProbe() {
+    const context = this.context;
+    return {
+      state: context?.state ?? "unavailable",
+      contextTimeSec: context?.currentTime ?? null,
+      scheduledStartSec: this.run?.startContextTime ?? null,
+      sourceActive: Boolean(this.source && this.run),
+    } as const;
+  }
+
   private ensureContext() {
     if (this.context && this.context.state !== "closed") return this.context;
     if (!this.ownsContext) throw new Error("Injected AudioContext is no longer available.");

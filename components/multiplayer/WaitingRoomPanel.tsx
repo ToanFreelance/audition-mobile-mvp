@@ -2225,6 +2225,7 @@ export default function WaitingRoomPanel({
         roomStatus={room.status}
         runtime={gameplaySchedule.runtime}
         startAtServerMs={gameplaySchedule.startAtServerMs}
+        estimatedServerOffsetMs={clockSyncEstimate?.offsetMs ?? 0}
         transport={gameplaySchedule.transport}
         audioContextState={gameplayAudioContextState}
         scoreTransport={transportRef.current}

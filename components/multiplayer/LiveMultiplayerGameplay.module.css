@@ -516,3 +516,8 @@
   position:relative;inset:auto;margin:0 auto;
   width:min(100%,873px);max-width:873px;
 }
+
+/* Diagnostic only; never release curtain with WebAudio songTime=0. */
+.epochHandoffFailure{width:100%;display:grid;gap:5px;padding:10px;border:1px solid rgba(255,135,167,.78);border-radius:12px;color:#ffe4ec;background:rgba(56,12,44,.92);font:500 11px/1.35 system-ui,sans-serif}
+.epochHandoffFailure strong{font-size:10px;letter-spacing:.06em;color:#ffb3ce}
+.epochHandoffFailure small{font-size:9px;overflow-wrap:anywhere;color:#f5c4df}
