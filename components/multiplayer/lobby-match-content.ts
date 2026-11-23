@@ -8,6 +8,7 @@ import {
 import {
   HUMAN_ANIMATION_LIBRARY_URL,
   HUMAN_FINISH_MOCAP_URL,
+  HUMAN_DANCE_MOCAP_URL,
 } from "../character/human-animation-library";
 import {
   CHARACTER_CATALOG_VERSION,
@@ -331,7 +332,12 @@ export async function preloadFrozenLobbyMatch(
   let animationReadiness: PresentationResourceReadiness = "ready";
   try {
     await preloadAssetBytes(HUMAN_ANIMATION_LIBRARY_URL, "Base animation library");
-    if (!hasM3 || !published) await preloadAssetBytes(HUMAN_FINISH_MOCAP_URL, "Finish animation fallback");
+    // Match the exact optional CMU sources used by M3GameplayQaActor when no
+    // frozen published dance/Finish clips exist; no new animation scheduler.
+    if (hasM3 && !published) await preloadAssetBytes(HUMAN_DANCE_MOCAP_URL, "M3 Dance 01–08 fallback");
+    if (!hasM3 || !published?.finalSourceClips.length) {
+      await preloadAssetBytes(HUMAN_FINISH_MOCAP_URL, "Finish animation fallback");
+    }
   } catch (error) {
     if (hasM3) throw error;
     console.warn("[lobby-preload] base animation warmup failed; presentation fallback remains allowed", error);
