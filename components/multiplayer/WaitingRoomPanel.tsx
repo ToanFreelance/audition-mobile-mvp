@@ -1970,8 +1970,12 @@ export default function WaitingRoomPanel({
     })().catch(error => {
       recordC3StartCheckpoint("start-error");
       setFrozenMatchManifest(null);
-      if (syncKey) setCanonicalHealth({ key: syncKey, state: "error", message: "Không thể xác minh START. Hãy đồng bộ lại phòng." });
-      setSyncDetail(error instanceof Error ? error.message : "Match freeze failed.");
+      const reason = error instanceof Error ? error.message : "Match freeze failed.";
+      if (syncKey) setCanonicalHealth({
+        key: syncKey, state: "error",
+        message: `START thất bại: ${reason}. Hãy đồng bộ lại phòng sau khi kiểm tra lỗi.`,
+      });
+      setSyncDetail(reason);
     }).finally(() => {
       setStartIntentPending(false);
     });

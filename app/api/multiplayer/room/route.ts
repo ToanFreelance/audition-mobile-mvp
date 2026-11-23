@@ -23,7 +23,8 @@ import { isCanonicalRoomSnapshot } from "../../../../multiplayer/room-sync";
 import type { HumanGuestParticipant, MatchManifest, RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
 import { createP53SyncedWaitingRoomBase } from "../../../../multiplayer/waiting-room-qa";
 import { getCharacterCatalogEntry, isCharacterAssetId } from "../../../../components/character/character-catalog";
-import { parseM3LobbyAppearance, roomContainsNonPlayableCharacter } from "../../../../components/character/m3-lobby-appearance";
+import { parseM3LobbyAppearance } from "../../../../components/character/m3-lobby-appearance";
+import { assertM3Stage3dServerStartGate } from "../../../../components/character/m3-stage3d-qa-gate";
 import { WAITING_ROOM_MAX_PLAYERS, type HumanHostParticipant } from "../../../../multiplayer/types";
 
 export const dynamic = "force-dynamic";
@@ -326,7 +327,7 @@ function leaveHumanGuest(
   return removeParticipant(room, participant.participantId);
 }
 
-function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "host-leave" | "recover-host" | "transfer-host" | "heartbeat" }>) {
+function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "host-leave" | "recover-host" | "transfer-host" | "heartbeat" }>, requestHostname: string) {
   assertExpectedRevision(row, body.expectedRevision);
   const room = row.snapshot;
   if (!isCanonicalRoomSnapshot(room)) throw new Error("Stored room snapshot is invalid.");
@@ -352,11 +353,9 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
       requireHost(room, body.actorParticipantId);
       return removeParticipant(room, body.participantId);
     case "start-preload":
-      // Never freeze a playable MatchManifest for creator-only M3 avatars.
-      // This server-side check applies even if a client bypasses the UI gate.
-      if (roomContainsNonPlayableCharacter(room.participants.map(item => item.avatar))) {
-        throw new Error("M3 Waiting Room preview only: gameplay runtime is not ready.");
-      }
+      // API POST has no room-page query; verify the frozen QA marker, host
+      // and canonical wardrobe while retaining the production M3 block.
+      assertM3Stage3dServerStartGate(requestHostname, room, body.manifest);
       return beginLobbyPreload(
         room,
         body.actorParticipantId,
@@ -627,7 +626,7 @@ export async function POST(request: NextRequest) {
     const current = await readRoom(body.roomId);
     if (!current) return jsonError("Room not found.", 404);
 
-    const next = mutateRoom(current, body);
+    const next = mutateRoom(current, body, request.nextUrl.hostname);
     if (next === current.snapshot || next.revision === current.revision) {
       return NextResponse.json({ ok: true, snapshot: current.snapshot }, {
         headers: { "Cache-Control": "no-store, max-age=0" },

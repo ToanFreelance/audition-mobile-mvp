@@ -115,3 +115,11 @@ Owner iPhone V1.0.6 screenshot: after checking auto-play, the preview is entirel
 - Preload consumes every distinct M3 body/eyes/hair/top/bottom/shoes/skin file and the retarget source before LOADED. Missing M3 files fail closed; legacy C1/C4 fallback behavior is retained. Cached bytes are reused by the accepted M3CharacterAssembler in Stage3D.
 - Stage3D loads the M3 actor/CharacterAnimationController during shared countdown with frozen appearance and frozen published animation release. Native detached bind-space stays at identity; no actor root scaling/translation, extra mixer on roster metadata, or parallel clock.
 - OPEN: physical iPhone Stage3D camera/garment acceptance, full 2-human Supabase/CAS/LOADED/song-time sync, and heavy actor parse performance. Preloading validates byte readiness, not full GPU parsing; the stage curtain requires complete actor preparation. Clothing intersections and Dance V2 are deferred. Catalog runtimeReady remains false. No merge.
+
+## Step 3.1.1 — QA Host START server gate correction (2026-11-23)
+
+Owner iPhone Safari test: the M3 Waiting Room opt-in unblocked the client START button, but the server `start-preload` branch still called `roomContainsNonPlayableCharacter` without the QA flag, rejecting M3 before PRELOADING. The frontend converted that API error to a generic "Không thể xác minh START" overlay. Retrying Realtime synchronization could not fix the deterministic refusal.
+
+Focused fix: the server now checks the actual request hostname, the explicit frozen Step 3.1 `characterRuntimeVersion` marker, and authoritative RoomState participant identity/Character Catalog IDs/validated M3 wardrobe against the immutable MatchManifest. The match may start only on the isolated M3 work-branch Preview or localhost; production, missing-marker clients, malformed and mismatched wardrobes remain blocked. The POST /api/multiplayer/room request does not inherit the room page's URL query. Client errors now show the actual failure reason during recovery.
+
+No changes to RoomState CAS, Supabase Realtime, preload/LOADED protocol, shared epoch, WebAudio clock, Character Catalog `runtimeReady`, gameplay, or Dance V2. The focused CI covers accepted solo/duo matches and locked rejection paths. Physical owner iPhone and 2-human multiplayer acceptance still required.
