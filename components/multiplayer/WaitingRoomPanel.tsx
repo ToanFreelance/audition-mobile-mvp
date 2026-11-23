@@ -399,6 +399,8 @@ export default function WaitingRoomPanel({
   const [leaveIntentPending, setLeaveIntentPending] = useState(false);
   const [manualHostTransferPending, setManualHostTransferPending] = useState(false);
   const [leftRoom, setLeftRoom] = useState(false);
+  const allowRoomRecoveryRef = useRef(true);
+  allowRoomRecoveryRef.current = !leftRoom && !leaveIntentPending;
   const [startIntentPending, setStartIntentPending] = useState(false);
   const [frozenMatchManifest, setFrozenMatchManifest] = useState<MatchManifest | null>(null);
   const [presentParticipantIds, setPresentParticipantIds] = useState<readonly string[]>(
@@ -573,17 +575,17 @@ export default function WaitingRoomPanel({
     // Only canonical GET + Realtime reconnect may run automatically; no
     // mutation retry, START replay, actor replacement or gameplay clock change.
     const scheduleWaitingRecovery = (error: unknown) => {
-      if (disposed || retryTimer || !shouldAutoRecoverWaitingRoom(
+      if (disposed || !allowRoomRecoveryRef.current || retryTimer || !shouldAutoRecoverWaitingRoom(
         roomRef.current.status, navigator.onLine !== false,
         document.visibilityState === "visible", error,
       )) return;
       const delay = waitingRoomSyncRetryDelay(retryAttempt++);
       retryTimer = window.setTimeout(() => {
         retryTimer = null;
-        if (!disposed && shouldAutoRecoverWaitingRoom(
+        if (!disposed && allowRoomRecoveryRef.current && shouldAutoRecoverWaitingRoom(
           roomRef.current.status, navigator.onLine !== false,
           document.visibilityState === "visible",
-        )) void resumeFromServer();
+        )) void recoverRoomSyncRef.current?.();
       }, delay);
     };
     const syncError = (error: unknown) => {
@@ -833,7 +835,7 @@ export default function WaitingRoomPanel({
     };
 
     const resumeFromServer = () => {
-      if (disposed) return Promise.resolve();
+      if (disposed || !allowRoomRecoveryRef.current) return Promise.resolve();
       if (resumePromise) return resumePromise;
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
       health("checking", "Đang xác minh trạng thái phòng…");
