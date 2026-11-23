@@ -136,3 +136,28 @@ test("Step 3 QA can dispatch all eight canonical dance clips independently", () 
   }
   controller.dispose();
 });
+
+test("Idle mixer must be evaluated before Step 3 camera measures the dressed avatar", () => {
+  const root = new THREE.Group();
+  const pivot = new THREE.Bone();
+  pivot.name = "hips";
+  root.add(pivot);
+  const rest = pivot.quaternion.clone();
+  const idlePose = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 0, 1), Math.PI / 3,
+  );
+  const idle = new THREE.AnimationClip("Idle", 1, [
+    new THREE.QuaternionKeyframeTrack(pivot.uuid + ".quaternion",
+      [0, 1], [...idlePose.toArray(), ...idlePose.toArray()]),
+  ]);
+  const controller = new CharacterAnimationController(
+    new THREE.AnimationMixer(root), [idle],
+  );
+
+  // Action registration is NOT enough; the bone is still in its bind pose.
+  expect(pivot.quaternion.angleTo(rest)).toBeLessThan(0.000001);
+  // M3GameplayQaActor.load must call this before the route captures silhouette.
+  controller.update(0, 0);
+  expect(pivot.quaternion.angleTo(idlePose)).toBeLessThan(0.0001);
+  controller.dispose();
+});
