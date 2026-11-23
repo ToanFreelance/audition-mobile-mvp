@@ -129,6 +129,15 @@ export class M3GameplayQaActor implements CharacterPresentation {
     return this.assembly.skeleton;
   }
 
+  /** Isolated QA sequencer reads the selected controller clip's true duration.
+   * No independent song clock and no changes to the gameplay controller. */
+  getQaActiveClipDurationMs(): number | null {
+    const activeName = this.controller?.getState().activeClip;
+    const duration = this.clips.find(clip => clip.name === activeName)?.duration;
+    return duration && Number.isFinite(duration) && duration > 0
+      ? duration * 1000 : null;
+  }
+
   update(deltaSeconds: number, _renderTimeSeconds: number, songTimeMs: number) {
     this.controller?.update(deltaSeconds, songTimeMs);
   }
