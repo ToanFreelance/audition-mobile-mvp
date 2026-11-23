@@ -414,7 +414,7 @@ export default function M3GameplayStep3Qa() {
           <span>Tự động play 10 động tác theo thứ tự
             {autoRunning ? " · đang chạy" : ""}</span>
         </label>
-        <button type="button" disabled={!ready || started} onClick={() => void begin()
+        <button type="button" disabled={!ready || started} onClick={() => void begin()}
           style={{ background: "#7752c4", color: "#fff", minHeight: 45, borderRadius: 9,
             width: "min(94%, 400px)", marginInline: "auto",
             fontWeight: 800, opacity: ready && !started ? 1 : 0.5 }}>
