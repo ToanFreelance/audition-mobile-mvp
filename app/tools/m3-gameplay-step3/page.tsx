@@ -68,7 +68,16 @@ export default function M3GameplayStep3Qa() {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.3;
-    element.appendChild(renderer.domElement);
+    // setPixelRatio(1.4) + setSize(w, h, false) updates the canvas backing
+    // attributes, but NOT its CSS dimensions. Without explicit CSS sizing,
+    // Safari displays the backing dimensions as intrinsic CSS pixels (~1.4x
+    // the host), so overflow:hidden cuts the right and bottom of the actor.
+    // This exactly matches the owner's persistent ~134px rightward offset.
+    const canvas = renderer.domElement;
+    canvas.style.display = "block";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    element.appendChild(canvas);
     const hemi = new THREE.HemisphereLight(0xdce4ff, 0x29306d, 2.1);
     const key = new THREE.DirectionalLight(0xffefff, 3.8); key.position.set(4, 7, 6);
     const fill = new THREE.DirectionalLight(0x93e7ff, 2); fill.position.set(-5, 3, 3);
