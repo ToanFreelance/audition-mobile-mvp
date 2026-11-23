@@ -384,15 +384,21 @@ export default function M3GameplayStep3Qa() {
               }}>{id === "m3-drophunter" ? "Nữ · Drophunter" : "Nam · Neurohacker"}</button>
           ))}
         </div>
-        <div ref={mountRef} data-testid="m3-gameplay-preview" style={{
+        <div data-testid="m3-gameplay-preview" style={{
           position: "relative", width: "100%", height: "clamp(390px, 62dvh, 640px)",
           overflow: "hidden", borderRadius: 14, border: "1px solid #6661a5",
         }}>
-          {autoStatus && <div data-testid="m3-auto-progress" style={{
+          {/* This mount MUST remain React-empty: Three.js alone owns its canvas.
+              Switching autoStatus from an empty string to a React child used
+              to reset this element's textContent and delete the WebGL canvas. */}
+          <div ref={mountRef} data-testid="m3-gameplay-render-target" style={{
+            position: "absolute", inset: 0,
+          }} />
+          {autoStatus ? <div data-testid="m3-auto-progress" style={{
             position: "absolute", top: 10, left: 10, zIndex: 2,
             pointerEvents: "none", borderRadius: 8, padding: "6px 9px",
             background: "rgba(11,14,35,0.88)", fontSize: 12, fontWeight: 700,
-          }}>{autoRunning ? "AUTO · " : ""}{autoStatus}</div>}
+          }}>{autoRunning ? "AUTO · " : ""}{autoStatus}</div> : null}
         </div>
         <div role="status" data-testid="m3-gameplay-status" style={{
           fontSize: 13, padding: 8, borderRadius: 9, background: "#29264c",
