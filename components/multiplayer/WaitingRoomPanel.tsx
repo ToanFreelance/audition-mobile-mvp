@@ -347,7 +347,7 @@ export default function WaitingRoomPanel({
 }: WaitingRoomPanelProps) {
   const initialParticipantId = initialSync?.participantId
     ?? (initialSync?.role === "guest" ? "p51-guest" : "p51-host");
-  const [m3GameplayQaEnabled, setM3GameplayQaEnabled] = useState(false);
+  const [m3GameplayQaEnabled, setM3GameplayQaEnabled] = useState<boolean | null>(null);
   useEffect(() => {
     setM3GameplayQaEnabled(isM3Stage3dQaOptIn(window.location.hostname, window.location.search));
   }, []);
@@ -922,7 +922,7 @@ export default function WaitingRoomPanel({
     : viewer.participantId === room.hostParticipantId;
   const startGate = useMemo(() => {
     if (!canonicalVerified) return { allowed: false, reason: "Chưa xác minh trạng thái phòng. Hãy đồng bộ lại." };
-    if (roomContainsNonPlayableCharacter(room.participants.map(item => item.avatar), m3GameplayQaEnabled)) {
+    if (roomContainsNonPlayableCharacter(room.participants.map(item => item.avatar), m3GameplayQaEnabled === true)) {
       return { allowed: false, reason: "M3 chỉ xem phòng chờ · chưa hỗ trợ START/gameplay." };
     }
     return canStartRoom(room);
@@ -1091,7 +1091,9 @@ export default function WaitingRoomPanel({
   };
 
   useEffect(() => {
-    if (!syncOptions || room.status !== "preloading" || !matchStartSession) return;
+    // Do not send a FAILED/LOADED CAS while the per-device QA opt-in query
+    // is still being read after hydration (notably on guest reconnect).
+    if (m3GameplayQaEnabled === null || !syncOptions || room.status !== "preloading" || !matchStartSession) return;
 
     const localParticipant = room.participants.find(
       participant => participant.participantId === syncOptions.participantId,
@@ -1162,7 +1164,7 @@ export default function WaitingRoomPanel({
         ? preloadReadinessRef.current.readiness : null;
       if (!readiness) {
         try {
-          readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest, { m3GameplayQaEnabled });
+          readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest, { m3GameplayQaEnabled: m3GameplayQaEnabled === true });
           if (cancelled) return;
           recordC3StartCheckpoint("preloading-assets-ready");
           preloadReadinessRef.current = { sessionKey: identityKey, readiness };
@@ -1895,7 +1897,7 @@ export default function WaitingRoomPanel({
       }
 
       recordC3StartCheckpoint("start-canonical-confirmed");
-      const gate = roomContainsNonPlayableCharacter(latest.participants.map(item => item.avatar), m3GameplayQaEnabled)
+      const gate = roomContainsNonPlayableCharacter(latest.participants.map(item => item.avatar), m3GameplayQaEnabled === true)
         ? { allowed: false, reason: "M3 chưa hỗ trợ START/gameplay." }
         : canStartRoom(latest);
       if (!gate.allowed) {
@@ -1908,7 +1910,7 @@ export default function WaitingRoomPanel({
         roomId: latest.roomId,
         roomRevision: latest.revision,
         songId: latest.selectedSongId,
-        m3GameplayQa: m3GameplayQaEnabled
+        m3GameplayQa: m3GameplayQaEnabled === true
           && latest.participants.some(item => isM3CatalogAvatar(item.avatar)),
       });
 
@@ -2162,11 +2164,11 @@ export default function WaitingRoomPanel({
   // Mount the gameplay scene as soon as WebAudio is scheduled, during the
   // shared COUNTDOWN rather than waiting until its epoch. The existing React
   // stage/actor can warm underneath the banner and survives the epoch.
-  if (gameplaySchedule && matchStartSession) {
+  if (gameplaySchedule && matchStartSession && m3GameplayQaEnabled !== null) {
     return (
       <LiveMultiplayerGameplay
         manifest={matchStartSession.manifest}
-        m3GameplayQaEnabled={m3GameplayQaEnabled}
+        m3GameplayQaEnabled={m3GameplayQaEnabled === true}
         participantId={syncOptions?.participantId ?? viewer.participantId}
         stageId={room.selectedStageId}
         presentationJudgement={gameplayPresentationJudgement}
