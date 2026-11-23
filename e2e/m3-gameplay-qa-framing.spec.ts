@@ -208,3 +208,35 @@ test("Step 3 mobile QA keeps a tall narrow preview and exposes automatic sequenc
     await context.close();
   }
 });
+
+test("Step 3 auto-play progress cannot unmount or replace the WebGL canvas", async ({ page }) => {
+  await page.goto("/tools/m3-gameplay-step3", { waitUntil: "domcontentloaded" });
+  const preview = page.getByTestId("m3-gameplay-preview");
+  const mount = page.getByTestId("m3-gameplay-render-target");
+  const canvas = mount.locator("canvas");
+  await expect(canvas).toBeVisible();
+  await expect(page.getByTestId("m3-gameplay-status"))
+    .toContainText("Đã tải xong", { timeout: 90_000 });
+
+  const originalCanvas = await canvas.elementHandle();
+  expect(originalCanvas).not.toBeNull();
+  await page.getByTestId("m3-auto-play").check();
+  await page.getByRole("button", { name: /START QA AUDIOCONTEXT/ }).click();
+  await expect(page.getByTestId("m3-auto-progress")).toContainText("Dance 01", {
+    timeout: 10_000,
+  });
+  // Regression: V1.0.6 inserted a React-owned progress overlay into the same
+  // mount node as Three.js. When autoStatus became nonempty, React could reset
+  // textContent, silently deleting the canvas while the RAF/audio clock ran.
+  const originalStillAttached = await originalCanvas!.evaluate(node =>
+    node.isConnected &&
+    node.parentElement?.getAttribute("data-testid") === "m3-gameplay-render-target",
+  );
+  expect(originalStillAttached).toBe(true);
+  await expect(preview.locator("canvas")).toHaveCount(1);
+  await expect(canvas).toBeVisible();
+
+  await page.getByTestId("m3-auto-play").uncheck();
+  await expect(page.getByTestId("m3-auto-progress")).toHaveCount(0);
+  expect(await originalCanvas!.evaluate(node => node.isConnected)).toBe(true);
+});
