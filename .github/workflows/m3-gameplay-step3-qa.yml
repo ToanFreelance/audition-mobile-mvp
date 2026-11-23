@@ -11,6 +11,7 @@ on:
       - "components/multiplayer/WaitingRoomPanel.tsx"
       - "components/multiplayer/lobby-match-content.ts"
       - "components/character/m3-stage3d-qa-gate.ts"
+      - "components/character/m3-stage3d-camera.ts"
       - "app/api/multiplayer/room/route.ts"
       - "components/character/m3-lobby-appearance.ts"
       - "e2e/m3-stage3d-integration-step31.spec.ts"
@@ -45,7 +46,7 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit
       - name: ESLint scoped files
-        run: npx eslint components/character/m3-gameplay-retarget.ts components/character/M3GameplayQaActor.ts app/tools/m3-gameplay-step3/page.tsx components/character/m3-gameplay-qa-framing.ts e2e/m3-gameplay-step3.spec.ts e2e/m3-gameplay-qa-framing.spec.ts components/Stage3D.tsx components/multiplayer/LiveMultiplayerGameplay.tsx components/multiplayer/WaitingRoomPanel.tsx components/multiplayer/lobby-match-content.ts components/character/m3-stage3d-qa-gate.ts components/character/m3-lobby-appearance.ts app/api/multiplayer/room/route.ts e2e/m3-stage3d-integration-step31.spec.ts
+        run: npx eslint components/character/m3-gameplay-retarget.ts components/character/M3GameplayQaActor.ts app/tools/m3-gameplay-step3/page.tsx components/character/m3-gameplay-qa-framing.ts e2e/m3-gameplay-step3.spec.ts e2e/m3-gameplay-qa-framing.spec.ts components/Stage3D.tsx components/multiplayer/LiveMultiplayerGameplay.tsx components/multiplayer/WaitingRoomPanel.tsx components/multiplayer/lobby-match-content.ts components/character/m3-stage3d-qa-gate.ts components/character/m3-stage3d-camera.ts components/character/m3-lobby-appearance.ts app/api/multiplayer/room/route.ts e2e/m3-stage3d-integration-step31.spec.ts
       - name: Build
         run: npm run build
       - name: Install Chromium

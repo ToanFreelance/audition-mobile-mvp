@@ -123,3 +123,11 @@ Owner iPhone Safari test: the M3 Waiting Room opt-in unblocked the client START 
 Focused fix: the server now checks the actual request hostname, the explicit frozen Step 3.1 `characterRuntimeVersion` marker, and authoritative RoomState participant identity/Character Catalog IDs/validated M3 wardrobe against the immutable MatchManifest. The match may start only on the isolated M3 work-branch Preview or localhost; production, missing-marker clients, malformed and mismatched wardrobes remain blocked. The POST /api/multiplayer/room request does not inherit the room page's URL query. Client errors now show the actual failure reason during recovery.
 
 No changes to RoomState CAS, Supabase Realtime, preload/LOADED protocol, shared epoch, WebAudio clock, Character Catalog `runtimeReady`, gameplay, or Dance V2. The focused CI covers accepted solo/duo matches and locked rejection paths. Physical owner iPhone and 2-human multiplayer acceptance still required.
+
+## Step 3.1.2 — Owner iPhone Gameplay actor scale (2026-11-23)
+
+Owner confirmed START → Gameplay and animation on iPhone Safari, but the frozen M3 female appears about half the intended normalized C1/C4 character height. Root cause: gameplay camera framing uses `NORMALIZED_CHARACTER_HEIGHT=3.4` while M3 Stage3D deliberately preserves native VRM bind-space size. Avoid scaling the M3 root or the detached skinned wardrobe: it previously exploded shorts and shoes in Step 3.0 QA.
+
+Portrait gameplay only: measure canonical head-to-toes skeleton height once after M3 Idle has been evaluated and the actor has loaded. In gameplay camera pose, narrow vertical FOV proportionally to `3.4/nativeHeight` (bounded), and adjust the look target to preserve the projected floor/feet anchor. Cinematic/intro poses, landscape, C1/C4, stage geometry and HUD remain unchanged. No actor root transforms, skeleton rebind, mixer replacement, WebAudio/timeline modification or stage-specific magic scale. Camera is a read-only projection adjustment after asset readiness; no recompute on READY/status metadata.
+
+CI adds pure portrait screen-projection tests against the original normalized C1/C4 camera; owner iPhone must still verify proportions, both male/female shoes, headroom, foot contact, dance limbs and HUD occlusion in the live Stage3D QA flow. `runtimeReady=false`; no merge.

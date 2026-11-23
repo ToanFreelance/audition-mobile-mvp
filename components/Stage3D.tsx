@@ -7,6 +7,7 @@ import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 import type { CharacterPresentation, CharacterPresentationEvent } from "./character/character-types";
 import { frozenStageActorIdentityKey, resolveM3Stage3dAvatar } from "./character/m3-stage3d-qa-gate";
+import { frameM3Stage3dGameplayCamera } from "./character/m3-stage3d-camera";
 import type { AvatarSnapshot } from "../multiplayer/types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
@@ -474,6 +475,8 @@ export default function Stage3D({
     let disposed = false;
     let character: CharacterPresentation | null = null;
     let characterSettled = hideCharacter;
+    // Measured after the M3 Idle pose is evaluated. Camera-only: actor bind space remains native.
+    let m3NativeHeight: number | null = null;
     let qaActorModelReady = false;
     let qaLastActorCount = -1;
     const qaFormationCopies: THREE.Object3D[] = [];
@@ -514,6 +517,15 @@ export default function Stage3D({
         if (!result || result.error || !result.metrics.animationClips.length) {
           onPresentationFailureRef.current?.("Nhân vật hoặc animation chưa sẵn sàng.");
           return;
+        }
+        if (m3) {
+          const stageActor = actor as CharacterPresentation & { getStage3dNativeHeight?: () => number };
+          const measured = stageActor.getStage3dNativeHeight?.();
+          if (measured === undefined || !Number.isFinite(measured) || measured <= 0) {
+            throw new Error("M3 Gameplay camera cannot measure the native skeleton.");
+          }
+          m3NativeHeight = measured;
+          host.dataset.m3NativeHeight = measured.toFixed(4);
         }
         characterSettled = true;
         qaActorModelReady = true;
@@ -682,9 +694,12 @@ export default function Stage3D({
         && basketballPose.preset === "gameplay_portrait_locked"
         ? { ...basketballPose, ...getHauntedClassroomFrame(basketballPose, portrait) }
         : basketballPose;
-      const pose = visualCompareMode && neonPresentation
+      const environmentPose = visualCompareMode && neonPresentation
         ? getNeonGoldenComparePose(neonPose)
         : classroomPose;
+      const pose = !visualCompareMode && m3GameplayQaEnabled
+        ? frameM3Stage3dGameplayCamera(environmentPose, portrait, m3NativeHeight)
+        : environmentPose;
       host.dataset.presentationCamera = pose.preset;
       if (qaFormationEnabled) {
         // iPhone QA instrumentation: confirms the camera pose remains exactly

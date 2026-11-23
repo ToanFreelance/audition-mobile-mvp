@@ -9,6 +9,7 @@ import type {
 import { HUMAN_CHARACTER_ASSET_URL, loadHumanAnimationLibrary } from "./human-animation-library";
 import { applyPublishedDanceRelease, loadPublishedDanceRelease } from "./published-animation-library";
 import { retargetQuaterniusToM3, type M3GameplayRetargetReport } from "./m3-gameplay-retarget";
+import { captureM3GameplayQaReferencePose } from "./m3-gameplay-qa-framing";
 
 /**
  * Step 3 preview-only actor using the existing CharacterAnimationController.
@@ -136,6 +137,19 @@ export class M3GameplayQaActor implements CharacterPresentation {
   getQaFramingSkeleton(): THREE.Skeleton {
     if (!this.assembly?.skeleton) throw new Error("M3 QA framing skeleton not loaded");
     return this.assembly.skeleton;
+  }
+
+  /** Native skeleton measurement used by the real Stage3D camera only.
+   * Does NOT change the actor root, skeleton, wardrobe or animation timeline. */
+  getStage3dNativeHeight(): number {
+    if (!this.assembly?.skeleton) throw new Error("M3 Stage3D skeleton is not loaded.");
+    this.assembly.root.updateMatrixWorld(true);
+    const reference = captureM3GameplayQaReferencePose(this.assembly.skeleton);
+    const height = reference.head.y - Math.min(...reference.feet.map(foot => foot.y));
+    if (!(height > 0) || !Number.isFinite(height)) {
+      throw new Error("M3 Stage3D native skeleton height is invalid.");
+    }
+    return height;
   }
 
   /** Isolated QA sequencer reads the selected controller clip's true duration.

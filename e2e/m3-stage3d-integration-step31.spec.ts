@@ -6,6 +6,10 @@ import {
   assertM3Stage3dServerStartGate,
 } from "../components/character/m3-stage3d-qa-gate";
 import { getCharacterCatalogEntry } from "../components/character/character-catalog";
+import { frameM3Stage3dGameplayCamera } from "../components/character/m3-stage3d-camera";
+import { getStagePresentationCameraPose } from "../components/stage/stageCamera";
+import { NORMALIZED_CHARACTER_HEIGHT } from "../components/character/framing";
+import * as THREE from "three";
 import { createMatchManifest } from "../multiplayer/match-manifest";
 import { addParticipant, createRoomState } from "../multiplayer/room-state";
 import type { HumanHostParticipant, HumanGuestParticipant, MatchManifest, RoomState } from "../multiplayer/types";
@@ -139,4 +143,39 @@ test("server START leaves legacy C1/C4 allowed but never accepts a fake M3 QA ma
   const legacy = qaRoom(avatar("c1-casual-grace"), avatar("c4-casual-boy"));
   expect(() => assertM3Stage3dServerStartGate("audition-mobile-mvp.vercel.app", legacy, qaManifest(legacy, false))).not.toThrow();
   expect(() => assertM3Stage3dServerStartGate(qaHostname, legacy, qaManifest(legacy))).toThrow(/without M3/);
+});
+
+test("M3 portrait Stage3D camera normalizes on-screen height with its native bind space intact", () => {
+  const legacy = getStagePresentationCameraPose(9_000, true, true, "center");
+  const nativeHeight = NORMALIZED_CHARACTER_HEIGHT / 2;
+  const framed = frameM3Stage3dGameplayCamera(legacy, true, nativeHeight);
+  expect(framed.fov).toBeLessThan(legacy.fov);
+  expect(framed.targetY).toBeCloseTo(legacy.targetY / 2);
+  expect(framed.x).toBe(legacy.x);
+  expect(framed.y).toBe(legacy.y);
+  expect(framed.z).toBe(legacy.z);
+  expect(framed.targetZ).toBe(legacy.targetZ);
+
+  const project = (pose: typeof legacy, worldY: number) => {
+    const camera = new THREE.PerspectiveCamera(pose.fov, 390 / 844, 0.1, 100);
+    camera.position.set(pose.x, pose.y, pose.z);
+    camera.lookAt(pose.targetX, pose.targetY, pose.targetZ);
+    camera.updateMatrixWorld(true);
+    camera.updateProjectionMatrix();
+    return new THREE.Vector3(0, worldY, pose.targetZ).project(camera).y;
+  };
+  // The smaller M3 head rises to the normalized actor's silhouette while
+  // both sets of shoes remain at nearly the same projected ground anchor.
+  expect(Math.abs(project(framed, 0) - project(legacy, 0))).toBeLessThan(0.04);
+  expect(Math.abs(project(framed, nativeHeight)
+    - project(legacy, NORMALIZED_CHARACTER_HEIGHT))).toBeLessThan(0.04);
+});
+
+test("M3 QA camera leaves intro, landscape and original C1/C4 poses unchanged", () => {
+  const gameplay = getStagePresentationCameraPose(9_000, true, true, "center");
+  const intro = getStagePresentationCameraPose(400, true, true, "center");
+  expect(frameM3Stage3dGameplayCamera(intro, true, 1.7)).toBe(intro);
+  expect(frameM3Stage3dGameplayCamera(gameplay, false, 1.7)).toBe(gameplay);
+  expect(frameM3Stage3dGameplayCamera(gameplay, true, null)).toBe(gameplay);
+  expect(() => frameM3Stage3dGameplayCamera(gameplay, true, 0)).toThrow(/height/);
 });
