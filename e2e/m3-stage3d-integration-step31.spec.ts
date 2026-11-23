@@ -178,6 +178,8 @@ function syntheticM3Rig() {
 test("M3 gameplay scales only its actor, preserving the full stage camera and all attached garments", () => {
   const {root, skeleton, parts, head} = syntheticM3Rig();
   const originalHeight = head.getWorldPosition(new THREE.Vector3()).y;
+  const leftFoot = skeleton.bones.find(bone => bone.name === "foot.L")!;
+  const groundBefore = leftFoot.getWorldPosition(new THREE.Vector3()).y;
   const cameraBefore = getStagePresentationCameraPose(9_000, true, true, "center");
   const result = normalizeM3Stage3dActor(root, skeleton);
   const cameraAfter = getStagePresentationCameraPose(9_000, true, true, "center");
@@ -194,8 +196,11 @@ test("M3 gameplay scales only its actor, preserving the full stage camera and al
   camera.lookAt(cameraAfter.targetX, cameraAfter.targetY, cameraAfter.targetZ);
   camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
   const project = (height: number) => new THREE.Vector3(0,height,0.25).project(camera).y;
-  expect(project(result.normalizedHeight)).toBeLessThan(project(result.nativeHeight));
-  expect(project(0)).toBeCloseTo(project(0));
+  // Three.js NDC has positive Y upward: a taller avatar projects higher.
+  expect(project(result.normalizedHeight)).toBeGreaterThan(project(result.nativeHeight));
+  const groundAfter = leftFoot.getWorldPosition(new THREE.Vector3()).y;
+  expect(groundAfter).toBeCloseTo(groundBefore, 5);
+  expect(project(groundAfter)).toBeCloseTo(project(groundBefore), 5);
 });
 
 test("M3 actor normalization fails closed on malformed rig or repeated scaling", () => {
