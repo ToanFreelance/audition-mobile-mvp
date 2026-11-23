@@ -97,6 +97,14 @@ export class M3GameplayQaActor implements CharacterPresentation {
       this.controller = new CharacterAnimationController(this.mixer, this.clips);
       this.controller.setGameActive(this.active);
       if (this.pendingEvent) this.controller.handlePresentationEvent(this.pendingEvent);
+      // Critical QA camera-ordering fix: clipAction().play() alone does NOT
+      // evaluate the skeleton. The first RAF used to apply the Idle clip only
+      // AFTER silhouette/camera calibration, so the visible dressed avatar
+      // moved away from the measured pose (owner iPhone screenshots).
+      // Evaluate frame zero synchronously BEFORE the QA route measures pixels.
+      // Zero song-time is a presentation sample, not an independent clock.
+      this.controller.update(0, 0);
+      assembly.root.updateMatrixWorld(true);
       return {
         source: "gltf", assetUrl: getCharacterCatalogEntry(this.assetId)!.assetUrl,
         idleClip: "Idle",
