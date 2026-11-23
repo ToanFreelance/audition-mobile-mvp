@@ -173,3 +173,38 @@ test("Step 3 canvas CSS box equals preview viewport even when device DPR is 3", 
     await context.close();
   }
 });
+
+test("Step 3 mobile QA keeps a tall narrow preview and exposes automatic sequence controls", async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto("/tools/m3-gameplay-step3", { waitUntil: "domcontentloaded" });
+    const preview = page.getByTestId("m3-gameplay-preview");
+    const sticky = page.getByTestId("m3-gameplay-sticky");
+    await expect(preview).toBeVisible();
+    const previewBox = await preview.boundingBox();
+    const stickyBox = await sticky.boundingBox();
+    expect(previewBox).not.toBeNull();
+    expect(stickyBox).not.toBeNull();
+    expect(previewBox!.height).toBeGreaterThanOrEqual(389);
+    expect(previewBox!.height / previewBox!.width).toBeGreaterThan(1.2);
+    expect(stickyBox!.width).toBeLessThan(390 - 24);
+    expect(previewBox!.width).toBeCloseTo(stickyBox!.width, 0);
+    expect(await page.getByTestId("m3-action-grid").locator("button").count()).toBe(10);
+    const checkbox = page.getByTestId("m3-auto-play");
+    await expect(checkbox).not.toBeChecked();
+    await checkbox.check();
+    await expect(checkbox).toBeChecked();
+    await checkbox.uncheck();
+    await expect(checkbox).not.toBeChecked();
+    // Changing the layout/control flags must not remount the M3 canvas.
+    await expect(preview.locator("canvas")).toHaveCount(1);
+  } finally {
+    await context.close();
+  }
+});
