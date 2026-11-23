@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { AvatarSnapshot } from "../multiplayer/types";
 import { roomContainsNonPlayableCharacter } from "../components/character/m3-lobby-appearance";
 import {
-  isM3Stage3dQaOptIn, resolveM3Stage3dAvatar, M3_STAGE3D_QA_RUNTIME_VERSION,
+  isM3Stage3dQaOptIn, resolveM3Stage3dAvatar, frozenStageActorIdentityKey, M3_STAGE3D_QA_RUNTIME_VERSION,
 } from "../components/character/m3-stage3d-qa-gate";
 import { getCharacterCatalogEntry } from "../components/character/character-catalog";
 
@@ -48,4 +48,14 @@ test("Host START is default-locked; M3 QA only accepts complete frozen looks", (
   expect(roomContainsNonPlayableCharacter([avatar("unknown")], true)).toBe(true);
   expect(getCharacterCatalogEntry("m3-drophunter")?.runtimeReady).toBe(false);
   expect(getCharacterCatalogEntry("m3-neurohacker")?.runtimeReady).toBe(false);
+});
+
+test("same frozen avatar identity survives metadata snapshot rehydration", () => {
+  const key = frozenStageActorIdentityKey(female);
+  expect(frozenStageActorIdentityKey({ ...female, outfit: { ...female.outfit },
+    m3Appearance: { ...female.m3Appearance!, m3Outfit: { ...female.m3Appearance!.m3Outfit } } })).toBe(key);
+  expect(frozenStageActorIdentityKey({
+    ...female, m3Appearance: { ...female.m3Appearance!, hairColor: "black" },
+  })).not.toBe(key);
+  expect(frozenStageActorIdentityKey(male)).not.toBe(key);
 });

@@ -34,3 +34,16 @@ export function resolveM3Stage3dAvatar(
   if (!appearance) throw new Error("Invalid frozen M3 wardrobe/appearance in MatchManifest.");
   return { assetId: rawId, appearance };
 }
+
+/** Stable actor key across cloned/Reatime-frozen snapshots; status updates do not remount mixers. */
+export function frozenStageActorIdentityKey(avatar: AvatarSnapshot): string {
+  const look = avatar.m3Appearance;
+  return JSON.stringify([
+    avatarCharacterAssetId(avatar),
+    look?.hairStyle ?? null,
+    look?.hairColor ?? null,
+    look?.skinTone ?? null,
+    look?.m3Outfit.top ?? null,
+    look?.m3Outfit.bottom ?? null,
+  ]);
+}

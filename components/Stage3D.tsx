@@ -6,7 +6,7 @@ import { clone as cloneSkinnedActor } from "three/examples/jsm/utils/SkeletonUti
 import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 import type { CharacterPresentation, CharacterPresentationEvent } from "./character/character-types";
-import { resolveM3Stage3dAvatar } from "./character/m3-stage3d-qa-gate";
+import { frozenStageActorIdentityKey, resolveM3Stage3dAvatar } from "./character/m3-stage3d-qa-gate";
 import type { AvatarSnapshot } from "../multiplayer/types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
@@ -221,6 +221,9 @@ export default function Stage3D({
   const basketballPresentation = stageEntry.presentationProfileId === "basketball-court-v1";
   const hauntedClassroomPresentation = stageEntry.presentationProfileId === "classroom-v1";
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const frozenActorKey = characterAvatar ? frozenStageActorIdentityKey(characterAvatar) : null;
+  const frozenAvatarRef = useRef(characterAvatar);
+  frozenAvatarRef.current = characterAvatar;
   const characterRef = useRef<CharacterPresentation | null>(null);
   const latestCharacterEventRef = useRef(characterEvent);
   latestCharacterEventRef.current = characterEvent;
@@ -514,7 +517,7 @@ export default function Stage3D({
         }
         characterSettled = true;
         qaActorModelReady = true;
-        if (neonPresentation) applyNeonCharacterFill(actor.root);
+        if (neonPresentation && !m3) applyNeonCharacterFill(actor.root);
         host.dataset.characterSource = result.source;
         host.dataset.characterIdle = result.idleClip ?? "static";
         host.dataset.characterMetrics = JSON.stringify(result.metrics);
@@ -529,8 +532,8 @@ export default function Stage3D({
 
     if (!hideCharacter) {
       let m3Choice: ReturnType<typeof resolveM3Stage3dAvatar> | "blocked" = null;
-      if (characterAvatar) {
-        try { m3Choice = resolveM3Stage3dAvatar(characterAvatar, m3GameplayQaEnabled); }
+      if (frozenAvatarRef.current) {
+        try { m3Choice = resolveM3Stage3dAvatar(frozenAvatarRef.current, m3GameplayQaEnabled); }
         catch (error) {
           m3Choice = "blocked";
           host.dataset.characterError = error instanceof Error ? error.message : String(error);
@@ -774,7 +777,7 @@ export default function Stage3D({
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, characterAvatar, m3GameplayQaEnabled, m3FrozenReleaseVersion, skipIntroCamera, cinematicMatchId]);
+  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, frozenActorKey, m3GameplayQaEnabled, m3FrozenReleaseVersion, skipIntroCamera, cinematicMatchId]);
 
   return (
     <div
