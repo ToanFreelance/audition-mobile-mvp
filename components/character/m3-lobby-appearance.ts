@@ -40,9 +40,15 @@ export function parseM3LobbyAppearance(
   };
 }
 
-/** M3 must never enter MatchManifest preload until its choreography is retargeted. */
-export function roomContainsNonPlayableCharacter(avatars: readonly AvatarSnapshot[]): boolean {
-  return avatars.some(avatar => !getCharacterCatalogEntry(
-    avatarCharacterAssetId(avatar) as CharacterAssetId
-  )?.runtimeReady);
+/** The default START gate remains locked; QA allows only valid frozen M3 looks. */
+export function roomContainsNonPlayableCharacter(
+  avatars: readonly AvatarSnapshot[], m3GameplayQaEnabled = false,
+): boolean {
+  return avatars.some(avatar => {
+    const entry = getCharacterCatalogEntry(avatarCharacterAssetId(avatar));
+    if (!entry) return true;
+    if (entry.runtimeReady) return false;
+    return !(m3GameplayQaEnabled && entry.m3RigFamily
+      && parseM3LobbyAppearance(entry.id, avatar.m3Appearance));
+  });
 }

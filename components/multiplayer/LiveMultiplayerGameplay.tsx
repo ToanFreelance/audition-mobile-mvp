@@ -51,6 +51,8 @@ const formatTime = (timeMs: number) => {
  */
 export default function LiveMultiplayerGameplay(props: {
   manifest: MatchManifest;
+  /** Per-device QA opt-in; never changes catalog runtimeReady. */
+  m3GameplayQaEnabled?: boolean;
   participantId: string;
   stageId: string;
   presentationJudgement?: MultiplayerGameplayJudgementEvent | null;
@@ -400,6 +402,9 @@ export default function LiveMultiplayerGameplay(props: {
             cameraPreset={cameraPreset}
             selectedStageId={props.stageId}
             characterAssetId={characterAssetId}
+            characterAvatar={localParticipant?.avatar}
+            m3GameplayQaEnabled={props.m3GameplayQaEnabled}
+            m3FrozenReleaseVersion={props.manifest.content.animationReleaseVersion}
             isPlaying={snapshot.started && !snapshot.audioEnded}
             characterEvent={characterEvent}
             getSongTimeMs={getSongTimeMs}

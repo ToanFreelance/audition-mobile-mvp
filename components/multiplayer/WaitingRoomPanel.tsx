@@ -56,6 +56,7 @@ import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlotIndex, typ
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
 import { roomContainsNonPlayableCharacter } from "../character/m3-lobby-appearance";
+import { isM3Stage3dQaOptIn, isM3CatalogAvatar } from "../character/m3-stage3d-qa-gate";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
 import StageLaunchArtwork from "./StageLaunchArtwork";
 import PreparingStagePanel from "./PreparingStagePanel";
@@ -346,6 +347,10 @@ export default function WaitingRoomPanel({
 }: WaitingRoomPanelProps) {
   const initialParticipantId = initialSync?.participantId
     ?? (initialSync?.role === "guest" ? "p51-guest" : "p51-host");
+  const [m3GameplayQaEnabled, setM3GameplayQaEnabled] = useState(false);
+  useEffect(() => {
+    setM3GameplayQaEnabled(isM3Stage3dQaOptIn(window.location.hostname, window.location.search));
+  }, []);
   const [room, setRoom] = useState(() => initialRoom ?? (initialSync
     ? createP53SyncedWaitingRoomBase(initialSync.roomId)
     : createP51WaitingRoomFixture()));
@@ -917,11 +922,11 @@ export default function WaitingRoomPanel({
     : viewer.participantId === room.hostParticipantId;
   const startGate = useMemo(() => {
     if (!canonicalVerified) return { allowed: false, reason: "Chưa xác minh trạng thái phòng. Hãy đồng bộ lại." };
-    if (roomContainsNonPlayableCharacter(room.participants.map(item => item.avatar))) {
+    if (roomContainsNonPlayableCharacter(room.participants.map(item => item.avatar), m3GameplayQaEnabled)) {
       return { allowed: false, reason: "M3 chỉ xem phòng chờ · chưa hỗ trợ START/gameplay." };
     }
     return canStartRoom(room);
-  }, [room, canonicalVerified]);
+  }, [room, canonicalVerified, m3GameplayQaEnabled]);
   const participantById = useMemo(
     () => new Map(displayRoom.participants.map(item => [item.participantId, item])),
     [displayRoom.participants],
@@ -1157,7 +1162,7 @@ export default function WaitingRoomPanel({
         ? preloadReadinessRef.current.readiness : null;
       if (!readiness) {
         try {
-          readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest);
+          readiness = await preloadFrozenLobbyMatch(matchStartSession.manifest, { m3GameplayQaEnabled });
           if (cancelled) return;
           recordC3StartCheckpoint("preloading-assets-ready");
           preloadReadinessRef.current = { sessionKey: identityKey, readiness };
@@ -1227,6 +1232,7 @@ export default function WaitingRoomPanel({
     room.status,
     syncOptions?.participantId,
     preloadRetryNonce,
+    m3GameplayQaEnabled,
   ]);
 
   // D01: an NTP sample belongs to the frozen match + participant,
@@ -1889,7 +1895,7 @@ export default function WaitingRoomPanel({
       }
 
       recordC3StartCheckpoint("start-canonical-confirmed");
-      const gate = roomContainsNonPlayableCharacter(latest.participants.map(item => item.avatar))
+      const gate = roomContainsNonPlayableCharacter(latest.participants.map(item => item.avatar), m3GameplayQaEnabled)
         ? { allowed: false, reason: "M3 chưa hỗ trợ START/gameplay." }
         : canStartRoom(latest);
       if (!gate.allowed) {
@@ -1902,6 +1908,8 @@ export default function WaitingRoomPanel({
         roomId: latest.roomId,
         roomRevision: latest.revision,
         songId: latest.selectedSongId,
+        m3GameplayQa: m3GameplayQaEnabled
+          && latest.participants.some(item => isM3CatalogAvatar(item.avatar)),
       });
 
       recordC3StartCheckpoint("start-metadata-resolved");
@@ -2158,6 +2166,7 @@ export default function WaitingRoomPanel({
     return (
       <LiveMultiplayerGameplay
         manifest={matchStartSession.manifest}
+        m3GameplayQaEnabled={m3GameplayQaEnabled}
         participantId={syncOptions?.participantId ?? viewer.participantId}
         stageId={room.selectedStageId}
         presentationJudgement={gameplayPresentationJudgement}

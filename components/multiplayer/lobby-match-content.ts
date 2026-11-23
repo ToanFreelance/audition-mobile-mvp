@@ -15,6 +15,9 @@ import {
 } from "../character/character-catalog";
 import { loadPublishedDanceRelease, loadPublishedDanceReleaseIdentity } from "../character/published-animation-library";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
+import { m3SelectedAssetFiles, loadM3AssetBytes } from "../character/m3-asset-cache";
+import { isM3CatalogAvatar, resolveM3Stage3dAvatar, M3_STAGE3D_QA_RUNTIME_VERSION } from "../character/m3-stage3d-qa-gate";
+import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import type { LobbyMatchFreezeInput } from "../../multiplayer/lobby-match-freeze";
 import type { MatchManifest } from "../../multiplayer/types";
 import type { PresentationResourceReadiness } from "../../multiplayer/match-start-protocol";
@@ -78,6 +81,7 @@ export async function prepareLobbyMatchFreezeInput(input: {
   roomId: string;
   roomRevision: number;
   songId: string;
+  m3GameplayQa?: boolean;
 }): Promise<LobbyMatchFreezeInput> {
   const music = await fetchPlayableMusicConfig(input.songId);
   const publishedIdentity = await loadPublishedDanceReleaseIdentity();
@@ -121,7 +125,8 @@ export async function prepareLobbyMatchFreezeInput(input: {
     audioHash: await sha256(audioIdentity),
     chartVersion: `chart:${music.id}:${music.updatedAt || "unversioned"}`,
     chartHash: await sha256(chartIdentity),
-    characterRuntimeVersion: `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
+    characterRuntimeVersion: input.m3GameplayQa
+      ? M3_STAGE3D_QA_RUNTIME_VERSION : `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
     animationReleaseVersion: publishedIdentity?.releaseVersion ?? 0,
     animationReleaseHash: await sha256(animationIdentity),
     gameplayConfigVersion: GAMEPLAY_CONFIG_VERSION,
@@ -165,6 +170,7 @@ export async function preloadAssetBytes(url: string, label: string) {
 async function frozenContentIdentity(
   music: MusicConfig,
   published: Awaited<ReturnType<typeof loadPublishedDanceRelease>>,
+  m3GameplayQa = false,
 ) {
   const audioIdentity = {
     songId: music.id,
@@ -200,7 +206,8 @@ async function frozenContentIdentity(
     audioHash: await sha256(audioIdentity),
     chartVersion: `chart:${music.id}:${music.updatedAt || "unversioned"}`,
     chartHash: await sha256(chartIdentity),
-    characterRuntimeVersion: `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
+    characterRuntimeVersion: m3GameplayQa
+      ? M3_STAGE3D_QA_RUNTIME_VERSION : `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
     animationReleaseVersion: published?.info.releaseVersion ?? 0,
     animationReleaseHash: await sha256(animationIdentity),
     gameplayConfigVersion: GAMEPLAY_CONFIG_VERSION,
@@ -272,42 +279,63 @@ export async function resolveFrozenLobbyMusic(manifest: MatchManifest) {
  * P5.3 warms the frozen match resources only. It does not create an
  * AudioContext, schedule a shared start, render countdown state, or navigate.
  */
-export async function preloadFrozenLobbyMatch(manifest: MatchManifest): Promise<{
+export async function preloadFrozenLobbyMatch(
+  manifest: MatchManifest, options: { m3GameplayQaEnabled?: boolean } = {},
+): Promise<{
   characterReadiness: PresentationResourceReadiness;
   animationReadiness: PresentationResourceReadiness;
 }> {
+  const hasM3 = manifest.participants.some(participant => isM3CatalogAvatar(participant.avatar));
+  const frozenQa = manifest.content.characterRuntimeVersion === M3_STAGE3D_QA_RUNTIME_VERSION;
+  if (hasM3 && (!options.m3GameplayQaEnabled || !frozenQa)) {
+    throw new Error("M3 match requires the frozen Step 3.1 QA contract on every device.");
+  }
+  if (!hasM3 && frozenQa) throw new Error("Unexpected M3 QA manifest without M3 characters.");
+
+  // Validate every frozen appearance before any LOADED acknowledgement.
+  const m3Files = new Map<string, ReturnType<typeof m3SelectedAssetFiles>[number]>();
+  for (const participant of manifest.participants) {
+    const selected = resolveM3Stage3dAvatar(participant.avatar, Boolean(options.m3GameplayQaEnabled));
+    if (!selected) continue;
+    for (const file of m3SelectedAssetFiles(selected.assetId, selected.appearance)) {
+      m3Files.set(file.family + ":" + file.file, file);
+    }
+  }
+
   const music = await fetchPlayableMusicConfig(manifest.content.songId);
   const published = manifest.content.animationReleaseVersion > 0
     ? await loadPublishedDanceRelease(false, manifest.content.animationReleaseVersion)
     : null;
-  const identity = await frozenContentIdentity(music, published);
+  const identity = await frozenContentIdentity(music, published, frozenQa);
   assertFrozenContent(manifest, identity);
-
   await preloadAssetBytes(music.audioUrl, "Match audio");
 
+  // Keep legacy fallback semantics. M3 selected wardrobe bytes must all load.
   const characterUrls = new Set(
-    manifest.participants.map(participant => (
-      resolveCharacterAssetUrl(avatarCharacterAssetId(participant.avatar))
-    )),
+    manifest.participants.filter(participant => !isM3CatalogAvatar(participant.avatar))
+      .map(participant => resolveCharacterAssetUrl(avatarCharacterAssetId(participant.avatar))),
   );
-
   let characterReadiness: PresentationResourceReadiness = "ready";
   try {
-    // Sequential warmup bounds peak outstanding response bytes on mobile.
     for (const url of characterUrls) await preloadAssetBytes(url, "Character model");
   } catch (error) {
-    console.warn("[lobby-preload] character asset warmup failed; runtime fallback remains allowed", error);
+    console.warn("[lobby-preload] legacy character warmup failed; fallback remains allowed", error);
     characterReadiness = "fallback-ready";
   }
+  for (const file of m3Files.values()) {
+    // Persistent bytes are reused by M3CharacterAssembler during countdown.
+    await loadM3AssetBytes(file.family, file.file);
+  }
+  if (hasM3) await preloadAssetBytes(HUMAN_CHARACTER_ASSET_URL, "M3 retarget source");
 
   let animationReadiness: PresentationResourceReadiness = "ready";
   try {
     await preloadAssetBytes(HUMAN_ANIMATION_LIBRARY_URL, "Base animation library");
-    await preloadAssetBytes(HUMAN_FINISH_MOCAP_URL, "Finish animation fallback");
+    if (!hasM3 || !published) await preloadAssetBytes(HUMAN_FINISH_MOCAP_URL, "Finish animation fallback");
   } catch (error) {
+    if (hasM3) throw error;
     console.warn("[lobby-preload] base animation warmup failed; presentation fallback remains allowed", error);
     animationReadiness = "fallback-ready";
   }
-
   return { characterReadiness, animationReadiness };
 }

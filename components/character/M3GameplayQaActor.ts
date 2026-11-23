@@ -13,7 +13,7 @@ import { retargetQuaterniusToM3, type M3GameplayRetargetReport } from "./m3-game
 /**
  * Step 3 preview-only actor using the existing CharacterAnimationController.
  * It has no independent timeline and accepts only externally supplied song time.
- * Not wired to MatchManifest / START until choreography fidelity is approved.
+ * Also reused in QA-gated real Stage3D (Step 3.1); choreography remains provisional.
  */
 export class M3GameplayQaActor implements CharacterPresentation {
   readonly root = new THREE.Group();
@@ -27,7 +27,11 @@ export class M3GameplayQaActor implements CharacterPresentation {
   report: M3GameplayRetargetReport | null = null;
   choreographySource: string | null = null;
 
-  constructor(private readonly assetId: CharacterAssetId, private readonly appearance: M3Appearance) {
+  constructor(
+    private readonly assetId: CharacterAssetId,
+    private readonly appearance: M3Appearance,
+    private readonly frozenReleaseVersion?: number,
+  ) {
     const entry = getCharacterCatalogEntry(assetId);
     if (!entry?.m3RigFamily) throw new Error("Step 3 QA requires M3 catalog rig");
     this.root.name = "M3GameplayQaRoot:" + assetId;
@@ -58,8 +62,13 @@ export class M3GameplayQaActor implements CharacterPresentation {
 
       const [gltf, published] = await Promise.all([
         sourceLoader.loadAsync(HUMAN_CHARACTER_ASSET_URL),
-        loadPublishedDanceRelease(),
+        this.frozenReleaseVersion === 0
+          ? Promise.resolve(null)
+          : loadPublishedDanceRelease(false, this.frozenReleaseVersion),
       ]);
+      if (this.frozenReleaseVersion !== undefined && this.frozenReleaseVersion > 0 && !published) {
+        throw new Error("Frozen gameplay animation release is unavailable.");
+      }
       sourceScene = gltf.scene;
       if (this.disposed) throw Error("QA actor disposed");
       const sourceMeshes: THREE.SkinnedMesh[] = [];
