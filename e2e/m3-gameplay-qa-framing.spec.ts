@@ -240,3 +240,18 @@ test("Step 3 auto-play progress cannot unmount or replace the WebGL canvas", asy
   await expect(page.getByTestId("m3-auto-progress")).toHaveCount(0);
   expect(await originalCanvas!.evaluate(node => node.isConnected)).toBe(true);
 });
+
+// Integration regression uses real publicly authored M3 VRM/wardrobe and the
+// Stage3D normalization flag. Synthetic Bone/SkinnedMesh tests alone did not
+// catch the owner Safari failure at STAGE READY.
+test("real M3 Stage3D actor normalization loads both rigs without STAGE READY error", async ({ page }) => {
+  await page.goto("/tools/m3-gameplay-step3?stage3dNormalizeProbe=1", {
+    waitUntil: "domcontentloaded",
+  });
+  const status = page.getByTestId("m3-gameplay-status");
+  const mount = page.getByTestId("m3-gameplay-render-target");
+  await expect(mount).toHaveAttribute("data-stage3d-normalize-probe", "1");
+  await expect(status).toContainText("Đã tải xong", { timeout: 90_000 });
+  await page.getByRole("button", { name: /Nam · Neurohacker/ }).click();
+  await expect(status).toContainText("Đã tải xong", { timeout: 90_000 });
+});

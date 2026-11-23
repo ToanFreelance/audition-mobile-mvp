@@ -537,7 +537,10 @@ export default function Stage3D({
         if (disposed) return;
         host.dataset.characterSource = "failed";
         host.dataset.characterError = error instanceof Error ? error.message : String(error);
-        onPresentationFailureRef.current?.("Không thể tải nhân vật và animation.");
+        const cause = error instanceof Error ? error.message : String(error);
+        onPresentationFailureRef.current?.(
+          m3 && m3GameplayQaEnabled ? "M3 Stage3D: " + cause : "Không thể tải nhân vật và animation.",
+        );
         console.warn("[Stage3D] actor loading failed:", error);
       });
     };

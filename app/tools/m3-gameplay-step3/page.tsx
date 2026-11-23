@@ -301,7 +301,12 @@ export default function M3GameplayStep3Qa() {
       try {
         const { M3GameplayQaActor } = await import("../../../components/character/M3GameplayQaActor");
         if (destroyed) return;
-        actor = new M3GameplayQaActor(rig as CharacterAssetId, LOOKS[rig]);
+        // Explicit regression probe: run the *real Stage3D actor constructor*
+        // against M3 VRM assets without changing the default accepted QA tool.
+        const normalizeProbe = new URLSearchParams(window.location.search)
+          .get("stage3dNormalizeProbe") === "1";
+        actor = new M3GameplayQaActor(rig as CharacterAssetId, LOOKS[rig], undefined, normalizeProbe);
+        element.dataset.stage3dNormalizeProbe = normalizeProbe ? "1" : "0";
         actorRef.current = actor;
         scene.add(actor.root);
         await actor.load();
