@@ -311,6 +311,12 @@ export default function M3GameplayStep3Qa() {
         scene.add(actor.root);
         await actor.load();
         if (destroyed) return;
+        if (normalizeProbe) {
+          const metric = actor.getStage3dNormalization();
+          if (!metric) throw new Error("Stage3D real rig normalization result missing.");
+          element.dataset.m3StageNormalizedHeight = metric.normalizedHeight.toFixed(4);
+          element.dataset.m3StageSkinnedMeshes = String(metric.attachedMeshes);
+        }
         // Freeze a single neutral-foot reference, even if Safari resizes
         // during Dance/Miss/Finish. A viewport change must never move ground.
         framingPose = captureM3GameplayQaReferencePose(actor.getQaFramingSkeleton());

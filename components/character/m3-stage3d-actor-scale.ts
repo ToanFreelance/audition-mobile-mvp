@@ -18,6 +18,8 @@ export type M3Stage3dNormalization = Readonly<{
  *
  * The authoritative M3 skeleton/animation/mixer remain the same instance;
  * no rebind, clone, independent animation clock or geometry alteration.
+ * Separate THREE.Skeleton wrappers are valid when their bones belong to this
+ * assembled actor (verified at runtime against the real authored VRMs).
  */
 export function normalizeM3Stage3dActor(
   actorRoot: THREE.Object3D, skeleton: THREE.Skeleton,
@@ -39,17 +41,30 @@ export function normalizeM3Stage3dActor(
     throw new Error("M3 Gameplay stage scale is outside its validated range.");
   }
 
-  let attachedMeshes = 0;
+  // Real VRM body meshes may each have a separate THREE.Skeleton wrapper,
+  // sometimes with a subset of joints. Object reference inequality does NOT
+  // mean the mesh uses a foreign rig. Check that EVERY skin's bones belong to
+  // this actor's scene graph instead of comparing Skeleton object pointers.
+  // Keep the full validation phase read-only; only mutate bindMode after all
+  // meshes pass, avoiding half-converted wardrobe on a rejected actor.
+  const ownBones = new Set<THREE.Object3D>();
+  actorRoot.traverse(node => {
+    if ((node as THREE.Bone).isBone) ownBones.add(node);
+  });
+  const skinnedMeshes: THREE.SkinnedMesh[] = [];
   actorRoot.traverse(node => {
     const skinned = node as THREE.SkinnedMesh;
     if (!skinned.isSkinnedMesh) return;
-    if (skinned.skeleton !== skeleton) {
-      throw new Error("M3 Gameplay stage contains a foreign wardrobe skeleton.");
+    if (!skinned.skeleton?.bones.length ||
+      skinned.skeleton.bones.some(bone => !ownBones.has(bone))) {
+      throw new Error("M3 Gameplay stage contains a foreign wardrobe skeleton (bones outside actor).");
     }
-    skinned.bindMode = "attached";
-    attachedMeshes++;
+    skinnedMeshes.push(skinned);
   });
-  if (!attachedMeshes) throw new Error("M3 Gameplay stage has no skinned geometry.");
+  if (!skinnedMeshes.length) throw new Error("M3 Gameplay stage has no skinned geometry.");
+
+  for (const mesh of skinnedMeshes) mesh.bindMode = "attached";
+  const attachedMeshes = skinnedMeshes.length;
 
   // In-place private gameplay assembly, not a shared Creator/Waiting Room source.
   actorRoot.scale.setScalar(scale);

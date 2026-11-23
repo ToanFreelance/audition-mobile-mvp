@@ -251,7 +251,18 @@ test("real M3 Stage3D actor normalization loads both rigs without STAGE READY er
   const status = page.getByTestId("m3-gameplay-status");
   const mount = page.getByTestId("m3-gameplay-render-target");
   await expect(mount).toHaveAttribute("data-stage3d-normalize-probe", "1");
-  await expect(status).toContainText("Đã tải xong", { timeout: 90_000 });
+  // Stop promptly on an explicit runtime rejection; don't spend 90 seconds
+  // polling "ready" after the actor already failed.
+  const expectRigReady = async () => {
+    await expect(status).toContainText(/Đã tải xong|LỖI:/, { timeout: 90_000 });
+    expect(await status.textContent()).toContain("Đã tải xong");
+    expect(Number(await mount.getAttribute("data-m3-stage-normalized-height")))
+      .toBeCloseTo(3.4, 1);
+    expect(Number(await mount.getAttribute("data-m3-stage-skinned-meshes")))
+      .toBeGreaterThan(1);
+  };
+  await expectRigReady();
   await page.getByRole("button", { name: /Nam · Neurohacker/ }).click();
-  await expect(status).toContainText("Đã tải xong", { timeout: 90_000 });
+  await expect(status).toContainText("Đang tải rig", { timeout: 15_000 });
+  await expectRigReady();
 });

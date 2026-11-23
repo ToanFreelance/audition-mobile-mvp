@@ -213,3 +213,19 @@ test("M3 actor normalization fails closed on malformed rig or repeated scaling",
   const empty = new THREE.Group();
   expect(() => normalizeM3Stage3dActor(empty, new THREE.Skeleton([]))).toThrow();
 });
+
+// Real M3 GLTFLoader can create multiple THREE.Skeleton wrapper objects for
+// different meshes even though every bone belongs to the assembled actor.
+test("M3 Stage3D accepts separately wrapped and subset skinned bones within one actor", () => {
+  const { root, skeleton, parts } = syntheticM3Rig();
+  const wrapper = new THREE.Skeleton([...skeleton.bones],
+    skeleton.boneInverses.map(matrix => matrix.clone()));
+  parts[1].bind(wrapper);
+  const subset = new THREE.Skeleton([skeleton.bones[0], skeleton.bones[1]]);
+  parts[2].bind(subset);
+  expect(parts[1].skeleton).not.toBe(skeleton);
+  expect(parts[2].skeleton.bones.length).toBeLessThan(skeleton.bones.length);
+  const normalized = normalizeM3Stage3dActor(root, skeleton);
+  expect(normalized.attachedMeshes).toBe(3);
+  expect(parts.every(part => part.bindMode === "attached")).toBe(true);
+});
