@@ -353,23 +353,9 @@ export default function M3GameplayStep3Qa() {
     }
   };
   const trigger = (choreography: QaAction) => {
-    const actor = actorRef.current, context = ctxRef.current;
-    if (!ready || !started || !actor || !context) return;
-    const songAt = Math.max(0, (context.currentTime - clockOriginRef.current) * 1000);
-    const id = ++eventRef.current;
-    const isFinish = choreography === "finish-special";
-    const base = { eventId: id, absoluteTurn: id, level: isFinish ? 9 : 1,
-      isFinish, actionStartSongTimeMs: songAt };
-    const event: CharacterPresentationEvent = choreography === "miss"
-      ? { ...base, kind: "fail", judgement: "miss" }
-      : { ...base, kind: "dance", judgement: "perfect",
-          choreographyId: choreography, presentationVariantKey: id };
-    if (!actor.handlePresentationEvent(event)) {
-      setError("Không áp dụng được clip " + choreography + "; kiểm tra asset retarget.");
-      return;
-    }
-    setError("");
-    setCurrent(choreography);
+    // Manual override cancels the review sequence without resetting audio.
+    stopAutoRun();
+    dispatchQaRef.current?.(choreography);
   };
 
   return (
@@ -386,12 +372,12 @@ export default function M3GameplayStep3Qa() {
         <section data-testid="m3-gameplay-sticky" style={{
           position: "sticky", top: "env(safe-area-inset-top, 0px)", zIndex: 10,
           display: "grid", gap: 10, padding: "6px 0 10px",
-          background: "#0e1129",
+          background: "#0e1129", width: "min(94%, 400px)", marginInline: "auto",
         }}>
         <div role="group" aria-label="Chọn rig M3" style={{ display: "flex", gap: 8 }}>
           {(["m3-drophunter", "m3-neurohacker"] as const).map(id => (
             <button key={id} type="button" aria-pressed={rig === id}
-              onClick={() => setRig(id)} style={{
+              onClick={() => { stopAutoRun(); setRig(id); }} style={{
                 flex: 1, minHeight: 46, borderRadius: 9, fontWeight: 700,
                 border: rig === id ? "2px solid #f6c9ff" : "1px solid #776baa",
                 background: rig === id ? "#633fa5" : "#2b2b57", color: "#fff",
@@ -399,9 +385,15 @@ export default function M3GameplayStep3Qa() {
           ))}
         </div>
         <div ref={mountRef} data-testid="m3-gameplay-preview" style={{
-          width: "100%", height: "clamp(230px, 40dvh, 440px)",
+          position: "relative", width: "100%", height: "clamp(390px, 62dvh, 640px)",
           overflow: "hidden", borderRadius: 14, border: "1px solid #6661a5",
-        }}/>
+        }}>
+          {autoStatus && <div data-testid="m3-auto-progress" style={{
+            position: "absolute", top: 10, left: 10, zIndex: 2,
+            pointerEvents: "none", borderRadius: 8, padding: "6px 9px",
+            background: "rgba(11,14,35,0.88)", fontSize: 12, fontWeight: 700,
+          }}>{autoRunning ? "AUTO · " : ""}{autoStatus}</div>}
+        </div>
         <div role="status" data-testid="m3-gameplay-status" style={{
           fontSize: 13, padding: 8, borderRadius: 9, background: "#29264c",
         }}>
@@ -411,12 +403,34 @@ export default function M3GameplayStep3Qa() {
         </div>
         </section>
         {error && <p role="alert">{error}</p>}
-        <button type="button" disabled={!ready || started} onClick={() => void begin()}
+        <label style={{
+          display: "flex", alignItems: "center", gap: 10, width: "min(94%, 400px)",
+          marginInline: "auto", padding: "10px 12px", borderRadius: 9,
+          background: "#242344", fontSize: 13, cursor: "pointer",
+        }}>
+          <input data-testid="m3-auto-play" type="checkbox" checked={autoPlayAll}
+            onChange={event => toggleAutoPlay(event.currentTarget.checked)}
+            style={{ width: 19, height: 19, flexShrink: 0, accentColor: "#ab7dea" }} />
+          <span>Tự động play 10 động tác theo thứ tự
+            {autoRunning ? " · đang chạy" : ""}</span>
+        </label>
+        <button type="button" disabled={!ready || started} onClick={() => void begin()
           style={{ background: "#7752c4", color: "#fff", minHeight: 45, borderRadius: 9,
+            width: "min(94%, 400px)", marginInline: "auto",
             fontWeight: 800, opacity: ready && !started ? 1 : 0.5 }}>
           START QA AUDIOCONTEXT (không START phòng)
         </button>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 9 }}>
+        {autoPlayAll && started && <button type="button"
+          data-testid="m3-auto-replay" disabled={!ready || autoRunning}
+          onClick={startAutoRun} style={{
+            width: "min(94%, 400px)", marginInline: "auto",
+            background: "#36365e", border: "1px solid #8c85bb",
+            borderRadius: 9, color: "#f5f1ff", minHeight: 38,
+            opacity: autoRunning ? 0.55 : 1,
+          }}>▶ Phát lại toàn bộ 10 động tác</button>}
+        <div data-testid="m3-action-grid" style={{
+          width: "min(94%, 400px)", marginInline: "auto",
+          display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 9 }}>
           {QA_ACTIONS.map(([id, title]) => (
             <button key={id} type="button" disabled={!ready || !started}
               onClick={() => trigger(id)} style={{
