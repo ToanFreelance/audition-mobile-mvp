@@ -564,7 +564,7 @@ export default function WaitingRoomPanel({
     let transport: SupabaseRealtimeRoomTransport | null = null;
     let resumePromise: Promise<void> | null = null;
     let canonicalRefreshPromise: Promise<RoomState> | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryTimer: number | null = null;
     let retryAttempt = 0;
     const key = `${syncOptions.roomId}:${syncOptions.participantId}:${syncOptions.role}`;
     const health = (state: "checking" | "verified" | "error", message?: string) => {
