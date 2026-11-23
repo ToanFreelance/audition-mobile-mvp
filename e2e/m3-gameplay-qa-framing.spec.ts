@@ -134,3 +134,42 @@ test("Silhouette calibration rejects transparent or opaque framebuffer reads", (
   for (let i = 3; i < empty.length; i += 4) empty[i] = 255;
   expect(() => measureM3QaSilhouette(empty, 32, 32)).toThrow(/unreadable/);
 });
+
+test("Step 3 canvas CSS box equals preview viewport even when device DPR is 3", async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto("/tools/m3-gameplay-step3", { waitUntil: "domcontentloaded" });
+    const host = page.getByTestId("m3-gameplay-preview");
+    const canvas = host.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const measurements = await host.evaluate(element => {
+      const canvas = element.querySelector("canvas");
+      if (!canvas) throw new Error("Missing Step 3 canvas");
+      const frame = element.getBoundingClientRect();
+      const rendered = canvas.getBoundingClientRect();
+      return {
+        frameWidth: frame.width,
+        frameHeight: frame.height,
+        canvasCssWidth: rendered.width,
+        canvasCssHeight: rendered.height,
+        backingWidth: canvas.width,
+        backingHeight: canvas.height,
+        devicePixelRatio: window.devicePixelRatio,
+      };
+    });
+    expect(measurements.devicePixelRatio).toBe(3);
+    expect(Math.abs(measurements.canvasCssWidth - measurements.frameWidth)).toBeLessThan(3);
+    expect(Math.abs(measurements.canvasCssHeight - measurements.frameHeight)).toBeLessThan(3);
+    // The backing buffer is intentionally denser than its CSS display area.
+    expect(measurements.backingWidth).toBeGreaterThan(measurements.canvasCssWidth * 1.2);
+    expect(measurements.backingHeight).toBeGreaterThan(measurements.canvasCssHeight * 1.2);
+  } finally {
+    await context.close();
+  }
+});
