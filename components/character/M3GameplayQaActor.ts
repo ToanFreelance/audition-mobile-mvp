@@ -9,7 +9,7 @@ import type {
 import { HUMAN_CHARACTER_ASSET_URL, loadHumanAnimationLibrary } from "./human-animation-library";
 import { applyPublishedDanceRelease, loadPublishedDanceRelease } from "./published-animation-library";
 import { retargetQuaterniusToM3, type M3GameplayRetargetReport } from "./m3-gameplay-retarget";
-import { captureM3GameplayQaReferencePose } from "./m3-gameplay-qa-framing";
+import { normalizeM3Stage3dActor, type M3Stage3dNormalization } from "./m3-stage3d-actor-scale";
 
 /**
  * Step 3 preview-only actor using the existing CharacterAnimationController.
@@ -27,11 +27,13 @@ export class M3GameplayQaActor implements CharacterPresentation {
   private pendingEvent: CharacterPresentationEvent | null = null;
   report: M3GameplayRetargetReport | null = null;
   choreographySource: string | null = null;
+  private stageNormalization: M3Stage3dNormalization | null = null;
 
   constructor(
     private readonly assetId: CharacterAssetId,
     private readonly appearance: M3Appearance,
     private readonly frozenReleaseVersion?: number,
+    private readonly normalizeForStage3d = false,
   ) {
     const entry = getCharacterCatalogEntry(assetId);
     if (!entry?.m3RigFamily) throw new Error("Step 3 QA requires M3 catalog rig");
@@ -45,11 +47,9 @@ export class M3GameplayQaActor implements CharacterPresentation {
       const assembly = await M3CharacterAssembler.create(this.assetId, this.appearance);
       if (this.disposed) { assembly.dispose(); throw Error("QA actor disposed"); }
       this.assembly = assembly;
-      // CRITICAL: M3 wardrobe uses detached SkinnedMesh bindings. Scaling or
-      // translating ANY ancestor of the canonical VRM rig makes garments and
-      // shoes explode (the owner's iPhone Step 3 screenshots). The accepted
-      // Creator preserves the VRM transform; Step 3 must do the same.
-      // Frame the character by camera/floor only in the isolated QA route.
+      // Creator/isolated QA preserve the canonical detached native bind space.
+      // The real Stage3D may normalize only AFTER converting its private
+      // M3 gameplay assembly's skins to attached binding, like Waiting Room.
       assembly.root.updateMatrixWorld(true);
       const bounds = new THREE.Box3().setFromObject(assembly.root);
       const height = bounds.getSize(new THREE.Vector3()).y;
@@ -115,6 +115,9 @@ export class M3GameplayQaActor implements CharacterPresentation {
       // Zero song-time is a presentation sample, not an independent clock.
       this.controller.update(0, 0);
       assembly.root.updateMatrixWorld(true);
+      if (this.normalizeForStage3d) {
+        this.stageNormalization = normalizeM3Stage3dActor(assembly.root, assembly.skeleton);
+      }
       return {
         source: "gltf", assetUrl: getCharacterCatalogEntry(this.assetId)!.assetUrl,
         idleClip: "Idle",
@@ -139,17 +142,9 @@ export class M3GameplayQaActor implements CharacterPresentation {
     return this.assembly.skeleton;
   }
 
-  /** Native skeleton measurement used by the real Stage3D camera only.
-   * Does NOT change the actor root, skeleton, wardrobe or animation timeline. */
-  getStage3dNativeHeight(): number {
-    if (!this.assembly?.skeleton) throw new Error("M3 Stage3D skeleton is not loaded.");
-    this.assembly.root.updateMatrixWorld(true);
-    const reference = captureM3GameplayQaReferencePose(this.assembly.skeleton);
-    const height = reference.head.y - Math.min(...reference.feet.map(foot => foot.y));
-    if (!(height > 0) || !Number.isFinite(height)) {
-      throw new Error("M3 Stage3D native skeleton height is invalid.");
-    }
-    return height;
+  /** Gameplay-only normalized actor metrics. Isolated Step 3 QA remains native. */
+  getStage3dNormalization(): M3Stage3dNormalization | null {
+    return this.stageNormalization;
   }
 
   /** Isolated QA sequencer reads the selected controller clip's true duration.
@@ -184,6 +179,7 @@ export class M3GameplayQaActor implements CharacterPresentation {
     }
     this.mixer = null;
     this.clips = [];
+    this.stageNormalization = null;
     this.root.clear();
     this.assembly?.dispose();
     this.assembly = null;

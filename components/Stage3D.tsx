@@ -7,7 +7,6 @@ import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
 import type { CharacterPresentation, CharacterPresentationEvent } from "./character/character-types";
 import { frozenStageActorIdentityKey, resolveM3Stage3dAvatar } from "./character/m3-stage3d-qa-gate";
-import { frameM3Stage3dGameplayCamera } from "./character/m3-stage3d-camera";
 import type { AvatarSnapshot } from "../multiplayer/types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
 import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
@@ -475,8 +474,6 @@ export default function Stage3D({
     let disposed = false;
     let character: CharacterPresentation | null = null;
     let characterSettled = hideCharacter;
-    // Measured after the M3 Idle pose is evaluated. Camera-only: actor bind space remains native.
-    let m3NativeHeight: number | null = null;
     let qaActorModelReady = false;
     let qaLastActorCount = -1;
     const qaFormationCopies: THREE.Object3D[] = [];
@@ -495,7 +492,7 @@ export default function Stage3D({
           onPresentationFailureRef.current?.("M3 bind-space root is not identity.");
           return;
         }
-        host.dataset.m3BindSpace = "native";
+        host.dataset.m3BindSpace = "native-until-gameplay-assembly-ready";
       } else {
         actor.root.position.set(
           CHARACTER_STAGE_POSITION.x,
@@ -519,13 +516,16 @@ export default function Stage3D({
           return;
         }
         if (m3) {
-          const stageActor = actor as CharacterPresentation & { getStage3dNativeHeight?: () => number };
-          const measured = stageActor.getStage3dNativeHeight?.();
-          if (measured === undefined || !Number.isFinite(measured) || measured <= 0) {
-            throw new Error("M3 Gameplay camera cannot measure the native skeleton.");
+          const stageActor = actor as CharacterPresentation & {
+            getStage3dNormalization?: () => { scale: number; normalizedHeight: number; attachedMeshes: number } | null;
+          };
+          const normalization = stageActor.getStage3dNormalization?.();
+          if (!normalization || normalization.attachedMeshes < 1) {
+            throw new Error("M3 Gameplay skinned actor normalization is missing.");
           }
-          m3NativeHeight = measured;
-          host.dataset.m3NativeHeight = measured.toFixed(4);
+          host.dataset.m3BindSpace = "attached-normalized-stage3d";
+          host.dataset.m3StageScale = normalization.scale.toFixed(4);
+          host.dataset.m3StageHeight = normalization.normalizedHeight.toFixed(4);
         }
         characterSettled = true;
         qaActorModelReady = true;
@@ -563,7 +563,7 @@ export default function Stage3D({
           // Legacy C1/C4 clients never import M3 actor/retarget chunks.
           void import("./character/M3GameplayQaActor").then(({ M3GameplayQaActor }) => {
             if (!disposed) attachActor(new M3GameplayQaActor(
-              m3Choice.assetId, m3Choice.appearance, m3FrozenReleaseVersion,
+              m3Choice.assetId, m3Choice.appearance, m3FrozenReleaseVersion, true,
             ), true);
           }).catch(error => {
             if (disposed) return;
@@ -694,12 +694,9 @@ export default function Stage3D({
         && basketballPose.preset === "gameplay_portrait_locked"
         ? { ...basketballPose, ...getHauntedClassroomFrame(basketballPose, portrait) }
         : basketballPose;
-      const environmentPose = visualCompareMode && neonPresentation
+      const pose = visualCompareMode && neonPresentation
         ? getNeonGoldenComparePose(neonPose)
         : classroomPose;
-      const pose = !visualCompareMode && m3GameplayQaEnabled
-        ? frameM3Stage3dGameplayCamera(environmentPose, portrait, m3NativeHeight)
-        : environmentPose;
       host.dataset.presentationCamera = pose.preset;
       if (qaFormationEnabled) {
         // iPhone QA instrumentation: confirms the camera pose remains exactly
