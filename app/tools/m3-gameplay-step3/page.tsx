@@ -21,6 +21,8 @@ const QA_ACTIONS = [
   ["miss", "Miss"], ["finish-special", "Finish L9"],
 ] as const;
 type QaAction = (typeof QA_ACTIONS)[number][0];
+const AUTO_QA_GAP_MS = 350; // Visual breathing room only; not a gameplay turn.
+type AutoQaRun = { nextIndex: number; nextSongTimeMs: number };
 const LOOKS = {
   "m3-drophunter": { hairStyle: "short", hairColor: "red",
     skinTone: "originalskin", m3Outfit: { top: "shirt", bottom: "casualshorts" } },
@@ -34,6 +36,9 @@ export default function M3GameplayStep3Qa() {
   const ctxRef = useRef<AudioContext | null>(null);
   const clockOriginRef = useRef(0);
   const eventRef = useRef(0);
+  const dispatchQaRef = useRef<((action: QaAction) => number | null) | null>(null);
+  const autoRunRef = useRef<AutoQaRun | null>(null);
+  const autoEnabledRef = useRef(false);
   const [rig, setRig] = useState<Rig>("m3-drophunter");
   const [ready, setReady] = useState(false);
   const [started, setStarted] = useState(false);
@@ -42,6 +47,28 @@ export default function M3GameplayStep3Qa() {
   const [error, setError] = useState("");
   const [current, setCurrent] = useState("Idle");
   const [songMs, setSongMs] = useState(0);
+  const [autoPlayAll, setAutoPlayAll] = useState(false);
+  const [autoRunning, setAutoRunning] = useState(false);
+  const [autoStatus, setAutoStatus] = useState("");
+
+  const stopAutoRun = () => {
+    autoRunRef.current = null;
+    setAutoRunning(false);
+    setAutoStatus("");
+  };
+  const startAutoRun = () => {
+    if (!ready || !ctxRef.current || ctxRef.current.state !== "running") return;
+    // The first action starts at the next animation frame's current audio song time.
+    autoRunRef.current = { nextIndex: 0, nextSongTimeMs: 0 };
+    setAutoRunning(true);
+    setAutoStatus("Chuẩn bị phát 10 động tác");
+  };
+  const toggleAutoPlay = (enabled: boolean) => {
+    autoEnabledRef.current = enabled;
+    setAutoPlayAll(enabled);
+    if (!enabled) stopAutoRun();
+    else if (started) startAutoRun();
+  };
 
   // Preview clock ONLY. Gameplay uses frozen MatchManifest and WebAudio track
   // clock; this isolated route cannot issue Host START or modify room status.
@@ -49,6 +76,8 @@ export default function M3GameplayStep3Qa() {
     const element = mountRef.current;
     if (!element) return;
     let destroyed = false, raf = 0;
+    autoRunRef.current = null;
+    setAutoRunning(false); setAutoStatus("");
     setReady(false); setStarted(false); setReport(null);
     setChoreographySource(null); setError(""); setCurrent("Idle");
     void ctxRef.current?.close().catch(() => {});
@@ -205,6 +234,35 @@ export default function M3GameplayStep3Qa() {
     }
     const observer = new ResizeObserver(resize); observer.observe(element);
     resize();
+    // Every QA action uses the existing song-time presentation controller.
+    // Report actual clip duration so the automatic review shows full clips.
+    const dispatchQa = (choreography: QaAction): number | null => {
+      const context = ctxRef.current;
+      if (!actor || !context || context.state !== "running") return null;
+      const songAt = Math.max(0, (context.currentTime - clockOriginRef.current) * 1000);
+      const id = ++eventRef.current;
+      const isFinish = choreography === "finish-special";
+      const base = { eventId: id, absoluteTurn: id, level: isFinish ? 9 : 1,
+        isFinish, actionStartSongTimeMs: songAt };
+      const event: CharacterPresentationEvent = choreography === "miss"
+        ? { ...base, kind: "fail", judgement: "miss" }
+        : { ...base, kind: "dance", judgement: "perfect",
+            choreographyId: choreography, presentationVariantKey: id };
+      if (!actor.handlePresentationEvent(event)) {
+        setError("Không áp dụng được clip " + choreography + "; kiểm tra asset retarget.");
+        return null;
+      }
+      const duration = actor.getQaActiveClipDurationMs();
+      if (!duration) {
+        setError("Không lấy được thời lượng thực của clip " + choreography);
+        return null;
+      }
+      setError("");
+      setCurrent(choreography);
+      return duration;
+    };
+    dispatchQaRef.current = dispatchQa;
+
     let previous = performance.now(), uiAt = 0;
     const tick = (now: number) => {
       if (destroyed) return;
@@ -213,6 +271,26 @@ export default function M3GameplayStep3Qa() {
       const context = ctxRef.current;
       const songTime = context && context.state === "running"
         ? Math.max(0, (context.currentTime - clockOriginRef.current) * 1000) : 0;
+      const run = autoRunRef.current;
+      if (run && context?.state === "running" && songTime >= run.nextSongTimeMs) {
+        if (run.nextIndex < QA_ACTIONS.length) {
+          const [action, label] = QA_ACTIONS[run.nextIndex];
+          const durationMs = dispatchQa(action);
+          if (durationMs === null) {
+            autoRunRef.current = null;
+            setAutoRunning(false);
+            setAutoStatus("Auto QA dừng vì clip lỗi");
+          } else {
+            run.nextIndex++;
+            run.nextSongTimeMs = songTime + durationMs + AUTO_QA_GAP_MS;
+            setAutoStatus(run.nextIndex + "/10 · " + label);
+          }
+        } else {
+          autoRunRef.current = null;
+          setAutoRunning(false);
+          setAutoStatus("Hoàn tất 10/10 · Có thể phát lại");
+        }
+      }
       actor?.update(delta, now / 1000, songTime);
       if (now - uiAt > 250) { uiAt = now; setSongMs(Math.round(songTime)); }
       renderer.render(scene, camera);
@@ -244,6 +322,8 @@ export default function M3GameplayStep3Qa() {
       destroyed = true;
       cancelAnimationFrame(raf); observer.disconnect();
       actor?.dispose();
+      autoRunRef.current = null;
+      if (dispatchQaRef.current === dispatchQa) dispatchQaRef.current = null;
       if (actorRef.current === actor) actorRef.current = null;
       void ctxRef.current?.close().catch(() => {});
       ctxRef.current = null;
@@ -263,6 +343,11 @@ export default function M3GameplayStep3Qa() {
       ctxRef.current = context;
       actorRef.current?.setGameActive(true);
       setStarted(true);
+      if (autoEnabledRef.current) {
+        autoRunRef.current = { nextIndex: 0, nextSongTimeMs: 0 };
+        setAutoRunning(true);
+        setAutoStatus("Chuẩn bị phát 10 động tác");
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "AudioContext unavailable");
     }
