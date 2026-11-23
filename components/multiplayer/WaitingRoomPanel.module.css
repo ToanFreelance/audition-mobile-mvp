@@ -1523,3 +1523,26 @@
 .stageLaunchOverlay .preloadAudioState:has(> [data-testid="p55-audio-state"]){
   display:contents;
 }
+
+/* Waiting-only, non-blocking sync feedback; outside the accepted stage layout.
+ * Keep the gear, Host/Guest label and camera presets in their original slots. */
+.headerRight{position:relative}
+.syncIndicator{
+  position:absolute;top:calc(100% + 3px);right:0;z-index:15;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid rgba(85,225,180,.6);
+  border-radius:8px;padding:3px 5px;white-space:nowrap;
+  background:rgba(8,27,43,.90);color:#80ffcf;
+  font:700 8px/1.1 Inter,ui-sans-serif,system-ui,sans-serif;
+  letter-spacing:.01em;box-shadow:0 0 10px rgba(55,190,230,.12);
+  pointer-events:none;
+}
+.syncIndicator[data-sync-state="syncing"],
+.syncIndicator[data-sync-state="reconnecting"]{
+  color:#9cdeff;border-color:rgba(96,179,255,.7);
+  background:rgba(10,26,58,.94);
+}
+.syncIndicator[data-sync-state="offline"]{
+  color:#ffd38f;border-color:rgba(249,182,87,.65);
+  background:rgba(42,26,12,.94);
+}

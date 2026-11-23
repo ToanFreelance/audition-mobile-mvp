@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createWebAudioContext, WebAudioTransport } from "../../game/web-audio-transport";
 import { RoomMetadataTransportError, isRetryableRoomMetadataError } from "../../multiplayer/room-metadata-retry";
+import {
+  shouldAutoRecoverWaitingRoom, waitingRoomSyncIndicatorState, waitingRoomSyncRetryDelay,
+} from "../../multiplayer/waiting-room-auto-sync";
 import { retryReadyCas } from "../../multiplayer/ready-cas-retry";
 import { retryPreloadCas, type PreloadCasAction } from "../../multiplayer/preload-cas-retry";
 import {
@@ -381,6 +384,17 @@ export default function WaitingRoomPanel({
     : null);
   const [syncStatus, setSyncStatus] = useState<RoomTransportStatus>("idle");
   const [syncDetail, setSyncDetail] = useState<string | null>(null);
+  const [browserOnline, setBrowserOnline] = useState(true);
+  useEffect(() => {
+    const update = () => setBrowserOnline(navigator.onLine !== false);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
   const [readyIntentPending, setReadyIntentPending] = useState(false);
   const [leaveIntentPending, setLeaveIntentPending] = useState(false);
   const [manualHostTransferPending, setManualHostTransferPending] = useState(false);
@@ -459,6 +473,16 @@ export default function WaitingRoomPanel({
   };
   const canonicalVerified = !syncOptions || (canonicalSync?.key === syncKey
     && canonicalSync.state === "verified" && syncStatus === "connected");
+  const roomSyncVisual = waitingRoomSyncIndicatorState(
+    canonicalSync?.key === syncKey ? canonicalSync.state : null,
+    syncStatus === "connected", browserOnline,
+  );
+  const roomSyncVisualText = {
+    synced: "✓ SYNC",
+    syncing: "↻ SYNC",
+    reconnecting: "↻ RETRY",
+    offline: "○ OFFLINE",
+  }[roomSyncVisual];
 
   // Entry Flow: don't start the expensive reflector/actor WebGL pipeline while
   // room authority is still being verified. Latch after first confirmation:
@@ -541,15 +565,35 @@ export default function WaitingRoomPanel({
     let resumePromise: Promise<void> | null = null;
     let canonicalRefreshPromise: Promise<RoomState> | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryAttempt = 0;
     const key = `${syncOptions.roomId}:${syncOptions.participantId}:${syncOptions.role}`;
     const health = (state: "checking" | "verified" | "error", message?: string) => {
       if (!disposed) setCanonicalHealth({ key, state, message });
     };
+    // Only canonical GET + Realtime reconnect may run automatically; no
+    // mutation retry, START replay, actor replacement or gameplay clock change.
+    const scheduleWaitingRecovery = (error: unknown) => {
+      if (disposed || retryTimer || !shouldAutoRecoverWaitingRoom(
+        roomRef.current.status, navigator.onLine !== false,
+        document.visibilityState === "visible", error,
+      )) return;
+      const delay = waitingRoomSyncRetryDelay(retryAttempt++);
+      retryTimer = window.setTimeout(() => {
+        retryTimer = null;
+        if (!disposed && shouldAutoRecoverWaitingRoom(
+          roomRef.current.status, navigator.onLine !== false,
+          document.visibilityState === "visible",
+        )) void resumeFromServer();
+      }, delay);
+    };
     const syncError = (error: unknown) => {
       if (disposed) return;
-      health("error", "Chưa đồng bộ được phòng. Kiểm tra kết nối rồi bấm ĐỒNG BỘ LẠI PHÒNG.");
+      const message = error instanceof Error ? error.message : "Room synchronization failed.";
+      health("error", roomRef.current.status === "waiting"
+        ? "Đang kết nối lại phòng…" : "Chưa đồng bộ được phòng. Hãy thử đồng bộ lại.");
       setSyncStatus(transport?.status === "connected" ? "connected" : "error");
-      setSyncDetail(error instanceof Error ? error.message : "Room synchronization failed.");
+      setSyncDetail(message);
+      scheduleWaitingRecovery(error);
     };
     readyAttemptRef.current = null;
     setReadyIntentPending(false);
@@ -801,6 +845,8 @@ export default function WaitingRoomPanel({
           health("verified");
           setSyncStatus("connected");
           setSyncDetail("Server-authoritative room synced.");
+          retryAttempt = 0;
+          if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
         } catch (error) { syncError(error); }
         finally { resumePromise = null; }
       })();
@@ -817,14 +863,9 @@ export default function WaitingRoomPanel({
     }
     cleanups.push(() => document.removeEventListener("visibilitychange", handleForeground));
     recoverRoomSyncRef.current = resumeFromServer;
-    const initialAttempt = async (attempt: number) => {
-      await resumeFromServer();
-      if (!disposed && canonicalSyncRef.current?.key === key
-        && canonicalSyncRef.current.state !== "verified" && attempt < 2) {
-        retryTimer = setTimeout(() => void initialAttempt(attempt + 1), 400 * (attempt + 1));
-      }
-    };
-    void initialAttempt(0);
+    // Initial connection and every subsequent transient failure share one
+    // backoff policy, including Safari background/foreground transitions.
+    void resumeFromServer();
 
     return () => {
       disposed = true;
@@ -1972,10 +2013,13 @@ export default function WaitingRoomPanel({
       setFrozenMatchManifest(null);
       const reason = error instanceof Error ? error.message : "Match freeze failed.";
       if (syncKey) setCanonicalHealth({
-        key: syncKey, state: "error",
-        message: `START thất bại: ${reason}. Hãy đồng bộ lại phòng sau khi kiểm tra lỗi.`,
+        key: syncKey, state: "checking",
+        message: "Đang xác minh lại phòng sau START thất bại…",
       });
       setSyncDetail(reason);
+      // A rejected START does not imply a broken Waiting Room. Re-read the
+      // canonical room automatically; do not replay START or recreate actors.
+      if (roomRef.current.status === "waiting") void recoverRoomSyncRef.current?.();
     }).finally(() => {
       setStartIntentPending(false);
     });
@@ -2209,6 +2253,13 @@ export default function WaitingRoomPanel({
           <div className={styles.headerRight}>
             <button className={styles.iconButton} data-testid="room-settings-button" onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
             <small data-testid="sync-status" className={syncOptions ? (syncStatus === "connected" ? styles.syncLive : styles.syncOffline) : ""}>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${hostView ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
+            {syncOptions && room.status === "waiting" && (
+              <span className={styles.syncIndicator}
+                data-testid="room-sync-indicator" data-sync-state={roomSyncVisual}
+                role="status" aria-live="polite"
+                title={canonicalSync?.message ?? "Trạng thái đồng bộ phòng"}
+              >{roomSyncVisualText}</span>
+            )}
           </div>
         </header>
 
@@ -2547,23 +2598,9 @@ export default function WaitingRoomPanel({
           </div>
         )}
 
-        {syncOptions && !canonicalVerified && !matchStartSession && !startIntentPending && (
-          <div className={`${styles.preloadOverlay} ${styles.roomSyncOverlay}`} data-testid="room-sync-overlay"
-            role="dialog" aria-modal="true" aria-label="Đang kết nối phòng">
-          <StageLaunchArtwork />
-          <section className={styles.preloadBanner}>
-            <div className={styles.launchBrand}>DANCE UP <span>✦ CONNECT</span></div>
-            <strong>ĐANG KẾT NỐI PHÒNG</strong>
-            <span>Đang xác minh trạng thái phòng...</span>
-          <div className={styles.preloadAudioState} role="status" data-testid="room-sync-recovery">
-            <small className={styles.preloadAudioError}>{canonicalSync?.message ?? "Đang xác minh trạng thái phòng…"}</small>
-            <button className={styles.preloadAudioButton} type="button" data-testid="retry-room-sync"
-              disabled={canonicalSync?.state === "checking"}
-              onClick={() => void recoverRoomSyncRef.current?.()}>ĐỒNG BỘ LẠI PHÒNG</button>
-          </div>
-          </section>
-          </div>
-        )}
+        {/* Waiting Room stays visible during automatic canonical reconnection.
+            The compact sync indicator by Settings replaces the blocking poster.
+            PRELOADING/COUNTDOWN recovery UI remains separate and unchanged. */}
         {readyFailure && room.status === "waiting" && viewer.kind === "human" && viewer.role === "guest" && (
           <div className={styles.preloadAudioState} role="alert" data-testid="ready-recovery">
             <small className={styles.preloadAudioError}>{readyFailure.message}</small>
