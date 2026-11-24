@@ -1,0 +1,52 @@
+name: Security real Auth and M3 duo QA
+on:
+  push:
+    branches: [work/p5-7-match-warmup-v1]
+    paths:
+      - "e2e/security-real-auth-duo.spec.ts"
+      - ".github/workflows/security-real-auth-duo.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: security-real-auth-duo
+  cancel-in-progress: false
+jobs:
+  real-auth-duo:
+    if: github.ref == 'refs/heads/work/p5-7-match-warmup-v1'
+    environment: security-auth-qa
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CI: "true"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require dedicated QA secret
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_QA_SECRET_KEY }}
+        run: |
+          if [[ "$SUPABASE_SERVICE_ROLE_KEY" != sb_secret_* ]]; then
+            echo "::error::Missing environment secret SUPABASE_QA_SECRET_KEY in security-auth-qa"
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Run real two-account security QA
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_QA_SECRET_KEY }}
+          SECURITY_AUTH_REAL_QA: "1"
+          PLAYWRIGHT_WEB_SERVER: "1"
+        run: |
+          export ROOM_GUEST_SESSION_SECRET="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+          echo "::add-mask::$ROOM_GUEST_SESSION_SECRET"
+          npx playwright test e2e/security-real-auth-duo.spec.ts --project=desktop --workers=1 --retries=0 --reporter=list
+      # No upload of browser traces or credentials. Test prints only case status.
