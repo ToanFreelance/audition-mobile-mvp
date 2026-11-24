@@ -4,6 +4,8 @@ on:
     branches: [work/p5-7-match-warmup-v1]
     paths:
       - "e2e/security-real-auth-duo.spec.ts"
+      - "components/Stage3D.tsx"
+      - "components/character/character-profile.ts"
       - "e2e/p57-real-benchmark.spec.ts"
       - "app/api/music-config/**"
       - "app/api/music-library/**"
