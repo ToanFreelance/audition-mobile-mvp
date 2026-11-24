@@ -67,7 +67,9 @@ test("room browser gem and top-up centers align on iPhone portrait", async ({ pa
     status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rooms: [] }),
   }));
   await page.goto("/rooms");
-  const centers = await page.locator('[aria-label="0 coin"], [aria-label="0 gem"], [aria-label="Thông tin coin và gem"]').evaluateAll(els =>
+  const balances = page.locator('[aria-label="0 coin"], [aria-label="0 gem"], [aria-label="Thông tin coin và gem"]');
+  await expect(balances).toHaveCount(3);
+  const centers = await balances.evaluateAll(els =>
     els.map(el => {
       const rect = el.getBoundingClientRect();
       return { y: rect.top + rect.height / 2, h: rect.height };

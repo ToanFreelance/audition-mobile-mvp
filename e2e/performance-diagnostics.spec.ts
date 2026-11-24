@@ -146,7 +146,10 @@ test("real multiplayer wiring preserves disabled callback and stage effect ident
   expect(panel).toContain(': setGameplayPresentationJudgement');
   expect(panel).toContain('performanceDiagnostics={performanceDiagnostics}');
   expect(live).toContain('performanceDiagnostics={props.performanceDiagnostics}');
-  expect(stage).toContain('[stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId]');
+  // Stage recreation is keyed by actual frozen actor/release/cinematic identity,
+  // never participant READY/presence, song time or diagnostics snapshots.
+  expect(stage).toContain('[stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, frozenActorKey, m3FrozenReleaseVersion, skipIntroCamera, cinematicMatchId]');
+  expect(stage).toContain('frozenStageActorIdentityKey(characterAvatar)');
   expect(live).toContain('props.runtime.markAudioEnded()');
   expect(live).toContain('props.transport.getCurrentTimeMs()');
 });
