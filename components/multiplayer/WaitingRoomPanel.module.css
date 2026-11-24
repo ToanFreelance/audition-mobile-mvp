@@ -1546,3 +1546,8 @@
   color:#ffd38f;border-color:rgba(249,182,87,.65);
   background:rgba(42,26,12,.94);
 }
+
+/* P5.7A local-only preparation hint; no new overlay or roster layout. */
+.assetWarmupIndicator{color:#9cdeff}
+.assetWarmupIndicator[data-warmup-state="ready"]{color:#80ffcf}
+.assetWarmupIndicator[data-warmup-state="partial"]{color:#ffd38f}

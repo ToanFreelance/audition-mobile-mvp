@@ -61,6 +61,7 @@ import { getCharacterCatalogEntry } from "../character/character-catalog";
 import { roomContainsNonPlayableCharacter } from "../character/m3-lobby-appearance";
 import { isM3CatalogAvatar } from "../character/m3-stage3d-qa-gate";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
+import { useLobbyAssetWarmup } from "./useLobbyAssetWarmup";
 import StageLaunchArtwork from "./StageLaunchArtwork";
 import PreparingStagePanel from "./PreparingStagePanel";
 import { recordC3StartCheckpoint } from "./c3-start-trace";
@@ -471,6 +472,10 @@ export default function WaitingRoomPanel({
   };
   const canonicalVerified = !syncOptions || (canonicalSync?.key === syncKey
     && canonicalSync.state === "verified" && syncStatus === "connected");
+  // Local speculative preparation only. A START must never wait on this hook;
+  // frozen PRELOADING remains the sole LOADED authority.
+  const assetWarmup = useLobbyAssetWarmup(room, Boolean(syncOptions && canonicalVerified
+    && browserOnline && room.status === "waiting" && !leftRoom && !leaveIntentPending && !startIntentPending));
   const roomSyncVisual = waitingRoomSyncIndicatorState(
     canonicalSync?.key === syncKey ? canonicalSync.state : null,
     syncStatus === "connected", browserOnline,
@@ -2252,7 +2257,14 @@ export default function WaitingRoomPanel({
                 data-testid="room-sync-indicator" data-sync-state={roomSyncVisual}
                 role="status" aria-live="polite"
                 title={canonicalSync?.message ?? "Trạng thái đồng bộ phòng"}
-              >{roomSyncVisualText}</span>
+              >{roomSyncVisualText}{assetWarmup && (
+                <span data-testid="room-asset-warmup" data-warmup-state={assetWarmup.phase}
+                  className={styles.assetWarmupIndicator}
+                  title="Chuẩn bị tài nguyên trước trận trên thiết bị này; START vẫn kiểm tra chính thức."
+                >{" · "}{assetWarmup.phase === "ready" ? "✓ ASSETS"
+                  : assetWarmup.phase === "partial" ? "ASSET CHECK"
+                  : assetWarmup.total ? `ASSETS ${assetWarmup.completed}/${assetWarmup.total}` : "↻ ASSETS"}</span>
+              )}</span>
             )}
           </div>
         </header>
