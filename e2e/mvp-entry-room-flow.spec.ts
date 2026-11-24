@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/multiplayer/guest-session", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, participantId: "guest-00000000-0000-4000-8000-000000000001" }),
+  }));
+});
+
 test("MVP entry directs a first-time player to character creation", async ({ page }) => {
   await page.goto("/rooms");
   await expect(page.getByText("Hãy tạo nhân vật trước")).toBeVisible();

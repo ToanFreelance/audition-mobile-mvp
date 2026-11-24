@@ -67,3 +67,75 @@ test("missing or publishable server credential is rejected", () => {
     else process.env.SUPABASE_SERVICE_ROLE_KEY = prior;
   }
 });
+
+test("a signed guest can create only its own valid room through backend storage; invalid mode is rejected before RPC", async () => {
+  const prior = {
+    secret: process.env.ROOM_GUEST_SESSION_SECRET, key: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    url: process.env.SUPABASE_URL, fetch: globalThis.fetch,
+  };
+  process.env.ROOM_GUEST_SESSION_SECRET = "fixture-only-guest-signing-secret-32";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "sb_secret_fixture_not_a_real_key";
+  process.env.SUPABASE_URL = "https://storage-fixture.test";
+  let writes = 0;
+  globalThis.fetch = async (url, init) => {
+    expect(String(url)).toBe("https://storage-fixture.test/rest/v1/rpc/bootstrap_lobby_room");
+    expect(new Headers(init?.headers).get("apikey")).toBe("sb_secret_fixture_not_a_real_key");
+    const payload = JSON.parse(String(init?.body)) as { p_room_id: string; p_snapshot: { revision: number; hostParticipantId: string } };
+    writes++;
+    return new Response(JSON.stringify([{ room_id: payload.p_room_id, revision: payload.p_snapshot.revision, snapshot: payload.p_snapshot }]), { status: 200 });
+  };
+  try {
+    const issue = await guestPost(request("/api/multiplayer/guest-session"));
+    const identity = await issue.json() as { participantId: string };
+    const cookie = issue.cookies.get(GUEST_COOKIE)!;
+    const body = { action: "create", roomName: "QA only", participantId: identity.participantId,
+      displayName: "QA", characterAssetId: "c1-casual-grace", modeId: "boss-preview" };
+    const invalid = request("/api/multiplayer/room", body);
+    invalid.cookies.set(GUEST_COOKIE, cookie.value);
+    expect((await roomPost(invalid)).status).toBe(400);
+    expect(writes).toBe(0);
+    const valid = request("/api/multiplayer/room", { ...body, modeId: "solo-easy-battle" });
+    valid.cookies.set(GUEST_COOKIE, cookie.value);
+    const result = await roomPost(valid);
+    expect(result.status).toBe(200);
+    expect(await result.json()).toMatchObject({ ok: true, snapshot: { hostParticipantId: identity.participantId } });
+    expect(writes).toBe(1);
+  } finally {
+    globalThis.fetch = prior.fetch;
+    for (const [key, value] of Object.entries({ ROOM_GUEST_SESSION_SECRET: prior.secret, SUPABASE_SERVICE_ROLE_KEY: prior.key, SUPABASE_URL: prior.url })) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});
+
+test("verified account cannot impersonate another member and invalid account token never falls back to guest cookie", async () => {
+  const prior = { url: process.env.NEXT_PUBLIC_SUPABASE_URL, key: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    secret: process.env.ROOM_GUEST_SESSION_SECRET, fetch: globalThis.fetch };
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://auth-fixture.test";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_fixture";
+  process.env.ROOM_GUEST_SESSION_SECRET = "fixture-only-guest-signing-secret-32";
+  const uid = "11111111-1111-4111-8111-111111111111";
+  let valid = true;
+  globalThis.fetch = async url => {
+    expect(String(url)).toBe("https://auth-fixture.test/auth/v1/user");
+    return new Response(JSON.stringify(valid ? { id: uid, email: null } : {}), { status: valid ? 200 : 401 });
+  };
+  try {
+    const guest = await guestPost(request("/api/multiplayer/guest-session"));
+    const identity = await guest.json() as { participantId: string };
+    const cookie = guest.cookies.get(GUEST_COOKIE)!;
+    const forged = request("/api/multiplayer/room", { action: "heartbeat", roomId: "mvp-test", actorParticipantId: "player-victim" });
+    forged.cookies.set("audition_account_access", "fixture");
+    expect((await roomPost(forged)).status).toBe(403);
+    valid = false;
+    const fallback = request("/api/multiplayer/room", { action: "heartbeat", roomId: "mvp-test", actorParticipantId: identity.participantId });
+    fallback.cookies.set("audition_account_access", "expired");
+    fallback.cookies.set(GUEST_COOKIE, cookie.value);
+    expect((await roomPost(fallback)).status).toBe(401);
+  } finally {
+    globalThis.fetch = prior.fetch;
+    for (const [key, value] of Object.entries({ NEXT_PUBLIC_SUPABASE_URL: prior.url, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: prior.key, ROOM_GUEST_SESSION_SECRET: prior.secret })) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});

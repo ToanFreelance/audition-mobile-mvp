@@ -14,6 +14,10 @@ const mockedProfile = {
 for (const height of [620, 740] as const) {
   test(`portrait room browser scrolls only room list at 390×${height}`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height });
+  await page.route("**/api/multiplayer/guest-session", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, participantId: "guest-00000000-0000-4000-8000-000000000001" }),
+  }));
     await page.addInitScript(profile => {
       localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify(profile));
     }, mockedProfile);

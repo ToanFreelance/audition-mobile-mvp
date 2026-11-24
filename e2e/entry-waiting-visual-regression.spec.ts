@@ -12,7 +12,7 @@ const profile = {
   face: "basic-01",
   name: "OwnerVisualQA",
 };
-const participantId = "player-00000000-0000-4000-8000-000000000001";
+const participantId = "guest-00000000-0000-4000-8000-000000000001";
 const roomId = "mvp-entry-visual-preset-contract";
 const host: HumanHostParticipant = {
   participantId,
@@ -28,6 +28,10 @@ const host: HumanHostParticipant = {
 const room = createRoomState({ roomId, roomName: "Visual Regression QA", host, maxPlayers: 5, modeId: "solo-easy-battle", selectedSongId: "aloha" });
 
 async function identity(page: import("@playwright/test").Page) {
+  await page.route("**/api/multiplayer/guest-session", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, participantId: "guest-00000000-0000-4000-8000-000000000001" }),
+  }));
   await page.addInitScript(({ draft, id }) => {
     localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify(draft));
     localStorage.setItem("audition.entryParticipantId.v1", id);

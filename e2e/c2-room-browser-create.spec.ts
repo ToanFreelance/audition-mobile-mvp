@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 const profile = { version:1, gender:"female", characterAssetId:"c1-casual-grace", hairStyle:"female-bob-01", hairColor:"brown", skinTone:"warm", face:"basic-01", name:"Lucas" };
 async function setup(page:Page) {
+  await page.route("**/api/multiplayer/guest-session", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, participantId: "guest-00000000-0000-4000-8000-000000000001" }),
+  }));
   await page.addInitScript(x => localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify(x)), profile);
   await page.route("**/api/multiplayer/room?browse=1", r=>r.fulfill({status:200,contentType:"application/json",body:JSON.stringify({ok:true,rooms:[]})}));
 }
@@ -27,13 +31,13 @@ test("C2 create-room mode and name go through canonical Solo Easy only",async({p
   expect((await req).postDataJSON()).toMatchObject({action:"create",roomName:"C2 Custom Room",modeId:"solo-easy-battle",displayName:"Lucas",characterAssetId:"c1-casual-grace"});
   await expect(page.locator("p[role=\"alert\"]")).toContainText("QA blocked create");
 });
-test("C2 API refuses mock gameplay modes",async({page})=>{
-  const res=await page.request.post("/api/multiplayer/room",{data:{
+// Authenticated mode rejection is covered by room-security-closeout.spec.ts.
+test("C2 API refuses unsigned direct Create",async({page})=>{
+  const res=await page.request.post("/api/multiplayer/room",{headers:{origin:new URL(page.url()==="about:blank"?(process.env.PLAYWRIGHT_TEST_BASE_URL??"http://127.0.0.1:3000"):page.url()).origin},data:{
     action:"create",roomName:"Never Saved",modeId:"boss-preview",
     participantId:"player-00000000-0000-4000-8000-000000000001",displayName:"QA",characterAssetId:"c1-casual-grace"
   }});
-  expect(res.status()).toBe(400);
-  expect((await res.json()).error).toContain("Mode chưa hỗ trợ");
+  expect(res.status()).toBe(401);
 });
 test("C2 portrait tablet and desktop layout does not overlap or scroll document",async({page})=>{
   await setup(page);
