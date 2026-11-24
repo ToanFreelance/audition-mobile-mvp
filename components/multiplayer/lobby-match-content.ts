@@ -55,7 +55,7 @@ async function sha256(value: unknown) {
   return `sha256:${hex}`;
 }
 
-async function fetchPlayableMusicConfig(songId: string, signal?: AbortSignal) {
+export async function fetchPlayableMusicConfig(songId: string, signal?: AbortSignal) {
   // Lobby song IDs are product-facing stable slugs. music_charts rows currently
   // use generated UUID primary keys, so resolve against both id and authored title.
   const response = await fetch("/api/music-config", { cache: "no-store", signal });
@@ -375,7 +375,13 @@ export async function warmWaitingRoomAssets(
   const songId = room.selectedSongId;
   if (songId) tasks.push({ id: "selected-song", run: async () => {
     const music = await fetchPlayableMusicConfig(songId, signal);
-    if (!signal.aborted) await preloadAssetBytes(music.audioUrl, "Warmup audio", signal);
+    const key = "audio:" + music.audioUrl;
+    if (signal.aborted || await isPersistentAssetCached(key)) return;
+    if (signal.aborted) return;
+    const response = await fetchPersistentAsset(music.audioUrl, {
+      cacheKey: key, request: { cache: "force-cache", signal },
+    });
+    await consumeAssetResponse(response, "Warmup audio");
   }});
   const stageId = resolveRuntimeStageCatalogEntry(room.selectedStageId).runtimeAssetId;
   if (stageId === "bright-stage-v1" || stageId === "neon-stage-v1") {

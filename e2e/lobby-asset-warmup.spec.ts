@@ -7,7 +7,9 @@ test("warmup key ignores READY, connection, revision and display-name metadata",
   const room = createP51WaitingRoomFixture();
   const key = lobbyAssetWarmupKey(room);
   const changed: RoomState = { ...room, revision: room.revision + 1,
-    participants: room.participants.map(p => ({ ...p, displayName: "changed", connectionState: "disconnected" })) };
+    participants: room.participants.map(p => p.kind === "human"
+      ? { ...p, displayName: "changed", connectionState: "disconnected" }
+      : { ...p, displayName: "changed" }) };
   expect(lobbyAssetWarmupKey(changed)).toBe(key);
   expect(lobbyAssetWarmupKey({ ...room, participants: [...room.participants].reverse() })).toBe(key);
   expect(lobbyAssetWarmupKey({ ...room, selectedSongId: "another-song" })).not.toBe(key);

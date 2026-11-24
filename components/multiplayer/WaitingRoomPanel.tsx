@@ -62,6 +62,9 @@ import { roomContainsNonPlayableCharacter } from "../character/m3-lobby-appearan
 import { isM3CatalogAvatar } from "../character/m3-stage3d-qa-gate";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
 import { useLobbyAssetWarmup } from "./useLobbyAssetWarmup";
+import { useLobbyAudioWarmup } from "./useLobbyAudioWarmup";
+import { useLobbyClockWarmup } from "./useLobbyClockWarmup";
+import { lobbyAudioWarmupIdentity, usableWarmClock, warmClockMatchesProbe } from "../../multiplayer/lobby-media-warmup";
 import StageLaunchArtwork from "./StageLaunchArtwork";
 import PreparingStagePanel from "./PreparingStagePanel";
 import { recordC3StartCheckpoint } from "./c3-start-trace";
@@ -124,8 +127,11 @@ type ClockApiResponse = {
 const LOBBY_CLOCK_SAMPLE_COUNT = 5;
 const LOBBY_CLOCK_MIN_SAMPLES = 3;
 
-async function fetchLobbyClockSample(timeoutMs = 4000): Promise<ClockSyncSample> {
+async function fetchLobbyClockSample(timeoutMs = 4000, signal?: AbortSignal): Promise<ClockSyncSample> {
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, { once: true });
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
   const clientSendMonotonicMs = performance.now();
   try {
@@ -150,17 +156,20 @@ async function fetchLobbyClockSample(timeoutMs = 4000): Promise<ClockSyncSample>
     };
   } finally {
     window.clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abort);
   }
 }
 
-async function sampleLobbyServerClock(): Promise<ClockSyncEstimate> {
+async function sampleLobbyServerClock(signal?: AbortSignal): Promise<ClockSyncEstimate> {
   const samples: ClockSyncSample[] = [];
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt < LOBBY_CLOCK_SAMPLE_COUNT; attempt += 1) {
     try {
-      samples.push(await fetchLobbyClockSample());
+      if (signal?.aborted) throw new Error("Clock warmup cancelled.");
+      samples.push(await fetchLobbyClockSample(4000, signal));
     } catch (error) {
+      if (signal?.aborted) throw error;
       lastError = error;
     }
   }
@@ -474,8 +483,12 @@ export default function WaitingRoomPanel({
     && canonicalSync.state === "verified" && syncStatus === "connected");
   // Local speculative preparation only. A START must never wait on this hook;
   // frozen PRELOADING remains the sole LOADED authority.
-  const assetWarmup = useLobbyAssetWarmup(room, Boolean(syncOptions && canonicalVerified
-    && browserOnline && room.status === "waiting" && !leftRoom && !leaveIntentPending && !startIntentPending));
+  const waitingWarmupEnabled = Boolean(syncOptions && canonicalVerified
+    && browserOnline && room.status === "waiting" && !leftRoom && !leaveIntentPending && !startIntentPending);
+  const assetWarmup = useLobbyAssetWarmup(room, waitingWarmupEnabled);
+  const warmClock = useLobbyClockWarmup(syncKey, waitingWarmupEnabled, sampleLobbyServerClock);
+  const audioWarmup = useLobbyAudioWarmup(leftRoom ? null : syncKey, room.selectedSongId,
+    gameplayAudioContextRef.current, waitingWarmupEnabled, audioActivationNonce);
   const roomSyncVisual = waitingRoomSyncIndicatorState(
     canonicalSync?.key === syncKey ? canonicalSync.state : null,
     syncStatus === "connected", browserOnline,
@@ -1292,6 +1305,7 @@ export default function WaitingRoomPanel({
     if (!localParticipant || localParticipant.kind !== "human") return;
 
     const sessionKey = matchStartSessionKey;
+    const forceFreshClock = clockRetryRequestedRef.current;
     clockRetryRequestedRef.current = false;
     if (clockSyncState?.sessionKey === sessionKey) return;
 
@@ -1312,7 +1326,23 @@ export default function WaitingRoomPanel({
       // All attempts target the SAME immutable session; none can issue or
       // move an epoch. Final failures are surfaced rather than latched.
       let estimate: ClockSyncEstimate | null = null;
-      for (let samplingAttempt = 0; samplingAttempt < 3; samplingAttempt += 1) {
+      const cachedClock = warmClock.current;
+      // A provisional clock is never authoritative on its own. One fresh
+      // probe must confirm the offset after the match's all-loaded gate.
+      if (!forceFreshClock && syncKey && document.visibilityState === "visible"
+        && navigator.onLine !== false && usableWarmClock(cachedClock, syncKey, performance.now(), Date.now())) {
+        try {
+          const probe = await fetchLobbyClockSample();
+          if (warmClock.current === cachedClock && !cancelled
+            && document.visibilityState === "visible" && navigator.onLine !== false
+            && usableWarmClock(cachedClock, syncKey, performance.now(), Date.now())
+            && warmClockMatchesProbe(cachedClock, probe)) {
+            estimate = cachedClock.estimate;
+            recordC3StartCheckpoint("shared-clock-warmup-reused");
+          }
+        } catch { /* Ordinary full sampling remains the fallback. */ }
+      }
+      for (let samplingAttempt = 0; !estimate && samplingAttempt < 3; samplingAttempt += 1) {
         if (cancelled) return;
         try {
           estimate = await sampleLobbyServerClock();
@@ -1452,7 +1482,15 @@ export default function WaitingRoomPanel({
         await previous.transport.destroy();
       }
 
-      const transport = new WebAudioTransport(music.audioUrl, activeContext, "force-cache");
+      // resolveFrozenLobbyMusic above verifies the canonical audio AND chart
+      // fingerprint first. Adopt only the same metadata and same context.
+      const warmed = await audioWarmup.cache.current.take(lobbyAudioWarmupIdentity(music), activeContext);
+      if (cancelled || gameplayAudioContextRef.current !== activeContext || activeContext.state === "closed") {
+        if (warmed) await warmed.destroy();
+        return;
+      }
+      const transport = warmed ?? new WebAudioTransport(music.audioUrl, activeContext, "force-cache");
+      if (warmed) recordC3StartCheckpoint("gameplay-audio-warmup-reused");
       try {
         await transport.prepare();
       } catch (error) {
@@ -2234,7 +2272,14 @@ export default function WaitingRoomPanel({
   }
 
   return (
-    <main className={styles.shell} data-testid="lobby-root">
+    <main className={styles.shell} data-testid="lobby-root" onClickCapture={event => {
+      // iOS needs a real user gesture. Never create/resume audio merely from
+      // mounting the room. READY and START keep their existing activation.
+      if (event.nativeEvent.isTrusted && waitingWarmupEnabled
+        && (!gameplayAudioContextRef.current || gameplayAudioContextRef.current.state === "closed")) {
+        activateGameplayAudioFromGesture();
+      }
+    }}>
       <section
         className={styles.phone}
         data-presentation="full-stage-glass"
@@ -2264,6 +2309,11 @@ export default function WaitingRoomPanel({
                 >{" · "}{assetWarmup.phase === "ready" ? "✓ ASSETS"
                   : assetWarmup.phase === "partial" ? "ASSET CHECK"
                   : assetWarmup.total ? `ASSETS ${assetWarmup.completed}/${assetWarmup.total}` : "↻ ASSETS"}</span>
+              )}{audioWarmup.status && (
+                <span data-testid="room-audio-warmup" data-audio-warmup-state={audioWarmup.status}
+                  className={styles.assetWarmupIndicator} data-warmup-state={audioWarmup.status}
+                  title="Chuẩn bị nhạc trên thiết bị; không phát nhạc trước START."
+                >{audioWarmup.status === "ready" ? " · ♪✓" : audioWarmup.status === "partial" ? " · ♪?" : " · ♪↻"}</span>
               )}</span>
             )}
           </div>
