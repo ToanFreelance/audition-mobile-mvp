@@ -60,6 +60,10 @@ async function verifyUser(accessToken: string): Promise<AuthUser | null> {
   return { id: body.id, email: typeof body.email === "string" ? body.email : null };
 }
 
+export function hasAccountCredentials(request: NextRequest) {
+  return Boolean(request.cookies.get(ACCESS_COOKIE)?.value || request.cookies.get(REFRESH_COOKIE)?.value);
+}
+
 export async function resolveAccountSession(request: NextRequest): Promise<AccountSession | null> {
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   if (accessToken) {

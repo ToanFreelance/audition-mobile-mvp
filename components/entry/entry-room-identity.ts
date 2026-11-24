@@ -1,6 +1,6 @@
 "use client";
 
-import { getEntryIdentity, type EntryIdentity } from "./entry-session";
+import { resolveGuestEntryIdentity, type EntryIdentity } from "./entry-session";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { parseM3LobbyAppearance } from "../character/m3-lobby-appearance";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
@@ -42,7 +42,7 @@ export async function resolveWaitingRoomIdentity(): Promise<WaitingRoomIdentity>
       identity: result.profile ? { participantId: "player-" + userId, profile: result.profile } : null,
     };
   }
-  return { kind: "guest", identity: getEntryIdentity() };
+  return { kind: "guest", identity: await resolveGuestEntryIdentity() };
 }
 
 /** Prevent wrong 3D rig/outfit after account reset, migration or old room links.

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverStorageRequest } from "../../../../lib/server-storage";
 import {
   isSameOrigin, propagateSession, resolveAccountSession, supabaseRequest,
   type AccountSession,
@@ -77,21 +78,19 @@ export async function POST(request: NextRequest) {
       if (!Number.isInteger(expectedRevision) || expectedRevision !== existing.revision) {
         return send({ error: "Nhân vật đã được cập nhật trên thiết bị khác. Vui lòng tải lại." }, session, 409);
       }
-      response = await supabaseRequest(
+      response = await serverStorageRequest(
         "/rest/v1/player_characters?user_id=eq." + encodeURIComponent(session.user.id)
         + "&revision=eq." + existing.revision,
         { method: "PATCH", headers: { Prefer: "return=representation" },
           body: JSON.stringify({ profile, revision: existing.revision + 1, updated_at: new Date().toISOString() }) },
-        session.accessToken,
       );
     } else {
       if (expectedRevision !== null && expectedRevision !== undefined) {
         return send({ error: "Không thể cập nhật nhân vật chưa được tạo." }, session, 409);
       }
-      response = await supabaseRequest("/rest/v1/player_characters",
+      response = await serverStorageRequest("/rest/v1/player_characters",
         { method: "POST", headers: { Prefer: "return=representation" },
-          body: JSON.stringify({ user_id: session.user.id, profile, revision: 1 }) },
-        session.accessToken);
+          body: JSON.stringify({ user_id: session.user.id, profile, revision: 1 }) });
     }
     if (response.status === 409) return send({ error: "Nhân vật đã được tạo hoặc cập nhật từ thiết bị khác." }, session, 409);
     if (!response.ok) return send({ error: "Không lưu được nhân vật trên server (" + response.status + ")." }, session, 502);

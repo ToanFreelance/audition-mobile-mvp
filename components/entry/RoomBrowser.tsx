@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { RoomState } from "../../multiplayer/types";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
-import { getEntryIdentity, isEntryRoomId, type EntryIdentity } from "./entry-session";
+import { resolveGuestEntryIdentity, isEntryRoomId, type EntryIdentity } from "./entry-session";
 import { parseM3LobbyAppearance } from "../character/m3-lobby-appearance";
 import styles from "./RoomBrowser.module.css";
 
@@ -148,8 +148,10 @@ export default function RoomBrowser() {
             }
           }
         } else {
+          const guest = await resolveGuestEntryIdentity();
+          if (cancelled) return;
           setAccountState("guest");
-          setIdentity(getEntryIdentity());
+          setIdentity(guest);
         }
       } catch (cause) {
         if (cancelled) return;
