@@ -510,10 +510,16 @@ export default function WaitingRoomPanel({
     offline: "○ OFFLINE",
   }[roomSyncVisual];
 
-  // Entry Flow: don't start the expensive reflector/actor WebGL pipeline while
-  // room authority is still being verified. Latch after first confirmation:
-  // transient Realtime status changes must NOT recreate the actor/mixer.
-  const [hasVerifiedRoomOnce, setHasVerifiedRoomOnce] = useState(!initialSync?.entryFlow);
+  // EntryWaitingRoom has already read the actual server snapshot and checked
+  // membership + saved avatar. It is sufficient for presentation only.
+  // Do NOT set canonicalVerified here: START and warmup still require sync.
+  const [hasVerifiedRoomOnce, setHasVerifiedRoomOnce] = useState(() =>
+    !initialSync?.entryFlow || Boolean(initialRoom
+      && initialRoom.roomId === initialSync.roomId && initialRoom.status === "waiting"
+      && isCanonicalRoomSnapshot(initialRoom)
+      && initialRoom.participants.some(member => member.kind === "human"
+        && member.participantId === initialParticipantId && member.role === initialSync.role)),
+  );
   useEffect(() => {
     if (canonicalVerified) setHasVerifiedRoomOnce(true);
   }, [canonicalVerified]);
@@ -755,20 +761,26 @@ export default function WaitingRoomPanel({
         setSyncStatus("connecting");
         setSyncDetail("Connecting authoritative room…");
 
-        const controller = new AbortController();
-        const timer = window.setTimeout(() => controller.abort(), 8000);
-        let config: RealtimeConfig;
-        try {
-          const configResponse = await fetch("/api/multiplayer/realtime-config", { cache: "no-store", signal: controller.signal });
-          if (!configResponse.ok) throw new Error(`Realtime config failed (${configResponse.status}).`);
-          config = await configResponse.json() as RealtimeConfig;
-        } finally { window.clearTimeout(timer); }
+        // Parallelize only independent reads; keep post-subscription
+        // canonical refresh and the existing verified gate unchanged.
+        const configTask = (async () => {
+          const controller = new AbortController();
+          const timer = window.setTimeout(() => controller.abort(), 8000);
+          try {
+            const configResponse = await fetch("/api/multiplayer/realtime-config", { cache: "no-store", signal: controller.signal });
+            if (!configResponse.ok) throw new Error(`Realtime config failed (${configResponse.status}).`);
+            return await configResponse.json() as RealtimeConfig;
+          } finally { window.clearTimeout(timer); }
+        })();
+        const [config, entrySnapshot] = await Promise.all([
+          configTask,
+          initialSync?.entryFlow ? fetchRoomSnapshot(syncOptions.roomId) : Promise.resolve(null),
+        ]);
         if (disposed) return;
 
         // QA keeps bootstrap; entry requires an existing canonical room.
-        const initialSnapshot = initialSync?.entryFlow
-          ? await fetchRoomSnapshot(syncOptions.roomId)
-          : (await postRoomMutation({
+        const initialSnapshot = entrySnapshot
+          ?? (await postRoomMutation({
               action: "bootstrap",
               roomId: syncOptions.roomId,
             })).snapshot;
@@ -1344,6 +1356,7 @@ export default function WaitingRoomPanel({
       // Bounded retries for transient clock-endpoint/network failures.
       // All attempts target the SAME immutable session; none can issue or
       // move an epoch. Final failures are surfaced rather than latched.
+      recordC3StartCheckpoint("shared-clock-begin");
       let estimate: ClockSyncEstimate | null = null;
       const cachedClock = warmClock.current;
       // A provisional clock is never authoritative on its own. One fresh
@@ -1351,7 +1364,9 @@ export default function WaitingRoomPanel({
       if (!forceFreshClock && syncKey && document.visibilityState === "visible"
         && isLobbyBrowserOnline() && usableWarmClock(cachedClock, syncKey, performance.now(), Date.now())) {
         try {
+          recordC3StartCheckpoint("shared-clock-probe-begin");
           const probe = await fetchLobbyClockSample();
+          recordC3StartCheckpoint("shared-clock-probe-end");
           if (warmClock.current === cachedClock && !cancelled
             && document.visibilityState === "visible" && isLobbyBrowserOnline()
             && usableWarmClock(cachedClock, syncKey, performance.now(), Date.now())
@@ -1364,7 +1379,9 @@ export default function WaitingRoomPanel({
       for (let samplingAttempt = 0; !estimate && samplingAttempt < 3; samplingAttempt += 1) {
         if (cancelled) return;
         try {
+          recordC3StartCheckpoint("shared-clock-full-sampling-begin");
           estimate = await sampleLobbyServerClock();
+          recordC3StartCheckpoint("shared-clock-full-sampling-end");
           break;
         } catch (error) {
           if (cancelled) return;
@@ -1399,6 +1416,7 @@ export default function WaitingRoomPanel({
           throw new Error("Shared countdown can only issue from PRELOADING.");
         }
 
+        recordC3StartCheckpoint("shared-epoch-cas-request");
         const result = await runServerMutation({
           action: "issue-countdown",
           expectedRevision: current.revision,
@@ -1408,6 +1426,7 @@ export default function WaitingRoomPanel({
           startRevision: matchStartSession.startRevision,
         });
 
+        recordC3StartCheckpoint(result.conflict ? "shared-epoch-cas-conflict" : "shared-epoch-cas-response");
         if (result.snapshot.status === "countdown") {
           setSyncDetail(`COUNTDOWN · shared epoch issued · RTT ${Math.round(estimate.minRoundTripMs)} ms.`);
           return;
@@ -1986,13 +2005,31 @@ export default function WaitingRoomPanel({
     setStartIntentPending(true);
     setSyncDetail("Freezing authoritative room into MatchManifest…");
 
+    const clickedRoom = roomRef.current;
     void (async () => {
+      if (!clickedRoom.selectedSongId) throw new Error("Selected song is required.");
       recordC3StartCheckpoint("start-canonical-fetch");
-      const latest = syncOptions
-        ? await fetchStartCanonicalSnapshot(syncOptions.roomId)
-        : roomRef.current;
+      recordC3StartCheckpoint("start-animation-metadata-fetch");
+      // Both reads are fresh. Resolve metadata for the exact clicked revision
+      // concurrently with the canonical GET, then reject any revision change.
+      const [latest, content] = await Promise.all([
+        syncOptions ? fetchStartCanonicalSnapshot(syncOptions.roomId).then(snapshot => {
+          recordC3StartCheckpoint("start-canonical-read-complete");
+          return snapshot;
+        }) : Promise.resolve(clickedRoom),
+        prepareLobbyMatchFreezeInput({
+          roomId: clickedRoom.roomId,
+          roomRevision: clickedRoom.revision,
+          songId: clickedRoom.selectedSongId,
+          containsM3: clickedRoom.participants.some(item => isM3CatalogAvatar(item.avatar)),
+        }).then(result => {
+          recordC3StartCheckpoint("start-metadata-resolved");
+          return result;
+        }),
+      ]);
 
-      if (latest.revision !== roomRef.current.revision) {
+      if (latest.roomId !== clickedRoom.roomId || latest.revision !== clickedRoom.revision
+        || latest.revision !== roomRef.current.revision) {
         if (syncOptions) adoptServerSnapshot(latest);
         throw new Error("Room changed before Start. State refreshed; press Start again.");
       }
@@ -2006,25 +2043,11 @@ export default function WaitingRoomPanel({
       }
       if (!latest.selectedSongId) throw new Error("Selected song is required.");
 
-      recordC3StartCheckpoint("start-animation-metadata-fetch");
-      const content = await prepareLobbyMatchFreezeInput({
-        roomId: latest.roomId,
-        roomRevision: latest.revision,
-        songId: latest.selectedSongId,
-        containsM3: latest.participants.some(item => isM3CatalogAvatar(item.avatar)),
-      });
-
-      recordC3StartCheckpoint("start-metadata-resolved");
-      // Re-fetch canonical state after async content resolution. A Ready/config
-      // mutation may land on the server while this page has not received any
-      // realtime presentation update yet, so local roomRef alone is insufficient.
-      const finalSnapshot = syncOptions
-        ? await fetchStartCanonicalSnapshot(syncOptions.roomId)
-        : roomRef.current;
-      if (finalSnapshot.revision !== latest.revision) {
-        if (syncOptions) adoptServerSnapshot(finalSnapshot);
-        throw new Error("Room changed while MatchManifest content was resolving. State refreshed; press Start again.");
-      }
+      // No redundant second GET: the START route itself reads the current
+      // canonical row, asserts expectedRevision, validates Host/Ready/manifest
+      // and performs atomic CAS. Unobserved changes MUST conflict there.
+      // No mutation retry or START replay on a conflict.
+      const finalSnapshot = latest;
 
       const actorParticipantId = syncOptions?.participantId ?? viewer.participantId;
       const manifest = freezeLobbyMatch(

@@ -49,6 +49,10 @@ test("real room entry mounts owner-accepted reflective P5.6 stage, not fallback"
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-stage-risers", "3");
+  // Presentation may use the validated initial server snapshot, but offline
+  // Realtime must never grant START authority.
+  await expect(page.getByTestId("start-button")).toBeDisabled();
+  await expect(page.getByTestId("room-sync-indicator")).not.toHaveAttribute("data-sync-state", "synced");
   await expect(page.getByTestId("lobby-root").locator('section[data-visual-preset="sketch"]')).toBeVisible();
 });
 

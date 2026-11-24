@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { RoomState } from "../../multiplayer/types";
+import { isCanonicalRoomSnapshot } from "../../multiplayer/room-sync";
+import { recordC3StartCheckpoint } from "../multiplayer/c3-start-trace";
 import WaitingRoomPanel from "../multiplayer/WaitingRoomPanel";
 import StageLaunchArtwork from "../multiplayer/StageLaunchArtwork";
 import styles from "./EntryWaitingRoom.module.css";
@@ -27,17 +29,24 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
       try {
         // Authenticated participants use the SAME server identity as Room
         // Browser; legacy localStorage is used only for true guests.
+        // Both are existing read-only requests. Resolve identity and read
+        // room concurrently; do not display anything until both are validated.
+        recordC3StartCheckpoint("entry-identity-room-fetch");
+        const roomRead = fetch(
+          "/api/multiplayer/room?roomId=" + encodeURIComponent(roomId),
+          { credentials: "same-origin", cache: "no-store" },
+        ).then(response => ({ response, error: null }), (error: unknown) => ({ response: null, error }));
         const resolved = await resolveWaitingRoomIdentity();
         if (canceled) return;
+        recordC3StartCheckpoint("entry-identity-ready");
         const identity = resolved.identity;
         if (!identity) {
           window.location.replace("/character/create");
           return;
         }
-        const response = await fetch(
-          "/api/multiplayer/room?roomId=" + encodeURIComponent(roomId),
-          { credentials: "same-origin", cache: "no-store" },
-        );
+        const { response, error: roomReadError } = await roomRead;
+        if (!response) throw roomReadError;
+        if (canceled) return;
         const data = await response.json() as {
           ok: boolean; error?: string; snapshot?: RoomState;
         };
@@ -45,6 +54,10 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
           throw new Error(data.error ?? "Không tìm thấy phòng.");
         }
         if (canceled) return;
+        if (data.snapshot.roomId !== roomId || !isCanonicalRoomSnapshot(data.snapshot)) {
+          throw new Error("Trạng thái phòng không hợp lệ.");
+        }
+        recordC3StartCheckpoint("entry-room-snapshot-ready");
         const member = data.snapshot.participants.find(
           participant => participant.participantId === identity.participantId
         );
@@ -58,6 +71,7 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
           setError("Nhân vật trong RoomState không khớp với nhân vật đã lưu. Hãy quay lại Room Browser và tạo phòng mới.");
           return;
         }
+        recordC3StartCheckpoint("entry-member-appearance-verified");
         setEntry({
           snapshot: data.snapshot,
           role: member.role,

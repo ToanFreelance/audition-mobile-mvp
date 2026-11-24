@@ -254,6 +254,7 @@ export default function Stage3D({
     const host = hostRef.current;
     if (!host) return;
 
+    const presentationInitAt = performance.now();
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(
       hauntedClassroomPresentation ? 0x111629
@@ -445,6 +446,7 @@ export default function Stage3D({
       host.dataset.stageMetrics = JSON.stringify(result);
       host.dataset.visualCompareReady = "1";
       stageSettled = true;
+      host.dataset.stageEnvironmentReadyMs = String(Math.round(performance.now() - presentationInitAt));
     }).catch(error => {
       if (disposed) return;
       host.dataset.stageSource = "placeholder";
@@ -526,6 +528,7 @@ export default function Stage3D({
           host.dataset.m3StageHeight = normalization.normalizedHeight.toFixed(4);
         }
         characterSettled = true;
+        host.dataset.stageActorReadyMs = String(Math.round(performance.now() - presentationInitAt));
         qaActorModelReady = true;
         if (neonPresentation && !m3) applyNeonCharacterFill(actor.root);
         host.dataset.characterSource = result.source;
@@ -752,6 +755,7 @@ export default function Stage3D({
         presentationReadySent = true;
         cameraIntroOriginSongMs = songTimeMs;
         host.dataset.presentationReady = "1";
+        host.dataset.stageFirstReadyFrameMs = String(Math.round(performance.now() - presentationInitAt));
         onPresentationReadyRef.current?.();
       }
       if (diagnostics) diagnostics.frame(diagnosticFrameStart, performance.now() - diagnosticFrameStart);

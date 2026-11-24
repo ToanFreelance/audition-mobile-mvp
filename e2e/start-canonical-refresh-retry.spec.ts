@@ -88,8 +88,8 @@ test("a retried read returns the newest canonical revision, not a stale local sn
     return ok(4);
   });
   expect((await h.read("mvp-test")).revision).toBe(4);
-  expect(source).toContain("if (latest.revision !== roomRef.current.revision)");
-  expect(source).toContain("if (finalSnapshot.revision !== latest.revision)");
+  expect(source).toContain("latest.revision !== clickedRoom.revision");
+  expect(source).toContain("latest.revision !== roomRef.current.revision");
 });
 
 test("canonical 404 domain rejection never retries", async () => {
@@ -111,13 +111,21 @@ test("malformed canonical snapshot is rejected without pretending START is safe"
   expect(h.requests).toHaveLength(1);
 });
 
-test("both START reads use bounded canonical retry and preserve Start/CAS gates", () => {
+test("START parallelizes a fresh canonical read and metadata, but commits against the same revision via CAS", () => {
   const start = source.indexOf("const freezeMatchForStart = () => {");
   const finish = source.indexOf("\n  };", start);
   const block = source.slice(start, finish);
-  expect(block.split("await fetchStartCanonicalSnapshot(syncOptions.roomId)")).toHaveLength(3);
-  expect(block).toContain("const gate = canStartRoom(latest)");
+  expect(block.split("fetchStartCanonicalSnapshot(syncOptions.roomId)")).toHaveLength(2);
+  expect(block).toContain("const [latest, content] = await Promise.all");
+  expect(block).toContain("latest.revision !== clickedRoom.revision");
+  expect(block).toContain("latest.revision !== roomRef.current.revision");
+  expect(block).toContain("canStartRoom(latest)");
   expect(block).toContain("freezeLobbyMatch(");
   expect(block).toContain('action: "start-preload"');
   expect(block).toContain("expectedRevision: finalSnapshot.revision");
+  expect(block).toContain("result.conflict || !result.snapshot.matchStart");
+  const server = readFileSync("app/api/multiplayer/room/route.ts", "utf8");
+  expect(server).toContain("assertExpectedRevision(row, body.expectedRevision)");
+  expect(server).toContain("assertM3Stage3dServerStartGate(requestHostname, room, body.manifest)");
+  expect(server).toContain("await compareAndSwapRoom(current, next)");
 });

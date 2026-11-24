@@ -29,3 +29,13 @@ Record local Host START and Guest first frozen-match observation; mark the actua
 ### Real browser benchmark runner
 
 `e2e/p57-real-benchmark.spec.ts` uses 1/2/5 independent real M3 guest contexts via entry flow, Room API/CAS/Realtime, no QA query, no mock audio. Explicit P57_REAL_BENCH=1 only; workflow restricted to the P5.7 branch, no merge. Record local warmup statuses, actual curtain hidden latency, epoch, song-time progression and screenshots even on failure. A 75s bounded handoff is a correctness ceiling, not a latency performance target; no claim of 5–7s until measured. Chromium DPR=1 on a software runner is not iPhone or five independent devices. The scenario starts fresh contexts and waits for bounded warmup; it does not measure cold immediate-START baseline. Compare with an equivalent cold/warm device recording later. Guest profiles are not email-login QA. No mandatory countdown DOM observation.
+
+## P5.7F — iPhone-led entry and START critical path (2026-11-24)
+
+Owner recording showed approximately 18s from create to room presentation, and 15s from START to visible Gameplay. These are video-derived estimates, not function timings. A new song reached ASSETS/audio ready before START. Prior Work software-renderer measurements remain separate; five-client QA is not accepted. Do not assume CPU retarget caching is the principal iPhone bottleneck.
+
+F.1: run entry identity resolution and existing no-store room read concurrently; validate canonical snapshot, room identity, human membership and saved avatar before showing the initial room. Mount the accepted Waiting Room presentation from that validated initial WAITING snapshot; the canonicalVerified/Realtime gate for START and background warmup is unchanged. Parallelize initial Realtime-config and canonical room reads, retain post-subscription canonical refresh and recovery. No extra scene or actor recreation for READY/presence.
+
+F.2: parallel fresh metadata and canonical GET at START, bound to the exact clicked room revision. Reject changed local or server revision; remove redundant second GET only because server route still reads the authoritative current row, checks expectedRevision, validates Host/Ready/manifest and performs atomic compare-and-swap. Conflicts are adopted/recovered, never replay START. No server protocol, mutation semantics, frozen content validation or lead-time change.
+
+F.3/F.4: add entry, individual START reads, fresh-probe/full-sampling, countdown CAS checkpoints and stage environment/actor/first-ready-frame duration data attributes. No relaxation of NTP freshness/RTT, no shared epoch adjustment, no animation retarget/cache rewrite. Measure real-device effect before further optimization. Existing iPhone/5-human acceptance remains open.
