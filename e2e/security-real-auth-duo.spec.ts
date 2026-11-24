@@ -8,7 +8,7 @@ import type { RoomState } from "../multiplayer/types";
 test.skip(process.env.SECURITY_AUTH_REAL_QA !== "1", "Explicit real security QA only");
 // No traces, videos, screenshots or HTTP body logging: real credentials/cookies.
 test.use({ trace: "off", video: "off", screenshot: "off" });
-const base = "http://127.0.0.1:3000";
+const base = "https://127.0.0.1:3443";
 const project = "https://uaosdkrfxidiwqljmelg.supabase.co";
 type Account = { id: string; email: string; password: string };
 type Client = { account: Account; context: BrowserContext; page: Page; profile: CharacterCreationProfileV1 };
@@ -89,7 +89,7 @@ test("@real security: two disposable Auth accounts, guest session, profile CAS a
   let roomId = "";
   try {
     await test.step("signed guest identity and anonymous authorization", async () => {
-      const guest = await browser.newContext({ baseURL: base });
+      const guest = await browser.newContext({ baseURL: base, ignoreHTTPSErrors: true });
       contexts.push(guest);
       const unsigned = await mutation(guest, { action: "heartbeat", roomId: "mvp-qa-nonexistent", actorParticipantId: "guest-forged" });
       status(unsigned.status(), 401, "unsigned mutation rejected");
@@ -104,13 +104,14 @@ test("@real security: two disposable Auth accounts, guest session, profile CAS a
       status((await mutation(guest, { action: "heartbeat", roomId: "mvp-qa-nonexistent", actorParticipantId: id + "-forged" })).status(), 403, "guest impersonation denied");
       status((await mutation(guest, { action: "heartbeat", roomId: "mvp-qa-nonexistent", actorParticipantId: id }, { Origin: "https://foreign.invalid" })).status(), 403, "foreign origin denied");
       evidence.guest = "signed identity, reuse and rejection PASS";
+      console.log("QA guest: signed session reuse and authorization PASS");
       await guest.close();
     });
     await test.step("real Auth accounts and profile lifecycle", async () => {
       for (let index = 0; index < 2; index++) {
         const account = await createAccount();
         accounts.push(account);
-        const context = await browser.newContext({ baseURL: base, viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+        const context = await browser.newContext({ baseURL: base, ignoreHTTPSErrors: true, viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
         contexts.push(context);
         await login(context, account);
         expect(await readProfile(context)).toMatchObject({ profile: null, revision: null });
@@ -147,6 +148,7 @@ test("@real security: two disposable Auth accounts, guest session, profile CAS a
       await login(a.context, a.account);
       expect(await readProfile(a.context)).toMatchObject({ profile: a.profile, revision: 2 });
       evidence.auth = "two accounts, create/update/CAS/rig, refresh, logout and switch PASS";
+      console.log("QA Auth lifecycle PASS; session refresh ms:", evidence.refreshMs0, evidence.refreshMs1);
     });
     await test.step("real room entry and authorization", async () => {
       const [host, guest] = clients;
@@ -185,6 +187,7 @@ test("@real security: two disposable Auth accounts, guest session, profile CAS a
       await expect(guest.page.getByTestId("ready-button")).toContainText("ĐÃ SẴN SÀNG");
       await expect(host.page.getByTestId("start-button")).toBeEnabled({ timeout: 30_000 });
       evidence.room = "canonical two account members, actor rejection, heartbeat, READY PASS";
+      console.log("QA room authorization and READY PASS; create ms:", evidence.createMs);
     });
     await test.step("real START, immutable manifest, both WebAudio clocks", async () => {
       const host = clients[0];
@@ -223,6 +226,7 @@ test("@real security: two disposable Auth accounts, guest session, profile CAS a
       expect(second.matchStart?.startAtServerMs).toBe(match.startAtServerMs);
       expect(second.matchStart?.manifest).toEqual(match.manifest);
       evidence.gameplay = { matchId: match.matchId, epoch: match.startAtServerMs, loaded: 2, audioProgression: true, frozenWardrobe: true };
+      console.log("QA gameplay PASS; start ms:", evidence.startMs, "epoch:", match.startAtServerMs);
     });
   } finally {
     // Only normal cleanup of this run's room (if still waiting) and accounts
@@ -246,6 +250,7 @@ test("@real security: two disposable Auth accounts, guest session, profile CAS a
     }
     evidence.accountCleanupHttp = cleanup;
     await testInfo.attach("security-qa-evidence", { body: JSON.stringify(evidence, null, 2), contentType: "application/json" });
+    console.log("QA account cleanup HTTP:", cleanup);
     expect(cleanup.every(code => code >= 200 && code < 300), "disposable QA account cleanup").toBe(true);
   }
 });

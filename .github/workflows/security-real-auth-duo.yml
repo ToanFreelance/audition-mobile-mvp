@@ -22,7 +22,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
       SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
-      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      PLAYWRIGHT_TEST_BASE_URL: "https://127.0.0.1:3443"
     steps:
       - uses: actions/checkout@v4
       - name: Require dedicated QA secret
@@ -46,6 +46,10 @@ jobs:
           SECURITY_AUTH_REAL_QA: "1"
           PLAYWRIGHT_WEB_SERVER: "1"
         run: |
+          # Isolated ephemeral TLS; no weakening of production Secure cookies.
+          export QA_TLS_DIR="$(mktemp -d)"
+          trap 'rm -rf "$QA_TLS_DIR"' EXIT
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 -subj "/CN=localhost" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" -keyout "$QA_TLS_DIR/key.pem" -out "$QA_TLS_DIR/cert.pem" >/dev/null 2>&1
           export ROOM_GUEST_SESSION_SECRET="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
           echo "::add-mask::$ROOM_GUEST_SESSION_SECRET"
           npx playwright test e2e/security-real-auth-duo.spec.ts --project=desktop --workers=1 --retries=0 --reporter=list
