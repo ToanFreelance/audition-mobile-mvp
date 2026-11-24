@@ -15,6 +15,10 @@ export type M3Appearance = Readonly<{
   m3Outfit?: M3CreatorOutfit;
 }>;
 type Slot = "eyes" | "top" | "bottom" | "shoes" | "hair";
+type CreatorLoadOptions = {
+  signal?: AbortSignal;
+  onProgress?: (file: string, phase: "download" | "decode") => void;
+};
 type LoadedPart = { scene: THREE.Group; meshes: THREE.SkinnedMesh[] };
 type SkinLayer = "body" | "face" | "mouth";
 type SkinTarget = { material: THREE.MeshStandardMaterial; originalMap: THREE.Texture | null; layer: SkinLayer };
@@ -75,23 +79,33 @@ export class M3CharacterAssembler {
   private updateQueue: Promise<void> = Promise.resolve();
   private disposed = false;
 
-  private constructor(family: M3RigFamily) {
+  private constructor(family: M3RigFamily, private readonly onProgress?: CreatorLoadOptions["onProgress"]) {
     this.family = family;
     this.root.name = "M3Actor:" + family;
   }
-  static async create(assetId: CharacterAssetId, appearance: M3Appearance): Promise<M3CharacterAssembler> {
+  static async create(assetId: CharacterAssetId, appearance: M3Appearance, options: CreatorLoadOptions = {}): Promise<M3CharacterAssembler> {
     const entry = getCharacterCatalogEntry(assetId);
     if (!entry?.m3RigFamily || !entry.creatorReady) throw new Error("M3 creator-only asset not enabled");
-    const actor = new M3CharacterAssembler(entry.m3RigFamily);
-    try { await actor.initialize(appearance); return actor; }
-    catch (error) { actor.dispose(); throw error; }
+    const actor = new M3CharacterAssembler(entry.m3RigFamily, options.onProgress);
+    const abort = () => actor.dispose();
+    if (options.signal?.aborted) { abort(); throw new Error("M3 actor cancelled"); }
+    options.signal?.addEventListener("abort", abort, { once: true });
+    try {
+      await actor.initialize(appearance);
+      if (actor.disposed) throw new Error("M3 actor cancelled");
+      return actor;
+    } catch (error) { actor.dispose(); throw error; }
+    finally { options.signal?.removeEventListener("abort", abort); }
   }
   private async loadPart(file: string): Promise<LoadedPart> {
     const cached = this.sources.get(file);
     if (cached) return cached;
     // Use the same persisted, cache-first GLB bytes as profile warm-up.
     // parseAsync creates a fresh independent scene/skeleton for every actor.
+    this.onProgress?.(file, "download");
     const bytes = await loadM3AssetBytes(this.family, file);
+    if (this.disposed) throw new Error("M3 actor disposed");
+    this.onProgress?.(file, "decode");
     const scene = (await this.loader.parseAsync(
       bytes, M3_ASSET_SOURCE + this.family + "/",
     )).scene;
@@ -247,7 +261,10 @@ export class M3CharacterAssembler {
   private async loadTexture(file: string): Promise<THREE.Texture> {
     const old = this.textures.get(file);
     if (old) return old;
+    this.onProgress?.(file, "download");
     const bytes = await loadM3AssetBytes(this.family, file);
+    if (this.disposed) throw new Error("M3 actor disposed");
+    this.onProgress?.(file, "decode");
     const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
     let texture: THREE.Texture;
     try { texture = await this.textureLoader.loadAsync(url); }

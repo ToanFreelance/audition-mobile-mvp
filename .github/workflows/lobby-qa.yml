@@ -76,6 +76,7 @@ jobs:
           npx playwright test
           e2e/entry-room-account-identity.spec.ts
           e2e/room-security-closeout.spec.ts
+          e2e/m3-asset-timeout.spec.ts
           e2e/entry-heartbeat-recovery.spec.ts
           e2e/m3-gameplay-step3.spec.ts
           e2e/m3-stage3d-integration-step31.spec.ts

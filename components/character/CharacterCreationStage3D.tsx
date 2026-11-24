@@ -132,6 +132,8 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
   const focusRef = useRef<((nextFocus: CharacterCreatorFocus, animate?: boolean) => void) | null>(null);
   const orbitRef = useRef<((nextYaw: number) => void) | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "fallback">("loading");
+  const [retry, setRetry] = useState(0);
+  const [loadDetail, setLoadDetail] = useState("");
   // Owner-accepted default for both M3 rigs. QA selection never enters avatar/profile.
   const [qualityPreset, setQualityPreset] = useState<QualityPreset>("F");
   const [facialQAEnabled, setFacialQAEnabled] = useState(false);
@@ -164,6 +166,30 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
 
     let disposed = false;
     let focusRaf = 0;
+    let timedOut = false;
+    let loadTimer: ReturnType<typeof setTimeout> | undefined;
+    let loadingInitial = true;
+    const loadAbort = new AbortController();
+    const clearLoadTimer = () => { if (loadTimer !== undefined) clearTimeout(loadTimer); };
+    const trackLoad = (detail: string) => {
+      if (disposed || timedOut || !loadingInitial) return;
+      setLoadDetail(detail);
+      host.dataset.previewLoadStep = detail;
+      clearLoadTimer();
+      // Two 30s source attempts plus margin; also bounds stalled GLTF decode.
+      loadTimer = setTimeout(() => {
+        if (disposed || !loadingInitial) return;
+        timedOut = true;
+        loadingInitial = false;
+        loadAbort.abort();
+        host.dataset.previewError = "M3 preview timeout: " + detail;
+        setState("fallback");
+        onReadyRef.current?.(false);
+      }, 70_000);
+    };
+    delete host.dataset.previewError;
+    delete host.dataset.previewLoadStep;
+    setLoadDetail("");
     setState("loading");
     onReadyRef.current?.(false);
     const isM3Creator = Boolean(getCharacterCatalogEntry(assetId)?.m3RigFamily);
@@ -490,21 +516,24 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
     const entry = getCharacterCatalogEntry(assetId);
     const assetUrl = resolveCharacterAssetUrl(assetId);
     host.dataset.characterAssetId = assetId;
+    if (entry?.m3RigFamily) trackLoad("Khởi tạo");
     const loadModel: Promise<{ root: THREE.Object3D; assembly: M3CharacterAssembler | null }> =
       entry?.m3RigFamily
-        ? M3CharacterAssembler.create(assetId, appearanceRef.current ?? entry.defaultAppearance)
-            .then(assembly => ({ root: assembly.root, assembly }))
+        ? M3CharacterAssembler.create(assetId, appearanceRef.current ?? entry.defaultAppearance, {
+            signal: loadAbort.signal,
+            onProgress: (file, phase) => trackLoad((phase === "download" ? "Tải: " : "Giải mã: ") + file),
+          }).then(assembly => ({ root: assembly.root, assembly }))
         : loader.loadAsync(assetUrl).then(gltf => ({ root: gltf.scene, assembly: null }));
     void loadModel
       .then(async ({ root, assembly }) => {
-        if (disposed) {
+        if (disposed || timedOut) {
           if (assembly) assembly.dispose();
           else disposeObjectResources(root);
           return;
         }
         try {
           if (assembly && appearanceRef.current) await assembly.updateAppearance(appearanceRef.current);
-          if (disposed) {
+          if (disposed || timedOut) {
             if (assembly) assembly.dispose();
             else disposeObjectResources(root);
             return;
@@ -542,6 +571,10 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           host.dataset.m3Bones = String(assembly?.skeleton?.bones.length ?? 0);
           host.dataset.m3BaseLoads = String(assembly?.baseLoads ?? 0);
           host.dataset.m3BindDelta = String(assembly?.maxBindDelta ?? 0);
+          loadingInitial = false;
+          clearLoadTimer();
+          setLoadDetail("");
+          delete host.dataset.previewLoadStep;
           setState("ready");
           onReadyRef.current?.(true);
           applyFocus(activeFocus, false);
@@ -553,7 +586,9 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
         }
       })
       .catch(error => {
-        if (disposed) return;
+        loadingInitial = false;
+        clearLoadTimer();
+        if (disposed || timedOut) return;
         console.warn("[C3] Character creation preview failed", error);
         host.dataset.previewError = error instanceof Error ? error.message : String(error);
         setState("fallback");
@@ -562,6 +597,9 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
 
     return () => {
       disposed = true;
+      loadingInitial = false;
+      clearLoadTimer();
+      loadAbort.abort();
       cancelAnimationFrame(focusRaf);
       observer.disconnect();
       focusRef.current = null;
@@ -578,7 +616,7 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [assetId]);
+  }, [assetId, retry]);
 
   useEffect(() => {
     const assembly = assemblerRef.current;
@@ -684,8 +722,17 @@ export default function CharacterCreationStage3D({ yaw, focus, assetId, appearan
           )}
         </div>
       )}
-      {state === "loading" && <div className={styles.status}>Đang tải nhân vật…</div>}
-      {state === "fallback" && <div className={styles.status}>Không thể mở 3D preview</div>}
+      {state === "loading" && <div className={styles.status} role="status">
+        Đang tải nhân vật…
+        {loadDetail && <small className={styles.loadDetail}>{loadDetail}</small>}
+      </div>}
+      {state === "fallback" && <div className={styles.status} role="status">
+        Không thể mở 3D preview
+        {loadDetail && <small className={styles.loadDetail}>{loadDetail}</small>}
+        <button type="button" className={styles.retryPreview} data-testid="creator-preview-retry"
+          onPointerDown={event => event.stopPropagation()}
+          onClick={() => setRetry(value => value + 1)}>Thử tải lại</button>
+      </div>}
     </div>
   );
 }

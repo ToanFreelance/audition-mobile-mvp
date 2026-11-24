@@ -42,6 +42,7 @@ export type M3SelectedAppearance = {
 };
 export type M3AssetFile = { family: M3RigFamily; file: string; type: "vrm" | "texture" };
 const active = new Map<string, Promise<ArrayBuffer>>();
+const M3_SOURCE_TIMEOUT_MS = 30_000;
 
 export function m3SkinFiles(family: M3RigFamily, id: string): readonly string[] {
   const i = SKINS.indexOf(id as typeof SKINS[number]);
@@ -105,7 +106,35 @@ function validContent(file: string, data: ArrayBuffer): boolean {
  * objects for each actor; NEVER share mutable skeletons or disposable GPU data.
  * A corrupt cached file is refreshed, then CDN fallback is attempted.
  */
-export async function loadM3AssetBytes(family: M3RigFamily, file: string): Promise<ArrayBuffer> {
+// Bound cache lookup, network fetch, cache persistence and response consumption
+// together. A hung primary must not prevent the existing CDN fallback.
+export async function fetchM3AssetAttempt(
+  url: string, key: string, forceRefresh: boolean, timeoutMs = M3_SOURCE_TIMEOUT_MS,
+): Promise<ArrayBuffer> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await fetchPersistentAsset(url, {
+          cacheKey: key, forceRefresh, request: { signal: controller.signal },
+        });
+        if (!response.ok) throw new Error("M3 asset HTTP " + response.status);
+        return response.arrayBuffer();
+      })(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error("M3 asset request timed out"));
+          controller.abort();
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+export async function loadM3AssetBytes(family: M3RigFamily, file: string, timeoutMs = M3_SOURCE_TIMEOUT_MS): Promise<ArrayBuffer> {
   const key = m3CacheKey(family, file);
   const pending = active.get(key);
   if (pending) return pending;
@@ -113,16 +142,12 @@ export async function loadM3AssetBytes(family: M3RigFamily, file: string): Promi
     let lastError: unknown;
     for (const [index, host] of [SOURCE, FALLBACK].entries()) {
       try {
-        const response = await fetchPersistentAsset(host + family + "/" + file, {
-          cacheKey: key, forceRefresh: index > 0,
-        });
-        if (!response.ok) throw new Error("M3 asset HTTP " + response.status);
-        const buffer = await response.arrayBuffer();
+        const buffer = await fetchM3AssetAttempt(host + family + "/" + file, key, index > 0, timeoutMs);
         if (!validContent(file, buffer)) throw new Error("Corrupt M3 asset: " + file);
         return buffer;
       } catch (cause) { lastError = cause; }
     }
-    throw lastError ?? new Error("M3 asset unavailable");
+    throw new Error("M3 " + family + "/" + file + ": " + (lastError instanceof Error ? lastError.message : "asset unavailable"));
   })();
   active.set(key, task);
   try { return await task; }
