@@ -4,6 +4,7 @@ on:
     branches: [work/p5-7-match-warmup-v1]
     paths:
       - "docs/security/roomstate-write-lockdown*.sql"
+      - "docs/security/music-content-readonly.pending.sql"
       - ".github/workflows/security-lockdown-acl.yml"
   workflow_dispatch:
 permissions:

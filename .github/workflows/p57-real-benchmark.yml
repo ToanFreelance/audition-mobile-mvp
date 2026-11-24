@@ -1,10 +1,5 @@
 name: P5.7 real M3 handoff benchmark
 on:
-  push:
-    branches: [work/p5-7-match-warmup-v1]
-    paths:
-      - "e2e/p57-real-benchmark.spec.ts"
-      - ".github/workflows/p57-real-benchmark.yml"
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,16 +9,18 @@ concurrency:
 jobs:
   benchmark:
     if: github.ref == 'refs/heads/work/p5-7-match-warmup-v1'
+    environment: security-auth-qa
     runs-on: ubuntu-latest
     timeout-minutes: 23
     env:
       CI: "true"
       PLAYWRIGHT_WEB_SERVER: "1"
-      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      PLAYWRIGHT_TEST_BASE_URL: "https://127.0.0.1:3443"
       SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
       NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
       P57_REAL_BENCH: "1"
+      SECURITY_AUTH_REAL_QA: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,14 +30,18 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - name: Real M3 1 / 2 / 5 client evidence
-        run: npx playwright test e2e/p57-real-benchmark.spec.ts --project=desktop --workers=1 --retries=0
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: p57-handoff-evidence-${{ github.run_id }}
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
-          retention-days: 7
+      - name: Real M3 1 / 2 / 5 client evidence (manual, secure HTTPS)
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_QA_SECRET_KEY }}
+        run: |
+          if [[ "$SUPABASE_SERVICE_ROLE_KEY" != sb_secret_* ]]; then
+            echo "::error::Missing dedicated QA secret"
+            exit 1
+          fi
+          export QA_TLS_DIR="$(mktemp -d)"
+          trap 'rm -rf "$QA_TLS_DIR"' EXIT
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 -subj "/CN=localhost" -addext "subjectAltName=IP:127.0.0.1,DNS:localhost" -keyout "$QA_TLS_DIR/key.pem" -out "$QA_TLS_DIR/cert.pem" >/dev/null 2>&1
+          export ROOM_GUEST_SESSION_SECRET="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
+          echo "::add-mask::$ROOM_GUEST_SESSION_SECRET"
+          npx playwright test e2e/p57-real-benchmark.spec.ts --project=desktop --workers=1 --retries=0 --reporter=list
+      # No traces or credential-bearing artifacts from secure QA.

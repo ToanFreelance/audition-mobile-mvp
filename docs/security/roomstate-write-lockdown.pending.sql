@@ -23,7 +23,7 @@ revoke insert(user_id,profile,revision,updated_at), update(user_id,profile,revis
 grant select, insert, update on public.player_characters to service_role;
 -- Preserve own-profile SELECT under RLS and existing admin reset DELETE grant.
 grant select on public.player_characters to authenticated;
-do $
+do $$
 declare r text; f regprocedure; privilege text;
 begin
  foreach f in array array[
@@ -61,5 +61,5 @@ begin
    or not (select relrowsecurity from pg_class where oid='public.player_characters'::regclass) then
   raise exception 'Profile read or RLS regression';
  end if;
-end $;
+end $$;
 commit;
