@@ -104,3 +104,49 @@ begin
 end $$;
 reset role;
 \echo ACL fixture PASS (not full Supabase schema/runtime validation)
+
+-- Music/content fixture: simulated storage table only, not Storage API.
+create table public.music_charts (
+ id uuid primary key, title text, artist text, audio_url text, duration_ms integer, bpm numeric,
+ space_start_ms integer, space_start_beat numeric, gauge jsonb, gameplay jsonb, notes text,
+ updated_at timestamptz, bpm_exact numeric, reference_bpm numeric, reference_source text
+);
+alter table public.music_charts enable row level security;
+grant select, insert, update, delete, truncate, trigger, references on public.music_charts to anon, authenticated;
+grant update(title),insert(title),references(id) on public.music_charts to authenticated;
+create policy "public can read music charts" on public.music_charts for select to anon,authenticated using (true);
+create policy "public can insert music charts" on public.music_charts for insert to anon,authenticated with check (true);
+create policy "public can update music charts" on public.music_charts for update to anon,authenticated using (true);
+create policy "Public can delete music charts" on public.music_charts for delete to anon,authenticated using (true);
+create schema storage;
+grant usage on schema storage to anon,authenticated;
+create table storage.objects (bucket_id text, name text);
+alter table storage.objects enable row level security;
+grant select,insert,update,delete on storage.objects to anon,authenticated;
+create policy "Public can list audio library" on storage.objects for select using (bucket_id='audio');
+create policy "Public can upload audio files" on storage.objects for insert with check (bucket_id='audio');
+create policy "Public can delete audio files" on storage.objects for delete to anon,authenticated using (bucket_id='audio');
+insert into public.music_charts(id,title) values ('11111111-1111-4111-8111-111111111111','fixture');
+insert into storage.objects values ('audio','fixture.mp3');
+\ir music-content-readonly.pending.sql
+set role anon;
+do $$
+begin
+ if (select count(*) from public.music_charts) <> 1 or (select count(*) from storage.objects) <> 1 then
+  raise exception 'Public read regression';
+ end if;
+ begin
+  insert into public.music_charts(id,title) values ('22222222-2222-4222-8222-222222222222','denied');
+  raise exception 'Chart write allowed';
+ exception when insufficient_privilege then null;
+ end;
+ begin
+  insert into storage.objects values ('audio','denied.mp3');
+  raise exception 'Audio upload allowed';
+ exception when insufficient_privilege then null;
+ end;
+ delete from storage.objects where bucket_id='audio';
+ if found then raise exception 'Audio delete allowed'; end if;
+end $$;
+reset role;
+\echo Music content ACL/RLS fixture PASS (not full Storage API validation)

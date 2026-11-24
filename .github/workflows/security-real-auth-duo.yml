@@ -4,6 +4,9 @@ on:
     branches: [work/p5-7-match-warmup-v1]
     paths:
       - "e2e/security-real-auth-duo.spec.ts"
+      - "e2e/p57-real-benchmark.spec.ts"
+      - "app/api/music-config/**"
+      - "app/api/music-library/**"
       - ".github/workflows/security-real-auth-duo.yml"
   workflow_dispatch:
 permissions:
@@ -53,4 +56,5 @@ jobs:
           export ROOM_GUEST_SESSION_SECRET="$(node -e 'process.stdout.write(require("node:crypto").randomBytes(32).toString("hex"))')"
           echo "::add-mask::$ROOM_GUEST_SESSION_SECRET"
           npx playwright test e2e/security-real-auth-duo.spec.ts --project=desktop --workers=1 --retries=0 --reporter=list
+          P57_REAL_BENCH=1 npx playwright test e2e/p57-real-benchmark.spec.ts --grep "2 human" --project=desktop --workers=1 --retries=0 --reporter=list
       # No upload of browser traces or credentials. Test prints only case status.

@@ -23,21 +23,6 @@ type MusicChartRow = {
   updated_at?: string;
 };
 
-function supabaseConfig() {
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return null;
-  return { url: url.replace(/\/$/, ""), key };
-}
-
-function headers(key: string) {
-  return {
-    apikey: key,
-    Authorization: `Bearer ${key}`,
-    "Content-Type": "application/json",
-  };
-}
-
 function rowToConfig(row: MusicChartRow): MusicConfig {
   return {
     id: row.id,
@@ -55,26 +40,6 @@ function rowToConfig(row: MusicChartRow): MusicConfig {
     gameplay: row.gameplay,
     notes: row.notes ?? undefined,
     updatedAt: row.updated_at ?? new Date().toISOString(),
-  };
-}
-
-function configToRow(config: MusicConfig): MusicChartRow {
-  return {
-    id: config.id,
-    title: config.title,
-    artist: config.artist ?? null,
-    audio_url: config.audioUrl,
-    duration_ms: Math.max(0, Math.round(config.durationMs)),
-    bpm: Number(config.bpm),
-    bpm_exact: config.BPM_exact == null ? null : Number(config.BPM_exact),
-    reference_bpm: config.referenceBpm == null || !Number.isFinite(config.referenceBpm) || config.referenceBpm <= 0 ? null : Number(config.referenceBpm),
-    reference_source: config.referenceSource?.trim() || null,
-    space_start_ms: Math.max(0, Math.round(config.spaceStartMs)),
-    space_start_beat: config.spaceStartBeat ?? null,
-    gauge: config.gauge,
-    gameplay: config.gameplay,
-    notes: config.notes ?? null,
-    updated_at: config.updatedAt || new Date().toISOString(),
   };
 }
 
@@ -113,52 +78,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  let config: MusicConfig;
-  try {
-    config = await request.json() as MusicConfig;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  if (!config?.id || !config.title || !config.audioUrl || !Number.isFinite(config.bpm) || !Number.isFinite(config.BPM_exact) || (config.BPM_exact ?? 0) <= 0) {
-    return NextResponse.json({ error: "Analyze the audio before saving. BPM_exact is required." }, { status: 400 });
-  }
-
-  const supabase = supabaseConfig();
-  if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
-
-  try {
-    const normalized: MusicConfig = { ...config, updatedAt: new Date().toISOString() };
-    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}?on_conflict=id`, {
-      method: "POST",
-      headers: { ...headers(supabase.key), Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify(configToRow(normalized)),
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      const detail = await response.text();
-      return NextResponse.json({ error: "Supabase write failed", detail }, { status: 502 });
-    }
-    return NextResponse.json({ ok: true, config: normalized });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase write failed" }, { status: 502 });
-  }
+// Content editing is deliberately frozen for the MVP security cutover.
+// Do not restore a public mutation path. A future verified content-admin flow
+// needs its own authorization and separately approved storage/chart grants.
+function readOnly() {
+  return NextResponse.json({ error: "Thư viện nhạc đang ở chế độ chỉ đọc trong giai đoạn bảo mật MVP." }, {
+    status: 403, headers: { "Cache-Control": "no-store" },
+  });
 }
 
-export async function DELETE(request: NextRequest) {
-  const id = request.nextUrl.searchParams.get("id");
-  if (!id) return NextResponse.json({ error: "Missing music id" }, { status: 400 });
-  const supabase = supabaseConfig();
-  if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
-  try {
-    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: { ...headers(supabase.key), Prefer: "return=minimal" }, cache: "no-store" });
-    if (!response.ok) {
-      const detail = await response.text();
-      return NextResponse.json({ error: "Supabase delete failed", detail }, { status: 502 });
-    }
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase delete failed" }, { status: 502 });
-  }
-}
+export async function POST() { return readOnly(); }
+export async function DELETE() { return readOnly(); }

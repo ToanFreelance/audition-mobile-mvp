@@ -8,6 +8,8 @@ import { C3_START_TRACE_KEY } from "../components/multiplayer/c3-start-trace";
 // Independent guest contexts, no email accounts, no mocked RoomState or audio.
 // Chromium DPR=1 bounds software GPU load; NOT a physical-device qualification.
 test.skip(process.env.P57_REAL_BENCH !== "1", "Explicit real P5.7 benchmark only");
+const securityQa = process.env.SECURITY_AUTH_REAL_QA === "1";
+if (securityQa) test.use({ trace: "off", video: "off", screenshot: "off" });
 const counts = [1, 2, 5] as const;
 for (const count of counts) {
   test(`@real P5.7 ${count} human M3 warmup to visible gameplay`, async ({ browser }, testInfo) => {
@@ -19,6 +21,7 @@ for (const count of counts) {
         const character = getCharacterCatalogEntry(index % 2 ? "m3-neurohacker" : "m3-drophunter")!;
         const context = await browser.newContext({
           baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL ?? "http://127.0.0.1:3000",
+          ignoreHTTPSErrors: securityQa,
           viewport: { width: 390, height: 844 }, deviceScaleFactor: 1,
         });
         const page = await context.newPage();
@@ -108,10 +111,11 @@ for (const count of counts) {
       expect(second.map(x => x.epoch)).toEqual(first.map(x => x.epoch));
       expect(second.every(x => x.context === "running")).toBe(true);
       expect(clients.flatMap(c => c.errors)).toEqual([]);
+      if (securityQa) console.log("QA signed guest duo PASS; epoch:", first[0].epoch, "host elapsed ms:", first[0].elapsedMs);
     } finally {
       evidence.clients = await Promise.all(clients.map(async ({ page, errors }, index) => {
         const trace = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || "[]"), C3_START_TRACE_KEY).catch(() => []);
-        await page.screenshot({ path: testInfo.outputPath("client-" + index + ".png") }).catch(() => undefined);
+        if (!securityQa) await page.screenshot({ path: testInfo.outputPath("client-" + index + ".png") }).catch(() => undefined);
         return { index, errors, trace };
       }));
       await testInfo.attach("p57-benchmark-" + count, { body: JSON.stringify(evidence, null, 2), contentType: "application/json" });
