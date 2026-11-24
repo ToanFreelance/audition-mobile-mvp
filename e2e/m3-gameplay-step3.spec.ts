@@ -96,12 +96,12 @@ test("M3 QA retarget does not support malformed skeletons or non-finite source c
     target.skeleton, [new THREE.AnimationClip("broken", -1, [])])).toThrow(/invalid clip duration/);
 });
 
-test("QA Step 3 cannot accidentally unlock M3 START", () => {
+test("owner-approved M3 runtime is enabled in Character Catalog", () => {
   for (const assetId of ["m3-drophunter", "m3-neurohacker"]) {
     const entry = getCharacterCatalogEntry(assetId);
     expect(entry?.creatorReady).toBe(true);
     expect(entry?.lobbyReady).toBe(true);
-    expect(entry?.runtimeReady).toBe(false);
+    expect(entry?.runtimeReady).toBe(true);
   }
 });
 

@@ -10,6 +10,9 @@ on:
       - "components/multiplayer/LiveMultiplayerGameplay.tsx"
       - "components/multiplayer/WaitingRoomPanel.tsx"
       - "components/multiplayer/lobby-match-content.ts"
+      - "components/character/character-catalog.ts"
+      - "components/multiplayer/WaitingRoomStage3D.tsx"
+      - "e2e/m3-lobby-appearance.spec.ts"
       - "components/character/m3-stage3d-qa-gate.ts"
       - "components/character/m3-stage3d-actor-scale.ts"
       - "app/api/multiplayer/room/route.ts"
@@ -52,7 +55,7 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Retarget/controller unit regression
-        run: npx playwright test e2e/m3-gameplay-step3.spec.ts e2e/m3-gameplay-qa-framing.spec.ts e2e/m3-stage3d-integration-step31.spec.ts --project=desktop --workers=1
+        run: npx playwright test e2e/m3-gameplay-step3.spec.ts e2e/m3-gameplay-qa-framing.spec.ts e2e/m3-stage3d-integration-step31.spec.ts e2e/m3-lobby-appearance.spec.ts --project=desktop --workers=1
       - name: Upload failure traces
         if: failure()
         uses: actions/upload-artifact@v4

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { AvatarSnapshot } from "../multiplayer/types";
 import { roomContainsNonPlayableCharacter } from "../components/character/m3-lobby-appearance";
 import {
-  isM3Stage3dQaOptIn, resolveM3Stage3dAvatar, frozenStageActorIdentityKey, M3_STAGE3D_QA_RUNTIME_VERSION,
+  resolveM3Stage3dAvatar, frozenStageActorIdentityKey, M3_STAGE3D_QA_RUNTIME_VERSION, M3_STAGE3D_RUNTIME_VERSION, isM3Stage3dRuntimeVersion,
   assertM3Stage3dServerStartGate,
 } from "../components/character/m3-stage3d-qa-gate";
 import { getCharacterCatalogEntry } from "../components/character/character-catalog";
@@ -26,36 +26,27 @@ const male = avatar("m3-neurohacker", {
   m3Outfit: { top: "simpleshirt", bottom: "shorts" },
 });
 
-test("M3 gate is explicit and branch-only, never production", () => {
-  const branch = "audition-mobile-mvp-git-work-m3-6be266-toan-freelances-projects.vercel.app";
-  expect(isM3Stage3dQaOptIn(branch, "?m3GameplayQa=1")).toBe(true);
-  expect(isM3Stage3dQaOptIn(branch, "")).toBe(false);
-  expect(isM3Stage3dQaOptIn(branch, "?m3GameplayQa=0")).toBe(false);
-  expect(isM3Stage3dQaOptIn("audition-mobile-mvp.vercel.app", "?m3GameplayQa=1")).toBe(false);
-  expect(isM3Stage3dQaOptIn("localhost", "?m3GameplayQa=1")).toBe(true);
-  expect(M3_STAGE3D_QA_RUNTIME_VERSION).toContain("step3.1-qa");
+test("normal M3 runtime has a distinct version and accepts the legacy frozen version", () => {
+  expect(M3_STAGE3D_RUNTIME_VERSION).not.toBe(M3_STAGE3D_QA_RUNTIME_VERSION);
+  expect(isM3Stage3dRuntimeVersion(M3_STAGE3D_RUNTIME_VERSION)).toBe(true);
+  expect(isM3Stage3dRuntimeVersion(M3_STAGE3D_QA_RUNTIME_VERSION)).toBe(true);
+  expect(isM3Stage3dRuntimeVersion("character-catalog:v1")).toBe(false);
 });
-test("M3 gameplay resolves the frozen female/male Catalog identity and wardrobe", () => {
-  expect(resolveM3Stage3dAvatar(female, true)).toEqual({
-    assetId: "m3-drophunter", appearance: female.m3Appearance,
-  });
-  expect(resolveM3Stage3dAvatar(male, true)).toEqual({
-    assetId: "m3-neurohacker", appearance: male.m3Appearance,
-  });
-  expect(resolveM3Stage3dAvatar(avatar("c1-casual-grace"), true)).toBeNull();
-  expect(resolveM3Stage3dAvatar(avatar("c4-casual-boy"), false)).toBeNull();
-  expect(() => resolveM3Stage3dAvatar(female, false)).toThrow(/opt-in/);
-  expect(() => resolveM3Stage3dAvatar(avatar("m3-drophunter"), true)).toThrow(/appearance/);
-  expect(() => resolveM3Stage3dAvatar(avatar("unknown"), true)).toThrow(/characterAssetId/);
+test("M3 gameplay resolves frozen female/male Catalog identity and wardrobe without opt-in", () => {
+  expect(resolveM3Stage3dAvatar(female)).toEqual({ assetId: "m3-drophunter", appearance: female.m3Appearance });
+  expect(resolveM3Stage3dAvatar(male)).toEqual({ assetId: "m3-neurohacker", appearance: male.m3Appearance });
+  expect(resolveM3Stage3dAvatar(avatar("c1-casual-grace"))).toBeNull();
+  expect(resolveM3Stage3dAvatar(avatar("c4-casual-boy"))).toBeNull();
+  expect(() => resolveM3Stage3dAvatar(avatar("m3-drophunter"))).toThrow(/appearance/);
+  expect(() => resolveM3Stage3dAvatar(avatar("unknown"))).toThrow(/characterAssetId/);
 });
-test("Host START is default-locked; M3 QA only accepts complete frozen looks", () => {
-  expect(roomContainsNonPlayableCharacter([female, male])).toBe(true);
-  expect(roomContainsNonPlayableCharacter([female, male], true)).toBe(false);
-  expect(roomContainsNonPlayableCharacter([avatar("c1-casual-grace"), female], true)).toBe(false);
-  expect(roomContainsNonPlayableCharacter([avatar("m3-neurohacker")], true)).toBe(true);
-  expect(roomContainsNonPlayableCharacter([avatar("unknown")], true)).toBe(true);
-  expect(getCharacterCatalogEntry("m3-drophunter")?.runtimeReady).toBe(false);
-  expect(getCharacterCatalogEntry("m3-neurohacker")?.runtimeReady).toBe(false);
+test("normal Host START accepts runtime-ready M3 but still requires a complete canonical look", () => {
+  expect(roomContainsNonPlayableCharacter([female, male])).toBe(false);
+  expect(roomContainsNonPlayableCharacter([avatar("c1-casual-grace"), female])).toBe(false);
+  expect(roomContainsNonPlayableCharacter([avatar("m3-neurohacker")])).toBe(true);
+  expect(roomContainsNonPlayableCharacter([avatar("unknown")])).toBe(true);
+  expect(getCharacterCatalogEntry("m3-drophunter")?.runtimeReady).toBe(true);
+  expect(getCharacterCatalogEntry("m3-neurohacker")?.runtimeReady).toBe(true);
 });
 
 test("same frozen avatar identity survives metadata snapshot rehydration", () => {
@@ -68,8 +59,8 @@ test("same frozen avatar identity survives metadata snapshot rehydration", () =>
   expect(frozenStageActorIdentityKey(male)).not.toBe(key);
 });
 
-// API START does not inherit the room URL query; the frozen marker and
-// Preview hostname must agree, with canonical participant/wardrobe identity.
+// Normal START is independent of query and hostname. Old QA matches retain
+// their original frozen identity; invalid wardrobes remain fail-closed.
 const qaHostname = "audition-mobile-mvp-git-work-m3-6be266-toan-freelances-projects.vercel.app";
 function qaRoom(hostAvatar: AvatarSnapshot = female, guestAvatar?: AvatarSnapshot): RoomState {
   const host: HumanHostParticipant = {
@@ -91,11 +82,11 @@ function qaRoom(hostAvatar: AvatarSnapshot = female, guestAvatar?: AvatarSnapsho
   }
   return room;
 }
-function qaManifest(room: RoomState, qa = true): MatchManifest {
+function qaManifest(room: RoomState, version = M3_STAGE3D_RUNTIME_VERSION): MatchManifest {
   return createMatchManifest(room, {
     matchId: "qa-match", audioVersion: "audio-v1", audioHash: "audio-hash",
     chartVersion: "chart-v1", chartHash: "chart-hash",
-    characterRuntimeVersion: qa ? M3_STAGE3D_QA_RUNTIME_VERSION : "character-catalog:default",
+    characterRuntimeVersion: version,
     animationReleaseVersion: 0, animationReleaseHash: "unpublished",
     gameplayConfigVersion: "config-v1", gameplayConfigHash: "config-hash",
     seed: 1, bpmExact: 101, spaceStartMs: 0, sequenceCounts: [8],
@@ -103,19 +94,22 @@ function qaManifest(room: RoomState, qa = true): MatchManifest {
   });
 }
 
-test("server START accepts frozen M3 only on QA Preview for solo and ready multiplayer", () => {
+test("server START accepts normal M3 solo, two-human and mixed matches without QA", () => {
   const solo = qaRoom();
   const duo = qaRoom(female, male);
-  expect(() => assertM3Stage3dServerStartGate(qaHostname, solo, qaManifest(solo))).not.toThrow();
-  expect(() => assertM3Stage3dServerStartGate(qaHostname, duo, qaManifest(duo))).not.toThrow();
-  expect(() => assertM3Stage3dServerStartGate("localhost", solo, qaManifest(solo))).not.toThrow();
+  const mixed = qaRoom(female, avatar("c4-casual-boy"));
+  for (const room of [solo, duo, mixed]) {
+    for (const hostname of [qaHostname, "localhost", "audition-mobile-mvp.vercel.app"]) {
+      expect(() => assertM3Stage3dServerStartGate(hostname, room, qaManifest(room))).not.toThrow();
+    }
+  }
 });
-
-test("server START keeps production, missing-marker and invalid-look paths closed", () => {
+test("server START rejects wrong runtime version and malformed look; keeps old QA scoped", () => {
   const room = qaRoom();
-  const manifest = qaManifest(room);
-  expect(() => assertM3Stage3dServerStartGate("audition-mobile-mvp.vercel.app", room, manifest)).toThrow(/isolated Preview/);
-  expect(() => assertM3Stage3dServerStartGate(qaHostname, room, qaManifest(room, false))).toThrow(/QA marker/);
+  const legacyQa = qaManifest(room, M3_STAGE3D_QA_RUNTIME_VERSION);
+  expect(() => assertM3Stage3dServerStartGate(qaHostname, room, legacyQa)).not.toThrow();
+  expect(() => assertM3Stage3dServerStartGate("audition-mobile-mvp.vercel.app", room, legacyQa)).toThrow(/runtime version/);
+  expect(() => assertM3Stage3dServerStartGate(qaHostname, room, qaManifest(room, "character-catalog:default"))).toThrow(/runtime version/);
   const invalid = qaRoom(avatar("m3-drophunter"));
   expect(() => assertM3Stage3dServerStartGate(qaHostname, invalid, qaManifest(invalid))).toThrow(/wardrobe/);
 });
@@ -139,9 +133,9 @@ test("server START rejects forged frozen participant and wardrobe despite valid 
   expect(() => assertM3Stage3dServerStartGate(qaHostname, room, fewer)).toThrow(/count/);
 });
 
-test("server START leaves legacy C1/C4 allowed but never accepts a fake M3 QA manifest", () => {
+test("server START leaves legacy C1/C4 allowed but rejects mismatched M3 runtime manifests", () => {
   const legacy = qaRoom(avatar("c1-casual-grace"), avatar("c4-casual-boy"));
-  expect(() => assertM3Stage3dServerStartGate("audition-mobile-mvp.vercel.app", legacy, qaManifest(legacy, false))).not.toThrow();
+  expect(() => assertM3Stage3dServerStartGate("audition-mobile-mvp.vercel.app", legacy, qaManifest(legacy, "character-catalog:default"))).not.toThrow();
   expect(() => assertM3Stage3dServerStartGate(qaHostname, legacy, qaManifest(legacy))).toThrow(/without M3/);
 });
 

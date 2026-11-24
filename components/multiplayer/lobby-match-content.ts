@@ -17,7 +17,7 @@ import {
 import { loadPublishedDanceRelease, loadPublishedDanceReleaseIdentity } from "../character/published-animation-library";
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { m3SelectedAssetFiles, loadM3AssetBytes } from "../character/m3-asset-cache";
-import { isM3CatalogAvatar, resolveM3Stage3dAvatar, M3_STAGE3D_QA_RUNTIME_VERSION } from "../character/m3-stage3d-qa-gate";
+import { isM3CatalogAvatar, resolveM3Stage3dAvatar, M3_STAGE3D_RUNTIME_VERSION, M3_STAGE3D_QA_RUNTIME_VERSION, isM3Stage3dRuntimeVersion } from "../character/m3-stage3d-qa-gate";
 import { HUMAN_CHARACTER_ASSET_URL } from "../character/human-animation-library";
 import type { LobbyMatchFreezeInput } from "../../multiplayer/lobby-match-freeze";
 import type { MatchManifest } from "../../multiplayer/types";
@@ -82,7 +82,7 @@ export async function prepareLobbyMatchFreezeInput(input: {
   roomId: string;
   roomRevision: number;
   songId: string;
-  m3GameplayQa?: boolean;
+  containsM3?: boolean;
 }): Promise<LobbyMatchFreezeInput> {
   const music = await fetchPlayableMusicConfig(input.songId);
   const publishedIdentity = await loadPublishedDanceReleaseIdentity();
@@ -126,8 +126,8 @@ export async function prepareLobbyMatchFreezeInput(input: {
     audioHash: await sha256(audioIdentity),
     chartVersion: `chart:${music.id}:${music.updatedAt || "unversioned"}`,
     chartHash: await sha256(chartIdentity),
-    characterRuntimeVersion: input.m3GameplayQa
-      ? M3_STAGE3D_QA_RUNTIME_VERSION : `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
+    characterRuntimeVersion: input.containsM3
+      ? M3_STAGE3D_RUNTIME_VERSION : `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
     animationReleaseVersion: publishedIdentity?.releaseVersion ?? 0,
     animationReleaseHash: await sha256(animationIdentity),
     gameplayConfigVersion: GAMEPLAY_CONFIG_VERSION,
@@ -171,7 +171,7 @@ export async function preloadAssetBytes(url: string, label: string) {
 async function frozenContentIdentity(
   music: MusicConfig,
   published: Awaited<ReturnType<typeof loadPublishedDanceRelease>>,
-  m3GameplayQa = false,
+  characterRuntimeVersion: string,
 ) {
   const audioIdentity = {
     songId: music.id,
@@ -207,8 +207,7 @@ async function frozenContentIdentity(
     audioHash: await sha256(audioIdentity),
     chartVersion: `chart:${music.id}:${music.updatedAt || "unversioned"}`,
     chartHash: await sha256(chartIdentity),
-    characterRuntimeVersion: m3GameplayQa
-      ? M3_STAGE3D_QA_RUNTIME_VERSION : `character-catalog:v${CHARACTER_CATALOG_VERSION}`,
+    characterRuntimeVersion,
     animationReleaseVersion: published?.info.releaseVersion ?? 0,
     animationReleaseHash: await sha256(animationIdentity),
     gameplayConfigVersion: GAMEPLAY_CONFIG_VERSION,
@@ -281,22 +280,26 @@ export async function resolveFrozenLobbyMusic(manifest: MatchManifest) {
  * AudioContext, schedule a shared start, render countdown state, or navigate.
  */
 export async function preloadFrozenLobbyMatch(
-  manifest: MatchManifest, options: { m3GameplayQaEnabled?: boolean } = {},
+  manifest: MatchManifest,
 ): Promise<{
   characterReadiness: PresentationResourceReadiness;
   animationReadiness: PresentationResourceReadiness;
 }> {
   const hasM3 = manifest.participants.some(participant => isM3CatalogAvatar(participant.avatar));
-  const frozenQa = manifest.content.characterRuntimeVersion === M3_STAGE3D_QA_RUNTIME_VERSION;
-  if (hasM3 && (!options.m3GameplayQaEnabled || !frozenQa)) {
-    throw new Error("M3 match requires the frozen Step 3.1 QA contract on every device.");
+  const frozenVersion = manifest.content.characterRuntimeVersion;
+  if (hasM3 !== isM3Stage3dRuntimeVersion(frozenVersion)) {
+    throw new Error("Frozen M3 runtime version does not match the participants.");
   }
-  if (!hasM3 && frozenQa) throw new Error("Unexpected M3 QA manifest without M3 characters.");
+  // Preserve old frozen QA matches without rewriting their manifest. New
+  // normal M3 matches freeze the accepted runtime version instead.
+  const characterRuntimeVersion = hasM3
+    ? (frozenVersion === M3_STAGE3D_QA_RUNTIME_VERSION ? M3_STAGE3D_QA_RUNTIME_VERSION : M3_STAGE3D_RUNTIME_VERSION)
+    : `character-catalog:v${CHARACTER_CATALOG_VERSION}`;
 
   // Validate every frozen appearance before any LOADED acknowledgement.
   const m3Files = new Map<string, ReturnType<typeof m3SelectedAssetFiles>[number]>();
   for (const participant of manifest.participants) {
-    const selected = resolveM3Stage3dAvatar(participant.avatar, Boolean(options.m3GameplayQaEnabled));
+    const selected = resolveM3Stage3dAvatar(participant.avatar);
     if (!selected) continue;
     for (const file of m3SelectedAssetFiles(selected.assetId, selected.appearance)) {
       m3Files.set(file.family + ":" + file.file, file);
@@ -307,7 +310,7 @@ export async function preloadFrozenLobbyMatch(
   const published = manifest.content.animationReleaseVersion > 0
     ? await loadPublishedDanceRelease(false, manifest.content.animationReleaseVersion)
     : null;
-  const identity = await frozenContentIdentity(music, published, frozenQa);
+  const identity = await frozenContentIdentity(music, published, characterRuntimeVersion);
   assertFrozenContent(manifest, identity);
   await preloadAssetBytes(music.audioUrl, "Match audio");
 

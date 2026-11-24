@@ -40,15 +40,11 @@ export function parseM3LobbyAppearance(
   };
 }
 
-/** The default START gate remains locked; QA allows only valid frozen M3 looks. */
-export function roomContainsNonPlayableCharacter(
-  avatars: readonly AvatarSnapshot[], m3GameplayQaEnabled = false,
-): boolean {
+/** Runtime-ready M3 still requires a complete, canonical wardrobe snapshot. */
+export function roomContainsNonPlayableCharacter(avatars: readonly AvatarSnapshot[]): boolean {
   return avatars.some(avatar => {
     const entry = getCharacterCatalogEntry(avatarCharacterAssetId(avatar));
-    if (!entry) return true;
-    if (entry.runtimeReady) return false;
-    return !(m3GameplayQaEnabled && entry.m3RigFamily
-      && parseM3LobbyAppearance(entry.id, avatar.m3Appearance));
+    if (!entry?.runtimeReady) return true;
+    return Boolean(entry.m3RigFamily && !parseM3LobbyAppearance(entry.id, avatar.m3Appearance));
   });
 }

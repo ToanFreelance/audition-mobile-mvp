@@ -175,9 +175,8 @@ type Stage3DProps = {
   selectedStageId?: string | null;
   /** Frozen MatchManifest avatar for multiplayer; solo falls back to Character Creation draft. */
   characterAssetId?: CharacterAssetId;
-  /** Frozen participant avatar and QA contract for multiplayer. */
+  /** Frozen participant avatar and animation release for multiplayer. */
   characterAvatar?: AvatarSnapshot;
-  m3GameplayQaEnabled?: boolean;
   m3FrozenReleaseVersion?: number;
   visualCompareMode?: boolean;
   hideCharacter?: boolean;
@@ -203,7 +202,6 @@ export default function Stage3D({
   selectedStageId = DEFAULT_STAGE_ID,
   characterAssetId,
   characterAvatar,
-  m3GameplayQaEnabled = false,
   m3FrozenReleaseVersion,
   visualCompareMode = false,
   hideCharacter = false,
@@ -539,7 +537,7 @@ export default function Stage3D({
         host.dataset.characterError = error instanceof Error ? error.message : String(error);
         const cause = error instanceof Error ? error.message : String(error);
         onPresentationFailureRef.current?.(
-          m3 && m3GameplayQaEnabled ? "M3 Stage3D: " + cause : "Không thể tải nhân vật và animation.",
+          m3 ? "M3 Stage3D: " + cause : "Không thể tải nhân vật và animation.",
         );
         console.warn("[Stage3D] actor loading failed:", error);
       });
@@ -548,7 +546,7 @@ export default function Stage3D({
     if (!hideCharacter) {
       let m3Choice: ReturnType<typeof resolveM3Stage3dAvatar> | "blocked" = null;
       if (frozenAvatarRef.current) {
-        try { m3Choice = resolveM3Stage3dAvatar(frozenAvatarRef.current, m3GameplayQaEnabled); }
+        try { m3Choice = resolveM3Stage3dAvatar(frozenAvatarRef.current); }
         catch (error) {
           m3Choice = "blocked";
           host.dataset.characterError = error instanceof Error ? error.message : String(error);
@@ -792,7 +790,7 @@ export default function Stage3D({
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, frozenActorKey, m3GameplayQaEnabled, m3FrozenReleaseVersion, skipIntroCamera, cinematicMatchId]);
+  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, frozenActorKey, m3FrozenReleaseVersion, skipIntroCamera, cinematicMatchId]);
 
   return (
     <div

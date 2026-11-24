@@ -2077,7 +2077,8 @@ export default function WaitingRoomStage3D({
     });
     const idleLibraryPromise = loadLobbyIdleLibrary();
     const catalogPromises = CHARACTER_CATALOG_V1
-      .filter(entry => entry.runtimeReady)
+      // M3 uses its existing wardrobe assembler/cache, not the legacy GLTF warmup.
+      .filter(entry => entry.runtimeReady && !entry.m3RigFamily)
       .map(async entry => {
         try {
           const gltf = await loader.loadAsync(entry.assetUrl);

@@ -353,8 +353,8 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
       requireHost(room, body.actorParticipantId);
       return removeParticipant(room, body.participantId);
     case "start-preload":
-      // API POST has no room-page query; verify the frozen QA marker, host
-      // and canonical wardrobe while retaining the production M3 block.
+      // Validate frozen runtime version and canonical wardrobe, independent
+      // of room-page URL flags. Ordinary START/CAS remains authoritative.
       assertM3Stage3dServerStartGate(requestHostname, room, body.manifest);
       return beginLobbyPreload(
         room,
