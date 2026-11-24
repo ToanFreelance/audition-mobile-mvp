@@ -37,7 +37,14 @@ export function isSameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (!origin) return false;
   try {
-    return new URL(origin).host === request.headers.get("host");
+    const parsed = new URL(origin);
+    // Origin is scheme + host + port. On Vercel the public edge is HTTPS
+    // even when an internal proxy constructs a different request URL.
+    const protocol = process.env.VERCEL === "1" ? "https:" : request.nextUrl.protocol;
+    return (protocol === "https:" || protocol === "http:")
+      && parsed.origin === origin
+      && parsed.protocol === protocol
+      && parsed.host === request.headers.get("host");
   } catch { return false; }
 }
 

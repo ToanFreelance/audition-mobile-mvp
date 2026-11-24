@@ -139,3 +139,10 @@ test("verified account cannot impersonate another member and invalid account tok
     }
   }
 });
+
+test("same host but different scheme and non-origin URL cannot mutate", async () => {
+  for (const origin of ["http://game.test", "https://game.test/path", "null", "https://game.test:444"]) {
+    expect((await guestPost(request("/api/multiplayer/guest-session", {}, origin))).status).toBe(403);
+    expect((await roomPost(request("/api/multiplayer/room", { action: "ready" }, origin))).status).toBe(403);
+  }
+});

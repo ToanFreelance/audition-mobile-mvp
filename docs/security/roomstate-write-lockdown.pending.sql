@@ -18,7 +18,7 @@ grant execute on function public.bootstrap_lobby_room(text,jsonb),
  public.close_mvp_lobby_room(text,integer,text) to service_role;
 revoke insert, update, delete, truncate, trigger, references on public.player_characters from public, anon, authenticated;
 -- Column-level grants are independent of table-level privileges.
-revoke insert(user_id,profile,revision,updated_at), update(user_id,profile,revision,updated_at)
+revoke insert(user_id,profile,revision,updated_at), update(user_id,profile,revision,updated_at), references(user_id,profile,revision,updated_at)
  on public.player_characters from public, anon, authenticated;
 grant select, insert, update on public.player_characters to service_role;
 -- Preserve own-profile SELECT under RLS and existing admin reset DELETE grant.
