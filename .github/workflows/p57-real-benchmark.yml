@@ -1,0 +1,46 @@
+name: P5.7 real M3 handoff benchmark
+on:
+  push:
+    branches: [work/p5-7-match-warmup-v1]
+    paths:
+      - "e2e/p57-real-benchmark.spec.ts"
+      - ".github/workflows/p57-real-benchmark.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: p57-real-benchmark-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  benchmark:
+    if: github.ref == 'refs/heads/work/p5-7-match-warmup-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    env:
+      CI: "true"
+      PLAYWRIGHT_WEB_SERVER: "1"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+      P57_REAL_BENCH: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Real M3 1 / 2 / 5 client evidence
+        run: npx playwright test e2e/p57-real-benchmark.spec.ts --project=desktop --workers=1 --retries=0
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p57-handoff-evidence-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
