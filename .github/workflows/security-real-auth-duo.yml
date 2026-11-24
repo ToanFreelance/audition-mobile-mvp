@@ -9,6 +9,7 @@ on:
       - "app/api/music-library/**"
       - ".github/workflows/security-real-auth-duo.yml"
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -16,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   real-auth-duo:
-    if: github.ref == 'refs/heads/work/p5-7-match-warmup-v1'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/work/p5-7-match-warmup-v1' || github.ref == 'refs/heads/development')
     environment: security-auth-qa
     runs-on: ubuntu-latest
     timeout-minutes: 18

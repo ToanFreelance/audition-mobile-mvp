@@ -115,7 +115,7 @@ jobs:
 
   core-regression:
     name: core-regression
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main') }}
+    if: ${{ github.event_name == 'pull_request' || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 18
 
@@ -154,43 +154,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # The old /tools/lobby-qa?sync=1 fixture relies on the deliberately
+  # disabled public bootstrap. Keep its source tests for a future port, but
+  # gate development on the real normal-entry Auth + signed Guest HTTPS suite.
+  # No secrets in pull_request builds. The called job uses the protected
+  # security-auth-qa environment; the owner must allow exact development ref.
   real-browser-e2e:
     name: real-host-guest-e2e
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Production build
-        run: npm run build
-
-      - name: Install Chromium and WebKit
-        run: npx playwright install --with-deps chromium webkit
-
-      - name: Real Host Guest browser E2E
-        env:
-          PLAYWRIGHT_WEB_SERVER: "1"
-        run: npm run test:qa:lobby:e2e
-
-      - name: Upload real-browser evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lobby-real-browser-${{ github.run_id }}
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: ignore
-          retention-days: 7
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/development' }}
+    uses: ./.github/workflows/security-real-auth-duo.yml
