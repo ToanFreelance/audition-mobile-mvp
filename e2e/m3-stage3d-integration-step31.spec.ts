@@ -223,3 +223,12 @@ test("M3 Stage3D accepts separately wrapped and subset skinned bones within one 
   expect(normalized.attachedMeshes).toBe(3);
   expect(parts.every(part => part.bindMode === "attached")).toBe(true);
 });
+
+test("Solo profile fallback stays legacy C1; saved M3 resolves the exact local wardrobe", async () => {
+  const { resolveSoloCharacterProfile, DEFAULT_CHARACTER_CREATION_PROFILE } = await import("../components/character/character-profile");
+  expect(resolveSoloCharacterProfile(null).characterAssetId).toBe("c1-casual-grace");
+  expect(resolveSoloCharacterProfile({getItem: () => "invalid"}).characterAssetId).toBe("c1-casual-grace");
+  expect(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId).toBe("m3-drophunter");
+  const saved = { ...DEFAULT_CHARACTER_CREATION_PROFILE, hairColor: "red", m3Outfit: {top:"lightshirt",bottom:"sportshorts"} };
+  expect(resolveSoloCharacterProfile({getItem: () => JSON.stringify(saved)})).toEqual(saved);
+});

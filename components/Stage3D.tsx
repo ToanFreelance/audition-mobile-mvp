@@ -9,8 +9,9 @@ import type { CharacterPresentation, CharacterPresentationEvent } from "./charac
 import { frozenStageActorIdentityKey, resolveM3Stage3dAvatar } from "./character/m3-stage3d-qa-gate";
 import type { AvatarSnapshot } from "../multiplayer/types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
-import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
-import { isCharacterAssetId, type CharacterAssetId } from "./character/character-catalog";
+import { resolveSoloCharacterProfile } from "./character/character-profile";
+import { parseM3LobbyAppearance } from "./character/m3-lobby-appearance";
+import { getCharacterCatalogEntry, isCharacterAssetId, type CharacterAssetId } from "./character/character-catalog";
 import {
   DEFAULT_STAGE_ID,
   resolveRuntimeStageCatalogEntry,
@@ -458,13 +459,10 @@ export default function Stage3D({
 
     // Multiplayer identity is frozen by MatchManifest, not a client draft.
     // The solo path retains the existing persisted Character Creation behavior.
-    let selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
-    if (!characterAssetId) {
-      try {
-        selectedCharacter = loadCharacterCreationDraft(window.localStorage) ?? DEFAULT_CHARACTER_CREATION_PROFILE;
-      } catch {
-        selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
-      }
+    let selectedCharacter = resolveSoloCharacterProfile(null);
+    if (!frozenAvatarRef.current) {
+      try { selectedCharacter = resolveSoloCharacterProfile(window.localStorage); }
+      catch { /* inaccessible browser storage retains legacy fallback */ }
     }
     const runtimeCharacterAssetId = characterAssetId && isCharacterAssetId(characterAssetId)
       ? characterAssetId
@@ -507,11 +505,15 @@ export default function Stage3D({
       if (latestCharacterEventRef.current) actor.handlePresentationEvent(latestCharacterEventRef.current);
       stage.add(actor.root);
       host.dataset.characterAssetId = runtimeCharacterAssetId;
-      host.dataset.characterProfileVersion = m3 ? "frozen-match-manifest" : String(selectedCharacter.version);
+      host.dataset.characterProfileVersion = m3 && frozenAvatarRef.current ? "frozen-match-manifest" : String(selectedCharacter.version);
       host.dataset.characterSource = "loading";
       void actor.load().then(result => {
         if (disposed || character !== actor) return;
         if (!result || result.error || !result.metrics.animationClips.length) {
+          // Expose the actual legacy fallback/error to QA without declaring
+          // failed actors presentation-ready or weakening multiplayer gates.
+          host.dataset.characterSource = result?.source === "fallback" ? "fallback" : "failed";
+          if (result?.error) host.dataset.characterError = result.error;
           onPresentationFailureRef.current?.("Nhân vật hoặc animation chưa sẵn sàng.");
           return;
         }
@@ -573,6 +575,31 @@ export default function Stage3D({
             if (disposed) return;
             host.dataset.characterError = error instanceof Error ? error.message : String(error);
             onPresentationFailureRef.current?.("Không thể khởi tạo M3 Stage3D.");
+          });
+        }
+      } else if (getCharacterCatalogEntry(runtimeCharacterAssetId)?.m3RigFamily) {
+        // Local Solo only. A frozen manifest must always take the validated
+        // branch above; never substitute a local look for a frozen identity.
+        const appearance = !frozenAvatarRef.current && selectedCharacter.characterAssetId === runtimeCharacterAssetId
+          ? parseM3LobbyAppearance(runtimeCharacterAssetId, selectedCharacter) : null;
+        host.dataset.characterAssetId = runtimeCharacterAssetId;
+        host.dataset.characterProfileVersion = String(selectedCharacter.version);
+        if (!appearance) {
+          host.dataset.characterSource = "blocked";
+          onPresentationFailureRef.current?.("M3 Solo profile is unavailable or invalid.");
+        } else {
+          host.dataset.characterSource = "loading";
+          void import("./character/M3GameplayQaActor").then(({ M3GameplayQaActor }) => {
+            // Solo uses the existing local animation release resolution;
+            // multiplayer still requires its exact frozen release version.
+            if (!disposed) attachActor(new M3GameplayQaActor(
+              runtimeCharacterAssetId, appearance, undefined, true,
+            ), true);
+          }).catch(error => {
+            if (disposed) return;
+            host.dataset.characterSource = "failed";
+            host.dataset.characterError = error instanceof Error ? error.message : String(error);
+            onPresentationFailureRef.current?.("Không thể khởi tạo M3 Solo.");
           });
         }
       } else {

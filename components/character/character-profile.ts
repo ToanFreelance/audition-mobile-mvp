@@ -98,3 +98,15 @@ export function saveCharacterCreationDraft(
 ) {
   storage.setItem(CHARACTER_CREATION_DRAFT_KEY, JSON.stringify(profile));
 }
+
+/** Legacy Solo is not an account/room authority. Preserve its historical C1
+ * fallback when no valid draft exists, while honoring a saved M3 wardrobe. */
+export function resolveSoloCharacterProfile(storage: Pick<Storage, "getItem"> | null): CharacterCreationProfileV1 {
+  try {
+    const saved = storage ? loadCharacterCreationDraft(storage) : null;
+    if (saved) return saved;
+  } catch { /* browser storage may be unavailable */ }
+  const legacy = getCharacterCatalogEntry(DEFAULT_CHARACTER_ASSET_ID)!;
+  return { version: 1, gender: legacy.gender, characterAssetId: legacy.id,
+    ...legacy.defaultAppearance, name: DEFAULT_CHARACTER_CREATION_PROFILE.name };
+}

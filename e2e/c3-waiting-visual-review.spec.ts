@@ -67,7 +67,9 @@ test("C3 five-player waiting-room baseline across viewports", async ({ page }) =
 });
 
 test("C3 real entry Settings hides internal QA controls but keeps camera presets", async ({ page }) => {
-  const participantId = "player-00000000-0000-4000-8000-000000000001";
+  const participantId = "guest-00000000-0000-4000-8000-000000000001";
+  await page.route("**/api/auth", r => r.fulfill({json:{authenticated:false}}));
+  await page.route("**/api/multiplayer/guest-session", r => r.fulfill({json:{ok:true,participantId}}));
   const roomId = "mvp-c3-settings-qa";
   await page.addInitScript(({ id }) => {
     localStorage.setItem("audition.entryParticipantId.v1", id);
@@ -127,13 +129,15 @@ test("C3 single-Host real-layout fixture has one non-reflected empty marker per 
   await page.screenshot({ path: "test-results/c3-baseline/single-host-no-double-rings-390x740.png", fullPage: false, animations: "disabled" });
 });
 
-test("C3 pending server sync is a modal overlay and does not shift the waiting-room controls", async ({ page }) => {
+test("P5.7 pending server sync keeps waiting-room visible and START locked", async ({ page }) => {
   const profile = {
     version: 1, name: "Luna", gender: "female", characterAssetId: "c1-casual-grace",
     hairStyle: "female-bob-01", hairColor: "brown", skinTone: "warm", face: "basic-01",
   };
   const roomId = "mvp-c3-visual-single";
-  const participantId = "player-00000000-0000-4000-8000-000000000001";
+  const participantId = "guest-00000000-0000-4000-8000-000000000001";
+  await page.route("**/api/auth", r => r.fulfill({json:{authenticated:false}}));
+  await page.route("**/api/multiplayer/guest-session", r => r.fulfill({json:{ok:true,participantId}}));
   await page.addInitScript(({ profile, participantId }) => {
     localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify(profile));
     localStorage.setItem("audition.entryParticipantId.v1", participantId);
@@ -161,27 +165,17 @@ test("C3 pending server sync is a modal overlay and does not shift the waiting-r
   }));
   await page.setViewportSize({ width:390, height:740 });
   await page.goto("/rooms/" + roomId);
-  const overlay=page.getByTestId("room-sync-overlay");
-  await expect(overlay).toBeVisible({timeout:15_000});
-  await expect(overlay).toHaveCSS("position","fixed");
-  await expect(overlay.getByTestId("retry-room-sync")).toBeVisible();
-  const artwork = overlay.getByTestId("dance-up-launch-artwork");
-  await expect(artwork).toBeVisible();
-  const posterFit = await artwork.evaluate(element => getComputedStyle(element, "::before").backgroundSize);
-  expect(posterFit).toBe("contain"); // The approved poster cannot be cropped.
-  await expect(overlay).not.toContainText("PREPARING STAGE");
-  await page.screenshot({
-    path: "test-results/c3-baseline/room-entry-full-banner-390x740.png",
-    fullPage: false,
-    animations: "disabled",
-  });
-  const boxes=await page.evaluate(()=>{
-    const footer=document.querySelector('[data-testid="start-button"]')!.getBoundingClientRect();
-    const overlay=document.querySelector('[data-testid="room-sync-overlay"]')!.getBoundingClientRect();
-    return {footerBottom:footer.bottom,viewportHeight:innerHeight,overlayHeight:overlay.height};
-  });
-  expect(boxes.footerBottom).toBeLessThanOrEqual(boxes.viewportHeight);
-  expect(boxes.overlayHeight).toBe(boxes.viewportHeight);
+  const indicator=page.getByTestId("room-sync-indicator");
+  await expect(indicator).toBeVisible();
+  await expect(indicator).not.toHaveAttribute("data-sync-state","synced");
+  await expect(page.getByTestId("room-sync-overlay")).toHaveCount(0);
+  await expect(page.getByTestId("waiting-room-stage")).toBeVisible();
+  await expect(page.getByTestId("room-settings-button")).toBeVisible();
+  await expect(page.getByTestId("start-button")).toBeDisabled();
+  const footer=await page.getByTestId("start-button").boundingBox();
+  expect(footer).not.toBeNull();
+  expect(footer!.y+footer!.height).toBeLessThanOrEqual(740);
+  await page.screenshot({path:"test-results/c3-baseline/waiting-room-auto-sync-390x740.png",fullPage:false,animations:"disabled"});
 });
 
 test("C3 START intent immediately covers released 3D scene while manifest freezes", async ({ page }) => {
