@@ -127,6 +127,11 @@ type ClockApiResponse = {
 const LOBBY_CLOCK_SAMPLE_COUNT = 5;
 const LOBBY_CLOCK_MIN_SAMPLES = 3;
 
+// Browser state can change across await; read it again through accessors
+// rather than allowing TypeScript to preserve pre-await narrowing.
+function isLobbyBrowserOnline() { return navigator.onLine !== false; }
+function isLobbyAudioClosed(context: AudioContext) { return context.state === "closed"; }
+
 async function fetchLobbyClockSample(timeoutMs = 4000, signal?: AbortSignal): Promise<ClockSyncSample> {
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -1330,11 +1335,11 @@ export default function WaitingRoomPanel({
       // A provisional clock is never authoritative on its own. One fresh
       // probe must confirm the offset after the match's all-loaded gate.
       if (!forceFreshClock && syncKey && document.visibilityState === "visible"
-        && navigator.onLine !== false && usableWarmClock(cachedClock, syncKey, performance.now(), Date.now())) {
+        && isLobbyBrowserOnline() && usableWarmClock(cachedClock, syncKey, performance.now(), Date.now())) {
         try {
           const probe = await fetchLobbyClockSample();
           if (warmClock.current === cachedClock && !cancelled
-            && document.visibilityState === "visible" && navigator.onLine !== false
+            && document.visibilityState === "visible" && isLobbyBrowserOnline()
             && usableWarmClock(cachedClock, syncKey, performance.now(), Date.now())
             && warmClockMatchesProbe(cachedClock, probe)) {
             estimate = cachedClock.estimate;
@@ -1485,7 +1490,7 @@ export default function WaitingRoomPanel({
       // resolveFrozenLobbyMusic above verifies the canonical audio AND chart
       // fingerprint first. Adopt only the same metadata and same context.
       const warmed = await audioWarmup.cache.current.take(lobbyAudioWarmupIdentity(music), activeContext);
-      if (cancelled || gameplayAudioContextRef.current !== activeContext || activeContext.state === "closed") {
+      if (cancelled || gameplayAudioContextRef.current !== activeContext || isLobbyAudioClosed(activeContext)) {
         if (warmed) await warmed.destroy();
         return;
       }
