@@ -44,5 +44,5 @@ export function useLobbyAudioWarmup(
     }, 750);
     return () => { window.clearTimeout(timer); controller.abort(); };
   }, [key, scope, songId, context, enabled, visible, activationNonce]);
-  return { cache, status: status?.key === key ? status.state : null };
+  return { cache, status: enabled && visible && status?.key === key ? status.state : null };
 }

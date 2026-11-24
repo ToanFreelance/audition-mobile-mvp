@@ -57,5 +57,5 @@ export function useLobbyAssetWarmup(room: RoomState, enabled: boolean) {
     };
   }, [enabled, visible, key]);
 
-  return status?.key === key ? status : null;
+  return enabled && visible && status?.key === key ? status : null;
 }

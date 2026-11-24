@@ -87,8 +87,12 @@ export async function prepareLobbyMatchFreezeInput(input: {
   songId: string;
   containsM3?: boolean;
 }): Promise<LobbyMatchFreezeInput> {
-  const music = await fetchPlayableMusicConfig(input.songId);
-  const publishedIdentity = await loadPublishedDanceReleaseIdentity();
+  // Independent lightweight authoritative metadata reads; neither waits
+  // for the other's network round trip. No use of speculative metadata.
+  const [music, publishedIdentity] = await Promise.all([
+    fetchPlayableMusicConfig(input.songId),
+    loadPublishedDanceReleaseIdentity(),
+  ]);
 
   const audioIdentity = {
     songId: music.id,
@@ -154,6 +158,16 @@ export async function prepareLobbyMatchFreezeInput(input: {
 export async function preloadAssetBytes(url: string, label: string, signal?: AbortSignal) {
   const response = await fetch(url, { cache: "force-cache", signal });
   await consumeAssetResponse(response, label);
+}
+
+/** Match the existing WebAudioTransport cache key. Even on a cache hit,
+ * consume the entire response before the official LOADED acknowledgement. */
+export async function preloadLobbyAudioBytes(url: string, signal?: AbortSignal) {
+  const response = await fetchPersistentAsset(url, {
+    cacheKey: "audio:" + url,
+    request: { cache: "force-cache", signal },
+  });
+  await consumeAssetResponse(response, "Match audio");
 }
 
 async function consumeAssetResponse(response: Response, label: string) {
@@ -247,7 +261,25 @@ function assertFrozenContent(
   }
 }
 
-export async function resolveFrozenLobbyMusic(manifest: MatchManifest) {
+// PRELOADING and audio preparation often begin in the same React commit.
+ // Share only concurrent, identical frozen metadata reads, never stale
+ // metadata from WAITING or a completed request across matches.
+const frozenMusicInFlight = new Map<string, Promise<MusicConfig>>();
+export function resolveFrozenLobbyMusic(manifest: MatchManifest): Promise<MusicConfig> {
+  const content = manifest.content;
+  const key = JSON.stringify([manifest.matchId, content.songId, content.audioVersion,
+    content.audioHash, content.chartVersion, content.chartHash,
+    manifest.gameplay.bpmExact, manifest.gameplay.spaceStartMs]);
+  const pending = frozenMusicInFlight.get(key);
+  if (pending) return pending;
+  const task = verifyFrozenLobbyMusic(manifest).finally(() => {
+    if (frozenMusicInFlight.get(key) === task) frozenMusicInFlight.delete(key);
+  });
+  frozenMusicInFlight.set(key, task);
+  return task;
+}
+
+async function verifyFrozenLobbyMusic(manifest: MatchManifest) {
   const music = await fetchPlayableMusicConfig(manifest.content.songId);
   const audioIdentity = {
     songId: music.id,
@@ -313,13 +345,15 @@ export async function preloadFrozenLobbyMatch(
     }
   }
 
-  const music = await fetchPlayableMusicConfig(manifest.content.songId);
-  const published = manifest.content.animationReleaseVersion > 0
-    ? await loadPublishedDanceRelease(false, manifest.content.animationReleaseVersion)
-    : null;
+  const [music, published] = await Promise.all([
+    resolveFrozenLobbyMusic(manifest),
+    manifest.content.animationReleaseVersion > 0
+      ? loadPublishedDanceRelease(false, manifest.content.animationReleaseVersion)
+      : Promise.resolve(null),
+  ]);
   const identity = await frozenContentIdentity(music, published, characterRuntimeVersion);
   assertFrozenContent(manifest, identity);
-  await preloadAssetBytes(music.audioUrl, "Match audio");
+  await preloadLobbyAudioBytes(music.audioUrl);
 
   // Keep legacy fallback semantics. M3 selected wardrobe bytes must all load.
   const characterUrls = new Set(
@@ -378,10 +412,7 @@ export async function warmWaitingRoomAssets(
     const key = "audio:" + music.audioUrl;
     if (signal.aborted || await isPersistentAssetCached(key)) return;
     if (signal.aborted) return;
-    const response = await fetchPersistentAsset(music.audioUrl, {
-      cacheKey: key, request: { cache: "force-cache", signal },
-    });
-    await consumeAssetResponse(response, "Warmup audio");
+    await preloadLobbyAudioBytes(music.audioUrl, signal);
   }});
   const stageId = resolveRuntimeStageCatalogEntry(room.selectedStageId).runtimeAssetId;
   if (stageId === "bright-stage-v1" || stageId === "neon-stage-v1") {

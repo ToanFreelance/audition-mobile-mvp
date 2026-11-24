@@ -443,6 +443,11 @@ export default function WaitingRoomPanel({
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
   const preloadAttemptRef = useRef<string | null>(null);
+  // Local presentation latency only. Do not persist participant/room IDs
+  // or use this monotonic timestamp for gameplay timing.
+  const launchObservationRef = useRef<{
+    sessionKey: string | null; atMs: number; origin: "host-start" | "match-observed";
+  } | null>(null);
   // A successful asset preload remains cached when only its LOADED CAS needs retry.
   const preloadReadinessRef = useRef<{
     sessionKey: string;
@@ -933,6 +938,15 @@ export default function WaitingRoomPanel({
   const matchStartSessionKey = matchStartSession && syncOptions
     ? `${matchStartSession.matchId}:${matchStartSession.roomRevision}:${matchStartSession.startRevision}:${syncOptions.participantId}`
     : null;
+  useEffect(() => {
+    if (!matchStartSessionKey) return;
+    const prior = launchObservationRef.current;
+    if (prior?.sessionKey === matchStartSessionKey) return;
+    launchObservationRef.current = prior?.sessionKey === null && prior.origin === "host-start"
+      ? { ...prior, sessionKey: matchStartSessionKey }
+      : { sessionKey: matchStartSessionKey, atMs: performance.now(), origin: "match-observed" };
+    recordC3StartCheckpoint("frozen-match-observed");
+  }, [matchStartSessionKey]);
   const clockSyncEstimate = matchStartSessionKey && clockSyncState?.sessionKey === matchStartSessionKey
     ? clockSyncState.estimate
     : null;
@@ -1362,6 +1376,7 @@ export default function WaitingRoomPanel({
       }
       if (cancelled || !estimate) return;
       samplingCompleted = true;
+      recordC3StartCheckpoint("shared-clock-ready");
       setClockSyncFailure(null);
       setClockSyncState({ sessionKey, estimate });
 
@@ -1508,6 +1523,7 @@ export default function WaitingRoomPanel({
       }
 
       gameplayAudioRef.current = { sessionKey: matchStartSessionKey, transport };
+      recordC3StartCheckpoint("gameplay-audio-ready");
       setGameplayAudioReadyKey(matchStartSessionKey);
       setGameplayHandoffError(null);
       setSyncDetail("P5.5 gameplay audio decoded and ready for the shared epoch.");
@@ -1965,6 +1981,7 @@ export default function WaitingRoomPanel({
       return;
     }
 
+    launchObservationRef.current = { sessionKey: null, atMs: performance.now(), origin: "host-start" };
     recordC3StartCheckpoint("start-intent");
     setStartIntentPending(true);
     setSyncDetail("Freezing authoritative room into MatchManifest…");
@@ -2052,6 +2069,7 @@ export default function WaitingRoomPanel({
       );
     })().catch(error => {
       recordC3StartCheckpoint("start-error");
+      if (launchObservationRef.current?.sessionKey === null) launchObservationRef.current = null;
       setFrozenMatchManifest(null);
       const reason = error instanceof Error ? error.message : "Match freeze failed.";
       if (syncKey) setCanonicalHealth({
@@ -2270,6 +2288,7 @@ export default function WaitingRoomPanel({
         scoreTransport={transportRef.current}
         startRevision={matchStartSession.startRevision}
         performanceDiagnostics={performanceDiagnostics}
+        launchObservation={launchObservationRef.current}
         diagnosticAudioContext={performanceDiagnostics ? gameplayAudioContextRef.current : null}
         loadedParticipantIds={matchStartSession.participants.filter(item => item.state === "loaded").map(item => item.participantId)}
       />
@@ -2332,6 +2351,17 @@ export default function WaitingRoomPanel({
                 {initialSync?.entryFlow ? (
                   <>
                     <span>Kết nối · {syncStatus === "connected" ? "Đã kết nối" : "Đang đồng bộ"}</span>
+                    {room.status === "waiting" && (
+                      <>
+                        <span data-testid="warmup-settings-assets">Tài nguyên máy này · {assetWarmup?.phase === "ready"
+                          ? "Đã chuẩn bị" : assetWarmup?.phase === "partial" ? "Kiểm tra khi START"
+                          : assetWarmup?.total ? `${assetWarmup.completed}/${assetWarmup.total}` : "Đang chuẩn bị"}</span>
+                        <span data-testid="warmup-settings-audio">Nhạc · {audioWarmup.status === "ready"
+                          ? "Đã decode" : audioWarmup.status === "warming" ? "Đang decode"
+                          : audioWarmup.status === "partial" ? "Kiểm tra khi START" : "Chạm màn hình để chuẩn bị"}</span>
+                        <span>READY là trạng thái người chơi; LOADED chỉ xác nhận sau START.</span>
+                      </>
+                    )}
                     {syncStatus !== "connected" && syncDetail && <span>{syncDetail}</span>}
                   </>
                 ) : (

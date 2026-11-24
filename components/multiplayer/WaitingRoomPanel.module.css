@@ -1551,3 +1551,7 @@
 .assetWarmupIndicator{color:#9cdeff}
 .assetWarmupIndicator[data-warmup-state="ready"]{color:#80ffcf}
 .assetWarmupIndicator[data-warmup-state="partial"]{color:#ffd38f}
+
+/* Keep the local hint on one compact line; details live in Settings. */
+.syncIndicator{max-width: min(190px, 53vw);overflow:hidden;text-overflow:ellipsis;gap:2px}
+.assetWarmupIndicator{min-width:0;white-space:nowrap}

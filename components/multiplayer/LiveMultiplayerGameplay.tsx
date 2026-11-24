@@ -35,6 +35,8 @@ import PerformanceDiagnosticsOverlay from "../diagnostics/PerformanceDiagnostics
 import transitionStyles from "./LiveMultiplayerGameplay.module.css";
 import StageLaunchArtwork from "./StageLaunchArtwork";
 import PreparingStagePanel from "./PreparingStagePanel";
+import { recordC3StartCheckpoint } from "./c3-start-trace";
+import { localLaunchElapsedMs } from "../../multiplayer/lobby-launch-observation";
 
 const DIRECTIONS: readonly Direction[] = ["left", "up", "down", "right"];
 const SETTING_KEYS = {
@@ -70,6 +72,7 @@ export default function LiveMultiplayerGameplay(props: {
   startRevision?: number;
   performanceDiagnostics?: PerformanceDiagnostics | null;
   diagnosticAudioContext?: AudioContext | null;
+  launchObservation?: { atMs: number; origin: "host-start" | "match-observed" } | null;
   /** Frozen authoritative LOADED acknowledgements for the transition UI. */
   loadedParticipantIds?: readonly string[];
 }) {
@@ -77,6 +80,12 @@ export default function LiveMultiplayerGameplay(props: {
   const [stagePresentationReady, setStagePresentationReady] = useState(false);
   const [stagePresentationError, setStagePresentationError] = useState<string | null>(null);
   const [entryCurtainVisible, setEntryCurtainVisible] = useState(true);
+  const curtainRef = useRef<HTMLDivElement | null>(null);
+  const [launchElapsedMs, setLaunchElapsedMs] = useState<number | null>(null);
+  const launchRecordedRef = useRef(false);
+  // Capture the original local observation once; ordinary roster/score
+  // updates must not reset the benchmark.
+  const launchObservation = useRef(props.launchObservation);
   const [epochHandoffHealth, setEpochHandoffHealth] = useState<EpochHandoffHealth>("waiting");
   const [epochClockProbe, setEpochClockProbe] = useState<EpochAudioClockProbe>(() => props.transport.getEpochClockProbe());
   const [epochElapsedMs, setEpochElapsedMs] = useState(0);
@@ -89,7 +98,10 @@ export default function LiveMultiplayerGameplay(props: {
     + Number(Number.isFinite(props.startAtServerMs))
     + Number(stagePresentationReady)
   );
-  const onStagePresentationReady = useCallback(() => setStagePresentationReady(true), []);
+  const onStagePresentationReady = useCallback(() => {
+    setStagePresentationReady(true);
+    recordC3StartCheckpoint("gameplay-stage-ready");
+  }, []);
   // The banner never lifts until the actual 3D scene, actor, animation mixer
   // and authoritative shared start have progressed. No artificial deadline.
   useEffect(() => {
@@ -97,6 +109,24 @@ export default function LiveMultiplayerGameplay(props: {
     const reveal = window.setTimeout(() => setEntryCurtainVisible(false), 350);
     return () => window.clearTimeout(reveal);
   }, [stagePresentationReady, snapshot.started, snapshot.songTimeMs > 0]);
+  useEffect(() => {
+    if (entryCurtainVisible || launchRecordedRef.current) return;
+    let raf = 0;
+    const observe = () => {
+      const curtain = curtainRef.current;
+      // Wait for the real CSS fade to finish, not merely 100% progress.
+      if (!curtain || getComputedStyle(curtain).visibility !== "hidden") {
+        raf = requestAnimationFrame(observe);
+        return;
+      }
+      launchRecordedRef.current = true;
+      const observation = launchObservation.current;
+      if (observation) setLaunchElapsedMs(localLaunchElapsedMs(observation.atMs, performance.now()));
+      recordC3StartCheckpoint("gameplay-curtain-hidden");
+    };
+    raf = requestAnimationFrame(observe);
+    return () => cancelAnimationFrame(raf);
+  }, [entryCurtainVisible]);
   const [scoreReceipts, setScoreReceipts] = useState<{
     matchId: string;
     byParticipant: Record<string, LiveScoreSnapshot>;
@@ -416,9 +446,18 @@ export default function LiveMultiplayerGameplay(props: {
       data-audio-context={props.audioContextState ?? "unknown"}
       data-audio-stalled={audioClockStalled ? "1" : "0"}
       data-epoch-handoff-health={epochHandoffHealth}
+      data-launch-origin={launchObservation.current?.origin}
+      data-launch-elapsed-ms={launchElapsedMs ?? undefined}
       data-testid="multiplayer-gameplay-live"
     >
       {props.performanceDiagnostics && <PerformanceDiagnosticsOverlay diagnostics={props.performanceDiagnostics} />}
+      {props.performanceDiagnostics && launchElapsedMs !== null && (
+        <div data-testid="p57-launch-measurement" style={{ position: "fixed", top: 82, left: 8,
+          zIndex: 101, padding: "4px 7px", color: "#fff", background: "#000c",
+          font: "11px monospace", pointerEvents: "none" }}>
+          {launchObservation.current?.origin === "host-start" ? "START" : "MATCH"} → GAME {(launchElapsedMs / 1000).toFixed(2)}s
+        </div>
+      )}
       <section className="audition-stage">
         <div data-testid="gameplay-3d-stage" data-frozen-stage-id={props.stageId}>
           <Stage3D
@@ -439,6 +478,7 @@ export default function LiveMultiplayerGameplay(props: {
         </div>
         <div
           className={`${transitionStyles.entryCurtain} ${entryCurtainVisible ? "" : transitionStyles.entryCurtainHidden}`}
+          ref={curtainRef}
           data-testid="gameplay-entry-curtain"
           data-visible={entryCurtainVisible ? "1" : "0"}
           data-stage-ready={stagePresentationReady ? "1" : "0"}
