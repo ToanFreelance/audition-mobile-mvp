@@ -2,6 +2,8 @@ name: Lobby QA QC
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [development]
   push:
     branches:
       - "work/**"
@@ -41,7 +43,7 @@ env:
 jobs:
   fast-lobby-qa:
     name: fast-lobby-qa
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/work/') }}
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/work/')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
 
@@ -67,9 +69,20 @@ jobs:
       - name: Focused lobby architecture regression
         run: npm run test:qa:lobby:fast
 
+      - name: Focused integration regression
+        run: >-
+          npx playwright test
+          e2e/entry-room-account-identity.spec.ts
+          e2e/entry-heartbeat-recovery.spec.ts
+          e2e/m3-gameplay-step3.spec.ts
+          e2e/m3-stage3d-integration-step31.spec.ts
+          e2e/multiplayer-determinism.spec.ts
+          e2e/published-animation-transport.spec.ts
+          --project=desktop --workers=1
+
   static-build:
     name: static-build
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main') }}
+    if: ${{ github.event_name == 'pull_request' || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
 

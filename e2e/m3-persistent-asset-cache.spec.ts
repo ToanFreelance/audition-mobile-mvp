@@ -25,7 +25,6 @@ test("only selected immutable M3 assets are listed, with rig-isolated cache keys
   expect(m.map(x => x.file)).not.toContain("chest/shirt.vrm");
   expect(m3CacheKey("drophunter", "body/drophunter.vrm"))
     .not.toBe(m3CacheKey("neurohacker", "body/drophunter.vrm"));
-  expect(getCharacterCatalogEntry("m3-neurohacker")?.runtimeReady).toBe(false);
 });
 
 test("M3 VRM bytes survive hard reload with zero repeated source transfers and isolated clear", async ({ page }) => {
@@ -74,7 +73,7 @@ test("M3 VRM bytes survive hard reload with zero repeated source transfers and i
   expect(networkRequests).toBe(12);
 });
 
-test("MatchManifest preparation deep-copies the M3 look without enabling Gameplay", () => {
+test("MatchManifest preparation deep-copies the enabled M3 runtime appearance", () => {
   const host: HumanHostParticipant = {
     kind: "human", role: "host", readyState: "not-applicable",
     loadState: "idle", connectionState: "connected", slotIndex: 0,
@@ -102,5 +101,5 @@ test("MatchManifest preparation deep-copies the M3 look without enabling Gamepla
   host.avatar.m3Appearance!.m3Outfit.top = "logotee";
   expect(manifest.participants[0].avatar.m3Appearance?.m3Outfit.top).toBe("simpleshirt");
   expect(Object.isFrozen(manifest.participants[0].avatar.m3Appearance?.m3Outfit)).toBe(true);
-  expect(getCharacterCatalogEntry("m3-neurohacker")?.runtimeReady).toBe(false);
+  expect(getCharacterCatalogEntry("m3-neurohacker")?.runtimeReady).toBe(true);
 });

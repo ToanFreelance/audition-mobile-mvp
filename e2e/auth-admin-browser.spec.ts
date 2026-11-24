@@ -235,7 +235,7 @@ test("account profile API error keeps login onscreen and never falls back to Cre
   await page.getByTestId("auth-password").fill("validpassword123");
   await page.getByTestId("auth-submit").click();
   await expect(page).toHaveURL(/\/auth$/);
-  await expect(page.getByRole("alert")).toContainText("Không xác minh được nhân vật");
+  await expect(page.getByRole("alert").filter({ hasText: "Không xác minh được nhân vật" })).toBeVisible();
 });
 
 test("Admin reset failure appears inside confirm modal, not hidden behind overlay", async ({ page }) => {

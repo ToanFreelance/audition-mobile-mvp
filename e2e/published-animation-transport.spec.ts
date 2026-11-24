@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
+import * as animationPool from "../components/character/animation-pool";
 import {
   fetchPublishedAnimationJson,
   PublishedAnimationTransportError,
@@ -49,6 +50,7 @@ function productionLoaderWith(fetchImpl: typeof fetch): ProductionLoader {
       if (id === "./published-animation-transport") {
         return { fetchPublishedAnimationJson };
       }
+      if (id === "./animation-pool") return animationPool;
       throw new Error("Unexpected loader dependency: " + id);
     },
     fetch: fetchImpl,
