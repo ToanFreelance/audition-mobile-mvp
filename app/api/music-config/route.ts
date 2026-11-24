@@ -80,15 +80,27 @@ function configToRow(config: MusicConfig): MusicChartRow {
 
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id");
-  const supabase = supabaseConfig();
-  if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
+  // Music metadata is public, read-only game content. Keep GET on the
+  // existing RLS/public read path; a room/profile service credential must
+  // never change which role is used to read the chart library.
+  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
+  const supabase = { url: url.replace(/\/$/, ""), key };
 
   try {
     const select = "id,title,artist,audio_url,duration_ms,bpm,bpm_exact,reference_bpm,reference_source,space_start_ms,space_start_beat,gauge,gameplay,notes,updated_at";
     const query = id
       ? `?select=${select}&id=eq.${encodeURIComponent(id)}&limit=1`
       : `?select=${select}&order=updated_at.desc`;
-    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}${query}`, { headers: headers(supabase.key), cache: "no-store" });
+    const response = await fetch(`${supabase.url}/rest/v1/${TABLE}${query}`, {
+      headers: {
+        apikey: supabase.key,
+        ...(supabase.key.startsWith("eyJ") ? { Authorization: "Bearer " + supabase.key } : {}),
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
     if (!response.ok) {
       const detail = await response.text();
       return NextResponse.json({ error: "Supabase read failed", detail }, { status: 502 });
