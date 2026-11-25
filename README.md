@@ -7,13 +7,14 @@ Mobile-first 3D dance/rhythm game prototype inspired by classic dance games. Exi
 | Area | Status |
 | --- | --- |
 | Development integration PR #30 | MERGED — `daa5c14b3a019cdb4117b42e442422ef1d77fe16` |
+| Latest tested development (PR #31) | `87b489b1ed93dce569069de569a5ad9d0eed1942` — technical closeout PASS |
 | Main / production | unchanged — `7e9e9d64c05a54e7c167aa68e048153082973908` |
 | Physical iPhone account registration, real verify, match START | Owner PASS on development, 2026-11-25 19:17 ICT |
 | Account Auth / signed Guest / Admin QA / M3 wardrobe and persistence / P5.7 | Integrated |
-| Post-integration hotfix | [PR #31](https://github.com/ToanFreelance/audition-mobile-mvp/pull/31) OPEN/Draft; A owner PASS; C full core PASS on dd91b81; B current protected real duo pending |
-| Dance Animation V2 | [PR #19](https://github.com/ToanFreelance/audition-mobile-mvp/pull/19) OPEN/Draft, deferred until hotfix acceptance |
+| Post-integration hotfix | [PR #31](https://github.com/ToanFreelance/audition-mobile-mvp/pull/31) MERGED / technical closeout PASS (A/B/C) |
+| Dance Animation V2 | [PR #19](https://github.com/ToanFreelance/audition-mobile-mvp/pull/19) OPEN/Draft; owner-prioritized Room Browser Avatar automation pilot next; no PR #19 changes |
 
-**Canonical development:** [Open game / Auth](https://audition-mobile-mvp-git-development-toan-freelances-projects.vercel.app/auth). Do not use old Account Email Auth preview or deployment-hash URLs for normal QA. Hotfix preview requires separate backend credentials for full server-side QA.
+**Canonical development:** [Open game / Auth](https://audition-mobile-mvp-git-development-toan-freelances-projects.vercel.app/auth). Do not use old Account Email Auth preview or deployment-hash URLs for normal QA. Development deployment READY at exact PR #31 merge SHA. New work previews require separately authorized backend credentials for full server-side QA.
 
 ## Stack and runtime
 
@@ -62,7 +63,7 @@ npm run test:qa:lobby:fast
 PLAYWRIGHT_WEB_SERVER=1 npm run test:qa:core
 ```
 
-Core CI uses four shards and fails on flakes; privileged real Auth/signed Guest duo QA only on exact trusted refs with the protected security-auth-qa environment. No secrets on pull_request. Wave 3 pre-merge 392 passed/2 existing skips; latest development CI not green. Hotfix QA at dd91b81: 393 passed / 0 failed or flaky / 2 existing skips; all four shards PASS; focused Auth/Haunted/smoke 29/29, lobby 92/92, integration 86/86. Documentation-only follow-up CI is tracked separately. Historical standalone real Auth duo START 61145ms PASS; signed Guest READY failure remains open. See trace log for exact run IDs. Two external C1 fixture skips, five-human, WebKit and broader real-device qualification remain open.
+Core CI uses four shards and fails on flakes. Final PR CI 45623326237 and Development Core QA 45627745551 PASS: 393 passed, 0 failed/flaky, 2 existing external C1 skips (395 total); focused 29/29. Protected standalone QA 45627745473 PASS on exact development merge SHA: Auth duo START 49316ms, account cleanup HTTP 200/200; signed Guest duo START 54569ms, READY 7886ms, both within 75s gate. No privileged secrets on pull_request; no privilege changes. Two existing C1 skips, strict five-human, WebKit and broader physical performance qualification, guest secret entropy provenance remain open. See trace log and hotfix evidence for details.
 
 Work only on dedicated work branches; development is integration/final test, main stable/production. No automatic merge or deployment promotion. Phase 14 resolution/fidelity deferred.
 
