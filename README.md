@@ -10,7 +10,7 @@ Mobile-first 3D dance/rhythm game prototype inspired by classic dance games. Exi
 | Main / production | unchanged — `7e9e9d64c05a54e7c167aa68e048153082973908` |
 | Physical iPhone account registration, real verify, match START | Owner PASS on development, 2026-11-25 19:17 ICT |
 | Account Auth / signed Guest / Admin QA / M3 wardrobe and persistence / P5.7 | Integrated |
-| Post-integration hotfix | [PR #31](https://github.com/ToanFreelance/audition-mobile-mvp/pull/31) OPEN/Draft; A owner PASS, B/C CI open |
+| Post-integration hotfix | [PR #31](https://github.com/ToanFreelance/audition-mobile-mvp/pull/31) OPEN/Draft; A owner PASS; B historical Auth duo PASS / Guest READY failed; C Haunted PASS / portrait smoke open |
 | Dance Animation V2 | [PR #19](https://github.com/ToanFreelance/audition-mobile-mvp/pull/19) OPEN/Draft, deferred until hotfix acceptance |
 
 **Canonical development:** [Open game / Auth](https://audition-mobile-mvp-git-development-toan-freelances-projects.vercel.app/auth). Do not use old Account Email Auth preview or deployment-hash URLs for normal QA. Hotfix preview requires separate backend credentials for full server-side QA.
@@ -62,7 +62,7 @@ npm run test:qa:lobby:fast
 PLAYWRIGHT_WEB_SERVER=1 npm run test:qa:core
 ```
 
-Core CI uses four shards and fails on flakes; privileged real Auth/signed Guest duo QA only on exact trusted refs with the protected security-auth-qa environment. No secrets on pull_request. Wave 3 pre-merge 392 passed/2 existing skips; latest development CI not green. Two external C1 fixture skips, five-human, WebKit and broader real-device qualification remain open.
+Core CI uses four shards and fails on flakes; privileged real Auth/signed Guest duo QA only on exact trusted refs with the protected security-auth-qa environment. No secrets on pull_request. Wave 3 pre-merge 392 passed/2 existing skips; latest development CI not green. Hotfix QA at 3015828: 392 passed / 1 portrait 430 failure / 2 existing skips; Haunted and fallback smoke PASS. Historical standalone real Auth duo START 61145ms PASS; signed Guest READY failure remains open. See trace log for exact run IDs. Two external C1 fixture skips, five-human, WebKit and broader real-device qualification remain open.
 
 Work only on dedicated work branches; development is integration/final test, main stable/production. No automatic merge or deployment promotion. Phase 14 resolution/fidelity deferred.
 

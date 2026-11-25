@@ -122,10 +122,10 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Focused Auth and Haunted Classroom regression
+      - name: Focused Auth, Haunted Classroom and smoke regression
         env:
           PLAYWRIGHT_WEB_SERVER: "1"
-        run: npx playwright test e2e/auth-account-v1.spec.ts e2e/s2-5c-haunted-classroom.spec.ts --project=desktop --workers=1
+        run: npx playwright test e2e/auth-account-v1.spec.ts e2e/s2-5c-haunted-classroom.spec.ts e2e/smoke.spec.ts --project=desktop --workers=1
 
   core-regression-shard:
     needs: static-build

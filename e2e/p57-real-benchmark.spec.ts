@@ -48,16 +48,33 @@ for (const count of counts) {
         await page.getByRole("button", { name: "Tham gia", exact: true }).click();
         await expect(page).toHaveURL(/\/rooms\/mvp-[a-zA-Z0-9_-]+$/, { timeout: 30_000 });
       }
-      await Promise.all(clients.map(async ({ page }, i) => {
+      await Promise.all(clients.map(async ({ page }) => {
         await expect(page.getByTestId("room-sync-indicator")).toHaveAttribute("data-sync-state", "synced", { timeout: 35_000 });
-        if (i === 0) {
-          await page.getByTestId("room-settings-button").click();
-          await page.getByTestId("room-settings-button").click();
-        } else {
-          await page.getByTestId("ready-button").click();
-          await expect(page.getByTestId("ready-button")).toContainText("ĐÃ SẴN SÀNG");
-        }
       }));
+      // Before START, serialize actual UI input across independent browser
+      // contexts. Concurrent input/RAF on software GPUs obscures which action
+      // failed. Do not forge READY, skip its acknowledgement, or move START.
+      for (const [index, { page }] of clients.slice(1).entries()) {
+        const started = Date.now();
+        const url = page.url();
+        try {
+          const ready = page.getByTestId("ready-button");
+          await expect(ready).toBeEnabled();
+          await ready.click({ noWaitAfter: true });
+          await expect(ready).toContainText("ĐÃ SẴN SÀNG");
+          expect(page.url()).toBe(url);
+        } finally {
+          console.log("QA guest READY action index:", index + 1, "elapsed ms:", Date.now() - started);
+        }
+      }
+      const settings = host.getByTestId("room-settings-button");
+      const panel = host.getByTestId("room-settings-panel");
+      const hostUrl = host.url();
+      await settings.click({ noWaitAfter: true });
+      await expect(panel).toBeVisible();
+      await settings.click({ noWaitAfter: true });
+      await expect(panel).toHaveCount(0);
+      expect(host.url()).toBe(hostUrl);
       await expect(host.getByTestId("start-button")).toBeEnabled({ timeout: 30_000 });
       // Bounded optional warmup: a partial/slow warmup is evidence, not a
       // reason to forge a ready state or bypass the real START protocol.

@@ -77,29 +77,50 @@ for(const width of [390,430])test(`portrait ${width}: authored chart, controls, 
   await expect(page.locator('.song-picker-item')).toHaveCount(1);
   await page.getByRole('button',{name:'×',exact:true}).click();
   await page.getByRole('button',{name:'START',exact:true}).click();
-  await expect.poll(
-    async()=>JSON.parse(await page.getByTestId('rhythm-debug').innerText()).commandVisible,
-    {timeout:15000},
-  ).toBe(true);
-  await expect(page.locator('.command-zone')).toHaveClass(/visible/);
-  const commandToken = page.locator('.command-key').first();
-  await expect(commandToken).toBeVisible();
-  await expect.poll(
-    async()=>commandToken.evaluate(element=>element.getBoundingClientRect().height).catch(()=>0),
-  ).toBeGreaterThanOrEqual(30);
-  await expect.poll(
-    async()=>commandToken.evaluate(element=>{
-      const rect=element.getBoundingClientRect();
-      return Math.abs(rect.width-rect.height);
-    }).catch(()=>999),
-  ).toBeLessThan(1);
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  for(const direction of ['left','up','down','right']){
-    const box=await page.getByRole('button',{name:direction,exact:true}).boundingBox();
-    expect(box!.width).toBeGreaterThanOrEqual(40);expect(box!.x+box!.width).toBeLessThanOrEqual(width);
+  // Sample the transient command and all layout bounds in one browser task.
+  // Separate round trips may span different global turns or even audio end
+  // on software-rendered CI. Never pause the clock or change the authored BPM.
+  const sample = () => page.evaluate(() => {
+    const debug = document.querySelector('[data-testid="rhythm-debug"]')?.textContent;
+    const zone = document.querySelector('.command-zone');
+    const token = zone?.querySelector('.command-key');
+    if (!debug || !JSON.parse(debug).commandVisible || !zone?.classList.contains('visible') || !token) return null;
+    const rect = token.getBoundingClientRect();
+    const style = getComputedStyle(token);
+    if (style.visibility !== 'visible' || style.display === 'none' || !rect.width || !rect.height) return null;
+    const box = (el: Element | null) => {
+      if (!el) return null;
+      const {x,width,height} = el.getBoundingClientRect();
+      return {x,width,height};
+    };
+    return {
+      command: {width:rect.width,height:rect.height},
+      fits: document.documentElement.scrollWidth <= innerWidth,
+      directions: ['left','up','down','right'].map(d=>box(document.querySelector('button[aria-label="'+d+'"]'))),
+      gauge: box(document.querySelector('svg[aria-label="Audition timing gauge"]')),
+    };
+  });
+  let layout: Awaited<ReturnType<typeof sample>> = null;
+  const layoutStart = Date.now();
+  await expect.poll(async()=>{
+    layout = await sample();
+    return layout !== null;
+  }, {timeout:15000,message:'Observe a visible live command and its layout in one DOM sample'}).toBe(true);
+  // Re-read the captured value, not a later frame; do not wait for a passing size.
+  const captured = layout as Awaited<ReturnType<typeof sample>>;
+  if (!captured) throw new Error('Missing live command layout sample');
+  console.log('SMOKE_HUD_LAYOUT '+JSON.stringify({width,elapsedMs:Date.now()-layoutStart,...captured}));
+  expect(captured.command.height).toBeGreaterThanOrEqual(30);
+  expect(Math.abs(captured.command.width-captured.command.height)).toBeLessThan(1);
+  expect(captured.fits).toBe(true);
+  for(const direction of captured.directions){
+    expect(direction).not.toBeNull();
+    expect(direction!.width).toBeGreaterThanOrEqual(40);
+    expect(direction!.x+direction!.width).toBeLessThanOrEqual(width);
   }
-  const gauge=await page.getByRole('img',{name:'Audition timing gauge'}).boundingBox();
-  expect(gauge!.width).toBeLessThanOrEqual(width);expect(errors).toEqual([]);
+  expect(captured.gauge).not.toBeNull();
+  expect(captured.gauge!.width).toBeLessThanOrEqual(width);
+  expect(errors).toEqual([]);
 });
 test('same action layer: incomplete SPACE cannot succeed, keyboard completes command, menu does not create replay authority',async({page})=>{
   // This scenario isolates browser keyboard/action wiring from scheduler timing.

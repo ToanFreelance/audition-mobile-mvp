@@ -1,5 +1,9 @@
 # MVP Integration Security & Auth Closeout (staged, not accepted)
 
+## 2026-11-25 20:09 ICT — Protected QA differential evidence
+
+Owner screenshots confirmed exact QA Environment Secret and development allowlist. Historical standalone rerun secret preflight + real Auth duo PASS, 61145ms START, disposable account cleanup 200/200; separate signed Guest benchmark failed at READY before START. Development reusable rerun empty secret; no proof of all standalone development gates. Current hotfix preserves security-auth-qa, exact ref guard and protected credentials; no secret changes. New code unmerged. See [hotfix evidence](POST_INTEGRATION_HOTFIX_V1.md).
+
 ## 2026-11-25 — Integration merged; development owner acceptance
 
 PR #30 merged into development at `daa5c14b3a019cdb4117b42e442422ef1d77fe16`. The historical staged/not-accepted heading below describes pre-cutover work, not current status. Migration 20261124143149 applied; profile writes via server credential, authenticated SELECT only, seven RoomState mutation RPCs service-only. Owner iPhone Guest persistence and Admin QA account PASS on previous preview; development real account signup/verify/character/START PASS after correcting Auth URL and enabling custom SMTP (19:17 ICT). No permission relaxation. Development CI has open Protected QA secret and Haunted regression; PR #31 is Draft. See [hotfix RCA](POST_INTEGRATION_HOTFIX_V1.md). Guest signing entropy provenance still unverified; no raw secret or SMTP credential recorded.
