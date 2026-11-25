@@ -1,17 +1,8 @@
 name: Security real Auth and M3 duo QA
 on:
   push:
-    branches: [work/p5-7-match-warmup-v1]
-    paths:
-      - "e2e/security-real-auth-duo.spec.ts"
-      - "components/Stage3D.tsx"
-      - "components/character/character-profile.ts"
-      - "e2e/p57-real-benchmark.spec.ts"
-      - "app/api/music-config/**"
-      - "app/api/music-library/**"
-      - ".github/workflows/security-real-auth-duo.yml"
+    branches: [development]
   workflow_dispatch:
-  workflow_call:
 permissions:
   contents: read
 concurrency:
@@ -19,7 +10,8 @@ concurrency:
   cancel-in-progress: false
 jobs:
   real-auth-duo:
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/work/p5-7-match-warmup-v1' || github.ref == 'refs/heads/development')
+    name: real-host-guest-e2e / real-auth-duo
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/work/p5-7-match-warmup-v1' || github.ref == 'refs/heads/development')
     environment: security-auth-qa
     runs-on: ubuntu-latest
     timeout-minutes: 18
@@ -35,8 +27,12 @@ jobs:
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_QA_SECRET_KEY }}
         run: |
-          if [[ "$SUPABASE_SERVICE_ROLE_KEY" != sb_secret_* ]]; then
-            echo "::error::Missing environment secret SUPABASE_QA_SECRET_KEY in security-auth-qa"
+          if [[ -z "$SUPABASE_SERVICE_ROLE_KEY" ]]; then
+            echo "::error::SUPABASE_QA_SECRET_KEY is empty or unavailable in security-auth-qa"
+            exit 1
+          fi
+          if [[ "$SUPABASE_SERVICE_ROLE_KEY" != sb_secret_?* ]]; then
+            echo "::error::SUPABASE_QA_SECRET_KEY is not a modern Supabase secret key"
             exit 1
           fi
       - uses: actions/setup-node@v4

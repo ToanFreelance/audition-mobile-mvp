@@ -29,6 +29,7 @@ on:
       - "playwright.config.ts"
       - "package*.json"
       - ".github/workflows/lobby-qa.yml"
+      - ".github/workflows/security-real-auth-duo.yml"
 concurrency:
   group: lobby-qa-qc-${{ github.ref }}
   cancel-in-progress: true
@@ -94,7 +95,7 @@ jobs:
     name: static-build
     if: ${{ github.event_name == 'pull_request' || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
 
     steps:
       - name: Checkout
@@ -118,7 +119,16 @@ jobs:
       - name: Production build
         run: npm run build
 
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Focused Auth and Haunted Classroom regression
+        env:
+          PLAYWRIGHT_WEB_SERVER: "1"
+        run: npx playwright test e2e/auth-account-v1.spec.ts e2e/s2-5c-haunted-classroom.spec.ts --project=desktop --workers=1
+
   core-regression-shard:
+    needs: static-build
     name: core-regression (${{ matrix.shard }}/4)
     if: ${{ github.event_name == 'pull_request' || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
@@ -175,12 +185,6 @@ jobs:
           SHARD_RESULT: ${{ needs.core-regression-shard.result }}
         run: test "$SHARD_RESULT" = success
 
-  # The old /tools/lobby-qa?sync=1 fixture relies on the deliberately
-  # disabled public bootstrap. Keep its source tests for a future port, but
-  # gate development on the real normal-entry Auth + signed Guest HTTPS suite.
-  # No secrets in pull_request builds. The called job uses the protected
-  # security-auth-qa environment; the owner must allow exact development ref.
-  real-browser-e2e:
-    name: real-host-guest-e2e
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/development' }}
-    uses: ./.github/workflows/security-real-auth-duo.yml
+  # Real Auth and signed Guest HTTPS QA runs independently on trusted
+  # development pushes in security-real-auth-duo.yml. PR jobs never receive
+  # the protected environment or its credentials.

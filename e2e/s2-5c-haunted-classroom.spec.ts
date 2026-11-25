@@ -41,13 +41,29 @@ test("Haunted Classroom Stage3D QA selects zero through five preview actors with
   // The camera pose must be identical for every 0–5 formation. This catches
   // the V7 split that widened the shot whenever count reached 4.
   await expect(surface).toHaveAttribute("data-qa-camera-frame", /.+:.+:.+/);
+  // The React prop changes before the real actor/mixer and visual clones
+  // settle. Wait for the actual formation, not just the selected count.
+  // Same bounded initial asset readiness allowance as the core portrait smoke.
+  await expect(surface).toHaveAttribute("data-qa-visible-actors", "1", { timeout: 60_000 });
   const initialCamera = await surface.getAttribute("data-qa-camera-frame");
+  const initialUrl = page.url();
   for (const count of [0, 2, 3, 4, 5, 1]) {
-    await page.getByRole("button", {
-      name: count === 0 ? "Sân trống" : `${count} nhân vật`,
-    }).click();
-    await expect(surface).toHaveAttribute("data-preview-actor-count", String(count));
-    await expect(surface).toHaveAttribute("data-qa-camera-frame", initialCamera!);
+    await test.step(`Apply and verify rendered formation ${count}`, async () => {
+      const started = Date.now();
+      const button = page.getByRole("button", {
+        name: count === 0 ? "Sân trống" : `${count} nhân vật`,
+      });
+      try {
+        await button.click();
+        await expect(button).toHaveAttribute("aria-pressed", "true");
+        await expect(surface).toHaveAttribute("data-preview-actor-count", String(count));
+        await expect(surface).toHaveAttribute("data-qa-visible-actors", String(count));
+        await expect(surface).toHaveAttribute("data-qa-camera-frame", initialCamera!);
+        expect(page.url()).toBe(initialUrl);
+      } finally {
+        console.log(`[haunted-formation] count=${count} elapsedMs=${Date.now() - started}`);
+      }
+    });
   }
   await expect(surface).toHaveAttribute("data-stage-catalog-id", "classroom-v1");
 });
