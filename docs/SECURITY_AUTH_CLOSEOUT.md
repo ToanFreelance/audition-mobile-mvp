@@ -1,4 +1,15 @@
-# MVP Integration Security & Auth Closeout (staged, not accepted)
+# MVP Integration Security & Auth Closeout (PR #31 scope PASS; residual gates open)
+
+## 2026-11-25 21:44 ICT — PR #31 TECHNICAL CLOSEOUT PASS
+
+- Owner-approved PR #31 merged at 20:50 ICT into development: `87b489b1ed93dce569069de569a5ad9d0eed1942`; exact approved head `b362c5f2acffcdea06f9d813d6609686af929877`. [Final PR CI 45623326237](https://github.com/ToanFreelance/audition-mobile-mvp/actions/runs/45623326237) PASS. Main unchanged `7e9e9d64c05a54e7c167aa68e048153082973908`.
+- A PASS: owner physical iPhone signup, real email verification, character creation and START accepted 19:17 ICT after Auth URL/SMTP correction. Resend and exact final redirect hostname not separately observed; no privilege or credential changes.
+- B PASS: [Standalone Protected QA 45627745473](https://github.com/ToanFreelance/audition-mobile-mvp/actions/runs/45627745473), job 139252361181, exact development merge SHA, dedicated secret preflight PASS. Real two-account Auth/M3 suite 1/1 PASS, room authorization/READY PASS, START 49316ms, disposable account cleanup HTTP 200/200. Signed Guest two-human M3 suite 1/1 PASS, guest READY 7886ms, host launch 54569ms; both clients visible gameplay and advancing WebAudio, same epoch/match ID, 75s deadline enforced. Signed Guest cleanup closes browser contexts and attempts leave for waiting rooms; started rooms follow normal lifecycle, not claimed deleted. No secret scope expansion or repeat QA.
+- C PASS: [Development Core QA 45627745551](https://github.com/ToanFreelance/audition-mobile-mvp/actions/runs/45627745551), static/build and focused 29/29 PASS; shards 97+99+99+98=393 passed, 2 known external C1 skips, 0 failed/flaky, 395 total. Aggregate PASS. Fast lobby job skipped by development-push design; approved PR checks PASS. Haunted/portrait/fallback regressions resolved within tested scope.
+- Vercel canonical development alias [game](https://audition-mobile-mvp-git-development-toan-freelances-projects.vercel.app/auth) resolves to READY deployment `dpl_DJ9xYB6zVaqibzBvfkAoN43bjxHk`, exact merge SHA verified. No production promotion.
+- Technical closeout PASS for PR #31; this documentation-only checkpoint is recorded via separate work branch, pending owner approval to integrate documentation. No application/test/workflow modifications. Existing two external C1 skips, strict five-human QA, broader WebKit/physical performance and guest secret entropy provenance remain open; no blanket full-product/security acceptance. Revisit Auth production Site URL before release.
+- Next owner-prioritized task: Scheduled Automation pilot Room Browser Avatar, isolated work branch and owner iPhone visual acceptance, no automatic merge. PR #19 Dance Animation V2 remains Draft at `b7e3bf0e076d48d459ee830ad84a0a8bd992d7ab`, untouched; resume after pilot as owner directs. Phase 14 deferred. Low Usage: no unnecessary full QA or Work/Codex; all branch/merge rules preserved.
+
 
 ## 2026-11-25 20:23 ICT — Wave 3 core green, protected closeout pending
 
