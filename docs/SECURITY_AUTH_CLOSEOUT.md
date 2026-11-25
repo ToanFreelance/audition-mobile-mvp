@@ -1,5 +1,9 @@
 # MVP Integration Security & Auth Closeout (staged, not accepted)
 
+## 2026-11-25 20:23 ICT — Wave 3 core green, protected closeout pending
+
+Tested code `dd91b8127abf29284dae762d8c0d435d6eeef6cf`: all 4 core shards PASS (393 passed, 2 known skips, 0 failed/flaky); focused 29/29, lobby 92/92, integration 86/86, static PASS. Historical Auth duo only passed; current signed Guest and standalone development gate not yet accepted. No privilege change or merge. See [hotfix evidence](POST_INTEGRATION_HOTFIX_V1.md).
+
 ## 2026-11-25 20:09 ICT — Protected QA differential evidence
 
 Owner screenshots confirmed exact QA Environment Secret and development allowlist. Historical standalone rerun secret preflight + real Auth duo PASS, 61145ms START, disposable account cleanup 200/200; separate signed Guest benchmark failed at READY before START. Development reusable rerun empty secret; no proof of all standalone development gates. Current hotfix preserves security-auth-qa, exact ref guard and protected credentials; no secret changes. New code unmerged. See [hotfix evidence](POST_INTEGRATION_HOTFIX_V1.md).
