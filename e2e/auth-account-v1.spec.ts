@@ -412,3 +412,51 @@ test("account-landing always resolves server profile, never reuses a guest local
     expect(called).toBe(2);
   } finally { globalThis.fetch = fetchBefore; }
 });
+
+test("development signup and resend use the canonical branch, even with stale preview metadata", async () => {
+  const names = ["VERCEL", "VERCEL_ENV", "VERCEL_GIT_COMMIT_REF", "VERCEL_BRANCH_URL",
+    "AUTH_REDIRECT_ORIGIN", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"] as const;
+  const before = names.map(name => process.env[name]);
+  const previousFetch = globalThis.fetch;
+  Object.assign(process.env, {
+    VERCEL: "1", VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "development",
+    VERCEL_BRANCH_URL: "stale-branch.vercel.app", AUTH_REDIRECT_ORIGIN: "https://stale-work.vercel.app",
+    NEXT_PUBLIC_SUPABASE_URL: "https://auth-fixture.test", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
+  });
+  const expected = "https://audition-mobile-mvp-git-development-toan-freelances-projects.vercel.app/auth";
+  const seen: string[] = [];
+  globalThis.fetch = async input => {
+    const url = new URL(String(input));
+    seen.push(url.pathname);
+    expect(url.searchParams.get("redirect_to")).toBe(expected);
+    return new Response(JSON.stringify({ user: { id: "pending" } }), { status: 200 });
+  };
+  try {
+    for (const action of ["register", "resend-confirmation"]) {
+      const reply = await authPost(request("/api/auth", "POST", {
+        action, email: "test@example.com", password: "samplePassword123",
+      }));
+      expect(reply.status).toBe(200);
+      expect(await reply.json()).toMatchObject({ pendingConfirmation: true });
+      expect(reply.cookies.get("audition_account_access")).toBeUndefined();
+    }
+    expect(seen).toEqual(["/auth/v1/signup", "/auth/v1/resend"]);
+    delete process.env.AUTH_REDIRECT_ORIGIN;
+    delete process.env.VERCEL_BRANCH_URL;
+    expect(emailConfirmationRedirect(request("/api/auth", "POST"))).toBe(expected);
+    process.env.VERCEL_GIT_COMMIT_REF = "work/post-integration-hotfix-v1";
+    expect(() => emailConfirmationRedirect(request("/api/auth", "POST"))).toThrow("Missing stable Auth redirect origin");
+    process.env.VERCEL_BRANCH_URL = "hotfix-branch.vercel.app";
+    expect(emailConfirmationRedirect(request("/api/auth", "POST"))).toBe("https://hotfix-branch.vercel.app/auth");
+    process.env.AUTH_REDIRECT_ORIGIN = "https://user:password@other.example";
+    expect(() => emailConfirmationRedirect(request("/api/auth", "POST"))).toThrow("Invalid Auth redirect origin");
+    process.env.AUTH_REDIRECT_ORIGIN = "https://other.example/path?next=https://attacker.invalid";
+    expect(() => emailConfirmationRedirect(request("/api/auth", "POST"))).toThrow("Invalid Auth redirect origin");
+  } finally {
+    globalThis.fetch = previousFetch;
+    names.forEach((name, i) => {
+      if (before[i] === undefined) delete process.env[name];
+      else process.env[name] = before[i];
+    });
+  }
+});

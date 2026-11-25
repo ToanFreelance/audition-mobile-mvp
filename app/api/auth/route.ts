@@ -11,8 +11,19 @@ export const dynamic = "force-dynamic";
 export function emailConfirmationRedirect(request: NextRequest) {
   const configured = process.env.AUTH_REDIRECT_ORIGIN;
   const branchHostname = process.env.VERCEL_BRANCH_URL;
-  const origin = configured || (branchHostname ? "https://" + branchHostname : request.nextUrl.origin);
-  const url = new URL(origin);
+  const preview = process.env.VERCEL === "1" && process.env.VERCEL_ENV === "preview";
+  // Development is the owner-approved stable integration origin, independent
+  // of deployment hashes, inbound Host, or a stale shared override.
+  const developmentOrigin = preview && process.env.VERCEL_GIT_COMMIT_REF === "development"
+    ? "https://audition-mobile-mvp-git-development-toan-freelances-projects.vercel.app" : undefined;
+  const origin = developmentOrigin || configured || (branchHostname ? "https://" + branchHostname : undefined);
+  // A preview without stable routing metadata must not send a confirmation
+  // link to an ephemeral or request-derived deployment.
+  if (preview && !origin) throw new Error("Missing stable Auth redirect origin");
+  const url = new URL(origin || request.nextUrl.origin);
+  if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+    throw new Error("Invalid Auth redirect origin");
+  }
   if (url.protocol !== "https:" && !(process.env.NODE_ENV !== "production"
     && url.protocol === "http:" && (url.hostname === "localhost" || url.hostname === "127.0.0.1"))) {
     throw new Error("Invalid Auth redirect origin");

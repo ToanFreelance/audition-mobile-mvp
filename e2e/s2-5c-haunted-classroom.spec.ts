@@ -34,6 +34,10 @@ test("Host stage picker presents classroom and retains the existing CAS stage mu
 });
 
 test("Haunted Classroom Stage3D QA selects zero through five preview actors without multiplayer", async ({ page }) => {
+  // Functional formation coverage, not visual/performance qualification.
+  // Keep the desktop landscape camera class and 16:9 aspect while reducing
+  // raster work on headless CI (quarter of 1280x720 pixel area).
+  await page.setViewportSize({ width: 640, height: 360 });
   await page.goto("/tools/haunted-classroom-stage");
   const surface = page.locator('[data-selected-stage-id="classroom-v1"]');
   await expect(surface).toBeVisible();
@@ -41,13 +45,44 @@ test("Haunted Classroom Stage3D QA selects zero through five preview actors with
   // The camera pose must be identical for every 0–5 formation. This catches
   // the V7 split that widened the shot whenever count reached 4.
   await expect(surface).toHaveAttribute("data-qa-camera-frame", /.+:.+:.+/);
+  // The React prop changes before the real actor/mixer and visual clones
+  // settle. Wait for the actual formation, not just the selected count.
+  // Same bounded initial asset readiness allowance as the core portrait smoke.
+  await expect(surface).toHaveAttribute("data-qa-visible-actors", "1", { timeout: 60_000 });
   const initialCamera = await surface.getAttribute("data-qa-camera-frame");
+  const initialUrl = page.url();
+  const navigations: string[] = [];
+  page.on("framenavigated", frame => {
+    if (frame === page.mainFrame()) navigations.push(new URL(frame.url()).pathname);
+  });
+  const rendererInfo = await surface.locator("canvas").evaluate((canvas: HTMLCanvasElement) => {
+    const gl = canvas.getContext("webgl2");
+    const extension = gl?.getExtension("WEBGL_debug_renderer_info");
+    return { width: canvas.width, height: canvas.height,
+      renderer: extension && gl ? String(gl.getParameter(extension.UNMASKED_RENDERER_WEBGL)) : "unavailable" };
+  });
+  console.log("[haunted-renderer] " + JSON.stringify(rendererInfo));
   for (const count of [0, 2, 3, 4, 5, 1]) {
-    await page.getByRole("button", {
-      name: count === 0 ? "Sân trống" : `${count} nhân vật`,
-    }).click();
-    await expect(surface).toHaveAttribute("data-preview-actor-count", String(count));
-    await expect(surface).toHaveAttribute("data-qa-camera-frame", initialCamera!);
+    await test.step(`Apply and verify rendered formation ${count}`, async () => {
+      const started = Date.now();
+      const button = page.getByRole("button", {
+        name: count === 0 ? "Sân trống" : `${count} nhân vật`,
+      });
+      try {
+        // Native locator click retains actionability and actual pointer input.
+        // This type=button only updates local React state; no navigation is
+        // expected. Check URL and navigation events explicitly instead.
+        await button.click({ noWaitAfter: true });
+        await expect(button).toHaveAttribute("aria-pressed", "true");
+        await expect(surface).toHaveAttribute("data-preview-actor-count", String(count));
+        await expect(surface).toHaveAttribute("data-qa-visible-actors", String(count));
+        await expect(surface).toHaveAttribute("data-qa-camera-frame", initialCamera!);
+        expect(page.url()).toBe(initialUrl);
+        expect(navigations).toEqual([]);
+      } finally {
+        console.log(`[haunted-formation] count=${count} elapsedMs=${Date.now() - started}`);
+      }
+    });
   }
   await expect(surface).toHaveAttribute("data-stage-catalog-id", "classroom-v1");
 });

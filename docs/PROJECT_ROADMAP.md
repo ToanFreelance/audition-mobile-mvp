@@ -1,5 +1,16 @@
 # Audition Mobile roadmap
 
+## Current checkpoint — 2026-11-25 (supersedes historical active-work labels below)
+
+- PR #30 merged into development at `daa5c14b3a019cdb4117b42e442422ef1d77fe16`; main remains `7e9e9d64c05a54e7c167aa68e048153082973908`.
+- Active work: [PR #31](https://github.com/ToanFreelance/audition-mobile-mvp/pull/31), OPEN/Draft, `work/post-integration-hotfix-v1` → development. No merge without explicit owner approval.
+- Development physical iPhone owner acceptance PASS for registration, real email confirmation and match START on 2026-11-25 19:17 ICT, after correcting Auth URL configuration and enabling Custom SMTP. Account creation/character/room flow is functionally accepted; exact post-fix hostname and resend were not separately recorded. Hotfix code itself is not yet merged.
+- A: owner acceptance PASS on development. B: historical standalone secret preflight and Auth duo PASS (61145ms START, cleanup 200/200); signed Guest benchmark failed pre-START READY. New protected standalone development run still required after approved merge. C: all focused and four-shard core gates PASS on dd91b81 (393 passed, 0 failed/flaky, 2 existing skips; 395 total). Request explicit merge approval after final doc-only CI; no PR #19 work until protected closeout.
+- After PR #31 accepted and merged: resume existing PR #19 (Dance Animation V2, OPEN/Draft) and reconcile with M3 development. Do not start it during this hotfix.
+- Remaining: two pre-existing external C1 fixture skips, strict five-human QA, WebKit and broader physical device qualification. Phase 14 remains deferred.
+- Details: [hotfix RCA & validation](POST_INTEGRATION_HOTFIX_V1.md), [security closeout](SECURITY_AUTH_CLOSEOUT.md), [feature trace](FEATURE_TRACE_LOG.md).
+
+
 ## Owner-approved priority — 2026-10-15 (PR #18 closeout)
 
 - **Current work:** PR #18 Draft `work/mvp-entry-room-flow-v1`, base `development`. Owner review sequence: **C1 Character Creation → Room Browser → Waiting Room → Gameplay**. Complete and obtain owner iPhone visual acceptance for one screen before proceeding to the next; **C1 owner iPhone visual acceptance PASS (2026-10-15)**. Tablet/desktop simulated Chromium responsive QA PASS across five viewports; real tablet/desktop hardware remains UNVERIFIED. **C2 Room Browser OWNER ACCEPTED (2026-10-16)** after review of iPhone, tablet and desktop Chromium screenshots. Inline room name, mode preview and responsive layouts accepted; physical tablet/desktop hardware still UNVERIFIED. **C3 Waiting Room review is now ACTIVE**, not yet accepted.
