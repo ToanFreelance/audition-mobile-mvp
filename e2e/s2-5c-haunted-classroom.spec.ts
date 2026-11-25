@@ -34,6 +34,10 @@ test("Host stage picker presents classroom and retains the existing CAS stage mu
 });
 
 test("Haunted Classroom Stage3D QA selects zero through five preview actors without multiplayer", async ({ page }) => {
+  // Functional formation coverage, not visual/performance qualification.
+  // Keep the desktop landscape camera class and 16:9 aspect while reducing
+  // raster work on headless CI (quarter of 1280x720 pixel area).
+  await page.setViewportSize({ width: 640, height: 360 });
   await page.goto("/tools/haunted-classroom-stage");
   const surface = page.locator('[data-selected-stage-id="classroom-v1"]');
   await expect(surface).toBeVisible();
@@ -47,6 +51,17 @@ test("Haunted Classroom Stage3D QA selects zero through five preview actors with
   await expect(surface).toHaveAttribute("data-qa-visible-actors", "1", { timeout: 60_000 });
   const initialCamera = await surface.getAttribute("data-qa-camera-frame");
   const initialUrl = page.url();
+  const navigations: string[] = [];
+  page.on("framenavigated", frame => {
+    if (frame === page.mainFrame()) navigations.push(new URL(frame.url()).pathname);
+  });
+  const rendererInfo = await surface.locator("canvas").evaluate((canvas: HTMLCanvasElement) => {
+    const gl = canvas.getContext("webgl2");
+    const extension = gl?.getExtension("WEBGL_debug_renderer_info");
+    return { width: canvas.width, height: canvas.height,
+      renderer: extension && gl ? String(gl.getParameter(extension.UNMASKED_RENDERER_WEBGL)) : "unavailable" };
+  });
+  console.log("[haunted-renderer] " + JSON.stringify(rendererInfo));
   for (const count of [0, 2, 3, 4, 5, 1]) {
     await test.step(`Apply and verify rendered formation ${count}`, async () => {
       const started = Date.now();
@@ -54,12 +69,16 @@ test("Haunted Classroom Stage3D QA selects zero through five preview actors with
         name: count === 0 ? "Sân trống" : `${count} nhân vật`,
       });
       try {
-        await button.click();
+        // Native locator click retains actionability and actual pointer input.
+        // This type=button only updates local React state; no navigation is
+        // expected. Check URL and navigation events explicitly instead.
+        await button.click({ noWaitAfter: true });
         await expect(button).toHaveAttribute("aria-pressed", "true");
         await expect(surface).toHaveAttribute("data-preview-actor-count", String(count));
         await expect(surface).toHaveAttribute("data-qa-visible-actors", String(count));
         await expect(surface).toHaveAttribute("data-qa-camera-frame", initialCamera!);
         expect(page.url()).toBe(initialUrl);
+        expect(navigations).toEqual([]);
       } finally {
         console.log(`[haunted-formation] count=${count} elapsedMs=${Date.now() - started}`);
       }

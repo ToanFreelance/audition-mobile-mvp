@@ -169,8 +169,16 @@ test('normal UI hides rhythm diagnostics',async({page})=>{
 });
 test('character loader failure falls back without crashing the stage',async({page})=>{
   const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.route('**/UBC_Superhero_Male_FullBody.glb',route=>route.abort('failed'));
-  await page.goto('/');
+  const model = '**/UBC_Superhero_Male_FullBody.glb';
+  await page.route(model,route=>route.abort('failed'));
+  // Separate request scheduling from fallback handling: start observing before
+  // navigation so an early failure is not missed, and require the injected
+  // network failure itself. Existing 10s post-failure assertion is unchanged.
+  const [failedRequest] = await Promise.all([
+    page.waitForEvent('requestfailed',{predicate:request=>new URL(request.url()).pathname.endsWith('/UBC_Superhero_Male_FullBody.glb'),timeout:60_000}),
+    page.goto('/'),
+  ]);
+  console.log('SMOKE_FALLBACK_INJECTED '+JSON.stringify({asset:'UBC_Superhero_Male_FullBody.glb',failure:failedRequest.failure()?.errorText??'unknown'}));
   await expect(page.locator('.stage-3d')).toHaveAttribute('data-character-source','fallback',{timeout:10000});
   await expect(page.locator('.stage-3d-canvas')).toBeVisible();
   expect(errors).toEqual([]);
