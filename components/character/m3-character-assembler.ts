@@ -3,6 +3,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { getCharacterCatalogEntry, type CharacterAssetId, type M3RigFamily } from "./character-catalog";
 import { getM3CreatorWardrobeForFamily, type M3CreatorOutfit } from "./m3-creator-outfits";
 import { applyM3CreatorNeutralPose } from "./m3-creator-neutral-pose";
+import {
+  M3_FAMILIES, M3_ASSET_SOURCE, loadM3AssetBytes, m3SkinFiles,
+} from "./m3-asset-cache";
 
 /** Shared M3 actor assembly. Does not own renderer, AnimationMixer or gameplay clock. */
 export type M3Appearance = Readonly<{
@@ -12,30 +15,18 @@ export type M3Appearance = Readonly<{
   m3Outfit?: M3CreatorOutfit;
 }>;
 type Slot = "eyes" | "top" | "bottom" | "shoes" | "hair";
+type CreatorLoadOptions = {
+  signal?: AbortSignal;
+  onProgress?: (file: string, phase: "download" | "decode") => void;
+};
 type LoadedPart = { scene: THREE.Group; meshes: THREE.SkinnedMesh[] };
 type SkinLayer = "body" | "face" | "mouth";
 type SkinTarget = { material: THREE.MeshStandardMaterial; originalMap: THREE.Texture | null; layer: SkinLayer };
-const SOURCE = "https://raw.githubusercontent.com/memelotsqui/character-assets/main/";
-const FALLBACK = "https://cdn.jsdelivr.net/gh/memelotsqui/character-assets@main/";
-const FAMILIES = {
-  drophunter: {
-    body: "body/drophunter.vrm", eyes: "eyes/regulareyes.vrm",
-    // Plain dance starter. Each VRM is a separate real SkinnedMesh trait in the Drophunter manifest.
-    top: "chest/shirt.vrm", bottom: "legs/casualshorts.vrm", shoes: "feet/sneakers.vrm",
-    hair: ["short", "curledbangs", "ponytail", "buns"],
-  },
-  neurohacker: {
-    body: "body/neurohacker.vrm", eyes: "eyes/regulareyes.vrm",
-    // T-shirt + casual shorts + everyday shoes, not fantasy armor.
-    top: "chest/logotee.vrm", bottom: "legs/cargoshorts.vrm", shoes: "foot/simpleshoes.vrm",
-    hair: ["short", "hair1", "hair2", "hair3"],
-  },
-} as const;
+const FAMILIES = M3_FAMILIES;
 const COLORS: Readonly<Record<string, string | null>> = {
   original: null, black: "#161616", syrup: "#5A3114", purple: "#AF25FF",
   red: "#C43F54", yellow: "#E5BD69",
 };
-const SKINS = ["originalskin", "tone1skin", "tone2skin", "tone3skin", "tone4skin"] as const;
 function listMeshes(object: THREE.Object3D): THREE.SkinnedMesh[] {
   const meshes: THREE.SkinnedMesh[] = [];
   object.traverse(node => {
@@ -63,17 +54,6 @@ function disposeMeshes(object: THREE.Object3D): void {
     for (const material of materials) material.dispose();
   });
 }
-function skinFiles(family: M3RigFamily, id: string): readonly string[] {
-  const i = SKINS.indexOf(id as typeof SKINS[number]);
-  if (i < 0) throw new Error("M3 skin tone not in source catalog: " + id);
-  const suffix = i === 0 ? "alt" : String(i);
-  const files = [
-    `_textureCollections/skin/Anime_Proj_base_NoClothes_skin_BaseColor${suffix}.png`,
-    `_textureCollections/skin/Anime_Proj_base_NoClothes_Face_BaseColor${suffix}.png`,
-  ];
-  if (family === "neurohacker") files.push(`_textureCollections/skin/${i ? "skin" + i : "original"}_mouth.png`);
-  return files;
-}
 export class M3CharacterAssembler {
   /** Canonical VRM scene itself, matching the owner-accepted M3 V1.4 rig hierarchy. */
   root: THREE.Group = new THREE.Group();
@@ -99,23 +79,36 @@ export class M3CharacterAssembler {
   private updateQueue: Promise<void> = Promise.resolve();
   private disposed = false;
 
-  private constructor(family: M3RigFamily) {
+  private constructor(family: M3RigFamily, private readonly onProgress?: CreatorLoadOptions["onProgress"]) {
     this.family = family;
     this.root.name = "M3Actor:" + family;
   }
-  static async create(assetId: CharacterAssetId, appearance: M3Appearance): Promise<M3CharacterAssembler> {
+  static async create(assetId: CharacterAssetId, appearance: M3Appearance, options: CreatorLoadOptions = {}): Promise<M3CharacterAssembler> {
     const entry = getCharacterCatalogEntry(assetId);
     if (!entry?.m3RigFamily || !entry.creatorReady) throw new Error("M3 creator-only asset not enabled");
-    const actor = new M3CharacterAssembler(entry.m3RigFamily);
-    try { await actor.initialize(appearance); return actor; }
-    catch (error) { actor.dispose(); throw error; }
+    const actor = new M3CharacterAssembler(entry.m3RigFamily, options.onProgress);
+    const abort = () => actor.dispose();
+    if (options.signal?.aborted) { abort(); throw new Error("M3 actor cancelled"); }
+    options.signal?.addEventListener("abort", abort, { once: true });
+    try {
+      await actor.initialize(appearance);
+      if (actor.disposed) throw new Error("M3 actor cancelled");
+      return actor;
+    } catch (error) { actor.dispose(); throw error; }
+    finally { options.signal?.removeEventListener("abort", abort); }
   }
   private async loadPart(file: string): Promise<LoadedPart> {
     const cached = this.sources.get(file);
     if (cached) return cached;
-    let scene: THREE.Group;
-    try { scene = (await this.loader.loadAsync(SOURCE + this.family + "/" + file)).scene; }
-    catch { scene = (await this.loader.loadAsync(FALLBACK + this.family + "/" + file)).scene; }
+    // Use the same persisted, cache-first GLB bytes as profile warm-up.
+    // parseAsync creates a fresh independent scene/skeleton for every actor.
+    this.onProgress?.(file, "download");
+    const bytes = await loadM3AssetBytes(this.family, file);
+    if (this.disposed) throw new Error("M3 actor disposed");
+    this.onProgress?.(file, "decode");
+    const scene = (await this.loader.parseAsync(
+      bytes, M3_ASSET_SOURCE + this.family + "/",
+    )).scene;
     if (this.disposed) { disposeMeshes(scene); throw new Error("M3 actor disposed"); }
     const meshes = listMeshes(scene);
     if (!meshes.length) { disposeMeshes(scene); throw new Error("No M3 SkinnedMesh: " + file); }
@@ -268,9 +261,14 @@ export class M3CharacterAssembler {
   private async loadTexture(file: string): Promise<THREE.Texture> {
     const old = this.textures.get(file);
     if (old) return old;
+    this.onProgress?.(file, "download");
+    const bytes = await loadM3AssetBytes(this.family, file);
+    if (this.disposed) throw new Error("M3 actor disposed");
+    this.onProgress?.(file, "decode");
+    const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
     let texture: THREE.Texture;
-    try { texture = await this.textureLoader.loadAsync(SOURCE + this.family + "/" + file); }
-    catch { texture = await this.textureLoader.loadAsync(FALLBACK + this.family + "/" + file); }
+    try { texture = await this.textureLoader.loadAsync(url); }
+    finally { URL.revokeObjectURL(url); }
     if (this.disposed) { texture.dispose(); throw new Error("M3 actor disposed"); }
     texture.flipY = false;
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -279,7 +277,7 @@ export class M3CharacterAssembler {
   }
   private async replaceSkin(id: string): Promise<void> {
     if (id === this.skinId) return;
-    const files = skinFiles(this.family, id);
+    const files = m3SkinFiles(this.family, id);
     if (this.skinTargets.length === 0) throw new Error("Cannot locate M3 skin targets on base");
     const maps = id === "originalskin" ? [] : await Promise.all(files.map(file => this.loadTexture(file)));
     if (this.disposed) return;

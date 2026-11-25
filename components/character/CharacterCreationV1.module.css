@@ -34,6 +34,14 @@
   background:linear-gradient(180deg,rgba(7,8,29,.99),rgba(12,11,43,.95));
 }
 .header>div{display:grid;justify-items:center;gap:3px}
+/* Keep account action away from the portrait's face zone. */
+.headerActions{display:flex;gap:9px;align-items:center;pointer-events:auto}
+.accountIcon{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;
+  border:1px solid rgba(151,120,250,.75);border-radius:11px;text-decoration:none;
+  color:#c4f0ff;background:linear-gradient(140deg,rgba(47,29,100,.94),rgba(12,17,57,.95));
+  box-shadow:0 0 10px #8e47e744;pointer-events:auto}
+.accountIcon svg{width:25px;height:25px}
+.accountIcon:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .header span{color:#74e8ff;font-size:7px;font-weight:900;letter-spacing:.22em}
 .header strong{font-size:16px;line-height:1;letter-spacing:.045em}
 .headerIcon{
@@ -1216,4 +1224,19 @@
   .creatorControlPanel .creatorGarmentChoice .creatorGarmentLabel{font-size:9px}
   .creatorControlPanel .creatorHairCarousel .choiceCard{flex-basis:145px;grid-template-columns:50px minmax(0,1fr)}
   .creatorControlPanel .creatorHairCarousel .choiceCard .creatorItemArt{width:50px;height:60px}
+}
+
+/* iPhone name editing: the onscreen keyboard reduces visualViewport.height.
+   Hide bulky editing controls while the name field is focused, instead of
+   compressing the whole 3D hero into a few pixels. */
+@media(max-width:767px){
+  .page[data-name-editing="1"] .creatorDock .optionsOverlay.creatorControlPanel,
+  .page[data-name-editing="1"] .creatorDock .creatorSetupHeading,
+  .page[data-name-editing="1"] .creatorDock .createButton,
+  .page[data-name-editing="1"] .creatorDock .footerNote,
+  .page[data-name-editing="1"] .rail.m3Rail{display:none}
+  .page[data-name-editing="1"] .creatorDock{
+    flex:0 0 auto;padding:12px 12px calc(12px + env(safe-area-inset-bottom));gap:0}
+  .page[data-name-editing="1"] .creatorDock .nameField{min-height:56px}
+  .page[data-name-editing="1"] .hero{flex:1 1 auto;min-height:0}
 }

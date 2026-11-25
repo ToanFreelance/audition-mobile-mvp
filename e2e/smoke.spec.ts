@@ -22,8 +22,56 @@ test.beforeEach(async({page})=>{
 for(const width of [390,430])test(`portrait ${width}: authored chart, controls, command and gauge fit`,async({page})=>{
   await page.setViewportSize({width,height:width===390?844:932});
   const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto('/?debug=1&seed=123');
-  await expect(page.locator('.stage-3d')).toHaveAttribute('data-character-source','gltf',{timeout:10000});
+  // Smoke requires the actual legacy model AND its animation library, not
+  // just the first GLB response. Published animation transport allows two
+  // 8s manifest attempts and two 16s bundle attempts before local fallback.
+  // Give that existing bounded path 60s in CI (including load/retarget),
+  // while failing immediately on a terminal actor error. No gameplay deadline
+  // or production loader timeout is changed.
+  const actorBudgetMs = 60_000;
+  const startedAt = Date.now();
+  const assetRequests = new Map<import('@playwright/test').Request, {asset:string;started:number;state:string;elapsedMs?:number}>();
+  const observe = (request: import('@playwright/test').Request) => {
+    const url = new URL(request.url());
+    if (!/\.(glb|gltf|bvh|vrm)$/i.test(url.pathname) && !url.pathname.endsWith('/p37-animation-publish')) return;
+    // Do not log signed URLs, tokens, cookies, or query strings.
+    const asset = url.pathname.split('/').at(-1) ?? 'asset';
+    const kind = asset === 'p37-animation-publish'
+      ? asset + (url.searchParams.has('manifest') ? ':manifest' : ':bundle') : asset;
+    assetRequests.set(request,{asset:kind,started:Date.now(),state:'pending'});
+  };
+  const finish = (request: import('@playwright/test').Request, state:string) => {
+    const row = assetRequests.get(request);
+    if (row) { if (!row.state.startsWith('HTTP ')) row.state=state; row.elapsedMs=Date.now()-row.started; }
+  };
+  const completed = (request: import('@playwright/test').Request) => finish(request,'finished');
+  const failed = (request: import('@playwright/test').Request) => finish(request,'failed');
+  const response = (res: import('@playwright/test').Response) => {
+    if(res.status()>=400) finish(res.request(),'HTTP '+res.status());
+  };
+  page.on('request',observe);
+  page.on('requestfinished',completed);
+  page.on('requestfailed',failed);
+  page.on('response',response);
+  const stage=page.locator('.stage-3d');
+  try {
+    await page.goto('/?debug=1&seed=123');
+    await expect.poll(async()=>stage.getAttribute('data-character-source',{timeout:2000}).catch(()=>null),{
+      timeout:Math.max(1,actorBudgetMs-(Date.now()-startedAt)),
+      message:'Actor must settle within 60s of navigation',
+    }).toMatch(/^(gltf|fallback|failed|blocked)$/);
+    await expect(stage).toHaveAttribute('data-character-source','gltf',{timeout:1000});
+    await expect(stage).toHaveAttribute('data-character-asset-id','c1-casual-grace');
+  } finally {
+    const source=await stage.getAttribute('data-character-source',{timeout:1000}).catch(()=>null);
+    const actorReadyMs=await stage.getAttribute('data-stage-actor-ready-ms',{timeout:1000}).catch(()=>null);
+    console.log('SMOKE_ACTOR_LOAD '+JSON.stringify({
+      width,source,actorReadyMs,elapsedMs:Date.now()-startedAt,budgetMs:actorBudgetMs,
+      requests:[...assetRequests.values()].map(r=>({asset:r.asset,state:r.state,elapsedMs:r.elapsedMs??Date.now()-r.started})),
+    }));
+    page.off('request',observe);page.off('requestfinished',completed);
+    page.off('requestfailed',failed);page.off('response',response);
+  }
   await expect(page.getByRole('button',{name:'START',exact:true})).toBeEnabled();
   await page.getByRole('button',{name:'♫ SELECT SONG',exact:true}).click();
   await expect(page.locator('.song-picker-item')).toHaveCount(1);

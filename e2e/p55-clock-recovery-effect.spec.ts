@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { expect, test } from "@playwright/test";
 import * as ts from "typescript";
+import { usableWarmClock, warmClockMatchesProbe } from "../multiplayer/lobby-media-warmup";
 
 // Exercise the actual production useEffect, rather than a reimplementation.
 // The Work QA report reproduced D01 with exactly this effect extracted from
@@ -55,6 +56,16 @@ function createEffectHarness() {
     clockRetryNonce: 0,
     countdownAttemptRef: { current: null as string | null },
     clockRetryRequestedRef: { current: false },
+    // Cold clock: P5.7 provisional warmup has not completed. The real
+    // effect must still sample and preserve its original retry semantics.
+    warmClock: { current: null },
+    syncKey: "qa-room:qa-guest:guest",
+    document: { visibilityState: "visible" },
+    isLobbyBrowserOnline: () => true,
+    usableWarmClock, warmClockMatchesProbe,
+    performance, Date,
+    fetchLobbyClockSample: () => { throw Error("Cold clock must not use a warm probe"); },
+    recordC3StartCheckpoint: (_checkpoint: string) => {},
     syncDetail: "",
     setSyncDetail(value: string) { env.syncDetail = value; },
     setClockSyncState(value: { sessionKey: string; estimate: Sample }) {

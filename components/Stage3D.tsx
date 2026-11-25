@@ -5,10 +5,13 @@ import * as THREE from "three";
 import { clone as cloneSkinnedActor } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { CameraPreset } from "./PortraitGameMenu";
 import { CharacterActor, disposeObjectResources } from "./character/CharacterActor";
-import type { CharacterPresentationEvent } from "./character/character-types";
+import type { CharacterPresentation, CharacterPresentationEvent } from "./character/character-types";
+import { frozenStageActorIdentityKey, resolveM3Stage3dAvatar } from "./character/m3-stage3d-qa-gate";
+import type { AvatarSnapshot } from "../multiplayer/types";
 import { CHARACTER_STAGE_POSITION, getCharacterCameraFrame } from "./character/framing";
-import { DEFAULT_CHARACTER_CREATION_PROFILE, loadCharacterCreationDraft } from "./character/character-profile";
-import { isCharacterAssetId, type CharacterAssetId } from "./character/character-catalog";
+import { resolveSoloCharacterProfile } from "./character/character-profile";
+import { parseM3LobbyAppearance } from "./character/m3-lobby-appearance";
+import { getCharacterCatalogEntry, isCharacterAssetId, type CharacterAssetId } from "./character/character-catalog";
 import {
   DEFAULT_STAGE_ID,
   resolveRuntimeStageCatalogEntry,
@@ -173,6 +176,9 @@ type Stage3DProps = {
   selectedStageId?: string | null;
   /** Frozen MatchManifest avatar for multiplayer; solo falls back to Character Creation draft. */
   characterAssetId?: CharacterAssetId;
+  /** Frozen participant avatar and animation release for multiplayer. */
+  characterAvatar?: AvatarSnapshot;
+  m3FrozenReleaseVersion?: number;
   visualCompareMode?: boolean;
   hideCharacter?: boolean;
   /** Isolated classroom visual QA only; not multiplayer participants or game state. */
@@ -196,6 +202,8 @@ export default function Stage3D({
   bpm = 110,
   selectedStageId = DEFAULT_STAGE_ID,
   characterAssetId,
+  characterAvatar,
+  m3FrozenReleaseVersion,
   visualCompareMode = false,
   hideCharacter = false,
   previewActorCount,
@@ -212,7 +220,12 @@ export default function Stage3D({
   const basketballPresentation = stageEntry.presentationProfileId === "basketball-court-v1";
   const hauntedClassroomPresentation = stageEntry.presentationProfileId === "classroom-v1";
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const characterRef = useRef<CharacterActor | null>(null);
+  const frozenActorKey = characterAvatar ? frozenStageActorIdentityKey(characterAvatar) : null;
+  const frozenAvatarRef = useRef(characterAvatar);
+  frozenAvatarRef.current = characterAvatar;
+  const characterRef = useRef<CharacterPresentation | null>(null);
+  const latestCharacterEventRef = useRef(characterEvent);
+  latestCharacterEventRef.current = characterEvent;
   const previewActorCountRef = useRef(previewActorCount);
   previewActorCountRef.current = previewActorCount;
   const cameraPresetRef = useRef(cameraPreset);
@@ -242,6 +255,7 @@ export default function Stage3D({
     const host = hostRef.current;
     if (!host) return;
 
+    const presentationInitAt = performance.now();
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(
       hauntedClassroomPresentation ? 0x111629
@@ -433,6 +447,7 @@ export default function Stage3D({
       host.dataset.stageMetrics = JSON.stringify(result);
       host.dataset.visualCompareReady = "1";
       stageSettled = true;
+      host.dataset.stageEnvironmentReadyMs = String(Math.round(performance.now() - presentationInitAt));
     }).catch(error => {
       if (disposed) return;
       host.dataset.stageSource = "placeholder";
@@ -444,60 +459,152 @@ export default function Stage3D({
 
     // Multiplayer identity is frozen by MatchManifest, not a client draft.
     // The solo path retains the existing persisted Character Creation behavior.
-    let selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
-    if (!characterAssetId) {
-      try {
-        selectedCharacter = loadCharacterCreationDraft(window.localStorage) ?? DEFAULT_CHARACTER_CREATION_PROFILE;
-      } catch {
-        selectedCharacter = DEFAULT_CHARACTER_CREATION_PROFILE;
-      }
+    let selectedCharacter = resolveSoloCharacterProfile(null);
+    if (!frozenAvatarRef.current) {
+      try { selectedCharacter = resolveSoloCharacterProfile(window.localStorage); }
+      catch { /* inaccessible browser storage retains legacy fallback */ }
     }
     const runtimeCharacterAssetId = characterAssetId && isCharacterAssetId(characterAssetId)
       ? characterAssetId
       : selectedCharacter.characterAssetId;
 
-    let character: CharacterActor | null = null;
+    // Declared before synchronous legacy attach; async M3 import also observes it.
+    let disposed = false;
+    let character: CharacterPresentation | null = null;
     let characterSettled = hideCharacter;
     let qaActorModelReady = false;
     let qaLastActorCount = -1;
     const qaFormationCopies: THREE.Object3D[] = [];
     const qaFormationEnabled = hauntedClassroomPresentation && previewActorCount !== undefined;
     const qaCount = () => qaFormationEnabled
-      ? Math.min(5,Math.max(0,Math.floor(previewActorCountRef.current ?? 0))) : 1;
-    if (!hideCharacter) {
-      character = CharacterActor.fromAssetId(runtimeCharacterAssetId);
+      ? Math.min(5, Math.max(0, Math.floor(previewActorCountRef.current ?? 0))) : 1;
+
+    const attachActor = (actor: CharacterPresentation, m3: boolean) => {
+      if (disposed) { actor.dispose(); return; }
+      if (m3) {
+        // M3 detached SkinnedMesh bindings require canonical native bind space.
+        if (actor.root.position.lengthSq() !== 0 ||
+          actor.root.scale.distanceTo(new THREE.Vector3(1, 1, 1)) > 0.00001 ||
+          actor.root.rotation.x !== 0 || actor.root.rotation.y !== 0 || actor.root.rotation.z !== 0) {
+          actor.dispose();
+          onPresentationFailureRef.current?.("M3 bind-space root is not identity.");
+          return;
+        }
+        host.dataset.m3BindSpace = "native-until-gameplay-assembly-ready";
+      } else {
+        actor.root.position.set(
+          CHARACTER_STAGE_POSITION.x,
+          CHARACTER_STAGE_POSITION.y,
+          CHARACTER_STAGE_POSITION.z + (neonPresentation ? NEON_CHARACTER_STAGE_Z_OFFSET : 0),
+        );
+      }
+      character = actor;
       diagnostics?.actorCreated();
-      characterRef.current = character;
-      character.setGameActive(isPlayingRef.current);
-      character.root.position.set(
-        CHARACTER_STAGE_POSITION.x,
-        CHARACTER_STAGE_POSITION.y,
-        CHARACTER_STAGE_POSITION.z + (neonPresentation ? NEON_CHARACTER_STAGE_Z_OFFSET : 0),
-      );
-      stage.add(character.root);
+      characterRef.current = actor;
+      actor.setGameActive(isPlayingRef.current);
+      if (latestCharacterEventRef.current) actor.handlePresentationEvent(latestCharacterEventRef.current);
+      stage.add(actor.root);
       host.dataset.characterAssetId = runtimeCharacterAssetId;
-      host.dataset.characterProfileVersion = String(selectedCharacter.version);
+      host.dataset.characterProfileVersion = m3 && frozenAvatarRef.current ? "frozen-match-manifest" : String(selectedCharacter.version);
       host.dataset.characterSource = "loading";
-      void character.load().then((result) => {
-        if (disposed || !character) return;
-        if (!result) return;
-        if (result.error || !result.metrics.animationClips.length) {
+      void actor.load().then(result => {
+        if (disposed || character !== actor) return;
+        if (!result || result.error || !result.metrics.animationClips.length) {
+          // Expose the actual legacy fallback/error to QA without declaring
+          // failed actors presentation-ready or weakening multiplayer gates.
+          host.dataset.characterSource = result?.source === "fallback" ? "fallback" : "failed";
+          if (result?.error) host.dataset.characterError = result.error;
           onPresentationFailureRef.current?.("Nhân vật hoặc animation chưa sẵn sàng.");
           return;
         }
+        if (m3) {
+          const stageActor = actor as CharacterPresentation & {
+            getStage3dNormalization?: () => { scale: number; normalizedHeight: number; attachedMeshes: number } | null;
+          };
+          const normalization = stageActor.getStage3dNormalization?.();
+          if (!normalization || normalization.attachedMeshes < 1) {
+            throw new Error("M3 Gameplay skinned actor normalization is missing.");
+          }
+          host.dataset.m3BindSpace = "attached-normalized-stage3d";
+          host.dataset.m3StageScale = normalization.scale.toFixed(4);
+          host.dataset.m3StageHeight = normalization.normalizedHeight.toFixed(4);
+        }
         characterSettled = true;
+        host.dataset.stageActorReadyMs = String(Math.round(performance.now() - presentationInitAt));
         qaActorModelReady = true;
-        if (neonPresentation) applyNeonCharacterFill(character.root);
+        if (neonPresentation && !m3) applyNeonCharacterFill(actor.root);
         host.dataset.characterSource = result.source;
         host.dataset.characterIdle = result.idleClip ?? "static";
         host.dataset.characterMetrics = JSON.stringify(result.metrics);
-        if (result.error) console.warn(`[Stage3D] Character asset failed; procedural fallback active: ${result.error}`);
       }).catch(error => {
         if (disposed) return;
-        onPresentationFailureRef.current?.("Không thể tải nhân vật và animation.");
-        host.dataset.characterSource = "fallback";
-        console.warn("[Stage3D] Character asset loading failed:", error);
+        host.dataset.characterSource = "failed";
+        host.dataset.characterError = error instanceof Error ? error.message : String(error);
+        const cause = error instanceof Error ? error.message : String(error);
+        onPresentationFailureRef.current?.(
+          m3 ? "M3 Stage3D: " + cause : "Không thể tải nhân vật và animation.",
+        );
+        console.warn("[Stage3D] actor loading failed:", error);
       });
+    };
+
+    if (!hideCharacter) {
+      let m3Choice: ReturnType<typeof resolveM3Stage3dAvatar> | "blocked" = null;
+      if (frozenAvatarRef.current) {
+        try { m3Choice = resolveM3Stage3dAvatar(frozenAvatarRef.current); }
+        catch (error) {
+          m3Choice = "blocked";
+          host.dataset.characterError = error instanceof Error ? error.message : String(error);
+          onPresentationFailureRef.current?.(host.dataset.characterError);
+        }
+      }
+      if (m3Choice === "blocked") {
+        host.dataset.characterSource = "blocked";
+      } else if (m3Choice) {
+        if (m3Choice.assetId !== runtimeCharacterAssetId ||
+          !Number.isInteger(m3FrozenReleaseVersion) || (m3FrozenReleaseVersion ?? -1) < 0) {
+          host.dataset.characterSource = "blocked";
+          onPresentationFailureRef.current?.("M3 MatchManifest identity/release mismatch.");
+        } else {
+          // Legacy C1/C4 clients never import M3 actor/retarget chunks.
+          void import("./character/M3GameplayQaActor").then(({ M3GameplayQaActor }) => {
+            if (!disposed) attachActor(new M3GameplayQaActor(
+              m3Choice.assetId, m3Choice.appearance, m3FrozenReleaseVersion, true,
+            ), true);
+          }).catch(error => {
+            if (disposed) return;
+            host.dataset.characterError = error instanceof Error ? error.message : String(error);
+            onPresentationFailureRef.current?.("Không thể khởi tạo M3 Stage3D.");
+          });
+        }
+      } else if (getCharacterCatalogEntry(runtimeCharacterAssetId)?.m3RigFamily) {
+        // Local Solo only. A frozen manifest must always take the validated
+        // branch above; never substitute a local look for a frozen identity.
+        const appearance = !frozenAvatarRef.current && selectedCharacter.characterAssetId === runtimeCharacterAssetId
+          ? parseM3LobbyAppearance(runtimeCharacterAssetId, selectedCharacter) : null;
+        host.dataset.characterAssetId = runtimeCharacterAssetId;
+        host.dataset.characterProfileVersion = String(selectedCharacter.version);
+        if (!appearance) {
+          host.dataset.characterSource = "blocked";
+          onPresentationFailureRef.current?.("M3 Solo profile is unavailable or invalid.");
+        } else {
+          host.dataset.characterSource = "loading";
+          void import("./character/M3GameplayQaActor").then(({ M3GameplayQaActor }) => {
+            // Solo uses the existing local animation release resolution;
+            // multiplayer still requires its exact frozen release version.
+            if (!disposed) attachActor(new M3GameplayQaActor(
+              runtimeCharacterAssetId, appearance, undefined, true,
+            ), true);
+          }).catch(error => {
+            if (disposed) return;
+            host.dataset.characterSource = "failed";
+            host.dataset.characterError = error instanceof Error ? error.message : String(error);
+            onPresentationFailureRef.current?.("Không thể khởi tạo M3 Solo.");
+          });
+        }
+      } else {
+        attachActor(CharacterActor.fromAssetId(runtimeCharacterAssetId), false);
+      }
     } else {
       host.dataset.characterSource = "hidden";
     }
@@ -585,7 +692,6 @@ export default function Stage3D({
     // full authored intro after reveal. Gameplay/animation get real song time.
     let cameraIntroOriginSongMs = 0;
     let raf = 0;
-    let disposed = false;
     const scheduleFrame = () => {
       if (disposed || document.hidden || raf !== 0) return;
       raf = requestAnimationFrame(animate);
@@ -676,6 +782,7 @@ export default function Stage3D({
         presentationReadySent = true;
         cameraIntroOriginSongMs = songTimeMs;
         host.dataset.presentationReady = "1";
+        host.dataset.stageFirstReadyFrameMs = String(Math.round(performance.now() - presentationInitAt));
         onPresentationReadyRef.current?.();
       }
       if (diagnostics) diagnostics.frame(diagnosticFrameStart, performance.now() - diagnosticFrameStart);
@@ -714,7 +821,7 @@ export default function Stage3D({
       if (renderer.domElement.parentElement === host) host.removeChild(renderer.domElement);
       scene.clear();
     };
-  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, skipIntroCamera, cinematicMatchId]);
+  }, [stageEntry, neonPresentation, hideCharacter, visualCompareMode, fixedPresentationTimeSeconds, characterAssetId, frozenActorKey, m3FrozenReleaseVersion, skipIntroCamera, cinematicMatchId]);
 
   return (
     <div

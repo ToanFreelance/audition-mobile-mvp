@@ -36,3 +36,18 @@ export function getEntryIdentity(): EntryIdentity | null {
 export function isEntryRoomId(roomId: string) {
   return /^mvp-[a-zA-Z0-9_-]{1,60}$/.test(roomId);
 }
+
+/** The local draft is presentation data; guest authority is the HttpOnly
+ * cookie issued by the server. Old unsigned IDs cannot be claimed. */
+export async function resolveGuestEntryIdentity(): Promise<EntryIdentity | null> {
+  const local = getEntryIdentity();
+  if (!local) return null;
+  const response = await fetch("/api/multiplayer/guest-session", {
+    method: "POST", credentials: "same-origin", cache: "no-store",
+  });
+  const data = await response.json() as { ok?: boolean; participantId?: string; error?: string };
+  if (!response.ok || !data.ok || !data.participantId || !/^guest-[0-9a-f-]{36}$/.test(data.participantId)) {
+    throw new Error(data.error ?? "Không thể xác minh phiên khách.");
+  }
+  return { participantId: data.participantId, profile: local.profile };
+}

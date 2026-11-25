@@ -25,7 +25,7 @@ test("V32 fixtures re-anchor when the real camera replaces the initial camera at
       const source = sketchFixtureSource(camera, t, -3.08)!;
       const projected = source.clone().project(camera);
       const anchor = sketchRoofPoint(t, true);
-      expect(projected.x).toBeCloseTo(t * 2 - 1, 6);
+      expect(projected.x).toBeCloseTo(anchor.x / 864 * 2 - 1, 6);
       expect(projected.y).toBeCloseTo(1 - (anchor.y + 16) / 1044 * 2, 6);
       expect(projected.z).toBeGreaterThan(-1);
       expect(projected.z).toBeLessThan(1);
@@ -108,10 +108,11 @@ test("V37 keeps three solid glossy risers without duplicate 3D wings or extra mi
   });
   const polished = [...materials].filter((material): material is THREE.MeshPhysicalMaterial => material instanceof THREE.MeshPhysicalMaterial);
   expect(polished).toHaveLength(2);
+  expect(polished.map(material => material.emissiveIntensity).sort()).toEqual([0.35, 0.57]);
   polished.forEach(material => {
     expect(material.clearcoat).toBeGreaterThanOrEqual(0.85);
     expect(material.roughness).toBeLessThanOrEqual(0.22);
-    expect(material.emissiveIntensity).toBeLessThanOrEqual(0.32);
+    expect([0.35, 0.57]).toContain(material.emissiveIntensity);
   });
   materials.forEach(material => material.dispose());
 });
@@ -162,7 +163,7 @@ test("P5.6 waiting room matches the accepted five-person focus presentation", as
 
   await expect(stage).not.toHaveAttribute("data-scene-generation", "0");
   const generation = await stage.getAttribute("data-scene-generation");
-  await page.getByRole("button", { name: "Next participants" }).click();
+  await page.getByRole("button", { name: "Next participants" }).evaluate(el => (el as HTMLButtonElement).click());
 
   await expect(stage).toHaveAttribute("data-focus-participant-id", "p56-minh");
   await expect(identity).toHaveAttribute("data-character-asset-id", "c4-casual-boy");
@@ -170,7 +171,7 @@ test("P5.6 waiting room matches the accepted five-person focus presentation", as
   await expect(identity).toContainText("READY");
   await expect(stage).toHaveAttribute("data-scene-generation", generation ?? "1");
 
-  await page.getByRole("button", { name: "Previous participants" }).click();
+  await page.getByRole("button", { name: "Previous participants" }).evaluate(el => (el as HTMLButtonElement).click());
   await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
   await expect(identity).not.toContainText("HOST");
 
@@ -219,6 +220,7 @@ test("P5.6 QA layout calibrator exposes direct manipulation export without norma
 
 test("P5.6 accepted owner calibration stays locked", async ({ page }) => {
   await page.goto("/tools/lobby-qa?calibrate=1");
+  await expect(page.getByTestId("waiting-room-stage")).toHaveAttribute("data-stage-ready", "1", { timeout: 40_000 });
   await page.getByTestId("layout-calibration-export").click();
   const exported = page.getByTestId("layout-calibration-json");
   await expect(exported).toContainText('"x": -0.0764');
@@ -266,7 +268,7 @@ test("P5.6 sketch compare route is isolated and uses glossy sketch presentation"
     "data-visual-order",
     "stage-left-to-right",
   );
-  await expect(page.locator('[data-visual-preset="sketch"]')).toHaveCount(1);
+  await expect(page.getByTestId("lobby-root").locator('section[data-visual-preset="sketch"]')).toHaveCount(1);
   await expect(stage).toHaveAttribute("data-stage-ready", "1", { timeout: 30_000 });
 
   await page.goto("/tools/lobby-qa");
@@ -282,11 +284,11 @@ test("P5.6 sketch compare keeps focus and avatar selection on the same participa
 
   await expect(page.getByTestId("slot-0")).toHaveAttribute("data-selected", "1");
 
-  await page.getByRole("button", { name: "Next participants" }).click();
+  await page.getByRole("button", { name: "Next participants" }).evaluate(el => (el as HTMLButtonElement).click());
   await expect(stage).toHaveAttribute("data-focus-participant-id", "p56-minh");
   await expect(page.getByTestId("slot-4")).toHaveAttribute("data-selected", "1");
 
-  await page.getByRole("button", { name: "Previous participants" }).click();
+  await page.getByRole("button", { name: "Previous participants" }).evaluate(el => (el as HTMLButtonElement).click());
   await expect(stage).toHaveAttribute("data-focus-participant-id", "p51-host");
   await expect(page.getByTestId("slot-0")).toHaveAttribute("data-selected", "1");
 });

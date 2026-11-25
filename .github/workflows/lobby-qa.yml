@@ -2,17 +2,27 @@ name: Lobby QA QC
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [development]
   push:
     branches:
       - "work/**"
       - development
       - main
     paths:
+      - "components/Stage3D.tsx"
       - "components/multiplayer/**"
       - "components/character/**"
       - "multiplayer/**"
       - "game/**"
       - "app/api/multiplayer/**"
+      - "app/api/auth/**"
+      - "app/api/account/**"
+      - "app/auth/**"
+      - "components/entry/**"
+      - "lib/account-auth.ts"
+      - "lib/room-actor-session.ts"
+      - "lib/server-storage.ts"
       - "app/api/music-config/**"
       - "app/tools/lobby-qa/**"
       - "e2e/**"
@@ -36,7 +46,7 @@ env:
 jobs:
   fast-lobby-qa:
     name: fast-lobby-qa
-    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/heads/work/') }}
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/work/')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
 
@@ -62,9 +72,27 @@ jobs:
       - name: Focused lobby architecture regression
         run: npm run test:qa:lobby:fast
 
+      - name: Focused integration regression
+        run: >-
+          npx playwright test
+          e2e/entry-room-account-identity.spec.ts
+          e2e/room-security-closeout.spec.ts
+          e2e/m3-asset-timeout.spec.ts
+          e2e/music-config-read-security.spec.ts
+          e2e/p55-clock-recovery-effect.spec.ts
+          e2e/preload-nonblocking-effect.spec.ts
+          e2e/room-sync-recovery-effect.spec.ts
+          e2e/performance-diagnostics.spec.ts
+          e2e/entry-heartbeat-recovery.spec.ts
+          e2e/m3-gameplay-step3.spec.ts
+          e2e/m3-stage3d-integration-step31.spec.ts
+          e2e/multiplayer-determinism.spec.ts
+          e2e/published-animation-transport.spec.ts
+          --project=desktop --workers=1
+
   static-build:
     name: static-build
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main') }}
+    if: ${{ github.event_name == 'pull_request' || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
 
@@ -90,11 +118,15 @@ jobs:
       - name: Production build
         run: npm run build
 
-  core-regression:
-    name: core-regression
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main') }}
+  core-regression-shard:
+    name: core-regression (${{ matrix.shard }}/4)
+    if: ${{ github.event_name == 'pull_request' || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main')) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     steps:
       - name: Checkout
@@ -118,56 +150,37 @@ jobs:
       - name: Full deterministic and browser regression suite
         env:
           PLAYWRIGHT_WEB_SERVER: "1"
-        run: npm run test:qa:core
+        run: npm run test:qa:core -- --shard=${{ matrix.shard }}/4
 
       - name: Upload core regression evidence
-        if: failure()
+        if: ${{ always() && !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: lobby-core-regression-${{ github.run_id }}
+          name: lobby-core-regression-${{ github.run_id }}-shard-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
           if-no-files-found: ignore
           retention-days: 7
 
+  # Preserve the existing required check name. All shards must succeed.
+  core-regression:
+    name: core-regression
+    needs: core-regression-shard
+    if: ${{ always() && (github.event_name == 'pull_request' || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main'))) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every core shard to pass
+        env:
+          SHARD_RESULT: ${{ needs.core-regression-shard.result }}
+        run: test "$SHARD_RESULT" = success
+
+  # The old /tools/lobby-qa?sync=1 fixture relies on the deliberately
+  # disabled public bootstrap. Keep its source tests for a future port, but
+  # gate development on the real normal-entry Auth + signed Guest HTTPS suite.
+  # No secrets in pull_request builds. The called job uses the protected
+  # security-auth-qa environment; the owner must allow exact development ref.
   real-browser-e2e:
     name: real-host-guest-e2e
-    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/development' || github.ref == 'refs/heads/main') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Production build
-        run: npm run build
-
-      - name: Install Chromium and WebKit
-        run: npx playwright install --with-deps chromium webkit
-
-      - name: Real Host Guest browser E2E
-        env:
-          PLAYWRIGHT_WEB_SERVER: "1"
-        run: npm run test:qa:lobby:e2e
-
-      - name: Upload real-browser evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: lobby-real-browser-${{ github.run_id }}
-          path: |
-            playwright-report/
-            test-results/
-          if-no-files-found: ignore
-          retention-days: 7
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/development' }}
+    uses: ./.github/workflows/security-real-auth-duo.yml

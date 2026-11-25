@@ -114,7 +114,11 @@ export default function CharacterCreationV1() {
   const rootRef = useRef<HTMLElement | null>(null);
   const [lockedAssetId, setLockedAssetId] = useState<CharacterAssetId | null>(null);
   const [saveError, setSaveError] = useState("");
+  const [accountState, setAccountState] = useState<"checking" | "guest" | "account" | "error">("checking");
+  const [accountRevision, setAccountRevision] = useState<number | null>(null);
+  const [saveBusy, setSaveBusy] = useState(false);
   const [yaw, setYaw] = useState(-0.08);
+  const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.name);
   const [characterAssetId, setCharacterAssetId] = useState<CharacterAssetId>(DEFAULT_CHARACTER_CREATION_PROFILE.characterAssetId);
   const [hairStyle, setHairStyle] = useState(DEFAULT_CHARACTER_CREATION_PROFILE.hairStyle);
@@ -191,33 +195,8 @@ export default function CharacterCreationV1() {
   }, []);
 
   useEffect(() => {
-    try {
-      const draft = loadCharacterCreationDraft(window.localStorage);
-      if (!draft) return;
-      // development shares an origin with pre-M3 saved C1/C4 profiles.
-      // Show the accepted M3 Creator by default without overwriting the
-      // legacy snapshot (still valid for existing Room/Gameplay entries).
-      const previous = getCharacterCatalogEntry(draft.characterAssetId);
-      const legacyCreatorRequested =
-        new URLSearchParams(window.location.search).get("legacyCreator") === "1";
-      if (previous && !previous.m3RigFamily && !legacyCreatorRequested) {
-        const next = CHARACTER_CATALOG_V1.find(entry =>
-          entry.creatorReady && entry.m3RigFamily && entry.gender === draft.gender);
-        if (next) {
-          setName(draft.name);
-          setCharacterAssetId(next.id);
-          setHairStyle(next.defaultAppearance.hairStyle);
-          setHairColor(next.defaultAppearance.hairColor);
-          setSkinTone(next.defaultAppearance.skinTone);
-          setFace(next.defaultAppearance.face);
-          setM3Outfit(defaultM3CreatorOutfit(next.id));
-          // Preview-only selection. The saved C1/C4 identity is not changed
-          // until the user explicitly confirms the new M3 character.
-          setLockedAssetId(null);
-          setCreated(false);
-          return;
-        }
-      }
+    let cancelled = false;
+    const applyProfile = (draft: CharacterCreationProfileV1) => {
       setName(draft.name);
       setCharacterAssetId(draft.characterAssetId);
       setHairStyle(draft.hairStyle);
@@ -227,9 +206,66 @@ export default function CharacterCreationV1() {
       setM3Outfit(draft.m3Outfit ?? defaultM3CreatorOutfit(draft.characterAssetId));
       setLockedAssetId(draft.characterAssetId);
       setCreated(true);
-    } catch {
-      // Local draft restore is optional. Account/profile authority remains Phase 7.
-    }
+    };
+    void (async () => {
+      try {
+        const auth = await fetch("/api/auth", { cache: "no-store" });
+        if (!auth.ok) throw new Error("Không xác minh được phiên đăng nhập.");
+        const user = await auth.json() as { authenticated: boolean };
+        if (cancelled) return;
+        if (user.authenticated) {
+          const response = await fetch("/api/account/character", { cache: "no-store" });
+          if (!response.ok) throw new Error("Không tải được nhân vật của tài khoản.");
+          const data = await response.json() as {
+            profile: CharacterCreationProfileV1 | null; revision: number | null;
+          };
+          if (cancelled) return;
+          if (data.profile) {
+            // One saved character per authenticated account. The Creator is
+            // for initial creation only; future edits belong to Dashboard.
+            window.location.replace("/rooms");
+            return;
+          }
+          setAccountState("account");
+          setAccountRevision(data.revision);
+          // An account without a character starts from M3 defaults.
+          // Never implicitly import a legacy guest draft from localStorage.
+          return;
+        }
+        setAccountState("guest");
+        const draft = loadCharacterCreationDraft(window.localStorage);
+        if (!draft) return;
+        const previous = getCharacterCatalogEntry(draft.characterAssetId);
+        if (previous?.m3RigFamily) {
+          window.location.replace("/rooms");
+          return;
+        }
+        const legacyCreatorRequested =
+          new URLSearchParams(window.location.search).get("legacyCreator") === "1";
+        if (previous && !previous.m3RigFamily && !legacyCreatorRequested) {
+          const next = CHARACTER_CATALOG_V1.find(entry =>
+            entry.creatorReady && entry.m3RigFamily && entry.gender === draft.gender);
+          if (next) {
+            setName(draft.name);
+            setCharacterAssetId(next.id);
+            setHairStyle(next.defaultAppearance.hairStyle);
+            setHairColor(next.defaultAppearance.hairColor);
+            setSkinTone(next.defaultAppearance.skinTone);
+            setFace(next.defaultAppearance.face);
+            setM3Outfit(defaultM3CreatorOutfit(next.id));
+            setLockedAssetId(null);
+            setCreated(false);
+            return;
+          }
+        }
+        applyProfile(draft);
+      } catch (error) {
+        if (cancelled) return;
+        setAccountState("error");
+        setSaveError(error instanceof Error ? error.message : "Không xác minh được tài khoản.");
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const selectCharacter = (assetId: CharacterAssetId) => {
@@ -237,6 +273,7 @@ export default function CharacterCreationV1() {
     if (!(next?.creatorReady || next?.runtimeReady) || next.id === characterAssetId) return;
     // Only M3 creator QA allows deliberate migration of an old saved starter
     // or switching between the two accepted M3 rigs before room integration.
+    if (accountState === "account" && lockedAssetId && lockedAssetId !== next.id) return;
     if (lockedAssetId && lockedAssetId !== next.id && !next.m3RigFamily) return;
     if (lockedAssetId && lockedAssetId !== next.id) setLockedAssetId(null);
     setCharacterAssetId(next.id);
@@ -280,16 +317,33 @@ export default function CharacterCreationV1() {
     setCreated(false);
   };
 
-  const createCharacter = () => {
-    if (!valid || (creatorCharacter.m3RigFamily && !m3PreviewReady)
+  const createCharacter = async () => {
+    if (!valid || saveBusy || accountState === "checking" || accountState === "error"
+      || (creatorCharacter.m3RigFamily && !m3PreviewReady)
       || (lockedAssetId && lockedAssetId !== profile.characterAssetId)) return;
+    setSaveBusy(true);
     try {
-      saveCharacterCreationDraft(window.localStorage, profile);
+      if (accountState === "account") {
+        const response = await fetch("/api/account/character", {
+          method: "POST", cache: "no-store",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ profile, expectedRevision: accountRevision }),
+        });
+        const result = await response.json() as { ok?: boolean; revision?: number; error?: string };
+        if (!response.ok || !result.ok || !Number.isInteger(result.revision)) {
+          throw new Error(result.error ?? "Không lưu được nhân vật vào tài khoản.");
+        }
+        setAccountRevision(result.revision as number);
+      } else {
+        saveCharacterCreationDraft(window.localStorage, profile);
+      }
       setLockedAssetId(profile.characterAssetId);
       setSaveError("");
       setCreated(true);
-    } catch {
-      setSaveError("Không thể lưu nhân vật trên thiết bị. Hãy kiểm tra bộ nhớ trình duyệt.");
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : "Không lưu được nhân vật.");
+    } finally {
+      setSaveBusy(false);
     }
   };
 
@@ -483,6 +537,7 @@ export default function CharacterCreationV1() {
       data-locked-asset={lockedAssetId ?? ""}
       data-character-asset={creatorCharacter.id}
       data-profile-version="1"
+      data-name-editing={editingName ? "1" : "0"}
       data-testid="c2-character-creation"
     >
       <section className={styles.phone}>
@@ -490,9 +545,19 @@ export default function CharacterCreationV1() {
           <a aria-label="Quay lại" className={styles.headerIcon} href="/">
             <CreatorIcon kind="back" />
           </a>
-          <button aria-label="Ngẫu nhiên" className={styles.headerIcon} onClick={randomize} type="button">
-            <CreatorIcon kind="dice" />
-          </button>
+          <span className={styles.headerActions}>
+            <a className={styles.accountIcon} href="/auth" data-testid="creator-account-link"
+              aria-label={accountState === "account" ? "Quản lý tài khoản" : "Đăng nhập"}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"
+                strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="8" r="3.5" />
+                <path d="M5 20v-1.6a7 7 0 0 1 14 0V20H5Z" />
+              </svg>
+            </a>
+            <button aria-label="Ngẫu nhiên" className={styles.headerIcon} onClick={randomize} type="button">
+              <CreatorIcon kind="dice" />
+            </button>
+          </span>
         </header>
 
         <div className={styles.hero}>
@@ -555,6 +620,8 @@ export default function CharacterCreationV1() {
                 ref={nameInputRef}
                 maxLength={14}
                 onChange={event => { setName(event.target.value); setCreated(false); }}
+                onFocus={() => setEditingName(true)}
+                onBlur={() => setEditingName(false)}
                 placeholder="Nhập tên nhân vật"
                 value={name}
               />
@@ -565,7 +632,7 @@ export default function CharacterCreationV1() {
 
           {/* A saved character uses the SAME dock slot for navigation.
               Never grow the dock (and shrink the 3D preview) after save. */}
-          {created && (creatorCharacter.runtimeReady || creatorCharacter.lobbyReady) ? (
+          {created && accountState !== "checking" && (creatorCharacter.runtimeReady || creatorCharacter.lobbyReady) ? (
             <a
               className={[styles.createButton, styles.continueButton].join(" ")}
               data-testid="entry-continue-rooms"
@@ -577,18 +644,18 @@ export default function CharacterCreationV1() {
             <button
               className={styles.createButton}
               data-testid="c2-confirm-character"
-              disabled={!valid || Boolean(creatorCharacter.m3RigFamily && !m3PreviewReady)}
+              disabled={!valid || saveBusy || accountState === "checking" || accountState === "error" || Boolean(creatorCharacter.m3RigFamily && !m3PreviewReady)}
               onClick={createCharacter}
               type="button"
             >
-              {created ? "✓ NHÂN VẬT ĐÃ LƯU" : "TẠO NHÂN VẬT"}
+              {saveBusy ? "ĐANG LƯU…" : created ? "✓ NHÂN VẬT ĐÃ LƯU" : "TẠO NHÂN VẬT"}
             </button>
           )}
 
           {saveError && <p className={styles.creatorSaveError} role="alert">{saveError}</p>}
           <div className={styles.footerNote}>
             <span>DANCE YOUR STORY <CreatorIcon kind="heart" /></span>
-            <small>{created ? "Đã lưu trên thiết bị" : ""}</small>
+            <small>{created ? accountState === "account" ? "Đã lưu vào tài khoản" : "Đã lưu trên thiết bị" : ""}</small>
           </div>
         </div>
       </section>

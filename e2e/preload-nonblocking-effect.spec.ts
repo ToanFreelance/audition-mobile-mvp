@@ -99,6 +99,7 @@ function scenario(options: {
     // extracted production useEffect (vm realms have separate intrinsics).
     Error,
     setSyncDetail: () => {},
+    recordC3StartCheckpoint: (_checkpoint: string) => {},
     fetchRoomSnapshot: () => { throw new Error("Unexpected canonical fetch"); },
     adoptServerSnapshot: () => {},
     runServerMutation: () => { throw new Error("Unexpected direct room mutation"); },

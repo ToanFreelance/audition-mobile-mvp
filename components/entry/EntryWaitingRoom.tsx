@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { RoomState } from "../../multiplayer/types";
+import { isCanonicalRoomSnapshot } from "../../multiplayer/room-sync";
+import { recordC3StartCheckpoint } from "../multiplayer/c3-start-trace";
 import WaitingRoomPanel from "../multiplayer/WaitingRoomPanel";
 import StageLaunchArtwork from "../multiplayer/StageLaunchArtwork";
 import styles from "./EntryWaitingRoom.module.css";
-import { getEntryIdentity, isEntryRoomId } from "./entry-session";
+import { isEntryRoomId } from "./entry-session";
+import { resolveWaitingRoomIdentity, roomAvatarMatchesSavedIdentity } from "./entry-room-identity";
 
 type ActiveEntry = {
   snapshot: RoomState;
@@ -17,11 +20,6 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
   const [entry, setEntry] = useState<ActiveEntry | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
-    const identity = getEntryIdentity();
-    if (!identity) {
-      window.location.replace("/character/create");
-      return;
-    }
     if (!isEntryRoomId(roomId)) {
       setError("Mã phòng không hợp lệ.");
       return;
@@ -29,10 +27,26 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
     let canceled = false;
     void (async () => {
       try {
-        const response = await fetch(
+        // Authenticated participants use the SAME server identity as Room
+        // Browser; legacy localStorage is used only for true guests.
+        // Both are existing read-only requests. Resolve identity and read
+        // room concurrently; do not display anything until both are validated.
+        recordC3StartCheckpoint("entry-identity-room-fetch");
+        const roomRead = fetch(
           "/api/multiplayer/room?roomId=" + encodeURIComponent(roomId),
-          { cache: "no-store" },
-        );
+          { credentials: "same-origin", cache: "no-store" },
+        ).then(response => ({ response, error: null }), (error: unknown) => ({ response: null, error }));
+        const resolved = await resolveWaitingRoomIdentity();
+        if (canceled) return;
+        recordC3StartCheckpoint("entry-identity-ready");
+        const identity = resolved.identity;
+        if (!identity) {
+          window.location.replace("/character/create");
+          return;
+        }
+        const { response, error: roomReadError } = await roomRead;
+        if (!response) throw roomReadError;
+        if (canceled) return;
         const data = await response.json() as {
           ok: boolean; error?: string; snapshot?: RoomState;
         };
@@ -40,13 +54,24 @@ export default function EntryWaitingRoom({ roomId }: { roomId: string }) {
           throw new Error(data.error ?? "Không tìm thấy phòng.");
         }
         if (canceled) return;
+        if (data.snapshot.roomId !== roomId || !isCanonicalRoomSnapshot(data.snapshot)) {
+          throw new Error("Trạng thái phòng không hợp lệ.");
+        }
+        recordC3StartCheckpoint("entry-room-snapshot-ready");
         const member = data.snapshot.participants.find(
           participant => participant.participantId === identity.participantId
         );
         if (!member || member.kind !== "human") {
-          window.location.replace("/rooms?room=" + encodeURIComponent(roomId));
+          // Do not treat a mismatch as a missing account character. It may be
+          // a stale room from a prior profile or a wrong participant ID.
+          setError("Tài khoản hiện tại không có mặt trong phòng này. Hãy quay lại Room Browser và tạo hoặc tham gia phòng mới.");
           return;
         }
+        if (!roomAvatarMatchesSavedIdentity(member, identity)) {
+          setError("Nhân vật trong RoomState không khớp với nhân vật đã lưu. Hãy quay lại Room Browser và tạo phòng mới.");
+          return;
+        }
+        recordC3StartCheckpoint("entry-member-appearance-verified");
         setEntry({
           snapshot: data.snapshot,
           role: member.role,

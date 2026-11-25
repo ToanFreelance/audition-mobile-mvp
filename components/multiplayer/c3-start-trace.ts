@@ -13,7 +13,7 @@ export function recordC3StartCheckpoint(step: string): void {
     const previous = Array.isArray(stored) ? stored.filter(
       (item): item is C3StartCheckpoint =>
         item && typeof item === "object" && typeof item.step === "string" && typeof item.at === "string",
-    ).slice(-19) : [];
+    ).slice(-39) : [];
     window.localStorage.setItem(C3_START_TRACE_KEY, JSON.stringify([
       ...previous, { at: new Date().toISOString(), step },
     ]));

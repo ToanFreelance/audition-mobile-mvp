@@ -32,7 +32,7 @@ export type CharacterCatalogEntry = {
   runtimeReady: boolean;
   /** Waiting Room presentation, not animation/gameplay compatibility. */
   lobbyReady?: boolean;
-  /** Enable M3 Character Creation only; Room/Match remain gated until steps 2/3. */
+  /** Character Creation availability, independently of lobby/gameplay readiness. */
   creatorReady?: boolean;
   m3RigFamily?: M3RigFamily;
   creatorBadge: string;
@@ -157,7 +157,7 @@ const DROPHUNTER_M3: CharacterCatalogEntry = {
   // Catalog portrait is intentionally omitted until owner-approved real icon acquisition.
   portraitUrl: "/room-ui/demo-avatar.svg",
   animationProfile: "m3-vrm", m3RigFamily: "drophunter",
-  creatorReady: true, lobbyReady: true, runtimeReady: false,
+  creatorReady: true, lobbyReady: true, runtimeReady: true,
   creatorBadge: "FEMALE · M3 POC", creatorVersionLabel: "M3 Creator Step 1",
   appearance: {
     hairStyles: [
@@ -176,7 +176,7 @@ const NEUROHACKER_M3: CharacterCatalogEntry = {
   assetUrl: "https://raw.githubusercontent.com/memelotsqui/character-assets/main/neurohacker/body/neurohacker.vrm",
   portraitUrl: "/room-ui/demo-avatar.svg",
   animationProfile: "m3-vrm", m3RigFamily: "neurohacker",
-  creatorReady: true, lobbyReady: true, runtimeReady: false,
+  creatorReady: true, lobbyReady: true, runtimeReady: true,
   creatorBadge: "MALE · STREET M3 POC", creatorVersionLabel: "M3 Creator Step 1",
   appearance: {
     hairStyles: [

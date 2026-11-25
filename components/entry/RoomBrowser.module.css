@@ -317,3 +317,24 @@
   .createCard{height:56px;min-height:56px;flex-basis:56px}
   .filters{margin:6px 0 7px}
 }
+
+/* Avatar will route to Account Dashboard when the screen is implemented. */
+button.avatar{padding:0;cursor:pointer;appearance:none;font:inherit}
+button.avatar:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.dashboardNotice{margin:-10px 0 12px;padding:10px 12px;border:1px solid #566dc7;border-radius:11px;
+  background:#17234a;color:#d0e5ff;font-size:12px;line-height:1.5}
+
+/* Small account actions inside the existing player label slot — preserve the
+   accepted portrait and currency/room browser geometry on iPhone. */
+.accountLinks{display:flex;align-items:center;flex-wrap:wrap;gap:7px;line-height:1.2}
+.accountShortcut,.logoutShortcut{font-size:10px;font-weight:800;white-space:nowrap;color:#a9e0ff;text-decoration:none}
+.logoutShortcut{appearance:none;border:0;background:transparent;padding:1px 2px;
+  color:#ffb8d4;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.logoutShortcut:disabled{opacity:.6;cursor:wait}
+.logoutShortcut:focus-visible,.accountShortcut:focus-visible{outline:2px solid #fff;outline-offset:3px;border-radius:3px}
+
+/* No accepted M3 profile thumbnail yet. Never misrepresent male M3 with
+   the hard-coded female sample avatar. Visual-only; 3D actor is untouched. */
+.m3AvatarGlyph{width:100%;height:100%;border-radius:9px;display:grid;place-items:center;
+  color:#ecf4ff;font-size:32px;font-weight:850;line-height:1;
+  background:radial-gradient(circle at 30% 20%,#685dc0,#172447 72%);text-shadow:0 0 9px #a8bbff}

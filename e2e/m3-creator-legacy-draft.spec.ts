@@ -20,7 +20,7 @@ test("development legacy C4 profile opens M3 Neurohacker without overwriting sav
   await page.goto("/character/create");
   const creator = page.getByTestId("c2-character-creation");
   await expect(creator).toHaveAttribute("data-character-asset", "m3-neurohacker");
-  await expect(page.getByLabel("Tên nhân vật")).toHaveValue("OldMale");
+  await expect(page.getByRole("textbox", { name: "Tên nhân vật", exact: true })).toHaveValue("OldMale");
   await expect(creator.getByRole("navigation", { name: "Tuỳ chỉnh nhân vật" }).locator("button")).toHaveCount(4);
   await expect(page.getByTestId("c1-category-options")).toBeVisible();
   await expect(page.getByTestId("c1-category-options")).toHaveClass(/creatorControlPanel/);
@@ -36,7 +36,7 @@ test("development legacy C1 profile opens M3 Drophunter without losing old ident
   await page.goto("/character/create");
   const creator = page.getByTestId("c2-character-creation");
   await expect(creator).toHaveAttribute("data-character-asset", "m3-drophunter");
-  await expect(page.getByLabel("Tên nhân vật")).toHaveValue("OldFemale");
+  await expect(page.getByRole("textbox", { name: "Tên nhân vật", exact: true })).toHaveValue("OldFemale");
   await expect(page.getByTestId("c2-confirm-character")).toBeVisible();
   expect(await page.evaluate(storageKey => localStorage.getItem(storageKey), key)).toBe(original);
 });

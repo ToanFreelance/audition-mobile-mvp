@@ -40,9 +40,11 @@ export function parseM3LobbyAppearance(
   };
 }
 
-/** M3 must never enter MatchManifest preload until its choreography is retargeted. */
+/** Runtime-ready M3 still requires a complete, canonical wardrobe snapshot. */
 export function roomContainsNonPlayableCharacter(avatars: readonly AvatarSnapshot[]): boolean {
-  return avatars.some(avatar => !getCharacterCatalogEntry(
-    avatarCharacterAssetId(avatar) as CharacterAssetId
-  )?.runtimeReady);
+  return avatars.some(avatar => {
+    const entry = getCharacterCatalogEntry(avatarCharacterAssetId(avatar));
+    if (!entry?.runtimeReady) return true;
+    return Boolean(entry.m3RigFamily && !parseM3LobbyAppearance(entry.id, avatar.m3Appearance));
+  });
 }

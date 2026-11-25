@@ -37,8 +37,11 @@ export default defineConfig({
 
   webServer: process.env.PLAYWRIGHT_WEB_SERVER === "1"
     ? {
-        command: "npm start -- --hostname 127.0.0.1",
-        url: "http://127.0.0.1:3000",
+        command: process.env.SECURITY_AUTH_REAL_QA === "1"
+          ? "node scripts/security-qa-https.mjs" : "npm start -- --hostname 127.0.0.1",
+        url: process.env.SECURITY_AUTH_REAL_QA === "1"
+          ? "https://127.0.0.1:3443" : "http://127.0.0.1:3000",
+        ignoreHTTPSErrors: process.env.SECURITY_AUTH_REAL_QA === "1",
         reuseExistingServer: false,
         timeout: 120_000,
       }

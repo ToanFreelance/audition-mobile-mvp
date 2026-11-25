@@ -96,3 +96,32 @@ test("lobby song slug resolves to the authored UUID-backed chart", () => {
   expect(selectLobbyMusicConfig([aloha, pleaseTellMeWhy], "please-tell-me-why"))
     .toBe(pleaseTellMeWhy);
 });
+
+// Waiting Room UX: sync recovery is read-only and never changes Start,
+// RoomState CAS, LOADED, stage identity or the gameplay audio timeline.
+import {
+  isWaitingRoomSyncTerminalError, shouldAutoRecoverWaitingRoom,
+  waitingRoomSyncIndicatorState, waitingRoomSyncRetryDelay,
+} from "../multiplayer/waiting-room-auto-sync";
+
+test("waiting-room canonical recovery uses bounded exponential retry rather than a manual blocker", () => {
+  expect([0, 1, 2, 3, 4, 5, 6, 10].map(waitingRoomSyncRetryDelay))
+    .toEqual([750, 1500, 3000, 6000, 12000, 24000, 30000, 30000]);
+  expect(shouldAutoRecoverWaitingRoom("waiting", true, true)).toBe(true);
+  expect(shouldAutoRecoverWaitingRoom("waiting", false, true)).toBe(false);
+  expect(shouldAutoRecoverWaitingRoom("waiting", true, false)).toBe(false);
+  expect(shouldAutoRecoverWaitingRoom("preloading", true, true)).toBe(false);
+  expect(shouldAutoRecoverWaitingRoom("countdown", true, true)).toBe(false);
+  expect(shouldAutoRecoverWaitingRoom("playing", true, true)).toBe(false);
+  expect(isWaitingRoomSyncTerminalError(new Error("Bạn không còn trong phòng."))).toBe(true);
+  expect(shouldAutoRecoverWaitingRoom("waiting", true, true,
+    new Error("Bạn không còn trong phòng."))).toBe(false);
+});
+
+test("waiting-room sync indicator reflects canonical and network state", () => {
+  expect(waitingRoomSyncIndicatorState("verified", true, true)).toBe("synced");
+  expect(waitingRoomSyncIndicatorState("checking", true, true)).toBe("syncing");
+  expect(waitingRoomSyncIndicatorState("error", true, true)).toBe("reconnecting");
+  expect(waitingRoomSyncIndicatorState("verified", false, true)).toBe("reconnecting");
+  expect(waitingRoomSyncIndicatorState("verified", true, false)).toBe("offline");
+});

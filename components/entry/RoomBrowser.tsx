@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { RoomState } from "../../multiplayer/types";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
-import { getEntryIdentity, isEntryRoomId, type EntryIdentity } from "./entry-session";
+import { resolveGuestEntryIdentity, isEntryRoomId, type EntryIdentity } from "./entry-session";
 import { parseM3LobbyAppearance } from "../character/m3-lobby-appearance";
 import styles from "./RoomBrowser.module.css";
 
@@ -61,6 +61,7 @@ const isTeamMode = (modeId: string) => modeId.toLowerCase().includes("team");
 
 export default function RoomBrowser() {
   const [identity, setIdentity] = useState<EntryIdentity | null>(null);
+  const [accountState, setAccountState] = useState<"checking" | "guest" | "account" | "error">("checking");
   const [initialized, setInitialized] = useState(false);
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [roomName, setRoomName] = useState("");
@@ -70,6 +71,8 @@ export default function RoomBrowser() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [walletInfoOpen, setWalletInfoOpen] = useState(false);
+  const [dashboardHint, setDashboardHint] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [section, setSection] = useState<Section>("rooms");
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -108,11 +111,57 @@ export default function RoomBrowser() {
     } finally { setRefreshing(false); }
   }, []);
   useEffect(() => {
-    setIdentity(getEntryIdentity());
-    setInitialized(true);
+    let cancelled = false;
     const params = new URLSearchParams(window.location.search);
     setJoinId(params.get("room")?.trim() ?? "");
     void refresh();
+    void (async () => {
+      try {
+        const authResponse = await fetch("/api/auth", { cache: "no-store" });
+        if (!authResponse.ok) throw new Error("Không thể xác minh tài khoản.");
+        const auth = await authResponse.json() as {
+          authenticated: boolean; user?: { id: string; email?: string };
+        };
+        if (cancelled) return;
+        if (auth.authenticated && auth.user) {
+          const saved = await fetch("/api/account/character", { cache: "no-store" });
+          if (!saved.ok) throw new Error("Không tải được nhân vật tài khoản.");
+          const data = await saved.json() as { profile: EntryIdentity["profile"] | null };
+          if (cancelled) return;
+          setAccountState("account");
+          setIdentity(data.profile ? { participantId: "player-" + auth.user.id, profile: data.profile } : null);
+          if (data.profile) {
+            const catalog = getCharacterCatalogEntry(data.profile.characterAssetId);
+            const look = catalog?.m3RigFamily
+              ? parseM3LobbyAppearance(catalog.id, data.profile) : null;
+            if (look) {
+              // Start a small, non-blocking immutable-asset warm-up for the
+              // server-authoritative account look only. No profile/PII is
+              // stored in Cache Storage, and navigating into Waiting Room
+              // reuses the same in-flight download if still pending.
+              void import("../character/m3-asset-cache")
+                .then(module => Promise.allSettled([
+                  module.warmM3AppearanceAssets(catalog!.id, look),
+                  module.warmM3GreetingAsset(),
+                ]))
+                .catch(() => { /* Waiting Room can retry via normal asset loading. */ });
+            }
+          }
+        } else {
+          const guest = await resolveGuestEntryIdentity();
+          if (cancelled) return;
+          setAccountState("guest");
+          setIdentity(guest);
+        }
+      } catch (cause) {
+        if (cancelled) return;
+        setAccountState("error");
+        setError(cause instanceof Error ? cause.message : "Không xác minh được tài khoản.");
+      } finally {
+        if (!cancelled) setInitialized(true);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [refresh]);
   useEffect(() => {
     const refreshVisible = () => { if (document.visibilityState === "visible") void refresh(); };
@@ -125,6 +174,28 @@ export default function RoomBrowser() {
       window.removeEventListener("pageshow", refreshVisible);
     };
   }, [refresh]);
+
+  const logout = async () => {
+    if (loggingOut || accountState !== "account") return;
+    setLoggingOut(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "logout" }),
+      });
+      const result = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !result.ok) throw new Error(result.error ?? "Đăng xuất không thành công.");
+      // Navigation destroys all account-specific in-memory profile state. The
+      // guest browser identity is not promoted into this account's profile.
+      setIdentity(null);
+      window.location.replace("/auth");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Không thể đăng xuất.");
+      setLoggingOut(false);
+    }
+  };
 
   const roomAvatarLook = () => {
     if (!identity) return null;
@@ -205,14 +276,23 @@ export default function RoomBrowser() {
       <section className={styles.onboarding}>
         <span className={styles.brand}>AUDITION <em>MOBILE</em></span>
         <span className={styles.onboardingSymbol}><Icon name="sparkle" size={38} /></span>
-        <h1>Hãy tạo nhân vật trước</h1>
-        <p>Sảnh phòng sử dụng nhân vật đã lưu trên thiết bị.</p>
-        <a className={styles.onboardingButton} href="/character/create">Tạo nhân vật</a>
+        <h1>{accountState === "error" ? "Không thể tải tài khoản" : "Hãy tạo nhân vật trước"}</h1>
+        <p>{accountState === "account"
+          ? "Tài khoản chưa có nhân vật M3. Hãy tạo nhân vật duy nhất của bạn."
+          : accountState === "error" ? error : "Sảnh phòng sử dụng nhân vật đã lưu trên thiết bị."}</p>
+        <a className={styles.onboardingButton} href={accountState === "error" ? "/auth" : "/character/create"}>
+          {accountState === "error" ? "Tài khoản" : "Tạo nhân vật"}
+        </a>
       </section>
     </main>
   );
 
-  const portrait = identity.profile.characterAssetId === "c4-casual-boy"
+  const assetId = identity.profile.characterAssetId;
+  const m3Portrait = assetId === "m3-neurohacker" || assetId === "m3-drophunter";
+  // The old demo-avatar.svg depicts a female starter and was incorrectly
+  // shown for M3 Neurohacker. Until M3 outfit-aware thumbnails exist, use
+  // an honest rig-specific placeholder instead of another character's face.
+  const portrait = assetId === "c4-casual-boy"
     ? "/characters/portraits/c4-casual-boy.jpg" : "/room-ui/demo-avatar.svg";
   const isRoomSection = section === "rooms";
   const sectionLabel = section === "entertainment" ? "Giải trí"
@@ -223,12 +303,29 @@ export default function RoomBrowser() {
       <div className={styles.app}>
         <div className={styles.content}>
           <header className={styles.playerBar}>
-            <a href="/character/create" className={styles.avatar} aria-label="Chỉnh sửa nhân vật">
-              <img src={portrait} alt="" width="52" height="52" />
-            </a>
+            <button type="button" className={styles.avatar} data-testid="profile-dashboard-trigger"
+              aria-label="Dashboard cá nhân (sắp có)" onClick={() => setDashboardHint(value => !value)}>
+              {m3Portrait ? (
+                <span className={styles.m3AvatarGlyph} data-testid="room-m3-profile-avatar" aria-hidden="true">
+                  {assetId === "m3-neurohacker" ? "♂" : "♀"}
+                </span>
+              ) : <img src={portrait} alt="" width="52" height="52" />}
+            </button>
             <div className={styles.playerText}>
               <strong>{identity.profile.name}</strong>
               <span>Lv. 25</span>
+              {accountState === "account" ? (
+                <span className={styles.accountLinks}>
+                  <a href="/auth" className={styles.accountShortcut}>Tài khoản</a>
+                  <button type="button" className={styles.logoutShortcut}
+                    data-testid="room-browser-logout" disabled={loggingOut}
+                    onClick={() => void logout()}>
+                    {loggingOut ? "Đang thoát…" : "Đăng xuất"}
+                  </button>
+                </span>
+              ) : (
+                <a href="/auth" className={styles.accountShortcut}>Đăng nhập</a>
+              )}
             </div>
             <div className={styles.playerTokens} aria-label="Số dư mẫu chưa triển khai">
               <span className={styles.tokenGold} aria-label="0 coin"><span className={styles.coinSymbol}>◎</span><b>0</b></span>
@@ -237,6 +334,9 @@ export default function RoomBrowser() {
             <button type="button" className={styles.profileSettings} aria-label="Thông tin coin và gem"
               aria-expanded={walletInfoOpen} onClick={() => setWalletInfoOpen(current => !current)}><svg aria-hidden="true" viewBox="0 0 24 24" width="19" height="19" fill="none"><path d="M12 4.5v15M4.5 12h15" stroke="currentColor" strokeWidth="3.6" strokeLinecap="round" /></svg></button>
           </header>
+          {dashboardHint && <p className={styles.dashboardNotice} data-testid="dashboard-coming-soon" role="status">
+            Dashboard cá nhân sẽ được bổ sung sau. Avatar hiện không mở Character Creation.
+          </p>}
           {walletInfoOpen && <p className={styles.walletNotice} role="status">Coin và Gem: 0 (dữ liệu mẫu). Shop sẽ được mở sau.</p>}
           <nav className={styles.primaryTabs} aria-label="Mục trong sảnh">
             <button type="button" className={isRoomSection ? styles.tabActive : ""}

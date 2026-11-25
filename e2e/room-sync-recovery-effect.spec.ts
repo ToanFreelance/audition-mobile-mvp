@@ -5,6 +5,8 @@ import * as ts from "typescript";
 import { addParticipant, canStartRoom } from "../multiplayer/room-state";
 import { createP53SyncedWaitingRoomBase } from "../multiplayer/waiting-room-qa";
 import { retryReadyCas } from "../multiplayer/ready-cas-retry";
+import { shouldAutoRecoverWaitingRoom, waitingRoomSyncRetryDelay } from "../multiplayer/waiting-room-auto-sync";
+import { roomContainsNonPlayableCharacter } from "../components/character/m3-lobby-appearance";
 
 // As in D01, execute the production effect/handlers, not a parallel implementation.
 // Optional baseline path lets QA demonstrate failure against the previous source.
@@ -29,7 +31,8 @@ function harness() {
   let timer = 0, cleanup: (() => void) | undefined;
   const target = { visibilityState: "visible", addEventListener(name: string, f: () => void) { if (!listeners.has(name)) listeners.set(name, new Set()); listeners.get(name)!.add(f); }, removeEventListener(name: string, f: () => void) { listeners.get(name)?.delete(f); } };
   const transports: FakeTransport[] = [];
-  const controls = { configFail: false, readFail: false, connectFail: false, reads: 0, configs: 0 };
+  const controls = { configFail: false, readFail: false, connectFail: false, reads: 0, configs: 0, terminalRead: false };
+  const delays: number[] = [];
   class FakeTransport {
     status = "disconnected"; connects = 0; disconnects = 0;
     statusListener: any; presenceListener: any; eventListener: any;
@@ -44,6 +47,8 @@ function harness() {
     syncOptions: { roomId: base.roomId, participantId: host.participantId, role: "host" },
     initialSync: { entryFlow: true }, room: base, displayRoom: base, roomRef: { current: base },
     transportRef: { current: null }, recoverRoomSyncRef: { current: null }, readyAttemptRef: { current: null },
+    allowRoomRecoveryRef: { current: true }, navigator: { onLine: true },
+    shouldAutoRecoverWaitingRoom, waitingRoomSyncRetryDelay, roomContainsNonPlayableCharacter,
     canonicalSyncRef: { current: null }, canonicalSync: null, syncStatus: "idle", readyPending: false,
     setCanonicalHealth(value: any) { env.canonicalSyncRef.current = value; env.canonicalSync = value; },
     setRoom(value: any) { env.room = value; }, setSyncStatus(value: string) { env.syncStatus = value; },
@@ -51,19 +56,19 @@ function harness() {
     setSyncDetail() {}, setPresentParticipantIds() {}, setViewMode() {}, setStagePage() {}, setSelectedParticipantId() {},
     setSyncOptions(update: any) { env.syncOptions = update(env.syncOptions); },
     fetch: async () => { controls.configs++; if (controls.configFail) throw Error("config offline"); return { ok: true, json: async () => ({}) }; },
-    fetchRoomSnapshot: async () => { controls.reads++; if (controls.readFail) throw new DOMException("read timed out", "AbortError"); return canonical; },
+    fetchRoomSnapshot: async () => { controls.reads++; if (controls.terminalRead) throw Error("room not found"); if (controls.readFail) throw new DOMException("read timed out", "AbortError"); return canonical; },
     isCanonicalRoomSnapshot: () => true,
     applyServerRoomSnapshot: (_room: any, _sender: any, payload: any) => ({ accepted: true, room: payload.snapshot }),
     latchLobbyPresence: (_a: any, b: any) => b,
     SupabaseRealtimeRoomTransport: FakeTransport,
     AbortController, Error, DOMException,
-    window: { ...target, setTimeout: (f: () => void) => { timers.set(++timer, f); return timer; }, clearTimeout: (id: number) => timers.delete(id) },
+    window: { ...target, setTimeout: (f: () => void, delay: number) => { delays.push(delay); timers.set(++timer, f); return timer; }, clearTimeout: (id: number) => timers.delete(id) },
     document: target,
     setTimeout: (f: () => void) => { timers.set(++timer, f); return timer; }, clearTimeout: (id: number) => timers.delete(id),
     useEffect: (f: () => () => void) => { cleanup = f(); },
   };
   return {
-    env, controls, listeners, timers, transports,
+    env, controls, listeners, timers, transports, delays,
     mount() { runInNewContext(effect, env); }, unmount() { cleanup?.(); },
     update(value: typeof canonical) { canonical = value; }, canonical: () => canonical,
     event(name: string) { for (const f of listeners.get(name) ?? []) f(); },
@@ -102,12 +107,44 @@ test("canonical refresh timeout disables START; explicit refresh recovers withou
   expect(h.gate().allowed).toBe(true); expect(h.transports).toHaveLength(1); expect(h.transports[0].connects).toBe(1); h.unmount();
 });
 
-test("initial attempts are bounded and manual recovery remains usable", async () => {
+test("waiting recovery retries reads with capped backoff, one timer, and manual recovery", async () => {
   const h = harness(); h.controls.configFail = true; h.mount(); await flush();
-  h.retryTimer(); await flush(); h.retryTimer(); await flush(); h.retryTimer(); await flush();
-  expect(h.controls.configs).toBe(3); expect(h.timers.size).toBe(0);
+  for (let attempt = 0; attempt < 9; attempt++) {
+    expect(h.timers.size).toBe(1);
+    expect(h.gate().allowed).toBe(false);
+    h.retryTimer(); await flush();
+  }
+  expect(h.controls.configs).toBe(10);
+  // Config timeout is 8s and is always cleared. The remaining delays
+  // must be the actual capped exponential Waiting Room recovery policy.
+  expect(h.delays.filter(delay => delay !== 8000)).toEqual(
+    Array.from({ length: 10 }, (_, i) => waitingRoomSyncRetryDelay(i)),
+  );
+  expect(h.timers.size).toBe(1);
   h.controls.configFail = false; await h.env.recoverRoomSyncRef.current();
-  expect(h.env.canonicalSync?.state).toBe("verified"); h.unmount();
+  expect(h.env.canonicalSync?.state).toBe("verified");
+  expect(h.timers.size).toBe(0); h.unmount();
+});
+
+test("background or offline recovery does not replay requests; leaving cancels recovery", async () => {
+  const h = harness(); h.controls.configFail = true; h.mount(); await flush();
+  expect(h.timers.size).toBe(1);
+  h.env.navigator.onLine = false; h.retryTimer(); await flush();
+  expect(h.controls.configs).toBe(1); expect(h.timers.size).toBe(0);
+  h.env.navigator.onLine = true; h.event("online"); await flush();
+  expect(h.controls.configs).toBe(2); expect(h.timers.size).toBe(1);
+  h.env.allowRoomRecoveryRef.current = false;
+  h.retryTimer(); await flush(); h.event("focus"); await flush();
+  expect(h.controls.configs).toBe(2); expect(h.timers.size).toBe(0);
+  h.unmount();
+});
+
+test("terminal membership/read failure does not schedule automatic recovery", async () => {
+  const h = harness(); h.controls.terminalRead = true; h.mount(); await flush();
+  expect(h.gate().allowed).toBe(false);
+  expect(h.env.canonicalSync?.state).toBe("error");
+  expect(h.timers.size).toBe(0);
+  h.unmount();
 });
 
 test("repeated focus/online deduplicates refresh and cleans up every listener", async () => {

@@ -1,0 +1,68 @@
+name: M3 Gameplay Step 3 isolated QA
+
+on:
+  push:
+    branches: ["work/m3-gameplay-integration-step3-v1"]
+    paths:
+      - "components/character/m3-gameplay-retarget.ts"
+      - "components/character/M3GameplayQaActor.ts"
+      - "components/Stage3D.tsx"
+      - "components/multiplayer/LiveMultiplayerGameplay.tsx"
+      - "components/multiplayer/WaitingRoomPanel.tsx"
+      - "components/multiplayer/lobby-match-content.ts"
+      - "components/character/character-catalog.ts"
+      - "components/multiplayer/WaitingRoomStage3D.tsx"
+      - "e2e/m3-lobby-appearance.spec.ts"
+      - "components/character/m3-stage3d-qa-gate.ts"
+      - "components/character/m3-stage3d-actor-scale.ts"
+      - "app/api/multiplayer/room/route.ts"
+      - "components/character/m3-lobby-appearance.ts"
+      - "e2e/m3-stage3d-integration-step31.spec.ts"
+      - "app/tools/m3-gameplay-step3/**"
+      - "e2e/m3-gameplay-step3.spec.ts"
+      - "e2e/m3-gameplay-qa-framing.spec.ts"
+      - "components/character/m3-gameplay-qa-framing.ts"
+      - ".github/workflows/m3-gameplay-step3-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m3-step3-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CI: "true"
+      PLAYWRIGHT_WEB_SERVER: "1"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+      SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "https://uaosdkrfxidiwqljmelg.supabase.co"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_2JSGSu_BFZAvyL1WEZ9VfA_u_wynW6V"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: ESLint scoped files
+        run: npx eslint components/character/m3-gameplay-retarget.ts components/character/M3GameplayQaActor.ts app/tools/m3-gameplay-step3/page.tsx components/character/m3-gameplay-qa-framing.ts e2e/m3-gameplay-step3.spec.ts e2e/m3-gameplay-qa-framing.spec.ts components/Stage3D.tsx components/multiplayer/LiveMultiplayerGameplay.tsx components/multiplayer/WaitingRoomPanel.tsx components/multiplayer/lobby-match-content.ts components/character/m3-stage3d-qa-gate.ts components/character/m3-stage3d-actor-scale.ts components/character/m3-lobby-appearance.ts app/api/multiplayer/room/route.ts e2e/m3-stage3d-integration-step31.spec.ts
+      - name: Build
+        run: npm run build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Retarget/controller unit regression
+        run: npx playwright test e2e/m3-gameplay-step3.spec.ts e2e/m3-gameplay-qa-framing.spec.ts e2e/m3-stage3d-integration-step31.spec.ts e2e/m3-lobby-appearance.spec.ts --project=desktop --workers=1
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3-step3-qa-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

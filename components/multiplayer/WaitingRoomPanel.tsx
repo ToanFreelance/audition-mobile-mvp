@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createWebAudioContext, WebAudioTransport } from "../../game/web-audio-transport";
 import { RoomMetadataTransportError, isRetryableRoomMetadataError } from "../../multiplayer/room-metadata-retry";
+import {
+  shouldAutoRecoverWaitingRoom, waitingRoomSyncIndicatorState, waitingRoomSyncRetryDelay,
+} from "../../multiplayer/waiting-room-auto-sync";
 import { retryReadyCas } from "../../multiplayer/ready-cas-retry";
 import { retryPreloadCas, type PreloadCasAction } from "../../multiplayer/preload-cas-retry";
 import {
@@ -56,7 +59,12 @@ import { WAITING_ROOM_MAX_PLAYERS, type RoomParticipant, type RoomSlotIndex, typ
 import { avatarCharacterAssetId } from "../../multiplayer/avatar-character";
 import { getCharacterCatalogEntry } from "../character/character-catalog";
 import { roomContainsNonPlayableCharacter } from "../character/m3-lobby-appearance";
+import { isM3CatalogAvatar } from "../character/m3-stage3d-qa-gate";
 import LiveMultiplayerGameplay from "./LiveMultiplayerGameplay";
+import { useLobbyAssetWarmup } from "./useLobbyAssetWarmup";
+import { useLobbyAudioWarmup } from "./useLobbyAudioWarmup";
+import { useLobbyClockWarmup } from "./useLobbyClockWarmup";
+import { lobbyAudioWarmupIdentity, usableWarmClock, warmClockMatchesProbe } from "../../multiplayer/lobby-media-warmup";
 import StageLaunchArtwork from "./StageLaunchArtwork";
 import PreparingStagePanel from "./PreparingStagePanel";
 import { recordC3StartCheckpoint } from "./c3-start-trace";
@@ -119,8 +127,16 @@ type ClockApiResponse = {
 const LOBBY_CLOCK_SAMPLE_COUNT = 5;
 const LOBBY_CLOCK_MIN_SAMPLES = 3;
 
-async function fetchLobbyClockSample(timeoutMs = 4000): Promise<ClockSyncSample> {
+// Browser state can change across await; read it again through accessors
+// rather than allowing TypeScript to preserve pre-await narrowing.
+function isLobbyBrowserOnline() { return navigator.onLine !== false; }
+function isLobbyAudioClosed(context: AudioContext) { return context.state === "closed"; }
+
+async function fetchLobbyClockSample(timeoutMs = 4000, signal?: AbortSignal): Promise<ClockSyncSample> {
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, { once: true });
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
   const clientSendMonotonicMs = performance.now();
   try {
@@ -145,17 +161,20 @@ async function fetchLobbyClockSample(timeoutMs = 4000): Promise<ClockSyncSample>
     };
   } finally {
     window.clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abort);
   }
 }
 
-async function sampleLobbyServerClock(): Promise<ClockSyncEstimate> {
+async function sampleLobbyServerClock(signal?: AbortSignal): Promise<ClockSyncEstimate> {
   const samples: ClockSyncSample[] = [];
   let lastError: unknown = null;
 
   for (let attempt = 0; attempt < LOBBY_CLOCK_SAMPLE_COUNT; attempt += 1) {
     try {
-      samples.push(await fetchLobbyClockSample());
+      if (signal?.aborted) throw new Error("Clock warmup cancelled.");
+      samples.push(await fetchLobbyClockSample(4000, signal));
     } catch (error) {
+      if (signal?.aborted) throw error;
       lastError = error;
     }
   }
@@ -376,10 +395,23 @@ export default function WaitingRoomPanel({
     : null);
   const [syncStatus, setSyncStatus] = useState<RoomTransportStatus>("idle");
   const [syncDetail, setSyncDetail] = useState<string | null>(null);
+  const [browserOnline, setBrowserOnline] = useState(true);
+  useEffect(() => {
+    const update = () => setBrowserOnline(navigator.onLine !== false);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
   const [readyIntentPending, setReadyIntentPending] = useState(false);
   const [leaveIntentPending, setLeaveIntentPending] = useState(false);
   const [manualHostTransferPending, setManualHostTransferPending] = useState(false);
   const [leftRoom, setLeftRoom] = useState(false);
+  const allowRoomRecoveryRef = useRef(true);
+  allowRoomRecoveryRef.current = !leftRoom && !leaveIntentPending;
   const [startIntentPending, setStartIntentPending] = useState(false);
   const [frozenMatchManifest, setFrozenMatchManifest] = useState<MatchManifest | null>(null);
   const [presentParticipantIds, setPresentParticipantIds] = useState<readonly string[]>(
@@ -411,6 +443,11 @@ export default function WaitingRoomPanel({
   const roomRef = useRef(room);
   const transportRef = useRef<SupabaseRealtimeRoomTransport | null>(null);
   const preloadAttemptRef = useRef<string | null>(null);
+  // Local presentation latency only. Do not persist participant/room IDs
+  // or use this monotonic timestamp for gameplay timing.
+  const launchObservationRef = useRef<{
+    sessionKey: string | null; atMs: number; origin: "host-start" | "match-observed";
+  } | null>(null);
   // A successful asset preload remains cached when only its LOADED CAS needs retry.
   const preloadReadinessRef = useRef<{
     sessionKey: string;
@@ -454,11 +491,35 @@ export default function WaitingRoomPanel({
   };
   const canonicalVerified = !syncOptions || (canonicalSync?.key === syncKey
     && canonicalSync.state === "verified" && syncStatus === "connected");
+  // Local speculative preparation only. A START must never wait on this hook;
+  // frozen PRELOADING remains the sole LOADED authority.
+  const waitingWarmupEnabled = Boolean(syncOptions && canonicalVerified
+    && browserOnline && room.status === "waiting" && !leftRoom && !leaveIntentPending && !startIntentPending);
+  const assetWarmup = useLobbyAssetWarmup(room, waitingWarmupEnabled);
+  const warmClock = useLobbyClockWarmup(syncKey, waitingWarmupEnabled, sampleLobbyServerClock);
+  const audioWarmup = useLobbyAudioWarmup(leftRoom ? null : syncKey, room.selectedSongId,
+    gameplayAudioContextRef.current, waitingWarmupEnabled, audioActivationNonce);
+  const roomSyncVisual = waitingRoomSyncIndicatorState(
+    canonicalSync?.key === syncKey ? canonicalSync.state : null,
+    syncStatus === "connected", browserOnline,
+  );
+  const roomSyncVisualText = {
+    synced: "✓ SYNC",
+    syncing: "↻ SYNC",
+    reconnecting: "↻ RETRY",
+    offline: "○ OFFLINE",
+  }[roomSyncVisual];
 
-  // Entry Flow: don't start the expensive reflector/actor WebGL pipeline while
-  // room authority is still being verified. Latch after first confirmation:
-  // transient Realtime status changes must NOT recreate the actor/mixer.
-  const [hasVerifiedRoomOnce, setHasVerifiedRoomOnce] = useState(!initialSync?.entryFlow);
+  // EntryWaitingRoom has already read the actual server snapshot and checked
+  // membership + saved avatar. It is sufficient for presentation only.
+  // Do NOT set canonicalVerified here: START and warmup still require sync.
+  const [hasVerifiedRoomOnce, setHasVerifiedRoomOnce] = useState(() =>
+    !initialSync?.entryFlow || Boolean(initialRoom
+      && initialRoom.roomId === initialSync.roomId && initialRoom.status === "waiting"
+      && isCanonicalRoomSnapshot(initialRoom)
+      && initialRoom.participants.some(member => member.kind === "human"
+        && member.participantId === initialParticipantId && member.role === initialSync.role)),
+  );
   useEffect(() => {
     if (canonicalVerified) setHasVerifiedRoomOnce(true);
   }, [canonicalVerified]);
@@ -535,16 +596,36 @@ export default function WaitingRoomPanel({
     let transport: SupabaseRealtimeRoomTransport | null = null;
     let resumePromise: Promise<void> | null = null;
     let canonicalRefreshPromise: Promise<RoomState> | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryTimer: number | null = null;
+    let retryAttempt = 0;
     const key = `${syncOptions.roomId}:${syncOptions.participantId}:${syncOptions.role}`;
     const health = (state: "checking" | "verified" | "error", message?: string) => {
       if (!disposed) setCanonicalHealth({ key, state, message });
     };
+    // Only canonical GET + Realtime reconnect may run automatically; no
+    // mutation retry, START replay, actor replacement or gameplay clock change.
+    const scheduleWaitingRecovery = (error: unknown) => {
+      if (disposed || !allowRoomRecoveryRef.current || retryTimer || !shouldAutoRecoverWaitingRoom(
+        roomRef.current.status, navigator.onLine !== false,
+        document.visibilityState === "visible", error,
+      )) return;
+      const delay = waitingRoomSyncRetryDelay(retryAttempt++);
+      retryTimer = window.setTimeout(() => {
+        retryTimer = null;
+        if (!disposed && allowRoomRecoveryRef.current && shouldAutoRecoverWaitingRoom(
+          roomRef.current.status, navigator.onLine !== false,
+          document.visibilityState === "visible",
+        )) void recoverRoomSyncRef.current?.();
+      }, delay);
+    };
     const syncError = (error: unknown) => {
       if (disposed) return;
-      health("error", "Chưa đồng bộ được phòng. Kiểm tra kết nối rồi bấm ĐỒNG BỘ LẠI PHÒNG.");
+      const message = error instanceof Error ? error.message : "Room synchronization failed.";
+      health("error", roomRef.current.status === "waiting"
+        ? "Đang kết nối lại phòng…" : "Chưa đồng bộ được phòng. Hãy thử đồng bộ lại.");
       setSyncStatus(transport?.status === "connected" ? "connected" : "error");
-      setSyncDetail(error instanceof Error ? error.message : "Room synchronization failed.");
+      setSyncDetail(message);
+      scheduleWaitingRecovery(error);
     };
     readyAttemptRef.current = null;
     setReadyIntentPending(false);
@@ -680,20 +761,26 @@ export default function WaitingRoomPanel({
         setSyncStatus("connecting");
         setSyncDetail("Connecting authoritative room…");
 
-        const controller = new AbortController();
-        const timer = window.setTimeout(() => controller.abort(), 8000);
-        let config: RealtimeConfig;
-        try {
-          const configResponse = await fetch("/api/multiplayer/realtime-config", { cache: "no-store", signal: controller.signal });
-          if (!configResponse.ok) throw new Error(`Realtime config failed (${configResponse.status}).`);
-          config = await configResponse.json() as RealtimeConfig;
-        } finally { window.clearTimeout(timer); }
+        // Parallelize only independent reads; keep post-subscription
+        // canonical refresh and the existing verified gate unchanged.
+        const configTask = (async () => {
+          const controller = new AbortController();
+          const timer = window.setTimeout(() => controller.abort(), 8000);
+          try {
+            const configResponse = await fetch("/api/multiplayer/realtime-config", { cache: "no-store", signal: controller.signal });
+            if (!configResponse.ok) throw new Error(`Realtime config failed (${configResponse.status}).`);
+            return await configResponse.json() as RealtimeConfig;
+          } finally { window.clearTimeout(timer); }
+        })();
+        const [config, entrySnapshot] = await Promise.all([
+          configTask,
+          initialSync?.entryFlow ? fetchRoomSnapshot(syncOptions.roomId) : Promise.resolve(null),
+        ]);
         if (disposed) return;
 
         // QA keeps bootstrap; entry requires an existing canonical room.
-        const initialSnapshot = initialSync?.entryFlow
-          ? await fetchRoomSnapshot(syncOptions.roomId)
-          : (await postRoomMutation({
+        const initialSnapshot = entrySnapshot
+          ?? (await postRoomMutation({
               action: "bootstrap",
               roomId: syncOptions.roomId,
             })).snapshot;
@@ -784,7 +871,7 @@ export default function WaitingRoomPanel({
     };
 
     const resumeFromServer = () => {
-      if (disposed) return Promise.resolve();
+      if (disposed || !allowRoomRecoveryRef.current) return Promise.resolve();
       if (resumePromise) return resumePromise;
       if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
       health("checking", "Đang xác minh trạng thái phòng…");
@@ -796,6 +883,8 @@ export default function WaitingRoomPanel({
           health("verified");
           setSyncStatus("connected");
           setSyncDetail("Server-authoritative room synced.");
+          retryAttempt = 0;
+          if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
         } catch (error) { syncError(error); }
         finally { resumePromise = null; }
       })();
@@ -812,14 +901,9 @@ export default function WaitingRoomPanel({
     }
     cleanups.push(() => document.removeEventListener("visibilitychange", handleForeground));
     recoverRoomSyncRef.current = resumeFromServer;
-    const initialAttempt = async (attempt: number) => {
-      await resumeFromServer();
-      if (!disposed && canonicalSyncRef.current?.key === key
-        && canonicalSyncRef.current.state !== "verified" && attempt < 2) {
-        retryTimer = setTimeout(() => void initialAttempt(attempt + 1), 400 * (attempt + 1));
-      }
-    };
-    void initialAttempt(0);
+    // Initial connection and every subsequent transient failure share one
+    // backoff policy, including Safari background/foreground transitions.
+    void resumeFromServer();
 
     return () => {
       disposed = true;
@@ -866,6 +950,15 @@ export default function WaitingRoomPanel({
   const matchStartSessionKey = matchStartSession && syncOptions
     ? `${matchStartSession.matchId}:${matchStartSession.roomRevision}:${matchStartSession.startRevision}:${syncOptions.participantId}`
     : null;
+  useEffect(() => {
+    if (!matchStartSessionKey) return;
+    const prior = launchObservationRef.current;
+    if (prior?.sessionKey === matchStartSessionKey) return;
+    launchObservationRef.current = prior?.sessionKey === null && prior.origin === "host-start"
+      ? { ...prior, sessionKey: matchStartSessionKey }
+      : { sessionKey: matchStartSessionKey, atMs: performance.now(), origin: "match-observed" };
+    recordC3StartCheckpoint("frozen-match-observed");
+  }, [matchStartSessionKey]);
   const clockSyncEstimate = matchStartSessionKey && clockSyncState?.sessionKey === matchStartSessionKey
     ? clockSyncState.estimate
     : null;
@@ -918,7 +1011,7 @@ export default function WaitingRoomPanel({
   const startGate = useMemo(() => {
     if (!canonicalVerified) return { allowed: false, reason: "Chưa xác minh trạng thái phòng. Hãy đồng bộ lại." };
     if (roomContainsNonPlayableCharacter(room.participants.map(item => item.avatar))) {
-      return { allowed: false, reason: "M3 chỉ xem phòng chờ · chưa hỗ trợ START/gameplay." };
+      return { allowed: false, reason: "Nhân vật hoặc trang phục chưa hợp lệ để bắt đầu." };
     }
     return canStartRoom(room);
   }, [room, canonicalVerified]);
@@ -1243,6 +1336,7 @@ export default function WaitingRoomPanel({
     if (!localParticipant || localParticipant.kind !== "human") return;
 
     const sessionKey = matchStartSessionKey;
+    const forceFreshClock = clockRetryRequestedRef.current;
     clockRetryRequestedRef.current = false;
     if (clockSyncState?.sessionKey === sessionKey) return;
 
@@ -1262,11 +1356,32 @@ export default function WaitingRoomPanel({
       // Bounded retries for transient clock-endpoint/network failures.
       // All attempts target the SAME immutable session; none can issue or
       // move an epoch. Final failures are surfaced rather than latched.
+      recordC3StartCheckpoint("shared-clock-begin");
       let estimate: ClockSyncEstimate | null = null;
-      for (let samplingAttempt = 0; samplingAttempt < 3; samplingAttempt += 1) {
+      const cachedClock = warmClock.current;
+      // A provisional clock is never authoritative on its own. One fresh
+      // probe must confirm the offset after the match's all-loaded gate.
+      if (!forceFreshClock && syncKey && document.visibilityState === "visible"
+        && isLobbyBrowserOnline() && usableWarmClock(cachedClock, syncKey, performance.now(), Date.now())) {
+        try {
+          recordC3StartCheckpoint("shared-clock-probe-begin");
+          const probe = await fetchLobbyClockSample();
+          recordC3StartCheckpoint("shared-clock-probe-end");
+          if (warmClock.current === cachedClock && !cancelled
+            && document.visibilityState === "visible" && isLobbyBrowserOnline()
+            && usableWarmClock(cachedClock, syncKey, performance.now(), Date.now())
+            && warmClockMatchesProbe(cachedClock, probe)) {
+            estimate = cachedClock.estimate;
+            recordC3StartCheckpoint("shared-clock-warmup-reused");
+          }
+        } catch { /* Ordinary full sampling remains the fallback. */ }
+      }
+      for (let samplingAttempt = 0; !estimate && samplingAttempt < 3; samplingAttempt += 1) {
         if (cancelled) return;
         try {
+          recordC3StartCheckpoint("shared-clock-full-sampling-begin");
           estimate = await sampleLobbyServerClock();
+          recordC3StartCheckpoint("shared-clock-full-sampling-end");
           break;
         } catch (error) {
           if (cancelled) return;
@@ -1278,6 +1393,7 @@ export default function WaitingRoomPanel({
       }
       if (cancelled || !estimate) return;
       samplingCompleted = true;
+      recordC3StartCheckpoint("shared-clock-ready");
       setClockSyncFailure(null);
       setClockSyncState({ sessionKey, estimate });
 
@@ -1300,6 +1416,7 @@ export default function WaitingRoomPanel({
           throw new Error("Shared countdown can only issue from PRELOADING.");
         }
 
+        recordC3StartCheckpoint("shared-epoch-cas-request");
         const result = await runServerMutation({
           action: "issue-countdown",
           expectedRevision: current.revision,
@@ -1309,6 +1426,7 @@ export default function WaitingRoomPanel({
           startRevision: matchStartSession.startRevision,
         });
 
+        recordC3StartCheckpoint(result.conflict ? "shared-epoch-cas-conflict" : "shared-epoch-cas-response");
         if (result.snapshot.status === "countdown") {
           setSyncDetail(`COUNTDOWN · shared epoch issued · RTT ${Math.round(estimate.minRoundTripMs)} ms.`);
           return;
@@ -1403,7 +1521,15 @@ export default function WaitingRoomPanel({
         await previous.transport.destroy();
       }
 
-      const transport = new WebAudioTransport(music.audioUrl, activeContext, "force-cache");
+      // resolveFrozenLobbyMusic above verifies the canonical audio AND chart
+      // fingerprint first. Adopt only the same metadata and same context.
+      const warmed = await audioWarmup.cache.current.take(lobbyAudioWarmupIdentity(music), activeContext);
+      if (cancelled || gameplayAudioContextRef.current !== activeContext || isLobbyAudioClosed(activeContext)) {
+        if (warmed) await warmed.destroy();
+        return;
+      }
+      const transport = warmed ?? new WebAudioTransport(music.audioUrl, activeContext, "force-cache");
+      if (warmed) recordC3StartCheckpoint("gameplay-audio-warmup-reused");
       try {
         await transport.prepare();
       } catch (error) {
@@ -1416,6 +1542,7 @@ export default function WaitingRoomPanel({
       }
 
       gameplayAudioRef.current = { sessionKey: matchStartSessionKey, transport };
+      recordC3StartCheckpoint("gameplay-audio-ready");
       setGameplayAudioReadyKey(matchStartSessionKey);
       setGameplayHandoffError(null);
       setSyncDetail("P5.5 gameplay audio decoded and ready for the shared epoch.");
@@ -1873,48 +2000,54 @@ export default function WaitingRoomPanel({
       return;
     }
 
+    launchObservationRef.current = { sessionKey: null, atMs: performance.now(), origin: "host-start" };
     recordC3StartCheckpoint("start-intent");
     setStartIntentPending(true);
     setSyncDetail("Freezing authoritative room into MatchManifest…");
 
+    const clickedRoom = roomRef.current;
     void (async () => {
+      if (!clickedRoom.selectedSongId) throw new Error("Selected song is required.");
       recordC3StartCheckpoint("start-canonical-fetch");
-      const latest = syncOptions
-        ? await fetchStartCanonicalSnapshot(syncOptions.roomId)
-        : roomRef.current;
+      recordC3StartCheckpoint("start-animation-metadata-fetch");
+      // Both reads are fresh. Resolve metadata for the exact clicked revision
+      // concurrently with the canonical GET, then reject any revision change.
+      const [latest, content] = await Promise.all([
+        syncOptions ? fetchStartCanonicalSnapshot(syncOptions.roomId).then(snapshot => {
+          recordC3StartCheckpoint("start-canonical-read-complete");
+          return snapshot;
+        }) : Promise.resolve(clickedRoom),
+        prepareLobbyMatchFreezeInput({
+          roomId: clickedRoom.roomId,
+          roomRevision: clickedRoom.revision,
+          songId: clickedRoom.selectedSongId,
+          containsM3: clickedRoom.participants.some(item => isM3CatalogAvatar(item.avatar)),
+        }).then(result => {
+          recordC3StartCheckpoint("start-metadata-resolved");
+          return result;
+        }),
+      ]);
 
-      if (latest.revision !== roomRef.current.revision) {
+      if (latest.roomId !== clickedRoom.roomId || latest.revision !== clickedRoom.revision
+        || latest.revision !== roomRef.current.revision) {
         if (syncOptions) adoptServerSnapshot(latest);
         throw new Error("Room changed before Start. State refreshed; press Start again.");
       }
 
       recordC3StartCheckpoint("start-canonical-confirmed");
       const gate = roomContainsNonPlayableCharacter(latest.participants.map(item => item.avatar))
-        ? { allowed: false, reason: "M3 chưa hỗ trợ START/gameplay." }
+        ? { allowed: false, reason: "Nhân vật hoặc trang phục chưa hợp lệ để bắt đầu." }
         : canStartRoom(latest);
       if (!gate.allowed) {
         throw new Error(`Room cannot start: ${gate.reason}.`);
       }
       if (!latest.selectedSongId) throw new Error("Selected song is required.");
 
-      recordC3StartCheckpoint("start-animation-metadata-fetch");
-      const content = await prepareLobbyMatchFreezeInput({
-        roomId: latest.roomId,
-        roomRevision: latest.revision,
-        songId: latest.selectedSongId,
-      });
-
-      recordC3StartCheckpoint("start-metadata-resolved");
-      // Re-fetch canonical state after async content resolution. A Ready/config
-      // mutation may land on the server while this page has not received any
-      // realtime presentation update yet, so local roomRef alone is insufficient.
-      const finalSnapshot = syncOptions
-        ? await fetchStartCanonicalSnapshot(syncOptions.roomId)
-        : roomRef.current;
-      if (finalSnapshot.revision !== latest.revision) {
-        if (syncOptions) adoptServerSnapshot(finalSnapshot);
-        throw new Error("Room changed while MatchManifest content was resolving. State refreshed; press Start again.");
-      }
+      // No redundant second GET: the START route itself reads the current
+      // canonical row, asserts expectedRevision, validates Host/Ready/manifest
+      // and performs atomic CAS. Unobserved changes MUST conflict there.
+      // No mutation retry or START replay on a conflict.
+      const finalSnapshot = latest;
 
       const actorParticipantId = syncOptions?.participantId ?? viewer.participantId;
       const manifest = freezeLobbyMatch(
@@ -1959,9 +2092,17 @@ export default function WaitingRoomPanel({
       );
     })().catch(error => {
       recordC3StartCheckpoint("start-error");
+      if (launchObservationRef.current?.sessionKey === null) launchObservationRef.current = null;
       setFrozenMatchManifest(null);
-      if (syncKey) setCanonicalHealth({ key: syncKey, state: "error", message: "Không thể xác minh START. Hãy đồng bộ lại phòng." });
-      setSyncDetail(error instanceof Error ? error.message : "Match freeze failed.");
+      const reason = error instanceof Error ? error.message : "Match freeze failed.";
+      if (syncKey) setCanonicalHealth({
+        key: syncKey, state: "checking",
+        message: "Đang xác minh lại phòng sau START thất bại…",
+      });
+      setSyncDetail(reason);
+      // A rejected START does not imply a broken Waiting Room. Re-read the
+      // canonical room automatically; do not replay START or recreate actors.
+      if (roomRef.current.status === "waiting") void recoverRoomSyncRef.current?.();
     }).finally(() => {
       setStartIntentPending(false);
     });
@@ -2164,11 +2305,13 @@ export default function WaitingRoomPanel({
         roomStatus={room.status}
         runtime={gameplaySchedule.runtime}
         startAtServerMs={gameplaySchedule.startAtServerMs}
+        estimatedServerOffsetMs={clockSyncEstimate?.offsetMs ?? 0}
         transport={gameplaySchedule.transport}
         audioContextState={gameplayAudioContextState}
         scoreTransport={transportRef.current}
         startRevision={matchStartSession.startRevision}
         performanceDiagnostics={performanceDiagnostics}
+        launchObservation={launchObservationRef.current}
         diagnosticAudioContext={performanceDiagnostics ? gameplayAudioContextRef.current : null}
         loadedParticipantIds={matchStartSession.participants.filter(item => item.state === "loaded").map(item => item.participantId)}
       />
@@ -2176,7 +2319,14 @@ export default function WaitingRoomPanel({
   }
 
   return (
-    <main className={styles.shell} data-testid="lobby-root">
+    <main className={styles.shell} data-testid="lobby-root" onClickCapture={event => {
+      // iOS needs a real user gesture. Never create/resume audio merely from
+      // mounting the room. READY and START keep their existing activation.
+      if (event.nativeEvent.isTrusted && waitingWarmupEnabled
+        && (!gameplayAudioContextRef.current || gameplayAudioContextRef.current.state === "closed")) {
+        activateGameplayAudioFromGesture();
+      }
+    }}>
       <section
         className={styles.phone}
         data-presentation="full-stage-glass"
@@ -2194,6 +2344,25 @@ export default function WaitingRoomPanel({
           <div className={styles.headerRight}>
             <button className={styles.iconButton} data-testid="room-settings-button" onClick={() => setSettingsOpen(open => !open)} type="button" aria-label="Room settings">⚙</button>
             <small data-testid="sync-status" className={syncOptions ? (syncStatus === "connected" ? styles.syncLive : styles.syncOffline) : ""}>{syncOptions ? `${syncStatus === "connected" ? "●" : "○"} ${hostView ? "Host" : "Guest"}` : hostView ? "Host" : "Guest"}</small>
+            {syncOptions && room.status === "waiting" && (
+              <span className={styles.syncIndicator}
+                data-testid="room-sync-indicator" data-sync-state={roomSyncVisual}
+                role="status" aria-live="polite"
+                title={canonicalSync?.message ?? "Trạng thái đồng bộ phòng"}
+              >{roomSyncVisualText}{assetWarmup && (
+                <span data-testid="room-asset-warmup" data-warmup-state={assetWarmup.phase}
+                  className={styles.assetWarmupIndicator}
+                  title="Chuẩn bị tài nguyên trước trận trên thiết bị này; START vẫn kiểm tra chính thức."
+                >{" · "}{assetWarmup.phase === "ready" ? "✓ ASSETS"
+                  : assetWarmup.phase === "partial" ? "ASSET CHECK"
+                  : assetWarmup.total ? `ASSETS ${assetWarmup.completed}/${assetWarmup.total}` : "↻ ASSETS"}</span>
+              )}{audioWarmup.status && (
+                <span data-testid="room-audio-warmup" data-audio-warmup-state={audioWarmup.status}
+                  className={styles.assetWarmupIndicator} data-warmup-state={audioWarmup.status}
+                  title="Chuẩn bị nhạc trên thiết bị; không phát nhạc trước START."
+                >{audioWarmup.status === "ready" ? " · ♪✓" : audioWarmup.status === "partial" ? " · ♪?" : " · ♪↻"}</span>
+              )}</span>
+            )}
           </div>
         </header>
 
@@ -2205,6 +2374,17 @@ export default function WaitingRoomPanel({
                 {initialSync?.entryFlow ? (
                   <>
                     <span>Kết nối · {syncStatus === "connected" ? "Đã kết nối" : "Đang đồng bộ"}</span>
+                    {room.status === "waiting" && (
+                      <>
+                        <span data-testid="warmup-settings-assets">Tài nguyên máy này · {assetWarmup?.phase === "ready"
+                          ? "Đã chuẩn bị" : assetWarmup?.phase === "partial" ? "Kiểm tra khi START"
+                          : assetWarmup?.total ? `${assetWarmup.completed}/${assetWarmup.total}` : "Đang chuẩn bị"}</span>
+                        <span data-testid="warmup-settings-audio">Nhạc · {audioWarmup.status === "ready"
+                          ? "Đã decode" : audioWarmup.status === "warming" ? "Đang decode"
+                          : audioWarmup.status === "partial" ? "Kiểm tra khi START" : "Chạm màn hình để chuẩn bị"}</span>
+                        <span>READY là trạng thái người chơi; LOADED chỉ xác nhận sau START.</span>
+                      </>
+                    )}
                     {syncStatus !== "connected" && syncDetail && <span>{syncDetail}</span>}
                   </>
                 ) : (
@@ -2532,23 +2712,9 @@ export default function WaitingRoomPanel({
           </div>
         )}
 
-        {syncOptions && !canonicalVerified && !matchStartSession && !startIntentPending && (
-          <div className={`${styles.preloadOverlay} ${styles.roomSyncOverlay}`} data-testid="room-sync-overlay"
-            role="dialog" aria-modal="true" aria-label="Đang kết nối phòng">
-          <StageLaunchArtwork />
-          <section className={styles.preloadBanner}>
-            <div className={styles.launchBrand}>DANCE UP <span>✦ CONNECT</span></div>
-            <strong>ĐANG KẾT NỐI PHÒNG</strong>
-            <span>Đang xác minh trạng thái phòng...</span>
-          <div className={styles.preloadAudioState} role="status" data-testid="room-sync-recovery">
-            <small className={styles.preloadAudioError}>{canonicalSync?.message ?? "Đang xác minh trạng thái phòng…"}</small>
-            <button className={styles.preloadAudioButton} type="button" data-testid="retry-room-sync"
-              disabled={canonicalSync?.state === "checking"}
-              onClick={() => void recoverRoomSyncRef.current?.()}>ĐỒNG BỘ LẠI PHÒNG</button>
-          </div>
-          </section>
-          </div>
-        )}
+        {/* Waiting Room stays visible during automatic canonical reconnection.
+            The compact sync indicator by Settings replaces the blocking poster.
+            PRELOADING/COUNTDOWN recovery UI remains separate and unchanged. */}
         {readyFailure && room.status === "waiting" && viewer.kind === "human" && viewer.role === "guest" && (
           <div className={styles.preloadAudioState} role="alert" data-testid="ready-recovery">
             <small className={styles.preloadAudioError}>{readyFailure.message}</small>

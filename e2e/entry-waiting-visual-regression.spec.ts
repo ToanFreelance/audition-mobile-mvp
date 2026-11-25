@@ -12,7 +12,7 @@ const profile = {
   face: "basic-01",
   name: "OwnerVisualQA",
 };
-const participantId = "player-00000000-0000-4000-8000-000000000001";
+const participantId = "guest-00000000-0000-4000-8000-000000000001";
 const roomId = "mvp-entry-visual-preset-contract";
 const host: HumanHostParticipant = {
   participantId,
@@ -28,6 +28,10 @@ const host: HumanHostParticipant = {
 const room = createRoomState({ roomId, roomName: "Visual Regression QA", host, maxPlayers: 5, modeId: "solo-easy-battle", selectedSongId: "aloha" });
 
 async function identity(page: import("@playwright/test").Page) {
+  await page.route("**/api/multiplayer/guest-session", route => route.fulfill({
+    status: 200, contentType: "application/json",
+    body: JSON.stringify({ ok: true, participantId: "guest-00000000-0000-4000-8000-000000000001" }),
+  }));
   await page.addInitScript(({ draft, id }) => {
     localStorage.setItem("audition.characterCreationDraft.v1", JSON.stringify(draft));
     localStorage.setItem("audition.entryParticipantId.v1", id);
@@ -49,6 +53,10 @@ test("real room entry mounts owner-accepted reflective P5.6 stage, not fallback"
   await expect(stage).toHaveAttribute("data-floor-style", "reflective-tile");
   await expect(stage).toHaveAttribute("data-architecture-source", "screen-trace");
   await expect(stage).toHaveAttribute("data-stage-risers", "3");
+  // Presentation may use the validated initial server snapshot, but offline
+  // Realtime must never grant START authority.
+  await expect(page.getByTestId("start-button")).toBeDisabled();
+  await expect(page.getByTestId("room-sync-indicator")).not.toHaveAttribute("data-sync-state", "synced");
   await expect(page.getByTestId("lobby-root").locator('section[data-visual-preset="sketch"]')).toBeVisible();
 });
 
@@ -59,7 +67,9 @@ test("room browser gem and top-up centers align on iPhone portrait", async ({ pa
     status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rooms: [] }),
   }));
   await page.goto("/rooms");
-  const centers = await page.locator('[aria-label="0 coin"], [aria-label="0 gem"], [aria-label="Thông tin coin và gem"]').evaluateAll(els =>
+  const balances = page.locator('[aria-label="0 coin"], [aria-label="0 gem"], [aria-label="Thông tin coin và gem"]');
+  await expect(balances).toHaveCount(3);
+  const centers = await balances.evaluateAll(els =>
     els.map(el => {
       const rect = el.getBoundingClientRect();
       return { y: rect.top + rect.height / 2, h: rect.height };

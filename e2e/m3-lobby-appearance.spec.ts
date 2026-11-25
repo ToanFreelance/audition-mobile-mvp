@@ -25,8 +25,8 @@ test("validates complete family-specific M3 lobby appearance", () => {
   expect(parseM3LobbyAppearance("m3-drophunter", null)).toBeNull();
 });
 
-test("blocks M3 gameplay while retaining legacy default-female/male compatibility", () => {
-  expect(roomContainsNonPlayableCharacter([avatar("m3-drophunter", female)])).toBe(true);
+test("allows complete M3 looks in normal gameplay while retaining legacy compatibility", () => {
+  expect(roomContainsNonPlayableCharacter([avatar("m3-drophunter", female)])).toBe(false);
   expect(roomContainsNonPlayableCharacter([avatar("c1-casual-grace"), avatar("c4-casual-boy")])).toBe(false);
   const legacy = [{ characterId: "default-female", outfit: {}, accessoryIds: [] },
     { characterId: "default-male", outfit: {}, accessoryIds: [] }];

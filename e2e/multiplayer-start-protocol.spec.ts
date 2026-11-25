@@ -148,3 +148,31 @@ test.describe("P4.4 preload/start protocol", () => {
     expect([...manifest.gameplay.sequenceCounts]).toEqual([...session.manifest.gameplay.sequenceCounts]);
   });
 });
+
+import {
+  assessEpochHandoffHealth, epochHandoffHealthMessage,
+  type EpochAudioClockProbe,
+} from "../multiplayer/epoch-handoff-health";
+
+test("immutable shared epoch watchdog distinguishes delayed output from an already-started song", () => {
+  const running: EpochAudioClockProbe = {
+    state: "running", contextTimeSec: 12.5, scheduledStartSec: 12, sourceActive: true,
+  };
+  const check = (elapsedSinceServerEpochMs: number, songTimeMs: number,
+    probe: EpochAudioClockProbe = running) => assessEpochHandoffHealth({
+    elapsedSinceServerEpochMs, songTimeMs, runtimeStarted: true, audioEnded: false, probe,
+  });
+  expect(check(-3000, 0)).toBe("waiting");
+  expect(check(5900, 0)).toBe("waiting");
+  expect(check(7000, 32)).toBe("playing");
+  expect(check(7000, 0)).toBe("song-clock-stalled");
+  expect(check(7000, 0, { ...running, state: "suspended" })).toBe("audio-suspended");
+  expect(check(7000, 0, { ...running, contextTimeSec: 10 })).toBe("clock-not-reached");
+  expect(check(7000, 0, { ...running, sourceActive: false })).toBe("source-inactive");
+  expect(assessEpochHandoffHealth({
+    elapsedSinceServerEpochMs: 7000, songTimeMs: 0,
+    runtimeStarted: true, audioEnded: true, probe: running,
+  })).toBe("audio-ended");
+  expect(epochHandoffHealthMessage("waiting")).toBeNull();
+  expect(epochHandoffHealthMessage("audio-suspended")).toContain("AudioContext");
+});

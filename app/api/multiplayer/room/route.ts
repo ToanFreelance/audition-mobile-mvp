@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isSameOrigin, propagateSession, supabaseRequest } from "../../../../lib/account-auth";
+import { claimedRoomActor, resolveRoomActor, type RoomActor } from "../../../../lib/room-actor-session";
+import { getServerStorageConfig, storageHeaders } from "../../../../lib/server-storage";
+import type { CharacterCreationProfileV1 } from "../../../../components/character/character-profile";
 import {
   addParticipant,
   createRoomState,
@@ -21,9 +25,9 @@ import {
 import type { MatchLoadedAck } from "../../../../multiplayer/match-start-protocol";
 import { isCanonicalRoomSnapshot } from "../../../../multiplayer/room-sync";
 import type { HumanGuestParticipant, MatchManifest, RoomSlotIndex, RoomState } from "../../../../multiplayer/types";
-import { createP53SyncedWaitingRoomBase } from "../../../../multiplayer/waiting-room-qa";
 import { getCharacterCatalogEntry, isCharacterAssetId } from "../../../../components/character/character-catalog";
-import { parseM3LobbyAppearance, roomContainsNonPlayableCharacter } from "../../../../components/character/m3-lobby-appearance";
+import { parseM3LobbyAppearance } from "../../../../components/character/m3-lobby-appearance";
+import { assertM3Stage3dServerStartGate } from "../../../../components/character/m3-stage3d-qa-gate";
 import { WAITING_ROOM_MAX_PLAYERS, type HumanHostParticipant } from "../../../../multiplayer/types";
 
 export const dynamic = "force-dynamic";
@@ -146,34 +150,30 @@ function roomIdIsSafe(roomId: string) {
   return /^[a-zA-Z0-9_-]{1,64}$/.test(roomId);
 }
 
-function getSupabaseServerConfig() {
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return null;
-  return {
-    url: url.replace(/\/$/, ""),
-    key,
-  };
+// Only explicit read RPCs may use the existing public key. No write
+// function may use it, even while the shared database grants await cutover.
+function getSupabaseServerConfig(readOnly = false) {
+  const server = getServerStorageConfig();
+  if (server || !readOnly) return server;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  return url && key ? { url: url.replace(/\/$/, ""), key } : null;
 }
-
-function dbHeaders(key: string) {
-  return {
-    apikey: key,
-    Authorization: `Bearer ${key}`,
-    "Content-Type": "application/json",
-  };
-}
+const READ_RPC = new Set(["get_lobby_room", "list_mvp_lobby_rooms"]);
+const WRITE_RPC = new Set(["bootstrap_lobby_room", "compare_and_swap_lobby_room",
+  "handoff_mvp_room_host", "transfer_mvp_room_host"]);
 
 class RoomStorageUnavailable extends Error {}
 
 async function callRoomRpc<T>(functionName: string, body: Record<string, unknown>): Promise<T[]> {
-  const config = getSupabaseServerConfig();
-  if (!config) throw new Error("Supabase room storage configuration is unavailable.");
+  if (!READ_RPC.has(functionName) && !WRITE_RPC.has(functionName)) throw new Error("Unexpected room RPC.");
+  const config = getSupabaseServerConfig(READ_RPC.has(functionName));
+  if (!config) throw new RoomStorageUnavailable("Supabase room storage configuration is unavailable.");
 
   let response: Response;
   try {
     response = await fetch(`${config.url}/rest/v1/rpc/${functionName}`, {
-      method: "POST", cache: "no-store", headers: dbHeaders(config.key),
+      method: "POST", cache: "no-store", headers: storageHeaders(config.key),
       body: JSON.stringify(body),
     });
   } catch {
@@ -200,7 +200,7 @@ async function touchMvpRoom(roomId: string, participantId: string): Promise<bool
   if (!config) throw new Error("Supabase room storage configuration is unavailable.");
   const response = await fetch(`${config.url}/rest/v1/rpc/touch_mvp_room_member`, {
     method: "POST", cache: "no-store",
-    headers: dbHeaders(config.key),
+    headers: storageHeaders(config.key),
     body: JSON.stringify({ p_room_id: roomId, p_participant_id: participantId }),
   });
   if (!response.ok) throw new Error(`Room heartbeat RPC failed (${response.status}).`);
@@ -326,7 +326,7 @@ function leaveHumanGuest(
   return removeParticipant(room, participant.participantId);
 }
 
-function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "host-leave" | "recover-host" | "transfer-host" | "heartbeat" }>) {
+function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action: "bootstrap" | "create" | "close" | "host-leave" | "recover-host" | "transfer-host" | "heartbeat" }>, requestHostname: string) {
   assertExpectedRevision(row, body.expectedRevision);
   const room = row.snapshot;
   if (!isCanonicalRoomSnapshot(room)) throw new Error("Stored room snapshot is invalid.");
@@ -352,11 +352,9 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
       requireHost(room, body.actorParticipantId);
       return removeParticipant(room, body.participantId);
     case "start-preload":
-      // Never freeze a playable MatchManifest for creator-only M3 avatars.
-      // This server-side check applies even if a client bypasses the UI gate.
-      if (roomContainsNonPlayableCharacter(room.participants.map(item => item.avatar))) {
-        throw new Error("M3 Waiting Room preview only: gameplay runtime is not ready.");
-      }
+      // Validate frozen runtime version and canonical wardrobe, independent
+      // of room-page URL flags. Ordinary START/CAS remains authoritative.
+      assertM3Stage3dServerStartGate(requestHostname, room, body.manifest);
       return beginLobbyPreload(
         room,
         body.actorParticipantId,
@@ -413,13 +411,6 @@ function mutateRoom(row: StoredRoomRow, body: Exclude<RoomMutationBody, { action
   }
 }
 
-async function bootstrap(roomId: string) {
-  const existing = await readRoom(roomId);
-  if (existing) return existing;
-  const baseRoom = createP53SyncedWaitingRoomBase(roomId);
-  if (!isCanonicalRoomSnapshot(baseRoom)) throw new Error("Synced lobby bootstrap is invalid.");
-  return insertInitialRoom(baseRoom);
-}
 
 
 // Room Browser exposes ONLY summaries of newly created MVP rooms. Never send
@@ -457,7 +448,7 @@ async function createEntryRoom(body: Extract<RoomMutationBody, { action: "create
   if (modeId !== "solo-easy-battle") {
     throw new Error("Mode chưa hỗ trợ tạo phòng. Hãy chọn Pop tự do.");
   }
-  if (!/^player-[0-9a-f-]{36}$/.test(participantId)
+  if (!/^(player|guest)-[0-9a-f-]{36}$/.test(participantId)
     || !name || name.length > 14 || !title || title.length > 32
     || !isCharacterAssetId(body.characterAssetId)) {
     throw new Error("Invalid character or room details.");
@@ -511,7 +502,7 @@ function parseBody(value: unknown): RoomMutationBody | null {
 
 export async function GET(request: NextRequest) {
   if (request.nextUrl.searchParams.get("browse") === "1") {
-    if (!getSupabaseServerConfig()) return jsonError("Room storage configuration is unavailable.", 503);
+    if (!getSupabaseServerConfig(true)) return jsonError("Room storage configuration is unavailable.", 503);
     try {
       return NextResponse.json({ ok: true, rooms: await listEntryRooms() }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
@@ -522,7 +513,7 @@ export async function GET(request: NextRequest) {
   }
   const roomId = request.nextUrl.searchParams.get("roomId")?.trim() ?? "";
   if (!roomIdIsSafe(roomId)) return jsonError("Invalid roomId.", 400);
-  if (!getSupabaseServerConfig()) return jsonError("Supabase room storage configuration is unavailable.", 503);
+  if (!getSupabaseServerConfig(true)) return jsonError("Supabase room storage configuration is unavailable.", 503);
 
   try {
     const row = await readRoom(roomId);
@@ -536,7 +527,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!getSupabaseServerConfig()) return jsonError("Supabase room storage configuration is unavailable.", 503);
+  if (!isSameOrigin(request)) return jsonError("Invalid request origin.", 403);
 
   let body: RoomMutationBody | null = null;
   try {
@@ -545,19 +536,46 @@ export async function POST(request: NextRequest) {
     return jsonError("Invalid JSON body.", 400);
   }
   if (!body) return jsonError("Invalid room mutation payload.", 400);
+  if (body.action === "bootstrap") return jsonError("Legacy public QA bootstrap is disabled.", 403);
+  const claimed = claimedRoomActor(body);
+  if (!claimed) return jsonError("Invalid room mutation actor.", 400);
 
+  let actor: RoomActor | null;
+  try { actor = await resolveRoomActor(request); }
+  catch { return jsonError("Room identity unavailable.", 503); }
+  if (!actor) return jsonError("Verified room session required.", 401);
+  const respond = (response: NextResponse) => propagateSession(response, actor.account);
+  if (actor.participantId !== claimed) return respond(jsonError("Room actor does not match session.", 403));
+  if (!getSupabaseServerConfig()) return respond(jsonError("Server room storage configuration unavailable.", 503));
+  // Entry account avatars come from the authenticated user's stored profile,
+  // not a client-supplied rig/name/outfit. Guests remain catalog validated.
+  if (actor.account && (body.action === "create" || body.action === "join")) {
+    try {
+      const response = await supabaseRequest("/rest/v1/player_characters?select=profile&user_id=eq."
+        + encodeURIComponent(actor.account.user.id) + "&limit=1", { method: "GET" }, actor.account.accessToken);
+      if (!response.ok) return respond(jsonError("Account profile unavailable.", 503));
+      const rows = await response.json() as { profile: CharacterCreationProfileV1 }[];
+      const profile = rows[0]?.profile;
+      if (!profile) return respond(jsonError("Account character required.", 403));
+      const look = parseM3LobbyAppearance(profile.characterAssetId, profile);
+      if (!look || body.characterAssetId !== profile.characterAssetId || body.displayName !== profile.name
+        || JSON.stringify(parseM3LobbyAppearance(profile.characterAssetId, body.m3Appearance)) !== JSON.stringify(look)) {
+        return respond(jsonError("Room character does not match saved account profile.", 403));
+      }
+      if (body.action === "join") body.characterId = profile.characterAssetId;
+    } catch { return respond(jsonError("Account profile unavailable.", 503)); }
+  }
+  return respond(await performAuthorizedMutation(request, body, actor));
+}
+
+async function performAuthorizedMutation(request: NextRequest, body: RoomMutationBody, actor: RoomActor) {
   try {
     if (body.action === "create") {
       return NextResponse.json({ ok: true, snapshot: await createEntryRoom(body) }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
     }
-    if (body.action === "bootstrap") {
-      const row = await bootstrap(body.roomId);
-      return NextResponse.json({ ok: true, snapshot: row.snapshot }, {
-        headers: { "Cache-Control": "no-store, max-age=0" },
-      });
-    }
+    if (body.action === "bootstrap") return jsonError("Legacy public QA bootstrap is disabled.", 403);
     if (body.action === "heartbeat") {
       const active = await touchMvpRoom(body.roomId, body.actorParticipantId);
       return NextResponse.json({ ok: true, active }, {
@@ -626,8 +644,12 @@ export async function POST(request: NextRequest) {
 
     const current = await readRoom(body.roomId);
     if (!current) return jsonError("Room not found.", 404);
+    if (body.action !== "join" && !current.snapshot.participants.some(member =>
+      member.kind === "human" && member.participantId === actor.participantId)) {
+      return jsonError("Room membership required.", 403);
+    }
 
-    const next = mutateRoom(current, body);
+    const next = mutateRoom(current, body, request.nextUrl.hostname);
     if (next === current.snapshot || next.revision === current.revision) {
       return NextResponse.json({ ok: true, snapshot: current.snapshot }, {
         headers: { "Cache-Control": "no-store, max-age=0" },

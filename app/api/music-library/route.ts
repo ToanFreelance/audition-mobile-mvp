@@ -21,13 +21,6 @@ function supabaseConfig() {
   return { url: url.replace(/\/$/, ""), key };
 }
 
-function supabaseDeleteConfig() {
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return null;
-  return { url: url.replace(/\/$/, ""), key };
-}
-
 function publicUrl(baseUrl: string, path: string) {
   const encodedPath = path.split("/").map(segment => encodeURIComponent(segment)).join("/");
   return `${baseUrl}/storage/v1/object/public/${BUCKET}/${encodedPath}`;
@@ -39,12 +32,6 @@ function audioNameIsValid(path: string) {
   return Boolean(name) && AUDIO_EXTENSIONS.has(extension);
 }
 
-function safeStorageName(name: string) {
-  const base = name.split(/[\\/]/).pop()?.trim() ?? "audio";
-  const normalized = base.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-");
-  return normalized || `audio-${Date.now()}.mp3`;
-}
-
 export async function GET() {
   const supabase = supabaseConfig();
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
@@ -54,7 +41,7 @@ export async function GET() {
       method: "POST",
       headers: {
         apikey: supabase.key,
-        Authorization: `Bearer ${supabase.key}`,
+        ...(supabase.key.startsWith("eyJ") ? { Authorization: "Bearer " + supabase.key } : {}),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -88,112 +75,14 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
-  const supabase = supabaseConfig();
-  if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
-
-  try {
-    const form = await request.formData();
-    const file = form.get("file");
-    if (!(file instanceof File) || file.size <= 0) {
-      return NextResponse.json({ error: "Audio file is required" }, { status: 400 });
-    }
-
-    const path = safeStorageName(file.name);
-    if (!audioNameIsValid(path)) {
-      return NextResponse.json({ error: "Unsupported audio format" }, { status: 400 });
-    }
-
-    const uploadResponse = await fetch(`${supabase.url}/storage/v1/object/${encodeURIComponent(BUCKET)}/${path}`, {
-      method: "POST",
-      headers: {
-        apikey: supabase.key,
-        Authorization: `Bearer ${supabase.key}`,
-        "Content-Type": file.type || "application/octet-stream",
-        "x-upsert": "true",
-      },
-      body: await file.arrayBuffer(),
-      cache: "no-store",
-    });
-
-    if (!uploadResponse.ok) {
-      const detail = await uploadResponse.text();
-      return NextResponse.json({ error: "Supabase Storage upload failed", detail }, { status: 502 });
-    }
-
-    return NextResponse.json({
-      ok: true,
-      path,
-      name: path,
-      publicUrl: publicUrl(supabase.url, path),
-    });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase Storage upload failed" }, { status: 502 });
-  }
+// Content editing is deliberately frozen for the MVP security cutover.
+// Do not restore a public mutation path. A future verified content-admin flow
+// needs its own authorization and separately approved storage/chart grants.
+function readOnly() {
+  return NextResponse.json({ error: "Thư viện nhạc đang ở chế độ chỉ đọc trong giai đoạn bảo mật MVP." }, {
+    status: 403, headers: { "Cache-Control": "no-store" },
+  });
 }
 
-export async function DELETE(request: Request) {
-  const supabase = supabaseDeleteConfig();
-  if (!supabase) return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
-
-  try {
-    const body = await request.json().catch(() => null) as { path?: string; deleteLinkedCharts?: boolean } | null;
-    const path = (body?.path ?? "").trim();
-    const deleteLinkedCharts = body?.deleteLinkedCharts === true;
-
-    if (!audioNameIsValid(path) || path.includes("..")) {
-      return NextResponse.json({ error: "Invalid audio path" }, { status: 400 });
-    }
-
-    const objectUrl = publicUrl(supabase.url, path);
-    let deletedCharts = 0;
-
-    if (deleteLinkedCharts) {
-      const chartResponse = await fetch(
-        `${supabase.url}/rest/v1/music_charts?audio_url=eq.${encodeURIComponent(objectUrl)}`,
-        {
-          method: "DELETE",
-          headers: {
-            apikey: supabase.key,
-            Authorization: `Bearer ${supabase.key}`,
-            Prefer: "return=representation",
-          },
-          cache: "no-store",
-        },
-      );
-
-      if (!chartResponse.ok) {
-        const detail = await chartResponse.text();
-        return NextResponse.json({ error: "Could not remove linked music chart", detail }, { status: 502 });
-      }
-
-      const rows = await chartResponse.json().catch(() => []) as unknown[];
-      deletedCharts = Array.isArray(rows) ? rows.length : 0;
-    }
-
-    const storageResponse = await fetch(`${supabase.url}/storage/v1/object/remove`, {
-      method: "POST",
-      headers: {
-        apikey: supabase.key,
-        Authorization: `Bearer ${supabase.key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prefixes: [path] }),
-      cache: "no-store",
-    });
-
-    if (!storageResponse.ok) {
-      const detail = await storageResponse.text();
-      return NextResponse.json({
-        error: deleteLinkedCharts ? "Storage delete failed after linked chart removal" : "Supabase Storage delete failed",
-        detail,
-        partial: deleteLinkedCharts && deletedCharts > 0,
-        path,
-      }, { status: 502 });
-    }
-
-    return NextResponse.json({ ok: true, path, publicUrl: objectUrl, deleteLinkedCharts, deletedCharts });
-  } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Supabase Storage delete failed" }, { status: 502 });
-  }
-}
+export async function POST() { return readOnly(); }
+export async function DELETE() { return readOnly(); }
