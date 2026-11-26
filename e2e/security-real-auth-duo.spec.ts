@@ -191,8 +191,59 @@ test("@real security: two disposable Auth accounts, guest session, profile CAS a
     });
     await test.step("real START, immutable manifest, both WebAudio clocks", async () => {
       const host = clients[0];
+      // Diagnostic only: observe trusted input without dispatching or retrying it.
+      // No coordinates, profile data, credentials, network bodies or screenshots.
+      const inputEvents: string[] = [];
+      const marker = "QA_AUTH_START_INPUT:";
+      const onConsole = (message: import("@playwright/test").ConsoleMessage) => {
+        const value = message.text();
+        if (value.startsWith(marker) && /^(pointerdown|pointerup|click)$/.test(value.slice(marker.length)))
+          inputEvents.push(value.slice(marker.length));
+      };
+      host.page.on("console", onConsole);
+      const beforeStart = await host.page.evaluate(() => {
+        const startButton = document.querySelector('[data-testid="start-button"]');
+        const rect = startButton?.getBoundingClientRect();
+        const hit = rect ? document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2) : null;
+        for (const type of ["pointerdown", "pointerup", "click"]) {
+          document.addEventListener(type, event => {
+            if (event.isTrusted && event.target instanceof Element &&
+                event.target.closest('[data-testid="start-button"]'))
+              console.log("QA_AUTH_START_INPUT:" + event.type);
+          }, { capture: true, once: true });
+        }
+        return {
+          focused: document.hasFocus(), visibility: document.visibilityState,
+          hitStart: Boolean(hit && startButton?.contains(hit)),
+          assetWarmup: document.querySelector('[data-testid="room-asset-warmup"]')?.getAttribute("data-warmup-state"),
+          audioWarmup: document.querySelector('[data-testid="room-audio-warmup"]')?.getAttribute("data-audio-warmup-state"),
+          canvasPixels: Array.from(document.querySelectorAll("canvas"), canvas => canvas.width * canvas.height),
+        };
+      });
+      console.log("QA START pre-click:", JSON.stringify(beforeStart));
       const start = Date.now(), deadline = start + 75_000;
-      await host.page.getByTestId("start-button").click();
+      try {
+        await host.page.getByTestId("start-button").click();
+        console.log("QA START click completed ms:", Date.now() - start, "trusted events:", JSON.stringify(inputEvents));
+      } catch (error) {
+        // Existing breadcrumb records the actual production START intent, not
+        // a synthetic event. Never log the full storage or room snapshot.
+        const probe = await Promise.race([
+          host.page.evaluate(since => {
+            try {
+              const checkpoints = JSON.parse(localStorage.getItem("audition.c3-start-checkpoints.v1") || "[]") as { at: string; step: string }[];
+              return { startIntent: checkpoints.some(item => item.step === "start-intent" && Date.parse(item.at) >= since),
+                overlay: Boolean(document.querySelector('[data-testid="start-intent-overlay"]')),
+                visibility: document.visibilityState };
+            } catch { return null; }
+          }, start).catch(() => null),
+          new Promise<null>(resolve => setTimeout(() => resolve(null), 2_000)),
+        ]);
+        console.log("QA START click failure:", JSON.stringify({ elapsedMs: Date.now() - start, inputEvents, probe }));
+        throw error;
+      } finally {
+        host.page.off("console", onConsole);
+      }
       await Promise.all(clients.map(c => c.page.waitForFunction(() => {
         const live = document.querySelector('[data-testid="multiplayer-gameplay-live"]');
         const curtain = document.querySelector('[data-testid="gameplay-entry-curtain"]');
