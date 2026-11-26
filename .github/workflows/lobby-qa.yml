@@ -29,6 +29,8 @@ on:
       - "playwright.config.ts"
       - "package*.json"
       - ".github/workflows/lobby-qa.yml"
+      - ".github/scripts/lobby_qa_scope.py"
+      - ".github/scripts/test_lobby_qa_scope.py"
       - ".github/workflows/security-real-auth-duo.yml"
 concurrency:
   group: lobby-qa-qc-${{ github.ref }}
@@ -54,26 +56,48 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: QA routing self-test
+        run: python3 .github/scripts/test_lobby_qa_scope.py
+
+      - name: Select conservative work-push QA scope
+        id: qa-scope
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
+        run: python3 .github/scripts/lobby_qa_scope.py
+
+      - name: Record visual-only validation boundary
+        if: ${{ steps.qa-scope.outputs.scope == 'visual' }}
+        run: echo "CSS-only patch passed diff check. Vercel build and Room Browser visual smoke remain required; this is not runtime QA."
 
       - name: Setup Node
+        if: ${{ steps.qa-scope.outputs.scope != 'visual' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
       - name: Install dependencies
+        if: ${{ steps.qa-scope.outputs.scope != 'visual' }}
         run: npm ci
 
       - name: TypeScript check
+        if: ${{ steps.qa-scope.outputs.scope != 'visual' }}
         run: npx tsc --noEmit
 
       - name: ESLint gate
+        if: ${{ steps.qa-scope.outputs.scope != 'visual' }}
         run: npm run lint
 
       - name: Focused lobby architecture regression
+        if: ${{ steps.qa-scope.outputs.scope != 'visual' }}
         run: npm run test:qa:lobby:fast
 
       - name: Focused integration regression
+        if: ${{ steps.qa-scope.outputs.scope != 'visual' }}
         run: >-
           npx playwright test
           e2e/entry-room-account-identity.spec.ts
