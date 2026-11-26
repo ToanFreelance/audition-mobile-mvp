@@ -1,0 +1,50 @@
+name: Room Browser Avatar runtime QA
+
+on:
+  push:
+    branches: ["work/room-browser-character-avatar-v1"]
+    paths:
+      - "components/entry/RoomProfileAvatar.tsx"
+      - "components/entry/render-room-portrait.ts"
+      - "components/entry/room-profile-portrait.ts"
+      - "e2e/room-profile-portrait-runtime.spec.ts"
+      - ".github/workflows/room-profile-portrait-qa.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: room-profile-portrait-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portrait-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: "true"
+      PLAYWRIGHT_WEB_SERVER: "1"
+      PLAYWRIGHT_TEST_BASE_URL: "http://127.0.0.1:3000"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Real M3 portrait and tab-cache smoke
+        run: npx playwright test e2e/room-profile-portrait-runtime.spec.ts --project=desktop --workers=1
+      - name: Upload synthetic-profile portrait evidence
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: room-portrait-runtime-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -285,6 +285,9 @@ test("M3 male profile never uses the hard-coded female demo avatar in Room Brows
     status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, rooms: [] }),
   }));
   await page.goto("/rooms");
-  await expect(page.getByTestId("room-m3-profile-avatar")).toContainText("♂");
-  await expect(page.getByTestId("profile-dashboard-trigger").locator("img")).toHaveCount(0);
+  // Incomplete legacy M3 appearance must fail closed to the neutral icon,
+  // never a female demo portrait. Complete profiles are covered by real WebGL QA.
+  const trigger = page.getByTestId("profile-dashboard-trigger");
+  await expect(trigger.getByTestId("room-profile-portrait-fallback")).toBeVisible();
+  await expect(trigger.locator("img")).toHaveCount(0);
 });
