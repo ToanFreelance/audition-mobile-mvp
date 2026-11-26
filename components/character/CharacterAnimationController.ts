@@ -120,6 +120,9 @@ export class CharacterAnimationController {
   handlePresentationEvent(event: CharacterPresentationEvent) {
     if (this.disposed || !this.gameActive || event.eventId === this.lastEventId) return false;
     this.lastEventId = event.eventId;
+    if (event.kind === "idle") {
+      return this.transitionToIdle(event.actionStartSongTimeMs);
+    }
     return event.kind === "dance" ? this.transitionToDance(event) : this.transitionToMiss(event);
   }
 

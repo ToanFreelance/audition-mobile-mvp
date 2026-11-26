@@ -43,12 +43,16 @@ export type CharacterDanceEvent = CharacterEventBase & {
   presentationVariantKey?: number;
 };
 
+/** Hard local Finish veto after missing the L9 final NORMAL. Start living
+ * idle immediately; no Miss reaction should occupy the forced HIDDEN/REST. */
+export type CharacterIdleEvent = CharacterEventBase & { kind: "idle"; reason: "l9-last-normal-miss"; };
+
 export type CharacterFailEvent = CharacterEventBase & {
   kind: "fail";
   judgement: CharacterFailJudgement;
 };
 
-export type CharacterPresentationEvent = CharacterDanceEvent | CharacterFailEvent;
+export type CharacterPresentationEvent = CharacterDanceEvent | CharacterFailEvent | CharacterIdleEvent;
 export type CharacterAnimationMode = "idle" | "dance" | "miss";
 
 export type CharacterAnimationState = {

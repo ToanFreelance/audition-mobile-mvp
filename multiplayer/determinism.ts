@@ -78,6 +78,22 @@ export function isSharedFinishRestTurn(manifest: MatchManifest, absoluteTurn: nu
   return distance >= 1 && distance <= manifest.gameplay.finishRestTurns;
 }
 
+/** L9 closing cadence has two existing reserved slots:
+ * the penultimate global slot is always player-hidden and the final slot is
+ * canonical Finish. These are presentation/eligibility properties; the
+ * shared absoluteTurn and command hashes never move or change.
+ */
+export function isSharedPreFinishHiddenTurn(manifest: MatchManifest, absoluteTurn: number) {
+  const current = sharedAppearanceAtTurn(manifest, absoluteTurn);
+  return current.level === 9 && !current.isFinish
+    && sharedAppearanceAtTurn(manifest, absoluteTurn + 1).isFinish;
+}
+export function isSharedLastNormalBeforeFinish(manifest: MatchManifest, absoluteTurn: number) {
+  const current = sharedAppearanceAtTurn(manifest, absoluteTurn);
+  return current.level === 9 && !current.isFinish
+    && isSharedPreFinishHiddenTurn(manifest, absoluteTurn + 1);
+}
+
 export function createDeterministicCommand(manifest: MatchManifest, absoluteTurn: number): ArrowToken[] {
   const appearance = sharedAppearanceAtTurn(manifest, absoluteTurn);
   const seed = deriveDeterministicSeed(manifest.gameplay.seed, absoluteTurn, "shared-command");
