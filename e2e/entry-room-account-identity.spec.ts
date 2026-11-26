@@ -65,3 +65,28 @@ test("saved male rig/appearance rejects historical female RoomState actor", () =
   expect(roomAvatarMatchesSavedIdentity(participant("m3-neurohacker", { ...maleLook,
     m3Outfit: { top: "logotee", bottom: "shorts" } }), identity)).toBe(false);
 });
+
+
+import { roomPortraitKey, readRoomPortrait, writeRoomPortrait } from "../components/entry/room-profile-portrait";
+import type { CharacterCreationProfileV1 } from "../components/character/character-profile";
+
+test("room portrait cache is exact to rig and look, not account name", () => {
+  const p: CharacterCreationProfileV1 = {
+    version: 1, name: "First", gender: "female", characterAssetId: "m3-drophunter",
+    hairStyle: "short", hairColor: "red", skinTone: "originalskin", face: "basic-01",
+    m3Outfit: { top: "lightshirt", bottom: "sportshorts" },
+  };
+  const key = roomPortraitKey(p)!;
+  expect(key).toBeTruthy();
+  expect(roomPortraitKey({ ...p, name: "Other" })).toBe(key);
+  expect(roomPortraitKey({ ...p, hairColor: "black" })).not.toBe(key);
+  expect(roomPortraitKey({ ...p, skinTone: "tone2skin" })).not.toBe(key);
+  expect(roomPortraitKey({ ...p, hairStyle: "invalid" })).toBeNull();
+  const stored = new Map<string, string>();
+  const storage = { getItem: (k: string) => stored.get(k) ?? null, setItem: (k: string, v: string) => { stored.set(k, v); } };
+  const image = "data:image/png;base64,AA==";
+  writeRoomPortrait(storage, key, image);
+  expect(readRoomPortrait(storage, key)).toBe(image);
+  expect(readRoomPortrait(storage, roomPortraitKey({ ...p, hairColor: "black" })!)).toBeNull();
+  expect([...stored.values()].join("")).not.toContain("First");
+});

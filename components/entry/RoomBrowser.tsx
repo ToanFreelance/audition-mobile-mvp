@@ -5,6 +5,7 @@ import { getCharacterCatalogEntry } from "../character/character-catalog";
 import { resolveGuestEntryIdentity, isEntryRoomId, type EntryIdentity } from "./entry-session";
 import { parseM3LobbyAppearance } from "../character/m3-lobby-appearance";
 import styles from "./RoomBrowser.module.css";
+import RoomProfileAvatar from "./RoomProfileAvatar";
 
 type RoomSummary = { roomId: string; roomName: string; modeId: string; playerCount: number; maxPlayers: number; openSlots: number };
 type RoomResponse = { ok: boolean; error?: string; conflict?: boolean; snapshot?: RoomState };
@@ -287,13 +288,6 @@ export default function RoomBrowser() {
     </main>
   );
 
-  const assetId = identity.profile.characterAssetId;
-  const m3Portrait = assetId === "m3-neurohacker" || assetId === "m3-drophunter";
-  // The old demo-avatar.svg depicts a female starter and was incorrectly
-  // shown for M3 Neurohacker. Until M3 outfit-aware thumbnails exist, use
-  // an honest rig-specific placeholder instead of another character's face.
-  const portrait = assetId === "c4-casual-boy"
-    ? "/characters/portraits/c4-casual-boy.jpg" : "/room-ui/demo-avatar.svg";
   const isRoomSection = section === "rooms";
   const sectionLabel = section === "entertainment" ? "Giải trí"
     : section === "friends" ? "Bạn bè" : section === "shop" ? "Shop" : "Túi đồ";
@@ -305,11 +299,7 @@ export default function RoomBrowser() {
           <header className={styles.playerBar}>
             <button type="button" className={styles.avatar} data-testid="profile-dashboard-trigger"
               aria-label="Dashboard cá nhân (sắp có)" onClick={() => setDashboardHint(value => !value)}>
-              {m3Portrait ? (
-                <span className={styles.m3AvatarGlyph} data-testid="room-m3-profile-avatar" aria-hidden="true">
-                  {assetId === "m3-neurohacker" ? "♂" : "♀"}
-                </span>
-              ) : <img src={portrait} alt="" width="52" height="52" />}
+              <RoomProfileAvatar profile={identity.profile} active={!loading && !loggingOut} />
             </button>
             <div className={styles.playerText}>
               <strong>{identity.profile.name}</strong>
